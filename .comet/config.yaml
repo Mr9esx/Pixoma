@@ -1,0 +1,86 @@
+# Comet 使用的配置格式版本，请勿修改此值。
+schema: comet.project.v1
+# `/comet` 默认进入的工作流；该值也必须出现在 workflows 中。
+default_workflow: classic
+# 此项目启用的工作流，可填写 native、classic 或同时启用两者。
+workflows:
+  - classic
+# 是否启用只读的环境感知恢复探针，同时作用于 Native 和 Classic；设为 false 可关闭自动工作流恢复。
+# ambient_resume: true | false
+ambient_resume: true
+# Native 工作流配置，不会改变 Classic 的状态或行为。
+native:
+  # Native 产物的存放根目录，包括规格、change 和运行时数据。
+  artifact_root: docs
+  # Native 工作流文档使用的产物语言。
+  # 可选值：en | zh-CN
+  language: zh-CN
+  # Native 每轮询问一个问题，或一次提出当前所有可回答的问题。
+  # 可选值：sequential | batch
+  clarification_mode: sequential
+  # Native 归档预演成功后自动归档，或等待用户明确确认。
+  # 可选值：automatic | required
+  archive_confirmation: automatic
+  # 同一份已确认 contract 最多允许的 Verify 失败次数；达到上限后停止完成循环。
+  max_verify_failures: 5
+  # Native 内容快照使用的可审计项目范围与有界工作预算。
+  snapshot:
+    # Native 快照纳入的项目相对路径；模式使用 /，支持 *、** 和 ?。
+    include:
+      - "**/*"
+    # 从纳入范围中排除路径；新 change 会把排除策略绑定到 baseline。
+    exclude:
+      - .agents/skills/**
+      - .amazonq/skills/**
+      - .augment/skills/**
+      - .bob/skills/**
+      - .claude/skills/**
+      - .cline/skills/**
+      - .codebuddy/skills/**
+      - .continue/skills/**
+      - .cospec/skills/**
+      - .crush/skills/**
+      - .cursor/skills/**
+      - .factory/skills/**
+      - .forge/skills/**
+      - .gemini/skills/**
+      - .github/skills/**
+      - .iflow/skills/**
+      - .junie/skills/**
+      - .kilocode/skills/**
+      - .kimi-code/skills/**
+      - .kiro/skills/**
+      - .lingma/skills/**
+      - .mimocode/skills/**
+      - .opencode/skills/**
+      - .pi/skills/**
+      - .qoder/skills/**
+      - .qwen/skills/**
+      - .roo/skills/**
+      - .trae-cn/skills/**
+      - .trae/skills/**
+      - .windsurf/skills/**
+      - .zcode/skills/**
+    # 单次快照最多捕获的文件数；大型 monorepo 可按需提高。
+    max_files: 10000
+    # 单次快照最多哈希的文件内容总字节数；内容采用流式读取，不依赖 Git hash。
+    max_total_bytes: 268435456
+    # 单次快照的最长执行时间（毫秒）；较慢或更大的仓库应与字节预算一并提高。
+    max_duration_ms: 60000
+# Classic 工作流配置，不会改变 Native 的状态或行为。
+classic:
+  # Classic 产物布局；默认使用 docs，update 检测到根目录 legacy 产物时予以保留。
+  # 可选值：legacy | docs
+  artifact_layout: docs
+  # Classic 工作流文档使用的产物语言。
+  # 可选值：en | zh-CN
+  language: zh-CN
+  # 新建 Classic change 是否启用 beta 上下文压缩。
+  # 可选值：off | beta
+  context_compression: off
+  # 新建 Classic change 默认使用的审查深度。
+  # 可选值：off | standard | thorough
+  review_mode: standard
+  # Classic 阶段通过后是否自动进入下一阶段。
+  # 可选值：true | false
+  auto_transition: true
