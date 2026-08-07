@@ -66,9 +66,9 @@ base-ref: eba6a71755051501e9c96760be288af3aedbd011
 **Files:**
 - Modify: `apps/bot/cmd/comfyui-bot/main.go`
 
-- [ ] 3.1 将执行器的工作流提供方接到「按任务查 Case」实现，传入 Tasks/Cases/Blob
-- [ ] 3.2 编译/`go test` 相关包通过
-- [ ] 3.3 提交
+- [x] 3.1 将执行器的工作流提供方接到「按任务查 Case」实现，传入 Tasks/Cases/Blob
+- [x] 3.2 编译/`go test` 相关包通过
+- [x] 3.3 提交
 
 ## 任务 4：预置 Case 与工作流文件
 

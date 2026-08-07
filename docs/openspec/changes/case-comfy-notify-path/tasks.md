@@ -8,7 +8,7 @@
 
 - [x] 2.1 扩展 Client（Mock + HTTP）以支持图片上传/引用；Mock 返回稳定假名并保持 `comfy_mock` 开关
 - [x] 2.2 注入路径对 `image` 字段走上传后再写节点；补充 Mock/HTTP 选型与上传相关测试
-- [ ] 2.3 在 `main` 将 Worker.Workflows 接到 CaseSnapshot（Tasks/Cases/Blob），移除默认空 StaticWorkflows 成功主路径
+- [x] 2.3 在 `main` 将 Worker.Workflows 接到 CaseSnapshot（Tasks/Cases/Blob），移除默认空 StaticWorkflows 成功主路径
 
 ## 3. 协议种子与校验
 
