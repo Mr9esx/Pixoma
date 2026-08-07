@@ -2,6 +2,8 @@
 comet_change: workflow-engine-core
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-07-workflow-engine-core
+status: final
 ---
 
 # 工作流引擎核心 — 技术设计
