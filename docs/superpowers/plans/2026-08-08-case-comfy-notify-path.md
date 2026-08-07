@@ -55,11 +55,11 @@ base-ref: eba6a71755051501e9c96760be288af3aedbd011
 - Modify: `internal/runtime/infrastructure/actuator/snapshot.go`（或 worker 注入前调用）
 - Test: comfyui + actuator 相关测试
 
-- [ ] 2.1 写失败测试：HTTP/Mock UploadImage；写入用户图片字段时调用 Upload
-- [ ] 2.2 跑测试确认失败
-- [ ] 2.3 实现 UploadImage；注入路径对 image 类型先上传再写 filename
-- [ ] 2.4 测试通过；确认 `NewClient` 选型仍受 `comfy_mock` 控制
-- [ ] 2.5 提交
+- [x] 2.1 写失败测试：HTTP/Mock UploadImage；写入用户图片字段时调用 Upload
+- [x] 2.2 跑测试确认失败
+- [x] 2.3 实现 UploadImage；注入路径对 image 类型先上传再写 filename
+- [x] 2.4 测试通过；确认 `NewClient` 选型仍受 `comfy_mock` 控制
+- [x] 2.5 提交
 
 ## 任务 3：main 接线
 
