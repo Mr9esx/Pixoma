@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"strconv"
 
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
@@ -16,12 +17,18 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
+// ImageUploader uploads local image bytes to ComfyUI and returns the remote filename.
+type ImageUploader interface {
+	UploadImage(ctx context.Context, filename, mime string, data []byte) (string, error)
+}
+
 // CaseSnapshot builds a submit-ready workflow by loading the Case template
 // and injecting staged inputs from blob storage.
 type CaseSnapshot struct {
-	Tasks domain.TaskRepository
-	Cases catalogdomain.Repository
-	Blob  blob.Store
+	Tasks    domain.TaskRepository
+	Cases    catalogdomain.Repository
+	Blob     blob.Store
+	Uploader ImageUploader
 }
 
 func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.TaskID) (comfyui.Graph, error) {
@@ -68,8 +75,13 @@ func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.
 
 		switch field.Type {
 		case "image":
-			// UploadImage + node write is task 2; binding presence is still enforced.
-			continue
+			remote, err := s.uploadStagedImage(ctx, val.blob)
+			if err != nil {
+				return nil, err
+			}
+			if err := writeNodeInput(graph, b.NodeID, b.FieldPath, remote); err != nil {
+				return nil, err
+			}
 		case "string":
 			if err := writeNodeInput(graph, b.NodeID, b.FieldPath, val.text); err != nil {
 				return nil, err
@@ -94,6 +106,7 @@ type stagedValue struct {
 	text    string
 	number  float64
 	boolean bool
+	blob    sharedkernel.BlobRef
 }
 
 func (s *CaseSnapshot) loadStaged(ctx context.Context, prefix string, field catalogdomain.InputField) (stagedValue, bool, error) {
@@ -126,11 +139,52 @@ func (s *CaseSnapshot) loadStaged(ctx context.Context, prefix string, field cata
 		}
 		return stagedValue{boolean: b}, true, nil
 	case "image":
-		_, ok, err := s.readBlob(ctx, base+".blob.json")
-		return stagedValue{}, ok, err
+		raw, ok, err := s.readBlob(ctx, base+".blob.json")
+		if err != nil || !ok {
+			return stagedValue{}, ok, err
+		}
+		var ref sharedkernel.BlobRef
+		if err := json.Unmarshal(raw, &ref); err != nil {
+			return stagedValue{}, false, fmt.Errorf("actuator: parse blob meta %q: %w", field.Key, err)
+		}
+		if ref.Key == "" {
+			return stagedValue{}, false, fmt.Errorf("actuator: empty blob key for %q", field.Key)
+		}
+		return stagedValue{blob: ref}, true, nil
 	default:
 		return stagedValue{}, false, fmt.Errorf("actuator: unsupported input type %q for %q", field.Type, field.Key)
 	}
+}
+
+func (s *CaseSnapshot) uploadStagedImage(ctx context.Context, ref sharedkernel.BlobRef) (string, error) {
+	if s.Uploader == nil {
+		return "", fmt.Errorf("actuator: image uploader not configured")
+	}
+	rc, err := s.Blob.Get(ctx, ref)
+	if err != nil {
+		return "", fmt.Errorf("actuator: get image blob %s: %w", ref.Key, err)
+	}
+	defer rc.Close()
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		return "", fmt.Errorf("actuator: read image blob %s: %w", ref.Key, err)
+	}
+	filename := path.Base(ref.Key)
+	if filename == "" || filename == "." || filename == "/" {
+		filename = "image.png"
+	}
+	mime := ref.MIME
+	if mime == "" {
+		mime = "application/octet-stream"
+	}
+	remote, err := s.Uploader.UploadImage(ctx, filename, mime, data)
+	if err != nil {
+		return "", fmt.Errorf("actuator: upload image %s: %w", ref.Key, err)
+	}
+	if remote == "" {
+		return "", fmt.Errorf("actuator: upload image %s returned empty filename", ref.Key)
+	}
+	return remote, nil
 }
 
 func (s *CaseSnapshot) readBlob(ctx context.Context, key string) ([]byte, bool, error) {
@@ -200,3 +254,4 @@ func writeNodeInput(graph comfyui.Graph, nodeID, fieldPath string, value any) er
 }
 
 var _ CaseSnapshotProvider = (*CaseSnapshot)(nil)
+var _ ImageUploader = (comfyui.Client)(nil)
