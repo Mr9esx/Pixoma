@@ -1,10 +1,9 @@
 # Subagent Progress
 
 ## Done
-- Tasks 1–4 approved/checkoff (task 4: 1423581)
+- Tasks 1–5 approved and checked off (NITs on 5 recorded as accepted)
 
 ## Current
-- Plan task: 5 task-review
-- Commit: 38b0f91
-- Risk: diff>200, external input
-- Phase: task-review
+- Plan task: 6 联调与回归
+- Phase: implementing
+- OpenSpec: 5.1–5.3
