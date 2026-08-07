@@ -72,6 +72,10 @@ func (f *Facade) GetSession(ctx context.Context, chatID sharedkernel.ChatID) (*S
 	return toView(s), nil
 }
 
+func (f *Facade) GetCase(ctx context.Context, id sharedkernel.CaseID) (*catalogdomain.Case, error) {
+	return f.Cases.Get(ctx, id)
+}
+
 func (f *Facade) ListCases(ctx context.Context, q catalogdomain.ListQuery) ([]*catalogdomain.Case, error) {
 	return f.Cases.List(ctx, q)
 }

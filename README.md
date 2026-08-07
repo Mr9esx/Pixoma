@@ -2,30 +2,28 @@
 
 Go monorepo：DDD 限界上下文（Catalog / Conversation / Runtime / ChannelTG / Platform）。
 
-## 快速开始
+## 跑通 TG 对话（mock）
 
 ```bash
-go test ./...
-export TG_BOT_TOKEN=...          # 可选；不设则只起 healthz
-export HTTP_ADDR=:8080
-export COMFY_MOCK=1              # 使用 mock ComfyUI
+export TG_BOT_TOKEN=你的BotToken
 go run ./apps/bot/cmd/comfyui-bot
 ```
 
-健康检查：`GET /healthz`
+在 Telegram 里：
 
-## 本地命令（Phase1 文本协议）
+1. `/start` → 弹出主菜单（图片 / 视频 / 充值…，与产品图一致）
+2. 点 **🔞 图片** → 列出 mock Case（二次元 / 写真 / Logo）
+3. 点某个 Case → **预览** → **开始 Case**
+4. 输入 prompt（可选字段可「跳过」）→ **确认生成**
+5. 完成后 Bot **发回一张 mock PNG**
 
-- `/menu` `/cases`
-- `/start_case text2img-demo`
-- 按提示输入；`/skip` `/exit` `/confirm`
+种子 Case：`configs/cases/*.json`（启动自动导入/更新）。
 
-种子 Case：`configs/cases/text2img.example.json`
+## 其它
 
-## 架构要点
+```bash
+go test ./...
+curl localhost:8080/healthz
+```
 
-- ConfirmRun → `task.created` → Orchestrator → `dispatch.*` → Actuator → `task.status` → `notify.user`
-- Task 终态仅 Orchestrator `applyStatus` 写入
-- Queue/Blob 一期：Memory + LocalFS
-
-后台预留：`apps/admin-api`、`web/admin`（禁止依赖 `channel/tg`）。
+事件链：ConfirmRun → `task.created` → Orchestrator → `dispatch.*` → Actuator(mock) → `task.status` → 发图。

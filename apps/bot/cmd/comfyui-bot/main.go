@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -61,15 +62,16 @@ func run(ctx context.Context) error {
 		return err
 	}
 	caseRepo := persistence.NewGormRepository(gdb)
-	if err := seedCase(ctx, caseRepo, envOr("CASE_SEED", "configs/cases/text2img.example.json")); err != nil {
-		slog.Warn("seed case", "err", err)
+	if n, err := seedCasesDir(ctx, caseRepo, envOr("CASE_SEED_DIR", "configs/cases")); err != nil {
+		slog.Warn("seed cases", "err", err)
+	} else {
+		slog.Info("seed cases loaded", "count", n)
 	}
 
 	blobStore, err := localfs.New(filepath.Join(dataDir, "blob"))
 	if err != nil {
 		return err
 	}
-	_ = blobStore
 
 	bus := memory.New()
 	tasks := runtimedomain.NewMemoryTaskRepository()
@@ -81,7 +83,7 @@ func run(ctx context.Context) error {
 	instID := sharedkernel.InstanceID(envOr("INSTANCE_ID", "local"))
 	reg := static.New(instance.Instance{ID: instID, DispatchTopic: sharedkernel.TopicDispatch(instID)})
 
-	tgAdapter := tg.New(nil, nil) // filled after facade
+	tgAdapter := tg.New(nil, nil)
 	notifyPub := &notifybridge.Publisher{Adapter: tgAdapter}
 	orch := orchestrator.New(tasks, reg, bus, notifyPub)
 
@@ -105,6 +107,7 @@ func run(ctx context.Context) error {
 			return sharedkernel.TaskID(uuid.NewString())
 		},
 	}
+
 	var messenger tg.Messenger = logMessenger{}
 	token := os.Getenv("TG_BOT_TOKEN")
 	var tgBot *bot.Bot
@@ -113,7 +116,7 @@ func run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		messenger = &tg.BotMessenger{Bot: tgBot}
+		messenger = &tg.BotMessenger{Bot: tgBot, Blob: blobStore}
 	}
 	*tgAdapter = *tg.New(facade, messenger)
 
@@ -177,12 +180,42 @@ func (logMessenger) SendText(_ context.Context, chatID int64, text string) error
 	slog.Info("tg out text", "chat_id", chatID, "text", text)
 	return nil
 }
+func (logMessenger) SendMenu(_ context.Context, chatID int64, text string) error {
+	slog.Info("tg out menu", "chat_id", chatID, "text", text)
+	return nil
+}
+func (logMessenger) SendInline(_ context.Context, chatID int64, text string, rows [][]tg.InlineButton) error {
+	slog.Info("tg out inline", "chat_id", chatID, "text", text, "rows", len(rows))
+	return nil
+}
 func (logMessenger) SendPhoto(_ context.Context, chatID int64, ref sharedkernel.BlobRef, caption string) error {
 	slog.Info("tg out photo", "chat_id", chatID, "blob", ref.Key, "caption", caption)
 	return nil
 }
+func (logMessenger) AnswerCallback(_ context.Context, callbackID, text string) error {
+	slog.Info("tg answer callback", "id", callbackID, "text", text)
+	return nil
+}
 
-func seedCase(ctx context.Context, repo catalogdomain.Repository, path string) error {
+func seedCasesDir(ctx context.Context, repo catalogdomain.Repository, dir string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		if err := seedCaseFile(ctx, repo, filepath.Join(dir, e.Name())); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
+func seedCaseFile(ctx context.Context, repo catalogdomain.Repository, path string) error {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -191,10 +224,11 @@ func seedCase(ctx context.Context, repo catalogdomain.Repository, path string) e
 	if err := json.Unmarshal(raw, &doc); err != nil {
 		return err
 	}
+	c := &catalogdomain.Case{Document: doc, Enabled: true}
 	if _, err := repo.Get(ctx, doc.ID); err == nil {
-		return nil
+		return repo.Save(ctx, c)
 	}
-	return repo.Create(ctx, &catalogdomain.Case{Document: doc, Enabled: true})
+	return repo.Create(ctx, c)
 }
 
 func envOr(k, def string) string {

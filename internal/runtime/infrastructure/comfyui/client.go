@@ -1,6 +1,12 @@
 package comfyui
 
-import "context"
+import (
+	"bytes"
+	"context"
+	"image"
+	"image/color"
+	"image/png"
+)
 
 type Graph map[string]any
 
@@ -20,10 +26,11 @@ type Client interface {
 	Wait(ctx context.Context, promptID string) (*Result, error)
 }
 
-// Mock is an in-memory ComfyUI client for tests.
+// Mock is an in-memory ComfyUI client that returns a real PNG.
 type Mock struct {
 	SubmitFn func(ctx context.Context, graph Graph) (string, error)
 	WaitFn   func(ctx context.Context, promptID string) (*Result, error)
+	Color    color.RGBA // optional tint
 }
 
 func (m *Mock) Submit(ctx context.Context, graph Graph) (string, error) {
@@ -37,8 +44,47 @@ func (m *Mock) Wait(ctx context.Context, promptID string) (*Result, error) {
 	if m.WaitFn != nil {
 		return m.WaitFn(ctx, promptID)
 	}
+	c := m.Color
+	if c.A == 0 {
+		c = color.RGBA{R: 70, G: 130, B: 180, A: 255}
+	}
 	return &Result{
 		PromptID: promptID,
-		Outputs:  []OutputFile{{Filename: "out.png", Mime: "image/png", Data: []byte("png")}},
+		Outputs: []OutputFile{{
+			Filename: "out.png",
+			Mime:     "image/png",
+			Data:     GenerateMockPNG(320, 240, c),
+		}},
 	}, nil
+}
+
+// GenerateMockPNG creates a simple gradient PNG for Telegram delivery tests.
+func GenerateMockPNG(w, h int, base color.RGBA) []byte {
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.RGBA{
+				R: uint8(int(base.R) * x / max(w, 1)),
+				G: uint8(int(base.G) * y / max(h, 1)),
+				B: base.B,
+				A: 255,
+			})
+		}
+	}
+	// center block
+	for y := h/3; y < 2*h/3; y++ {
+		for x := w/3; x < 2*w/3; x++ {
+			img.Set(x, y, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	_ = png.Encode(&buf, img)
+	return buf.Bytes()
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
