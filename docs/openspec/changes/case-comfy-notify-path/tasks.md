@@ -1,8 +1,8 @@
 ## 1. Case 快照与注入
 
-- [ ] 1.1 实现 CaseSnapshot：按 Task 加载 Case，深拷贝 `bindings.workflow`，从 InputPrefix 读取 staged 文本/数值/布尔/图片元数据
-- [ ] 1.2 实现按 `bindings.inputs` 注入；必填缺失、绑定缺失、空 workflow、节点不存在时在 Submit 前失败并上报 status
-- [ ] 1.3 为文本注入与映射失败编写单元测试（先红后绿）
+- [x] 1.1 实现 CaseSnapshot：按 Task 加载 Case，深拷贝 `bindings.workflow`，从 InputPrefix 读取 staged 文本/数值/布尔/图片元数据
+- [x] 1.2 实现按 `bindings.inputs` 注入；必填缺失、绑定缺失、空 workflow、节点不存在时在 Submit 前失败并上报 status
+- [x] 1.3 为文本注入与映射失败编写单元测试（先红后绿）
 
 ## 2. Comfy 客户端与图片
 
