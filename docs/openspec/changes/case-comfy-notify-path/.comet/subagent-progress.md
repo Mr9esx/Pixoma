@@ -7,5 +7,6 @@
 - Task 1–2 reviewed/approved; Task 3 DONE no risk signals (f9cafdf) — checkoff without task reviewer
 
 ## Current
-- Plan task: 任务 4：预置 Case 与工作流文件
-- Phase: implementing
+- Plan task: 4 task-review (diff>200)
+- Commit: 1423581
+- Phase: task-review
