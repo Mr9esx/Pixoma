@@ -2,8 +2,12 @@ package tg
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"path"
+	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -59,16 +63,23 @@ func (m *BotMessenger) SendPhoto(ctx context.Context, chatID int64, ref sharedke
 	if err != nil {
 		return err
 	}
-	name := "result.png"
-	if ref.Key != "" {
-		name = ref.Key
-	}
+	name := photoUploadName(ref.Key)
 	_, err = m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
 		ChatID:  chatID,
 		Caption: caption,
 		Photo:   &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
 	})
 	return err
+}
+
+// photoUploadName returns a Telegram-safe upload basename (no path separators).
+func photoUploadName(key string) string {
+	key = strings.ReplaceAll(key, "\\", "/")
+	name := path.Base(key)
+	if name == "" || name == "." || name == "/" {
+		return "result.png"
+	}
+	return name
 }
 
 func (m *BotMessenger) AnswerCallback(ctx context.Context, callbackID, text string) error {
@@ -127,14 +138,99 @@ func (r *byteReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
+func telegramDownloader(b *bot.Bot) FileDownloader {
+	return func(ctx context.Context, fileID string) ([]byte, error) {
+		f, err := b.GetFile(ctx, &bot.GetFileParams{FileID: fileID})
+		if err != nil {
+			return nil, err
+		}
+		link := b.FileDownloadLink(f)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("telegram file download: status %d", resp.StatusCode)
+		}
+		return io.ReadAll(resp.Body)
+	}
+}
+
+func isImageMIME(mime string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(mime)), "image/")
+}
+
+func isImageDocument(d *models.Document) bool {
+	if d == nil {
+		return false
+	}
+	if isImageMIME(d.MimeType) {
+		return true
+	}
+	name := strings.ToLower(d.FileName)
+	for _, ext := range []string{".png", ".jpg", ".jpeg", ".webp", ".gif"} {
+		if strings.HasSuffix(name, ext) {
+			return true
+		}
+	}
+	return false
+}
+
+func documentMIME(d *models.Document) string {
+	if d == nil {
+		return "image/jpeg"
+	}
+	if d.MimeType != "" {
+		return d.MimeType
+	}
+	name := strings.ToLower(d.FileName)
+	switch {
+	case strings.HasSuffix(name, ".png"):
+		return "image/png"
+	case strings.HasSuffix(name, ".webp"):
+		return "image/webp"
+	case strings.HasSuffix(name, ".gif"):
+		return "image/gif"
+	default:
+		return "image/jpeg"
+	}
+}
+
 // RegisterHandlers wires message + callback handlers.
 func RegisterHandlers(b *bot.Bot, ad *Adapter) {
+	if ad.Download == nil {
+		ad.Download = telegramDownloader(b)
+	}
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
 		return update.Message != nil && update.Message.Text != ""
 	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
 		chatID := update.Message.Chat.ID
 		if err := ad.HandleText(ctx, chatID, update.Message.Text); err != nil {
 			slog.Error("tg handle text", "err", err, "chat_id", chatID)
+		}
+	})
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.Message != nil && len(update.Message.Photo) > 0
+	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
+		chatID := update.Message.Chat.ID
+		photos := update.Message.Photo
+		best := photos[len(photos)-1]
+		if err := ad.HandleUserMedia(ctx, chatID, best.FileID, "image/jpeg"); err != nil {
+			slog.Error("tg handle photo", "err", err, "chat_id", chatID)
+		}
+	})
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.Message != nil && isImageDocument(update.Message.Document)
+	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
+		chatID := update.Message.Chat.ID
+		doc := update.Message.Document
+		if err := ad.HandleUserMedia(ctx, chatID, doc.FileID, documentMIME(doc)); err != nil {
+			slog.Error("tg handle document", "err", err, "chat_id", chatID)
 		}
 	})
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
