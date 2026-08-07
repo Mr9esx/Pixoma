@@ -1,0 +1,30 @@
+{
+  "id": "text2img-demo",
+  "name": "Text to Image Demo",
+  "description": "Minimal text2img seed case",
+  "price": 0,
+  "tags": ["text2img"],
+  "menu_key": "create",
+  "categories": ["generate"],
+  "inputs": [
+    {"key": "prompt", "type": "string", "required": true, "description": "Positive prompt"},
+    {"key": "seed", "type": "number", "required": false, "skip_allowed": true}
+  ],
+  "outputs": [
+    {"key": "image", "type": "image"}
+  ],
+  "bindings": {
+    "workflow": {"1": {"class_type": "Stub", "inputs": {}}},
+    "inputs": [{"key": "prompt", "node_id": "1", "field_path": "text"}],
+    "outputs": [{"key": "image", "node_id": "1", "index": 0}]
+  },
+  "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["prompt"],
+    "properties": {
+      "prompt": {"type": "string", "minLength": 1, "maxLength": 2000},
+      "seed": {"type": "integer", "minimum": 0}
+    }
+  }
+}

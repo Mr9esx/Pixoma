@@ -22,7 +22,7 @@
 
 - [x] 4.1 app.Facade：菜单/Case/Session/ConfirmRun/ListTasks
 - [x] 4.2 ConfirmRun：校验、物化 Blob、建 pending、发 `task.created`、解锁 Session
-- [ ] 4.3 DeliverNotify 用例入口（供 TG 适配）
+- [x] 4.3 DeliverNotify 用例入口（供 TG 适配）
 
 ## 5. Orchestrator
 
@@ -42,12 +42,12 @@
 
 ## 7. TG Adapter
 
-- [ ] 7.1 go-telegram/bot 接入与 Update 路由
-- [ ] 7.2 菜单/分类/Case/会话/锁拦截渲染
-- [ ] 7.3 消费 notify.user 发结果（去重）
-- [ ] 7.4 样例 Case 种子与 README 跑通说明
+- [x] 7.1 go-telegram/bot 接入与 Update 路由
+- [x] 7.2 菜单/分类/Case/会话/锁拦截渲染
+- [x] 7.3 消费 notify.user 发结果（去重）
+- [x] 7.4 样例 Case 种子与 README 跑通说明
 
 ## 8. 验收
 
 - [x] 8.1 Memory all-in-one 冒烟：text2img 路径（可 mock Comfy）
-- [ ] 8.2 对照 specs 清单勾验；确认无强取消/扣费/Actuator 直写终态
+- [x] 8.2 对照 specs 清单勾验；确认无强取消/扣费/Actuator 直写终态
