@@ -25,6 +25,7 @@ import (
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/static"
@@ -51,6 +52,11 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+	cfg, err := botconfig.Load("")
+	if err != nil {
+		return err
+	}
+
 	dataDir := envOr("DATA_DIR", "data")
 	_ = os.MkdirAll(dataDir, 0o755)
 
@@ -62,13 +68,17 @@ func run(ctx context.Context) error {
 		return err
 	}
 	caseRepo := persistence.NewGormRepository(gdb)
-	if n, err := seedCasesDir(ctx, caseRepo, envOr("CASE_SEED_DIR", "configs/cases")); err != nil {
+	if n, err := seedCasesDir(ctx, caseRepo, cfg.CaseSeedDir); err != nil {
 		slog.Warn("seed cases", "err", err)
 	} else {
 		slog.Info("seed cases loaded", "count", n)
 	}
 
-	blobStore, err := localfs.New(filepath.Join(dataDir, "blob"))
+	blobRoot := cfg.BlobRoot
+	if blobRoot == "" {
+		blobRoot = filepath.Join(dataDir, "blob")
+	}
+	blobStore, err := localfs.New(blobRoot)
 	if err != nil {
 		return err
 	}
@@ -80,16 +90,25 @@ func run(ctx context.Context) error {
 		return sharedkernel.SessionID(uuid.NewString())
 	}, nil)
 
-	instID := sharedkernel.InstanceID(envOr("INSTANCE_ID", "local"))
+	instID := sharedkernel.InstanceID(cfg.DefaultInstanceID)
 	reg := static.New(instance.Instance{ID: instID, DispatchTopic: sharedkernel.TopicDispatch(instID)})
 
 	tgAdapter := tg.New(nil, nil)
 	notifyPub := &notifybridge.Publisher{Adapter: tgAdapter}
 	orch := orchestrator.New(tasks, reg, bus, notifyPub)
 
+	comfy, err := comfyui.NewClient(comfyui.Options{
+		Mock:    cfg.ComfyMock,
+		BaseURL: cfg.ComfyUIBaseURL,
+	})
+	if err != nil {
+		return err
+	}
+	slog.Info("comfyui client ready", "mock", cfg.ComfyMock, "base_url", cfg.ComfyUIBaseURL)
+
 	worker := &actuator.Worker{
 		InstanceID: instID,
-		Comfy:      &comfyui.Mock{},
+		Comfy:      comfy,
 		Blob:       blobStore,
 		Status:     bus,
 		Ledger:     actuator.NewMemoryLedger(),
@@ -111,7 +130,7 @@ func run(ctx context.Context) error {
 	}
 
 	var messenger tg.Messenger = logMessenger{}
-	token := os.Getenv("TG_BOT_TOKEN")
+	token := cfg.TelegramBotToken
 	var tgBot *bot.Bot
 	if token != "" {
 		tgBot, err = bot.New(token)
@@ -144,7 +163,7 @@ func run(ctx context.Context) error {
 		return orch.OnStatus(ctx, ev)
 	})
 
-	addr := envOr("HTTP_ADDR", ":8080")
+	addr := cfg.HTTPAddr
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {

@@ -1,0 +1,7 @@
+# Local bot config (gitignored optional — example is source of truth for keys)
+http_addr: ":8080"
+blob_root: "data/blob"
+comfyui_base_url: "http://127.0.0.1:8188"
+default_instance_id: "local"
+case_seed_dir: "configs/cases"
+comfy_mock: true
