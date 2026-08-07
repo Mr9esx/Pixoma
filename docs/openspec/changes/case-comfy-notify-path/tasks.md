@@ -23,6 +23,6 @@
 
 ## 5. 端到端验收
 
-- [ ] 5.1 更新/新增集成冒烟：ConfirmRun → 注入可观测 → Mock 成功 → notify（含图片输入场景）
-- [ ] 5.2 验证 `comfy_mock: true` 主路径与 `comfy_mock: false` 在可达 Comfy（或 HTTP fixture）下 Submit/Wait 行为符合规格
-- [ ] 5.3 全量相关包 `go test` 通过，并确认 Mock 与真实路径代码同步演进
+- [x] 5.1 更新/新增集成冒烟：ConfirmRun → 注入可观测 → Mock 成功 → notify（含图片输入场景）
+- [x] 5.2 验证 `comfy_mock: true` 主路径与 `comfy_mock: false` 在可达 Comfy（或 HTTP fixture）下 Submit/Wait 行为符合规格
+- [x] 5.3 全量相关包 `go test` 通过，并确认 Mock 与真实路径代码同步演进
