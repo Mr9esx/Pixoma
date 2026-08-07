@@ -3,7 +3,7 @@
   "name": "Text to Image Demo",
   "description": "Minimal text2img seed case",
   "price": 0,
-  "tags": ["text2img"],
+  "tags": ["image", "text2img"],
   "menu_key": "create",
   "categories": ["generate"],
   "inputs": [
