@@ -3,8 +3,10 @@ package actuator
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
@@ -134,7 +136,10 @@ func (s *CaseSnapshot) loadStaged(ctx context.Context, prefix string, field cata
 func (s *CaseSnapshot) readBlob(ctx context.Context, key string) ([]byte, bool, error) {
 	rc, err := s.Blob.Get(ctx, sharedkernel.BlobRef{Key: key})
 	if err != nil {
-		return nil, false, nil
+		if isMissingBlob(err) {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("actuator: get %s: %w", key, err)
 	}
 	defer rc.Close()
 	raw, err := io.ReadAll(rc)
@@ -142,6 +147,12 @@ func (s *CaseSnapshot) readBlob(ctx context.Context, key string) ([]byte, bool, 
 		return nil, false, fmt.Errorf("actuator: read %s: %w", key, err)
 	}
 	return raw, true, nil
+}
+
+// isMissingBlob reports whether err means the blob key was absent.
+// localfs.Get surfaces this via os.Open → errors.Is(..., os.ErrNotExist).
+func isMissingBlob(err error) bool {
+	return errors.Is(err, os.ErrNotExist)
 }
 
 func indexBindings(in []catalogdomain.InputBinding) map[string]catalogdomain.InputBinding {
