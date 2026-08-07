@@ -3,6 +3,7 @@
   "openspec_design": "docs/openspec/changes/workflow-engine-core/design.md",
   "openspec_tasks": "docs/openspec/changes/workflow-engine-core/tasks.md",
   "openspec_delta_spec": "docs/openspec/changes/workflow-engine-core/specs/comfyui-executor/spec.md",
-  "handoff_context": "docs/openspec/changes/workflow-engine-core/.comet/handoff/design-context.json",
-  "handoff_markdown": "docs/openspec/changes/workflow-engine-core/.comet/handoff/design-context.md"
+  "handoff_context": "docs/openspec/changes/archive/2026-08-07-workflow-engine-core/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/archive/2026-08-07-workflow-engine-core/.comet/handoff/design-context.md",
+  "archive_directory": "docs/openspec/changes/archive/2026-08-07-workflow-engine-core"
 }
