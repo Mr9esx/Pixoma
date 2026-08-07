@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -145,20 +146,38 @@ func telegramDownloader(b *bot.Bot) FileDownloader {
 			return nil, err
 		}
 		link := b.FileDownloadLink(f)
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
-		if err != nil {
-			return nil, err
-		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("telegram file download: status %d", resp.StatusCode)
-		}
-		return io.ReadAll(resp.Body)
+		return fetchTelegramFileBytes(ctx, telegramFileHTTPClient, link)
 	}
+}
+
+const maxTelegramFileBytes = 20 << 20 // 20 MiB
+
+var telegramFileHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
+func fetchTelegramFileBytes(ctx context.Context, client *http.Client, url string) ([]byte, error) {
+	if client == nil {
+		client = telegramFileHTTPClient
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("telegram file download: status %d", resp.StatusCode)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxTelegramFileBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxTelegramFileBytes {
+		return nil, fmt.Errorf("telegram file download: body exceeds %d bytes", maxTelegramFileBytes)
+	}
+	return data, nil
 }
 
 func isImageMIME(mime string) bool {

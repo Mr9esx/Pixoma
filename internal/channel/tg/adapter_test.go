@@ -2,6 +2,7 @@ package tg_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -288,6 +289,45 @@ func booleanFlagCase(id, name string) *domain.Case {
 				},
 			},
 		},
+	}
+}
+
+func TestHandleUserMediaDownloadErrorDoesNotLeakBotToken(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, mixedImageCase("img-edit", "图文编辑"))
+	facade := newFacade(cases)
+	store, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	facade.Blob = store
+
+	const fakeToken = "123456:ABC-DEF_fake-token-leak-test"
+	leakURL := "Get \"https://api.telegram.org/file/bot" + fakeToken + "/photos/file_0.jpg\": dial tcp: lookup api.telegram.org: no such host"
+
+	out := &memOut{}
+	ad := tg.New(facade, out)
+	ad.Download = func(context.Context, string) ([]byte, error) {
+		return nil, errors.New(leakURL)
+	}
+
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ad.HandleUserMedia(ctx, 1, "photo-fid", "image/png"); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(out.texts) == 0 {
+		t.Fatal("want user-facing download failure text")
+	}
+	sent := out.texts[len(out.texts)-1]
+	if strings.Contains(sent, fakeToken) || strings.Contains(sent, "/file/bot") {
+		t.Fatalf("bot token/URL leaked to chat: %q", sent)
+	}
+	if sent != "下载图片失败" {
+		t.Fatalf("want fixed safe message, got %q", sent)
 	}
 }
 

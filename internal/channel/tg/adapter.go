@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"sync"
@@ -49,7 +50,8 @@ func (a *Adapter) HandleUserMedia(ctx context.Context, chatID int64, fileID, mim
 	}
 	data, err := a.Download(ctx, fileID)
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "下载图片失败: "+err.Error())
+		slog.Error("tg download user media", "err", err, "chat_id", chatID, "file_id", fileID)
+		return a.Out.SendText(ctx, chatID, "下载图片失败")
 	}
 	if mime == "" {
 		mime = "image/jpeg"
