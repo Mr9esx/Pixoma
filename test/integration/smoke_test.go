@@ -1,6 +1,7 @@
 package smoke_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/static"
@@ -145,5 +147,168 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	inputs, _ := node["inputs"].(map[string]any)
 	if gotText, _ := inputs["text"].(string); gotText != "cat" {
 		t.Fatalf("submitted workflow missing Case injection: inputs.text=%q want %q (graph=%#v)", gotText, "cat", submitted)
+	}
+}
+
+// TestMemoryAllInOneImageAndPrompt covers ConfirmRun → CaseSnapshot (upload+inject) → Mock Comfy → notify
+// with a staged user image (reference) and prompt text.
+func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
+	ctx := context.Background()
+	now := time.Unix(2000, 0).UTC()
+	bus := memory.New()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	n := &memNotify{}
+	reg := static.New(instance.Instance{ID: "local", DispatchTopic: "dispatch.local"})
+	orch := orchestrator.New(tasks, reg, bus, n)
+	orch.Now = func() time.Time { return now }
+
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var submitted comfyui.Graph
+	var uploadedName string
+	mock := &comfyui.Mock{
+		SubmitFn: func(_ context.Context, graph comfyui.Graph) (string, error) {
+			submitted = graph
+			return "prompt-img-mock", nil
+		},
+		UploadImageFn: func(_ context.Context, filename, mime string, data []byte) (string, error) {
+			if filename != "user-ref.png" {
+				t.Errorf("UploadImage filename=%q want user-ref.png", filename)
+			}
+			if mime != "image/png" {
+				t.Errorf("UploadImage mime=%q want image/png", mime)
+			}
+			if !bytes.Equal(data, []byte("user-image-bytes")) {
+				t.Errorf("UploadImage data=%q want user-image-bytes", data)
+			}
+			uploadedName = "mock-upload-ref.png"
+			return uploadedName, nil
+		},
+	}
+	cases := &memCases{}
+	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: mock}
+	worker := &actuator.Worker{
+		InstanceID: "local",
+		Comfy:      mock,
+		Blob:       store,
+		Status:     bus,
+		Ledger:     actuator.NewMemoryLedger(),
+		Workflows:  snap,
+		Now:        func() time.Time { return now },
+	}
+
+	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskCreated, func(ctx context.Context, msg queue.Message) error {
+		var ev sharedkernel.TaskCreated
+		if err := json.Unmarshal(msg.Payload, &ev); err != nil {
+			return err
+		}
+		return orch.OnTaskCreated(ctx, ev)
+	})
+	_ = bus.Subscribe(ctx, "dispatch.local", func(ctx context.Context, msg queue.Message) error {
+		var cmd sharedkernel.DispatchCommand
+		if err := json.Unmarshal(msg.Payload, &cmd); err != nil {
+			return err
+		}
+		return worker.HandleDispatch(ctx, cmd)
+	})
+	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskStatus, func(ctx context.Context, msg queue.Message) error {
+		var ev sharedkernel.TaskStatusEvent
+		if err := json.Unmarshal(msg.Payload, &ev); err != nil {
+			return err
+		}
+		return orch.OnStatus(ctx, ev)
+	})
+
+	doc := domain.CaseDocument{
+		ID: "img-edit-smoke", Name: "Edit smoke",
+		Inputs: []domain.InputField{
+			{Key: "reference", Type: "image", Required: true},
+			{Key: "prompt", Type: "string", Required: true},
+		},
+		Outputs: []domain.OutputField{{Key: "image", Type: "image"}},
+		Bindings: domain.ComfyBindings{
+			WorkflowJSON: map[string]any{
+				"10": map[string]any{
+					"class_type": "LoadImage",
+					"inputs":     map[string]any{"image": "placeholder.png"},
+				},
+				"20": map[string]any{
+					"class_type": "CLIPTextEncode",
+					"inputs":     map[string]any{"text": "placeholder"},
+				},
+			},
+			Inputs: []domain.InputBinding{
+				{Key: "reference", NodeID: "10", FieldPath: "image"},
+				{Key: "prompt", NodeID: "20", FieldPath: "text"},
+			},
+		},
+		InputSchema: map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"required":             []any{"reference", "prompt"},
+			"properties": map[string]any{
+				"reference": map[string]any{
+					"type":     "object",
+					"required": []any{"key"},
+					"properties": map[string]any{
+						"key":  map[string]any{"type": "string", "minLength": 1},
+						"mime": map[string]any{"type": "string"},
+						"size": map[string]any{"type": "number"},
+					},
+				},
+				"prompt": map[string]any{"type": "string", "minLength": 1},
+			},
+		},
+	}
+	_ = cases.Create(ctx, &domain.Case{Document: doc, Enabled: true})
+
+	ref, err := store.Put(ctx, "uploads/user-ref.png", bytes.NewReader([]byte("user-image-bytes")), blob.PutOptions{MIME: "image/png"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sessRepo := convdomain.NewMemoryRepository()
+	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "s-img" }, func() time.Time { return now })
+	_, _ = sessSvc.StartCase(ctx, 77, "img-edit-smoke", []string{"reference", "prompt"})
+	_, _ = sessSvc.SubmitInput(ctx, 77, convdomain.DraftValue{Blob: &ref})
+	prompt := "make it anime"
+	_, _ = sessSvc.SubmitInput(ctx, 77, convdomain.DraftValue{Text: &prompt})
+
+	facade := &botapp.Facade{
+		Cases: cases, Validator: validation.New(), Sessions: sessSvc, SessionStore: sessRepo,
+		Tasks: tasks, Blob: store, Publisher: bus,
+		NewTaskID: func() sharedkernel.TaskID { return "task-img-smoke" },
+		Now:       func() time.Time { return now },
+	}
+	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: 77})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := tasks.Get(ctx, res.TaskID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != sharedkernel.TaskSucceeded {
+		t.Fatalf("want succeeded, got %s", got.Status)
+	}
+	if n.last == nil || n.last.Kind != "task_succeeded" {
+		t.Fatalf("notify=%+v", n.last)
+	}
+	if uploadedName == "" {
+		t.Fatal("expected UploadImage to be called")
+	}
+
+	imgNode, _ := submitted["10"].(map[string]any)
+	imgInputs, _ := imgNode["inputs"].(map[string]any)
+	if gotImg, _ := imgInputs["image"].(string); gotImg != uploadedName {
+		t.Fatalf("node 10 image=%q want %q (graph=%#v)", gotImg, uploadedName, submitted)
+	}
+	txtNode, _ := submitted["20"].(map[string]any)
+	txtInputs, _ := txtNode["inputs"].(map[string]any)
+	if gotText, _ := txtInputs["text"].(string); gotText != "make it anime" {
+		t.Fatalf("node 20 text=%q want %q (graph=%#v)", gotText, "make it anime", submitted)
 	}
 }
