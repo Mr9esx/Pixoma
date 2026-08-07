@@ -1,12 +1,9 @@
 # Subagent Progress
 
-- review_mode: standard
-- tdd_mode: tdd
-
 ## Done
-- Task 1–2 reviewed/approved; Task 3 DONE no risk signals (f9cafdf) — checkoff without task reviewer
+- Tasks 1–4 approved/checkoff (task 4: 1423581)
 
 ## Current
-- Plan task: 4 task-review (diff>200)
-- Commit: 1423581
-- Phase: task-review
+- Plan task: 5 TG 收用户图片与发产物图
+- Phase: implementing
+- OpenSpec: 4.1–4.3
