@@ -1,0 +1,19 @@
+{
+  "change": "workflow-engine-core",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "c2fb6cca8b1ff63779f0c1c088be4d06a327002e8a75b9ee3749281cfed2c95d",
+  "files": [
+    { "path": "docs/openspec/changes/workflow-engine-core/proposal.md", "sha256": "48f0e610dbe5558168842b6106779005eb20bab9ecb464492287e85e0bf684f1" },
+    { "path": "docs/openspec/changes/workflow-engine-core/design.md", "sha256": "30a2adcfbfcc12cb67b9ecb258a13748416a30489c7e926edba7fd426c295f2a" },
+    { "path": "docs/openspec/changes/workflow-engine-core/tasks.md", "sha256": "d1cf305a7bcbf1eea6924b7d0750939955326273b6dd915c7742de485d6eeb11" },
+    { "path": "docs/openspec/changes/workflow-engine-core/specs/channel-tg/spec.md", "sha256": "b123ccfb4c1c02a8867b515d0a79c5200ab910a93af20691a62b049401e1bf55" },
+    { "path": "docs/openspec/changes/workflow-engine-core/specs/comfyui-executor/spec.md", "sha256": "570ac730da24c0af894a83e79496c52f99aaa5c584ecc46b0a9576830e7d4657" },
+    { "path": "docs/openspec/changes/workflow-engine-core/specs/dialog-session/spec.md", "sha256": "24b63f62bebeaf65ec9d1fbfb0c54c26915dbc06f779a7c4ad3f978d86d1a328" },
+    { "path": "docs/openspec/changes/workflow-engine-core/specs/task-orchestrator/spec.md", "sha256": "cded9083d720f78b24199885ce7617c15149257f3581478865f36a12928ad532" },
+    { "path": "docs/openspec/changes/workflow-engine-core/specs/workflow-protocol/spec.md", "sha256": "85951e731724a3fbce63eda064c42121e9c8787ca627eab83624ce910a8473b0" },
+    { "path": "docs/openspec/changes/workflow-engine-core/specs/workflow-registry/spec.md", "sha256": "bec4e42e7258d0be39350b23a32810617ecaa8bc87ca52bb248a47568ea02601" }
+  ]
+}
