@@ -17,9 +17,9 @@
 
 ## 4. TG 采集与投递
 
-- [ ] 4.1 RegisterHandlers 支持 Photo（及常见 image Document）；当前字段为 image 时写入 Blob Draft
-- [ ] 4.2 当前字段为 number/boolean 时解析标量；image 字段收到普通文本时提示而非误写入
-- [ ] 4.3 SendPhoto 使用无路径分隔符的安全文件名；补适配器测试
+- [x] 4.1 RegisterHandlers 支持 Photo（及常见 image Document）；当前字段为 image 时写入 Blob Draft
+- [x] 4.2 当前字段为 number/boolean 时解析标量；image 字段收到普通文本时提示而非误写入
+- [x] 4.3 SendPhoto 使用无路径分隔符的安全文件名；补适配器测试
 
 ## 5. 端到端验收
 
