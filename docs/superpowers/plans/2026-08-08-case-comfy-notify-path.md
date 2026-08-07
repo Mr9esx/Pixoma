@@ -40,11 +40,11 @@ base-ref: eba6a71755051501e9c96760be288af3aedbd011
 - Create: `internal/runtime/infrastructure/actuator/snapshot.go`
 - Test: `internal/runtime/infrastructure/actuator/snapshot_test.go`
 
-- [ ] 1.1 写失败测试：已存文本写入节点 `inputs.text`；缺绑定时返回错误
-- [ ] 1.2 跑测试确认失败
-- [ ] 1.3 实现：查任务/Case、深拷贝工作流、读输入前缀下文件、按绑定写入；空工作流/缺绑定失败
-- [ ] 1.4 测试通过
-- [ ] 1.5 提交
+- [x] 1.1 写失败测试：已存文本写入节点 `inputs.text`；缺绑定时返回错误
+- [x] 1.2 跑测试确认失败
+- [x] 1.3 实现：查任务/Case、深拷贝工作流、读输入前缀下文件、按绑定写入；空工作流/缺绑定失败
+- [x] 1.4 测试通过
+- [x] 1.5 提交
 
 ## 任务 2：UploadImage 与用户图片写入
 
