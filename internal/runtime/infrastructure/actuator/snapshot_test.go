@@ -3,6 +3,8 @@ package actuator_test
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -15,6 +17,18 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
+
+var errBlobGetSentinel = errors.New("blob get failed: permission denied")
+
+type errGetBlobStore struct{}
+
+func (errGetBlobStore) Put(context.Context, string, io.Reader, blob.PutOptions) (sharedkernel.BlobRef, error) {
+	return sharedkernel.BlobRef{}, errors.New("put not supported")
+}
+
+func (errGetBlobStore) Get(context.Context, sharedkernel.BlobRef) (io.ReadCloser, error) {
+	return nil, errBlobGetSentinel
+}
 
 type memCases struct {
 	mu sync.Mutex
@@ -151,6 +165,31 @@ func TestCaseSnapshotFailsWhenBindingMissing(t *testing.T) {
 	_, err = snap.WorkflowForTask(ctx, "task-2")
 	if err == nil {
 		t.Fatal("expected error when binding missing")
+	}
+}
+
+func TestCaseSnapshotPropagatesNonMissingBlobGetError(t *testing.T) {
+	ctx := context.Background()
+	prefix := "inputs/task-blob-err"
+
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(1, 0).UTC()
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-blob-err", 1, "text-inject", prefix, now)); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := &memCases{}
+	if err := cases.Create(ctx, &catalogdomain.Case{Document: textWorkflowCase(), Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: errGetBlobStore{}}
+	_, err := snap.WorkflowForTask(ctx, "task-blob-err")
+	if err == nil {
+		t.Fatal("expected blob Get error to propagate")
+	}
+	if !errors.Is(err, errBlobGetSentinel) {
+		t.Fatalf("got %v, want wrapped %v", err, errBlobGetSentinel)
 	}
 }
 
