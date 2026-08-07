@@ -1,0 +1,138 @@
+package botapp_test
+
+import (
+	"context"
+	"encoding/json"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
+	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
+	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+)
+
+type memCases struct {
+	mu sync.Mutex
+	m  map[sharedkernel.CaseID]*domain.Case
+}
+
+func (r *memCases) Save(ctx context.Context, c *domain.Case) error { return r.Create(ctx, c) }
+func (r *memCases) Create(_ context.Context, c *domain.Case) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.m == nil {
+		r.m = map[sharedkernel.CaseID]*domain.Case{}
+	}
+	cp := *c
+	r.m[c.Document.ID] = &cp
+	return nil
+}
+func (r *memCases) Get(_ context.Context, id sharedkernel.CaseID) (*domain.Case, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	c, ok := r.m[id]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	cp := *c
+	return &cp, nil
+}
+func (r *memCases) List(context.Context, domain.ListQuery) ([]*domain.Case, error) {
+	return nil, nil
+}
+func (r *memCases) Disable(context.Context, sharedkernel.CaseID) error { return nil }
+
+type capturePub struct {
+	msgs []queue.Message
+}
+
+func (p *capturePub) Publish(_ context.Context, msg queue.Message) error {
+	p.msgs = append(p.msgs, msg)
+	return nil
+}
+
+func sampleDoc() domain.CaseDocument {
+	return domain.CaseDocument{
+		ID:   "text2img-demo",
+		Name: "Demo",
+		Inputs: []domain.InputField{
+			{Key: "prompt", Type: "string", Required: true},
+		},
+		Outputs: []domain.OutputField{{Key: "image", Type: "image"}},
+		Bindings: domain.ComfyBindings{
+			WorkflowJSON: map[string]any{"1": map[string]any{}},
+			Inputs:       []domain.InputBinding{{Key: "prompt", NodeID: "1", FieldPath: "text"}},
+		},
+		InputSchema: map[string]any{
+			"type":     "object",
+			"required": []any{"prompt"},
+			"properties": map[string]any{
+				"prompt": map[string]any{"type": "string", "minLength": 1},
+			},
+		},
+	}
+}
+
+func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, &domain.Case{Document: sampleDoc(), Enabled: true})
+
+	sessRepo := convdomain.NewMemoryRepository()
+	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "sess-1" }, func() time.Time {
+		return time.Unix(10, 0).UTC()
+	})
+	_, err := sessSvc.StartCase(ctx, 100, "text2img-demo", []string{"prompt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt := "a cat"
+	_, err = sessSvc.SubmitInput(ctx, 100, convdomain.DraftValue{Text: &prompt})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pub := &capturePub{}
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	facade := &botapp.Facade{
+		Cases:        cases,
+		Validator:    validation.New(),
+		Sessions:     sessSvc,
+		SessionStore: sessRepo,
+		Tasks:        tasks,
+		Publisher:    pub,
+		NewTaskID:    func() sharedkernel.TaskID { return "task-1" },
+		Now:          func() time.Time { return time.Unix(20, 0).UTC() },
+	}
+
+	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: 100})
+	if err != nil {
+		t.Fatalf("ConfirmRun: %v", err)
+	}
+	if res.TaskID != "task-1" || res.Status != sharedkernel.TaskPending {
+		t.Fatalf("result=%+v", res)
+	}
+
+	got, err := tasks.Get(ctx, "task-1")
+	if err != nil || got.Status != sharedkernel.TaskPending {
+		t.Fatalf("task=%v err=%v", got, err)
+	}
+	if _, err := sessSvc.Get(ctx, 100); err == nil {
+		t.Fatal("session should be cleared after submit")
+	}
+	if len(pub.msgs) != 1 || pub.msgs[0].Topic != sharedkernel.TopicTaskCreated {
+		t.Fatalf("msgs=%+v", pub.msgs)
+	}
+	var ev sharedkernel.TaskCreated
+	if err := json.Unmarshal(pub.msgs[0].Payload, &ev); err != nil {
+		t.Fatal(err)
+	}
+	if ev.TaskID != "task-1" || ev.ChatID != 100 {
+		t.Fatalf("event=%+v", ev)
+	}
+}

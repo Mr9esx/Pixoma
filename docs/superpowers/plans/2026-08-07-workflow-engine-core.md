@@ -7,10 +7,10 @@
 ---
 change: workflow-engine-core
 design-doc: docs/superpowers/specs/2026-08-07-workflow-engine-core-design.md
-base-ref: NO_GIT_REPO
+base-ref: f1a5fa828da331c7e75ac4ca23f03d5a57969c23
 ---
 
-> 仓库尚无 `.git`。开始实现前请先 `git init` 并做初始提交，然后将本文件 `base-ref` 更新为该提交的 `git rev-parse HEAD`。
+> `base-ref` 为 main 初始提交。实现在分支 `feat/workflow-engine-core`。
 
 **Goal:** 落地可组装的工作流核心：协议/注册、Session 锁、异步 Task、Orchestrator（独占写终态+对账+风暴防护）、Actuator、TG Adapter；Queue/Blob 端口一期用 Memory/LocalFS。
 
@@ -51,20 +51,22 @@ configs/ data/ docs/ go.mod
 - Create: `internal/platform/queue/{port.go,memory/...}`, `internal/platform/blob/{port.go,localfs/...}`
 - Create: bot config/db wire 于 `apps/bot` 或 `internal/platform`
 
-- [ ] 1.1 初始化 module、config、slog、chi `/healthz`、GORM SQLite 打开
-- [ ] 1.2 实现 queue Publisher/Subscriber（Memory）并单测 Publish→Subscribe
-- [ ] 1.3 实现 blob Put/Get（LocalFS）并单测
-- [ ] 1.4 `git init`（若尚未）+ 提交脚手架；更新本 plan `base-ref`
+- [x] 1.1 初始化 module、config、slog、chi `/healthz`、GORM SQLite 打开
+- [x] 1.2 实现 queue Publisher/Subscriber（Memory）并单测 Publish→Subscribe
+- [x] 1.3 实现 blob Put/Get（LocalFS）并单测
+- [x] 1.4 `git init`（若尚未）+ 提交脚手架；更新本 plan `base-ref`
+- [x] 1.5 GORM + glebarez SQLite + AutoMigrate
 
 ### Task 2: Protocol + Case Registry
 
 **Files:**
-- Create: `internal/domain/protocol/{document.go,validate.go,validate_test.go}`
-- Create: `internal/domain/case/{model.go,repository.go,repository_test.go}`
+- Create: `internal/catalog/domain/{document.go,repository.go}`
+- Create: `internal/catalog/infrastructure/validation/`
+- Create: `internal/catalog/infrastructure/persistence/`
 
-- [ ] 2.1 Case 文档模型 + JSON Schema 校验 + 媒体钩子；单测合法/非法/enum/skip
-- [ ] 2.2 GORM 仓储：Save/Get/List/Disable；集成测试（sqlite memory）
-- [ ] 2.3 提交
+- [x] 2.1 Case 文档模型 + JSON Schema 校验 + 媒体钩子；单测合法/非法/enum/skip
+- [x] 2.2 GORM 仓储：Save/Get/List/Disable；集成测试（sqlite memory）
+- [x] 2.3 提交
 
 ### Task 3: Session + Task 领域
 
