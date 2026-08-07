@@ -3,6 +3,7 @@ package actuator_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"path/filepath"
@@ -17,6 +18,31 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
+
+type recordingUploader struct {
+	calls int
+	last  struct {
+		filename string
+		mime     string
+		data     []byte
+	}
+	remoteName string
+	err        error
+}
+
+func (u *recordingUploader) UploadImage(_ context.Context, filename, mime string, data []byte) (string, error) {
+	u.calls++
+	u.last.filename = filename
+	u.last.mime = mime
+	u.last.data = append([]byte(nil), data...)
+	if u.err != nil {
+		return "", u.err
+	}
+	if u.remoteName != "" {
+		return u.remoteName, nil
+	}
+	return "remote-upload.png", nil
+}
 
 var errBlobGetSentinel = errors.New("blob get failed: permission denied")
 
@@ -223,5 +249,130 @@ func TestCaseSnapshotFailsWhenWorkflowEmpty(t *testing.T) {
 	_, err = snap.WorkflowForTask(ctx, "task-3")
 	if err == nil {
 		t.Fatal("expected error when workflow empty")
+	}
+}
+
+func imageWorkflowCase() catalogdomain.CaseDocument {
+	return catalogdomain.CaseDocument{
+		ID:   "image-inject",
+		Name: "Image inject",
+		Inputs: []catalogdomain.InputField{
+			{Key: "reference", Type: "image", Required: true},
+		},
+		Outputs: []catalogdomain.OutputField{{Key: "image", Type: "image"}},
+		Bindings: catalogdomain.ComfyBindings{
+			WorkflowJSON: map[string]any{
+				"10": map[string]any{
+					"class_type": "LoadImage",
+					"inputs": map[string]any{
+						"image": "placeholder.png",
+					},
+				},
+			},
+			Inputs: []catalogdomain.InputBinding{
+				{Key: "reference", NodeID: "10", FieldPath: "image"},
+			},
+		},
+		InputSchema: map[string]any{"type": "object"},
+	}
+}
+
+func TestCaseSnapshotUploadsImageAndWritesRemoteFilename(t *testing.T) {
+	ctx := context.Background()
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := "inputs/task-img"
+	imgKey := prefix + "/reference.png"
+	payload := []byte("user-image-bytes")
+	ref, err := store.Put(ctx, imgKey, bytes.NewReader(payload), blob.PutOptions{MIME: "image/png"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta, err := json.Marshal(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Put(ctx, prefix+"/reference.blob.json", bytes.NewReader(meta), blob.PutOptions{MIME: "application/json"}); err != nil {
+		t.Fatal(err)
+	}
+
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(1, 0).UTC()
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img", 1, "image-inject", prefix, now)); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := &memCases{}
+	if err := cases.Create(ctx, &catalogdomain.Case{Document: imageWorkflowCase(), Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	up := &recordingUploader{remoteName: "comfy-remote.png"}
+	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: up}
+	graph, err := snap.WorkflowForTask(ctx, "task-img")
+	if err != nil {
+		t.Fatalf("WorkflowForTask: %v", err)
+	}
+
+	if up.calls != 1 {
+		t.Fatalf("UploadImage calls=%d want 1", up.calls)
+	}
+	if up.last.mime != "image/png" {
+		t.Fatalf("upload mime=%q want image/png", up.last.mime)
+	}
+	if !bytes.Equal(up.last.data, payload) {
+		t.Fatalf("upload data=%q want %q", up.last.data, payload)
+	}
+	if up.last.filename != "reference.png" {
+		t.Fatalf("upload filename=%q want reference.png", up.last.filename)
+	}
+
+	node, ok := graph["10"].(map[string]any)
+	if !ok {
+		t.Fatalf("node 10 missing or wrong type: %#v", graph["10"])
+	}
+	inputs, ok := node["inputs"].(map[string]any)
+	if !ok {
+		t.Fatalf("node inputs missing: %#v", node)
+	}
+	got, _ := inputs["image"].(string)
+	if got != "comfy-remote.png" {
+		t.Fatalf("inputs.image=%q want comfy-remote.png", got)
+	}
+}
+
+func TestCaseSnapshotFailsWhenUploaderNilForImage(t *testing.T) {
+	ctx := context.Background()
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := "inputs/task-img-nil"
+	imgKey := prefix + "/reference.png"
+	ref, err := store.Put(ctx, imgKey, bytes.NewReader([]byte("x")), blob.PutOptions{MIME: "image/png"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta, _ := json.Marshal(ref)
+	if _, err := store.Put(ctx, prefix+"/reference.blob.json", bytes.NewReader(meta), blob.PutOptions{MIME: "application/json"}); err != nil {
+		t.Fatal(err)
+	}
+
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(1, 0).UTC()
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img-nil", 1, "image-inject", prefix, now)); err != nil {
+		t.Fatal(err)
+	}
+	cases := &memCases{}
+	if err := cases.Create(ctx, &catalogdomain.Case{Document: imageWorkflowCase(), Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store}
+	_, err = snap.WorkflowForTask(ctx, "task-img-nil")
+	if err == nil {
+		t.Fatal("expected error when Uploader is nil")
 	}
 }

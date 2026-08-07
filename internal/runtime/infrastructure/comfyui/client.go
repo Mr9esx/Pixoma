@@ -24,13 +24,15 @@ type OutputFile struct {
 type Client interface {
 	Submit(ctx context.Context, graph Graph) (promptID string, err error)
 	Wait(ctx context.Context, promptID string) (*Result, error)
+	UploadImage(ctx context.Context, filename, mime string, data []byte) (remoteFilename string, err error)
 }
 
 // Mock is an in-memory ComfyUI client that returns a real PNG.
 type Mock struct {
-	SubmitFn func(ctx context.Context, graph Graph) (string, error)
-	WaitFn   func(ctx context.Context, promptID string) (*Result, error)
-	Color    color.RGBA // optional tint
+	SubmitFn      func(ctx context.Context, graph Graph) (string, error)
+	WaitFn        func(ctx context.Context, promptID string) (*Result, error)
+	UploadImageFn func(ctx context.Context, filename, mime string, data []byte) (string, error)
+	Color         color.RGBA // optional tint
 }
 
 func (m *Mock) Submit(ctx context.Context, graph Graph) (string, error) {
@@ -56,6 +58,13 @@ func (m *Mock) Wait(ctx context.Context, promptID string) (*Result, error) {
 			Data:     GenerateMockPNG(320, 240, c),
 		}},
 	}, nil
+}
+
+func (m *Mock) UploadImage(ctx context.Context, filename, mime string, data []byte) (string, error) {
+	if m.UploadImageFn != nil {
+		return m.UploadImageFn(ctx, filename, mime, data)
+	}
+	return "mock-upload.png", nil
 }
 
 // GenerateMockPNG creates a simple gradient PNG for Telegram delivery tests.
