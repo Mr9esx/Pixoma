@@ -71,63 +71,62 @@ configs/ data/ docs/ go.mod
 ### Task 3: Session + Task 领域
 
 **Files:**
-- Create: `internal/domain/session/{session.go,service.go,service_test.go}`
-- Create: `internal/domain/task/{task.go,repository.go,task_test.go}`
+- Create: `internal/conversation/domain/`
+- Create: `internal/runtime/domain/`
 
-- [ ] 3.1 Session：Start/Submit/Skip/Exit/锁冲突；单测
-- [ ] 3.2 Task：状态迁移方法 + 温和取消规则；单测非法边
-- [ ] 3.3 提交
+- [x] 3.1 Session：Start/Submit/Skip/Exit/锁冲突；单测
+- [x] 3.2 Task：状态迁移方法 + 温和取消规则；单测非法边
+- [x] 3.3 提交
 
 ### Task 4: App ConfirmRun
 
 **Files:**
-- Create: `internal/app/facade.go`, `internal/app/confirm_run.go`, `internal/app/confirm_run_test.go`
+- Create: `internal/packaging/botapp/`
 
-- [ ] 4.1 Facade：菜单/Case/Session 用例委托
-- [ ] 4.2 ConfirmRun：校验→物化 Blob→Create pending→Clear session→Publish `task.created`
-- [ ] 4.3 单测（假 blob/queue/repos）
-- [ ] 4.4 提交
+- [x] 4.1 Facade：菜单/Case/Session 用例委托
+- [x] 4.2 ConfirmRun：校验→物化 Blob→Create pending→Clear session→Publish `task.created`
+- [x] 4.3 单测（假 blob/queue/repos）
+- [x] 4.4 提交
 
 ### Task 5: Orchestrator
 
 **Files:**
-- Create: `internal/orchestrator/{service.go,apply_status.go,reconcile.go,storm.go,*_test.go}`
-- Create: `internal/port/instance/registry.go`, `internal/port/notify/notify.go`
+- Create: `internal/runtime/application/orchestrator/`
 
-- [ ] 5.1 OnTaskCreated + SchedulePending；dispatch；MarkQueued
-- [ ] 5.2 applyStatus 幂等 + notify.user
-- [ ] 5.3 ReconcileStale + ExecutionQuery 补写
-- [ ] 5.4 RateLimiter/Backoff/CircuitBreaker 接入调度与对账
-- [ ] 5.5 RequestCancel（pending/queued）
-- [ ] 5.6 单测后提交
+- [x] 5.1 OnTaskCreated + SchedulePending；dispatch；MarkQueued
+- [x] 5.2 applyStatus 幂等 + notify.user
+- [x] 5.3 ReconcileStale + ExecutionQuery 补写
+- [x] 5.4 RateLimiter/Backoff/CircuitBreaker 接入调度与对账
+- [x] 5.5 RequestCancel（pending/queued）
+- [x] 5.6 单测后提交
 
 ### Task 6: Actuator + ComfyUI
 
 **Files:**
-- Create: `internal/comfyui/client.go`, `internal/actuator/{worker.go,ledger.go,query.go,*_test.go}`
+- Create: `internal/runtime/infrastructure/{actuator,comfyui}/`
 
-- [ ] 6.1 Comfy client 接口 + mock 实现
-- [ ] 6.2 HandleDispatch：注入、ledger、status running/终态
-- [ ] 6.3 ExecutionQuery + status 重发路径
-- [ ] 6.4 单测后提交
+- [x] 6.1 Comfy client 接口 + mock 实现
+- [x] 6.2 HandleDispatch：注入、ledger、status running/终态
+- [x] 6.3 ExecutionQuery + status 重发路径
+- [x] 6.4 单测后提交
 
 ### Task 7: TG Adapter 与组装
 
 **Files:**
-- Create: `internal/adapter/tg/{bot.go,render.go,notify_handler.go}`
-- Modify: `cmd/comfyui-tgbot/main.go`（wire all-in-one）
-- Create: `configs/config.example.yaml`, `README.md`, 种子 Case JSON
+- Create: `internal/channel/tg/`
+- Modify: `apps/bot/cmd/comfyui-bot/main.go`
+- Create: `configs/cases/`, `README.md`
 
-- [ ] 7.1 Update 路由到 Facade；菜单/列表/锁拦截渲染
-- [ ] 7.2 订阅 `notify.user` 发图/去重
-- [ ] 7.3 main 组装：Memory queue 订阅 orchestrator/actuator/tg
-- [ ] 7.4 README：配置、种子 Case、本地跑通说明
-- [ ] 7.5 冒烟测试（mock Comfy）后提交
+- [x] 7.1 Update 路由到 Facade；菜单/列表/锁拦截渲染
+- [x] 7.2 订阅 `notify.user` 发图/去重
+- [x] 7.3 main 组装：Memory queue 订阅 orchestrator/actuator/tg
+- [x] 7.4 README：配置、种子 Case、本地跑通说明
+- [x] 7.5 冒烟测试（mock Comfy）后提交
 
 ### Task 8: 验收对齐
 
-- [ ] 8.1 对照 `tasks.md` 与 specs 勾验清单
-- [ ] 8.2 确认：无强取消、无扣费、Actuator 不写 Task 终态、Orchestrator 有限流
+- [x] 8.1 对照 `tasks.md` 与 specs 勾验清单
+- [x] 8.2 确认：无强取消、无扣费、Actuator 不写 Task 终态、Orchestrator 有限流
 
 ---
 
