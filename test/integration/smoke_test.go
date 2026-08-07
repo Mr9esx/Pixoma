@@ -59,13 +59,22 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var submitted comfyui.Graph
+	mock := &comfyui.Mock{
+		SubmitFn: func(_ context.Context, graph comfyui.Graph) (string, error) {
+			submitted = graph
+			return "prompt-mock", nil
+		},
+	}
+	cases := &memCases{}
+	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: mock}
 	worker := &actuator.Worker{
 		InstanceID: "local",
-		Comfy:      &comfyui.Mock{},
+		Comfy:      mock,
 		Blob:       store,
 		Status:     bus,
 		Ledger:     actuator.NewMemoryLedger(),
-		Workflows:  actuator.StaticWorkflows{},
+		Workflows:  snap,
 		Now:        func() time.Time { return now },
 	}
 
@@ -104,7 +113,6 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 			"properties": map[string]any{"prompt": map[string]any{"type": "string", "minLength": 1}},
 		},
 	}
-	cases := &memCases{}
 	_ = cases.Create(ctx, &domain.Case{Document: doc, Enabled: true})
 
 	sessRepo := convdomain.NewMemoryRepository()
@@ -132,5 +140,10 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	}
 	if n.last == nil || n.last.Kind != "task_succeeded" {
 		t.Fatalf("notify=%+v", n.last)
+	}
+	node, _ := submitted["1"].(map[string]any)
+	inputs, _ := node["inputs"].(map[string]any)
+	if gotText, _ := inputs["text"].(string); gotText != "cat" {
+		t.Fatalf("submitted workflow missing Case injection: inputs.text=%q want %q (graph=%#v)", gotText, "cat", submitted)
 	}
 }
