@@ -1,27 +1,69 @@
 package tg
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
+
+// FileDownloader fetches Telegram file bytes by file_id (injectable for tests).
+type FileDownloader func(ctx context.Context, fileID string) ([]byte, error)
 
 type Adapter struct {
 	App      *botapp.Facade
 	Out      Messenger
+	Download FileDownloader
 	mu       sync.Mutex
 	notified map[string]struct{}
 }
 
 func New(app *botapp.Facade, out Messenger) *Adapter {
 	return &Adapter{App: app, Out: out, notified: map[string]struct{}{}}
+}
+
+// HandleUserMedia accepts a Photo/image Document when the current field is image.
+func (a *Adapter) HandleUserMedia(ctx context.Context, chatID int64, fileID, mime string) error {
+	ft, err := a.currentFieldType(ctx, chatID)
+	if err != nil {
+		return a.Out.SendText(ctx, chatID, "当前没有进行中的 Case，请先开始。")
+	}
+	if ft != "image" {
+		return a.Out.SendText(ctx, chatID, "当前不需要图片，请按提示输入。")
+	}
+	if a.Download == nil {
+		return a.Out.SendText(ctx, chatID, "无法下载图片：未配置下载器")
+	}
+	if a.App == nil || a.App.Blob == nil {
+		return a.Out.SendText(ctx, chatID, "无法保存图片：未配置存储")
+	}
+	data, err := a.Download(ctx, fileID)
+	if err != nil {
+		return a.Out.SendText(ctx, chatID, "下载图片失败: "+err.Error())
+	}
+	if mime == "" {
+		mime = "image/jpeg"
+	}
+	key := fmt.Sprintf("tg/%d/%d%s", chatID, time.Now().UnixNano(), extForMIME(mime))
+	ref, err := a.App.Blob.Put(ctx, key, bytes.NewReader(data), blob.PutOptions{MIME: mime})
+	if err != nil {
+		return a.Out.SendText(ctx, chatID, "保存图片失败: "+err.Error())
+	}
+	view, err := a.App.SubmitInput(ctx, sharedkernel.ChatID(chatID), convdomain.DraftValue{Blob: &ref})
+	if err != nil {
+		return a.Out.SendText(ctx, chatID, "提交失败: "+err.Error())
+	}
+	return a.renderSession(ctx, chatID, view)
 }
 
 func (a *Adapter) HandleText(ctx context.Context, chatID int64, text string) error {
@@ -257,11 +299,68 @@ func (a *Adapter) replaceAndStart(ctx context.Context, chatID int64, id sharedke
 }
 
 func (a *Adapter) submitText(ctx context.Context, chatID int64, text string) error {
-	view, err := a.App.SubmitInput(ctx, sharedkernel.ChatID(chatID), convdomain.DraftValue{Text: &text})
+	ft, err := a.currentFieldType(ctx, chatID)
+	if err != nil {
+		return a.Out.SendText(ctx, chatID, "提交失败: "+err.Error())
+	}
+	var draft convdomain.DraftValue
+	switch ft {
+	case "image":
+		return a.Out.SendText(ctx, chatID, "当前需要一张图片，请发送 Photo 或图片文件。")
+	case "number":
+		n, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			return a.Out.SendText(ctx, chatID, "请输入合法数字，例如 42")
+		}
+		draft = convdomain.DraftValue{Number: &n}
+	case "boolean":
+		b, err := strconv.ParseBool(text)
+		if err != nil {
+			return a.Out.SendText(ctx, chatID, "请输入 true 或 false")
+		}
+		draft = convdomain.DraftValue{Bool: &b}
+	default:
+		draft = convdomain.DraftValue{Text: &text}
+	}
+	view, err := a.App.SubmitInput(ctx, sharedkernel.ChatID(chatID), draft)
 	if err != nil {
 		return a.Out.SendText(ctx, chatID, "提交失败: "+err.Error())
 	}
 	return a.renderSession(ctx, chatID, view)
+}
+
+func (a *Adapter) currentFieldType(ctx context.Context, chatID int64) (string, error) {
+	view, err := a.App.GetSession(ctx, sharedkernel.ChatID(chatID))
+	if err != nil {
+		return "", err
+	}
+	key := currentKey(view)
+	if key == "(done)" {
+		return "", errors.New("no current input field")
+	}
+	c, err := a.App.GetCase(ctx, view.CaseID)
+	if err != nil {
+		return "", err
+	}
+	for _, in := range c.Document.Inputs {
+		if in.Key == key {
+			return in.Type, nil
+		}
+	}
+	return "", fmt.Errorf("unknown field %q", key)
+}
+
+func extForMIME(mime string) string {
+	switch strings.ToLower(mime) {
+	case "image/png":
+		return ".png"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	default:
+		return ".jpg"
+	}
 }
 
 func (a *Adapter) handleSkip(ctx context.Context, chatID int64) error {
