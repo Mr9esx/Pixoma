@@ -175,8 +175,15 @@ func TestImageListAndPreviewAndFlow(t *testing.T) {
 	if err := ad.HandleCallback(ctx, 1, "cb3", tg.CBConfirm); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.texts) == 0 || !strings.Contains(out.texts[len(out.texts)-1], "已排队") {
-		t.Fatalf("queued=%v", out.texts)
+	found := false
+	for _, tx := range out.texts {
+		if strings.Contains(tx, "已提交") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("want submit ack, texts=%v", out.texts)
 	}
 }
 
@@ -191,5 +198,28 @@ func TestNotifySendsPhoto(t *testing.T) {
 	_ = ad.HandleUserNotify(context.Background(), n)
 	if len(out.photos) != 1 {
 		t.Fatalf("photos=%v", out.photos)
+	}
+}
+
+func TestSessionConflictCopy(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, sampleCase("img-anime", "二次元文生图"))
+	_ = cases.Create(ctx, sampleCase("img-logo", "Logo 草图"))
+	out := &memOut{}
+	ad := tg.New(newFacade(cases), out)
+
+	if err := ad.HandleCallback(ctx, 1, "a", tg.CBCaseStart+"img-anime"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ad.HandleCallback(ctx, 1, "b", tg.CBCaseStart+"img-logo"); err != nil {
+		t.Fatal(err)
+	}
+	last := out.inlines[len(out.inlines)-1]
+	if !strings.Contains(last, "二次元文生图") || !strings.Contains(last, "Logo 草图") {
+		t.Fatalf("conflict msg=%q", last)
+	}
+	if !strings.Contains(last, "正在进行") || !strings.Contains(last, "你刚想开始") {
+		t.Fatalf("copy missing fields: %q", last)
 	}
 }

@@ -115,7 +115,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 
 	facade := &botapp.Facade{
 		Cases: cases, Validator: validation.New(), Sessions: sessSvc, SessionStore: sessRepo,
-		Tasks: tasks, Publisher: bus,
+		Tasks: tasks, Blob: store, Publisher: bus,
 		NewTaskID: func() sharedkernel.TaskID { return "task-smoke" },
 		Now:       func() time.Time { return now },
 	}

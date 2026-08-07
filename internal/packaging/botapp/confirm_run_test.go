@@ -3,6 +3,7 @@ package botapp_test
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -99,12 +101,17 @@ func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 
 	pub := &capturePub{}
 	tasks := runtimedomain.NewMemoryTaskRepository()
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	facade := &botapp.Facade{
 		Cases:        cases,
 		Validator:    validation.New(),
 		Sessions:     sessSvc,
 		SessionStore: sessRepo,
 		Tasks:        tasks,
+		Blob:         store,
 		Publisher:    pub,
 		NewTaskID:    func() sharedkernel.TaskID { return "task-1" },
 		Now:          func() time.Time { return time.Unix(20, 0).UTC() },
@@ -122,6 +129,11 @@ func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 	if err != nil || got.Status != sharedkernel.TaskPending {
 		t.Fatalf("task=%v err=%v", got, err)
 	}
+	rc, err := store.Get(ctx, sharedkernel.BlobRef{Key: "inputs/task-1/prompt.txt"})
+	if err != nil {
+		t.Fatalf("staged blob: %v", err)
+	}
+	_ = rc.Close()
 	if _, err := sessSvc.Get(ctx, 100); err == nil {
 		t.Fatal("session should be cleared after submit")
 	}

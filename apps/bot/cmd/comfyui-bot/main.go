@@ -95,6 +95,7 @@ func run(ctx context.Context) error {
 		Ledger:     actuator.NewMemoryLedger(),
 		Workflows:  actuator.StaticWorkflows{},
 	}
+	orch.Query = &actuator.QueryAdapter{Worker: worker}
 
 	facade := &botapp.Facade{
 		Cases:        caseRepo,
@@ -102,6 +103,7 @@ func run(ctx context.Context) error {
 		Sessions:     sessSvc,
 		SessionStore: sessRepo,
 		Tasks:        tasks,
+		Blob:         blobStore,
 		Publisher:    bus,
 		NewTaskID: func() sharedkernel.TaskID {
 			return sharedkernel.TaskID(uuid.NewString())
@@ -164,6 +166,25 @@ func run(ctx context.Context) error {
 	} else {
 		slog.Info("TG_BOT_TOKEN empty; telegram polling disabled")
 	}
+
+	go func() {
+		t := time.NewTicker(30 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				orch.Storm.ResetTick()
+				if err := orch.SchedulePending(ctx, 32); err != nil {
+					slog.Warn("schedule pending", "err", err)
+				}
+				if err := orch.ReconcileStale(ctx, 2*time.Minute, 16); err != nil {
+					slog.Warn("reconcile stale", "err", err)
+				}
+			}
+		}
+	}()
 
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

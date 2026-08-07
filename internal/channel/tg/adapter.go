@@ -40,9 +40,12 @@ func (a *Adapter) HandleText(ctx context.Context, chatID int64, text string) err
 	case BtnImage, "/cases":
 		return a.showImageCases(ctx, chatID)
 	case BtnHelp, "/help":
-		return a.Out.SendMenu(ctx, chatID, "帮助：点「图片」选 Case → 预览 → 开始 → 输入 prompt → 确认 → 等待出图。")
-	case BtnVideo, BtnVideoUndress, BtnHotTemplates, BtnRecharge, BtnCheckIn, BtnProfile, BtnInvite:
-		return a.Out.SendMenu(ctx, chatID, text+"：本期 mock 未开放，请先体验「🔞 图片」。")
+		return a.Out.SendMenu(ctx, chatID, "帮助：点「图片」选 Case → 预览 → 开始 → 输入 prompt → 确认 → 等待出图。\n\n菜单更新后，点任意底部按钮或发 /menu 即可刷新。")
+	case BtnVideo, BtnRecharge, BtnCheckIn, BtnProfile:
+		return a.Out.SendMenu(ctx, chatID, text+"：本期 mock 未开放，请先体验「"+BtnImage+"」。")
+	case "🎬 视频脱衣", "🔥 热门模版", "🤝 邀请赚钱", "👤 我的", "🔞 图片", "🔞 视频":
+		// Legacy keyboard labels from older builds — refresh to current menu.
+		return a.Out.SendMenu(ctx, chatID, "菜单已更新，请使用下方新按钮。")
 	case "/skip":
 		return a.handleSkip(ctx, chatID)
 	case "/exit":
@@ -72,6 +75,11 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID int64, callbackID, 
 		return a.handleExit(ctx, chatID)
 	case data == CBSkip:
 		return a.handleSkip(ctx, chatID)
+	case data == CBContinue:
+		return a.handleContinue(ctx, chatID)
+	case strings.HasPrefix(data, CBReplaceStart):
+		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBReplaceStart))
+		return a.replaceAndStart(ctx, chatID, id)
 	case strings.HasPrefix(data, CBCasePreview):
 		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBCasePreview))
 		return a.showCasePreview(ctx, chatID, id)
@@ -99,7 +107,7 @@ func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotif
 		if err := a.Out.SendPhoto(ctx, chat, n.Outputs[0], caption); err != nil {
 			return err
 		}
-		return a.Out.SendMenu(ctx, chat, "还要继续？点菜单「🔞 图片」再选一个 Case。")
+		return a.Out.SendMenu(ctx, chat, "还要继续？点菜单「"+BtnImage+"」再选一个 Case。")
 	}
 	msg := fmt.Sprintf("任务 %s: %s", n.TaskID, n.Kind)
 	if n.ErrorMsg != "" {
@@ -113,6 +121,10 @@ func (a *Adapter) sendMainMenu(ctx context.Context, chatID int64) error {
 }
 
 func (a *Adapter) showImageCases(ctx context.Context, chatID int64) error {
+	// ReplyKeyboard 只能随消息下发；进图片前先刷一次主菜单，避免用户仍停在旧键盘。
+	if err := a.Out.SendMenu(ctx, chatID, "已进入图片分区"); err != nil {
+		return err
+	}
 	enabled := true
 	cases, err := a.App.ListCases(ctx, catalogdomain.ListQuery{Tag: "image", Enabled: &enabled})
 	if err != nil {
@@ -129,7 +141,7 @@ func (a *Adapter) showImageCases(ctx context.Context, chatID int64) error {
 		}})
 	}
 	rows = append(rows, []InlineButton{{Text: "« 返回菜单", Data: CBMenu}})
-	return a.Out.SendInline(ctx, chatID, "🔞 图片 Case（mock）\n点选查看预览：", rows)
+	return a.Out.SendInline(ctx, chatID, BtnImage+" Case（mock）\n点选查看预览：", rows)
 }
 
 func (a *Adapter) showCasePreview(ctx context.Context, chatID int64, id sharedkernel.CaseID) error {
@@ -175,14 +187,73 @@ func (a *Adapter) startCase(ctx context.Context, chatID int64, id sharedkernel.C
 		CaseID: id,
 	})
 	if errors.Is(err, convdomain.ErrSessionLocked) {
-		return a.Out.SendInline(ctx, chatID, "当前有进行中的填表会话。", [][]InlineButton{
-			{{Text: "退出当前", Data: CBExit}},
-		})
+		return a.showSessionConflict(ctx, chatID, id)
 	}
 	if err != nil {
 		return a.Out.SendText(ctx, chatID, "无法开始: "+err.Error())
 	}
 	return a.renderSession(ctx, chatID, view)
+}
+
+func (a *Adapter) showSessionConflict(ctx context.Context, chatID int64, want sharedkernel.CaseID) error {
+	cur, err := a.App.GetSession(ctx, sharedkernel.ChatID(chatID))
+	if err != nil {
+		return a.Out.SendText(ctx, chatID, "已有进行中的填表，但读取会话失败，请稍后再试。")
+	}
+
+	curName := string(cur.CaseID)
+	if c, err := a.App.GetCase(ctx, cur.CaseID); err == nil {
+		curName = c.Document.Name
+	}
+	wantName := string(want)
+	if c, err := a.App.GetCase(ctx, want); err == nil {
+		wantName = c.Document.Name
+	}
+
+	step := "填写中"
+	if cur.Status == convdomain.StatusConfirming {
+		step = "待确认执行"
+	} else if key := currentKey(cur); key != "(done)" {
+		step = "填写中（当前项：" + key + "）"
+	}
+
+	same := cur.CaseID == want
+	var msg string
+	var rows [][]InlineButton
+	if same {
+		msg = fmt.Sprintf(
+			"你正在填写「%s」\n进度：%s\n\n要接着填，还是退出后重来？",
+			curName, step,
+		)
+		rows = [][]InlineButton{
+			{{Text: "继续当前 Case", Data: CBContinue}},
+			{{Text: "退出当前 Case", Data: CBExit}},
+		}
+	} else {
+		msg = fmt.Sprintf(
+			"检测到未完成的 Case\n\n正在进行：%s\n进度：%s\n你刚想开始：%s\n\n请选择：继续刚才的，或废弃它并开始新选的。",
+			curName, step, wantName,
+		)
+		rows = [][]InlineButton{
+			{{Text: "继续当前 Case", Data: CBContinue}},
+			{{Text: "退出当前 Case", Data: CBExit}},
+			{{Text: "开始当前", Data: CBReplaceStart + string(want)}},
+		}
+	}
+	return a.Out.SendInline(ctx, chatID, msg, rows)
+}
+
+func (a *Adapter) handleContinue(ctx context.Context, chatID int64) error {
+	view, err := a.App.GetSession(ctx, sharedkernel.ChatID(chatID))
+	if err != nil {
+		return a.Out.SendMenu(ctx, chatID, "当前没有进行中的 Case，已回到菜单。")
+	}
+	return a.renderSession(ctx, chatID, view)
+}
+
+func (a *Adapter) replaceAndStart(ctx context.Context, chatID int64, id sharedkernel.CaseID) error {
+	_ = a.App.ExitSession(ctx, sharedkernel.ChatID(chatID))
+	return a.startCase(ctx, chatID, id)
 }
 
 func (a *Adapter) submitText(ctx context.Context, chatID int64, text string) error {
@@ -205,15 +276,34 @@ func (a *Adapter) handleExit(ctx context.Context, chatID int64) error {
 	if err := a.App.ExitSession(ctx, sharedkernel.ChatID(chatID)); err != nil {
 		return a.Out.SendText(ctx, chatID, "退出失败: "+err.Error())
 	}
-	return a.Out.SendMenu(ctx, chatID, "已退出填表。")
+	return a.Out.SendMenu(ctx, chatID, "已退出当前 Case，可以重新选择。")
 }
 
 func (a *Adapter) handleConfirm(ctx context.Context, chatID int64) error {
+	// Memory queue is synchronous: ConfirmRun may finish the whole pipeline
+	// (including notify/photo) before returning. Acknowledge first so order is natural.
+	if err := a.Out.SendText(ctx, chatID, "⏳ 已提交，正在生成…"); err != nil {
+		return err
+	}
 	res, err := a.App.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: sharedkernel.ChatID(chatID)})
 	if err != nil {
 		return a.Out.SendText(ctx, chatID, "确认失败: "+err.Error())
 	}
-	return a.Out.SendText(ctx, chatID, fmt.Sprintf("⏳ 已排队生成\ntask=%s\n完成后会把图片发回来。", res.TaskID))
+	tasks, err := a.App.ListMyTasks(ctx, sharedkernel.ChatID(chatID), 20)
+	if err == nil {
+		for _, t := range tasks {
+			if t.ID != res.TaskID {
+				continue
+			}
+			switch t.Status {
+			case sharedkernel.TaskSucceeded, sharedkernel.TaskFailed, sharedkernel.TaskCancelled:
+				// Result notify already sent on the sync path; avoid a late "queued" message.
+				return nil
+			}
+			break
+		}
+	}
+	return a.Out.SendText(ctx, chatID, fmt.Sprintf("已排队\ntask=%s\n完成后会把图片发回来。", res.TaskID))
 }
 
 func (a *Adapter) renderSession(ctx context.Context, chatID int64, view *botapp.SessionView) error {
@@ -256,7 +346,7 @@ func currentKey(view *botapp.SessionView) string {
 func isMenuCommand(text string) bool {
 	switch text {
 	case "/start", "/menu", "/help", "/cases", "/skip", "/exit", "/confirm",
-		BtnImage, BtnVideo, BtnVideoUndress, BtnHotTemplates, BtnRecharge, BtnCheckIn, BtnProfile, BtnInvite, BtnHelp:
+		BtnImage, BtnVideo, BtnRecharge, BtnCheckIn, BtnProfile, BtnHelp:
 		return true
 	}
 	return strings.HasPrefix(text, "/start_case ")
