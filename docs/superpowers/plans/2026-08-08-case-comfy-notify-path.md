@@ -88,11 +88,11 @@ base-ref: eba6a71755051501e9c96760be288af3aedbd011
 - Modify: `internal/channel/tg/bot.go`、`adapter.go`
 - Test: `adapter_test.go` 等
 
-- [ ] 5.1 写失败测试：当前字段为 image 时收 Photo；number 解析；SendPhoto 文件名无 `/`
-- [ ] 5.2 跑测试确认失败
-- [ ] 5.3 实现 Photo/Document 处理、标量解析、安全文件名
-- [ ] 5.4 测试通过
-- [ ] 5.5 提交
+- [x] 5.1 写失败测试：当前字段为 image 时收 Photo；number 解析；SendPhoto 文件名无 `/`
+- [x] 5.2 跑测试确认失败
+- [x] 5.3 实现 Photo/Document 处理、标量解析、安全文件名
+- [x] 5.4 测试通过
+- [x] 5.5 提交
 
 ## 任务 6：联调与回归
 
