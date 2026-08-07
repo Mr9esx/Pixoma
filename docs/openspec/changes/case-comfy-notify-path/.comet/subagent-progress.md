@@ -1,9 +1,9 @@
 # Subagent Progress
 
 ## Done
-- Tasks 1–5 approved and checked off (NITs on 5 recorded as accepted)
+- Plan tasks 1–6 complete
+- OpenSpec 5.2: accepted as HTTP unit coverage for UploadImage/Submit path + bot.yaml docs for live Comfy; no automated live Comfy in CI
 
 ## Current
-- Plan task: 6 联调与回归
-- Phase: implementing
-- OpenSpec: 5.1–5.3
+- Phase: final-review (standard lightweight whole-branch)
+- Base for review: 72d07b3 (docs open) … HEAD

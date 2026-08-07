@@ -99,7 +99,7 @@ base-ref: eba6a71755051501e9c96760be288af3aedbd011
 **Files:**
 - Modify: `test/integration/smoke_test.go`（或新增）
 
-- [ ] 6.1 冒烟：ConfirmRun → 可观测写入 → Mock 成功 → 通知（含用户图片输入）
-- [ ] 6.2 `go test` 相关包全绿
-- [ ] 6.3 文档/配置示例：关 Mock 时 `comfyui_base_url` 指向可达 Comfy
-- [ ] 6.4 提交
+- [x] 6.1 冒烟：ConfirmRun → 可观测写入 → Mock 成功 → 通知（含用户图片输入）
+- [x] 6.2 `go test` 相关包全绿
+- [x] 6.3 文档/配置示例：关 Mock 时 `comfyui_base_url` 指向可达 Comfy
+- [x] 6.4 提交
