@@ -21,7 +21,7 @@ created_at: 2026-08-07
 verified_at: null
 archive_confirmation: null
 archived: false
-bound_branch: null
+bound_branch: feat/workflow-engine-core
 direct_override: null
 handoff_context: docs/openspec/changes/workflow-engine-core/.comet/handoff/design-context.json
 handoff_hash: c2fb6cca8b1ff63779f0c1c088be4d06a327002e8a75b9ee3749281cfed2c95d
