@@ -55,12 +55,12 @@ func (v *Validator) ValidateInputs(doc domain.CaseDocument, values []domain.Inpu
 		val, ok := byKey[in.Key]
 		switch in.Type {
 		case "image", "video":
-			if in.Required && (!ok || val.Blob == nil || strings.TrimSpace(val.Blob.Key) == "") {
-				fields = append(fields, domain.FieldError{Key: in.Key, Message: "media blob required"})
-				continue
-			}
 			if ok && val.Text != nil {
 				fields = append(fields, domain.FieldError{Key: in.Key, Message: "expected media blob, got text"})
+				continue
+			}
+			if in.Required && (!ok || val.Blob == nil || strings.TrimSpace(val.Blob.Key) == "") {
+				fields = append(fields, domain.FieldError{Key: in.Key, Message: "media blob required"})
 				continue
 			}
 			if ok && val.Blob != nil && val.Blob.MIME != "" {
