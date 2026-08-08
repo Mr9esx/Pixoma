@@ -16,11 +16,22 @@ type Config struct {
 	BlobRoot          string `yaml:"blob_root"`
 	ComfyUIBaseURL    string `yaml:"comfyui_base_url"`
 	DefaultInstanceID string `yaml:"default_instance_id"`
-	TelegramBotToken  string `yaml:"telegram_bot_token"`
-	CaseSeedDir       string `yaml:"case_seed_dir"`
+	// ComfyInstances optionally seeds multiple ComfyUI instances on startup.
+	// When empty, ComfyUIBaseURL (+ DefaultInstanceID) is upserted instead.
+	ComfyInstances   []ComfyInstanceSeed `yaml:"comfy_instances"`
+	TelegramBotToken string              `yaml:"telegram_bot_token"`
+	CaseSeedDir      string              `yaml:"case_seed_dir"`
 	// ComfyMock enables the in-process ComfyUI mock (default true).
 	// Set false (or COMFY_MOCK=0) to call a real ComfyUI at ComfyUIBaseURL.
 	ComfyMock bool `yaml:"comfy_mock"`
+}
+
+// ComfyInstanceSeed is one row under comfy_instances in bot YAML.
+type ComfyInstanceSeed struct {
+	ID           string   `yaml:"id"`
+	BaseURL      string   `yaml:"base_url"`
+	Enabled      *bool    `yaml:"enabled"`
+	Capabilities []string `yaml:"capabilities"`
 }
 
 func Default() Config {

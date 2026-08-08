@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -30,12 +31,11 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/static"
+	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -66,7 +66,13 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(gdb, &persistence.CaseRow{}, &identitypersist.UserRow{}, &convpersist.SessionRow{}, &taskpersist.TaskRow{}); err != nil {
+	if err := db.AutoMigrate(gdb,
+		&persistence.CaseRow{},
+		&identitypersist.UserRow{},
+		&convpersist.SessionRow{},
+		&taskpersist.TaskRow{},
+		&instpersist.InstanceRow{},
+	); err != nil {
 		return err
 	}
 	caseRepo := persistence.NewGormRepository(gdb)
@@ -93,22 +99,51 @@ func run(ctx context.Context) error {
 		return sharedkernel.SessionID(uuid.NewString())
 	}, nil)
 
+	instRepo := instpersist.NewInstanceRepository(gdb)
+	seedCfg := instance.SeedConfig{
+		DefaultInstanceID: cfg.DefaultInstanceID,
+		ComfyUIBaseURL:    cfg.ComfyUIBaseURL,
+		ComfyMock:         cfg.ComfyMock,
+	}
+	for _, s := range cfg.ComfyInstances {
+		seedCfg.ComfyInstances = append(seedCfg.ComfyInstances, instance.SeedInstance{
+			ID:           s.ID,
+			BaseURL:      s.BaseURL,
+			Enabled:      s.Enabled,
+			Capabilities: s.Capabilities,
+		})
+	}
+	if n, err := instance.SeedFromConfig(ctx, instRepo, seedCfg); err != nil {
+		return err
+	} else {
+		slog.Info("comfy instances seeded", "count", n)
+	}
+
+	pool := instance.NewPool(instRepo, instance.PoolOptions{Mock: cfg.ComfyMock})
+	if err := pool.Refresh(ctx); err != nil {
+		return err
+	}
+
 	instID := sharedkernel.InstanceID(cfg.DefaultInstanceID)
-	reg := static.New(instance.Instance{ID: instID, DispatchTopic: sharedkernel.TopicDispatch(instID)})
+	comfy, err := pool.Client(instID)
+	if err != nil {
+		// Fall back to first healthy/enabled instance when default id is absent.
+		healthy, listErr := pool.ListHealthy(ctx, instance.CapabilityFilter{})
+		if listErr != nil || len(healthy) == 0 {
+			return fmt.Errorf("comfy client for %s: %w", instID, err)
+		}
+		instID = healthy[0].ID
+		comfy, err = pool.Client(instID)
+		if err != nil {
+			return err
+		}
+	}
+	slog.Info("comfyui client ready", "mock", cfg.ComfyMock, "instance_id", instID)
 
 	tgAdapter := tg.New(nil, nil)
 	notifyPub := &notifybridge.Publisher{Adapter: tgAdapter}
-	orch := orchestrator.New(tasks, reg, bus, notifyPub)
+	orch := orchestrator.New(tasks, pool, bus, notifyPub)
 	orch.Sessions = sessRepo
-
-	comfy, err := comfyui.NewClient(comfyui.Options{
-		Mock:    cfg.ComfyMock,
-		BaseURL: cfg.ComfyUIBaseURL,
-	})
-	if err != nil {
-		return err
-	}
-	slog.Info("comfyui client ready", "mock", cfg.ComfyMock, "base_url", cfg.ComfyUIBaseURL)
 
 	snap := &actuator.CaseSnapshot{
 		Tasks:    tasks,
