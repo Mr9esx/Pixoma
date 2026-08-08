@@ -5,7 +5,9 @@
 - Branch: feature/20260808/admin-api-foundation
 
 ## Current
-- Task 4: bot probe-loop Refresh — implementing
+- Phase: final-review
+- All plan tasks checked
 
 ## Done
-- Task 1–3 complete (Task 3 needed DSN fix round)
+- Tasks 1–5 complete
+- Implementation commits through 620db68 + chore checkoffs
