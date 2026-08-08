@@ -1,0 +1,506 @@
+ Makefile                                      |   6 +-
+ apps/admin-api/README.md                      |  37 ++++++++-
+ apps/admin-api/cmd/admin-api/main.go          | 107 ++++++++++++++++++++++++++
+ apps/admin-api/internal/server/server.go      |  56 ++++++++++++++
+ apps/admin-api/internal/server/server_test.go |  57 ++++++++++++++
+ configs/admin-api.example.yaml                |  18 +++++
+ internal/platform/adminconfig/config.go       |  91 ++++++++++++++++++++++
+ internal/platform/adminconfig/config_test.go  |  68 ++++++++++++++++
+ 8 files changed, 437 insertions(+), 3 deletions(-)
+diff --git a/Makefile b/Makefile
+index 685bf7b..f16f5d0 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,8 @@
+-.PHONY: build test run run-mock
++.PHONY: build test run run-mock run-admin-api
+ 
+ build:
+ 	go build -o bin/comfyui-bot ./apps/bot/cmd/comfyui-bot
++	go build -o bin/admin-api ./apps/admin-api/cmd/admin-api
+ 
+ test:
+ 	go test ./...
+@@ -11,3 +12,6 @@ run: build
+ 
+ run-mock: build
+ 	COMFY_MOCK=1 go run ./apps/bot/cmd/comfyui-bot
++
++run-admin-api:
++	go run ./apps/admin-api/cmd/admin-api
+diff --git a/apps/admin-api/README.md b/apps/admin-api/README.md
+index 7b7394c..5034eae 100644
+--- a/apps/admin-api/README.md
++++ b/apps/admin-api/README.md
+@@ -1,3 +1,36 @@
+-# Admin API (reserved)
++# Admin API
+ 
+-HTTP management API will wire Catalog + Runtime + Identity. Do not depend on channel/tg.
++独立管理 HTTP 进程：健康检查、CORS、后续实例管理 API。
++
++**本期无鉴权。** 只在本机或可信内网使用，不要对公网暴露。
++
++## 运行
++
++```bash
++# 可选：复制示例配置（DSN 必须与 bot 同一库）
++cp configs/admin-api.example.yaml configs/admin-api.yaml
++
++make run-admin-api
++# 或
++go run ./apps/admin-api/cmd/admin-api
++```
++
++默认监听 `:8081`。配置路径：`ADMIN_CONFIG` 或 `configs/admin-api.yaml`。
++
++## 健康检查
++
++```bash
++curl -s localhost:8081/healthz
++# ok
++```
++
++## 与 bot 的边界
++
++| 进程 | 端口（默认） | 职责 |
++|---|---|---|
++| bot | `:8080` | 对话 / 编排 / TG |
++| admin-api | `:8081` | 管理 HTTP（本 change 起） |
++
++两边共用同一 `database_dsn`。admin-api **不依赖** `channel/tg`。
++
++实例 CRUD/观测路由在后续任务挂载到 `/api/v1/comfy-instances`。
+diff --git a/apps/admin-api/cmd/admin-api/main.go b/apps/admin-api/cmd/admin-api/main.go
+new file mode 100644
+index 0000000..99d626b
+--- /dev/null
++++ b/apps/admin-api/cmd/admin-api/main.go
+@@ -0,0 +1,107 @@
++package main
++
++import (
++	"context"
++	"log/slog"
++	"net/http"
++	"os"
++	"os/signal"
++	"path/filepath"
++	"strings"
++	"syscall"
++	"time"
++
++	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
++	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
++	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
++)
++
++func main() {
++	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
++	slog.SetDefault(logger)
++
++	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
++	defer stop()
++
++	if err := run(ctx); err != nil {
++		slog.Error("admin-api failed", "err", err)
++		os.Exit(1)
++	}
++}
++
++func run(ctx context.Context) error {
++	cfg, err := adminconfig.Load("")
++	if err != nil {
++		return err
++	}
++
++	dsn := resolveDSN(cfg.DatabaseDSN)
++	if err := ensureDSNParent(dsn); err != nil {
++		return err
++	}
++
++	_, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
++		DSN:              dsn,
++		MigrateInstances: true,
++	})
++	if err != nil {
++		return err
++	}
++	defer func() { _ = cleanup() }()
++
++	h := server.NewHandler(server.Options{CORSOrigins: cfg.CORSOrigins})
++	addr := cfg.HTTPAddr
++	srv := &http.Server{
++		Addr:              addr,
++		Handler:           h,
++		ReadHeaderTimeout: 5 * time.Second,
++	}
++
++	errCh := make(chan error, 1)
++	go func() {
++		slog.Info("admin-api listening", "addr", addr, "dsn", dsn)
++		slog.Warn("admin-api has no auth; do not expose to the public internet")
++		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
++			errCh <- err
++		}
++		close(errCh)
++	}()
++
++	select {
++	case <-ctx.Done():
++		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
++		defer cancel()
++		return srv.Shutdown(shutdownCtx)
++	case err := <-errCh:
++		return err
++	}
++}
++
++func resolveDSN(configured string) string {
++	if configured != "" {
++		return configured
++	}
++	dataDir := os.Getenv("DATA_DIR")
++	if dataDir == "" {
++		dataDir = "data"
++	}
++	return filepath.Join(dataDir, "app.db")
++}
++
++func ensureDSNParent(dsn string) error {
++	path := dsn
++	if strings.HasPrefix(dsn, "file:") {
++		path = strings.TrimPrefix(dsn, "file:")
++		if i := strings.IndexAny(path, "?#"); i >= 0 {
++			path = path[:i]
++		}
++	}
++	if path == "" || path == ":memory:" || strings.HasPrefix(path, ":memory:") {
++		return nil
++	}
++	dir := filepath.Dir(path)
++	if dir == "." || dir == "" {
++		return nil
++	}
++	return os.MkdirAll(dir, 0o755)
++}
+diff --git a/apps/admin-api/internal/server/server.go b/apps/admin-api/internal/server/server.go
+new file mode 100644
+index 0000000..e1d2816
+--- /dev/null
++++ b/apps/admin-api/internal/server/server.go
+@@ -0,0 +1,56 @@
++package server
++
++import (
++	"net/http"
++
++	"github.com/go-chi/chi/v5"
++	"github.com/go-chi/chi/v5/middleware"
++)
++
++// Options configures the admin-api HTTP handler.
++type Options struct {
++	CORSOrigins []string
++}
++
++// NewHandler returns the admin-api chi router (health, CORS, empty instance group).
++func NewHandler(opts Options) http.Handler {
++	r := chi.NewRouter()
++	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
++	r.Use(corsMiddleware(opts.CORSOrigins))
++
++	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
++		w.WriteHeader(http.StatusOK)
++		_, _ = w.Write([]byte("ok"))
++	})
++
++	// Placeholder for Task 3: mount comfyinstances.Handler here.
++	r.Route("/api/v1/comfy-instances", func(chi.Router) {})
++
++	return r
++}
++
++func corsMiddleware(origins []string) func(http.Handler) http.Handler {
++	allowed := make(map[string]struct{}, len(origins))
++	for _, o := range origins {
++		if o == "" {
++			continue
++		}
++		allowed[o] = struct{}{}
++	}
++	return func(next http.Handler) http.Handler {
++		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++			origin := r.Header.Get("Origin")
++			if _, ok := allowed[origin]; ok {
++				w.Header().Set("Access-Control-Allow-Origin", origin)
++				w.Header().Set("Vary", "Origin")
++				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
++				w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-Request-ID")
++			}
++			if r.Method == http.MethodOptions {
++				w.WriteHeader(http.StatusNoContent)
++				return
++			}
++			next.ServeHTTP(w, r)
++		})
++	}
++}
+diff --git a/apps/admin-api/internal/server/server_test.go b/apps/admin-api/internal/server/server_test.go
+new file mode 100644
+index 0000000..60dd70f
+--- /dev/null
++++ b/apps/admin-api/internal/server/server_test.go
+@@ -0,0 +1,57 @@
++package server_test
++
++import (
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
++)
++
++func TestNewHandler_Healthz(t *testing.T) {
++	h := server.NewHandler(server.Options{
++		CORSOrigins: []string{"http://localhost:5173"},
++	})
++	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
++	rec := httptest.NewRecorder()
++	h.ServeHTTP(rec, req)
++
++	if rec.Code != http.StatusOK {
++		t.Fatalf("status=%d, want 200", rec.Code)
++	}
++	if body := strings.TrimSpace(rec.Body.String()); body != "ok" {
++		t.Fatalf("body=%q, want ok", body)
++	}
++}
++
++func TestNewHandler_CORSPreflight(t *testing.T) {
++	origin := "http://localhost:5173"
++	h := server.NewHandler(server.Options{
++		CORSOrigins: []string{origin},
++	})
++	req := httptest.NewRequest(http.MethodOptions, "/healthz", nil)
++	req.Header.Set("Origin", origin)
++	req.Header.Set("Access-Control-Request-Method", "GET")
++	rec := httptest.NewRecorder()
++	h.ServeHTTP(rec, req)
++
++	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != origin {
++		t.Fatalf("Access-Control-Allow-Origin=%q, want %q", got, origin)
++	}
++	if rec.Code != http.StatusOK && rec.Code != http.StatusNoContent {
++		t.Fatalf("preflight status=%d", rec.Code)
++	}
++}
++
++func TestNewHandler_EmptyComfyInstancesRouteGroup(t *testing.T) {
++	h := server.NewHandler(server.Options{})
++	req := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances", nil)
++	rec := httptest.NewRecorder()
++	h.ServeHTTP(rec, req)
++
++	// Empty mount group: chi returns 404 until Task 3 mounts handlers.
++	if rec.Code != http.StatusNotFound {
++		t.Fatalf("status=%d, want 404 for empty route group", rec.Code)
++	}
++}
+diff --git a/configs/admin-api.example.yaml b/configs/admin-api.example.yaml
+new file mode 100644
+index 0000000..fbd8776
+--- /dev/null
++++ b/configs/admin-api.example.yaml
+@@ -0,0 +1,18 @@
++# Admin API example config
++# Copy to configs/admin-api.yaml or set ADMIN_CONFIG=/path/to/file
++#
++# WARNING: 本期无鉴权。仅用于本机 / 可信内网联调，勿对公网暴露。
++# database_dsn 必须与 bot 指向同一库（例如同一 data/app.db）。
++
++http_addr: ":8081"
++database_dsn: "file:data/app.db?cache=shared&_pragma=foreign_keys(1)"
++
++# Local frontend origins for web/admin (Vite etc.)
++cors_origins:
++  - "http://localhost:5173"
++  - "http://127.0.0.1:5173"
++  - "http://localhost:3000"
++  - "http://127.0.0.1:3000"
++
++# Align observation with bot; override with COMFY_MOCK=0|1|true|false
++comfy_mock: true
+diff --git a/internal/platform/adminconfig/config.go b/internal/platform/adminconfig/config.go
+new file mode 100644
+index 0000000..d199e40
+--- /dev/null
++++ b/internal/platform/adminconfig/config.go
+@@ -0,0 +1,91 @@
++package adminconfig
++
++import (
++	"fmt"
++	"os"
++	"strconv"
++	"strings"
++
++	"gopkg.in/yaml.v3"
++)
++
++// Config is the admin-api process configuration (no Telegram fields).
++type Config struct {
++	HTTPAddr     string   `yaml:"http_addr"`
++	DatabaseDSN  string   `yaml:"database_dsn"`
++	CORSOrigins  []string `yaml:"cors_origins"`
++	// ComfyMock aligns observation paths with bot (COMFY_MOCK).
++	ComfyMock bool `yaml:"comfy_mock"`
++}
++
++func Default() Config {
++	return Config{
++		HTTPAddr: ":8081",
++		CORSOrigins: []string{
++			"http://localhost:5173",
++			"http://127.0.0.1:5173",
++			"http://localhost:3000",
++			"http://127.0.0.1:3000",
++		},
++		ComfyMock: true,
++	}
++}
++
++// Load reads optional YAML then applies env overrides.
++// Empty path tries ADMIN_CONFIG, then configs/admin-api.yaml; a missing default file is OK.
++func Load(path string) (Config, error) {
++	cfg := Default()
++	explicit := path != ""
++	if path == "" {
++		if v := os.Getenv("ADMIN_CONFIG"); v != "" {
++			path = v
++			explicit = true
++		} else {
++			path = "configs/admin-api.yaml"
++		}
++	}
++	raw, err := os.ReadFile(path)
++	if err != nil {
++		if os.IsNotExist(err) && !explicit {
++			applyEnv(&cfg)
++			return cfg, nil
++		}
++		return Config{}, fmt.Errorf("adminconfig: read %s: %w", path, err)
++	}
++	if err := yaml.Unmarshal(raw, &cfg); err != nil {
++		return Config{}, fmt.Errorf("adminconfig: parse %s: %w", path, err)
++	}
++	if len(cfg.CORSOrigins) == 0 {
++		cfg.CORSOrigins = Default().CORSOrigins
++	}
++	applyEnv(&cfg)
++	return cfg, nil
++}
++
++func applyEnv(cfg *Config) {
++	if v := os.Getenv("HTTP_ADDR"); v != "" {
++		cfg.HTTPAddr = v
++	}
++	if v := os.Getenv("DATA_DIR"); v != "" {
++		if cfg.DatabaseDSN == "" {
++			cfg.DatabaseDSN = strings.TrimRight(v, "/") + "/app.db"
++		}
++	}
++	if v := os.Getenv("DATABASE_DSN"); v != "" {
++		cfg.DatabaseDSN = v
++	}
++	if v := os.Getenv("COMFY_MOCK"); v != "" {
++		b, err := strconv.ParseBool(v)
++		if err != nil {
++			switch strings.ToLower(strings.TrimSpace(v)) {
++			case "1", "yes", "on":
++				b = true
++			case "0", "no", "off":
++				b = false
++			default:
++				b = cfg.ComfyMock
++			}
++		}
++		cfg.ComfyMock = b
++	}
++}
+diff --git a/internal/platform/adminconfig/config_test.go b/internal/platform/adminconfig/config_test.go
+new file mode 100644
+index 0000000..afe3b6a
+--- /dev/null
++++ b/internal/platform/adminconfig/config_test.go
+@@ -0,0 +1,68 @@
++package adminconfig_test
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
++)
++
++func TestLoad_DefaultHTTPAddr(t *testing.T) {
++	t.Setenv("ADMIN_CONFIG", "")
++	t.Setenv("HTTP_ADDR", "")
++	t.Chdir(t.TempDir())
++
++	cfg, err := adminconfig.Load("")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if cfg.HTTPAddr != ":8081" {
++		t.Fatalf("HTTPAddr=%q, want :8081", cfg.HTTPAddr)
++	}
++}
++
++func TestLoad_YAMLAndEnvOverride(t *testing.T) {
++	dir := t.TempDir()
++	path := filepath.Join(dir, "admin-api.yaml")
++	content := "http_addr: \":9000\"\ncomfy_mock: true\n"
++	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	t.Setenv("HTTP_ADDR", ":18081")
++	t.Setenv("COMFY_MOCK", "0")
++
++	cfg, err := adminconfig.Load(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if cfg.HTTPAddr != ":18081" {
++		t.Fatalf("HTTPAddr=%q, want :18081 from env", cfg.HTTPAddr)
++	}
++	if cfg.ComfyMock {
++		t.Fatal("COMFY_MOCK=0 should disable mock")
++	}
++}
++
++func TestLoad_DefaultCORSOrigins(t *testing.T) {
++	t.Setenv("ADMIN_CONFIG", "")
++	t.Chdir(t.TempDir())
++
++	cfg, err := adminconfig.Load("")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(cfg.CORSOrigins) == 0 {
++		t.Fatal("default CORSOrigins should allow local frontend sources")
++	}
++	found := false
++	for _, o := range cfg.CORSOrigins {
++		if o == "http://localhost:5173" {
++			found = true
++			break
++		}
++	}
++	if !found {
++		t.Fatalf("CORSOrigins=%v, want http://localhost:5173", cfg.CORSOrigins)
++	}
++}
