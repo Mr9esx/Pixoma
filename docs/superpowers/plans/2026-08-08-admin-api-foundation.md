@@ -2,6 +2,7 @@
 change: admin-api-foundation
 design-doc: docs/superpowers/specs/2026-08-08-admin-api-foundation-design.md
 base-ref: 5b8ca1cb37a00497ab3e50c03a11a9483a900f86
+archived-with: 2026-08-08-admin-api-foundation
 ---
 
 ---
