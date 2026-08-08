@@ -12,3 +12,10 @@ telegram_bot_token: "" # prefer env TG_BOT_TOKEN / TELEGRAM_BOT_TOKEN
 # One-switch ComfyUI mock: true = in-process PNG mock; false = real HTTP ComfyUI.
 # Override anytime with COMFY_MOCK=0|1|true|false
 comfy_mock: true
+
+# 可选：多实例种子（优先于仅用 comfyui_base_url 的单实例 upsert）
+# comfy_instances:
+#   - id: gpu-1
+#     base_url: "http://127.0.0.1:8188"
+#     enabled: true
+# health_probe_interval: 30s
