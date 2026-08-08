@@ -20,7 +20,7 @@ type Config struct {
 
 func Default() Config {
 	return Config{
-		HTTPAddr: ":8081",
+		HTTPAddr: "127.0.0.1:8081",
 		CORSOrigins: []string{
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",

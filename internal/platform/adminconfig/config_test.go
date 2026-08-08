@@ -8,17 +8,10 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
 )
 
-func TestLoad_DefaultHTTPAddr(t *testing.T) {
-	t.Setenv("ADMIN_CONFIG", "")
-	t.Setenv("HTTP_ADDR", "")
-	t.Chdir(t.TempDir())
-
-	cfg, err := adminconfig.Load("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.HTTPAddr != ":8081" {
-		t.Fatalf("HTTPAddr=%q, want :8081", cfg.HTTPAddr)
+func TestDefault_HTTPAddr(t *testing.T) {
+	cfg := adminconfig.Default()
+	if cfg.HTTPAddr != "127.0.0.1:8081" {
+		t.Fatalf("HTTPAddr=%q, want 127.0.0.1:8081", cfg.HTTPAddr)
 	}
 }
 
