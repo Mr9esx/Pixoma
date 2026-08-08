@@ -76,7 +76,7 @@ make run               # COMFY_MOCK=0（需可达 ComfyUI）
 
 > **无鉴权警示**：`/api/v1/comfy-instances*` **当前无鉴权**，仅可在本机或可信内网暴露；勿对公网开放。
 >
-> 实例管理已从 bot（`:8080`）迁到 **admin-api（默认 `:8081`）**，两边共用同一 `database_dsn` / `data/app.db`。
+> 实例管理已从 bot（`:8080`）迁到 **admin-api（默认 `127.0.0.1:8081`）**，两边共用同一 `database_dsn` / `data/app.db`。
 
 ```bash
 # 启动管理面（与 bot 同库）

@@ -15,7 +15,7 @@ make run-admin-api
 go run ./apps/admin-api/cmd/admin-api
 ```
 
-默认监听 `:8081`。配置路径：`ADMIN_CONFIG` 或 `configs/admin-api.yaml`；`HTTP_ADDR`、`DATABASE_DSN`、`COMFY_MOCK` 可覆盖对应配置。
+默认监听 `127.0.0.1:8081`。配置路径：`ADMIN_CONFIG` 或 `configs/admin-api.yaml`；`HTTP_ADDR`、`DATABASE_DSN`、`COMFY_MOCK` 可覆盖对应配置。
 
 与 bot 共用同一 `database_dsn`（例如 `data/app.db`）。`comfy_mock` 与观测路径对齐 bot。
 
@@ -49,7 +49,7 @@ curl -s 'localhost:8081/api/v1/comfy-instances/gpu-1/tasks?limit=20'
 | 进程 | 端口（默认） | 职责 |
 |---|---|---|
 | bot | `:8080` | 对话 / 编排 / TG；仅保留 `/healthz` |
-| admin-api | `:8081` | 实例管理 HTTP（无鉴权） |
+| admin-api | `127.0.0.1:8081` | 实例管理 HTTP（无鉴权） |
 
 admin-api **不依赖** `channel/tg`。bot 上旧的 `/api/v1/comfy-instances*` 已卸下。
 
