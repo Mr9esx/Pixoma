@@ -191,7 +191,7 @@ EOF
 **Interfaces:**
 - Produces: 访问 `/` 无需登录即可看到侧栏布局（内容可仍是占位）
 
-- [ ] **Step 1: 定位鉴权入口**
+- [x] **Step 1: 定位鉴权入口**
 
 ```bash
 cd web/admin
@@ -200,7 +200,7 @@ rg -n "Clerk|SignedIn|auth|beforeLoad|redirect.*sign-in|login" src/routes src/ma
 
 记录所有强制跳转登录的 `beforeLoad` / Provider。
 
-- [ ] **Step 2: 移除 Auth Provider 与登录路由**
+- [x] **Step 2: 移除 Auth Provider 与登录路由**
 
 在 `main.tsx`（示意）：
 
@@ -227,7 +227,7 @@ export function App() {
 
 删除 `(auth)`、`clerk` 路由文件；从 `package.json` 移除 `@clerk/*` 依赖后 `pnpm install`。
 
-- [ ] **Step 3: 建立无鉴权 `_app` 布局路由**
+- [x] **Step 3: 建立无鉴权 `_app` 布局路由**
 
 `web/admin/src/routes/_app.tsx`：
 
@@ -271,7 +271,7 @@ export const Route = createFileRoute('/_app/')({
 
 未知路径：在 `__root.tsx` 或专用 `$.tsx` 重定向到 `/`。
 
-- [ ] **Step 4: 重新生成路由树并手测**
+- [x] **Step 4: 重新生成路由树并手测**
 
 ```bash
 cd web/admin && pnpm exec tsr generate && pnpm dev
@@ -279,7 +279,7 @@ cd web/admin && pnpm exec tsr generate && pnpm dev
 
 手测：打开 `/` → 无登录页；侧栏/顶栏布局可见。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/admin
