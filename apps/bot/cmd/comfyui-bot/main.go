@@ -23,6 +23,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/notifybridge"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
+	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
@@ -64,10 +65,11 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(gdb, &persistence.CaseRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.CaseRow{}, &identitypersist.UserRow{}); err != nil {
 		return err
 	}
 	caseRepo := persistence.NewGormRepository(gdb)
+	userRepo := identitypersist.NewUserRepository(gdb)
 	if n, err := seedCasesDir(ctx, caseRepo, cfg.CaseSeedDir); err != nil {
 		slog.Warn("seed cases", "err", err)
 	} else {
@@ -146,6 +148,7 @@ func run(ctx context.Context) error {
 		messenger = &tg.BotMessenger{Bot: tgBot, Blob: blobStore}
 	}
 	*tgAdapter = *tg.New(facade, messenger)
+	tgAdapter.Users = userRepo
 
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskCreated, func(ctx context.Context, msg queue.Message) error {
 		var ev sharedkernel.TaskCreated
