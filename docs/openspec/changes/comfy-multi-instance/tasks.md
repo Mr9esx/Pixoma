@@ -29,3 +29,15 @@
 
 - [x] 5.1 相关 `go test` 通过
 - [x] 5.2 按 README 可管理实例、查 system/queue、查实例任务；重启后 Session/Task/User 仍在
+
+## Review notes (build exit)
+
+Critical C1–C3 and Important I3/I5 fixed in `1990a6d`.
+
+Accepted for later (non-blocking Important from final-review.md):
+- I1: upsert failure UX (log-only empty user_id)
+- I2: notify retry after terminal status
+- I4: configurable health_probe_timeout
+- I6: remaining test gaps beyond C1/C2/I3 coverage
+- I7: active session uniqueness / ORDER BY
+
