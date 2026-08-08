@@ -121,6 +121,64 @@ func TestSeedFromConfig_SingleBaseURL(t *testing.T) {
 	}
 }
 
+func TestPool_AfterRefreshCalledWithInstances(t *testing.T) {
+	dsn := "file:comfy_after_refresh_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &persistence.InstanceRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := persistence.NewInstanceRepository(gdb)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	if err := repo.Upsert(ctx, &instance.Record{
+		ID: "gpu-1", BaseURL: "http://127.0.0.1:8188", Enabled: true,
+		CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var seen []sharedkernel.InstanceID
+	pool := instance.NewPool(repo, instance.PoolOptions{Mock: true})
+	pool.SetAfterRefresh(func(instances []instance.Instance) {
+		seen = nil
+		for _, inst := range instances {
+			seen = append(seen, inst.ID)
+		}
+	})
+	if err := pool.Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 1 || seen[0] != "gpu-1" {
+		t.Fatalf("after first refresh seen=%v", seen)
+	}
+
+	if err := repo.Upsert(ctx, &instance.Record{
+		ID: "gpu-new", BaseURL: "http://127.0.0.1:8190", Enabled: true,
+		CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 2 {
+		t.Fatalf("after second refresh seen=%v want 2 ids", seen)
+	}
+	found := false
+	for _, id := range seen {
+		if id == "gpu-new" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("seen=%v missing gpu-new", seen)
+	}
+}
+
 func TestPool_ProbeMarksUnhealthy(t *testing.T) {
 	dsn := "file:comfy_probe_test_" + t.Name() + "?mode=memory&cache=shared"
 	gdb, err := db.Open(db.Options{DSN: dsn})

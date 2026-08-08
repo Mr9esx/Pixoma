@@ -202,13 +202,20 @@ func run(ctx context.Context) error {
 		}
 		return worker.HandleDispatch(ctx, cmd)
 	}
-	for _, inst := range pool.List() {
-		topic := inst.DispatchTopic
-		if topic == "" {
-			topic = sharedkernel.TopicDispatch(inst.ID)
+	var dispatchSubs queue.SubscriptionSet
+	ensureDispatchSubs := func(instances []instance.Instance) {
+		for _, inst := range instances {
+			topic := inst.DispatchTopic
+			if topic == "" {
+				topic = sharedkernel.TopicDispatch(inst.ID)
+			}
+			if err := dispatchSubs.Ensure(ctx, bus, topic, dispatchHandler); err != nil {
+				slog.Warn("dispatch subscribe", "topic", topic, "err", err)
+			}
 		}
-		_ = bus.Subscribe(ctx, topic, dispatchHandler)
 	}
+	pool.SetAfterRefresh(ensureDispatchSubs)
+	ensureDispatchSubs(pool.List())
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskStatus, func(ctx context.Context, msg queue.Message) error {
 		var ev sharedkernel.TaskStatusEvent
 		if err := json.Unmarshal(msg.Payload, &ev); err != nil {

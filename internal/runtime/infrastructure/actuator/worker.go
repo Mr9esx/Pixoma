@@ -14,13 +14,14 @@ import (
 )
 
 // CaseSnapshotProvider supplies workflow graph for a task (Phase1: injected map).
+// uploader is the per-dispatch Comfy client used for image uploads (may be nil).
 type CaseSnapshotProvider interface {
-	WorkflowForTask(ctx context.Context, taskID sharedkernel.TaskID) (comfyui.Graph, error)
+	WorkflowForTask(ctx context.Context, taskID sharedkernel.TaskID, uploader ImageUploader) (comfyui.Graph, error)
 }
 
 type StaticWorkflows map[sharedkernel.TaskID]comfyui.Graph
 
-func (s StaticWorkflows) WorkflowForTask(_ context.Context, taskID sharedkernel.TaskID) (comfyui.Graph, error) {
+func (s StaticWorkflows) WorkflowForTask(_ context.Context, taskID sharedkernel.TaskID, _ ImageUploader) (comfyui.Graph, error) {
 	g, ok := s[taskID]
 	if !ok {
 		return comfyui.Graph{"1": map[string]any{}}, nil
@@ -48,7 +49,7 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 		return w.fail(ctx, ev, "comfy_client", err.Error(), now)
 	}
 
-	graph, err := w.Workflows.WorkflowForTask(ctx, ev.TaskID)
+	graph, err := w.Workflows.WorkflowForTask(ctx, ev.TaskID, cli)
 	if err != nil {
 		return w.fail(ctx, ev, "workflow", err.Error(), now)
 	}

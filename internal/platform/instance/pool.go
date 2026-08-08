@@ -13,6 +13,8 @@ import (
 // PoolOptions configures client construction when Refresh runs.
 type PoolOptions struct {
 	Mock bool
+	// AfterRefresh is invoked after a successful Refresh with the new List().
+	AfterRefresh func(instances []Instance)
 }
 
 type pooled struct {
@@ -27,17 +29,26 @@ type Pool struct {
 	repo Repository
 	opts PoolOptions
 
-	mu   sync.RWMutex
-	byID map[sharedkernel.InstanceID]*pooled
+	mu            sync.RWMutex
+	byID          map[sharedkernel.InstanceID]*pooled
+	afterRefresh  func(instances []Instance)
 }
 
 // NewPool constructs a Pool. Call Refresh after seeding the repository.
 func NewPool(repo Repository, opts PoolOptions) *Pool {
 	return &Pool{
-		repo: repo,
-		opts: opts,
-		byID: make(map[sharedkernel.InstanceID]*pooled),
+		repo:         repo,
+		opts:         opts,
+		byID:         make(map[sharedkernel.InstanceID]*pooled),
+		afterRefresh: opts.AfterRefresh,
 	}
+}
+
+// SetAfterRefresh sets a callback invoked after each successful Refresh.
+func (p *Pool) SetAfterRefresh(fn func(instances []Instance)) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.afterRefresh = fn
 }
 
 // Refresh rebuilds the client map from the repository.
@@ -89,7 +100,11 @@ func (p *Pool) Refresh(ctx context.Context) error {
 
 	p.mu.Lock()
 	p.byID = next
+	cb := p.afterRefresh
 	p.mu.Unlock()
+	if cb != nil {
+		cb(p.List())
+	}
 	return nil
 }
 

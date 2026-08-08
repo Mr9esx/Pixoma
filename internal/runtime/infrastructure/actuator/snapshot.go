@@ -31,7 +31,7 @@ type CaseSnapshot struct {
 	Uploader ImageUploader
 }
 
-func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.TaskID) (comfyui.Graph, error) {
+func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.TaskID, uploader ImageUploader) (comfyui.Graph, error) {
 	if s == nil || s.Tasks == nil || s.Cases == nil || s.Blob == nil {
 		return nil, fmt.Errorf("actuator: CaseSnapshot not configured")
 	}
@@ -55,6 +55,12 @@ func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.
 		return nil, fmt.Errorf("actuator: copy workflow: %w", err)
 	}
 
+	// Prefer per-dispatch uploader; fall back to struct field. Never mutate s.Uploader.
+	upload := uploader
+	if upload == nil {
+		upload = s.Uploader
+	}
+
 	bindings := indexBindings(c.Document.Bindings.Inputs)
 	for _, field := range c.Document.Inputs {
 		val, ok, err := s.loadStaged(ctx, task.InputPrefix, field)
@@ -75,7 +81,7 @@ func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.
 
 		switch field.Type {
 		case "image":
-			remote, err := s.uploadStagedImage(ctx, val.blob)
+			remote, err := s.uploadStagedImage(ctx, upload, val.blob)
 			if err != nil {
 				return nil, err
 			}
@@ -156,8 +162,8 @@ func (s *CaseSnapshot) loadStaged(ctx context.Context, prefix string, field cata
 	}
 }
 
-func (s *CaseSnapshot) uploadStagedImage(ctx context.Context, ref sharedkernel.BlobRef) (string, error) {
-	if s.Uploader == nil {
+func (s *CaseSnapshot) uploadStagedImage(ctx context.Context, uploader ImageUploader, ref sharedkernel.BlobRef) (string, error) {
+	if uploader == nil {
 		return "", fmt.Errorf("actuator: image uploader not configured")
 	}
 	rc, err := s.Blob.Get(ctx, ref)
@@ -177,7 +183,7 @@ func (s *CaseSnapshot) uploadStagedImage(ctx context.Context, ref sharedkernel.B
 	if mime == "" {
 		mime = "application/octet-stream"
 	}
-	remote, err := s.Uploader.UploadImage(ctx, filename, mime, data)
+	remote, err := uploader.UploadImage(ctx, filename, mime, data)
 	if err != nil {
 		return "", fmt.Errorf("actuator: upload image %s: %w", ref.Key, err)
 	}
