@@ -119,7 +119,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 
 	sessRepo := convdomain.NewMemoryRepository()
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "s1" }, func() time.Time { return now })
-	_, _ = sessSvc.StartCase(ctx, 42, "text2img-demo", []string{"prompt"})
+	_, _ = sessSvc.StartCase(ctx, 42, "user-smoke", "text2img-demo", []string{"prompt"})
 	p := "cat"
 	_, _ = sessSvc.SubmitInput(ctx, 42, convdomain.DraftValue{Text: &p})
 
@@ -272,7 +272,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 
 	sessRepo := convdomain.NewMemoryRepository()
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "s-img" }, func() time.Time { return now })
-	_, _ = sessSvc.StartCase(ctx, 77, "img-edit-smoke", []string{"reference", "prompt"})
+	_, _ = sessSvc.StartCase(ctx, 77, "user-img", "img-edit-smoke", []string{"reference", "prompt"})
 	_, _ = sessSvc.SubmitInput(ctx, 77, convdomain.DraftValue{Blob: &ref})
 	prompt := "make it anime"
 	_, _ = sessSvc.SubmitInput(ctx, 77, convdomain.DraftValue{Text: &prompt})

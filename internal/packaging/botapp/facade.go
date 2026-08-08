@@ -11,6 +11,7 @@ import (
 
 type StartCaseCmd struct {
 	ChatID    sharedkernel.ChatID
+	UserID    string
 	CaseID    sharedkernel.CaseID
 	InputKeys []string
 }
@@ -37,7 +38,7 @@ func (f *Facade) StartCase(ctx context.Context, cmd StartCaseCmd) (*SessionView,
 			keys = append(keys, in.Key)
 		}
 	}
-	s, err := f.Sessions.StartCase(ctx, cmd.ChatID, cmd.CaseID, keys)
+	s, err := f.Sessions.StartCase(ctx, cmd.ChatID, cmd.UserID, cmd.CaseID, keys)
 	if err != nil {
 		return nil, err
 	}
