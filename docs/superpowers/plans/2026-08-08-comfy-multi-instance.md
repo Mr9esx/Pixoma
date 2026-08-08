@@ -60,7 +60,7 @@ base-ref: 01c3b2c1c302769da85b1e73c6689839d70291f0
 
 ---
 
-## 任务 1：User 持久化与 TG upsert（tasks.md 1.1）
+## Task 1: User 持久化与 TG upsert（tasks.md 1.1）
 
 **Files:**
 - Create: `internal/identity/domain/user.go`
@@ -140,7 +140,7 @@ git commit -m "feat(identity): persist users and upsert from TG From"
 
 ---
 
-## 任务 2：Session GORM 持久化（tasks.md 1.2）
+## Task 2: Session GORM 持久化（tasks.md 1.2）
 
 **Files:**
 - Modify: `internal/conversation/domain/session.go`
@@ -224,7 +224,7 @@ git commit -m "feat(conversation): persist sessions with user_id in SQLite"
 
 ---
 
-## 任务 3：Task GORM 持久化（tasks.md 1.3）
+## Task 3: Task GORM 持久化（tasks.md 1.3）
 
 **Files:**
 - Modify: `internal/runtime/domain/task.go`
@@ -310,7 +310,7 @@ git commit -m "feat(runtime): persist tasks with session_id and ListByInstance"
 
 ---
 
-## 任务 4：ConfirmRun 写 session_id + 通知 join chat（tasks.md 1.4）
+## Task 4: ConfirmRun 写 session_id + 通知 join chat（tasks.md 1.4）
 
 **Files:**
 - Modify: `internal/packaging/botapp/confirm_run.go`
@@ -389,7 +389,7 @@ git commit -m "feat: ConfirmRun persists session_id; notify joins Session.chat_i
 
 ---
 
-## 任务 4b：去掉 Ledger，对账只信 Task（tasks.md 1.5）
+## Task 5: 去掉 Ledger，对账只信 Task（tasks.md 1.5）
 
 **Files:**
 - Modify: `internal/runtime/infrastructure/actuator/worker.go`（移除 Ledger 字段与 Save/GetRun 对 Ledger 的依赖）
@@ -423,7 +423,7 @@ git commit -m "refactor(runtime): drop actuator ledger; reconcile from Task only
 
 ---
 
-## 任务 5：comfy_instances 仓储 + 客户端池种子（tasks.md 2.1）
+## Task 6: comfy_instances 仓储 + 客户端池种子（tasks.md 2.1）
 
 **Files:**
 - Create: `internal/platform/instance/record.go`
@@ -503,7 +503,7 @@ git commit -m "feat(instance): persist comfy_instances and in-process client poo
 
 ---
 
-## 任务 6：HTTP CRUD + SystemStats/Queue + 观测 API（tasks.md 2.2–2.4）
+## Task 7: HTTP CRUD + SystemStats/Queue + 观测 API（tasks.md 2.2–2.4）
 
 **Files:**
 - Modify: `internal/runtime/infrastructure/comfyui/client.go`
@@ -603,7 +603,7 @@ git commit -m "feat: comfy instance HTTP CRUD and system/queue/tasks APIs"
 
 ---
 
-## 任务 7：健康探测 + round-robin + Actuator 按 InstanceID（tasks.md 3.1–3.3）
+## Task 8: 健康探测 + round-robin + Actuator 按 InstanceID（tasks.md 3.1–3.3）
 
 **Files:**
 - Modify: `internal/platform/instance/pool.go`（健康 map + Probe）
@@ -672,7 +672,7 @@ git commit -m "feat: health probe, round-robin dispatch, per-instance actuator c
 
 ---
 
-## 任务 8：Makefile、README、配置注释与验收（tasks.md 4–5）
+## Task 9: Makefile、README、配置注释与验收（tasks.md 4–5）
 
 **Files:**
 - Create: `Makefile`
