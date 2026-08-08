@@ -4,7 +4,7 @@
 - [x] 1.2 新增 `sessions` 表与 GORM 仓储；替换 Memory；含 user_id + chat_id；活跃查询；长期保留
 - [x] 1.3 新增 `tasks` 表与 GORM 仓储；替换 Memory；必填 session_id；支持 ListByInstance / 经 Session 列「我的任务」
 - [x] 1.4 ConfirmRun 与通知路径：创建 Task 写 session_id；回图 join Session.chat_id；补测试
-- [ ] 1.5 去掉 Actuator Ledger：对账/GetRun 只读 Task；删除 MemoryLedger 接线与依赖
+- [x] 1.5 去掉 Actuator Ledger：对账/GetRun 只读 Task；删除 MemoryLedger 接线与依赖
 
 ## 2. 实例池与观测
 
