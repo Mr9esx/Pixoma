@@ -1,0 +1,19 @@
+{
+  "change": "comfy-multi-instance",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "29df51d575c2be2dfdc6e6dad8cd0cf8315e2bdb467785dd9b31e921330dac50",
+  "files": [
+    { "path": "docs/openspec/changes/comfy-multi-instance/proposal.md", "sha256": "8667813fa03c929dcfd2ca24140e144d0a551ff84953a4c79eccb4dd4555627c" },
+    { "path": "docs/openspec/changes/comfy-multi-instance/design.md", "sha256": "f7d3a6f8309093379cc6f659c4ef56a611cff1c846fd435c54cb2b0c615dbe10" },
+    { "path": "docs/openspec/changes/comfy-multi-instance/tasks.md", "sha256": "2b2f070101930807607459be102a6906dbc849bdb197d031531973b9ab09bdb7" },
+    { "path": "docs/openspec/changes/comfy-multi-instance/specs/comfy-instance-pool/spec.md", "sha256": "43762f128cc84a2d70011c97bafdac5986a0f5b7678289d2bc23fa57b87bf745" },
+    { "path": "docs/openspec/changes/comfy-multi-instance/specs/comfyui-executor/spec.md", "sha256": "daf4ad3627fa6841e5e2e414c3d76802e4c167a534e4ec78b62f12f371e35b49" },
+    { "path": "docs/openspec/changes/comfy-multi-instance/specs/session-persistence/spec.md", "sha256": "bcb4384a0f3b4bac13d1f8a0ed60f326df451d3bf2bb1b9485e2880a33a0b2fd" },
+    { "path": "docs/openspec/changes/comfy-multi-instance/specs/task-orchestrator/spec.md", "sha256": "90ab306356861ac2ae0dd9820be98420cacd4a1f4932b74aaaaf7f14dd3cce6f" },
+    { "path": "docs/openspec/changes/comfy-multi-instance/specs/task-persistence/spec.md", "sha256": "c9316f7f4c29fcf7d942b5b1befe3c654c0b29ac5794794f618a7b01cb2e8401" },
+    { "path": "docs/openspec/changes/comfy-multi-instance/specs/user-directory/spec.md", "sha256": "462622d10a54c3e012d4a923d7ce5c855da73aa144dbcee4cff630caa9e543b1" }
+  ]
+}
