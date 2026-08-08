@@ -76,7 +76,7 @@ flowchart TB
 | 路径 | 角色 |
 |---|---|
 | `apps/bot/cmd/comfyui-bot` | **唯一可运行入口**（组装与生命周期） |
-| `apps/admin-api` | 预留管理 API（约定不依赖 `channel/tg`） |
+| `apps/admin-api` | 管理 HTTP（实例 + Case/User/Session/Task；约定不依赖 `channel/tg`） |
 | `internal/catalog` | Case 目录与协议校验 |
 | `internal/conversation` | 填表 Session（不含 Task 执行） |
 | `internal/identity` | User（TG From upsert） |
