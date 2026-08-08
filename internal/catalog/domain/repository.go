@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -20,12 +21,15 @@ type Case struct {
 }
 
 type ListQuery struct {
-	Tag      string
-	MenuKey  string
-	Category string
-	Enabled  *bool // nil = all
-	Limit    int
-	Offset   int
+	Tag         string
+	MenuKey     string
+	Category    string
+	Enabled     *bool // nil = all
+	Q           string
+	CreatedFrom *time.Time
+	CreatedTo   *time.Time
+	Limit       int
+	Offset      int
 }
 
 type Repository interface {
@@ -35,4 +39,5 @@ type Repository interface {
 	Get(ctx context.Context, id sharedkernel.CaseID) (*Case, error)
 	List(ctx context.Context, q ListQuery) ([]*Case, error)
 	Disable(ctx context.Context, id sharedkernel.CaseID) error
+	Enable(ctx context.Context, id sharedkernel.CaseID) error
 }

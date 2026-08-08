@@ -90,6 +90,16 @@ func (r *GormRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 	if q.Category != "" {
 		tx = tx.Where("cats_json LIKE ?", "%\""+q.Category+"\"%")
 	}
+	if q.Q != "" {
+		like := "%" + q.Q + "%"
+		tx = tx.Where("id LIKE ? OR name LIKE ?", like, like)
+	}
+	if q.CreatedFrom != nil {
+		tx = tx.Where("created_at >= ?", *q.CreatedFrom)
+	}
+	if q.CreatedTo != nil {
+		tx = tx.Where("created_at <= ?", *q.CreatedTo)
+	}
 	if q.Limit > 0 {
 		tx = tx.Limit(q.Limit)
 	}
@@ -113,6 +123,17 @@ func (r *GormRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 
 func (r *GormRepository) Disable(ctx context.Context, id sharedkernel.CaseID) error {
 	res := r.db.WithContext(ctx).Model(&CaseRow{}).Where("id = ?", string(id)).Update("enabled", false)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
+func (r *GormRepository) Enable(ctx context.Context, id sharedkernel.CaseID) error {
+	res := r.db.WithContext(ctx).Model(&CaseRow{}).Where("id = ?", string(id)).Update("enabled", true)
 	if res.Error != nil {
 		return res.Error
 	}

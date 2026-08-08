@@ -48,6 +48,7 @@ func (r *memCases) List(context.Context, domain.ListQuery) ([]*domain.Case, erro
 	return nil, nil
 }
 func (r *memCases) Disable(context.Context, sharedkernel.CaseID) error { return nil }
+func (r *memCases) Enable(context.Context, sharedkernel.CaseID) error  { return nil }
 
 type capturePub struct {
 	msgs []queue.Message

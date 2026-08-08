@@ -92,6 +92,7 @@ func (r *memCases) List(context.Context, catalogdomain.ListQuery) ([]*catalogdom
 }
 
 func (r *memCases) Disable(context.Context, sharedkernel.CaseID) error { return nil }
+func (r *memCases) Enable(context.Context, sharedkernel.CaseID) error  { return nil }
 
 func textWorkflowCase() catalogdomain.CaseDocument {
 	return catalogdomain.CaseDocument{
