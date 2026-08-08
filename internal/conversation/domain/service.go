@@ -2,26 +2,35 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
+var ErrEmptyUserID = errors.New("empty user id")
+
 type Repository interface {
 	GetActiveByChat(ctx context.Context, chatID sharedkernel.ChatID) (*Session, error)
+	GetByID(ctx context.Context, id sharedkernel.SessionID) (*Session, error)
 	Save(ctx context.Context, s *Session) error
 	ClearActive(ctx context.Context, chatID sharedkernel.ChatID) error
 }
 
-// MemoryRepository is an in-memory active-session store for tests and Phase1.
+// MemoryRepository is an in-memory session store for tests.
+// Inactive sessions are retained by ID (no physical delete) for Task join.
 type MemoryRepository struct {
-	mu   sync.Mutex
-	byChat map[sharedkernel.ChatID]*Session
+	mu     sync.Mutex
+	byChat map[sharedkernel.ChatID]*Session // active index only
+	byID   map[sharedkernel.SessionID]*Session
 }
 
 func NewMemoryRepository() *MemoryRepository {
-	return &MemoryRepository{byChat: map[sharedkernel.ChatID]*Session{}}
+	return &MemoryRepository{
+		byChat: map[sharedkernel.ChatID]*Session{},
+		byID:   map[sharedkernel.SessionID]*Session{},
+	}
 }
 
 func (r *MemoryRepository) GetActiveByChat(_ context.Context, chatID sharedkernel.ChatID) (*Session, error) {
@@ -31,19 +40,26 @@ func (r *MemoryRepository) GetActiveByChat(_ context.Context, chatID sharedkerne
 	if !ok || !s.Status.IsActive() {
 		return nil, ErrNoActiveSession
 	}
-	cp := *s
-	return &cp, nil
+	return cloneSession(s), nil
+}
+
+func (r *MemoryRepository) GetByID(_ context.Context, id sharedkernel.SessionID) (*Session, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	s, ok := r.byID[id]
+	if !ok {
+		return nil, ErrNoActiveSession
+	}
+	return cloneSession(s), nil
 }
 
 func (r *MemoryRepository) Save(_ context.Context, s *Session) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	cp := *s
-	if cp.Draft != nil {
-		cp.Draft = copyDraft(s.Draft)
-	}
+	cp := cloneSession(s)
+	r.byID[s.ID] = cp
 	if s.Status.IsActive() {
-		r.byChat[s.ChatID] = &cp
+		r.byChat[s.ChatID] = cp
 	} else {
 		delete(r.byChat, s.ChatID)
 	}
@@ -55,6 +71,17 @@ func (r *MemoryRepository) ClearActive(_ context.Context, chatID sharedkernel.Ch
 	defer r.mu.Unlock()
 	delete(r.byChat, chatID)
 	return nil
+}
+
+func cloneSession(s *Session) *Session {
+	cp := *s
+	if s.Draft != nil {
+		cp.Draft = copyDraft(s.Draft)
+	}
+	if s.InputKeys != nil {
+		cp.InputKeys = append([]string(nil), s.InputKeys...)
+	}
+	return &cp
 }
 
 func copyDraft(in map[string]DraftValue) map[string]DraftValue {
@@ -82,13 +109,17 @@ func NewService(repo Repository, idGen IDGen, now Clock) *Service {
 	return &Service{repo: repo, idGen: idGen, now: now}
 }
 
-func (svc *Service) StartCase(ctx context.Context, chatID sharedkernel.ChatID, caseID sharedkernel.CaseID, inputKeys []string) (*Session, error) {
+func (svc *Service) StartCase(ctx context.Context, chatID sharedkernel.ChatID, userID string, caseID sharedkernel.CaseID, inputKeys []string) (*Session, error) {
+	if userID == "" {
+		return nil, ErrEmptyUserID
+	}
 	if cur, err := svc.repo.GetActiveByChat(ctx, chatID); err == nil && cur.Status.IsActive() {
 		return nil, ErrSessionLocked
 	} else if err != nil && err != ErrNoActiveSession {
 		return nil, err
 	}
 	s := NewCollecting(svc.idGen(), chatID, caseID, inputKeys, svc.now())
+	s.UserID = userID
 	if err := svc.repo.Save(ctx, s); err != nil {
 		return nil, err
 	}

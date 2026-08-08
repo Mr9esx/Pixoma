@@ -221,13 +221,13 @@ func documentMIME(d *models.Document) string {
 	}
 }
 
-func upsertFromTGUser(ctx context.Context, ad *Adapter, from *models.User) {
+func upsertFromTGUser(ctx context.Context, ad *Adapter, from *models.User) string {
 	if ad == nil || from == nil {
-		return
+		return ""
 	}
 	isBot := from.IsBot
 	isPremium := from.IsPremium
-	if _, err := ad.UpsertFromTG(ctx, identitydomain.UpsertFrom{
+	id, err := ad.UpsertFromTG(ctx, identitydomain.UpsertFrom{
 		TgUserID:     from.ID,
 		Username:     from.Username,
 		FirstName:    from.FirstName,
@@ -235,9 +235,12 @@ func upsertFromTGUser(ctx context.Context, ad *Adapter, from *models.User) {
 		LanguageCode: from.LanguageCode,
 		IsBot:        &isBot,
 		IsPremium:    &isPremium,
-	}); err != nil {
+	})
+	if err != nil {
 		slog.Error("tg upsert user", "err", err, "tg_user_id", from.ID)
+		return ""
 	}
+	return id
 }
 
 // RegisterHandlers wires message + callback handlers.
@@ -248,16 +251,16 @@ func RegisterHandlers(b *bot.Bot, ad *Adapter) {
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
 		return update.Message != nil && update.Message.Text != ""
 	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
-		upsertFromTGUser(ctx, ad, update.Message.From)
+		userID := upsertFromTGUser(ctx, ad, update.Message.From)
 		chatID := update.Message.Chat.ID
-		if err := ad.HandleText(ctx, chatID, update.Message.Text); err != nil {
+		if err := ad.HandleText(ctx, chatID, update.Message.Text, userID); err != nil {
 			slog.Error("tg handle text", "err", err, "chat_id", chatID)
 		}
 	})
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
 		return update.Message != nil && len(update.Message.Photo) > 0
 	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
-		upsertFromTGUser(ctx, ad, update.Message.From)
+		_ = upsertFromTGUser(ctx, ad, update.Message.From)
 		chatID := update.Message.Chat.ID
 		photos := update.Message.Photo
 		best := photos[len(photos)-1]
@@ -268,7 +271,7 @@ func RegisterHandlers(b *bot.Bot, ad *Adapter) {
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
 		return update.Message != nil && isImageDocument(update.Message.Document)
 	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
-		upsertFromTGUser(ctx, ad, update.Message.From)
+		_ = upsertFromTGUser(ctx, ad, update.Message.From)
 		chatID := update.Message.Chat.ID
 		doc := update.Message.Document
 		if err := ad.HandleUserMedia(ctx, chatID, doc.FileID, documentMIME(doc)); err != nil {
@@ -279,12 +282,12 @@ func RegisterHandlers(b *bot.Bot, ad *Adapter) {
 		return update.CallbackQuery != nil
 	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
 		cq := update.CallbackQuery
-		upsertFromTGUser(ctx, ad, &cq.From)
+		userID := upsertFromTGUser(ctx, ad, &cq.From)
 		chatID := cq.From.ID
 		if cq.Message.Message != nil {
 			chatID = cq.Message.Message.Chat.ID
 		}
-		if err := ad.HandleCallback(ctx, chatID, cq.ID, cq.Data); err != nil {
+		if err := ad.HandleCallback(ctx, chatID, cq.ID, cq.Data, userID); err != nil {
 			slog.Error("tg handle callback", "err", err, "chat_id", chatID)
 		}
 	})

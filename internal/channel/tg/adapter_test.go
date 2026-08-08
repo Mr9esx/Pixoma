@@ -132,7 +132,7 @@ func newFacade(cases *memCases) *botapp.Facade {
 func TestStartShowsMenu(t *testing.T) {
 	out := &memOut{}
 	ad := tg.New(newFacade(&memCases{}), out)
-	if err := ad.HandleText(context.Background(), 1, "/start"); err != nil {
+	if err := ad.HandleText(context.Background(), 1, "/start", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.menus) == 0 || !strings.Contains(out.menus[0], "欢迎") {
@@ -148,14 +148,14 @@ func TestImageListAndPreviewAndFlow(t *testing.T) {
 	out := &memOut{}
 	ad := tg.New(newFacade(cases), out)
 
-	if err := ad.HandleText(ctx, 1, tg.BtnImage); err != nil {
+	if err := ad.HandleText(ctx, 1, tg.BtnImage, "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.inlines) == 0 || !strings.Contains(out.inlines[0], "图片 Case") {
 		t.Fatalf("list=%v", out.inlines)
 	}
 
-	if err := ad.HandleCallback(ctx, 1, "cb1", tg.CBCasePreview+"img-anime"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "cb1", tg.CBCasePreview+"img-anime", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	last := out.inlines[len(out.inlines)-1]
@@ -163,21 +163,21 @@ func TestImageListAndPreviewAndFlow(t *testing.T) {
 		t.Fatalf("preview=%q", last)
 	}
 
-	if err := ad.HandleCallback(ctx, 1, "cb2", tg.CBCaseStart+"img-anime"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "cb2", tg.CBCaseStart+"img-anime", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.inlines[len(out.inlines)-1], "prompt") {
 		t.Fatalf("start prompt=%q", out.inlines[len(out.inlines)-1])
 	}
 
-	if err := ad.HandleText(ctx, 1, "a cute cat"); err != nil {
+	if err := ad.HandleText(ctx, 1, "a cute cat", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.inlines[len(out.inlines)-1], "确认") {
 		t.Fatalf("confirm UI=%q", out.inlines[len(out.inlines)-1])
 	}
 
-	if err := ad.HandleCallback(ctx, 1, "cb3", tg.CBConfirm); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "cb3", tg.CBConfirm, "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	found := false
@@ -214,10 +214,10 @@ func TestSessionConflictCopy(t *testing.T) {
 	out := &memOut{}
 	ad := tg.New(newFacade(cases), out)
 
-	if err := ad.HandleCallback(ctx, 1, "a", tg.CBCaseStart+"img-anime"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "a", tg.CBCaseStart+"img-anime", "test-user"); err != nil {
 		t.Fatal(err)
 	}
-	if err := ad.HandleCallback(ctx, 1, "b", tg.CBCaseStart+"img-logo"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "b", tg.CBCaseStart+"img-logo", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	last := out.inlines[len(out.inlines)-1]
@@ -315,7 +315,7 @@ func TestHandleUserMediaDownloadErrorDoesNotLeakBotToken(t *testing.T) {
 		return nil, errors.New(leakURL)
 	}
 
-	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	if err := ad.HandleUserMedia(ctx, 1, "photo-fid", "image/png"); err != nil {
@@ -354,7 +354,7 @@ func TestImageFieldAcceptsPhoto(t *testing.T) {
 		return []byte{0x89, 0x50, 0x4e, 0x47}, nil
 	}
 
-	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	if err := ad.HandleUserMedia(ctx, 1, "photo-fid", "image/png"); err != nil {
@@ -390,10 +390,10 @@ func TestImageFieldRejectsPlainText(t *testing.T) {
 	out := &memOut{}
 	ad := tg.New(facade, out)
 
-	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit", "test-user"); err != nil {
 		t.Fatal(err)
 	}
-	if err := ad.HandleText(ctx, 1, "not-a-photo"); err != nil {
+	if err := ad.HandleText(ctx, 1, "not-a-photo", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -427,10 +427,10 @@ func TestNumberFieldParsesText(t *testing.T) {
 	out := &memOut{}
 	ad := tg.New(facade, out)
 
-	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"num-case"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"num-case", "test-user"); err != nil {
 		t.Fatal(err)
 	}
-	if err := ad.HandleText(ctx, 1, "42"); err != nil {
+	if err := ad.HandleText(ctx, 1, "42", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -455,10 +455,10 @@ func TestBooleanFieldParsesText(t *testing.T) {
 	out := &memOut{}
 	ad := tg.New(facade, out)
 
-	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"bool-case"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"bool-case", "test-user"); err != nil {
 		t.Fatal(err)
 	}
-	if err := ad.HandleText(ctx, 1, "true"); err != nil {
+	if err := ad.HandleText(ctx, 1, "true", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -483,10 +483,10 @@ func TestNumberFieldRejectsBadText(t *testing.T) {
 	out := &memOut{}
 	ad := tg.New(facade, out)
 
-	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"num-case"); err != nil {
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"num-case", "test-user"); err != nil {
 		t.Fatal(err)
 	}
-	if err := ad.HandleText(ctx, 1, "not-a-number"); err != nil {
+	if err := ad.HandleText(ctx, 1, "not-a-number", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 

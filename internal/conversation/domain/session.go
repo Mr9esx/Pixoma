@@ -38,15 +38,16 @@ type DraftValue struct {
 }
 
 type Session struct {
-	ID               sharedkernel.SessionID
-	ChatID           sharedkernel.ChatID
-	CaseID           sharedkernel.CaseID
-	Status           Status
+	ID                sharedkernel.SessionID
+	UserID            string
+	ChatID            sharedkernel.ChatID
+	CaseID            sharedkernel.CaseID
+	Status            Status
 	CurrentInputIndex int
-	InputKeys        []string // ordered keys from case inputs
-	Draft            map[string]DraftValue
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	InputKeys         []string // ordered keys from case inputs
+	Draft             map[string]DraftValue
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func NewCollecting(id sharedkernel.SessionID, chat sharedkernel.ChatID, caseID sharedkernel.CaseID, inputKeys []string, now time.Time) *Session {

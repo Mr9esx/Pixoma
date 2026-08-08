@@ -23,6 +23,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/notifybridge"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
+	convpersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
@@ -65,7 +66,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(gdb, &persistence.CaseRow{}, &identitypersist.UserRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.CaseRow{}, &identitypersist.UserRow{}, &convpersist.SessionRow{}); err != nil {
 		return err
 	}
 	caseRepo := persistence.NewGormRepository(gdb)
@@ -87,7 +88,7 @@ func run(ctx context.Context) error {
 
 	bus := memory.New()
 	tasks := runtimedomain.NewMemoryTaskRepository()
-	sessRepo := convdomain.NewMemoryRepository()
+	sessRepo := convpersist.NewSessionRepository(gdb)
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID {
 		return sharedkernel.SessionID(uuid.NewString())
 	}, nil)

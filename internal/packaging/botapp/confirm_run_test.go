@@ -89,7 +89,7 @@ func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "sess-1" }, func() time.Time {
 		return time.Unix(10, 0).UTC()
 	})
-	_, err := sessSvc.StartCase(ctx, 100, "text2img-demo", []string{"prompt"})
+	_, err := sessSvc.StartCase(ctx, 100, "user-test", "text2img-demo", []string{"prompt"})
 	if err != nil {
 		t.Fatal(err)
 	}

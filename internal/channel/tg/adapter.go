@@ -34,7 +34,6 @@ type Adapter struct {
 
 // UpsertFromTG persists Telegram From into the users table when Users is configured.
 // Returns the internal user id when upsert succeeds; empty string otherwise.
-// StartCase userID wiring lands in a later task — this task only guarantees the row write.
 func (a *Adapter) UpsertFromTG(ctx context.Context, in identitydomain.UpsertFrom) (string, error) {
 	if a == nil || a.Users == nil {
 		return "", nil
@@ -88,7 +87,7 @@ func (a *Adapter) HandleUserMedia(ctx context.Context, chatID int64, fileID, mim
 	return a.renderSession(ctx, chatID, view)
 }
 
-func (a *Adapter) HandleText(ctx context.Context, chatID int64, text string) error {
+func (a *Adapter) HandleText(ctx context.Context, chatID int64, text, userID string) error {
 	text = strings.TrimSpace(text)
 
 	// Active session: treat free text as input (unless menu command).
@@ -119,13 +118,13 @@ func (a *Adapter) HandleText(ctx context.Context, chatID int64, text string) err
 	default:
 		if strings.HasPrefix(text, "/start_case ") {
 			id := strings.TrimSpace(strings.TrimPrefix(text, "/start_case "))
-			return a.startCase(ctx, chatID, sharedkernel.CaseID(id))
+			return a.startCase(ctx, chatID, sharedkernel.CaseID(id), userID)
 		}
 		return a.sendMainMenu(ctx, chatID)
 	}
 }
 
-func (a *Adapter) HandleCallback(ctx context.Context, chatID int64, callbackID, data string) error {
+func (a *Adapter) HandleCallback(ctx context.Context, chatID int64, callbackID, data, userID string) error {
 	_ = a.Out.AnswerCallback(ctx, callbackID, "")
 	switch {
 	case data == CBMenu || data == CBImgList:
@@ -143,13 +142,13 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID int64, callbackID, 
 		return a.handleContinue(ctx, chatID)
 	case strings.HasPrefix(data, CBReplaceStart):
 		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBReplaceStart))
-		return a.replaceAndStart(ctx, chatID, id)
+		return a.replaceAndStart(ctx, chatID, id, userID)
 	case strings.HasPrefix(data, CBCasePreview):
 		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBCasePreview))
 		return a.showCasePreview(ctx, chatID, id)
 	case strings.HasPrefix(data, CBCaseStart):
 		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBCaseStart))
-		return a.startCase(ctx, chatID, id)
+		return a.startCase(ctx, chatID, id, userID)
 	default:
 		return a.Out.SendText(ctx, chatID, "未知操作")
 	}
@@ -245,9 +244,10 @@ func (a *Adapter) showCasePreview(ctx context.Context, chatID int64, id sharedke
 	return a.Out.SendInline(ctx, chatID, b.String(), rows)
 }
 
-func (a *Adapter) startCase(ctx context.Context, chatID int64, id sharedkernel.CaseID) error {
+func (a *Adapter) startCase(ctx context.Context, chatID int64, id sharedkernel.CaseID, userID string) error {
 	view, err := a.App.StartCase(ctx, botapp.StartCaseCmd{
 		ChatID: sharedkernel.ChatID(chatID),
+		UserID: userID,
 		CaseID: id,
 	})
 	if errors.Is(err, convdomain.ErrSessionLocked) {
@@ -315,9 +315,9 @@ func (a *Adapter) handleContinue(ctx context.Context, chatID int64) error {
 	return a.renderSession(ctx, chatID, view)
 }
 
-func (a *Adapter) replaceAndStart(ctx context.Context, chatID int64, id sharedkernel.CaseID) error {
+func (a *Adapter) replaceAndStart(ctx context.Context, chatID int64, id sharedkernel.CaseID, userID string) error {
 	_ = a.App.ExitSession(ctx, sharedkernel.ChatID(chatID))
-	return a.startCase(ctx, chatID, id)
+	return a.startCase(ctx, chatID, id, userID)
 }
 
 func (a *Adapter) submitText(ctx context.Context, chatID int64, text string) error {
