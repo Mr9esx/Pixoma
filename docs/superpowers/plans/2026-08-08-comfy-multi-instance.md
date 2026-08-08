@@ -78,7 +78,7 @@ base-ref: 01c3b2c1c302769da85b1e73c6689839d70291f0
   - `identitydomain.Repository.UpsertByTgUserID(ctx, in UpsertFrom) (*User, error)`
   - `identitydomain.Repository.GetByID(ctx, id string) (*User, error)`
 
-- [ ] **Step 1: 写失败测试 — upsert 幂等与字段刷新**
+- [x] **Step 1: 写失败测试 — upsert 幂等与字段刷新**
 
 ```go
 func TestUpsertByTgUserID_IdempotentAndRefresh(t *testing.T) {
@@ -110,28 +110,28 @@ func TestUpsertByTgUserID_IdempotentAndRefresh(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/identity/infrastructure/persistence/ -run TestUpsertByTgUserID -v`  
 Expected: FAIL（包/类型未定义）
 
-- [ ] **Step 3: 最小实现**
+- [x] **Step 3: 最小实现**
 
 `UserRow` 表名 `users`：`id` PK UUID、`tg_user_id` UNIQUE NOT NULL、`username`/`first_name`/`last_name`/`language_code`、`is_bot`/`is_premium`（可空 bool）、`last_seen_at`、`created_at`/`updated_at`。  
 `UpsertByTgUserID`：按 `tg_user_id` First；不存在则生成 UUID 创建；存在则更新可变字段并刷新 `last_seen_at`。
 
-- [ ] **Step 4: 测试通过**
+- [x] **Step 4: 测试通过**
 
 Run: `go test ./internal/identity/infrastructure/persistence/ -run TestUpsertByTgUserID -v`  
 Expected: PASS
 
-- [ ] **Step 5: TG 路径接入 upsert**
+- [x] **Step 5: TG 路径接入 upsert**
 
 在消息/回调查询入口（`RegisterHandlers` 或 adapter 统一入口）从 `update.Message.From` / `CallbackQuery.From` 构造 `UpsertFrom`，调用 `Users.UpsertByTgUserID`，将内部 `user_id` 传入后续 `StartCase`（Facade/Service 签名在任务 2 改；本任务可先把 upsert 结果存入 adapter 字段或 context，若 StartCase 尚未接受 userID，则先只保证用户行写入，Step 中注明与任务 2 联调）。
 
 最小可测钩子：在 adapter 增加可选 `Users identitydomain.Repository`；处理 update 时若非 nil 则 upsert。补单测或手工：mock From → 库中有行。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/identity internal/channel/tg apps/bot/cmd/comfyui-bot/main.go
@@ -159,7 +159,7 @@ git commit -m "feat(identity): persist users and upsert from TG From"
   - `Service.StartCase(ctx, chatID, userID, caseID, inputKeys)`
   - GORM：`GetActiveByChat` 仅返回 `collecting|confirming`；`Save` **不物理删除** submitted/exited 行
 
-- [ ] **Step 1: 写失败测试 — 重启后活跃 Session 可恢复；submitted 行仍在**
+- [x] **Step 1: 写失败测试 — 重启后活跃 Session 可恢复；submitted 行仍在**
 
 ```go
 func TestGormSession_ActiveSurviveReopenAndSubmittedKept(t *testing.T) {
@@ -194,28 +194,28 @@ func TestGormSession_ActiveSurviveReopenAndSubmittedKept(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/conversation/infrastructure/persistence/ -run TestGormSession_ActiveSurvive -v`  
 Expected: FAIL
 
-- [ ] **Step 3: 实现 Session 领域字段 + GORM**
+- [x] **Step 3: 实现 Session 领域字段 + GORM**
 
 `sessions` 表：`id` PK、`user_id`（index）、`chat_id`（index）、`case_id`、`status`、`current_input_index`、`input_keys_json`、`draft_json`、时间戳。  
 `Save`：始终 upsert 行；活跃索引查询用 `WHERE chat_id=? AND status IN ('collecting','confirming')`。  
 更新 `NewCollecting` / `StartCase` 写入 `UserID`。MemoryRepository 同步支持 `UserID` + `GetByID`（测试用）。
 
-- [ ] **Step 4: 更新 Service / Facade / TG**
+- [x] **Step 4: 更新 Service / Facade / TG**
 
 `StartCase` 必须收到非空 `userID`；TG upsert 后传入。补 `service_test`：创建 Session 时 `UserID` 已写。
 
-- [ ] **Step 5: 测试通过 + main 换 GORM Session**
+- [x] **Step 5: 测试通过 + main 换 GORM Session**
 
 Run: `go test ./internal/conversation/... ./internal/packaging/botapp/ -count=1`  
 Expected: PASS  
 `main`：`sessRepo := convpersist.NewSessionRepository(gdb)`，AutoMigrate `SessionRow`。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/conversation internal/packaging/botapp internal/channel/tg apps/bot/cmd/comfyui-bot/main.go
@@ -250,7 +250,7 @@ type ListByInstanceQuery struct {
 }
 ```
 
-- [ ] **Step 1: 写失败测试 — 持久化 SessionID；ListByInstance 不含无 instance 的 pending**
+- [x] **Step 1: 写失败测试 — 持久化 SessionID；ListByInstance 不含无 instance 的 pending**
 
 ```go
 func TestGormTask_SessionIDAndListByInstance(t *testing.T) {
@@ -281,27 +281,27 @@ func TestGormTask_SessionIDAndListByInstance(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/runtime/infrastructure/persistence/ -run TestGormTask_SessionID -v`  
 Expected: FAIL
 
-- [ ] **Step 3: 实现 tasks 表与仓储**
+- [x] **Step 3: 实现 tasks 表与仓储**
 
 列：`id`, `session_id` NOT NULL（index）, `case_id`, `status`, `instance_id`（index，可空字符串）, `prompt_id`, `input_prefix`, `outputs_json`, `error_code`, `error_message`, 时间戳。  
 `ListByInstance`：`WHERE instance_id = ? AND instance_id != ''`；支持 status/limit/offset。  
 `ListByChat`：`JOIN sessions ON tasks.session_id = sessions.id WHERE sessions.chat_id = ?`。
 
-- [ ] **Step 4: 修正领域测试与 Memory 仓储**
+- [x] **Step 4: 修正领域测试与 Memory 仓储**
 
 更新 `NewPending` 与 Memory：`ListByInstance`；`ListByChat` 若 Memory 无 Session，可要求测试改用 GORM，或 Memory 仍用可选 `ChatID` 仅测用 — 主路径以 GORM join 为准。
 
-- [ ] **Step 5: 测试通过**
+- [x] **Step 5: 测试通过**
 
 Run: `go test ./internal/runtime/... -count=1`  
 Expected: PASS（本任务可不改 main 接线，任务 4 一起换）
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/runtime
@@ -324,7 +324,7 @@ git commit -m "feat(runtime): persist tasks with session_id and ListByInstance"
 - Consumes: `SessionStore.GetByID`、`Task.SessionID`
 - Produces: ConfirmRun 创建的 Task 含正确 `SessionID`；`UserNotify.ChatID` 来自 Session
 
-- [ ] **Step 1: 写失败测试 — ConfirmRun 写入 session_id；notify 用 Session.chat_id**
+- [x] **Step 1: 写失败测试 — ConfirmRun 写入 session_id；notify 用 Session.chat_id**
 
 ```go
 func TestConfirmRun_WritesSessionID(t *testing.T) {
@@ -346,12 +346,12 @@ func TestConfirmRun_WritesSessionID(t *testing.T) {
 
 Orchestrator 单测：Task 无 ChatID、有 SessionID；注入 fake SessionRepo；终态后 `Notify` 收到正确 ChatID。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/packaging/botapp/ -run TestConfirmRun_WritesSessionID -v`  
 Expected: FAIL（仍用旧 NewPending(chat)）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```go
 task := runtimedomain.NewPending(taskID, sess.ID, sess.CaseID, inputPrefix, now)
@@ -371,16 +371,16 @@ if chatID == 0 && s.Sessions != nil {
 n := sharedkernel.UserNotify{ChatID: chatID, /* ... */}
 ```
 
-- [ ] **Step 4: main 接线 GORM Task + Session GetByID**
+- [x] **Step 4: main 接线 GORM Task + Session GetByID**
 
 AutoMigrate `TaskRow`；`tasks := taskpersist.NewTaskRepository(gdb)`。
 
-- [ ] **Step 5: 相关测试通过**
+- [x] **Step 5: 相关测试通过**
 
 Run: `go test ./internal/packaging/botapp/ ./internal/runtime/application/orchestrator/ -count=1`  
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/packaging/botapp internal/runtime apps/bot/cmd/comfyui-bot/main.go
@@ -401,20 +401,20 @@ git commit -m "feat: ConfirmRun persists session_id; notify joins Session.chat_i
 - Consumes: `TaskRepository.Get`
 - Produces: 无独立 LocalRun 真相源
 
-- [ ] **Step 1: 写/改测试 — reconcile 与 GetRun 不依赖 Ledger**
+- [x] **Step 1: 写/改测试 — reconcile 与 GetRun 不依赖 Ledger**
 
 对账路径仅 `Tasks.Get`；Worker 不再要求 Ledger 非 nil。
 
-- [ ] **Step 2: 跑测试确认失败或编译失败（若仍引用 Ledger）**
+- [x] **Step 2: 跑测试确认失败或编译失败（若仍引用 Ledger）**
 
-- [ ] **Step 3: 实现删除 MemoryLedger 接线；QueryAdapter 映射 Task → ExecutionView**
+- [x] **Step 3: 实现删除 MemoryLedger 接线；QueryAdapter 映射 Task → ExecutionView**
 
-- [ ] **Step 4: 相关测试通过**
+- [x] **Step 4: 相关测试通过**
 
 Run: `go test ./internal/runtime/... -count=1`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/runtime apps/bot/cmd/comfyui-bot/main.go
@@ -462,7 +462,7 @@ func (p *Pool) ListHealthy(ctx context.Context, filter CapabilityFilter) ([]Inst
 func (p *Pool) SetHealthy(id sharedkernel.InstanceID, ok bool)
 ```
 
-- [ ] **Step 1: 写失败测试 — CRUD 重启仍在；Refresh 后 Client 指向新 URL；disabled 不在 ListHealthy**
+- [x] **Step 1: 写失败测试 — CRUD 重启仍在；Refresh 后 Client 指向新 URL；disabled 不在 ListHealthy**
 
 ```go
 func TestInstanceRepo_UpsertGetList(t *testing.T) { /* ... */ }
@@ -473,12 +473,12 @@ func TestPool_RefreshAndHealthyFilter(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/platform/instance/... -count=1`  
 Expected: FAIL
 
-- [ ] **Step 3: 实现表与 Pool**
+- [x] **Step 3: 实现表与 Pool**
 
 `comfy_instances`：`id` PK 字符串、`base_url`、`enabled`、`capabilities_json`、时间戳。  
 启动种子逻辑（放 main 或 `instance.SeedFromConfig`）：
@@ -489,12 +489,12 @@ Expected: FAIL
 
 写后 `Refresh`：对每个 enabled 实例 `comfyui.NewClient(Options{Mock: cfg.ComfyMock, BaseURL: rec.BaseURL})`。
 
-- [ ] **Step 4: 测试通过；main 用 Pool 作 Registry**
+- [x] **Step 4: 测试通过；main 用 Pool 作 Registry**
 
 Run: `go test ./internal/platform/instance/... -count=1`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/platform/instance internal/platform/botconfig apps/bot/cmd/comfyui-bot/main.go
@@ -554,7 +554,7 @@ HTTP（chi）：
 Mock：`SystemStats`/`Queue` 返回 `mock: true`, `reachable: true` 占位，不崩溃。  
 不可达：HTTP 客户端错误 → 响应 `reachable: false` 或非 2xx（二选一，测试锁定一种：推荐 **200 + reachable:false** 或 **502 + body**；计划定案为 **200 JSON `{reachable:false,error:"..."}`**，避免与「实例不存在 404」混淆）。
 
-- [ ] **Step 1: 写失败测试 — Mock SystemStats/Queue；HTTP handler CRUD；tasks 不含 pending 无 instance**
+- [x] **Step 1: 写失败测试 — Mock SystemStats/Queue；HTTP handler CRUD；tasks 不含 pending 无 instance**
 
 ```go
 func TestMock_SystemStatsAndQueue(t *testing.T) {
@@ -572,16 +572,16 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/runtime/infrastructure/comfyui/ ./internal/httpapi/comfyinstances/ -count=1`  
 Expected: FAIL
 
-- [ ] **Step 3: 实现 Client 方法与 Handler**
+- [x] **Step 3: 实现 Client 方法与 Handler**
 
 `HTTP.SystemStats` → `GET {base}/system_stats`；`HTTP.Queue` → `GET {base}/queue`，解析 `queue_running` / `queue_pending`（按 Comfy 实际 JSON 字段适配，测试可用 httptest stub）。
 
-- [ ] **Step 4: main 注册路由（保留 `/healthz`）**
+- [x] **Step 4: main 注册路由（保留 `/healthz`）**
 
 ```go
 r.Route("/api/v1/comfy-instances", func(r chi.Router) {
@@ -589,12 +589,12 @@ r.Route("/api/v1/comfy-instances", func(r chi.Router) {
 })
 ```
 
-- [ ] **Step 5: 测试通过**
+- [x] **Step 5: 测试通过**
 
 Run: `go test ./internal/runtime/infrastructure/comfyui/ ./internal/httpapi/comfyinstances/ -count=1`  
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/runtime/infrastructure/comfyui internal/httpapi apps/bot/cmd/comfyui-bot/main.go
@@ -620,7 +620,7 @@ git commit -m "feat: comfy instance HTTP CRUD and system/queue/tasks APIs"
   - Orchestrator：`rrIndex uint64`；从健康∩`Storm.Breaker.Allow` 列表 round-robin；**空列表时 return nil 且保持 pending**（改掉当前 `fmt.Errorf("no healthy instance")` 导致扫库报错的行为）
   - `Worker.Clients` 或 `ClientResolver func(InstanceID) (Client, error)`；`HandleDispatch` 用 `ev.InstanceID`，不要用死写的 `w.InstanceID` 作为唯一客户端键（status 事件仍带 `ev.InstanceID`）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```go
 func TestOrchestrator_RoundRobinAcrossHealthy(t *testing.T) {
@@ -637,12 +637,12 @@ func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/runtime/application/orchestrator/ ./internal/runtime/infrastructure/actuator/ -run 'RoundRobin|NoInstance|UsesDispatch' -v`  
 Expected: FAIL
 
-- [ ] **Step 3: 实现 round-robin 与无实例 pending**
+- [x] **Step 3: 实现 round-robin 与无实例 pending**
 
 ```go
 candidates := filterAllowed(insts, s.Storm.Breaker)
@@ -653,17 +653,17 @@ idx := int(atomic.AddUint64(&s.rr, 1)-1) % len(candidates)
 chosen := candidates[idx]
 ```
 
-- [ ] **Step 4: 实现 Worker 按 InstanceID 取客户端；main 健康循环与订阅**
+- [x] **Step 4: 实现 Worker 按 InstanceID 取客户端；main 健康循环与订阅**
 
 健康 ticker（默认 30s，可配置 `health_probe_interval`）：`pool.Probe(ctx)`。  
 `main`：对 `pool.List` 每个实例 `bus.Subscribe(TopicDispatch(id), ...)`（或统一 handler 内再解析 InstanceID）；AutoMigrate：`UserRow, SessionRow, TaskRow, InstanceRow, CaseRow`。
 
-- [ ] **Step 5: 测试通过**
+- [x] **Step 5: 测试通过**
 
 Run: `go test ./internal/platform/instance/ ./internal/runtime/application/orchestrator/ ./internal/runtime/infrastructure/actuator/ -count=1`  
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/platform/instance internal/runtime apps/bot/cmd/comfyui-bot/main.go
@@ -680,7 +680,7 @@ git commit -m "feat: health probe, round-robin dispatch, per-instance actuator c
 - Modify: `configs/bot.example.yaml`
 - Modify: `configs/bot.yaml`（仅注释/示例字段，勿提交密钥）
 
-- [ ] **Step 1: 添加 Makefile**
+- [x] **Step 1: 添加 Makefile**
 
 ```makefile
 .PHONY: build test run run-mock
@@ -698,7 +698,7 @@ run-mock: build
 	COMFY_MOCK=1 go run ./apps/bot/cmd/comfyui-bot
 ```
 
-- [ ] **Step 2: 更新 README**
+- [x] **Step 2: 更新 README**
 
 必须覆盖：
 
@@ -719,7 +719,7 @@ curl -s 'localhost:8080/api/v1/comfy-instances/gpu-1/tasks?limit=20'
 4. Mock 开关与 `make run-mock`  
 5. **无鉴权警示**：仅本机/内网
 
-- [ ] **Step 3: 更新 `configs/bot.example.yaml` 注释**
+- [x] **Step 3: 更新 `configs/bot.example.yaml` 注释**
 
 增加示例：
 
@@ -732,21 +732,21 @@ curl -s 'localhost:8080/api/v1/comfy-instances/gpu-1/tasks?limit=20'
 # health_probe_interval: 30s
 ```
 
-- [ ] **Step 4: 验收 — 相关测试**
+- [x] **Step 4: 验收 — 相关测试**
 
 Run: `go test ./internal/identity/... ./internal/conversation/... ./internal/runtime/... ./internal/platform/instance/... ./internal/httpapi/... ./internal/packaging/botapp/... ./apps/bot/... -count=1`  
 Expected: PASS  
 （或 `make test` 若全仓稳定）
 
-- [ ] **Step 5: 验收清单（手工/本地）**
+- [x] **Step 5: 验收清单（手工/本地）**
 
-- [ ] Mock 开：CRUD 实例 → `/system` `/queue` 返回 `mock: true`  
-- [ ] 创建 Task 后 `/tasks` 仅含已派发；pending 无 instance 不出现  
-- [ ] 重启进程：User/Session/Task/实例仍在  
-- [ ] 两台健康实例（可用两个 Mock 或 stub）：连续任务 InstanceID 轮转  
-- [ ] 真实模式：能连 `comfyui_base_url` 时 system/queue 非伪造
+- [x] Mock 开：CRUD 实例 → `/system` `/queue` 返回 `mock: true`  
+- [x] 创建 Task 后 `/tasks` 仅含已派发；pending 无 instance 不出现  
+- [x] 重启进程：User/Session/Task/实例仍在  
+- [x] 两台健康实例（可用两个 Mock 或 stub）：连续任务 InstanceID 轮转  
+- [x] 真实模式：能连 `comfyui_base_url` 时 system/queue 非伪造
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Makefile README.md configs/bot.example.yaml
