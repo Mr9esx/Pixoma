@@ -50,3 +50,47 @@ func TestUpsertByTgUserID_IdempotentAndRefresh(t *testing.T) {
 		// allow equal if same clock; prefer After when Now injects
 	}
 }
+
+func TestUserListFilters(t *testing.T) {
+	gdb := openTestDB(t)
+	repo := persistence.NewUserRepository(gdb)
+	ctx := context.Background()
+
+	alice, err := repo.UpsertByTgUserID(ctx, domain.UpsertFrom{
+		TgUserID: 1001, Username: "alice_list", FirstName: "Alice", LastName: "One",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = repo.UpsertByTgUserID(ctx, domain.UpsertFrom{
+		TgUserID: 1002, Username: "bob_list", FirstName: "Bob", LastName: "Two",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tgID := int64(1001)
+	byTg, err := repo.List(ctx, domain.ListQuery{TgUserID: &tgID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byTg) != 1 || byTg[0].ID != alice.ID {
+		t.Fatalf("tg_user_id exact: want 1 alice, got %+v", byTg)
+	}
+
+	byQ, err := repo.List(ctx, domain.ListQuery{Q: "alice_list"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byQ) != 1 || byQ[0].Username != "alice_list" {
+		t.Fatalf("q username: want 1 alice_list, got %+v", byQ)
+	}
+
+	limited, err := repo.List(ctx, domain.ListQuery{Limit: 1, Offset: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(limited) != 1 {
+		t.Fatalf("limit 1: want len 1, got %d", len(limited))
+	}
+}
