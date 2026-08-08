@@ -28,7 +28,7 @@ import { type Task } from '../data/schema'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 import { tasksColumns as columns } from './tasks-columns'
 
-const route = getRouteApi('/_authenticated/tasks/')
+const route = getRouteApi('/_app/tasks/')
 
 type DataTableProps = {
   data: Task[]
