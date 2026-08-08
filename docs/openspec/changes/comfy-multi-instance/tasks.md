@@ -9,9 +9,9 @@
 ## 2. 实例池与观测
 
 - [x] 2.1 `comfy_instances` 表 + Repository CRUD；启动种子 upsert；刷新客户端池
-- [ ] 2.2 HTTP `/api/v1/comfy-instances` CRUD
-- [ ] 2.3 Comfy Client：`SystemStats` / `Queue`（Mock 占位）
-- [ ] 2.4 `GET .../{id}/system`、`.../queue`、`.../tasks`；不可达明确错误；补测试
+- [x] 2.2 HTTP `/api/v1/comfy-instances` CRUD
+- [x] 2.3 Comfy Client：`SystemStats` / `Queue`（Mock 占位）
+- [x] 2.4 `GET .../{id}/system`、`.../queue`、`.../tasks`；不可达明确错误；补测试
 
 ## 3. 健康、选路与执行
 
