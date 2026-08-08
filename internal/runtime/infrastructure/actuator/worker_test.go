@@ -55,3 +55,50 @@ func TestHandleDispatchPublishesRunningAndSucceeded(t *testing.T) {
 		t.Fatal("expected outputs")
 	}
 }
+
+func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	store, err := localfs.New(filepath.Join(dir, "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var submitted []sharedkernel.InstanceID
+	mockA := &comfyui.Mock{
+		SubmitFn: func(_ context.Context, _ comfyui.Graph) (string, error) {
+			submitted = append(submitted, "gpu-a")
+			return "pa", nil
+		},
+	}
+	mockB := &comfyui.Mock{
+		SubmitFn: func(_ context.Context, _ comfyui.Graph) (string, error) {
+			submitted = append(submitted, "gpu-b")
+			return "pb", nil
+		},
+	}
+
+	cap := &statusCap{}
+	w := &actuator.Worker{
+		Blob:   store,
+		Status: cap,
+		Workflows: actuator.StaticWorkflows{},
+		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
+		Clients: map[sharedkernel.InstanceID]comfyui.Client{
+			"gpu-a": mockA,
+			"gpu-b": mockB,
+		},
+	}
+
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{TaskID: "t1", InstanceID: "gpu-b"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(submitted) != 1 || submitted[0] != "gpu-b" {
+		t.Fatalf("submitted=%v want [gpu-b]", submitted)
+	}
+	var running sharedkernel.TaskStatusEvent
+	_ = json.Unmarshal(cap.msgs[0].Payload, &running)
+	if running.InstanceID != "gpu-b" {
+		t.Fatalf("status instance=%s want gpu-b", running.InstanceID)
+	}
+}

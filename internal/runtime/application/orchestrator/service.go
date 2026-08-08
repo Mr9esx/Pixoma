@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
@@ -35,6 +36,9 @@ type Service struct {
 	Query     ExecutionQuery
 	Storm     *StormGuard
 	Now       func() time.Time
+
+	// rrIndex advances round-robin selection across healthy+allowed instances.
+	rrIndex uint64
 
 	// notifyDedupe tracks terminal notifies already sent.
 	notified map[string]struct{}
@@ -87,17 +91,13 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	if err != nil {
 		return err
 	}
-	var chosen *instance.Instance
-	for i := range insts {
-		id := insts[i].ID
-		if s.Storm.Breaker.Allow(id) {
-			chosen = &insts[i]
-			break
-		}
+	candidates := filterAllowed(insts, s.Storm.Breaker)
+	if len(candidates) == 0 {
+		// Keep pending; SchedulePending must not treat this as fatal.
+		return nil
 	}
-	if chosen == nil {
-		return fmt.Errorf("orchestrator: no healthy instance")
-	}
+	idx := int(atomic.AddUint64(&s.rrIndex, 1)-1) % len(candidates)
+	chosen := candidates[idx]
 	now := s.Now()
 	if err := t.MarkQueued(chosen.ID, now); err != nil {
 		return err
@@ -124,6 +124,19 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	}
 	s.Storm.Breaker.RecordSuccess(chosen.ID)
 	return nil
+}
+
+func filterAllowed(insts []instance.Instance, breaker *CircuitBreaker) []instance.Instance {
+	if len(insts) == 0 {
+		return nil
+	}
+	out := make([]instance.Instance, 0, len(insts))
+	for _, inst := range insts {
+		if breaker == nil || breaker.Allow(inst.ID) {
+			out = append(out, inst)
+		}
+	}
+	return out
 }
 
 func (s *Service) OnStatus(ctx context.Context, ev sharedkernel.TaskStatusEvent) error {

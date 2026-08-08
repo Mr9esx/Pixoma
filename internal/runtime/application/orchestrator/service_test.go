@@ -190,3 +190,56 @@ func TestCircuitBreakerOpens(t *testing.T) {
 		t.Fatal("should be open")
 	}
 }
+
+func TestOrchestrator_RoundRobinAcrossHealthy(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(50, 0).UTC()
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t2", "s1", "c1", "inputs/t2", now))
+
+	bus := &captureBus{}
+	reg := static.New(
+		instance.Instance{ID: "gpu-a", DispatchTopic: "dispatch.gpu-a"},
+		instance.Instance{ID: "gpu-b", DispatchTopic: "dispatch.gpu-b"},
+	)
+	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
+	svc.Now = func() time.Time { return now }
+
+	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t1"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t2"}); err != nil {
+		t.Fatal(err)
+	}
+
+	t1, _ := tasks.Get(ctx, "t1")
+	t2, _ := tasks.Get(ctx, "t2")
+	if t1.InstanceID != "gpu-a" {
+		t.Fatalf("t1 instance=%s want gpu-a", t1.InstanceID)
+	}
+	if t2.InstanceID != "gpu-b" {
+		t.Fatalf("t2 instance=%s want gpu-b", t2.InstanceID)
+	}
+}
+
+func TestOrchestrator_NoInstanceKeepsPending(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(50, 0).UTC()
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+
+	svc := orchestrator.New(tasks, static.New(), &captureBus{}, &memNotify{})
+	svc.Now = func() time.Time { return now }
+
+	if err := svc.SchedulePending(ctx, 10); err != nil {
+		t.Fatalf("SchedulePending must not fail when no instance: %v", err)
+	}
+	got, _ := tasks.Get(ctx, "t1")
+	if got.Status != sharedkernel.TaskPending {
+		t.Fatalf("status=%s want pending", got.Status)
+	}
+	if got.InstanceID != "" {
+		t.Fatalf("instance_id=%q want empty", got.InstanceID)
+	}
+}

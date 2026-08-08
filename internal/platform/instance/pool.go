@@ -3,6 +3,7 @@ package instance
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
@@ -113,6 +114,7 @@ func (p *Pool) SetHealthy(id sharedkernel.InstanceID, ok bool) {
 }
 
 // ListHealthy returns enabled + healthy instances matching the capability filter.
+// Results are sorted by ID for stable round-robin scheduling.
 func (p *Pool) ListHealthy(_ context.Context, filter CapabilityFilter) ([]Instance, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -131,7 +133,55 @@ func (p *Pool) ListHealthy(_ context.Context, filter CapabilityFilter) ([]Instan
 			Capabilities:  append([]string(nil), e.record.Capabilities...),
 		})
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
+}
+
+// List returns scheduling views for all currently pooled (enabled) instances.
+func (p *Pool) List() []Instance {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	out := make([]Instance, 0, len(p.byID))
+	for _, e := range p.byID {
+		if e == nil {
+			continue
+		}
+		out = append(out, Instance{
+			ID:            e.record.ID,
+			DispatchTopic: sharedkernel.TopicDispatch(e.record.ID),
+			Capabilities:  append([]string(nil), e.record.Capabilities...),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+// Probe checks SystemStats on each enabled non-mock instance and updates health.
+// When PoolOptions.Mock is true, probing is skipped (instances stay healthy).
+func (p *Pool) Probe(ctx context.Context) {
+	if p.opts.Mock {
+		return
+	}
+
+	type item struct {
+		id     sharedkernel.InstanceID
+		client comfyui.Client
+	}
+	p.mu.RLock()
+	items := make([]item, 0, len(p.byID))
+	for id, e := range p.byID {
+		if e == nil || e.client == nil || !e.record.Enabled {
+			continue
+		}
+		items = append(items, item{id: id, client: e.client})
+	}
+	p.mu.RUnlock()
+
+	for _, it := range items {
+		st, err := it.client.SystemStats(ctx)
+		ok := err == nil && st != nil && st.Reachable
+		p.SetHealthy(it.id, ok)
+	}
 }
 
 // Get returns a scheduling view for one instance (enabled or not).

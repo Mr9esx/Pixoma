@@ -153,11 +153,12 @@ func run(ctx context.Context) error {
 		Uploader: comfy,
 	}
 	worker := &actuator.Worker{
-		InstanceID: instID,
-		Comfy:      comfy,
-		Blob:       blobStore,
-		Status:     bus,
-		Workflows:  snap,
+		InstanceID:    instID,
+		Comfy:         comfy,
+		ResolveClient: pool.Client,
+		Blob:          blobStore,
+		Status:        bus,
+		Workflows:     snap,
 	}
 	orch.Query = &actuator.QueryAdapter{Tasks: tasks}
 
@@ -194,13 +195,20 @@ func run(ctx context.Context) error {
 		}
 		return orch.OnTaskCreated(ctx, ev)
 	})
-	_ = bus.Subscribe(ctx, sharedkernel.TopicDispatch(instID), func(ctx context.Context, msg queue.Message) error {
+	dispatchHandler := func(ctx context.Context, msg queue.Message) error {
 		var cmd sharedkernel.DispatchCommand
 		if err := json.Unmarshal(msg.Payload, &cmd); err != nil {
 			return err
 		}
 		return worker.HandleDispatch(ctx, cmd)
-	})
+	}
+	for _, inst := range pool.List() {
+		topic := inst.DispatchTopic
+		if topic == "" {
+			topic = sharedkernel.TopicDispatch(inst.ID)
+		}
+		_ = bus.Subscribe(ctx, topic, dispatchHandler)
+	}
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskStatus, func(ctx context.Context, msg queue.Message) error {
 		var ev sharedkernel.TaskStatusEvent
 		if err := json.Unmarshal(msg.Payload, &ev); err != nil {
@@ -240,6 +248,26 @@ func run(ctx context.Context) error {
 	} else {
 		slog.Info("TG_BOT_TOKEN empty; telegram polling disabled")
 	}
+
+	probeEvery := 30 * time.Second
+	if cfg.HealthProbeInterval != "" {
+		if d, err := time.ParseDuration(cfg.HealthProbeInterval); err == nil && d > 0 {
+			probeEvery = d
+		}
+	}
+	go func() {
+		t := time.NewTicker(probeEvery)
+		defer t.Stop()
+		pool.Probe(ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				pool.Probe(ctx)
+			}
+		}
+	}()
 
 	go func() {
 		t := time.NewTicker(30 * time.Second)
