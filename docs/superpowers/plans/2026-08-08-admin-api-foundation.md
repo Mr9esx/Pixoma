@@ -99,10 +99,10 @@ base-ref: 5b8ca1cb37a00497ab3e50c03a11a9483a900f86
 - Consumes: `Pool.Refresh`、`Pool.Probe`、`health_probe_interval`
 - Produces: 管理端写库后，一个探活间隔内 bot 调度视图可见（规格场景）
 
-- [ ] **Step 1: 写失败测试** — 模拟库中新增启用实例后调用 Refresh，Pool 可见新客户端/列表
-- [ ] **Step 2: 实现循环内 Refresh（若 Refresh 已存在，任务重点是接线与回归测试）**
-- [ ] **Step 3: 测试通过**
-- [ ] **Step 4: Commit** — `fix(bot): refresh instance pool each health probe tick`
+- [x] **Step 1: 写失败测试** — 模拟库中新增启用实例后调用 Refresh，Pool 可见新客户端/列表
+- [x] **Step 2: 实现循环内 Refresh（若 Refresh 已存在，任务重点是接线与回归测试）**
+- [x] **Step 3: 测试通过**
+- [x] **Step 4: Commit** — `fix(bot): refresh instance pool each health probe tick`
 
 ---
 
