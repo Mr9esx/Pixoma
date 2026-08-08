@@ -62,10 +62,10 @@ base-ref: 5b8ca1cb37a00497ab3e50c03a11a9483a900f86
 - Consumes: appboot
 - Produces: 可监听 `http_addr`（默认 `:8081`）、`GET /healthz` 返回 ok、CORS 中间件允许本地开发源
 
-- [ ] **Step 1: 写失败测试或 smoke** — 配置 Load 默认端口；router 对 `/healthz` 返回 200（可用 httptest）
-- [ ] **Step 2: 实现配置 + main 接线（开库 migrate，先不挂实例路由也可，但建议同任务挂空路由组）**
-- [ ] **Step 3: 测试/本地启动通过**
-- [ ] **Step 4: Commit** — `feat(admin-api): add host process with health and CORS`
+- [x] **Step 1: 写失败测试或 smoke** — 配置 Load 默认端口；router 对 `/healthz` 返回 200（可用 httptest）
+- [x] **Step 2: 实现配置 + main 接线（开库 migrate，先不挂实例路由也可，但建议同任务挂空路由组）**
+- [x] **Step 3: 测试/本地启动通过**
+- [x] **Step 4: Commit** — `feat(admin-api): add host process with health and CORS`
 
 ---
 
