@@ -62,8 +62,9 @@ func run(ctx context.Context) error {
 	dataDir := envOr("DATA_DIR", "data")
 	_ = os.MkdirAll(dataDir, 0o755)
 
+	dsn := resolveDSN(cfg.DatabaseDSN)
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
-		DSN:              filepath.Join(dataDir, "app.db"),
+		DSN:              dsn,
 		MigrateInstances: true,
 		Models: []any{
 			&persistence.CaseRow{},
