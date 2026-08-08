@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "batch_id": "admin-console-batch",
+  "created_at": "2026-08-08T06:21:27Z",
+  "updated_at": "2026-08-08T06:25:00Z",
+  "goal_summary": "独立 admin-api + web/admin（shadcn-admin）；管理接口从 bot 迁出；无鉴权管理全部资源；含后台菜单与页面设计",
+  "language": "zh-CN",
+  "split_decision": "create-multiple",
+  "changes": [
+    {
+      "name": "admin-api-foundation",
+      "status": "selected",
+      "goal": "可运行 apps/admin-api；共用 DB/wire；CORS/health；迁走 bot 的 comfy-instances HTTP；无鉴权",
+      "scope": "admin-api 骨架、实例管理 API 迁移、bot 卸下管理路由",
+      "non_goals": ["其他资源 API", "前端页面", "鉴权"],
+      "acceptance": [
+        "admin-api 可独立启动",
+        "实例 CRUD/观测在 admin-api",
+        "bot 不再挂载管理 CRUD 路由"
+      ],
+      "order": 1
+    },
+    {
+      "name": "admin-resources-api",
+      "status": "open-complete",
+      "goal": "Case/User/Session/Task 管理 API（CRUD 或运维语义）；仍无鉴权",
+      "scope": "catalog/identity/conversation/runtime 管理 HTTP 挂到 admin-api",
+      "non_goals": ["UI", "鉴权"],
+      "acceptance": [
+        "HTTP 覆盖 Case/User/Session/Task 管理主路径"
+      ],
+      "order": 2,
+      "depends_on": ["admin-api-foundation"]
+    },
+    {
+      "name": "admin-web-console",
+      "status": "open-complete",
+      "goal": "web/admin 基于 shadcn-admin；菜单模块；各资源页面设计与对接 admin-api",
+      "scope": "前端脚手架、菜单、实例/Case/User/Session/Task 页面与基础管理交互",
+      "non_goals": ["鉴权页", "前端直连 DB"],
+      "acceptance": [
+        "菜单可导航全部资源页",
+        "各资源页可完成基础管理操作",
+        "仅通过 admin-api 通信"
+      ],
+      "order": 3,
+      "depends_on": ["admin-api-foundation"]
+    }
+  ]
+}

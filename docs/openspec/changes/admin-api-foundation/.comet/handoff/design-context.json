@@ -1,0 +1,15 @@
+{
+  "change": "admin-api-foundation",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "fc3d7c2d7c4803acd5325e3bc776b7c991eeb959ab9606ef2195c27e045f913e",
+  "files": [
+    { "path": "docs/openspec/changes/admin-api-foundation/proposal.md", "sha256": "5e7f2b9f1b5cccafd65b57875b30852f39ee617c692fb299ad6cd62bca45e23b" },
+    { "path": "docs/openspec/changes/admin-api-foundation/design.md", "sha256": "050afe6088e818975d7cff1350e117db406c8fe6ab017b4009b44a1811df2261" },
+    { "path": "docs/openspec/changes/admin-api-foundation/tasks.md", "sha256": "9a89b85421fddd5a0daa324312bfa814604d13312709bcb231c5b6ba809d24ce" },
+    { "path": "docs/openspec/changes/admin-api-foundation/specs/admin-api-host/spec.md", "sha256": "f2227d0317274717282670f54b814b2260fcfda6500774945a677ca8013a513e" },
+    { "path": "docs/openspec/changes/admin-api-foundation/specs/comfy-instance-admin-api/spec.md", "sha256": "57e1b29d2daaf08e4742ef300e124438ac72146d1100d6401e95249c1f12d4f7" }
+  ]
+}
