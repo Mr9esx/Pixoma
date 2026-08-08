@@ -1,6 +1,6 @@
 # Admin API
 
-独立管理 HTTP 进程：健康检查、CORS、后续实例管理 API。
+独立管理 HTTP 进程：健康检查、CORS、Comfy 实例 CRUD/观测。
 
 **本期无鉴权。** 只在本机或可信内网使用，不要对公网暴露。
 
@@ -17,6 +17,8 @@ go run ./apps/admin-api/cmd/admin-api
 
 默认监听 `:8081`。配置路径：`ADMIN_CONFIG` 或 `configs/admin-api.yaml`。
 
+与 bot 共用同一 `database_dsn`（例如 `data/app.db`）。`comfy_mock` 与观测路径对齐 bot。
+
 ## 健康检查
 
 ```bash
@@ -24,13 +26,29 @@ curl -s localhost:8081/healthz
 # ok
 ```
 
+## 实例管理与观测
+
+路径与迁出前一致：`/api/v1/comfy-instances*`（只是宿主换成 admin-api）。
+
+```bash
+curl -s localhost:8081/api/v1/comfy-instances
+
+curl -s -X POST localhost:8081/api/v1/comfy-instances \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"gpu-1","base_url":"http://127.0.0.1:8188","enabled":true}'
+
+curl -s localhost:8081/api/v1/comfy-instances/gpu-1/system
+curl -s localhost:8081/api/v1/comfy-instances/gpu-1/queue
+curl -s 'localhost:8081/api/v1/comfy-instances/gpu-1/tasks?limit=20'
+```
+
+写成功后本进程会 `Pool.Refresh`。bot 侧名单同步依赖后续探活周期 Refresh（另一任务）。
+
 ## 与 bot 的边界
 
 | 进程 | 端口（默认） | 职责 |
 |---|---|---|
-| bot | `:8080` | 对话 / 编排 / TG |
-| admin-api | `:8081` | 管理 HTTP（本 change 起） |
+| bot | `:8080` | 对话 / 编排 / TG；仅保留 `/healthz` |
+| admin-api | `:8081` | 实例管理 HTTP（无鉴权） |
 
-两边共用同一 `database_dsn`。admin-api **不依赖** `channel/tg`。
-
-实例 CRUD/观测路由在后续任务挂载到 `/api/v1/comfy-instances`。
+admin-api **不依赖** `channel/tg`。bot 上旧的 `/api/v1/comfy-instances*` 已卸下。

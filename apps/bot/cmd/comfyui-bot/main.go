@@ -25,12 +25,11 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/notifybridge"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	convpersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
 	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
@@ -63,19 +62,21 @@ func run(ctx context.Context) error {
 	dataDir := envOr("DATA_DIR", "data")
 	_ = os.MkdirAll(dataDir, 0o755)
 
-	gdb, err := db.Open(db.Options{DSN: filepath.Join(dataDir, "app.db")})
+	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
+		DSN:              filepath.Join(dataDir, "app.db"),
+		MigrateInstances: true,
+		Models: []any{
+			&persistence.CaseRow{},
+			&identitypersist.UserRow{},
+			&convpersist.SessionRow{},
+			&taskpersist.TaskRow{},
+		},
+	})
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(gdb,
-		&persistence.CaseRow{},
-		&identitypersist.UserRow{},
-		&convpersist.SessionRow{},
-		&taskpersist.TaskRow{},
-		&instpersist.InstanceRow{},
-	); err != nil {
-		return err
-	}
+	defer func() { _ = cleanup() }()
+
 	caseRepo := persistence.NewGormRepository(gdb)
 	userRepo := identitypersist.NewUserRepository(gdb)
 	if n, err := seedCasesDir(ctx, caseRepo, cfg.CaseSeedDir); err != nil {
@@ -231,15 +232,7 @@ func run(ctx context.Context) error {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	instAPI := &comfyinstances.Handler{
-		Repo:  instRepo,
-		Pool:  pool,
-		Tasks: tasks,
-		Mock:  cfg.ComfyMock,
-	}
-	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
-		instAPI.Mount(r)
-	})
+	// Instance management HTTP moved to admin-api (:8081).
 	srv := &http.Server{Addr: addr, Handler: r, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		slog.Info("bot http listening", "addr", addr)
