@@ -15,7 +15,7 @@ make run-admin-api
 go run ./apps/admin-api/cmd/admin-api
 ```
 
-默认监听 `:8081`。配置路径：`ADMIN_CONFIG` 或 `configs/admin-api.yaml`。
+默认监听 `:8081`。配置路径：`ADMIN_CONFIG` 或 `configs/admin-api.yaml`；`HTTP_ADDR`、`DATABASE_DSN`、`COMFY_MOCK` 可覆盖对应配置。
 
 与 bot 共用同一 `database_dsn`（例如 `data/app.db`）。`comfy_mock` 与观测路径对齐 bot。
 
@@ -52,3 +52,25 @@ curl -s 'localhost:8081/api/v1/comfy-instances/gpu-1/tasks?limit=20'
 | admin-api | `:8081` | 实例管理 HTTP（无鉴权） |
 
 admin-api **不依赖** `channel/tg`。bot 上旧的 `/api/v1/comfy-instances*` 已卸下。
+
+## 验收记录
+
+2026-08-08 在 `feature/20260808/admin-api-foundation` 上完成：
+
+```bash
+go test ./apps/admin-api/... ./internal/httpapi/comfyinstances \
+  ./apps/bot/cmd/comfyui-bot ./internal/platform/appboot \
+  ./internal/platform/instance/...
+
+go build -o "$TMPDIR/admin-api" ./apps/admin-api/cmd/admin-api
+go build -o "$TMPDIR/comfyui-bot" ./apps/bot/cmd/comfyui-bot
+
+HTTP_ADDR="127.0.0.1:<free-port>" \
+DATABASE_DSN="file:<temp-dir>/admin.db?cache=shared&_pragma=foreign_keys(1)" \
+COMFY_MOCK=1 "$TMPDIR/admin-api"
+
+curl -fsS "http://127.0.0.1:<free-port>/healthz"
+curl -fsS "http://127.0.0.1:<free-port>/api/v1/comfy-instances"
+```
+
+结果：聚焦测试和两个二进制构建通过；临时库首次列表为 `[]`，健康检查为 `ok`。创建 `smoke-gpu` 后，`system` 观测返回 `"mock": true`。源码检查确认 bot 主程序不再引用 `comfyinstances` 或挂载 `/api/v1/comfy-instances`。
