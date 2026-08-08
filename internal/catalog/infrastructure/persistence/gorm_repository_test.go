@@ -88,3 +88,39 @@ func TestCreateGetListDisable(t *testing.T) {
 		t.Fatal("expected disabled")
 	}
 }
+
+func TestEnableAndListFilters(t *testing.T) {
+	repo := openTestDB(t)
+	ctx := context.Background()
+	c1 := sampleCase("alpha-case", "t1")
+	c1.Document.Name = "Alpha Workflow"
+	c1.Document.Categories = []string{"gen"}
+	_ = repo.Create(ctx, c1)
+	c2 := sampleCase("beta-case", "t2")
+	c2.Document.Name = "Beta Other"
+	_ = repo.Create(ctx, c2)
+
+	if err := repo.Disable(ctx, "alpha-case"); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Enable(ctx, "alpha-case"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := repo.Get(ctx, "alpha-case")
+	if !got.Enabled {
+		t.Fatal("expected enabled after Enable")
+	}
+	if err := repo.Enable(ctx, "missing"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+
+	list, err := repo.List(ctx, domain.ListQuery{Q: "Alpha", Limit: 10})
+	if err != nil || len(list) != 1 || list[0].Document.ID != "alpha-case" {
+		t.Fatalf("q filter: err=%v list=%+v", err, list)
+	}
+	en := true
+	list, err = repo.List(ctx, domain.ListQuery{Enabled: &en, Category: "gen", Limit: 10})
+	if err != nil || len(list) != 1 {
+		t.Fatalf("enabled+category: err=%v n=%d", err, len(list))
+	}
+}

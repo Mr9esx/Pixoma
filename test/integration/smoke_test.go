@@ -38,6 +38,7 @@ func (m *memCases) Get(_ context.Context, id sharedkernel.CaseID) (*domain.Case,
 }
 func (m *memCases) List(context.Context, domain.ListQuery) ([]*domain.Case, error) { return nil, nil }
 func (m *memCases) Disable(context.Context, sharedkernel.CaseID) error             { return nil }
+func (m *memCases) Enable(context.Context, sharedkernel.CaseID) error              { return nil }
 
 type memNotify struct{ last *sharedkernel.UserNotify }
 

@@ -93,6 +93,7 @@ func (m *memCases) List(_ context.Context, q domain.ListQuery) ([]*domain.Case, 
 	return out, nil
 }
 func (m *memCases) Disable(context.Context, sharedkernel.CaseID) error { return nil }
+func (m *memCases) Enable(context.Context, sharedkernel.CaseID) error  { return nil }
 
 type discardPub struct{}
 
