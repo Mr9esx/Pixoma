@@ -1,6 +1,6 @@
 ## 1. User / Session / Task 持久化
 
-- [ ] 1.1 新增 `users` 表与仓储；TG 路径按 tg_user_id upsert（含 From 全量可得字段与 last_seen_at）
+- [x] 1.1 新增 `users` 表与仓储；TG 路径按 tg_user_id upsert（含 From 全量可得字段与 last_seen_at）
 - [ ] 1.2 新增 `sessions` 表与 GORM 仓储；替换 Memory；含 user_id + chat_id；活跃查询；长期保留
 - [ ] 1.3 新增 `tasks` 表与 GORM 仓储；替换 Memory；必填 session_id；支持 ListByInstance / 经 Session 列「我的任务」
 - [ ] 1.4 ConfirmRun 与通知路径：创建 Task 写 session_id；回图 join Session.chat_id；补测试
