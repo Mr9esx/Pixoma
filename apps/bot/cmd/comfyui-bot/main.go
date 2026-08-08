@@ -34,9 +34,9 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
-	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
+	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -66,7 +66,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(gdb, &persistence.CaseRow{}, &identitypersist.UserRow{}, &convpersist.SessionRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.CaseRow{}, &identitypersist.UserRow{}, &convpersist.SessionRow{}, &taskpersist.TaskRow{}); err != nil {
 		return err
 	}
 	caseRepo := persistence.NewGormRepository(gdb)
@@ -87,7 +87,7 @@ func run(ctx context.Context) error {
 	}
 
 	bus := memory.New()
-	tasks := runtimedomain.NewMemoryTaskRepository()
+	tasks := taskpersist.NewTaskRepository(gdb)
 	sessRepo := convpersist.NewSessionRepository(gdb)
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID {
 		return sharedkernel.SessionID(uuid.NewString())
@@ -99,6 +99,7 @@ func run(ctx context.Context) error {
 	tgAdapter := tg.New(nil, nil)
 	notifyPub := &notifybridge.Publisher{Adapter: tgAdapter}
 	orch := orchestrator.New(tasks, reg, bus, notifyPub)
+	orch.Sessions = sessRepo
 
 	comfy, err := comfyui.NewClient(comfyui.Options{
 		Mock:    cfg.ComfyMock,

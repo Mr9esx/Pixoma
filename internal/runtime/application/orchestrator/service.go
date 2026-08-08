@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
@@ -27,6 +28,7 @@ type ExecutionView struct {
 
 type Service struct {
 	Tasks     runtimedomain.TaskRepository
+	Sessions  convdomain.Repository // optional; notify joins chat via session_id
 	Instances instance.Registry
 	Dispatch  queue.Publisher
 	Notify    notify.Publisher
@@ -183,9 +185,17 @@ func (s *Service) publishNotify(ctx context.Context, t *runtimedomain.Task) erro
 	if _, ok := s.notified[key]; ok {
 		return nil
 	}
+	chatID := t.ChatID
+	if chatID == 0 && s.Sessions != nil {
+		sess, err := s.Sessions.GetByID(ctx, t.SessionID)
+		if err != nil {
+			return fmt.Errorf("notify chat via session: %w", err)
+		}
+		chatID = sess.ChatID
+	}
 	kind := "task_" + string(t.Status)
 	n := sharedkernel.UserNotify{
-		ChatID:   t.ChatID,
+		ChatID:   chatID,
 		TaskID:   t.ID,
 		Kind:     kind,
 		ErrorMsg: t.ErrorMessage,

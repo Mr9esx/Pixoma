@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/static"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
@@ -96,6 +97,48 @@ func TestApplyStatusSucceededIdempotentNotify(t *testing.T) {
 	}
 	if len(n.items) != 1 {
 		t.Fatalf("notify count=%d", len(n.items))
+	}
+}
+
+func TestNotify_JoinsSessionChatID(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(50, 0).UTC()
+	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	// ChatID left zero — notify must resolve via Session.GetByID
+	_ = task.MarkQueued("local", now)
+	_ = task.MarkRunning("p", now)
+	_ = tasks.Create(ctx, task)
+
+	sessRepo := convdomain.NewMemoryRepository()
+	if err := sessRepo.Save(ctx, &convdomain.Session{
+		ID:        "s1",
+		UserID:    "u1",
+		ChatID:    100,
+		CaseID:    "c1",
+		Status:    convdomain.StatusSubmitted,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	n := &memNotify{}
+	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, n)
+	svc.Sessions = sessRepo
+
+	ev := sharedkernel.TaskStatusEvent{
+		TaskID: "t1", Status: sharedkernel.TaskSucceeded,
+		Outputs: []sharedkernel.BlobRef{{Key: "out.png"}}, At: now,
+	}
+	if err := svc.OnStatus(ctx, ev); err != nil {
+		t.Fatal(err)
+	}
+	if len(n.items) != 1 {
+		t.Fatalf("notify count=%d", len(n.items))
+	}
+	if n.items[0].ChatID != 100 {
+		t.Fatalf("chat_id=%d want 100 (via session join)", n.items[0].ChatID)
 	}
 }
 

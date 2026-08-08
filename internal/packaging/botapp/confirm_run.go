@@ -73,7 +73,7 @@ func (f *Facade) ConfirmRun(ctx context.Context, cmd ConfirmRunCmd) (*ConfirmRun
 	}
 
 	task := runtimedomain.NewPending(taskID, sess.ID, sess.CaseID, inputPrefix, now)
-	// Optional ChatID cache so Memory ListByChat / notify keep working until Task 4.
+	// Optional ChatID cache for Memory ListByChat; notify prefers Session join.
 	task.ChatID = cmd.ChatID
 	if err := f.Tasks.Create(ctx, task); err != nil {
 		return nil, err
