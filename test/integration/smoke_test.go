@@ -75,7 +75,6 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 		Comfy:      mock,
 		Blob:       store,
 		Status:     bus,
-		Ledger:     actuator.NewMemoryLedger(),
 		Workflows:  snap,
 		Now:        func() time.Time { return now },
 	}
@@ -195,7 +194,6 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 		Comfy:      mock,
 		Blob:       store,
 		Status:     bus,
-		Ledger:     actuator.NewMemoryLedger(),
 		Workflows:  snap,
 		Now:        func() time.Time { return now },
 	}

@@ -36,7 +36,6 @@ func TestHandleDispatchPublishesRunningAndSucceeded(t *testing.T) {
 		Comfy:      &comfyui.Mock{},
 		Blob:       store,
 		Status:     cap,
-		Ledger:     actuator.NewMemoryLedger(),
 		Workflows:  actuator.StaticWorkflows{},
 		Now:        func() time.Time { return time.Unix(1, 0).UTC() },
 	}
@@ -54,9 +53,5 @@ func TestHandleDispatchPublishesRunningAndSucceeded(t *testing.T) {
 	}
 	if len(done.Outputs) == 0 {
 		t.Fatal("expected outputs")
-	}
-	run, err := w.GetRun(ctx, "t1")
-	if err != nil || run.Phase != "succeeded" {
-		t.Fatalf("ledger=%+v err=%v", run, err)
 	}
 }

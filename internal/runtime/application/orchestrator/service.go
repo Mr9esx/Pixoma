@@ -225,9 +225,6 @@ func (s *Service) RequestCancel(ctx context.Context, taskID sharedkernel.TaskID)
 }
 
 func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, limit int) error {
-	if s.Query == nil {
-		return nil
-	}
 	if !s.Storm.AllowReconcile(1) {
 		return nil
 	}
@@ -244,12 +241,13 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 			if now.Sub(t.UpdatedAt) < staleAfter {
 				continue
 			}
-			view, err := s.Query.GetRun(ctx, t.ID)
+			fresh, err := s.Tasks.Get(ctx, t.ID)
 			if err != nil {
 				s.Storm.Breaker.RecordFailure(t.InstanceID)
 				continue
 			}
 			s.Storm.Breaker.RecordSuccess(t.InstanceID)
+			view := executionViewFromTask(fresh)
 			switch view.Phase {
 			case "succeeded":
 				_ = s.applyStatus(ctx, sharedkernel.TaskStatusEvent{
@@ -270,4 +268,32 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 		}
 	}
 	return nil
+}
+
+func executionViewFromTask(t *runtimedomain.Task) *ExecutionView {
+	view := &ExecutionView{
+		TaskID:   t.ID,
+		Phase:    phaseFromTaskStatus(t.Status),
+		PromptID: t.PromptID,
+		ErrorMsg: t.ErrorMessage,
+	}
+	for _, o := range t.Outputs {
+		view.Outputs = append(view.Outputs, o.Blob)
+	}
+	return view
+}
+
+func phaseFromTaskStatus(st sharedkernel.TaskStatus) string {
+	switch st {
+	case sharedkernel.TaskQueued:
+		return "accepted"
+	case sharedkernel.TaskRunning:
+		return "running"
+	case sharedkernel.TaskSucceeded:
+		return "succeeded"
+	case sharedkernel.TaskFailed:
+		return "failed"
+	default:
+		return "unknown"
+	}
 }
