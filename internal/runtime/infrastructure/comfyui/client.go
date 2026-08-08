@@ -25,6 +25,25 @@ type Client interface {
 	Submit(ctx context.Context, graph Graph) (promptID string, err error)
 	Wait(ctx context.Context, promptID string) (*Result, error)
 	UploadImage(ctx context.Context, filename, mime string, data []byte) (remoteFilename string, err error)
+	SystemStats(ctx context.Context) (*SystemStats, error)
+	Queue(ctx context.Context) (*QueueView, error)
+}
+
+// SystemStats is a read-only view of Comfy GET /system_stats.
+type SystemStats struct {
+	Mock      bool           `json:"mock,omitempty"`
+	Reachable bool           `json:"reachable"`
+	Error     string         `json:"error,omitempty"`
+	Raw       map[string]any `json:"raw,omitempty"`
+}
+
+// QueueView is a read-only view of Comfy GET /queue.
+type QueueView struct {
+	Mock      bool   `json:"mock,omitempty"`
+	Reachable bool   `json:"reachable"`
+	Error     string `json:"error,omitempty"`
+	Running   []any  `json:"running"`
+	Pending   []any  `json:"pending"`
 }
 
 // Mock is an in-memory ComfyUI client that returns a real PNG.
@@ -65,6 +84,25 @@ func (m *Mock) UploadImage(ctx context.Context, filename, mime string, data []by
 		return m.UploadImageFn(ctx, filename, mime, data)
 	}
 	return "mock-upload.png", nil
+}
+
+func (m *Mock) SystemStats(_ context.Context) (*SystemStats, error) {
+	return &SystemStats{
+		Mock:      true,
+		Reachable: true,
+		Raw: map[string]any{
+			"system": map[string]any{"comfyui_version": "mock"},
+		},
+	}, nil
+}
+
+func (m *Mock) Queue(_ context.Context) (*QueueView, error) {
+	return &QueueView{
+		Mock:      true,
+		Reachable: true,
+		Running:   []any{},
+		Pending:   []any{},
+	}, nil
 }
 
 // GenerateMockPNG creates a simple gradient PNG for Telegram delivery tests.
