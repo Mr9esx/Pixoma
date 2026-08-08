@@ -10,6 +10,7 @@ import (
 var (
 	ErrSessionLocked   = errors.New("session locked")
 	ErrNoActiveSession = errors.New("no active session")
+	ErrNotFound        = errors.New("session not found")
 	ErrInvalidState    = errors.New("invalid session state")
 	ErrInputOutOfOrder = errors.New("input out of order")
 )
