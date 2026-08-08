@@ -19,7 +19,8 @@ type OutputRef struct {
 
 type Task struct {
 	ID           sharedkernel.TaskID
-	ChatID       sharedkernel.ChatID
+	SessionID    sharedkernel.SessionID
+	ChatID       sharedkernel.ChatID // optional cache; not persisted as required column
 	CaseID       sharedkernel.CaseID
 	Status       sharedkernel.TaskStatus
 	InstanceID   sharedkernel.InstanceID
@@ -32,10 +33,10 @@ type Task struct {
 	UpdatedAt    time.Time
 }
 
-func NewPending(id sharedkernel.TaskID, chat sharedkernel.ChatID, caseID sharedkernel.CaseID, inputPrefix string, now time.Time) *Task {
+func NewPending(id sharedkernel.TaskID, sessionID sharedkernel.SessionID, caseID sharedkernel.CaseID, inputPrefix string, now time.Time) *Task {
 	return &Task{
 		ID:          id,
-		ChatID:      chat,
+		SessionID:   sessionID,
 		CaseID:      caseID,
 		Status:      sharedkernel.TaskPending,
 		InputPrefix: inputPrefix,

@@ -129,6 +129,9 @@ func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 	if err != nil || got.Status != sharedkernel.TaskPending {
 		t.Fatalf("task=%v err=%v", got, err)
 	}
+	if got.SessionID != "sess-1" {
+		t.Fatalf("session_id=%q", got.SessionID)
+	}
 	rc, err := store.Get(ctx, sharedkernel.BlobRef{Key: "inputs/task-1/prompt.txt"})
 	if err != nil {
 		t.Fatalf("staged blob: %v", err)
