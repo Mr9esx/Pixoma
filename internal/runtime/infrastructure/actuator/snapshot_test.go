@@ -132,7 +132,7 @@ func TestCaseSnapshotInjectsStagedTextIntoNodeInputs(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-1", 1, "text-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-1", "s1", "text-inject", prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -174,7 +174,7 @@ func TestCaseSnapshotFailsWhenBindingMissing(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-2", 1, "no-bind", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-2", "s1", "no-bind", prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -200,7 +200,7 @@ func TestCaseSnapshotPropagatesNonMissingBlobGetError(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-blob-err", 1, "text-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-blob-err", "s1", "text-inject", prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -232,7 +232,7 @@ func TestCaseSnapshotFailsWhenWorkflowEmpty(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-3", 1, "empty-wf", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-3", "s1", "empty-wf", prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -300,7 +300,7 @@ func TestCaseSnapshotUploadsImageAndWritesRemoteFilename(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img", 1, "image-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img", "s1", "image-inject", prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -362,7 +362,7 @@ func TestCaseSnapshotFailsWhenUploaderNilForImage(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img-nil", 1, "image-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img-nil", "s1", "image-inject", prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 	cases := &memCases{}

@@ -15,12 +15,19 @@ type ListTaskQuery struct {
 	Limit  int
 }
 
+type ListByInstanceQuery struct {
+	Status sharedkernel.TaskStatus // empty = no filter
+	Limit  int
+	Offset int
+}
+
 type TaskRepository interface {
 	Create(ctx context.Context, t *Task) error
 	Get(ctx context.Context, id sharedkernel.TaskID) (*Task, error)
 	Update(ctx context.Context, t *Task) error
 	ListByChat(ctx context.Context, chatID sharedkernel.ChatID, limit int) ([]*Task, error)
 	ListByStatus(ctx context.Context, st sharedkernel.TaskStatus, limit int) ([]*Task, error)
+	ListByInstance(ctx context.Context, instanceID sharedkernel.InstanceID, q ListByInstanceQuery) ([]*Task, error)
 }
 
 type MemoryTaskRepository struct {
@@ -77,6 +84,7 @@ func (r *MemoryTaskRepository) ListByChat(_ context.Context, chatID sharedkernel
 			continue
 		}
 		cp := *t
+		cp.Outputs = append([]OutputRef(nil), t.Outputs...)
 		out = append(out, &cp)
 		if limit > 0 && len(out) >= limit {
 			break
@@ -94,8 +102,38 @@ func (r *MemoryTaskRepository) ListByStatus(_ context.Context, st sharedkernel.T
 			continue
 		}
 		cp := *t
+		cp.Outputs = append([]OutputRef(nil), t.Outputs...)
 		out = append(out, &cp)
 		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (r *MemoryTaskRepository) ListByInstance(_ context.Context, instanceID sharedkernel.InstanceID, q ListByInstanceQuery) ([]*Task, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if instanceID == "" {
+		return nil, nil
+	}
+	var out []*Task
+	skipped := 0
+	for _, t := range r.byID {
+		if t.InstanceID != instanceID || t.InstanceID == "" {
+			continue
+		}
+		if q.Status != "" && t.Status != q.Status {
+			continue
+		}
+		if q.Offset > 0 && skipped < q.Offset {
+			skipped++
+			continue
+		}
+		cp := *t
+		cp.Outputs = append([]OutputRef(nil), t.Outputs...)
+		out = append(out, &cp)
+		if q.Limit > 0 && len(out) >= q.Limit {
 			break
 		}
 	}

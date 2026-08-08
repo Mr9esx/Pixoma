@@ -45,7 +45,7 @@ func TestOnTaskCreatedDispatches(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", 1, "c1", "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
 
 	bus := &captureBus{}
 	n := &memNotify{}
@@ -74,7 +74,8 @@ func TestApplyStatusSucceededIdempotentNotify(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	task := runtimedomain.NewPending("t1", 9, "c1", "inputs/t1", now)
+	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	task.ChatID = 9
 	_ = task.MarkQueued("local", now)
 	_ = task.MarkRunning("p", now)
 	_ = tasks.Create(ctx, task)
@@ -102,7 +103,7 @@ func TestCancelPending(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", 1, "c1", "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
 	n := &memNotify{}
 	svc := orchestrator.New(tasks, static.New(), &captureBus{}, n)
 	svc.Now = func() time.Time { return now }
@@ -119,7 +120,7 @@ func TestReconcileSucceeded(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(100, 0).UTC()
-	task := runtimedomain.NewPending("t1", 1, "c1", "inputs/t1", now.Add(-2*time.Minute))
+	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now.Add(-2*time.Minute))
 	_ = task.MarkQueued("local", now.Add(-2*time.Minute))
 	_ = task.MarkRunning("p", now.Add(-2*time.Minute))
 	_ = tasks.Create(ctx, task)
