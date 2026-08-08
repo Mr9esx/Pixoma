@@ -15,9 +15,9 @@
 
 ## 3. 健康、选路与执行
 
-- [ ] 3.1 enabled 实例周期健康探测；ListHealthy 过滤
-- [ ] 3.2 Orchestrator round-robin；无可用实例不投递
-- [ ] 3.3 Actuator 按 InstanceID 选用客户端；`main` 接线 AutoMigrate
+- [x] 3.1 enabled 实例周期健康探测；ListHealthy 过滤
+- [x] 3.2 Orchestrator round-robin；无可用实例不投递
+- [x] 3.3 Actuator 按 InstanceID 选用客户端；`main` 接线 AutoMigrate
 
 ## 4. Make 与文档
 
