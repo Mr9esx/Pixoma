@@ -21,11 +21,11 @@
 
 ## 4. Make 与文档
 
-- [ ] 4.1 Makefile：build / test / run / run-mock
-- [ ] 4.2 README：架构、种子、CRUD、system/queue/tasks curl、Mock、无鉴权警示
-- [ ] 4.3 `configs/bot.example.yaml` 注释更新
+- [x] 4.1 Makefile：build / test / run / run-mock
+- [x] 4.2 README：架构、种子、CRUD、system/queue/tasks curl、Mock、无鉴权警示
+- [x] 4.3 `configs/bot.example.yaml` 注释更新
 
 ## 5. 验收
 
-- [ ] 5.1 相关 `go test` 通过
-- [ ] 5.2 按 README 可管理实例、查 system/queue、查实例任务；重启后 Session/Task/User 仍在
+- [x] 5.1 相关 `go test` 通过
+- [x] 5.2 按 README 可管理实例、查 system/queue、查实例任务；重启后 Session/Task/User 仍在
