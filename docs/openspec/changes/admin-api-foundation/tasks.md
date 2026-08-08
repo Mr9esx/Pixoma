@@ -9,7 +9,7 @@
 
 - [x] 2.1 在 admin-api 挂载 `/api/v1/comfy-instances*`（复用 `internal/httpapi/comfyinstances`）
 - [x] 2.2 验证 CRUD + system/queue/tasks 观测与迁出前语义一致（含 mock 标记）
-- [ ] 2.3 选定并实现实例写后对 bot 侧池可见的最小策略（Probe/刷新/文档约定之一）
+- [x] 2.3 选定并实现实例写后对 bot 侧池可见的最小策略（Probe/刷新/文档约定之一）
 - [x] 2.4 从 `apps/bot` 移除管理 CRUD/观测路由挂载并更新相关说明
 
 ## 3. 验收与回归
