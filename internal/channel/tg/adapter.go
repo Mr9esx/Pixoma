@@ -13,6 +13,7 @@ import (
 
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
+	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -25,8 +26,27 @@ type Adapter struct {
 	App      *botapp.Facade
 	Out      Messenger
 	Download FileDownloader
+	// Users is optional; when set, message/callback From is upserted before handling.
+	Users    identitydomain.Repository
 	mu       sync.Mutex
 	notified map[string]struct{}
+}
+
+// UpsertFromTG persists Telegram From into the users table when Users is configured.
+// Returns the internal user id when upsert succeeds; empty string otherwise.
+// StartCase userID wiring lands in a later task — this task only guarantees the row write.
+func (a *Adapter) UpsertFromTG(ctx context.Context, in identitydomain.UpsertFrom) (string, error) {
+	if a == nil || a.Users == nil {
+		return "", nil
+	}
+	if in.TgUserID == 0 {
+		return "", nil
+	}
+	u, err := a.Users.UpsertByTgUserID(ctx, in)
+	if err != nil {
+		return "", err
+	}
+	return u.ID, nil
 }
 
 func New(app *botapp.Facade, out Messenger) *Adapter {

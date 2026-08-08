@@ -11,8 +11,11 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
+	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
+	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -496,5 +499,40 @@ func TestNumberFieldRejectsBadText(t *testing.T) {
 	}
 	if len(out.texts) == 0 {
 		t.Fatal("want parse error prompt")
+	}
+}
+
+func TestUpsertFromTG_WritesUserRow(t *testing.T) {
+	ctx := context.Background()
+	gdb, err := db.Open(db.Options{DSN: "file:tg_upsert_adapter_test?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &identitypersist.UserRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := identitypersist.NewUserRepository(gdb)
+	ad := tg.New(nil, &memOut{})
+	ad.Users = repo
+
+	isBot := false
+	id, err := ad.UpsertFromTG(ctx, identitydomain.UpsertFrom{
+		TgUserID:  99,
+		Username:  "bob",
+		FirstName: "Bob",
+		IsBot:     &isBot,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id == "" {
+		t.Fatal("want internal user id")
+	}
+	got, err := repo.GetByID(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TgUserID != 99 || got.Username != "bob" || got.FirstName != "Bob" {
+		t.Fatalf("unexpected user: %+v", got)
 	}
 }
