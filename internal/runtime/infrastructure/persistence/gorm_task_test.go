@@ -138,3 +138,80 @@ func TestGormTask_ListByChatJoinsSession(t *testing.T) {
 		t.Fatalf("session_id=%q", list[0].SessionID)
 	}
 }
+
+func TestTaskAdminListFilters(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:runtime_task_admin_list?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &convpersist.SessionRow{}, &persistence.TaskRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	seedSession(t, gdb, "s-admin-42", 42)
+	seedSession(t, gdb, "s-admin-99", 99)
+
+	tasks := persistence.NewTaskRepository(gdb)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	pendingA := domain.NewPending("task-admin-aaa", "s-admin-42", "case-alpha", "inputs/a", now)
+	pendingB := domain.NewPending("task-admin-bbb", "s-admin-99", "case-beta", "inputs/b", now.Add(time.Second))
+	queued := domain.NewPending("task-other-ccc", "s-admin-42", "case-alpha", "inputs/c", now.Add(2*time.Second))
+	if err := queued.MarkQueued("gpu-1", now.Add(2*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	for _, tsk := range []*domain.Task{pendingA, pendingB, queued} {
+		if err := tasks.Create(ctx, tsk); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	bySession, err := tasks.List(ctx, domain.AdminListQuery{SessionID: "s-admin-42"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bySession) != 2 {
+		t.Fatalf("SessionID filter got %d want 2: %+v", len(bySession), idsOf(bySession))
+	}
+
+	byChat, err := tasks.List(ctx, domain.AdminListQuery{ChatID: 42})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byChat) != 2 {
+		t.Fatalf("ChatID JOIN filter got %d want 2: %+v", len(byChat), idsOf(byChat))
+	}
+	for _, tsk := range byChat {
+		if tsk.SessionID != "s-admin-42" {
+			t.Fatalf("ChatID filter leaked session %q", tsk.SessionID)
+		}
+	}
+
+	byStatusCase, err := tasks.List(ctx, domain.AdminListQuery{
+		Status: sharedkernel.TaskPending,
+		CaseID: "case-alpha",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byStatusCase) != 1 || byStatusCase[0].ID != "task-admin-aaa" {
+		t.Fatalf("Status+CaseID got %+v", idsOf(byStatusCase))
+	}
+
+	byQ, err := tasks.List(ctx, domain.AdminListQuery{Q: "task-admin-"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byQ) != 2 {
+		t.Fatalf("Q prefix got %d want 2: %+v", len(byQ), idsOf(byQ))
+	}
+}
+
+func idsOf(list []*domain.Task) []string {
+	out := make([]string, 0, len(list))
+	for _, t := range list {
+		out = append(out, string(t.ID))
+	}
+	return out
+}

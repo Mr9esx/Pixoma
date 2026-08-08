@@ -167,6 +167,63 @@ func (r *TaskRepository) ListByInstance(ctx context.Context, instanceID sharedke
 	return rowsToTasks(rows)
 }
 
+func (r *TaskRepository) List(ctx context.Context, q domain.AdminListQuery) ([]*domain.Task, error) {
+	joinChat := q.ChatID != 0
+	col := func(name string) string {
+		if joinChat {
+			return "tasks." + name
+		}
+		return name
+	}
+
+	var tx *gorm.DB
+	if joinChat {
+		tx = r.db.WithContext(ctx).Table("tasks").
+			Joins("JOIN sessions ON tasks.session_id = sessions.id").
+			Where("sessions.chat_id = ?", int64(q.ChatID))
+	} else {
+		tx = r.db.WithContext(ctx).Model(&TaskRow{})
+	}
+
+	if q.Status != "" {
+		tx = tx.Where(col("status")+" = ?", string(q.Status))
+	}
+	if q.InstanceID != "" {
+		tx = tx.Where(col("instance_id")+" = ?", string(q.InstanceID))
+	}
+	if q.SessionID != "" {
+		tx = tx.Where(col("session_id")+" = ?", string(q.SessionID))
+	}
+	if q.CaseID != "" {
+		tx = tx.Where(col("case_id")+" = ?", string(q.CaseID))
+	}
+	if q.Q != "" {
+		like := "%" + q.Q + "%"
+		tx = tx.Where(
+			col("id")+" LIKE ? OR "+col("case_id")+" LIKE ? OR "+col("session_id")+" LIKE ?",
+			like, like, like,
+		)
+	}
+	if q.CreatedFrom != nil {
+		tx = tx.Where(col("created_at")+" >= ?", *q.CreatedFrom)
+	}
+	if q.CreatedTo != nil {
+		tx = tx.Where(col("created_at")+" <= ?", *q.CreatedTo)
+	}
+	if q.Offset > 0 {
+		tx = tx.Offset(q.Offset)
+	}
+	if q.Limit > 0 {
+		tx = tx.Limit(q.Limit)
+	}
+
+	var rows []TaskRow
+	if err := tx.Order(col("created_at") + " DESC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rowsToTasks(rows)
+}
+
 func toRow(t *domain.Task) (*TaskRow, error) {
 	outputs := t.Outputs
 	if outputs == nil {

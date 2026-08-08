@@ -11,6 +11,7 @@ import (
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/static"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
@@ -149,6 +150,43 @@ func TestCancelPending(t *testing.T) {
 	got, _ := tasks.Get(ctx, "t1")
 	if got.Status != sharedkernel.TaskCancelled {
 		t.Fatal(got.Status)
+	}
+}
+
+func TestRequestCancelViaOrchestrator(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(50, 0).UTC()
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+
+	orch := orchestrator.New(tasks, nil, nil, notify.Nop{})
+	orch.Now = func() time.Time { return now }
+	if err := orch.RequestCancel(ctx, "t1"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := tasks.Get(ctx, "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != sharedkernel.TaskCancelled {
+		t.Fatalf("status=%s", got.Status)
+	}
+
+	done := runtimedomain.NewPending("t2", "s1", "c1", "inputs/t2", now)
+	if err := done.MarkQueued("local", now); err != nil {
+		t.Fatal(err)
+	}
+	if err := done.MarkRunning("p1", now); err != nil {
+		t.Fatal(err)
+	}
+	if err := done.MarkSucceeded(nil, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := tasks.Create(ctx, done); err != nil {
+		t.Fatal(err)
+	}
+	if err := orch.RequestCancel(ctx, "t2"); !errors.Is(err, runtimedomain.ErrCancelNotAllowed) {
+		t.Fatalf("want ErrCancelNotAllowed, got %v", err)
 	}
 }
 
