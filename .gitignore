@@ -12,3 +12,4 @@ dist/
 web/admin/node_modules/
 web/admin/dist/
 .DS_Store
+comfyui-bot
