@@ -1,6 +1,0 @@
-{
-  "schema": "comet.selection.v2",
-  "workflow": "classic",
-  "change": "case-comfy-notify-path",
-  "branch": "feature/20260808/case-comfy-notify-path"
-}
