@@ -24,6 +24,9 @@ type Config struct {
 	// ComfyMock enables the in-process ComfyUI mock (default true).
 	// Set false (or COMFY_MOCK=0) to call a real ComfyUI at ComfyUIBaseURL.
 	ComfyMock bool `yaml:"comfy_mock"`
+	// HealthProbeInterval is how often enabled real Comfy instances are probed
+	// via SystemStats (default 30s). Parsed as Go duration, e.g. "30s".
+	HealthProbeInterval string `yaml:"health_probe_interval"`
 }
 
 // ComfyInstanceSeed is one row under comfy_instances in bot YAML.
@@ -42,6 +45,7 @@ func Default() Config {
 		DefaultInstanceID: "local",
 		CaseSeedDir:       "configs/cases",
 		ComfyMock:         true,
+		HealthProbeInterval: "30s",
 	}
 }
 

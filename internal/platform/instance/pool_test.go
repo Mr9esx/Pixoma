@@ -2,6 +2,8 @@ package instance_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -116,5 +118,48 @@ func TestSeedFromConfig_SingleBaseURL(t *testing.T) {
 	}
 	if got.BaseURL != "http://127.0.0.1:8188" || !got.Enabled {
 		t.Fatalf("got=%+v", got)
+	}
+}
+
+func TestPool_ProbeMarksUnhealthy(t *testing.T) {
+	dsn := "file:comfy_probe_test_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &persistence.InstanceRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := persistence.NewInstanceRepository(gdb)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "down", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+
+	if err := repo.Upsert(ctx, &instance.Record{
+		ID: "gpu-down", BaseURL: srv.URL, Enabled: true,
+		CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	pool := instance.NewPool(repo, instance.PoolOptions{Mock: false})
+	if err := pool.Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+	pool.SetHealthy("gpu-down", true)
+	pool.Probe(ctx)
+
+	healthy, err := pool.ListHealthy(ctx, instance.CapabilityFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range healthy {
+		if h.ID == "gpu-down" {
+			t.Fatal("unreachable instance must leave ListHealthy")
+		}
 	}
 }

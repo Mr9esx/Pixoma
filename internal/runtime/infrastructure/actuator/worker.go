@@ -31,32 +31,40 @@ func (s StaticWorkflows) WorkflowForTask(_ context.Context, taskID sharedkernel.
 type Worker struct {
 	InstanceID sharedkernel.InstanceID
 	Comfy      comfyui.Client
-	Blob       blob.Store
-	Status     queue.Publisher
-	Workflows  CaseSnapshotProvider
-	Now        func() time.Time
+	// Clients maps InstanceID → Comfy client; preferred over Comfy when set.
+	Clients map[sharedkernel.InstanceID]comfyui.Client
+	// ResolveClient optionally resolves a client by InstanceID (e.g. pool.Client).
+	ResolveClient func(sharedkernel.InstanceID) (comfyui.Client, error)
+	Blob          blob.Store
+	Status        queue.Publisher
+	Workflows     CaseSnapshotProvider
+	Now           func() time.Time
 }
 
 func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCommand) error {
 	now := w.now()
+	cli, err := w.clientFor(ev.InstanceID)
+	if err != nil {
+		return w.fail(ctx, ev, "comfy_client", err.Error(), now)
+	}
 
 	graph, err := w.Workflows.WorkflowForTask(ctx, ev.TaskID)
 	if err != nil {
 		return w.fail(ctx, ev, "workflow", err.Error(), now)
 	}
 
-	promptID, err := w.Comfy.Submit(ctx, graph)
+	promptID, err := cli.Submit(ctx, graph)
 	if err != nil {
 		return w.fail(ctx, ev, "comfy_submit", err.Error(), now)
 	}
 	if err := w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
-		TaskID: ev.TaskID, InstanceID: w.InstanceID, Status: sharedkernel.TaskRunning,
+		TaskID: ev.TaskID, InstanceID: ev.InstanceID, Status: sharedkernel.TaskRunning,
 		PromptID: promptID, At: w.now(),
 	}); err != nil {
 		return err
 	}
 
-	res, err := w.Comfy.Wait(ctx, promptID)
+	res, err := cli.Wait(ctx, promptID)
 	if err != nil {
 		return w.fail(ctx, ev, "comfy_wait", err.Error(), w.now())
 	}
@@ -71,14 +79,31 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 		outs = append(outs, ref)
 	}
 	return w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
-		TaskID: ev.TaskID, InstanceID: w.InstanceID, Status: sharedkernel.TaskSucceeded,
+		TaskID: ev.TaskID, InstanceID: ev.InstanceID, Status: sharedkernel.TaskSucceeded,
 		PromptID: promptID, Outputs: outs, At: w.now(),
 	})
 }
 
+func (w *Worker) clientFor(id sharedkernel.InstanceID) (comfyui.Client, error) {
+	if w.ResolveClient != nil {
+		return w.ResolveClient(id)
+	}
+	if len(w.Clients) > 0 {
+		cli, ok := w.Clients[id]
+		if !ok || cli == nil {
+			return nil, fmt.Errorf("actuator: no client for instance %s", id)
+		}
+		return cli, nil
+	}
+	if w.Comfy != nil {
+		return w.Comfy, nil
+	}
+	return nil, fmt.Errorf("actuator: no client for instance %s", id)
+}
+
 func (w *Worker) fail(ctx context.Context, ev sharedkernel.DispatchCommand, code, msg string, now time.Time) error {
 	_ = w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
-		TaskID: ev.TaskID, InstanceID: w.InstanceID, Status: sharedkernel.TaskFailed,
+		TaskID: ev.TaskID, InstanceID: ev.InstanceID, Status: sharedkernel.TaskFailed,
 		ErrorCode: code, ErrorMsg: msg, At: now,
 	})
 	return nil
