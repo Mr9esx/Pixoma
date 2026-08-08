@@ -106,13 +106,19 @@ func run(ctx context.Context) error {
 	}
 	slog.Info("comfyui client ready", "mock", cfg.ComfyMock, "base_url", cfg.ComfyUIBaseURL)
 
+	snap := &actuator.CaseSnapshot{
+		Tasks:    tasks,
+		Cases:    caseRepo,
+		Blob:     blobStore,
+		Uploader: comfy,
+	}
 	worker := &actuator.Worker{
 		InstanceID: instID,
 		Comfy:      comfy,
 		Blob:       blobStore,
 		Status:     bus,
 		Ledger:     actuator.NewMemoryLedger(),
-		Workflows:  actuator.StaticWorkflows{},
+		Workflows:  snap,
 	}
 	orch.Query = &actuator.QueryAdapter{Worker: worker}
 

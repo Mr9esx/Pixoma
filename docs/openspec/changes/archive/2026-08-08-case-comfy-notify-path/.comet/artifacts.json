@@ -1,0 +1,9 @@
+{
+  "openspec_proposal": "docs/openspec/changes/case-comfy-notify-path/proposal.md",
+  "openspec_design": "docs/openspec/changes/case-comfy-notify-path/design.md",
+  "openspec_tasks": "docs/openspec/changes/case-comfy-notify-path/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/case-comfy-notify-path/specs/channel-tg/spec.md",
+  "handoff_context": "docs/openspec/changes/archive/2026-08-08-case-comfy-notify-path/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/archive/2026-08-08-case-comfy-notify-path/.comet/handoff/design-context.md",
+  "archive_directory": "docs/openspec/changes/archive/2026-08-08-case-comfy-notify-path"
+}

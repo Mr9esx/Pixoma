@@ -1,8 +1,5 @@
-# comfyui-executor Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change workflow-engine-core. Update Purpose after archive.
-## Requirements
 ### Requirement: Actuator 作为执行面调用 ComfyUI
 系统 MUST 提供 Actuator 模块：消费指向本实例的 dispatch 命令，按 Case 快照中的绑定将输入注入工作流图，调用配置的 ComfyUI 客户端（Mock 或真实 HTTP，由配置开关选择），并等待完成或失败。Actuator MUST NOT 使用与 Case 无关的空 stub 图作为成功主路径的默认行为；MUST NOT 直接更新全局 Task 表的终态；MUST 通过 status 事件向 Orchestrator 上报。
 
@@ -36,29 +33,3 @@ TBD - created by archiving change workflow-engine-core. Update Purpose after arc
 #### Scenario: 空 workflow 拒绝执行
 - **WHEN** Case 快照中 `bindings.workflow` 为空或不含可提交图
 - **THEN** 不调用 ComfyUI，并上报失败 status
-
-### Requirement: 按 output schema 回收产物到对象存储
-执行完成后，系统 MUST 根据 output schema 与输出绑定，从 ComfyUI 历史/产物中提取结果，写入 Blob，并在 succeeded status 中携带 BlobRef。`image`/`text`/`file`（含视频）MUST 可被后续 notify 与查询使用。
-
-#### Scenario: 回收单张输出图片引用
-- **WHEN** 工作流成功且 output schema 定义了一个 image 字段
-- **THEN** succeeded status 中包含该字段对应的可读取 BlobRef
-
-#### Scenario: 回收视频文件引用
-- **WHEN** 工作流成功且 output schema 定义了一个 file 字段指向视频产物
-- **THEN** succeeded status 中包含对应 BlobRef
-
-### Requirement: 本地执行账与对账查询
-Actuator MUST 维护本地执行账（ledger），在 Publish status 前记录进度；MUST 提供 ExecutionQuery，供 Orchestrator 在 status 丢失时查询执行真相。Actuator MAY 在 Publish 失败后重发 status，消费侧 MUST 幂等。
-
-#### Scenario: 对账查询返回已成功执行
-- **WHEN** status 消息丢失但本地 ledger 显示已成功且产物已在 Blob
-- **THEN** ExecutionQuery 返回 succeeded 及输出引用，供 Orchestrator 补写 Task
-
-### Requirement: 执行前输入须已通过协议校验
-系统 MUST 保证进入 dispatch 的 Task 在 ConfirmRun 时已通过 workflow-protocol 校验。Actuator MUST NOT 接受未物化必填输入的任务作为成功路径。
-
-#### Scenario: 缺少物化输入则失败
-- **WHEN** dispatch 指向的 input Blob 前缀缺失必填对象
-- **THEN** Actuator 上报 failed，且不向 ComfyUI 假装成功提交
-
