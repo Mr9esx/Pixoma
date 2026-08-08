@@ -9,7 +9,9 @@
   "changes": [
     {
       "name": "admin-api-foundation",
-      "status": "selected",
+      "status": "archived",
+      "archive_path": "docs/openspec/changes/archive/2026-08-08-admin-api-foundation",
+      "branch": "feature/20260808/admin-api-foundation",
       "goal": "可运行 apps/admin-api；共用 DB/wire；CORS/health；迁走 bot 的 comfy-instances HTTP；无鉴权",
       "scope": "admin-api 骨架、实例管理 API 迁移、bot 卸下管理路由",
       "non_goals": ["其他资源 API", "前端页面", "鉴权"],

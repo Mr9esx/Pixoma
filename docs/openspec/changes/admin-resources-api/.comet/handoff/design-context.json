@@ -1,0 +1,17 @@
+{
+  "change": "admin-resources-api",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "b5488d2d3b8b3faac20118e9a753f22455c1f082628f6511632cc4625729bbf4",
+  "files": [
+    { "path": "docs/openspec/changes/admin-resources-api/proposal.md", "sha256": "e461fdd0e2b521a2c261b65ab02dc9c153e09272091d6e062d36876231907914" },
+    { "path": "docs/openspec/changes/admin-resources-api/design.md", "sha256": "04bcf72968980aa4fbb219ddca0b1e750522fc888e4dc47cf986a2479c6d21b1" },
+    { "path": "docs/openspec/changes/admin-resources-api/tasks.md", "sha256": "396fc828b6ed10f8d1bf0c78056e9cb021da099dea6057cb80d144e29d5df31a" },
+    { "path": "docs/openspec/changes/admin-resources-api/specs/case-admin-api/spec.md", "sha256": "a71ce22df5463fb920fd25be7c020835fdec211dea1a3562f9dc8db26dad649e" },
+    { "path": "docs/openspec/changes/admin-resources-api/specs/session-admin-api/spec.md", "sha256": "07c2a40575458d5a69fec7eeb0646a310072402f7cdc78dc9da7b5c0299bbfff" },
+    { "path": "docs/openspec/changes/admin-resources-api/specs/task-admin-api/spec.md", "sha256": "716e63ec7a9550946d1ec80887d041609ba71a1eb8b9fbcb3ab2f2c865e618ea" },
+    { "path": "docs/openspec/changes/admin-resources-api/specs/user-admin-api/spec.md", "sha256": "1ff970df9ea0c01f1444e151f66261bbfceabf8bf1d077b7d27d11d95fa5763c" }
+  ]
+}
