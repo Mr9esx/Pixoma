@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 	"errors"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,9 +13,22 @@ import (
 
 var ErrEmptyUserID = errors.New("empty user id")
 
+// ListQuery filters sessions for admin list.
+type ListQuery struct {
+	Q           string
+	UserID      string
+	ChatID      *int64
+	Status      Status
+	CreatedFrom *time.Time
+	CreatedTo   *time.Time
+	Limit       int
+	Offset      int
+}
+
 type Repository interface {
 	GetActiveByChat(ctx context.Context, chatID sharedkernel.ChatID) (*Session, error)
 	GetByID(ctx context.Context, id sharedkernel.SessionID) (*Session, error)
+	List(ctx context.Context, q ListQuery) ([]*Session, error)
 	Save(ctx context.Context, s *Session) error
 	ClearActive(ctx context.Context, chatID sharedkernel.ChatID) error
 }
@@ -48,9 +63,53 @@ func (r *MemoryRepository) GetByID(_ context.Context, id sharedkernel.SessionID)
 	defer r.mu.Unlock()
 	s, ok := r.byID[id]
 	if !ok {
-		return nil, ErrNoActiveSession
+		return nil, ErrNotFound
 	}
 	return cloneSession(s), nil
+}
+
+func (r *MemoryRepository) List(_ context.Context, q ListQuery) ([]*Session, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]*Session, 0)
+	for _, s := range r.byID {
+		if q.UserID != "" && s.UserID != q.UserID {
+			continue
+		}
+		if q.ChatID != nil && int64(s.ChatID) != *q.ChatID {
+			continue
+		}
+		if q.Status != "" && s.Status != q.Status {
+			continue
+		}
+		if q.CreatedFrom != nil && s.CreatedAt.Before(*q.CreatedFrom) {
+			continue
+		}
+		if q.CreatedTo != nil && s.CreatedAt.After(*q.CreatedTo) {
+			continue
+		}
+		if q.Q != "" {
+			if !strings.Contains(string(s.ID), q.Q) &&
+				!strings.Contains(string(s.CaseID), q.Q) &&
+				!strings.Contains(s.UserID, q.Q) {
+				continue
+			}
+		}
+		out = append(out, cloneSession(s))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].UpdatedAt.After(out[j].UpdatedAt)
+	})
+	if q.Offset > 0 {
+		if q.Offset >= len(out) {
+			return []*Session{}, nil
+		}
+		out = out[q.Offset:]
+	}
+	if q.Limit > 0 && len(out) > q.Limit {
+		out = out[:q.Limit]
+	}
+	return out, nil
 }
 
 func (r *MemoryRepository) Save(_ context.Context, s *Session) error {

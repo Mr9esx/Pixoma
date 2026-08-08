@@ -2,6 +2,7 @@ package persistence_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -52,5 +53,80 @@ func TestGormSession_ActiveSurviveReopenAndSubmittedKept(t *testing.T) {
 	byID, err := repo2.GetByID(ctx, "s1")
 	if err != nil || byID.Status != domain.StatusSubmitted {
 		t.Fatalf("submitted row missing: %+v %v", byID, err)
+	}
+}
+
+func TestSessionListFilters(t *testing.T) {
+	dsn := "file:sess_list_test?mode=memory&cache=shared"
+	gdb := openShared(t, dsn)
+	repo := persistence.NewSessionRepository(gdb)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	s1 := domain.NewCollecting("sess-alice-1", 100, "case-alpha", []string{"prompt"}, now)
+	s1.UserID = "user-alice"
+	if err := repo.Save(ctx, s1); err != nil {
+		t.Fatal(err)
+	}
+
+	s2 := domain.NewCollecting("sess-bob-2", 200, "case-beta", []string{"prompt"}, now.Add(time.Second))
+	s2.UserID = "user-bob"
+	s2.Status = domain.StatusSubmitted
+	s2.UpdatedAt = now.Add(2 * time.Second)
+	if err := repo.Save(ctx, s2); err != nil {
+		t.Fatal(err)
+	}
+
+	byUser, err := repo.List(ctx, domain.ListQuery{UserID: "user-alice"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byUser) != 1 || byUser[0].ID != "sess-alice-1" {
+		t.Fatalf("user_id: want 1 alice, got %+v", byUser)
+	}
+
+	byStatus, err := repo.List(ctx, domain.ListQuery{Status: domain.StatusSubmitted})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byStatus) != 1 || byStatus[0].ID != "sess-bob-2" {
+		t.Fatalf("status=submitted: want 1 bob, got %+v", byStatus)
+	}
+
+	chatID := int64(100)
+	byChat, err := repo.List(ctx, domain.ListQuery{ChatID: &chatID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byChat) != 1 || byChat[0].ID != "sess-alice-1" {
+		t.Fatalf("chat_id: want 1 alice, got %+v", byChat)
+	}
+
+	byQCase, err := repo.List(ctx, domain.ListQuery{Q: "case-alpha"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byQCase) != 1 || byQCase[0].ID != "sess-alice-1" {
+		t.Fatalf("q case_id: want 1 alice, got %+v", byQCase)
+	}
+
+	byQID, err := repo.List(ctx, domain.ListQuery{Q: "sess-bob"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byQID) != 1 || byQID[0].ID != "sess-bob-2" {
+		t.Fatalf("q id prefix: want 1 bob, got %+v", byQID)
+	}
+}
+
+func TestGetByIDNotFound(t *testing.T) {
+	dsn := "file:sess_notfound_test?mode=memory&cache=shared"
+	gdb := openShared(t, dsn)
+	repo := persistence.NewSessionRepository(gdb)
+	ctx := context.Background()
+
+	_, err := repo.GetByID(ctx, "missing-id")
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 }

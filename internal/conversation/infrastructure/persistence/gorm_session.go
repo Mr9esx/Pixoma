@@ -62,12 +62,54 @@ func (r *SessionRepository) GetByID(ctx context.Context, id sharedkernel.Session
 	var row SessionRow
 	err := r.db.WithContext(ctx).First(&row, "id = ?", string(id)).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, domain.ErrNoActiveSession
+		return nil, domain.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
 	return fromRow(row)
+}
+
+func (r *SessionRepository) List(ctx context.Context, q domain.ListQuery) ([]*domain.Session, error) {
+	tx := r.db.WithContext(ctx).Model(&SessionRow{})
+	if q.UserID != "" {
+		tx = tx.Where("user_id = ?", q.UserID)
+	}
+	if q.ChatID != nil {
+		tx = tx.Where("chat_id = ?", *q.ChatID)
+	}
+	if q.Status != "" {
+		tx = tx.Where("status = ?", string(q.Status))
+	}
+	if q.Q != "" {
+		like := "%" + q.Q + "%"
+		tx = tx.Where("id LIKE ? OR case_id LIKE ? OR user_id LIKE ?", like, like, like)
+	}
+	if q.CreatedFrom != nil {
+		tx = tx.Where("created_at >= ?", *q.CreatedFrom)
+	}
+	if q.CreatedTo != nil {
+		tx = tx.Where("created_at <= ?", *q.CreatedTo)
+	}
+	if q.Limit > 0 {
+		tx = tx.Limit(q.Limit)
+	}
+	if q.Offset > 0 {
+		tx = tx.Offset(q.Offset)
+	}
+	var rows []SessionRow
+	if err := tx.Order("updated_at desc").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Session, 0, len(rows))
+	for _, row := range rows {
+		s, err := fromRow(row)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, nil
 }
 
 func (r *SessionRepository) Save(ctx context.Context, s *domain.Session) error {
