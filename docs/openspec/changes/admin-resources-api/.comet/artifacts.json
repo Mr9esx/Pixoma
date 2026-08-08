@@ -1,0 +1,8 @@
+{
+  "openspec_proposal": "docs/openspec/changes/admin-resources-api/proposal.md",
+  "openspec_design": "docs/openspec/changes/admin-resources-api/design.md",
+  "openspec_tasks": "docs/openspec/changes/admin-resources-api/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/admin-resources-api/specs/case-admin-api/spec.md",
+  "handoff_context": "docs/openspec/changes/admin-resources-api/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/admin-resources-api/.comet/handoff/design-context.md"
+}
