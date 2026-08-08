@@ -1,12 +1,19 @@
 package server_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
+	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 )
 
 func TestNewHandler_Healthz(t *testing.T) {
@@ -44,14 +51,62 @@ func TestNewHandler_CORSPreflight(t *testing.T) {
 	}
 }
 
-func TestNewHandler_EmptyComfyInstancesRouteGroup(t *testing.T) {
+func TestNewHandler_WithoutInstances_ListNotFound(t *testing.T) {
 	h := server.NewHandler(server.Options{})
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
-	// Empty mount group: chi returns 404 until Task 3 mounts handlers.
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status=%d, want 404 for empty route group", rec.Code)
+		t.Fatalf("status=%d, want 404 when Instances unset", rec.Code)
+	}
+}
+
+func TestNewHandler_MountsComfyInstances(t *testing.T) {
+	dsn := "file:admin_api_mount_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.InstanceRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewInstanceRepository(gdb)
+	pool := instance.NewPool(repo, instance.PoolOptions{Mock: true})
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	instAPI := &comfyinstances.Handler{
+		Repo:  repo,
+		Pool:  pool,
+		Tasks: tasks,
+		Mock:  true,
+	}
+
+	h := server.NewHandler(server.Options{Instances: instAPI})
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances", nil)
+	listRec := httptest.NewRecorder()
+	h.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status=%d, want 200", listRec.Code)
+	}
+
+	body, _ := json.Marshal(map[string]any{
+		"id":       "gpu-admin",
+		"base_url": "http://127.0.0.1:8188",
+		"enabled":  true,
+	})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/comfy-instances", bytes.NewReader(body))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRec := httptest.NewRecorder()
+	h.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated && createRec.Code != http.StatusOK {
+		t.Fatalf("create status=%d", createRec.Code)
+	}
+
+	sysReq := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances/gpu-admin/system", nil)
+	sysRec := httptest.NewRecorder()
+	h.ServeHTTP(sysRec, sysReq)
+	if sysRec.Code != http.StatusOK {
+		t.Fatalf("system status=%d, want 200", sysRec.Code)
 	}
 }

@@ -12,8 +12,12 @@ import (
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
+	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 )
 
 func main() {
@@ -40,16 +44,33 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	_, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
+	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
 		DSN:              dsn,
 		MigrateInstances: true,
+		Models:           []any{&taskpersist.TaskRow{}},
 	})
 	if err != nil {
 		return err
 	}
 	defer func() { _ = cleanup() }()
 
-	h := server.NewHandler(server.Options{CORSOrigins: cfg.CORSOrigins})
+	instRepo := instpersist.NewInstanceRepository(gdb)
+	pool := instance.NewPool(instRepo, instance.PoolOptions{Mock: cfg.ComfyMock})
+	if err := pool.Refresh(ctx); err != nil {
+		return err
+	}
+	tasks := taskpersist.NewTaskRepository(gdb)
+	instAPI := &comfyinstances.Handler{
+		Repo:  instRepo,
+		Pool:  pool,
+		Tasks: tasks,
+		Mock:  cfg.ComfyMock,
+	}
+
+	h := server.NewHandler(server.Options{
+		CORSOrigins: cfg.CORSOrigins,
+		Instances:   instAPI,
+	})
 	addr := cfg.HTTPAddr
 	srv := &http.Server{
 		Addr:              addr,
@@ -59,7 +80,7 @@ func run(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("admin-api listening", "addr", addr, "dsn", dsn)
+		slog.Info("admin-api listening", "addr", addr, "dsn", dsn, "comfy_mock", cfg.ComfyMock)
 		slog.Warn("admin-api has no auth; do not expose to the public internet")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err

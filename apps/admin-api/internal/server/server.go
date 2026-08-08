@@ -5,14 +5,18 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
 )
 
 // Options configures the admin-api HTTP handler.
 type Options struct {
 	CORSOrigins []string
+	// Instances, when non-nil, is mounted at /api/v1/comfy-instances.
+	Instances *comfyinstances.Handler
 }
 
-// NewHandler returns the admin-api chi router (health, CORS, empty instance group).
+// NewHandler returns the admin-api chi router (health, CORS, optional instance API).
 func NewHandler(opts Options) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
@@ -23,8 +27,11 @@ func NewHandler(opts Options) http.Handler {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	// Placeholder for Task 3: mount comfyinstances.Handler here.
-	r.Route("/api/v1/comfy-instances", func(chi.Router) {})
+	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
+		if opts.Instances != nil {
+			opts.Instances.Mount(r)
+		}
+	})
 
 	return r
 }

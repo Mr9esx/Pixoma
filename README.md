@@ -72,25 +72,31 @@ make run               # COMFY_MOCK=0（需可达 ComfyUI）
 # 等价：COMFY_MOCK=0|1|true|false
 ```
 
-## 实例管理与观测（HTTP）
+## 实例管理与观测（HTTP，admin-api）
 
 > **无鉴权警示**：`/api/v1/comfy-instances*` **当前无鉴权**，仅可在本机或可信内网暴露；勿对公网开放。
+>
+> 实例管理已从 bot（`:8080`）迁到 **admin-api（默认 `:8081`）**，两边共用同一 `database_dsn` / `data/app.db`。
 
 ```bash
+# 启动管理面（与 bot 同库）
+make run-admin-api
+# 或：go run ./apps/admin-api/cmd/admin-api
+
 # 列表
-curl -s localhost:8080/api/v1/comfy-instances
+curl -s localhost:8081/api/v1/comfy-instances
 
 # 创建 / 更新
-curl -s -X POST localhost:8080/api/v1/comfy-instances \
+curl -s -X POST localhost:8081/api/v1/comfy-instances \
   -H 'Content-Type: application/json' \
   -d '{"id":"gpu-1","base_url":"http://127.0.0.1:8188","enabled":true}'
 
 # Comfy system / queue（Mock 时返回 mock: true）
-curl -s localhost:8080/api/v1/comfy-instances/gpu-1/system
-curl -s localhost:8080/api/v1/comfy-instances/gpu-1/queue
+curl -s localhost:8081/api/v1/comfy-instances/gpu-1/system
+curl -s localhost:8081/api/v1/comfy-instances/gpu-1/queue
 
 # 本系统已派发到该实例的 Task（pending 且无 instance_id 的不出现）
-curl -s 'localhost:8080/api/v1/comfy-instances/gpu-1/tasks?limit=20'
+curl -s 'localhost:8081/api/v1/comfy-instances/gpu-1/tasks?limit=20'
 ```
 
 其它：
@@ -98,7 +104,8 @@ curl -s 'localhost:8080/api/v1/comfy-instances/gpu-1/tasks?limit=20'
 ```bash
 make build
 make test
-curl localhost:8080/healthz
+curl localhost:8080/healthz   # bot 探活
+curl localhost:8081/healthz   # admin-api 探活
 ```
 
-User / Session / Task / 实例均落 SQLite；**重启进程后数据仍在**（默认 DSN 见 `configs/bot.example.yaml`）。
+User / Session / Task / 实例均落 SQLite；**重启进程后数据仍在**（默认 DSN 见 `configs/bot.example.yaml` / `configs/admin-api.example.yaml`）。
