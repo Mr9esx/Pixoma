@@ -99,6 +99,41 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 	return fromRow(row), nil
 }
 
+func (r *UserRepository) List(ctx context.Context, q domain.ListQuery) ([]*domain.User, error) {
+	tx := r.db.WithContext(ctx).Model(&UserRow{})
+	if q.TgUserID != nil {
+		tx = tx.Where("tg_user_id = ?", *q.TgUserID)
+	}
+	if q.Q != "" {
+		like := "%" + q.Q + "%"
+		tx = tx.Where(
+			"id LIKE ? OR username LIKE ? OR first_name LIKE ? OR last_name LIKE ?",
+			like, like, like, like,
+		)
+	}
+	if q.CreatedFrom != nil {
+		tx = tx.Where("created_at >= ?", *q.CreatedFrom)
+	}
+	if q.CreatedTo != nil {
+		tx = tx.Where("created_at <= ?", *q.CreatedTo)
+	}
+	if q.Limit > 0 {
+		tx = tx.Limit(q.Limit)
+	}
+	if q.Offset > 0 {
+		tx = tx.Offset(q.Offset)
+	}
+	var rows []UserRow
+	if err := tx.Order("created_at desc").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.User, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, fromRow(row))
+	}
+	return out, nil
+}
+
 func fromRow(row UserRow) *domain.User {
 	return &domain.User{
 		ID:           row.ID,
