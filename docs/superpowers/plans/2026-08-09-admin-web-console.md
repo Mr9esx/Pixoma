@@ -306,7 +306,7 @@ EOF
   - `ApiError`：`{ status: number; message: string }`
   - 类型：`ComfyInstance`、`CaseRecord`、`TaskRecord`、`UserRecord`、`SessionRecord`（字段名与 admin-api JSON 一致，snake_case）
 
-- [ ] **Step 1: 写失败测试（错误体解析）**
+- [x] **Step 1: 写失败测试（错误体解析）**
 
 `web/admin/src/lib/api/client.test.ts`：
 
@@ -351,7 +351,7 @@ describe('apiFetch', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd web/admin && pnpm test -- src/lib/api/client.test.ts
@@ -359,7 +359,7 @@ cd web/admin && pnpm test -- src/lib/api/client.test.ts
 
 Expected: FAIL（模块/导出不存在）
 
-- [ ] **Step 3: 实现 `types.ts`（对齐 admin-api DTO）**
+- [x] **Step 3: 实现 `types.ts`（对齐 admin-api DTO）**
 
 ```ts
 // web/admin/src/lib/api/types.ts
@@ -469,7 +469,7 @@ export type ListParams = {
 }
 ```
 
-- [ ] **Step 4: 实现 `client.ts`**
+- [x] **Step 4: 实现 `client.ts`**
 
 ```ts
 // web/admin/src/lib/api/client.ts
@@ -545,7 +545,7 @@ export function toQuery(params?: Record<string, string | number | boolean | unde
 }
 ```
 
-- [ ] **Step 5: 跑测试确认通过**
+- [x] **Step 5: 跑测试确认通过**
 
 ```bash
 cd web/admin && pnpm test -- src/lib/api/client.test.ts
@@ -553,7 +553,7 @@ cd web/admin && pnpm test -- src/lib/api/client.test.ts
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/admin/src/lib/api web/admin/vitest.config.ts web/admin/package.json
