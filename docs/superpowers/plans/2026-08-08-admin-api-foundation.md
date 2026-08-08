@@ -112,10 +112,10 @@ base-ref: 5b8ca1cb37a00497ab3e50c03a11a9483a900f86
 - Modify: `README.md`、`apps/admin-api/README.md`、`configs/admin-api.example.yaml`（核对 DSN 示例与 bot 一致写法）
 - Modify: `docs/openspec/changes/admin-api-foundation/tasks.md` — 勾选已完成项
 
-- [ ] **Step 1: 手工或脚本** — 启动 admin-api，curl 列表/创建；打 bot 旧管理路径应失败
-- [ ] **Step 2: 确认 mock 下观测仍可用**
-- [ ] **Step 3: 勾选 tasks.md 对应项**
-- [ ] **Step 4: Commit** — `docs(admin-api): document admin-api foundation rollout`
+- [x] **Step 1: 手工或脚本** — 启动 admin-api，curl 列表/创建；打 bot 旧管理路径应失败
+- [x] **Step 2: 确认 mock 下观测仍可用**
+- [x] **Step 3: 勾选 tasks.md 对应项**
+- [x] **Step 4: Commit** — `docs(admin-api): document admin-api foundation rollout`
 
 ---
 
