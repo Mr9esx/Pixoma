@@ -13,11 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-telegram/bot"
 	"github.com/google/uuid"
 
+	botserver "github.com/mr9esx/comfyui_tgbot/apps/bot/internal/server"
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
@@ -227,14 +226,8 @@ func run(ctx context.Context) error {
 	})
 
 	addr := cfg.HTTPAddr
-	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
-	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
 	// Instance management HTTP moved to admin-api (:8081).
-	srv := &http.Server{Addr: addr, Handler: r, ReadHeaderTimeout: 5 * time.Second}
+	srv := &http.Server{Addr: addr, Handler: botserver.NewHandler(), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		slog.Info("bot http listening", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
