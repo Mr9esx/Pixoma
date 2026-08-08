@@ -2,6 +2,7 @@
 change: admin-resources-api
 design-doc: docs/superpowers/specs/2026-08-08-admin-resources-api-design.md
 base-ref: 7f13625f8de256859429b79059c03ad2f023966d
+archived-with: 2026-08-08-admin-resources-api
 ---
 
 # admin-resources-api Implementation Plan

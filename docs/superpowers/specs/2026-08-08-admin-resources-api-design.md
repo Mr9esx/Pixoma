@@ -2,6 +2,8 @@
 comet_change: admin-resources-api
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-08-admin-resources-api
+status: final
 ---
 
 # admin-resources-api 技术设计
