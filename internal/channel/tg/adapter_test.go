@@ -2,6 +2,7 @@ package tg_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -221,5 +223,278 @@ func TestSessionConflictCopy(t *testing.T) {
 	}
 	if !strings.Contains(last, "正在进行") || !strings.Contains(last, "你刚想开始") {
 		t.Fatalf("copy missing fields: %q", last)
+	}
+}
+
+func mixedImageCase(id, name string) *domain.Case {
+	return &domain.Case{
+		Enabled: true,
+		Document: domain.CaseDocument{
+			ID: sharedkernel.CaseID(id), Name: name, Description: "desc", Preview: "preview", Price: 10,
+			Tags: []string{"image"},
+			Inputs: []domain.InputField{
+				{Key: "reference", Type: "image", Required: true, Description: "参考图"},
+				{Key: "prompt", Type: "string", Required: true, Description: "画面描述"},
+			},
+			Bindings: domain.ComfyBindings{WorkflowJSON: map[string]any{"1": map[string]any{}}},
+			InputSchema: map[string]any{
+				"type": "object", "required": []any{"reference", "prompt"},
+				"properties": map[string]any{
+					"reference": map[string]any{"type": "object"},
+					"prompt":    map[string]any{"type": "string", "minLength": 1},
+				},
+			},
+		},
+	}
+}
+
+func numberSeedCase(id, name string) *domain.Case {
+	return &domain.Case{
+		Enabled: true,
+		Document: domain.CaseDocument{
+			ID: sharedkernel.CaseID(id), Name: name, Price: 10,
+			Tags: []string{"image"},
+			Inputs: []domain.InputField{
+				{Key: "seed", Type: "number", Required: true, Description: "种子"},
+				{Key: "prompt", Type: "string", Required: true, Description: "画面描述"},
+			},
+			Bindings: domain.ComfyBindings{WorkflowJSON: map[string]any{"1": map[string]any{}}},
+			InputSchema: map[string]any{
+				"type": "object", "required": []any{"seed", "prompt"},
+				"properties": map[string]any{
+					"seed":   map[string]any{"type": "number"},
+					"prompt": map[string]any{"type": "string", "minLength": 1},
+				},
+			},
+		},
+	}
+}
+
+func booleanFlagCase(id, name string) *domain.Case {
+	return &domain.Case{
+		Enabled: true,
+		Document: domain.CaseDocument{
+			ID: sharedkernel.CaseID(id), Name: name, Price: 10,
+			Tags: []string{"image"},
+			Inputs: []domain.InputField{
+				{Key: "hq", Type: "boolean", Required: true, Description: "高清"},
+				{Key: "prompt", Type: "string", Required: true, Description: "画面描述"},
+			},
+			Bindings: domain.ComfyBindings{WorkflowJSON: map[string]any{"1": map[string]any{}}},
+			InputSchema: map[string]any{
+				"type": "object", "required": []any{"hq", "prompt"},
+				"properties": map[string]any{
+					"hq":     map[string]any{"type": "boolean"},
+					"prompt": map[string]any{"type": "string", "minLength": 1},
+				},
+			},
+		},
+	}
+}
+
+func TestHandleUserMediaDownloadErrorDoesNotLeakBotToken(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, mixedImageCase("img-edit", "图文编辑"))
+	facade := newFacade(cases)
+	store, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	facade.Blob = store
+
+	const fakeToken = "123456:ABC-DEF_fake-token-leak-test"
+	leakURL := "Get \"https://api.telegram.org/file/bot" + fakeToken + "/photos/file_0.jpg\": dial tcp: lookup api.telegram.org: no such host"
+
+	out := &memOut{}
+	ad := tg.New(facade, out)
+	ad.Download = func(context.Context, string) ([]byte, error) {
+		return nil, errors.New(leakURL)
+	}
+
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ad.HandleUserMedia(ctx, 1, "photo-fid", "image/png"); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(out.texts) == 0 {
+		t.Fatal("want user-facing download failure text")
+	}
+	sent := out.texts[len(out.texts)-1]
+	if strings.Contains(sent, fakeToken) || strings.Contains(sent, "/file/bot") {
+		t.Fatalf("bot token/URL leaked to chat: %q", sent)
+	}
+	if sent != "下载图片失败" {
+		t.Fatalf("want fixed safe message, got %q", sent)
+	}
+}
+
+func TestImageFieldAcceptsPhoto(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, mixedImageCase("img-edit", "图文编辑"))
+	facade := newFacade(cases)
+	store, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	facade.Blob = store
+
+	out := &memOut{}
+	ad := tg.New(facade, out)
+	ad.Download = func(_ context.Context, fileID string) ([]byte, error) {
+		if fileID != "photo-fid" {
+			t.Fatalf("fileID=%s", fileID)
+		}
+		return []byte{0x89, 0x50, 0x4e, 0x47}, nil
+	}
+
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ad.HandleUserMedia(ctx, 1, "photo-fid", "image/png"); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := facade.SessionStore.GetActiveByChat(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft, ok := sess.Draft["reference"]
+	if !ok || draft.Blob == nil || draft.Blob.Key == "" {
+		t.Fatalf("want blob draft for reference, draft=%+v", draft)
+	}
+	if draft.Text != nil {
+		t.Fatalf("image draft must not carry text: %+v", draft)
+	}
+	if !strings.Contains(out.inlines[len(out.inlines)-1], "prompt") {
+		t.Fatalf("want advance to prompt, last=%q", out.inlines[len(out.inlines)-1])
+	}
+	rc, err := store.Get(ctx, *draft.Blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rc.Close()
+}
+
+func TestImageFieldRejectsPlainText(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, mixedImageCase("img-edit", "图文编辑"))
+	facade := newFacade(cases)
+	out := &memOut{}
+	ad := tg.New(facade, out)
+
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"img-edit"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ad.HandleText(ctx, 1, "not-a-photo"); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := facade.SessionStore.GetActiveByChat(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := sess.Draft["reference"]; ok {
+		t.Fatalf("must not write text into image draft: %+v", sess.Draft)
+	}
+	if sess.CurrentInputIndex != 0 {
+		t.Fatalf("index should stay on image field, got %d", sess.CurrentInputIndex)
+	}
+	found := false
+	for _, tx := range out.texts {
+		if strings.Contains(tx, "图片") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("want prompt to send photo, texts=%v", out.texts)
+	}
+}
+
+func TestNumberFieldParsesText(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, numberSeedCase("num-case", "数字种子"))
+	facade := newFacade(cases)
+	out := &memOut{}
+	ad := tg.New(facade, out)
+
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"num-case"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ad.HandleText(ctx, 1, "42"); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := facade.SessionStore.GetActiveByChat(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft, ok := sess.Draft["seed"]
+	if !ok || draft.Number == nil || *draft.Number != 42 {
+		t.Fatalf("want number draft 42, got %+v", draft)
+	}
+	if draft.Text != nil {
+		t.Fatalf("number must not be stored as text: %+v", draft)
+	}
+}
+
+func TestBooleanFieldParsesText(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, booleanFlagCase("bool-case", "布尔开关"))
+	facade := newFacade(cases)
+	out := &memOut{}
+	ad := tg.New(facade, out)
+
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"bool-case"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ad.HandleText(ctx, 1, "true"); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := facade.SessionStore.GetActiveByChat(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft, ok := sess.Draft["hq"]
+	if !ok || draft.Bool == nil || !*draft.Bool {
+		t.Fatalf("want bool draft true, got %+v", draft)
+	}
+	if draft.Text != nil {
+		t.Fatalf("boolean must not be stored as text: %+v", draft)
+	}
+}
+
+func TestNumberFieldRejectsBadText(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, numberSeedCase("num-case", "数字种子"))
+	facade := newFacade(cases)
+	out := &memOut{}
+	ad := tg.New(facade, out)
+
+	if err := ad.HandleCallback(ctx, 1, "cb", tg.CBCaseStart+"num-case"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ad.HandleText(ctx, 1, "not-a-number"); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := facade.SessionStore.GetActiveByChat(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := sess.Draft["seed"]; ok {
+		t.Fatalf("must not accept bad number: %+v", sess.Draft)
+	}
+	if len(out.texts) == 0 {
+		t.Fatal("want parse error prompt")
 	}
 }

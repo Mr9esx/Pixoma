@@ -1,0 +1,17 @@
+{
+  "change": "case-comfy-notify-path",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "43b04b22a3dc64ac2fef60c93bbfc4628b993dd84e76e6c6c6738131e00b33f8",
+  "files": [
+    { "path": "docs/openspec/changes/case-comfy-notify-path/proposal.md", "sha256": "612bb4517336ba6b2b8d1d6701cbf2d1939c28066605bb4c81813f0352fe1672" },
+    { "path": "docs/openspec/changes/case-comfy-notify-path/design.md", "sha256": "53d9566a8405a14c8f046f3fa09816409c1c95a78885af0bf8e8c9e9aa233be7" },
+    { "path": "docs/openspec/changes/case-comfy-notify-path/tasks.md", "sha256": "4b4b2ea1e3a49f2bb8bbb4ccadf1106776d4d5b41d52104c3e745004a90ae551" },
+    { "path": "docs/openspec/changes/case-comfy-notify-path/specs/channel-tg/spec.md", "sha256": "60e51f0609ca7e9e12562c3538053704d490f8e6d2a6e294a94bb6043b759c67" },
+    { "path": "docs/openspec/changes/case-comfy-notify-path/specs/comfyui-executor/spec.md", "sha256": "e901f1e0ac65c17b5eb7de7f33151822f7132e408788aaf6b16f7af2ea96747d" },
+    { "path": "docs/openspec/changes/case-comfy-notify-path/specs/dialog-session/spec.md", "sha256": "8005dd32b2dad6b778addd9231f641cfcbfaf54b05916a56cd7bbddacff62ec9" },
+    { "path": "docs/openspec/changes/case-comfy-notify-path/specs/workflow-protocol/spec.md", "sha256": "96d3524f531065239f62794b46d3d0911794dd1b1e729896734ed87d1b6c2f77" }
+  ]
+}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path"
@@ -65,6 +66,48 @@ func (h *HTTP) Submit(ctx context.Context, graph Graph) (string, error) {
 		return "", fmt.Errorf("comfyui submit: empty prompt_id")
 	}
 	return out.PromptID, nil
+}
+
+func (h *HTTP) UploadImage(ctx context.Context, filename, mime string, data []byte) (string, error) {
+	if filename == "" {
+		filename = "image.png"
+	}
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	part, err := w.CreateFormFile("image", filename)
+	if err != nil {
+		return "", fmt.Errorf("comfyui upload: create part: %w", err)
+	}
+	if _, err := part.Write(data); err != nil {
+		return "", fmt.Errorf("comfyui upload: write part: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return "", fmt.Errorf("comfyui upload: close multipart: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url("/upload/image"), &body)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	res, err := h.http().Do(req)
+	if err != nil {
+		return "", fmt.Errorf("comfyui upload: %w", err)
+	}
+	defer res.Body.Close()
+	raw, _ := io.ReadAll(res.Body)
+	if res.StatusCode >= 300 {
+		return "", fmt.Errorf("comfyui upload: status %d: %s", res.StatusCode, truncate(raw, 256))
+	}
+	var out struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return "", fmt.Errorf("comfyui upload decode: %w", err)
+	}
+	if out.Name == "" {
+		return "", fmt.Errorf("comfyui upload: empty name")
+	}
+	return out.Name, nil
 }
 
 func (h *HTTP) Wait(ctx context.Context, promptID string) (*Result, error) {
