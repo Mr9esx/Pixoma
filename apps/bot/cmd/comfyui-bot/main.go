@@ -259,13 +259,13 @@ func run(ctx context.Context) error {
 	go func() {
 		t := time.NewTicker(probeEvery)
 		defer t.Stop()
-		pool.Probe(ctx)
+		tickPool(ctx, pool)
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				pool.Probe(ctx)
+				tickPool(ctx, pool)
 			}
 		}
 	}()
