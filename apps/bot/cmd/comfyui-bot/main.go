@@ -121,10 +121,9 @@ func run(ctx context.Context) error {
 		Comfy:      comfy,
 		Blob:       blobStore,
 		Status:     bus,
-		Ledger:     actuator.NewMemoryLedger(),
 		Workflows:  snap,
 	}
-	orch.Query = &actuator.QueryAdapter{Worker: worker}
+	orch.Query = &actuator.QueryAdapter{Tasks: tasks}
 
 	facade := &botapp.Facade{
 		Cases:        caseRepo,

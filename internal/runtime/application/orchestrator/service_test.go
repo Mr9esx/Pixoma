@@ -33,15 +33,6 @@ func (c *captureBus) Publish(_ context.Context, msg queue.Message) error {
 	return nil
 }
 
-type fakeQuery struct {
-	view *orchestrator.ExecutionView
-	err  error
-}
-
-func (f *fakeQuery) GetRun(context.Context, sharedkernel.TaskID) (*orchestrator.ExecutionView, error) {
-	return f.view, f.err
-}
-
 func TestOnTaskCreatedDispatches(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
@@ -159,27 +150,32 @@ func TestCancelPending(t *testing.T) {
 	}
 }
 
-func TestReconcileSucceeded(t *testing.T) {
+func TestReconcileReadsTaskOnly(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(100, 0).UTC()
-	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now.Add(-2*time.Minute))
-	_ = task.MarkQueued("local", now.Add(-2*time.Minute))
-	_ = task.MarkRunning("p", now.Add(-2*time.Minute))
+	staleAt := now.Add(-2 * time.Minute)
+	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", staleAt)
+	_ = task.MarkQueued("local", staleAt)
+	_ = task.MarkRunning("prompt-keep", staleAt)
 	_ = tasks.Create(ctx, task)
 
 	n := &memNotify{}
 	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, n)
 	svc.Now = func() time.Time { return now }
-	svc.Query = &fakeQuery{view: &orchestrator.ExecutionView{
-		TaskID: "t1", Phase: "succeeded", Outputs: []sharedkernel.BlobRef{{Key: "x.png"}},
-	}}
+	// No Query / Ledger: reconcile must use Tasks.Get only.
 	if err := svc.ReconcileStale(ctx, time.Minute, 10); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := tasks.Get(ctx, "t1")
-	if got.Status != sharedkernel.TaskSucceeded {
-		t.Fatal(got.Status)
+	if got.Status != sharedkernel.TaskRunning {
+		t.Fatalf("status=%s", got.Status)
+	}
+	if got.PromptID != "prompt-keep" {
+		t.Fatalf("prompt=%s", got.PromptID)
+	}
+	if !got.UpdatedAt.Equal(now) {
+		t.Fatalf("updated_at=%v want %v", got.UpdatedAt, now)
 	}
 }
 
