@@ -6,7 +6,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
+	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 )
 
 // Options configures the admin-api HTTP handler.
@@ -14,9 +18,13 @@ type Options struct {
 	CORSOrigins []string
 	// Instances, when non-nil, is mounted at /api/v1/comfy-instances.
 	Instances *comfyinstances.Handler
+	Cases     *casesapi.Handler
+	Users     *usersapi.Handler
+	Sessions  *sessionsapi.Handler
+	Tasks     *tasksapi.Handler
 }
 
-// NewHandler returns the admin-api chi router (health, CORS, optional instance API).
+// NewHandler returns the admin-api chi router (health, CORS, resource APIs).
 func NewHandler(opts Options) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
@@ -32,32 +40,26 @@ func NewHandler(opts Options) http.Handler {
 			opts.Instances.Mount(r)
 		}
 	})
+	r.Route("/api/v1/cases", func(r chi.Router) {
+		if opts.Cases != nil {
+			opts.Cases.Mount(r)
+		}
+	})
+	r.Route("/api/v1/users", func(r chi.Router) {
+		if opts.Users != nil {
+			opts.Users.Mount(r)
+		}
+	})
+	r.Route("/api/v1/sessions", func(r chi.Router) {
+		if opts.Sessions != nil {
+			opts.Sessions.Mount(r)
+		}
+	})
+	r.Route("/api/v1/tasks", func(r chi.Router) {
+		if opts.Tasks != nil {
+			opts.Tasks.Mount(r)
+		}
+	})
 
 	return r
-}
-
-func corsMiddleware(origins []string) func(http.Handler) http.Handler {
-	allowed := make(map[string]struct{}, len(origins))
-	for _, o := range origins {
-		if o == "" {
-			continue
-		}
-		allowed[o] = struct{}{}
-	}
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-			if _, ok := allowed[origin]; ok {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Vary", "Origin")
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-Request-ID")
-			}
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
 }

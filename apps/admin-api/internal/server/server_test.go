@@ -9,11 +9,22 @@ import (
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
+	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
+	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
+	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
+	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
+	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 )
 
 func TestNewHandler_Healthz(t *testing.T) {
@@ -59,6 +70,53 @@ func TestNewHandler_WithoutInstances_ListNotFound(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status=%d, want 404 when Instances unset", rec.Code)
+	}
+}
+
+func TestNewHandler_MountsResourceRoutes(t *testing.T) {
+	dsn := "file:admin_api_resources_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb,
+		&persistence.CaseRow{},
+		&userpersist.UserRow{},
+		&sesspersist.SessionRow{},
+		&taskpersist.TaskRow{},
+	); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	casesH := &casesapi.Handler{
+		Repo:     persistence.NewGormRepository(gdb),
+		Validate: validation.New().ValidateDocument,
+	}
+	usersH := &usersapi.Handler{Repo: userpersist.NewUserRepository(gdb)}
+	sessionsH := &sessionsapi.Handler{Repo: sesspersist.NewSessionRepository(gdb)}
+	taskRepo := taskpersist.NewTaskRepository(gdb)
+	orch := orchestrator.New(taskRepo, nil, nil, notify.Nop{})
+	tasksH := &tasksapi.Handler{Tasks: taskRepo, Cancel: orch}
+
+	h := server.NewHandler(server.Options{
+		Cases:    casesH,
+		Users:    usersH,
+		Sessions: sessionsH,
+		Tasks:    tasksH,
+	})
+
+	for _, path := range []string{
+		"/healthz",
+		"/api/v1/cases",
+		"/api/v1/users",
+		"/api/v1/sessions",
+		"/api/v1/tasks",
+	} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s status=%d, want 200", path, rec.Code)
+		}
 	}
 }
 

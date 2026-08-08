@@ -12,11 +12,21 @@ import (
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
+	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
+	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
+	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
+	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
+	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 )
 
@@ -47,7 +57,12 @@ func run(ctx context.Context) error {
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
 		DSN:              dsn,
 		MigrateInstances: true,
-		Models:           []any{&taskpersist.TaskRow{}},
+		Models: []any{
+			&casepersist.CaseRow{},
+			&userpersist.UserRow{},
+			&sesspersist.SessionRow{},
+			&taskpersist.TaskRow{},
+		},
 	})
 	if err != nil {
 		return err
@@ -59,17 +74,34 @@ func run(ctx context.Context) error {
 	if err := pool.Refresh(ctx); err != nil {
 		return err
 	}
-	tasks := taskpersist.NewTaskRepository(gdb)
+	caseRepo := casepersist.NewGormRepository(gdb)
+	userRepo := userpersist.NewUserRepository(gdb)
+	sessionRepo := sesspersist.NewSessionRepository(gdb)
+	taskRepo := taskpersist.NewTaskRepository(gdb)
+	orch := orchestrator.New(taskRepo, pool, nil, notify.Nop{})
+	orch.Sessions = sessionRepo
+
 	instAPI := &comfyinstances.Handler{
 		Repo:  instRepo,
 		Pool:  pool,
-		Tasks: tasks,
+		Tasks: taskRepo,
 		Mock:  cfg.ComfyMock,
 	}
+	casesAPI := &casesapi.Handler{
+		Repo:     caseRepo,
+		Validate: validation.New().ValidateDocument,
+	}
+	usersAPI := &usersapi.Handler{Repo: userRepo}
+	sessionsAPI := &sessionsapi.Handler{Repo: sessionRepo}
+	tasksAPI := &tasksapi.Handler{Tasks: taskRepo, Cancel: orch}
 
 	h := server.NewHandler(server.Options{
 		CORSOrigins: cfg.CORSOrigins,
 		Instances:   instAPI,
+		Cases:       casesAPI,
+		Users:       usersAPI,
+		Sessions:    sessionsAPI,
+		Tasks:       tasksAPI,
 	})
 	addr := cfg.HTTPAddr
 	srv := &http.Server{
