@@ -2,6 +2,8 @@
 comet_change: admin-api-foundation
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-08-admin-api-foundation
+status: final
 ---
 
 # admin-api-foundation 技术设计
