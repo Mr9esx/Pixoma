@@ -25,6 +25,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/notifybridge"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	convpersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
 	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
@@ -214,6 +215,15 @@ func run(ctx context.Context) error {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
+	})
+	instAPI := &comfyinstances.Handler{
+		Repo:  instRepo,
+		Pool:  pool,
+		Tasks: tasks,
+		Mock:  cfg.ComfyMock,
+	}
+	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
+		instAPI.Mount(r)
 	})
 	srv := &http.Server{Addr: addr, Handler: r, ReadHeaderTimeout: 5 * time.Second}
 	go func() {

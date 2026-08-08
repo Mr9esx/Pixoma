@@ -110,6 +110,67 @@ func (h *HTTP) UploadImage(ctx context.Context, filename, mime string, data []by
 	return out.Name, nil
 }
 
+func (h *HTTP) SystemStats(ctx context.Context) (*SystemStats, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.url("/system_stats"), nil)
+	if err != nil {
+		return &SystemStats{Reachable: false, Error: err.Error()}, nil
+	}
+	res, err := h.http().Do(req)
+	if err != nil {
+		return &SystemStats{Reachable: false, Error: err.Error()}, nil
+	}
+	defer res.Body.Close()
+	raw, _ := io.ReadAll(res.Body)
+	if res.StatusCode >= 300 {
+		return &SystemStats{
+			Reachable: false,
+			Error:     fmt.Sprintf("status %d: %s", res.StatusCode, truncate(raw, 256)),
+		}, nil
+	}
+	var body map[string]any
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return &SystemStats{Reachable: false, Error: err.Error()}, nil
+	}
+	return &SystemStats{Reachable: true, Raw: body}, nil
+}
+
+func (h *HTTP) Queue(ctx context.Context) (*QueueView, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.url("/queue"), nil)
+	if err != nil {
+		return &QueueView{Reachable: false, Error: err.Error(), Running: []any{}, Pending: []any{}}, nil
+	}
+	res, err := h.http().Do(req)
+	if err != nil {
+		return &QueueView{Reachable: false, Error: err.Error(), Running: []any{}, Pending: []any{}}, nil
+	}
+	defer res.Body.Close()
+	raw, _ := io.ReadAll(res.Body)
+	if res.StatusCode >= 300 {
+		return &QueueView{
+			Reachable: false,
+			Error:     fmt.Sprintf("status %d: %s", res.StatusCode, truncate(raw, 256)),
+			Running:   []any{},
+			Pending:   []any{},
+		}, nil
+	}
+	var body struct {
+		QueueRunning []any `json:"queue_running"`
+		QueuePending []any `json:"queue_pending"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return &QueueView{Reachable: false, Error: err.Error(), Running: []any{}, Pending: []any{}}, nil
+	}
+	running := body.QueueRunning
+	if running == nil {
+		running = []any{}
+	}
+	pending := body.QueuePending
+	if pending == nil {
+		pending = []any{}
+	}
+	return &QueueView{Reachable: true, Running: running, Pending: pending}, nil
+}
+
 func (h *HTTP) Wait(ctx context.Context, promptID string) (*Result, error) {
 	deadline := time.Now().Add(h.maxWait())
 	every := h.PollEvery
