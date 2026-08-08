@@ -142,7 +142,7 @@ func TestCaseSnapshotInjectsStagedTextIntoNodeInputs(t *testing.T) {
 	}
 
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store}
-	graph, err := snap.WorkflowForTask(ctx, "task-1")
+	graph, err := snap.WorkflowForTask(ctx, "task-1", nil)
 	if err != nil {
 		t.Fatalf("WorkflowForTask: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestCaseSnapshotFailsWhenBindingMissing(t *testing.T) {
 	}
 
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store}
-	_, err = snap.WorkflowForTask(ctx, "task-2")
+	_, err = snap.WorkflowForTask(ctx, "task-2", nil)
 	if err == nil {
 		t.Fatal("expected error when binding missing")
 	}
@@ -210,7 +210,7 @@ func TestCaseSnapshotPropagatesNonMissingBlobGetError(t *testing.T) {
 	}
 
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: errGetBlobStore{}}
-	_, err := snap.WorkflowForTask(ctx, "task-blob-err")
+	_, err := snap.WorkflowForTask(ctx, "task-blob-err", nil)
 	if err == nil {
 		t.Fatal("expected blob Get error to propagate")
 	}
@@ -246,7 +246,7 @@ func TestCaseSnapshotFailsWhenWorkflowEmpty(t *testing.T) {
 	}
 
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store}
-	_, err = snap.WorkflowForTask(ctx, "task-3")
+	_, err = snap.WorkflowForTask(ctx, "task-3", nil)
 	if err == nil {
 		t.Fatal("expected error when workflow empty")
 	}
@@ -311,7 +311,7 @@ func TestCaseSnapshotUploadsImageAndWritesRemoteFilename(t *testing.T) {
 
 	up := &recordingUploader{remoteName: "comfy-remote.png"}
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: up}
-	graph, err := snap.WorkflowForTask(ctx, "task-img")
+	graph, err := snap.WorkflowForTask(ctx, "task-img", nil)
 	if err != nil {
 		t.Fatalf("WorkflowForTask: %v", err)
 	}
@@ -371,8 +371,55 @@ func TestCaseSnapshotFailsWhenUploaderNilForImage(t *testing.T) {
 	}
 
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store}
-	_, err = snap.WorkflowForTask(ctx, "task-img-nil")
+	_, err = snap.WorkflowForTask(ctx, "task-img-nil", nil)
 	if err == nil {
 		t.Fatal("expected error when Uploader is nil")
+	}
+}
+
+func TestCaseSnapshot_PrefersPassedUploader(t *testing.T) {
+	ctx := context.Background()
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := "inputs/task-img-pass"
+	imgKey := prefix + "/reference.png"
+	ref, err := store.Put(ctx, imgKey, bytes.NewReader([]byte("x")), blob.PutOptions{MIME: "image/png"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta, _ := json.Marshal(ref)
+	if _, err := store.Put(ctx, prefix+"/reference.blob.json", bytes.NewReader(meta), blob.PutOptions{MIME: "application/json"}); err != nil {
+		t.Fatal(err)
+	}
+
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(1, 0).UTC()
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img-pass", "s1", "image-inject", prefix, now)); err != nil {
+		t.Fatal(err)
+	}
+	cases := &memCases{}
+	if err := cases.Create(ctx, &catalogdomain.Case{Document: imageWorkflowCase(), Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	fieldUp := &recordingUploader{remoteName: "field.png"}
+	passUp := &recordingUploader{remoteName: "passed.png"}
+	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: fieldUp}
+	graph, err := snap.WorkflowForTask(ctx, "task-img-pass", passUp)
+	if err != nil {
+		t.Fatalf("WorkflowForTask: %v", err)
+	}
+	if fieldUp.calls != 0 {
+		t.Fatalf("field uploader calls=%d want 0", fieldUp.calls)
+	}
+	if passUp.calls != 1 {
+		t.Fatalf("passed uploader calls=%d want 1", passUp.calls)
+	}
+	node := graph["10"].(map[string]any)
+	inputs := node["inputs"].(map[string]any)
+	if got, _ := inputs["image"].(string); got != "passed.png" {
+		t.Fatalf("image=%q want passed.png", got)
 	}
 }

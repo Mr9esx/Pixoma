@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -140,5 +143,73 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 	defer missing.Body.Close()
 	if missing.StatusCode != http.StatusNotFound {
 		t.Fatalf("missing instance want 404, got %d", missing.StatusCode)
+	}
+}
+
+func TestHandler_CreateRefreshesPoolAndDispatchTopicReceivable(t *testing.T) {
+	dsn := "file:comfy_httpapi_dispatch_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.InstanceRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewInstanceRepository(gdb)
+	pool := instance.NewPool(repo, instance.PoolOptions{Mock: true})
+	bus := memory.New()
+	t.Cleanup(func() { _ = bus.Close() })
+	ctx := context.Background()
+
+	var hits atomic.Int32
+	h := func(_ context.Context, _ queue.Message) error {
+		hits.Add(1)
+		return nil
+	}
+	var subs queue.SubscriptionSet
+	ensure := func(instances []instance.Instance) {
+		for _, inst := range instances {
+			topic := inst.DispatchTopic
+			if topic == "" {
+				topic = sharedkernel.TopicDispatch(inst.ID)
+			}
+			if err := subs.Ensure(ctx, bus, topic, h); err != nil {
+				t.Errorf("ensure: %v", err)
+			}
+		}
+	}
+	pool.SetAfterRefresh(ensure)
+	if err := pool.Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	api := &comfyinstances.Handler{Repo: repo, Pool: pool, Tasks: runtimedomain.NewMemoryTaskRepository(), Mock: true}
+	r := chi.NewRouter()
+	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
+		api.Mount(r)
+	})
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	body, _ := json.Marshal(map[string]any{
+		"id":       "gpu-new",
+		"base_url": "http://127.0.0.1:8199",
+		"enabled":  true,
+	})
+	res, err := http.Post(srv.URL+"/api/v1/comfy-instances", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d", res.StatusCode)
+	}
+
+	topic := sharedkernel.TopicDispatch("gpu-new")
+	if err := bus.Publish(ctx, queue.Message{Topic: topic, Payload: []byte(`{}`)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := hits.Load(); got != 1 {
+		t.Fatalf("dispatch hits=%d want 1 (topic subscribed after create/refresh)", got)
 	}
 }
