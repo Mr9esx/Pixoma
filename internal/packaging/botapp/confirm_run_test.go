@@ -80,6 +80,63 @@ func sampleDoc() domain.CaseDocument {
 	}
 }
 
+func TestConfirmRun_WritesSessionID(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, &domain.Case{Document: sampleDoc(), Enabled: true})
+
+	sessRepo := convdomain.NewMemoryRepository()
+	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "sess-write" }, func() time.Time {
+		return time.Unix(10, 0).UTC()
+	})
+	_, err := sessSvc.StartCase(ctx, 100, "user-test", "text2img-demo", []string{"prompt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt := "a cat"
+	_, err = sessSvc.SubmitInput(ctx, 100, convdomain.DraftValue{Text: &prompt})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pub := &capturePub{}
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	facade := &botapp.Facade{
+		Cases:        cases,
+		Validator:    validation.New(),
+		Sessions:     sessSvc,
+		SessionStore: sessRepo,
+		Tasks:        tasks,
+		Blob:         store,
+		Publisher:    pub,
+		NewTaskID:    func() sharedkernel.TaskID { return "task-sid" },
+		Now:          func() time.Time { return time.Unix(20, 0).UTC() },
+	}
+
+	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := facade.Tasks.Get(ctx, res.TaskID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.SessionID == "" {
+		t.Fatal("expected session_id")
+	}
+	sess, err := facade.SessionStore.GetByID(ctx, task.SessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sess.ChatID != 100 {
+		t.Fatalf("chat via session: %d", sess.ChatID)
+	}
+}
+
 func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 	ctx := context.Background()
 	cases := &memCases{}
