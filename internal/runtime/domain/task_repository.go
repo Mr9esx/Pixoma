@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -25,6 +26,9 @@ type TaskRepository interface {
 	Create(ctx context.Context, t *Task) error
 	Get(ctx context.Context, id sharedkernel.TaskID) (*Task, error)
 	Update(ctx context.Context, t *Task) error
+	// ClaimQueued atomically moves a pending task to queued with instanceID.
+	// Returns (true, nil) on success; (false, nil) if not pending; ErrTaskNotFound if missing.
+	ClaimQueued(ctx context.Context, id sharedkernel.TaskID, instanceID sharedkernel.InstanceID, now time.Time) (bool, error)
 	ListByChat(ctx context.Context, chatID sharedkernel.ChatID, limit int) ([]*Task, error)
 	ListByStatus(ctx context.Context, st sharedkernel.TaskStatus, limit int) ([]*Task, error)
 	ListByInstance(ctx context.Context, instanceID sharedkernel.InstanceID, q ListByInstanceQuery) ([]*Task, error)
@@ -73,6 +77,22 @@ func (r *MemoryTaskRepository) Update(_ context.Context, t *Task) error {
 	cp.Outputs = append([]OutputRef(nil), t.Outputs...)
 	r.byID[t.ID] = &cp
 	return nil
+}
+
+func (r *MemoryTaskRepository) ClaimQueued(_ context.Context, id sharedkernel.TaskID, instanceID sharedkernel.InstanceID, now time.Time) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	t, ok := r.byID[id]
+	if !ok {
+		return false, ErrTaskNotFound
+	}
+	if t.Status != sharedkernel.TaskPending {
+		return false, nil
+	}
+	t.Status = sharedkernel.TaskQueued
+	t.InstanceID = instanceID
+	t.UpdatedAt = now
+	return true, nil
 }
 
 func (r *MemoryTaskRepository) ListByChat(_ context.Context, chatID sharedkernel.ChatID, limit int) ([]*Task, error) {

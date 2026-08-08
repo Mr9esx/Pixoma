@@ -146,6 +146,61 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 	}
 }
 
+func TestHandler_CreateDuplicateIDReturns409(t *testing.T) {
+	dsn := "file:comfy_httpapi_dup_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.InstanceRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewInstanceRepository(gdb)
+	h := &comfyinstances.Handler{Repo: repo, Pool: instance.NewPool(repo, instance.PoolOptions{Mock: true}), Tasks: runtimedomain.NewMemoryTaskRepository(), Mock: true}
+	r := chi.NewRouter()
+	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
+		h.Mount(r)
+	})
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	body, _ := json.Marshal(map[string]any{
+		"id":       "gpu-dup",
+		"base_url": "http://127.0.0.1:8188",
+		"enabled":  true,
+	})
+	res1, err := http.Post(srv.URL+"/api/v1/comfy-instances", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res1.Body.Close()
+	if res1.StatusCode != http.StatusCreated {
+		t.Fatalf("first create status=%d", res1.StatusCode)
+	}
+
+	body2, _ := json.Marshal(map[string]any{
+		"id":       "gpu-dup",
+		"base_url": "http://127.0.0.1:9999",
+		"enabled":  false,
+	})
+	res2, err := http.Post(srv.URL+"/api/v1/comfy-instances", "application/json", bytes.NewReader(body2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res2.Body.Close()
+	if res2.StatusCode != http.StatusConflict {
+		t.Fatalf("duplicate create status=%d want 409", res2.StatusCode)
+	}
+
+	got, err := repo.Get(context.Background(), "gpu-dup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.BaseURL != "http://127.0.0.1:8188" || !got.Enabled {
+		t.Fatalf("existing row overwritten: %+v", got)
+	}
+}
+
 func TestHandler_CreateRefreshesPoolAndDispatchTopicReceivable(t *testing.T) {
 	dsn := "file:comfy_httpapi_dispatch_" + t.Name() + "?mode=memory&cache=shared"
 	gdb, err := db.Open(db.Options{DSN: dsn})

@@ -3,6 +3,8 @@ package orchestrator_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -164,6 +166,7 @@ func TestReconcileReadsTaskOnly(t *testing.T) {
 	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, n)
 	svc.Now = func() time.Time { return now }
 	// No Query / Ledger: reconcile must use Tasks.Get only.
+	// Already-running with no new execution info must not bump UpdatedAt.
 	if err := svc.ReconcileStale(ctx, time.Minute, 10); err != nil {
 		t.Fatal(err)
 	}
@@ -174,8 +177,117 @@ func TestReconcileReadsTaskOnly(t *testing.T) {
 	if got.PromptID != "prompt-keep" {
 		t.Fatalf("prompt=%s", got.PromptID)
 	}
-	if !got.UpdatedAt.Equal(now) {
-		t.Fatalf("updated_at=%v want %v", got.UpdatedAt, now)
+	if !got.UpdatedAt.Equal(staleAt) {
+		t.Fatalf("updated_at=%v want stale %v (no no-op refresh)", got.UpdatedAt, staleAt)
+	}
+}
+
+func TestReconcile_StaleQueuedWithoutPromptRePend(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(100, 0).UTC()
+	staleAt := now.Add(-2 * time.Minute)
+	task := runtimedomain.NewPending("t-q", "s1", "c1", "inputs/t-q", staleAt)
+	_ = task.MarkQueued("local", staleAt)
+	_ = tasks.Create(ctx, task)
+
+	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, &memNotify{})
+	svc.Now = func() time.Time { return now }
+	if err := svc.ReconcileStale(ctx, time.Minute, 10); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := tasks.Get(ctx, "t-q")
+	if got.Status != sharedkernel.TaskPending {
+		t.Fatalf("status=%s want pending", got.Status)
+	}
+	if got.InstanceID != "" {
+		t.Fatalf("instance_id=%q want empty", got.InstanceID)
+	}
+}
+
+type failPublishBus struct {
+	err error
+}
+
+func (f *failPublishBus) Publish(_ context.Context, _ queue.Message) error {
+	return f.err
+}
+
+func TestDispatch_PublishFailRollsBackPending(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(50, 0).UTC()
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+
+	bus := &failPublishBus{err: errors.New("bus down")}
+	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local", DispatchTopic: "dispatch.local"}), bus, &memNotify{})
+	svc.Now = func() time.Time { return now }
+
+	err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t1"})
+	if err == nil {
+		t.Fatal("expected publish error")
+	}
+	got, _ := tasks.Get(ctx, "t1")
+	if got.Status != sharedkernel.TaskPending {
+		t.Fatalf("status=%s want pending after publish fail", got.Status)
+	}
+	if got.InstanceID != "" {
+		t.Fatalf("instance_id=%q want empty", got.InstanceID)
+	}
+}
+
+type countingBus struct {
+	mu   sync.Mutex
+	msgs []queue.Message
+}
+
+func (c *countingBus) Publish(_ context.Context, msg queue.Message) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.msgs = append(c.msgs, msg)
+	return nil
+}
+
+func (c *countingBus) len() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.msgs)
+}
+
+func TestDispatch_ConcurrentClaimOnlyOnePublishes(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(50, 0).UTC()
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+
+	bus := &countingBus{}
+	reg := static.New(
+		instance.Instance{ID: "gpu-a", DispatchTopic: "dispatch.gpu-a"},
+		instance.Instance{ID: "gpu-b", DispatchTopic: "dispatch.gpu-b"},
+	)
+	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
+	svc.Now = func() time.Time { return now }
+
+	const n = 32
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func() {
+			defer wg.Done()
+			_ = svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t1"})
+		}()
+	}
+	wg.Wait()
+
+	if bus.len() != 1 {
+		t.Fatalf("publishes=%d want 1", bus.len())
+	}
+	got, _ := tasks.Get(ctx, "t1")
+	if got.Status != sharedkernel.TaskQueued {
+		t.Fatalf("status=%s want queued", got.Status)
+	}
+	if got.InstanceID != "gpu-a" && got.InstanceID != "gpu-b" {
+		t.Fatalf("instance_id=%q", got.InstanceID)
 	}
 }
 

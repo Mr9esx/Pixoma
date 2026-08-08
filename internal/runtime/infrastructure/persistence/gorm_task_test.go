@@ -82,6 +82,37 @@ func TestGormTask_SessionIDAndListByInstance(t *testing.T) {
 	}
 }
 
+func TestGormTask_ClaimQueuedCAS(t *testing.T) {
+	gdb := openTestDB(t)
+	seedSession(t, gdb, "s-claim", 7)
+	tasks := persistence.NewTaskRepository(gdb)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	if err := tasks.Create(ctx, domain.NewPending("t-claim", "s-claim", "c1", "inputs/t-claim", now)); err != nil {
+		t.Fatal(err)
+	}
+
+	ok, err := tasks.ClaimQueued(ctx, "t-claim", "gpu-1", now)
+	if err != nil || !ok {
+		t.Fatalf("first claim ok=%v err=%v", ok, err)
+	}
+	ok2, err := tasks.ClaimQueued(ctx, "t-claim", "gpu-2", now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok2 {
+		t.Fatal("second claim must fail")
+	}
+	got, err := tasks.Get(ctx, "t-claim")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != sharedkernel.TaskQueued || got.InstanceID != "gpu-1" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
 func TestGormTask_ListByChatJoinsSession(t *testing.T) {
 	gdb := openTestDB(t)
 	seedSession(t, gdb, "s-chat", 42)
