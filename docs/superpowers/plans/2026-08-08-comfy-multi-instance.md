@@ -2,6 +2,7 @@
 change: comfy-multi-instance
 design-doc: docs/superpowers/specs/2026-08-08-comfy-multi-instance-design.md
 base-ref: 01c3b2c1c302769da85b1e73c6689839d70291f0
+archived-with: 2026-08-08-comfy-multi-instance
 ---
 
 # comfy-multi-instance 实施计划

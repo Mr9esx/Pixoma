@@ -23,6 +23,8 @@ User (TG From upsert) ──► Session (chat 采集态) ──► Task (生成�
 
 事件链：ConfirmRun → `task.created` → Orchestrator → `dispatch.*` → Actuator → `task.status` → 发图。
 
+完整架构文档（系统总览 / 限界上下文 / 运行时 / 数据模型与 ER）：见 [`docs/architecture/`](docs/architecture/)。
+数据表与 ER 专章：[`docs/architecture/data-model.md`](docs/architecture/data-model.md)。
 ## 跑通 TG 对话（默认 mock）
 
 ```bash

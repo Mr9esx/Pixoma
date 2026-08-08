@@ -2,6 +2,8 @@
 comet_change: comfy-multi-instance
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-08-comfy-multi-instance
+status: final
 ---
 
 # comfy-multi-instance 技术设计
