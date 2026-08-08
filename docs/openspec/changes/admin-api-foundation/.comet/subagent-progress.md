@@ -7,11 +7,11 @@
 
 ## Current
 
-- Plan task: `### Task 2: admin-api 进程骨架（health + CORS + 配置）`
-- Phase: task-review
-- Risk: diff 437 lines > 200
-- Commit: 91fde35
+- Plan task: `### Task 3: 挂载实例 API 并卸下 bot 管理路由`
+- Phase: implementing
 
 ## Last completed
 
 - Task 1 appboot — DONE + reviewed
+- Task 2 admin-api host — DONE + reviewed (diff>200 risk)
+- Commits: 4f4e924, 91fde35

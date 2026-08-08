@@ -1,0 +1,373 @@
+ README.md                                     | 23 ++++++----
+ apps/admin-api/README.md                      | 30 ++++++++++---
+ apps/admin-api/cmd/admin-api/main.go          | 27 ++++++++++--
+ apps/admin-api/internal/server/server.go      | 13 ++++--
+ apps/admin-api/internal/server/server_test.go | 61 +++++++++++++++++++++++++--
+ apps/bot/cmd/comfyui-bot/main.go              | 35 ++++++---------
+ 6 files changed, 145 insertions(+), 44 deletions(-)
+diff --git a/README.md b/README.md
+index 4cd36cd..8ad1b88 100644
+--- a/README.md
++++ b/README.md
+@@ -72,25 +72,31 @@ make run               # COMFY_MOCK=0（需可达 ComfyUI）
+ # 等价：COMFY_MOCK=0|1|true|false
+ ```
+ 
+-## 实例管理与观测（HTTP）
++## 实例管理与观测（HTTP，admin-api）
+ 
+ > **无鉴权警示**：`/api/v1/comfy-instances*` **当前无鉴权**，仅可在本机或可信内网暴露；勿对公网开放。
++>
++> 实例管理已从 bot（`:8080`）迁到 **admin-api（默认 `:8081`）**，两边共用同一 `database_dsn` / `data/app.db`。
+ 
+ ```bash
++# 启动管理面（与 bot 同库）
++make run-admin-api
++# 或：go run ./apps/admin-api/cmd/admin-api
++
+ # 列表
+-curl -s localhost:8080/api/v1/comfy-instances
++curl -s localhost:8081/api/v1/comfy-instances
+ 
+ # 创建 / 更新
+-curl -s -X POST localhost:8080/api/v1/comfy-instances \
++curl -s -X POST localhost:8081/api/v1/comfy-instances \
+   -H 'Content-Type: application/json' \
+   -d '{"id":"gpu-1","base_url":"http://127.0.0.1:8188","enabled":true}'
+ 
+ # Comfy system / queue（Mock 时返回 mock: true）
+-curl -s localhost:8080/api/v1/comfy-instances/gpu-1/system
+-curl -s localhost:8080/api/v1/comfy-instances/gpu-1/queue
++curl -s localhost:8081/api/v1/comfy-instances/gpu-1/system
++curl -s localhost:8081/api/v1/comfy-instances/gpu-1/queue
+ 
+ # 本系统已派发到该实例的 Task（pending 且无 instance_id 的不出现）
+-curl -s 'localhost:8080/api/v1/comfy-instances/gpu-1/tasks?limit=20'
++curl -s 'localhost:8081/api/v1/comfy-instances/gpu-1/tasks?limit=20'
+ ```
+ 
+ 其它：
+@@ -98,7 +104,8 @@ curl -s 'localhost:8080/api/v1/comfy-instances/gpu-1/tasks?limit=20'
+ ```bash
+ make build
+ make test
+-curl localhost:8080/healthz
++curl localhost:8080/healthz   # bot 探活
++curl localhost:8081/healthz   # admin-api 探活
+ ```
+ 
+-User / Session / Task / 实例均落 SQLite；**重启进程后数据仍在**（默认 DSN 见 `configs/bot.example.yaml`）。
++User / Session / Task / 实例均落 SQLite；**重启进程后数据仍在**（默认 DSN 见 `configs/bot.example.yaml` / `configs/admin-api.example.yaml`）。
+diff --git a/apps/admin-api/README.md b/apps/admin-api/README.md
+index 5034eae..4d68829 100644
+--- a/apps/admin-api/README.md
++++ b/apps/admin-api/README.md
+@@ -1,6 +1,6 @@
+ # Admin API
+ 
+-独立管理 HTTP 进程：健康检查、CORS、后续实例管理 API。
++独立管理 HTTP 进程：健康检查、CORS、Comfy 实例 CRUD/观测。
+ 
+ **本期无鉴权。** 只在本机或可信内网使用，不要对公网暴露。
+ 
+@@ -17,6 +17,8 @@ go run ./apps/admin-api/cmd/admin-api
+ 
+ 默认监听 `:8081`。配置路径：`ADMIN_CONFIG` 或 `configs/admin-api.yaml`。
+ 
++与 bot 共用同一 `database_dsn`（例如 `data/app.db`）。`comfy_mock` 与观测路径对齐 bot。
++
+ ## 健康检查
+ 
+ ```bash
+@@ -24,13 +26,29 @@ curl -s localhost:8081/healthz
+ # ok
+ ```
+ 
++## 实例管理与观测
++
++路径与迁出前一致：`/api/v1/comfy-instances*`（只是宿主换成 admin-api）。
++
++```bash
++curl -s localhost:8081/api/v1/comfy-instances
++
++curl -s -X POST localhost:8081/api/v1/comfy-instances \
++  -H 'Content-Type: application/json' \
++  -d '{"id":"gpu-1","base_url":"http://127.0.0.1:8188","enabled":true}'
++
++curl -s localhost:8081/api/v1/comfy-instances/gpu-1/system
++curl -s localhost:8081/api/v1/comfy-instances/gpu-1/queue
++curl -s 'localhost:8081/api/v1/comfy-instances/gpu-1/tasks?limit=20'
++```
++
++写成功后本进程会 `Pool.Refresh`。bot 侧名单同步依赖后续探活周期 Refresh（另一任务）。
++
+ ## 与 bot 的边界
+ 
+ | 进程 | 端口（默认） | 职责 |
+ |---|---|---|
+-| bot | `:8080` | 对话 / 编排 / TG |
+-| admin-api | `:8081` | 管理 HTTP（本 change 起） |
+-
+-两边共用同一 `database_dsn`。admin-api **不依赖** `channel/tg`。
++| bot | `:8080` | 对话 / 编排 / TG；仅保留 `/healthz` |
++| admin-api | `:8081` | 实例管理 HTTP（无鉴权） |
+ 
+-实例 CRUD/观测路由在后续任务挂载到 `/api/v1/comfy-instances`。
++admin-api **不依赖** `channel/tg`。bot 上旧的 `/api/v1/comfy-instances*` 已卸下。
+diff --git a/apps/admin-api/cmd/admin-api/main.go b/apps/admin-api/cmd/admin-api/main.go
+index 99d626b..ba4af09 100644
+--- a/apps/admin-api/cmd/admin-api/main.go
++++ b/apps/admin-api/cmd/admin-api/main.go
+@@ -12,8 +12,12 @@ import (
+ 	"time"
+ 
+ 	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
++	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+ 	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
+ 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
++	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
++	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
++	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
+ )
+ 
+ func main() {
+@@ -40,16 +44,33 @@ func run(ctx context.Context) error {
+ 		return err
+ 	}
+ 
+-	_, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
++	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
+ 		DSN:              dsn,
+ 		MigrateInstances: true,
++		Models:           []any{&taskpersist.TaskRow{}},
+ 	})
+ 	if err != nil {
+ 		return err
+ 	}
+ 	defer func() { _ = cleanup() }()
+ 
+-	h := server.NewHandler(server.Options{CORSOrigins: cfg.CORSOrigins})
++	instRepo := instpersist.NewInstanceRepository(gdb)
++	pool := instance.NewPool(instRepo, instance.PoolOptions{Mock: cfg.ComfyMock})
++	if err := pool.Refresh(ctx); err != nil {
++		return err
++	}
++	tasks := taskpersist.NewTaskRepository(gdb)
++	instAPI := &comfyinstances.Handler{
++		Repo:  instRepo,
++		Pool:  pool,
++		Tasks: tasks,
++		Mock:  cfg.ComfyMock,
++	}
++
++	h := server.NewHandler(server.Options{
++		CORSOrigins: cfg.CORSOrigins,
++		Instances:   instAPI,
++	})
+ 	addr := cfg.HTTPAddr
+ 	srv := &http.Server{
+ 		Addr:              addr,
+@@ -59,7 +80,7 @@ func run(ctx context.Context) error {
+ 
+ 	errCh := make(chan error, 1)
+ 	go func() {
+-		slog.Info("admin-api listening", "addr", addr, "dsn", dsn)
++		slog.Info("admin-api listening", "addr", addr, "dsn", dsn, "comfy_mock", cfg.ComfyMock)
+ 		slog.Warn("admin-api has no auth; do not expose to the public internet")
+ 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+ 			errCh <- err
+diff --git a/apps/admin-api/internal/server/server.go b/apps/admin-api/internal/server/server.go
+index e1d2816..72f86e4 100644
+--- a/apps/admin-api/internal/server/server.go
++++ b/apps/admin-api/internal/server/server.go
+@@ -5,14 +5,18 @@ import (
+ 
+ 	"github.com/go-chi/chi/v5"
+ 	"github.com/go-chi/chi/v5/middleware"
++
++	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+ )
+ 
+ // Options configures the admin-api HTTP handler.
+ type Options struct {
+ 	CORSOrigins []string
++	// Instances, when non-nil, is mounted at /api/v1/comfy-instances.
++	Instances *comfyinstances.Handler
+ }
+ 
+-// NewHandler returns the admin-api chi router (health, CORS, empty instance group).
++// NewHandler returns the admin-api chi router (health, CORS, optional instance API).
+ func NewHandler(opts Options) http.Handler {
+ 	r := chi.NewRouter()
+ 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
+@@ -23,8 +27,11 @@ func NewHandler(opts Options) http.Handler {
+ 		_, _ = w.Write([]byte("ok"))
+ 	})
+ 
+-	// Placeholder for Task 3: mount comfyinstances.Handler here.
+-	r.Route("/api/v1/comfy-instances", func(chi.Router) {})
++	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
++		if opts.Instances != nil {
++			opts.Instances.Mount(r)
++		}
++	})
+ 
+ 	return r
+ }
+diff --git a/apps/admin-api/internal/server/server_test.go b/apps/admin-api/internal/server/server_test.go
+index 60dd70f..5c9ab87 100644
+--- a/apps/admin-api/internal/server/server_test.go
++++ b/apps/admin-api/internal/server/server_test.go
+@@ -1,12 +1,19 @@
+ package server_test
+ 
+ import (
++	"bytes"
++	"encoding/json"
+ 	"net/http"
+ 	"net/http/httptest"
+ 	"strings"
+ 	"testing"
+ 
+ 	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
++	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
++	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
++	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
++	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
++	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+ )
+ 
+ func TestNewHandler_Healthz(t *testing.T) {
+@@ -44,14 +51,62 @@ func TestNewHandler_CORSPreflight(t *testing.T) {
+ 	}
+ }
+ 
+-func TestNewHandler_EmptyComfyInstancesRouteGroup(t *testing.T) {
++func TestNewHandler_WithoutInstances_ListNotFound(t *testing.T) {
+ 	h := server.NewHandler(server.Options{})
+ 	req := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances", nil)
+ 	rec := httptest.NewRecorder()
+ 	h.ServeHTTP(rec, req)
+ 
+-	// Empty mount group: chi returns 404 until Task 3 mounts handlers.
+ 	if rec.Code != http.StatusNotFound {
+-		t.Fatalf("status=%d, want 404 for empty route group", rec.Code)
++		t.Fatalf("status=%d, want 404 when Instances unset", rec.Code)
++	}
++}
++
++func TestNewHandler_MountsComfyInstances(t *testing.T) {
++	dsn := "file:admin_api_mount_" + t.Name() + "?mode=memory&cache=shared"
++	gdb, err := db.Open(db.Options{DSN: dsn})
++	if err != nil {
++		t.Fatalf("open: %v", err)
++	}
++	if err := db.AutoMigrate(gdb, &instpersist.InstanceRow{}); err != nil {
++		t.Fatalf("migrate: %v", err)
++	}
++	repo := instpersist.NewInstanceRepository(gdb)
++	pool := instance.NewPool(repo, instance.PoolOptions{Mock: true})
++	tasks := runtimedomain.NewMemoryTaskRepository()
++	instAPI := &comfyinstances.Handler{
++		Repo:  repo,
++		Pool:  pool,
++		Tasks: tasks,
++		Mock:  true,
++	}
++
++	h := server.NewHandler(server.Options{Instances: instAPI})
++
++	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances", nil)
++	listRec := httptest.NewRecorder()
++	h.ServeHTTP(listRec, listReq)
++	if listRec.Code != http.StatusOK {
++		t.Fatalf("list status=%d, want 200", listRec.Code)
++	}
++
++	body, _ := json.Marshal(map[string]any{
++		"id":       "gpu-admin",
++		"base_url": "http://127.0.0.1:8188",
++		"enabled":  true,
++	})
++	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/comfy-instances", bytes.NewReader(body))
++	createReq.Header.Set("Content-Type", "application/json")
++	createRec := httptest.NewRecorder()
++	h.ServeHTTP(createRec, createReq)
++	if createRec.Code != http.StatusCreated && createRec.Code != http.StatusOK {
++		t.Fatalf("create status=%d", createRec.Code)
++	}
++
++	sysReq := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances/gpu-admin/system", nil)
++	sysRec := httptest.NewRecorder()
++	h.ServeHTTP(sysRec, sysReq)
++	if sysRec.Code != http.StatusOK {
++		t.Fatalf("system status=%d, want 200", sysRec.Code)
+ 	}
+ }
+diff --git a/apps/bot/cmd/comfyui-bot/main.go b/apps/bot/cmd/comfyui-bot/main.go
+index 0d50f5d..ba3facd 100644
+--- a/apps/bot/cmd/comfyui-bot/main.go
++++ b/apps/bot/cmd/comfyui-bot/main.go
+@@ -25,12 +25,11 @@ import (
+ 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/notifybridge"
+ 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
+ 	convpersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
+-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+ 	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
+ 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
++	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
+ 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
+ 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
+-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+ 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
+ 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+ 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
+@@ -63,19 +62,21 @@ func run(ctx context.Context) error {
+ 	dataDir := envOr("DATA_DIR", "data")
+ 	_ = os.MkdirAll(dataDir, 0o755)
+ 
+-	gdb, err := db.Open(db.Options{DSN: filepath.Join(dataDir, "app.db")})
++	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
++		DSN:              filepath.Join(dataDir, "app.db"),
++		MigrateInstances: true,
++		Models: []any{
++			&persistence.CaseRow{},
++			&identitypersist.UserRow{},
++			&convpersist.SessionRow{},
++			&taskpersist.TaskRow{},
++		},
++	})
+ 	if err != nil {
+ 		return err
+ 	}
+-	if err := db.AutoMigrate(gdb,
+-		&persistence.CaseRow{},
+-		&identitypersist.UserRow{},
+-		&convpersist.SessionRow{},
+-		&taskpersist.TaskRow{},
+-		&instpersist.InstanceRow{},
+-	); err != nil {
+-		return err
+-	}
++	defer func() { _ = cleanup() }()
++
+ 	caseRepo := persistence.NewGormRepository(gdb)
+ 	userRepo := identitypersist.NewUserRepository(gdb)
+ 	if n, err := seedCasesDir(ctx, caseRepo, cfg.CaseSeedDir); err != nil {
+@@ -231,15 +232,7 @@ func run(ctx context.Context) error {
+ 		w.WriteHeader(http.StatusOK)
+ 		_, _ = w.Write([]byte("ok"))
+ 	})
+-	instAPI := &comfyinstances.Handler{
+-		Repo:  instRepo,
+-		Pool:  pool,
+-		Tasks: tasks,
+-		Mock:  cfg.ComfyMock,
+-	}
+-	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
+-		instAPI.Mount(r)
+-	})
++	// Instance management HTTP moved to admin-api (:8081).
+ 	srv := &http.Server{Addr: addr, Handler: r, ReadHeaderTimeout: 5 * time.Second}
+ 	go func() {
+ 		slog.Info("bot http listening", "addr", addr)
