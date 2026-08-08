@@ -81,11 +81,11 @@ base-ref: 5b8ca1cb37a00497ab3e50c03a11a9483a900f86
 - Consumes: `comfyinstances.Handler`、Pool、Repo、Tasks、Mock 开关
 - Produces: admin-api 上与迁出前一致的 CRUD/观测行为；bot 不再提供管理路径
 
-- [ ] **Step 1: 确认现有 handler 测试仍绿**
-- [ ] **Step 2: admin-api 挂载 Handler + Pool.Refresh 写路径**
-- [ ] **Step 3: bot 删除管理路由挂载**
-- [ ] **Step 4: 更新 README / admin-api README（无鉴权、同库、新端口）**
-- [ ] **Step 5: Commit** — `feat(admin-api): migrate comfy-instances HTTP off bot`
+- [x] **Step 1: 确认现有 handler 测试仍绿**
+- [x] **Step 2: admin-api 挂载 Handler + Pool.Refresh 写路径**
+- [x] **Step 3: bot 删除管理路由挂载**
+- [x] **Step 4: 更新 README / admin-api README（无鉴权、同库、新端口）**
+- [x] **Step 5: Commit** — `feat(admin-api): migrate comfy-instances HTTP off bot`
 
 ---
 
