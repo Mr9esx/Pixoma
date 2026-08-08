@@ -93,6 +93,30 @@ func (r *TaskRepository) Update(ctx context.Context, t *domain.Task) error {
 	return nil
 }
 
+func (r *TaskRepository) ClaimQueued(ctx context.Context, id sharedkernel.TaskID, instanceID sharedkernel.InstanceID, now time.Time) (bool, error) {
+	res := r.db.WithContext(ctx).Model(&TaskRow{}).
+		Where("id = ? AND status = ?", string(id), string(sharedkernel.TaskPending)).
+		Updates(map[string]any{
+			"status":      string(sharedkernel.TaskQueued),
+			"instance_id": string(instanceID),
+			"updated_at":  now,
+		})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected > 0 {
+		return true, nil
+	}
+	var n int64
+	if err := r.db.WithContext(ctx).Model(&TaskRow{}).Where("id = ?", string(id)).Count(&n).Error; err != nil {
+		return false, err
+	}
+	if n == 0 {
+		return false, domain.ErrTaskNotFound
+	}
+	return false, nil
+}
+
 func (r *TaskRepository) ListByChat(ctx context.Context, chatID sharedkernel.ChatID, limit int) ([]*domain.Task, error) {
 	q := r.db.WithContext(ctx).Table("tasks").
 		Joins("JOIN sessions ON tasks.session_id = sessions.id").

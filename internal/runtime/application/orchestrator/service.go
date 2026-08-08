@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -41,7 +42,8 @@ type Service struct {
 	rrIndex uint64
 
 	// notifyDedupe tracks terminal notifies already sent.
-	notified map[string]struct{}
+	notifiedMu sync.Mutex
+	notified   map[string]struct{}
 }
 
 func New(tasks runtimedomain.TaskRepository, instances instance.Registry, dispatch queue.Publisher, n notify.Publisher) *Service {
@@ -99,11 +101,12 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	idx := int(atomic.AddUint64(&s.rrIndex, 1)-1) % len(candidates)
 	chosen := candidates[idx]
 	now := s.Now()
-	if err := t.MarkQueued(chosen.ID, now); err != nil {
+	claimed, err := s.Tasks.ClaimQueued(ctx, taskID, chosen.ID, now)
+	if err != nil {
 		return err
 	}
-	if err := s.Tasks.Update(ctx, t); err != nil {
-		return err
+	if !claimed {
+		return nil
 	}
 	cmd := sharedkernel.DispatchCommand{
 		TaskID:      t.ID,
@@ -112,6 +115,7 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	}
 	payload, err := json.Marshal(cmd)
 	if err != nil {
+		s.rollbackClaim(ctx, taskID, now)
 		return err
 	}
 	topic := chosen.DispatchTopic
@@ -120,10 +124,26 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	}
 	if err := s.Dispatch.Publish(ctx, queue.Message{Topic: topic, Key: string(t.ID), Payload: payload}); err != nil {
 		s.Storm.Breaker.RecordFailure(chosen.ID)
+		s.rollbackClaim(ctx, taskID, now)
 		return err
 	}
 	s.Storm.Breaker.RecordSuccess(chosen.ID)
 	return nil
+}
+
+// rollbackClaim best-effort returns a claimed task to pending so SchedulePending can retry.
+func (s *Service) rollbackClaim(ctx context.Context, taskID sharedkernel.TaskID, now time.Time) {
+	t, err := s.Tasks.Get(ctx, taskID)
+	if err != nil {
+		return
+	}
+	if t.Status != sharedkernel.TaskQueued {
+		return
+	}
+	t.Status = sharedkernel.TaskPending
+	t.InstanceID = ""
+	t.UpdatedAt = now
+	_ = s.Tasks.Update(ctx, t)
 }
 
 func filterAllowed(insts []instance.Instance, breaker *CircuitBreaker) []instance.Instance {
@@ -195,6 +215,8 @@ func isTerminal(st sharedkernel.TaskStatus) bool {
 
 func (s *Service) publishNotify(ctx context.Context, t *runtimedomain.Task) error {
 	key := string(t.ID) + ":" + string(t.Status)
+	s.notifiedMu.Lock()
+	defer s.notifiedMu.Unlock()
 	if _, ok := s.notified[key]; ok {
 		return nil
 	}
@@ -273,10 +295,15 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 					ErrorMsg: view.ErrorMsg, At: now,
 				})
 			case "running":
-				_ = s.applyStatus(ctx, sharedkernel.TaskStatusEvent{
-					TaskID: t.ID, InstanceID: t.InstanceID, Status: sharedkernel.TaskRunning,
-					PromptID: view.PromptID, At: now,
-				})
+				// Task-only view has no external progress; do not refresh UpdatedAt.
+			case "accepted":
+				// Stale queued with no prompt_id never reached Comfy — re-pend for redispatch.
+				if fresh.Status == sharedkernel.TaskQueued && fresh.PromptID == "" {
+					fresh.Status = sharedkernel.TaskPending
+					fresh.InstanceID = ""
+					fresh.UpdatedAt = now
+					_ = s.Tasks.Update(ctx, fresh)
+				}
 			}
 		}
 	}

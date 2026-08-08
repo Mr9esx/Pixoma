@@ -124,6 +124,13 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
+	if _, err := h.Repo.Get(r.Context(), rec.ID); err == nil {
+		writeErr(w, http.StatusConflict, "instance already exists")
+		return
+	} else if !errors.Is(err, instance.ErrNotFound) {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if err := h.Repo.Upsert(r.Context(), rec); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
