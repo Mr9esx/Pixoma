@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { AppSidebar } from '@/components/layout/app-sidebar'
+import { LanguageSwitcher } from '@/components/layout/language-switcher'
 import { SkipToMain } from '@/components/skip-to-main'
+import { ThemeSwitch } from '@/components/theme-switch'
 import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
 import { getCookie } from '@/lib/cookies'
@@ -28,7 +30,10 @@ function AppLayout() {
             )}
           >
             <header className='flex h-14 items-center gap-2 border-b px-4'>
-              {/* Task 5: LanguageSwitcher + theme toggle */}
+              <div className='ms-auto flex items-center gap-2'>
+                <LanguageSwitcher />
+                <ThemeSwitch />
+              </div>
             </header>
             <div className='flex-1 p-4'>
               <Outlet />

@@ -1,6 +1,7 @@
 import React from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight, Laptop, Moon, Sun } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { MENU_ITEMS } from '@/config/menu'
 import { useSearch } from '@/context/search-provider'
 import { useTheme } from '@/context/theme-provider'
@@ -15,17 +16,8 @@ import {
 } from '@/components/ui/command'
 import { ScrollArea } from './ui/scroll-area'
 
-/** Temporary visible labels until Task 5 wires i18n via titleKey. */
-const TEMP_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  instances: 'Instances',
-  cases: 'Cases',
-  tasks: 'Tasks',
-  users: 'Users',
-  sessions: 'Sessions',
-}
-
 export function CommandMenu() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { setTheme } = useTheme()
   const { open, setOpen } = useSearch()
@@ -46,7 +38,7 @@ export function CommandMenu() {
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading='Navigation'>
             {MENU_ITEMS.map((item) => {
-              const label = TEMP_LABELS[item.id] ?? item.id
+              const label = t(item.titleKey)
               return (
                 <CommandItem
                   key={item.id}

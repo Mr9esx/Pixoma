@@ -1,0 +1,26 @@
+{
+  "menu": {
+    "dashboard": "Dashboard",
+    "instances": "Instances",
+    "cases": "Cases",
+    "tasks": "Tasks",
+    "users": "Users",
+    "sessions": "Sessions"
+  },
+  "common": {
+    "loading": "Loading…",
+    "empty": "No data",
+    "selectItem": "Select an item",
+    "save": "Save",
+    "create": "Create",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "errorGeneric": "Request failed",
+    "successSaved": "Saved",
+    "sampleNote": "Based on the current fetch sample (limited by limit)"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  }
+}
