@@ -21,6 +21,7 @@ export default defineConfig({
       'src/config/menu.test.ts',
       'src/lib/i18n/locale.test.ts',
       'src/components/master-detail/master-detail.contract.test.ts',
+      'src/components/layout/shell-layout.contract.test.ts',
     ],
   },
 })
