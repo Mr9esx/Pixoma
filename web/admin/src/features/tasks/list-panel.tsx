@@ -27,6 +27,27 @@ export const TASK_STATUS_FILTERS = [
 
 export type TaskStatusFilter = (typeof TASK_STATUS_FILTERS)[number]
 
+const TASK_STATUS_LABEL_KEYS: Record<
+  Exclude<TaskStatusFilter, 'all'>,
+  string
+> = {
+  pending: 'tasks.statusPending',
+  queued: 'tasks.statusQueued',
+  running: 'tasks.statusRunning',
+  succeeded: 'tasks.statusSucceeded',
+  failed: 'tasks.statusFailed',
+  cancelled: 'tasks.statusCancelled',
+}
+
+export function taskStatusLabelKey(
+  status: string,
+): string | undefined {
+  if (status in TASK_STATUS_LABEL_KEYS) {
+    return TASK_STATUS_LABEL_KEYS[status as Exclude<TaskStatusFilter, 'all'>]
+  }
+  return undefined
+}
+
 export type TaskListFilters = {
   status: TaskStatusFilter
   q: string
@@ -78,7 +99,7 @@ export function TaskListPanel({
                 <SelectItem key={status} value={status}>
                   {status === 'all'
                     ? t('tasks.filterStatusAll')
-                    : status}
+                    : t(TASK_STATUS_LABEL_KEYS[status])}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -120,6 +141,7 @@ export function TaskListPanel({
         <ul className='min-h-0 flex-1 divide-y overflow-auto'>
           {items.map((item) => {
             const selected = selectedId === item.id
+            const statusKey = taskStatusLabelKey(item.status)
             return (
               <li key={item.id}>
                 <Link
@@ -133,7 +155,7 @@ export function TaskListPanel({
                   <div className='flex items-center justify-between gap-2'>
                     <span className='font-medium'>{item.id}</span>
                     <span className='text-muted-foreground shrink-0 text-xs'>
-                      {item.status}
+                      {statusKey ? t(statusKey) : item.status}
                     </span>
                   </div>
                   <div className='text-muted-foreground mt-0.5 truncate text-xs'>

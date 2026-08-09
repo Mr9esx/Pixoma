@@ -22,6 +22,8 @@ type Props = {
   value: BasicsSlice
   onChange: (next: BasicsSlice) => void
   idEditable: boolean
+  /** Create-only: edit mode uses topbar Enable/Disable API instead. */
+  showEnabled?: boolean
   disabled?: boolean
 }
 
@@ -40,6 +42,7 @@ export function BasicsSection({
   value,
   onChange,
   idEditable,
+  showEnabled = false,
   disabled,
 }: Props) {
   const { t } = useTranslation()
@@ -125,15 +128,17 @@ export function BasicsSection({
             autoComplete='off'
           />
         </div>
-        <div className='flex items-center justify-between gap-3 self-end rounded-md border px-3 py-2'>
-          <Label htmlFor='case-enabled'>{t('cases.fieldEnabled')}</Label>
-          <Switch
-            id='case-enabled'
-            checked={value.enabled}
-            onCheckedChange={(enabled) => patch({ enabled })}
-            disabled={disabled}
-          />
-        </div>
+        {showEnabled ? (
+          <div className='flex items-center justify-between gap-3 self-end rounded-md border px-3 py-2'>
+            <Label htmlFor='case-enabled'>{t('cases.fieldEnabled')}</Label>
+            <Switch
+              id='case-enabled'
+              checked={value.enabled}
+              onCheckedChange={(enabled) => patch({ enabled })}
+              disabled={disabled}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className='grid gap-4 sm:grid-cols-2'>

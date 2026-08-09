@@ -19,28 +19,18 @@ import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as AppUsersRouteRouteImport } from './routes/_app/users/route'
 import { Route as AppTasksRouteRouteImport } from './routes/_app/tasks/route'
-import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as AppSessionsRouteRouteImport } from './routes/_app/sessions/route'
 import { Route as AppInstancesRouteRouteImport } from './routes/_app/instances/route'
 import { Route as AppCasesRouteRouteImport } from './routes/_app/cases/route'
 import { Route as AppUsersIndexRouteImport } from './routes/_app/users/index'
 import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
-import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSessionsIndexRouteImport } from './routes/_app/sessions/index'
 import { Route as AppInstancesIndexRouteImport } from './routes/_app/instances/index'
-import { Route as AppHelpCenterIndexRouteImport } from './routes/_app/help-center/index'
-import { Route as AppChatsIndexRouteImport } from './routes/_app/chats/index'
 import { Route as AppCasesIndexRouteImport } from './routes/_app/cases/index'
-import { Route as AppAppsIndexRouteImport } from './routes/_app/apps/index'
 import { Route as AppUsersUserIdRouteImport } from './routes/_app/users/$userId'
 import { Route as AppTasksTaskIdRouteImport } from './routes/_app/tasks/$taskId'
-import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
-import { Route as AppSettingsDisplayRouteImport } from './routes/_app/settings/display'
-import { Route as AppSettingsAppearanceRouteImport } from './routes/_app/settings/appearance'
-import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/account'
 import { Route as AppSessionsSessionIdRouteImport } from './routes/_app/sessions/$sessionId'
 import { Route as AppInstancesInstanceIdRouteImport } from './routes/_app/instances/$instanceId'
-import { Route as AppErrorsErrorRouteImport } from './routes/_app/errors/$error'
 import { Route as AppCasesCaseIdRouteImport } from './routes/_app/cases/$caseId'
 
 const AppRoute = AppRouteImport.update({
@@ -92,11 +82,6 @@ const AppTasksRouteRoute = AppTasksRouteRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AppRoute,
 } as any)
-const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppSessionsRouteRoute = AppSessionsRouteRouteImport.update({
   id: '/sessions',
   path: '/sessions',
@@ -122,11 +107,6 @@ const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppTasksRouteRoute,
 } as any)
-const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppSettingsRouteRoute,
-} as any)
 const AppSessionsIndexRoute = AppSessionsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -137,25 +117,10 @@ const AppInstancesIndexRoute = AppInstancesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppInstancesRouteRoute,
 } as any)
-const AppHelpCenterIndexRoute = AppHelpCenterIndexRouteImport.update({
-  id: '/help-center/',
-  path: '/help-center/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppChatsIndexRoute = AppChatsIndexRouteImport.update({
-  id: '/chats/',
-  path: '/chats/',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppCasesIndexRoute = AppCasesIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppCasesRouteRoute,
-} as any)
-const AppAppsIndexRoute = AppAppsIndexRouteImport.update({
-  id: '/apps/',
-  path: '/apps/',
-  getParentRoute: () => AppRoute,
 } as any)
 const AppUsersUserIdRoute = AppUsersUserIdRouteImport.update({
   id: '/$userId',
@@ -167,27 +132,6 @@ const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
   path: '/$taskId',
   getParentRoute: () => AppTasksRouteRoute,
 } as any)
-const AppSettingsNotificationsRoute =
-  AppSettingsNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AppSettingsRouteRoute,
-  } as any)
-const AppSettingsDisplayRoute = AppSettingsDisplayRouteImport.update({
-  id: '/display',
-  path: '/display',
-  getParentRoute: () => AppSettingsRouteRoute,
-} as any)
-const AppSettingsAppearanceRoute = AppSettingsAppearanceRouteImport.update({
-  id: '/appearance',
-  path: '/appearance',
-  getParentRoute: () => AppSettingsRouteRoute,
-} as any)
-const AppSettingsAccountRoute = AppSettingsAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => AppSettingsRouteRoute,
-} as any)
 const AppSessionsSessionIdRoute = AppSessionsSessionIdRouteImport.update({
   id: '/$sessionId',
   path: '/$sessionId',
@@ -197,11 +141,6 @@ const AppInstancesInstanceIdRoute = AppInstancesInstanceIdRouteImport.update({
   id: '/$instanceId',
   path: '/$instanceId',
   getParentRoute: () => AppInstancesRouteRoute,
-} as any)
-const AppErrorsErrorRoute = AppErrorsErrorRouteImport.update({
-  id: '/errors/$error',
-  path: '/errors/$error',
-  getParentRoute: () => AppRoute,
 } as any)
 const AppCasesCaseIdRoute = AppCasesCaseIdRouteImport.update({
   id: '/$caseId',
@@ -215,7 +154,6 @@ export interface FileRoutesByFullPath {
   '/cases': typeof AppCasesRouteRouteWithChildren
   '/instances': typeof AppInstancesRouteRouteWithChildren
   '/sessions': typeof AppSessionsRouteRouteWithChildren
-  '/settings': typeof AppSettingsRouteRouteWithChildren
   '/tasks': typeof AppTasksRouteRouteWithChildren
   '/users': typeof AppUsersRouteRouteWithChildren
   '/401': typeof errors401Route
@@ -224,22 +162,13 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/cases/$caseId': typeof AppCasesCaseIdRoute
-  '/errors/$error': typeof AppErrorsErrorRoute
   '/instances/$instanceId': typeof AppInstancesInstanceIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
-  '/settings/account': typeof AppSettingsAccountRoute
-  '/settings/appearance': typeof AppSettingsAppearanceRoute
-  '/settings/display': typeof AppSettingsDisplayRoute
-  '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/users/$userId': typeof AppUsersUserIdRoute
-  '/apps/': typeof AppAppsIndexRoute
   '/cases/': typeof AppCasesIndexRoute
-  '/chats/': typeof AppChatsIndexRoute
-  '/help-center/': typeof AppHelpCenterIndexRoute
   '/instances/': typeof AppInstancesIndexRoute
   '/sessions/': typeof AppSessionsIndexRoute
-  '/settings/': typeof AppSettingsIndexRoute
   '/tasks/': typeof AppTasksIndexRoute
   '/users/': typeof AppUsersIndexRoute
 }
@@ -252,22 +181,13 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/': typeof AppIndexRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
-  '/errors/$error': typeof AppErrorsErrorRoute
   '/instances/$instanceId': typeof AppInstancesInstanceIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
-  '/settings/account': typeof AppSettingsAccountRoute
-  '/settings/appearance': typeof AppSettingsAppearanceRoute
-  '/settings/display': typeof AppSettingsDisplayRoute
-  '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/users/$userId': typeof AppUsersUserIdRoute
-  '/apps': typeof AppAppsIndexRoute
   '/cases': typeof AppCasesIndexRoute
-  '/chats': typeof AppChatsIndexRoute
-  '/help-center': typeof AppHelpCenterIndexRoute
   '/instances': typeof AppInstancesIndexRoute
   '/sessions': typeof AppSessionsIndexRoute
-  '/settings': typeof AppSettingsIndexRoute
   '/tasks': typeof AppTasksIndexRoute
   '/users': typeof AppUsersIndexRoute
 }
@@ -278,7 +198,6 @@ export interface FileRoutesById {
   '/_app/cases': typeof AppCasesRouteRouteWithChildren
   '/_app/instances': typeof AppInstancesRouteRouteWithChildren
   '/_app/sessions': typeof AppSessionsRouteRouteWithChildren
-  '/_app/settings': typeof AppSettingsRouteRouteWithChildren
   '/_app/tasks': typeof AppTasksRouteRouteWithChildren
   '/_app/users': typeof AppUsersRouteRouteWithChildren
   '/(errors)/401': typeof errors401Route
@@ -288,22 +207,13 @@ export interface FileRoutesById {
   '/(errors)/503': typeof errors503Route
   '/_app/': typeof AppIndexRoute
   '/_app/cases/$caseId': typeof AppCasesCaseIdRoute
-  '/_app/errors/$error': typeof AppErrorsErrorRoute
   '/_app/instances/$instanceId': typeof AppInstancesInstanceIdRoute
   '/_app/sessions/$sessionId': typeof AppSessionsSessionIdRoute
-  '/_app/settings/account': typeof AppSettingsAccountRoute
-  '/_app/settings/appearance': typeof AppSettingsAppearanceRoute
-  '/_app/settings/display': typeof AppSettingsDisplayRoute
-  '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
   '/_app/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/_app/users/$userId': typeof AppUsersUserIdRoute
-  '/_app/apps/': typeof AppAppsIndexRoute
   '/_app/cases/': typeof AppCasesIndexRoute
-  '/_app/chats/': typeof AppChatsIndexRoute
-  '/_app/help-center/': typeof AppHelpCenterIndexRoute
   '/_app/instances/': typeof AppInstancesIndexRoute
   '/_app/sessions/': typeof AppSessionsIndexRoute
-  '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/tasks/': typeof AppTasksIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
 }
@@ -315,7 +225,6 @@ export interface FileRouteTypes {
     | '/cases'
     | '/instances'
     | '/sessions'
-    | '/settings'
     | '/tasks'
     | '/users'
     | '/401'
@@ -324,22 +233,13 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/cases/$caseId'
-    | '/errors/$error'
     | '/instances/$instanceId'
     | '/sessions/$sessionId'
-    | '/settings/account'
-    | '/settings/appearance'
-    | '/settings/display'
-    | '/settings/notifications'
     | '/tasks/$taskId'
     | '/users/$userId'
-    | '/apps/'
     | '/cases/'
-    | '/chats/'
-    | '/help-center/'
     | '/instances/'
     | '/sessions/'
-    | '/settings/'
     | '/tasks/'
     | '/users/'
   fileRoutesByTo: FileRoutesByTo
@@ -352,22 +252,13 @@ export interface FileRouteTypes {
     | '/503'
     | '/'
     | '/cases/$caseId'
-    | '/errors/$error'
     | '/instances/$instanceId'
     | '/sessions/$sessionId'
-    | '/settings/account'
-    | '/settings/appearance'
-    | '/settings/display'
-    | '/settings/notifications'
     | '/tasks/$taskId'
     | '/users/$userId'
-    | '/apps'
     | '/cases'
-    | '/chats'
-    | '/help-center'
     | '/instances'
     | '/sessions'
-    | '/settings'
     | '/tasks'
     | '/users'
   id:
@@ -377,7 +268,6 @@ export interface FileRouteTypes {
     | '/_app/cases'
     | '/_app/instances'
     | '/_app/sessions'
-    | '/_app/settings'
     | '/_app/tasks'
     | '/_app/users'
     | '/(errors)/401'
@@ -387,22 +277,13 @@ export interface FileRouteTypes {
     | '/(errors)/503'
     | '/_app/'
     | '/_app/cases/$caseId'
-    | '/_app/errors/$error'
     | '/_app/instances/$instanceId'
     | '/_app/sessions/$sessionId'
-    | '/_app/settings/account'
-    | '/_app/settings/appearance'
-    | '/_app/settings/display'
-    | '/_app/settings/notifications'
     | '/_app/tasks/$taskId'
     | '/_app/users/$userId'
-    | '/_app/apps/'
     | '/_app/cases/'
-    | '/_app/chats/'
-    | '/_app/help-center/'
     | '/_app/instances/'
     | '/_app/sessions/'
-    | '/_app/settings/'
     | '/_app/tasks/'
     | '/_app/users/'
   fileRoutesById: FileRoutesById
@@ -489,13 +370,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksRouteRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/sessions': {
       id: '/_app/sessions'
       path: '/sessions'
@@ -531,13 +405,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksIndexRouteImport
       parentRoute: typeof AppTasksRouteRoute
     }
-    '/_app/settings/': {
-      id: '/_app/settings/'
-      path: '/'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof AppSettingsIndexRouteImport
-      parentRoute: typeof AppSettingsRouteRoute
-    }
     '/_app/sessions/': {
       id: '/_app/sessions/'
       path: '/'
@@ -552,33 +419,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInstancesIndexRouteImport
       parentRoute: typeof AppInstancesRouteRoute
     }
-    '/_app/help-center/': {
-      id: '/_app/help-center/'
-      path: '/help-center'
-      fullPath: '/help-center/'
-      preLoaderRoute: typeof AppHelpCenterIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/chats/': {
-      id: '/_app/chats/'
-      path: '/chats'
-      fullPath: '/chats/'
-      preLoaderRoute: typeof AppChatsIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/cases/': {
       id: '/_app/cases/'
       path: '/'
       fullPath: '/cases/'
       preLoaderRoute: typeof AppCasesIndexRouteImport
       parentRoute: typeof AppCasesRouteRoute
-    }
-    '/_app/apps/': {
-      id: '/_app/apps/'
-      path: '/apps'
-      fullPath: '/apps/'
-      preLoaderRoute: typeof AppAppsIndexRouteImport
-      parentRoute: typeof AppRoute
     }
     '/_app/users/$userId': {
       id: '/_app/users/$userId'
@@ -594,34 +440,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksTaskIdRouteImport
       parentRoute: typeof AppTasksRouteRoute
     }
-    '/_app/settings/notifications': {
-      id: '/_app/settings/notifications'
-      path: '/notifications'
-      fullPath: '/settings/notifications'
-      preLoaderRoute: typeof AppSettingsNotificationsRouteImport
-      parentRoute: typeof AppSettingsRouteRoute
-    }
-    '/_app/settings/display': {
-      id: '/_app/settings/display'
-      path: '/display'
-      fullPath: '/settings/display'
-      preLoaderRoute: typeof AppSettingsDisplayRouteImport
-      parentRoute: typeof AppSettingsRouteRoute
-    }
-    '/_app/settings/appearance': {
-      id: '/_app/settings/appearance'
-      path: '/appearance'
-      fullPath: '/settings/appearance'
-      preLoaderRoute: typeof AppSettingsAppearanceRouteImport
-      parentRoute: typeof AppSettingsRouteRoute
-    }
-    '/_app/settings/account': {
-      id: '/_app/settings/account'
-      path: '/account'
-      fullPath: '/settings/account'
-      preLoaderRoute: typeof AppSettingsAccountRouteImport
-      parentRoute: typeof AppSettingsRouteRoute
-    }
     '/_app/sessions/$sessionId': {
       id: '/_app/sessions/$sessionId'
       path: '/$sessionId'
@@ -635,13 +453,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/instances/$instanceId'
       preLoaderRoute: typeof AppInstancesInstanceIdRouteImport
       parentRoute: typeof AppInstancesRouteRoute
-    }
-    '/_app/errors/$error': {
-      id: '/_app/errors/$error'
-      path: '/errors/$error'
-      fullPath: '/errors/$error'
-      preLoaderRoute: typeof AppErrorsErrorRouteImport
-      parentRoute: typeof AppRoute
     }
     '/_app/cases/$caseId': {
       id: '/_app/cases/$caseId'
@@ -693,25 +504,6 @@ const AppSessionsRouteRouteChildren: AppSessionsRouteRouteChildren = {
 const AppSessionsRouteRouteWithChildren =
   AppSessionsRouteRoute._addFileChildren(AppSessionsRouteRouteChildren)
 
-interface AppSettingsRouteRouteChildren {
-  AppSettingsAccountRoute: typeof AppSettingsAccountRoute
-  AppSettingsAppearanceRoute: typeof AppSettingsAppearanceRoute
-  AppSettingsDisplayRoute: typeof AppSettingsDisplayRoute
-  AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
-  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
-}
-
-const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
-  AppSettingsAccountRoute: AppSettingsAccountRoute,
-  AppSettingsAppearanceRoute: AppSettingsAppearanceRoute,
-  AppSettingsDisplayRoute: AppSettingsDisplayRoute,
-  AppSettingsNotificationsRoute: AppSettingsNotificationsRoute,
-  AppSettingsIndexRoute: AppSettingsIndexRoute,
-}
-
-const AppSettingsRouteRouteWithChildren =
-  AppSettingsRouteRoute._addFileChildren(AppSettingsRouteRouteChildren)
-
 interface AppTasksRouteRouteChildren {
   AppTasksTaskIdRoute: typeof AppTasksTaskIdRoute
   AppTasksIndexRoute: typeof AppTasksIndexRoute
@@ -744,28 +536,18 @@ interface AppRouteChildren {
   AppCasesRouteRoute: typeof AppCasesRouteRouteWithChildren
   AppInstancesRouteRoute: typeof AppInstancesRouteRouteWithChildren
   AppSessionsRouteRoute: typeof AppSessionsRouteRouteWithChildren
-  AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
   AppTasksRouteRoute: typeof AppTasksRouteRouteWithChildren
   AppUsersRouteRoute: typeof AppUsersRouteRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
-  AppErrorsErrorRoute: typeof AppErrorsErrorRoute
-  AppAppsIndexRoute: typeof AppAppsIndexRoute
-  AppChatsIndexRoute: typeof AppChatsIndexRoute
-  AppHelpCenterIndexRoute: typeof AppHelpCenterIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppCasesRouteRoute: AppCasesRouteRouteWithChildren,
   AppInstancesRouteRoute: AppInstancesRouteRouteWithChildren,
   AppSessionsRouteRoute: AppSessionsRouteRouteWithChildren,
-  AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
   AppTasksRouteRoute: AppTasksRouteRouteWithChildren,
   AppUsersRouteRoute: AppUsersRouteRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
-  AppErrorsErrorRoute: AppErrorsErrorRoute,
-  AppAppsIndexRoute: AppAppsIndexRoute,
-  AppChatsIndexRoute: AppChatsIndexRoute,
-  AppHelpCenterIndexRoute: AppHelpCenterIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

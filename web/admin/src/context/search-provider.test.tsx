@@ -117,20 +117,6 @@ describe('SearchProvider and CommandMenu', () => {
       .not.toBeInTheDocument()
   })
 
-  it('navigates for nested sidebar items (group with sub-items)', async () => {
-    const screen = await renderWithSearchProvider()
-    const { getByPlaceholder, getByRole } = screen
-
-    await openCommandPalette(screen)
-
-    await userEvent.click(getByRole('option', { name: 'Settings Account' }))
-
-    expect(mocks.navigate).toHaveBeenCalledWith({ to: '/settings/account' })
-    await expect
-      .element(getByPlaceholder(COMMAND_MENU_PLACEHOLDER))
-      .not.toBeInTheDocument()
-  })
-
   it('applies theme and closes the palette when a theme command is chosen', async () => {
     const screen = await renderWithSearchProvider()
 
