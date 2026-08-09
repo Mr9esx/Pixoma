@@ -95,14 +95,14 @@
 
 1. **`domain/*` 只依赖 `sharedkernel`**，不依赖 adapter、orchestrator、具体 MQ/FS SDK。
 2. **BC domain 互不 import**；跨聚合编排放在 `packaging/botapp` 或 application 服务。
-3. **`channel/tg` → `botapp` → domains/platform`**；禁止 domain 反向依赖 channel。
+3. **`channel/tg` → `botapp` → domains/platform`**；禁止 domain 反向依赖 channel。`channel/tg` 只读依赖 `tgmenu`（窄端口）；`httpapi/tgmenu` 写同一真相源；`apps/admin-api` **禁止** import `channel/tg`。
 4. **Orchestrator / Actuator** 依赖 `runtime/domain` + platform **ports**；通知只调 `notify.Publisher`，不直接 import TG。
 5. **换实现**（Memory→NATS、LocalFS→S3）= 加 port 适配器，不改 BC 边界。
 6. **已知特例**：`platform/instance.Pool` 持有 `runtime/.../comfyui.Client`（池在平台层建客户端）。
 7. **组合根** `apps/bot` 是唯一允许全局接线的层；`apps/admin-api` 约定不依赖 `channel/tg`。
 
 ```text
-sharedkernel ← domain BCs ← application / packaging ← channel / httpapi ← apps/bot
+sharedkernel ← domain BCs（含 tgmenu）← application / packaging ← channel / httpapi ← apps/*
                      ↑
                 platform ports
 ```
