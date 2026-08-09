@@ -1,0 +1,47 @@
+import { useTranslation } from 'react-i18next'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+
+type Props = {
+  value: string
+  onChange: (next: string) => void
+  error?: string
+  disabled?: boolean
+}
+
+export function WorkflowJsonSection({
+  value,
+  onChange,
+  error,
+  disabled,
+}: Props) {
+  const { t } = useTranslation()
+
+  return (
+    <section className='space-y-2' data-testid='case-section-workflow-json'>
+      <div>
+        <h3 className='text-sm font-semibold'>{t('cases.sectionWorkflow')}</h3>
+        <p className='text-muted-foreground text-xs'>
+          {t('cases.advancedRawHint')}
+        </p>
+      </div>
+      <Label htmlFor='case-workflow-json' className='sr-only'>
+        {t('cases.sectionWorkflow')}
+      </Label>
+      <Textarea
+        id='case-workflow-json'
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        rows={12}
+        className='font-mono text-xs'
+        aria-invalid={Boolean(error)}
+      />
+      {error ? (
+        <p className='text-destructive text-xs' role='alert'>
+          {error}
+        </p>
+      ) : null}
+    </section>
+  )
+}
