@@ -63,7 +63,7 @@ base-ref: 6e0d1afba44e9ffabcfc621da960b691a0b21ab7
 **Interfaces:**
 - Produces: 合约测试文件名 `shell-layout.contract.test.ts`，断言壳级顶栏移除、Footer 挂载、Pixoma 品牌、无模板文案
 
-- [ ] **Step 1: 将新测试加入 Vitest 白名单**
+- [x] **Step 1: 将新测试加入 Vitest 白名单**
 
 在 `web/admin/vitest.config.ts` 的 `include` 数组末尾追加：
 
@@ -71,7 +71,7 @@ base-ref: 6e0d1afba44e9ffabcfc621da960b691a0b21ab7
 'src/components/layout/shell-layout.contract.test.ts',
 ```
 
-- [ ] **Step 2: 写失败的合约测试**
+- [x] **Step 2: 写失败的合约测试**
 
 创建 `web/admin/src/components/layout/shell-layout.contract.test.ts`：
 
@@ -132,7 +132,7 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
 })
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [x] **Step 3: 运行测试确认失败**
 
 ```bash
 cd web/admin
@@ -141,7 +141,7 @@ pnpm test src/components/layout/shell-layout.contract.test.ts
 
 Expected: FAIL（`AppTitle` 仍含 Shadcn-Admin、`_app.tsx` 仍有顶栏、`AppSidebar` 无 Footer 等）
 
-- [ ] **Step 4: Commit 测试骨架（可选，实现前单独提交）**
+- [x] **Step 4: Commit 测试骨架（可选，实现前单独提交）**
 
 ```bash
 git add web/admin/vitest.config.ts web/admin/src/components/layout/shell-layout.contract.test.ts
@@ -160,7 +160,7 @@ git commit -m "test(admin): add shell layout contract tests for sidebar footer c
 - Consumes: 无
 - Produces: 侧栏品牌区显示 `Pixoma`；SVG `<title>Pixoma</title>`
 
-- [ ] **Step 1: 修改 AppTitle 主标题并移除副标题**
+- [x] **Step 1: 修改 AppTitle 主标题并移除副标题**
 
 `web/admin/src/components/layout/app-title.tsx` 将 Link 内两行改为单行：
 
@@ -176,7 +176,7 @@ git commit -m "test(admin): add shell layout contract tests for sidebar footer c
 
 保留 `ToggleSidebar` 与 `Link to='/'` 行为不变。
 
-- [ ] **Step 2: 修改 Logo 可访问名称**
+- [x] **Step 2: 修改 Logo 可访问名称**
 
 `web/admin/src/assets/logo.tsx`：
 
@@ -186,7 +186,7 @@ git commit -m "test(admin): add shell layout contract tests for sidebar footer c
 
 （`id='shadcn-admin-logo'` 本期可保留，避免无关 DOM 选择器回归；仅改 title 文本。）
 
-- [ ] **Step 3: 运行合约测试（部分通过）**
+- [x] **Step 3: 运行合约测试（部分通过）**
 
 ```bash
 cd web/admin
@@ -195,7 +195,7 @@ pnpm test src/components/layout/shell-layout.contract.test.ts
 
 Expected: `AppTitle` / `Logo` 相关用例 PASS；Footer / 顶栏 / LanguageSwitcher 仍 FAIL
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/admin/src/components/layout/app-title.tsx web/admin/src/assets/logo.tsx
@@ -213,7 +213,7 @@ git commit -m "feat(admin): brand sidebar title as Pixoma"
 - Consumes: `setStoredLocale`, `AppLocale` from `@/lib/i18n`；`t` from `react-i18next`；`i18n.changeLanguage`
 - Produces: `export function LanguageSwitcher()` — 根节点带 `data-testid='language-switcher'`；Globe 图标触发；下拉项 `t('lang.zh')` / `t('lang.en')`
 
-- [ ] **Step 1: 按 ThemeSwitch 模式实现下拉**
+- [x] **Step 1: 按 ThemeSwitch 模式实现下拉**
 
 完整替换 `language-switcher.tsx`：
 
@@ -275,7 +275,7 @@ export function LanguageSwitcher() {
 }
 ```
 
-- [ ] **Step 2: 补充 i18n key `lang.switch`（若 locale 文件尚无）**
+- [x] **Step 2: 补充 i18n key `lang.switch`（若 locale 文件尚无）**
 
 检查 `web/admin/src/lib/i18n/locales/zh.json` 与 `en.json` 的 `lang` 段。若无 `switch`，追加：
 
@@ -293,7 +293,7 @@ export function LanguageSwitcher() {
 
 若已有等价 key（如 `common.language`），可复用并在 Step 1 改用该 key，**勿** 留未定义 key。
 
-- [ ] **Step 3: 运行合约测试**
+- [x] **Step 3: 运行合约测试**
 
 ```bash
 cd web/admin
@@ -302,7 +302,7 @@ pnpm test src/components/layout/shell-layout.contract.test.ts
 
 Expected: LanguageSwitcher 用例 PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/admin/src/components/layout/language-switcher.tsx web/admin/src/lib/i18n/locales/zh.json web/admin/src/lib/i18n/locales/en.json
@@ -320,7 +320,7 @@ git commit -m "feat(admin): language switcher icon dropdown in sidebar style"
 - Consumes: `LanguageSwitcher`, `ThemeSwitch`；`SidebarFooter` from `@/components/ui/sidebar`
 - Produces: Footer 内横向 `LanguageSwitcher` + `ThemeSwitch`；**不改动** `MENU_ITEMS.map` 块
 
-- [ ] **Step 1: 增加 import**
+- [x] **Step 1: 增加 import**
 
 ```tsx
 import { LanguageSwitcher } from './language-switcher'
@@ -338,7 +338,7 @@ import {
 } from '@/components/ui/sidebar'
 ```
 
-- [ ] **Step 2: 在 SidebarContent 之后、SidebarRail 之前插入 Footer**
+- [x] **Step 2: 在 SidebarContent 之后、SidebarRail 之前插入 Footer**
 
 ```tsx
       </SidebarContent>
@@ -357,7 +357,7 @@ import {
 - `group-data-[collapsible=icon]:justify-center` 使收起态两图标居中
 - 不包裹 Tooltip：与 `ThemeSwitch` 一致依赖 `sr-only`；若手动验收发现收起态难发现，再对两按钮外包 `Tooltip`（非本 Task 默认范围）
 
-- [ ] **Step 3: 确认未改动 MENU_ITEMS**
+- [x] **Step 3: 确认未改动 MENU_ITEMS**
 
 ```bash
 cd web/admin
@@ -366,7 +366,7 @@ git diff src/components/layout/app-sidebar.tsx | grep -E 'MENU_ITEMS|config/menu
 
 Expected: 无对 `MENU_ITEMS` / `menu.ts` 的 diff 行
 
-- [ ] **Step 4: 运行合约测试**
+- [x] **Step 4: 运行合约测试**
 
 ```bash
 pnpm test src/components/layout/shell-layout.contract.test.ts
@@ -374,7 +374,7 @@ pnpm test src/components/layout/shell-layout.contract.test.ts
 
 Expected: `AppSidebar mounts tools in SidebarFooter` PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/admin/src/components/layout/app-sidebar.tsx
@@ -392,7 +392,7 @@ git commit -m "feat(admin): mount language and theme switches in sidebar footer"
 - Consumes: 语言/主题已由 `AppSidebar` Footer 提供
 - Produces: `SidebarInset` 内直接 `<div className='flex-1 p-4'><Outlet /></div>`，无壳级 `<header>`
 
-- [ ] **Step 1: 删除顶栏与无用 import**
+- [x] **Step 1: 删除顶栏与无用 import**
 
 从 `_app.tsx` 移除：
 
@@ -428,7 +428,7 @@ import { ThemeSwitch } from '@/components/theme-switch'
           </SidebarInset>
 ```
 
-- [ ] **Step 2: 确认 authenticated-layout 无重复挂载**
+- [x] **Step 2: 确认 authenticated-layout 无重复挂载**
 
 ```bash
 grep -n 'LanguageSwitcher\|ThemeSwitch\|<header' web/admin/src/components/layout/authenticated-layout.tsx || true
@@ -436,7 +436,7 @@ grep -n 'LanguageSwitcher\|ThemeSwitch\|<header' web/admin/src/components/layout
 
 Expected: 无匹配（当前文件已无顶栏；若 grep 有命中则按同样规则清理，但通常无需改）
 
-- [ ] **Step 3: 运行全部合约测试**
+- [x] **Step 3: 运行全部合约测试**
 
 ```bash
 cd web/admin
@@ -446,7 +446,7 @@ pnpm test
 
 Expected: 全部 PASS；无回归
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/admin/src/routes/_app.tsx
@@ -463,7 +463,7 @@ git commit -m "feat(admin): remove content shell header; tools live in sidebar f
 **Interfaces:**
 - Consumes: Task 1–5 全部完成
 
-- [ ] **Step 1: 本地启动**
+- [x] **Step 1: 本地启动**
 
 ```bash
 # 仓库根或 apps/admin-api 按 README 起 API（若 Dashboard 需要数据）
@@ -473,7 +473,7 @@ pnpm dev
 
 浏览器打开控制台默认地址（通常 `http://localhost:5173`）。
 
-- [ ] **Step 2: 桌面展开侧栏（OpenSpec 4.1）**
+- [x] **Step 2: 桌面展开侧栏（OpenSpec 4.1）**
 
 对照检查：
 - 侧栏顶部显示 **Pixoma**，无「Shadcn-Admin」「Vite + ShadcnUI」
@@ -481,25 +481,25 @@ pnpm dev
 - 侧栏底栏可见 Globe 与主题图标；切换中文/English 后菜单文案变化
 - 切换 Light/Dark/System 后主题变化
 
-- [ ] **Step 3: 侧栏收起 icon 模式（OpenSpec 4.2）**
+- [x] **Step 3: 侧栏收起 icon 模式（OpenSpec 4.2）**
 
 点击 `AppTitle` 旁折叠触发（桌面 `Menu` 图标）收起侧栏：
 - 底栏两图标仍可见、可点
 - 语言下拉可选 zh/en；主题下拉可选三种模式
 - 下拉不被侧栏裁切（portal 到 body）
 
-- [ ] **Step 4: 移动端抽屉**
+- [x] **Step 4: 移动端抽屉**
 
 窄屏或 DevTools 设备模式：
 - 通过 `AppTitle` 区域打开侧栏 sheet
 - 底栏工具可用
 - 内容区仍无壳级顶栏
 
-- [ ] **Step 5: 刷新持久化**
+- [x] **Step 5: 刷新持久化**
 
 切换为 English 后刷新页面 → 仍为 English（`admin-locale:v1`）。
 
-- [ ] **Step 6: lint**
+- [x] **Step 6: lint**
 
 ```bash
 cd web/admin
