@@ -72,6 +72,25 @@ func TestReplaceTree_RoundTripAndPlacements(t *testing.T) {
 	}
 }
 
+func TestReplaceTree_PreservesIntroText(t *testing.T) {
+	gdb := openTestDB(t)
+	repo := persistence.NewGormRepository(gdb)
+	migrateMenuTables(t, gdb)
+
+	tree := domain.DefaultSeedTree()
+	tree.Items[0].IntroText = "点模板先看预览图，再上传图片生成。"
+	if err := repo.ReplaceTree(context.Background(), tree); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.GetTree(context.Background(), domain.DocumentIDDefault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Items[0].IntroText != tree.Items[0].IntroText {
+		t.Fatalf("intro_text=%q", got.Items[0].IntroText)
+	}
+}
+
 func TestGetTree_PreservesRootAndChildOrder(t *testing.T) {
 	gdb := openTestDB(t)
 	repo := persistence.NewGormRepository(gdb)
@@ -208,5 +227,14 @@ func TestEnsureDefault_MigratesLegacyJSON(t *testing.T) {
 	}
 	if len(tree.Items[0].CaseIDs) != 1 || tree.Items[0].CaseIDs[0] != "legacy-case" {
 		t.Fatalf("case ids=%v", tree.Items[0].CaseIDs)
+	}
+}
+
+func TestDebug_IntroFlatten(t *testing.T) {
+	tree := domain.DefaultSeedTree()
+	tree.Items[0].IntroText = "hello"
+	flat := domain.Flatten(tree.Items)
+	if flat[0].IntroText != "hello" {
+		t.Fatalf("flatten lost intro: %+v", flat[0])
 	}
 }
