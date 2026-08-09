@@ -120,5 +120,30 @@
     "enableSuccess": "Case 已启用",
     "disableSuccess": "Case 已禁用",
     "jsonMustBeObject": "必须是 JSON 对象"
+  },
+  "tasks": {
+    "title": "任务",
+    "description": "查看任务列表与详情，并对可取消任务执行取消。",
+    "empty": "暂无任务",
+    "detailHeading": "任务详情",
+    "filterStatus": "状态",
+    "filterStatusAll": "全部",
+    "filterQ": "搜索",
+    "filterQPlaceholder": "按 id / case_id 等搜索…",
+    "fieldId": "ID",
+    "fieldStatus": "状态",
+    "fieldCaseId": "Case ID",
+    "fieldSessionId": "Session ID",
+    "fieldChatId": "Chat ID",
+    "fieldInstanceId": "Instance ID",
+    "fieldPromptId": "Prompt ID",
+    "fieldErrorCode": "错误码",
+    "fieldErrorMessage": "错误信息",
+    "fieldCreatedAt": "创建时间",
+    "fieldUpdatedAt": "更新时间",
+    "cancel": "取消任务",
+    "cancelSuccess": "任务已取消",
+    "cannotCancel": "不可取消",
+    "notFound": "资源不存在"
   }
 }

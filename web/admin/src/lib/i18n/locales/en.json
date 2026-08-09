@@ -120,5 +120,30 @@
     "enableSuccess": "Case enabled",
     "disableSuccess": "Case disabled",
     "jsonMustBeObject": "Must be a JSON object"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "description": "Browse tasks and cancel those that are still cancellable.",
+    "empty": "No tasks",
+    "detailHeading": "Task detail",
+    "filterStatus": "Status",
+    "filterStatusAll": "All",
+    "filterQ": "Search",
+    "filterQPlaceholder": "Search by id / case_id…",
+    "fieldId": "ID",
+    "fieldStatus": "Status",
+    "fieldCaseId": "Case ID",
+    "fieldSessionId": "Session ID",
+    "fieldChatId": "Chat ID",
+    "fieldInstanceId": "Instance ID",
+    "fieldPromptId": "Prompt ID",
+    "fieldErrorCode": "Error code",
+    "fieldErrorMessage": "Error message",
+    "fieldCreatedAt": "Created at",
+    "fieldUpdatedAt": "Updated at",
+    "cancel": "Cancel task",
+    "cancelSuccess": "Task cancelled",
+    "cannotCancel": "Cannot cancel",
+    "notFound": "Resource not found"
   }
 }
