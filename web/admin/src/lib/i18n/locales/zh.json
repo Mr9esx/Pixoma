@@ -17,7 +17,16 @@
     "retry": "重试",
     "errorGeneric": "请求失败",
     "successSaved": "已保存",
-    "sampleNote": "基于当前拉取样本（受 limit 限制）"
+    "sampleNote": "基于当前拉取样本（受 limit 限制）",
+    "commandPlaceholder": "输入命令或搜索…",
+    "commandEmpty": "未找到结果",
+    "commandNavigation": "导航",
+    "commandTheme": "主题"
+  },
+  "theme": {
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统"
   },
   "lang": {
     "zh": "中文",

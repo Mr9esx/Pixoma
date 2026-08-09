@@ -32,11 +32,11 @@ export function CommandMenu() {
 
   return (
     <CommandDialog modal open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder='Type a command or search...' />
+      <CommandInput placeholder={t('common.commandPlaceholder')} />
       <CommandList>
         <ScrollArea type='hover' className='h-72 pe-1'>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading='Navigation'>
+          <CommandEmpty>{t('common.commandEmpty')}</CommandEmpty>
+          <CommandGroup heading={t('common.commandNavigation')}>
             {MENU_ITEMS.map((item) => {
               const label = t(item.titleKey)
               return (
@@ -56,17 +56,17 @@ export function CommandMenu() {
             })}
           </CommandGroup>
           <CommandSeparator />
-          <CommandGroup heading='Theme'>
+          <CommandGroup heading={t('common.commandTheme')}>
             <CommandItem onSelect={() => runCommand(() => setTheme('light'))}>
-              <Sun /> <span>Light</span>
+              <Sun /> <span>{t('theme.light')}</span>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => setTheme('dark'))}>
               <Moon className='scale-90' />
-              <span>Dark</span>
+              <span>{t('theme.dark')}</span>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => setTheme('system'))}>
               <Laptop />
-              <span>System</span>
+              <span>{t('theme.system')}</span>
             </CommandItem>
           </CommandGroup>
         </ScrollArea>
