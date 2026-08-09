@@ -29,3 +29,9 @@
 - [x] 5.2 联调验收：改文案/绑 Case 后 TG `/start` 键盘与入口行为符合预期；Network 仅打 admin-api
 
 > 5.2 自动回归（go test / build / tsc）已通过；TG 真机键盘手工步骤留到 verify 阶段记录证据。
+
+### Build review notes（`review_mode: standard`）
+
+- Critical：无
+- Important：已修（空菜单/全禁用拒绝、重复 id、Case 查询错误不再冒充 400、动作分支测试补齐、tasks 勾选入库）
+- Minor 接受：`btn-help` 种子为 placeholder（与计划一致，`/help` 仍保留旧帮助）；`MainMenuRows` 保留作夹具；暂不加菜单 TTL
