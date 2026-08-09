@@ -559,7 +559,7 @@ EOF
 - Consumes: Task 2–4 的 Store / Service / MenuReader
 - Produces: 两端 AutoMigrate `&tgmenupersist.MenuRow{}`；bot 将 `application.Service`（或 Store）注入 `tgAdapter.Menu` 与 `BotMessenger.Menu`
 
-- [ ] **Step 1: bot main 接线**
+- [x] **Step 1: bot main 接线**
 
 在 `appboot.Options.Models` 追加 `&tgmenupersist.MenuRow{}`。
 
@@ -578,13 +578,13 @@ func (m menuReader) GetMenu(ctx context.Context) (tgmenudomain.MenuDocument, err
 
 在 `*tgAdapter = *tg.New(...)` 之后：`tgAdapter.Menu = menuReader{svc: menuSvc}`；若 `BotMessenger` 需要 Menu，同样赋值。
 
-- [ ] **Step 2: 编译 bot**
+- [x] **Step 2: 编译 bot**
 
 Run: `go build -o /dev/null ./apps/bot/cmd/comfyui-bot`
 
 Expected: PASS
 
-- [ ] **Step 3: Commit bot 接线**
+- [x] **Step 3: Commit bot 接线**
 
 ```bash
 git add apps/bot/cmd/comfyui-bot/main.go
@@ -638,7 +638,7 @@ type putBody struct {
 - PUT → 解码 body；`Svc.Replace`；`ErrValidation` → 400 `{"error":"..."}`；其它 → 500；成功 200 + 最新 DTO
 - **禁止** import `channel/tg`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 模式对齐 `internal/httpapi/cases/handler_test.go`：内存 SQLite + 可选预置一个 catalog case。
 
@@ -660,13 +660,13 @@ func TestTgMenuHandler_GetPutValidation(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/httpapi/tgmenu/ -count=1`
 
 Expected: FAIL
 
-- [ ] **Step 3: 实现 handler + 挂载**
+- [x] **Step 3: 实现 handler + 挂载**
 
 `server.Options` 增加 `TGMenu *tgmenuapi.Handler`；
 
@@ -682,7 +682,7 @@ r.Route("/api/v1/tg-menu", func(r chi.Router) {
 
 README 追加 curl 示例与无鉴权警示。
 
-- [ ] **Step 4: 测试通过**
+- [x] **Step 4: 测试通过**
 
 Run:
 
@@ -693,7 +693,7 @@ go build -o /dev/null ./apps/admin-api/cmd/admin-api
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/httpapi/tgmenu/ apps/admin-api/
@@ -726,15 +726,15 @@ EOF
 - zh: `menu.tgMenu` = `TG 菜单`；页面键 `tgMenu.title` / `tgMenu.description` 等
 - en: `TG Menu`
 
-- [ ] **Step 1: 改 menu.ts + locales**
+- [x] **Step 1: 改 menu.ts + locales**
 
-- [ ] **Step 2: 跑前端既有测试**
+- [x] **Step 2: 跑前端既有测试**
 
 Run: `cd web/admin && pnpm test -- --run src/config src/lib/i18n 2>/dev/null || pnpm exec vitest run src/lib/i18n`
 
 （以仓库实际 test 脚本为准：`pnpm test` / `vitest`。）
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add web/admin/src/config/menu.ts web/admin/src/lib/i18n/locales/
@@ -797,19 +797,19 @@ export function putTgMenu(items: MenuItem[]) {
   - 保存 → PUT；成功 `toast.success(t('common.successSaved'))` + invalidate query；失败 `ErrorBanner`，不假装成功
   - **无**文件上传控件；**无** mock
 
-- [ ] **Step 1: 实现 api 客户端 + 页面骨架**
+- [x] **Step 1: 实现 api 客户端 + 页面骨架**
 
-- [ ] **Step 2: 补齐条件字段与保存反馈**
+- [x] **Step 2: 补齐条件字段与保存反馈**
 
 参考 `features/cases/case-form.tsx` 的 mutation / ErrorBanner / toast 模式。
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 Run: `cd web/admin && pnpm exec tsc -p tsconfig.json --noEmit`
 
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/admin/src/lib/api/tg-menu.ts web/admin/src/lib/api/query-keys.ts web/admin/src/features/tg-menu/ web/admin/src/routes/_app/tg-menu/ web/admin/src/routeTree.gen.ts web/admin/README.md
@@ -829,11 +829,11 @@ EOF
 - Modify（一句）: `docs/architecture/runtime.md` — 「主菜单来自 `tg_menu_configs`（空则种子）」
 - Modify: `docs/architecture/bounded-contexts.md` — 模块地图增加 `tgmenu`；HTTP API 职责含 Menu；依赖：`channel/tg` → `tgmenu` ← `httpapi/tgmenu`
 
-- [ ] **Step 1: 按 architecture-docs-sync 更新三处文档**
+- [x] **Step 1: 按 architecture-docs-sync 更新三处文档**
 
 表字段与设计一致：`id` PK、`items_json`、`updated_at`。
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/architecture/data-model.md docs/architecture/runtime.md docs/architecture/bounded-contexts.md
@@ -850,7 +850,7 @@ EOF
 
 **Files:** 无新代码；必要时修测试缝隙
 
-- [ ] **Step 1: 自动回归**
+- [x] **Step 1: 自动回归**
 
 ```bash
 go test ./internal/tgmenu/... ./internal/httpapi/tgmenu/... ./internal/channel/tg/... ./apps/admin-api/... -count=1
@@ -860,7 +860,7 @@ cd web/admin && pnpm exec tsc -p tsconfig.json --noEmit
 
 Expected: 全 PASS
 
-- [ ] **Step 2: 手工联调（记录到 verify 时再用）**
+- [x] **Step 2: 手工联调（记录到 verify 时再用）**
 
 1. `make run-all`（或 bot + `make run-admin`），共用同一 `data/app.db`
 2. 打开控制台侧栏「TG 菜单」→ 见种子六项
@@ -870,7 +870,7 @@ Expected: 全 PASS
 6. DevTools Network：仅 `VITE_ADMIN_API_BASE` + `/api/v1/tg-menu` 与 `/api/v1/cases`
 7. PUT 非法 `case_id` → 400，库中配置不变
 
-- [ ] **Step 3: 若手工发现缺口，修代码并追加测试后单独 commit**
+- [x] **Step 3: 若手工发现缺口，修代码并追加测试后单独 commit**
 
 ---
 
