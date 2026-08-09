@@ -581,7 +581,7 @@ EOF
   - `MenuItem = { id: string; titleKey: string; path: string; icon: LucideIcon }`
   - 路径：`/`、`/instances`、`/cases`、`/tasks`、`/users`、`/sessions`
 
-- [ ] **Step 1: 写失败测试（菜单顺序）**
+- [x] **Step 1: 写失败测试（菜单顺序）**
 
 ```ts
 // web/admin/src/config/menu.test.ts
@@ -613,7 +613,7 @@ describe('MENU_ITEMS', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd web/admin && pnpm test -- src/config/menu.test.ts
@@ -621,7 +621,7 @@ cd web/admin && pnpm test -- src/config/menu.test.ts
 
 Expected: FAIL
 
-- [ ] **Step 3: 实现 `menu.ts` 与侧栏**
+- [x] **Step 3: 实现 `menu.ts` 与侧栏**
 
 ```ts
 // web/admin/src/config/menu.ts
@@ -666,7 +666,7 @@ export const Route = createFileRoute('/_app/instances/')({
 
 同理 `cases` / `tasks` / `users` / `sessions`。清理所有无关 demo 菜单项。
 
-- [ ] **Step 4: 跑测试 + 手测导航**
+- [x] **Step 4: 跑测试 + 手测导航**
 
 ```bash
 cd web/admin && pnpm test -- src/config/menu.test.ts && pnpm exec tsr generate
@@ -674,7 +674,7 @@ cd web/admin && pnpm test -- src/config/menu.test.ts && pnpm exec tsr generate
 
 手测：侧栏六项顺序正确；点击进入对应路由；刷新布局保持。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/admin/src/config web/admin/src/components/layout web/admin/src/routes
