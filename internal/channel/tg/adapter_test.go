@@ -23,11 +23,12 @@ import (
 )
 
 type memOut struct {
-	texts     []string
-	menus     []string
-	inlines   []string
-	photos    []string
-	photoURLs []string
+	texts        []string
+	menus        []string
+	inlines      []string
+	photos       []string
+	photoURLs    []string
+	failPhotoURL bool
 }
 
 func (m *memOut) SendText(_ context.Context, _ int64, text string) error {
@@ -47,6 +48,9 @@ func (m *memOut) SendPhoto(_ context.Context, _ int64, ref sharedkernel.BlobRef,
 	return nil
 }
 func (m *memOut) SendPhotoURL(_ context.Context, _ int64, imageURL, _ string) error {
+	if m.failPhotoURL {
+		return errors.New("photo failed")
+	}
 	m.photoURLs = append(m.photoURLs, imageURL)
 	return nil
 }
@@ -193,6 +197,43 @@ func TestHandleText_OpenCaseGoesToPreview(t *testing.T) {
 	}
 	if len(out.inlines) == 0 || !strings.Contains(out.inlines[0], "C1") {
 		t.Fatalf("inlines=%v", out.inlines)
+	}
+}
+
+func TestHandleText_ListByTagAndPlaceholderAndPhotoFail(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, sampleCase("img-1", "Pic"))
+	out := &memOut{}
+	ad := tg.New(newFacade(cases), out)
+	ad.Menu = staticMenu{doc: tgmenudomain.MenuDocument{Items: []tgmenudomain.MenuItem{
+		{ID: "l", Label: "List", Enabled: true, Action: tgmenudomain.ActionListCasesByTag, Tag: "image"},
+		{ID: "p", Label: "Soon", Enabled: true, Action: tgmenudomain.ActionPlaceholder, PlaceholderText: "敬请期待"},
+		{ID: "r", Label: "Pics", Enabled: true, Action: tgmenudomain.ActionReplyMedia, Reply: &tgmenudomain.ReplyPayload{
+			Images: []string{"https://example.com/a.png"},
+		}},
+	}}}
+
+	if err := ad.HandleText(ctx, 1, "List", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.inlines) == 0 || !strings.Contains(out.inlines[0], "图片 Case") {
+		t.Fatalf("list inlines=%v", out.inlines)
+	}
+
+	if err := ad.HandleText(ctx, 1, "Soon", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.menus) == 0 || out.menus[len(out.menus)-1] != "敬请期待" {
+		t.Fatalf("placeholder menus=%v", out.menus)
+	}
+
+	out.failPhotoURL = true
+	if err := ad.HandleText(ctx, 1, "Pics", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.texts) == 0 || !strings.Contains(out.texts[len(out.texts)-1], "图片发送失败") {
+		t.Fatalf("photo fail texts=%v", out.texts)
 	}
 }
 

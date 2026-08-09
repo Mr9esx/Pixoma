@@ -12,19 +12,36 @@ type CaseExistsFunc func(ctx context.Context, caseID string) (bool, error)
 
 // Validate checks a menu document before persistence.
 func Validate(ctx context.Context, doc MenuDocument, caseExists CaseExistsFunc) error {
-	seen := make(map[string]struct{}, len(doc.Items))
+	if len(doc.Items) == 0 {
+		return fmt.Errorf("%w: items must not be empty", ErrValidation)
+	}
+
+	seenLabels := make(map[string]struct{}, len(doc.Items))
+	seenIDs := make(map[string]struct{}, len(doc.Items))
+	enabledCount := 0
+
 	for i, it := range doc.Items {
-		if strings.TrimSpace(it.ID) == "" {
+		id := strings.TrimSpace(it.ID)
+		if id == "" {
 			return fmt.Errorf("%w: item[%d] id empty", ErrValidation, i)
 		}
+		if _, ok := seenIDs[id]; ok {
+			return fmt.Errorf("%w: duplicate id %q", ErrValidation, id)
+		}
+		seenIDs[id] = struct{}{}
+
 		label := strings.TrimSpace(it.Label)
 		if label == "" {
 			return fmt.Errorf("%w: item[%d] label empty", ErrValidation, i)
 		}
-		if _, ok := seen[label]; ok {
+		if _, ok := seenLabels[label]; ok {
 			return fmt.Errorf("%w: duplicate label %q", ErrValidation, label)
 		}
-		seen[label] = struct{}{}
+		seenLabels[label] = struct{}{}
+
+		if it.Enabled {
+			enabledCount++
+		}
 
 		switch it.Action {
 		case ActionOpenCase:
@@ -36,7 +53,7 @@ func Validate(ctx context.Context, doc MenuDocument, caseExists CaseExistsFunc) 
 			}
 			ok, err := caseExists(ctx, it.CaseID)
 			if err != nil {
-				return fmt.Errorf("%w: item %q case lookup: %v", ErrValidation, it.ID, err)
+				return fmt.Errorf("item %q case lookup: %w", it.ID, err)
 			}
 			if !ok {
 				return fmt.Errorf("%w: item %q case_id %q not found", ErrValidation, it.ID, it.CaseID)
@@ -65,6 +82,10 @@ func Validate(ctx context.Context, doc MenuDocument, caseExists CaseExistsFunc) 
 		default:
 			return fmt.Errorf("%w: item %q unknown action %q", ErrValidation, it.ID, it.Action)
 		}
+	}
+
+	if enabledCount == 0 {
+		return fmt.Errorf("%w: at least one item must be enabled", ErrValidation)
 	}
 	return nil
 }
