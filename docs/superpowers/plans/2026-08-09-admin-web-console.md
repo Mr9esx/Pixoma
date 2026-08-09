@@ -843,7 +843,7 @@ EOF
   - 桌面：`grid` 左约 `320–380px` + 右自适应；窄屏：`hasSelection` 时只显示 detail，提供返回列表回调可选
   - `EmptyState` / `ErrorBanner` / `LoadingSkeleton` 文案走 i18n
 
-- [ ] **Step 1: 实现 MasterDetailShell**
+- [x] **Step 1: 实现 MasterDetailShell**
 
 ```tsx
 // web/admin/src/components/master-detail/master-detail-shell.tsx
@@ -913,7 +913,7 @@ export function MasterDetailShell({
 
 同步补 `zh`/`en` 的 `common.backToList`。
 
-- [ ] **Step 2: 实现反馈三件套**
+- [x] **Step 2: 实现反馈三件套**
 
 ```tsx
 // empty-state.tsx — 显示 t('common.empty') + 可选 action
@@ -921,13 +921,13 @@ export function MasterDetailShell({
 // loading-skeleton.tsx — 几条 pulse 条即可
 ```
 
-- [ ] **Step 3: 用实例路由占位接入壳（验证布局）**
+- [x] **Step 3: 用实例路由占位接入壳（验证布局）**
 
 在 `/instances` 临时用假列表 2 项验证选中高亮与窄屏降级（下一 Task 换真 API；**不要**引入持久 mock 开关，此占位提交前删掉或直接进入 Task 7）。
 
 手测：桌面左右同屏；缩窄窗口先列表再详情。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/admin/src/components/master-detail web/admin/src/components/feedback web/admin/src/lib/i18n/locales
