@@ -32,5 +32,17 @@
   "lang": {
     "zh": "中文",
     "en": "English"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "instancesTitle": "Instances",
+    "instancesSummary": "{{total}} total, {{enabled}} enabled",
+    "instanceEnabledRatio": "Enabled ratio",
+    "casesTitle": "Cases",
+    "casesEnabled": "Enabled cases",
+    "tasksTitle": "Tasks",
+    "taskStatusDistribution": "Status distribution",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   }
 }
