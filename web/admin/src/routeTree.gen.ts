@@ -18,6 +18,7 @@ import { Route as errors404RouteImport } from './routes/(errors)/404'
 import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
+import { Route as AppInstancesRouteRouteImport } from './routes/_app/instances/route'
 import { Route as AppUsersIndexRouteImport } from './routes/_app/users/index'
 import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
@@ -31,6 +32,7 @@ import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/sett
 import { Route as AppSettingsDisplayRouteImport } from './routes/_app/settings/display'
 import { Route as AppSettingsAppearanceRouteImport } from './routes/_app/settings/appearance'
 import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/account'
+import { Route as AppInstancesInstanceIdRouteImport } from './routes/_app/instances/$instanceId'
 import { Route as AppErrorsErrorRouteImport } from './routes/_app/errors/$error'
 
 const AppRoute = AppRouteImport.update({
@@ -77,6 +79,11 @@ const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const AppInstancesRouteRoute = AppInstancesRouteRouteImport.update({
+  id: '/instances',
+  path: '/instances',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppUsersIndexRoute = AppUsersIndexRouteImport.update({
   id: '/users/',
   path: '/users/',
@@ -98,9 +105,9 @@ const AppSessionsIndexRoute = AppSessionsIndexRouteImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 const AppInstancesIndexRoute = AppInstancesIndexRouteImport.update({
-  id: '/instances/',
-  path: '/instances/',
-  getParentRoute: () => AppRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppInstancesRouteRoute,
 } as any)
 const AppHelpCenterIndexRoute = AppHelpCenterIndexRouteImport.update({
   id: '/help-center/',
@@ -143,6 +150,11 @@ const AppSettingsAccountRoute = AppSettingsAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppInstancesInstanceIdRoute = AppInstancesInstanceIdRouteImport.update({
+  id: '/$instanceId',
+  path: '/$instanceId',
+  getParentRoute: () => AppInstancesRouteRoute,
+} as any)
 const AppErrorsErrorRoute = AppErrorsErrorRouteImport.update({
   id: '/errors/$error',
   path: '/errors/$error',
@@ -152,6 +164,7 @@ const AppErrorsErrorRoute = AppErrorsErrorRouteImport.update({
 export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/': typeof AppIndexRoute
+  '/instances': typeof AppInstancesRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
   '/401': typeof errors401Route
   '/403': typeof errors403Route
@@ -159,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/errors/$error': typeof AppErrorsErrorRoute
+  '/instances/$instanceId': typeof AppInstancesInstanceIdRoute
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/appearance': typeof AppSettingsAppearanceRoute
   '/settings/display': typeof AppSettingsDisplayRoute
@@ -182,6 +196,7 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/': typeof AppIndexRoute
   '/errors/$error': typeof AppErrorsErrorRoute
+  '/instances/$instanceId': typeof AppInstancesInstanceIdRoute
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/appearance': typeof AppSettingsAppearanceRoute
   '/settings/display': typeof AppSettingsDisplayRoute
@@ -200,6 +215,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/$': typeof SplatRoute
   '/_app': typeof AppRouteWithChildren
+  '/_app/instances': typeof AppInstancesRouteRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
   '/(errors)/401': typeof errors401Route
   '/(errors)/403': typeof errors403Route
@@ -208,6 +224,7 @@ export interface FileRoutesById {
   '/(errors)/503': typeof errors503Route
   '/_app/': typeof AppIndexRoute
   '/_app/errors/$error': typeof AppErrorsErrorRoute
+  '/_app/instances/$instanceId': typeof AppInstancesInstanceIdRoute
   '/_app/settings/account': typeof AppSettingsAccountRoute
   '/_app/settings/appearance': typeof AppSettingsAppearanceRoute
   '/_app/settings/display': typeof AppSettingsDisplayRoute
@@ -227,6 +244,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/$'
     | '/'
+    | '/instances'
     | '/settings'
     | '/401'
     | '/403'
@@ -234,6 +252,7 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/errors/$error'
+    | '/instances/$instanceId'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
@@ -257,6 +276,7 @@ export interface FileRouteTypes {
     | '/503'
     | '/'
     | '/errors/$error'
+    | '/instances/$instanceId'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
@@ -274,6 +294,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/$'
     | '/_app'
+    | '/_app/instances'
     | '/_app/settings'
     | '/(errors)/401'
     | '/(errors)/403'
@@ -282,6 +303,7 @@ export interface FileRouteTypes {
     | '/(errors)/503'
     | '/_app/'
     | '/_app/errors/$error'
+    | '/_app/instances/$instanceId'
     | '/_app/settings/account'
     | '/_app/settings/appearance'
     | '/_app/settings/display'
@@ -372,6 +394,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/instances': {
+      id: '/_app/instances'
+      path: '/instances'
+      fullPath: '/instances'
+      preLoaderRoute: typeof AppInstancesRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/users/': {
       id: '/_app/users/'
       path: '/users'
@@ -402,10 +431,10 @@ declare module '@tanstack/react-router' {
     }
     '/_app/instances/': {
       id: '/_app/instances/'
-      path: '/instances'
+      path: '/'
       fullPath: '/instances/'
       preLoaderRoute: typeof AppInstancesIndexRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppInstancesRouteRoute
     }
     '/_app/help-center/': {
       id: '/_app/help-center/'
@@ -463,6 +492,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsAccountRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/instances/$instanceId': {
+      id: '/_app/instances/$instanceId'
+      path: '/$instanceId'
+      fullPath: '/instances/$instanceId'
+      preLoaderRoute: typeof AppInstancesInstanceIdRouteImport
+      parentRoute: typeof AppInstancesRouteRoute
+    }
     '/_app/errors/$error': {
       id: '/_app/errors/$error'
       path: '/errors/$error'
@@ -472,6 +508,19 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AppInstancesRouteRouteChildren {
+  AppInstancesInstanceIdRoute: typeof AppInstancesInstanceIdRoute
+  AppInstancesIndexRoute: typeof AppInstancesIndexRoute
+}
+
+const AppInstancesRouteRouteChildren: AppInstancesRouteRouteChildren = {
+  AppInstancesInstanceIdRoute: AppInstancesInstanceIdRoute,
+  AppInstancesIndexRoute: AppInstancesIndexRoute,
+}
+
+const AppInstancesRouteRouteWithChildren =
+  AppInstancesRouteRoute._addFileChildren(AppInstancesRouteRouteChildren)
 
 interface AppSettingsRouteRouteChildren {
   AppSettingsAccountRoute: typeof AppSettingsAccountRoute
@@ -493,6 +542,7 @@ const AppSettingsRouteRouteWithChildren =
   AppSettingsRouteRoute._addFileChildren(AppSettingsRouteRouteChildren)
 
 interface AppRouteChildren {
+  AppInstancesRouteRoute: typeof AppInstancesRouteRouteWithChildren
   AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
   AppErrorsErrorRoute: typeof AppErrorsErrorRoute
@@ -500,13 +550,13 @@ interface AppRouteChildren {
   AppCasesIndexRoute: typeof AppCasesIndexRoute
   AppChatsIndexRoute: typeof AppChatsIndexRoute
   AppHelpCenterIndexRoute: typeof AppHelpCenterIndexRoute
-  AppInstancesIndexRoute: typeof AppInstancesIndexRoute
   AppSessionsIndexRoute: typeof AppSessionsIndexRoute
   AppTasksIndexRoute: typeof AppTasksIndexRoute
   AppUsersIndexRoute: typeof AppUsersIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppInstancesRouteRoute: AppInstancesRouteRouteWithChildren,
   AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
   AppErrorsErrorRoute: AppErrorsErrorRoute,
@@ -514,7 +564,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppCasesIndexRoute: AppCasesIndexRoute,
   AppChatsIndexRoute: AppChatsIndexRoute,
   AppHelpCenterIndexRoute: AppHelpCenterIndexRoute,
-  AppInstancesIndexRoute: AppInstancesIndexRoute,
   AppSessionsIndexRoute: AppSessionsIndexRoute,
   AppTasksIndexRoute: AppTasksIndexRoute,
   AppUsersIndexRoute: AppUsersIndexRoute,

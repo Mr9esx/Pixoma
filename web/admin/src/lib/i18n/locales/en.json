@@ -15,6 +15,7 @@
     "save": "Save",
     "create": "Create",
     "cancel": "Cancel",
+    "delete": "Delete",
     "retry": "Retry",
     "errorGeneric": "Request failed",
     "successSaved": "Saved",
@@ -44,5 +45,28 @@
     "taskStatusDistribution": "Status distribution",
     "enabled": "Enabled",
     "disabled": "Disabled"
+  },
+  "instances": {
+    "title": "Instances",
+    "description": "Manage Comfy instances and inspect system / queue / tasks.",
+    "empty": "No instances",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "createHeading": "Create instance",
+    "editHeading": "Edit instance",
+    "fieldId": "ID",
+    "fieldBaseUrl": "Base URL",
+    "fieldEnabled": "Enabled",
+    "fieldCapabilities": "Capabilities",
+    "capabilitiesPlaceholder": "e.g. image, video",
+    "capabilitiesHint": "Separate multiple capabilities with commas.",
+    "createSuccess": "Instance created",
+    "deleteSuccess": "Instance deleted",
+    "deleteConfirmTitle": "Delete instance?",
+    "deleteConfirmDesc": "This will delete instance “{{id}}”. This cannot be undone.",
+    "observationTitle": "Observation",
+    "observationSystem": "System",
+    "observationQueue": "Queue",
+    "observationTasks": "Tasks"
   }
 }

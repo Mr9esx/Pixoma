@@ -15,6 +15,7 @@
     "save": "保存",
     "create": "新建",
     "cancel": "取消",
+    "delete": "删除",
     "retry": "重试",
     "errorGeneric": "请求失败",
     "successSaved": "已保存",
@@ -44,5 +45,28 @@
     "taskStatusDistribution": "状态分布",
     "enabled": "启用",
     "disabled": "未启用"
+  },
+  "instances": {
+    "title": "实例",
+    "description": "管理 Comfy 实例，并查看 system / queue / tasks 观测数据。",
+    "empty": "暂无实例",
+    "enabled": "启用",
+    "disabled": "未启用",
+    "createHeading": "新建实例",
+    "editHeading": "编辑实例",
+    "fieldId": "ID",
+    "fieldBaseUrl": "Base URL",
+    "fieldEnabled": "启用",
+    "fieldCapabilities": "Capabilities",
+    "capabilitiesPlaceholder": "例如 image, video",
+    "capabilitiesHint": "用逗号分隔多个 capability。",
+    "createSuccess": "实例已创建",
+    "deleteSuccess": "实例已删除",
+    "deleteConfirmTitle": "删除实例？",
+    "deleteConfirmDesc": "将删除实例「{{id}}」。此操作不可撤销。",
+    "observationTitle": "观测",
+    "observationSystem": "System",
+    "observationQueue": "Queue",
+    "observationTasks": "Tasks"
   }
 }
