@@ -31,6 +31,7 @@ type MenuItemRow struct {
 	Enabled         bool    `gorm:"not null"`
 	Kind            string  `gorm:"size:64;not null"`
 	PlaceholderText string  `gorm:"size:512"`
+	IntroText       string  `gorm:"type:text"`
 	Tag             string  `gorm:"size:128"`
 	ReplyJSON       string  `gorm:"type:text"`
 }
@@ -379,6 +380,7 @@ func itemToRow(menuID string, item domain.MenuItem) (MenuItemRow, error) {
 		Enabled:         item.Enabled,
 		Kind:            string(item.Kind),
 		PlaceholderText: item.PlaceholderText,
+		IntroText:       item.IntroText,
 		Tag:             item.Tag,
 	}
 	if item.ParentID != "" {
@@ -405,6 +407,7 @@ func rowToItem(row MenuItemRow, caseIDs []string) (domain.MenuItem, error) {
 		Kind:            domain.MenuKind(row.Kind),
 		CaseIDs:         append([]string(nil), caseIDs...),
 		PlaceholderText: row.PlaceholderText,
+		IntroText:       row.IntroText,
 		Tag:             row.Tag,
 	}
 	if row.ParentID != nil {
