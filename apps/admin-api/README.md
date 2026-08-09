@@ -73,7 +73,7 @@ curl -s -X POST localhost:8081/api/v1/tasks/<id>/cancel
 
 ## TG Menu
 
-树形读写主菜单（表 `tg_menus` + `tg_menu_items`，文档 id=`default`）。PUT 为整份替换；校验失败返回 400。
+树形读写主菜单（表 `tg_menus` + `tg_menu_items` + `tg_menu_item_cases`，文档 id=`default`）。PUT 为整份替换；校验失败返回 400。
 
 ```bash
 curl -s localhost:8081/api/v1/tg-menu

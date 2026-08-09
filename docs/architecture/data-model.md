@@ -139,17 +139,52 @@
 | enabled | index | |
 | created_at, updated_at | | |
 
-### 2.6 `tg_menu_configs`
+### 2.6 TG 主键盘树（`tg_menus` / `tg_menu_items` / `tg_menu_item_cases`）
 
-Telegram 主 ReplyKeyboard 配置真相源（单文档，`id` 固定为 `default`）。
+Telegram 主 ReplyKeyboard 配置真相源，**关系型树**（非 JSON 文档）。当前单 Bot、单菜单：`tg_menus.id` 固定为 `default`，`bot_id` 固定为 `default`。
+
+#### `tg_menus`
 
 | 列 | 约束 | 说明 |
 |---|---|---|
-| id | PK | 文档 id（当前仅 `default`） |
-| items_json | NOT NULL | `MenuItem[]` JSON（label/row/col/action/`reply` 等） |
+| id | PK | 菜单文档 id（当前仅 `default`） |
+| bot_id | NOT NULL | Bot 标识（当前仅 `default`） |
 | updated_at | NOT NULL | UTC |
 
-空表首次读时由应用层 upsert 默认种子（对齐现网六键主菜单）。`open_case` 的 `case_id` 逻辑指向 `catalog_cases.id`（无物理 FK）。
+#### `tg_menu_items`
+
+扁平存储树节点；`parent_id` 为空表示根级（ReplyKeyboard 行）。
+
+| 列 | 约束 | 说明 |
+|---|---|---|
+| id | PK | 节点 id（如 `btn-image`） |
+| menu_id | NOT NULL, index | → `tg_menus.id` |
+| parent_id | index, 可空 | → 父节点 `tg_menu_items.id` |
+| label | NOT NULL | 按钮文案 |
+| row, col | NOT NULL | 根级 ReplyKeyboard 布局（子节点可忽略） |
+| enabled | NOT NULL | |
+| kind | NOT NULL | `folder` / `open_case` / `list_cases_by_tag` / `placeholder` / `reply_media` |
+| placeholder_text | | `placeholder` 提示 |
+| tag | | `list_cases_by_tag` 分区 tag |
+| reply_json | TEXT | `reply_media` 的 `{text, images[]}` |
+
+`folder` 子树通过 `parent_id` 表达；`open_case` / `folder` 挂载的 Case 见关联表。
+
+#### `tg_menu_item_cases`
+
+节点 ↔ Case 多对多（有序）；主要用于 `folder` 内 Case 列表与 `open_case` 单 Case。
+
+| 列 | 约束 | 说明 |
+|---|---|---|
+| menu_item_id | PK (复合) | → `tg_menu_items.id` |
+| case_id | PK (复合) | → `catalog_cases.id`（逻辑） |
+| sort | NOT NULL | 同节点内排序 |
+
+#### 种子与迁移
+
+- **空库**：`EnsureDefault` 写入 `DefaultSeedTree`（六键根菜单；「🖼 图片」为 `folder`，并挂上 tag=`image` 的 Case id 列表）。
+- **旧库**：若关系表为空且存在遗留表 `tg_menu_configs`（`items_json`），一次性导入为扁平根节点后弃用 JSON 表。
+- **写入**：`ReplaceTree` 事务整树替换（删旧 items + cases 再插入）。
 
 > SQLite **未声明物理外键**；关联由应用层保证（GORM 默认不强制 FK）。
 
@@ -164,7 +199,10 @@ erDiagram
   catalog_cases ||--o{ sessions : "case_id (逻辑)"
   catalog_cases ||--o{ tasks : "case_id (逻辑)"
   comfy_instances ||--o{ tasks : "instance_id (派发后)"
-  tg_menu_configs }o--o| catalog_cases : "open_case.case_id (逻辑)"
+  tg_menus ||--o{ tg_menu_items : "menu_id"
+  tg_menu_items }o--o| tg_menu_items : "parent_id"
+  tg_menu_items ||--o{ tg_menu_item_cases : "menu_item_id"
+  catalog_cases ||--o{ tg_menu_item_cases : "case_id (逻辑)"
 
   users {
     string id PK
@@ -215,10 +253,28 @@ erDiagram
     bool enabled
   }
 
-  tg_menu_configs {
+  tg_menus {
     string id PK
-    text items_json
+    string bot_id
     datetime updated_at
+  }
+
+  tg_menu_items {
+    string id PK
+    string menu_id FK
+    string parent_id FK
+    string label
+    int row
+    int col
+    bool enabled
+    string kind
+    text reply_json
+  }
+
+  tg_menu_item_cases {
+    string menu_item_id PK
+    string case_id PK
+    int sort
   }
 ```
 
@@ -227,7 +283,7 @@ erDiagram
 - **强业务链**：`users` ← `sessions` ← `tasks`
 - **Case**：Session/Task 用字符串 `case_id` 指向目录
 - **实例**：仅在 Task `queued+` 后写入 `instance_id`
-- **TG 主菜单**：`tg_menu_configs` 存整份键盘；`open_case` 逻辑引用 Case
+- **TG 主菜单**：`tg_menus` + `tg_menu_items` 存树；`tg_menu_item_cases` 挂 Case；folder 子级用 `parent_id`
 
 ---
 
@@ -311,7 +367,7 @@ flowchart LR
 | tasks | `internal/runtime/infrastructure/persistence` |
 | comfy_instances / Pool | `internal/platform/instance` |
 | catalog_cases | `internal/catalog/infrastructure/persistence` |
-| tg_menu_configs | `internal/tgmenu`（domain/application/persistence）；HTTP `internal/httpapi/tgmenu` |
+| tg_menus / tg_menu_items / tg_menu_item_cases | `internal/tgmenu`（domain/application/persistence）；HTTP `internal/httpapi/tgmenu`；Case 反查 `GET .../cases/{id}/menu-placements` |
 | HTTP API | `internal/httpapi/comfyinstances` 等 |
 | 接线 | `apps/bot/cmd/comfyui-bot/main.go`、`apps/admin-api/cmd/admin-api/main.go` |
 

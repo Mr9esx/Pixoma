@@ -42,9 +42,9 @@
 
 > 依据 `docs/superpowers/specs/2026-08-09-tg-menu-config-design.md` 树形修订。下列任务在实现计划批准后执行；勾选前保持未完成。
 
-- [ ] 6.1 领域：树模型（Item.parent、kind=folder、item↔cases）、校验、DefaultSeedTree、「图片」为 folder
-- [ ] 6.2 持久化：`tg_menus` / `tg_menu_items` / `tg_menu_item_cases`；事务 ReplaceTree；旧 JSON 迁移；反查 Placements
-- [ ] 6.3 application + httpapi：GET/PUT 树；`GET /api/v1/cases/{id}/menu-placements`
-- [ ] 6.4 Bot：根键盘 + folder Inline 下钻/返回/点 Case；callback 短编码
-- [ ] 6.5 admin：主键盘树编辑 UI；Case 详情挂载只读块
-- [ ] 6.6 架构文档 + 回归测试（domain/persistence/http/tg + tsc）
+- [x] 6.1 领域：树模型（Item.parent、kind=folder、item↔cases）、校验、DefaultSeedTree、「图片」为 folder
+- [x] 6.2 持久化：`tg_menus` / `tg_menu_items` / `tg_menu_item_cases`；事务 ReplaceTree；旧 JSON 迁移；反查 Placements
+- [x] 6.3 application + httpapi：GET/PUT 树；`GET /api/v1/cases/{id}/menu-placements`
+- [x] 6.4 Bot：根键盘 + folder Inline 下钻/返回/点 Case；callback 短编码
+- [x] 6.5 admin：主键盘树编辑 UI；Case 详情挂载只读块
+- [x] 6.6 架构文档 + 回归测试（domain/persistence/http/tg + tsc）
