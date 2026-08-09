@@ -2,6 +2,8 @@
 comet_change: admin-theme-neutral-base
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-09-admin-theme-neutral-base
+status: final
 ---
 
 # admin-theme-neutral-base 技术设计

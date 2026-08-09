@@ -2,6 +2,7 @@
 change: admin-theme-neutral-base
 design-doc: docs/superpowers/specs/2026-08-09-admin-theme-neutral-base-design.md
 base-ref: 2d2fdd33bbef674e3519a2ef547591fc34ffb34e
+archived-with: 2026-08-09-admin-theme-neutral-base
 ---
 
 # admin-theme-neutral-base Implementation Plan
