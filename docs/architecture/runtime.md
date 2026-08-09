@@ -34,7 +34,36 @@ sequenceDiagram
 
 说明：`memory` bus **同步**调用 handler；ConfirmRun 返回前，整条链路（含 notify）可能已完成。
 
-对话入口：Telegram 主菜单来自表 `tg_menu_configs`（空则写入默认种子）；`channel/tg` 每次构建键盘时读配置（失败回退内存种子）。
+对话入口：Telegram 主 ReplyKeyboard 来自 `tg_menus` + `tg_menu_items`（空库种子或自 `tg_menu_configs` 迁移）；`channel/tg` 每次构建键盘时读 `MenuTree`（失败回退 `DefaultSeedTree`）。
+
+### 1.1 TG 主键盘与 folder Inline 浏览
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant TG as channel/tg
+  participant M as tgmenu.Repository
+
+  U->>TG: /start 或点根按钮
+  TG->>M: GetTree(default)
+  M-->>TG: MenuTree
+  alt 根级 ReplyKeyboard
+    TG->>U: SendMenu（按 row/col 布局）
+  else kind=folder
+    TG->>U: SendInline（子 folder + 挂载 Case + 返回）
+    U->>TG: callback mf:&lt;item_id&gt; / mb:root|&lt;parent_id&gt;
+    TG->>TG: showMenuFolder 下钻/返回
+  else open_case / list_cases_by_tag / placeholder / reply_media
+    TG->>TG: 既有 Case 列表或单 Case 预览链路
+  end
+```
+
+要点：
+
+- **根键盘**：仅 `parent_id` 为空的启用节点；`BuildReplyKeyboard` 按 `(row, col)` 排序。
+- **folder**：根按钮或 Inline「📁」进入 `showMenuFolder`；列出子 folder（`mf:` 前缀 callback）与同节点 `case_ids`（`CBCasePreview`）；「⬅️ 返回」用 `mb:root` 或 `mb:<parent_id>`。
+- **list_cases_by_tag**：仍走既有按 tag 列表 Inline（兼容旧 `btn-image` 行为）；与 folder 内挂 Case 可并存。
+- **callback 编码**：`mf:<menu_item_id>` 下钻；`mb:root` / `mb:<parent_item_id>` 返回（见 `channel/tg/menu.go`）。
 
 ---
 
