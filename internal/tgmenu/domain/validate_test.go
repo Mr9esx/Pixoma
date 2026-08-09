@@ -8,15 +8,15 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
 )
 
-func TestValidate_RejectsEmptyDocDuplicateIDAndPropagatesLookupError(t *testing.T) {
+func TestValidate_RejectsEmptyTreeDuplicateIDAndPropagatesLookupError(t *testing.T) {
 	ctx := context.Background()
 	exists := func(context.Context, string) (bool, error) { return true, nil }
 
-	if err := domain.Validate(ctx, domain.MenuDocument{ID: "default", Items: nil}, exists); !errors.Is(err, domain.ErrValidation) {
+	if err := domain.Validate(ctx, domain.MenuTree{ID: "default", BotID: "default", Items: nil}, exists); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("empty items: %v", err)
 	}
 
-	allDisabled := domain.DefaultSeed()
+	allDisabled := domain.DefaultSeedTree()
 	for i := range allDisabled.Items {
 		allDisabled.Items[i].Enabled = false
 	}
@@ -24,7 +24,7 @@ func TestValidate_RejectsEmptyDocDuplicateIDAndPropagatesLookupError(t *testing.
 		t.Fatalf("no enabled: %v", err)
 	}
 
-	dupID := domain.DefaultSeed()
+	dupID := domain.DefaultSeedTree()
 	dupID.Items[1].ID = dupID.Items[0].ID
 	dupID.Items[1].Label = "other"
 	if err := domain.Validate(ctx, dupID, exists); !errors.Is(err, domain.ErrValidation) {
@@ -32,12 +32,12 @@ func TestValidate_RejectsEmptyDocDuplicateIDAndPropagatesLookupError(t *testing.
 	}
 
 	lookupErr := errors.New("db down")
-	doc := domain.DefaultSeed()
-	doc.Items[0].Action = domain.ActionOpenCase
-	doc.Items[0].CaseID = "x"
-	doc.Items[0].Tag = ""
+	tree := domain.DefaultSeedTree()
+	tree.Items[0].Kind = domain.KindOpenCase
+	tree.Items[0].CaseIDs = []string{"x"}
+	tree.Items[0].Tag = ""
 	failing := func(context.Context, string) (bool, error) { return false, lookupErr }
-	err := domain.Validate(ctx, doc, failing)
+	err := domain.Validate(ctx, tree, failing)
 	if err == nil || errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("want non-validation lookup err, got %v", err)
 	}
@@ -46,49 +46,42 @@ func TestValidate_RejectsEmptyDocDuplicateIDAndPropagatesLookupError(t *testing.
 	}
 }
 
-func TestDefaultSeed_MatchesLegacyLayout(t *testing.T) {
-	doc := domain.DefaultSeed()
-	if doc.ID != domain.DocumentIDDefault {
-		t.Fatalf("id=%q", doc.ID)
-	}
-	if len(doc.Items) != 6 {
-		t.Fatalf("want 6 items, got %d", len(doc.Items))
-	}
-	byID := map[string]domain.MenuItem{}
-	for _, it := range doc.Items {
-		byID[it.ID] = it
-	}
-	img := byID["btn-image"]
-	if img.Label != "🖼 图片" || img.Action != domain.ActionListCasesByTag || img.Tag != "image" {
-		t.Fatalf("btn-image: %+v", img)
-	}
-	for _, id := range []string{"btn-video", "btn-recharge", "btn-checkin", "btn-profile", "btn-help"} {
-		if byID[id].Action != domain.ActionPlaceholder {
-			t.Fatalf("%s action=%s", id, byID[id].Action)
-		}
-	}
-}
-
 func TestValidate_RejectsDuplicateLabelAndBadReplyMedia(t *testing.T) {
 	ctx := context.Background()
 	exists := func(context.Context, string) (bool, error) { return true, nil }
 
-	dup := domain.DefaultSeed()
+	dup := domain.DefaultSeedTree()
 	dup.Items[1].Label = dup.Items[0].Label
 	if err := domain.Validate(ctx, dup, exists); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("dup label: %v", err)
 	}
 
-	emptyReply := domain.DefaultSeed()
-	emptyReply.Items[0].Action = domain.ActionReplyMedia
+	// Same label under different parents is allowed.
+	okTree := domain.MenuTree{
+		ID: domain.DocumentIDDefault, BotID: domain.BotIDDefault,
+		Items: []domain.MenuNode{{
+			ID: "parent", Label: "P", Enabled: true, Kind: domain.KindFolder,
+			Children: []domain.MenuNode{
+				{ID: "child", Label: "Same", Enabled: true, Kind: domain.KindPlaceholder},
+			},
+		}, {
+			ID: "other", Label: "Same", Enabled: true, Kind: domain.KindPlaceholder,
+		}},
+	}
+	if err := domain.Validate(ctx, okTree, exists); err != nil {
+		t.Fatalf("same label under different parents should be ok: %v", err)
+	}
+
+	emptyReply := domain.DefaultSeedTree()
+	emptyReply.Items[0].Kind = domain.KindReplyMedia
 	emptyReply.Items[0].Tag = ""
 	emptyReply.Items[0].Reply = &domain.ReplyPayload{}
 	if err := domain.Validate(ctx, emptyReply, exists); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("empty reply: %v", err)
 	}
 
-	badURL := domain.DefaultSeed()
-	badURL.Items[0].Action = domain.ActionReplyMedia
+	badURL := domain.DefaultSeedTree()
+	badURL.Items[0].Kind = domain.KindReplyMedia
 	badURL.Items[0].Tag = ""
 	badURL.Items[0].Reply = &domain.ReplyPayload{Images: []string{"ftp://x/a.png"}}
 	if err := domain.Validate(ctx, badURL, exists); !errors.Is(err, domain.ErrValidation) {
@@ -98,16 +91,16 @@ func TestValidate_RejectsDuplicateLabelAndBadReplyMedia(t *testing.T) {
 
 func TestValidate_OpenCaseRequiresExistingCase(t *testing.T) {
 	ctx := context.Background()
-	doc := domain.DefaultSeed()
-	doc.Items[0].Action = domain.ActionOpenCase
-	doc.Items[0].CaseID = "missing"
-	doc.Items[0].Tag = ""
+	tree := domain.DefaultSeedTree()
+	tree.Items[0].Kind = domain.KindOpenCase
+	tree.Items[0].CaseIDs = []string{"missing"}
+	tree.Items[0].Tag = ""
 	exists := func(_ context.Context, id string) (bool, error) { return id == "ok", nil }
-	if err := domain.Validate(ctx, doc, exists); !errors.Is(err, domain.ErrValidation) {
+	if err := domain.Validate(ctx, tree, exists); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("missing case: %v", err)
 	}
-	doc.Items[0].CaseID = "ok"
-	if err := domain.Validate(ctx, doc, exists); err != nil {
+	tree.Items[0].CaseIDs = []string{"ok"}
+	if err := domain.Validate(ctx, tree, exists); err != nil {
 		t.Fatal(err)
 	}
 }
