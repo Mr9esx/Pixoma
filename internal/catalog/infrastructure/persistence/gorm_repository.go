@@ -92,7 +92,7 @@ func (r *GormRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 	}
 	if q.Q != "" {
 		like := "%" + q.Q + "%"
-		tx = tx.Where("id LIKE ? OR name LIKE ?", like, like)
+		tx = tx.Where("id LIKE ? OR name LIKE ? OR menu_key LIKE ?", like, like, like)
 	}
 	if q.CreatedFrom != nil {
 		tx = tx.Where("created_at >= ?", *q.CreatedFrom)

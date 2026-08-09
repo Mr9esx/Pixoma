@@ -1,0 +1,18 @@
+# Admin API example config
+# Copy to configs/admin-api.yaml or set ADMIN_CONFIG=/path/to/file
+#
+# WARNING: 本期无鉴权。仅用于本机 / 可信内网联调，勿对公网暴露。
+# database_dsn 必须与 bot 指向同一库（例如同一 data/app.db）。
+
+http_addr: "127.0.0.1:8081"
+database_dsn: "file:data/app.db?cache=shared&_pragma=foreign_keys(1)"
+
+# Local frontend origins for web/admin (Vite etc.)
+cors_origins:
+  - "http://localhost:5173"
+  - "http://127.0.0.1:5173"
+  - "http://localhost:3000"
+  - "http://127.0.0.1:3000"
+
+# Align observation with bot; override with COMFY_MOCK=0|1|true|false
+comfy_mock: true

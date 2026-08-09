@@ -1,8 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { listCases } from '@/lib/api/cases'
+import { listInstances } from '@/lib/api/instances'
+import { queryKeys } from '@/lib/api/query-keys'
+import { listTasks } from '@/lib/api/tasks'
+import { aggregateDashboard } from '@/lib/dashboard/aggregate'
 import {
   Card,
   CardContent,
@@ -10,11 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { listCases } from '@/lib/api/cases'
-import { listInstances } from '@/lib/api/instances'
-import { queryKeys } from '@/lib/api/query-keys'
-import { listTasks } from '@/lib/api/tasks'
-import { aggregateDashboard } from '@/lib/dashboard/aggregate'
+import { ErrorBanner } from '@/components/feedback/error-banner'
+import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { taskStatusLabelKey } from '@/features/tasks/list-panel'
 
 const DASHBOARD_LIST_LIMIT = 200
@@ -30,13 +30,11 @@ function RatioBar({
 }) {
   const total = segments.reduce((sum, s) => sum + s.count, 0)
   if (total === 0) {
-    return (
-      <div className='bg-muted h-2 w-full overflow-hidden rounded-full' />
-    )
+    return <div className='h-2 w-full overflow-hidden rounded-full bg-muted' />
   }
   return (
     <div className='space-y-2'>
-      <div className='bg-muted flex h-2 w-full overflow-hidden rounded-full'>
+      <div className='flex h-2 w-full overflow-hidden rounded-full bg-muted'>
         {segments.map((s) => {
           const pct = (s.count / total) * 100
           if (pct <= 0) return null
@@ -50,11 +48,13 @@ function RatioBar({
           )
         })}
       </div>
-      <ul className='text-muted-foreground space-y-1 text-xs'>
+      <ul className='space-y-1 text-xs text-muted-foreground'>
         {segments.map((s) => (
           <li key={s.key} className='flex items-center justify-between gap-2'>
             <span className='flex items-center gap-2'>
-              <span className={`inline-block size-2 rounded-sm ${s.className}`} />
+              <span
+                className={`inline-block size-2 rounded-sm ${s.className}`}
+              />
               {s.label}
             </span>
             <span>{s.count}</span>
@@ -130,7 +130,7 @@ function InstancesCard() {
       <CardContent className='space-y-4'>
         <div className='text-2xl font-bold'>
           {stats.instanceEnabled}
-          <span className='text-muted-foreground text-base font-normal'>
+          <span className='text-base font-normal text-muted-foreground'>
             {' '}
             / {stats.instanceTotal}
           </span>
@@ -164,7 +164,10 @@ function InstancesCard() {
 function CasesCard() {
   const { t } = useTranslation()
   const q = useQuery({
-    queryKey: [...queryKeys.cases.all, { limit: DASHBOARD_LIST_LIMIT }] as const,
+    queryKey: [
+      ...queryKeys.cases.all,
+      { limit: DASHBOARD_LIST_LIMIT },
+    ] as const,
     queryFn: () => listCases({ limit: DASHBOARD_LIST_LIMIT }),
   })
 
@@ -236,7 +239,10 @@ const TASK_STATUS_COLORS = [
 function TasksCard() {
   const { t } = useTranslation()
   const q = useQuery({
-    queryKey: [...queryKeys.tasks.all, { limit: DASHBOARD_LIST_LIMIT }] as const,
+    queryKey: [
+      ...queryKeys.tasks.all,
+      { limit: DASHBOARD_LIST_LIMIT },
+    ] as const,
     queryFn: () => listTasks({ limit: DASHBOARD_LIST_LIMIT }),
   })
 
@@ -279,22 +285,27 @@ function TasksCard() {
     tasks: q.data ?? [],
   })
   const entries = Object.entries(stats.taskByStatus).sort(([a], [b]) =>
-    a.localeCompare(b),
+    a.localeCompare(b)
   )
 
   return (
-    <Card data-testid='dashboard-tasks-card' className='sm:col-span-2 lg:col-span-1'>
+    <Card
+      data-testid='dashboard-tasks-card'
+      className='sm:col-span-2 lg:col-span-1'
+    >
       <CardHeader className='pb-2'>
         <CardTitle className='text-sm font-medium'>
           <Link to='/tasks' className='hover:underline'>
             {t('dashboard.tasksTitle')}
           </Link>
         </CardTitle>
-        <CardDescription>{t('dashboard.taskStatusDistribution')}</CardDescription>
+        <CardDescription>
+          {t('dashboard.taskStatusDistribution')}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {entries.length === 0 ? (
-          <p className='text-muted-foreground text-sm'>{t('common.empty')}</p>
+          <p className='text-sm text-muted-foreground'>{t('common.empty')}</p>
         ) : (
           <RatioBar
             segments={entries.map(([status, count], i) => {
@@ -317,12 +328,17 @@ export function DashboardPage() {
   const { t } = useTranslation()
 
   return (
-    <div data-testid='dashboard-page' className='space-y-4'>
+    <div
+      data-testid='dashboard-page'
+      className='min-h-0 flex-1 space-y-4 overflow-auto'
+    >
       <div>
         <h1 className='text-2xl font-bold tracking-tight'>
           {t('dashboard.title')}
         </h1>
-        <p className='text-muted-foreground text-sm'>{t('common.sampleNote')}</p>
+        <p className='text-sm text-muted-foreground'>
+          {t('common.sampleNote')}
+        </p>
       </div>
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
         <InstancesCard />

@@ -3,22 +3,14 @@ import { useTranslation } from 'react-i18next'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { FilterSegment } from '@/components/filters/filter-segment'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import type { CaseRecord } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 
 export type CaseListFilters = {
   q: string
-  menuKey: string
   enabled: 'all' | 'true' | 'false'
 }
 
@@ -56,57 +48,26 @@ export function CaseListPanel({
         </Button>
       </div>
 
-      <div className='space-y-3 border-b px-4 py-3'>
-        <div className='space-y-1'>
-          <Label htmlFor='cases-filter-q' className='text-xs'>
-            {t('cases.filterQ')}
-          </Label>
-          <Input
-            id='cases-filter-q'
-            value={filters.q}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, q: e.target.value })
-            }
-            placeholder={t('cases.filterQPlaceholder')}
-            autoComplete='off'
-          />
-        </div>
-        <div className='space-y-1'>
-          <Label htmlFor='cases-filter-menu-key' className='text-xs'>
-            {t('cases.filterMenuKey')}
-          </Label>
-          <Input
-            id='cases-filter-menu-key'
-            value={filters.menuKey}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, menuKey: e.target.value })
-            }
-            placeholder={t('cases.filterMenuKeyPlaceholder')}
-            autoComplete='off'
-          />
-        </div>
-        <div className='space-y-1'>
-          <Label className='text-xs'>{t('cases.filterEnabled')}</Label>
-          <Select
-            value={filters.enabled}
-            onValueChange={(value: CaseListFilters['enabled']) =>
-              onFiltersChange({ ...filters, enabled: value })
-            }
-          >
-            <SelectTrigger className='w-full' size='sm'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='all'>{t('cases.filterEnabledAll')}</SelectItem>
-              <SelectItem value='true'>
-                {t('cases.filterEnabledTrue')}
-              </SelectItem>
-              <SelectItem value='false'>
-                {t('cases.filterEnabledFalse')}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className='space-y-2 border-b px-4 py-3'>
+        <Input
+          id='cases-filter-q'
+          value={filters.q}
+          onChange={(e) => onFiltersChange({ ...filters, q: e.target.value })}
+          placeholder={t('cases.filterQPlaceholder')}
+          autoComplete='off'
+          aria-label={t('cases.filterQ')}
+        />
+        <FilterSegment
+          data-testid='cases-filter-enabled'
+          aria-label={t('cases.filterEnabled')}
+          value={filters.enabled}
+          onValueChange={(enabled) => onFiltersChange({ ...filters, enabled })}
+          options={[
+            { value: 'all', label: t('cases.filterEnabledAll') },
+            { value: 'true', label: t('cases.filterEnabledTrue') },
+            { value: 'false', label: t('cases.filterEnabledFalse') },
+          ]}
+        />
       </div>
 
       {isError ? (

@@ -25,12 +25,13 @@ User (TG From upsert) ──► Session (chat 采集态) ──► Task (生成�
 
 完整架构文档（系统总览 / 限界上下文 / 运行时 / 数据模型与 ER）：见 [`docs/architecture/`](docs/architecture/)。
 数据表与 ER 专章：[`docs/architecture/data-model.md`](docs/architecture/data-model.md)。
+Admin 左栏列表筛选原则（后续资源页必循）：[`docs/frontend/admin-list-filters.md`](docs/frontend/admin-list-filters.md)。
 ## 跑通 TG 对话（默认 mock）
 
 ```bash
 export TG_BOT_TOKEN=你的BotToken
-make run-mock
-# 或：go run ./apps/bot/cmd/comfyui-bot
+make run-bot
+# 默认 COMFY_MOCK=1；真实 Comfy：make run-bot COMFY_MOCK=0
 ```
 
 配置：`configs/bot.yaml`（可从 `configs/bot.example.yaml` 复制）。
@@ -67,9 +68,17 @@ comfy_mock: false  # 真实 HTTP，走 comfyui_base_url / 各实例 base_url
 或环境变量 / Make：
 
 ```bash
-make run-mock          # COMFY_MOCK=1
-make run               # COMFY_MOCK=0（需可达 ComfyUI）
+make run-bot                 # 默认 COMFY_MOCK=1
+make run-bot COMFY_MOCK=0    # 真实 ComfyUI（需可达）
 # 等价：COMFY_MOCK=0|1|true|false
+```
+
+## 常用启动
+
+```bash
+make run-bot      # 只起 Bot（TG / 编排）
+make run-admin    # 管理面：admin-api + web/admin（Ctrl-C 一起停）
+make run-all      # Bot + 管理面前后端一起起
 ```
 
 ## 实例管理与观测（HTTP，admin-api）
@@ -79,9 +88,8 @@ make run               # COMFY_MOCK=0（需可达 ComfyUI）
 > 实例管理已从 bot（`:8080`）迁到 **admin-api（默认 `127.0.0.1:8081`）**，两边共用同一 `database_dsn` / `data/app.db`。
 
 ```bash
-# 启动管理面（与 bot 同库）
-make run-admin-api
-# 或：go run ./apps/admin-api/cmd/admin-api
+# 管理面（API + 前端）；只要 API：make run-admin-api
+make run-admin
 
 # 列表
 curl -s localhost:8081/api/v1/comfy-instances

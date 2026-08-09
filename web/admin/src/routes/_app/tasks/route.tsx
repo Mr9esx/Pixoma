@@ -1,19 +1,15 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  createFileRoute,
-  useNavigate,
-  useParams,
-} from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { queryKeys } from '@/lib/api/query-keys'
+import { listTasks } from '@/lib/api/tasks'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { TaskDetailPanel } from '@/features/tasks/detail-panel'
 import {
   TaskListPanel,
   type TaskListFilters,
 } from '@/features/tasks/list-panel'
-import { listTasks } from '@/lib/api/tasks'
-import { queryKeys } from '@/lib/api/query-keys'
 
 export const Route = createFileRoute('/_app/tasks')({
   component: TasksLayout,
@@ -44,12 +40,15 @@ function TasksLayout() {
   })
 
   return (
-    <div className='space-y-3' data-testid='tasks-page'>
-      <div>
+    <div
+      className='flex min-h-0 flex-1 flex-col gap-3'
+      data-testid='tasks-page'
+    >
+      <div className='shrink-0'>
         <h1 className='text-2xl font-bold tracking-tight'>
           {t('tasks.title')}
         </h1>
-        <p className='text-muted-foreground text-sm'>
+        <p className='text-sm text-muted-foreground'>
           {t('tasks.description')}
         </p>
       </div>
