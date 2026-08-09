@@ -8,6 +8,44 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
 )
 
+func TestValidate_RejectsEmptyDocDuplicateIDAndPropagatesLookupError(t *testing.T) {
+	ctx := context.Background()
+	exists := func(context.Context, string) (bool, error) { return true, nil }
+
+	if err := domain.Validate(ctx, domain.MenuDocument{ID: "default", Items: nil}, exists); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("empty items: %v", err)
+	}
+
+	allDisabled := domain.DefaultSeed()
+	for i := range allDisabled.Items {
+		allDisabled.Items[i].Enabled = false
+	}
+	if err := domain.Validate(ctx, allDisabled, exists); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("no enabled: %v", err)
+	}
+
+	dupID := domain.DefaultSeed()
+	dupID.Items[1].ID = dupID.Items[0].ID
+	dupID.Items[1].Label = "other"
+	if err := domain.Validate(ctx, dupID, exists); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("dup id: %v", err)
+	}
+
+	lookupErr := errors.New("db down")
+	doc := domain.DefaultSeed()
+	doc.Items[0].Action = domain.ActionOpenCase
+	doc.Items[0].CaseID = "x"
+	doc.Items[0].Tag = ""
+	failing := func(context.Context, string) (bool, error) { return false, lookupErr }
+	err := domain.Validate(ctx, doc, failing)
+	if err == nil || errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("want non-validation lookup err, got %v", err)
+	}
+	if !errors.Is(err, lookupErr) {
+		t.Fatalf("want wrapped lookupErr, got %v", err)
+	}
+}
+
 func TestDefaultSeed_MatchesLegacyLayout(t *testing.T) {
 	doc := domain.DefaultSeed()
 	if doc.ID != domain.DocumentIDDefault {

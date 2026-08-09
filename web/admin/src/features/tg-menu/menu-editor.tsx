@@ -249,6 +249,7 @@ export function TgMenuEditor() {
               <Button
                 type='button'
                 variant='ghost'
+                disabled={items.length <= 1}
                 onClick={() =>
                   setItems((prev) => prev.filter((_, i) => i !== index))
                 }
