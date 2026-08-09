@@ -80,7 +80,7 @@ curl -s localhost:8081/api/v1/tg-menu
 
 curl -s -X PUT localhost:8081/api/v1/tg-menu \
   -H 'Content-Type: application/json' \
-  -d '{"items":[{"id":"btn-image","label":"🖼 图片","row":0,"col":0,"enabled":true,"kind":"folder","case_ids":["<case-id>"]}]}'
+  -d '{"items":[{"id":"btn-image","label":"🖼 图片","row":0,"col":0,"enabled":true,"kind":"folder","intro_text":"点模板先看预览图","case_ids":["<case-id>"]}]}'
 
 # Case 在菜单中的挂载路径
 curl -s localhost:8081/api/v1/cases/<case-id>/menu-placements
