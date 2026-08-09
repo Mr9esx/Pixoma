@@ -13,6 +13,7 @@ export default defineConfig({
       'src/lib/api/instances.test.ts',
       'src/lib/api/cases.test.ts',
       'src/lib/api/tasks.test.ts',
+      'src/lib/api/task-errors.test.ts',
       'src/lib/api/users.test.ts',
       'src/lib/api/sessions.test.ts',
       'src/lib/api/query-keys.test.ts',
