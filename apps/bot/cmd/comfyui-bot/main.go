@@ -37,6 +37,9 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
+	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/infrastructure/persistence"
 )
 
 func main() {
@@ -70,6 +73,7 @@ func run(ctx context.Context) error {
 			&identitypersist.UserRow{},
 			&convpersist.SessionRow{},
 			&taskpersist.TaskRow{},
+			&tgmenupersist.MenuRow{},
 		},
 	})
 	if err != nil {
@@ -79,6 +83,12 @@ func run(ctx context.Context) error {
 
 	caseRepo := persistence.NewGormRepository(gdb)
 	userRepo := identitypersist.NewUserRepository(gdb)
+	menuStore := tgmenupersist.NewGormRepository(gdb)
+	menuSvc := &tgmenuapp.Service{
+		Store: menuStore,
+		Cases: tgmenuapp.CatalogCaseChecker{Repo: caseRepo},
+	}
+	menuReader := tgMenuReader{svc: menuSvc}
 	if n, err := seedCasesDir(ctx, caseRepo, cfg.CaseSeedDir); err != nil {
 		slog.Warn("seed cases", "err", err)
 	} else {
@@ -184,10 +194,11 @@ func run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		messenger = &tg.BotMessenger{Bot: tgBot, Blob: blobStore}
+		messenger = &tg.BotMessenger{Bot: tgBot, Blob: blobStore, Menu: menuReader}
 	}
 	*tgAdapter = *tg.New(facade, messenger)
 	tgAdapter.Users = userRepo
+	tgAdapter.Menu = menuReader
 
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskCreated, func(ctx context.Context, msg queue.Message) error {
 		var ev sharedkernel.TaskCreated
@@ -309,6 +320,10 @@ func (logMessenger) SendPhoto(_ context.Context, chatID int64, ref sharedkernel.
 	slog.Info("tg out photo", "chat_id", chatID, "blob", ref.Key, "caption", caption)
 	return nil
 }
+func (logMessenger) SendPhotoURL(_ context.Context, chatID int64, imageURL, caption string) error {
+	slog.Info("tg out photo_url", "chat_id", chatID, "url", imageURL, "caption", caption)
+	return nil
+}
 func (logMessenger) AnswerCallback(_ context.Context, callbackID, text string) error {
 	slog.Info("tg answer callback", "id", callbackID, "text", text)
 	return nil
@@ -346,6 +361,14 @@ func seedCaseFile(ctx context.Context, repo catalogdomain.Repository, path strin
 		return repo.Save(ctx, c)
 	}
 	return repo.Create(ctx, c)
+}
+
+type tgMenuReader struct {
+	svc *tgmenuapp.Service
+}
+
+func (m tgMenuReader) GetMenu(ctx context.Context) (tgmenudomain.MenuDocument, error) {
+	return m.svc.Get(ctx)
 }
 
 func envOr(k, def string) string {
