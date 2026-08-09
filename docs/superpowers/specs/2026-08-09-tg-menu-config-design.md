@@ -4,140 +4,149 @@ role: technical-design
 canonical_spec: openspec
 ---
 
-# TG Menu 可配置化 — 技术设计
+# TG Menu 可配置化 — 技术设计（树形主键盘 + Case 关联）
 
 ## 1. 背景与目标
 
-OpenSpec change `tg-menu-config`。现状主菜单硬编码于 `internal/channel/tg/menu.go`；管理面无入口。本期在**单 Bot、无多租户**前提下：Menu 落库、admin 可配、Bot 按配置渲染键盘并执行动作（含绑定 Case、按 tag 列 Case、占位提示、**回复文字+图片 URL**）。
+OpenSpec change `tg-menu-config`。首期已落地扁平 `tg_menu_configs`（JSON items）+ Bot/admin 读写。产品确认升级为：
 
-非目标：多 Bot / `bot_id`、Bot Token CRUD、管理端图片上传/对象存储、充值等真业务、前端 mock。
+- 主键盘可配 **树**：底部 ReplyKeyboard → 📁 文件夹（Inline）→ 再列 Case；可返回上一级
+- DB **关系表**维护菜单项 ↔ Case；**Case 详情**可看到挂在哪个菜单路径
+- **单 Bot 运行**；表预留 `bot_id`（本期恒 `default`），不做多 Bot 切换 UI / Token 后台
+- 管理台侧栏文案为「主键盘」
+
+非目标：多 Bot 切换、Token CRUD、用 Case.categories 当文件夹来源、管理端图片上传、充值等真业务、前端 mock。
 
 ## 2. 数据模型
 
-### 2.1 表 `tg_menu_configs`
+### 2.1 表
 
-| 列 | 类型 | 说明 |
-|----|------|------|
-| `id` | string PK | 固定 `"default"`（预留多文档，本期只用一行） |
-| `items_json` | text/JSON | `MenuItem[]` |
-| `updated_at` | time | |
+#### `tg_menus`
 
-### 2.2 `MenuItem` JSON
+| 列 | 说明 |
+|----|------|
+| `id` | PK，本期固定 `"default"` |
+| `bot_id` | 预留；本期恒 `"default"`，唯一约束 `(bot_id)` 或与 id 对齐 |
+| `updated_at` | UTC |
 
-```ts
-type MenuAction =
-  | 'open_case'
-  | 'list_cases_by_tag'
-  | 'placeholder'
-  | 'reply_media'
+#### `tg_menu_items`
 
-type MenuItem = {
-  id: string              // 稳定 id，如 btn-image
-  label: string           // ReplyKeyboard 文案；同文档内唯一
-  row: number             // 0-based 行
-  col: number             // 0-based 列（同行排序）
-  enabled: boolean
-  action: MenuAction
-  case_id?: string        // open_case 必填，且须存在于 catalog
-  tag?: string            // list_cases_by_tag 必填
-  placeholder_text?: string
-  reply?: {
-    text?: string
-    images?: string[]     // http(s) URL；本期不存本地上传
-  }
-}
-```
+| 列 | 说明 |
+|----|------|
+| `id` | PK（稳定字符串，如 `btn-image`、`folder-undress`） |
+| `menu_id` | → `tg_menus.id` |
+| `parent_id` | 可空；空 = 根层（ReplyKeyboard）；非空 = 某文件夹下的子项 |
+| `label` | 展示文案 |
+| `row` / `col` | 同层内排布（0-based） |
+| `enabled` | 是否启用 |
+| `kind` | `folder` \| `open_case` \| `placeholder` \| `reply_media` \| `list_cases_by_tag`（兼容） |
+| `placeholder_text` | 可选 |
+| `reply_json` | `reply_media` 的 text/images |
+| `tag` | `list_cases_by_tag` 兼容字段 |
+| `sort` / 或仅靠 row,col | 同层排序 |
 
-### 2.3 校验规则
+#### `tg_menu_item_cases`
 
-- `label` trim 后非空且文档内唯一（enabled 项之间必须唯一；建议全部项唯一以免改启用踩坑）
-- `open_case`：`case_id` 必填 + Case 仓储存在
-- `list_cases_by_tag`：`tag` 必填
-- `placeholder`：不要求 case/tag；`placeholder_text` 可选（空则用默认「暂未开放」类文案）
-- `reply_media`：`reply.text` 与 `reply.images` **至少其一非空**；`images` 若有则每项须为绝对 `http`/`https` URL
-- 保存为整份替换（PUT）；拒绝时不写库
+| 列 | 说明 |
+|----|------|
+| `menu_item_id` | → `tg_menu_items.id` |
+| `case_id` | → catalog case id（逻辑 FK） |
+| `sort` | 同项下 Case 按钮顺序 |
 
-### 2.4 默认种子
+唯一约束：`(menu_item_id, case_id)`。
 
-对齐现网 `MainMenuRows`：
+- `kind=open_case`：关联表恰好 1 条 Case（或等价强制）
+- `kind=folder`：关联表 0..N 条（进入文件夹时与子 `menu_items` 一并展示）
+- 其它 kind：关联表应为空
 
-| id | label | 动作 |
-|----|-------|------|
-| btn-image | 🖼 图片 | `list_cases_by_tag` tag=`image` |
-| btn-video | 🎬 视频 | `placeholder` |
-| btn-recharge | 💰 充值积分 | `placeholder` |
-| btn-checkin | 📅 签到 | `placeholder` |
-| btn-profile | 👤 个人中心 | `placeholder` |
-| btn-help | 🆘 帮助 | `placeholder` |
+### 2.2 废弃 / 迁移
 
-空表或读失败：运行时回退内存种子（与上表一致），并打 error/warn 日志。
+| 旧 | 新 |
+|----|-----|
+| `tg_menu_configs.items_json` | 一次性迁移为 `tg_menus` + `tg_menu_items` + `tg_menu_item_cases`；迁移后停止写入旧表；可读兼容可选，推荐启动时若新表空且旧表有数据则迁移 |
 
-## 3. 包与依赖
+### 2.3 校验
 
-```
-internal/tgmenu/
-  domain/          // MenuDocument, MenuItem, Validate, DefaultSeed
-  application/     // Get, Replace
-  infrastructure/persistence/  // GORM
+- 同 `menu_id` 下 `id` 唯一；同层（同 `parent_id`）`label` trim 后唯一；至少 1 个启用的根项
+- `folder`：允许子项与/或关联 Case；深度建议上限（如 5）防止滥用
+- `open_case`：关联恰好一存在的 Case
+- `folder` 挂载的每个 `case_id` 必须存在
+- `reply_media`：text 与 images 至少其一；images 均为 http(s)
+- `list_cases_by_tag`：`tag` 必填（兼容种子；新配置优先用 folder+挂载）
+- 写失败不落库（事务：items + links 同事务替换或按菜单文档版本替换）
 
-internal/httpapi/tgmenu/   // GET/PUT → application
-internal/channel/tg/       // 依赖 tgmenu 只读端口（GetMenu），禁止反向依赖
-apps/admin-api             // 挂载路由；不 import channel/tg
-apps/bot                   // 注入同一 DB 上的 Menu 仓储
-web/admin                  // /tg-menu 页 + 侧栏 + i18n
-```
+### 2.4 默认种子（根层）
 
-依赖方向：`httpapi` / `channel/tg` → `tgmenu`；`tgmenu` → `catalog`（仅校验 case 存在，用窄接口）。
+对齐现网六键；「图片」改为 **`folder`**（可先无子文件夹，挂载所有 `tag=image` 的 Case，或空挂载 + 兼容读 tag——实现选：**种子将现有 image Case 写入关联表**，运行时 folder 只读关联+子项，不再依赖 tag 列表作为主路径）。
+
+其余根项：`placeholder`（视频/充值/签到/个人中心/帮助）。
+
+## 3. Bot 运行时
+
+1. **ReplyKeyboard**：`parent_id IS NULL` 且 enabled → 按 row/col 构建（失败回退内存种子树）
+2. **点根 folder**：发 Inline 消息：
+   - 子 `folder` 按钮文案建议前缀 `📁 `
+   - 本项 `tg_menu_item_cases` 列出的 Case（可用 `name · ¥price`）
+   - `⬅️ 返回` → 回主菜单或上一层（根 folder 的返回 = 主菜单文案）
+3. **点子 folder**：换一层 Inline（callback 带 `menu_item_id`，注意 ≤64 字节：如 `mf:<id>` / `mc:<case_id>` / `mb:<parent_id>`）
+4. **点 Case**：现有预览/开跑
+5. **open_case / placeholder / reply_media**：与现语义一致
+6. **list_cases_by_tag**：保留实现兼容旧配置；新种子不依赖它作为「图片」主路径
+
+刷新：每次构建键盘/进文件夹读库；可选 TTL≤5s。
 
 ## 4. API
 
 | 方法 | 路径 | 行为 |
 |------|------|------|
-| GET | `/api/v1/tg-menu` | 返回 `{ id, items, updated_at }`；无行则先种子再返回或直接返回种子表示（实现选「懒种子写入」或「读时合成」；推荐 **首次 GET/Bot 读时若空则 upsert 种子**） |
-| PUT | `/api/v1/tg-menu` | body `{ items: MenuItem[] }`；校验通过后整份替换 |
+| GET | `/api/v1/tg-menu` | 返回树形 DTO：`{ id, bot_id, items: TreeNode[] }`（嵌套 children + `case_ids`/`cases` 摘要） |
+| PUT | `/api/v1/tg-menu` | 整棵树替换（事务）；校验后写 menus/items/links |
+| GET | `/api/v1/cases/{id}/menu-placements` | Case 反查：`[{ menu_id, path: [{id,label}], item_id }]` |
 
-错误：400 校验；404 不用于整份文档；500 存储失败。无鉴权（与现 admin-api 一致）。
+（也可挂在 Case GET 的扩展字段；推荐独立子资源便于权限与缓存。）
 
-## 5. Bot 运行时
+禁止 `httpapi` / admin-api import `channel/tg`。
 
-1. **构建键盘**：`GetMenu` → 过滤 `enabled` → 按 `(row,col)` 生成 `ReplyKeyboardMarkup`（`IsPersistent: true` 保持现语义）。
-2. **点击匹配**：用户文本 == 某项 `label` → 取该项 `action` 分发：
-   - `list_cases_by_tag` → 现有 `showImageCases` 类逻辑泛化为按 tag 列表
-   - `open_case` → 现有 Case 预览/开始路径（与 inline 入口对齐）
-   - `placeholder` → 回复 `placeholder_text` 或默认文案
-   - `reply_media` → 若有 text 先发文本；再对每个 image URL `SendPhoto`（或等价）；单张失败记日志继续其余；全部媒体失败且无 text 则回一句错误提示
-3. **刷新**：每次构建键盘读仓储；可选进程内 TTL≤5s 缓存。不要求热推送。
-4. **删除硬编码布局唯一性**：`menu.go` 常量可保留作种子文案来源或测试夹具，运行时不得只靠常量拼键盘。
+## 5. 管理控制台
 
-## 6. 管理控制台
+- 侧栏「主键盘」；页：左树/列表 + 右编辑（kind、挂 Case 多选、子项）
+- Case 详情：只读「出现在主键盘」路径列表（调 placements API）
+- 无 mock；图片 URL only
 
-- 侧栏：「TG 菜单」（中英 i18n），建议放在 Case 附近
-- 页面：单页编辑整份 `items`（表格：label/row/col/enabled/action + 条件字段）
-- `reply_media`：textarea + 图片 URL 多行输入（增删行）
-- `open_case`：Case 下拉（`listCases`）
-- 保存 → PUT；错误展示 ErrorBanner；成功 toast
-- 无前端 mock
+## 6. 包与依赖
 
-## 7. 测试策略
+```
+internal/tgmenu/
+  domain/          // Menu, Item, Kind, Validate, DefaultSeedTree, Placements
+  application/     // GetTree, ReplaceTree, ListPlacementsByCase
+  infrastructure/persistence/
 
-| 层 | 内容 |
-|----|------|
-| domain | Validate 各动作；种子结构；label 冲突 |
-| persistence | upsert 种子；Replace 后 Get 一致 |
-| httpapi | GET/PUT 200；非法 case_id / 空 reply_media → 400 |
-| channel/tg | 表驱动：给定 Menu → 键盘行；点击 label → 期望调用（list/open/placeholder/reply_media）；图片 URL 失败不崩 |
-| 手工 | 改文案与 reply_media 后 `/start` 与点击符合预期 |
+channel/tg → 只读端口（GetRoot / GetChildren / …）
+httpapi/tgmenu + cases 扩展 placements
+```
 
-## 8. 迁移与回滚
+## 7. 测试
 
-1. AutoMigrate `tg_menu_configs`；首次读空写入种子  
-2. Bot/admin 同时切读库  
-3. 回滚应用版本即可；表可留  
+- domain：树校验、深度、关联数量、placements 聚合
+- persistence：事务替换、反查
+- httpapi：PUT 树、placements 200
+- channel/tg：进 folder → Inline 含 📁 与 Case；BACK；callback 不崩
+- 手工：主键盘改树后 TG 分层浏览；Case 详情可见挂载
 
-## 9. 架构文档
+## 8. 架构文档
 
-实现后更新 `docs/architecture/data-model.md`（新表）；必要时 runtime 一句「主菜单来自 tg_menu_configs」。
+更新 `data-model.md`：三表 + ER；`runtime.md`：主菜单树浏览；`bounded-contexts`：tgmenu 职责含树与反查。
 
-## 10. Spec 对齐
+## 9. Spec 对齐
 
-Canonical：`docs/openspec/changes/tg-menu-config/specs/**`（含 reply_media Spec Patch）。
+Canonical：`docs/openspec/changes/tg-menu-config/specs/**`（本修订同步 delta）。
+
+## 10. 决策记录（产品）
+
+| 决策 | 选择 |
+|------|------|
+| 文件夹来源 | 主键盘自配树，不用 Case.categories |
+| 多 Bot | 预留 `bot_id`，本期单 Bot |
+| Case→菜单可见性 | Case 详情「出现在主键盘」 |
+| 落地方式 | 继续本 change，扁平模型升级为树 |
+| 实现方案 | 关系表树（非 JSON 双写） |
