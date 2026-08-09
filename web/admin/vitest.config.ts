@@ -22,6 +22,9 @@ export default defineConfig({
       'src/lib/i18n/locale.test.ts',
       'src/components/master-detail/master-detail.contract.test.ts',
       'src/components/layout/shell-layout.contract.test.ts',
+      'src/styles/theme-neutral.contract.test.ts',
+      'src/features/cases/list-panel.contract.test.ts',
+      'src/components/filters/list-filter.contract.test.ts',
     ],
   },
 })
