@@ -1,0 +1,15 @@
+{
+  "change": "admin-web-console",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "03cb8b822020e8f2797ffd1a487447b65f9b46500be3710fba80ceca22ddc681",
+  "files": [
+    { "path": "docs/openspec/changes/admin-web-console/proposal.md", "sha256": "ba4e84cdf2f4900b8b2ec8c3321cbd679afcd14c90aa4bfece641a293fe25824" },
+    { "path": "docs/openspec/changes/admin-web-console/design.md", "sha256": "eb58367a095afa4fe378c9df101de8db9243ec57631e0a38a0f193b0d8b62b6b" },
+    { "path": "docs/openspec/changes/admin-web-console/tasks.md", "sha256": "db9f2358750fb9e7d0eb916e7f4364b7c1a681a4b80a92dbd37637dc29bc8009" },
+    { "path": "docs/openspec/changes/admin-web-console/specs/admin-resource-pages/spec.md", "sha256": "c5fc6cd1a0bd817ba1403fb623bdac565907a33374c50db72cfebeb8f3968c18" },
+    { "path": "docs/openspec/changes/admin-web-console/specs/admin-web-shell/spec.md", "sha256": "7d63efeb37f04e4732e1ffd1fb8bc8ff5a1db51426a41bc02fd9f6a4d1c2e686" }
+  ]
+}

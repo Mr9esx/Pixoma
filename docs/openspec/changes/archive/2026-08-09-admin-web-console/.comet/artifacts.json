@@ -1,0 +1,9 @@
+{
+  "openspec_proposal": "docs/openspec/changes/admin-web-console/proposal.md",
+  "openspec_design": "docs/openspec/changes/admin-web-console/design.md",
+  "openspec_tasks": "docs/openspec/changes/admin-web-console/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/admin-web-console/specs/admin-resource-pages/spec.md",
+  "handoff_context": "docs/openspec/changes/archive/2026-08-09-admin-web-console/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/archive/2026-08-09-admin-web-console/.comet/handoff/design-context.md",
+  "archive_directory": "docs/openspec/changes/archive/2026-08-09-admin-web-console"
+}
