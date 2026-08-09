@@ -73,7 +73,10 @@ func (r *GormRepository) GetTree(ctx context.Context, id string) (domain.MenuTre
 	}
 
 	var itemRows []MenuItemRow
-	if err := r.db.WithContext(ctx).Where("menu_id = ?", id).Find(&itemRows).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Where("menu_id = ?", id).
+		Order("row, col, id").
+		Find(&itemRows).Error; err != nil {
 		return domain.MenuTree{}, err
 	}
 
