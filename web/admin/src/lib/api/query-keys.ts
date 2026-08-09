@@ -9,6 +9,7 @@ export const queryKeys = {
   cases: {
     all: ['cases'] as const,
     detail: (id: string) => ['cases', id] as const,
+    menuPlacements: (id: string) => ['cases', id, 'menu-placements'] as const,
   },
   tasks: {
     all: ['tasks'] as const,

@@ -39,3 +39,20 @@ export function putTgMenu(items: MenuNode[]) {
     body: JSON.stringify({ items }),
   })
 }
+
+export type MenuPlacementPathStep = {
+  id: string
+  label: string
+}
+
+export type MenuPlacement = {
+  menu_id: string
+  item_id: string
+  path: MenuPlacementPathStep[]
+}
+
+export function getCaseMenuPlacements(caseId: string) {
+  return apiFetch<MenuPlacement[]>(
+    `/api/v1/cases/${encodeURIComponent(caseId)}/menu-placements`,
+  )
+}

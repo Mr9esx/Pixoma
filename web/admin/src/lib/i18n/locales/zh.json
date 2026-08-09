@@ -121,7 +121,9 @@
     "disable": "禁用",
     "enableSuccess": "Case 已启用",
     "disableSuccess": "Case 已禁用",
-    "jsonMustBeObject": "必须是 JSON 对象"
+    "jsonMustBeObject": "必须是 JSON 对象",
+    "menuPlacementsTitle": "出现在主键盘",
+    "menuPlacementsEmpty": "未挂到主键盘"
   },
   "tasks": {
     "title": "任务",

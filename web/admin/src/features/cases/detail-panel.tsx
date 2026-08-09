@@ -5,6 +5,7 @@ import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { getCase } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import { CaseForm } from './case-form'
+import { MenuPlacementsSection } from './sections/menu-placements'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -52,6 +53,7 @@ export function CaseDetailPanel({ id }: Props) {
           {t('cases.editHeading')}
         </p>
       </div>
+      <MenuPlacementsSection caseId={record.id} />
       <CaseForm key={record.id} mode='edit' initial={record} />
     </div>
   )

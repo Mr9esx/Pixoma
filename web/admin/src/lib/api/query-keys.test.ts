@@ -8,6 +8,11 @@ describe('queryKeys', () => {
 
     expect(queryKeys.cases.all).toEqual(['cases'])
     expect(queryKeys.cases.detail('c1')).toEqual(['cases', 'c1'])
+    expect(queryKeys.cases.menuPlacements('c1')).toEqual([
+      'cases',
+      'c1',
+      'menu-placements',
+    ])
 
     expect(queryKeys.tasks.all).toEqual(['tasks'])
     expect(queryKeys.tasks.detail('t1')).toEqual(['tasks', 't1'])
