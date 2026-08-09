@@ -704,7 +704,7 @@ EOF
   - `setStoredLocale(locale: 'zh' | 'en'): void`
   - 默认 `'zh'`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 // web/admin/src/lib/i18n/locale.test.ts
@@ -728,7 +728,7 @@ describe('locale persistence', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd web/admin && pnpm test -- src/lib/i18n/locale.test.ts
@@ -736,7 +736,7 @@ cd web/admin && pnpm test -- src/lib/i18n/locale.test.ts
 
 Expected: FAIL
 
-- [ ] **Step 3: 安装 i18n 并实现**
+- [x] **Step 3: 安装 i18n 并实现**
 
 ```bash
 cd web/admin && pnpm add i18next react-i18next
@@ -808,7 +808,7 @@ export { i18n }
 
 英文文件对应翻译（`instances`→`Instances` 等）。`LanguageSwitcher`：按钮切换 `i18n.changeLanguage` + `setStoredLocale`。
 
-- [ ] **Step 4: 跑测试 + 手测刷新保留语言**
+- [x] **Step 4: 跑测试 + 手测刷新保留语言**
 
 ```bash
 cd web/admin && pnpm test -- src/lib/i18n/locale.test.ts
@@ -816,7 +816,7 @@ cd web/admin && pnpm test -- src/lib/i18n/locale.test.ts
 
 Expected: PASS；手测切 en 刷新仍为英文。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/admin/src/lib/i18n web/admin/src/components/layout/language-switcher.tsx web/admin/package.json pnpm-lock.yaml
