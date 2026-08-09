@@ -681,7 +681,7 @@ func TestDispatch_FolderShowsInlineChildrenAndCases(t *testing.T) {
 	var hasCase, hasBack bool
 	for _, row := range rows {
 		for _, btn := range row {
-			if strings.Contains(btn.Text, "C1") && strings.HasPrefix(btn.Data, tg.CBCasePreview) {
+			if strings.Contains(btn.Text, "C1") && strings.HasPrefix(btn.Data, tg.CBCasePreviewFolder) {
 				hasCase = true
 			}
 			if btn.Text == "⬅️ 返回" && btn.Data == tg.CBMenuBack+"root" {
@@ -691,6 +691,80 @@ func TestDispatch_FolderShowsInlineChildrenAndCases(t *testing.T) {
 	}
 	if !hasCase || !hasBack {
 		t.Fatalf("buttons=%+v case=%v back=%v", rows, hasCase, hasBack)
+	}
+}
+
+func TestCallback_FolderCasePreviewBackToFolder(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, sampleCase("c1", "C1"))
+	out := &memOut{}
+	ad := tg.New(newFacade(cases), out)
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{{
+		ID: "btn-image", Label: tg.BtnImage, Enabled: true, Kind: tgmenudomain.KindFolder, CaseIDs: []string{"c1"},
+	}}}}
+
+	if err := ad.HandleCallback(ctx, 1, "cb1", tg.CBMenuFolder+"btn-image", "u"); err != nil {
+		t.Fatal(err)
+	}
+	rows := out.inlineRows[len(out.inlineRows)-1]
+	var previewData string
+	for _, row := range rows {
+		for _, btn := range row {
+			if strings.Contains(btn.Text, "C1") {
+				previewData = btn.Data
+			}
+		}
+	}
+	if !strings.HasPrefix(previewData, tg.CBCasePreviewFolder+"btn-image:") {
+		t.Fatalf("preview data=%q", previewData)
+	}
+
+	if err := ad.HandleCallback(ctx, 1, "cb2", previewData, "u"); err != nil {
+		t.Fatal(err)
+	}
+	backRows := out.inlineRows[len(out.inlineRows)-1]
+	var backData string
+	for _, row := range backRows {
+		for _, btn := range row {
+			if btn.Text == "« 返回列表" {
+				backData = btn.Data
+			}
+		}
+	}
+	if backData != tg.CBMenuBack+"btn-image" {
+		t.Fatalf("back=%q want mb:btn-image", backData)
+	}
+
+	if err := ad.HandleCallback(ctx, 1, "cb3", backData, "u"); err != nil {
+		t.Fatal(err)
+	}
+	if out.inlines[len(out.inlines)-1] != tg.BtnImage {
+		t.Fatalf("folder title=%v", out.inlines[len(out.inlines)-1])
+	}
+}
+
+func TestCallback_TagListCasePreviewBackToImageList(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, sampleCase("c1", "C1"))
+	out := &memOut{}
+	ad := tg.New(newFacade(cases), out)
+
+	if err := ad.HandleCallback(ctx, 1, "cb1", tg.CBCasePreview+"c1", "u"); err != nil {
+		t.Fatal(err)
+	}
+	rows := out.inlineRows[len(out.inlineRows)-1]
+	var backData string
+	for _, row := range rows {
+		for _, btn := range row {
+			if btn.Text == "« 返回列表" {
+				backData = btn.Data
+			}
+		}
+	}
+	if backData != tg.CBImgList {
+		t.Fatalf("back=%q want %q", backData, tg.CBImgList)
 	}
 }
 

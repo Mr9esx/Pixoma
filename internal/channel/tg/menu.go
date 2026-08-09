@@ -20,7 +20,8 @@ func MainMenuRows() [][]string {
 
 // Callback data prefixes (Telegram limit 64 bytes).
 const (
-	CBCasePreview  = "cp:" // cp:<case_id>
+	CBCasePreview       = "cp:"  // cp:<case_id>
+	CBCasePreviewFolder = "cpf:" // cpf:<folder_item_id>:<case_id>
 	CBCaseStart    = "cs:" // cs:<case_id>
 	CBConfirm      = "cf"
 	CBExit         = "ex"

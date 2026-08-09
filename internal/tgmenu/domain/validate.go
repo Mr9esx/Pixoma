@@ -85,6 +85,13 @@ func validateNodeChildren(nodes []MenuNode) error {
 		if n.Kind == KindOpenCase && len(n.Children) > 0 {
 			return fmt.Errorf("%w: item %q open_case must not have children", ErrValidation, n.ID)
 		}
+		if n.Kind == KindFolder {
+			for _, child := range n.Children {
+				if child.Kind != KindFolder {
+					return fmt.Errorf("%w: item %q folder child %q must be kind folder", ErrValidation, n.ID, child.ID)
+				}
+			}
+		}
 		if err := validateNodeChildren(n.Children); err != nil {
 			return err
 		}
