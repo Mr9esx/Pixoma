@@ -229,12 +229,3 @@ func TestEnsureDefault_MigratesLegacyJSON(t *testing.T) {
 		t.Fatalf("case ids=%v", tree.Items[0].CaseIDs)
 	}
 }
-
-func TestDebug_IntroFlatten(t *testing.T) {
-	tree := domain.DefaultSeedTree()
-	tree.Items[0].IntroText = "hello"
-	flat := domain.Flatten(tree.Items)
-	if flat[0].IntroText != "hello" {
-		t.Fatalf("flatten lost intro: %+v", flat[0])
-	}
-}
