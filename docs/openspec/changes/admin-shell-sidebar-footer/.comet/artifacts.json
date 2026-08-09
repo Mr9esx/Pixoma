@@ -1,0 +1,8 @@
+{
+  "openspec_proposal": "docs/openspec/changes/admin-shell-sidebar-footer/proposal.md",
+  "openspec_design": "docs/openspec/changes/admin-shell-sidebar-footer/design.md",
+  "openspec_tasks": "docs/openspec/changes/admin-shell-sidebar-footer/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/admin-shell-sidebar-footer/specs/admin-web-shell/spec.md",
+  "handoff_context": "docs/openspec/changes/admin-shell-sidebar-footer/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/admin-shell-sidebar-footer/.comet/handoff/design-context.md"
+}

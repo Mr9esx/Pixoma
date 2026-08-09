@@ -1,10 +1,11 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 import { MENU_ITEMS } from '@/config/menu'
+import { useTranslation } from 'react-i18next'
 import { useLayout } from '@/context/layout-provider'
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -14,7 +15,9 @@ import {
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar'
+import { ThemeSwitch } from '@/components/theme-switch'
 import { AppTitle } from './app-title'
+import { LanguageSwitcher } from './language-switcher'
 
 export function AppSidebar() {
   const { t } = useTranslation()
@@ -58,6 +61,12 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <div className='flex items-center gap-2 px-1 group-data-[collapsible=icon]:justify-center'>
+          <LanguageSwitcher />
+          <ThemeSwitch />
+        </div>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )

@@ -1,13 +1,11 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
-import { AppSidebar } from '@/components/layout/app-sidebar'
-import { LanguageSwitcher } from '@/components/layout/language-switcher'
-import { SkipToMain } from '@/components/skip-to-main'
-import { ThemeSwitch } from '@/components/theme-switch'
-import { LayoutProvider } from '@/context/layout-provider'
-import { SearchProvider } from '@/context/search-provider'
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
+import { LayoutProvider } from '@/context/layout-provider'
+import { SearchProvider } from '@/context/search-provider'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { AppSidebar } from '@/components/layout/app-sidebar'
+import { SkipToMain } from '@/components/skip-to-main'
 
 export const Route = createFileRoute('/_app')({
   component: AppLayout,
@@ -26,15 +24,9 @@ function AppLayout() {
             className={cn(
               '@container/content',
               'has-data-[layout=fixed]:h-svh',
-              'peer-data-[variant=inset]:has-data-[layout=fixed]:h-[calc(100svh-(var(--spacing)*4))]',
+              'peer-data-[variant=inset]:has-data-[layout=fixed]:h-[calc(100svh-(var(--spacing)*4))]'
             )}
           >
-            <header className='flex h-14 items-center gap-2 border-b px-4'>
-              <div className='ms-auto flex items-center gap-2'>
-                <LanguageSwitcher />
-                <ThemeSwitch />
-              </div>
-            </header>
             <div className='flex-1 p-4'>
               <Outlet />
             </div>
