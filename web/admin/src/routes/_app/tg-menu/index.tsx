@@ -9,12 +9,15 @@ export const Route = createFileRoute('/_app/tg-menu/')({
 function TgMenuPage() {
   const { t } = useTranslation()
   return (
-    <div className='space-y-3' data-testid='tg-menu-page'>
-      <div>
+    <div
+      className='flex min-h-0 flex-1 flex-col gap-3'
+      data-testid='tg-menu-page'
+    >
+      <div className='shrink-0'>
         <h1 className='text-2xl font-bold tracking-tight'>
           {t('tgMenu.title')}
         </h1>
-        <p className='text-muted-foreground text-sm'>
+        <p className='text-sm text-muted-foreground'>
           {t('tgMenu.description')}
         </p>
       </div>
