@@ -267,18 +267,12 @@ func (a *Adapter) showMenuFolder(ctx context.Context, chatID int64, itemID strin
 		return a.Out.SendText(ctx, chatID, "菜单项不存在")
 	}
 
-	var rows [][]InlineButton
-	for _, child := range node.Children {
-		if !child.Enabled {
-			continue
-		}
-		if child.Kind == tgmenudomain.KindFolder {
-			rows = append(rows, []InlineButton{{
-				Text: "📁 " + child.Label,
-				Data: CBMenuFolder + child.ID,
-			}})
-		}
+	text := strings.TrimSpace(node.IntroText)
+	if text == "" {
+		text = node.Label
 	}
+
+	var rows [][]InlineButton
 	for _, caseID := range node.CaseIDs {
 		c, err := a.App.GetCase(ctx, sharedkernel.CaseID(caseID))
 		if err != nil {
@@ -290,6 +284,17 @@ func (a *Adapter) showMenuFolder(ctx context.Context, chatID int64, itemID strin
 			Data: CBCasePreviewFolder + itemID + ":" + string(doc.ID),
 		}})
 	}
+	for _, child := range node.Children {
+		if !child.Enabled {
+			continue
+		}
+		if child.Kind == tgmenudomain.KindFolder {
+			rows = append(rows, []InlineButton{{
+				Text: "📁 " + child.Label,
+				Data: CBMenuFolder + child.ID,
+			}})
+		}
+	}
 
 	backData := CBMenuBack + "root"
 	if node.ParentID != "" {
@@ -297,7 +302,7 @@ func (a *Adapter) showMenuFolder(ctx context.Context, chatID int64, itemID strin
 	}
 	rows = append(rows, []InlineButton{{Text: "⬅️ 返回", Data: backData}})
 
-	return a.Out.SendInline(ctx, chatID, node.Label, rows)
+	return a.Out.SendInline(ctx, chatID, text, rows)
 }
 
 func (a *Adapter) sendReplyMedia(ctx context.Context, chatID int64, item tgmenudomain.MenuNode) error {

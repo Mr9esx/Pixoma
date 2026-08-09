@@ -669,28 +669,59 @@ func TestDispatch_FolderShowsInlineChildrenAndCases(t *testing.T) {
 	ad := tg.New(newFacade(cases), out)
 	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{{
 		ID: "btn-image", Label: tg.BtnImage, Enabled: true, Kind: tgmenudomain.KindFolder, CaseIDs: []string{"c1"},
+		IntroText: "点模板先看预览图",
+		Children: []tgmenudomain.MenuNode{
+			{ID: "sub", Label: "分类", Enabled: true, Kind: tgmenudomain.KindFolder},
+		},
 	}}}}
 
 	if err := ad.HandleText(ctx, 1, tg.BtnImage, "u"); err != nil {
 		t.Fatal(err)
 	}
+	if len(out.inlines) == 0 || out.inlines[len(out.inlines)-1] != "点模板先看预览图" {
+		t.Fatalf("want intro text, got %v", out.inlines)
+	}
 	if len(out.inlineRows) == 0 {
 		t.Fatal("want inline keyboard")
 	}
 	rows := out.inlineRows[len(out.inlineRows)-1]
-	var hasCase, hasBack bool
-	for _, row := range rows {
+	var hasCase, hasFolder, hasBack bool
+	var caseIdx, folderIdx = -1, -1
+	for i, row := range rows {
 		for _, btn := range row {
 			if strings.Contains(btn.Text, "C1") && strings.HasPrefix(btn.Data, tg.CBCasePreviewFolder) {
 				hasCase = true
+				caseIdx = i
+			}
+			if strings.HasPrefix(btn.Text, "📁 ") && strings.HasPrefix(btn.Data, tg.CBMenuFolder) {
+				hasFolder = true
+				folderIdx = i
 			}
 			if btn.Text == "⬅️ 返回" && btn.Data == tg.CBMenuBack+"root" {
 				hasBack = true
 			}
 		}
 	}
-	if !hasCase || !hasBack {
-		t.Fatalf("buttons=%+v case=%v back=%v", rows, hasCase, hasBack)
+	if !hasCase || !hasFolder || !hasBack {
+		t.Fatalf("buttons=%+v case=%v folder=%v back=%v", rows, hasCase, hasFolder, hasBack)
+	}
+	if caseIdx < 0 || folderIdx < 0 || caseIdx >= folderIdx {
+		t.Fatalf("want case before folder, caseIdx=%d folderIdx=%d", caseIdx, folderIdx)
+	}
+}
+
+func TestDispatch_FolderFallsBackToLabelWhenIntroEmpty(t *testing.T) {
+	ctx := context.Background()
+	out := &memOut{}
+	ad := tg.New(newFacade(&memCases{}), out)
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{{
+		ID: "btn-image", Label: tg.BtnImage, Enabled: true, Kind: tgmenudomain.KindFolder,
+	}}}}
+	if err := ad.HandleText(ctx, 1, tg.BtnImage, "u"); err != nil {
+		t.Fatal(err)
+	}
+	if out.inlines[len(out.inlines)-1] != tg.BtnImage {
+		t.Fatalf("got %v", out.inlines)
 	}
 }
 
