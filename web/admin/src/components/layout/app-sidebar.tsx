@@ -62,7 +62,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className='flex items-center gap-2 px-1 group-data-[collapsible=icon]:justify-center'>
+        <div className='flex items-center gap-2 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center'>
           <LanguageSwitcher />
           <ThemeSwitch />
         </div>
