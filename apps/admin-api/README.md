@@ -71,12 +71,26 @@ curl -s -X POST localhost:8081/api/v1/tasks/<id>/cancel
 
 不可取消的任务返回明确错误（HTTP 409）；缺失资源为 404。
 
+## TG Menu
+
+整份读写主菜单配置（表 `tg_menu_configs`，文档 id=`default`）。PUT 为整份替换；校验失败返回 400。
+
+```bash
+curl -s localhost:8081/api/v1/tg-menu
+
+curl -s -X PUT localhost:8081/api/v1/tg-menu \
+  -H 'Content-Type: application/json' \
+  -d '{"items":[{"id":"btn-image","label":"🖼 图片","row":0,"col":0,"enabled":true,"action":"list_cases_by_tag","tag":"image"}]}'
+```
+
+动作：`open_case` / `list_cases_by_tag` / `placeholder` / `reply_media`（图片仅 http(s) URL，无本地上传）。
+
 ## 与 bot 的边界
 
 | 进程 | 端口（默认） | 职责 |
 |---|---|---|
 | bot | `:8080` | 对话 / 编排 / TG；仅保留 `/healthz` |
-| admin-api | `127.0.0.1:8081` | 实例 + Case/User/Session/Task 管理 HTTP（无鉴权） |
+| admin-api | `127.0.0.1:8081` | 实例 + Case/User/Session/Task/TG Menu 管理 HTTP（无鉴权） |
 
 admin-api **不依赖** `channel/tg`。bot 上旧的 `/api/v1/comfy-instances*` 已卸下。
 
