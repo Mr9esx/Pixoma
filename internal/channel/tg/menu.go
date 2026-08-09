@@ -29,4 +29,6 @@ const (
 	CBImgList      = "il"
 	CBContinue     = "ct"  // resume active session
 	CBReplaceStart = "rs:" // abandon active + start:<case_id>
+	CBMenuFolder   = "mf:" // mf:<menu_item_id>
+	CBMenuBack     = "mb:" // mb:root | mb:<parent_item_id>
 )

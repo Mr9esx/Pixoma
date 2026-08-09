@@ -369,7 +369,7 @@ type tgMenuReader struct {
 	svc *tgmenuapp.Service
 }
 
-func (m tgMenuReader) GetMenu(ctx context.Context) (tgmenudomain.MenuDocument, error) {
+func (m tgMenuReader) GetMenu(ctx context.Context) (tgmenudomain.MenuTree, error) {
 	return m.svc.Get(ctx)
 }
 

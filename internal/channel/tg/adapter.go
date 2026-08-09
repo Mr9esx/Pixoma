@@ -122,7 +122,7 @@ func (a *Adapter) HandleText(ctx context.Context, chatID int64, text, userID str
 			return a.startCase(ctx, chatID, sharedkernel.CaseID(id), userID)
 		}
 		doc := a.loadMenu(ctx)
-		if item, ok := FindEnabledByLabel(doc, text); ok {
+		if item, ok := FindEnabledRootByLabel(doc, text); ok {
 			return a.dispatchMenuItem(ctx, chatID, userID, item)
 		}
 		return a.sendMainMenu(ctx, chatID)
@@ -154,6 +154,15 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID int64, callbackID, 
 	case strings.HasPrefix(data, CBCaseStart):
 		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBCaseStart))
 		return a.startCase(ctx, chatID, id, userID)
+	case strings.HasPrefix(data, CBMenuFolder):
+		id := strings.TrimPrefix(data, CBMenuFolder)
+		return a.showMenuFolder(ctx, chatID, id)
+	case strings.HasPrefix(data, CBMenuBack):
+		target := strings.TrimPrefix(data, CBMenuBack)
+		if target == "root" {
+			return a.sendMainMenu(ctx, chatID)
+		}
+		return a.showMenuFolder(ctx, chatID, target)
 	default:
 		return a.Out.SendText(ctx, chatID, "未知操作")
 	}
@@ -220,26 +229,71 @@ func (a *Adapter) showCasesByTag(ctx context.Context, chatID int64, tag string) 
 	return a.Out.SendInline(ctx, chatID, title, rows)
 }
 
-func (a *Adapter) dispatchMenuItem(ctx context.Context, chatID int64, _ string, item tgmenudomain.MenuItem) error {
-	switch item.Action {
-	case tgmenudomain.ActionListCasesByTag:
+func (a *Adapter) dispatchMenuItem(ctx context.Context, chatID int64, userID string, item tgmenudomain.MenuNode) error {
+	switch item.Kind {
+	case tgmenudomain.KindFolder:
+		return a.showMenuFolder(ctx, chatID, item.ID)
+	case tgmenudomain.KindListCasesByTag:
 		return a.showCasesByTag(ctx, chatID, item.Tag)
-	case tgmenudomain.ActionOpenCase:
-		return a.showCasePreview(ctx, chatID, sharedkernel.CaseID(item.CaseID))
-	case tgmenudomain.ActionPlaceholder:
+	case tgmenudomain.KindOpenCase:
+		if len(item.CaseIDs) == 0 {
+			return a.Out.SendMenu(ctx, chatID, "菜单配置无效：缺少 case")
+		}
+		return a.showCasePreview(ctx, chatID, sharedkernel.CaseID(item.CaseIDs[0]))
+	case tgmenudomain.KindPlaceholder:
 		msg := strings.TrimSpace(item.PlaceholderText)
 		if msg == "" {
 			msg = item.Label + "：暂未开放，请先体验「" + BtnImage + "」。"
 		}
 		return a.Out.SendMenu(ctx, chatID, msg)
-	case tgmenudomain.ActionReplyMedia:
+	case tgmenudomain.KindReplyMedia:
 		return a.sendReplyMedia(ctx, chatID, item)
 	default:
 		return a.Out.SendMenu(ctx, chatID, "未知菜单动作")
 	}
 }
 
-func (a *Adapter) sendReplyMedia(ctx context.Context, chatID int64, item tgmenudomain.MenuItem) error {
+func (a *Adapter) showMenuFolder(ctx context.Context, chatID int64, itemID string) error {
+	tree := a.loadMenu(ctx)
+	node, ok := findNodeByID(tree.Items, itemID)
+	if !ok {
+		return a.Out.SendText(ctx, chatID, "菜单项不存在")
+	}
+
+	var rows [][]InlineButton
+	for _, child := range node.Children {
+		if !child.Enabled {
+			continue
+		}
+		if child.Kind == tgmenudomain.KindFolder {
+			rows = append(rows, []InlineButton{{
+				Text: "📁 " + child.Label,
+				Data: CBMenuFolder + child.ID,
+			}})
+		}
+	}
+	for _, caseID := range node.CaseIDs {
+		c, err := a.App.GetCase(ctx, sharedkernel.CaseID(caseID))
+		if err != nil {
+			continue
+		}
+		doc := c.Document
+		rows = append(rows, []InlineButton{{
+			Text: fmt.Sprintf("%s · ¥%.0f", doc.Name, doc.Price),
+			Data: CBCasePreview + string(doc.ID),
+		}})
+	}
+
+	backData := CBMenuBack + "root"
+	if node.ParentID != "" {
+		backData = CBMenuBack + node.ParentID
+	}
+	rows = append(rows, []InlineButton{{Text: "⬅️ 返回", Data: backData}})
+
+	return a.Out.SendInline(ctx, chatID, node.Label, rows)
+}
+
+func (a *Adapter) sendReplyMedia(ctx context.Context, chatID int64, item tgmenudomain.MenuNode) error {
 	if item.Reply == nil {
 		return a.Out.SendText(ctx, chatID, "菜单配置无效：缺少 reply")
 	}
@@ -529,7 +583,7 @@ func (a *Adapter) isMenuCommand(ctx context.Context, text string) bool {
 		return true
 	}
 	doc := a.loadMenu(ctx)
-	if _, ok := FindEnabledByLabel(doc, text); ok {
+	if _, ok := FindEnabledRootByLabel(doc, text); ok {
 		return true
 	}
 	// Fallback legacy constants if menu load somehow omitted them.

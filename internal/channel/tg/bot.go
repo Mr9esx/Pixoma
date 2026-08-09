@@ -108,17 +108,17 @@ func (m *BotMessenger) AnswerCallback(ctx context.Context, callbackID, text stri
 
 func (m *BotMessenger) replyKeyboard(ctx context.Context) *models.ReplyKeyboardMarkup {
 	if m != nil && m.Menu != nil {
-		doc, err := m.Menu.GetMenu(ctx)
+		tree, err := m.Menu.GetMenu(ctx)
 		if err == nil {
-			return BuildReplyKeyboard(doc)
+			return BuildReplyKeyboard(tree)
 		}
 		slog.Error("tg menu load for keyboard failed; using default seed", "err", err)
 	}
-	return BuildReplyKeyboard(tgmenudomain.DefaultSeed())
+	return BuildReplyKeyboard(tgmenudomain.DefaultSeedTree())
 }
 
 func mainReplyKeyboard() *models.ReplyKeyboardMarkup {
-	return BuildReplyKeyboard(tgmenudomain.DefaultSeed())
+	return BuildReplyKeyboard(tgmenudomain.DefaultSeedTree())
 }
 
 func toInlineMarkup(rows [][]InlineButton) *models.InlineKeyboardMarkup {
