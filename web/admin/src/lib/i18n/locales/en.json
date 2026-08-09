@@ -3,6 +3,7 @@
     "dashboard": "Dashboard",
     "instances": "Instances",
     "cases": "Cases",
+    "tgMenu": "TG Menu",
     "tasks": "Tasks",
     "users": "Users",
     "sessions": "Sessions"
@@ -197,5 +198,28 @@
     "fieldDraft": "Draft",
     "fieldCreatedAt": "Created at",
     "fieldUpdatedAt": "Updated at"
+  },
+  "tgMenu": {
+    "title": "TG Menu",
+    "description": "Configure Telegram main keyboard buttons and actions. Images are http(s) URLs only — no uploads.",
+    "addItem": "Add button",
+    "removeItem": "Remove",
+    "fieldId": "ID",
+    "fieldLabel": "Label",
+    "fieldRow": "Row",
+    "fieldCol": "Col",
+    "fieldEnabled": "Enabled",
+    "fieldAction": "Action",
+    "fieldCaseId": "Case",
+    "fieldTag": "Tag",
+    "fieldPlaceholderText": "Placeholder text",
+    "fieldReplyText": "Reply text",
+    "fieldReplyImages": "Image URLs (one per line)",
+    "actionOpenCase": "Open case",
+    "actionListByTag": "List cases by tag",
+    "actionPlaceholder": "Placeholder",
+    "actionReplyMedia": "Reply media",
+    "updatedAt": "Updated at",
+    "save": "Save menu"
   }
 }

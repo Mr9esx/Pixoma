@@ -22,4 +22,7 @@ export const queryKeys = {
     all: ['sessions'] as const,
     detail: (id: string) => ['sessions', id] as const,
   },
+  tgMenu: {
+    all: ['tg-menu'] as const,
+  },
 }

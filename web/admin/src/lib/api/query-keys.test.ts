@@ -17,5 +17,7 @@ describe('queryKeys', () => {
 
     expect(queryKeys.sessions.all).toEqual(['sessions'])
     expect(queryKeys.sessions.detail('s1')).toEqual(['sessions', 's1'])
+
+    expect(queryKeys.tgMenu.all).toEqual(['tg-menu'])
   })
 })
