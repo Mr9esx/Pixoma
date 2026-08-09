@@ -6,6 +6,7 @@ const (
 	DocumentIDDefault = "default"
 	BotIDDefault      = "default"
 	MaxTreeDepth      = 5
+	MaxIntroTextLen   = 3500
 )
 
 type MenuKind string
@@ -34,6 +35,7 @@ type MenuItem struct {
 	CaseIDs         []string
 	Tag             string
 	PlaceholderText string
+	IntroText       string
 	Reply           *ReplyPayload
 }
 
@@ -48,6 +50,7 @@ type MenuNode struct {
 	CaseIDs         []string      `json:"case_ids,omitempty"`
 	Tag             string        `json:"tag,omitempty"`
 	PlaceholderText string        `json:"placeholder_text,omitempty"`
+	IntroText       string        `json:"intro_text,omitempty"`
 	Reply           *ReplyPayload `json:"reply,omitempty"`
 	Children        []MenuNode    `json:"children,omitempty"`
 }

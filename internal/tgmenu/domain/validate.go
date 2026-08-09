@@ -100,6 +100,16 @@ func validateNodeChildren(nodes []MenuNode) error {
 }
 
 func validateItemKind(ctx context.Context, it MenuItem, caseExists CaseExistsFunc) error {
+	intro := strings.TrimSpace(it.IntroText)
+	if intro != "" {
+		if it.Kind != KindFolder {
+			return fmt.Errorf("%w: item %q intro_text only allowed on folder", ErrValidation, it.ID)
+		}
+		if len(it.IntroText) > MaxIntroTextLen {
+			return fmt.Errorf("%w: item %q intro_text exceeds %d characters", ErrValidation, it.ID, MaxIntroTextLen)
+		}
+	}
+
 	switch it.Kind {
 	case KindFolder:
 		for _, caseID := range it.CaseIDs {
