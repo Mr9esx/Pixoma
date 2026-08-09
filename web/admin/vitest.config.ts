@@ -10,6 +10,7 @@ export default defineConfig({
       'src/scaffold.contract.test.ts',
       'src/auth-gates.contract.test.ts',
       'src/lib/api/client.test.ts',
+      'src/config/menu.test.ts',
     ],
   },
 })
