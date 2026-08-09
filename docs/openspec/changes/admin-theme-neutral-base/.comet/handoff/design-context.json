@@ -1,0 +1,14 @@
+{
+  "change": "admin-theme-neutral-base",
+  "phase": "design",
+  "mode": "full",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "1f8e6f1e10fed885792213e96f02de00cfaf77050e6ad5acb9d03a2c9b981fb5",
+  "files": [
+    { "path": "docs/openspec/changes/admin-theme-neutral-base/proposal.md", "sha256": "222686e5907aa6669ca1165900494d0a63b50b27253573cdf2ea2dcb800d5431" },
+    { "path": "docs/openspec/changes/admin-theme-neutral-base/design.md", "sha256": "3c7c0ba2d6fe18d2835c771e4a01ea0cf79e6fdb13e28864eadc7ffff8697e3e" },
+    { "path": "docs/openspec/changes/admin-theme-neutral-base/tasks.md", "sha256": "48fc002551f616c616b2c2e940d74c302b90a6b58bd1d44885bad0b3ec15c309" },
+    { "path": "docs/openspec/changes/admin-theme-neutral-base/specs/admin-web-shell/spec.md", "sha256": "1e4073f30aad78d8c6afa789d9168dd3074c97c6894b2c2f26a77eab025dda77" }
+  ]
+}

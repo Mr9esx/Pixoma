@@ -1,0 +1,8 @@
+{
+  "openspec_proposal": "docs/openspec/changes/admin-theme-neutral-base/proposal.md",
+  "openspec_design": "docs/openspec/changes/admin-theme-neutral-base/design.md",
+  "openspec_tasks": "docs/openspec/changes/admin-theme-neutral-base/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/admin-theme-neutral-base/specs/admin-web-shell/spec.md",
+  "handoff_context": "docs/openspec/changes/admin-theme-neutral-base/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/admin-theme-neutral-base/.comet/handoff/design-context.md"
+}
