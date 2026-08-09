@@ -26,6 +26,7 @@ type memOut struct {
 	texts        []string
 	menus        []string
 	inlines      []string
+	inlineRows   [][][]tg.InlineButton
 	photos       []string
 	photoURLs    []string
 	failPhotoURL bool
@@ -39,8 +40,13 @@ func (m *memOut) SendMenu(_ context.Context, _ int64, text string) error {
 	m.menus = append(m.menus, text)
 	return nil
 }
-func (m *memOut) SendInline(_ context.Context, _ int64, text string, _ [][]tg.InlineButton) error {
+func (m *memOut) SendInline(_ context.Context, _ int64, text string, rows [][]tg.InlineButton) error {
 	m.inlines = append(m.inlines, text)
+	cp := make([][]tg.InlineButton, len(rows))
+	for i, row := range rows {
+		cp[i] = append([]tg.InlineButton(nil), row...)
+	}
+	m.inlineRows = append(m.inlineRows, cp)
 	return nil
 }
 func (m *memOut) SendPhoto(_ context.Context, _ int64, ref sharedkernel.BlobRef, caption string) error {
@@ -57,11 +63,11 @@ func (m *memOut) SendPhotoURL(_ context.Context, _ int64, imageURL, _ string) er
 func (m *memOut) AnswerCallback(context.Context, string, string) error { return nil }
 
 type staticMenu struct {
-	doc tgmenudomain.MenuDocument
+	tree tgmenudomain.MenuTree
 }
 
-func (s staticMenu) GetMenu(context.Context) (tgmenudomain.MenuDocument, error) {
-	return s.doc, nil
+func (s staticMenu) GetMenu(context.Context) (tgmenudomain.MenuTree, error) {
+	return s.tree, nil
 }
 
 type memCases struct {
@@ -162,11 +168,11 @@ func TestStartShowsMenu(t *testing.T) {
 func TestHandleText_ReplyMediaSendsTextAndPhotos(t *testing.T) {
 	out := &memOut{}
 	ad := tg.New(newFacade(&memCases{}), out)
-	ad.Menu = staticMenu{doc: tgmenudomain.MenuDocument{
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{
 		ID: "default",
-		Items: []tgmenudomain.MenuItem{{
+		Items: []tgmenudomain.MenuNode{{
 			ID: "btn-help", Label: "🆘 帮助", Row: 0, Col: 0, Enabled: true,
-			Action: tgmenudomain.ActionReplyMedia,
+			Kind: tgmenudomain.KindReplyMedia,
 			Reply: &tgmenudomain.ReplyPayload{
 				Text:   "hi",
 				Images: []string{"https://example.com/a.png", "https://example.com/b.png"},
@@ -189,8 +195,8 @@ func TestHandleText_OpenCaseGoesToPreview(t *testing.T) {
 	_ = cases.Create(context.Background(), sampleCase("c1", "C1"))
 	out := &memOut{}
 	ad := tg.New(newFacade(cases), out)
-	ad.Menu = staticMenu{doc: tgmenudomain.MenuDocument{Items: []tgmenudomain.MenuItem{{
-		ID: "btn", Label: "Go", Enabled: true, Action: tgmenudomain.ActionOpenCase, CaseID: "c1",
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{{
+		ID: "btn", Label: "Go", Enabled: true, Kind: tgmenudomain.KindOpenCase, CaseIDs: []string{"c1"},
 	}}}}
 	if err := ad.HandleText(context.Background(), 1, "Go", "u"); err != nil {
 		t.Fatal(err)
@@ -206,10 +212,10 @@ func TestHandleText_ListByTagAndPlaceholderAndPhotoFail(t *testing.T) {
 	_ = cases.Create(ctx, sampleCase("img-1", "Pic"))
 	out := &memOut{}
 	ad := tg.New(newFacade(cases), out)
-	ad.Menu = staticMenu{doc: tgmenudomain.MenuDocument{Items: []tgmenudomain.MenuItem{
-		{ID: "l", Label: "List", Enabled: true, Action: tgmenudomain.ActionListCasesByTag, Tag: "image"},
-		{ID: "p", Label: "Soon", Enabled: true, Action: tgmenudomain.ActionPlaceholder, PlaceholderText: "敬请期待"},
-		{ID: "r", Label: "Pics", Enabled: true, Action: tgmenudomain.ActionReplyMedia, Reply: &tgmenudomain.ReplyPayload{
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{
+		{ID: "l", Label: "List", Enabled: true, Kind: tgmenudomain.KindListCasesByTag, Tag: "image"},
+		{ID: "p", Label: "Soon", Enabled: true, Kind: tgmenudomain.KindPlaceholder, PlaceholderText: "敬请期待"},
+		{ID: "r", Label: "Pics", Enabled: true, Kind: tgmenudomain.KindReplyMedia, Reply: &tgmenudomain.ReplyPayload{
 			Images: []string{"https://example.com/a.png"},
 		}},
 	}}}
@@ -238,13 +244,15 @@ func TestHandleText_ListByTagAndPlaceholderAndPhotoFail(t *testing.T) {
 }
 
 func TestBuildReplyKeyboard(t *testing.T) {
-	doc := tgmenudomain.MenuDocument{Items: []tgmenudomain.MenuItem{
-		{ID: "a", Label: "A", Row: 1, Col: 0, Enabled: true},
+	tree := tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{
+		{ID: "a", Label: "A", Row: 1, Col: 0, Enabled: true, Children: []tgmenudomain.MenuNode{
+			{ID: "nested", Label: "Hidden", Enabled: true, Kind: tgmenudomain.KindFolder},
+		}},
 		{ID: "b", Label: "B", Row: 0, Col: 1, Enabled: true},
 		{ID: "c", Label: "C", Row: 0, Col: 0, Enabled: true},
 		{ID: "d", Label: "D", Row: 0, Col: 2, Enabled: false},
 	}}
-	kb := tg.BuildReplyKeyboard(doc)
+	kb := tg.BuildReplyKeyboard(tree)
 	if kb == nil || len(kb.Keyboard) != 2 {
 		t.Fatalf("rows=%v", kb)
 	}
@@ -264,7 +272,7 @@ func TestImageListAndPreviewAndFlow(t *testing.T) {
 	out := &memOut{}
 	ad := tg.New(newFacade(cases), out)
 
-	if err := ad.HandleText(ctx, 1, tg.BtnImage, "test-user"); err != nil {
+	if err := ad.HandleText(ctx, 1, "/cases", "test-user"); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.inlines) == 0 || !strings.Contains(out.inlines[0], "图片 Case") {
@@ -650,5 +658,63 @@ func TestUpsertFromTG_WritesUserRow(t *testing.T) {
 	}
 	if got.TgUserID != 99 || got.Username != "bob" || got.FirstName != "Bob" {
 		t.Fatalf("unexpected user: %+v", got)
+	}
+}
+
+func TestDispatch_FolderShowsInlineChildrenAndCases(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, sampleCase("c1", "C1"))
+	out := &memOut{}
+	ad := tg.New(newFacade(cases), out)
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{{
+		ID: "btn-image", Label: tg.BtnImage, Enabled: true, Kind: tgmenudomain.KindFolder, CaseIDs: []string{"c1"},
+	}}}}
+
+	if err := ad.HandleText(ctx, 1, tg.BtnImage, "u"); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.inlineRows) == 0 {
+		t.Fatal("want inline keyboard")
+	}
+	rows := out.inlineRows[len(out.inlineRows)-1]
+	var hasCase, hasBack bool
+	for _, row := range rows {
+		for _, btn := range row {
+			if strings.Contains(btn.Text, "C1") && strings.HasPrefix(btn.Data, tg.CBCasePreview) {
+				hasCase = true
+			}
+			if btn.Text == "⬅️ 返回" && btn.Data == tg.CBMenuBack+"root" {
+				hasBack = true
+			}
+		}
+	}
+	if !hasCase || !hasBack {
+		t.Fatalf("buttons=%+v case=%v back=%v", rows, hasCase, hasBack)
+	}
+}
+
+func TestCallback_MenuFolderAndBack(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	_ = cases.Create(ctx, sampleCase("c1", "C1"))
+	out := &memOut{}
+	ad := tg.New(newFacade(cases), out)
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{{
+		ID: "btn-image", Label: tg.BtnImage, Enabled: true, Kind: tgmenudomain.KindFolder, CaseIDs: []string{"c1"},
+	}}}}
+
+	if err := ad.HandleCallback(ctx, 1, "cb1", tg.CBMenuFolder+"btn-image", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.inlines) == 0 || out.inlines[len(out.inlines)-1] != tg.BtnImage {
+		t.Fatalf("folder inline=%v", out.inlines)
+	}
+
+	if err := ad.HandleCallback(ctx, 1, "cb2", tg.CBMenuBack+"root", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.menus) == 0 || !strings.Contains(out.menus[len(out.menus)-1], "欢迎") {
+		t.Fatalf("menus=%v", out.menus)
 	}
 }

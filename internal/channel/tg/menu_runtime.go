@@ -12,13 +12,13 @@ import (
 
 // MenuReader is the read port for main ReplyKeyboard config.
 type MenuReader interface {
-	GetMenu(ctx context.Context) (tgmenudomain.MenuDocument, error)
+	GetMenu(ctx context.Context) (tgmenudomain.MenuTree, error)
 }
 
-// BuildReplyKeyboard builds a persistent ReplyKeyboard from enabled items ordered by (row, col).
-func BuildReplyKeyboard(doc tgmenudomain.MenuDocument) *models.ReplyKeyboardMarkup {
-	items := make([]tgmenudomain.MenuItem, 0, len(doc.Items))
-	for _, it := range doc.Items {
+// BuildReplyKeyboard builds a persistent ReplyKeyboard from enabled root items ordered by (row, col).
+func BuildReplyKeyboard(tree tgmenudomain.MenuTree) *models.ReplyKeyboardMarkup {
+	items := make([]tgmenudomain.MenuNode, 0, len(tree.Items))
+	for _, it := range tree.Items {
 		if it.Enabled {
 			items = append(items, it)
 		}
@@ -45,23 +45,35 @@ func BuildReplyKeyboard(doc tgmenudomain.MenuDocument) *models.ReplyKeyboardMark
 	}
 }
 
-// FindEnabledByLabel returns the first enabled item whose label matches.
-func FindEnabledByLabel(doc tgmenudomain.MenuDocument, label string) (tgmenudomain.MenuItem, bool) {
-	for _, it := range doc.Items {
+// FindEnabledRootByLabel returns the first enabled root item whose label matches.
+func FindEnabledRootByLabel(tree tgmenudomain.MenuTree, label string) (tgmenudomain.MenuNode, bool) {
+	for _, it := range tree.Items {
 		if it.Enabled && it.Label == label {
 			return it, true
 		}
 	}
-	return tgmenudomain.MenuItem{}, false
+	return tgmenudomain.MenuNode{}, false
 }
 
-func (a *Adapter) loadMenu(ctx context.Context) tgmenudomain.MenuDocument {
+func findNodeByID(nodes []tgmenudomain.MenuNode, id string) (tgmenudomain.MenuNode, bool) {
+	for _, n := range nodes {
+		if n.ID == id {
+			return n, true
+		}
+		if child, ok := findNodeByID(n.Children, id); ok {
+			return child, true
+		}
+	}
+	return tgmenudomain.MenuNode{}, false
+}
+
+func (a *Adapter) loadMenu(ctx context.Context) tgmenudomain.MenuTree {
 	if a != nil && a.Menu != nil {
-		doc, err := a.Menu.GetMenu(ctx)
+		tree, err := a.Menu.GetMenu(ctx)
 		if err == nil {
-			return doc
+			return tree
 		}
 		slog.Error("tg menu load failed; using default seed", "err", err)
 	}
-	return tgmenudomain.DefaultSeed()
+	return tgmenudomain.DefaultSeedTree()
 }
