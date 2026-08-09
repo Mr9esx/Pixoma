@@ -151,6 +151,46 @@ func TestTgMenuHandler_GetPutTreeValidation(t *testing.T) {
 	}
 }
 
+func TestTgMenuHandler_IntroTextRoundTrip(t *testing.T) {
+	srv := openTgMenuServer(t)
+	intro := "点模板先看预览图，再上传图片生成。"
+	put := map[string]any{
+		"items": []map[string]any{{
+			"id": "btn-image", "label": "🖼 图片", "row": 0, "col": 0, "enabled": true,
+			"kind": "folder", "intro_text": intro, "case_ids": []string{"c1"},
+		}},
+	}
+	body, _ := json.Marshal(put)
+	req, _ := http.NewRequest(http.MethodPut, srv.URL+"/api/v1/tg-menu", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("put status=%d", res.StatusCode)
+	}
+
+	res, err = http.Get(srv.URL + "/api/v1/tg-menu")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var got map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	items, _ := got["items"].([]any)
+	if len(items) == 0 {
+		t.Fatal("no items")
+	}
+	first, _ := items[0].(map[string]any)
+	if first["intro_text"] != intro {
+		t.Fatalf("intro_text=%v", first["intro_text"])
+	}
+}
+
 func TestTgMenuHandler_ListPlacementsByCase(t *testing.T) {
 	srv := openTgMenuServer(t)
 

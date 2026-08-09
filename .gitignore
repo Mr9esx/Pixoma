@@ -15,6 +15,6 @@ web/admin/dist/
 comfyui-bot
 
 # Local build artifacts at repo root
-admin-api
-comfyui-bot
+/admin-api
+/comfyui-bot
 
