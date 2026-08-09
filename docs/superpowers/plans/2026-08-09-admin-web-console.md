@@ -2,6 +2,7 @@
 change: admin-web-console
 design-doc: docs/superpowers/specs/2026-08-09-admin-web-console-design.md
 base-ref: 250fb2d0a4e8145bfed243cc507322be7a73d23f
+archived-with: 2026-08-09-admin-web-console
 ---
 
 # admin-web-console Implementation Plan
@@ -1086,7 +1087,7 @@ EOF
   - `DashboardStats`：`instanceTotal`、`instanceEnabled`、`caseEnabled`、`taskByStatus: Record<string, number>`
   - 页面：各卡片独立 `useQuery`，失败互不影响；卡片可 `Link` 到对应资源
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -1117,7 +1118,7 @@ describe('aggregateDashboard', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd web/admin && pnpm test -- src/lib/dashboard/aggregate.test.ts
@@ -1125,7 +1126,7 @@ cd web/admin && pnpm test -- src/lib/dashboard/aggregate.test.ts
 
 Expected: FAIL
 
-- [ ] **Step 3: 实现聚合与页面**
+- [x] **Step 3: 实现聚合与页面**
 
 ```ts
 // aggregate.ts
@@ -1170,7 +1171,7 @@ function InstanceCard() {
 
 简单分布：用 CSS 条形（`div` + width %）即可，不必上重型图表库。
 
-- [ ] **Step 4: 跑测试确认通过 + 手测**
+- [x] **Step 4: 跑测试确认通过 + 手测**
 
 ```bash
 cd web/admin && pnpm test -- src/lib/dashboard/aggregate.test.ts
@@ -1178,7 +1179,7 @@ cd web/admin && pnpm test -- src/lib/dashboard/aggregate.test.ts
 
 admin-api 可用时打开 `/`：见卡片；停掉某一后端路径时仅对应卡片错误。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/admin/src/lib/dashboard web/admin/src/features/dashboard web/admin/src/routes/_app/index.tsx web/admin/src/lib/i18n/locales
@@ -1208,7 +1209,7 @@ EOF
 - 右栏：表单字段 `id`(创建时可写)、`base_url`、`enabled`、`capabilities`（逗号/标签输入）；观测区只读 JSON/预格式化展示 system、queue、tasks
 - mutation 成功后 `invalidateQueries(queryKeys.instances.*)` 并 toast
 
-- [ ] **Step 1: 路由壳**
+- [x] **Step 1: 路由壳**
 
 ```tsx
 // route.tsx — path: '/_app/instances'
@@ -1238,14 +1239,14 @@ const listQuery = useQuery({ queryKey: queryKeys.instances.all, queryFn: listIns
 />
 ```
 
-- [ ] **Step 2: 实现表单与观测**
+- [x] **Step 2: 实现表单与观测**
 
 - Create：`POST /api/v1/comfy-instances`
 - Update：`PATCH`
 - Delete：确认后 `DELETE`，成功回 `/instances`
 - 观测：三个 `useQuery`，key 含 instanceId；错误用 `ErrorBanner` 局部显示
 
-- [ ] **Step 3: 手测主路径**
+- [x] **Step 3: 手测主路径**
 
 1. 起 admin-api  
 2. 打开 `/instances` → 列表来自 API  
@@ -1254,7 +1255,7 @@ const listQuery = useQuery({ queryKey: queryKeys.instances.all, queryFn: listIns
 5. 打开 system/queue/tasks 观测区有响应或明确错误  
 6. 删除测试实例  
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/admin/src/features/instances web/admin/src/routes/_app/instances web/admin/src/lib/i18n/locales
@@ -1292,7 +1293,7 @@ EOF
 - 动作：Create `POST`、Update `PATCH`、Enable/Disable `POST .../enable|disable`
 - 提交前：`JSON.parse` 校验两个 JSON 区；失败在段内显示错误，不提交
 
-- [ ] **Step 1: 实现 `CaseForm` 状态**
+- [x] **Step 1: 实现 `CaseForm` 状态**
 
 用单个 `CaseRecord` draft state；各 section 通过 `value` + `onChange` 更新切片。创建模式下 `id` 可编辑；编辑模式 `id` 只读。
 
@@ -1313,11 +1314,11 @@ export function emptyCase(): CaseRecord {
 }
 ```
 
-- [ ] **Step 2: 列表 + enable/disable**
+- [x] **Step 2: 列表 + enable/disable**
 
 左栏行显示 `id` / `name` / `enabled`；行内或详情顶栏按钮调用 `enableCase` / `disableCase`，成功 invalidate。
 
-- [ ] **Step 3: 手测**
+- [x] **Step 3: 手测**
 
 1. 列表过滤 `enabled=true`  
 2. 新建最小 Case（必填字段按后端校验）→ 201/列表可见  
@@ -1325,7 +1326,7 @@ export function emptyCase(): CaseRecord {
 4. Disable → 列表状态更新  
 5. workflow JSON 写非法 JSON → 段内错误、不发请求  
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/admin/src/features/cases web/admin/src/routes/_app/cases web/admin/src/lib/i18n/locales
@@ -1352,7 +1353,7 @@ EOF
 - 右栏只读字段 + **取消**按钮 → `cancelTask`
 - `ApiError` status `409` → 展示后端/i18n「不可取消」；`404` → 资源不存在
 
-- [ ] **Step 1: 实现详情取消**
+- [x] **Step 1: 实现详情取消**
 
 ```tsx
 const cancelMut = useMutation({
@@ -1365,11 +1366,11 @@ const cancelMut = useMutation({
 // 按钮 disabled={cancelMut.isPending}
 ```
 
-- [ ] **Step 2: 手测**
+- [x] **Step 2: 手测**
 
 有可取消任务时点取消 → 状态变化或明确错误；对已完成任务 → 409 文案可见。
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add web/admin/src/features/tasks web/admin/src/routes/_app/tasks web/admin/src/lib/i18n/locales
@@ -1397,15 +1398,15 @@ EOF
 - Session 左栏：`id`、`status`、`user_id`、`case_id`；过滤 `user_id`、`status`、`q`
 - Session 右栏：字段 + `draft` 只读 JSON/结构化展示
 
-- [ ] **Step 1: 实现两页并接入 MasterDetailShell**
+- [x] **Step 1: 实现两页并接入 MasterDetailShell**
 
 与 Task 9 路由同构；detail 仅 `useQuery(getUser|getSession)`。
 
-- [ ] **Step 2: 手测**
+- [x] **Step 2: 手测**
 
 从列表点选 → 右栏字段来自 admin-api；确认无写操作控件；Network 面板无 POST/PATCH/DELETE。
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add web/admin/src/features/users web/admin/src/features/sessions web/admin/src/routes/_app/users web/admin/src/routes/_app/sessions web/admin/src/lib/i18n/locales
@@ -1435,7 +1436,7 @@ EOF
   5. 代码库无 MSW / `VITE_USE_MOCK`  
   6. Case 主路径是分段表单  
 
-- [ ] **Step 1: 全文搜索清扫**
+- [x] **Step 1: 全文搜索清扫**
 
 ```bash
 cd web/admin
@@ -1445,11 +1446,11 @@ rg -n "menu\\.(tg|telegram)|/menus" src
 
 Expected: 无命中（或仅文档说明「不做」）。
 
-- [ ] **Step 2: 补齐双语 key**
+- [x] **Step 2: 补齐双语 key**
 
 保证 `t('...')` 在 zh/en 均有定义；跑一次页面切换抽查 Dashboard + Case + Task。
 
-- [ ] **Step 3: 完善 README 联调**
+- [x] **Step 3: 完善 README 联调**
 
 追加：
 
@@ -1468,7 +1469,7 @@ Dashboard 数字基于 list 拉取样本，受 `limit` 限制，不是全库精�
 无登录鉴权；无前端 mock；无 TG/Menu 管理。
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/admin
@@ -1490,7 +1491,7 @@ EOF
 **Interfaces:**
 - 无新代码接口；产出：人工验收记录（可写在 PR 描述或 verify 阶段报告）
 
-- [ ] **Step 1: 跑前端单测与生产构建**
+- [x] **Step 1: 跑前端单测与生产构建**
 
 ```bash
 cd web/admin
@@ -1500,7 +1501,7 @@ pnpm build
 
 Expected: 测试通过；`build` 无错误。
 
-- [ ] **Step 2: 端到端手测清单**
+- [x] **Step 2: 端到端手测清单**
 
 | # | 步骤 | 期望 |
 |---|---|---|
@@ -1514,11 +1515,11 @@ Expected: 测试通过；`build` 无错误。
 | 8 | 切英文刷新 | 文案保持英文 |
 | 9 | Network | 无 bot `:8080` 管理 CRUD；无 mock |
 
-- [ ] **Step 3:（如需要）同步架构一句**
+- [x] **Step 3:（如需要）同步架构一句**
 
 若 `docs/architecture/overview.md` 仍写 admin 前端「预留」，改为：管理 SPA 位于 `web/admin`，经 `VITE_ADMIN_API_BASE` 访问 admin-api。
 
-- [ ] **Step 4: Commit（若有文档变更）**
+- [x] **Step 4: Commit（若有文档变更）**
 
 ```bash
 git add docs/architecture/overview.md web/admin
