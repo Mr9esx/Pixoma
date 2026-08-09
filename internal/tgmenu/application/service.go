@@ -13,38 +13,46 @@ type CaseChecker interface {
 
 type Store interface {
 	domain.Repository
-	EnsureDefault(ctx context.Context) (domain.MenuDocument, error)
+	EnsureDefault(ctx context.Context, listImageCaseIDs func(context.Context) ([]string, error)) (domain.MenuTree, error)
 }
 
 type Service struct {
-	Store Store
-	Cases CaseChecker
+	Store            Store
+	Cases            CaseChecker
+	ListImageCaseIDs func(context.Context) ([]string, error)
 }
 
-func (s *Service) Get(ctx context.Context) (domain.MenuDocument, error) {
+func (s *Service) Get(ctx context.Context) (domain.MenuTree, error) {
 	if s == nil || s.Store == nil {
-		return domain.MenuDocument{}, fmt.Errorf("tgmenu service: nil store")
+		return domain.MenuTree{}, fmt.Errorf("tgmenu service: nil store")
 	}
-	return s.Store.EnsureDefault(ctx)
+	return s.Store.EnsureDefault(ctx, s.ListImageCaseIDs)
 }
 
-func (s *Service) Replace(ctx context.Context, items []domain.MenuItem) (domain.MenuDocument, error) {
+func (s *Service) Replace(ctx context.Context, tree domain.MenuTree) (domain.MenuTree, error) {
 	if s == nil || s.Store == nil {
-		return domain.MenuDocument{}, fmt.Errorf("tgmenu service: nil store")
+		return domain.MenuTree{}, fmt.Errorf("tgmenu service: nil store")
 	}
-	doc := domain.MenuDocument{
-		ID:    domain.DocumentIDDefault,
-		Items: items,
-	}
+
+	tree.ID = domain.DocumentIDDefault
+	tree.BotID = domain.BotIDDefault
+
 	var caseExists domain.CaseExistsFunc
 	if s.Cases != nil {
 		caseExists = s.Cases.CaseExists
 	}
-	if err := domain.Validate(ctx, doc, caseExists); err != nil {
-		return domain.MenuDocument{}, err
+	if err := domain.Validate(ctx, tree, caseExists); err != nil {
+		return domain.MenuTree{}, err
 	}
-	if err := s.Store.Replace(ctx, doc); err != nil {
-		return domain.MenuDocument{}, err
+	if err := s.Store.ReplaceTree(ctx, tree); err != nil {
+		return domain.MenuTree{}, err
 	}
-	return s.Store.Get(ctx, domain.DocumentIDDefault)
+	return s.Store.GetTree(ctx, domain.DocumentIDDefault)
+}
+
+func (s *Service) ListPlacementsByCase(ctx context.Context, caseID string) ([]domain.MenuPlacement, error) {
+	if s == nil || s.Store == nil {
+		return nil, fmt.Errorf("tgmenu service: nil store")
+	}
+	return s.Store.ListPlacementsByCase(ctx, caseID)
 }
