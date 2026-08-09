@@ -25,6 +25,7 @@ export default defineConfig({
       'src/components/layout/shell-layout.contract.test.ts',
       'src/styles/theme-neutral.contract.test.ts',
       'src/features/cases/menu-placements.contract.test.ts',
+      'src/features/tg-menu/menu-editor.contract.test.ts',
     ],
   },
 })

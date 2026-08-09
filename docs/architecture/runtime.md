@@ -50,7 +50,7 @@ sequenceDiagram
   alt 根级 ReplyKeyboard
     TG->>U: SendMenu（按 row/col 布局）
   else kind=folder
-    TG->>U: SendInline（子 folder + 挂载 Case + 返回）
+    TG->>U: SendInline（正文 intro_text 或 label；Case 在前，子 folder，再返回）
     U->>TG: callback mf:&lt;item_id&gt; / mb:root|&lt;parent_id&gt;
     TG->>TG: showMenuFolder 下钻/返回
   else open_case / list_cases_by_tag / placeholder / reply_media
@@ -61,7 +61,7 @@ sequenceDiagram
 要点：
 
 - **根键盘**：仅 `parent_id` 为空的启用节点；`BuildReplyKeyboard` 按 `(row, col)` 排序。
-- **folder**：根按钮或 Inline「📁」进入 `showMenuFolder`；列出子 folder（`mf:` 前缀 callback）与同节点 `case_ids`（`CBCasePreview`）；「⬅️ 返回」用 `mb:root` 或 `mb:<parent_id>`。
+- **folder**：根按钮或 Inline「📁」进入 `showMenuFolder`；消息正文优先 `intro_text`（空则用 `label`）；按钮顺序为同节点 `case_ids`（`CBCasePreview`）→ 子 folder（`mf:`）→ 「⬅️ 返回」（`mb:root` / `mb:<parent_id>`）。
 - **list_cases_by_tag**：仍走既有按 tag 列表 Inline（兼容旧 `btn-image` 行为）；与 folder 内挂 Case 可并存。
 - **callback 编码**：`mf:<menu_item_id>` 下钻；`mb:root` / `mb:<parent_item_id>` 返回（见 `channel/tg/menu.go`）。
 

@@ -165,6 +165,7 @@ Telegram 主 ReplyKeyboard 配置真相源，**关系型树**（非 JSON 文档�
 | enabled | NOT NULL | |
 | kind | NOT NULL | `folder` / `open_case` / `list_cases_by_tag` / `placeholder` / `reply_media` |
 | placeholder_text | | `placeholder` 提示 |
+| intro_text | TEXT | 仅 `folder`：进层消息正文（空则用 `label`） |
 | tag | | `list_cases_by_tag` 分区 tag |
 | reply_json | TEXT | `reply_media` 的 `{text, images[]}` |
 
@@ -264,6 +265,7 @@ erDiagram
     string menu_id FK
     string parent_id FK
     string label
+    text intro_text
     int row
     int col
     bool enabled
