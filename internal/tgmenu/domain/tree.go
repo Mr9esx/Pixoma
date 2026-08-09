@@ -30,6 +30,7 @@ func nodeToItem(n MenuNode, parentID string) MenuItem {
 		CaseIDs:         append([]string(nil), n.CaseIDs...),
 		Tag:             n.Tag,
 		PlaceholderText: n.PlaceholderText,
+		IntroText:       n.IntroText,
 		Reply:           n.Reply,
 	}
 }
@@ -107,6 +108,7 @@ func itemToNode(it MenuItem) MenuNode {
 		CaseIDs:         append([]string(nil), it.CaseIDs...),
 		Tag:             it.Tag,
 		PlaceholderText: it.PlaceholderText,
+		IntroText:       it.IntroText,
 		Reply:           it.Reply,
 	}
 }

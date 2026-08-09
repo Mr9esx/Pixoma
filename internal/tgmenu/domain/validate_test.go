@@ -3,6 +3,7 @@ package domain_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
@@ -101,6 +102,46 @@ func TestValidate_OpenCaseRequiresExistingCase(t *testing.T) {
 	}
 	tree.Items[0].CaseIDs = []string{"ok"}
 	if err := domain.Validate(ctx, tree, exists); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidate_FolderIntroTooLong(t *testing.T) {
+	long := strings.Repeat("x", domain.MaxIntroTextLen+1)
+	tree := domain.MenuTree{
+		ID: domain.DocumentIDDefault, BotID: domain.BotIDDefault,
+		Items: []domain.MenuNode{{
+			ID: "f", Label: "F", Enabled: true, Kind: domain.KindFolder, IntroText: long,
+		}},
+	}
+	err := domain.Validate(context.Background(), tree, nil)
+	if !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestValidate_NonFolderIntroRejected(t *testing.T) {
+	tree := domain.MenuTree{
+		ID: domain.DocumentIDDefault, BotID: domain.BotIDDefault,
+		Items: []domain.MenuNode{{
+			ID: "p", Label: "P", Enabled: true, Kind: domain.KindPlaceholder, IntroText: "nope",
+		}},
+	}
+	err := domain.Validate(context.Background(), tree, nil)
+	if !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestValidate_FolderIntroOK(t *testing.T) {
+	tree := domain.MenuTree{
+		ID: domain.DocumentIDDefault, BotID: domain.BotIDDefault,
+		Items: []domain.MenuNode{{
+			ID: "f", Label: "F", Enabled: true, Kind: domain.KindFolder,
+			IntroText: "点模板先看预览图",
+		}},
+	}
+	if err := domain.Validate(context.Background(), tree, nil); err != nil {
 		t.Fatal(err)
 	}
 }
