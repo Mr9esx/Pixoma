@@ -14,36 +14,48 @@ function read(path: string) {
 }
 
 describe('tg menu tree editor', () => {
-  it('api types expose tree MenuNode and MenuKind', () => {
+  it('api types expose tree MenuNode with intro_text', () => {
     const source = read(API)
     expect(source).toContain("export type MenuKind =")
     expect(source).toContain("kind: MenuKind")
     expect(source).toContain('case_ids?: string[]')
     expect(source).toContain('children?: MenuNode[]')
+    expect(source).toContain('intro_text?: string')
     expect(source).toContain('export type TgMenuTree')
     expect(source).not.toContain('MenuAction')
     expect(source).not.toContain('action:')
   })
 
-  it('editor renders indented tree and folder child actions', () => {
+  it('editor uses expandable tree and folder intro fields', () => {
     const source = read(EDITOR)
-    expect(source).toContain('flattenTree')
-    expect(source).toContain("paddingLeft: `${16 + depth * 16}px`")
+    expect(source).toContain('visibleTreeRows')
+    expect(source).toContain('expandedIds')
+    expect(source).toContain('ancestorIds')
+    expect(source).toContain("paddingLeft: `${8 + depth * 16}px`")
     expect(source).toContain('parentIsFolder')
-    expect(source).toContain("kind === 'folder' ? 'folder'")
+    expect(source).toContain('fieldIntro')
+    expect(source).toContain('fieldChildren')
+    expect(source).toContain('intro_text')
     expect(source).toContain('addChildToTree')
-    expect(source).toContain('fieldCaseIds')
-    expect(source).toContain('addChild')
+    expect(source).toContain('onSelectChild')
   })
 
-  it('i18n has folder / case mount / child keys', () => {
+  it('i18n has plain-language folder intro keys', () => {
     const zh = JSON.parse(read(ZH)) as { tgMenu: Record<string, string> }
     const en = JSON.parse(read(EN)) as { tgMenu: Record<string, string> }
-    expect(zh.tgMenu.kindFolder).toBeTruthy()
-    expect(zh.tgMenu.fieldCaseIds).toBeTruthy()
-    expect(zh.tgMenu.addChild).toBeTruthy()
-    expect(en.tgMenu.kindFolder).toBeTruthy()
-    expect(en.tgMenu.fieldCaseIds).toBeTruthy()
-    expect(en.tgMenu.addChild).toBeTruthy()
+    for (const locale of [zh.tgMenu, en.tgMenu]) {
+      expect(locale.listTitle).toBeTruthy()
+      expect(locale.fieldIntro).toBeTruthy()
+      expect(locale.fieldIntroHint).toBeTruthy()
+      expect(locale.fieldCaseIds).toBeTruthy()
+      expect(locale.fieldChildren).toBeTruthy()
+      expect(locale.addChild).toBeTruthy()
+      expect(locale.kindFolder).toBeTruthy()
+    }
+    expect(zh.tgMenu.listTitle).toBe('目录')
+    expect(zh.tgMenu.fieldIntro).toBe('本层说明')
+    expect(zh.tgMenu.fieldCaseIds).toBe('本层模板')
+    expect(zh.tgMenu.fieldChildren).toBe('下面的分类')
+    expect(zh.tgMenu.addChild).toBe('加一个分类')
   })
 })
