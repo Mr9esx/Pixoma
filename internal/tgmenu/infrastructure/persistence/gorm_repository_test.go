@@ -72,6 +72,55 @@ func TestReplaceTree_RoundTripAndPlacements(t *testing.T) {
 	}
 }
 
+func TestGetTree_PreservesRootAndChildOrder(t *testing.T) {
+	gdb := openTestDB(t)
+	repo := persistence.NewGormRepository(gdb)
+	migrateMenuTables(t, gdb)
+
+	tree := domain.MenuTree{
+		ID:    domain.DocumentIDDefault,
+		BotID: domain.BotIDDefault,
+		Items: []domain.MenuNode{
+			{
+				ID: "root-z", Label: "Z", Row: 1, Col: 0, Enabled: true, Kind: domain.KindPlaceholder,
+			},
+			{
+				ID: "root-a", Label: "A", Row: 0, Col: 0, Enabled: true, Kind: domain.KindFolder,
+				CaseIDs: []string{"case-b", "case-a"},
+				Children: []domain.MenuNode{
+					{ID: "child-b", Label: "B", Row: 0, Col: 1, Enabled: true, Kind: domain.KindFolder},
+					{ID: "child-a", Label: "A", Row: 0, Col: 0, Enabled: true, Kind: domain.KindFolder},
+				},
+			},
+		},
+	}
+	if err := repo.ReplaceTree(context.Background(), tree); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.GetTree(context.Background(), domain.DocumentIDDefault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Items) != 2 {
+		t.Fatalf("roots=%d", len(got.Items))
+	}
+	if got.Items[0].ID != "root-a" || got.Items[1].ID != "root-z" {
+		t.Fatalf("root order: %q, %q", got.Items[0].ID, got.Items[1].ID)
+	}
+	if len(got.Items[0].Children) != 2 {
+		t.Fatalf("children=%d", len(got.Items[0].Children))
+	}
+	if got.Items[0].Children[0].ID != "child-a" || got.Items[0].Children[1].ID != "child-b" {
+		t.Fatalf("child order: %q, %q", got.Items[0].Children[0].ID, got.Items[0].Children[1].ID)
+	}
+	wantCases := []string{"case-b", "case-a"}
+	for i, id := range wantCases {
+		if got.Items[0].CaseIDs[i] != id {
+			t.Fatalf("case order=%v", got.Items[0].CaseIDs)
+		}
+	}
+}
+
 func TestEnsureDefault_SeedsWhenEmpty(t *testing.T) {
 	gdb := openTestDB(t)
 	migrateMenuTables(t, gdb)
