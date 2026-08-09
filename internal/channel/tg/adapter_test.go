@@ -19,13 +19,15 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
 )
 
 type memOut struct {
-	texts   []string
-	menus   []string
-	inlines []string
-	photos  []string
+	texts     []string
+	menus     []string
+	inlines   []string
+	photos    []string
+	photoURLs []string
 }
 
 func (m *memOut) SendText(_ context.Context, _ int64, text string) error {
@@ -44,7 +46,19 @@ func (m *memOut) SendPhoto(_ context.Context, _ int64, ref sharedkernel.BlobRef,
 	m.photos = append(m.photos, caption+"|"+ref.Key)
 	return nil
 }
+func (m *memOut) SendPhotoURL(_ context.Context, _ int64, imageURL, _ string) error {
+	m.photoURLs = append(m.photoURLs, imageURL)
+	return nil
+}
 func (m *memOut) AnswerCallback(context.Context, string, string) error { return nil }
+
+type staticMenu struct {
+	doc tgmenudomain.MenuDocument
+}
+
+func (s staticMenu) GetMenu(context.Context) (tgmenudomain.MenuDocument, error) {
+	return s.doc, nil
+}
 
 type memCases struct {
 	items map[sharedkernel.CaseID]*domain.Case
@@ -138,6 +152,66 @@ func TestStartShowsMenu(t *testing.T) {
 	}
 	if len(out.menus) == 0 || !strings.Contains(out.menus[0], "欢迎") {
 		t.Fatalf("menus=%v", out.menus)
+	}
+}
+
+func TestHandleText_ReplyMediaSendsTextAndPhotos(t *testing.T) {
+	out := &memOut{}
+	ad := tg.New(newFacade(&memCases{}), out)
+	ad.Menu = staticMenu{doc: tgmenudomain.MenuDocument{
+		ID: "default",
+		Items: []tgmenudomain.MenuItem{{
+			ID: "btn-help", Label: "🆘 帮助", Row: 0, Col: 0, Enabled: true,
+			Action: tgmenudomain.ActionReplyMedia,
+			Reply: &tgmenudomain.ReplyPayload{
+				Text:   "hi",
+				Images: []string{"https://example.com/a.png", "https://example.com/b.png"},
+			},
+		}},
+	}}
+	if err := ad.HandleText(context.Background(), 1, "🆘 帮助", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.texts) == 0 || out.texts[0] != "hi" {
+		t.Fatalf("texts=%v", out.texts)
+	}
+	if len(out.photoURLs) != 2 {
+		t.Fatalf("photos=%v", out.photoURLs)
+	}
+}
+
+func TestHandleText_OpenCaseGoesToPreview(t *testing.T) {
+	cases := &memCases{}
+	_ = cases.Create(context.Background(), sampleCase("c1", "C1"))
+	out := &memOut{}
+	ad := tg.New(newFacade(cases), out)
+	ad.Menu = staticMenu{doc: tgmenudomain.MenuDocument{Items: []tgmenudomain.MenuItem{{
+		ID: "btn", Label: "Go", Enabled: true, Action: tgmenudomain.ActionOpenCase, CaseID: "c1",
+	}}}}
+	if err := ad.HandleText(context.Background(), 1, "Go", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.inlines) == 0 || !strings.Contains(out.inlines[0], "C1") {
+		t.Fatalf("inlines=%v", out.inlines)
+	}
+}
+
+func TestBuildReplyKeyboard(t *testing.T) {
+	doc := tgmenudomain.MenuDocument{Items: []tgmenudomain.MenuItem{
+		{ID: "a", Label: "A", Row: 1, Col: 0, Enabled: true},
+		{ID: "b", Label: "B", Row: 0, Col: 1, Enabled: true},
+		{ID: "c", Label: "C", Row: 0, Col: 0, Enabled: true},
+		{ID: "d", Label: "D", Row: 0, Col: 2, Enabled: false},
+	}}
+	kb := tg.BuildReplyKeyboard(doc)
+	if kb == nil || len(kb.Keyboard) != 2 {
+		t.Fatalf("rows=%v", kb)
+	}
+	if len(kb.Keyboard[0]) != 2 || kb.Keyboard[0][0].Text != "C" || kb.Keyboard[0][1].Text != "B" {
+		t.Fatalf("row0=%v", kb.Keyboard[0])
+	}
+	if len(kb.Keyboard[1]) != 1 || kb.Keyboard[1][0].Text != "A" {
+		t.Fatalf("row1=%v", kb.Keyboard[1])
 	}
 }
 

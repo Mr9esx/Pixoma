@@ -17,6 +17,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
 )
 
 // FileDownloader fetches Telegram file bytes by file_id (injectable for tests).
@@ -27,7 +28,9 @@ type Adapter struct {
 	Out      Messenger
 	Download FileDownloader
 	// Users is optional; when set, message/callback From is upserted before handling.
-	Users    identitydomain.Repository
+	Users identitydomain.Repository
+	// Menu is optional; when nil or load fails, DefaultSeed is used.
+	Menu     MenuReader
 	mu       sync.Mutex
 	notified map[string]struct{}
 }
@@ -91,7 +94,7 @@ func (a *Adapter) HandleText(ctx context.Context, chatID int64, text, userID str
 	text = strings.TrimSpace(text)
 
 	// Active session: treat free text as input (unless menu command).
-	if !isMenuCommand(text) {
+	if !a.isMenuCommand(ctx, text) {
 		if _, err := a.App.GetSession(ctx, sharedkernel.ChatID(chatID)); err == nil {
 			return a.submitText(ctx, chatID, text)
 		}
@@ -100,25 +103,27 @@ func (a *Adapter) HandleText(ctx context.Context, chatID int64, text, userID str
 	switch text {
 	case "/start", "/menu", CBMenu:
 		return a.sendMainMenu(ctx, chatID)
-	case BtnImage, "/cases":
-		return a.showImageCases(ctx, chatID)
-	case BtnHelp, "/help":
+	case "/cases":
+		return a.showCasesByTag(ctx, chatID, "image")
+	case "/help":
 		return a.Out.SendMenu(ctx, chatID, "帮助：点「图片」选 Case → 预览 → 开始 → 输入 prompt → 确认 → 等待出图。\n\n菜单更新后，点任意底部按钮或发 /menu 即可刷新。")
-	case BtnVideo, BtnRecharge, BtnCheckIn, BtnProfile:
-		return a.Out.SendMenu(ctx, chatID, text+"：本期 mock 未开放，请先体验「"+BtnImage+"」。")
-	case "🎬 视频脱衣", "🔥 热门模版", "🤝 邀请赚钱", "👤 我的", "🔞 图片", "🔞 视频":
-		// Legacy keyboard labels from older builds — refresh to current menu.
-		return a.Out.SendMenu(ctx, chatID, "菜单已更新，请使用下方新按钮。")
 	case "/skip":
 		return a.handleSkip(ctx, chatID)
 	case "/exit":
 		return a.handleExit(ctx, chatID)
 	case "/confirm":
 		return a.handleConfirm(ctx, chatID)
+	case "🎬 视频脱衣", "🔥 热门模版", "🤝 邀请赚钱", "👤 我的", "🔞 图片", "🔞 视频":
+		// Legacy keyboard labels from older builds — refresh to current menu.
+		return a.Out.SendMenu(ctx, chatID, "菜单已更新，请使用下方新按钮。")
 	default:
 		if strings.HasPrefix(text, "/start_case ") {
 			id := strings.TrimSpace(strings.TrimPrefix(text, "/start_case "))
 			return a.startCase(ctx, chatID, sharedkernel.CaseID(id), userID)
+		}
+		doc := a.loadMenu(ctx)
+		if item, ok := FindEnabledByLabel(doc, text); ok {
+			return a.dispatchMenuItem(ctx, chatID, userID, item)
 		}
 		return a.sendMainMenu(ctx, chatID)
 	}
@@ -131,7 +136,7 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID int64, callbackID, 
 		if data == CBMenu {
 			return a.sendMainMenu(ctx, chatID)
 		}
-		return a.showImageCases(ctx, chatID)
+		return a.showCasesByTag(ctx, chatID, "image")
 	case data == CBConfirm:
 		return a.handleConfirm(ctx, chatID)
 	case data == CBExit:
@@ -184,17 +189,21 @@ func (a *Adapter) sendMainMenu(ctx context.Context, chatID int64) error {
 }
 
 func (a *Adapter) showImageCases(ctx context.Context, chatID int64) error {
-	// ReplyKeyboard 只能随消息下发；进图片前先刷一次主菜单，避免用户仍停在旧键盘。
-	if err := a.Out.SendMenu(ctx, chatID, "已进入图片分区"); err != nil {
+	return a.showCasesByTag(ctx, chatID, "image")
+}
+
+func (a *Adapter) showCasesByTag(ctx context.Context, chatID int64, tag string) error {
+	// ReplyKeyboard 只能随消息下发；进分区前先刷一次主菜单，避免用户仍停在旧键盘。
+	if err := a.Out.SendMenu(ctx, chatID, "已进入分区："+tag); err != nil {
 		return err
 	}
 	enabled := true
-	cases, err := a.App.ListCases(ctx, catalogdomain.ListQuery{Tag: "image", Enabled: &enabled})
+	cases, err := a.App.ListCases(ctx, catalogdomain.ListQuery{Tag: tag, Enabled: &enabled})
 	if err != nil {
 		return a.Out.SendText(ctx, chatID, "列出 Case 失败: "+err.Error())
 	}
 	if len(cases) == 0 {
-		return a.Out.SendText(ctx, chatID, "暂无图片 Case，请检查种子配置。")
+		return a.Out.SendText(ctx, chatID, "暂无 Case（tag="+tag+"），请检查种子配置。")
 	}
 	var rows [][]InlineButton
 	for _, c := range cases {
@@ -204,7 +213,54 @@ func (a *Adapter) showImageCases(ctx context.Context, chatID int64) error {
 		}})
 	}
 	rows = append(rows, []InlineButton{{Text: "« 返回菜单", Data: CBMenu}})
-	return a.Out.SendInline(ctx, chatID, BtnImage+" Case（mock）\n点选查看预览：", rows)
+	title := tag + " Case（mock）\n点选查看预览："
+	if tag == "image" {
+		title = BtnImage + " Case（mock）\n点选查看预览："
+	}
+	return a.Out.SendInline(ctx, chatID, title, rows)
+}
+
+func (a *Adapter) dispatchMenuItem(ctx context.Context, chatID int64, _ string, item tgmenudomain.MenuItem) error {
+	switch item.Action {
+	case tgmenudomain.ActionListCasesByTag:
+		return a.showCasesByTag(ctx, chatID, item.Tag)
+	case tgmenudomain.ActionOpenCase:
+		return a.showCasePreview(ctx, chatID, sharedkernel.CaseID(item.CaseID))
+	case tgmenudomain.ActionPlaceholder:
+		msg := strings.TrimSpace(item.PlaceholderText)
+		if msg == "" {
+			msg = item.Label + "：暂未开放，请先体验「" + BtnImage + "」。"
+		}
+		return a.Out.SendMenu(ctx, chatID, msg)
+	case tgmenudomain.ActionReplyMedia:
+		return a.sendReplyMedia(ctx, chatID, item)
+	default:
+		return a.Out.SendMenu(ctx, chatID, "未知菜单动作")
+	}
+}
+
+func (a *Adapter) sendReplyMedia(ctx context.Context, chatID int64, item tgmenudomain.MenuItem) error {
+	if item.Reply == nil {
+		return a.Out.SendText(ctx, chatID, "菜单配置无效：缺少 reply")
+	}
+	text := strings.TrimSpace(item.Reply.Text)
+	if text != "" {
+		if err := a.Out.SendText(ctx, chatID, text); err != nil {
+			return err
+		}
+	}
+	okCount := 0
+	for _, u := range item.Reply.Images {
+		if err := a.Out.SendPhotoURL(ctx, chatID, u, ""); err != nil {
+			slog.Error("tg reply_media photo failed", "err", err, "url", u, "chat_id", chatID)
+			continue
+		}
+		okCount++
+	}
+	if text == "" && okCount == 0 && len(item.Reply.Images) > 0 {
+		return a.Out.SendText(ctx, chatID, "图片发送失败，请稍后重试")
+	}
+	return nil
 }
 
 func (a *Adapter) showCasePreview(ctx context.Context, chatID int64, id sharedkernel.CaseID) error {
@@ -464,11 +520,22 @@ func currentKey(view *botapp.SessionView) string {
 	return "(done)"
 }
 
-func isMenuCommand(text string) bool {
+func (a *Adapter) isMenuCommand(ctx context.Context, text string) bool {
 	switch text {
-	case "/start", "/menu", "/help", "/cases", "/skip", "/exit", "/confirm",
-		BtnImage, BtnVideo, BtnRecharge, BtnCheckIn, BtnProfile, BtnHelp:
+	case "/start", "/menu", "/help", "/cases", "/skip", "/exit", "/confirm":
 		return true
 	}
-	return strings.HasPrefix(text, "/start_case ")
+	if strings.HasPrefix(text, "/start_case ") {
+		return true
+	}
+	doc := a.loadMenu(ctx)
+	if _, ok := FindEnabledByLabel(doc, text); ok {
+		return true
+	}
+	// Fallback legacy constants if menu load somehow omitted them.
+	switch text {
+	case BtnImage, BtnVideo, BtnRecharge, BtnCheckIn, BtnProfile, BtnHelp:
+		return true
+	}
+	return false
 }

@@ -16,12 +16,14 @@ import (
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
 )
 
 // BotMessenger sends via go-telegram/bot.
 type BotMessenger struct {
 	Bot  *bot.Bot
 	Blob blob.Store
+	Menu MenuReader
 }
 
 func (m *BotMessenger) SendText(ctx context.Context, chatID int64, text string) error {
@@ -30,7 +32,7 @@ func (m *BotMessenger) SendText(ctx context.Context, chatID int64, text string) 
 }
 
 func (m *BotMessenger) SendMenu(ctx context.Context, chatID int64, text string) error {
-	kb := mainReplyKeyboard()
+	kb := m.replyKeyboard(ctx)
 	_, err := m.Bot.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatID,
 		Text:        text,
@@ -74,6 +76,15 @@ func (m *BotMessenger) SendPhoto(ctx context.Context, chatID int64, ref sharedke
 	return err
 }
 
+func (m *BotMessenger) SendPhotoURL(ctx context.Context, chatID int64, imageURL, caption string) error {
+	_, err := m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
+		ChatID:  chatID,
+		Caption: caption,
+		Photo:   &models.InputFileString{Data: imageURL},
+	})
+	return err
+}
+
 // photoUploadName returns a Telegram-safe upload basename (no path separators).
 func photoUploadName(key string) string {
 	key = strings.ReplaceAll(key, "\\", "/")
@@ -95,21 +106,19 @@ func (m *BotMessenger) AnswerCallback(ctx context.Context, callbackID, text stri
 	return err
 }
 
-func mainReplyKeyboard() *models.ReplyKeyboardMarkup {
-	rows := MainMenuRows()
-	kb := make([][]models.KeyboardButton, 0, len(rows))
-	for _, row := range rows {
-		btns := make([]models.KeyboardButton, 0, len(row))
-		for _, t := range row {
-			btns = append(btns, models.KeyboardButton{Text: t})
+func (m *BotMessenger) replyKeyboard(ctx context.Context) *models.ReplyKeyboardMarkup {
+	if m != nil && m.Menu != nil {
+		doc, err := m.Menu.GetMenu(ctx)
+		if err == nil {
+			return BuildReplyKeyboard(doc)
 		}
-		kb = append(kb, btns)
+		slog.Error("tg menu load for keyboard failed; using default seed", "err", err)
 	}
-	return &models.ReplyKeyboardMarkup{
-		Keyboard:       kb,
-		ResizeKeyboard: true,
-		IsPersistent:   true,
-	}
+	return BuildReplyKeyboard(tgmenudomain.DefaultSeed())
+}
+
+func mainReplyKeyboard() *models.ReplyKeyboardMarkup {
+	return BuildReplyKeyboard(tgmenudomain.DefaultSeed())
 }
 
 func toInlineMarkup(rows [][]InlineButton) *models.InlineKeyboardMarkup {
