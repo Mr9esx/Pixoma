@@ -32,5 +32,17 @@
   "lang": {
     "zh": "中文",
     "en": "English"
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "instancesTitle": "实例",
+    "instancesSummary": "共 {{total}} 台，启用 {{enabled}}",
+    "instanceEnabledRatio": "启用占比",
+    "casesTitle": "Case",
+    "casesEnabled": "启用 Case 数",
+    "tasksTitle": "任务",
+    "taskStatusDistribution": "状态分布",
+    "enabled": "启用",
+    "disabled": "未启用"
   }
 }
