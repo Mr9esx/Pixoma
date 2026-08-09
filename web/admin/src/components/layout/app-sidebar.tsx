@@ -1,4 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { MENU_ITEMS } from '@/config/menu'
 import { useLayout } from '@/context/layout-provider'
 import {
@@ -15,17 +16,8 @@ import {
 } from '@/components/ui/sidebar'
 import { AppTitle } from './app-title'
 
-/** Temporary visible labels until Task 5 wires i18n via titleKey. */
-const TEMP_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  instances: 'Instances',
-  cases: 'Cases',
-  tasks: 'Tasks',
-  users: 'Users',
-  sessions: 'Sessions',
-}
-
 export function AppSidebar() {
+  const { t } = useTranslation()
   const { collapsible, variant } = useLayout()
   const { setOpenMobile } = useSidebar()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -40,7 +32,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {MENU_ITEMS.map((item) => {
-                const label = TEMP_LABELS[item.id] ?? item.id
+                const label = t(item.titleKey)
                 const isActive =
                   item.path === '/'
                     ? pathname === '/'

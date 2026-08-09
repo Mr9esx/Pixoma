@@ -11,6 +11,7 @@ export default defineConfig({
       'src/auth-gates.contract.test.ts',
       'src/lib/api/client.test.ts',
       'src/config/menu.test.ts',
+      'src/lib/i18n/locale.test.ts',
     ],
   },
 })

@@ -1,0 +1,26 @@
+{
+  "menu": {
+    "dashboard": "仪表盘",
+    "instances": "实例",
+    "cases": "Case",
+    "tasks": "任务",
+    "users": "用户",
+    "sessions": "会话"
+  },
+  "common": {
+    "loading": "加载中…",
+    "empty": "暂无数据",
+    "selectItem": "请选择一项",
+    "save": "保存",
+    "create": "新建",
+    "cancel": "取消",
+    "retry": "重试",
+    "errorGeneric": "请求失败",
+    "successSaved": "已保存",
+    "sampleNote": "基于当前拉取样本（受 limit 限制）"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  }
+}
