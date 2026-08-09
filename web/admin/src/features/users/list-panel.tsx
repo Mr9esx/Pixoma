@@ -4,13 +4,11 @@ import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import type { UserRecord } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 
 export type UserListFilters = {
   q: string
-  tg_user_id: string
 }
 
 type Props = {
@@ -42,36 +40,15 @@ export function UserListPanel({
         <h2 className='text-sm font-semibold'>{t('users.title')}</h2>
       </div>
 
-      <div className='space-y-3 border-b px-4 py-3'>
-        <div className='space-y-1'>
-          <Label htmlFor='users-filter-q' className='text-xs'>
-            {t('users.filterQ')}
-          </Label>
-          <Input
-            id='users-filter-q'
-            value={filters.q}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, q: e.target.value })
-            }
-            placeholder={t('users.filterQPlaceholder')}
-            autoComplete='off'
-          />
-        </div>
-        <div className='space-y-1'>
-          <Label htmlFor='users-filter-tg' className='text-xs'>
-            {t('users.filterTgUserId')}
-          </Label>
-          <Input
-            id='users-filter-tg'
-            value={filters.tg_user_id}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, tg_user_id: e.target.value })
-            }
-            placeholder={t('users.filterTgUserIdPlaceholder')}
-            inputMode='numeric'
-            autoComplete='off'
-          />
-        </div>
+      <div className='space-y-2 border-b px-4 py-3'>
+        <Input
+          id='users-filter-q'
+          value={filters.q}
+          onChange={(e) => onFiltersChange({ ...filters, q: e.target.value })}
+          placeholder={t('users.filterQPlaceholder')}
+          autoComplete='off'
+          aria-label={t('users.filterQ')}
+        />
       </div>
 
       {isError ? (

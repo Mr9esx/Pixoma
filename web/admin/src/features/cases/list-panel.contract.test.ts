@@ -1,0 +1,49 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const LIST_PANEL = join(here, 'list-panel.tsx')
+const CASES_ROUTE = join(here, '../../routes/_app/cases/route.tsx')
+const ZH = join(here, '../../lib/i18n/locales/zh.json')
+const EN = join(here, '../../lib/i18n/locales/en.json')
+
+function read(path: string) {
+  return readFileSync(path, 'utf8')
+}
+
+describe('case list filters (option A: single search + enabled segment)', () => {
+  it('list panel has one search field and no menu_key input', () => {
+    const source = read(LIST_PANEL)
+    expect(source).toContain("id='cases-filter-q'")
+    expect(source).not.toContain('cases-filter-menu-key')
+    expect(source).not.toContain('filterMenuKey')
+    expect(source).not.toMatch(/menuKey/)
+  })
+
+  it('enabled filter uses FilterSegment (not Select)', () => {
+    const source = read(LIST_PANEL)
+    expect(source).toContain("data-testid='cases-filter-enabled'")
+    expect(source).toContain("from '@/components/filters/filter-segment'")
+    expect(source).not.toContain('<Select')
+    expect(source).not.toContain('SelectTrigger')
+  })
+
+  it('cases route does not send menu_key query param from filters', () => {
+    const source = read(CASES_ROUTE)
+    expect(source).not.toMatch(/menuKey/)
+    expect(source).not.toMatch(/menu_key:\s*filters/)
+  })
+
+  it('search placeholder mentions menu_key', () => {
+    const zh = JSON.parse(read(ZH)) as {
+      cases: { filterQPlaceholder: string }
+    }
+    const en = JSON.parse(read(EN)) as {
+      cases: { filterQPlaceholder: string }
+    }
+    expect(zh.cases.filterQPlaceholder.toLowerCase()).toContain('menu_key')
+    expect(en.cases.filterQPlaceholder.toLowerCase()).toContain('menu_key')
+  })
+})

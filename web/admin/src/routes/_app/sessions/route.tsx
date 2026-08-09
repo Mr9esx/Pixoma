@@ -1,19 +1,15 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  createFileRoute,
-  useNavigate,
-  useParams,
-} from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { queryKeys } from '@/lib/api/query-keys'
+import { listSessions } from '@/lib/api/sessions'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { SessionDetailPanel } from '@/features/sessions/detail-panel'
 import {
   SessionListPanel,
   type SessionListFilters,
 } from '@/features/sessions/list-panel'
-import { listSessions } from '@/lib/api/sessions'
-import { queryKeys } from '@/lib/api/query-keys'
 
 export const Route = createFileRoute('/_app/sessions')({
   component: SessionsLayout,
@@ -31,13 +27,11 @@ function SessionsLayout() {
   }
 
   const [filters, setFilters] = useState<SessionListFilters>({
-    user_id: '',
     status: 'all',
     q: '',
   })
 
   const listParams = {
-    user_id: filters.user_id.trim() || undefined,
     status: filters.status === 'all' ? undefined : filters.status,
     q: filters.q.trim() || undefined,
   }
@@ -48,12 +42,15 @@ function SessionsLayout() {
   })
 
   return (
-    <div className='space-y-3' data-testid='sessions-page'>
-      <div>
+    <div
+      className='flex min-h-0 flex-1 flex-col gap-3'
+      data-testid='sessions-page'
+    >
+      <div className='shrink-0'>
         <h1 className='text-2xl font-bold tracking-tight'>
           {t('sessions.title')}
         </h1>
-        <p className='text-muted-foreground text-sm'>
+        <p className='text-sm text-muted-foreground'>
           {t('sessions.description')}
         </p>
       </div>

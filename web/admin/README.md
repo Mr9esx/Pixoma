@@ -34,6 +34,11 @@ make run-admin    # admin-api + 本前端；Ctrl-C 一起停
 
 Dashboard 数字基于 list 拉取样本，受 `limit` 限制，不是全库精确统计。
 
+## UI 设计原则
+
+左栏列表筛选（搜索合并、横向 Segment 等）见仓库  
+[docs/frontend/admin-list-filters.md](../../docs/frontend/admin-list-filters.md)。新资源页 MUST 遵循该文档。
+
 ## 非目标
 
 无登录鉴权；无前端 mock。侧栏「主键盘」页管理机器人底部按钮（`/api/v1/tg-menu`）。

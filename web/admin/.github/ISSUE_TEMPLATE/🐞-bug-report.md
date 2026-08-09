@@ -1,27 +1,15 @@
 ---
-name: "\U0001F41E Bug report"
-about: Report a bug or unexpected behavior in Shadcn-Admin
-title: "[BUG]: "
+name: Bug report
+about: Report a bug in Pixoma Admin
+title: ''
 labels: bug
-assignees: ""
+assignees: ''
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## Describe the bug
 
-**To Reproduce**
-Steps to reproduce the behavior:
+## Steps to reproduce
 
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+## Expected behavior
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
-
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
-
-**Additional context**
-Add any other context about the problem here.
+## Environment

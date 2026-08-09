@@ -86,6 +86,14 @@ func TestUserListFilters(t *testing.T) {
 		t.Fatalf("q username: want 1 alice_list, got %+v", byQ)
 	}
 
+	byTgQ, err := repo.List(ctx, domain.ListQuery{Q: "1001"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byTgQ) != 1 || byTgQ[0].ID != alice.ID {
+		t.Fatalf("q matches tg_user_id: want 1 alice, got %+v", byTgQ)
+	}
+
 	limited, err := repo.List(ctx, domain.ListQuery{Limit: 1, Offset: 0})
 	if err != nil {
 		t.Fatal(err)

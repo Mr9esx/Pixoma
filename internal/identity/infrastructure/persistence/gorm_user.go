@@ -107,8 +107,8 @@ func (r *UserRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 	if q.Q != "" {
 		like := "%" + q.Q + "%"
 		tx = tx.Where(
-			"id LIKE ? OR username LIKE ? OR first_name LIKE ? OR last_name LIKE ?",
-			like, like, like, like,
+			"id LIKE ? OR username LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR CAST(tg_user_id AS TEXT) LIKE ?",
+			like, like, like, like, like,
 		)
 	}
 	if q.CreatedFrom != nil {

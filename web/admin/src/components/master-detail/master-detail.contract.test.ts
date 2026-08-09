@@ -2,8 +2,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import zh from '../../lib/i18n/locales/zh.json'
 import en from '../../lib/i18n/locales/en.json'
+import zh from '../../lib/i18n/locales/zh.json'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const srcRoot = join(here, '../..')
@@ -43,6 +43,9 @@ describe('Master–Detail shell + feedback primitives', () => {
     const source = readFileSync(SHELL, 'utf8')
     expect(source).toContain('export function MasterDetailShell')
     expect(source).toContain('md:grid-cols-[minmax(280px,360px)_1fr]')
+    expect(source).toContain('min-h-0')
+    expect(source).toContain('flex-1')
+    expect(source).not.toContain('100vh-5rem')
     expect(source).toContain("t('common.selectItem')")
     expect(source).toMatch(/t\('common\.backToList'/)
     expect(source).toContain('hasSelection')

@@ -18,8 +18,14 @@ export const Route = createRootRouteWithContext<{
         <Toaster duration={5000} />
         {import.meta.env.MODE === 'development' && (
           <>
-            <ReactQueryDevtools buttonPosition='bottom-left' />
-            <TanStackRouterDevtools position='bottom-right' />
+            <ReactQueryDevtools buttonPosition='bottom-right' />
+            <TanStackRouterDevtools
+              position='bottom-right'
+              toggleButtonProps={{
+                // Query 按钮约 48px + 间距，避免与 Router 叠在同一角
+                style: { right: '4.25rem' },
+              }}
+            />
           </>
         )}
       </>

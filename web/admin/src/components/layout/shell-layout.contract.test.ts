@@ -42,7 +42,20 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
   it('Logo accessible name is Pixoma', () => {
     const source = read(LOGO)
     expect(source).toContain('<title>Pixoma</title>')
+    expect(source).toContain("id='pixoma-admin-logo'")
     expect(source).not.toContain('Shadcn-Admin')
+    expect(source).not.toContain('shadcn-admin')
+  })
+
+  it('document meta brands as Pixoma (no template copy)', () => {
+    const html = read(join(srcRoot, '../index.html'))
+    const pkg = read(join(srcRoot, '../package.json'))
+    expect(html).toContain('<title>Pixoma</title>')
+    expect(html).toContain('Pixoma 管理控制台')
+    expect(html).not.toMatch(/[Ss]hadcn/)
+    expect(html).not.toContain('shadcn-admin.netlify.app')
+    expect(pkg).toContain('"name": "pixoma-admin"')
+    expect(pkg).not.toContain('shadcn-admin')
   })
 
   it('LanguageSwitcher uses dropdown trigger (not dual text buttons)', () => {

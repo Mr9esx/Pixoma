@@ -1,16 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import {
-  createFileRoute,
-  useNavigate,
-  useParams,
-} from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { listInstances } from '@/lib/api/instances'
+import { queryKeys } from '@/lib/api/query-keys'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { InstanceDetailPanel } from '@/features/instances/detail-panel'
 import { InstanceForm } from '@/features/instances/instance-form'
 import { InstanceListPanel } from '@/features/instances/list-panel'
-import { listInstances } from '@/lib/api/instances'
-import { queryKeys } from '@/lib/api/query-keys'
 
 export const Route = createFileRoute('/_app/instances')({
   component: InstancesLayout,
@@ -33,12 +29,15 @@ function InstancesLayout() {
   })
 
   return (
-    <div className='space-y-3' data-testid='instances-page'>
-      <div>
+    <div
+      className='flex min-h-0 flex-1 flex-col gap-3'
+      data-testid='instances-page'
+    >
+      <div className='shrink-0'>
         <h1 className='text-2xl font-bold tracking-tight'>
           {t('instances.title')}
         </h1>
-        <p className='text-muted-foreground text-sm'>
+        <p className='text-sm text-muted-foreground'>
           {t('instances.description')}
         </p>
       </div>

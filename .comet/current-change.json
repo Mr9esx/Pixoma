@@ -1,6 +1,0 @@
-{
-  "schema": "comet.selection.v2",
-  "workflow": "classic",
-  "change": "admin-shell-sidebar-footer",
-  "branch": "feature/20260809/admin-web-console"
-}

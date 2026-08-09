@@ -3,15 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { FilterSegment } from '@/components/filters/filter-segment'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import type { TaskRecord } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 
@@ -82,43 +75,28 @@ export function TaskListPanel({
         <h2 className='text-sm font-semibold'>{t('tasks.title')}</h2>
       </div>
 
-      <div className='space-y-3 border-b px-4 py-3'>
-        <div className='space-y-1'>
-          <Label className='text-xs'>{t('tasks.filterStatus')}</Label>
-          <Select
-            value={filters.status}
-            onValueChange={(value: TaskStatusFilter) =>
-              onFiltersChange({ ...filters, status: value })
-            }
-          >
-            <SelectTrigger className='w-full' size='sm'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_STATUS_FILTERS.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status === 'all'
-                    ? t('tasks.filterStatusAll')
-                    : t(TASK_STATUS_LABEL_KEYS[status])}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className='space-y-1'>
-          <Label htmlFor='tasks-filter-q' className='text-xs'>
-            {t('tasks.filterQ')}
-          </Label>
-          <Input
-            id='tasks-filter-q'
-            value={filters.q}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, q: e.target.value })
-            }
-            placeholder={t('tasks.filterQPlaceholder')}
-            autoComplete='off'
-          />
-        </div>
+      <div className='space-y-2 border-b px-4 py-3'>
+        <Input
+          id='tasks-filter-q'
+          value={filters.q}
+          onChange={(e) => onFiltersChange({ ...filters, q: e.target.value })}
+          placeholder={t('tasks.filterQPlaceholder')}
+          autoComplete='off'
+          aria-label={t('tasks.filterQ')}
+        />
+        <FilterSegment
+          data-testid='tasks-filter-status'
+          aria-label={t('tasks.filterStatus')}
+          value={filters.status}
+          onValueChange={(status) => onFiltersChange({ ...filters, status })}
+          options={TASK_STATUS_FILTERS.map((status) => ({
+            value: status,
+            label:
+              status === 'all'
+                ? t('tasks.filterStatusAll')
+                : t(TASK_STATUS_LABEL_KEYS[status]),
+          }))}
+        />
       </div>
 
       {isError ? (

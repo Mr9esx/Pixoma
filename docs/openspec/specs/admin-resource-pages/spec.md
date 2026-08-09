@@ -10,6 +10,21 @@
 - **WHEN** 运维在某一资源页左侧列表选中一项
 - **THEN** 右侧展示该资源详情或可编辑表单，且无需离开当前资源页进入无关整页壳
 
+### Requirement: 左栏紧凑筛选
+带列表筛选的 Master–Detail 左栏 MUST 遵循紧凑筛选：可搜索字段合并为单一搜索框（无字段 Label）；封闭枚举 MUST 使用横向可滑 Segment，MUST NOT 用「Label + 全宽 Select」作为默认形态。细则见 `docs/frontend/admin-list-filters.md`。
+
+#### Scenario: Case 左栏筛选
+- **WHEN** 运维打开 Case 列表
+- **THEN** 可见单一搜索（覆盖 id / 名称 / menu_key）与启用状态横向 Segment，且无独立 menu_key 输入框
+
+#### Scenario: Task / Session 状态筛选
+- **WHEN** 运维在 Task 或 Session 左栏切换状态
+- **THEN** 状态以横向可滑 Segment 呈现，且列表区域仍为左栏主要可视高度
+
+#### Scenario: User 左栏搜索
+- **WHEN** 运维在 User 左栏输入搜索词
+- **THEN** 单一搜索框可覆盖用户标识类字段（含 tg_user_id），且无独立 tg_user_id 输入框
+
 ### Requirement: 实例管理页
 控制台 MUST 提供实例列表/详情或表单页，支持基础 CRUD 与观测入口（对接 admin-api 实例接口）。
 

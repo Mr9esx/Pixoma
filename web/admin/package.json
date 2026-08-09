@@ -1,6 +1,6 @@
 {
-  "name": "shadcn-admin",
-  "private": false,
+  "name": "pixoma-admin",
+  "private": true,
   "version": "2.2.1",
   "type": "module",
   "packageManager": "pnpm@10.12.4",

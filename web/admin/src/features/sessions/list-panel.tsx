@@ -3,15 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { FilterSegment } from '@/components/filters/filter-segment'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import type { SessionRecord } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 
@@ -47,7 +40,6 @@ export function sessionStatusLabelKey(
 }
 
 export type SessionListFilters = {
-  user_id: string
   status: SessionStatusFilter
   q: string
 }
@@ -84,57 +76,28 @@ export function SessionListPanel({
         <h2 className='text-sm font-semibold'>{t('sessions.title')}</h2>
       </div>
 
-      <div className='space-y-3 border-b px-4 py-3'>
-        <div className='space-y-1'>
-          <Label htmlFor='sessions-filter-user' className='text-xs'>
-            {t('sessions.filterUserId')}
-          </Label>
-          <Input
-            id='sessions-filter-user'
-            value={filters.user_id}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, user_id: e.target.value })
-            }
-            placeholder={t('sessions.filterUserIdPlaceholder')}
-            autoComplete='off'
-          />
-        </div>
-        <div className='space-y-1'>
-          <Label className='text-xs'>{t('sessions.filterStatus')}</Label>
-          <Select
-            value={filters.status}
-            onValueChange={(value: SessionStatusFilter) =>
-              onFiltersChange({ ...filters, status: value })
-            }
-          >
-            <SelectTrigger className='w-full' size='sm'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SESSION_STATUS_FILTERS.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status === 'all'
-                    ? t('sessions.filterStatusAll')
-                    : t(SESSION_STATUS_LABEL_KEYS[status])}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className='space-y-1'>
-          <Label htmlFor='sessions-filter-q' className='text-xs'>
-            {t('sessions.filterQ')}
-          </Label>
-          <Input
-            id='sessions-filter-q'
-            value={filters.q}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, q: e.target.value })
-            }
-            placeholder={t('sessions.filterQPlaceholder')}
-            autoComplete='off'
-          />
-        </div>
+      <div className='space-y-2 border-b px-4 py-3'>
+        <Input
+          id='sessions-filter-q'
+          value={filters.q}
+          onChange={(e) => onFiltersChange({ ...filters, q: e.target.value })}
+          placeholder={t('sessions.filterQPlaceholder')}
+          autoComplete='off'
+          aria-label={t('sessions.filterQ')}
+        />
+        <FilterSegment
+          data-testid='sessions-filter-status'
+          aria-label={t('sessions.filterStatus')}
+          value={filters.status}
+          onValueChange={(status) => onFiltersChange({ ...filters, status })}
+          options={SESSION_STATUS_FILTERS.map((status) => ({
+            value: status,
+            label:
+              status === 'all'
+                ? t('sessions.filterStatusAll')
+                : t(SESSION_STATUS_LABEL_KEYS[status]),
+          }))}
+        />
       </div>
 
       {isError ? (

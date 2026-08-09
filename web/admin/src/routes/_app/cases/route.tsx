@@ -1,20 +1,16 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  createFileRoute,
-  useNavigate,
-  useParams,
-} from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { listCases } from '@/lib/api/cases'
+import { queryKeys } from '@/lib/api/query-keys'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
-import { CaseDetailPanel } from '@/features/cases/detail-panel'
 import { CaseForm } from '@/features/cases/case-form'
+import { CaseDetailPanel } from '@/features/cases/detail-panel'
 import {
   CaseListPanel,
   type CaseListFilters,
 } from '@/features/cases/list-panel'
-import { listCases } from '@/lib/api/cases'
-import { queryKeys } from '@/lib/api/query-keys'
 
 export const Route = createFileRoute('/_app/cases')({
   component: CasesLayout,
@@ -31,17 +27,12 @@ function CasesLayout() {
 
   const [filters, setFilters] = useState<CaseListFilters>({
     q: '',
-    menuKey: '',
     enabled: 'all',
   })
 
   const listParams = {
     q: filters.q.trim() || undefined,
-    menu_key: filters.menuKey.trim() || undefined,
-    enabled:
-      filters.enabled === 'all'
-        ? undefined
-        : filters.enabled === 'true',
+    enabled: filters.enabled === 'all' ? undefined : filters.enabled === 'true',
   }
 
   const listQuery = useQuery({
@@ -50,12 +41,15 @@ function CasesLayout() {
   })
 
   return (
-    <div className='space-y-3' data-testid='cases-page'>
-      <div>
+    <div
+      className='flex min-h-0 flex-1 flex-col gap-3'
+      data-testid='cases-page'
+    >
+      <div className='shrink-0'>
         <h1 className='text-2xl font-bold tracking-tight'>
           {t('cases.title')}
         </h1>
-        <p className='text-muted-foreground text-sm'>
+        <p className='text-sm text-muted-foreground'>
           {t('cases.description')}
         </p>
       </div>

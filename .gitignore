@@ -13,3 +13,8 @@ web/admin/node_modules/
 web/admin/dist/
 .DS_Store
 comfyui-bot
+
+# Local build artifacts at repo root
+admin-api
+comfyui-bot
+
