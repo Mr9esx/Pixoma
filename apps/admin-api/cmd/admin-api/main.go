@@ -86,8 +86,9 @@ func run(ctx context.Context) error {
 	taskRepo := taskpersist.NewTaskRepository(gdb)
 	menuStore := tgmenupersist.NewGormRepository(gdb)
 	menuSvc := &tgmenuapp.Service{
-		Store: menuStore,
-		Cases: tgmenuapp.CatalogCaseChecker{Repo: caseRepo},
+		Store:            menuStore,
+		Cases:            tgmenuapp.CatalogCaseChecker{Repo: caseRepo},
+		ListImageCaseIDs: tgmenuapp.CatalogImageCaseIDs(caseRepo),
 	}
 	orch := orchestrator.New(taskRepo, pool, nil, notify.Nop{})
 	orch.Sessions = sessionRepo
