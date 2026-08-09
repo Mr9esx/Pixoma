@@ -11,6 +11,7 @@
 ```text
 ┌─ channel/tg ─────────────────────────────────────┐
 │  Update→用例；DTO→消息/按钮；Notify→发图          │
+│  主菜单只读 ← tgmenu                               │
 └───────────────────────┬──────────────────────────┘
                         ▼
 ┌─ packaging/botapp ───────────────────────────────┐
@@ -21,6 +22,9 @@
 │ User upsert│  │ Session 填表   │  │ Case 目录 │
 └────────────┘  └────────────────┘  └─────┬─────┘
                                           │ 校验/读 Doc
+┌─ tgmenu ────────────────────────────────────────┐
+│  MenuDocument 真相源；admin GET/PUT；bot 只读    │
+└─────────────────────────────────────────────────┘
 ┌─ runtime ───────────────────────────────────────┐
 │ domain.Task │ orchestrator │ actuator │ comfyui │
 └───────┬─────────────┬─────────────┬─────────────┘
@@ -39,9 +43,10 @@
 | **Catalog** | `internal/catalog` | Case 持久化、`doc_json` 协议、输入校验 | 调度、Comfy 调用 |
 | **Runtime** | `internal/runtime` | Task 状态机、Orchestrator、Actuator、Comfy Client | TG UI、User 资料 |
 | **Channel TG** | `internal/channel/tg` | Telegram 适配、菜单/回调、通知落地 | 领域规则 |
+| **TG Menu** | `internal/tgmenu` | 主键盘配置持久化与校验 | TG 协议发送细节 |
 | **Platform** | `internal/platform` | db/blob/queue/notify/instance/botconfig | 业务决策 |
 | **Packaging** | `internal/packaging/botapp` | 跨 BC 用例门面 | 基础设施实现细节 |
-| **HTTP API** | `internal/httpapi` | 实例 CRUD 与观测 | TG |
+| **HTTP API** | `internal/httpapi` | 实例 CRUD/观测；Case/User/Session/Task；TG Menu | TG 通道实现 |
 | **Shared Kernel** | `internal/sharedkernel` | ID、状态枚举、事件 DTO、topic | 业务行为 |
 
 ---

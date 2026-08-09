@@ -34,6 +34,8 @@ sequenceDiagram
 
 说明：`memory` bus **同步**调用 handler；ConfirmRun 返回前，整条链路（含 notify）可能已完成。
 
+对话入口：Telegram 主菜单来自表 `tg_menu_configs`（空则写入默认种子）；`channel/tg` 每次构建键盘时读配置（失败回退内存种子）。
+
 ---
 
 ## 2. 控制面 vs 执行面
