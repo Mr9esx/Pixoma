@@ -36,4 +36,4 @@ Dashboard 数字基于 list 拉取样本，受 `limit` 限制，不是全库精�
 
 ## 非目标
 
-无登录鉴权；无前端 mock。TG 菜单在侧栏「TG 菜单」页管理（`/api/v1/tg-menu`）。
+无登录鉴权；无前端 mock。侧栏「主键盘」页管理机器人底部按钮（`/api/v1/tg-menu`）。
