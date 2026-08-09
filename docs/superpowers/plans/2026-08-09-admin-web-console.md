@@ -986,7 +986,7 @@ getSession(id: string): Promise<SessionRecord>
 
 - Query key 工厂：`queryKeys.instances.all`、`queryKeys.instances.detail(id)` 等。
 
-- [ ] **Step 1: 实现 `instances.ts`（示例）**
+- [x] **Step 1: 实现 `instances.ts`（示例）**
 
 ```ts
 import { apiFetch, toQuery } from './client'
@@ -1045,7 +1045,7 @@ export function listInstanceTasks(id: string, params?: { limit?: number }) {
 
 其余资源按 README curl 路径同样实现（cases 含 `POST .../enable|disable`）。
 
-- [ ] **Step 2: 对跑着的 admin-api 做一次冒烟（可选但推荐）**
+- [x] **Step 2: 对跑着的 admin-api 做一次冒烟（可选但推荐）**
 
 ```bash
 # 另开终端：make run-admin-api
@@ -1058,7 +1058,7 @@ fetch(b+'/api/v1/comfy-instances').then(r=>r.status).then(console.log)
 
 Expected: `200`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add web/admin/src/lib/api
