@@ -6,8 +6,8 @@
 
 ## 2. 菜单、i18n 与 Dashboard
 
-- [ ] 2.1 实现集中式菜单配置（Dashboard → 实例 → Case → Task → User → Session）
-- [ ] 2.2 侧栏渲染菜单并与 TanStack Router 路由绑定；默认路由为 Dashboard
+- [x] 2.1 实现集中式菜单配置（Dashboard → 实例 → Case → Task → User → Session）
+- [x] 2.2 侧栏渲染菜单并与 TanStack Router 路由绑定；默认路由为 Dashboard
 - [ ] 2.3 清理无关 demo 菜单项与鉴权挡板，保留管理布局与主题能力
 - [ ] 2.4 中英 i18n（默认中文）+ 语言切换
 - [ ] 2.5 Dashboard 中等总览（卡片 + 简单分布，list API 前端聚合）
