@@ -1,0 +1,36 @@
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { getCaseMenuPlacements } from './tg-menu'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('tg-menu API', () => {
+  it('getCaseMenuPlacements GETs /api/v1/cases/{id}/menu-placements', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            menu_id: 'default',
+            item_id: 'btn-image',
+            path: [{ id: 'folder-1', label: '图片' }],
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const data = await getCaseMenuPlacements('c1')
+
+    expect(data[0].item_id).toBe('btn-image')
+    expect(data[0].path[0].label).toBe('图片')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8081/api/v1/cases/c1/menu-placements',
+      expect.anything(),
+    )
+  })
+})

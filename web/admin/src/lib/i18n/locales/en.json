@@ -121,7 +121,9 @@
     "disable": "Disable",
     "enableSuccess": "Case enabled",
     "disableSuccess": "Case disabled",
-    "jsonMustBeObject": "Must be a JSON object"
+    "jsonMustBeObject": "Must be a JSON object",
+    "menuPlacementsTitle": "On main keyboard",
+    "menuPlacementsEmpty": "Not mounted on main keyboard"
   },
   "tasks": {
     "title": "Tasks",
