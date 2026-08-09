@@ -1,0 +1,18 @@
+{
+  "change": "tg-menu-config",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "1278ddf43d341660ab4844df54ecb9061791a421f11f815abea3674e84be9b42",
+  "files": [
+    { "path": "docs/openspec/changes/tg-menu-config/proposal.md", "sha256": "919dd758036260baf7c7fb9be75fb5132132656062a1aa7b065772b2bfd92982" },
+    { "path": "docs/openspec/changes/tg-menu-config/design.md", "sha256": "f7dc0b7d65a061af50f774745c0e5ca14cfb7fd23fd90087e0407cde69605dc8" },
+    { "path": "docs/openspec/changes/tg-menu-config/tasks.md", "sha256": "d3ce6a0b394cca7116ee607f22a6731030636ccb9315051235b4fa5e81f8220e" },
+    { "path": "docs/openspec/changes/tg-menu-config/specs/admin-resource-pages/spec.md", "sha256": "e8788d2e3c9007a48fd18bfee7b1024baa41daebc55e315a87c5c1e418338669" },
+    { "path": "docs/openspec/changes/tg-menu-config/specs/admin-web-shell/spec.md", "sha256": "a7689230c2325bfb047e4dc1cb386b18086ca556819eeb843363f159c731a957" },
+    { "path": "docs/openspec/changes/tg-menu-config/specs/channel-tg/spec.md", "sha256": "ce2ce7ed0e57fe545c3bc1dc362560fd6208050617af5576428a7bb86ceb85e1" },
+    { "path": "docs/openspec/changes/tg-menu-config/specs/tg-menu/spec.md", "sha256": "57a7302e5799b9f7c212eefc0f2e30a006c293c8bdf0d6ed08a2cf5683888e83" },
+    { "path": "docs/openspec/changes/tg-menu-config/specs/tg-menu-admin-api/spec.md", "sha256": "25cdb33254feaf5614469d3eb270fa399fc0767a702325d7a367616797ae48a2" }
+  ]
+}
