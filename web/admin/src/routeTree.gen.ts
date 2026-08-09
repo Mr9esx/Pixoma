@@ -19,6 +19,7 @@ import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as AppInstancesRouteRouteImport } from './routes/_app/instances/route'
+import { Route as AppCasesRouteRouteImport } from './routes/_app/cases/route'
 import { Route as AppUsersIndexRouteImport } from './routes/_app/users/index'
 import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
@@ -34,6 +35,7 @@ import { Route as AppSettingsAppearanceRouteImport } from './routes/_app/setting
 import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/account'
 import { Route as AppInstancesInstanceIdRouteImport } from './routes/_app/instances/$instanceId'
 import { Route as AppErrorsErrorRouteImport } from './routes/_app/errors/$error'
+import { Route as AppCasesCaseIdRouteImport } from './routes/_app/cases/$caseId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -84,6 +86,11 @@ const AppInstancesRouteRoute = AppInstancesRouteRouteImport.update({
   path: '/instances',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCasesRouteRoute = AppCasesRouteRouteImport.update({
+  id: '/cases',
+  path: '/cases',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppUsersIndexRoute = AppUsersIndexRouteImport.update({
   id: '/users/',
   path: '/users/',
@@ -120,9 +127,9 @@ const AppChatsIndexRoute = AppChatsIndexRouteImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 const AppCasesIndexRoute = AppCasesIndexRouteImport.update({
-  id: '/cases/',
-  path: '/cases/',
-  getParentRoute: () => AppRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppCasesRouteRoute,
 } as any)
 const AppAppsIndexRoute = AppAppsIndexRouteImport.update({
   id: '/apps/',
@@ -160,10 +167,16 @@ const AppErrorsErrorRoute = AppErrorsErrorRouteImport.update({
   path: '/errors/$error',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCasesCaseIdRoute = AppCasesCaseIdRouteImport.update({
+  id: '/$caseId',
+  path: '/$caseId',
+  getParentRoute: () => AppCasesRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/': typeof AppIndexRoute
+  '/cases': typeof AppCasesRouteRouteWithChildren
   '/instances': typeof AppInstancesRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
   '/401': typeof errors401Route
@@ -171,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/errors/$error': typeof AppErrorsErrorRoute
   '/instances/$instanceId': typeof AppInstancesInstanceIdRoute
   '/settings/account': typeof AppSettingsAccountRoute
@@ -195,6 +209,7 @@ export interface FileRoutesByTo {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/': typeof AppIndexRoute
+  '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/errors/$error': typeof AppErrorsErrorRoute
   '/instances/$instanceId': typeof AppInstancesInstanceIdRoute
   '/settings/account': typeof AppSettingsAccountRoute
@@ -215,6 +230,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/$': typeof SplatRoute
   '/_app': typeof AppRouteWithChildren
+  '/_app/cases': typeof AppCasesRouteRouteWithChildren
   '/_app/instances': typeof AppInstancesRouteRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
   '/(errors)/401': typeof errors401Route
@@ -223,6 +239,7 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_app/': typeof AppIndexRoute
+  '/_app/cases/$caseId': typeof AppCasesCaseIdRoute
   '/_app/errors/$error': typeof AppErrorsErrorRoute
   '/_app/instances/$instanceId': typeof AppInstancesInstanceIdRoute
   '/_app/settings/account': typeof AppSettingsAccountRoute
@@ -244,6 +261,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/$'
     | '/'
+    | '/cases'
     | '/instances'
     | '/settings'
     | '/401'
@@ -251,6 +269,7 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/cases/$caseId'
     | '/errors/$error'
     | '/instances/$instanceId'
     | '/settings/account'
@@ -275,6 +294,7 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/'
+    | '/cases/$caseId'
     | '/errors/$error'
     | '/instances/$instanceId'
     | '/settings/account'
@@ -294,6 +314,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/$'
     | '/_app'
+    | '/_app/cases'
     | '/_app/instances'
     | '/_app/settings'
     | '/(errors)/401'
@@ -302,6 +323,7 @@ export interface FileRouteTypes {
     | '/(errors)/500'
     | '/(errors)/503'
     | '/_app/'
+    | '/_app/cases/$caseId'
     | '/_app/errors/$error'
     | '/_app/instances/$instanceId'
     | '/_app/settings/account'
@@ -401,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInstancesRouteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/cases': {
+      id: '/_app/cases'
+      path: '/cases'
+      fullPath: '/cases'
+      preLoaderRoute: typeof AppCasesRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/users/': {
       id: '/_app/users/'
       path: '/users'
@@ -452,10 +481,10 @@ declare module '@tanstack/react-router' {
     }
     '/_app/cases/': {
       id: '/_app/cases/'
-      path: '/cases'
+      path: '/'
       fullPath: '/cases/'
       preLoaderRoute: typeof AppCasesIndexRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppCasesRouteRoute
     }
     '/_app/apps/': {
       id: '/_app/apps/'
@@ -506,8 +535,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppErrorsErrorRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/cases/$caseId': {
+      id: '/_app/cases/$caseId'
+      path: '/$caseId'
+      fullPath: '/cases/$caseId'
+      preLoaderRoute: typeof AppCasesCaseIdRouteImport
+      parentRoute: typeof AppCasesRouteRoute
+    }
   }
 }
+
+interface AppCasesRouteRouteChildren {
+  AppCasesCaseIdRoute: typeof AppCasesCaseIdRoute
+  AppCasesIndexRoute: typeof AppCasesIndexRoute
+}
+
+const AppCasesRouteRouteChildren: AppCasesRouteRouteChildren = {
+  AppCasesCaseIdRoute: AppCasesCaseIdRoute,
+  AppCasesIndexRoute: AppCasesIndexRoute,
+}
+
+const AppCasesRouteRouteWithChildren = AppCasesRouteRoute._addFileChildren(
+  AppCasesRouteRouteChildren,
+)
 
 interface AppInstancesRouteRouteChildren {
   AppInstancesInstanceIdRoute: typeof AppInstancesInstanceIdRoute
@@ -542,12 +592,12 @@ const AppSettingsRouteRouteWithChildren =
   AppSettingsRouteRoute._addFileChildren(AppSettingsRouteRouteChildren)
 
 interface AppRouteChildren {
+  AppCasesRouteRoute: typeof AppCasesRouteRouteWithChildren
   AppInstancesRouteRoute: typeof AppInstancesRouteRouteWithChildren
   AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
   AppErrorsErrorRoute: typeof AppErrorsErrorRoute
   AppAppsIndexRoute: typeof AppAppsIndexRoute
-  AppCasesIndexRoute: typeof AppCasesIndexRoute
   AppChatsIndexRoute: typeof AppChatsIndexRoute
   AppHelpCenterIndexRoute: typeof AppHelpCenterIndexRoute
   AppSessionsIndexRoute: typeof AppSessionsIndexRoute
@@ -556,12 +606,12 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppCasesRouteRoute: AppCasesRouteRouteWithChildren,
   AppInstancesRouteRoute: AppInstancesRouteRouteWithChildren,
   AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
   AppErrorsErrorRoute: AppErrorsErrorRoute,
   AppAppsIndexRoute: AppAppsIndexRoute,
-  AppCasesIndexRoute: AppCasesIndexRoute,
   AppChatsIndexRoute: AppChatsIndexRoute,
   AppHelpCenterIndexRoute: AppHelpCenterIndexRoute,
   AppSessionsIndexRoute: AppSessionsIndexRoute,
