@@ -23,6 +23,7 @@ import { Route as AppSessionsRouteRouteImport } from './routes/_app/sessions/rou
 import { Route as AppInstancesRouteRouteImport } from './routes/_app/instances/route'
 import { Route as AppCasesRouteRouteImport } from './routes/_app/cases/route'
 import { Route as AppUsersIndexRouteImport } from './routes/_app/users/index'
+import { Route as AppTgMenuIndexRouteImport } from './routes/_app/tg-menu/index'
 import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
 import { Route as AppSessionsIndexRouteImport } from './routes/_app/sessions/index'
 import { Route as AppInstancesIndexRouteImport } from './routes/_app/instances/index'
@@ -102,6 +103,11 @@ const AppUsersIndexRoute = AppUsersIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppUsersRouteRoute,
 } as any)
+const AppTgMenuIndexRoute = AppTgMenuIndexRouteImport.update({
+  id: '/tg-menu/',
+  path: '/tg-menu/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/instances/': typeof AppInstancesIndexRoute
   '/sessions/': typeof AppSessionsIndexRoute
   '/tasks/': typeof AppTasksIndexRoute
+  '/tg-menu/': typeof AppTgMenuIndexRoute
   '/users/': typeof AppUsersIndexRoute
 }
 export interface FileRoutesByTo {
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/instances': typeof AppInstancesIndexRoute
   '/sessions': typeof AppSessionsIndexRoute
   '/tasks': typeof AppTasksIndexRoute
+  '/tg-menu': typeof AppTgMenuIndexRoute
   '/users': typeof AppUsersIndexRoute
 }
 export interface FileRoutesById {
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/_app/instances/': typeof AppInstancesIndexRoute
   '/_app/sessions/': typeof AppSessionsIndexRoute
   '/_app/tasks/': typeof AppTasksIndexRoute
+  '/_app/tg-menu/': typeof AppTgMenuIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
 }
 export interface FileRouteTypes {
@@ -241,6 +250,7 @@ export interface FileRouteTypes {
     | '/instances/'
     | '/sessions/'
     | '/tasks/'
+    | '/tg-menu/'
     | '/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/instances'
     | '/sessions'
     | '/tasks'
+    | '/tg-menu'
     | '/users'
   id:
     | '__root__'
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/_app/instances/'
     | '/_app/sessions/'
     | '/_app/tasks/'
+    | '/_app/tg-menu/'
     | '/_app/users/'
   fileRoutesById: FileRoutesById
 }
@@ -397,6 +409,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/users/'
       preLoaderRoute: typeof AppUsersIndexRouteImport
       parentRoute: typeof AppUsersRouteRoute
+    }
+    '/_app/tg-menu/': {
+      id: '/_app/tg-menu/'
+      path: '/tg-menu'
+      fullPath: '/tg-menu/'
+      preLoaderRoute: typeof AppTgMenuIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/tasks/': {
       id: '/_app/tasks/'
@@ -539,6 +558,7 @@ interface AppRouteChildren {
   AppTasksRouteRoute: typeof AppTasksRouteRouteWithChildren
   AppUsersRouteRoute: typeof AppUsersRouteRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
+  AppTgMenuIndexRoute: typeof AppTgMenuIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -548,6 +568,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTasksRouteRoute: AppTasksRouteRouteWithChildren,
   AppUsersRouteRoute: AppUsersRouteRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
+  AppTgMenuIndexRoute: AppTgMenuIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

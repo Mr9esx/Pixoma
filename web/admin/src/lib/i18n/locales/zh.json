@@ -3,6 +3,7 @@
     "dashboard": "仪表盘",
     "instances": "实例",
     "cases": "Case",
+    "tgMenu": "TG 菜单",
     "tasks": "任务",
     "users": "用户",
     "sessions": "会话"
@@ -197,5 +198,28 @@
     "fieldDraft": "Draft",
     "fieldCreatedAt": "创建时间",
     "fieldUpdatedAt": "更新时间"
+  },
+  "tgMenu": {
+    "title": "TG 菜单",
+    "description": "配置 Telegram 主键盘按钮与动作。图片仅支持 http(s) URL，无本地上传。",
+    "addItem": "添加按钮",
+    "removeItem": "删除",
+    "fieldId": "ID",
+    "fieldLabel": "文案",
+    "fieldRow": "行",
+    "fieldCol": "列",
+    "fieldEnabled": "启用",
+    "fieldAction": "动作",
+    "fieldCaseId": "Case",
+    "fieldTag": "Tag",
+    "fieldPlaceholderText": "占位提示",
+    "fieldReplyText": "回复文字",
+    "fieldReplyImages": "图片 URL（每行一个）",
+    "actionOpenCase": "打开 Case",
+    "actionListByTag": "按 Tag 列 Case",
+    "actionPlaceholder": "占位提示",
+    "actionReplyMedia": "回复图文",
+    "updatedAt": "更新时间",
+    "save": "保存整份菜单"
   }
 }
