@@ -19,6 +19,24 @@ func TestValidate_FolderCaseMustExist(t *testing.T) {
 	}
 }
 
+func TestValidate_FolderChildMustBeFolder(t *testing.T) {
+	tree := domain.MenuTree{
+		ID: domain.DocumentIDDefault, BotID: domain.BotIDDefault,
+		Items: []domain.MenuNode{{
+			ID: "root", Label: "Root", Enabled: true, Kind: domain.KindFolder,
+			Children: []domain.MenuNode{{
+				ID: "bad", ParentID: "root", Label: "Bad", Enabled: true, Kind: domain.KindOpenCase, CaseIDs: []string{"c1"},
+			}},
+		}},
+	}
+	err := domain.Validate(context.Background(), tree, func(context.Context, string) (bool, error) {
+		return true, nil
+	})
+	if !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestValidate_OpenCaseNeedsExactlyOne(t *testing.T) {
 	tree := domain.MenuTree{
 		ID: domain.DocumentIDDefault, BotID: domain.BotIDDefault,

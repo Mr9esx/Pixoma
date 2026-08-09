@@ -87,8 +87,9 @@ func run(ctx context.Context) error {
 	userRepo := identitypersist.NewUserRepository(gdb)
 	menuStore := tgmenupersist.NewGormRepository(gdb)
 	menuSvc := &tgmenuapp.Service{
-		Store: menuStore,
-		Cases: tgmenuapp.CatalogCaseChecker{Repo: caseRepo},
+		Store:            menuStore,
+		Cases:            tgmenuapp.CatalogCaseChecker{Repo: caseRepo},
+		ListImageCaseIDs: tgmenuapp.CatalogImageCaseIDs(caseRepo),
 	}
 	menuReader := tgMenuReader{svc: menuSvc}
 	if n, err := seedCasesDir(ctx, caseRepo, cfg.CaseSeedDir); err != nil {

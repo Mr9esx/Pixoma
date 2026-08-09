@@ -62,7 +62,7 @@ func TestValidate_RejectsDuplicateLabelAndBadReplyMedia(t *testing.T) {
 		Items: []domain.MenuNode{{
 			ID: "parent", Label: "P", Enabled: true, Kind: domain.KindFolder,
 			Children: []domain.MenuNode{
-				{ID: "child", Label: "Same", Enabled: true, Kind: domain.KindPlaceholder},
+				{ID: "child", Label: "Same", Enabled: true, Kind: domain.KindFolder},
 			},
 		}, {
 			ID: "other", Label: "Same", Enabled: true, Kind: domain.KindPlaceholder,

@@ -35,14 +35,28 @@ function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
 
-function emptyNode(): MenuNode {
+function findParentNode(nodes: MenuNode[], id: string): MenuNode | null {
+  for (const node of nodes) {
+    if (node.children?.some((child) => child.id === id)) {
+      return node
+    }
+    if (node.children?.length) {
+      const found = findParentNode(node.children, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+function emptyNode(kind: MenuKind = 'placeholder'): MenuNode {
   return {
     id: `btn-${Date.now()}`,
     label: '',
     row: 0,
     col: 0,
     enabled: true,
-    kind: 'placeholder',
+    kind,
+    ...(kind === 'folder' ? { children: [], case_ids: [] } : {}),
   }
 }
 
@@ -232,6 +246,9 @@ export function TgMenuEditor() {
 
   const flatNodes = useMemo(() => flattenTree(items), [items])
   const selected = selectedId ? findNode(items, selectedId) : null
+  const parentOfSelected =
+    selectedId != null ? findParentNode(items, selectedId) : null
+  const parentIsFolder = parentOfSelected?.kind === 'folder'
 
   useEffect(() => {
     if (!menuQuery.data) return
@@ -269,7 +286,8 @@ export function TgMenuEditor() {
   }
 
   function addChildItem(parentId: string) {
-    const child = emptyNode()
+    const parent = findNode(items, parentId)
+    const child = emptyNode(parent?.kind === 'folder' ? 'folder' : 'placeholder')
     setItems((prev) => addChildToTree(prev, parentId, child))
     setSelectedId(child.id)
   }
@@ -395,6 +413,7 @@ export function TgMenuEditor() {
               node={selected}
               canRemove={countNodes(items) > 1}
               caseOptions={casesQuery.data ?? []}
+              parentIsFolder={parentIsFolder}
               onUpdate={updateNode}
               onKind={changeKind}
               onAddChild={addChildItem}
@@ -413,6 +432,7 @@ function NodeEditor({
   node,
   canRemove,
   caseOptions,
+  parentIsFolder,
   onUpdate,
   onKind,
   onAddChild,
@@ -421,6 +441,7 @@ function NodeEditor({
   node: MenuNode
   canRemove: boolean
   caseOptions: { id: string; name: string }[]
+  parentIsFolder: boolean
   onUpdate: (id: string, patch: Partial<MenuNode>) => void
   onKind: (id: string, kind: MenuKind) => void
   onAddChild: (parentId: string) => void
@@ -526,27 +547,31 @@ function NodeEditor({
         </div>
         <div className='min-w-56 flex-1 space-y-1.5'>
           <Label>{t('tgMenu.fieldKind')}</Label>
-          <Select
-            value={node.kind}
-            onValueChange={(value) => onKind(node.id, value as MenuKind)}
-          >
-            <SelectTrigger className='w-full'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='folder'>{t('tgMenu.kindFolder')}</SelectItem>
-              <SelectItem value='open_case'>{t('tgMenu.kindOpenCase')}</SelectItem>
-              <SelectItem value='list_cases_by_tag'>
-                {t('tgMenu.kindListByTag')}
-              </SelectItem>
-              <SelectItem value='placeholder'>
-                {t('tgMenu.kindPlaceholder')}
-              </SelectItem>
-              <SelectItem value='reply_media'>
-                {t('tgMenu.kindReplyMedia')}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          {parentIsFolder ? (
+            <p className='text-sm text-muted-foreground'>{t('tgMenu.kindFolder')}</p>
+          ) : (
+            <Select
+              value={node.kind}
+              onValueChange={(value) => onKind(node.id, value as MenuKind)}
+            >
+              <SelectTrigger className='w-full'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='folder'>{t('tgMenu.kindFolder')}</SelectItem>
+                <SelectItem value='open_case'>{t('tgMenu.kindOpenCase')}</SelectItem>
+                <SelectItem value='list_cases_by_tag'>
+                  {t('tgMenu.kindListByTag')}
+                </SelectItem>
+                <SelectItem value='placeholder'>
+                  {t('tgMenu.kindPlaceholder')}
+                </SelectItem>
+                <SelectItem value='reply_media'>
+                  {t('tgMenu.kindReplyMedia')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 

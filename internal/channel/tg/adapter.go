@@ -148,9 +148,16 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID int64, callbackID, 
 	case strings.HasPrefix(data, CBReplaceStart):
 		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBReplaceStart))
 		return a.replaceAndStart(ctx, chatID, id, userID)
+	case strings.HasPrefix(data, CBCasePreviewFolder):
+		rest := strings.TrimPrefix(data, CBCasePreviewFolder)
+		folderID, caseID, ok := strings.Cut(rest, ":")
+		if !ok || folderID == "" || caseID == "" {
+			return a.Out.SendText(ctx, chatID, "未知操作")
+		}
+		return a.showCasePreview(ctx, chatID, sharedkernel.CaseID(caseID), CBMenuBack+folderID)
 	case strings.HasPrefix(data, CBCasePreview):
 		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBCasePreview))
-		return a.showCasePreview(ctx, chatID, id)
+		return a.showCasePreview(ctx, chatID, id, CBImgList)
 	case strings.HasPrefix(data, CBCaseStart):
 		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBCaseStart))
 		return a.startCase(ctx, chatID, id, userID)
@@ -239,7 +246,7 @@ func (a *Adapter) dispatchMenuItem(ctx context.Context, chatID int64, userID str
 		if len(item.CaseIDs) == 0 {
 			return a.Out.SendMenu(ctx, chatID, "菜单配置无效：缺少 case")
 		}
-		return a.showCasePreview(ctx, chatID, sharedkernel.CaseID(item.CaseIDs[0]))
+		return a.showCasePreview(ctx, chatID, sharedkernel.CaseID(item.CaseIDs[0]), CBImgList)
 	case tgmenudomain.KindPlaceholder:
 		msg := strings.TrimSpace(item.PlaceholderText)
 		if msg == "" {
@@ -280,7 +287,7 @@ func (a *Adapter) showMenuFolder(ctx context.Context, chatID int64, itemID strin
 		doc := c.Document
 		rows = append(rows, []InlineButton{{
 			Text: fmt.Sprintf("%s · ¥%.0f", doc.Name, doc.Price),
-			Data: CBCasePreview + string(doc.ID),
+			Data: CBCasePreviewFolder + itemID + ":" + string(doc.ID),
 		}})
 	}
 
@@ -317,7 +324,7 @@ func (a *Adapter) sendReplyMedia(ctx context.Context, chatID int64, item tgmenud
 	return nil
 }
 
-func (a *Adapter) showCasePreview(ctx context.Context, chatID int64, id sharedkernel.CaseID) error {
+func (a *Adapter) showCasePreview(ctx context.Context, chatID int64, id sharedkernel.CaseID, backData string) error {
 	c, err := a.App.GetCase(ctx, id)
 	if err != nil {
 		return a.Out.SendText(ctx, chatID, "Case 不存在: "+err.Error())
@@ -347,9 +354,12 @@ func (a *Adapter) showCasePreview(ctx context.Context, chatID int64, id sharedke
 		b.WriteString("（mock）确认后将返回一张示例图")
 	}
 
+	if backData == "" {
+		backData = CBImgList
+	}
 	rows := [][]InlineButton{
 		{{Text: "▶ 开始 Case", Data: CBCaseStart + string(doc.ID)}},
-		{{Text: "« 返回列表", Data: CBImgList}},
+		{{Text: "« 返回列表", Data: backData}},
 	}
 	return a.Out.SendInline(ctx, chatID, b.String(), rows)
 }
