@@ -10,6 +10,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	tgmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tgmenu"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 )
 
@@ -22,6 +23,7 @@ type Options struct {
 	Users     *usersapi.Handler
 	Sessions  *sessionsapi.Handler
 	Tasks     *tasksapi.Handler
+	TGMenu    *tgmenuapi.Handler
 }
 
 // NewHandler returns the admin-api chi router (health, CORS, resource APIs).
@@ -58,6 +60,11 @@ func NewHandler(opts Options) http.Handler {
 	r.Route("/api/v1/tasks", func(r chi.Router) {
 		if opts.Tasks != nil {
 			opts.Tasks.Mount(r)
+		}
+	})
+	r.Route("/api/v1/tg-menu", func(r chi.Router) {
+		if opts.TGMenu != nil {
+			opts.TGMenu.Mount(r)
 		}
 	})
 

@@ -1,6 +1,6 @@
 # Admin API
 
-独立管理 HTTP 进程：健康检查、CORS、Comfy 实例 CRUD/观测，以及 Case / User / Session / Task 管理接口。
+独立管理 HTTP 进程：健康检查、CORS、Comfy 实例 CRUD/观测，以及 Case / User / Session / Task / TG Menu 管理接口。
 
 **本期无鉴权。** 只在本机或可信内网使用，不要对公网暴露。默认监听 `127.0.0.1:8081`。
 
@@ -8,11 +8,11 @@
 
 ```bash
 # 可选：复制示例配置（DSN 必须与 bot 同一库）
-cp configs/admin-api.example.yaml configs/admin-api.yaml
+# make run-admin-api / run-admin 在缺省时会自动从 example 复制
 
-make run-admin-api
-# 或
-go run ./apps/admin-api/cmd/admin-api
+make run-admin       # admin-api + web/admin 一起
+make run-admin-api   # 只起 API
+# 或：go run ./apps/admin-api/cmd/admin-api
 ```
 
 默认监听 `127.0.0.1:8081`。配置路径：`ADMIN_CONFIG` 或 `configs/admin-api.yaml`；`HTTP_ADDR`、`DATABASE_DSN`、`COMFY_MOCK` 可覆盖对应配置。

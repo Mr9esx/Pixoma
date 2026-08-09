@@ -18,6 +18,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	tgmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tgmenu"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
@@ -28,6 +29,8 @@ import (
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
+	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
+	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/infrastructure/persistence"
 )
 
 func main() {
@@ -62,6 +65,7 @@ func run(ctx context.Context) error {
 			&userpersist.UserRow{},
 			&sesspersist.SessionRow{},
 			&taskpersist.TaskRow{},
+			&tgmenupersist.MenuRow{},
 		},
 	})
 	if err != nil {
@@ -78,6 +82,11 @@ func run(ctx context.Context) error {
 	userRepo := userpersist.NewUserRepository(gdb)
 	sessionRepo := sesspersist.NewSessionRepository(gdb)
 	taskRepo := taskpersist.NewTaskRepository(gdb)
+	menuStore := tgmenupersist.NewGormRepository(gdb)
+	menuSvc := &tgmenuapp.Service{
+		Store: menuStore,
+		Cases: tgmenuapp.CatalogCaseChecker{Repo: caseRepo},
+	}
 	orch := orchestrator.New(taskRepo, pool, nil, notify.Nop{})
 	orch.Sessions = sessionRepo
 
@@ -94,6 +103,7 @@ func run(ctx context.Context) error {
 	usersAPI := &usersapi.Handler{Repo: userRepo}
 	sessionsAPI := &sessionsapi.Handler{Repo: sessionRepo}
 	tasksAPI := &tasksapi.Handler{Tasks: taskRepo, Cancel: orch}
+	tgMenuAPI := &tgmenuapi.Handler{Svc: menuSvc}
 
 	h := server.NewHandler(server.Options{
 		CORSOrigins: cfg.CORSOrigins,
@@ -102,6 +112,7 @@ func run(ctx context.Context) error {
 		Users:       usersAPI,
 		Sessions:    sessionsAPI,
 		Tasks:       tasksAPI,
+		TGMenu:      tgMenuAPI,
 	})
 	addr := cfg.HTTPAddr
 	srv := &http.Server{
