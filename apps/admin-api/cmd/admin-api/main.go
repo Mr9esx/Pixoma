@@ -65,7 +65,9 @@ func run(ctx context.Context) error {
 			&userpersist.UserRow{},
 			&sesspersist.SessionRow{},
 			&taskpersist.TaskRow{},
-			&tgmenupersist.MenuRow{},
+			&tgmenupersist.MenuHeaderRow{},
+			&tgmenupersist.MenuItemRow{},
+			&tgmenupersist.MenuItemCaseRow{},
 		},
 	})
 	if err != nil {
