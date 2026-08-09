@@ -694,6 +694,100 @@ func TestDispatch_FolderShowsInlineChildrenAndCases(t *testing.T) {
 	}
 }
 
+func TestDispatch_FolderShowsChildFolderButtons(t *testing.T) {
+	ctx := context.Background()
+	out := &memOut{}
+	ad := tg.New(newFacade(&memCases{}), out)
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{{
+		ID: "btn-image", Label: tg.BtnImage, Enabled: true, Kind: tgmenudomain.KindFolder,
+		Children: []tgmenudomain.MenuNode{{
+			ID: "sub-anime", ParentID: "btn-image", Label: "二次元", Enabled: true, Kind: tgmenudomain.KindFolder,
+		}},
+	}}}}
+
+	if err := ad.HandleText(ctx, 1, tg.BtnImage, "u"); err != nil {
+		t.Fatal(err)
+	}
+	rows := out.inlineRows[len(out.inlineRows)-1]
+	var hasChildFolder bool
+	for _, row := range rows {
+		for _, btn := range row {
+			if btn.Text == "📁 二次元" && btn.Data == tg.CBMenuFolder+"sub-anime" {
+				hasChildFolder = true
+			}
+		}
+	}
+	if !hasChildFolder {
+		t.Fatalf("want child folder button, rows=%+v", rows)
+	}
+}
+
+func TestCallback_MenuBackToParentFolder(t *testing.T) {
+	ctx := context.Background()
+	out := &memOut{}
+	ad := tg.New(newFacade(&memCases{}), out)
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{{
+		ID: "btn-image", Label: tg.BtnImage, Enabled: true, Kind: tgmenudomain.KindFolder,
+		Children: []tgmenudomain.MenuNode{{
+			ID: "sub-anime", ParentID: "btn-image", Label: "二次元", Enabled: true, Kind: tgmenudomain.KindFolder,
+			CaseIDs: []string{},
+		}},
+	}}}}
+
+	if err := ad.HandleCallback(ctx, 1, "cb1", tg.CBMenuFolder+"sub-anime", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if out.inlines[len(out.inlines)-1] != "二次元" {
+		t.Fatalf("sub folder title=%v", out.inlines)
+	}
+
+	if err := ad.HandleCallback(ctx, 1, "cb2", tg.CBMenuBack+"btn-image", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if out.inlines[len(out.inlines)-1] != tg.BtnImage {
+		t.Fatalf("parent folder title=%v", out.inlines)
+	}
+	rows := out.inlineRows[len(out.inlineRows)-1]
+	var hasChildFolder bool
+	for _, row := range rows {
+		for _, btn := range row {
+			if btn.Data == tg.CBMenuFolder+"sub-anime" {
+				hasChildFolder = true
+			}
+		}
+	}
+	if !hasChildFolder {
+		t.Fatalf("parent should list child folder, rows=%+v", rows)
+	}
+}
+
+func TestHandleText_NestedLabelDoesNotDispatchAsRoot(t *testing.T) {
+	ctx := context.Background()
+	out := &memOut{}
+	ad := tg.New(newFacade(&memCases{}), out)
+	ad.Menu = staticMenu{tree: tgmenudomain.MenuTree{Items: []tgmenudomain.MenuNode{{
+		ID: "btn-image", Label: tg.BtnImage, Enabled: true, Kind: tgmenudomain.KindFolder,
+		Children: []tgmenudomain.MenuNode{{
+			ID: "sub-anime", ParentID: "btn-image", Label: "二次元", Enabled: true, Kind: tgmenudomain.KindFolder,
+		}},
+	}}}}
+
+	tree, _ := ad.Menu.GetMenu(ctx)
+	if _, ok := tg.FindEnabledRootByLabel(tree, "二次元"); ok {
+		t.Fatal("nested label must not match root lookup")
+	}
+
+	if err := ad.HandleText(ctx, 1, "二次元", "u"); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.inlines) > 0 {
+		t.Fatalf("nested label must not open folder inline, inlines=%v", out.inlines)
+	}
+	if len(out.menus) == 0 || !strings.Contains(out.menus[len(out.menus)-1], "欢迎") {
+		t.Fatalf("want main menu refresh, menus=%v", out.menus)
+	}
+}
+
 func TestCallback_MenuFolderAndBack(t *testing.T) {
 	ctx := context.Background()
 	cases := &memCases{}
