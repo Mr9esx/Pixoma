@@ -17,7 +17,16 @@
     "retry": "Retry",
     "errorGeneric": "Request failed",
     "successSaved": "Saved",
-    "sampleNote": "Based on the current fetch sample (limited by limit)"
+    "sampleNote": "Based on the current fetch sample (limited by limit)",
+    "commandPlaceholder": "Type a command or search...",
+    "commandEmpty": "No results found.",
+    "commandNavigation": "Navigation",
+    "commandTheme": "Theme"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   },
   "lang": {
     "zh": "中文",
