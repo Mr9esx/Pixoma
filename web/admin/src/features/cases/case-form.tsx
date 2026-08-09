@@ -238,6 +238,7 @@ export function CaseForm(props: Props) {
         }}
         onChange={(basics) => setDraft((prev) => ({ ...prev, ...basics }))}
         idEditable={props.mode === 'create'}
+        showEnabled={props.mode === 'create'}
         disabled={pending}
       />
 

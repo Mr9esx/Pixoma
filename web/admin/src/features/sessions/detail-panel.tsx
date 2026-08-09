@@ -6,6 +6,7 @@ import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { getSession } from '@/lib/api/sessions'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { SessionRecord } from '@/lib/api/types'
+import { sessionStatusLabelKey } from './list-panel'
 
 type Props = {
   id: string
@@ -39,10 +40,14 @@ function SessionFields({
   session: SessionRecord
   t: (k: string) => string
 }) {
+  const statusKey = sessionStatusLabelKey(session.status)
   return (
     <dl className='space-y-3'>
       <Field label={t('sessions.fieldId')} value={session.id} />
-      <Field label={t('sessions.fieldStatus')} value={session.status} />
+      <Field
+        label={t('sessions.fieldStatus')}
+        value={statusKey ? t(statusKey) : session.status}
+      />
       <Field label={t('sessions.fieldUserId')} value={session.user_id} />
       <Field label={t('sessions.fieldChatId')} value={String(session.chat_id)} />
       <Field label={t('sessions.fieldCaseId')} value={session.case_id} />

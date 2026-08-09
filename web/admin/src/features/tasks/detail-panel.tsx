@@ -9,6 +9,7 @@ import { cancelTask, getTask } from '@/lib/api/tasks'
 import { queryKeys } from '@/lib/api/query-keys'
 import { taskActionErrorMessage } from '@/lib/api/task-errors'
 import type { TaskRecord } from '@/lib/api/types'
+import { taskStatusLabelKey } from './list-panel'
 
 type Props = {
   id: string
@@ -24,10 +25,14 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
 }
 
 function TaskFields({ task, t }: { task: TaskRecord; t: (k: string) => string }) {
+  const statusKey = taskStatusLabelKey(task.status)
   return (
     <dl className='space-y-3'>
       <Field label={t('tasks.fieldId')} value={task.id} />
-      <Field label={t('tasks.fieldStatus')} value={task.status} />
+      <Field
+        label={t('tasks.fieldStatus')}
+        value={statusKey ? t(statusKey) : task.status}
+      />
       <Field label={t('tasks.fieldCaseId')} value={task.case_id} />
       <Field label={t('tasks.fieldSessionId')} value={task.session_id} />
       <Field

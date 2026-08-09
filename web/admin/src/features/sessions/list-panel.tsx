@@ -25,6 +25,27 @@ export const SESSION_STATUS_FILTERS = [
 
 export type SessionStatusFilter = (typeof SESSION_STATUS_FILTERS)[number]
 
+const SESSION_STATUS_LABEL_KEYS: Record<
+  Exclude<SessionStatusFilter, 'all'>,
+  string
+> = {
+  collecting: 'sessions.statusCollecting',
+  confirming: 'sessions.statusConfirming',
+  submitted: 'sessions.statusSubmitted',
+  exited: 'sessions.statusExited',
+}
+
+export function sessionStatusLabelKey(
+  status: string,
+): string | undefined {
+  if (status in SESSION_STATUS_LABEL_KEYS) {
+    return SESSION_STATUS_LABEL_KEYS[
+      status as Exclude<SessionStatusFilter, 'all'>
+    ]
+  }
+  return undefined
+}
+
 export type SessionListFilters = {
   user_id: string
   status: SessionStatusFilter
@@ -94,7 +115,7 @@ export function SessionListPanel({
                 <SelectItem key={status} value={status}>
                   {status === 'all'
                     ? t('sessions.filterStatusAll')
-                    : status}
+                    : t(SESSION_STATUS_LABEL_KEYS[status])}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -136,6 +157,7 @@ export function SessionListPanel({
         <ul className='min-h-0 flex-1 divide-y overflow-auto'>
           {items.map((item) => {
             const selected = selectedId === item.id
+            const statusKey = sessionStatusLabelKey(item.status)
             return (
               <li key={item.id}>
                 <Link
@@ -149,7 +171,7 @@ export function SessionListPanel({
                   <div className='flex items-center justify-between gap-2'>
                     <span className='font-medium'>{item.id}</span>
                     <span className='text-muted-foreground shrink-0 text-xs'>
-                      {item.status}
+                      {statusKey ? t(statusKey) : item.status}
                     </span>
                   </div>
                   <div className='text-muted-foreground mt-0.5 truncate text-xs'>

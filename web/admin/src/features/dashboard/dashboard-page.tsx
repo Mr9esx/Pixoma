@@ -15,6 +15,7 @@ import { listInstances } from '@/lib/api/instances'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTasks } from '@/lib/api/tasks'
 import { aggregateDashboard } from '@/lib/dashboard/aggregate'
+import { taskStatusLabelKey } from '@/features/tasks/list-panel'
 
 const DASHBOARD_LIST_LIMIT = 200
 
@@ -296,12 +297,15 @@ function TasksCard() {
           <p className='text-muted-foreground text-sm'>{t('common.empty')}</p>
         ) : (
           <RatioBar
-            segments={entries.map(([status, count], i) => ({
-              key: status,
-              label: status,
-              count,
-              className: TASK_STATUS_COLORS[i % TASK_STATUS_COLORS.length]!,
-            }))}
+            segments={entries.map(([status, count], i) => {
+              const statusKey = taskStatusLabelKey(status)
+              return {
+                key: status,
+                label: statusKey ? t(statusKey) : status,
+                count,
+                className: TASK_STATUS_COLORS[i % TASK_STATUS_COLORS.length]!,
+              }
+            })}
           />
         )}
       </CardContent>
