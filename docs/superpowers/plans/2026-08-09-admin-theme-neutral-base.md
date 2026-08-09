@@ -39,10 +39,10 @@ base-ref: 2d2fdd33bbef674e3519a2ef547591fc34ffb34e
 - Create or extend: `web/admin/src/styles/theme-neutral.contract.test.ts`（或现有 `shell-layout.contract.test.ts` 旁新建更贴切）
 - Read: `web/admin/components.json`, `web/admin/src/styles/theme.css`
 
-- [ ] **Step 1.1** 写失败测试：读 `components.json`，断言 `tailwind.baseColor === "neutral"`
-- [ ] **Step 1.2** 写失败测试：从 `theme.css` 的 `.dark` 块解析 `--background`，断言为 `oklch(0.145 0 0)`（或 chroma 通道为 0）
-- [ ] **Step 1.3** 运行 `pnpm --dir web/admin exec vitest run src/styles/theme-neutral.contract.test.ts`（路径以实际为准），确认失败
-- [ ] **Step 1.4** Commit：`test: 锁定 admin neutral 基色合同`
+- [x] **Step 1.1** 写失败测试：读 `components.json`，断言 `tailwind.baseColor === "neutral"`
+- [x] **Step 1.2** 写失败测试：从 `theme.css` 的 `.dark` 块解析 `--background`，断言为 `oklch(0.145 0 0)`（或 chroma 通道为 0）
+- [x] **Step 1.3** 运行 `pnpm --dir web/admin exec vitest run src/styles/theme-neutral.contract.test.ts`（路径以实际为准），确认失败
+- [x] **Step 1.4** Commit：`test: 锁定 admin neutral 基色合同`
 
 ## Task 2: 迁移基色与 token
 
@@ -50,10 +50,10 @@ base-ref: 2d2fdd33bbef674e3519a2ef547591fc34ffb34e
 - Modify: `web/admin/components.json`
 - Modify: `web/admin/src/styles/theme.css`
 
-- [ ] **Step 2.1** `baseColor` 改为 `"neutral"`
-- [ ] **Step 2.2** 按官方 Default Theme CSS（neutral）替换 `:root` / `.dark` 语义色；保留 `--radius`、字体 `@theme`、`--sidebar: var(--background)` 等映射
-- [ ] **Step 2.3** 重跑合同测试，确认通过
-- [ ] **Step 2.4** Commit：`feat: admin 主题基色改为 neutral`
+- [x] **Step 2.1** `baseColor` 改为 `"neutral"`
+- [x] **Step 2.2** 按官方 Default Theme CSS（neutral）替换 `:root` / `.dark` 语义色；保留 `--radius`、字体 `@theme`、`--sidebar: var(--background)` 等映射
+- [x] **Step 2.3** 重跑合同测试，确认通过
+- [x] **Step 2.4** Commit：`feat: admin 主题基色改为 neutral`
 
 ## Task 3: 清理硬编码并回归
 
@@ -61,8 +61,8 @@ base-ref: 2d2fdd33bbef674e3519a2ef547591fc34ffb34e
 - Modify: `web/admin/src/lib/show-submitted-data.tsx`
 - Verify: `rg '\bslate-[0-9]' web/admin`
 
-- [ ] **Step 3.1** `bg-slate-950` → `bg-muted`（或更合适的语义色）
-- [ ] **Step 3.2** 确认无其它 `slate-*` 色阶硬编码
-- [ ] **Step 3.3** 运行相关 vitest（合同 + 既有 theme/shell）；必要时目视 light/dark
-- [ ] **Step 3.4** Commit：`fix: 去掉 admin 残留 slate 硬编码`
-- [ ] **Step 3.5** 勾选 `docs/openspec/changes/admin-theme-neutral-base/tasks.md` 对应项
+- [x] **Step 3.1** `bg-slate-950` → `bg-muted`（或更合适的语义色）
+- [x] **Step 3.2** 确认无其它 `slate-*` 色阶硬编码
+- [x] **Step 3.3** 运行相关 vitest（合同 + 既有 theme/shell）；必要时目视 light/dark
+- [x] **Step 3.4** Commit：`fix: 去掉 admin 残留 slate 硬编码`
+- [x] **Step 3.5** 勾选 `docs/openspec/changes/admin-theme-neutral-base/tasks.md` 对应项
