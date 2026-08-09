@@ -17,5 +17,6 @@ type Messenger interface {
 	SendMenu(ctx context.Context, chatID int64, text string) error
 	SendInline(ctx context.Context, chatID int64, text string, rows [][]InlineButton) error
 	SendPhoto(ctx context.Context, chatID int64, blob sharedkernel.BlobRef, caption string) error
+	SendPhotoURL(ctx context.Context, chatID int64, imageURL, caption string) error
 	AnswerCallback(ctx context.Context, callbackID, text string) error
 }
