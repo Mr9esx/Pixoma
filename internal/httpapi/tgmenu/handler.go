@@ -23,18 +23,24 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Put("/", h.put)
 }
 
-type menuDTO struct {
+type treeDTO struct {
 	ID        string            `json:"id"`
-	Items     []domain.MenuItem `json:"items"`
+	BotID     string            `json:"bot_id"`
+	Items     []domain.MenuNode `json:"items"`
 	UpdatedAt time.Time         `json:"updated_at"`
 }
 
 type putBody struct {
-	Items []domain.MenuItem `json:"items"`
+	Items []domain.MenuNode `json:"items"`
 }
 
-func toDTO(doc domain.MenuDocument) menuDTO {
-	return menuDTO{ID: doc.ID, Items: doc.Items, UpdatedAt: doc.UpdatedAt}
+func toDTO(tree domain.MenuTree) treeDTO {
+	return treeDTO{
+		ID:        tree.ID,
+		BotID:     tree.BotID,
+		Items:     tree.Items,
+		UpdatedAt: tree.UpdatedAt,
+	}
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
@@ -42,12 +48,12 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "tg menu service not configured")
 		return
 	}
-	doc, err := h.Svc.Get(r.Context())
+	tree, err := h.Svc.Get(r.Context())
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(doc))
+	writeJSON(w, http.StatusOK, toDTO(tree))
 }
 
 func (h *Handler) put(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +66,7 @@ func (h *Handler) put(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	doc, err := h.Svc.Replace(r.Context(), body.Items)
+	tree, err := h.Svc.Replace(r.Context(), domain.MenuTree{Items: body.Items})
 	if err != nil {
 		if errors.Is(err, domain.ErrValidation) {
 			writeErr(w, http.StatusBadRequest, err.Error())
@@ -69,7 +75,25 @@ func (h *Handler) put(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(doc))
+	writeJSON(w, http.StatusOK, toDTO(tree))
+}
+
+// ListPlacements returns menu paths where a case is mounted.
+func (h *Handler) ListPlacements(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.Svc == nil {
+		writeErr(w, http.StatusInternalServerError, "tg menu service not configured")
+		return
+	}
+	caseID := chi.URLParam(r, "id")
+	placements, err := h.Svc.ListPlacementsByCase(r.Context(), caseID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if placements == nil {
+		placements = []domain.MenuPlacement{}
+	}
+	writeJSON(w, http.StatusOK, placements)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

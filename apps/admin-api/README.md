@@ -73,17 +73,20 @@ curl -s -X POST localhost:8081/api/v1/tasks/<id>/cancel
 
 ## TG Menu
 
-整份读写主菜单配置（表 `tg_menu_configs`，文档 id=`default`）。PUT 为整份替换；校验失败返回 400。
+树形读写主菜单（表 `tg_menus` + `tg_menu_items`，文档 id=`default`）。PUT 为整份替换；校验失败返回 400。
 
 ```bash
 curl -s localhost:8081/api/v1/tg-menu
 
 curl -s -X PUT localhost:8081/api/v1/tg-menu \
   -H 'Content-Type: application/json' \
-  -d '{"items":[{"id":"btn-image","label":"🖼 图片","row":0,"col":0,"enabled":true,"action":"list_cases_by_tag","tag":"image"}]}'
+  -d '{"items":[{"id":"btn-image","label":"🖼 图片","row":0,"col":0,"enabled":true,"kind":"folder","case_ids":["<case-id>"]}]}'
+
+# Case 在菜单中的挂载路径
+curl -s localhost:8081/api/v1/cases/<case-id>/menu-placements
 ```
 
-动作：`open_case` / `list_cases_by_tag` / `placeholder` / `reply_media`（图片仅 http(s) URL，无本地上传）。
+节点类型 `kind`：`folder` / `open_case` / `list_cases_by_tag` / `placeholder` / `reply_media`（图片仅 http(s) URL，无本地上传）。
 
 ## 与 bot 的边界
 

@@ -46,6 +46,9 @@ func NewHandler(opts Options) http.Handler {
 		if opts.Cases != nil {
 			opts.Cases.Mount(r)
 		}
+		if opts.TGMenu != nil {
+			r.Get("/{id}/menu-placements", opts.TGMenu.ListPlacements)
+		}
 	})
 	r.Route("/api/v1/users", func(r chi.Router) {
 		if opts.Users != nil {
