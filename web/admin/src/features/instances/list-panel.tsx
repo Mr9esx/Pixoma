@@ -1,0 +1,96 @@
+import { Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
+import { EmptyState } from '@/components/feedback/empty-state'
+import { ErrorBanner } from '@/components/feedback/error-banner'
+import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { Button } from '@/components/ui/button'
+import type { ComfyInstance } from '@/lib/api/types'
+import { cn } from '@/lib/utils'
+
+type Props = {
+  items: ComfyInstance[]
+  selectedId?: string
+  isLoading?: boolean
+  isError?: boolean
+  errorMessage?: string
+  onRetry?: () => void
+}
+
+export function InstanceListPanel({
+  items,
+  selectedId,
+  isLoading,
+  isError,
+  errorMessage,
+  onRetry,
+}: Props) {
+  const { t } = useTranslation()
+
+  return (
+    <div className='flex h-full min-h-0 flex-col' data-testid='instances-list-panel'>
+      <div className='flex items-center justify-between gap-2 border-b px-4 py-3'>
+        <h2 className='text-sm font-semibold'>{t('instances.title')}</h2>
+        <Button asChild size='sm'>
+          <Link to='/instances/$instanceId' params={{ instanceId: 'new' }}>
+            {t('common.create')}
+          </Link>
+        </Button>
+      </div>
+
+      {isError ? (
+        <div className='p-4'>
+          <ErrorBanner message={errorMessage} onRetry={onRetry} />
+        </div>
+      ) : null}
+
+      {isLoading ? (
+        <div className='p-4'>
+          <LoadingSkeleton rows={5} />
+        </div>
+      ) : null}
+
+      {!isLoading && !isError && items.length === 0 ? (
+        <EmptyState message={t('instances.empty')} />
+      ) : null}
+
+      {!isLoading && !isError && items.length > 0 ? (
+        <ul className='min-h-0 flex-1 divide-y overflow-auto'>
+          {items.map((item) => {
+            const selected = selectedId === item.id
+            return (
+              <li key={item.id}>
+                <Link
+                  to='/instances/$instanceId'
+                  params={{ instanceId: item.id }}
+                  className={cn(
+                    'block w-full px-4 py-3 text-left text-sm hover:bg-accent',
+                    selected && 'bg-accent',
+                  )}
+                >
+                  <div className='flex items-center justify-between gap-2'>
+                    <span className='font-medium'>{item.id}</span>
+                    <span
+                      className={cn(
+                        'shrink-0 text-xs',
+                        item.enabled
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {item.enabled
+                        ? t('instances.enabled')
+                        : t('instances.disabled')}
+                    </span>
+                  </div>
+                  <div className='text-muted-foreground mt-0.5 truncate text-xs'>
+                    {item.base_url}
+                  </div>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+    </div>
+  )
+}

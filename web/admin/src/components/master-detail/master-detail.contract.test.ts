@@ -12,7 +12,7 @@ const SHELL = join(here, 'master-detail-shell.tsx')
 const EMPTY = join(srcRoot, 'components/feedback/empty-state.tsx')
 const ERROR = join(srcRoot, 'components/feedback/error-banner.tsx')
 const LOADING = join(srcRoot, 'components/feedback/loading-skeleton.tsx')
-const INSTANCES = join(srcRoot, 'routes/_app/instances/index.tsx')
+const INSTANCES_ROUTE = join(srcRoot, 'routes/_app/instances/route.tsx')
 
 const FEEDBACK_I18N_KEYS = [
   'common.selectItem',
@@ -68,8 +68,8 @@ describe('Master–Detail shell + feedback primitives', () => {
     expect(loading).toMatch(/t\('common\.loading'|animate-pulse/)
   })
 
-  it('instances placeholder route demonstrates MasterDetailShell', () => {
-    const source = readFileSync(INSTANCES, 'utf8')
+  it('instances layout route mounts MasterDetailShell', () => {
+    const source = readFileSync(INSTANCES_ROUTE, 'utf8')
     expect(source).toContain('MasterDetailShell')
   })
 })
