@@ -139,6 +139,18 @@
 | enabled | index | |
 | created_at, updated_at | | |
 
+### 2.6 `tg_menu_configs`
+
+Telegram 主 ReplyKeyboard 配置真相源（单文档，`id` 固定为 `default`）。
+
+| 列 | 约束 | 说明 |
+|---|---|---|
+| id | PK | 文档 id（当前仅 `default`） |
+| items_json | NOT NULL | `MenuItem[]` JSON（label/row/col/action/`reply` 等） |
+| updated_at | NOT NULL | UTC |
+
+空表首次读时由应用层 upsert 默认种子（对齐现网六键主菜单）。`open_case` 的 `case_id` 逻辑指向 `catalog_cases.id`（无物理 FK）。
+
 > SQLite **未声明物理外键**；关联由应用层保证（GORM 默认不强制 FK）。
 
 ---
@@ -152,6 +164,7 @@ erDiagram
   catalog_cases ||--o{ sessions : "case_id (逻辑)"
   catalog_cases ||--o{ tasks : "case_id (逻辑)"
   comfy_instances ||--o{ tasks : "instance_id (派发后)"
+  tg_menu_configs }o--o| catalog_cases : "open_case.case_id (逻辑)"
 
   users {
     string id PK
@@ -201,6 +214,12 @@ erDiagram
     text doc_json
     bool enabled
   }
+
+  tg_menu_configs {
+    string id PK
+    text items_json
+    datetime updated_at
+  }
 ```
 
 读法：
@@ -208,6 +227,7 @@ erDiagram
 - **强业务链**：`users` ← `sessions` ← `tasks`
 - **Case**：Session/Task 用字符串 `case_id` 指向目录
 - **实例**：仅在 Task `queued+` 后写入 `instance_id`
+- **TG 主菜单**：`tg_menu_configs` 存整份键盘；`open_case` 逻辑引用 Case
 
 ---
 
@@ -291,7 +311,8 @@ flowchart LR
 | tasks | `internal/runtime/infrastructure/persistence` |
 | comfy_instances / Pool | `internal/platform/instance` |
 | catalog_cases | `internal/catalog/infrastructure/persistence` |
-| HTTP API | `internal/httpapi/comfyinstances` |
-| 接线 | `apps/bot/cmd/comfyui-bot/main.go` |
+| tg_menu_configs | `internal/tgmenu`（domain/application/persistence）；HTTP `internal/httpapi/tgmenu` |
+| HTTP API | `internal/httpapi/comfyinstances` 等 |
+| 接线 | `apps/bot/cmd/comfyui-bot/main.go`、`apps/admin-api/cmd/admin-api/main.go` |
 
 设计原文：`docs/superpowers/specs/2026-08-08-comfy-multi-instance-design.md`
