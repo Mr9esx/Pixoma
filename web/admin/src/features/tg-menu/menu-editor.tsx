@@ -181,6 +181,8 @@ function normalizeNode(node: MenuNode): MenuNode {
 
   switch (node.kind) {
     case 'folder': {
+      const intro = node.intro_text?.trim()
+      if (intro) next.intro_text = intro
       const caseIds = (node.case_ids ?? []).map((id) => id.trim()).filter(Boolean)
       if (caseIds.length) next.case_ids = caseIds
       if (node.children?.length) {
@@ -212,6 +214,33 @@ function normalizeNode(node: MenuNode): MenuNode {
   return next
 }
 
+function ancestorIds(nodes: MenuNode[], targetId: string, trail: string[] = []): string[] | null {
+  for (const node of nodes) {
+    if (node.id === targetId) return trail
+    if (node.children?.length) {
+      const found = ancestorIds(node.children, targetId, [...trail, node.id])
+      if (found) return found
+    }
+  }
+  return null
+}
+
+function visibleTreeRows(
+  nodes: MenuNode[],
+  expanded: Set<string>,
+  depth = 0,
+): FlatNode[] {
+  const out: FlatNode[] = []
+  for (const node of nodes) {
+    out.push({ node, depth })
+    const kids = node.children ?? []
+    if (node.kind === 'folder' && kids.length > 0 && expanded.has(node.id)) {
+      out.push(...visibleTreeRows(kids, expanded, depth + 1))
+    }
+  }
+  return out
+}
+
 function kindLabelKey(kind: MenuKind): string {
   switch (kind) {
     case 'folder':
@@ -233,6 +262,7 @@ export function TgMenuEditor() {
   const [items, setItems] = useState<MenuNode[]>([])
   const [updatedAt, setUpdatedAt] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
 
   const menuQuery = useQuery({
     queryKey: queryKeys.tgMenu.all,
@@ -244,11 +274,15 @@ export function TgMenuEditor() {
     queryFn: () => listCases({ limit: 200 }),
   })
 
-  const flatNodes = useMemo(() => flattenTree(items), [items])
+  const visibleNodes = useMemo(
+    () => visibleTreeRows(items, expandedIds),
+    [items, expandedIds],
+  )
   const selected = selectedId ? findNode(items, selectedId) : null
   const parentOfSelected =
     selectedId != null ? findParentNode(items, selectedId) : null
   const parentIsFolder = parentOfSelected?.kind === 'folder'
+  const isRootItem = parentOfSelected == null
 
   useEffect(() => {
     if (!menuQuery.data) return
@@ -260,6 +294,17 @@ export function TgMenuEditor() {
       return menuQuery.data.items[0]?.id ?? null
     })
   }, [menuQuery.data])
+
+  useEffect(() => {
+    if (!selectedId) return
+    const ancestors = ancestorIds(items, selectedId)
+    if (!ancestors) return
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      for (const id of ancestors) next.add(id)
+      return next
+    })
+  }, [selectedId, items])
 
   const saveMutation = useMutation({
     mutationFn: () => putTgMenu(items.map(normalizeNode)),
@@ -289,7 +334,17 @@ export function TgMenuEditor() {
     const parent = findNode(items, parentId)
     const child = emptyNode(parent?.kind === 'folder' ? 'folder' : 'placeholder')
     setItems((prev) => addChildToTree(prev, parentId, child))
+    setExpandedIds((prev) => new Set(prev).add(parentId))
     setSelectedId(child.id)
+  }
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   function removeSelected() {
@@ -362,44 +417,65 @@ export function TgMenuEditor() {
               </div>
             </div>
 
-            {flatNodes.length === 0 ? (
+            {visibleNodes.length === 0 ? (
               <EmptyState message={t('common.empty')} />
             ) : (
               <ul className='min-h-0 flex-1 overflow-auto'>
-                {flatNodes.map(({ node, depth }) => {
+                {visibleNodes.map(({ node, depth }) => {
                   const active = selectedId === node.id
+                  const hasKids =
+                    node.kind === 'folder' && (node.children?.length ?? 0) > 0
+                  const expanded = expandedIds.has(node.id)
                   return (
                     <li key={node.id}>
-                      <button
-                        type='button'
-                        onClick={() => setSelectedId(node.id)}
+                      <div
                         className={cn(
-                          'block w-full border-b px-4 py-3 text-left transition-colors',
+                          'flex w-full items-stretch border-b transition-colors',
                           active ? 'bg-muted' : 'hover:bg-muted/50',
                         )}
-                        style={{ paddingLeft: `${16 + depth * 16}px` }}
+                        style={{ paddingLeft: `${8 + depth * 16}px` }}
                       >
-                        <div className='flex items-center justify-between gap-2'>
-                          <span className='truncate text-sm font-medium'>
-                            {node.label.trim() || t('tgMenu.untitled')}
-                          </span>
-                          <span
-                            className={cn(
-                              'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]',
-                              node.enabled
-                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                                : 'bg-muted text-muted-foreground',
-                            )}
+                        {hasKids ? (
+                          <button
+                            type='button'
+                            className='w-8 shrink-0 text-xs text-muted-foreground'
+                            aria-label={expanded ? 'collapse' : 'expand'}
+                            onClick={() => toggleExpanded(node.id)}
                           >
-                            {node.enabled
-                              ? t('tgMenu.enabledShort')
-                              : t('tgMenu.disabledShort')}
-                          </span>
-                        </div>
-                        <p className='mt-1 truncate text-xs text-muted-foreground'>
-                          {t(kindLabelKey(node.kind))} · r{node.row}/c{node.col}
-                        </p>
-                      </button>
+                            {expanded ? '▾' : '▸'}
+                          </button>
+                        ) : (
+                          <span className='w-8 shrink-0' />
+                        )}
+                        <button
+                          type='button'
+                          onClick={() => setSelectedId(node.id)}
+                          className='min-w-0 flex-1 py-3 pr-4 text-left'
+                        >
+                          <div className='flex items-center justify-between gap-2'>
+                            <span className='truncate text-sm font-medium'>
+                              {node.kind === 'folder' ? '📁 ' : ''}
+                              {node.label.trim() || t('tgMenu.untitled')}
+                            </span>
+                            <span
+                              className={cn(
+                                'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]',
+                                node.enabled
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                                  : 'bg-muted text-muted-foreground',
+                              )}
+                            >
+                              {node.enabled
+                                ? t('tgMenu.enabledShort')
+                                : t('tgMenu.disabledShort')}
+                            </span>
+                          </div>
+                          <p className='mt-1 truncate text-xs text-muted-foreground'>
+                            {t(kindLabelKey(node.kind))}
+                            {depth === 0 ? ` · r${node.row}/c${node.col}` : ''}
+                          </p>
+                        </button>
+                      </div>
                     </li>
                   )
                 })}
@@ -414,9 +490,11 @@ export function TgMenuEditor() {
               canRemove={countNodes(items) > 1}
               caseOptions={casesQuery.data ?? []}
               parentIsFolder={parentIsFolder}
+              isRoot={isRootItem}
               onUpdate={updateNode}
               onKind={changeKind}
               onAddChild={addChildItem}
+              onSelectChild={setSelectedId}
               onRemove={removeSelected}
             />
           ) : (
@@ -433,22 +511,27 @@ function NodeEditor({
   canRemove,
   caseOptions,
   parentIsFolder,
+  isRoot,
   onUpdate,
   onKind,
   onAddChild,
+  onSelectChild,
   onRemove,
 }: {
   node: MenuNode
   canRemove: boolean
   caseOptions: { id: string; name: string }[]
   parentIsFolder: boolean
+  isRoot: boolean
   onUpdate: (id: string, patch: Partial<MenuNode>) => void
   onKind: (id: string, kind: MenuKind) => void
   onAddChild: (parentId: string) => void
+  onSelectChild: (id: string) => void
   onRemove: () => void
 }) {
   const { t } = useTranslation()
   const selectedCaseIds = node.case_ids ?? []
+  const children = node.children ?? []
 
   function toggleCaseId(caseId: string, checked: boolean) {
     if (node.kind === 'open_case') {
@@ -514,24 +597,28 @@ function NodeEditor({
             autoComplete='off'
           />
         </div>
-        <div className='space-y-1.5'>
-          <Label htmlFor={`tg-menu-row-${node.id}`}>{t('tgMenu.fieldRow')}</Label>
-          <Input
-            id={`tg-menu-row-${node.id}`}
-            type='number'
-            value={node.row}
-            onChange={(e) => onUpdate(node.id, { row: Number(e.target.value) })}
-          />
-        </div>
-        <div className='space-y-1.5'>
-          <Label htmlFor={`tg-menu-col-${node.id}`}>{t('tgMenu.fieldCol')}</Label>
-          <Input
-            id={`tg-menu-col-${node.id}`}
-            type='number'
-            value={node.col}
-            onChange={(e) => onUpdate(node.id, { col: Number(e.target.value) })}
-          />
-        </div>
+        {isRoot ? (
+          <>
+            <div className='space-y-1.5'>
+              <Label htmlFor={`tg-menu-row-${node.id}`}>{t('tgMenu.fieldRow')}</Label>
+              <Input
+                id={`tg-menu-row-${node.id}`}
+                type='number'
+                value={node.row}
+                onChange={(e) => onUpdate(node.id, { row: Number(e.target.value) })}
+              />
+            </div>
+            <div className='space-y-1.5'>
+              <Label htmlFor={`tg-menu-col-${node.id}`}>{t('tgMenu.fieldCol')}</Label>
+              <Input
+                id={`tg-menu-col-${node.id}`}
+                type='number'
+                value={node.col}
+                onChange={(e) => onUpdate(node.id, { col: Number(e.target.value) })}
+              />
+            </div>
+          </>
+        ) : null}
       </div>
 
       <div className='flex flex-wrap items-end gap-4'>
@@ -575,6 +662,19 @@ function NodeEditor({
         </div>
       </div>
 
+      {node.kind === 'folder' ? (
+        <div className='space-y-1.5'>
+          <Label htmlFor={`tg-menu-intro-${node.id}`}>{t('tgMenu.fieldIntro')}</Label>
+          <p className='text-xs text-muted-foreground'>{t('tgMenu.fieldIntroHint')}</p>
+          <Textarea
+            id={`tg-menu-intro-${node.id}`}
+            value={node.intro_text ?? ''}
+            onChange={(e) => onUpdate(node.id, { intro_text: e.target.value })}
+            rows={4}
+          />
+        </div>
+      ) : null}
+
       {node.kind === 'folder' || node.kind === 'open_case' ? (
         <div className='space-y-2'>
           <Label>
@@ -602,6 +702,29 @@ function NodeEditor({
               ))
             )}
           </div>
+        </div>
+      ) : null}
+
+      {node.kind === 'folder' ? (
+        <div className='space-y-2'>
+          <Label>{t('tgMenu.fieldChildren')}</Label>
+          {children.length === 0 ? (
+            <p className='text-sm text-muted-foreground'>{t('tgMenu.noChildren')}</p>
+          ) : (
+            <ul className='space-y-1 rounded-md border p-2'>
+              {children.map((child) => (
+                <li key={child.id}>
+                  <button
+                    type='button'
+                    className='w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted'
+                    onClick={() => onSelectChild(child.id)}
+                  >
+                    📁 {child.label.trim() || t('tgMenu.untitled')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       ) : null}
 

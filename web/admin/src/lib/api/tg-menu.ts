@@ -18,6 +18,7 @@ export type MenuNode = {
   case_ids?: string[]
   tag?: string
   placeholder_text?: string
+  intro_text?: string
   reply?: { text?: string; images?: string[] }
   children?: MenuNode[]
 }
