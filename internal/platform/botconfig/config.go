@@ -9,6 +9,17 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	RuntimeModeAllinone = "allinone"
+	RuntimeModeSplit    = "split"
+
+	QueueDriverMemory = "memory"
+	QueueDriverRedis  = "redis"
+
+	BlobDriverLocalFS = "localfs"
+	BlobDriverS3      = "s3"
+)
+
 // Config is the bot process configuration.
 type Config struct {
 	HTTPAddr          string `yaml:"http_addr"`
@@ -27,6 +38,21 @@ type Config struct {
 	// HealthProbeInterval is how often enabled real Comfy instances are probed
 	// via SystemStats (default 30s). Parsed as Go duration, e.g. "30s".
 	HealthProbeInterval string `yaml:"health_probe_interval"`
+
+	// RuntimeMode selects allinone vs split deployment (default allinone).
+	RuntimeMode string      `yaml:"runtime_mode"`
+	Queue       QueueConfig `yaml:"queue"`
+	Blob        BlobConfig  `yaml:"blob"`
+}
+
+// QueueConfig selects the queue adapter.
+type QueueConfig struct {
+	Driver string `yaml:"driver"` // memory | redis
+}
+
+// BlobConfig selects the blob adapter (BlobRoot still used for localfs).
+type BlobConfig struct {
+	Driver string `yaml:"driver"` // localfs | s3
 }
 
 // ComfyInstanceSeed is one row under comfy_instances in bot YAML.
@@ -39,14 +65,52 @@ type ComfyInstanceSeed struct {
 
 func Default() Config {
 	return Config{
-		HTTPAddr:          ":8080",
-		BlobRoot:          "data/blob",
-		ComfyUIBaseURL:    "http://127.0.0.1:8188",
-		DefaultInstanceID: "local",
-		CaseSeedDir:       "configs/cases",
-		ComfyMock:         true,
+		HTTPAddr:            ":8080",
+		BlobRoot:            "data/blob",
+		ComfyUIBaseURL:      "http://127.0.0.1:8188",
+		DefaultInstanceID:   "local",
+		CaseSeedDir:         "configs/cases",
+		ComfyMock:           true,
 		HealthProbeInterval: "30s",
+		RuntimeMode:         RuntimeModeAllinone,
+		Queue:               QueueConfig{Driver: QueueDriverMemory},
+		Blob:                BlobConfig{Driver: BlobDriverLocalFS},
 	}
+}
+
+// ValidateRuntimeDrivers checks runtime_mode vs queue/blob driver combinations.
+func (c Config) ValidateRuntimeDrivers() error {
+	mode := strings.TrimSpace(c.RuntimeMode)
+	if mode == "" {
+		mode = RuntimeModeAllinone
+	}
+	q := strings.TrimSpace(c.Queue.Driver)
+	if q == "" {
+		q = QueueDriverMemory
+	}
+	b := strings.TrimSpace(c.Blob.Driver)
+	if b == "" {
+		b = BlobDriverLocalFS
+	}
+	switch mode {
+	case RuntimeModeAllinone:
+		if q != QueueDriverMemory {
+			return fmt.Errorf("botconfig: allinone requires queue.driver=memory, got %q", q)
+		}
+		if b != BlobDriverLocalFS {
+			return fmt.Errorf("botconfig: allinone requires blob.driver=localfs, got %q", b)
+		}
+	case RuntimeModeSplit:
+		if q != QueueDriverRedis {
+			return fmt.Errorf("botconfig: split requires queue.driver=redis, got %q", q)
+		}
+		if b != BlobDriverS3 {
+			return fmt.Errorf("botconfig: split requires blob.driver=s3, got %q", b)
+		}
+	default:
+		return fmt.Errorf("botconfig: unknown runtime_mode %q", mode)
+	}
+	return nil
 }
 
 // Load reads optional YAML then applies env overrides.
@@ -66,6 +130,7 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		if os.IsNotExist(err) && !explicit {
 			applyEnv(&cfg)
+			normalizeDrivers(&cfg)
 			return cfg, nil
 		}
 		return Config{}, fmt.Errorf("botconfig: read %s: %w", path, err)
@@ -74,7 +139,20 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("botconfig: parse %s: %w", path, err)
 	}
 	applyEnv(&cfg)
+	normalizeDrivers(&cfg)
 	return cfg, nil
+}
+
+func normalizeDrivers(cfg *Config) {
+	if strings.TrimSpace(cfg.RuntimeMode) == "" {
+		cfg.RuntimeMode = RuntimeModeAllinone
+	}
+	if strings.TrimSpace(cfg.Queue.Driver) == "" {
+		cfg.Queue.Driver = QueueDriverMemory
+	}
+	if strings.TrimSpace(cfg.Blob.Driver) == "" {
+		cfg.Blob.Driver = BlobDriverLocalFS
+	}
 }
 
 func applyEnv(cfg *Config) {
@@ -116,5 +194,14 @@ func applyEnv(cfg *Config) {
 			}
 		}
 		cfg.ComfyMock = b
+	}
+	if v := os.Getenv("RUNTIME_MODE"); v != "" {
+		cfg.RuntimeMode = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("QUEUE_DRIVER"); v != "" {
+		cfg.Queue.Driver = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("BLOB_DRIVER"); v != "" {
+		cfg.Blob.Driver = strings.TrimSpace(v)
 	}
 }
