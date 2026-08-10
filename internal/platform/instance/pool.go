@@ -131,12 +131,24 @@ func (p *Pool) SetHealthy(id sharedkernel.InstanceID, ok bool) {
 // ListHealthy returns enabled + healthy instances matching the capability filter.
 // Results are sorted by ID for stable round-robin scheduling.
 func (p *Pool) ListHealthy(_ context.Context, filter CapabilityFilter) ([]Instance, error) {
+	return p.list(filter, true)
+}
+
+// ListEnabled returns enabled instances matching the filter, ignoring the healthy flag.
+func (p *Pool) ListEnabled(_ context.Context, filter CapabilityFilter) ([]Instance, error) {
+	return p.list(filter, false)
+}
+
+func (p *Pool) list(filter CapabilityFilter, requireHealthy bool) ([]Instance, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
 	var out []Instance
 	for _, e := range p.byID {
-		if e == nil || !e.record.Enabled || !e.healthy {
+		if e == nil || !e.record.Enabled {
+			continue
+		}
+		if requireHealthy && !e.healthy {
 			continue
 		}
 		if !matchCapabilities(e.record.Capabilities, filter) {

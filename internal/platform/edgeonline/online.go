@@ -1,0 +1,25 @@
+package edgeonline
+
+import (
+	"context"
+
+	goredis "github.com/redis/go-redis/v9"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+)
+
+// Key is the Redis heartbeat key written by edge-agent.
+func Key(instanceID sharedkernel.InstanceID) string {
+	return "edge:online:" + string(instanceID)
+}
+
+// Checker returns an Online filter that treats a live TTL key as presence.
+func Checker(rdb goredis.Cmdable) func(context.Context, sharedkernel.InstanceID) bool {
+	return func(ctx context.Context, id sharedkernel.InstanceID) bool {
+		if rdb == nil || id == "" {
+			return false
+		}
+		n, err := rdb.Exists(ctx, Key(id)).Result()
+		return err == nil && n > 0
+	}
+}

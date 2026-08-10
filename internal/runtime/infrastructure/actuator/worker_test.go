@@ -107,6 +107,82 @@ func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
 	}
 }
 
+func TestWorker_BadJobRefPublishesFailed(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	store, err := localfs.New(filepath.Join(dir, "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap := &statusCap{}
+	w := &actuator.Worker{
+		Comfy:  &comfyui.Mock{},
+		Blob:   store,
+		Status: cap,
+		Now:    func() time.Time { return time.Unix(1, 0).UTC() },
+	}
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+		TaskID:     "t-bad-job",
+		InstanceID: "local",
+		JobRef:     sharedkernel.BlobRef{Key: "jobs/missing/job.json", MIME: "application/json"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(cap.msgs) != 1 {
+		t.Fatalf("status msgs=%d want 1", len(cap.msgs))
+	}
+	var ev sharedkernel.TaskStatusEvent
+	if err := json.Unmarshal(cap.msgs[0].Payload, &ev); err != nil {
+		t.Fatal(err)
+	}
+	if ev.Status != sharedkernel.TaskFailed || ev.ErrorCode != "workflow" {
+		t.Fatalf("ev=%+v", ev)
+	}
+}
+
+func TestWorker_JobRefHappyPath(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	store, err := localfs.New(filepath.Join(dir, "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := actuator.JobPackage{
+		TaskID:       "t-job",
+		InstanceID:   "local",
+		Workflow:     map[string]any{"1": map[string]any{"class_type": "Noop", "inputs": map[string]any{}}},
+		OutputPrefix: "outputs/t-job",
+	}
+	raw, err := json.Marshal(job)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := store.Put(ctx, "jobs/t-job/job.json", bytes.NewReader(raw), blob.PutOptions{MIME: "application/json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap := &statusCap{}
+	w := &actuator.Worker{
+		Comfy:  &comfyui.Mock{},
+		Blob:   store,
+		Status: cap,
+		Now:    func() time.Time { return time.Unix(1, 0).UTC() },
+	}
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+		TaskID: "t-job", InstanceID: "local", JobRef: ref,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(cap.msgs) != 2 {
+		t.Fatalf("status msgs=%d", len(cap.msgs))
+	}
+	var done sharedkernel.TaskStatusEvent
+	_ = json.Unmarshal(cap.msgs[1].Payload, &done)
+	if done.Status != sharedkernel.TaskSucceeded || len(done.Outputs) == 0 {
+		t.Fatalf("done=%+v", done)
+	}
+}
+
 func TestWorker_UploadUsesDispatchInstanceClient(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
