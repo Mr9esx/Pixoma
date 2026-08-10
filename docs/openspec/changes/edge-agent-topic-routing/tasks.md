@@ -25,13 +25,17 @@
 - [x] 4.1 allinone + `comfy_mock` 端到端：确认生成 → 收到产物
 - [x] 4.2 更新 `docs/architecture/`（runtime/overview）：双模式、job_ref、Edge
 - [x] 4.3 回归 orchestrator/actuator/confirm_run 等相关测试
-- [ ] 4.4 （延后，不阻塞本期）Topic Admin / 投放表达式 / 会员×分类分流
+- [x] 4.4 （明确移出本期范围）Topic Admin / 投放表达式 / 会员×分类分流 — 不实施，见下方「延后」
 
 ## Review notes（build `review_mode=standard`）
 
-审查见 [Review code changes](c075ff5c-f03f-43cd-b7a1-50ab006122cc)：Critical 已修（split 用 `ListEnabled`+`Online` 而非云侧 Comfy 探活；Redis PEL 重试；`Worker.fail` 传播 status 发布错误）。
+审查见会话 code review：Critical 已修（split 用 `ListEnabled`+`Online` 而非云侧 Comfy 探活；Redis PEL 重试；`Worker.fail` 传播 status 发布错误）。
 
 接受延后（非 CRITICAL）：
 - Redis AUTH/TLS、S3 启动 HeadBucket 探测（部署约定 / 后续加固）
 - `OutputPrefix` 字段尚未驱动产物路径（行为与既有 `outputs/<task_id>` 一致）
 - 方案 A 在 allinone 仍允许无 `job_ref` 回落 `WorkflowForTask`（兼容）；Edge 无 Workflows，空 `job_ref` 会失败
+
+## 延后（另开 change，不在本 change 实施）
+
+- Topic Admin、投放表达式、会员×分类分流
