@@ -139,7 +139,7 @@
           <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
         </div>
       </div>
-      <p class="subtitle">控制面 → 共享 Blob / Queue → 执行面（Actuator）· Scheme A job_ref</p>
+      <p class="subtitle">控制面 → 共享 Blob / Queue → 执行面（Actuator）· 方案 A（job_ref）</p>
     </div>
 
     <div class="diagram-container">
@@ -187,7 +187,7 @@
 
         <!-- Queue → Actuator -->
         <line x1="622" y1="300" x2="678" y2="300" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
-        <text x="650" y="290" fill="#fb923c" font-size="8" text-anchor="middle">subscribe</text>
+        <text x="650" y="290" fill="#fb923c" font-size="8" text-anchor="middle">订阅</text>
 
         <!-- Blob → Actuator -->
         <path d="M 622 200 L 650 200 L 650 260 L 678 260" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
@@ -216,11 +216,11 @@
         <rect x="20" y="90" width="110" height="60" rx="6" fill="#0f172a"/>
         <rect x="20" y="90" width="110" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
         <text x="75" y="116" fill="white" font-size="12" font-weight="600" text-anchor="middle">Telegram</text>
-        <text x="75" y="134" fill="#94a3b8" font-size="9" text-anchor="middle">Client</text>
+        <text x="75" y="134" fill="#94a3b8" font-size="9" text-anchor="middle">用户端</text>
 
         <!-- LEFT: Control plane -->
         <rect x="180" y="70" width="200" height="380" rx="12" fill="rgba(251, 191, 36, 0.04)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
-        <text x="195" y="92" fill="#fbbf24" font-size="10" font-weight="600">Control plane · apps/bot</text>
+        <text x="195" y="92" fill="#fbbf24" font-size="10" font-weight="600">控制面 · apps/bot</text>
 
         <rect x="200" y="110" width="160" height="50" rx="6" fill="#0f172a"/>
         <rect x="200" y="110" width="160" height="50" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
@@ -229,13 +229,13 @@
 
         <rect x="200" y="188" width="160" height="60" rx="6" fill="#0f172a"/>
         <rect x="200" y="188" width="160" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="280" y="214" fill="white" font-size="11" font-weight="600" text-anchor="middle">botapp + BCs</text>
+        <text x="280" y="214" fill="white" font-size="11" font-weight="600" text-anchor="middle">botapp + BC</text>
         <text x="280" y="232" fill="#94a3b8" font-size="8" text-anchor="middle">ConfirmRun · Case</text>
 
         <rect x="200" y="276" width="160" height="60" rx="6" fill="#0f172a"/>
         <rect x="200" y="276" width="160" height="60" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
         <text x="280" y="302" fill="white" font-size="11" font-weight="600" text-anchor="middle">SQLite</text>
-        <text x="280" y="320" fill="#94a3b8" font-size="8" text-anchor="middle">Task SoT</text>
+        <text x="280" y="320" fill="#94a3b8" font-size="8" text-anchor="middle">Task 真相源</text>
 
         <rect x="200" y="364" width="160" height="60" rx="6" fill="#0f172a"/>
         <rect x="200" y="364" width="160" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
@@ -244,7 +244,7 @@
 
         <!-- CENTER: Shared -->
         <rect x="460" y="70" width="180" height="320" rx="12" fill="rgba(251, 146, 60, 0.05)" stroke="#fb923c" stroke-width="1" stroke-dasharray="6,4"/>
-        <text x="475" y="92" fill="#fb923c" font-size="10" font-weight="600">Shared adapters</text>
+        <text x="475" y="92" fill="#fb923c" font-size="10" font-weight="600">共享适配层</text>
 
         <rect x="480" y="140" width="140" height="80" rx="6" fill="#0f172a"/>
         <rect x="480" y="140" width="140" height="80" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
@@ -260,14 +260,14 @@
 
         <!-- RIGHT: Execution plane = Actuator -->
         <rect x="680" y="70" width="200" height="390" rx="12" fill="rgba(52, 211, 153, 0.05)" stroke="#34d399" stroke-width="1" stroke-dasharray="8,4"/>
-        <text x="695" y="92" fill="#34d399" font-size="10" font-weight="600">Execution · Actuator</text>
+        <text x="695" y="92" fill="#34d399" font-size="10" font-weight="600">执行面 · Actuator</text>
 
         <rect x="700" y="180" width="160" height="100" rx="6" fill="#0f172a"/>
         <rect x="700" y="180" width="160" height="100" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
         <text x="780" y="212" fill="white" font-size="12" font-weight="600" text-anchor="middle">Worker</text>
         <text x="780" y="232" fill="#94a3b8" font-size="8" text-anchor="middle">graphFromJob</text>
         <text x="780" y="248" fill="#94a3b8" font-size="8" text-anchor="middle">Upload · Submit · Wait</text>
-        <text x="780" y="264" fill="#94a3b8" font-size="8" text-anchor="middle">no Task/Case DB</text>
+        <text x="780" y="264" fill="#94a3b8" font-size="8" text-anchor="middle">不访问 Task/Case DB</text>
 
         <rect x="700" y="300" width="160" height="40" rx="6" fill="#0f172a"/>
         <rect x="700" y="300" width="160" height="40" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
@@ -276,18 +276,18 @@
         <rect x="700" y="388" width="160" height="60" rx="6" fill="#0f172a"/>
         <rect x="700" y="388" width="160" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
         <text x="780" y="414" fill="white" font-size="12" font-weight="600" text-anchor="middle">ComfyUI / Mock</text>
-        <text x="780" y="432" fill="#94a3b8" font-size="8" text-anchor="middle">localhost</text>
+        <text x="780" y="432" fill="#94a3b8" font-size="8" text-anchor="middle">本机可达</text>
 
         <!-- Deployment modes -->
         <rect x="180" y="500" width="700" height="110" rx="8" fill="#0f172a"/>
         <rect x="180" y="500" width="700" height="110" rx="8" fill="rgba(15, 23, 42, 0.9)" stroke="#334155" stroke-width="1"/>
-        <text x="200" y="528" fill="white" font-size="11" font-weight="600">Deployment · Actuator placement</text>
+        <text x="200" y="528" fill="white" font-size="11" font-weight="600">部署形态 · Actuator 放置</text>
         <text x="200" y="554" fill="#fbbf24" font-size="10" font-weight="600">allinone</text>
-        <text x="280" y="554" fill="#94a3b8" font-size="9">Actuator in Bot process · queue=Memory · blob=localfs</text>
+        <text x="280" y="554" fill="#94a3b8" font-size="9">Actuator 与 Bot 同进程 · queue=Memory · blob=localfs</text>
         <text x="200" y="578" fill="#34d399" font-size="10" font-weight="600">split</text>
-        <text x="280" y="578" fill="#94a3b8" font-size="9">Actuator as edge-agent process · queue=Redis Streams · blob=S3 · Bot does not subscribe production dispatch</text>
-        <text x="200" y="598" fill="#a78bfa" font-size="9" font-weight="600">Scheme A</text>
-        <text x="280" y="598" fill="#94a3b8" font-size="9">PrepareJob → jobs/&lt;task_id&gt;/job.json · DispatchCommand.job_ref · Edge ≡ out-of-process Actuator</text>
+        <text x="280" y="578" fill="#94a3b8" font-size="9">Actuator 独立进程 edge-agent · queue=Redis Streams · blob=S3 · Bot 不订阅生产 dispatch</text>
+        <text x="200" y="598" fill="#a78bfa" font-size="9" font-weight="600">方案 A</text>
+        <text x="280" y="598" fill="#94a3b8" font-size="9">PrepareJob → jobs/&lt;task_id&gt;/job.json · DispatchCommand.job_ref · Edge = 外置 Actuator</text>
       </svg>
     </div>
 
@@ -295,34 +295,34 @@
       <div class="card">
         <div class="card-header">
           <div class="card-dot amber"></div>
-          <h3>Control plane</h3>
+          <h3>控制面</h3>
         </div>
         <ul>
           <li>• ConfirmRun → Task pending</li>
-          <li>• PrepareJob writes Blob job package</li>
-          <li>• Publish dispatch with job_ref</li>
-          <li>• split: Online via edge:online TTL</li>
+          <li>• PrepareJob 写入 Blob 任务包</li>
+          <li>• 发布带 job_ref 的 dispatch</li>
+          <li>• split：以 edge:online TTL 判定在线</li>
         </ul>
       </div>
       <div class="card">
         <div class="card-header">
           <div class="card-dot orange"></div>
-          <h3>Shared adapters</h3>
+          <h3>共享适配层</h3>
         </div>
         <ul>
-          <li>• Queue: thin event payloads</li>
-          <li>• Blob: jobs / inputs / outputs</li>
-          <li>• Modes swap drivers only</li>
+          <li>• Queue：轻量事件载荷</li>
+          <li>• Blob：jobs / inputs / outputs</li>
+          <li>• 模式切换只换驱动实现</li>
         </ul>
       </div>
       <div class="card">
         <div class="card-header">
           <div class="card-dot emerald"></div>
-          <h3>Execution plane</h3>
+          <h3>执行面</h3>
         </div>
         <ul>
-          <li>• Actuator Worker (same code)</li>
-          <li>• allinone: in-process · split: edge-agent</li>
+          <li>• Actuator Worker（同一套代码）</li>
+          <li>• allinone：同进程 · split：edge-agent</li>
           <li>• Get job → Comfy → task.status</li>
         </ul>
       </div>
