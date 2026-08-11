@@ -42,34 +42,26 @@ flowchart TB
 
 ---
 
-## 2. 进程内逻辑视图
+## 2. 进程与双模式视图
 
 ```text
-┌──────────────────────── apps/bot (组合根) ────────────────────────┐
-│  botconfig · db.AutoMigrate · Case/Instance seed · HTTP · ticker   │
-│                                                                    │
-│  ┌─ channel/tg ─────────────────────────────────────────────────┐ │
-│  │  Adapter · Messenger · notifybridge                          │ │
-│  └───────────────────────────┬──────────────────────────────────┘ │
-│                              ▼                                    │
-│  ┌─ packaging/botapp (应用门面) ────────────────────────────────┐ │
-│  │  StartCase / ConfirmRun / …                                  │ │
-│  └─┬──────────────┬──────────────┬──────────────┬───────────────┘ │
-│    ▼              ▼              ▼              ▼                 │
-│ identity     conversation     catalog        runtime              │
-│  users        sessions       cases      Task + Orchestrator       │
-│                                          + Actuator               │
-│                              │                                    │
-│  ┌─ platform ────────────────▼────────────────────────────────┐  │
-│  │  queue/memory · blob/localfs · notify · instance.Pool · db │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│  ┌─ httpapi/comfyinstances ───────────────────────────────────┐  │
-│  │  CRUD + /system + /queue + /tasks                          │  │
-│  └────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────┘
-         │ dispatch.<id>          │ HTTP
-         ▼                        ▼
-    ComfyUI / Mock           运维观测
+┌─ apps/bot（控制面；allinone 时含执行面）─────────────────────────┐
+│  channel/tg · botapp · identity/conversation/catalog/runtime      │
+│  Orchestrator：PrepareJob → dispatch{job_ref} · Online(Edge)      │
+│  SQLite（Task 真相源）                                             │
+└───────────────┬───────────────────────────────┬───────────────────┘
+                │                               │
+        ┌───────▼────────┐              ┌───────▼────────┐
+        │ Queue          │              │ Blob           │
+        │ Memory|Redis   │              │ localfs|S3     │
+        └───────┬────────┘              └───────┬────────┘
+                │ dispatch / status              │ jobs/ outputs/
+        ┌───────▼────────────────────────────────▼───────┐
+        │ split: apps/edge-agent（Worker · heartbeat）     │
+        │ allinone: 同进程 Actuator（虚线直达本机 Comfy）   │
+        └───────────────────────┬─────────────────────────┘
+                                ▼
+                         ComfyUI / Mock
 ```
 
 可视化拓扑（HTML）：[diagrams/system.html](./diagrams/system.html)。
