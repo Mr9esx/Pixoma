@@ -90,3 +90,17 @@
 3. Case「分类」字段来源：现有 tag/类型字段复用还是新枚举。
 4. 会员等级字段落在 User 的现有模型何处。
 5. 同一 Topic 多 Edge 时是否竞争消费（建议是）及与「绑定特定机器规格」的关系。
+
+## Implementation Divergence
+
+**确认日期：** 2026-08-11（Verify 阶段用户选择 A）
+
+Open 阶段本文曾将 Topic 目录、投放表达式、会员×分类分流与 Admin 管理一并纳入 Goals / D5 / D7。Design 确认后范围收窄：**本期不做 Topic 分流**。
+
+| 项 | Open 本文原述 | 实际交付（以 Design Doc 为准） |
+|---|---|---|
+| Topic Admin / 投放表达式 | 本期交付 | **延后**；delta `topic-admin` / `dispatch-topic-routing` 已 Spec Patch 为「MUST NOT 作为验收」 |
+| 调度选路 | 按表达式选 Topic | 仍 `dispatch.<instance_id>`（或实例 `DispatchTopic`） |
+| 双模式 + 方案 A | 隐含于材料通道 | **已交付**：allinone Memory+localfs；split Edge+Redis Streams+S3；`job_ref` |
+
+权威技术设计：`docs/superpowers/specs/2026-08-10-edge-agent-dual-mode-design.md`。归档时以 Design Doc + 已 Patch 的 delta 为准同步主 spec；Open Questions 1–5 中与 Topic/表达式相关的项随分流需求另开 change。
