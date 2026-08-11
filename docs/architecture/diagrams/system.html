@@ -73,7 +73,7 @@
     
     svg {
       width: 100%;
-      min-width: 900px;
+      min-width: 980px;
       display: block;
     }
     
@@ -109,6 +109,7 @@
     .card-dot.violet { background: #a78bfa; }
     .card-dot.amber { background: #fbbf24; }
     .card-dot.rose { background: #fb7185; }
+    .card-dot.orange { background: #fb923c; }
     
     .card h3 {
       font-size: 0.875rem;
@@ -196,12 +197,12 @@
           <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
         </div>
       </div>
-      <p class="subtitle">TG Bot · DDD Bounded Contexts · Multi ComfyUI · All-in-one process</p>
+      <p class="subtitle">Dual-mode · Scheme A job_ref · allinone (Memory+localfs) · split (Edge+Redis+S3)</p>
     </div>
 
     <!-- Main Diagram -->
     <div class="diagram-container">
-      <svg viewBox="0 0 1080 720">
+      <svg viewBox="0 0 1120 780">
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
             <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
@@ -213,151 +214,169 @@
 
         <rect width="100%" height="100%" fill="url(#grid)" />
 
-        <!-- Arrows first (behind boxes) -->
-        <line x1="130" y1="120" x2="198" y2="120" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="164" y="112" fill="#94a3b8" font-size="8" text-anchor="middle">Bot API</text>
+        <!-- Arrows (behind boxes) -->
+        <line x1="120" y1="95" x2="168" y2="95" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="144" y="87" fill="#94a3b8" font-size="8" text-anchor="middle">Bot API</text>
 
-        <line x1="130" y1="280" x2="198" y2="200" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="145" y="230" fill="#94a3b8" font-size="8">Updates</text>
+        <line x1="120" y1="200" x2="168" y2="155" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="128" y="185" fill="#94a3b8" font-size="7">admin</text>
 
-        <line x1="420" y1="155" x2="420" y2="188" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="448" y="178" fill="#fb923c" font-size="7">usecases</text>
+        <line x1="340" y1="130" x2="340" y2="168" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="358" y="155" fill="#34d399" font-size="7">usecases</text>
 
-        <line x1="300" y1="280" x2="300" y2="328" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <line x1="420" y1="280" x2="420" y2="328" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <line x1="540" y1="280" x2="540" y2="328" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="340" y1="230" x2="340" y2="268" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="358" y="255" fill="#a78bfa" font-size="7">persist</text>
 
-        <line x1="540" y1="400" x2="540" y2="438" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="575" y="425" fill="#fb923c" font-size="7">task.created</text>
+        <line x1="420" y1="200" x2="478" y2="200" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="449" y="192" fill="#a78bfa" font-size="7">prep job</text>
 
-        <line x1="540" y1="510" x2="540" y2="548" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="595" y="535" fill="#fb923c" font-size="7">dispatch.&lt;id&gt;</text>
+        <line x1="340" y1="230" x2="340" y2="318" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="365" y="285" fill="#fb923c" font-size="7">task.created</text>
 
-        <line x1="640" y1="580" x2="718" y2="580" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <line x1="640" y1="600" x2="718" y2="640" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="420" y1="350" x2="478" y2="350" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="449" y="342" fill="#fb923c" font-size="7">dispatch+job_ref</text>
 
-        <line x1="720" y1="400" x2="720" y2="328" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="745" y="365" fill="#a78bfa" font-size="7">persist</text>
+        <!-- split: MQ → Edge -->
+        <line x1="640" y1="350" x2="718" y2="350" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="679" y="342" fill="#fb923c" font-size="7">split</text>
 
-        <line x1="780" y1="200" x2="848" y2="200" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="814" y="192" fill="#94a3b8" font-size="7">CRUD</text>
+        <!-- Edge ↔ Blob -->
+        <line x1="800" y1="300" x2="800" y2="248" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="800" y1="248" x2="610" y2="230" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="720" y="265" fill="#a78bfa" font-size="7">Get job / Put outputs</text>
 
-        <path d="M 300 155 L 300 100 Q 300 80 320 80 L 700 80" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
-        <text x="480" y="72" fill="#fb7185" font-size="8">notify → SendPhoto</text>
+        <!-- Edge → Comfy -->
+        <line x1="800" y1="410" x2="800" y2="468" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="820" y="445" fill="#34d399" font-size="7">Upload/Submit</text>
 
-        <!-- External: Telegram User -->
-        <rect x="20" y="90" width="110" height="60" rx="6" fill="#0f172a"/>
-        <rect x="20" y="90" width="110" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="75" y="115" fill="white" font-size="11" font-weight="600" text-anchor="middle">TG User</text>
-        <text x="75" y="132" fill="#94a3b8" font-size="9" text-anchor="middle">Telegram</text>
+        <!-- Edge → task.status → MQ -->
+        <path d="M 720 380 L 640 380 L 640 370" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="680" y="398" fill="#fb923c" font-size="7">task.status</text>
 
-        <!-- External: Ops -->
-        <rect x="20" y="250" width="110" height="60" rx="6" fill="#0f172a"/>
-        <rect x="20" y="250" width="110" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="75" y="275" fill="white" font-size="11" font-weight="600" text-anchor="middle">Ops</text>
-        <text x="75" y="292" fill="#94a3b8" font-size="9" text-anchor="middle">curl / HTTP</text>
+        <!-- MQ → Orch status -->
+        <line x1="340" y1="318" x2="340" y2="230" stroke="#fb923c" stroke-width="1" stroke-dasharray="4,3"/>
 
-        <!-- Bot process boundary -->
-        <rect x="190" y="40" width="640" height="640" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
-        <text x="205" y="60" fill="#fbbf24" font-size="10" font-weight="600">apps/bot · all-in-one process</text>
+        <!-- allinone dashed: Bot actuator → Comfy -->
+        <path d="M 420 350 L 500 420 L 720 500 L 760 500" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrowhead)"/>
+        <text x="560" y="455" fill="#fbbf24" font-size="8">allinone: in-process Actuator</text>
 
-        <!-- Channel TG -->
-        <rect x="220" y="95" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="220" y="95" width="160" height="60" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
-        <text x="300" y="120" fill="white" font-size="11" font-weight="600" text-anchor="middle">channel/tg</text>
-        <text x="300" y="138" fill="#94a3b8" font-size="9" text-anchor="middle">Adapter · Messenger</text>
+        <!-- notify dashed -->
+        <path d="M 250 130 L 250 55 L 100 55 L 100 70" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+        <text x="175" y="48" fill="#fb7185" font-size="8">notify → TG</text>
 
-        <!-- HTTP API -->
-        <rect x="620" y="95" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="620" y="95" width="160" height="60" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
-        <text x="700" y="120" fill="white" font-size="11" font-weight="600" text-anchor="middle">httpapi</text>
-        <text x="700" y="138" fill="#94a3b8" font-size="9" text-anchor="middle">comfy-instances</text>
+        <!-- heartbeat -->
+        <line x1="720" y1="320" x2="560" y2="320" stroke="#22d3ee" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrowhead)"/>
+        <text x="640" y="312" fill="#22d3ee" font-size="7">edge:online TTL</text>
+
+        <!-- External: TG User -->
+        <rect x="20" y="70" width="100" height="50" rx="6" fill="#0f172a"/>
+        <rect x="20" y="70" width="100" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="70" y="92" fill="white" font-size="11" font-weight="600" text-anchor="middle">TG User</text>
+        <text x="70" y="108" fill="#94a3b8" font-size="9" text-anchor="middle">Telegram</text>
+
+        <!-- External: Ops / Admin -->
+        <rect x="20" y="175" width="100" height="50" rx="6" fill="#0f172a"/>
+        <rect x="20" y="175" width="100" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="70" y="197" fill="white" font-size="11" font-weight="600" text-anchor="middle">Admin</text>
+        <text x="70" y="213" fill="#94a3b8" font-size="9" text-anchor="middle">admin-api</text>
+
+        <!-- Cloud / Bot boundary -->
+        <rect x="170" y="40" width="320" height="420" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="185" y="60" fill="#fbbf24" font-size="10" font-weight="600">Cloud control · apps/bot</text>
+
+        <!-- channel/tg -->
+        <rect x="200" y="80" width="140" height="50" rx="6" fill="#0f172a"/>
+        <rect x="200" y="80" width="140" height="50" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="270" y="102" fill="white" font-size="11" font-weight="600" text-anchor="middle">channel/tg</text>
+        <text x="270" y="118" fill="#94a3b8" font-size="8" text-anchor="middle">Adapter · notify</text>
 
         <!-- botapp -->
-        <rect x="340" y="190" width="200" height="60" rx="6" fill="#0f172a"/>
-        <rect x="340" y="190" width="200" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="440" y="215" fill="white" font-size="11" font-weight="600" text-anchor="middle">packaging/botapp</text>
-        <text x="440" y="233" fill="#94a3b8" font-size="9" text-anchor="middle">ConfirmRun · StartCase</text>
-
-        <!-- Domain BCs -->
-        <rect x="220" y="330" width="120" height="70" rx="6" fill="#0f172a"/>
-        <rect x="220" y="330" width="120" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="280" y="355" fill="white" font-size="11" font-weight="600" text-anchor="middle">identity</text>
-        <text x="280" y="373" fill="#94a3b8" font-size="9" text-anchor="middle">users</text>
-        <text x="280" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">TG upsert</text>
-
-        <rect x="360" y="330" width="120" height="70" rx="6" fill="#0f172a"/>
-        <rect x="360" y="330" width="120" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="420" y="355" fill="white" font-size="11" font-weight="600" text-anchor="middle">conversation</text>
-        <text x="420" y="373" fill="#94a3b8" font-size="9" text-anchor="middle">sessions</text>
-        <text x="420" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">fill-form</text>
-
-        <rect x="500" y="330" width="120" height="70" rx="6" fill="#0f172a"/>
-        <rect x="500" y="330" width="120" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="560" y="355" fill="white" font-size="11" font-weight="600" text-anchor="middle">catalog</text>
-        <text x="560" y="373" fill="#94a3b8" font-size="9" text-anchor="middle">cases</text>
-        <text x="560" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">doc_json</text>
-
-        <!-- Event bus -->
-        <rect x="460" y="415" width="160" height="22" rx="4" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
-        <text x="540" y="430" fill="#fb923c" font-size="8" text-anchor="middle">queue/memory bus</text>
-
-        <!-- Orchestrator -->
-        <rect x="460" y="450" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="460" y="450" width="160" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="540" y="475" fill="white" font-size="11" font-weight="600" text-anchor="middle">Orchestrator</text>
-        <text x="540" y="493" fill="#94a3b8" font-size="9" text-anchor="middle">RR · ClaimQueued</text>
-
-        <!-- Bus mid -->
-        <rect x="460" y="525" width="160" height="22" rx="4" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
-        <text x="540" y="540" fill="#fb923c" font-size="8" text-anchor="middle">dispatch.&lt;instance&gt;</text>
-
-        <!-- Actuator -->
-        <rect x="460" y="560" width="180" height="70" rx="6" fill="#0f172a"/>
-        <rect x="460" y="560" width="180" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="550" y="585" fill="white" font-size="11" font-weight="600" text-anchor="middle">Actuator + Pool</text>
-        <text x="550" y="603" fill="#94a3b8" font-size="9" text-anchor="middle">comfyui.NewClient</text>
-        <text x="550" y="618" fill="#94a3b8" font-size="8" text-anchor="middle">HTTP / Mock</text>
+        <rect x="240" y="170" width="200" height="60" rx="6" fill="#0f172a"/>
+        <rect x="240" y="170" width="200" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="340" y="195" fill="white" font-size="11" font-weight="600" text-anchor="middle">botapp + BCs</text>
+        <text x="340" y="213" fill="#94a3b8" font-size="9" text-anchor="middle">ConfirmRun · Cases · Session</text>
 
         <!-- SQLite -->
-        <rect x="660" y="330" width="130" height="70" rx="6" fill="#0f172a"/>
-        <rect x="660" y="330" width="130" height="70" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
-        <text x="725" y="355" fill="white" font-size="11" font-weight="600" text-anchor="middle">SQLite</text>
-        <text x="725" y="373" fill="#94a3b8" font-size="9" text-anchor="middle">data/app.db</text>
-        <text x="725" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">5 tables</text>
+        <rect x="250" y="270" width="180" height="50" rx="6" fill="#0f172a"/>
+        <rect x="250" y="270" width="180" height="50" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="340" y="292" fill="white" font-size="11" font-weight="600" text-anchor="middle">SQLite</text>
+        <text x="340" y="308" fill="#94a3b8" font-size="8" text-anchor="middle">Task truth · catalog</text>
+
+        <!-- Orchestrator -->
+        <rect x="230" y="330" width="190" height="70" rx="6" fill="#0f172a"/>
+        <rect x="230" y="330" width="190" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="325" y="355" fill="white" font-size="11" font-weight="600" text-anchor="middle">Orchestrator</text>
+        <text x="325" y="373" fill="#94a3b8" font-size="8" text-anchor="middle">PrepareJob · Online</text>
+        <text x="325" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">Claim · RR</text>
+
+        <!-- Shared plane -->
+        <rect x="520" y="120" width="160" height="280" rx="12" fill="rgba(251, 146, 60, 0.06)" stroke="#fb923c" stroke-width="1" stroke-dasharray="6,4"/>
+        <text x="535" y="140" fill="#fb923c" font-size="10" font-weight="600">Shared plane</text>
 
         <!-- Blob -->
-        <rect x="660" y="430" width="130" height="60" rx="6" fill="#0f172a"/>
-        <rect x="660" y="430" width="130" height="60" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
-        <text x="725" y="455" fill="white" font-size="11" font-weight="600" text-anchor="middle">Blob FS</text>
-        <text x="725" y="473" fill="#94a3b8" font-size="9" text-anchor="middle">data/blob</text>
+        <rect x="540" y="165" width="120" height="70" rx="6" fill="#0f172a"/>
+        <rect x="540" y="165" width="120" height="70" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="600" y="190" fill="white" font-size="11" font-weight="600" text-anchor="middle">Blob</text>
+        <text x="600" y="208" fill="#94a3b8" font-size="8" text-anchor="middle">localfs | S3</text>
+        <text x="600" y="222" fill="#94a3b8" font-size="7" text-anchor="middle">inputs/jobs/outputs</text>
 
-        <!-- Comfy A -->
-        <rect x="880" y="540" width="140" height="60" rx="6" fill="#0f172a"/>
-        <rect x="880" y="540" width="140" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="950" y="565" fill="white" font-size="11" font-weight="600" text-anchor="middle">ComfyUI A</text>
-        <text x="950" y="583" fill="#94a3b8" font-size="9" text-anchor="middle">base_url</text>
+        <!-- Queue -->
+        <rect x="540" y="310" width="120" height="70" rx="6" fill="#0f172a"/>
+        <rect x="540" y="310" width="120" height="70" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="600" y="335" fill="white" font-size="11" font-weight="600" text-anchor="middle">Queue</text>
+        <text x="600" y="353" fill="#fb923c" font-size="8" text-anchor="middle">Memory | Redis</text>
+        <text x="600" y="367" fill="#94a3b8" font-size="7" text-anchor="middle">Streams</text>
 
-        <!-- Comfy B -->
-        <rect x="880" y="620" width="140" height="60" rx="6" fill="#0f172a"/>
-        <rect x="880" y="620" width="140" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="950" y="645" fill="white" font-size="11" font-weight="600" text-anchor="middle">ComfyUI B…</text>
-        <text x="950" y="663" fill="#94a3b8" font-size="9" text-anchor="middle">or Mock</text>
+        <!-- Edge boundary -->
+        <rect x="720" y="200" width="200" height="280" rx="12" fill="rgba(52, 211, 153, 0.05)" stroke="#34d399" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="735" y="220" fill="#34d399" font-size="10" font-weight="600">Edge · apps/edge-agent</text>
 
-        <!-- Legend outside boundary -->
-        <text x="880" y="80" fill="white" font-size="10" font-weight="600">Legend</text>
-        <rect x="880" y="92" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
-        <text x="902" y="100" fill="#94a3b8" font-size="8">Channel / HTTP</text>
-        <rect x="880" y="108" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
-        <text x="902" y="116" fill="#94a3b8" font-size="8">App / Domain</text>
-        <rect x="880" y="124" width="16" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
-        <text x="902" y="132" fill="#94a3b8" font-size="8">Persistence</text>
-        <rect x="880" y="140" width="16" height="10" rx="2" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
-        <text x="902" y="148" fill="#94a3b8" font-size="8">Event bus</text>
-        <line x1="880" y1="162" x2="896" y2="162" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/>
-        <text x="902" y="165" fill="#94a3b8" font-size="8">Notify path</text>
-        <rect x="880" y="174" width="16" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
-        <text x="902" y="182" fill="#94a3b8" font-size="8">External</text>
+        <!-- Edge Worker -->
+        <rect x="745" y="250" width="150" height="80" rx="6" fill="#0f172a"/>
+        <rect x="745" y="250" width="150" height="80" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="820" y="278" fill="white" font-size="11" font-weight="600" text-anchor="middle">Actuator Worker</text>
+        <text x="820" y="296" fill="#94a3b8" font-size="8" text-anchor="middle">graphFromJob</text>
+        <text x="820" y="312" fill="#94a3b8" font-size="8" text-anchor="middle">no Task/Case DB</text>
+
+        <!-- Heartbeat box -->
+        <rect x="745" y="350" width="150" height="40" rx="6" fill="#0f172a"/>
+        <rect x="745" y="350" width="150" height="40" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="820" y="375" fill="white" font-size="10" font-weight="600" text-anchor="middle">heartbeat</text>
+
+        <!-- Comfy -->
+        <rect x="745" y="470" width="150" height="70" rx="6" fill="#0f172a"/>
+        <rect x="745" y="470" width="150" height="70" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="820" y="498" fill="white" font-size="11" font-weight="600" text-anchor="middle">ComfyUI / Mock</text>
+        <text x="820" y="516" fill="#94a3b8" font-size="8" text-anchor="middle">localhost only</text>
+        <text x="820" y="530" fill="#94a3b8" font-size="8" text-anchor="middle">comfy_mock switch</text>
+
+        <!-- Mode table annotation -->
+        <rect x="170" y="490" width="520" height="100" rx="8" fill="#0f172a"/>
+        <rect x="170" y="490" width="520" height="100" rx="8" fill="rgba(15, 23, 42, 0.8)" stroke="#334155" stroke-width="1"/>
+        <text x="190" y="515" fill="white" font-size="10" font-weight="600">Modes</text>
+        <text x="190" y="538" fill="#fbbf24" font-size="9">allinone</text>
+        <text x="270" y="538" fill="#94a3b8" font-size="8">Bot 单进程 · Memory · localfs · 同进程订 dispatch</text>
+        <text x="190" y="560" fill="#34d399" font-size="9">split</text>
+        <text x="270" y="560" fill="#94a3b8" font-size="8">Bot 不订生产 dispatch · Redis · S3 · Edge 执行</text>
+        <text x="190" y="580" fill="#a78bfa" font-size="9">Scheme A</text>
+        <text x="270" y="580" fill="#94a3b8" font-size="8">prep → jobs/&lt;task&gt;/job.json · dispatch.job_ref</text>
+
+        <!-- Legend -->
+        <text x="940" y="70" fill="white" font-size="10" font-weight="600">Legend</text>
+        <rect x="940" y="82" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="962" y="90" fill="#94a3b8" font-size="8">Channel / HTTP</text>
+        <rect x="940" y="98" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="962" y="106" fill="#94a3b8" font-size="8">App / Edge</text>
+        <rect x="940" y="114" width="16" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
+        <text x="962" y="122" fill="#94a3b8" font-size="8">Persistence / Blob</text>
+        <rect x="940" y="130" width="16" height="10" rx="2" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
+        <text x="962" y="138" fill="#94a3b8" font-size="8">Queue / events</text>
+        <line x1="940" y1="152" x2="956" y2="152" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <text x="962" y="155" fill="#94a3b8" font-size="8">allinone path</text>
+        <line x1="940" y1="168" x2="956" y2="168" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="962" y="171" fill="#94a3b8" font-size="8">Notify</text>
+        <rect x="940" y="180" width="16" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="962" y="188" fill="#94a3b8" font-size="8">External / Comfy</text>
       </svg>
     </div>
 
@@ -365,47 +384,47 @@
     <div class="cards">
       <div class="card">
         <div class="card-header">
-          <div class="card-dot cyan"></div>
-          <h3>Ingress</h3>
+          <div class="card-dot amber"></div>
+          <h3>Control plane (Bot)</h3>
         </div>
         <ul>
-          <li>• Telegram Update → channel/tg</li>
-          <li>• HTTP → httpapi/comfyinstances</li>
-          <li>• Notify 回写不走 queue topic</li>
-          <li>• 组合根：apps/bot/main</li>
+          <li>• TG / ConfirmRun → Task pending</li>
+          <li>• PrepareJob 写 jobs/…/job.json</li>
+          <li>• dispatch.&lt;id&gt; 带 job_ref</li>
+          <li>• split：Online = Edge 心跳</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot orange"></div>
+          <h3>Shared adapters</h3>
+        </div>
+        <ul>
+          <li>• Queue：Memory | Redis Streams</li>
+          <li>• Blob：localfs | S3 兼容</li>
+          <li>• 前缀 inputs / jobs / outputs</li>
+          <li>• 启动校验 runtime_mode 组合</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot emerald"></div>
-          <h3>Control &amp; Execute</h3>
+          <h3>Execute plane</h3>
         </div>
         <ul>
-          <li>• Orchestrator：Claim + RR + 熔断</li>
-          <li>• Actuator：Submit/Wait/Upload</li>
-          <li>• Pool：per-instance Client</li>
-          <li>• Task 表 = 执行真相源</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot violet"></div>
-          <h3>Data Plane</h3>
-        </div>
-        <ul>
-          <li>• SQLite：users/sessions/tasks/…</li>
-          <li>• Blob：输入输出文件</li>
-          <li>• memory bus：同步 fan-out</li>
-          <li>• ER 详见 data-model.md</li>
+          <li>• allinone：同进程 Actuator</li>
+          <li>• split：edge-agent 订 dispatch</li>
+          <li>• Get job → 本机 Upload/Submit</li>
+          <li>• comfy_mock 双模式可通</li>
         </ul>
       </div>
     </div>
 
     <!-- Footer -->
     <p class="footer">
-      Pixoma · docs/architecture · Go monorepo · Mock-parity via comfyui.NewClient
+      Pixoma · docs/architecture · dual-mode + scheme A · Topic routing deferred
     </p>
   </div>
 
