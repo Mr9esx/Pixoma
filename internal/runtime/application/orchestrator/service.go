@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -118,39 +117,22 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	idx := int(atomic.AddUint64(&s.rrIndex, 1)-1) % len(candidates)
 	chosen := candidates[idx]
 	now := s.Now()
-	claimed, err := s.Tasks.ClaimQueued(ctx, taskID, chosen.ID, now)
+	if s.Prep == nil {
+		return fmt.Errorf("orchestrator: job preparer required for claimable dispatch")
+	}
+	ref, err := s.Prep.PrepareJob(ctx, t.ID, chosen.ID)
+	if err != nil {
+		return fmt.Errorf("orchestrator: prepare job: %w", err)
+	}
+	if ref.Key == "" {
+		return fmt.Errorf("orchestrator: empty job_ref")
+	}
+	prepared, err := s.Tasks.PrepareForClaim(ctx, taskID, chosen.ID, ref, now)
 	if err != nil {
 		return err
 	}
-	if !claimed {
+	if !prepared {
 		return nil
-	}
-	cmd := sharedkernel.DispatchCommand{
-		TaskID:      t.ID,
-		InstanceID:  chosen.ID,
-		InputPrefix: t.InputPrefix,
-	}
-	if s.Prep != nil {
-		ref, err := s.Prep.PrepareJob(ctx, t.ID, chosen.ID)
-		if err != nil {
-			s.rollbackClaim(ctx, taskID, now)
-			return fmt.Errorf("orchestrator: prepare job: %w", err)
-		}
-		cmd.JobRef = ref
-	}
-	payload, err := json.Marshal(cmd)
-	if err != nil {
-		s.rollbackClaim(ctx, taskID, now)
-		return err
-	}
-	topic := chosen.DispatchTopic
-	if topic == "" {
-		topic = sharedkernel.TopicDispatch(chosen.ID)
-	}
-	if err := s.Dispatch.Publish(ctx, queue.Message{Topic: topic, Key: string(t.ID), Payload: payload}); err != nil {
-		s.Storm.Breaker.RecordFailure(chosen.ID)
-		s.rollbackClaim(ctx, taskID, now)
-		return err
 	}
 	s.Storm.Breaker.RecordSuccess(chosen.ID)
 	return nil
@@ -165,7 +147,7 @@ func (s *Service) listCandidates(ctx context.Context) ([]instance.Instance, erro
 	return s.Instances.ListHealthy(ctx, filter)
 }
 
-// rollbackClaim best-effort returns a claimed task to pending so SchedulePending can retry.
+// rollbackClaim best-effort returns a claimable task to pending so SchedulePending can retry.
 func (s *Service) rollbackClaim(ctx context.Context, taskID sharedkernel.TaskID, now time.Time) {
 	t, err := s.Tasks.Get(ctx, taskID)
 	if err != nil {
@@ -176,6 +158,8 @@ func (s *Service) rollbackClaim(ctx context.Context, taskID sharedkernel.TaskID,
 	}
 	t.Status = sharedkernel.TaskPending
 	t.InstanceID = ""
+	t.JobRef = sharedkernel.BlobRef{}
+	t.LeaseUntil = time.Time{}
 	t.UpdatedAt = now
 	_ = s.Tasks.Update(ctx, t)
 }
@@ -331,12 +315,15 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 			case "running":
 				// Task-only view has no external progress; do not refresh UpdatedAt.
 			case "accepted":
-				// Stale queued with no prompt_id never reached Comfy — re-pend for redispatch.
-				if fresh.Status == sharedkernel.TaskQueued && fresh.PromptID == "" {
+				// Stale queued without job_ref never became claimable — re-pend for redispatch.
+				// Queued with job_ref is waiting for Edge pull; leave it.
+				if fresh.Status == sharedkernel.TaskQueued && fresh.PromptID == "" && fresh.JobRef.Key == "" {
 					fresh.Status = sharedkernel.TaskPending
 					fresh.InstanceID = ""
 					fresh.UpdatedAt = now
 					_ = s.Tasks.Update(ctx, fresh)
+				} else if fresh.Status == sharedkernel.TaskRunning {
+					_, _ = s.Tasks.RequeueExpiredLeases(ctx, now)
 				}
 			}
 		}

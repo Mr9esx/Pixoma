@@ -57,11 +57,11 @@ base-ref: 3a0518564cee9bf9d9305caf6c44c190717af8d2
 - Create: Agent claim/heartbeat/status handlers
 - Modify: Orchestrator 调度：写 `job_ref` + queued，不再 Publish Redis
 
-- [ ] **Step 1: 写失败测试** — claim 原子性、lease 过期可再领、错 Token 401
-- [ ] **Step 2: 跑测试确认失败**
-- [ ] **Step 3: 最小实现** 字段迁移、claim API、调度改可领取
-- [ ] **Step 4: 跑测试通过**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 写失败测试** — claim 原子性、lease 过期可再领、错 Token 401
+- [x] **Step 2: 跑测试确认失败**
+- [x] **Step 3: 最小实现** 字段迁移、claim API、调度改可领取
+- [x] **Step 4: 跑测试通过**
+- [x] **Step 5: Commit**
 
 ### Task 3: pixoma-edge-agent 拉取循环
 

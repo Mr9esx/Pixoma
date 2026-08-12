@@ -7,10 +7,10 @@
 
 ## 2. Agent 拉取派发（替换默认 Redis 跨进程队列）
 
-- [ ] 2.1 Task/调度模型：可领取态、lease、claimed_by、心跳字段与迁移
-- [ ] 2.2 控制面 Agent API：长轮询 claim、续约/心跳、status 上报（幂等接入 applyStatus）
-- [ ] 2.3 Orchestrator：prep `job_ref` 后改为「可领取」而非默认 Publish Redis dispatch
-- [ ] 2.4 租约过期回收与无在线 Edge 时保持 pending 的行为与测试
+- [x] 2.1 Task/调度模型：可领取态、lease、claimed_by、心跳字段与迁移
+- [x] 2.2 控制面 Agent API：长轮询 claim、续约/心跳、status 上报（幂等接入 applyStatus）
+- [x] 2.3 Orchestrator：prep `job_ref` 后改为「可领取」而非默认 Publish Redis dispatch
+- [x] 2.4 租约过期回收与无在线 Edge 时保持 pending 的行为与测试
 - [ ] 2.5 默认路径去掉对 Redis 的运行时依赖（旧适配器可残留但非默认）
 
 ## 3. Edge 二进制与本机/远程

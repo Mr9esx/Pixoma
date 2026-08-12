@@ -2,7 +2,6 @@ package orchestrator_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -36,7 +35,19 @@ func (c *captureBus) Publish(_ context.Context, msg queue.Message) error {
 	return nil
 }
 
-func TestOnTaskCreatedDispatches(t *testing.T) {
+type stubPrep struct{}
+
+func (stubPrep) PrepareJob(_ context.Context, taskID sharedkernel.TaskID, _ sharedkernel.InstanceID) (sharedkernel.BlobRef, error) {
+	return sharedkernel.BlobRef{Key: "jobs/" + string(taskID) + "/job.json", MIME: "application/json"}, nil
+}
+
+type failPrep struct{ err error }
+
+func (f failPrep) PrepareJob(_ context.Context, _ sharedkernel.TaskID, _ sharedkernel.InstanceID) (sharedkernel.BlobRef, error) {
+	return sharedkernel.BlobRef{}, f.err
+}
+
+func TestOnTaskCreatedMakesClaimable(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
@@ -47,6 +58,7 @@ func TestOnTaskCreatedDispatches(t *testing.T) {
 	reg := static.New(instance.Instance{ID: "local", DispatchTopic: "dispatch.local"})
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
+	svc.Prep = stubPrep{}
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t1"}); err != nil {
 		t.Fatal(err)
@@ -55,13 +67,11 @@ func TestOnTaskCreatedDispatches(t *testing.T) {
 	if got.Status != sharedkernel.TaskQueued || got.InstanceID != "local" {
 		t.Fatalf("task=%+v", got)
 	}
-	if len(bus.msgs) != 1 || bus.msgs[0].Topic != "dispatch.local" {
-		t.Fatalf("msgs=%+v", bus.msgs)
+	if got.JobRef.Key != "jobs/t1/job.json" {
+		t.Fatalf("job_ref=%+v", got.JobRef)
 	}
-	var cmd sharedkernel.DispatchCommand
-	_ = json.Unmarshal(bus.msgs[0].Payload, &cmd)
-	if cmd.TaskID != "t1" {
-		t.Fatalf("cmd=%+v", cmd)
+	if len(bus.msgs) != 0 {
+		t.Fatalf("must not publish redis/memory dispatch, msgs=%+v", bus.msgs)
 	}
 }
 
@@ -99,7 +109,6 @@ func TestNotify_JoinsSessionChatID(t *testing.T) {
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
 	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now)
-	// ChatID left zero — notify must resolve via Session.GetByID
 	_ = task.MarkQueued("local", now)
 	_ = task.MarkRunning("p", now)
 	_ = tasks.Create(ctx, task)
@@ -203,8 +212,6 @@ func TestReconcileReadsTaskOnly(t *testing.T) {
 	n := &memNotify{}
 	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, n)
 	svc.Now = func() time.Time { return now }
-	// No Query / Ledger: reconcile must use Tasks.Get only.
-	// Already-running with no new execution info must not bump UpdatedAt.
 	if err := svc.ReconcileStale(ctx, time.Minute, 10); err != nil {
 		t.Fatal(err)
 	}
@@ -243,31 +250,23 @@ func TestReconcile_StaleQueuedWithoutPromptRePend(t *testing.T) {
 	}
 }
 
-type failPublishBus struct {
-	err error
-}
-
-func (f *failPublishBus) Publish(_ context.Context, _ queue.Message) error {
-	return f.err
-}
-
-func TestDispatch_PublishFailRollsBackPending(t *testing.T) {
+func TestDispatch_PrepFailKeepsPending(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
 	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
 
-	bus := &failPublishBus{err: errors.New("bus down")}
-	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local", DispatchTopic: "dispatch.local"}), bus, &memNotify{})
+	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }
+	svc.Prep = failPrep{err: errors.New("blob down")}
 
 	err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t1"})
 	if err == nil {
-		t.Fatal("expected publish error")
+		t.Fatal("expected prep error")
 	}
 	got, _ := tasks.Get(ctx, "t1")
 	if got.Status != sharedkernel.TaskPending {
-		t.Fatalf("status=%s want pending after publish fail", got.Status)
+		t.Fatalf("status=%s want pending after prep fail", got.Status)
 	}
 	if got.InstanceID != "" {
 		t.Fatalf("instance_id=%q want empty", got.InstanceID)
@@ -292,7 +291,7 @@ func (c *countingBus) len() int {
 	return len(c.msgs)
 }
 
-func TestDispatch_ConcurrentClaimOnlyOnePublishes(t *testing.T) {
+func TestDispatch_ConcurrentPrepareOnlyOneClaimable(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
@@ -305,6 +304,7 @@ func TestDispatch_ConcurrentClaimOnlyOnePublishes(t *testing.T) {
 	)
 	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
 	svc.Now = func() time.Time { return now }
+	svc.Prep = stubPrep{}
 
 	const n = 32
 	var wg sync.WaitGroup
@@ -317,8 +317,8 @@ func TestDispatch_ConcurrentClaimOnlyOnePublishes(t *testing.T) {
 	}
 	wg.Wait()
 
-	if bus.len() != 1 {
-		t.Fatalf("publishes=%d want 1", bus.len())
+	if bus.len() != 0 {
+		t.Fatalf("publishes=%d want 0", bus.len())
 	}
 	got, _ := tasks.Get(ctx, "t1")
 	if got.Status != sharedkernel.TaskQueued {
@@ -326,6 +326,9 @@ func TestDispatch_ConcurrentClaimOnlyOnePublishes(t *testing.T) {
 	}
 	if got.InstanceID != "gpu-a" && got.InstanceID != "gpu-b" {
 		t.Fatalf("instance_id=%q", got.InstanceID)
+	}
+	if got.JobRef.Key == "" {
+		t.Fatal("expected job_ref")
 	}
 }
 
@@ -355,6 +358,7 @@ func TestOrchestrator_RoundRobinAcrossHealthy(t *testing.T) {
 	)
 	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
 	svc.Now = func() time.Time { return now }
+	svc.Prep = stubPrep{}
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t1"}); err != nil {
 		t.Fatal(err)
@@ -381,6 +385,7 @@ func TestOrchestrator_NoInstanceKeepsPending(t *testing.T) {
 
 	svc := orchestrator.New(tasks, static.New(), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }
+	svc.Prep = stubPrep{}
 
 	if err := svc.SchedulePending(ctx, 10); err != nil {
 		t.Fatalf("SchedulePending must not fail when no instance: %v", err)

@@ -71,6 +71,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	}
 	cases := &memCases{}
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: mock}
+	orch.Prep = snap
 	worker := &actuator.Worker{
 		InstanceID: "local",
 		Comfy:      mock,
@@ -85,14 +86,19 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 		if err := json.Unmarshal(msg.Payload, &ev); err != nil {
 			return err
 		}
-		return orch.OnTaskCreated(ctx, ev)
-	})
-	_ = bus.Subscribe(ctx, "dispatch.local", func(ctx context.Context, msg queue.Message) error {
-		var cmd sharedkernel.DispatchCommand
-		if err := json.Unmarshal(msg.Payload, &cmd); err != nil {
+		if err := orch.OnTaskCreated(ctx, ev); err != nil {
 			return err
 		}
-		return worker.HandleDispatch(ctx, cmd)
+		claimed, err := tasks.ClaimNextWithLease(ctx, "local", 90*time.Second, now)
+		if err != nil {
+			return err
+		}
+		if claimed == nil {
+			return nil
+		}
+		return worker.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+			TaskID: claimed.ID, InstanceID: claimed.InstanceID, JobRef: claimed.JobRef,
+		})
 	})
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskStatus, func(ctx context.Context, msg queue.Message) error {
 		var ev sharedkernel.TaskStatusEvent
@@ -190,6 +196,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 	}
 	cases := &memCases{}
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: mock}
+	orch.Prep = snap
 	worker := &actuator.Worker{
 		InstanceID: "local",
 		Comfy:      mock,
@@ -204,14 +211,19 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 		if err := json.Unmarshal(msg.Payload, &ev); err != nil {
 			return err
 		}
-		return orch.OnTaskCreated(ctx, ev)
-	})
-	_ = bus.Subscribe(ctx, "dispatch.local", func(ctx context.Context, msg queue.Message) error {
-		var cmd sharedkernel.DispatchCommand
-		if err := json.Unmarshal(msg.Payload, &cmd); err != nil {
+		if err := orch.OnTaskCreated(ctx, ev); err != nil {
 			return err
 		}
-		return worker.HandleDispatch(ctx, cmd)
+		claimed, err := tasks.ClaimNextWithLease(ctx, "local", 90*time.Second, now)
+		if err != nil {
+			return err
+		}
+		if claimed == nil {
+			return nil
+		}
+		return worker.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+			TaskID: claimed.ID, InstanceID: claimed.InstanceID, JobRef: claimed.JobRef,
+		})
 	})
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskStatus, func(ctx context.Context, msg queue.Message) error {
 		var ev sharedkernel.TaskStatusEvent

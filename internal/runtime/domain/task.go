@@ -26,6 +26,8 @@ type Task struct {
 	InstanceID   sharedkernel.InstanceID
 	PromptID     string
 	InputPrefix  string
+	JobRef       sharedkernel.BlobRef
+	LeaseUntil   time.Time
 	Outputs      []OutputRef
 	ErrorCode    string
 	ErrorMessage string
@@ -53,6 +55,56 @@ func (t *Task) MarkQueued(instance sharedkernel.InstanceID, now time.Time) error
 	t.InstanceID = instance
 	t.UpdatedAt = now
 	return nil
+}
+
+// PrepareForClaim marks a pending task queued for a specific instance with a job blob ref.
+func (t *Task) PrepareForClaim(instance sharedkernel.InstanceID, jobRef sharedkernel.BlobRef, now time.Time) error {
+	if t.Status != sharedkernel.TaskPending && t.Status != sharedkernel.TaskQueued {
+		return ErrInvalidTransition
+	}
+	if instance == "" || jobRef.Key == "" {
+		return ErrInvalidTransition
+	}
+	t.Status = sharedkernel.TaskQueued
+	t.InstanceID = instance
+	t.JobRef = jobRef
+	t.LeaseUntil = time.Time{}
+	t.UpdatedAt = now
+	return nil
+}
+
+// ClaimWithLease moves queued → running for the assigned instance and sets lease expiry.
+func (t *Task) ClaimWithLease(instance sharedkernel.InstanceID, lease time.Duration, now time.Time) error {
+	if t.Status != sharedkernel.TaskQueued {
+		return ErrInvalidTransition
+	}
+	if instance == "" || t.InstanceID != instance {
+		return ErrInvalidTransition
+	}
+	if t.JobRef.Key == "" {
+		return ErrInvalidTransition
+	}
+	if lease <= 0 {
+		return ErrInvalidTransition
+	}
+	t.Status = sharedkernel.TaskRunning
+	t.LeaseUntil = now.Add(lease)
+	t.UpdatedAt = now
+	return nil
+}
+
+// RequeueIfLeaseExpired returns queued to the same instance when a running lease is past due.
+func (t *Task) RequeueIfLeaseExpired(now time.Time) (bool, error) {
+	if t.Status != sharedkernel.TaskRunning {
+		return false, nil
+	}
+	if t.LeaseUntil.IsZero() || !now.After(t.LeaseUntil) {
+		return false, nil
+	}
+	t.Status = sharedkernel.TaskQueued
+	t.LeaseUntil = time.Time{}
+	t.UpdatedAt = now
+	return true, nil
 }
 
 func (t *Task) MarkRunning(promptID string, now time.Time) error {
