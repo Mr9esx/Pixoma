@@ -12,7 +12,8 @@ import (
 
 	goredis "github.com/redis/go-redis/v9"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/s3"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edgeonline"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	queueredis "github.com/mr9esx/comfyui_tgbot/internal/platform/queue/redis"
@@ -52,14 +53,8 @@ func run(ctx context.Context) error {
 	}
 	defer func() { _ = bus.Close() }()
 
-	blobStore, err := s3.New(s3.Options{
-		Endpoint:        envOr("S3_ENDPOINT", ""),
-		Region:          envOr("S3_REGION", "us-east-1"),
-		Bucket:          envOr("S3_BUCKET", "pixoma"),
-		AccessKeyID:     envOr("S3_ACCESS_KEY", ""),
-		SecretAccessKey: envOr("S3_SECRET_KEY", ""),
-		UsePathStyle:    envBool("S3_PATH_STYLE", true),
-	})
+	driver := envOr("BLOB_DRIVER", botconfig.BlobDriverS3)
+	blobStore, err := factory.New(driver, "")
 	if err != nil {
 		return err
 	}
@@ -92,11 +87,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	go heartbeat(ctx, rdb, instID)
-	slog.Info("edge-agent running", "instance_id", instID, "topic", topic, "mock", comfyMock)
-	<-ctx.Done()
-	return nil
-}
+		go heartbeat(ctx, rdb, instID)
+		slog.Info("edge-agent running", "instance_id", instID, "topic", topic, "mock", comfyMock, "blob_driver", driver)
+		<-ctx.Done()
+		return nil
+	}
 
 func heartbeat(ctx context.Context, rdb *goredis.Client, instanceID string) {
 	key := edgeonline.Key(sharedkernel.InstanceID(instanceID))
