@@ -15,7 +15,7 @@
 
 ## 3. Edge 二进制与本机/远程
 
-- [ ] 3.1 `pixoma-edge-agent`：拉取循环 + Comfy mock/真机 + blob 读写 + status/heartbeat
+- [x] 3.1 `pixoma-edge-agent`：拉取循环 + Comfy mock/真机 + blob 读写 + status/heartbeat
 - [ ] 3.2 本机 localfs 共用目录主路径（控制面 + Edge）跑通
 - [ ] 3.3 远程 s3/tos 配置校验；拒绝远程 localfs
 - [ ] 3.4 本机自动拉起 Edge（可配置关闭）；远程向导文案与节点登记

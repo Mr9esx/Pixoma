@@ -69,11 +69,11 @@ base-ref: 3a0518564cee9bf9d9305caf6c44c190717af8d2
 - Modify: `apps/edge-agent`（或新 cmd 名）
 - Remove/停用：默认 Redis subscribe 派发路径
 
-- [ ] **Step 1: 写失败测试** — mock 控制面 claim→执行→status（可用 httptest）
-- [ ] **Step 2: 跑测试确认失败**
-- [ ] **Step 3: 实现** 长轮询客户端 + Comfy mock/真机 + blob
-- [ ] **Step 4: 跑测试通过**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 写失败测试** — mock 控制面 claim→执行→status（可用 httptest）
+- [x] **Step 2: 跑测试确认失败**
+- [x] **Step 3: 实现** 长轮询客户端 + Comfy mock/真机 + blob
+- [x] **Step 4: 跑测试通过**
+- [x] **Step 5: Commit**
 
 ### Task 4: pixoma 一体入口 + 本机自动拉起 Edge
 
