@@ -1,6 +1,6 @@
 # 运行时：调度、执行与事件
 
-> ConfirmRun 之后的控制面 / 执行面。数据落库见 [data-model.md](./data-model.md)。
+> ConfirmRun 之后的控制面 / 执行面。数据落库见 [data-model.md](./data-model.md)；按阶段的样例数据快照见 [task-data-walkthrough.md](./task-data-walkthrough.md)。
 
 ---
 

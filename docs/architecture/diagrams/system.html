@@ -16,7 +16,7 @@
       padding: 2rem;
       color: white;
     }
-    .container { max-width: 1100px; margin: 0 auto; }
+    .container { max-width: 1480px; margin: 0 auto; }
     .header { margin-bottom: 1.5rem; }
     .header-row {
       display: flex;
@@ -47,7 +47,7 @@
       padding: 1.5rem;
       overflow-x: auto;
     }
-    svg { width: 100%; min-width: 960px; display: block; }
+    svg { width: 100%; min-width: 1280px; display: block; }
     .cards {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -73,14 +73,14 @@
     .card-dot.amber { background: #fbbf24; }
     .card-dot.orange { background: #fb923c; }
     .card-dot.emerald { background: #34d399; }
-    .card h3 { font-size: 0.875rem; font-weight: 600; }
-    .card ul { list-style: none; color: #94a3b8; font-size: 0.75rem; }
-    .card li { margin-bottom: 0.375rem; }
+    .card h3 { font-size: 1rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.875rem; }
+    .card li { margin-bottom: 0.5rem; }
     .footer {
       text-align: center;
       margin-top: 1.5rem;
       color: #475569;
-      font-size: 0.75rem;
+      font-size: 0.875rem;
     }
     .toolbar {
       display: flex;
@@ -143,7 +143,7 @@
     </div>
 
     <div class="diagram-container">
-      <svg viewBox="0 0 1040 640">
+      <svg viewBox="0 0 1480 980" font-family="'JetBrains Mono', monospace">
         <defs>
           <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
             <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
@@ -167,127 +167,132 @@
 
         <rect width="100%" height="100%" fill="url(#grid)" />
 
-        <!-- TG → Bot -->
-        <line x1="130" y1="120" x2="178" y2="120" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <!-- notify -->
+        <path d="M 280 130 L 280 48 L 90 48 L 90 118" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <text x="185" y="38" fill="#fb7185" font-size="14" text-anchor="middle">notify</text>
 
-        <!-- Bot stack -->
-        <line x1="280" y1="160" x2="280" y2="188" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
-        <line x1="280" y1="248" x2="280" y2="276" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
-        <line x1="280" y1="336" x2="280" y2="364" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <!-- Online heartbeat (split) — top rail -->
+        <path d="M 1005 368 L 940 368 L 940 72 L 510 72 L 510 512" fill="none" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrow-cyan)"/>
+        <text x="730" y="58" fill="#22d3ee" font-size="14" text-anchor="middle">edge:online TTL（split）</text>
 
-        <!-- Orch → Queue -->
-        <path d="M 380 394 L 430 394 L 430 300 L 478 300" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
-        <text x="404" y="330" fill="#fb923c" font-size="8">dispatch</text>
-        <text x="404" y="342" fill="#fb923c" font-size="8">+ job_ref</text>
+        <!-- TG → Control -->
+        <line x1="170" y1="180" x2="218" y2="180" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrow-cyan)"/>
+
+        <!-- Control stack connectors -->
+        <line x1="360" y1="220" x2="360" y2="248" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="360" y1="328" x2="360" y2="356" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="360" y1="436" x2="360" y2="464" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
 
         <!-- Orch → Blob -->
-        <path d="M 380 380 L 430 380 L 430 200 L 478 200" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
-        <text x="404" y="230" fill="#a78bfa" font-size="8">PrepareJob</text>
-        <text x="404" y="242" fill="#a78bfa" font-size="8">jobs/*.json</text>
+        <path d="M 500 500 L 540 500 L 540 220 L 618 220" fill="none" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-violet)"/>
+        <text x="508" y="300" fill="#a78bfa" font-size="14">PrepareJob</text>
+        <text x="508" y="320" fill="#a78bfa" font-size="14">jobs/*.json</text>
 
-        <!-- Queue → Actuator -->
-        <line x1="622" y1="300" x2="678" y2="300" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
-        <text x="650" y="290" fill="#fb923c" font-size="8" text-anchor="middle">订阅</text>
+        <!-- Orch → Queue -->
+        <path d="M 500 540 L 540 540 L 540 400 L 618 400" fill="none" stroke="#fb923c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+        <text x="508" y="460" fill="#fb923c" font-size="14">dispatch</text>
+        <text x="508" y="480" fill="#fb923c" font-size="14">+ job_ref</text>
 
         <!-- Blob → Actuator -->
-        <path d="M 622 200 L 650 200 L 650 260 L 678 260" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
-        <text x="662" y="248" fill="#a78bfa" font-size="7">Get</text>
+        <path d="M 860 220 L 920 220 L 920 300 L 1005 300" fill="none" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-violet)"/>
+        <text x="930" y="270" fill="#a78bfa" font-size="14">Get</text>
+
+        <!-- Queue → Actuator -->
+        <line x1="860" y1="400" x2="1005" y2="400" stroke="#fb923c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+        <text x="932" y="388" fill="#fb923c" font-size="14" text-anchor="middle">订阅</text>
 
         <!-- Actuator → Blob outputs -->
-        <path d="M 750 240 L 750 160 L 550 160 L 550 168" fill="none" stroke="#a78bfa" stroke-width="1.25" marker-end="url(#arrow-violet)"/>
-        <text x="640" y="152" fill="#a78bfa" font-size="8" text-anchor="middle">outputs/</text>
-
-        <!-- Actuator → Comfy -->
-        <line x1="750" y1="340" x2="750" y2="388" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+        <path d="M 1120 168 L 1120 150 L 740 150 L 740 168" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+        <text x="930" y="138" fill="#a78bfa" font-size="14" text-anchor="middle">outputs/</text>
 
         <!-- Actuator → Queue status -->
-        <path d="M 750 340 L 750 360 L 550 360 L 550 332" fill="none" stroke="#fb923c" stroke-width="1.25" marker-end="url(#arrow-orange)"/>
-        <text x="640" y="376" fill="#fb923c" font-size="8" text-anchor="middle">task.status</text>
+        <path d="M 1120 420 L 1120 470 L 740 470 L 740 460" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+        <text x="930" y="492" fill="#fb923c" font-size="14" text-anchor="middle">task.status</text>
 
-        <!-- Online heartbeat (split) -->
-        <path d="M 678 280 L 650 280 L 650 100 L 380 100 L 380 364" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-cyan)"/>
-        <text x="500" y="92" fill="#22d3ee" font-size="8" text-anchor="middle">edge:online TTL（split）</text>
+        <!-- Actuator → Comfy -->
+        <line x1="1120" y1="396" x2="1120" y2="508" stroke="#34d399" stroke-width="2" marker-end="url(#arrow-green)"/>
 
-        <!-- notify -->
-        <path d="M 210 100 L 210 48 L 70 48 L 70 78" fill="none" stroke="#fb7185" stroke-width="1.25" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
-        <text x="140" y="40" fill="#fb7185" font-size="8" text-anchor="middle">notify</text>
+        <!-- LEFT: Telegram -->
+        <rect x="30" y="140" width="140" height="80" rx="8" fill="#0f172a"/>
+        <rect x="30" y="140" width="140" height="80" rx="8" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="100" y="175" fill="white" font-size="16" font-weight="600" text-anchor="middle">Telegram</text>
+        <text x="100" y="198" fill="#94a3b8" font-size="14" text-anchor="middle">用户端</text>
 
-        <!-- LEFT: TG -->
-        <rect x="20" y="90" width="110" height="60" rx="6" fill="#0f172a"/>
-        <rect x="20" y="90" width="110" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="75" y="116" fill="white" font-size="12" font-weight="600" text-anchor="middle">Telegram</text>
-        <text x="75" y="134" fill="#94a3b8" font-size="9" text-anchor="middle">用户端</text>
+        <!-- Control plane -->
+        <rect x="220" y="100" width="280" height="520" rx="14" fill="rgba(251, 191, 36, 0.04)" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="8,4"/>
+        <text x="240" y="132" fill="#fbbf24" font-size="15" font-weight="600">控制面 · apps/bot</text>
 
-        <!-- LEFT: Control plane -->
-        <rect x="180" y="70" width="200" height="380" rx="12" fill="rgba(251, 191, 36, 0.04)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
-        <text x="195" y="92" fill="#fbbf24" font-size="10" font-weight="600">控制面 · apps/bot</text>
+        <rect x="245" y="152" width="230" height="68" rx="8" fill="#0f172a"/>
+        <rect x="245" y="152" width="230" height="68" rx="8" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="360" y="180" fill="white" font-size="15" font-weight="600" text-anchor="middle">channel/tg</text>
+        <text x="360" y="202" fill="#94a3b8" font-size="14" text-anchor="middle">Adapter · Messenger</text>
 
-        <rect x="200" y="110" width="160" height="50" rx="6" fill="#0f172a"/>
-        <rect x="200" y="110" width="160" height="50" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
-        <text x="280" y="132" fill="white" font-size="11" font-weight="600" text-anchor="middle">channel/tg</text>
-        <text x="280" y="148" fill="#94a3b8" font-size="8" text-anchor="middle">Adapter · Messenger</text>
+        <rect x="245" y="248" width="230" height="80" rx="8" fill="#0f172a"/>
+        <rect x="245" y="248" width="230" height="80" rx="8" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="360" y="280" fill="white" font-size="15" font-weight="600" text-anchor="middle">botapp + BC</text>
+        <text x="360" y="304" fill="#94a3b8" font-size="14" text-anchor="middle">ConfirmRun · Case</text>
 
-        <rect x="200" y="188" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="200" y="188" width="160" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="280" y="214" fill="white" font-size="11" font-weight="600" text-anchor="middle">botapp + BC</text>
-        <text x="280" y="232" fill="#94a3b8" font-size="8" text-anchor="middle">ConfirmRun · Case</text>
+        <rect x="245" y="356" width="230" height="80" rx="8" fill="#0f172a"/>
+        <rect x="245" y="356" width="230" height="80" rx="8" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="360" y="388" fill="white" font-size="15" font-weight="600" text-anchor="middle">SQLite</text>
+        <text x="360" y="412" fill="#94a3b8" font-size="14" text-anchor="middle">Task 真相源</text>
 
-        <rect x="200" y="276" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="200" y="276" width="160" height="60" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
-        <text x="280" y="302" fill="white" font-size="11" font-weight="600" text-anchor="middle">SQLite</text>
-        <text x="280" y="320" fill="#94a3b8" font-size="8" text-anchor="middle">Task 真相源</text>
+        <rect x="245" y="464" width="230" height="96" rx="8" fill="#0f172a"/>
+        <rect x="245" y="464" width="230" height="96" rx="8" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="360" y="502" fill="white" font-size="15" font-weight="600" text-anchor="middle">Orchestrator</text>
+        <text x="360" y="528" fill="#94a3b8" font-size="14" text-anchor="middle">prep · Online · RR</text>
 
-        <rect x="200" y="364" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="200" y="364" width="160" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="280" y="390" fill="white" font-size="11" font-weight="600" text-anchor="middle">Orchestrator</text>
-        <text x="280" y="408" fill="#94a3b8" font-size="8" text-anchor="middle">prep · Online · RR</text>
+        <!-- Shared adapters -->
+        <rect x="620" y="100" width="240" height="420" rx="14" fill="rgba(251, 146, 60, 0.05)" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="6,4"/>
+        <text x="640" y="132" fill="#fb923c" font-size="15" font-weight="600">共享适配层</text>
 
-        <!-- CENTER: Shared -->
-        <rect x="460" y="70" width="180" height="320" rx="12" fill="rgba(251, 146, 60, 0.05)" stroke="#fb923c" stroke-width="1" stroke-dasharray="6,4"/>
-        <text x="475" y="92" fill="#fb923c" font-size="10" font-weight="600">共享适配层</text>
+        <rect x="645" y="168" width="190" height="120" rx="8" fill="#0f172a"/>
+        <rect x="645" y="168" width="190" height="120" rx="8" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="740" y="212" fill="white" font-size="18" font-weight="600" text-anchor="middle">Blob</text>
+        <text x="740" y="238" fill="#94a3b8" font-size="14" text-anchor="middle">localfs | S3</text>
+        <text x="740" y="262" fill="#94a3b8" font-size="14" text-anchor="middle">inputs · jobs · outputs</text>
 
-        <rect x="480" y="140" width="140" height="80" rx="6" fill="#0f172a"/>
-        <rect x="480" y="140" width="140" height="80" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
-        <text x="550" y="172" fill="white" font-size="12" font-weight="600" text-anchor="middle">Blob</text>
-        <text x="550" y="192" fill="#94a3b8" font-size="9" text-anchor="middle">localfs | S3</text>
-        <text x="550" y="208" fill="#94a3b8" font-size="8" text-anchor="middle">inputs · jobs · outputs</text>
+        <rect x="645" y="340" width="190" height="120" rx="8" fill="#0f172a"/>
+        <rect x="645" y="340" width="190" height="120" rx="8" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="740" y="384" fill="white" font-size="18" font-weight="600" text-anchor="middle">Queue</text>
+        <text x="740" y="410" fill="#fb923c" font-size="14" text-anchor="middle">Memory | Redis</text>
+        <text x="740" y="434" fill="#94a3b8" font-size="14" text-anchor="middle">Streams</text>
 
-        <rect x="480" y="260" width="140" height="80" rx="6" fill="#0f172a"/>
-        <rect x="480" y="260" width="140" height="80" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
-        <text x="550" y="292" fill="white" font-size="12" font-weight="600" text-anchor="middle">Queue</text>
-        <text x="550" y="312" fill="#fb923c" font-size="9" text-anchor="middle">Memory | Redis</text>
-        <text x="550" y="328" fill="#94a3b8" font-size="8" text-anchor="middle">Streams</text>
+        <!-- Execution plane -->
+        <rect x="980" y="100" width="280" height="520" rx="14" fill="rgba(52, 211, 153, 0.05)" stroke="#34d399" stroke-width="1.5" stroke-dasharray="8,4"/>
+        <text x="1000" y="132" fill="#34d399" font-size="15" font-weight="600">执行面 · Actuator</text>
 
-        <!-- RIGHT: Execution plane = Actuator -->
-        <rect x="680" y="70" width="200" height="390" rx="12" fill="rgba(52, 211, 153, 0.05)" stroke="#34d399" stroke-width="1" stroke-dasharray="8,4"/>
-        <text x="695" y="92" fill="#34d399" font-size="10" font-weight="600">执行面 · Actuator</text>
+        <rect x="1005" y="168" width="230" height="140" rx="8" fill="#0f172a"/>
+        <rect x="1005" y="168" width="230" height="140" rx="8" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="1120" y="208" fill="white" font-size="16" font-weight="600" text-anchor="middle">Worker</text>
+        <text x="1120" y="234" fill="#94a3b8" font-size="14" text-anchor="middle">graphFromJob</text>
+        <text x="1120" y="258" fill="#94a3b8" font-size="14" text-anchor="middle">Upload · Submit · Wait</text>
+        <text x="1120" y="282" fill="#94a3b8" font-size="14" text-anchor="middle">不访问 Task/Case DB</text>
 
-        <rect x="700" y="180" width="160" height="100" rx="6" fill="#0f172a"/>
-        <rect x="700" y="180" width="160" height="100" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="780" y="212" fill="white" font-size="12" font-weight="600" text-anchor="middle">Worker</text>
-        <text x="780" y="232" fill="#94a3b8" font-size="8" text-anchor="middle">graphFromJob</text>
-        <text x="780" y="248" fill="#94a3b8" font-size="8" text-anchor="middle">Upload · Submit · Wait</text>
-        <text x="780" y="264" fill="#94a3b8" font-size="8" text-anchor="middle">不访问 Task/Case DB</text>
+        <rect x="1005" y="340" width="230" height="56" rx="8" fill="#0f172a"/>
+        <rect x="1005" y="340" width="230" height="56" rx="8" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="1120" y="375" fill="white" font-size="15" font-weight="600" text-anchor="middle">heartbeat</text>
 
-        <rect x="700" y="300" width="160" height="40" rx="6" fill="#0f172a"/>
-        <rect x="700" y="300" width="160" height="40" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
-        <text x="780" y="325" fill="white" font-size="10" font-weight="600" text-anchor="middle">heartbeat</text>
-
-        <rect x="700" y="388" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="700" y="388" width="160" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="780" y="414" fill="white" font-size="12" font-weight="600" text-anchor="middle">ComfyUI / Mock</text>
-        <text x="780" y="432" fill="#94a3b8" font-size="8" text-anchor="middle">本机可达</text>
+        <rect x="1005" y="508" width="230" height="80" rx="8" fill="#0f172a"/>
+        <rect x="1005" y="508" width="230" height="80" rx="8" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="1120" y="542" fill="white" font-size="15" font-weight="600" text-anchor="middle">ComfyUI / Mock</text>
+        <text x="1120" y="566" fill="#94a3b8" font-size="14" text-anchor="middle">本机可达</text>
 
         <!-- Deployment modes -->
-        <rect x="180" y="500" width="700" height="110" rx="8" fill="#0f172a"/>
-        <rect x="180" y="500" width="700" height="110" rx="8" fill="rgba(15, 23, 42, 0.9)" stroke="#334155" stroke-width="1"/>
-        <text x="200" y="528" fill="white" font-size="11" font-weight="600">部署形态 · Actuator 放置</text>
-        <text x="200" y="554" fill="#fbbf24" font-size="10" font-weight="600">allinone</text>
-        <text x="280" y="554" fill="#94a3b8" font-size="9">Actuator 与 Bot 同进程 · queue=Memory · blob=localfs</text>
-        <text x="200" y="578" fill="#34d399" font-size="10" font-weight="600">split</text>
-        <text x="280" y="578" fill="#94a3b8" font-size="9">Actuator 独立进程 edge-agent · queue=Redis Streams · blob=S3 · Bot 不订阅生产 dispatch</text>
-        <text x="200" y="598" fill="#a78bfa" font-size="9" font-weight="600">方案 A</text>
-        <text x="280" y="598" fill="#94a3b8" font-size="9">PrepareJob → jobs/&lt;task_id&gt;/job.json · DispatchCommand.job_ref · Edge = 外置 Actuator</text>
+        <rect x="220" y="660" width="1040" height="280" rx="10" fill="#0f172a"/>
+        <rect x="220" y="660" width="1040" height="280" rx="10" fill="rgba(15, 23, 42, 0.95)" stroke="#334155" stroke-width="1.5"/>
+        <text x="250" y="700" fill="white" font-size="16" font-weight="600">部署形态 · Actuator 放置</text>
+
+        <text x="250" y="744" fill="#fbbf24" font-size="15" font-weight="600">allinone</text>
+        <text x="360" y="744" fill="#94a3b8" font-size="14">Actuator 与 Bot 同进程 · queue=Memory · blob=localfs</text>
+
+        <text x="250" y="788" fill="#34d399" font-size="15" font-weight="600">split</text>
+        <text x="360" y="788" fill="#94a3b8" font-size="14">Actuator 独立进程 edge-agent · queue=Redis Streams · blob=S3</text>
+        <text x="360" y="812" fill="#94a3b8" font-size="14">Bot 不订阅生产 dispatch</text>
+
+        <text x="250" y="856" fill="#a78bfa" font-size="15" font-weight="600">方案 A</text>
+        <text x="360" y="856" fill="#94a3b8" font-size="14">PrepareJob → jobs/&lt;task_id&gt;/job.json · DispatchCommand.job_ref</text>
+        <text x="360" y="880" fill="#94a3b8" font-size="14">Edge = 外置 Actuator</text>
       </svg>
     </div>
 
