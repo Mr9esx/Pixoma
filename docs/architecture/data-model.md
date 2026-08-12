@@ -1,6 +1,7 @@
 # 数据模型与 ER
 
 > 系统总览见 [overview.md](./overview.md)；运行时链路见 [runtime.md](./runtime.md)。  
+> 端到端样例（每阶段表行 / Blob / MQ）见 [task-data-walkthrough.md](./task-data-walkthrough.md)。  
 > 数据库：SQLite（默认 `data/app.db`），GORM AutoMigrate。  
 > 对应能力：User / Session / Task 落库 + 多 Comfy 实例池。
 

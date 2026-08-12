@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,12 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'JetBrains Mono', monospace;
       background: #020617;
@@ -21,48 +16,30 @@
       padding: 2rem;
       color: white;
     }
-    
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    
-    .header {
-      margin-bottom: 2rem;
-    }
-    
+    .container { max-width: 1480px; margin: 0 auto; }
+    .header { margin-bottom: 1.5rem; }
     .header-row {
       display: flex;
       align-items: center;
       gap: 1rem;
       margin-bottom: 0.5rem;
     }
-    
     .pulse-dot {
-      width: 12px;
-      height: 12px;
+      width: 12px; height: 12px;
       background: #22d3ee;
       border-radius: 50%;
       animation: pulse 2s infinite;
     }
-    
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
-    
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.025em;
-    }
-    
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; }
     .subtitle {
       color: #94a3b8;
       font-size: 0.875rem;
       margin-left: 1.75rem;
     }
-    
     .diagram-container {
       background: rgba(15, 23, 42, 0.5);
       border-radius: 1rem;
@@ -70,68 +47,41 @@
       padding: 1.5rem;
       overflow-x: auto;
     }
-    
-    svg {
-      width: 100%;
-      min-width: 900px;
-      display: block;
-    }
-    
+    svg { width: 100%; min-width: 1280px; display: block; }
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
-      margin-top: 2rem;
+      margin-top: 1.5rem;
     }
-    
+    @media (max-width: 800px) {
+      .cards { grid-template-columns: 1fr; }
+    }
     .card {
       background: rgba(15, 23, 42, 0.5);
       border-radius: 0.75rem;
       border: 1px solid #1e293b;
       padding: 1.25rem;
     }
-    
     .card-header {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       margin-bottom: 0.75rem;
     }
-    
-    .card-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-    }
-    
-    .card-dot.cyan { background: #22d3ee; }
-    .card-dot.emerald { background: #34d399; }
-    .card-dot.violet { background: #a78bfa; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
     .card-dot.amber { background: #fbbf24; }
-    .card-dot.rose { background: #fb7185; }
-    
-    .card h3 {
-      font-size: 0.875rem;
-      font-weight: 600;
-    }
-    
-    .card ul {
-      list-style: none;
-      color: #94a3b8;
-      font-size: 0.75rem;
-    }
-    
-    .card li {
-      margin-bottom: 0.375rem;
-    }
-    
+    .card-dot.orange { background: #fb923c; }
+    .card-dot.emerald { background: #34d399; }
+    .card h3 { font-size: 1rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.875rem; }
+    .card li { margin-bottom: 0.5rem; }
     .footer {
       text-align: center;
       margin-top: 1.5rem;
       color: #475569;
-      font-size: 0.75rem;
+      font-size: 0.875rem;
     }
-
     .toolbar {
       display: flex;
       gap: 0.5rem;
@@ -148,13 +98,9 @@
       line-height: 1;
       padding: 0.25rem 0.5rem;
       border-radius: 0.375rem;
-      transition: color 0.2s, background 0.2s;
     }
     .toolbar-toggle:hover { color: #94a3b8; background: rgba(30, 41, 59, 0.5); }
-    .toolbar-actions {
-      display: none;
-      gap: 0.5rem;
-    }
+    .toolbar-actions { display: none; gap: 0.5rem; }
     .toolbar.expanded .toolbar-actions { display: flex; }
     .toolbar-actions button {
       background: rgba(30, 41, 59, 0.8);
@@ -165,7 +111,6 @@
       font-family: inherit;
       font-size: 0.75rem;
       cursor: pointer;
-      transition: all 0.2s;
       white-space: nowrap;
     }
     .toolbar-actions button:hover {
@@ -173,7 +118,6 @@
       color: white;
       border-color: #475569;
     }
-
     @media print {
       body { background: #020617; padding: 1rem; }
       .toolbar { display: none !important; }
@@ -182,7 +126,6 @@
 </head>
 <body>
   <div class="container" id="report-container">
-    <!-- Header -->
     <div class="header">
       <div class="header-row">
         <div class="pulse-dot"></div>
@@ -196,15 +139,26 @@
           <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
         </div>
       </div>
-      <p class="subtitle">TG Bot · DDD Bounded Contexts · Multi ComfyUI · All-in-one process</p>
+      <p class="subtitle">控制面 → 共享 Blob / Queue → 执行面（Actuator）· 方案 A（job_ref）</p>
     </div>
 
-    <!-- Main Diagram -->
     <div class="diagram-container">
-      <svg viewBox="0 0 1080 720">
+      <svg viewBox="0 0 1480 980" font-family="'JetBrains Mono', monospace">
         <defs>
-          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
             <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <marker id="arrow-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee" />
+          </marker>
+          <marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fb923c" />
+          </marker>
+          <marker id="arrow-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa" />
+          </marker>
+          <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#34d399" />
           </marker>
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
             <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
@@ -213,200 +167,173 @@
 
         <rect width="100%" height="100%" fill="url(#grid)" />
 
-        <!-- Arrows first (behind boxes) -->
-        <line x1="130" y1="120" x2="198" y2="120" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="164" y="112" fill="#94a3b8" font-size="8" text-anchor="middle">Bot API</text>
+        <!-- notify -->
+        <path d="M 280 130 L 280 48 L 90 48 L 90 118" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <text x="185" y="38" fill="#fb7185" font-size="14" text-anchor="middle">notify</text>
 
-        <line x1="130" y1="280" x2="198" y2="200" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="145" y="230" fill="#94a3b8" font-size="8">Updates</text>
+        <!-- Online heartbeat (split) — top rail -->
+        <path d="M 1005 368 L 940 368 L 940 72 L 510 72 L 510 512" fill="none" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrow-cyan)"/>
+        <text x="730" y="58" fill="#22d3ee" font-size="14" text-anchor="middle">edge:online TTL（split）</text>
 
-        <line x1="420" y1="155" x2="420" y2="188" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="448" y="178" fill="#fb923c" font-size="7">usecases</text>
+        <!-- TG → Control -->
+        <line x1="170" y1="180" x2="218" y2="180" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrow-cyan)"/>
 
-        <line x1="300" y1="280" x2="300" y2="328" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <line x1="420" y1="280" x2="420" y2="328" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <line x1="540" y1="280" x2="540" y2="328" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <!-- Control stack connectors -->
+        <line x1="360" y1="220" x2="360" y2="248" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="360" y1="328" x2="360" y2="356" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="360" y1="436" x2="360" y2="464" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-        <line x1="540" y1="400" x2="540" y2="438" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="575" y="425" fill="#fb923c" font-size="7">task.created</text>
+        <!-- Orch → Blob -->
+        <path d="M 500 500 L 540 500 L 540 220 L 618 220" fill="none" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-violet)"/>
+        <text x="508" y="300" fill="#a78bfa" font-size="14">PrepareJob</text>
+        <text x="508" y="320" fill="#a78bfa" font-size="14">jobs/*.json</text>
 
-        <line x1="540" y1="510" x2="540" y2="548" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="595" y="535" fill="#fb923c" font-size="7">dispatch.&lt;id&gt;</text>
+        <!-- Orch → Queue -->
+        <path d="M 500 540 L 540 540 L 540 400 L 618 400" fill="none" stroke="#fb923c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+        <text x="508" y="460" fill="#fb923c" font-size="14">dispatch</text>
+        <text x="508" y="480" fill="#fb923c" font-size="14">+ job_ref</text>
 
-        <line x1="640" y1="580" x2="718" y2="580" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <line x1="640" y1="600" x2="718" y2="640" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <!-- Blob → Actuator -->
+        <path d="M 860 220 L 920 220 L 920 300 L 1005 300" fill="none" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-violet)"/>
+        <text x="930" y="270" fill="#a78bfa" font-size="14">Get</text>
 
-        <line x1="720" y1="400" x2="720" y2="328" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="745" y="365" fill="#a78bfa" font-size="7">persist</text>
+        <!-- Queue → Actuator -->
+        <line x1="860" y1="400" x2="1005" y2="400" stroke="#fb923c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+        <text x="932" y="388" fill="#fb923c" font-size="14" text-anchor="middle">订阅</text>
 
-        <line x1="780" y1="200" x2="848" y2="200" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="814" y="192" fill="#94a3b8" font-size="7">CRUD</text>
+        <!-- Actuator → Blob outputs -->
+        <path d="M 1120 168 L 1120 150 L 740 150 L 740 168" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+        <text x="930" y="138" fill="#a78bfa" font-size="14" text-anchor="middle">outputs/</text>
 
-        <path d="M 300 155 L 300 100 Q 300 80 320 80 L 700 80" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
-        <text x="480" y="72" fill="#fb7185" font-size="8">notify → SendPhoto</text>
+        <!-- Actuator → Queue status -->
+        <path d="M 1120 420 L 1120 470 L 740 470 L 740 460" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+        <text x="930" y="492" fill="#fb923c" font-size="14" text-anchor="middle">task.status</text>
 
-        <!-- External: Telegram User -->
-        <rect x="20" y="90" width="110" height="60" rx="6" fill="#0f172a"/>
-        <rect x="20" y="90" width="110" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="75" y="115" fill="white" font-size="11" font-weight="600" text-anchor="middle">TG User</text>
-        <text x="75" y="132" fill="#94a3b8" font-size="9" text-anchor="middle">Telegram</text>
+        <!-- Actuator → Comfy -->
+        <line x1="1120" y1="396" x2="1120" y2="508" stroke="#34d399" stroke-width="2" marker-end="url(#arrow-green)"/>
 
-        <!-- External: Ops -->
-        <rect x="20" y="250" width="110" height="60" rx="6" fill="#0f172a"/>
-        <rect x="20" y="250" width="110" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="75" y="275" fill="white" font-size="11" font-weight="600" text-anchor="middle">Ops</text>
-        <text x="75" y="292" fill="#94a3b8" font-size="9" text-anchor="middle">curl / HTTP</text>
+        <!-- LEFT: Telegram -->
+        <rect x="30" y="140" width="140" height="80" rx="8" fill="#0f172a"/>
+        <rect x="30" y="140" width="140" height="80" rx="8" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="100" y="175" fill="white" font-size="16" font-weight="600" text-anchor="middle">Telegram</text>
+        <text x="100" y="198" fill="#94a3b8" font-size="14" text-anchor="middle">用户端</text>
 
-        <!-- Bot process boundary -->
-        <rect x="190" y="40" width="640" height="640" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
-        <text x="205" y="60" fill="#fbbf24" font-size="10" font-weight="600">apps/bot · all-in-one process</text>
+        <!-- Control plane -->
+        <rect x="220" y="100" width="280" height="520" rx="14" fill="rgba(251, 191, 36, 0.04)" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="8,4"/>
+        <text x="240" y="132" fill="#fbbf24" font-size="15" font-weight="600">控制面 · apps/bot</text>
 
-        <!-- Channel TG -->
-        <rect x="220" y="95" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="220" y="95" width="160" height="60" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
-        <text x="300" y="120" fill="white" font-size="11" font-weight="600" text-anchor="middle">channel/tg</text>
-        <text x="300" y="138" fill="#94a3b8" font-size="9" text-anchor="middle">Adapter · Messenger</text>
+        <rect x="245" y="152" width="230" height="68" rx="8" fill="#0f172a"/>
+        <rect x="245" y="152" width="230" height="68" rx="8" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="360" y="180" fill="white" font-size="15" font-weight="600" text-anchor="middle">channel/tg</text>
+        <text x="360" y="202" fill="#94a3b8" font-size="14" text-anchor="middle">Adapter · Messenger</text>
 
-        <!-- HTTP API -->
-        <rect x="620" y="95" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="620" y="95" width="160" height="60" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
-        <text x="700" y="120" fill="white" font-size="11" font-weight="600" text-anchor="middle">httpapi</text>
-        <text x="700" y="138" fill="#94a3b8" font-size="9" text-anchor="middle">comfy-instances</text>
+        <rect x="245" y="248" width="230" height="80" rx="8" fill="#0f172a"/>
+        <rect x="245" y="248" width="230" height="80" rx="8" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="360" y="280" fill="white" font-size="15" font-weight="600" text-anchor="middle">botapp + BC</text>
+        <text x="360" y="304" fill="#94a3b8" font-size="14" text-anchor="middle">ConfirmRun · Case</text>
 
-        <!-- botapp -->
-        <rect x="340" y="190" width="200" height="60" rx="6" fill="#0f172a"/>
-        <rect x="340" y="190" width="200" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="440" y="215" fill="white" font-size="11" font-weight="600" text-anchor="middle">packaging/botapp</text>
-        <text x="440" y="233" fill="#94a3b8" font-size="9" text-anchor="middle">ConfirmRun · StartCase</text>
+        <rect x="245" y="356" width="230" height="80" rx="8" fill="#0f172a"/>
+        <rect x="245" y="356" width="230" height="80" rx="8" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="360" y="388" fill="white" font-size="15" font-weight="600" text-anchor="middle">SQLite</text>
+        <text x="360" y="412" fill="#94a3b8" font-size="14" text-anchor="middle">Task 真相源</text>
 
-        <!-- Domain BCs -->
-        <rect x="220" y="330" width="120" height="70" rx="6" fill="#0f172a"/>
-        <rect x="220" y="330" width="120" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="280" y="355" fill="white" font-size="11" font-weight="600" text-anchor="middle">identity</text>
-        <text x="280" y="373" fill="#94a3b8" font-size="9" text-anchor="middle">users</text>
-        <text x="280" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">TG upsert</text>
+        <rect x="245" y="464" width="230" height="96" rx="8" fill="#0f172a"/>
+        <rect x="245" y="464" width="230" height="96" rx="8" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="360" y="502" fill="white" font-size="15" font-weight="600" text-anchor="middle">Orchestrator</text>
+        <text x="360" y="528" fill="#94a3b8" font-size="14" text-anchor="middle">prep · Online · RR</text>
 
-        <rect x="360" y="330" width="120" height="70" rx="6" fill="#0f172a"/>
-        <rect x="360" y="330" width="120" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="420" y="355" fill="white" font-size="11" font-weight="600" text-anchor="middle">conversation</text>
-        <text x="420" y="373" fill="#94a3b8" font-size="9" text-anchor="middle">sessions</text>
-        <text x="420" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">fill-form</text>
+        <!-- Shared adapters -->
+        <rect x="620" y="100" width="240" height="420" rx="14" fill="rgba(251, 146, 60, 0.05)" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="6,4"/>
+        <text x="640" y="132" fill="#fb923c" font-size="15" font-weight="600">共享适配层</text>
 
-        <rect x="500" y="330" width="120" height="70" rx="6" fill="#0f172a"/>
-        <rect x="500" y="330" width="120" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="560" y="355" fill="white" font-size="11" font-weight="600" text-anchor="middle">catalog</text>
-        <text x="560" y="373" fill="#94a3b8" font-size="9" text-anchor="middle">cases</text>
-        <text x="560" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">doc_json</text>
+        <rect x="645" y="168" width="190" height="120" rx="8" fill="#0f172a"/>
+        <rect x="645" y="168" width="190" height="120" rx="8" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="740" y="212" fill="white" font-size="18" font-weight="600" text-anchor="middle">Blob</text>
+        <text x="740" y="238" fill="#94a3b8" font-size="14" text-anchor="middle">localfs | S3</text>
+        <text x="740" y="262" fill="#94a3b8" font-size="14" text-anchor="middle">inputs · jobs · outputs</text>
 
-        <!-- Event bus -->
-        <rect x="460" y="415" width="160" height="22" rx="4" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
-        <text x="540" y="430" fill="#fb923c" font-size="8" text-anchor="middle">queue/memory bus</text>
+        <rect x="645" y="340" width="190" height="120" rx="8" fill="#0f172a"/>
+        <rect x="645" y="340" width="190" height="120" rx="8" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="740" y="384" fill="white" font-size="18" font-weight="600" text-anchor="middle">Queue</text>
+        <text x="740" y="410" fill="#fb923c" font-size="14" text-anchor="middle">Memory | Redis</text>
+        <text x="740" y="434" fill="#94a3b8" font-size="14" text-anchor="middle">Streams</text>
 
-        <!-- Orchestrator -->
-        <rect x="460" y="450" width="160" height="60" rx="6" fill="#0f172a"/>
-        <rect x="460" y="450" width="160" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="540" y="475" fill="white" font-size="11" font-weight="600" text-anchor="middle">Orchestrator</text>
-        <text x="540" y="493" fill="#94a3b8" font-size="9" text-anchor="middle">RR · ClaimQueued</text>
+        <!-- Execution plane -->
+        <rect x="980" y="100" width="280" height="520" rx="14" fill="rgba(52, 211, 153, 0.05)" stroke="#34d399" stroke-width="1.5" stroke-dasharray="8,4"/>
+        <text x="1000" y="132" fill="#34d399" font-size="15" font-weight="600">执行面 · Actuator</text>
 
-        <!-- Bus mid -->
-        <rect x="460" y="525" width="160" height="22" rx="4" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
-        <text x="540" y="540" fill="#fb923c" font-size="8" text-anchor="middle">dispatch.&lt;instance&gt;</text>
+        <rect x="1005" y="168" width="230" height="140" rx="8" fill="#0f172a"/>
+        <rect x="1005" y="168" width="230" height="140" rx="8" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="1120" y="208" fill="white" font-size="16" font-weight="600" text-anchor="middle">Worker</text>
+        <text x="1120" y="234" fill="#94a3b8" font-size="14" text-anchor="middle">graphFromJob</text>
+        <text x="1120" y="258" fill="#94a3b8" font-size="14" text-anchor="middle">Upload · Submit · Wait</text>
+        <text x="1120" y="282" fill="#94a3b8" font-size="14" text-anchor="middle">不访问 Task/Case DB</text>
 
-        <!-- Actuator -->
-        <rect x="460" y="560" width="180" height="70" rx="6" fill="#0f172a"/>
-        <rect x="460" y="560" width="180" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="550" y="585" fill="white" font-size="11" font-weight="600" text-anchor="middle">Actuator + Pool</text>
-        <text x="550" y="603" fill="#94a3b8" font-size="9" text-anchor="middle">comfyui.NewClient</text>
-        <text x="550" y="618" fill="#94a3b8" font-size="8" text-anchor="middle">HTTP / Mock</text>
+        <rect x="1005" y="340" width="230" height="56" rx="8" fill="#0f172a"/>
+        <rect x="1005" y="340" width="230" height="56" rx="8" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="1120" y="375" fill="white" font-size="15" font-weight="600" text-anchor="middle">heartbeat</text>
 
-        <!-- SQLite -->
-        <rect x="660" y="330" width="130" height="70" rx="6" fill="#0f172a"/>
-        <rect x="660" y="330" width="130" height="70" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
-        <text x="725" y="355" fill="white" font-size="11" font-weight="600" text-anchor="middle">SQLite</text>
-        <text x="725" y="373" fill="#94a3b8" font-size="9" text-anchor="middle">data/app.db</text>
-        <text x="725" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">5 tables</text>
+        <rect x="1005" y="508" width="230" height="80" rx="8" fill="#0f172a"/>
+        <rect x="1005" y="508" width="230" height="80" rx="8" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="1120" y="542" fill="white" font-size="15" font-weight="600" text-anchor="middle">ComfyUI / Mock</text>
+        <text x="1120" y="566" fill="#94a3b8" font-size="14" text-anchor="middle">本机可达</text>
 
-        <!-- Blob -->
-        <rect x="660" y="430" width="130" height="60" rx="6" fill="#0f172a"/>
-        <rect x="660" y="430" width="130" height="60" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
-        <text x="725" y="455" fill="white" font-size="11" font-weight="600" text-anchor="middle">Blob FS</text>
-        <text x="725" y="473" fill="#94a3b8" font-size="9" text-anchor="middle">data/blob</text>
+        <!-- Deployment modes -->
+        <rect x="220" y="660" width="1040" height="280" rx="10" fill="#0f172a"/>
+        <rect x="220" y="660" width="1040" height="280" rx="10" fill="rgba(15, 23, 42, 0.95)" stroke="#334155" stroke-width="1.5"/>
+        <text x="250" y="700" fill="white" font-size="16" font-weight="600">部署形态 · Actuator 放置</text>
 
-        <!-- Comfy A -->
-        <rect x="880" y="540" width="140" height="60" rx="6" fill="#0f172a"/>
-        <rect x="880" y="540" width="140" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="950" y="565" fill="white" font-size="11" font-weight="600" text-anchor="middle">ComfyUI A</text>
-        <text x="950" y="583" fill="#94a3b8" font-size="9" text-anchor="middle">base_url</text>
+        <text x="250" y="744" fill="#fbbf24" font-size="15" font-weight="600">allinone</text>
+        <text x="360" y="744" fill="#94a3b8" font-size="14">Actuator 与 Bot 同进程 · queue=Memory · blob=localfs</text>
 
-        <!-- Comfy B -->
-        <rect x="880" y="620" width="140" height="60" rx="6" fill="#0f172a"/>
-        <rect x="880" y="620" width="140" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="950" y="645" fill="white" font-size="11" font-weight="600" text-anchor="middle">ComfyUI B…</text>
-        <text x="950" y="663" fill="#94a3b8" font-size="9" text-anchor="middle">or Mock</text>
+        <text x="250" y="788" fill="#34d399" font-size="15" font-weight="600">split</text>
+        <text x="360" y="788" fill="#94a3b8" font-size="14">Actuator 独立进程 edge-agent · queue=Redis Streams · blob=S3</text>
+        <text x="360" y="812" fill="#94a3b8" font-size="14">Bot 不订阅生产 dispatch</text>
 
-        <!-- Legend outside boundary -->
-        <text x="880" y="80" fill="white" font-size="10" font-weight="600">Legend</text>
-        <rect x="880" y="92" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
-        <text x="902" y="100" fill="#94a3b8" font-size="8">Channel / HTTP</text>
-        <rect x="880" y="108" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
-        <text x="902" y="116" fill="#94a3b8" font-size="8">App / Domain</text>
-        <rect x="880" y="124" width="16" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
-        <text x="902" y="132" fill="#94a3b8" font-size="8">Persistence</text>
-        <rect x="880" y="140" width="16" height="10" rx="2" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
-        <text x="902" y="148" fill="#94a3b8" font-size="8">Event bus</text>
-        <line x1="880" y1="162" x2="896" y2="162" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/>
-        <text x="902" y="165" fill="#94a3b8" font-size="8">Notify path</text>
-        <rect x="880" y="174" width="16" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
-        <text x="902" y="182" fill="#94a3b8" font-size="8">External</text>
+        <text x="250" y="856" fill="#a78bfa" font-size="15" font-weight="600">方案 A</text>
+        <text x="360" y="856" fill="#94a3b8" font-size="14">PrepareJob → jobs/&lt;task_id&gt;/job.json · DispatchCommand.job_ref</text>
+        <text x="360" y="880" fill="#94a3b8" font-size="14">Edge = 外置 Actuator</text>
       </svg>
     </div>
 
-    <!-- Info Cards -->
     <div class="cards">
       <div class="card">
         <div class="card-header">
-          <div class="card-dot cyan"></div>
-          <h3>Ingress</h3>
+          <div class="card-dot amber"></div>
+          <h3>控制面</h3>
         </div>
         <ul>
-          <li>• Telegram Update → channel/tg</li>
-          <li>• HTTP → httpapi/comfyinstances</li>
-          <li>• Notify 回写不走 queue topic</li>
-          <li>• 组合根：apps/bot/main</li>
+          <li>• ConfirmRun → Task pending</li>
+          <li>• PrepareJob 写入 Blob 任务包</li>
+          <li>• 发布带 job_ref 的 dispatch</li>
+          <li>• split：以 edge:online TTL 判定在线</li>
         </ul>
       </div>
-
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot orange"></div>
+          <h3>共享适配层</h3>
+        </div>
+        <ul>
+          <li>• Queue：轻量事件载荷</li>
+          <li>• Blob：jobs / inputs / outputs</li>
+          <li>• 模式切换只换驱动实现</li>
+        </ul>
+      </div>
       <div class="card">
         <div class="card-header">
           <div class="card-dot emerald"></div>
-          <h3>Control &amp; Execute</h3>
+          <h3>执行面</h3>
         </div>
         <ul>
-          <li>• Orchestrator：Claim + RR + 熔断</li>
-          <li>• Actuator：Submit/Wait/Upload</li>
-          <li>• Pool：per-instance Client</li>
-          <li>• Task 表 = 执行真相源</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot violet"></div>
-          <h3>Data Plane</h3>
-        </div>
-        <ul>
-          <li>• SQLite：users/sessions/tasks/…</li>
-          <li>• Blob：输入输出文件</li>
-          <li>• memory bus：同步 fan-out</li>
-          <li>• ER 详见 data-model.md</li>
+          <li>• Actuator Worker（同一套代码）</li>
+          <li>• allinone：同进程 · split：edge-agent</li>
+          <li>• Get job → Comfy → task.status</li>
         </ul>
       </div>
     </div>
 
-    <!-- Footer -->
-    <p class="footer">
-      Pixoma · docs/architecture · Go monorepo · Mock-parity via comfyui.NewClient
-    </p>
+    <p class="footer">Pixoma · docs/architecture/diagrams/system.html · Topic 分流未纳入本期</p>
   </div>
 
   <script>
@@ -425,7 +352,6 @@
       }
       setTimeout(() => btn.textContent = orig, 2000);
     }
-
     async function downloadPNG(btn) {
       const orig = btn.textContent;
       btn.textContent = '⏳ ...';
@@ -444,7 +370,6 @@
       }
       setTimeout(() => btn.textContent = orig, 2000);
     }
-
     async function downloadPDF(btn) {
       const orig = btn.textContent;
       btn.textContent = '⏳ ...';

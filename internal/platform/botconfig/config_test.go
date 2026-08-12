@@ -38,3 +38,64 @@ func TestLoad_YAMLAndEnvOverride(t *testing.T) {
 		t.Fatalf("base url=%q", cfg.ComfyUIBaseURL)
 	}
 }
+
+func TestDefault_AllinoneMemoryLocalfs(t *testing.T) {
+	cfg := botconfig.Default()
+	if cfg.RuntimeMode != botconfig.RuntimeModeAllinone {
+		t.Fatalf("mode=%q", cfg.RuntimeMode)
+	}
+	if cfg.Queue.Driver != botconfig.QueueDriverMemory {
+		t.Fatalf("queue=%q", cfg.Queue.Driver)
+	}
+	if cfg.Blob.Driver != botconfig.BlobDriverLocalFS {
+		t.Fatalf("blob=%q", cfg.Blob.Driver)
+	}
+	if err := cfg.ValidateRuntimeDrivers(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateRuntimeDrivers_SplitRejectsMemory(t *testing.T) {
+	cfg := botconfig.Default()
+	cfg.RuntimeMode = botconfig.RuntimeModeSplit
+	cfg.Queue.Driver = botconfig.QueueDriverMemory
+	cfg.Blob.Driver = botconfig.BlobDriverS3
+	if err := cfg.ValidateRuntimeDrivers(); err == nil {
+		t.Fatal("expected error for split+memory")
+	}
+}
+
+func TestValidateRuntimeDrivers_SplitOK(t *testing.T) {
+	cfg := botconfig.Default()
+	cfg.RuntimeMode = botconfig.RuntimeModeSplit
+	cfg.Queue.Driver = botconfig.QueueDriverRedis
+	cfg.Blob.Driver = botconfig.BlobDriverS3
+	if err := cfg.ValidateRuntimeDrivers(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLoad_RuntimeModeFromYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bot.yaml")
+	content := "runtime_mode: split\nqueue:\n  driver: redis\nblob:\n  driver: s3\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := botconfig.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.RuntimeMode != botconfig.RuntimeModeSplit {
+		t.Fatalf("mode=%q", cfg.RuntimeMode)
+	}
+	if cfg.Queue.Driver != botconfig.QueueDriverRedis {
+		t.Fatalf("queue=%q", cfg.Queue.Driver)
+	}
+	if cfg.Blob.Driver != botconfig.BlobDriverS3 {
+		t.Fatalf("blob=%q", cfg.Blob.Driver)
+	}
+	if err := cfg.ValidateRuntimeDrivers(); err != nil {
+		t.Fatal(err)
+	}
+}

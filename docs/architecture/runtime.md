@@ -1,6 +1,6 @@
 # 运行时：调度、执行与事件
 
-> ConfirmRun 之后的控制面 / 执行面。数据落库见 [data-model.md](./data-model.md)。
+> ConfirmRun 之后的控制面 / 执行面。数据落库见 [data-model.md](./data-model.md)；按阶段的样例数据快照见 [task-data-walkthrough.md](./task-data-walkthrough.md)。
 
 ---
 
@@ -22,17 +22,27 @@ sequenceDiagram
   APP->>APP: Create Task(pending) + blob inputs
   APP->>Q: Publish task.created
   Q->>O: OnTaskCreated
-  O->>O: ClaimQueued + round-robin
-  O->>Q: Publish dispatch.<instance_id>
+  O->>O: ClaimQueued + prep job + round-robin
+  O->>Q: Publish dispatch.<instance_id> {job_ref}
   Q->>A: HandleDispatch
-  A->>C: Submit / Wait / Upload
+  A->>A: Blob.Get(job_ref) + 本机 UploadImage
+  A->>C: Submit / Wait
   A->>Q: Publish task.status
   Q->>O: OnStatus（写 Task）
   O->>N: 终态 UserNotify
   N->>U: 发图/文案
 ```
 
-说明：`memory` bus **同步**调用 handler；ConfirmRun 返回前，整条链路（含 notify）可能已完成。
+说明：`allinone` 下 `memory` bus **同步**调用 handler；ConfirmRun 返回前，整条链路（含 notify）可能已完成。
+
+### 1.0 双模式
+
+| 模式 | 进程 | Queue | Blob | 执行面 |
+|---|---|---|---|---|
+| `allinone`（默认） | Bot 单进程含执行面 | Memory | localfs | 同进程订阅 `dispatch.*` |
+| `split` | 云 Bot + `apps/edge-agent` | Redis Streams | S3 兼容 | Edge 订阅；Bot 不订生产 dispatch |
+
+两种模式均为 **方案 A**：调度 `PrepareJob` 写 `jobs/<task_id>/job.json`，dispatch 带 `job_ref`；执行面不读 Case/Task DB 拼装。
 
 对话入口：Telegram 主 ReplyKeyboard 来自 `tg_menus` + `tg_menu_items`（空库种子或自 `tg_menu_configs` 迁移）；`channel/tg` 每次构建键盘时读 `MenuTree`（失败回退 `DefaultSeedTree`）。
 
@@ -86,8 +96,8 @@ Task 表是**执行态唯一真相源**（无独立 Actuator Ledger）。
 | Topic | 载荷 | 方向 |
 |---|---|---|
 | `task.created` | `TaskCreated` | ConfirmRun → Orchestrator |
-| `dispatch.<instance_id>` | `DispatchCommand` | Orchestrator → Actuator |
-| `task.status` | `TaskStatusEvent` | Actuator → Orchestrator |
+| `dispatch.<instance_id>` | `DispatchCommand`（含 `job_ref`） | Orchestrator → Actuator/Edge |
+| `task.status` | `TaskStatusEvent` | Actuator/Edge → Orchestrator |
 
 `TopicNotifyUser` 常量存在，**未走 queue**。
 

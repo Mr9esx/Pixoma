@@ -20,6 +20,11 @@ type ExecutionQuery interface {
 	GetRun(ctx context.Context, taskID sharedkernel.TaskID) (*ExecutionView, error)
 }
 
+// JobPreparer builds scheme-A job packages into Blob before dispatch.
+type JobPreparer interface {
+	PrepareJob(ctx context.Context, taskID sharedkernel.TaskID, instanceID sharedkernel.InstanceID) (sharedkernel.BlobRef, error)
+}
+
 type ExecutionView struct {
 	TaskID   sharedkernel.TaskID
 	Phase    string // accepted|running|succeeded|failed|unknown
@@ -35,8 +40,11 @@ type Service struct {
 	Dispatch  queue.Publisher
 	Notify    notify.Publisher
 	Query     ExecutionQuery
-	Storm     *StormGuard
-	Now       func() time.Time
+	Prep      JobPreparer
+	// Online optionally filters candidates in split mode (nil = no extra filter).
+	Online func(ctx context.Context, id sharedkernel.InstanceID) bool
+	Storm  *StormGuard
+	Now    func() time.Time
 
 	// rrIndex advances round-robin selection across healthy+allowed instances.
 	rrIndex uint64
@@ -89,11 +97,20 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	if t.Status != sharedkernel.TaskPending {
 		return nil
 	}
-	insts, err := s.Instances.ListHealthy(ctx, instance.CapabilityFilter{})
+	insts, err := s.listCandidates(ctx)
 	if err != nil {
 		return err
 	}
 	candidates := filterAllowed(insts, s.Storm.Breaker)
+	if s.Online != nil {
+		filtered := candidates[:0]
+		for _, inst := range candidates {
+			if s.Online(ctx, inst.ID) {
+				filtered = append(filtered, inst)
+			}
+		}
+		candidates = filtered
+	}
 	if len(candidates) == 0 {
 		// Keep pending; SchedulePending must not treat this as fatal.
 		return nil
@@ -113,6 +130,14 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 		InstanceID:  chosen.ID,
 		InputPrefix: t.InputPrefix,
 	}
+	if s.Prep != nil {
+		ref, err := s.Prep.PrepareJob(ctx, t.ID, chosen.ID)
+		if err != nil {
+			s.rollbackClaim(ctx, taskID, now)
+			return fmt.Errorf("orchestrator: prepare job: %w", err)
+		}
+		cmd.JobRef = ref
+	}
 	payload, err := json.Marshal(cmd)
 	if err != nil {
 		s.rollbackClaim(ctx, taskID, now)
@@ -129,6 +154,15 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	}
 	s.Storm.Breaker.RecordSuccess(chosen.ID)
 	return nil
+}
+
+func (s *Service) listCandidates(ctx context.Context) ([]instance.Instance, error) {
+	filter := instance.CapabilityFilter{}
+	// Split mode wires Online; Edge heartbeat is presence — do not require cloud Comfy health.
+	if s.Online != nil {
+		return s.Instances.ListEnabled(ctx, filter)
+	}
+	return s.Instances.ListHealthy(ctx, filter)
 }
 
 // rollbackClaim best-effort returns a claimed task to pending so SchedulePending can retry.
