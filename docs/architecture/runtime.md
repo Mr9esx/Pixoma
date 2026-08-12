@@ -40,7 +40,7 @@ sequenceDiagram
 | 模式 | 进程 | Queue | Blob | 执行面 |
 |---|---|---|---|---|
 | `allinone`（默认） | Bot 单进程含执行面 | Memory | localfs | 同进程订阅 `dispatch.*` |
-| `split` | 云 Bot + `apps/edge-agent` | Redis Streams | S3 兼容 | Edge 订阅；Bot 不订生产 dispatch |
+| `split` | 云 Bot + `apps/edge-agent` | Redis Streams | S3 或 TOS | Edge 订阅；Bot 不订生产 dispatch |
 
 两种模式均为 **方案 A**：调度 `PrepareJob` 写 `jobs/<task_id>/job.json`，dispatch 带 `job_ref`；执行面不读 Case/Task DB 拼装。
 

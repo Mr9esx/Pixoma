@@ -1,7 +1,7 @@
 # Pixoma 系统架构总览
 
 > Go monorepo：Telegram Bot + Case Catalog + 对话 Session + Task 运行时 + 多 ComfyUI 实例池。  
-> 部署形态：**双模式** — `allinone`（默认，单进程 Memory+localfs）与 `split`（云 Bot + `apps/edge-agent`，Redis Streams + S3）。
+> 部署形态：**双模式** — `allinone`（默认，单进程 Memory+localfs）与 `split`（云 Bot + `apps/edge-agent`，Redis Streams + S3 或火山 TOS）。
 
 数据表 / ER 见 [data-model.md](./data-model.md)。限界上下文细节见 [bounded-contexts.md](./bounded-contexts.md)。执行链路见 [runtime.md](./runtime.md)。
 
@@ -16,7 +16,7 @@ flowchart TB
   BOT[Pixoma Bot<br/>apps/bot]
   EDGE[Edge-Agent<br/>apps/edge-agent]
   DB[(SQLite)]
-  BLOB[(Blob<br/>localfs 或 S3)]
+  BLOB[(Blob<br/>localfs / S3 / TOS)]
   MQ[(Queue<br/>Memory 或 Redis)]
   C1[ComfyUI / Mock]
 
@@ -35,7 +35,7 @@ flowchart TB
 |---|---|
 | Telegram | 入站 Update（菜单/填表/确认）；出站文案与图片 |
 | ComfyUI | 执行面 Submit / Wait / Upload；可由 Mock 替换（`comfy_mock`） |
-| Redis Streams / S3 | **仅 split**：任务队列与 job/产物对象存储 |
+| Redis Streams / S3 或 TOS | **仅 split**：任务队列与 job/产物对象存储 |
 | 运维 HTTP | admin-api 管理实例与观测（**当前无鉴权**） |
 
 **方案 A：** ConfirmRun 后云侧 `PrepareJob` 写 `jobs/<task_id>/job.json`，dispatch 带 `job_ref`；执行面（同进程或 Edge）只认 job，不读 Case/Task DB 拼装。
@@ -53,7 +53,7 @@ flowchart TB
                 │                               │
         ┌───────▼────────┐              ┌───────▼────────┐
         │ Queue          │              │ Blob           │
-        │ Memory|Redis   │              │ localfs|S3     │
+        │ Memory|Redis   │              │ localfs|S3|TOS │
         └───────┬────────┘              └───────┬────────┘
                 │ dispatch / status              │ jobs/ outputs/
         ┌───────▼────────────────────────────────▼───────┐
@@ -73,7 +73,7 @@ flowchart TB
 | 路径 | 角色 |
 |---|---|
 | `apps/bot/cmd/comfyui-bot` | Bot 进程入口（组装与生命周期；对话 / 编排；allinone 含执行面） |
-| `apps/edge-agent` | split 执行面：订 Redis dispatch、读 S3 job、本机 Comfy |
+| `apps/edge-agent` | split 执行面：订 Redis dispatch、读 S3/TOS job、本机 Comfy |
 | `apps/admin-api` | 管理 HTTP（实例 + Case/User/Session/Task；约定不依赖 `channel/tg`） |
 | `web/admin` | 管理 SPA：经 `VITE_ADMIN_API_BASE` 仅访问 admin-api（无前端 mock） |
 | `internal/catalog` | Case 目录与协议校验 |
