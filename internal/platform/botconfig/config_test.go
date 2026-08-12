@@ -3,6 +3,7 @@ package botconfig_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
@@ -66,6 +67,40 @@ func TestValidateRuntimeDrivers_SplitRejectsMemory(t *testing.T) {
 }
 
 func TestValidateRuntimeDrivers_SplitOK(t *testing.T) {
+	cfg := botconfig.Default()
+	cfg.RuntimeMode = botconfig.RuntimeModeSplit
+	cfg.Queue.Driver = botconfig.QueueDriverRedis
+	cfg.Blob.Driver = botconfig.BlobDriverS3
+	if err := cfg.ValidateRuntimeDrivers(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateRuntimeDrivers_SplitTOSOK(t *testing.T) {
+	cfg := botconfig.Default()
+	cfg.RuntimeMode = botconfig.RuntimeModeSplit
+	cfg.Queue.Driver = botconfig.QueueDriverRedis
+	cfg.Blob.Driver = botconfig.BlobDriverTOS
+	if err := cfg.ValidateRuntimeDrivers(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateRuntimeDrivers_SplitRejectsLocalFS(t *testing.T) {
+	cfg := botconfig.Default()
+	cfg.RuntimeMode = botconfig.RuntimeModeSplit
+	cfg.Queue.Driver = botconfig.QueueDriverRedis
+	cfg.Blob.Driver = botconfig.BlobDriverLocalFS
+	err := cfg.ValidateRuntimeDrivers()
+	if err == nil {
+		t.Fatal("expected error for split+localfs")
+	}
+	if !strings.Contains(err.Error(), "blob.driver") {
+		t.Fatalf("error should mention blob.driver, got %v", err)
+	}
+}
+
+func TestValidateRuntimeDrivers_SplitS3StillOK(t *testing.T) {
 	cfg := botconfig.Default()
 	cfg.RuntimeMode = botconfig.RuntimeModeSplit
 	cfg.Queue.Driver = botconfig.QueueDriverRedis
