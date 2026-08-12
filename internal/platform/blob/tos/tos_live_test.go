@@ -1,3 +1,5 @@
+//go:build live_tos
+
 package tos_test
 
 import (

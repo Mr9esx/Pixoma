@@ -12,10 +12,19 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 )
 
-// New builds a blob.Store for the given driver.
-// localRoot is used only for localfs; s3/tos read credentials from the environment.
+// New builds a blob.Store for the given driver (credentials from environment).
+// Prefer NewFromConfig when YAML BlobConfig (e.g. tos endpoint/region/bucket) is available.
 func New(driver, localRoot string) (blob.Store, error) {
-	switch strings.TrimSpace(driver) {
+	return NewFromConfig(botconfig.Config{
+		Blob: botconfig.BlobConfig{Driver: driver},
+	}, localRoot)
+}
+
+// NewFromConfig builds a blob.Store from botconfig.
+// localRoot is used only for localfs. TOS non-secret fields prefer cfg.Blob.TOS, then TOS_* env.
+// S3/TOS access keys always come from environment.
+func NewFromConfig(cfg botconfig.Config, localRoot string) (blob.Store, error) {
+	switch strings.TrimSpace(cfg.Blob.Driver) {
 	case "", botconfig.BlobDriverLocalFS:
 		return localfs.New(localRoot)
 	case botconfig.BlobDriverS3:
@@ -29,15 +38,24 @@ func New(driver, localRoot string) (blob.Store, error) {
 		})
 	case botconfig.BlobDriverTOS:
 		return blobtos.New(blobtos.Options{
-			Endpoint:        os.Getenv("TOS_ENDPOINT"),
-			Region:          os.Getenv("TOS_REGION"),
-			Bucket:          os.Getenv("TOS_BUCKET"),
+			Endpoint:        firstNonEmpty(cfg.Blob.TOS.Endpoint, os.Getenv("TOS_ENDPOINT")),
+			Region:          firstNonEmpty(cfg.Blob.TOS.Region, os.Getenv("TOS_REGION")),
+			Bucket:          firstNonEmpty(cfg.Blob.TOS.Bucket, os.Getenv("TOS_BUCKET")),
 			AccessKeyID:     os.Getenv("TOS_ACCESS_KEY"),
 			SecretAccessKey: os.Getenv("TOS_SECRET_KEY"),
 		})
 	default:
-		return nil, fmt.Errorf("blob/factory: unknown driver %q", driver)
+		return nil, fmt.Errorf("blob/factory: unknown driver %q", cfg.Blob.Driver)
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if s := strings.TrimSpace(v); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 func envOr(k, def string) string {

@@ -113,7 +113,7 @@ YAML：可在 `blob` 下扩展嵌套 tos 字段；若现有 s3 仅靠 env，tos 
 | 层级 | 内容 |
 |------|------|
 | 单元 | 空 bucket、非法 key；可不连网 |
-| 真网门禁 | `go test` 集成用例：加载 env / `.env.tos.local`，对 `pixoma-test` Put 随机 key → Get 比对字节；**缺任一 `TOS_*` → 失败（不算过）** |
+| 真网门禁 | `go test -tags=live_tos` 集成用例：加载 env / `.env.tos.local`，对 `pixoma-test` Put 随机 key → Get 比对字节；**缺任一 `TOS_*` → 失败（不算过）**；默认 `go test ./...` 不编译该用例 |
 
 Verify 阶段证据必须包含真桶往返成功日志/测试输出。用完临时 AK/SK 后作废。
 

@@ -34,7 +34,7 @@ base-ref: 80569755843197175d8863fa19dd423153740bfa
 | `internal/platform/botconfig/config_test.go` | split+tos+redis 通过；split+localfs / 非法组合失败 |
 | `internal/platform/blob/tos/tos.go` | `Options` / `New` / `Put` / `Get` / `cleanKey` |
 | `internal/platform/blob/tos/tos_test.go` | 空 bucket、非法 key（不连网） |
-| `internal/platform/blob/tos/tos_live_test.go` | 真桶 Put→Get（读环境变量，缺配置即 FAIL） |
+| `internal/platform/blob/tos/tos_live_test.go` | 真桶 Put→Get（`//go:build live_tos`；读环境变量，缺配置即 FAIL） |
 | `internal/platform/blob/factory/factory.go`（新建） | 按 driver 装配 localfs / s3 / tos，供 edge 与后续 bot 复用 |
 | `apps/edge-agent/cmd/edge-agent/main.go` | `BLOB_DRIVER` 分支（默认仍 s3） |
 | `configs/bot.yaml` | 注释样例：`split` 可用 s3 或 tos + `TOS_*` |
@@ -51,7 +51,7 @@ source .env.tos.local
 set +a
 # 必需变量（名称固定；值由本地文件提供，切勿写入本计划或源码）：
 # TOS_ENDPOINT  TOS_REGION  TOS_BUCKET  TOS_ACCESS_KEY  TOS_SECRET_KEY
-go test ./internal/platform/blob/tos/ -run 'TestRealTOS|TestLive' -count=1 -v
+go test ./internal/platform/blob/tos/ -tags=live_tos -run 'TestRealTOS|TestLive' -count=1 -v
 ```
 
 ---
@@ -547,7 +547,7 @@ func TestRealTOS_PutGetRoundTrip(t *testing.T) {
 
 - [ ] **Step 2: 未加载 env 时跑一次，确认硬失败**
 
-Run: `env -u TOS_ENDPOINT -u TOS_REGION -u TOS_BUCKET -u TOS_ACCESS_KEY -u TOS_SECRET_KEY go test ./internal/platform/blob/tos/ -run TestRealTOS_PutGetRoundTrip -count=1 -v`
+Run: `env -u TOS_ENDPOINT -u TOS_REGION -u TOS_BUCKET -u TOS_ACCESS_KEY -u TOS_SECRET_KEY go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip -count=1 -v`
 
 Expected: FAIL，消息含 `real TOS gate requires env`（不是 `SKIP`）。
 
@@ -557,7 +557,7 @@ Expected: FAIL，消息含 `real TOS gate requires env`（不是 `SKIP`）。
 set -a
 source .env.tos.local
 set +a
-go test ./internal/platform/blob/tos/ -run TestRealTOS_PutGetRoundTrip -count=1 -v
+go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip -count=1 -v
 ```
 
 Expected: PASS；日志可见 Put/Get 成功。Verify 阶段保留此输出作证据。用完临时密钥后在火山控制台作废。
@@ -807,7 +807,7 @@ go test ./internal/platform/botconfig/ ./internal/platform/blob/... -count=1
 
 # 真 TOS 门禁（需先 source）
 set -a; source .env.tos.local; set +a
-go test ./internal/platform/blob/tos/ -run TestRealTOS_PutGetRoundTrip -count=1 -v
+go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip -count=1 -v
 
 # 既有 s3 / localfs
 go test ./internal/platform/blob/s3/ ./internal/platform/blob/localfs/ -count=1

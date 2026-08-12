@@ -21,3 +21,9 @@
 - [x] 4.1 若触及架构边界，更新架构/配置文档中的 blob 驱动列表
 - [x] 4.2 真 TOS 硬门禁：加载 `.env.tos.local` / `TOS_*` 对 `pixoma-test` Put→Get 成功；缺配置则失败
 - [x] 4.3 localfs/s3 回归通过；`split + tos + redis` 启动校验通过
+
+## 5. 审查修复
+
+- [x] 5.1 控制面 `openBlobStore` 经 `factory.NewFromConfig` 装配 tos，禁止未知/TOS 静默回落 localfs
+- [x] 5.2 factory 优先使用 `cfg.Blob.TOS` YAML，再回落 `TOS_*` env
+- [x] 5.3 真网测试加 `//go:build live_tos`，默认 `go test ./...` 不编译；Verify 显式 `-tags=live_tos`
