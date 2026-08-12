@@ -2,6 +2,7 @@
 change: edge-agent-topic-routing
 design-doc: docs/superpowers/specs/2026-08-10-edge-agent-dual-mode-design.md
 base-ref: 21021f77eb0e128f7417ca9d83a9080a6611a5b1
+archived-with: 2026-08-12-edge-agent-topic-routing
 ---
 
 # Edge-Agent 双模式 + 方案 A Implementation Plan

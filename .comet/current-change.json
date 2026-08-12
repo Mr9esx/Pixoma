@@ -1,6 +1,0 @@
-{
-  "schema": "comet.selection.v2",
-  "workflow": "classic",
-  "change": "edge-agent-topic-routing",
-  "branch": "feature/20260810/edge-agent-topic-routing"
-}
