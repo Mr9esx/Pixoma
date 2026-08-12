@@ -68,3 +68,61 @@ func TestMarkSucceededIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPrepareForClaim_SetsJobRefAndQueued(t *testing.T) {
+	now := time.Unix(100, 0).UTC()
+	task := domain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	ref := sharedkernel.BlobRef{Key: "jobs/t1/job.json"}
+	if err := task.PrepareForClaim("gpu-1", ref, now); err != nil {
+		t.Fatal(err)
+	}
+	if task.Status != sharedkernel.TaskQueued {
+		t.Fatalf("status=%s", task.Status)
+	}
+	if task.InstanceID != "gpu-1" || task.JobRef.Key != ref.Key {
+		t.Fatalf("instance/job_ref: %+v %+v", task.InstanceID, task.JobRef)
+	}
+}
+
+func TestClaimWithLease_FromQueued(t *testing.T) {
+	now := time.Unix(100, 0).UTC()
+	task := domain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "jobs/t1/job.json"}, now)
+	lease := 90 * time.Second
+	if err := task.ClaimWithLease("gpu-1", lease, now); err != nil {
+		t.Fatal(err)
+	}
+	if task.Status != sharedkernel.TaskRunning {
+		t.Fatalf("status=%s", task.Status)
+	}
+	if task.LeaseUntil.Sub(now) != lease {
+		t.Fatalf("lease=%v", task.LeaseUntil)
+	}
+}
+
+func TestClaimWithLease_WrongInstance(t *testing.T) {
+	now := time.Unix(100, 0).UTC()
+	task := domain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "j"}, now)
+	if err := task.ClaimWithLease("gpu-2", time.Minute, now); !errors.Is(err, domain.ErrInvalidTransition) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRequeueIfLeaseExpired(t *testing.T) {
+	now := time.Unix(100, 0).UTC()
+	task := domain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "j"}, now)
+	_ = task.ClaimWithLease("gpu-1", time.Second, now)
+	later := now.Add(2 * time.Second)
+	requeued, err := task.RequeueIfLeaseExpired(later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !requeued || task.Status != sharedkernel.TaskQueued {
+		t.Fatalf("requeued=%v status=%s", requeued, task.Status)
+	}
+	if !task.LeaseUntil.IsZero() {
+		t.Fatal("lease should clear")
+	}
+}

@@ -2,7 +2,6 @@ package orchestrator_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -25,6 +24,7 @@ func TestDispatchSkippedWhenOnlineFilterRejects(t *testing.T) {
 	reg := static.New(instance.Instance{ID: "gpu-1", DispatchTopic: "dispatch.gpu-1"})
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
+	svc.Prep = stubPrep{}
 	svc.Online = func(context.Context, sharedkernel.InstanceID) bool { return false }
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-online"}); err != nil {
@@ -42,7 +42,7 @@ func TestDispatchSkippedWhenOnlineFilterRejects(t *testing.T) {
 	}
 }
 
-func TestDispatchIncludesJobRefWhenPrepSet(t *testing.T) {
+func TestDispatchSetsJobRefWhenPrepSet(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
@@ -59,15 +59,15 @@ func TestDispatchIncludesJobRefWhenPrepSet(t *testing.T) {
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-prep"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(bus.msgs) != 1 {
-		t.Fatalf("dispatches=%d", len(bus.msgs))
+	if len(bus.msgs) != 0 {
+		t.Fatalf("must not publish, got %d", len(bus.msgs))
 	}
-	var cmd sharedkernel.DispatchCommand
-	if err := json.Unmarshal(bus.msgs[0].Payload, &cmd); err != nil {
+	got, err := tasks.Get(ctx, "t-prep")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if cmd.JobRef.Key != "jobs/t-prep/job.json" {
-		t.Fatalf("job_ref=%+v", cmd.JobRef)
+	if got.Status != sharedkernel.TaskQueued || got.JobRef.Key != "jobs/t-prep/job.json" {
+		t.Fatalf("got %+v", got)
 	}
 }
 
@@ -91,13 +91,21 @@ func TestDispatchUsesOnlineEvenWhenInstanceMarkedUnhealthy(t *testing.T) {
 	reg := &enabledOnlyRegistry{items: []instance.Instance{{ID: "edge-1", DispatchTopic: "dispatch.edge-1"}}}
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
+	svc.Prep = stubPrep{}
 	svc.Online = func(context.Context, sharedkernel.InstanceID) bool { return true }
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-edge-health"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(bus.msgs) != 1 {
-		t.Fatalf("expected dispatch despite unhealthy/cloud-unreachable, got %d", len(bus.msgs))
+	got, err := tasks.Get(ctx, "t-edge-health")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != sharedkernel.TaskQueued || got.InstanceID != "edge-1" {
+		t.Fatalf("expected claimable on edge-1, got %+v", got)
+	}
+	if len(bus.msgs) != 0 {
+		t.Fatalf("must not publish, got %d", len(bus.msgs))
 	}
 }
 
