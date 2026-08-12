@@ -30,8 +30,7 @@ import (
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
-	blobs3 "github.com/mr9esx/comfyui_tgbot/internal/platform/blob/s3"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edgeonline"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
@@ -425,23 +424,11 @@ func envBool(k string, def bool) bool {
 }
 
 func openBlobStore(cfg botconfig.Config, dataDir string) (blob.Store, error) {
-	switch strings.TrimSpace(cfg.Blob.Driver) {
-	case botconfig.BlobDriverS3:
-		return blobs3.New(blobs3.Options{
-			Endpoint:        envOr("S3_ENDPOINT", ""),
-			Region:          envOr("S3_REGION", "us-east-1"),
-			Bucket:          envOr("S3_BUCKET", "pixoma"),
-			AccessKeyID:     envOr("S3_ACCESS_KEY", ""),
-			SecretAccessKey: envOr("S3_SECRET_KEY", ""),
-			UsePathStyle:    envBool("S3_PATH_STYLE", true),
-		})
-	default:
-		blobRoot := cfg.BlobRoot
-		if blobRoot == "" {
-			blobRoot = filepath.Join(dataDir, "blob")
-		}
-		return localfs.New(blobRoot)
+	blobRoot := cfg.BlobRoot
+	if blobRoot == "" {
+		blobRoot = filepath.Join(dataDir, "blob")
 	}
+	return factory.NewFromConfig(cfg, blobRoot)
 }
 
 func openQueueBus(cfg botconfig.Config) (queue.Bus, *goredis.Client, error) {

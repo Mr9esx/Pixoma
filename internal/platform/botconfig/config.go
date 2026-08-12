@@ -16,10 +16,10 @@ const (
 	QueueDriverMemory = "memory"
 	QueueDriverRedis  = "redis"
 
-		BlobDriverLocalFS = "localfs"
-		BlobDriverS3      = "s3"
-		BlobDriverTOS     = "tos"
-	)
+	BlobDriverLocalFS = "localfs"
+	BlobDriverS3      = "s3"
+	BlobDriverTOS     = "tos"
+)
 
 // Config is the bot process configuration.
 type Config struct {
@@ -51,19 +51,19 @@ type QueueConfig struct {
 	Driver string `yaml:"driver"` // memory | redis
 }
 
-	// BlobConfig selects the blob adapter (BlobRoot still used for localfs).
-	type BlobConfig struct {
-		Driver string `yaml:"driver"` // localfs | s3 | tos
-		// TOS holds non-secret connection fields; keys stay in env only.
-		TOS BlobTOSConfig `yaml:"tos"`
-	}
+// BlobConfig selects the blob adapter (BlobRoot still used for localfs).
+type BlobConfig struct {
+	Driver string `yaml:"driver"` // localfs | s3 | tos
+	// TOS holds non-secret connection fields; keys stay in env only.
+	TOS BlobTOSConfig `yaml:"tos"`
+}
 
-	// BlobTOSConfig is optional YAML for TOS endpoint/region/bucket.
-	type BlobTOSConfig struct {
-		Endpoint string `yaml:"endpoint"`
-		Region   string `yaml:"region"`
-		Bucket   string `yaml:"bucket"`
-	}
+// BlobTOSConfig is optional YAML for TOS endpoint/region/bucket.
+type BlobTOSConfig struct {
+	Endpoint string `yaml:"endpoint"`
+	Region   string `yaml:"region"`
+	Bucket   string `yaml:"bucket"`
+}
 
 // ComfyInstanceSeed is one row under comfy_instances in bot YAML.
 type ComfyInstanceSeed struct {

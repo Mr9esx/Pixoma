@@ -87,11 +87,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-		go heartbeat(ctx, rdb, instID)
-		slog.Info("edge-agent running", "instance_id", instID, "topic", topic, "mock", comfyMock, "blob_driver", driver)
-		<-ctx.Done()
-		return nil
-	}
+	go heartbeat(ctx, rdb, instID)
+	slog.Info("edge-agent running", "instance_id", instID, "topic", topic, "mock", comfyMock, "blob_driver", driver)
+	<-ctx.Done()
+	return nil
+}
 
 func heartbeat(ctx context.Context, rdb *goredis.Client, instanceID string) {
 	key := edgeonline.Key(sharedkernel.InstanceID(instanceID))
