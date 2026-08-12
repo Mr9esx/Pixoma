@@ -1,6 +1,7 @@
 package actuator
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -106,6 +107,98 @@ func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.
 	}
 
 	return graph, nil
+}
+
+// BuildJobPackage assembles a scheme-A job: non-image fields injected into workflow;
+// images listed as BlobRefs for the executor to upload locally.
+func (s *CaseSnapshot) BuildJobPackage(ctx context.Context, taskID sharedkernel.TaskID, instanceID sharedkernel.InstanceID) (JobPackage, error) {
+	if s == nil || s.Tasks == nil || s.Cases == nil || s.Blob == nil {
+		return JobPackage{}, fmt.Errorf("actuator: CaseSnapshot not configured")
+	}
+
+	task, err := s.Tasks.Get(ctx, taskID)
+	if err != nil {
+		return JobPackage{}, fmt.Errorf("actuator: load task: %w", err)
+	}
+
+	c, err := s.Cases.Get(ctx, task.CaseID)
+	if err != nil {
+		return JobPackage{}, fmt.Errorf("actuator: load case: %w", err)
+	}
+
+	if len(c.Document.Bindings.WorkflowJSON) == 0 {
+		return JobPackage{}, fmt.Errorf("actuator: empty workflow for case %s", c.Document.ID)
+	}
+
+	graph, err := deepCopyGraph(c.Document.Bindings.WorkflowJSON)
+	if err != nil {
+		return JobPackage{}, fmt.Errorf("actuator: copy workflow: %w", err)
+	}
+
+	var images []JobImage
+	bindings := indexBindings(c.Document.Bindings.Inputs)
+	for _, field := range c.Document.Inputs {
+		val, ok, err := s.loadStaged(ctx, task.InputPrefix, field)
+		if err != nil {
+			return JobPackage{}, err
+		}
+		if !ok {
+			if field.Required {
+				return JobPackage{}, fmt.Errorf("actuator: missing required input %q", field.Key)
+			}
+			continue
+		}
+
+		b, ok := bindings[field.Key]
+		if !ok {
+			return JobPackage{}, fmt.Errorf("actuator: missing binding for input %q", field.Key)
+		}
+
+		switch field.Type {
+		case "image":
+			images = append(images, JobImage{NodeID: b.NodeID, FieldPath: b.FieldPath, Blob: val.blob})
+		case "string":
+			if err := writeNodeInput(graph, b.NodeID, b.FieldPath, val.text); err != nil {
+				return JobPackage{}, err
+			}
+		case "number":
+			if err := writeNodeInput(graph, b.NodeID, b.FieldPath, val.number); err != nil {
+				return JobPackage{}, err
+			}
+		case "boolean":
+			if err := writeNodeInput(graph, b.NodeID, b.FieldPath, val.boolean); err != nil {
+				return JobPackage{}, err
+			}
+		default:
+			return JobPackage{}, fmt.Errorf("actuator: unsupported input type %q for %q", field.Type, field.Key)
+		}
+	}
+
+	return JobPackage{
+		TaskID:       taskID,
+		InstanceID:   instanceID,
+		Workflow:     graph,
+		Images:       images,
+		OutputPrefix: fmt.Sprintf("outputs/%s", taskID),
+	}, nil
+}
+
+// PrepareJob builds a job package and writes it to Blob at jobs/<task_id>/job.json.
+func (s *CaseSnapshot) PrepareJob(ctx context.Context, taskID sharedkernel.TaskID, instanceID sharedkernel.InstanceID) (sharedkernel.BlobRef, error) {
+	job, err := s.BuildJobPackage(ctx, taskID, instanceID)
+	if err != nil {
+		return sharedkernel.BlobRef{}, err
+	}
+	raw, err := json.Marshal(job)
+	if err != nil {
+		return sharedkernel.BlobRef{}, fmt.Errorf("actuator: marshal job: %w", err)
+	}
+	key := fmt.Sprintf("jobs/%s/job.json", taskID)
+	ref, err := s.Blob.Put(ctx, key, bytes.NewReader(raw), blob.PutOptions{MIME: "application/json"})
+	if err != nil {
+		return sharedkernel.BlobRef{}, fmt.Errorf("actuator: put job: %w", err)
+	}
+	return ref, nil
 }
 
 type stagedValue struct {
