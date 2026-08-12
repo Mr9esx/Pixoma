@@ -1,0 +1,111 @@
+package bootstrap_test
+
+import (
+	"path/filepath"
+	"testing"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
+)
+
+func TestOpen_CreatesUninitializedStoreWithDefaultAdmin(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bootstrap.db")
+
+	st, creds, err := bootstrap.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if st.Initialized() {
+		t.Fatal("expected uninitialized")
+	}
+	if creds.Username == "" || creds.Password == "" {
+		t.Fatalf("expected default credentials, got %+v", creds)
+	}
+	if !st.MustChangePassword() {
+		t.Fatal("expected must change password")
+	}
+	ok, err := st.VerifyPassword(creds.Username, creds.Password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("default password should verify")
+	}
+}
+
+func TestOpen_IdempotentSamePath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bootstrap.db")
+	st1, c1, err := bootstrap.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st1.Close()
+
+	st2, c2, err := bootstrap.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st2.Close()
+
+	if c2.Password != "" {
+		t.Fatal("re-open must not mint a new plaintext password")
+	}
+	if c2.Username != c1.Username {
+		t.Fatalf("username changed: %q vs %q", c1.Username, c2.Username)
+	}
+	ok, err := st2.VerifyPassword(c1.Username, c1.Password)
+	if err != nil || !ok {
+		t.Fatalf("original password should still work: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestMarkInitialized_AndGate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bootstrap.db")
+	st, _, err := bootstrap.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if err := st.EnsureReadyForBusiness(); err == nil {
+		t.Fatal("expected error when uninitialized")
+	}
+	if err := st.MarkInitialized(); err != nil {
+		t.Fatal(err)
+	}
+	if !st.Initialized() {
+		t.Fatal("expected initialized")
+	}
+	if err := st.EnsureReadyForBusiness(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestChangePassword(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bootstrap.db")
+	st, creds, err := bootstrap.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if err := st.ChangePassword(creds.Username, creds.Password, "new-secret-pass"); err != nil {
+		t.Fatal(err)
+	}
+	if st.MustChangePassword() {
+		t.Fatal("must-change should clear after change")
+	}
+	ok, err := st.VerifyPassword(creds.Username, "new-secret-pass")
+	if err != nil || !ok {
+		t.Fatalf("new password: ok=%v err=%v", ok, err)
+	}
+	ok, err = st.VerifyPassword(creds.Username, creds.Password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("old password must fail")
+	}
+}

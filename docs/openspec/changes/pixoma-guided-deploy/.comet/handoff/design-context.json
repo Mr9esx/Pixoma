@@ -1,0 +1,22 @@
+{
+  "change": "pixoma-guided-deploy",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "122a8a3ebb1fcd2cfd3e142125f3f1090eb8b2e1533ff2ae301417f8f074ad43",
+  "files": [
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/proposal.md", "sha256": "97ef8c63fb934dd656c3ea6c0c84629bbddfc801b3f4e7fa717141afc994c122" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/design.md", "sha256": "27337c6cf9bba52aeb5d1b803d7130d6f4c4ce48f16eb9a12a585388866ecd4a" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/tasks.md", "sha256": "6c1193f30ce004f5a28e4a360a993598e4f1eaad60847d7da25e3ab4a58a51e3" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/specs/admin-api-host/spec.md", "sha256": "dfe8387660afd4bfdee6d5e46bc3c6c926aa539cd78adc21d680a104eed84236" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/specs/admin-web-shell/spec.md", "sha256": "2af778077798be77a941293087c49b79ac4d31e8b1160825580bda76e170b3e5" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/specs/agent-pull-dispatch/spec.md", "sha256": "2da140ca15de8490025b9844a125fa8e50adbf2f6f89f27e4eb817038156d960" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/specs/cross-process-queue/spec.md", "sha256": "6e1ede56eb3ce60d331804965a94889f2a81e15fd7bc1a1e9056ab02ba41a0e4" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/specs/edge-agent/spec.md", "sha256": "e809f0da210f6131b67a6acb3891a4b3729ac430f71608618e32b723f45a626a" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/specs/platform-bootstrap/spec.md", "sha256": "1fc84193d5ea94aa426f97d88ff8f9c73d30d91a7d078b599c0f90431e83a51e" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/specs/setup-wizard/spec.md", "sha256": "f05424394aa3c6542869947c3fb0564fea4c7e8b310001df14b2b07da3e281c7" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/specs/shared-blob-store/spec.md", "sha256": "ff2a97c45fc7a597bc0fcb8a239d0acc92d975d33e00cac454e477286df7ab6e" },
+    { "path": "docs/openspec/changes/pixoma-guided-deploy/specs/task-orchestrator/spec.md", "sha256": "1b4eda50223cc5945fb3d06dccd97439906434b70c134c68c4ab47a7fbcbfba3" }
+  ]
+}
