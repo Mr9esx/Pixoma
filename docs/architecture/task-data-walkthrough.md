@@ -3,7 +3,7 @@
 > 从用户选 Case、采集输入、确认生成，到 Task 终态与 TG 回图。  
 > 本文只讲**数据落在哪、长什么样**；控制流见 [runtime.md](./runtime.md)，表结构见 [data-model.md](./data-model.md)。
 
-默认按 **`runtime_mode=allinone`**（`queue=Memory`、`blob=localfs`）写完整样例；文末对照 **`split`**（Redis Streams + S3 + edge-agent）差异。
+默认按 **`runtime_mode=allinone`**（`queue=Memory`、`blob=localfs`）写完整样例；文末对照 **`split`**（Redis Streams + S3 或 TOS + edge-agent）差异。
 
 ---
 
@@ -547,7 +547,7 @@ task.status (succeeded)
 
 | 项 | allinone | split |
 |---|---|---|
-| Blob 驱动 | localfs（如 `data/blob/`） | S3 兼容（同 key 空间） |
+| Blob 驱动 | localfs（如 `data/blob/`） | S3 兼容或火山 TOS（同 key 空间） |
 | Queue | Memory 同步 handler | Redis Streams `q:<topic>` |
 | 谁消费 `dispatch.*` | Bot 同进程 Worker | `apps/edge-agent` |
 | 实例可选条件 | `ListHealthy`（探活） | `ListEnabled` + `edge:online:<id>` |
