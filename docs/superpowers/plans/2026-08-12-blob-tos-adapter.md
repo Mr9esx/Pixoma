@@ -2,6 +2,7 @@
 change: blob-tos-adapter
 design-doc: docs/superpowers/specs/2026-08-12-blob-tos-adapter-design.md
 base-ref: 80569755843197175d8863fa19dd423153740bfa
+archived-with: 2026-08-12-blob-tos-adapter
 ---
 
 # Blob TOS 适配器 Implementation Plan

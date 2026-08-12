@@ -2,6 +2,8 @@
 comet_change: blob-tos-adapter
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-12-blob-tos-adapter
+status: final
 ---
 
 # Blob TOS 适配器 — 技术设计
