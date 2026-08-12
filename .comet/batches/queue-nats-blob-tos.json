@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "batch_id": "queue-nats-blob-tos",
+  "created_at": "2026-08-12T03:52:30Z",
+  "updated_at": "2026-08-12T04:06:32Z",
+  "goal_summary": "本期仅推进 blob-tos-adapter（火山 TOS）；queue-nats-adapter 已取消不做",
+  "language": "zh-CN",
+  "split_decision": "create-multiple",
+  "decisions": {
+    "nats_mode": "jetstream",
+    "tos_approach": "driver-tos-volcengine-sdk",
+    "split_driver_matrix": "queue-redis-or-nats AND blob-s3-or-tos"
+  },
+  "changes": [
+    {
+      "name": "queue-nats-adapter",
+      "status": "cancelled",
+      "order": 1,
+      "goal": "新增 queue.driver=nats（JetStream）适配器，语义对齐现有 Redis Streams：持久化、消费组、ack/重试；split 下可与 redis 二选一",
+      "scope": "internal/platform/queue/nats、botconfig 驱动常量与 ValidateRuntimeDrivers、bot/edge-agent 装配、配置样例与单元测试；更新 cross-process-queue 相关规格",
+      "non_goals": [
+        "不动 blob",
+        "不改业务 topic 命名",
+        "不删除 redis/memory 驱动",
+        "不改调度/投递业务逻辑"
+      ],
+      "acceptance": [
+        "queue.driver=nats 时 Publish/Subscribe 跨进程主路径可通",
+        "split 下 queue 可为 redis 或 nats",
+        "非法驱动组合启动失败并给出可诊断错误",
+        "既有 memory/redis 行为与测试不被破坏"
+      ],
+      "cancel_reason": "user abandoned mid-design; not implementing this change"
+    },
+    {
+      "name": "blob-tos-adapter",
+      "status": "selected",
+      "order": 2,
+      "goal": "新增 blob.driver=tos，基于火山引擎 TOS 官方 SDK 实现 blob.Store；split 下可与 s3 二选一，并可与 redis/nats 任意搭配",
+      "scope": "internal/platform/blob/tos、botconfig 驱动常量与 ValidateRuntimeDrivers、bot/edge-agent 装配、配置样例与单元/集成测试；更新 shared-blob-store 相关规格",
+      "non_goals": [
+        "不动 queue",
+        "不改 BlobRef 契约与 inputs/jobs/outputs key 前缀",
+        "不删除 localfs/s3 驱动",
+        "不在 MQ 消息中携带文件二进制"
+      ],
+      "acceptance": [
+        "blob.driver=tos 时控制面 Put / Edge Get 可读同一对象",
+        "Edge Put 产物后通知路径可 Get 并投递",
+        "split 下 blob 可为 s3 或 tos，且可与 redis/nats 任意搭配",
+        "既有 localfs/s3 行为与测试不被破坏"
+      ]
+    }
+  ],
+  "notes": "User cancelled queue-nats-adapter mid-design; continue only blob-tos-adapter"
+}

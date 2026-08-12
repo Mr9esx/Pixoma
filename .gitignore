@@ -13,3 +13,8 @@ web/admin/node_modules/
 web/admin/dist/
 .DS_Store
 comfyui-bot
+
+# local secrets (never commit)
+configs/*.local.yaml
+configs/*.local.env
+.env.tos.local
