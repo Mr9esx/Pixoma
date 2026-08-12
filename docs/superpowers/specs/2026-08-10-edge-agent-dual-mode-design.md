@@ -2,6 +2,8 @@
 comet_change: edge-agent-topic-routing
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-12-edge-agent-topic-routing
+status: final
 ---
 
 # Edge-Agent 双模式 + 方案 A（Topic 分流延后）
