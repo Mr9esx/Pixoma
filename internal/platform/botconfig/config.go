@@ -16,9 +16,10 @@ const (
 	QueueDriverMemory = "memory"
 	QueueDriverRedis  = "redis"
 
-	BlobDriverLocalFS = "localfs"
-	BlobDriverS3      = "s3"
-)
+		BlobDriverLocalFS = "localfs"
+		BlobDriverS3      = "s3"
+		BlobDriverTOS     = "tos"
+	)
 
 // Config is the bot process configuration.
 type Config struct {
@@ -50,10 +51,19 @@ type QueueConfig struct {
 	Driver string `yaml:"driver"` // memory | redis
 }
 
-// BlobConfig selects the blob adapter (BlobRoot still used for localfs).
-type BlobConfig struct {
-	Driver string `yaml:"driver"` // localfs | s3
-}
+	// BlobConfig selects the blob adapter (BlobRoot still used for localfs).
+	type BlobConfig struct {
+		Driver string `yaml:"driver"` // localfs | s3 | tos
+		// TOS holds non-secret connection fields; keys stay in env only.
+		TOS BlobTOSConfig `yaml:"tos"`
+	}
+
+	// BlobTOSConfig is optional YAML for TOS endpoint/region/bucket.
+	type BlobTOSConfig struct {
+		Endpoint string `yaml:"endpoint"`
+		Region   string `yaml:"region"`
+		Bucket   string `yaml:"bucket"`
+	}
 
 // ComfyInstanceSeed is one row under comfy_instances in bot YAML.
 type ComfyInstanceSeed struct {
@@ -104,8 +114,8 @@ func (c Config) ValidateRuntimeDrivers() error {
 		if q != QueueDriverRedis {
 			return fmt.Errorf("botconfig: split requires queue.driver=redis, got %q", q)
 		}
-		if b != BlobDriverS3 {
-			return fmt.Errorf("botconfig: split requires blob.driver=s3, got %q", b)
+		if b != BlobDriverS3 && b != BlobDriverTOS {
+			return fmt.Errorf("botconfig: split requires blob.driver=s3 or tos, got %q", b)
 		}
 	default:
 		return fmt.Errorf("botconfig: unknown runtime_mode %q", mode)
@@ -203,5 +213,14 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("BLOB_DRIVER"); v != "" {
 		cfg.Blob.Driver = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("TOS_ENDPOINT"); v != "" {
+		cfg.Blob.TOS.Endpoint = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("TOS_REGION"); v != "" {
+		cfg.Blob.TOS.Region = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("TOS_BUCKET"); v != "" {
+		cfg.Blob.TOS.Bucket = strings.TrimSpace(v)
 	}
 }

@@ -12,11 +12,17 @@ comfy_mock: true
 
 # 运行时双模式（默认 allinone）
 # runtime_mode: allinone   # queue.driver=memory + blob.driver=localfs；同进程执行面
-# runtime_mode: split      # queue.driver=redis + blob.driver=s3；Edge 进程执行；需 REDIS_ADDR / S3_*
+# runtime_mode: split      # queue.driver=redis + blob.driver=s3|tos；Edge 需 REDIS_* / S3_* 或 TOS_*
 # queue:
 #   driver: memory
 # blob:
 #   driver: localfs
+#   # driver: tos
+#   # tos:
+#   #   endpoint: "https://tos-cn-beijing.volces.com"
+#   #   region: "cn-beijing"
+#   #   bucket: "pixoma-test"
+# 密钥：环境变量 TOS_ACCESS_KEY / TOS_SECRET_KEY（可用 set -a; source .env.tos.local）
 
 # 可选：多实例种子（优先于仅用 comfyui_base_url 的单实例 upsert）
 # comfy_instances:
