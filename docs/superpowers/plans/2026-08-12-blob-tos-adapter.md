@@ -70,7 +70,7 @@ go test ./internal/platform/blob/tos/ -tags=live_tos -run 'TestRealTOS|TestLive'
   - `ValidateRuntimeDrivers()`：`split` 允许 `blob ∈ {s3, tos}` 且要求 `queue=redis`
   - 可选：`BlobConfig` 增加非密钥连接字段（endpoint/region/bucket），AK/SK **仅**环境变量
 
-- [ ] **Step 1: 写失败测试 — split + tos + redis 尚不被允许**
+- [x] **Step 1: 写失败测试 — split + tos + redis 尚不被允许**
 
 在 `config_test.go` 追加：
 
@@ -112,13 +112,13 @@ func TestValidateRuntimeDrivers_SplitS3StillOK(t *testing.T) {
 
 （`SplitTOSOK` 在实现前会因 `BlobDriverTOS` 未定义而编译失败，或常量已加但校验仍拒 tos。）
 
-- [ ] **Step 2: 跑测试确认当前失败**
+- [x] **Step 2: 跑测试确认当前失败**
 
 Run: `go test ./internal/platform/botconfig/ -run ValidateRuntimeDrivers -count=1`
 
 Expected: 编译失败（无 `BlobDriverTOS`）或 `SplitTOSOK` FAIL / 相关断言失败。
 
-- [ ] **Step 3: 最小实现 — 常量、注释字段、校验矩阵**
+- [x] **Step 3: 最小实现 — 常量、注释字段、校验矩阵**
 
 在 `config.go`：
 
@@ -184,13 +184,13 @@ if v := os.Getenv("TOS_BUCKET"); v != "" {
 # 密钥：环境变量 TOS_ACCESS_KEY / TOS_SECRET_KEY（可用 set -a; source .env.tos.local）
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `go test ./internal/platform/botconfig/ -count=1`
 
 Expected: PASS（含 SplitTOSOK、SplitRejectsLocalFS、既有 SplitOK/SplitRejectsMemory）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/platform/botconfig/config.go internal/platform/botconfig/config_test.go configs/bot.yaml
@@ -232,7 +232,7 @@ func (s *Store) Get(ctx context.Context, ref sharedkernel.BlobRef) (io.ReadClose
 
 SDK：`github.com/volcengine/ve-tos-golang-sdk/v2/tos` — `NewClientV2`、`PutObjectV2`、`GetObjectV2`。
 
-- [ ] **Step 1: 写失败测试 — 空 bucket 与非法 key**
+- [x] **Step 1: 写失败测试 — 空 bucket 与非法 key**
 
 `tos_test.go`：
 
@@ -285,13 +285,13 @@ func TestPut_RejectsInvalidKeys(t *testing.T) {
 
 说明：非法 key 必须在发网前由 `cleanKey` 拒绝（对齐 `blob/s3`）。占位凭证仅用于构造客户端，**不要**写成真实 AK/SK。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/platform/blob/tos/ -count=1`
 
 Expected: 包不存在 / 编译失败。
 
-- [ ] **Step 3: 引入依赖**
+- [x] **Step 3: 引入依赖**
 
 ```bash
 go get github.com/volcengine/ve-tos-golang-sdk/v2@latest
@@ -299,7 +299,7 @@ go get github.com/volcengine/ve-tos-golang-sdk/v2@latest
 
 （锁定进 `go.mod`/`go.sum`；具体版本以命令解析结果为准。）
 
-- [ ] **Step 4: 最小实现 `tos.go`**
+- [x] **Step 4: 最小实现 `tos.go`**
 
 对齐 `internal/platform/blob/s3/s3.go` 结构：
 
@@ -429,13 +429,13 @@ func cleanKey(key string) (string, error) {
 var _ blob.Store = (*Store)(nil)
 ```
 
-- [ ] **Step 5: 跑单元测试确认通过**
+- [x] **Step 5: 跑单元测试确认通过**
 
 Run: `go test ./internal/platform/blob/tos/ -run 'TestNew_RequiresBucket|TestPut_RejectsInvalidKeys' -count=1`
 
 Expected: PASS（不依赖真网）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add go.mod go.sum internal/platform/blob/tos/
@@ -457,7 +457,7 @@ EOF
 - Consumes: `blobtos.New` / `Put` / `Get`；环境变量 `TOS_*`
 - Produces: 可重复跑的真桶往返测试；缺配置 → `t.Fatal`（非 Skip）
 
-- [ ] **Step 1: 写真网测试（缺 env 即失败）**
+- [x] **Step 1: 写真网测试（缺 env 即失败）**
 
 ```go
 package tos_test
@@ -545,13 +545,13 @@ func TestRealTOS_PutGetRoundTrip(t *testing.T) {
 
 注意：测试只读 `os.Getenv`；**不要**在仓库内提交 `.env.tos.local` 或硬编码密钥。桶名期望为联调桶（如 `pixoma-test`），由 `TOS_BUCKET` 决定。
 
-- [ ] **Step 2: 未加载 env 时跑一次，确认硬失败**
+- [x] **Step 2: 未加载 env 时跑一次，确认硬失败**
 
 Run: `env -u TOS_ENDPOINT -u TOS_REGION -u TOS_BUCKET -u TOS_ACCESS_KEY -u TOS_SECRET_KEY go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip -count=1 -v`
 
 Expected: FAIL，消息含 `real TOS gate requires env`（不是 `SKIP`）。
 
-- [ ] **Step 3: 加载本地 env 后跑通**
+- [x] **Step 3: 加载本地 env 后跑通**
 
 ```bash
 set -a
@@ -562,7 +562,7 @@ go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoun
 
 Expected: PASS；日志可见 Put/Get 成功。Verify 阶段保留此输出作证据。用完临时密钥后在火山控制台作废。
 
-- [ ] **Step 4: Commit（仅测试文件，无密钥）**
+- [x] **Step 4: Commit（仅测试文件，无密钥）**
 
 ```bash
 git add internal/platform/blob/tos/tos_live_test.go
@@ -601,7 +601,7 @@ func New(driver string, localRoot string) (blob.Store, error)
 
 仓库当前无完整 `apps/bot` main；本任务用工厂覆盖 tasks「控制面装配」意图，edge-agent 立刻接线。不为此期新建完整 bot 进程。
 
-- [ ] **Step 1: 写工厂失败测试 — 未知 driver**
+- [x] **Step 1: 写工厂失败测试 — 未知 driver**
 
 ```go
 package factory_test
@@ -635,13 +635,13 @@ func TestNew_LocalFS(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `go test ./internal/platform/blob/factory/ -count=1`
 
 Expected: 包不存在 / 编译失败。
 
-- [ ] **Step 3: 实现 factory**
+- [x] **Step 3: 实现 factory**
 
 ```go
 package factory
@@ -707,7 +707,7 @@ func envBool(k string, def bool) bool {
 }
 ```
 
-- [ ] **Step 4: 改 edge-agent — 按 BLOB_DRIVER 选型（默认 s3）**
+- [x] **Step 4: 改 edge-agent — 按 BLOB_DRIVER 选型（默认 s3）**
 
 将 `main.go` 中硬编码 `s3.New(...)` 替换为：
 
@@ -730,7 +730,7 @@ if err != nil {
 
 日志可增加：`slog.Info("edge-agent running", ..., "blob_driver", driver)`。
 
-- [ ] **Step 5: 校验非法组合可诊断（配置层）**
+- [x] **Step 5: 校验非法组合可诊断（配置层）**
 
 复用 Task 1 测试即可；额外用一小段确认错误文案：
 
@@ -740,7 +740,7 @@ go test ./internal/platform/botconfig/ -run 'SplitRejectsLocalFS|SplitTOSOK' -co
 
 Expected: localfs 错误含 `blob.driver`；tos+redis 通过。
 
-- [ ] **Step 6: 跑相关包测试**
+- [x] **Step 6: 跑相关包测试**
 
 ```bash
 go test ./internal/platform/blob/factory/ ./internal/platform/botconfig/ ./internal/platform/blob/s3/ ./internal/platform/blob/localfs/ -count=1
@@ -748,7 +748,7 @@ go test ./internal/platform/blob/factory/ ./internal/platform/botconfig/ ./inter
 
 Expected: PASS。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add internal/platform/blob/factory/ apps/edge-agent/cmd/edge-agent/main.go
@@ -774,7 +774,7 @@ EOF
 - Consumes: 本 change 已落地的驱动矩阵
 - Produces: 文档与实现一致的「blob ∈ {localfs, s3, tos}；split = redis + s3|tos」
 
-- [ ] **Step 1: 更新 overview / runtime 驱动列表**
+- [x] **Step 1: 更新 overview / runtime 驱动列表**
 
 将「S3」扩展为「S3 或 TOS」；例如 overview：
 
@@ -789,17 +789,17 @@ EOF
 | allinone | localfs |
 | split | S3 兼容 **或** TOS |
 
-- [ ] **Step 2: 更新 bounded-contexts platform 表**
+- [x] **Step 2: 更新 bounded-contexts platform 表**
 
 ```text
 | `blob` + `blob/localfs` + `blob/s3` + `blob/tos` | 文件端口 |
 ```
 
-- [ ] **Step 3: 对照 task-data-walkthrough / system.html**
+- [x] **Step 3: 对照 task-data-walkthrough / system.html**
 
 若仍写「仅 S3」，改为「S3 或 TOS（同 key 空间）」；diagram 文案 `localfs | S3 | TOS`。
 
-- [ ] **Step 4: 回归命令**
+- [x] **Step 4: 回归命令**
 
 ```bash
 # 单元 + 配置
@@ -815,7 +815,7 @@ go test ./internal/platform/blob/s3/ ./internal/platform/blob/localfs/ -count=1
 
 Expected: 全部 PASS；缺 `TOS_*` 时真网测试 FAIL（符合硬门禁）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/architecture/
