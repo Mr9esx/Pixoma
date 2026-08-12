@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -10,13 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	goredis "github.com/redis/go-redis/v9"
-
+	"github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/pull"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edgeonline"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
-	queueredis "github.com/mr9esx/comfyui_tgbot/internal/platform/queue/redis"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -33,28 +28,17 @@ func main() {
 
 func run(ctx context.Context) error {
 	instID := envOr("INSTANCE_ID", "local")
-	redisAddr := envOr("REDIS_ADDR", "127.0.0.1:6379")
+	baseURL := envOr("CONTROL_PLANE_URL", envOr("PIXOMA_URL", "http://127.0.0.1:8080"))
+	token := strings.TrimSpace(os.Getenv("AGENT_TOKEN"))
+	if token == "" {
+		return errString("AGENT_TOKEN is required")
+	}
 	comfyMock := envBool("COMFY_MOCK", true)
 	comfyURL := envOr("COMFYUI_BASE_URL", "http://127.0.0.1:8188")
+	wait := envDuration("CLAIM_WAIT", 25*time.Second)
 
-	rdb := goredis.NewClient(&goredis.Options{Addr: redisAddr})
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		return err
-	}
-	defer func() { _ = rdb.Close() }()
-
-	bus, err := queueredis.New(queueredis.Options{
-		Client:        rdb,
-		ConsumerGroup: envOr("QUEUE_GROUP", "edge"),
-		ConsumerName:  envOr("QUEUE_CONSUMER", "edge-"+instID),
-	})
-	if err != nil {
-		return err
-	}
-	defer func() { _ = bus.Close() }()
-
-	driver := envOr("BLOB_DRIVER", botconfig.BlobDriverS3)
-	blobStore, err := factory.New(driver, "")
+	driver := envOr("BLOB_DRIVER", botconfig.BlobDriverLocalFS)
+	blobStore, err := factory.New(driver, envOr("BLOB_LOCAL_ROOT", "data/blob"))
 	if err != nil {
 		return err
 	}
@@ -69,44 +53,27 @@ func run(ctx context.Context) error {
 		}
 	}
 
+	client := pull.NewClient(baseURL, token, instID)
 	worker := &actuator.Worker{
 		InstanceID: sharedkernel.InstanceID(instID),
 		Comfy:      comfy,
 		Blob:       blobStore,
-		Status:     bus,
+		Status:     pull.NewStatusPublisher(client),
 	}
+	loop := &pull.Loop{Client: client, Worker: worker, Wait: wait}
 
-	topic := envOr("DISPATCH_TOPIC", sharedkernel.TopicDispatch(sharedkernel.InstanceID(instID)))
-	if err := bus.Subscribe(ctx, topic, func(ctx context.Context, msg queue.Message) error {
-		var cmd sharedkernel.DispatchCommand
-		if err := json.Unmarshal(msg.Payload, &cmd); err != nil {
-			return err
-		}
-		return worker.HandleDispatch(ctx, cmd)
-	}); err != nil {
-		return err
-	}
-
-	go heartbeat(ctx, rdb, instID)
-	slog.Info("edge-agent running", "instance_id", instID, "topic", topic, "mock", comfyMock, "blob_driver", driver)
-	<-ctx.Done()
-	return nil
+	slog.Info("pixoma-edge-agent running",
+		"instance_id", instID,
+		"control_plane", baseURL,
+		"mock", comfyMock,
+		"blob_driver", driver,
+	)
+	return loop.Run(ctx)
 }
 
-func heartbeat(ctx context.Context, rdb *goredis.Client, instanceID string) {
-	key := edgeonline.Key(sharedkernel.InstanceID(instanceID))
-	t := time.NewTicker(10 * time.Second)
-	defer t.Stop()
-	_ = rdb.Set(ctx, key, "1", 30*time.Second).Err()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			_ = rdb.Set(ctx, key, "1", 30*time.Second).Err()
-		}
-	}
-}
+type errString string
+
+func (e errString) Error() string { return string(e) }
 
 func envOr(k, def string) string {
 	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
@@ -128,4 +95,16 @@ func envBool(k string, def bool) bool {
 	default:
 		return def
 	}
+}
+
+func envDuration(k string, def time.Duration) time.Duration {
+	v := strings.TrimSpace(os.Getenv(k))
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil || d < 0 {
+		return def
+	}
+	return d
 }
