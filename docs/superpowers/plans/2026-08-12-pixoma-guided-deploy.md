@@ -81,10 +81,10 @@ base-ref: 3a0518564cee9bf9d9305caf6c44c190717af8d2
 - Create: `apps/pixoma/cmd/pixoma`
 - Embed 或组装 admin routes；spawn child edge
 
-- [ ] **Step 1: 写失败测试/冒烟脚本契约** — 启动日志含 URL 与默认账密（可测 bootstrap 钩子）
-- [ ] **Step 2: 实现** 零配置启动、挂 Agent+管理 API、本机 spawn Edge
-- [ ] **Step 3: 本机 localfs + mock 手工/集成冒烟
-- [ ] **Step 4: Commit**
+- [x] **Step 1: 写失败测试/冒烟脚本契约** — 启动日志含 URL 与默认账密（可测 bootstrap 钩子）
+- [x] **Step 2: 实现** 零配置启动、挂 Agent+管理 API、本机 spawn Edge
+- [x] **Step 3: 本机 localfs + mock 手工/集成冒烟
+- [x] **Step 4: Commit**
 
 ### Task 5: Settings + 三库 + 向导 API/UI
 
