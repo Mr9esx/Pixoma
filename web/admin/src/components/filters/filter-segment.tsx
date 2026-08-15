@@ -113,7 +113,7 @@ export function FilterSegment<T extends string>({
           tabIndex={canScrollLeft ? 0 : -1}
           data-testid={testId ? `${testId}-prev` : undefined}
           className={cn(
-            'bg-background/90 text-muted-foreground hover:text-foreground absolute top-1/2 left-1.5 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-opacity duration-300',
+            'bg-background/90 text-muted-foreground hover:text-foreground absolute top-1/2 left-1.5 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-full border backdrop-blur-sm transition-opacity duration-300',
             canScrollLeft
               ? 'opacity-100'
               : 'pointer-events-none opacity-0',
@@ -164,7 +164,7 @@ export function FilterSegment<T extends string>({
           tabIndex={canScrollRight ? 0 : -1}
           data-testid={testId ? `${testId}-next` : undefined}
           className={cn(
-            'bg-background/90 text-muted-foreground hover:text-foreground absolute top-1/2 right-1.5 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-opacity duration-300',
+            'bg-background/90 text-muted-foreground hover:text-foreground absolute top-1/2 right-1.5 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-full border backdrop-blur-sm transition-opacity duration-300',
             canScrollRight
               ? 'opacity-100'
               : 'pointer-events-none opacity-0',
