@@ -54,3 +54,33 @@ describe('admin theme neutral base color', () => {
     expect(collectSlateHits(SRC_ROOT)).toEqual([])
   })
 })
+
+function extractFunction(source: string, name: string): string {
+  const start = source.indexOf(`function ${name}(`)
+  expect(start, `expected function ${name}(`).toBeGreaterThanOrEqual(0)
+  const next = source.indexOf('\nfunction ', start + 1)
+  return next === -1 ? source.slice(start) : source.slice(start, next)
+}
+
+describe('admin theme surface has no drop shadow', () => {
+  it('Card surface has no drop shadow', () => {
+    const src = read(join(SRC_ROOT, 'components/ui/card.tsx'))
+    const cardFn = extractFunction(src, 'Card')
+    expect(cardFn).not.toMatch(/\bshadow-sm\b/)
+    expect(cardFn).toMatch(/\bborder\b/)
+  })
+
+  it('SidebarInset inset variant has no drop shadow', () => {
+    const src = read(join(SRC_ROOT, 'components/ui/sidebar.tsx'))
+    const insetFn = extractFunction(src, 'SidebarInset')
+    expect(insetFn).not.toMatch(/\bshadow-sm\b/)
+    expect(insetFn).toMatch(/rounded-xl/)
+  })
+
+  it('button default variant has no shadow-xs', () => {
+    const src = read(join(SRC_ROOT, 'components/ui/button.tsx'))
+    const match = src.match(/default:\s*\n\s*'([^']+)'/)
+    expect(match, 'expected default variant string').toBeTruthy()
+    expect(match![1]).not.toMatch(/\bshadow-xs\b/)
+  })
+})
