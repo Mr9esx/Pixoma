@@ -83,4 +83,41 @@ describe('admin theme surface has no drop shadow', () => {
     expect(match, 'expected default variant string').toBeTruthy()
     expect(match![1]).not.toMatch(/\bshadow-xs\b/)
   })
+
+  it('form controls have no shadow-xs', () => {
+    const files: [string, string][] = [
+      ['components/ui/input.tsx', 'Input'],
+      ['components/ui/textarea.tsx', 'Textarea'],
+      ['components/ui/select.tsx', 'SelectTrigger'],
+      ['components/ui/checkbox.tsx', 'Checkbox'],
+      ['components/ui/switch.tsx', 'Switch'],
+      ['components/ui/radio-group.tsx', 'RadioGroupItem'],
+    ]
+    for (const [rel, fn] of files) {
+      const body = extractFunction(read(join(SRC_ROOT, rel)), fn)
+      expect(body, rel).not.toMatch(/\bshadow-xs\b/)
+    }
+    expect(read(join(SRC_ROOT, 'components/ui/input-otp.tsx'))).not.toMatch(
+      /\bshadow-xs\b/,
+    )
+    expect(read(join(SRC_ROOT, 'components/ui/calendar.tsx'))).not.toMatch(
+      /\bshadow-xs\b/,
+    )
+    expect(read(join(SRC_ROOT, 'components/password-input.tsx'))).not.toMatch(
+      /\bshadow-xs\b/,
+    )
+  })
+
+  it('filter-segment arrows have no shadow-sm', () => {
+    const src = read(join(SRC_ROOT, 'components/filters/filter-segment.tsx'))
+    expect(src).not.toMatch(/\bshadow-sm\b/)
+  })
+
+  it('select popover still has elevation', () => {
+    const content = extractFunction(
+      read(join(SRC_ROOT, 'components/ui/select.tsx')),
+      'SelectContent',
+    )
+    expect(content).toMatch(/\bshadow-md\b/)
+  })
 })
