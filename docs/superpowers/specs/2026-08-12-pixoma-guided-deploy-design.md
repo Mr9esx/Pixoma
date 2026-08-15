@@ -2,6 +2,8 @@
 comet_change: pixoma-guided-deploy
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-15-pixoma-guided-deploy
+status: final
 ---
 
 # Pixoma 引导式部署（大爆炸）技术设计
