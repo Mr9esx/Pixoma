@@ -73,6 +73,17 @@
 - **WHEN** 主题已切换为 neutral，且页面使用 chart 语义色（`chart-1`…`chart-5`）
 - **THEN** 主背景与主要表面仍为中性灰；chart 色板 MAY 保留色相（不要求无色）
 
+### Requirement: 表面无投影
+系统 MUST 让贴在页面上的卡片、inset 内容画布、按钮与表单控件使用细线框而非 drop shadow。对话框、下拉菜单、popover、sheet 等浮层 MAY 保留投影。
+
+#### Scenario: 卡片与内容区无表面阴影
+- **WHEN** 用户打开 Dashboard 或任意壳页
+- **THEN** 卡片与 inset 内容画布不以 drop shadow 垫高，而以边框区分层次
+
+#### Scenario: 浮层仍有投影
+- **WHEN** 用户打开下拉菜单或对话框
+- **THEN** 该浮层仍可使用投影与页面背景区分
+
 ### Requirement: 未初始化进入向导而非业务壳
 当平台未完成初始化时，管理前端 MUST 引导用户进入登录（若需要）与初始化向导，MUST NOT 将未初始化用户默认送入完整业务资源壳并假装系统已就绪。
 
