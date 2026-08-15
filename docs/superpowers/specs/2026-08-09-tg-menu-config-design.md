@@ -2,6 +2,8 @@
 comet_change: tg-menu-config
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-15-tg-menu-config
+status: final
 ---
 
 # TG Menu 可配置化 — 技术设计（树形主键盘 + Case 关联）
