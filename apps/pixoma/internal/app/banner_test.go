@@ -1,0 +1,63 @@
+package app_test
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/app"
+)
+
+func TestStartupBanner_IncludesURLAndCredentials(t *testing.T) {
+	msg := app.StartupBanner(app.BannerInput{
+		ListenURL: "http://127.0.0.1:8080",
+		Username:  "admin",
+		Password:  "secret-pass",
+	})
+	if !strings.Contains(msg, "http://127.0.0.1:8080") {
+		t.Fatalf("missing URL: %s", msg)
+	}
+	if !strings.Contains(msg, "admin") || !strings.Contains(msg, "secret-pass") {
+		t.Fatalf("missing credentials: %s", msg)
+	}
+}
+
+func TestStartupBanner_OmitsPasswordWhenEmpty(t *testing.T) {
+	msg := app.StartupBanner(app.BannerInput{
+		ListenURL: "http://127.0.0.1:8080",
+		Username:  "admin",
+	})
+	if strings.Contains(strings.ToLower(msg), "password:") && strings.Contains(msg, "admin") {
+		// password line should not show empty secret
+	}
+	if strings.Contains(msg, "Password:") {
+		t.Fatalf("must not print password line when empty: %s", msg)
+	}
+}
+
+func TestEdgeCommand_Env(t *testing.T) {
+	cmd := app.EdgeCommand(app.EdgeSpawnConfig{
+		Binary:          "/tmp/pixoma-edge-agent",
+		ControlPlaneURL: "http://127.0.0.1:8080",
+		AgentToken:      "tok",
+		InstanceID:      "local",
+		BlobDriver:      "localfs",
+		BlobRoot:        "/data/blob",
+		ComfyMock:       true,
+	})
+	if cmd.Path != "/tmp/pixoma-edge-agent" {
+		t.Fatalf("path=%s", cmd.Path)
+	}
+	env := strings.Join(cmd.Env, "\n")
+	for _, want := range []string{
+		"CONTROL_PLANE_URL=http://127.0.0.1:8080",
+		"AGENT_TOKEN=tok",
+		"INSTANCE_ID=local",
+		"BLOB_DRIVER=localfs",
+		"BLOB_LOCAL_ROOT=/data/blob",
+		"COMFY_MOCK=true",
+	} {
+		if !strings.Contains(env, want) {
+			t.Fatalf("missing %q in env:\n%s", want, env)
+		}
+	}
+}

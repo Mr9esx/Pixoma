@@ -1,15 +1,16 @@
 # 数据模型与 ER
 
 > 系统总览见 [overview.md](./overview.md)；运行时链路见 [runtime.md](./runtime.md)。  
-> 数据库：SQLite（默认 `data/app.db`），GORM AutoMigrate。  
-> 对应能力：User / Session / Task 落库 + 多 Comfy 实例池。
+> 端到端样例（每阶段表行 / Blob / MQ）见 [task-data-walkthrough.md](./task-data-walkthrough.md)。  
+> 数据库：默认 SQLite（`data/app.db`），向导可选 MySQL / Postgres；GORM AutoMigrate。  
+> 引导态另存本机 `data/bootstrap.db`。业务 settings 在 `platform_settings`。
 
 非库内状态（有意不落库）：
 
 | 项 | 存放 | 说明 |
 |---|---|---|
-| 输入/输出文件 | `data/blob/` | Task 只存 `input_prefix` / outputs BlobRef |
-| 事件总线 | 进程内 memory | `task.created` / `dispatch.*` / `task.status` |
+| 输入/输出文件 | `data/blob/` 或 OSS | Task 只存 `input_prefix` / outputs BlobRef |
+| 同进程编排 | 进程内 memory | 跨进程派活走 Agent claim，不依赖 Redis |
 | 熔断 / 健康缓存 / RR 游标 | 进程内存 | 可重建 |
 | 通知去重 map | 进程内存 | 重启可能重复通知 |
 
@@ -54,6 +55,8 @@
 | Status | pending→queued→running→终态 | 执行态唯一真相源 |
 | InstanceID | InstanceID | 派发后写入 |
 | PromptID | string | Comfy prompt id |
+| JobRef | string | 可领取 job 包路径 |
+| LeaseUntil | time | claim 租约截止 |
 | InputPrefix | string | blob 路径前缀 |
 | Outputs | []OutputRef | 产物 Blob |
 | ErrorCode / ErrorMessage | string | |
@@ -112,6 +115,8 @@
 | status | NOT NULL, index | |
 | instance_id | index, 可空 | → comfy_instances.id（派发后） |
 | prompt_id | 可空 | |
+| job_ref_json | TEXT | 可领取 job 描述 |
+| lease_until | 可空 | claim 租约 |
 | input_prefix | NOT NULL | |
 | outputs_json | TEXT | |
 | error_code, error_message | | |
@@ -126,6 +131,12 @@
 | enabled | NOT NULL | |
 | capabilities_json | TEXT | |
 | created_at, updated_at | NOT NULL | |
+
+### 2.4a `platform_settings`
+
+业务库单行配置：部署位置（local/remote）、blob 驱动、密文 Token/密钥等。不含 `queue.driver`。
+
+引导态 `bootstrap_meta`（本机 `bootstrap.db`）：initialized、管理员哈希、业务库 driver/DSN、enc key、向导进度、agent token 哈希。 |
 
 ### 2.5 `catalog_cases`（既有）
 

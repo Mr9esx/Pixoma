@@ -1,6 +1,6 @@
 # 运行时：调度、执行与事件
 
-> ConfirmRun 之后的控制面 / 执行面。数据落库见 [data-model.md](./data-model.md)。
+> ConfirmRun 之后的控制面 / 执行面。数据落库见 [data-model.md](./data-model.md)；按阶段的样例数据快照见 [task-data-walkthrough.md](./task-data-walkthrough.md)。
 
 ---
 
@@ -11,28 +11,33 @@ sequenceDiagram
   participant U as Telegram User
   participant TG as channel/tg
   participant APP as botapp.ConfirmRun
-  participant Q as queue/memory
   participant O as Orchestrator
-  participant A as Actuator
+  participant E as pixoma-edge-agent
   participant C as Comfy/Mock
   participant N as notify→TG
 
   U->>TG: 确认生成
   TG->>APP: ConfirmRun
   APP->>APP: Create Task(pending) + blob inputs
-  APP->>Q: Publish task.created
-  Q->>O: OnTaskCreated
-  O->>O: ClaimQueued + round-robin
-  O->>Q: Publish dispatch.<instance_id>
-  Q->>A: HandleDispatch
-  A->>C: Submit / Wait / Upload
-  A->>Q: Publish task.status
-  Q->>O: OnStatus（写 Task）
+  APP->>O: OnTaskCreated（同进程）
+  O->>O: 选实例 + prep job + 可领取（queued）
+  E->>O: GET /agent/v1/jobs/claim
+  O-->>E: task + job_ref
+  E->>E: Blob.Get(job_ref) + 本机 UploadImage
+  E->>C: Submit / Wait
+  E->>O: POST .../status
   O->>N: 终态 UserNotify
   N->>U: 发图/文案
 ```
 
-说明：`memory` bus **同步**调用 handler；ConfirmRun 返回前，整条链路（含 notify）可能已完成。
+默认跨进程派发是 **DB 可领取态 + Edge 长轮询**，不是 Redis Topic。
+
+### 1.0 本机与远程
+
+| 位置 | 进程 | Blob | 执行面 |
+|---|---|---|---|
+| 本机（默认） | `pixoma` 自动 spawn Edge | localfs 共用目录 | `pixoma-edge-agent` |
+| 远程 | 控制面 + 独立 Edge | s3 或 tos（禁止 localfs） | Edge 出站 claim |
 
 对话入口：Telegram 主 ReplyKeyboard 来自 `tg_menus` + `tg_menu_items`（空库种子或自 `tg_menu_configs` 迁移）；`channel/tg` 每次构建键盘时读 `MenuTree`（失败回退 `DefaultSeedTree`）。
 
@@ -83,13 +88,14 @@ Task 表是**执行态唯一真相源**（无独立 Actuator Ledger）。
 
 ### Queue topics（`sharedkernel`）
 
+同进程编排仍可用这些名字；跨进程向 Edge **不要求** Publish `dispatch.<instance_id>`。
+
 | Topic | 载荷 | 方向 |
 |---|---|---|
-| `task.created` | `TaskCreated` | ConfirmRun → Orchestrator |
-| `dispatch.<instance_id>` | `DispatchCommand` | Orchestrator → Actuator |
-| `task.status` | `TaskStatusEvent` | Actuator → Orchestrator |
+| `task.created` | `TaskCreated` | ConfirmRun → Orchestrator（可同进程） |
+| `task.status` | `TaskStatusEvent` | Edge Agent API → Orchestrator |
 
-`TopicNotifyUser` 常量存在，**未走 queue**。
+跨进程投递：`GET /agent/v1/jobs/claim` 返回含 `job_ref` 的任务。
 
 ### Notify 端口
 
@@ -112,7 +118,7 @@ Orchestrator ──Publish(UserNotify)──► platform/notify.Publisher
 | Orchestrator | `internal/runtime/application/orchestrator/service.go` |
 | Actuator | `internal/runtime/infrastructure/actuator/worker.go` |
 | Case→workflow | `internal/runtime/infrastructure/actuator/snapshot.go` |
-| 组合根订阅 | `apps/bot/cmd/comfyui-bot/main.go` |
+| 组合根 | `apps/pixoma/cmd/pixoma/main.go` |
 
 ---
 
@@ -121,14 +127,14 @@ Orchestrator ──Publish(UserNotify)──► platform/notify.Publisher
 ```text
 pending Task
     → ListHealthy(enabled ∩ 探测成功 ∩ 未熔断)
-    → ClaimQueued(CAS pending→queued, 写 instance_id)
-    → Publish dispatch.<instance_id>
+    → prep job + PrepareForClaim（queued，可领取）
+    → Edge GET /agent/v1/jobs/claim（带 lease）
 ```
 
-- **无可用实例**：不投递（Task 保持可重试态，由对账/后续 tick 再试）。
+- **无可用实例**：不投递（Task 保持 pending）。
 - **Round-robin**：在健康集合上轮转。
-- **动态订阅**：实例启用变化时 `SubscriptionSet` 保证 `dispatch.<id>` 有 handler。
-- **健康探测**：周期调该实例 `SystemStats`；间隔由 `health_probe_interval` 配置。
+- **租约过期**：回到 queued 可再领。
+- **健康探测**：周期调该实例 `SystemStats`。
 
 ---
 

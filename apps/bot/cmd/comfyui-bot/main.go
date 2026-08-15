@@ -26,13 +26,18 @@ import (
 	convpersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
+	goredis "github.com/redis/go-redis/v9"
+
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edgeonline"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
+	queueredis "github.com/mr9esx/comfyui_tgbot/internal/platform/queue/redis"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
@@ -58,6 +63,9 @@ func main() {
 func run(ctx context.Context) error {
 	cfg, err := botconfig.Load("")
 	if err != nil {
+		return err
+	}
+	if err := cfg.ValidateRuntimeDrivers(); err != nil {
 		return err
 	}
 
@@ -98,16 +106,18 @@ func run(ctx context.Context) error {
 		slog.Info("seed cases loaded", "count", n)
 	}
 
-	blobRoot := cfg.BlobRoot
-	if blobRoot == "" {
-		blobRoot = filepath.Join(dataDir, "blob")
-	}
-	blobStore, err := localfs.New(blobRoot)
+	blobStore, err := openBlobStore(cfg, dataDir)
 	if err != nil {
 		return err
 	}
 
-	bus := memory.New()
+	bus, redisClient, err := openQueueBus(cfg)
+	if err != nil {
+		return err
+	}
+	if redisClient != nil {
+		defer func() { _ = redisClient.Close() }()
+	}
 	tasks := taskpersist.NewTaskRepository(gdb)
 	sessRepo := convpersist.NewSessionRepository(gdb)
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID {
@@ -159,6 +169,12 @@ func run(ctx context.Context) error {
 	notifyPub := &notifybridge.Publisher{Adapter: tgAdapter}
 	orch := orchestrator.New(tasks, pool, bus, notifyPub)
 	orch.Sessions = sessRepo
+	if cfg.RuntimeMode == botconfig.RuntimeModeSplit {
+		if redisClient == nil {
+			return fmt.Errorf("split mode requires redis queue client")
+		}
+		orch.Online = edgeonline.Checker(redisClient)
+	}
 
 	snap := &actuator.CaseSnapshot{
 		Tasks:    tasks,
@@ -174,6 +190,7 @@ func run(ctx context.Context) error {
 		Status:        bus,
 		Workflows:     snap,
 	}
+	orch.Prep = snap
 	orch.Query = &actuator.QueryAdapter{Tasks: tasks}
 
 	facade := &botapp.Facade{
@@ -229,8 +246,12 @@ func run(ctx context.Context) error {
 			}
 		}
 	}
-	pool.SetAfterRefresh(ensureDispatchSubs)
-	ensureDispatchSubs(pool.List())
+	if cfg.RuntimeMode == botconfig.RuntimeModeAllinone {
+		pool.SetAfterRefresh(ensureDispatchSubs)
+		ensureDispatchSubs(pool.List())
+	} else {
+		slog.Info("split mode: bot does not subscribe production dispatch topics")
+	}
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskStatus, func(ctx context.Context, msg queue.Message) error {
 		var ev sharedkernel.TaskStatusEvent
 		if err := json.Unmarshal(msg.Payload, &ev); err != nil {
@@ -266,12 +287,19 @@ func run(ctx context.Context) error {
 	go func() {
 		t := time.NewTicker(probeEvery)
 		defer t.Stop()
-		tickPool(ctx, pool)
+		if cfg.RuntimeMode == botconfig.RuntimeModeAllinone {
+			tickPool(ctx, pool)
+		}
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-t.C:
+				if cfg.RuntimeMode == botconfig.RuntimeModeSplit {
+					// split: Edge heartbeat is presence; skip cloud→Comfy Probe.
+					_ = pool.Refresh(ctx)
+					continue
+				}
 				tickPool(ctx, pool)
 			}
 		}
@@ -379,4 +407,50 @@ func envOr(k, def string) string {
 		return v
 	}
 	return def
+}
+
+func envBool(k string, def bool) bool {
+	v := strings.TrimSpace(os.Getenv(k))
+	if v == "" {
+		return def
+	}
+	switch strings.ToLower(v) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return def
+	}
+}
+
+func openBlobStore(cfg botconfig.Config, dataDir string) (blob.Store, error) {
+	blobRoot := cfg.BlobRoot
+	if blobRoot == "" {
+		blobRoot = filepath.Join(dataDir, "blob")
+	}
+	return factory.NewFromConfig(cfg, blobRoot)
+}
+
+func openQueueBus(cfg botconfig.Config) (queue.Bus, *goredis.Client, error) {
+	switch strings.TrimSpace(cfg.Queue.Driver) {
+	case botconfig.QueueDriverRedis:
+		rdb := goredis.NewClient(&goredis.Options{Addr: envOr("REDIS_ADDR", "127.0.0.1:6379")})
+		if err := rdb.Ping(context.Background()).Err(); err != nil {
+			_ = rdb.Close()
+			return nil, nil, fmt.Errorf("redis ping: %w", err)
+		}
+		bus, err := queueredis.New(queueredis.Options{
+			Client:        rdb,
+			ConsumerGroup: envOr("QUEUE_GROUP", "bot"),
+			ConsumerName:  envOr("QUEUE_CONSUMER", "bot"),
+		})
+		if err != nil {
+			_ = rdb.Close()
+			return nil, nil, err
+		}
+		return bus, rdb, nil
+	default:
+		return memory.New(), nil, nil
+	}
 }

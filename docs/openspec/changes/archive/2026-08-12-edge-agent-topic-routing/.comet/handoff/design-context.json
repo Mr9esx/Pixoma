@@ -1,0 +1,22 @@
+{
+  "change": "edge-agent-topic-routing",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "df09265333a7249fe8b48e4d8d98667109a57cdf071fdea4643a48e9721b3bc9",
+  "files": [
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/proposal.md", "sha256": "6dbb3495b982f7214308660e8768a11b1e59a354e4dc5cd7298d62f8b4671b4d" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/design.md", "sha256": "59de22d465120a41a36126fad0bad642c0744968b597fc86f718cc891ea999f5" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/tasks.md", "sha256": "34e0ccfe392aa9efc300ed3c3e50c2cffb47ff692cbafcb18cc5bca66821a588" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/specs/comfy-instance-pool/spec.md", "sha256": "dbf794be32649ab117c70e380eb56cc6167e1914257c67b28a71575985af8ebb" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/specs/comfyui-executor/spec.md", "sha256": "d91c414aab567ee1cd563268e418a581c9bb63ce37db74230024aaebe1542e84" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/specs/cross-process-queue/spec.md", "sha256": "2f0bcacd1e6d64848e00dfce8bc38041e43798a47392e809284632ec5a753bc4" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/specs/dispatch-job-package/spec.md", "sha256": "597d75fa81f222adf3e66138da579ca32a2316c765909f50156239dbd6e9c037" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/specs/dispatch-topic-routing/spec.md", "sha256": "be7626f64e47f03e24920f14f0433b4df79aada49fd242089eb4b0c4df3af727" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/specs/edge-agent/spec.md", "sha256": "62768b5a73bc600effd2083cd31e4f680597f33ce5eb1cde568d242678f8d644" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/specs/shared-blob-store/spec.md", "sha256": "36e67f043f0b9e56f6c05a9a30b9d679adb368556c831ab7e103b2d59b1d1193" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/specs/task-orchestrator/spec.md", "sha256": "146c81ade65d8c632e82e21bcb395d40411d8609a60649202b8873cd132ac088" },
+    { "path": "docs/openspec/changes/edge-agent-topic-routing/specs/topic-admin/spec.md", "sha256": "4b3dc2172c0a66146f7aa863c869a8354497a318be59acec9ba8117a9487ceb4" }
+  ]
+}

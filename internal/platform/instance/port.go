@@ -18,5 +18,8 @@ type CapabilityFilter struct {
 
 type Registry interface {
 	ListHealthy(ctx context.Context, filter CapabilityFilter) ([]Instance, error)
+	// ListEnabled returns enabled instances matching the filter, ignoring cloud health probes.
+	// Used in split mode where Edge heartbeat (Online) is the presence signal.
+	ListEnabled(ctx context.Context, filter CapabilityFilter) ([]Instance, error)
 	Get(ctx context.Context, id sharedkernel.InstanceID) (*Instance, error)
 }

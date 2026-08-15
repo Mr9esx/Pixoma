@@ -19,6 +19,14 @@ func New(items ...instance.Instance) *Registry {
 }
 
 func (r *Registry) ListHealthy(_ context.Context, filter instance.CapabilityFilter) ([]instance.Instance, error) {
+	return r.list(filter)
+}
+
+func (r *Registry) ListEnabled(_ context.Context, filter instance.CapabilityFilter) ([]instance.Instance, error) {
+	return r.list(filter)
+}
+
+func (r *Registry) list(filter instance.CapabilityFilter) ([]instance.Instance, error) {
 	if len(filter.AnyOf) == 0 {
 		out := make([]instance.Instance, len(r.items))
 		copy(out, r.items)
