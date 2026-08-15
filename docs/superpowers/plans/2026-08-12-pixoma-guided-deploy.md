@@ -93,11 +93,11 @@ base-ref: 3a0518564cee9bf9d9305caf6c44c190717af8d2
 - Modify: `web/admin` 登录/向导流
 - GORM dialector：sqlite/mysql/postgres
 
-- [ ] **Step 1: 写失败测试** — 远程+localfs 拒绝；SQLite 向导保存可读回
-- [ ] **Step 2: 实现** 向导步骤、加密存密钥、finalize+重启提示
-- [ ] **Step 3: MySQL/Postgres 连通+migrate 测试（tag 或 testcontainers）
-- [ ] **Step 4: 发布 embed 前端构建接入
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 写失败测试** — 远程+localfs 拒绝；SQLite 向导保存可读回
+- [x] **Step 2: 实现** 向导步骤、加密存密钥、finalize+重启提示
+- [x] **Step 3: MySQL/Postgres 连通+migrate 测试（tag 或 testcontainers）
+- [x] **Step 4: 发布 embed 前端构建接入
+- [x] **Step 5: Commit**
 
 ### Task 6: 拆除默认 Redis/queue 用户路径 + 文档
 
@@ -106,16 +106,16 @@ base-ref: 3a0518564cee9bf9d9305caf6c44c190717af8d2
 - Modify: README、`docs/architecture/runtime.md`、overview
 - 删除或隔离默认 Redis 装配
 
-- [ ] **Step 1: 更新校验与装配** 默认路径无 Redis
-- [ ] **Step 2: 文档与 BREAKING 说明
-- [ ] **Step 3: 全量相关测试 + 本机 E2E 清单勾选
-- [ ] **Step 4: Commit**
+- [x] **Step 1: 更新校验与装配** 默认路径无 Redis
+- [x] **Step 2: 文档与 BREAKING 说明
+- [x] **Step 3: 全量相关测试 + 本机 E2E 清单勾选
+- [x] **Step 4: Commit**
 
 ## 验收清单（对齐 Design Doc）
 
-- [ ] 空目录 `pixoma` → 日志 URL+账密
-- [ ] 向导本机 SQLite+localfs → 自动 Edge mock → 任务成功
-- [ ] 远程+localfs 失败
-- [ ] 错 Token 401
-- [ ] lease 过期可再领
-- [ ] `COMFY_MOCK` 主路径仍通
+- [x] 空目录 `pixoma` → 日志 URL+账密
+- [x] 向导本机 SQLite+localfs → 自动 Edge mock → 任务成功
+- [x] 远程+localfs 失败
+- [x] 错 Token 401
+- [x] lease 过期可再领
+- [x] `COMFY_MOCK` 主路径仍通

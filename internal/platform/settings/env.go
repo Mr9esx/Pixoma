@@ -1,0 +1,64 @@
+package settings
+
+import (
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
+)
+
+// ApplyEnv overlays emergency env overrides onto saved settings.
+func ApplyEnv(s *Settings) {
+	if s == nil {
+		return
+	}
+	if v := strings.TrimSpace(os.Getenv("BLOB_DRIVER")); v != "" {
+		s.BlobDriver = v
+	}
+	if v := strings.TrimSpace(os.Getenv("COMFYUI_BASE_URL")); v != "" {
+		s.ComfyUIBaseURL = v
+	}
+	if v := strings.TrimSpace(os.Getenv("INSTANCE_ID")); v != "" {
+		s.DefaultInstanceID = v
+	}
+	if v := strings.TrimSpace(os.Getenv("TG_BOT_TOKEN")); v != "" {
+		s.TelegramBotToken = v
+	}
+	if v := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")); v != "" {
+		s.TelegramBotToken = v
+	}
+	if v := strings.TrimSpace(os.Getenv("S3_ACCESS_KEY")); v != "" {
+		s.BlobAccessKey = v
+	}
+	if v := strings.TrimSpace(os.Getenv("S3_SECRET_KEY")); v != "" {
+		s.BlobSecretKey = v
+	}
+	if v := strings.TrimSpace(os.Getenv("TOS_ACCESS_KEY")); v != "" && s.BlobDriver == botconfig.BlobDriverTOS {
+		s.BlobAccessKey = v
+	}
+	if v := strings.TrimSpace(os.Getenv("TOS_SECRET_KEY")); v != "" && s.BlobDriver == botconfig.BlobDriverTOS {
+		s.BlobSecretKey = v
+	}
+	if v := strings.TrimSpace(os.Getenv("COMFY_MOCK")); v != "" {
+		s.ComfyMock = parseBool(v, s.ComfyMock)
+	}
+	if v := strings.TrimSpace(os.Getenv("EDGE_AUTO_SPAWN")); v != "" {
+		s.AutoSpawnEdge = parseBool(v, s.AutoSpawnEdge)
+	}
+}
+
+func parseBool(v string, def bool) bool {
+	b, err := strconv.ParseBool(v)
+	if err == nil {
+		return b
+	}
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "yes", "on":
+		return true
+	case "0", "no", "off":
+		return false
+	default:
+		return def
+	}
+}

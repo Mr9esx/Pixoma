@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
 import { LayoutProvider } from '@/context/layout-provider'
@@ -6,8 +6,17 @@ import { SearchProvider } from '@/context/search-provider'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { SkipToMain } from '@/components/skip-to-main'
+import { fetchSetupStatus } from '@/lib/api/setup'
+import { nextAdminPath } from '@/lib/setup-guard'
 
 export const Route = createFileRoute('/_app')({
+  beforeLoad: async () => {
+    const status = await fetchSetupStatus()
+    const next = nextAdminPath(status, '/')
+    if (next) {
+      throw redirect({ to: next })
+    }
+  },
   component: AppLayout,
 })
 

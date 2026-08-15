@@ -1,6 +1,7 @@
 package db_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
@@ -17,5 +18,42 @@ func TestOpenMemorySQLite(t *testing.T) {
 	}
 	if err := sqlDB.Ping(); err != nil {
 		t.Fatalf("ping: %v", err)
+	}
+}
+
+func TestOpen_UnknownDriver(t *testing.T) {
+	_, err := db.Open(db.Options{Driver: "oracle", DSN: "x"})
+	if err == nil {
+		t.Fatal("expected unknown driver error")
+	}
+	if !strings.Contains(err.Error(), "unknown") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestOpen_MySQLEmptyDSN(t *testing.T) {
+	_, err := db.Open(db.Options{Driver: db.DriverMySQL, DSN: ""})
+	if err == nil {
+		t.Fatal("expected empty DSN error")
+	}
+}
+
+func TestOpen_MySQLUnreachable(t *testing.T) {
+	_, err := db.Open(db.Options{
+		Driver: db.DriverMySQL,
+		DSN:    "pixoma:pixoma@tcp(127.0.0.1:1)/pixoma?timeout=1s&readTimeout=1s&writeTimeout=1s",
+	})
+	if err == nil {
+		t.Fatal("expected mysql dial to fail")
+	}
+}
+
+func TestOpen_PostgresUnreachable(t *testing.T) {
+	_, err := db.Open(db.Options{
+		Driver: db.DriverPostgres,
+		DSN:    "host=127.0.0.1 port=1 user=pixoma password=pixoma dbname=pixoma sslmode=disable connect_timeout=1",
+	})
+	if err == nil {
+		t.Fatal("expected postgres dial to fail")
 	}
 }

@@ -10,8 +10,11 @@ import (
 )
 
 const (
-	RuntimeModeAllinone = "allinone"
-	RuntimeModeSplit    = "split"
+	RuntimeModeAllinone = "allinone" // deprecated alias of local
+	RuntimeModeSplit    = "split"    // deprecated alias of remote
+
+	PlacementLocal  = "local"
+	PlacementRemote = "remote"
 
 	QueueDriverMemory = "memory"
 	QueueDriverRedis  = "redis"
@@ -40,7 +43,9 @@ type Config struct {
 	// via SystemStats (default 30s). Parsed as Go duration, e.g. "30s".
 	HealthProbeInterval string `yaml:"health_probe_interval"`
 
-	// RuntimeMode selects allinone vs split deployment (default allinone).
+	// Placement is local (same machine) or remote (Edge pulls over the network).
+	// RuntimeMode is a deprecated alias (allinone=local, split=remote).
+	Placement   string      `yaml:"placement"`
 	RuntimeMode string      `yaml:"runtime_mode"`
 	Queue       QueueConfig `yaml:"queue"`
 	Blob        BlobConfig  `yaml:"blob"`
@@ -82,45 +87,54 @@ func Default() Config {
 		CaseSeedDir:         "configs/cases",
 		ComfyMock:           true,
 		HealthProbeInterval: "30s",
+		Placement:           PlacementLocal,
 		RuntimeMode:         RuntimeModeAllinone,
 		Queue:               QueueConfig{Driver: QueueDriverMemory},
 		Blob:                BlobConfig{Driver: BlobDriverLocalFS},
 	}
 }
 
-// ValidateRuntimeDrivers checks runtime_mode vs queue/blob driver combinations.
+// ValidateRuntimeDrivers checks local/remote vs blob. Queue driver is not required.
 func (c Config) ValidateRuntimeDrivers() error {
-	mode := strings.TrimSpace(c.RuntimeMode)
-	if mode == "" {
-		mode = RuntimeModeAllinone
-	}
-	q := strings.TrimSpace(c.Queue.Driver)
-	if q == "" {
-		q = QueueDriverMemory
-	}
+	place := c.resolvedPlacement()
 	b := strings.TrimSpace(c.Blob.Driver)
 	if b == "" {
 		b = BlobDriverLocalFS
 	}
-	switch mode {
-	case RuntimeModeAllinone:
-		if q != QueueDriverMemory {
-			return fmt.Errorf("botconfig: allinone requires queue.driver=memory, got %q", q)
+	switch place {
+	case PlacementLocal:
+		switch b {
+		case BlobDriverLocalFS, BlobDriverS3, BlobDriverTOS:
+			return nil
+		default:
+			return fmt.Errorf("botconfig: unknown blob.driver %q", b)
 		}
-		if b != BlobDriverLocalFS {
-			return fmt.Errorf("botconfig: allinone requires blob.driver=localfs, got %q", b)
-		}
-	case RuntimeModeSplit:
-		if q != QueueDriverRedis {
-			return fmt.Errorf("botconfig: split requires queue.driver=redis, got %q", q)
+	case PlacementRemote:
+		if b == BlobDriverLocalFS {
+			return fmt.Errorf("botconfig: remote requires blob.driver=s3 or tos, got %q", b)
 		}
 		if b != BlobDriverS3 && b != BlobDriverTOS {
-			return fmt.Errorf("botconfig: split requires blob.driver=s3 or tos, got %q", b)
+			return fmt.Errorf("botconfig: remote requires blob.driver=s3 or tos, got %q", b)
 		}
+		return nil
 	default:
-		return fmt.Errorf("botconfig: unknown runtime_mode %q", mode)
+		return fmt.Errorf("botconfig: unknown placement %q", place)
 	}
-	return nil
+}
+
+func (c Config) resolvedPlacement() string {
+	p := strings.TrimSpace(c.Placement)
+	mode := strings.TrimSpace(c.RuntimeMode)
+	if p == PlacementRemote || p == RuntimeModeSplit || mode == PlacementRemote || mode == RuntimeModeSplit {
+		return PlacementRemote
+	}
+	if p != "" && p != PlacementLocal && p != RuntimeModeAllinone {
+		return p
+	}
+	if mode != "" && mode != RuntimeModeAllinone && mode != PlacementLocal {
+		return mode
+	}
+	return PlacementLocal
 }
 
 // Load reads optional YAML then applies env overrides.
@@ -154,8 +168,20 @@ func Load(path string) (Config, error) {
 }
 
 func normalizeDrivers(cfg *Config) {
+	if strings.TrimSpace(cfg.Placement) == "" {
+		switch strings.TrimSpace(cfg.RuntimeMode) {
+		case RuntimeModeSplit, PlacementRemote:
+			cfg.Placement = PlacementRemote
+		default:
+			cfg.Placement = PlacementLocal
+		}
+	}
 	if strings.TrimSpace(cfg.RuntimeMode) == "" {
-		cfg.RuntimeMode = RuntimeModeAllinone
+		if cfg.Placement == PlacementRemote {
+			cfg.RuntimeMode = RuntimeModeSplit
+		} else {
+			cfg.RuntimeMode = RuntimeModeAllinone
+		}
 	}
 	if strings.TrimSpace(cfg.Queue.Driver) == "" {
 		cfg.Queue.Driver = QueueDriverMemory
@@ -204,6 +230,9 @@ func applyEnv(cfg *Config) {
 			}
 		}
 		cfg.ComfyMock = b
+	}
+	if v := os.Getenv("PLACEMENT"); v != "" {
+		cfg.Placement = strings.TrimSpace(v)
 	}
 	if v := os.Getenv("RUNTIME_MODE"); v != "" {
 		cfg.RuntimeMode = strings.TrimSpace(v)

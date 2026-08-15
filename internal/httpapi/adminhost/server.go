@@ -24,6 +24,8 @@ type Options struct {
 	Sessions  *sessionsapi.Handler
 	Tasks     *tasksapi.Handler
 	TGMenu    *tgmenuapi.Handler
+	// NotFound handles unmatched paths (SPA embed).
+	NotFound http.Handler
 }
 
 // NewHandler returns the admin-api chi router (health, CORS, resource APIs).
@@ -70,6 +72,10 @@ func NewHandler(opts Options) http.Handler {
 			opts.TGMenu.Mount(r)
 		}
 	})
+
+	if opts.NotFound != nil {
+		r.NotFound(opts.NotFound.ServeHTTP)
+	}
 
 	return r
 }
