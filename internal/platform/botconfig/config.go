@@ -61,6 +61,8 @@ type BlobConfig struct {
 	Driver string `yaml:"driver"` // localfs | s3 | tos
 	// TOS holds non-secret connection fields; keys stay in env only.
 	TOS BlobTOSConfig `yaml:"tos"`
+	// S3 holds non-secret connection fields; keys stay in env only.
+	S3 BlobTOSConfig `yaml:"s3"`
 }
 
 // BlobTOSConfig is optional YAML for TOS endpoint/region/bucket.

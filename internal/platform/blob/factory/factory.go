@@ -28,14 +28,7 @@ func NewFromConfig(cfg botconfig.Config, localRoot string) (blob.Store, error) {
 	case "", botconfig.BlobDriverLocalFS:
 		return localfs.New(localRoot)
 	case botconfig.BlobDriverS3:
-		return blobs3.New(blobs3.Options{
-			Endpoint:        os.Getenv("S3_ENDPOINT"),
-			Region:          envOr("S3_REGION", "us-east-1"),
-			Bucket:          envOr("S3_BUCKET", "pixoma"),
-			AccessKeyID:     os.Getenv("S3_ACCESS_KEY"),
-			SecretAccessKey: os.Getenv("S3_SECRET_KEY"),
-			UsePathStyle:    envBool("S3_PATH_STYLE", true),
-		})
+		return blobs3.New(S3Options(cfg))
 	case botconfig.BlobDriverTOS:
 		return blobtos.New(blobtos.Options{
 			Endpoint:        firstNonEmpty(cfg.Blob.TOS.Endpoint, os.Getenv("TOS_ENDPOINT")),
@@ -46,6 +39,18 @@ func NewFromConfig(cfg botconfig.Config, localRoot string) (blob.Store, error) {
 		})
 	default:
 		return nil, fmt.Errorf("blob/factory: unknown driver %q", cfg.Blob.Driver)
+	}
+}
+
+// S3Options resolves wizard/YAML fields first, then environment, then defaults.
+func S3Options(cfg botconfig.Config) blobs3.Options {
+	return blobs3.Options{
+		Endpoint:        firstNonEmpty(cfg.Blob.S3.Endpoint, os.Getenv("S3_ENDPOINT")),
+		Region:          firstNonEmpty(cfg.Blob.S3.Region, envOr("S3_REGION", "us-east-1")),
+		Bucket:          firstNonEmpty(cfg.Blob.S3.Bucket, envOr("S3_BUCKET", "pixoma")),
+		AccessKeyID:     os.Getenv("S3_ACCESS_KEY"),
+		SecretAccessKey: os.Getenv("S3_SECRET_KEY"),
+		UsePathStyle:    envBool("S3_PATH_STYLE", true),
 	}
 }
 

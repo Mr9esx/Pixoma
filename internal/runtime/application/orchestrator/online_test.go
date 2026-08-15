@@ -79,6 +79,31 @@ func (j jobPrepStub) PrepareJob(context.Context, sharedkernel.TaskID, sharedkern
 	return j.ref, nil
 }
 
+func TestDispatchClaimableUsesEnabledWithoutOnline(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(1, 0).UTC()
+	if err := tasks.Create(ctx, runtimedomain.NewPending("t-claim-enabled", "s", "c", "inputs/t", now)); err != nil {
+		t.Fatal(err)
+	}
+	n := &memNotify{}
+	reg := &enabledOnlyRegistry{items: []instance.Instance{{ID: "edge-1", DispatchTopic: "dispatch.edge-1"}}}
+	svc := orchestrator.New(tasks, reg, nil, n)
+	svc.Now = func() time.Time { return now }
+	svc.Prep = stubPrep{}
+
+	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-claim-enabled"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := tasks.Get(ctx, "t-claim-enabled")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != sharedkernel.TaskQueued || got.InstanceID != "edge-1" {
+		t.Fatalf("claimable dispatch must use ListEnabled when Dispatch is nil, got %+v", got)
+	}
+}
+
 func TestDispatchUsesOnlineEvenWhenInstanceMarkedUnhealthy(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()

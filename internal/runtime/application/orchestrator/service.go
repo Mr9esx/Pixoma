@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -14,6 +15,9 @@ import (
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
+
+// ErrStaleHolder is returned when a status report is not from the current claim holder.
+var ErrStaleHolder = errors.New("orchestrator: status from non-holder")
 
 type ExecutionQuery interface {
 	GetRun(ctx context.Context, taskID sharedkernel.TaskID) (*ExecutionView, error)
@@ -140,8 +144,8 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 
 func (s *Service) listCandidates(ctx context.Context) ([]instance.Instance, error) {
 	filter := instance.CapabilityFilter{}
-	// Split mode wires Online; Edge heartbeat is presence — do not require cloud Comfy health.
-	if s.Online != nil {
+	// Claimable dispatch (Dispatch==nil) and Online filters use Edge presence, not cloud Comfy probes.
+	if s.Online != nil || s.Dispatch == nil {
 		return s.Instances.ListEnabled(ctx, filter)
 	}
 	return s.Instances.ListHealthy(ctx, filter)
@@ -185,6 +189,9 @@ func (s *Service) applyStatus(ctx context.Context, ev sharedkernel.TaskStatusEve
 	t, err := s.Tasks.Get(ctx, ev.TaskID)
 	if err != nil {
 		return err
+	}
+	if ev.InstanceID != "" && t.InstanceID != "" && ev.InstanceID != t.InstanceID {
+		return ErrStaleHolder
 	}
 	now := ev.At
 	if now.IsZero() {

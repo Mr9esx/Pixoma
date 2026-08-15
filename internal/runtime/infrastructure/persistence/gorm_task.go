@@ -74,20 +74,20 @@ func (r *TaskRepository) Update(ctx context.Context, t *domain.Task) error {
 	if err != nil {
 		return err
 	}
-		res := r.db.WithContext(ctx).Model(&TaskRow{}).Where("id = ?", row.ID).Updates(map[string]any{
-			"session_id":    row.SessionID,
-			"case_id":       row.CaseID,
-			"status":        row.Status,
-			"instance_id":   row.InstanceID,
-			"prompt_id":     row.PromptID,
-			"input_prefix":  row.InputPrefix,
-			"job_ref_json":  row.JobRefJSON,
-			"lease_until":   row.LeaseUntil,
-			"outputs_json":  row.OutputsJSON,
-			"error_code":    row.ErrorCode,
-			"error_message": row.ErrorMessage,
-			"updated_at":    row.UpdatedAt,
-		})
+	res := r.db.WithContext(ctx).Model(&TaskRow{}).Where("id = ?", row.ID).Updates(map[string]any{
+		"session_id":    row.SessionID,
+		"case_id":       row.CaseID,
+		"status":        row.Status,
+		"instance_id":   row.InstanceID,
+		"prompt_id":     row.PromptID,
+		"input_prefix":  row.InputPrefix,
+		"job_ref_json":  row.JobRefJSON,
+		"lease_until":   row.LeaseUntil,
+		"outputs_json":  row.OutputsJSON,
+		"error_code":    row.ErrorCode,
+		"error_message": row.ErrorMessage,
+		"updated_at":    row.UpdatedAt,
+	})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -160,40 +160,42 @@ func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, instanceID shar
 	}
 	var claimed *domain.Task
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var row TaskRow
-		err := tx.Where(
-			"status = ? AND instance_id = ? AND job_ref_json != '' AND job_ref_json IS NOT NULL",
-			string(sharedkernel.TaskQueued), string(instanceID),
-		).Order("created_at ASC").First(&row).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		for {
+			var row TaskRow
+			err := tx.Where(
+				"status = ? AND instance_id = ? AND job_ref_json != '' AND job_ref_json IS NOT NULL",
+				string(sharedkernel.TaskQueued), string(instanceID),
+			).Order("created_at ASC").First(&row).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			leaseUntil := now.Add(lease)
+			res := tx.Model(&TaskRow{}).
+				Where("id = ? AND status = ?", row.ID, string(sharedkernel.TaskQueued)).
+				Updates(map[string]any{
+					"status":      string(sharedkernel.TaskRunning),
+					"lease_until": leaseUntil,
+					"updated_at":  now,
+				})
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected == 0 {
+				continue
+			}
+			row.Status = string(sharedkernel.TaskRunning)
+			row.LeaseUntil = leaseUntil
+			row.UpdatedAt = now
+			t, err := fromRow(row)
+			if err != nil {
+				return err
+			}
+			claimed = t
 			return nil
 		}
-		if err != nil {
-			return err
-		}
-		leaseUntil := now.Add(lease)
-		res := tx.Model(&TaskRow{}).
-			Where("id = ? AND status = ?", row.ID, string(sharedkernel.TaskQueued)).
-			Updates(map[string]any{
-				"status":      string(sharedkernel.TaskRunning),
-				"lease_until": leaseUntil,
-				"updated_at":  now,
-			})
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected == 0 {
-			return nil
-		}
-		row.Status = string(sharedkernel.TaskRunning)
-		row.LeaseUntil = leaseUntil
-		row.UpdatedAt = now
-		t, err := fromRow(row)
-		if err != nil {
-			return err
-		}
-		claimed = t
-		return nil
 	})
 	return claimed, err
 }

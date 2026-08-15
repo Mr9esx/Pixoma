@@ -104,6 +104,31 @@ func TestApplyStatusSucceededIdempotentNotify(t *testing.T) {
 	}
 }
 
+func TestApplyStatusRejectsWrongInstance(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(50, 0).UTC()
+	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	_ = task.PrepareForClaim("gpu-2", sharedkernel.BlobRef{Key: "j"}, now)
+	_ = task.ClaimWithLease("gpu-2", time.Minute, now)
+	if err := tasks.Create(ctx, task); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "gpu-2"}), &captureBus{}, &memNotify{})
+	svc.Now = func() time.Time { return now }
+	err := svc.OnStatus(ctx, sharedkernel.TaskStatusEvent{
+		TaskID: "t1", InstanceID: "gpu-1", Status: sharedkernel.TaskSucceeded, At: now,
+	})
+	if !errors.Is(err, orchestrator.ErrStaleHolder) {
+		t.Fatalf("got %v", err)
+	}
+	got, _ := tasks.Get(ctx, "t1")
+	if got.Status != sharedkernel.TaskRunning {
+		t.Fatalf("status=%s", got.Status)
+	}
+}
+
 func TestNotify_JoinsSessionChatID(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()

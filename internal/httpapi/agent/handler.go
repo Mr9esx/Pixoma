@@ -143,15 +143,28 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	}
 	id := sharedkernel.TaskID(chi.URLParam(r, "id"))
 	var body struct {
-		InstanceID string               `json:"instance_id"`
-		Status     string               `json:"status"`
-		PromptID   string               `json:"prompt_id"`
+		InstanceID string                 `json:"instance_id"`
+		Status     string                 `json:"status"`
+		PromptID   string                 `json:"prompt_id"`
 		Outputs    []sharedkernel.BlobRef `json:"outputs"`
-		ErrorCode  string               `json:"error_code"`
-		ErrorMsg   string               `json:"error_msg"`
+		ErrorCode  string                 `json:"error_code"`
+		ErrorMsg   string                 `json:"error_msg"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 4<<20)).Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if strings.TrimSpace(body.InstanceID) == "" {
+		writeErr(w, http.StatusBadRequest, "instance_id required")
+		return
+	}
+	cur, err := h.Tasks.Get(r.Context(), id)
+	if err != nil {
+		writeErr(w, http.StatusConflict, "task not found")
+		return
+	}
+	if cur.InstanceID != "" && cur.InstanceID != sharedkernel.InstanceID(body.InstanceID) {
+		writeErr(w, http.StatusConflict, "stale holder")
 		return
 	}
 	ev := sharedkernel.TaskStatusEvent{

@@ -153,3 +153,35 @@ func TestAgent_StatusReports(t *testing.T) {
 		t.Fatalf("events=%+v", spy.events)
 	}
 }
+
+func TestAgent_StatusRejectsWrongInstance(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(1000, 0).UTC()
+	task := runtimedomain.NewPending("t1", "s1", "c1", "in", now)
+	_ = task.PrepareForClaim("gpu-2", sharedkernel.BlobRef{Key: "j"}, now)
+	_ = task.ClaimWithLease("gpu-2", time.Minute, now)
+	_ = tasks.Create(ctx, task)
+	spy := &statusSpy{}
+	srv := mountAgent(t, "tok", tasks, spy)
+
+	payload, _ := json.Marshal(map[string]any{
+		"instance_id": "gpu-1",
+		"status":      "succeeded",
+	})
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/agent/v1/jobs/t1/status", bytes.NewReader(payload))
+	req.Header.Set("Authorization", "Bearer tok")
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(res.Body)
+		t.Fatalf("status=%d body=%s", res.StatusCode, body)
+	}
+	if len(spy.events) != 0 {
+		t.Fatalf("stale status must not apply: %+v", spy.events)
+	}
+}
