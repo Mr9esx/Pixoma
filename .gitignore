@@ -18,3 +18,8 @@ comfyui-bot
 /admin-api
 /comfyui-bot
 
+
+# local secrets (never commit)
+configs/*.local.yaml
+configs/*.local.env
+.env.tos.local

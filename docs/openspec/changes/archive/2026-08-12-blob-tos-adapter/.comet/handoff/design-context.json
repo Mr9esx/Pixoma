@@ -1,0 +1,14 @@
+{
+  "change": "blob-tos-adapter",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "cf6bf8f6d40abb873f868ae942c7f9f52c5c59846f27a765138a848553f3e308",
+  "files": [
+    { "path": "docs/openspec/changes/blob-tos-adapter/proposal.md", "sha256": "b1710454ccf30be135635fd5f7bf84e11eabbc5ac5a9a9649bb4d56dffc73aa3" },
+    { "path": "docs/openspec/changes/blob-tos-adapter/design.md", "sha256": "bbd1b96f69e190cc4719a4bc7afa28db73d54b41f9a3c55506281b257b803821" },
+    { "path": "docs/openspec/changes/blob-tos-adapter/tasks.md", "sha256": "ecaa19e7f277067ebf73ea019026ce775dfb72055be1ba07ce9872cfbe62f756" },
+    { "path": "docs/openspec/changes/blob-tos-adapter/specs/shared-blob-store/spec.md", "sha256": "331c00310902763a768023d74b38b950105659ebe218a6896e4ec2851c75414b" }
+  ]
+}

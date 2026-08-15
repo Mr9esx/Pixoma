@@ -22,7 +22,8 @@ type TaskCreated struct {
 type DispatchCommand struct {
 	TaskID      TaskID     `json:"task_id"`
 	InstanceID  InstanceID `json:"instance_id"`
-	InputPrefix string     `json:"input_prefix"`
+	InputPrefix string     `json:"input_prefix,omitempty"` // legacy; success path uses JobRef
+	JobRef      BlobRef    `json:"job_ref"`
 }
 
 type TaskStatusEvent struct {

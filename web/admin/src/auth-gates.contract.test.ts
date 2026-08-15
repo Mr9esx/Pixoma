@@ -40,7 +40,7 @@ describe('admin auth gates removed', () => {
 
     const appLayout = read('src/routes/_app.tsx')
     expect(appLayout).toMatch(/createFileRoute\(['"]\/_app['"]\)/)
-    expect(appLayout).not.toMatch(/beforeLoad/)
+    expect(appLayout).toMatch(/fetchSetupStatus/)
     expect(appLayout).not.toMatch(/ClerkProvider|SignedIn|redirect.*sign-in/)
 
     const index = read('src/routes/_app/index.tsx')

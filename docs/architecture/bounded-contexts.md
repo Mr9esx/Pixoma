@@ -92,7 +92,7 @@
 |---|---|
 | `db` | SQLite Open + AutoMigrate |
 | `botconfig` | YAML + env |
-| `blob` + `blob/localfs` | 文件端口 |
+| `blob` + `blob/localfs` / `blob/s3` / `blob/tos` | 文件端口（localfs；S3 兼容；火山 TOS） |
 | `queue` + `queue/memory` | 进程内 Bus；`SubscriptionSet` |
 | `notify` | `Publisher` 端口（同步接口，非 bus） |
 | `instance` + `persistence` | `Record` / Pool / Seed；表 `comfy_instances` |
@@ -105,7 +105,7 @@
 2. **BC domain 互不 import**；跨聚合编排放在 `packaging/botapp` 或 application 服务。
 3. **`channel/tg` → `botapp` → domains/platform`**；禁止 domain 反向依赖 channel。`channel/tg` 只读依赖 `tgmenu`（窄端口）；`httpapi/tgmenu` 写同一真相源；`apps/admin-api` **禁止** import `channel/tg`。
 4. **Orchestrator / Actuator** 依赖 `runtime/domain` + platform **ports**；通知只调 `notify.Publisher`，不直接 import TG。
-5. **换实现**（Memory→NATS、LocalFS→S3）= 加 port 适配器，不改 BC 边界。
+5. **换实现**（Memory→NATS、LocalFS→S3/TOS）= 加 port 适配器，不改 BC 边界。
 6. **已知特例**：`platform/instance.Pool` 持有 `runtime/.../comfyui.Client`（池在平台层建客户端）。
 7. **组合根** `apps/bot` 是唯一允许全局接线的层；`apps/admin-api` 约定不依赖 `channel/tg`。
 

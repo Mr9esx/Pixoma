@@ -16,7 +16,8 @@ import (
 
 func openTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	gdb, err := db.Open(db.Options{DSN: "file:runtime_task_test?mode=memory&cache=shared"})
+	dsn := "file:runtime_task_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -214,4 +215,135 @@ func idsOf(list []*domain.Task) []string {
 		out = append(out, string(t.ID))
 	}
 	return out
+}
+
+func TestGormTask_JobRefAndLeaseRoundTrip(t *testing.T) {
+	gdb := openTestDB(t)
+	seedSession(t, gdb, "s-lease", 3)
+	tasks := persistence.NewTaskRepository(gdb)
+	ctx := context.Background()
+	now := time.Unix(200, 0).UTC()
+
+	task := domain.NewPending("t-lease", "s-lease", "c1", "inputs/t-lease", now)
+	ref := sharedkernel.BlobRef{Key: "jobs/t-lease/job.json", MIME: "application/json"}
+	if err := task.PrepareForClaim("gpu-1", ref, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := tasks.Create(ctx, task); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := tasks.Get(ctx, "t-lease")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.JobRef.Key != ref.Key || got.JobRef.MIME != ref.MIME {
+		t.Fatalf("job_ref=%+v", got.JobRef)
+	}
+	if got.Status != sharedkernel.TaskQueued || got.InstanceID != "gpu-1" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestGormTask_PrepareForClaimCAS(t *testing.T) {
+	gdb := openTestDB(t)
+	seedSession(t, gdb, "s-prep", 4)
+	tasks := persistence.NewTaskRepository(gdb)
+	ctx := context.Background()
+	now := time.Unix(200, 0).UTC()
+	if err := tasks.Create(ctx, domain.NewPending("t-prep", "s-prep", "c1", "inputs/t-prep", now)); err != nil {
+		t.Fatal(err)
+	}
+	ref := sharedkernel.BlobRef{Key: "jobs/t-prep/job.json"}
+	ok, err := tasks.PrepareForClaim(ctx, "t-prep", "gpu-1", ref, now)
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	ok2, err := tasks.PrepareForClaim(ctx, "t-prep", "gpu-2", sharedkernel.BlobRef{Key: "other"}, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok2 {
+		t.Fatal("second prepare must fail")
+	}
+	got, _ := tasks.Get(ctx, "t-prep")
+	if got.InstanceID != "gpu-1" || got.JobRef.Key != ref.Key {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestGormTask_ClaimNextWithLeaseAndExpire(t *testing.T) {
+	gdb := openTestDB(t)
+	seedSession(t, gdb, "s-claim2", 5)
+	tasks := persistence.NewTaskRepository(gdb)
+	ctx := context.Background()
+	now := time.Unix(300, 0).UTC()
+	ref := sharedkernel.BlobRef{Key: "jobs/t-c2/job.json"}
+	task := domain.NewPending("t-c2", "s-claim2", "c1", "inputs/t-c2", now)
+	_ = task.PrepareForClaim("gpu-1", ref, now)
+	if err := tasks.Create(ctx, task); err != nil {
+		t.Fatal(err)
+	}
+
+	claimed, err := tasks.ClaimNextWithLease(ctx, "gpu-1", 90*time.Second, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed == nil || claimed.ID != "t-c2" || claimed.Status != sharedkernel.TaskRunning {
+		t.Fatalf("claimed=%+v", claimed)
+	}
+	if claimed.LeaseUntil.Sub(now) != 90*time.Second {
+		t.Fatalf("lease=%v", claimed.LeaseUntil)
+	}
+
+	second, err := tasks.ClaimNextWithLease(ctx, "gpu-1", time.Minute, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second != nil {
+		t.Fatalf("expected nil, got %+v", second)
+	}
+
+	later := now.Add(2 * time.Minute)
+	n, err := tasks.RequeueExpiredLeases(ctx, later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("requeued=%d", n)
+	}
+	again, err := tasks.ClaimNextWithLease(ctx, "gpu-1", time.Minute, later)
+	if err != nil || again == nil || again.ID != "t-c2" {
+		t.Fatalf("reclaim=%+v err=%v", again, err)
+	}
+}
+
+func TestGormTask_HeartbeatLease(t *testing.T) {
+	gdb := openTestDB(t)
+	seedSession(t, gdb, "s-hb", 6)
+	tasks := persistence.NewTaskRepository(gdb)
+	ctx := context.Background()
+	now := time.Unix(400, 0).UTC()
+	task := domain.NewPending("t-hb", "s-hb", "c1", "inputs/t-hb", now)
+	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "j"}, now)
+	_ = task.ClaimWithLease("gpu-1", time.Minute, now)
+	if err := tasks.Create(ctx, task); err != nil {
+		t.Fatal(err)
+	}
+	at := now.Add(30 * time.Second)
+	ok, err := tasks.HeartbeatLease(ctx, "t-hb", "gpu-1", 90*time.Second, at)
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	got, _ := tasks.Get(ctx, "t-hb")
+	if got.LeaseUntil.Sub(at) != 90*time.Second {
+		t.Fatalf("lease=%v", got.LeaseUntil)
+	}
+	okBad, err := tasks.HeartbeatLease(ctx, "t-hb", "gpu-2", time.Minute, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if okBad {
+		t.Fatal("wrong instance must not heartbeat")
+	}
 }

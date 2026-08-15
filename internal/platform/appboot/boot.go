@@ -13,8 +13,9 @@ import (
 
 // Options configures shared DB open, migrate, and optional instance seeding.
 type Options struct {
-	DSN   string
-	Debug bool
+	Driver string // sqlite (default), mysql, postgres
+	DSN    string
+	Debug  bool
 
 	// MigrateInstances AutoMigrates InstanceRow when true.
 	MigrateInstances bool
@@ -58,7 +59,7 @@ func Bootstrap(ctx context.Context, opts Options) (*gorm.DB, func() error, error
 
 // Open opens a GORM DB using the shared platform/db helper.
 func Open(opts Options) (*gorm.DB, error) {
-	gdb, err := db.Open(db.Options{DSN: opts.DSN, Debug: opts.Debug})
+	gdb, err := db.Open(db.Options{Driver: opts.Driver, DSN: opts.DSN, Debug: opts.Debug})
 	if err != nil {
 		return nil, fmt.Errorf("appboot: %w", err)
 	}

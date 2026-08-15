@@ -22,6 +22,8 @@ type TaskRow struct {
 	InstanceID   string    `gorm:"column:instance_id;size:128;index"`
 	PromptID     string    `gorm:"column:prompt_id;size:128"`
 	InputPrefix  string    `gorm:"column:input_prefix;size:512;not null"`
+	JobRefJSON   string    `gorm:"column:job_ref_json;type:text"`
+	LeaseUntil   time.Time `gorm:"column:lease_until"`
 	OutputsJSON  string    `gorm:"column:outputs_json;type:text;not null"`
 	ErrorCode    string    `gorm:"column:error_code;size:128"`
 	ErrorMessage string    `gorm:"column:error_message;type:text"`
@@ -79,6 +81,8 @@ func (r *TaskRepository) Update(ctx context.Context, t *domain.Task) error {
 		"instance_id":   row.InstanceID,
 		"prompt_id":     row.PromptID,
 		"input_prefix":  row.InputPrefix,
+		"job_ref_json":  row.JobRefJSON,
+		"lease_until":   row.LeaseUntil,
 		"outputs_json":  row.OutputsJSON,
 		"error_code":    row.ErrorCode,
 		"error_message": row.ErrorMessage,
@@ -115,6 +119,125 @@ func (r *TaskRepository) ClaimQueued(ctx context.Context, id sharedkernel.TaskID
 		return false, domain.ErrTaskNotFound
 	}
 	return false, nil
+}
+
+func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.TaskID, instanceID sharedkernel.InstanceID, jobRef sharedkernel.BlobRef, now time.Time) (bool, error) {
+	if instanceID == "" || jobRef.Key == "" {
+		return false, domain.ErrInvalidTransition
+	}
+	raw, err := json.Marshal(jobRef)
+	if err != nil {
+		return false, fmt.Errorf("runtime: encode job_ref: %w", err)
+	}
+	res := r.db.WithContext(ctx).Model(&TaskRow{}).
+		Where("id = ? AND status = ?", string(id), string(sharedkernel.TaskPending)).
+		Updates(map[string]any{
+			"status":       string(sharedkernel.TaskQueued),
+			"instance_id":  string(instanceID),
+			"job_ref_json": string(raw),
+			"lease_until":  time.Time{},
+			"updated_at":   now,
+		})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected > 0 {
+		return true, nil
+	}
+	var n int64
+	if err := r.db.WithContext(ctx).Model(&TaskRow{}).Where("id = ?", string(id)).Count(&n).Error; err != nil {
+		return false, err
+	}
+	if n == 0 {
+		return false, domain.ErrTaskNotFound
+	}
+	return false, nil
+}
+
+func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, instanceID sharedkernel.InstanceID, lease time.Duration, now time.Time) (*domain.Task, error) {
+	if instanceID == "" || lease <= 0 {
+		return nil, nil
+	}
+	var claimed *domain.Task
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for {
+			var row TaskRow
+			err := tx.Where(
+				"status = ? AND instance_id = ? AND job_ref_json != '' AND job_ref_json IS NOT NULL",
+				string(sharedkernel.TaskQueued), string(instanceID),
+			).Order("created_at ASC").First(&row).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			leaseUntil := now.Add(lease)
+			res := tx.Model(&TaskRow{}).
+				Where("id = ? AND status = ?", row.ID, string(sharedkernel.TaskQueued)).
+				Updates(map[string]any{
+					"status":      string(sharedkernel.TaskRunning),
+					"lease_until": leaseUntil,
+					"updated_at":  now,
+				})
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected == 0 {
+				continue
+			}
+			row.Status = string(sharedkernel.TaskRunning)
+			row.LeaseUntil = leaseUntil
+			row.UpdatedAt = now
+			t, err := fromRow(row)
+			if err != nil {
+				return err
+			}
+			claimed = t
+			return nil
+		}
+	})
+	return claimed, err
+}
+
+func (r *TaskRepository) HeartbeatLease(ctx context.Context, id sharedkernel.TaskID, instanceID sharedkernel.InstanceID, lease time.Duration, now time.Time) (bool, error) {
+	if lease <= 0 {
+		return false, nil
+	}
+	res := r.db.WithContext(ctx).Model(&TaskRow{}).
+		Where("id = ? AND status = ? AND instance_id = ?", string(id), string(sharedkernel.TaskRunning), string(instanceID)).
+		Updates(map[string]any{
+			"lease_until": now.Add(lease),
+			"updated_at":  now,
+		})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected > 0 {
+		return true, nil
+	}
+	var n int64
+	if err := r.db.WithContext(ctx).Model(&TaskRow{}).Where("id = ?", string(id)).Count(&n).Error; err != nil {
+		return false, err
+	}
+	if n == 0 {
+		return false, domain.ErrTaskNotFound
+	}
+	return false, nil
+}
+
+func (r *TaskRepository) RequeueExpiredLeases(ctx context.Context, now time.Time) (int, error) {
+	res := r.db.WithContext(ctx).Model(&TaskRow{}).
+		Where("status = ? AND lease_until != ? AND lease_until < ?", string(sharedkernel.TaskRunning), time.Time{}, now).
+		Updates(map[string]any{
+			"status":      string(sharedkernel.TaskQueued),
+			"lease_until": time.Time{},
+			"updated_at":  now,
+		})
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return int(res.RowsAffected), nil
 }
 
 func (r *TaskRepository) ListByChat(ctx context.Context, chatID sharedkernel.ChatID, limit int) ([]*domain.Task, error) {
@@ -233,6 +356,14 @@ func toRow(t *domain.Task) (*TaskRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("runtime: encode outputs: %w", err)
 	}
+	jobRefJSON := ""
+	if t.JobRef.Key != "" {
+		raw, err := json.Marshal(t.JobRef)
+		if err != nil {
+			return nil, fmt.Errorf("runtime: encode job_ref: %w", err)
+		}
+		jobRefJSON = string(raw)
+	}
 	return &TaskRow{
 		ID:           string(t.ID),
 		SessionID:    string(t.SessionID),
@@ -241,6 +372,8 @@ func toRow(t *domain.Task) (*TaskRow, error) {
 		InstanceID:   string(t.InstanceID),
 		PromptID:     t.PromptID,
 		InputPrefix:  t.InputPrefix,
+		JobRefJSON:   jobRefJSON,
+		LeaseUntil:   t.LeaseUntil,
 		OutputsJSON:  string(b),
 		ErrorCode:    t.ErrorCode,
 		ErrorMessage: t.ErrorMessage,
@@ -256,6 +389,12 @@ func fromRow(row TaskRow) (*domain.Task, error) {
 			return nil, fmt.Errorf("runtime: decode outputs: %w", err)
 		}
 	}
+	var jobRef sharedkernel.BlobRef
+	if row.JobRefJSON != "" {
+		if err := json.Unmarshal([]byte(row.JobRefJSON), &jobRef); err != nil {
+			return nil, fmt.Errorf("runtime: decode job_ref: %w", err)
+		}
+	}
 	return &domain.Task{
 		ID:           sharedkernel.TaskID(row.ID),
 		SessionID:    sharedkernel.SessionID(row.SessionID),
@@ -264,6 +403,8 @@ func fromRow(row TaskRow) (*domain.Task, error) {
 		InstanceID:   sharedkernel.InstanceID(row.InstanceID),
 		PromptID:     row.PromptID,
 		InputPrefix:  row.InputPrefix,
+		JobRef:       jobRef,
+		LeaseUntil:   row.LeaseUntil,
 		Outputs:      outputs,
 		ErrorCode:    row.ErrorCode,
 		ErrorMessage: row.ErrorMessage,

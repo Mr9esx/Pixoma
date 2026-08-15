@@ -2,7 +2,7 @@ package orchestrator
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -16,8 +16,16 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
+// ErrStaleHolder is returned when a status report is not from the current claim holder.
+var ErrStaleHolder = errors.New("orchestrator: status from non-holder")
+
 type ExecutionQuery interface {
 	GetRun(ctx context.Context, taskID sharedkernel.TaskID) (*ExecutionView, error)
+}
+
+// JobPreparer builds scheme-A job packages into Blob before dispatch.
+type JobPreparer interface {
+	PrepareJob(ctx context.Context, taskID sharedkernel.TaskID, instanceID sharedkernel.InstanceID) (sharedkernel.BlobRef, error)
 }
 
 type ExecutionView struct {
@@ -35,8 +43,11 @@ type Service struct {
 	Dispatch  queue.Publisher
 	Notify    notify.Publisher
 	Query     ExecutionQuery
-	Storm     *StormGuard
-	Now       func() time.Time
+	Prep      JobPreparer
+	// Online optionally filters candidates in split mode (nil = no extra filter).
+	Online func(ctx context.Context, id sharedkernel.InstanceID) bool
+	Storm  *StormGuard
+	Now    func() time.Time
 
 	// rrIndex advances round-robin selection across healthy+allowed instances.
 	rrIndex uint64
@@ -89,11 +100,20 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	if t.Status != sharedkernel.TaskPending {
 		return nil
 	}
-	insts, err := s.Instances.ListHealthy(ctx, instance.CapabilityFilter{})
+	insts, err := s.listCandidates(ctx)
 	if err != nil {
 		return err
 	}
 	candidates := filterAllowed(insts, s.Storm.Breaker)
+	if s.Online != nil {
+		filtered := candidates[:0]
+		for _, inst := range candidates {
+			if s.Online(ctx, inst.ID) {
+				filtered = append(filtered, inst)
+			}
+		}
+		candidates = filtered
+	}
 	if len(candidates) == 0 {
 		// Keep pending; SchedulePending must not treat this as fatal.
 		return nil
@@ -101,37 +121,37 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	idx := int(atomic.AddUint64(&s.rrIndex, 1)-1) % len(candidates)
 	chosen := candidates[idx]
 	now := s.Now()
-	claimed, err := s.Tasks.ClaimQueued(ctx, taskID, chosen.ID, now)
+	if s.Prep == nil {
+		return fmt.Errorf("orchestrator: job preparer required for claimable dispatch")
+	}
+	ref, err := s.Prep.PrepareJob(ctx, t.ID, chosen.ID)
+	if err != nil {
+		return fmt.Errorf("orchestrator: prepare job: %w", err)
+	}
+	if ref.Key == "" {
+		return fmt.Errorf("orchestrator: empty job_ref")
+	}
+	prepared, err := s.Tasks.PrepareForClaim(ctx, taskID, chosen.ID, ref, now)
 	if err != nil {
 		return err
 	}
-	if !claimed {
+	if !prepared {
 		return nil
-	}
-	cmd := sharedkernel.DispatchCommand{
-		TaskID:      t.ID,
-		InstanceID:  chosen.ID,
-		InputPrefix: t.InputPrefix,
-	}
-	payload, err := json.Marshal(cmd)
-	if err != nil {
-		s.rollbackClaim(ctx, taskID, now)
-		return err
-	}
-	topic := chosen.DispatchTopic
-	if topic == "" {
-		topic = sharedkernel.TopicDispatch(chosen.ID)
-	}
-	if err := s.Dispatch.Publish(ctx, queue.Message{Topic: topic, Key: string(t.ID), Payload: payload}); err != nil {
-		s.Storm.Breaker.RecordFailure(chosen.ID)
-		s.rollbackClaim(ctx, taskID, now)
-		return err
 	}
 	s.Storm.Breaker.RecordSuccess(chosen.ID)
 	return nil
 }
 
-// rollbackClaim best-effort returns a claimed task to pending so SchedulePending can retry.
+func (s *Service) listCandidates(ctx context.Context) ([]instance.Instance, error) {
+	filter := instance.CapabilityFilter{}
+	// Claimable dispatch (Dispatch==nil) and Online filters use Edge presence, not cloud Comfy probes.
+	if s.Online != nil || s.Dispatch == nil {
+		return s.Instances.ListEnabled(ctx, filter)
+	}
+	return s.Instances.ListHealthy(ctx, filter)
+}
+
+// rollbackClaim best-effort returns a claimable task to pending so SchedulePending can retry.
 func (s *Service) rollbackClaim(ctx context.Context, taskID sharedkernel.TaskID, now time.Time) {
 	t, err := s.Tasks.Get(ctx, taskID)
 	if err != nil {
@@ -142,6 +162,8 @@ func (s *Service) rollbackClaim(ctx context.Context, taskID sharedkernel.TaskID,
 	}
 	t.Status = sharedkernel.TaskPending
 	t.InstanceID = ""
+	t.JobRef = sharedkernel.BlobRef{}
+	t.LeaseUntil = time.Time{}
 	t.UpdatedAt = now
 	_ = s.Tasks.Update(ctx, t)
 }
@@ -167,6 +189,9 @@ func (s *Service) applyStatus(ctx context.Context, ev sharedkernel.TaskStatusEve
 	t, err := s.Tasks.Get(ctx, ev.TaskID)
 	if err != nil {
 		return err
+	}
+	if ev.InstanceID != "" && t.InstanceID != "" && ev.InstanceID != t.InstanceID {
+		return ErrStaleHolder
 	}
 	now := ev.At
 	if now.IsZero() {
@@ -297,12 +322,15 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 			case "running":
 				// Task-only view has no external progress; do not refresh UpdatedAt.
 			case "accepted":
-				// Stale queued with no prompt_id never reached Comfy — re-pend for redispatch.
-				if fresh.Status == sharedkernel.TaskQueued && fresh.PromptID == "" {
+				// Stale queued without job_ref never became claimable — re-pend for redispatch.
+				// Queued with job_ref is waiting for Edge pull; leave it.
+				if fresh.Status == sharedkernel.TaskQueued && fresh.PromptID == "" && fresh.JobRef.Key == "" {
 					fresh.Status = sharedkernel.TaskPending
 					fresh.InstanceID = ""
 					fresh.UpdatedAt = now
 					_ = s.Tasks.Update(ctx, fresh)
+				} else if fresh.Status == sharedkernel.TaskRunning {
+					_, _ = s.Tasks.RequeueExpiredLeases(ctx, now)
 				}
 			}
 		}

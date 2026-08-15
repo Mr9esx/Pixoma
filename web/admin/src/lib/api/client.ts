@@ -10,20 +10,40 @@ export class ApiError extends Error {
 function baseURL(): string {
   const raw = import.meta.env.VITE_ADMIN_API_BASE as string | undefined
   if (!raw) {
-    throw new Error('VITE_ADMIN_API_BASE is not set')
+    return ''
   }
   return raw.replace(/\/$/, '')
 }
 
+function sessionToken(): string {
+  try {
+    return sessionStorage.getItem('pixoma_admin_token') || ''
+  } catch {
+    return ''
+  }
+}
+
+export function setSessionToken(token: string | null): void {
+  try {
+    if (token) sessionStorage.setItem('pixoma_admin_token', token)
+    else sessionStorage.removeItem('pixoma_admin_token')
+  } catch {
+    // ignore
+  }
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${baseURL()}${path.startsWith('/') ? path : `/${path}`}`
+  const token = sessionToken()
   let res: Response
   try {
     res = await fetch(url, {
       ...init,
+      credentials: 'include',
       headers: {
         Accept: 'application/json',
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...init?.headers,
       },
     })

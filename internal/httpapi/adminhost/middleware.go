@@ -1,6 +1,10 @@
-package server
+package adminhost
 
 import "net/http"
+
+func CORS(origins []string) func(http.Handler) http.Handler {
+	return corsMiddleware(origins)
+}
 
 func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 	allowed := make(map[string]struct{}, len(origins))
@@ -18,6 +22,7 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-Request-ID")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
 			}
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)

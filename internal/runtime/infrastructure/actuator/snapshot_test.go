@@ -162,6 +162,48 @@ func TestCaseSnapshotInjectsStagedTextIntoNodeInputs(t *testing.T) {
 	}
 }
 
+func TestBuildJobPackage_InjectsTextWithoutUpload(t *testing.T) {
+	ctx := context.Background()
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := "inputs/task-job"
+	if _, err := store.Put(ctx, prefix+"/prompt.txt", bytes.NewReader([]byte("job prompt")), blob.PutOptions{MIME: "text/plain"}); err != nil {
+		t.Fatal(err)
+	}
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(1, 0).UTC()
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-job", "s1", "text-inject", prefix, now)); err != nil {
+		t.Fatal(err)
+	}
+	cases := &memCases{}
+	if err := cases.Create(ctx, &catalogdomain.Case{Document: textWorkflowCase(), Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	up := &recordingUploader{}
+	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: up}
+	job, err := snap.BuildJobPackage(ctx, "task-job", "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if up.calls != 0 {
+		t.Fatalf("prep must not UploadImage, calls=%d", up.calls)
+	}
+	node := job.Workflow["20"].(map[string]any)
+	inputs := node["inputs"].(map[string]any)
+	if inputs["text"] != "job prompt" {
+		t.Fatalf("text=%v", inputs["text"])
+	}
+	ref, err := snap.PrepareJob(ctx, "task-job", "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ref.Key != "jobs/task-job/job.json" {
+		t.Fatalf("key=%q", ref.Key)
+	}
+}
+
 func TestCaseSnapshotFailsWhenBindingMissing(t *testing.T) {
 	ctx := context.Background()
 	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
