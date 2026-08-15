@@ -2,6 +2,8 @@
 change: tg-menu-config
 design-doc: docs/superpowers/specs/2026-08-09-tg-menu-config-design.md
 base-ref: 6e0d1afba44e9ffabcfc621da960b691a0b21ab7
+archived-with: 2026-08-15-tg-menu-config
+status: final
 ---
 
 # TG Menu 可配置化 Implementation Plan

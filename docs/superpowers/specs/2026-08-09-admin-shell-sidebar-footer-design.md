@@ -2,6 +2,8 @@
 comet_change: admin-shell-sidebar-footer
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-15-admin-shell-sidebar-footer
+status: final
 ---
 
 # admin-shell-sidebar-footer 技术设计
