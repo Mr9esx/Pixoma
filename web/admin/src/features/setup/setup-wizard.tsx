@@ -26,7 +26,9 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const [step, setStep] = useState<Step>(initial)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const [restartMessage, setRestartMessage] = useState<string | null>(null)
+  const [restartMessage, setRestartMessage] = useState<string | null>(
+    status.restart_required ? '配置已保存，重启 pixoma 后才会按新设置装配。' : null,
+  )
 
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')

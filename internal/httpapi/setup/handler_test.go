@@ -139,8 +139,15 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/cases", nil))
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("initialized without session: %d %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "restart_required") {
+		t.Fatalf("after finalize without restart: %d %s", rec.Code, rec.Body.String())
+	}
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/cases", nil)
+	auth(req)
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "restart_required") {
+		t.Fatalf("session still blocked until restart: %d %s", rec.Code, rec.Body.String())
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/setup/settings", nil)

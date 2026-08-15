@@ -29,6 +29,20 @@ describe('nextAdminPath', () => {
     ).toBe('/login')
   })
 
+  it('keeps users on setup until restart', () => {
+    expect(
+      nextAdminPath(
+        {
+          initialized: true,
+          authenticated: true,
+          must_change_password: false,
+          restart_required: true,
+        },
+        '/',
+      ),
+    ).toBe('/setup')
+  })
+
   it('lets authenticated users into the shell', () => {
     expect(
       nextAdminPath(

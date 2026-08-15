@@ -83,6 +83,31 @@ func TestMarkInitialized_AndGate(t *testing.T) {
 	}
 }
 
+func TestRestartRequired(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bootstrap.db")
+	st, _, err := bootstrap.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if st.RestartRequired() {
+		t.Fatal("fresh store must not require restart")
+	}
+	if err := st.SetRestartRequired(true); err != nil {
+		t.Fatal(err)
+	}
+	if !st.RestartRequired() {
+		t.Fatal("expected restart required")
+	}
+	if err := st.SetRestartRequired(false); err != nil {
+		t.Fatal(err)
+	}
+	if st.RestartRequired() {
+		t.Fatal("cleared flag should be false")
+	}
+}
+
 func TestChangePassword(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bootstrap.db")
 	st, creds, err := bootstrap.Open(path)

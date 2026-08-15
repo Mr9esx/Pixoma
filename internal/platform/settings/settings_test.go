@@ -80,6 +80,23 @@ func TestStore_SQLiteRoundTripSecrets(t *testing.T) {
 	if got.TelegramBotToken != "tg-secret-token" {
 		t.Fatalf("token=%q", got.TelegramBotToken)
 	}
+	wipe := got
+	wipe.TelegramBotToken = ""
+	wipe.BlobAccessKey = ""
+	wipe.BlobSecretKey = ""
+	if err := st.Save(wipe); err != nil {
+		t.Fatal(err)
+	}
+	again, err := st.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.TelegramBotToken != "tg-secret-token" {
+		t.Fatalf("empty save wiped token: %q", again.TelegramBotToken)
+	}
+	if again.BlobAccessKey != "ak-secret" || again.BlobSecretKey != "sk-secret" {
+		t.Fatalf("empty save wiped blob secrets: %+v", again)
+	}
 	if got.BlobAccessKey != "ak-secret" || got.BlobSecretKey != "sk-secret" {
 		t.Fatalf("blob secrets mismatch: %+v", got)
 	}
