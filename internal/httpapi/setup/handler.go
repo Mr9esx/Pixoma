@@ -53,6 +53,7 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		MustChangePassword: h.Boot.MustChangePassword(),
 		Username:           user,
 		WizardStep:         h.Boot.WizardStep(),
+		RestartRequired:    h.Boot.RestartRequired(),
 	})
 }
 
@@ -203,11 +204,12 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	st, err := h.settingsStore(driver, dsn)
+	st, cleanup, err := h.settingsStore(driver, dsn)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	defer func() { _ = cleanup() }()
 	if err := st.Save(body); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
@@ -232,11 +234,12 @@ func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"configured": false})
 		return
 	}
-	st, err := h.settingsStore(driver, dsn)
+	st, cleanup, err := h.settingsStore(driver, dsn)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	defer func() { _ = cleanup() }()
 	got, err := st.Load()
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"configured": false})
@@ -261,11 +264,12 @@ func (h *Handler) finalize(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "configure database first")
 		return
 	}
-	st, err := h.settingsStore(driver, dsn)
+	st, cleanup, err := h.settingsStore(driver, dsn)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	defer func() { _ = cleanup() }()
 	cfg, err := st.Load()
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "save settings first")
@@ -276,6 +280,10 @@ func (h *Handler) finalize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.Boot.MarkInitialized(); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := h.Boot.SetRestartRequired(true); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -308,16 +316,30 @@ func (h *Handler) openDB(driver, dsn string) (*gorm.DB, error) {
 	return db.Open(db.Options{Driver: driver, DSN: dsn})
 }
 
-func (h *Handler) settingsStore(driver, dsn string) (*settings.Store, error) {
+func (h *Handler) settingsStore(driver, dsn string) (*settings.Store, func() error, error) {
 	key, err := h.Boot.EncKey()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	gdb, err := h.openDB(driver, dsn)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return settings.NewStore(gdb, key)
+	st, err := settings.NewStore(gdb, key)
+	if err != nil {
+		if sqlDB, e := gdb.DB(); e == nil {
+			_ = sqlDB.Close()
+		}
+		return nil, nil, err
+	}
+	cleanup := func() error {
+		sqlDB, e := gdb.DB()
+		if e != nil {
+			return e
+		}
+		return sqlDB.Close()
+	}
+	return st, cleanup, nil
 }
 
 func mask(s string) string {

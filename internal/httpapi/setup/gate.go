@@ -33,6 +33,10 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			return
 		}
 		if strings.HasPrefix(path, "/api/v1/setup/") {
+			if g.Sessions == nil {
+				writeErr(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
 			if _, ok := g.Sessions.Lookup(TokenFromRequest(r)); !ok {
 				writeErr(w, http.StatusUnauthorized, "unauthorized")
 				return
@@ -40,11 +44,21 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if !g.Boot.Initialized() {
+		if !g.Boot.Initialized() || g.Boot.RestartRequired() {
+			code := "not_initialized"
+			msg := "platform not initialized"
+			if g.Boot.Initialized() {
+				code = "restart_required"
+				msg = "settings saved; restart pixoma for them to take effect"
+			}
 			writeJSON(w, http.StatusForbidden, map[string]string{
-				"error": "platform not initialized",
-				"code":  "not_initialized",
+				"error": msg,
+				"code":  code,
 			})
+			return
+		}
+		if g.Sessions == nil {
+			writeErr(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 		if _, ok := g.Sessions.Lookup(TokenFromRequest(r)); !ok {

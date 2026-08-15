@@ -57,6 +57,8 @@ func (s *Store) Save(in Settings) error {
 	if err := in.Validate(); err != nil {
 		return err
 	}
+	var existing row
+	hasExisting := s.db.First(&existing, "id = ?", rowID).Error == nil
 	tg, err := encryptString(s.key, in.TelegramBotToken)
 	if err != nil {
 		return err
@@ -68,6 +70,17 @@ func (s *Store) Save(in Settings) error {
 	sk, err := encryptString(s.key, in.BlobSecretKey)
 	if err != nil {
 		return err
+	}
+	if hasExisting {
+		if in.TelegramBotToken == "" {
+			tg = existing.TelegramTokenCipher
+		}
+		if in.BlobAccessKey == "" {
+			ak = existing.BlobAccessCipher
+		}
+		if in.BlobSecretKey == "" {
+			sk = existing.BlobSecretCipher
+		}
 	}
 	r := row{
 		ID:                  rowID,

@@ -50,6 +50,7 @@ type metaRow struct {
 	AppDBDSN           string `gorm:"column:app_db_dsn;type:text"`
 	WizardStep         string `gorm:"column:wizard_step;size:64"`
 	EncKeyB64          string `gorm:"column:enc_key_b64;type:text"`
+	RestartRequired    bool   `gorm:"column:restart_required;not null"`
 }
 
 func (metaRow) TableName() string { return "bootstrap_meta" }
@@ -314,6 +315,22 @@ func (s *Store) WizardStep() string {
 		return ""
 	}
 	return row.WizardStep
+}
+
+func (s *Store) RestartRequired() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, err := s.load()
+	if err != nil {
+		return false
+	}
+	return row.RestartRequired
+}
+
+func (s *Store) SetRestartRequired(v bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.db.Model(&metaRow{}).Where("id = ?", metaKey).Update("restart_required", v).Error
 }
 
 func mintEncKeyB64() (string, error) {

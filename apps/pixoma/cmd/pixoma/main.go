@@ -110,6 +110,9 @@ func run(ctx context.Context) error {
 			return err
 		}
 		cfg = loaded
+		if err := boot.SetRestartRequired(false); err != nil {
+			return err
+		}
 	} else {
 		settings.ApplyEnv(&cfg)
 	}
