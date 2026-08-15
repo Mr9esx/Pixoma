@@ -196,6 +196,49 @@ func (s *Store) ChangePassword(username, oldPassword, newPassword string) error 
 	}).Error
 }
 
+// EnsureAgentToken returns a newly minted agent token once. Subsequent calls
+// return ("", false, nil) — plaintext is only available at mint time.
+func (s *Store) EnsureAgentToken() (plain string, minted bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, err := s.load()
+	if err != nil {
+		return "", false, err
+	}
+	if strings.TrimSpace(row.AgentTokenHash) != "" {
+		return "", false, nil
+	}
+	plain, hash, err := mintPassword()
+	if err != nil {
+		return "", false, err
+	}
+	if err := s.db.Model(&metaRow{}).Where("id = ?", metaKey).Update("agent_token_hash", hash).Error; err != nil {
+		return "", false, err
+	}
+	return plain, true, nil
+}
+
+// VerifyAgentToken checks a bearer agent token against the stored hash.
+func (s *Store) VerifyAgentToken(token string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, err := s.load()
+	if err != nil {
+		return false, err
+	}
+	if strings.TrimSpace(row.AgentTokenHash) == "" || strings.TrimSpace(token) == "" {
+		return false, nil
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(row.AgentTokenHash), []byte(token))
+	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (s *Store) load() (metaRow, error) {
 	var row metaRow
 	err := s.db.First(&row, "id = ?", metaKey).Error

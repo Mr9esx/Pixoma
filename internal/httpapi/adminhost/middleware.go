@@ -1,4 +1,4 @@
-package server
+package adminhost
 
 import "net/http"
 
