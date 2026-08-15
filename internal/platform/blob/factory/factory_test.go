@@ -58,6 +58,32 @@ func TestNewFromConfig_TOSUsesYAMLWhenEnvEmpty(t *testing.T) {
 	}
 }
 
+func TestNewFromConfig_S3UsesConfigWhenEnvEmpty(t *testing.T) {
+	for _, k := range []string{"S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY", "S3_SECRET_KEY"} {
+		_ = os.Unsetenv(k)
+	}
+	cfg := botconfig.Config{
+		Blob: botconfig.BlobConfig{
+			Driver: botconfig.BlobDriverS3,
+			S3: botconfig.BlobTOSConfig{
+				Endpoint: "http://minio.example.local:9000",
+				Region:   "us-east-1",
+				Bucket:   "from-wizard",
+			},
+		},
+	}
+	t.Setenv("S3_ACCESS_KEY", "ak")
+	t.Setenv("S3_SECRET_KEY", "sk")
+
+	opts := factory.S3Options(cfg)
+	if opts.Bucket != "from-wizard" {
+		t.Fatalf("bucket=%q, want from-wizard (wizard settings, not default pixoma)", opts.Bucket)
+	}
+	if opts.Endpoint != "http://minio.example.local:9000" {
+		t.Fatalf("endpoint=%q", opts.Endpoint)
+	}
+}
+
 func TestNew_TOSDoesNotFallBackToLocalFS(t *testing.T) {
 	for _, k := range []string{"TOS_ENDPOINT", "TOS_REGION", "TOS_BUCKET", "TOS_ACCESS_KEY", "TOS_SECRET_KEY"} {
 		_ = os.Unsetenv(k)

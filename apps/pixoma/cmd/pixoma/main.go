@@ -14,10 +14,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/app"
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/webembed"
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
+	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
@@ -35,11 +37,12 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
 	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/infrastructure/persistence"
 )
@@ -81,9 +84,9 @@ func run(ctx context.Context) error {
 		}
 		slog.Info("minted agent token", "path", tokenFile)
 	} else {
-		agentTok, err = app.ReadAgentTokenFile(tokenFile)
+		agentTok, err = app.LoadVerifiedAgentToken(boot, tokenFile)
 		if err != nil {
-			return fmt.Errorf("agent token hash exists but %s unreadable: %w (delete bootstrap to remint)", tokenFile, err)
+			return fmt.Errorf("agent token hash exists but %s invalid: %w (delete bootstrap to remint)", tokenFile, err)
 		}
 	}
 
@@ -141,11 +144,16 @@ func run(ctx context.Context) error {
 	}
 	defer func() { _ = cleanup() }()
 
-	applyBlobSecrets(cfg)
+	app.ApplyBlobEnv(cfg)
 	blobStore, err := factory.NewFromConfig(botconfig.Config{
 		Blob: botconfig.BlobConfig{
 			Driver: cfg.BlobDriver,
 			TOS: botconfig.BlobTOSConfig{
+				Endpoint: cfg.BlobEndpoint,
+				Region:   cfg.BlobRegion,
+				Bucket:   cfg.BlobBucket,
+			},
+			S3: botconfig.BlobTOSConfig{
 				Endpoint: cfg.BlobEndpoint,
 				Region:   cfg.BlobRegion,
 				Bucket:   cfg.BlobBucket,
@@ -162,8 +170,16 @@ func run(ctx context.Context) error {
 		return err
 	}
 	caseRepo := casepersist.NewGormRepository(gdb)
+	if n, err := app.SeedCasesDir(ctx, caseRepo, envOr("CASE_SEED_DIR", "configs/cases")); err != nil {
+		slog.Warn("seed cases", "err", err)
+	} else if n > 0 {
+		slog.Info("seed cases loaded", "count", n)
+	}
 	userRepo := userpersist.NewUserRepository(gdb)
 	sessionRepo := sesspersist.NewSessionRepository(gdb)
+	sessSvc := convdomain.NewService(sessionRepo, func() sharedkernel.SessionID {
+		return sharedkernel.SessionID(uuid.NewString())
+	}, nil)
 	taskRepo := taskpersist.NewTaskRepository(gdb)
 	menuStore := tgmenupersist.NewGormRepository(gdb)
 	menuSvc := &tgmenuapp.Service{
@@ -172,15 +188,35 @@ func run(ctx context.Context) error {
 		ListImageCaseIDs: tgmenuapp.CatalogImageCaseIDs(caseRepo),
 	}
 
+	bus := memory.New()
+	defer func() { _ = bus.Close() }()
 	snap := &actuator.CaseSnapshot{
 		Tasks: taskRepo,
 		Cases: caseRepo,
 		Blob:  blobStore,
 	}
-	orch := orchestrator.New(taskRepo, pool, nil, notify.Nop{})
+	botRT, err := app.StartBotRuntime(ctx, app.BotDeps{
+		Token:        cfg.TelegramBotToken,
+		Cases:        caseRepo,
+		Sessions:     sessSvc,
+		SessionStore: sessionRepo,
+		Tasks:        taskRepo,
+		Users:        userRepo,
+		Menu:         menuSvc,
+		Blob:         blobStore,
+		Bus:          bus,
+	})
+	if err != nil {
+		return err
+	}
+	orch := orchestrator.New(taskRepo, pool, nil, botRT.Notify)
 	orch.Sessions = sessionRepo
 	orch.Prep = snap
 	orch.Now = func() time.Time { return time.Now().UTC() }
+	if err := app.SubscribeTaskCreated(ctx, bus, orch); err != nil {
+		return err
+	}
+	app.RunScheduler(ctx, orch)
 
 	sess := setupapi.NewSessions()
 	setupH := &setupapi.Handler{Boot: boot, Sessions: sess, DataDir: dataDir}
@@ -217,7 +253,8 @@ func run(ctx context.Context) error {
 	}
 	srv := &http.Server{Handler: r, ReadHeaderTimeout: 5 * time.Second}
 
-	var edgeCmd = (*os.Process)(nil)
+	var edgeCmd *os.Process
+	var edgeDone chan struct{}
 	if shouldSpawnEdge(boot.Initialized(), cfg) {
 		cmd := app.EdgeCommand(app.EdgeSpawnConfig{
 			Binary:          app.ResolveEdgeBinary(),
@@ -232,8 +269,12 @@ func run(ctx context.Context) error {
 			slog.Warn("edge auto-spawn failed (install pixoma-edge-agent or set EDGE_AGENT_BIN)", "err", err)
 		} else {
 			edgeCmd = cmd.Process
+			edgeDone = make(chan struct{})
 			slog.Info("spawned local edge", "pid", cmd.Process.Pid, "bin", cmd.Path)
-			go func() { _ = cmd.Wait() }()
+			go func() {
+				_ = cmd.Wait()
+				close(edgeDone)
+			}()
 		}
 	}
 
@@ -250,7 +291,13 @@ func run(ctx context.Context) error {
 	case <-ctx.Done():
 		if edgeCmd != nil {
 			_ = edgeCmd.Signal(syscall.SIGTERM)
-			_, _ = edgeCmd.Wait()
+			if edgeDone != nil {
+				select {
+				case <-edgeDone:
+				case <-time.After(5 * time.Second):
+					_ = edgeCmd.Kill()
+				}
+			}
 		}
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -302,24 +349,6 @@ func loadSavedSettings(boot *bootstrap.Store) (settings.Settings, error) {
 		return settings.Settings{}, err
 	}
 	return st.Load()
-}
-
-func applyBlobSecrets(cfg settings.Settings) {
-	if cfg.BlobDriver == botconfig.BlobDriverTOS {
-		if os.Getenv("TOS_ACCESS_KEY") == "" && cfg.BlobAccessKey != "" {
-			_ = os.Setenv("TOS_ACCESS_KEY", cfg.BlobAccessKey)
-		}
-		if os.Getenv("TOS_SECRET_KEY") == "" && cfg.BlobSecretKey != "" {
-			_ = os.Setenv("TOS_SECRET_KEY", cfg.BlobSecretKey)
-		}
-		return
-	}
-	if os.Getenv("S3_ACCESS_KEY") == "" && cfg.BlobAccessKey != "" {
-		_ = os.Setenv("S3_ACCESS_KEY", cfg.BlobAccessKey)
-	}
-	if os.Getenv("S3_SECRET_KEY") == "" && cfg.BlobSecretKey != "" {
-		_ = os.Setenv("S3_SECRET_KEY", cfg.BlobSecretKey)
-	}
 }
 
 func shouldSpawnEdge(initialized bool, cfg settings.Settings) bool {
