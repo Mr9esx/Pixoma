@@ -15,14 +15,16 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/app"
+	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/webembed"
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
-	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
+	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
+	setupapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	tgmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tgmenu"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
@@ -34,6 +36,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
@@ -86,18 +89,34 @@ func run(ctx context.Context) error {
 
 	addr := envOr("HTTP_ADDR", "127.0.0.1:8080")
 	listenURL := envOr("PUBLIC_URL", "http://"+addr)
+	bannerPass := creds.Password
+	if !boot.MustChangePassword() {
+		bannerPass = ""
+	}
 	fmt.Print(app.StartupBanner(app.BannerInput{
 		ListenURL: listenURL,
 		Username:  creds.Username,
-		Password:  creds.Password,
+		Password:  bannerPass,
 	}))
 
-	appDSN := filepath.Join(dataDir, "app.db")
-	blobRoot := filepath.Join(dataDir, "blob")
-	comfyMock := envBool("COMFY_MOCK", true)
+	cfg := defaultRuntimeSettings(dataDir)
+	if boot.Initialized() {
+		loaded, err := loadSavedSettings(boot)
+		if err != nil {
+			return err
+		}
+		settings.ApplyEnv(&loaded)
+		if err := loaded.Validate(); err != nil {
+			return err
+		}
+		cfg = loaded
+	} else {
+		settings.ApplyEnv(&cfg)
+	}
 
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
-		DSN:              appDSN,
+		Driver:           cfg.DBDriver,
+		DSN:              cfg.DBDSN,
 		MigrateInstances: true,
 		Models: []any{
 			&casepersist.CaseRow{},
@@ -109,9 +128,9 @@ func run(ctx context.Context) error {
 			&tgmenupersist.MenuItemCaseRow{},
 		},
 		Seed: &instance.SeedConfig{
-			DefaultInstanceID: "local",
-			ComfyUIBaseURL:    envOr("COMFYUI_BASE_URL", "http://127.0.0.1:8188"),
-			ComfyMock:         comfyMock,
+			DefaultInstanceID: cfg.DefaultInstanceID,
+			ComfyUIBaseURL:    cfg.ComfyUIBaseURL,
+			ComfyMock:         cfg.ComfyMock,
 		},
 	})
 	if err != nil {
@@ -119,13 +138,23 @@ func run(ctx context.Context) error {
 	}
 	defer func() { _ = cleanup() }()
 
-	blobStore, err := factory.New(botconfig.BlobDriverLocalFS, blobRoot)
+	applyBlobSecrets(cfg)
+	blobStore, err := factory.NewFromConfig(botconfig.Config{
+		Blob: botconfig.BlobConfig{
+			Driver: cfg.BlobDriver,
+			TOS: botconfig.BlobTOSConfig{
+				Endpoint: cfg.BlobEndpoint,
+				Region:   cfg.BlobRegion,
+				Bucket:   cfg.BlobBucket,
+			},
+		},
+	}, cfg.BlobRoot)
 	if err != nil {
 		return err
 	}
 
 	instRepo := instpersist.NewInstanceRepository(gdb)
-	pool := instance.NewPool(instRepo, instance.PoolOptions{Mock: comfyMock})
+	pool := instance.NewPool(instRepo, instance.PoolOptions{Mock: cfg.ComfyMock})
 	if err := pool.Refresh(ctx); err != nil {
 		return err
 	}
@@ -150,23 +179,32 @@ func run(ctx context.Context) error {
 	orch.Prep = snap
 	orch.Now = func() time.Time { return time.Now().UTC() }
 
+	sess := setupapi.NewSessions()
+	setupH := &setupapi.Handler{Boot: boot, Sessions: sess, DataDir: dataDir}
+	gate := &setupapi.Gate{Boot: boot, Sessions: sess}
+
 	adminH := adminhost.NewHandler(adminhost.Options{
-		Instances: &comfyinstances.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Mock: comfyMock},
-		Cases:     &casesapi.Handler{Repo: caseRepo, Validate: validation.New().ValidateDocument},
-		Users:     &usersapi.Handler{Repo: userRepo},
-		Sessions:  &sessionsapi.Handler{Repo: sessionRepo},
-		Tasks:     &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
-		TGMenu:    &tgmenuapi.Handler{Svc: menuSvc},
+		CORSOrigins: corsOrigins(),
+		Instances:   &comfyinstances.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Mock: cfg.ComfyMock},
+		Cases:       &casesapi.Handler{Repo: caseRepo, Validate: validation.New().ValidateDocument},
+		Users:       &usersapi.Handler{Repo: userRepo},
+		Sessions:    &sessionsapi.Handler{Repo: sessionRepo},
+		Tasks:       &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
+		TGMenu:      &tgmenuapi.Handler{Svc: menuSvc},
+		NotFound:    webembed.Handler(),
 	})
 
 	agentH := &agentapi.Handler{
 		Token:  agentTok,
 		Tasks:  taskRepo,
 		Status: orch,
-		Lease:  90 * time.Second,
+		Lease:  leaseDuration(cfg),
 	}
 
 	r := chi.NewRouter()
+	r.Use(adminhost.CORS(corsOrigins()))
+	r.Use(gate.Middleware)
+	r.Route("/api/v1/setup", setupH.Mount)
 	r.Mount("/", adminH)
 	r.Route("/agent/v1", agentH.Mount)
 
@@ -177,15 +215,15 @@ func run(ctx context.Context) error {
 	srv := &http.Server{Handler: r, ReadHeaderTimeout: 5 * time.Second}
 
 	var edgeCmd = (*os.Process)(nil)
-	if envBool("EDGE_AUTO_SPAWN", true) {
+	if shouldSpawnEdge(boot.Initialized(), cfg) {
 		cmd := app.EdgeCommand(app.EdgeSpawnConfig{
 			Binary:          app.ResolveEdgeBinary(),
 			ControlPlaneURL: listenURL,
 			AgentToken:      agentTok,
-			InstanceID:      "local",
-			BlobDriver:      botconfig.BlobDriverLocalFS,
-			BlobRoot:        blobRoot,
-			ComfyMock:       comfyMock,
+			InstanceID:      cfg.DefaultInstanceID,
+			BlobDriver:      cfg.BlobDriver,
+			BlobRoot:        cfg.BlobRoot,
+			ComfyMock:       cfg.ComfyMock,
 		})
 		if err := cmd.Start(); err != nil {
 			slog.Warn("edge auto-spawn failed (install pixoma-edge-agent or set EDGE_AGENT_BIN)", "err", err)
@@ -198,7 +236,7 @@ func run(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("pixoma listening", "addr", addr, "data_dir", dataDir, "comfy_mock", comfyMock)
+		slog.Info("pixoma listening", "addr", addr, "data_dir", dataDir, "comfy_mock", cfg.ComfyMock, "initialized", boot.Initialized())
 		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
@@ -219,6 +257,100 @@ func run(ctx context.Context) error {
 			_ = edgeCmd.Signal(syscall.SIGTERM)
 		}
 		return err
+	}
+}
+
+func defaultRuntimeSettings(dataDir string) settings.Settings {
+	return settings.Settings{
+		Placement:         settings.PlacementLocal,
+		DBDriver:          settings.DriverSQLite,
+		DBDSN:             filepath.Join(dataDir, "app.db"),
+		BlobDriver:        botconfig.BlobDriverLocalFS,
+		BlobRoot:          filepath.Join(dataDir, "blob"),
+		ComfyMock:         envBool("COMFY_MOCK", true),
+		ComfyUIBaseURL:    envOr("COMFYUI_BASE_URL", "http://127.0.0.1:8188"),
+		DefaultInstanceID: envOr("INSTANCE_ID", "local"),
+		AutoSpawnEdge:     true,
+	}
+}
+
+func loadSavedSettings(boot *bootstrap.Store) (settings.Settings, error) {
+	driver, dsn, err := boot.AppDB()
+	if err != nil {
+		return settings.Settings{}, err
+	}
+	if strings.TrimSpace(dsn) == "" {
+		return settings.Settings{}, fmt.Errorf("initialized but app db dsn is empty")
+	}
+	key, err := boot.EncKey()
+	if err != nil {
+		return settings.Settings{}, err
+	}
+	gdb, cleanup, err := appboot.Bootstrap(context.Background(), appboot.Options{
+		Driver: driver,
+		DSN:    dsn,
+	})
+	if err != nil {
+		return settings.Settings{}, err
+	}
+	defer func() { _ = cleanup() }()
+	st, err := settings.NewStore(gdb, key)
+	if err != nil {
+		return settings.Settings{}, err
+	}
+	return st.Load()
+}
+
+func applyBlobSecrets(cfg settings.Settings) {
+	if cfg.BlobDriver == botconfig.BlobDriverTOS {
+		if os.Getenv("TOS_ACCESS_KEY") == "" && cfg.BlobAccessKey != "" {
+			_ = os.Setenv("TOS_ACCESS_KEY", cfg.BlobAccessKey)
+		}
+		if os.Getenv("TOS_SECRET_KEY") == "" && cfg.BlobSecretKey != "" {
+			_ = os.Setenv("TOS_SECRET_KEY", cfg.BlobSecretKey)
+		}
+		return
+	}
+	if os.Getenv("S3_ACCESS_KEY") == "" && cfg.BlobAccessKey != "" {
+		_ = os.Setenv("S3_ACCESS_KEY", cfg.BlobAccessKey)
+	}
+	if os.Getenv("S3_SECRET_KEY") == "" && cfg.BlobSecretKey != "" {
+		_ = os.Setenv("S3_SECRET_KEY", cfg.BlobSecretKey)
+	}
+}
+
+func shouldSpawnEdge(initialized bool, cfg settings.Settings) bool {
+	if !envBool("EDGE_AUTO_SPAWN", true) {
+		return false
+	}
+	if !initialized {
+		return true
+	}
+	return cfg.Placement == settings.PlacementLocal && cfg.AutoSpawnEdge
+}
+
+func leaseDuration(cfg settings.Settings) time.Duration {
+	if cfg.LeaseSeconds > 0 {
+		return time.Duration(cfg.LeaseSeconds) * time.Second
+	}
+	return 90 * time.Second
+}
+
+func corsOrigins() []string {
+	raw := strings.TrimSpace(os.Getenv("CORS_ORIGINS"))
+	if raw != "" {
+		parts := strings.Split(raw, ",")
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if s := strings.TrimSpace(p); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return []string{
+		"http://127.0.0.1:5173",
+		"http://localhost:5173",
 	}
 }
 

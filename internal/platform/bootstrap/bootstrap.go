@@ -49,6 +49,7 @@ type metaRow struct {
 	AppDBDriver        string `gorm:"column:app_db_driver;size:32"`
 	AppDBDSN           string `gorm:"column:app_db_dsn;type:text"`
 	WizardStep         string `gorm:"column:wizard_step;size:64"`
+	EncKeyB64          string `gorm:"column:enc_key_b64;type:text"`
 }
 
 func (metaRow) TableName() string { return "bootstrap_meta" }
@@ -86,12 +87,18 @@ func Open(path string) (*Store, Credentials, error) {
 			_ = st.Close()
 			return nil, Credentials{}, err
 		}
+		encB64, err := mintEncKeyB64()
+		if err != nil {
+			_ = st.Close()
+			return nil, Credentials{}, err
+		}
 		row = metaRow{
 			ID:                 metaKey,
 			Initialized:        false,
 			AdminUsername:      DefaultUsername,
 			AdminPasswordHash:  hash,
 			MustChangePassword: true,
+			EncKeyB64:          encB64,
 		}
 		if err := gdb.Create(&row).Error; err != nil {
 			_ = st.Close()
@@ -102,6 +109,17 @@ func Open(path string) (*Store, Credentials, error) {
 	if err != nil {
 		_ = st.Close()
 		return nil, Credentials{}, fmt.Errorf("bootstrap: load meta: %w", err)
+	}
+	if strings.TrimSpace(row.EncKeyB64) == "" {
+		encB64, err := mintEncKeyB64()
+		if err != nil {
+			_ = st.Close()
+			return nil, Credentials{}, err
+		}
+		if err := gdb.Model(&metaRow{}).Where("id = ?", metaKey).Update("enc_key_b64", encB64).Error; err != nil {
+			_ = st.Close()
+			return nil, Credentials{}, fmt.Errorf("bootstrap: store enc key: %w", err)
+		}
 	}
 	_ = fresh
 	return st, Credentials{Username: row.AdminUsername}, nil
@@ -243,6 +261,67 @@ func (s *Store) load() (metaRow, error) {
 	var row metaRow
 	err := s.db.First(&row, "id = ?", metaKey).Error
 	return row, err
+}
+
+// EncKey returns the 32-byte AES key stored in bootstrap (local trust boundary).
+func (s *Store) EncKey() ([]byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, err := s.load()
+	if err != nil {
+		return nil, err
+	}
+	raw, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(row.EncKeyB64))
+	if err != nil {
+		return nil, fmt.Errorf("bootstrap: decode enc key: %w", err)
+	}
+	if len(raw) != 32 {
+		return nil, fmt.Errorf("bootstrap: enc key length %d", len(raw))
+	}
+	return raw, nil
+}
+
+func (s *Store) SetAppDB(driver, dsn string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.db.Model(&metaRow{}).Where("id = ?", metaKey).Updates(map[string]any{
+		"app_db_driver": driver,
+		"app_db_dsn":    dsn,
+	}).Error
+}
+
+func (s *Store) AppDB() (driver, dsn string, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, err := s.load()
+	if err != nil {
+		return "", "", err
+	}
+	return row.AppDBDriver, row.AppDBDSN, nil
+}
+
+func (s *Store) SetWizardStep(step string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.db.Model(&metaRow{}).Where("id = ?", metaKey).Update("wizard_step", step).Error
+}
+
+func (s *Store) WizardStep() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, err := s.load()
+	if err != nil {
+		return ""
+	}
+	return row.WizardStep
+}
+
+func mintEncKeyB64() (string, error) {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return base64.RawStdEncoding.EncodeToString(b[:]), nil
 }
 
 func mintPassword() (plain, hash string, err error) {

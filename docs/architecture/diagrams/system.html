@@ -139,7 +139,7 @@
           <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
         </div>
       </div>
-      <p class="subtitle">控制面 → 共享 Blob / Queue → 执行面（Actuator）· 方案 A（job_ref）</p>
+      <p class="subtitle">控制面 pixoma → DB 可领取态 + Agent 长轮询 → Edge · 本机 localfs / 远程对象存储</p>
     </div>
 
     <div class="diagram-container">
@@ -254,8 +254,8 @@
 
         <rect x="645" y="340" width="190" height="120" rx="8" fill="#0f172a"/>
         <rect x="645" y="340" width="190" height="120" rx="8" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
-        <text x="740" y="384" fill="white" font-size="18" font-weight="600" text-anchor="middle">Queue</text>
-        <text x="740" y="410" fill="#fb923c" font-size="14" text-anchor="middle">Memory | Redis</text>
+        <text x="740" y="384" fill="white" font-size="18" font-weight="600" text-anchor="middle">Agent API</text>
+        <text x="740" y="410" fill="#fb923c" font-size="14" text-anchor="middle">claim / heartbeat / status</text>
         <text x="740" y="434" fill="#94a3b8" font-size="14" text-anchor="middle">Streams</text>
 
         <!-- Execution plane -->
@@ -281,18 +281,18 @@
         <!-- Deployment modes -->
         <rect x="220" y="660" width="1040" height="280" rx="10" fill="#0f172a"/>
         <rect x="220" y="660" width="1040" height="280" rx="10" fill="rgba(15, 23, 42, 0.95)" stroke="#334155" stroke-width="1.5"/>
-        <text x="250" y="700" fill="white" font-size="16" font-weight="600">部署形态 · Actuator 放置</text>
+        <text x="250" y="700" fill="white" font-size="16" font-weight="600">部署形态 · 本机 / 远程</text>
 
-        <text x="250" y="744" fill="#fbbf24" font-size="15" font-weight="600">allinone</text>
-        <text x="360" y="744" fill="#94a3b8" font-size="14">Actuator 与 Bot 同进程 · queue=Memory · blob=localfs</text>
+        <text x="250" y="744" fill="#fbbf24" font-size="15" font-weight="600">本机</text>
+        <text x="360" y="744" fill="#94a3b8" font-size="14">pixoma 自动拉起本机 Edge · blob=localfs 共用目录</text>
 
-        <text x="250" y="788" fill="#34d399" font-size="15" font-weight="600">split</text>
-        <text x="360" y="788" fill="#94a3b8" font-size="14">Actuator 独立进程 edge-agent · queue=Redis Streams · blob=S3 或 TOS</text>
-        <text x="360" y="812" fill="#94a3b8" font-size="14">Bot 不订阅生产 dispatch</text>
+        <text x="250" y="788" fill="#34d399" font-size="15" font-weight="600">远程</text>
+        <text x="360" y="788" fill="#94a3b8" font-size="14">独立 pixoma-edge-agent 出站拉取 · blob=S3 或 TOS（禁止 localfs）</text>
+        <text x="360" y="812" fill="#94a3b8" font-size="14">默认路径不依赖 Redis Streams</text>
 
-        <text x="250" y="856" fill="#a78bfa" font-size="15" font-weight="600">方案 A</text>
-        <text x="360" y="856" fill="#94a3b8" font-size="14">PrepareJob → jobs/&lt;task_id&gt;/job.json · DispatchCommand.job_ref</text>
-        <text x="360" y="880" fill="#94a3b8" font-size="14">Edge = 外置 Actuator</text>
+        <text x="250" y="856" fill="#a78bfa" font-size="15" font-weight="600">派活</text>
+        <text x="360" y="856" fill="#94a3b8" font-size="14">PrepareJob → jobs/&lt;task_id&gt;/job.json · Task 可领取 + lease</text>
+        <text x="360" y="880" fill="#94a3b8" font-size="14">Edge = 唯一执行面</text>
       </svg>
     </div>
 
@@ -315,9 +315,9 @@
           <h3>共享适配层</h3>
         </div>
         <ul>
-          <li>• Queue：轻量事件载荷</li>
+          <li>• Agent API：claim / heartbeat / status</li>
           <li>• Blob：jobs / inputs / outputs</li>
-          <li>• 模式切换只换驱动实现</li>
+          <li>• 本机 localfs · 远程 s3/tos</li>
         </ul>
       </div>
       <div class="card">
@@ -326,9 +326,9 @@
           <h3>执行面</h3>
         </div>
         <ul>
-          <li>• Actuator Worker（同一套代码）</li>
-          <li>• allinone：同进程 · split：edge-agent</li>
-          <li>• Get job → Comfy → task.status</li>
+          <li>• pixoma-edge-agent Worker</li>
+          <li>• 本机自动 spawn · 远程独立进程</li>
+          <li>• claim job → Comfy → status</li>
         </ul>
       </div>
     </div>

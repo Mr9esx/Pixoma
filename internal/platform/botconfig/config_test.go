@@ -40,13 +40,10 @@ func TestLoad_YAMLAndEnvOverride(t *testing.T) {
 	}
 }
 
-func TestDefault_AllinoneMemoryLocalfs(t *testing.T) {
+func TestDefault_LocalLocalfs(t *testing.T) {
 	cfg := botconfig.Default()
-	if cfg.RuntimeMode != botconfig.RuntimeModeAllinone {
-		t.Fatalf("mode=%q", cfg.RuntimeMode)
-	}
-	if cfg.Queue.Driver != botconfig.QueueDriverMemory {
-		t.Fatalf("queue=%q", cfg.Queue.Driver)
+	if cfg.Placement != botconfig.PlacementLocal {
+		t.Fatalf("placement=%q", cfg.Placement)
 	}
 	if cfg.Blob.Driver != botconfig.BlobDriverLocalFS {
 		t.Fatalf("blob=%q", cfg.Blob.Driver)
@@ -56,20 +53,20 @@ func TestDefault_AllinoneMemoryLocalfs(t *testing.T) {
 	}
 }
 
-func TestValidateRuntimeDrivers_SplitRejectsMemory(t *testing.T) {
+func TestValidateRuntimeDrivers_RemoteIgnoresQueue(t *testing.T) {
 	cfg := botconfig.Default()
+	cfg.Placement = botconfig.PlacementRemote
 	cfg.RuntimeMode = botconfig.RuntimeModeSplit
 	cfg.Queue.Driver = botconfig.QueueDriverMemory
 	cfg.Blob.Driver = botconfig.BlobDriverS3
-	if err := cfg.ValidateRuntimeDrivers(); err == nil {
-		t.Fatal("expected error for split+memory")
+	if err := cfg.ValidateRuntimeDrivers(); err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestValidateRuntimeDrivers_SplitOK(t *testing.T) {
+func TestValidateRuntimeDrivers_RemoteOK(t *testing.T) {
 	cfg := botconfig.Default()
-	cfg.RuntimeMode = botconfig.RuntimeModeSplit
-	cfg.Queue.Driver = botconfig.QueueDriverRedis
+	cfg.Placement = botconfig.PlacementRemote
 	cfg.Blob.Driver = botconfig.BlobDriverS3
 	if err := cfg.ValidateRuntimeDrivers(); err != nil {
 		t.Fatal(err)
@@ -79,7 +76,6 @@ func TestValidateRuntimeDrivers_SplitOK(t *testing.T) {
 func TestValidateRuntimeDrivers_SplitTOSOK(t *testing.T) {
 	cfg := botconfig.Default()
 	cfg.RuntimeMode = botconfig.RuntimeModeSplit
-	cfg.Queue.Driver = botconfig.QueueDriverRedis
 	cfg.Blob.Driver = botconfig.BlobDriverTOS
 	if err := cfg.ValidateRuntimeDrivers(); err != nil {
 		t.Fatal(err)
@@ -89,11 +85,10 @@ func TestValidateRuntimeDrivers_SplitTOSOK(t *testing.T) {
 func TestValidateRuntimeDrivers_SplitRejectsLocalFS(t *testing.T) {
 	cfg := botconfig.Default()
 	cfg.RuntimeMode = botconfig.RuntimeModeSplit
-	cfg.Queue.Driver = botconfig.QueueDriverRedis
 	cfg.Blob.Driver = botconfig.BlobDriverLocalFS
 	err := cfg.ValidateRuntimeDrivers()
 	if err == nil {
-		t.Fatal("expected error for split+localfs")
+		t.Fatal("expected error for remote+localfs")
 	}
 	if !strings.Contains(err.Error(), "blob.driver") {
 		t.Fatalf("error should mention blob.driver, got %v", err)
@@ -103,7 +98,6 @@ func TestValidateRuntimeDrivers_SplitRejectsLocalFS(t *testing.T) {
 func TestValidateRuntimeDrivers_SplitS3StillOK(t *testing.T) {
 	cfg := botconfig.Default()
 	cfg.RuntimeMode = botconfig.RuntimeModeSplit
-	cfg.Queue.Driver = botconfig.QueueDriverRedis
 	cfg.Blob.Driver = botconfig.BlobDriverS3
 	if err := cfg.ValidateRuntimeDrivers(); err != nil {
 		t.Fatal(err)
