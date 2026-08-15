@@ -11,6 +11,10 @@
 - **WHEN** 存在至少两台健康且未熔断的可投递实例，连续调度多个 pending Task
 - **THEN** 连续选定的 InstanceID 在轮询意义上分散到这些实例，而非每次都是同一台
 
+#### Scenario: 按实例 Topic 投递
+- **WHEN** 选定实例 `gpu-1` 且可投递
+- **THEN** 任务对该实例可领取且含有效 `job_ref`，且 Blob 中存在可读任务包
+
 #### Scenario: 按实例可领取
 - **WHEN** 选定实例 `gpu-1` 且可投递
 - **THEN** 任务对该实例可领取且含有效 `job_ref`，且 Blob 中存在可读任务包
@@ -25,6 +29,10 @@
 
 ### Requirement: 投递前组装 job 并携带 job_ref
 Orchestrator（或其 prep 步骤）在使任务可被 Edge 领取之前 MUST 组装方案 A 任务包并获得 `job_ref`。领取下发的任务描述 MUST 包含该 `job_ref`。成功主路径 MUST NOT 再依赖执行面读取业务 Case/Task 库拼装 workflow。该要求在本机与远程部署下均生效。
+
+#### Scenario: 调度发出的 dispatch 含 job_ref
+- **WHEN** 某 pending Task 被成功调度为可领取
+- **THEN** 对应领取载荷含有效 `job_ref`，且 Blob 中存在可读任务包
 
 #### Scenario: 可领取任务含 job_ref
 - **WHEN** 某 pending Task 被成功调度为可领取
