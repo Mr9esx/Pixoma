@@ -1,4 +1,4 @@
-.PHONY: build test run run-mock run-admin-api embed-admin
+.PHONY: build test run run-mock run-admin-api embed-admin dev
 
 build:
 	go build -o bin/pixoma ./apps/pixoma/cmd/pixoma
@@ -16,6 +16,9 @@ run-mock: build
 
 run-admin-api:
 	go run ./apps/admin-api/cmd/admin-api
+
+dev:
+	bash scripts/dev.sh
 
 embed-admin:
 	cd web/admin && pnpm build
