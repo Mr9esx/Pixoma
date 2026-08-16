@@ -6,12 +6,12 @@
 
 ## 运行
 
+新部署与日常调试请用仓库根目录 `make dev`（pixoma + 管理页面）。本进程仅过渡期保留。
+
 ```bash
 # 可选：复制示例配置（DSN 必须与 bot 同一库）
-# make run-admin-api / run-admin 在缺省时会自动从 example 复制
 
-make run-admin       # admin-api + web/admin 一起
-make run-admin-api   # 只起 API
+make run-admin-api   # 只起独立 API（默认 127.0.0.1:8081）
 # 或：go run ./apps/admin-api/cmd/admin-api
 ```
 

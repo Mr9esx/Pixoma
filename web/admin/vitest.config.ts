@@ -10,6 +10,8 @@ export default defineConfig({
       'src/scaffold.contract.test.ts',
       'src/auth-gates.contract.test.ts',
       'src/lib/api/client.test.ts',
+      'src/vite-proxy.contract.test.ts',
+      'src/dev-loop.contract.test.ts',
       'src/lib/api/instances.test.ts',
       'src/lib/api/cases.test.ts',
       'src/lib/api/tg-menu.test.ts',

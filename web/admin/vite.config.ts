@@ -7,7 +7,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { playwright } from '@vitest/browser-playwright'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     tanstackRouter({
       target: 'react',
@@ -19,6 +19,19 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+    },
+  },
+  define:
+    command === 'serve'
+      ? { 'import.meta.env.VITE_ADMIN_API_BASE': JSON.stringify('') }
+      : undefined,
+  server: {
+    host: '127.0.0.1',
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+      },
     },
   },
   test: {
@@ -41,4 +54,4 @@ export default defineConfig({
       ],
     },
   },
-})
+}))

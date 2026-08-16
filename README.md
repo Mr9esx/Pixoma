@@ -35,6 +35,8 @@ go run ./apps/pixoma/cmd/pixoma
 # 或：make run-mock
 ```
 
+本地要改管理页面、走完整后台 UI 时用 `make dev`，见下方「本地调试」。只起后端时打开 8080 可能只看到提示页（前端还没打进二进制）。
+
 日志会打出后台地址和**仅首次**的默认管理员账密。打开后台：先登录、改密，再走初始化向导（库、本机/远程、存储、节点、TG Token）。**保存后重启 `pixoma` 才按新配置装配。**
 
 改密之后，启动日志不再打印明文密码。
@@ -107,9 +109,24 @@ make run               # COMFY_MOCK=0（需可达 ComfyUI）
 
 向导、环境变量、`comfy_mock` 都会进同一条执行链路；Mock 与真机必须一起能跑通。
 
-## 实例管理（pixoma 后台）
+## 本地调试
 
-默认 `http://127.0.0.1:8080`。开发前端：`web/admin`（`VITE_ADMIN_API_BASE` 指向 pixoma）。发布可 `make embed-admin` 把 SPA 打进二进制。
+一条命令同时起控制面和管理页面（真 Comfy，和 `make run` 一样）：
+
+```bash
+make dev
+```
+
+启动日志里有两个地址：
+
+- **管理页面**（浏览器打开这个）：`http://127.0.0.1:5173`
+- **后台接口**：`http://127.0.0.1:8080`
+
+Ctrl-C 两个一起停。改 `web/admin` 保存后页面会自己刷新；改 Go 需要再跑一次 `make dev`。
+
+只起后端、不看页面时继续用 `make run` / `make run-mock`。没把前端打进二进制时，打开 8080 会看到提示页，这是发布路径，不是日常调试入口。
+
+发布：`make embed-admin` 之后再构建 `pixoma`，用户只开 8080 就是完整后台。
 
 ```bash
 make build
@@ -117,4 +134,4 @@ make test
 curl -s localhost:8080/healthz
 ```
 
-过渡期仍可 `make run-admin-api`（默认 `:8081`），但新部署请用 `pixoma`。
+独立 `admin-api` 仅过渡期保留，调试请用 `make dev`。
