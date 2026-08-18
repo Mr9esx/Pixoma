@@ -37,7 +37,7 @@
 
 ## 6. 运行时装配与通知投递
 
-- [ ] 6.1 启动装配器：扫描启用渠道 → 启动对应适配器（独立 goroutine + graceful stop）
+- [x] 6.1 启动装配器：扫描启用渠道 → 启动对应适配器（独立 goroutine + graceful stop）
 - [ ] 6.2 notifybridge 泛化到 channel 层：按渠道地址路由投递
 - [ ] 6.3 通知幂等去重保留并按渠道隔离
 

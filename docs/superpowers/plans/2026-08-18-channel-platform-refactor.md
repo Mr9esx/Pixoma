@@ -385,14 +385,14 @@ type Assembler struct {
 func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 diff
 ```
 
-- [ ] **Step 1: 写失败测试（fake）** — fake factory 记录 Create/Start/Stop 调用：空库→无启动；新增 enabled 渠道→start；禁用→stop；credential 变化→stop+start（重建）；删除→stop；Start 失败→退避重试（Interval 注入可缩短）；ctx cancel→全部停止
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/channel/runtime/...`
-- [ ] **Step 3: 实现**
+- [x] **Step 1: 写失败测试（fake）** — fake factory 记录 Create/Start/Stop 调用：空库→无启动；新增 enabled 渠道→start；禁用→stop；credential 变化→stop+start（重建）；删除→stop；Start 失败→退避重试（Interval 注入可缩短）；ctx cancel→全部停止
+- [x] **Step 2: 运行确认失败** — `go test ./internal/channel/runtime/...`
+- [x] **Step 3: 实现**
   - `adapter.go`：`Adapter`/`AdapterFactory` 接口；`credential_hash` 由凭证密文 sha256 计算
   - `assembler.go`：`Run(ctx)` 循环；内存 `map[channelID]runtimeState`（absent/starting/running/stopping/error）；每轮 diff：新增/启用→`factory.Create`+`Start`；停用/删除→`Stop`；凭证 hash 变化→`Stop` 后重建；error 状态记录 lastErr 并按 5s/30s/5min 退避重试
   - 事件路由：`Adapter` 扩展 `Events() <-chan ports.InboundEvent`（或 `Receive(ctx, handler)`），统一 handler 内 `recover()` 防 panic 崩溃
-- [ ] **Step 4: 运行通过** — 测试全绿
-- [ ] **Step 5: 提交** — `git commit -m "feat(channel): hot-reload runtime assembler"`
+- [x] **Step 4: 运行通过** — 测试全绿
+- [x] **Step 5: 提交** — `git commit -m "feat(channel): hot-reload runtime assembler"`
 
 ---
 
