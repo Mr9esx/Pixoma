@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBytes, parseMetrics } from './observation'
+import { formatBytes, ioAxisTicks, parseMetrics } from './observation'
 
 describe('parseMetrics', () => {
   it('maps optional gpu and io fields', () => {
@@ -56,5 +56,31 @@ describe('parseMetrics', () => {
     expect(formatBytes(500)).toBe('500 B')
     expect(formatBytes(0)).toBe('0 B')
     expect(formatBytes(12 * 1024)).toBe('12.0 KiB')
+  })
+})
+
+describe('ioAxisTicks', () => {
+  it('steps in KiB with clean whole-unit ticks', () => {
+    const { ticks, format } = ioAxisTicks([524285, 102400])
+    expect(ticks.length).toBeGreaterThanOrEqual(4)
+    expect(ticks.every((t) => t >= 0)).toBe(true)
+    expect(format(ticks[1])).toMatch(/^\d+ KiB$/)
+    expect(format(0)).toBe('0 KiB')
+  })
+
+  it('steps in MiB for larger rates', () => {
+    const { ticks, format } = ioAxisTicks([52_428_800])
+    expect(format(ticks[1])).toMatch(/^\d+ MiB$/)
+  })
+
+  it('falls back to bytes for tiny rates', () => {
+    const { ticks, format } = ioAxisTicks([300])
+    expect(format(ticks[1])).toBe('100 B')
+  })
+
+  it('empty data yields zero tick', () => {
+    const { ticks, format } = ioAxisTicks([])
+    expect(ticks).toEqual([0])
+    expect(format(0)).toBe('0 B')
   })
 })

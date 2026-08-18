@@ -161,6 +161,8 @@ type MetricsRepository interface {
 
 > 数值可读性（2026-08-18 build 第三轮）：`formatBytes` 改为自适应二进制单位（B/KiB/MiB/GiB/TiB，保留 1 位小数、≥100 取整），所有字节序列（内存占用/显存占用/I/O 读/写）的 tooltip 与坐标轴 tick 均走该格式化；百分比序列 tooltip 补 `%`；图表左右 margin 收窄到 4px，百分比轴宽 36、字节轴宽 48。
 
+> I/O 轴阶梯化（2026-08-18 build 第四轮）：`ioAxisTicks` 按显示单位（B/KiB/MiB/GiB，取 max/unit ≥ 4 的最大单位）以 1/2/5×10ⁿ 步进生成整齐 tick，Y 轴不再出现零碎小数；tooltip 仍显示精确值。
+
 图例点抄参考：`size-2.5 rounded-full sm:size-3`（面积图）与 `size-2 rounded-full sm:size-2.5`（环形图），颜色用 `style={{ backgroundColor: 'var(--primary)' }}` 与 `color-mix` 表达式；均需暗色变体（`dark [data-chart=...]` 下的 85% 混色）。
 
 **集成**：`detail-panel.tsx` 删除 `getEdgeSystem`/`systemQuery`，改 `getEdgeMetrics(id, '1h')` + `refetchInterval: 15000`；`ObservationPanel` 仅接收 `metricsQuery` 与 `tasksQuery`；`parseSystem` 相关代码随系统节移除（队列节未实现，保留其余逻辑）。
