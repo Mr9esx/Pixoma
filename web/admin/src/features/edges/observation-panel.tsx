@@ -144,7 +144,7 @@ function LineCardShell({
         className={
           compact
             ? 'grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_122px]'
-            : 'grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_62px]'
+            : 'grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_72px]'
         }
       >
         <div className='h-full min-h-[120px] w-full min-w-0'>
