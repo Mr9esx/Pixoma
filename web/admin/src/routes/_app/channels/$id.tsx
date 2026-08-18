@@ -10,8 +10,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TgMenuEditor } from '@/features/tg-menu/menu-editor'
-import { ExtrasEditor } from '@/features/tg-menu/extras-editor'
+import { ChannelMenuEditor } from '@/features/channels/channel-menu-editor'
+import { ExtrasEditor } from '@/features/channels/extras-editor'
 import {
   deleteChannel,
   getChannel,
@@ -137,7 +137,7 @@ function ChannelDetailPage() {
           </Card>
         </TabsContent>
         <TabsContent value='menu' className='mt-3 h-full'>
-          <TgMenuEditor channelId={id} />
+          <ChannelMenuEditor channelId={id} />
         </TabsContent>
         <TabsContent value='extras' className='mt-3'>
           <ExtrasEditor channelId={id} />

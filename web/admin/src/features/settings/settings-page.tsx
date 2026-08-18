@@ -90,9 +90,6 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
     emptyIfMasked(initial.blob_secret_key),
   )
   const [autoSpawn, setAutoSpawn] = useState(Boolean(initial.auto_spawn_edge))
-  const [tgToken, setTgToken] = useState(
-    emptyIfMasked(initial.telegram_bot_token),
-  )
   const [proxyKind, setProxyKind] = useState(initial.proxy_kind || '')
   const [proxyHost, setProxyHost] = useState(initial.proxy_host ?? '')
   const [proxyPort, setProxyPort] = useState(
@@ -132,7 +129,6 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
         comfyui_base_url: initial.comfyui_base_url,
         default_edge_id: initial.default_edge_id,
         auto_spawn_edge: placement === 'local' ? autoSpawn : false,
-        telegram_bot_token: secretPayload(tgToken),
         proxy_kind: proxyKind,
         proxy_host: proxyHost,
         proxy_port: Number(proxyPort) || 0,
@@ -163,7 +159,6 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
         <TabsTrigger value='account'>{t('settings.tabAccount')}</TabsTrigger>
         <TabsTrigger value='storage'>{t('settings.tabStorage')}</TabsTrigger>
         <TabsTrigger value='network'>{t('settings.tabNetwork')}</TabsTrigger>
-        <TabsTrigger value='telegram'>{t('settings.tabTelegram')}</TabsTrigger>
       </TabsList>
 
       <TabsContent value='account' className='flex flex-col gap-6'>
@@ -392,38 +387,6 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
         </form>
       </TabsContent>
 
-      <TabsContent value='telegram'>
-        <form
-          className='flex flex-col'
-          onSubmit={(e) => {
-            e.preventDefault()
-            void savePlatform()
-          }}
-        >
-          <SettingRow
-            label={t('settings.fieldTgToken')}
-            htmlFor='tg-token'
-            hint={t('settings.secretHint')}
-          >
-            <Input
-              id='tg-token'
-              type='password'
-              value={tgToken}
-              onChange={(e) => setTgToken(e.target.value)}
-              disabled={pending}
-              autoComplete='off'
-            />
-          </SettingRow>
-          {error ? (
-            <p className='pt-3 text-sm text-destructive'>{error}</p>
-          ) : null}
-          <div className='pt-4'>
-            <Button type='submit' size='sm' disabled={pending}>
-              {pending ? t('common.loading') : t('common.save')}
-            </Button>
-          </div>
-        </form>
-      </TabsContent>
     </Tabs>
   )
 }

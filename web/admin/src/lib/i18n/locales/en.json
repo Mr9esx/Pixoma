@@ -190,8 +190,8 @@
     "enableSuccess": "Case enabled",
     "disableSuccess": "Case disabled",
     "jsonMustBeObject": "Must be a JSON object",
-    "menuPlacementsTitle": "On main keyboard",
-    "menuPlacementsEmpty": "Not mounted on main keyboard"
+    "menuPlacementsTitle": "In menu",
+    "menuPlacementsEmpty": "Not mounted in menu"
   },
   "tasks": {
     "title": "Tasks",
@@ -226,7 +226,7 @@
   },
   "users": {
     "title": "Users",
-    "description": "Browse Telegram users and their details (read-only).",
+    "description": "Browse users and their details (read-only).",
     "empty": "No users",
     "detailHeading": "User detail",
     "filterQ": "Search",
@@ -269,9 +269,9 @@
     "fieldCreatedAt": "Created at",
     "fieldUpdatedAt": "Updated at"
   },
-  "tgMenu": {
-    "title": "Keyboard",
-    "description": "Pick a level in the tree (expand folders), then edit this level’s intro and templates. Telegram shows the intro at the top when users open that folder.",
+  "channelMenu": {
+    "title": "Menu",
+    "description": "Pick a level in the tree (expand folders), then edit this level’s intro and templates. The intro is shown at the top when users open that folder.",
     "listTitle": "Directory",
     "detailHeading": "Edit this level",
     "untitled": "Untitled",
@@ -281,8 +281,6 @@
     "removeItem": "Remove",
     "fieldId": "ID",
     "fieldLabel": "Button label",
-    "fieldRow": "Row",
-    "fieldCol": "Col",
     "fieldEnabled": "Enabled",
     "fieldKind": "Type",
     "fieldCaseId": "Case",
@@ -290,26 +288,22 @@
     "fieldIntro": "Intro text",
     "fieldIntroHint": "Shown above the buttons when users open this folder. Leave empty to use the button label.",
     "fieldChildren": "Subfolders",
-    "fieldTag": "Tag",
     "fieldPlaceholderText": "Hint text",
     "fieldReplyText": "Reply text",
     "fieldReplyImages": "Image URLs (one per line)",
     "kindFolder": "Folder",
     "kindOpenCase": "Open case",
-    "kindListByTag": "List cases by tag",
     "kindPlaceholder": "Hint only",
     "kindReplyMedia": "Reply with media",
     "addChild": "Add subfolder",
     "noChildren": "No subfolders yet — use “Add subfolder” above.",
     "updatedAt": "Updated at",
-    "save": "Save",
     "fieldOrder": "Order"
   },
   "settings": {
     "title": "Settings",
     "tabAccount": "Account",
     "tabStorage": "Storage",
-    "tabTelegram": "Telegram",
     "tabNetwork": "Network",
     "passwordTitle": "Password",
     "fieldCurrentPassword": "Current password",
@@ -334,7 +328,6 @@
     "fieldAccessKey": "Access Key",
     "fieldSecretKey": "Secret Key",
     "secretHint": "Leave blank to keep",
-    "fieldTgToken": "Bot Token",
     "fieldProxyKind": "Type",
     "proxyOff": "Off",
     "proxyHTTP": "HTTP",

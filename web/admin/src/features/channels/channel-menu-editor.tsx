@@ -236,17 +236,17 @@ function visibleTreeRows(
 function kindLabelKey(kind: MenuKind): string {
   switch (kind) {
     case 'folder':
-      return 'tgMenu.kindFolder'
+      return 'channelMenu.kindFolder'
     case 'open_case':
-      return 'tgMenu.kindOpenCase'
+      return 'channelMenu.kindOpenCase'
     case 'placeholder':
-      return 'tgMenu.kindPlaceholder'
+      return 'channelMenu.kindPlaceholder'
     case 'reply_media':
-      return 'tgMenu.kindReplyMedia'
+      return 'channelMenu.kindReplyMedia'
   }
 }
 
-export function TgMenuEditor({ channelId }: { channelId: string }) {
+export function ChannelMenuEditor({ channelId }: { channelId: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [items, setItems] = useState<MenuNode[]>([])
@@ -370,7 +370,7 @@ export function TgMenuEditor({ channelId }: { channelId: string }) {
   return (
     <div
       className='flex min-h-0 flex-1 flex-col gap-3'
-      data-testid='tg-menu-editor'
+      data-testid='channel-menu-editor'
     >
       {saveMutation.isError ? (
         <ErrorBanner
@@ -385,16 +385,16 @@ export function TgMenuEditor({ channelId }: { channelId: string }) {
           <div className='flex h-full min-h-0 flex-col'>
             <div className='flex items-center justify-between gap-2 border-b px-4 py-3'>
               <div className='min-w-0'>
-                <h2 className='text-sm font-semibold'>{t('tgMenu.listTitle')}</h2>
+                <h2 className='text-sm font-semibold'>{t('channelMenu.listTitle')}</h2>
                 {updatedAt ? (
                   <p className='truncate text-xs text-muted-foreground'>
-                    {t('tgMenu.updatedAt')}: {updatedAt}
+                    {t('channelMenu.updatedAt')}: {updatedAt}
                   </p>
                 ) : null}
               </div>
               <div className='flex shrink-0 items-center gap-2'>
                 <Button type='button' size='sm' variant='outline' onClick={addRootItem}>
-                  {t('tgMenu.addItem')}
+                  {t('channelMenu.addItem')}
                 </Button>
                 <Button
                   type='button'
@@ -445,7 +445,7 @@ export function TgMenuEditor({ channelId }: { channelId: string }) {
                           <div className='flex items-center justify-between gap-2'>
                             <span className='truncate text-sm font-medium'>
                               {node.kind === 'folder' ? '📁 ' : ''}
-                              {node.label.trim() || t('tgMenu.untitled')}
+                              {node.label.trim() || t('channelMenu.untitled')}
                             </span>
                             <span
                               className={cn(
@@ -456,8 +456,8 @@ export function TgMenuEditor({ channelId }: { channelId: string }) {
                               )}
                             >
                               {node.enabled
-                                ? t('tgMenu.enabledShort')
-                                : t('tgMenu.disabledShort')}
+                                ? t('channelMenu.enabledShort')
+                                : t('channelMenu.disabledShort')}
                             </span>
                           </div>
                           <p className='mt-1 truncate text-xs text-muted-foreground'>
@@ -535,13 +535,13 @@ function NodeEditor({
   }
 
   return (
-    <div className='space-y-4' data-testid='tg-menu-item-editor'>
+    <div className='space-y-4' data-testid='channel-menu-item-editor'>
       <div className='flex items-start justify-between gap-3'>
         <div>
           <h2 className='text-lg font-semibold'>
-            {node.label.trim() || t('tgMenu.untitled')}
+            {node.label.trim() || t('channelMenu.untitled')}
           </h2>
-          <p className='text-sm text-muted-foreground'>{t('tgMenu.detailHeading')}</p>
+          <p className='text-sm text-muted-foreground'>{t('channelMenu.detailHeading')}</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
           {node.kind === 'folder' ? (
@@ -551,7 +551,7 @@ function NodeEditor({
               size='sm'
               onClick={() => onAddChild(node.id)}
             >
-              {t('tgMenu.addChild')}
+              {t('channelMenu.addChild')}
             </Button>
           ) : null}
           <Button
@@ -561,27 +561,27 @@ function NodeEditor({
             disabled={!canRemove}
             onClick={onRemove}
           >
-            {t('tgMenu.removeItem')}
+            {t('channelMenu.removeItem')}
           </Button>
         </div>
       </div>
 
       <div className='grid gap-3 sm:grid-cols-2'>
         <div className='space-y-1.5'>
-          <Label htmlFor={`tg-menu-id-${node.id}`}>{t('tgMenu.fieldId')}</Label>
+          <Label htmlFor={`channel-menu-id-${node.id}`}>{t('channelMenu.fieldId')}</Label>
           <Input
-            id={`tg-menu-id-${node.id}`}
+            id={`channel-menu-id-${node.id}`}
             value={node.id}
             onChange={(e) => onUpdate(node.id, { id: e.target.value })}
             autoComplete='off'
           />
         </div>
         <div className='space-y-1.5'>
-          <Label htmlFor={`tg-menu-label-${node.id}`}>
-            {t('tgMenu.fieldLabel')}
+          <Label htmlFor={`channel-menu-label-${node.id}`}>
+            {t('channelMenu.fieldLabel')}
           </Label>
           <Input
-            id={`tg-menu-label-${node.id}`}
+            id={`channel-menu-label-${node.id}`}
             value={node.label}
             onChange={(e) => onUpdate(node.id, { label: e.target.value })}
             autoComplete='off'
@@ -590,9 +590,9 @@ function NodeEditor({
         {isRoot ? (
           <>
             <div className='space-y-1.5'>
-              <Label htmlFor={`tg-menu-order-${node.id}`}>{t('tgMenu.fieldOrder')}</Label>
+              <Label htmlFor={`channel-menu-order-${node.id}`}>{t('channelMenu.fieldOrder')}</Label>
               <Input
-                id={`tg-menu-order-${node.id}`}
+                id={`channel-menu-order-${node.id}`}
                 type='number'
                 value={node.order}
                 onChange={(e) => onUpdate(node.id, { order: Number(e.target.value) })}
@@ -604,19 +604,19 @@ function NodeEditor({
 
       <div className='flex flex-wrap items-end gap-4'>
         <div className='flex items-center justify-between gap-3 rounded-md border px-3 py-2'>
-          <Label htmlFor={`tg-menu-enabled-${node.id}`}>
-            {t('tgMenu.fieldEnabled')}
+          <Label htmlFor={`channel-menu-enabled-${node.id}`}>
+            {t('channelMenu.fieldEnabled')}
           </Label>
           <Switch
-            id={`tg-menu-enabled-${node.id}`}
+            id={`channel-menu-enabled-${node.id}`}
             checked={node.enabled}
             onCheckedChange={(checked) => onUpdate(node.id, { enabled: checked })}
           />
         </div>
         <div className='min-w-56 flex-1 space-y-1.5'>
-          <Label>{t('tgMenu.fieldKind')}</Label>
+          <Label>{t('channelMenu.fieldKind')}</Label>
           {parentIsFolder ? (
-            <p className='text-sm text-muted-foreground'>{t('tgMenu.kindFolder')}</p>
+            <p className='text-sm text-muted-foreground'>{t('channelMenu.kindFolder')}</p>
           ) : (
             <Select
               value={node.kind}
@@ -626,13 +626,13 @@ function NodeEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='folder'>{t('tgMenu.kindFolder')}</SelectItem>
-                <SelectItem value='open_case'>{t('tgMenu.kindOpenCase')}</SelectItem>
+                <SelectItem value='folder'>{t('channelMenu.kindFolder')}</SelectItem>
+                <SelectItem value='open_case'>{t('channelMenu.kindOpenCase')}</SelectItem>
                 <SelectItem value='placeholder'>
-                  {t('tgMenu.kindPlaceholder')}
+                  {t('channelMenu.kindPlaceholder')}
                 </SelectItem>
                 <SelectItem value='reply_media'>
-                  {t('tgMenu.kindReplyMedia')}
+                  {t('channelMenu.kindReplyMedia')}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -642,10 +642,10 @@ function NodeEditor({
 
       {node.kind === 'folder' ? (
         <div className='space-y-1.5'>
-          <Label htmlFor={`tg-menu-intro-${node.id}`}>{t('tgMenu.fieldIntro')}</Label>
-          <p className='text-xs text-muted-foreground'>{t('tgMenu.fieldIntroHint')}</p>
+          <Label htmlFor={`channel-menu-intro-${node.id}`}>{t('channelMenu.fieldIntro')}</Label>
+          <p className='text-xs text-muted-foreground'>{t('channelMenu.fieldIntroHint')}</p>
           <Textarea
-            id={`tg-menu-intro-${node.id}`}
+            id={`channel-menu-intro-${node.id}`}
             value={node.intro_text ?? ''}
             onChange={(e) => onUpdate(node.id, { intro_text: e.target.value })}
             rows={4}
@@ -657,8 +657,8 @@ function NodeEditor({
         <div className='space-y-2'>
           <Label>
             {node.kind === 'folder'
-              ? t('tgMenu.fieldCaseIds')
-              : t('tgMenu.fieldCaseId')}
+              ? t('channelMenu.fieldCaseIds')
+              : t('channelMenu.fieldCaseId')}
           </Label>
           <div className='max-h-48 space-y-2 overflow-auto rounded-md border p-3'>
             {caseOptions.length === 0 ? (
@@ -685,9 +685,9 @@ function NodeEditor({
 
       {node.kind === 'folder' ? (
         <div className='space-y-2'>
-          <Label>{t('tgMenu.fieldChildren')}</Label>
+          <Label>{t('channelMenu.fieldChildren')}</Label>
           {children.length === 0 ? (
-            <p className='text-sm text-muted-foreground'>{t('tgMenu.noChildren')}</p>
+            <p className='text-sm text-muted-foreground'>{t('channelMenu.noChildren')}</p>
           ) : (
             <ul className='space-y-1 rounded-md border p-2'>
               {children.map((child) => (
@@ -697,7 +697,7 @@ function NodeEditor({
                     className='w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted'
                     onClick={() => onSelectChild(child.id)}
                   >
-                    📁 {child.label.trim() || t('tgMenu.untitled')}
+                    📁 {child.label.trim() || t('channelMenu.untitled')}
                   </button>
                 </li>
               ))}
@@ -708,11 +708,11 @@ function NodeEditor({
 
       {node.kind === 'placeholder' ? (
         <div className='max-w-xl space-y-1.5'>
-          <Label htmlFor={`tg-menu-placeholder-${node.id}`}>
-            {t('tgMenu.fieldPlaceholderText')}
+          <Label htmlFor={`channel-menu-placeholder-${node.id}`}>
+            {t('channelMenu.fieldPlaceholderText')}
           </Label>
           <Input
-            id={`tg-menu-placeholder-${node.id}`}
+            id={`channel-menu-placeholder-${node.id}`}
             value={node.placeholder_text ?? ''}
             onChange={(e) =>
               onUpdate(node.id, { placeholder_text: e.target.value })
@@ -725,11 +725,11 @@ function NodeEditor({
       {node.kind === 'reply_media' ? (
         <div className='grid gap-3 md:grid-cols-2'>
           <div className='space-y-1.5'>
-            <Label htmlFor={`tg-menu-reply-text-${node.id}`}>
-              {t('tgMenu.fieldReplyText')}
+            <Label htmlFor={`channel-menu-reply-text-${node.id}`}>
+              {t('channelMenu.fieldReplyText')}
             </Label>
             <Textarea
-              id={`tg-menu-reply-text-${node.id}`}
+              id={`channel-menu-reply-text-${node.id}`}
               value={node.reply?.text ?? ''}
               onChange={(e) =>
                 onUpdate(node.id, {
@@ -739,11 +739,11 @@ function NodeEditor({
             />
           </div>
           <div className='space-y-1.5'>
-            <Label htmlFor={`tg-menu-reply-images-${node.id}`}>
-              {t('tgMenu.fieldReplyImages')}
+            <Label htmlFor={`channel-menu-reply-images-${node.id}`}>
+              {t('channelMenu.fieldReplyImages')}
             </Label>
             <Textarea
-              id={`tg-menu-reply-images-${node.id}`}
+              id={`channel-menu-reply-images-${node.id}`}
               value={(node.reply?.images ?? []).join('\n')}
               onChange={(e) =>
                 onUpdate(node.id, {
