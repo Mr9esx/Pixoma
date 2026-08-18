@@ -252,14 +252,14 @@ func TestParseChatIDInvalid(t *testing.T) {
 - Consumes: Task 1 `ChatID string`
 - Produces: `SessionRow{ChannelID string; ChatExternalID string}`（替代 `ChatID int64`；索引 (channel_id, chat_external_id, status)）
 
-- [ ] **Step 1: 写失败测试** — `SessionRow` 无 `ChatID int64`；AutoMigrate 后按 (channel_id, chat_external_id) 查询；conversation 领域 `Session.ChatID` 为 string
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/conversation/... ./internal/runtime/...`
-- [ ] **Step 3: 实现**
+- [x] **Step 1: 写失败测试** — `SessionRow` 无 `ChatID int64`；AutoMigrate 后按 (channel_id, chat_external_id) 查询；conversation 领域 `Session.ChatID` 为 string
+- [x] **Step 2: 运行确认失败** — `go test ./internal/conversation/... ./internal/runtime/...`
+- [x] **Step 3: 实现**
   - `gorm_session.go`：`ChatID int64` → `ChannelID` + `ChatExternalID`（均 TEXT，index）
   - `sharedkernel/events.go`：`TaskCreated.ChatID`、`UserNotify.ChatID` 类型已是 `ChatID`（string）；JSON 序列化无需改 key
   - 修复全仓编译错误：`internal/channel/tg` 中 `int64(chatID)` 使用点暂时以 `FormatChatID` 组装/`ParseChatID` 拆分（最终形态在 Task 9 完成）
-- [ ] **Step 4: 运行通过** — `go test ./internal/conversation/... ./internal/runtime/... ./internal/packaging/...`
-- [ ] **Step 5: 提交** — `git commit -m "refactor(conversation): channel-scoped session addressing"`
+- [x] **Step 4: 运行通过** — `go test ./internal/conversation/... ./internal/runtime/... ./internal/packaging/...`
+- [x] **Step 5: 提交** — `git commit -m "refactor(conversation): channel-scoped session addressing"`
 
 ---
 
