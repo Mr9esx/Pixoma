@@ -197,6 +197,132 @@ export function MemCard({ point }: { point: MetricsPoint | null }) {
   )
 }
 
+function GpuDonut({
+  center,
+  label,
+  series,
+}: {
+  center: string
+  label: string
+  series: { name: string; value: number; fill: string }[]
+}) {
+  return (
+    <div className='relative size-[100px] shrink-0 sm:size-[120px]'>
+      <ChartContainer
+        config={{
+          a: { label, color: 'var(--primary)' },
+          b: {
+            label,
+            color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+          },
+        }}
+        className='h-full w-full'
+      >
+        <PieChart>
+          <Pie
+            data={series}
+            dataKey='value'
+            nameKey='name'
+            innerRadius={30}
+            outerRadius={49.5}
+            strokeWidth={0}
+          >
+            {series.map((entry) => (
+              <Cell key={entry.name} fill={entry.fill} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
+        <span className='text-sm font-semibold sm:text-base'>{center}</span>
+        <span className='text-muted-foreground text-[8px] sm:text-[10px]'>
+          {label}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+export function GpuCards({ point }: { point: MetricsPoint | null }) {
+  const { t } = useTranslation()
+  const gpus = point?.gpus ?? []
+  if (gpus.length === 0) return null
+  return (
+    <>
+      {gpus.map((gpu, index) => {
+        const usage = gpu.usage_percent ?? 0
+        const used = gpu.vram_used_bytes ?? 0
+        const total = gpu.vram_total_bytes ?? 0
+        const free = Math.max(total - used, 0)
+        return (
+          <div
+            key={`${gpu.name}-${index}`}
+            className='bg-card flex flex-1 flex-col gap-4 rounded-xl border p-4 sm:p-5'
+          >
+            <span className='text-sm font-medium sm:text-base'>
+              {gpu.name || t('edges.fieldGpu')}
+            </span>
+            <div className='flex flex-1 flex-wrap items-center gap-4 sm:gap-6'>
+              <GpuDonut
+                center={`${usage.toFixed(1)}%`}
+                label={t('edges.monitorGpuUsage')}
+                series={[
+                  {
+                    name: t('edges.monitorGpuUsage'),
+                    value: usage,
+                    fill: 'var(--primary)',
+                  },
+                  {
+                    name: t('edges.monitorGpuIdle'),
+                    value: Math.max(100 - usage, 0),
+                    fill: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+                  },
+                ]}
+              />
+              <GpuDonut
+                center={total > 0 ? formatBytes(used) : '—'}
+                label={t('edges.monitorVram')}
+                series={[
+                  {
+                    name: t('edges.monitorMemUsed'),
+                    value: used,
+                    fill: 'var(--primary)',
+                  },
+                  {
+                    name: t('edges.monitorMemFree'),
+                    value: free,
+                    fill: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+                  },
+                ]}
+              />
+              <div className='flex min-w-32 flex-col gap-2 sm:gap-3'>
+                <div className='flex items-center justify-between gap-2'>
+                  <span className='text-muted-foreground text-[10px] sm:text-xs'>
+                    {t('edges.monitorGpuUsage')}
+                  </span>
+                  <span className='font-medium tabular-nums text-[10px] sm:text-xs'>
+                    {usage.toFixed(1)}%
+                  </span>
+                </div>
+                <div className='flex items-center justify-between gap-2'>
+                  <span className='text-muted-foreground text-[10px] sm:text-xs'>
+                    {t('edges.monitorVram')}
+                  </span>
+                  <span className='font-medium tabular-nums text-[10px] sm:text-xs'>
+                    {total > 0
+                      ? `${formatBytes(used)} / ${formatBytes(total)}`
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
