@@ -73,7 +73,7 @@ base-ref: e3e0870cd9741dd665a3ce5dbe24bf1b59ea290a
 - Consumes: 无（纯类型定义）
 - Produces: `edge.Metrics`、`edge.GPUMetric`、`edge.MetricsEmpty(m edge.Metrics) bool`（后续采集器、持久化、HTTP 载荷共用）
 
-- [ ] **Step 1: 创建类型文件**
+- [x] **Step 1: 创建类型文件**
 
 ```go
 package edge
@@ -107,12 +107,12 @@ func MetricsEmpty(m Metrics) bool {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go build ./internal/platform/edge/`
 Expected: PASS
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add internal/platform/edge/metrics.go
@@ -143,12 +143,12 @@ type Sampler struct {
 }
 ```
 
-- [ ] **Step 1: 先添加依赖**
+- [x] **Step 1: 先添加依赖**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go get github.com/shirou/gopsutil/v4@v4.26.7`
 Expected: PASS（go.mod 增加 gopsutil v4）
 
-- [ ] **Step 2: 写失败测试**（`collect_test.go`，注入 fake 采集函数，覆盖：正常全量、`NvidiaSMI` 失败、首拍 I/O nil、`Mock` 合成 GPU、CPU 首拍 0）
+- [x] **Step 2: 写失败测试**（`collect_test.go`，注入 fake 采集函数，覆盖：正常全量、`NvidiaSMI` 失败、首拍 I/O nil、`Mock` 合成 GPU、CPU 首拍 0）
 
 ```go
 package metrics_test
@@ -237,12 +237,12 @@ func TestSample_MockGPU(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [x] **Step 3: 运行测试确认失败**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go test ./apps/edge-agent/internal/metrics/`
 Expected: FAIL（`undefined: metrics.NewSampler`）
 
-- [ ] **Step 4: 实现采集器**
+- [x] **Step 4: 实现采集器**
 
 ```go
 package metrics
@@ -416,12 +416,12 @@ func mockGPUs(now time.Time) []edge.GPUMetric {
 }
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go test ./apps/edge-agent/internal/metrics/`
 Expected: PASS
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add go.mod go.sum apps/edge-agent/internal/metrics/
@@ -441,7 +441,7 @@ git commit -m "feat(edge-agent): collect live CPU/mem/disk/GPU metrics"
 - Consumes: `metrics.NewSampler` / `(*Sampler).Sample`（Task 2）
 - Produces: `presence.Reporter` 新增字段 `Sample func(ctx context.Context, since time.Time) *edge.Metrics` 与 `MetricsInterval time.Duration`；`pull.Client.ReportPresence(ctx, running bool, hw *edge.Hardware, m *edge.Metrics) (bool, error)`
 
-- [ ] **Step 1: 先写失败测试**（reporter：首拍携带 metrics、未到期不携带、到期携带）
+- [x] **Step 1: 先写失败测试**（reporter：首拍携带 metrics、未到期不携带、到期携带）
 
 ```go
 // reporter_test.go 追加
@@ -474,12 +474,12 @@ func TestProbeAndReport_MetricsCadence(t *testing.T) {
 
 （测试辅助 `roundTripFunc` 与载荷断言按 `pull/client_test.go` 现有风格实现；重点是断言首拍请求体含 `"metrics"` 键、未到期请求体不含。）
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go test ./apps/edge-agent/internal/presence/`
 Expected: FAIL
 
-- [ ] **Step 3: 修改 `reporter.go`**
+- [x] **Step 3: 修改 `reporter.go`**
 
 ```go
 const defaultMetricsInterval = 30 * time.Second
@@ -518,7 +518,7 @@ func (r *Reporter) ProbeAndReport(ctx context.Context) error {
 }
 ```
 
-- [ ] **Step 4: 修改 `pull/client.go` 的 `ReportPresence`**
+- [x] **Step 4: 修改 `pull/client.go` 的 `ReportPresence`**
 
 ```go
 func (c *Client) ReportPresence(ctx context.Context, comfyRunning bool, hw *edge.Hardware, m *edge.Metrics) (bool, error) {
@@ -536,7 +536,7 @@ func (c *Client) ReportPresence(ctx context.Context, comfyRunning bool, hw *edge
 }
 ```
 
-- [ ] **Step 5: 修改 `main.go` 装配**
+- [x] **Step 5: 修改 `main.go` 装配**
 
 ```go
 sampler := edgehw.NewSampler(comfyMock)
@@ -554,12 +554,12 @@ reporter := &presence.Reporter{
 
 （`envDuration` 已存在于 main.go；`METRICS_INTERVAL < 5s` 由 `metricsInterval()` 钳制。）
 
-- [ ] **Step 6: 更新 pull/client_test.go 的 `ReportPresence` 调用点并补载荷断言，运行全部相关测试**
+- [x] **Step 6: 更新 pull/client_test.go 的 `ReportPresence` 调用点并补载荷断言，运行全部相关测试**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go test ./apps/edge-agent/...`
 Expected: PASS
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add apps/edge-agent/
@@ -587,7 +587,7 @@ type MetricsRepository interface {
 }
 ```
 
-- [ ] **Step 1: 写失败测试**（`gorm_metrics_test.go`：Append 后 ListSince 升序、limit 截尾、过期清理）
+- [x] **Step 1: 写失败测试**（`gorm_metrics_test.go`：Append 后 ListSince 升序、limit 截尾、过期清理）
 
 ```go
 package persistence_test
@@ -628,12 +628,12 @@ func TestMetricsRepository_PrunesOldRows(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go test ./internal/platform/edge/persistence/`
 Expected: FAIL（undefined MetricsRow / NewMetricsRepository）
 
-- [ ] **Step 3: 实现接口与 GORM 实现**
+- [x] **Step 3: 实现接口与 GORM 实现**
 
 ```go
 // internal/platform/edge/metrics_repository.go
@@ -726,19 +726,19 @@ func (r *MetricsRepository) ListSince(ctx context.Context, edgeID sharedkernel.E
 }
 ```
 
-- [ ] **Step 4: appboot AutoMigrate 追加 `MetricsRow`**
+- [x] **Step 4: appboot AutoMigrate 追加 `MetricsRow`**
 
 ```go
 // internal/platform/appboot/boot.go，MigrateEdges 分支
 models = append(models, &instpersist.EdgeRow{}, &instpersist.MetricsRow{})
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go test ./internal/platform/edge/... ./internal/platform/appboot/`
 Expected: PASS
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add internal/platform/edge/metrics_repository.go internal/platform/edge/persistence/gorm_metrics.go internal/platform/appboot/boot.go
@@ -757,7 +757,7 @@ git commit -m "feat(edge): persist live metrics in edge_metrics table"
 - Consumes: `edge.MetricsRepository`（Task 4）
 - Produces: `agent.Handler.Metrics edge.MetricsRepository`；`edges.Handler.Metrics edge.MetricsRepository`；`GET /api/v1/edges/{id}/metrics`
 
-- [ ] **Step 1: 先写失败测试**
+- [x] **Step 1: 先写失败测试**
 
 `agent/handler_test.go` 追加：presence 携带 `metrics` → 落库可查；无 token → 不落库。
 
@@ -772,12 +772,12 @@ func TestHandler_MetricsEndpoint(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go test ./internal/httpapi/agent/ ./internal/httpapi/edges/`
 Expected: FAIL
 
-- [ ] **Step 3: agent presence 接收并落库**
+- [x] **Step 3: agent presence 接收并落库**
 
 ```go
 // Handler 增加字段
@@ -795,7 +795,7 @@ if h.Metrics != nil && body.Metrics != nil && !body.Metrics.CollectedAt.IsZero()
 }
 ```
 
-- [ ] **Step 4: admin metrics 端点**
+- [x] **Step 4: admin metrics 端点**
 
 ```go
 // Handler 增加字段
@@ -850,12 +850,12 @@ func parseMetricsWindow(raw string) (time.Duration, error) {
 }
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go test ./internal/httpapi/...`
 Expected: PASS
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add internal/httpapi/agent/ internal/httpapi/edges/
@@ -870,7 +870,7 @@ git commit -m "feat(api): persist agent metrics and serve admin metrics endpoint
 **Interfaces:**
 - Consumes: `persistence.NewMetricsRepository`、`db.AutoMigrate`（Task 4/5）
 
-- [ ] **Step 1: 装配 MetricsRepository**
+- [x] **Step 1: 装配 MetricsRepository**
 
 ```go
 retention := 24 * time.Hour
@@ -885,12 +885,12 @@ metricsRepo := instpersist.NewMetricsRepository(gdb, retention)
 
 （`gdb` 即现有 AutoMigrate 后的 `*gorm.DB`；确保 `MetricsRow` 已 AutoMigrate——Task 4 已在 appboot 追加。）
 
-- [ ] **Step 2: 编译与启动冒烟**
+- [x] **Step 2: 编译与启动冒烟**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go build ./...`
 Expected: PASS
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/admin-api/cmd/admin-api/main.go
@@ -908,7 +908,7 @@ git commit -m "feat(admin-api): wire metrics repository and retention config"
 - Consumes: `cn` from `@/lib/utils`
 - Produces: `ChartContainer`、`ChartTooltip`、`ChartTooltipContent`、`ChartLegend`、`ChartLegendContent`、`ChartStyle`
 
-- [ ] **Step 1: 从官方 registry 获取组件**
+- [x] **Step 1: 从官方 registry 获取组件**
 
 ```bash
 cd /Users/mr9esx/Documents/Pixoma/web/admin
@@ -918,12 +918,12 @@ node -e 'const j=require("/tmp/chart.json"); process.stdout.write(j.files[0].con
 
 Expected: `src/components/ui/chart.tsx` 非空，内容为 MIT 协议的 shadcn chart 组件（`"use client"`、`data-slot="chart"`、`ChartContainer` 等导出）。
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx tsc -b --noEmit`
 Expected: PASS（如报 `TooltipValueType` 类型缺失，确认 recharts 版本为 ^3.8.1）
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add web/admin/src/components/ui/chart.tsx
@@ -940,7 +940,7 @@ git commit -m "feat(admin): add shadcn chart component"
 **Interfaces:**
 - Produces: `EdgeGPUMetric`、`EdgeMetrics`、`EdgeMetricsResponse`；`getEdgeMetrics(id: string, window?: '1h'|'6h'|'24h'): Promise<EdgeMetricsResponse>`；`queryKeys.edges.metrics(id)`
 
-- [ ] **Step 1: types.ts 追加**
+- [x] **Step 1: types.ts 追加**
 
 ```ts
 export type EdgeGPUMetric = {
@@ -968,7 +968,7 @@ export type EdgeMetricsResponse = {
 }
 ```
 
-- [ ] **Step 2: edges.ts 追加**
+- [x] **Step 2: edges.ts 追加**
 
 ```ts
 export function getEdgeMetrics(id: string, window: '1h' | '6h' | '24h' = '1h') {
@@ -978,18 +978,18 @@ export function getEdgeMetrics(id: string, window: '1h' | '6h' | '24h' = '1h') {
 }
 ```
 
-- [ ] **Step 3: query-keys.ts 追加**
+- [x] **Step 3: query-keys.ts 追加**
 
 ```ts
 metrics: (id: string) => ['edges', id, 'metrics'] as const,
 ```
 
-- [ ] **Step 4: 类型检查**
+- [x] **Step 4: 类型检查**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx tsc -b --noEmit`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add web/admin/src/lib/api/
@@ -1005,7 +1005,7 @@ git commit -m "feat(admin): add edge metrics api types and client"
 **Interfaces:**
 - Produces: `MetricsPoint`、`parseMetrics(data: unknown): { latest: MetricsPoint | null; series: MetricsPoint[] }`
 
-- [ ] **Step 1: 先写失败测试**
+- [x] **Step 1: 先写失败测试**
 
 ```ts
 // observation.test.ts 追加
@@ -1036,12 +1036,12 @@ describe('parseMetrics', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx vitest run src/features/edges/observation.test.ts`
 Expected: FAIL（undefined parseMetrics）
 
-- [ ] **Step 3: 实现 parseMetrics**
+- [x] **Step 3: 实现 parseMetrics**
 
 ```ts
 export type MetricsPoint = {
@@ -1081,12 +1081,12 @@ export function parseMetrics(data: unknown): { latest: MetricsPoint | null; seri
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx vitest run src/features/edges/observation.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add web/admin/src/features/edges/observation.ts web/admin/src/features/edges/observation.test.ts
@@ -1103,7 +1103,7 @@ git commit -m "feat(admin): parse edge metrics into chart points"
 **Interfaces:**
 - Consumes: `parseMetrics` / `MetricsPoint`（Task 9）、`ChartContainer` 等（Task 7）
 
-- [ ] **Step 1: 新增 CPU 面积图卡组件**
+- [x] **Step 1: 新增 CPU 面积图卡组件**
 
 ```tsx
 function CpuCard({ series }: { series: MetricsPoint[] }) {
@@ -1150,12 +1150,12 @@ function CpuCard({ series }: { series: MetricsPoint[] }) {
 
 （`ChartContainer` 的 `config` 键 `cpu` 会生成 `--color-cpu` CSS 变量；`ChartStyle` 由 ChartContainer 内部注入。若 recharts v3 需要 `accessibilityLayer` 属性，按 shadcn 官方示例补充。）
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx tsc -b --noEmit`
 Expected: PASS
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add web/admin/src/features/edges/observation-panel.tsx
@@ -1167,7 +1167,7 @@ git commit -m "feat(admin): render CPU usage area chart card"
 **Files:**
 - Modify: `web/admin/src/features/edges/observation-panel.tsx`
 
-- [ ] **Step 1: 新增内存环形图卡**（抄「Sales by Category」卡结构）
+- [x] **Step 1: 新增内存环形图卡**（抄「Sales by Category」卡结构）
 
 ```tsx
 function MemCard({ point }: { point: MetricsPoint | null }) {
@@ -1225,12 +1225,12 @@ function MemCard({ point }: { point: MetricsPoint | null }) {
 }
 ```
 
-- [ ] **Step 2: 类型检查与测试**
+- [x] **Step 2: 类型检查与测试**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx tsc -b --noEmit && npx vitest run src/features/edges/`
 Expected: PASS
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add web/admin/src/features/edges/observation-panel.tsx
@@ -1242,7 +1242,7 @@ git commit -m "feat(admin): render memory donut card"
 **Files:**
 - Modify: `web/admin/src/features/edges/observation-panel.tsx`
 
-- [ ] **Step 1: 新增 GPU 卡组**（每 GPU 一张环形图；无 GPU 数据返回 null）
+- [x] **Step 1: 新增 GPU 卡组**（每 GPU 一张环形图；无 GPU 数据返回 null）
 
 ```tsx
 function GpuCards({ point }: { point: MetricsPoint | null }) {
@@ -1286,12 +1286,12 @@ function GpuCards({ point }: { point: MetricsPoint | null }) {
 
 （显存环形图与占用率环形图结构相同，数据用 `vram_used_bytes` / `vram_total_bytes`，中心显示 `formatBytes(used)`。）
 
-- [ ] **Step 2: 类型检查与测试**
+- [x] **Step 2: 类型检查与测试**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx tsc -b --noEmit && npx vitest run src/features/edges/`
 Expected: PASS
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add web/admin/src/features/edges/observation-panel.tsx
@@ -1303,7 +1303,7 @@ git commit -m "feat(admin): render per-GPU usage and VRAM donuts"
 **Files:**
 - Modify: `web/admin/src/features/edges/observation-panel.tsx`
 
-- [ ] **Step 1: 新增 I/O 面积图卡**（双系列 read/write，对照 This Year/Prev Year）
+- [x] **Step 1: 新增 I/O 面积图卡**（双系列 read/write，对照 This Year/Prev Year）
 
 ```tsx
 function IOCard({ series }: { series: MetricsPoint[] }) {
@@ -1356,12 +1356,12 @@ function IOCard({ series }: { series: MetricsPoint[] }) {
 }
 ```
 
-- [ ] **Step 2: 类型检查与测试**
+- [x] **Step 2: 类型检查与测试**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx tsc -b --noEmit && npx vitest run src/features/edges/`
 Expected: PASS
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add web/admin/src/features/edges/observation-panel.tsx
@@ -1374,7 +1374,7 @@ git commit -m "feat(admin): render disk I/O read/write area chart"
 - Modify: `web/admin/src/features/edges/observation-panel.tsx`
 - Modify: `web/admin/src/features/edges/detail-panel.tsx`
 
-- [ ] **Step 1: `observation-panel.tsx` 组装 MonitoringSection**
+- [x] **Step 1: `observation-panel.tsx` 组装 MonitoringSection**
 
 ```tsx
 function MonitoringSection({ data }: { data: ReturnType<typeof parseMetrics> }) {
@@ -1401,7 +1401,7 @@ function MonitoringSection({ data }: { data: ReturnType<typeof parseMetrics> }) 
 
 `ObservationPanel` 的 props 从 `systemQuery` 改为 `metricsQuery: QueryView<EdgeMetricsResponse>`，`BlockBody` 内渲染 `MonitoringSection data={parseMetrics(metricsQuery.data)}`；删除 `SystemSection`、`parseSystem` 相关字段与「连接被拒绝」错误分支。
 
-- [ ] **Step 2: `detail-panel.tsx` 切换数据源**
+- [x] **Step 2: `detail-panel.tsx` 切换数据源**
 
 ```tsx
 // 删除 import getEdgeSystem；新增 getEdgeMetrics
@@ -1413,12 +1413,12 @@ const metricsQuery = useQuery({
 // <ObservationPanel metricsQuery={metricsQuery} tasksQuery={tasksQuery} />
 ```
 
-- [ ] **Step 3: 类型检查与相关测试**
+- [x] **Step 3: 类型检查与相关测试**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx tsc -b --noEmit && npx vitest run src/features/edges/`
 Expected: PASS（若既有合同测试断言 `getEdgeSystem` 存在，先改断言——见 Task 16）
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add web/admin/src/features/edges/observation-panel.tsx web/admin/src/features/edges/detail-panel.tsx
@@ -1431,7 +1431,7 @@ git commit -m "feat(admin): wire system monitoring cards into edge detail"
 - Modify: `web/admin/src/lib/i18n/locales/zh.json`
 - Modify: `web/admin/src/lib/i18n/locales/en.json`
 
-- [ ] **Step 1: 更新文案**
+- [x] **Step 1: 更新文案**
 
 ```jsonc
 // zh.json
@@ -1451,7 +1451,7 @@ git commit -m "feat(admin): wire system monitoring cards into edge detail"
 // en.json 对应英文
 ```
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add web/admin/src/lib/i18n/locales/
@@ -1463,7 +1463,7 @@ git commit -m "feat(admin): system monitoring copy (zh/en)"
 **Files:**
 - Modify: `web/admin/src/features/edges/edges.contract.test.ts`
 
-- [ ] **Step 1: 追加合同断言**
+- [x] **Step 1: 追加合同断言**
 
 ```ts
 it('locks system monitoring chart classes and copy', () => {
@@ -1488,12 +1488,12 @@ it('locks system monitoring chart classes and copy', () => {
 
 同时把既有契约测试里对「系统节」的旧断言（如 `parseSystem`、`errorRefused` 相关）更新为 metrics 语义。
 
-- [ ] **Step 2: 运行全部前端测试**
+- [x] **Step 2: 运行全部前端测试**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx vitest run`
 Expected: PASS
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add web/admin/src/features/edges/edges.contract.test.ts
@@ -1508,11 +1508,11 @@ git commit -m "test(admin): lock system monitoring chart contract"
 - Modify: `docs/architecture/data-model.md`
 - Modify: `docs/architecture/runtime.md`
 
-- [ ] **Step 1: 补充 `edge_metrics` 表与上报路径**
+- [x] **Step 1: 补充 `edge_metrics` 表与上报路径**
 
 在 `data-model.md` 的 edges 章节后追加 `edge_metrics`（列、索引、保留窗口默认 24h）；在 `runtime.md` 的 Edge/控制面数据流中说明 presence 携带 `metrics`、`GET /api/v1/edges/{id}/metrics`。
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add docs/architecture/
@@ -1524,11 +1524,11 @@ git commit -m "docs(architecture): edge_metrics table and metrics reporting path
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: 追加环境变量说明**
+- [x] **Step 1: 追加环境变量说明**
 
 `METRICS_INTERVAL`（Edge，默认 30s）与 `METRICS_RETENTION`（控制面，默认 24h）。
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add README.md
@@ -1540,17 +1540,17 @@ git commit -m "docs: METRICS_INTERVAL and METRICS_RETENTION env vars"
 **Files:**
 - 无源码改动（验证 + 勾选 tasks.md）
 
-- [ ] **Step 1: Go 全量构建与测试**
+- [x] **Step 1: Go 全量构建与测试**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma && go build ./... && go test ./...`
 Expected: 全部 PASS
 
-- [ ] **Step 2: 前端构建与测试**
+- [x] **Step 2: 前端构建与测试**
 
 Run: `cd /Users/mr9esx/Documents/Pixoma/web/admin && npx tsc -b && npx vitest run`
 Expected: 全部 PASS
 
-- [ ] **Step 3: Mock 模式端到端冒烟**
+- [x] **Step 3: Mock 模式端到端冒烟**
 
 ```bash
 cd /Users/mr9esx/Documents/Pixoma && COMFY_MOCK=true METRICS_INTERVAL=5s make dev
@@ -1558,7 +1558,7 @@ cd /Users/mr9esx/Documents/Pixoma && COMFY_MOCK=true METRICS_INTERVAL=5s make de
 
 打开节点详情页确认「系统监控」节出现 CPU/内存/GPU/I/O 图表且 15s 轮询推进；确认页面不再出现「连接被拒绝」。
 
-- [ ] **Step 4: 勾选 tasks.md 全部任务并提交**
+- [x] **Step 4: 勾选 tasks.md 全部任务并提交**
 
 ```bash
 git add docs/openspec/changes/edge-system-monitoring/tasks.md
