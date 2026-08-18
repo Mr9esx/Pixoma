@@ -2,7 +2,7 @@
 
 - [x] 1.1 新增 `internal/channel` 领域：Channel 实体（id/platform/name/credential/enabled/时间戳）与 Repository 端口
 - [x] 1.2 GORM 实现 `channels` 表与 CRUD（含凭证加密/解密与 masked 回显）
-- [ ] 1.3 凭证密钥注入：AES-GCM 密钥经 env 注入（开发可退化并告警）；无 env / `platform_settings` token 迁移
+- [x] 1.3 凭证密钥注入：AES-GCM 密钥经 env 注入（开发可退化并告警）；无 env / `platform_settings` token 迁移
 - [x] 1.4 渠道应用服务：Create/List/Get/Update/Delete，校验平台合法、凭证非空、删除/停用语义
 
 ## 2. 菜单模型中立化（tgmenu → menu）
@@ -25,7 +25,7 @@
 
 - [x] 4.1 新增 `user_external_identities`：`channel + external_id` 唯一约束；`users` 新模型不含 `tg_user_id` 列
 - [x] 4.2 upsert 按（channel, external_id）执行并刷新资料字段与 `last_seen_at`
-- [ ] 4.3 用户查询/列表接口支持按渠道外部身份过滤（兼容旧 tg_user_id 查询）
+- [x] 4.3 用户查询/列表接口支持按渠道外部身份过滤（兼容旧 tg_user_id 查询）
 
 ## 5. 渠道端口契约与 TG 适配器重构
 
@@ -33,7 +33,7 @@
 - [x] 5.2 规范化事件与动作：文本/媒体/回调动作（OpenFolder/OpenCase/Back/StartCase/Confirm 等）
 - [x] 5.3 `channel/tg` 实现端口：回调前缀协议解析 → 规范化动作（64 字节编码留在 tg 内部）
 - [x] 5.4 TG 渲染下沉：ReplyKeyboard 优先读 extras 网格布局（缺省按 order 两列）、Inline、媒体上传与安全文件名、reply_media 图片；不抹平 TG 特色能力
-- [ ] 5.5 适配器装配：从 Channel 凭证启动 bot（启用/禁用生命周期）
+- [x] 5.5 适配器装配：从 Channel 凭证启动 bot（启用/禁用生命周期）
 
 ## 6. 运行时装配与通知投递
 
