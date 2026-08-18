@@ -29,11 +29,14 @@ type row struct {
 	BlobSecretCipher    string `gorm:"column:blob_secret_cipher;type:text"`
 	ComfyMock           bool   `gorm:"column:comfy_mock;not null"`
 	ComfyUIBaseURL      string `gorm:"column:comfyui_base_url;type:text"`
-	DefaultInstanceID   string `gorm:"column:default_instance_id;size:128"`
+	DefaultEdgeID       string `gorm:"column:default_edge_id;size:128"`
 	AutoSpawnEdge       bool   `gorm:"column:auto_spawn_edge;not null"`
 	ClaimWaitMS         int    `gorm:"column:claim_wait_ms"`
 	LeaseSeconds        int    `gorm:"column:lease_seconds"`
 	TelegramTokenCipher string `gorm:"column:telegram_token_cipher;type:text"`
+	ProxyKind           string `gorm:"column:proxy_kind;size:16"`
+	ProxyHost           string `gorm:"column:proxy_host;type:text"`
+	ProxyPort           int    `gorm:"column:proxy_port"`
 }
 
 func (row) TableName() string { return "platform_settings" }
@@ -59,15 +62,15 @@ func (s *Store) Save(in Settings) error {
 	}
 	var existing row
 	hasExisting := s.db.First(&existing, "id = ?", rowID).Error == nil
-	tg, err := encryptString(s.key, in.TelegramBotToken)
+	tg, err := EncryptString(s.key, in.TelegramBotToken)
 	if err != nil {
 		return err
 	}
-	ak, err := encryptString(s.key, in.BlobAccessKey)
+	ak, err := EncryptString(s.key, in.BlobAccessKey)
 	if err != nil {
 		return err
 	}
-	sk, err := encryptString(s.key, in.BlobSecretKey)
+	sk, err := EncryptString(s.key, in.BlobSecretKey)
 	if err != nil {
 		return err
 	}
@@ -96,11 +99,14 @@ func (s *Store) Save(in Settings) error {
 		BlobSecretCipher:    sk,
 		ComfyMock:           in.ComfyMock,
 		ComfyUIBaseURL:      in.ComfyUIBaseURL,
-		DefaultInstanceID:   in.DefaultInstanceID,
+		DefaultEdgeID:       in.DefaultEdgeID,
 		AutoSpawnEdge:       in.AutoSpawnEdge,
 		ClaimWaitMS:         in.ClaimWaitMS,
 		LeaseSeconds:        in.LeaseSeconds,
 		TelegramTokenCipher: tg,
+		ProxyKind:           in.ProxyKind,
+		ProxyHost:           in.ProxyHost,
+		ProxyPort:           in.ProxyPort,
 	}
 	return s.db.Save(&r).Error
 }
@@ -114,35 +120,38 @@ func (s *Store) Load() (Settings, error) {
 	if err != nil {
 		return Settings{}, err
 	}
-	tg, err := decryptString(s.key, r.TelegramTokenCipher)
+	tg, err := DecryptString(s.key, r.TelegramTokenCipher)
 	if err != nil {
 		return Settings{}, err
 	}
-	ak, err := decryptString(s.key, r.BlobAccessCipher)
+	ak, err := DecryptString(s.key, r.BlobAccessCipher)
 	if err != nil {
 		return Settings{}, err
 	}
-	sk, err := decryptString(s.key, r.BlobSecretCipher)
+	sk, err := DecryptString(s.key, r.BlobSecretCipher)
 	if err != nil {
 		return Settings{}, err
 	}
 	return Settings{
-		Placement:         r.Placement,
-		DBDriver:          r.DBDriver,
-		DBDSN:             r.DBDSN,
-		BlobDriver:        r.BlobDriver,
-		BlobRoot:          r.BlobRoot,
-		BlobEndpoint:      r.BlobEndpoint,
-		BlobRegion:        r.BlobRegion,
-		BlobBucket:        r.BlobBucket,
-		BlobAccessKey:     ak,
-		BlobSecretKey:     sk,
-		ComfyMock:         r.ComfyMock,
-		ComfyUIBaseURL:    r.ComfyUIBaseURL,
-		DefaultInstanceID: r.DefaultInstanceID,
-		AutoSpawnEdge:     r.AutoSpawnEdge,
-		ClaimWaitMS:       r.ClaimWaitMS,
-		LeaseSeconds:      r.LeaseSeconds,
-		TelegramBotToken:  tg,
+		Placement:        r.Placement,
+		DBDriver:         r.DBDriver,
+		DBDSN:            r.DBDSN,
+		BlobDriver:       r.BlobDriver,
+		BlobRoot:         r.BlobRoot,
+		BlobEndpoint:     r.BlobEndpoint,
+		BlobRegion:       r.BlobRegion,
+		BlobBucket:       r.BlobBucket,
+		BlobAccessKey:    ak,
+		BlobSecretKey:    sk,
+		ComfyMock:        r.ComfyMock,
+		ComfyUIBaseURL:   r.ComfyUIBaseURL,
+		DefaultEdgeID:    r.DefaultEdgeID,
+		AutoSpawnEdge:    r.AutoSpawnEdge,
+		ClaimWaitMS:      r.ClaimWaitMS,
+		LeaseSeconds:     r.LeaseSeconds,
+		TelegramBotToken: tg,
+		ProxyKind:        r.ProxyKind,
+		ProxyHost:        r.ProxyHost,
+		ProxyPort:        r.ProxyPort,
 	}, nil
 }
