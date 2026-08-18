@@ -5,7 +5,8 @@ import {
   ListTodo,
   Users,
   MessagesSquare,
-  Keyboard,
+  Radio,
+  Settings,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -18,10 +19,11 @@ export type MenuItem = {
 
 export const MENU_ITEMS: readonly MenuItem[] = [
   { id: 'dashboard', titleKey: 'menu.dashboard', path: '/', icon: LayoutDashboard },
-  { id: 'instances', titleKey: 'menu.instances', path: '/instances', icon: Server },
+  { id: 'edges', titleKey: 'menu.edges', path: '/edges', icon: Server },
   { id: 'cases', titleKey: 'menu.cases', path: '/cases', icon: Boxes },
-  { id: 'tg-menu', titleKey: 'menu.tgMenu', path: '/tg-menu', icon: Keyboard },
+  { id: 'channels', titleKey: 'menu.channels', path: '/channels', icon: Radio },
   { id: 'tasks', titleKey: 'menu.tasks', path: '/tasks', icon: ListTodo },
   { id: 'users', titleKey: 'menu.users', path: '/users', icon: Users },
   { id: 'sessions', titleKey: 'menu.sessions', path: '/sessions', icon: MessagesSquare },
+  { id: 'settings', titleKey: 'menu.settings', path: '/settings', icon: Settings },
 ] as const

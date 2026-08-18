@@ -22,11 +22,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { listCases } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import {
-  getTgMenu,
-  putTgMenu,
+  getChannelMenu,
+  putChannelMenu,
   type MenuKind,
   type MenuNode,
-} from '@/lib/api/tg-menu'
+} from '@/lib/api/channel-menu'
 import { cn } from '@/lib/utils'
 
 type FlatNode = { node: MenuNode; depth: number }
@@ -52,8 +52,7 @@ function emptyNode(kind: MenuKind = 'placeholder'): MenuNode {
   return {
     id: `btn-${Date.now()}`,
     label: '',
-    row: 0,
-    col: 0,
+    order: 0,
     enabled: true,
     kind,
     ...(kind === 'folder' ? { children: [], case_ids: [] } : {}),
@@ -119,8 +118,7 @@ function setNodeKind(nodes: MenuNode[], id: string, kind: MenuKind): MenuNode[] 
     const next: MenuNode = {
       id: node.id,
       label: node.label,
-      row: node.row,
-      col: node.col,
+      order: node.order,
       enabled: node.enabled,
       kind,
     }
@@ -132,8 +130,6 @@ function setNodeKind(nodes: MenuNode[], id: string, kind: MenuKind): MenuNode[] 
       next.case_ids = node.case_ids?.length ? [node.case_ids[0]] : []
     } else if (kind === 'reply_media') {
       next.reply = { text: '', images: [] }
-    } else if (kind === 'list_cases_by_tag') {
-      next.tag = node.tag ?? ''
     } else if (kind === 'placeholder') {
       next.placeholder_text = node.placeholder_text ?? ''
     }
@@ -173,8 +169,7 @@ function normalizeNode(node: MenuNode): MenuNode {
   const next: MenuNode = {
     id: node.id,
     label: node.label,
-    row: Number(node.row) || 0,
-    col: Number(node.col) || 0,
+    order: Number(node.order) || 0,
     enabled: Boolean(node.enabled),
     kind: node.kind,
   }
@@ -195,9 +190,6 @@ function normalizeNode(node: MenuNode): MenuNode {
       if (caseId) next.case_ids = [caseId]
       break
     }
-    case 'list_cases_by_tag':
-      next.tag = node.tag?.trim() || undefined
-      break
     case 'placeholder':
       next.placeholder_text = node.placeholder_text?.trim() || undefined
       break
@@ -247,8 +239,6 @@ function kindLabelKey(kind: MenuKind): string {
       return 'tgMenu.kindFolder'
     case 'open_case':
       return 'tgMenu.kindOpenCase'
-    case 'list_cases_by_tag':
-      return 'tgMenu.kindListByTag'
     case 'placeholder':
       return 'tgMenu.kindPlaceholder'
     case 'reply_media':
@@ -256,7 +246,7 @@ function kindLabelKey(kind: MenuKind): string {
   }
 }
 
-export function TgMenuEditor() {
+export function TgMenuEditor({ channelId }: { channelId: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [items, setItems] = useState<MenuNode[]>([])
@@ -265,8 +255,8 @@ export function TgMenuEditor() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
 
   const menuQuery = useQuery({
-    queryKey: queryKeys.tgMenu.all,
-    queryFn: getTgMenu,
+    queryKey: queryKeys.channels.menu(channelId),
+    queryFn: () => getChannelMenu(channelId),
   })
 
   const casesQuery = useQuery({
@@ -307,11 +297,11 @@ export function TgMenuEditor() {
   }, [selectedId, items])
 
   const saveMutation = useMutation({
-    mutationFn: () => putTgMenu(items.map(normalizeNode)),
+    mutationFn: () => putChannelMenu(channelId, items.map(normalizeNode)),
     onSuccess: (doc) => {
       setItems(structuredClone(doc.items))
       setUpdatedAt(doc.updated_at)
-      void queryClient.invalidateQueries({ queryKey: queryKeys.tgMenu.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.channels.menu(channelId) })
       toast.success(t('common.successSaved'))
     },
   })
@@ -472,7 +462,7 @@ export function TgMenuEditor() {
                           </div>
                           <p className='mt-1 truncate text-xs text-muted-foreground'>
                             {t(kindLabelKey(node.kind))}
-                            {depth === 0 ? ` · r${node.row}/c${node.col}` : ''}
+                            {depth === 0 ? ` · #${node.order}` : ''}
                           </p>
                         </button>
                       </div>
@@ -600,21 +590,12 @@ function NodeEditor({
         {isRoot ? (
           <>
             <div className='space-y-1.5'>
-              <Label htmlFor={`tg-menu-row-${node.id}`}>{t('tgMenu.fieldRow')}</Label>
+              <Label htmlFor={`tg-menu-order-${node.id}`}>{t('tgMenu.fieldOrder')}</Label>
               <Input
-                id={`tg-menu-row-${node.id}`}
+                id={`tg-menu-order-${node.id}`}
                 type='number'
-                value={node.row}
-                onChange={(e) => onUpdate(node.id, { row: Number(e.target.value) })}
-              />
-            </div>
-            <div className='space-y-1.5'>
-              <Label htmlFor={`tg-menu-col-${node.id}`}>{t('tgMenu.fieldCol')}</Label>
-              <Input
-                id={`tg-menu-col-${node.id}`}
-                type='number'
-                value={node.col}
-                onChange={(e) => onUpdate(node.id, { col: Number(e.target.value) })}
+                value={node.order}
+                onChange={(e) => onUpdate(node.id, { order: Number(e.target.value) })}
               />
             </div>
           </>
@@ -647,9 +628,6 @@ function NodeEditor({
               <SelectContent>
                 <SelectItem value='folder'>{t('tgMenu.kindFolder')}</SelectItem>
                 <SelectItem value='open_case'>{t('tgMenu.kindOpenCase')}</SelectItem>
-                <SelectItem value='list_cases_by_tag'>
-                  {t('tgMenu.kindListByTag')}
-                </SelectItem>
                 <SelectItem value='placeholder'>
                   {t('tgMenu.kindPlaceholder')}
                 </SelectItem>
@@ -725,18 +703,6 @@ function NodeEditor({
               ))}
             </ul>
           )}
-        </div>
-      ) : null}
-
-      {node.kind === 'list_cases_by_tag' ? (
-        <div className='max-w-md space-y-1.5'>
-          <Label htmlFor={`tg-menu-tag-${node.id}`}>{t('tgMenu.fieldTag')}</Label>
-          <Input
-            id={`tg-menu-tag-${node.id}`}
-            value={node.tag ?? ''}
-            onChange={(e) => onUpdate(node.id, { tag: e.target.value })}
-            autoComplete='off'
-          />
         </div>
       ) : null}
 

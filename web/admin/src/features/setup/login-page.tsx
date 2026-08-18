@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { ApiError } from '@/lib/api/client'
+import { loginAdmin } from '@/lib/api/setup'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { loginAdmin } from '@/lib/api/setup'
-import { ApiError } from '@/lib/api/client'
+import { AuthShell } from './auth-shell'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -33,15 +40,17 @@ export function LoginPage() {
   }
 
   return (
-    <div className='flex min-h-svh items-center justify-center p-6'>
+    <AuthShell>
       <Card className='w-full max-w-sm'>
         <CardHeader>
-          <CardTitle>登录 Pixoma</CardTitle>
-          <CardDescription>用启动日志里的管理员账号进入后台。</CardDescription>
+          <CardTitle>登录</CardTitle>
+          <CardDescription>
+            用启动日志里的管理员账号。用户名一般是 admin。
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className='space-y-4' onSubmit={onSubmit}>
-            <div className='space-y-2'>
+          <form className='flex flex-col gap-4' onSubmit={onSubmit}>
+            <div className='flex flex-col gap-2'>
               <Label htmlFor='username'>用户名</Label>
               <Input
                 id='username'
@@ -50,7 +59,7 @@ export function LoginPage() {
                 autoComplete='username'
               />
             </div>
-            <div className='space-y-2'>
+            <div className='flex flex-col gap-2'>
               <Label htmlFor='password'>密码</Label>
               <Input
                 id='password'
@@ -67,6 +76,6 @@ export function LoginPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   )
 }

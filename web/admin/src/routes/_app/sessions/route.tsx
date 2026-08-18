@@ -43,7 +43,8 @@ function SessionsLayout() {
 
   return (
     <div
-      className='flex min-h-0 flex-1 flex-col gap-3'
+      data-layout='fixed'
+      className='flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'
       data-testid='sessions-page'
     >
       <div className='shrink-0'>

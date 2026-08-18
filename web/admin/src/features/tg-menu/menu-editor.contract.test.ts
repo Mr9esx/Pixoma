@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const API = join(here, '../../lib/api/tg-menu.ts')
+const API = join(here, '../../lib/api/channel-menu.ts')
 const EDITOR = join(here, 'menu-editor.tsx')
 const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
@@ -21,7 +21,8 @@ describe('tg menu tree editor', () => {
     expect(source).toContain('case_ids?: string[]')
     expect(source).toContain('children?: MenuNode[]')
     expect(source).toContain('intro_text?: string')
-    expect(source).toContain('export type TgMenuTree')
+    expect(source).toContain('export type ChannelMenuTree')
+    expect(source).toContain('order')
     expect(source).not.toContain('MenuAction')
     expect(source).not.toContain('action:')
   })

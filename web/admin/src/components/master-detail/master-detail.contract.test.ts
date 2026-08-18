@@ -12,7 +12,7 @@ const SHELL = join(here, 'master-detail-shell.tsx')
 const EMPTY = join(srcRoot, 'components/feedback/empty-state.tsx')
 const ERROR = join(srcRoot, 'components/feedback/error-banner.tsx')
 const LOADING = join(srcRoot, 'components/feedback/loading-skeleton.tsx')
-const INSTANCES_ROUTE = join(srcRoot, 'routes/_app/instances/route.tsx')
+const EDGES_ROUTE = join(srcRoot, 'routes/_app/edges/route.tsx')
 
 const FEEDBACK_I18N_KEYS = [
   'common.selectItem',
@@ -48,6 +48,7 @@ describe('Master–Detail shell + feedback primitives', () => {
     expect(source).not.toContain('100vh-5rem')
     expect(source).toContain("t('common.selectItem')")
     expect(source).toMatch(/t\('common\.backToList'/)
+    expect(source).toContain('emptyDetail')
     expect(source).toContain('hasSelection')
     expect(source).toContain('onBackToList')
   })
@@ -71,8 +72,9 @@ describe('Master–Detail shell + feedback primitives', () => {
     expect(loading).toMatch(/t\('common\.loading'|animate-pulse/)
   })
 
-  it('instances layout route mounts MasterDetailShell', () => {
-    const source = readFileSync(INSTANCES_ROUTE, 'utf8')
+  it('edges layout route mounts MasterDetailShell', () => {
+    const source = readFileSync(EDGES_ROUTE, 'utf8')
     expect(source).toContain('MasterDetailShell')
+    expect(source).toContain('md:grid-cols-[280px_1fr]')
   })
 })

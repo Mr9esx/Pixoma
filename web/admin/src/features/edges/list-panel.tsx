@@ -1,14 +1,19 @@
+import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import type { ComfyEdge, EdgePresence } from '@/lib/api/types'
+import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { Button } from '@/components/ui/button'
-import type { ComfyInstance } from '@/lib/api/types'
-import { cn } from '@/lib/utils'
+import { kit } from './kit-classes'
+import { listHealthTone } from './list-health'
+import { formatBytes } from './observation'
 
 type Props = {
-  items: ComfyInstance[]
+  items: ComfyEdge[]
+  presenceById?: Record<string, EdgePresence>
   selectedId?: string
   isLoading?: boolean
   isError?: boolean
@@ -16,8 +21,9 @@ type Props = {
   onRetry?: () => void
 }
 
-export function InstanceListPanel({
+export function EdgeListPanel({
   items,
+  presenceById,
   selectedId,
   isLoading,
   isError,
@@ -25,16 +31,27 @@ export function InstanceListPanel({
   onRetry,
 }: Props) {
   const { t } = useTranslation()
+  const [q, setQ] = useState('')
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    if (!needle) return items
+    return items.filter((item) =>
+      (item.name || '').toLowerCase().includes(needle)
+    )
+  }, [items, q])
 
   return (
-    <div className='flex h-full min-h-0 flex-col' data-testid='instances-list-panel'>
-      <div className='flex items-center justify-between gap-2 border-b px-4 py-3'>
-        <h2 className='text-sm font-semibold'>{t('instances.title')}</h2>
-        <Button asChild size='sm'>
-          <Link to='/instances/$instanceId' params={{ instanceId: 'new' }}>
-            {t('common.create')}
-          </Link>
-        </Button>
+    <div
+      className='flex h-full min-h-0 flex-col'
+      data-testid='edges-list-panel'
+    >
+      <div className='p-3'>
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t('edges.fieldName')}
+          autoComplete='off'
+        />
       </div>
 
       {isError ? (
@@ -49,42 +66,58 @@ export function InstanceListPanel({
         </div>
       ) : null}
 
-      {!isLoading && !isError && items.length === 0 ? (
-        <EmptyState message={t('instances.empty')} />
+      {!isLoading && !isError && filtered.length === 0 ? (
+        <EmptyState message={t('edges.empty')} />
       ) : null}
 
-      {!isLoading && !isError && items.length > 0 ? (
+      {!isLoading && !isError && filtered.length > 0 ? (
         <ul className='min-h-0 flex-1 divide-y overflow-auto'>
-          {items.map((item) => {
+          {filtered.map((item) => {
             const selected = selectedId === item.id
+            const presence = presenceById?.[item.id]
+            const tone = listHealthTone({
+              enabled: item.enabled,
+              edgeOnline: presence?.edge_online === true,
+              comfyRunning: presence?.comfy_running === true,
+            })
+            const cores = item.hardware?.cpu_cores
+            const vramBytes = (item.hardware?.gpus ?? []).reduce(
+              (sum, gpu) => sum + (gpu.vram_bytes ?? 0),
+              0
+            )
+            const specParts: string[] = []
+            if (cores && cores > 0) {
+              specParts.push(t('edges.coresValue', { count: cores }))
+            }
+            if (vramBytes > 0) {
+              specParts.push(formatBytes(vramBytes))
+            }
+            const specLine = specParts.join(' · ')
             return (
               <li key={item.id}>
                 <Link
-                  to='/instances/$instanceId'
-                  params={{ instanceId: item.id }}
+                  to='/edges/$edgeId'
+                  params={{ edgeId: item.id }}
                   className={cn(
                     'block w-full px-4 py-3 text-left text-sm hover:bg-accent',
-                    selected && 'bg-accent',
+                    selected && 'bg-accent'
                   )}
                 >
                   <div className='flex items-center justify-between gap-2'>
-                    <span className='font-medium'>{item.id}</span>
-                    <span
-                      className={cn(
-                        'shrink-0 text-xs',
-                        item.enabled
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-muted-foreground',
-                      )}
-                    >
-                      {item.enabled
-                        ? t('instances.enabled')
-                        : t('instances.disabled')}
+                    <span className='truncate font-medium'>
+                      {item.name || item.id}
                     </span>
+                    <span
+                      className={kit.healthDot[tone]}
+                      data-health={tone}
+                      aria-hidden
+                    />
                   </div>
-                  <div className='text-muted-foreground mt-0.5 truncate text-xs'>
-                    {item.base_url}
-                  </div>
+                  {specLine ? (
+                    <p className='mt-0.5 truncate text-xs text-muted-foreground'>
+                      {specLine}
+                    </p>
+                  ) : null}
                 </Link>
               </li>
             )

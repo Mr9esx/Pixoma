@@ -62,7 +62,10 @@ export function deleteEdge(id: string) {
   })
 }
 
-export function listEdgeTasks(id: string, params?: { limit?: number }) {
+export function listEdgeTasks(
+  id: string,
+  params?: { limit?: number; offset?: number }
+) {
   return apiFetch<TaskRecord[]>(
     `/api/v1/edges/${encodeURIComponent(id)}/tasks${toQuery(params)}`
   )
@@ -74,6 +77,6 @@ export function getEdgeStats(id: string) {
 
 export function getEdgeMetrics(id: string, window: '1h' | '6h' | '24h' = '1h') {
   return apiFetch<EdgeMetricsResponse>(
-    `/api/v1/edges/${encodeURIComponent(id)}/metrics?window=${window}`,
+    `/api/v1/edges/${encodeURIComponent(id)}/metrics?window=${window}`
   )
 }

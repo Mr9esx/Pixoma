@@ -1,19 +1,19 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { RefreshCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ErrorBanner } from '@/components/feedback/error-banner'
+import { createEdge, deleteEdge, getEdge, patchEdge } from '@/lib/api/edges'
+import { queryKeys } from '@/lib/api/query-keys'
+import type { ComfyEdge, EdgeHardwareGPU } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
+import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import {
-  createInstance,
-  patchInstance,
-} from '@/lib/api/instances'
-import { queryKeys } from '@/lib/api/query-keys'
-import type { ComfyInstance } from '@/lib/api/types'
+import { Textarea } from '@/components/ui/textarea'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { ErrorBanner } from '@/components/feedback/error-banner'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -29,161 +29,347 @@ function parseCapabilities(raw: string): string[] {
 type CreateProps = {
   mode: 'create'
   initial?: undefined
+  onSaved: (edge: ComfyEdge) => void
+  onDeleted?: undefined
 }
 
 type EditProps = {
   mode: 'edit'
-  initial: ComfyInstance
+  initial: ComfyEdge
+  onSaved: (edge: ComfyEdge) => void
+  onDeleted: () => void
 }
 
 type Props = CreateProps | EditProps
 
-export function InstanceForm(props: Props) {
+export function EdgeForm(props: Props) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [id, setId] = useState(props.mode === 'edit' ? props.initial.id : '')
-  const [baseUrl, setBaseUrl] = useState(
-    props.mode === 'edit' ? props.initial.base_url : '',
+  const [name, setName] = useState(
+    props.mode === 'edit' ? props.initial.name : ''
+  )
+  const [description, setDescription] = useState(
+    props.mode === 'edit' ? (props.initial.description ?? '') : ''
   )
   const [enabled, setEnabled] = useState(
-    props.mode === 'edit' ? props.initial.enabled : true,
+    props.mode === 'edit' ? props.initial.enabled : true
   )
   const [capabilitiesRaw, setCapabilitiesRaw] = useState(
-    props.mode === 'edit' ? props.initial.capabilities.join(', ') : '',
+    props.mode === 'edit' ? props.initial.capabilities.join(', ') : ''
   )
+  const [cpuModel, setCpuModel] = useState(
+    props.mode === 'edit' ? (props.initial.hardware?.cpu_model ?? '') : ''
+  )
+  const [cpuCores, setCpuCores] = useState(
+    props.mode === 'edit' ? String(props.initial.hardware?.cpu_cores ?? '') : ''
+  )
+  const [ramBytes, setRamBytes] = useState(
+    props.mode === 'edit' ? String(props.initial.hardware?.ram_bytes ?? '') : ''
+  )
+  const [gpus, setGpus] = useState<EdgeHardwareGPU[]>(
+    props.mode === 'edit' ? (props.initial.hardware?.gpus ?? []) : []
+  )
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const createMutation = useMutation({
-    mutationFn: createInstance,
-    onSuccess: async (created) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.instances.all })
-      toast.success(t('instances.createSuccess'))
-      void navigate({
-        to: '/instances/$instanceId',
-        params: { instanceId: created.id },
-      })
+    mutationFn: createEdge,
+    onSuccess: async (next) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.edges.all })
+      toast.success(t('edges.createSuccess'))
+      props.onSaved(next)
     },
   })
 
   const updateMutation = useMutation({
-    mutationFn: (body: {
-      base_url?: string
-      enabled?: boolean
-      capabilities?: string[]
-    }) => {
+    mutationFn: (body: Parameters<typeof patchEdge>[1]) => {
       if (props.mode !== 'edit') {
         throw new Error('update requires edit mode')
       }
-      return patchInstance(props.initial.id, body)
+      return patchEdge(props.initial.id, body)
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.instances.all })
+    onSuccess: async (next) => {
+      if (props.mode !== 'edit') return
+      await queryClient.invalidateQueries({ queryKey: queryKeys.edges.all })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.edges.detail(props.initial.id),
+      })
       toast.success(t('common.successSaved'))
+      props.onSaved(next)
     },
   })
 
-  const pending = createMutation.isPending || updateMutation.isPending
-  const mutationError =
-    createMutation.error ?? updateMutation.error ?? undefined
+  const refreshMutation = useMutation({
+    mutationFn: () => {
+      if (props.mode !== 'edit') {
+        throw new Error('refresh requires edit mode')
+      }
+      return patchEdge(props.initial.id, { refresh_hardware: true })
+    },
+    onSuccess: async () => {
+      if (props.mode !== 'edit') return
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.edges.detail(props.initial.id),
+      })
+      toast.success(t('edges.refreshRequested'))
+      try {
+        const fresh = await getEdge(props.initial.id)
+        setCpuModel(fresh.hardware?.cpu_model ?? '')
+        setCpuCores(String(fresh.hardware?.cpu_cores ?? ''))
+        setRamBytes(String(fresh.hardware?.ram_bytes ?? ''))
+        setGpus(fresh.hardware?.gpus ?? [])
+      } catch {
+        // hardware will arrive on the next heartbeat; keep current form values
+      }
+    },
+  })
 
-  function onSubmit(e: React.FormEvent) {
+  const deleteMutation = useMutation({
+    mutationFn: () => {
+      if (props.mode !== 'edit') {
+        throw new Error('delete requires edit mode')
+      }
+      return deleteEdge(props.initial.id)
+    },
+    onSuccess: async () => {
+      setConfirmOpen(false)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.edges.all })
+      toast.success(t('edges.deleteSuccess'))
+      if (props.mode === 'edit') props.onDeleted()
+    },
+  })
+
+  const pending =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    refreshMutation.isPending ||
+    deleteMutation.isPending
+  const mutationError =
+    createMutation.error ??
+    updateMutation.error ??
+    refreshMutation.error ??
+    deleteMutation.error ??
+    undefined
+
+  function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (!name.trim()) return
     const capabilities = parseCapabilities(capabilitiesRaw)
     if (props.mode === 'create') {
-      const trimmedId = id.trim()
-      if (!trimmedId || !baseUrl.trim()) return
       createMutation.mutate({
-        id: trimmedId,
-        base_url: baseUrl.trim(),
+        name: name.trim(),
+        description: description.trim(),
         enabled,
         capabilities,
       })
       return
     }
+    const cores = Number.parseInt(cpuCores, 10)
+    const ram = Number.parseInt(ramBytes, 10)
     updateMutation.mutate({
-      base_url: baseUrl.trim(),
+      name: name.trim(),
+      description: description.trim(),
       enabled,
       capabilities,
+      hardware: {
+        cpu_model: cpuModel.trim() || undefined,
+        cpu_cores: Number.isFinite(cores) && cores > 0 ? cores : undefined,
+        ram_bytes: Number.isFinite(ram) && ram > 0 ? ram : undefined,
+        gpus: gpus.filter((g) => g.name.trim()),
+      },
     })
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className='space-y-4'
-      data-testid='instance-form'
-    >
-      <div className='space-y-2'>
-        <Label htmlFor='instance-id'>{t('instances.fieldId')}</Label>
-        <Input
-          id='instance-id'
-          value={id}
-          onChange={(e) => setId(e.target.value)}
-          disabled={props.mode === 'edit' || pending}
-          required={props.mode === 'create'}
-          autoComplete='off'
-        />
+    <>
+      <div className='min-h-0 flex-1 overflow-y-auto'>
+        <form
+          id='edge-form'
+          onSubmit={onSubmit}
+          className='flex flex-col gap-4'
+          data-testid='edge-form'
+        >
+          <div className='flex flex-col gap-2'>
+            <Label htmlFor='edge-name'>{t('edges.fieldName')}</Label>
+            <Input
+              id='edge-name'
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={pending}
+              required
+              autoComplete='off'
+            />
+          </div>
+
+          <div className='flex flex-col gap-2'>
+            <Label htmlFor='edge-description'>
+              {t('edges.fieldDescription')}
+            </Label>
+            <Textarea
+              id='edge-description'
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              disabled={pending}
+            />
+          </div>
+
+          <div className='flex items-center justify-between gap-3'>
+            <Label htmlFor='edge-enabled'>{t('edges.fieldEnabled')}</Label>
+            <Switch
+              id='edge-enabled'
+              checked={enabled}
+              onCheckedChange={setEnabled}
+              disabled={pending}
+            />
+          </div>
+
+          <div className='flex flex-col gap-2'>
+            <Label htmlFor='edge-capabilities'>
+              {t('edges.fieldCapabilities')}
+            </Label>
+            <Input
+              id='edge-capabilities'
+              value={capabilitiesRaw}
+              onChange={(e) => setCapabilitiesRaw(e.target.value)}
+              disabled={pending}
+              autoComplete='off'
+            />
+          </div>
+
+          {props.mode === 'edit' ? (
+            <>
+              <Button
+                type='button'
+                variant='outline'
+                disabled={refreshMutation.isPending}
+                onClick={() => refreshMutation.mutate()}
+              >
+                <RefreshCcw className='size-3.5' />
+                {t('edges.refreshHardware')}
+              </Button>
+              <div className='flex flex-col gap-2'>
+                <Label htmlFor='edge-cpu'>{t('edges.fieldCpu')}</Label>
+                <Input
+                  id='edge-cpu'
+                  value={cpuModel}
+                  onChange={(e) => setCpuModel(e.target.value)}
+                  disabled={pending}
+                  autoComplete='off'
+                />
+              </div>
+              <div className='flex flex-col gap-2'>
+                <Label htmlFor='edge-cpu-cores'>
+                  {t('edges.fieldCpuCores')}
+                </Label>
+                <Input
+                  id='edge-cpu-cores'
+                  value={cpuCores}
+                  onChange={(e) => setCpuCores(e.target.value)}
+                  disabled={pending}
+                  autoComplete='off'
+                />
+              </div>
+              <div className='flex flex-col gap-2'>
+                <Label htmlFor='edge-ram-bytes'>
+                  {t('edges.fieldRamBytes')}
+                </Label>
+                <Input
+                  id='edge-ram-bytes'
+                  value={ramBytes}
+                  onChange={(e) => setRamBytes(e.target.value)}
+                  disabled={pending}
+                  autoComplete='off'
+                />
+              </div>
+              <div className='flex flex-col gap-2'>
+                <Label>{t('edges.fieldGpu')}</Label>
+                {gpus.map((gpu, index) => (
+                  <div key={index} className='flex gap-2'>
+                    <Input
+                      value={gpu.name}
+                      onChange={(e) => {
+                        const next = [...gpus]
+                        next[index] = { ...gpu, name: e.target.value }
+                        setGpus(next)
+                      }}
+                      disabled={pending}
+                      autoComplete='off'
+                    />
+                    <Input
+                      value={gpu.vram_bytes ? String(gpu.vram_bytes) : ''}
+                      onChange={(e) => {
+                        const next = [...gpus]
+                        const n = Number.parseInt(e.target.value, 10)
+                        next[index] = {
+                          ...gpu,
+                          vram_bytes: Number.isFinite(n) ? n : undefined,
+                        }
+                        setGpus(next)
+                      }}
+                      disabled={pending}
+                      autoComplete='off'
+                    />
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      onClick={() =>
+                        setGpus(gpus.filter((_, i) => i !== index))
+                      }
+                    >
+                      {t('common.delete')}
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setGpus([...gpus, { name: '' }])}
+                >
+                  {t('edges.addGpu')}
+                </Button>
+              </div>
+            </>
+          ) : null}
+
+          {mutationError ? (
+            <ErrorBanner message={errorMessage(mutationError)} />
+          ) : null}
+        </form>
       </div>
 
-      <div className='space-y-2'>
-        <Label htmlFor='instance-base-url'>{t('instances.fieldBaseUrl')}</Label>
-        <Input
-          id='instance-base-url'
-          value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
-          disabled={pending}
-          required
-          autoComplete='off'
-        />
-      </div>
-
-      <div className='flex items-center justify-between gap-3'>
-        <Label htmlFor='instance-enabled'>{t('instances.fieldEnabled')}</Label>
-        <Switch
-          id='instance-enabled'
-          checked={enabled}
-          onCheckedChange={setEnabled}
-          disabled={pending}
-        />
-      </div>
-
-      <div className='space-y-2'>
-        <Label htmlFor='instance-capabilities'>
-          {t('instances.fieldCapabilities')}
-        </Label>
-        <Input
-          id='instance-capabilities'
-          value={capabilitiesRaw}
-          onChange={(e) => setCapabilitiesRaw(e.target.value)}
-          disabled={pending}
-          placeholder={t('instances.capabilitiesPlaceholder')}
-          autoComplete='off'
-        />
-        <p className='text-muted-foreground text-xs'>
-          {t('instances.capabilitiesHint')}
-        </p>
-      </div>
-
-      {mutationError ? (
-        <ErrorBanner message={errorMessage(mutationError)} />
-      ) : null}
-
-      <div className='flex flex-wrap gap-2'>
-        <Button type='submit' disabled={pending}>
-          {props.mode === 'create' ? t('common.create') : t('common.save')}
-        </Button>
-        {props.mode === 'create' ? (
+      <DialogFooter className='shrink-0'>
+        {props.mode === 'edit' ? (
           <Button
             type='button'
-            variant='outline'
+            variant='destructive'
             disabled={pending}
-            onClick={() => void navigate({ to: '/instances' })}
+            onClick={() => setConfirmOpen(true)}
           >
-            {t('common.cancel')}
+            {t('common.delete')}
           </Button>
         ) : null}
-      </div>
-    </form>
+        <Button type='submit' form='edge-form' disabled={pending}>
+          {props.mode === 'create'
+            ? t('edges.createAndContinue')
+            : t('common.save')}
+        </Button>
+      </DialogFooter>
+
+      {props.mode === 'edit' ? (
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title={t('edges.deleteConfirmTitle')}
+          desc={t('edges.deleteConfirmDesc', { id: props.initial.id })}
+          confirmText={t('common.delete')}
+          cancelBtnText={t('common.cancel')}
+          destructive
+          isLoading={deleteMutation.isPending}
+          handleConfirm={() => deleteMutation.mutate()}
+        />
+      ) : null}
+    </>
   )
 }

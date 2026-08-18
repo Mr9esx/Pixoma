@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { getCaseMenuPlacements } from './tg-menu'
+import { getCaseMenuPlacements } from './channel-menu'
 
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('tg-menu API', () => {
+describe('channel-menu API', () => {
   it('getCaseMenuPlacements GETs /api/v1/cases/{id}/menu-placements', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify([
           {
-            menu_id: 'default',
+            channel_id: 'tg-default',
             item_id: 'btn-image',
             path: [{ id: 'folder-1', label: '图片' }],
           },

@@ -5,6 +5,7 @@ import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/app-sidebar'
+import { contentRegionClassName } from '@/components/layout/content-region'
 import { SkipToMain } from '@/components/skip-to-main'
 import { fetchSetupStatus } from '@/lib/api/setup'
 import { nextAdminPath } from '@/lib/setup-guard'
@@ -37,7 +38,7 @@ function AppLayout() {
               'md:peer-data-[variant=inset]:h-[calc(100svh-(var(--spacing)*4))]'
             )}
           >
-            <div className='flex min-h-0 flex-1 flex-col overflow-hidden p-4'>
+            <div className={cn(contentRegionClassName, 'p-4')}>
               <Outlet />
             </div>
           </SidebarInset>

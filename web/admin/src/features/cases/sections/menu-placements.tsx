@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { getCaseMenuPlacements } from '@/lib/api/tg-menu'
+import { getCaseMenuPlacements } from '@/lib/api/channel-menu'
 import { queryKeys } from '@/lib/api/query-keys'
 
 function errorMessage(err: unknown): string | undefined {
@@ -50,7 +50,7 @@ export function MenuPlacementsSection({ caseId }: Props) {
           <ul className='space-y-2'>
             {placementsQuery.data.map((placement) => (
               <li
-                key={`${placement.menu_id}:${placement.item_id}`}
+                key={`${placement.channel_id}:${placement.item_id}`}
                 className='text-sm'
               >
                 {formatPlacementPath(placement.path)}

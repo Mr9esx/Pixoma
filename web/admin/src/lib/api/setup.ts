@@ -22,9 +22,12 @@ export type SetupDraft = {
   blob_secret_key?: string
   comfy_mock: boolean
   comfyui_base_url: string
-  default_instance_id: string
+  default_edge_id: string
   auto_spawn_edge: boolean
   telegram_bot_token?: string
+  proxy_kind?: string
+  proxy_host?: string
+  proxy_port?: number
 }
 
 export function fetchSetupStatus() {
@@ -54,12 +57,17 @@ export async function logoutAdmin() {
   }
 }
 
-export function changeAdminPassword(oldPassword: string, newPassword: string) {
+export function changeAdminPassword(input: {
+  newPassword: string
+  oldPassword?: string
+}) {
   return apiFetch<{ ok: boolean }>('/api/v1/setup/password', {
     method: 'POST',
     body: JSON.stringify({
-      old_password: oldPassword,
-      new_password: newPassword,
+      new_password: input.newPassword,
+      ...(input.oldPassword !== undefined
+        ? { old_password: input.oldPassword }
+        : {}),
     }),
   })
 }
@@ -83,6 +91,50 @@ export function finalizeSetup() {
     ok: boolean
     initialized: boolean
     restart_required: boolean
+    restarting?: boolean
     message: string
   }>('/api/v1/setup/finalize', { method: 'POST' })
+}
+
+export function fetchPlatformSettings() {
+  return apiFetch<{ configured: boolean; settings?: SetupDraft }>(
+    '/api/v1/setup/settings',
+  )
+}
+
+export function savePlatformSettings(draft: SetupDraft) {
+  return apiFetch<{
+    ok: boolean
+    restart_required?: boolean
+    restarting?: boolean
+    message?: string
+  }>('/api/v1/setup/settings', {
+    method: 'PUT',
+    body: JSON.stringify(draft),
+  })
+}
+
+export function isSetupReady(status: SetupStatus): boolean {
+  return Boolean(status.initialized && !status.restart_required)
+}
+
+export async function waitForSetupReady(opts?: {
+  timeoutMs?: number
+  intervalMs?: number
+}): Promise<SetupStatus> {
+  const timeoutMs = opts?.timeoutMs ?? 60_000
+  const intervalMs = opts?.intervalMs ?? 400
+  const started = Date.now()
+  for (;;) {
+    try {
+      const status = await fetchSetupStatus()
+      if (isSetupReady(status)) return status
+    } catch {
+      // pixoma is down while it reloads
+    }
+    if (Date.now() - started > timeoutMs) {
+      throw new Error('等待重启超时，看看跑 pixoma 的窗口有没有报错')
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
 }

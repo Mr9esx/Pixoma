@@ -7,7 +7,8 @@
     "tasks": "任务",
     "users": "用户",
     "sessions": "会话",
-    "settings": "设置"
+    "settings": "设置",
+    "channels": "渠道"
   },
   "common": {
     "loading": "加载中…",
@@ -56,8 +57,7 @@
     "enabled": "启用",
     "disabled": "未启用",
     "edit": "编辑",
-    "createHeading": "新建",
-    "createNode": "新建节点",
+    "createNode": "添加节点",
     "editHeading": "编辑",
     "fieldName": "名称",
     "fieldDescription": "描述",
@@ -87,6 +87,18 @@
     "regenerateConfirmDesc": "旧 token 立刻作废。",
     "deployCommand": "部署",
     "deployComfyHint": "部署前先确认本机 ComfyUI 已启动：浏览器打开 http://127.0.0.1:8188 能看到界面即正常；端口不同时请修改上方命令里的 COMFYUI_BASE_URL。",
+    "deployHeading": "部署节点",
+    "deploySkip": "跳过",
+    "deployContinue": "继续",
+    "deployWaitHint": "在目标机器运行部署命令后，等待节点上线、Comfy 启动即可继续。",
+    "createDoneHeading": "添加完成",
+    "createDoneDesc": "节点已添加",
+    "createDoneView": "查看节点",
+    "createDoneClose": "完成",
+    "createAndContinue": "创建并继续",
+    "stepInfo": "填写节点信息",
+    "stepDeploy": "部署节点",
+    "stepDone": "添加完成",
     "createSuccess": "已创建",
     "deleteSuccess": "已删除",
     "deleteConfirmTitle": "删除？",
@@ -291,7 +303,8 @@
     "addChild": "加一个分类",
     "noChildren": "还没有分类，点上面「加一个分类」。",
     "updatedAt": "更新时间",
-    "save": "保存"
+    "save": "保存",
+    "fieldOrder": "顺序"
   },
   "settings": {
     "title": "设置",
@@ -333,5 +346,35 @@
     "databaseTitle": "业务库",
     "fieldDbDriver": "类型",
     "fieldDbDsn": "连接"
+  },
+  "channels": {
+    "title": "渠道",
+    "description": "接入消息平台的配置实例：选平台、填凭证、启停。",
+    "new": "新建渠道",
+    "newDescription": "选择平台并填写 Bot Token，创建后数秒内生效。",
+    "empty": "还没有渠道，点击「新建渠道」开始。",
+    "platform": "平台",
+    "name": "名称",
+    "token": "Bot Token",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "enable": "启用",
+    "disable": "停用",
+    "delete": "删除",
+    "deleted": "渠道已删除",
+    "created": "渠道已创建",
+    "open": "进入",
+    "tabBasic": "基本信息",
+    "tabMenu": "菜单配置",
+    "tabExtras": "平台扩展",
+    "tokenHint": "留空表示不修改；Token 只加密存储，页面仅显示掩码。"
+  },
+  "extras": {
+    "description": "平台差异数据（如 TG 根层网格布局）。每条 extras 按 渠道+菜单项+类型 保存。",
+    "empty": "暂无 extras，点「添加」配置一条。",
+    "item": "菜单项",
+    "itemPrompt": "菜单项 ID：",
+    "typePrompt": "extra 类型（默认 tg_root_layout）：",
+    "add": "添加"
   }
 }
