@@ -27,19 +27,24 @@ func openTestDB(t *testing.T) *gorm.DB {
 	return gdb
 }
 
-func seedSession(t *testing.T, gdb *gorm.DB, id string, chatID int64) {
+func seedSession(t *testing.T, gdb *gorm.DB, id string, chatID sharedkernel.ChatID) {
 	t.Helper()
 	now := time.Now().UTC()
+	addr, err := sharedkernel.ParseChatID(string(chatID))
+	if err != nil {
+		t.Fatalf("chat id: %v", err)
+	}
 	row := convpersist.SessionRow{
-		ID:            id,
-		UserID:        "user-1",
-		ChatID:        chatID,
-		CaseID:        "c1",
-		Status:        "submitted",
-		InputKeysJSON: "[]",
-		DraftJSON:     "{}",
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:             id,
+		UserID:         "user-1",
+		ChannelID:      addr.ChannelID,
+		ChatExternalID: addr.ExternalChatID,
+		CaseID:         "c1",
+		Status:         "submitted",
+		InputKeysJSON:  "[]",
+		DraftJSON:      "{}",
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 	if err := gdb.Create(&row).Error; err != nil {
 		t.Fatalf("seed session: %v", err)
@@ -48,7 +53,7 @@ func seedSession(t *testing.T, gdb *gorm.DB, id string, chatID int64) {
 
 func TestGormTask_SessionIDAndListByInstance(t *testing.T) {
 	gdb := openTestDB(t)
-	seedSession(t, gdb, "s1", 9)
+	seedSession(t, gdb, "s1", sharedkernel.ChatID("tg:9"))
 
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
@@ -85,7 +90,7 @@ func TestGormTask_SessionIDAndListByInstance(t *testing.T) {
 
 func TestGormTask_ClaimQueuedCAS(t *testing.T) {
 	gdb := openTestDB(t)
-	seedSession(t, gdb, "s-claim", 7)
+	seedSession(t, gdb, "s-claim", sharedkernel.ChatID("tg:7"))
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
 	now := time.Now().UTC()
@@ -109,15 +114,15 @@ func TestGormTask_ClaimQueuedCAS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != sharedkernel.TaskQueued || got.InstanceID != "gpu-1" {
+	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "gpu-1" {
 		t.Fatalf("got %+v", got)
 	}
 }
 
 func TestGormTask_ListByChatJoinsSession(t *testing.T) {
 	gdb := openTestDB(t)
-	seedSession(t, gdb, "s-chat", 42)
-	seedSession(t, gdb, "s-other", 99)
+	seedSession(t, gdb, "s-chat", sharedkernel.ChatID("tg:42"))
+	seedSession(t, gdb, "s-other", sharedkernel.ChatID("tg:99"))
 
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
@@ -128,7 +133,7 @@ func TestGormTask_ListByChatJoinsSession(t *testing.T) {
 	_ = tasks.Create(ctx, a)
 	_ = tasks.Create(ctx, b)
 
-	list, err := tasks.ListByChat(ctx, sharedkernel.ChatID(42), 10)
+	list, err := tasks.ListByChat(ctx, sharedkernel.ChatID("tg:42"), 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,8 +154,8 @@ func TestTaskAdminListFilters(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	seedSession(t, gdb, "s-admin-42", 42)
-	seedSession(t, gdb, "s-admin-99", 99)
+	seedSession(t, gdb, "s-admin-42", sharedkernel.ChatID("tg:42"))
+	seedSession(t, gdb, "s-admin-99", sharedkernel.ChatID("tg:99"))
 
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
@@ -176,7 +181,7 @@ func TestTaskAdminListFilters(t *testing.T) {
 		t.Fatalf("SessionID filter got %d want 2: %+v", len(bySession), idsOf(bySession))
 	}
 
-	byChat, err := tasks.List(ctx, domain.AdminListQuery{ChatID: 42})
+	byChat, err := tasks.List(ctx, domain.AdminListQuery{ChatID: "tg:42"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +224,7 @@ func idsOf(list []*domain.Task) []string {
 
 func TestGormTask_JobRefAndLeaseRoundTrip(t *testing.T) {
 	gdb := openTestDB(t)
-	seedSession(t, gdb, "s-lease", 3)
+	seedSession(t, gdb, "s-lease", sharedkernel.ChatID("tg:3"))
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
 	now := time.Unix(200, 0).UTC()
@@ -240,14 +245,14 @@ func TestGormTask_JobRefAndLeaseRoundTrip(t *testing.T) {
 	if got.JobRef.Key != ref.Key || got.JobRef.MIME != ref.MIME {
 		t.Fatalf("job_ref=%+v", got.JobRef)
 	}
-	if got.Status != sharedkernel.TaskQueued || got.InstanceID != "gpu-1" {
+	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "gpu-1" {
 		t.Fatalf("got %+v", got)
 	}
 }
 
 func TestGormTask_PrepareForClaimCAS(t *testing.T) {
 	gdb := openTestDB(t)
-	seedSession(t, gdb, "s-prep", 4)
+	seedSession(t, gdb, "s-prep", sharedkernel.ChatID("tg:4"))
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
 	now := time.Unix(200, 0).UTC()
@@ -267,14 +272,14 @@ func TestGormTask_PrepareForClaimCAS(t *testing.T) {
 		t.Fatal("second prepare must fail")
 	}
 	got, _ := tasks.Get(ctx, "t-prep")
-	if got.InstanceID != "gpu-1" || got.JobRef.Key != ref.Key {
+	if got.EdgeID != "gpu-1" || got.JobRef.Key != ref.Key {
 		t.Fatalf("got %+v", got)
 	}
 }
 
 func TestGormTask_ClaimNextWithLeaseAndExpire(t *testing.T) {
 	gdb := openTestDB(t)
-	seedSession(t, gdb, "s-claim2", 5)
+	seedSession(t, gdb, "s-claim2", sharedkernel.ChatID("tg:5"))
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
 	now := time.Unix(300, 0).UTC()
@@ -320,7 +325,7 @@ func TestGormTask_ClaimNextWithLeaseAndExpire(t *testing.T) {
 
 func TestGormTask_HeartbeatLease(t *testing.T) {
 	gdb := openTestDB(t)
-	seedSession(t, gdb, "s-hb", 6)
+	seedSession(t, gdb, "s-hb", sharedkernel.ChatID("tg:6"))
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
 	now := time.Unix(400, 0).UTC()

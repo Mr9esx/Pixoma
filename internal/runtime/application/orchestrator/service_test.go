@@ -8,8 +8,8 @@ import (
 	"time"
 
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/static"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/static"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
@@ -37,13 +37,13 @@ func (c *captureBus) Publish(_ context.Context, msg queue.Message) error {
 
 type stubPrep struct{}
 
-func (stubPrep) PrepareJob(_ context.Context, taskID sharedkernel.TaskID, _ sharedkernel.InstanceID) (sharedkernel.BlobRef, error) {
+func (stubPrep) PrepareJob(_ context.Context, taskID sharedkernel.TaskID, _ sharedkernel.EdgeID) (sharedkernel.BlobRef, error) {
 	return sharedkernel.BlobRef{Key: "jobs/" + string(taskID) + "/job.json", MIME: "application/json"}, nil
 }
 
 type failPrep struct{ err error }
 
-func (f failPrep) PrepareJob(_ context.Context, _ sharedkernel.TaskID, _ sharedkernel.InstanceID) (sharedkernel.BlobRef, error) {
+func (f failPrep) PrepareJob(_ context.Context, _ sharedkernel.TaskID, _ sharedkernel.EdgeID) (sharedkernel.BlobRef, error) {
 	return sharedkernel.BlobRef{}, f.err
 }
 
@@ -55,7 +55,7 @@ func TestOnTaskCreatedMakesClaimable(t *testing.T) {
 
 	bus := &captureBus{}
 	n := &memNotify{}
-	reg := static.New(instance.Instance{ID: "local", DispatchTopic: "dispatch.local"})
+	reg := static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"})
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
@@ -64,7 +64,7 @@ func TestOnTaskCreatedMakesClaimable(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := tasks.Get(ctx, "t1")
-	if got.Status != sharedkernel.TaskQueued || got.InstanceID != "local" {
+	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "local" {
 		t.Fatalf("task=%+v", got)
 	}
 	if got.JobRef.Key != "jobs/t1/job.json" {
@@ -80,14 +80,14 @@ func TestApplyStatusSucceededIdempotentNotify(t *testing.T) {
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
 	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now)
-	task.ChatID = 9
+	task.ChatID = "tg:9"
 	_ = task.MarkQueued("local", now)
 	_ = task.MarkRunning("p", now)
 	_ = tasks.Create(ctx, task)
 
 	bus := &captureBus{}
 	n := &memNotify{}
-	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), bus, n)
+	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local"}), bus, n)
 
 	ev := sharedkernel.TaskStatusEvent{
 		TaskID: "t1", Status: sharedkernel.TaskSucceeded,
@@ -115,10 +115,10 @@ func TestApplyStatusRejectsWrongInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "gpu-2"}), &captureBus{}, &memNotify{})
+	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "gpu-2"}), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }
 	err := svc.OnStatus(ctx, sharedkernel.TaskStatusEvent{
-		TaskID: "t1", InstanceID: "gpu-1", Status: sharedkernel.TaskSucceeded, At: now,
+		TaskID: "t1", EdgeID: "gpu-1", Status: sharedkernel.TaskSucceeded, At: now,
 	})
 	if !errors.Is(err, orchestrator.ErrStaleHolder) {
 		t.Fatalf("got %v", err)
@@ -142,7 +142,7 @@ func TestNotify_JoinsSessionChatID(t *testing.T) {
 	if err := sessRepo.Save(ctx, &convdomain.Session{
 		ID:        "s1",
 		UserID:    "u1",
-		ChatID:    100,
+		ChatID:    "tg:100",
 		CaseID:    "c1",
 		Status:    convdomain.StatusSubmitted,
 		CreatedAt: now,
@@ -152,7 +152,7 @@ func TestNotify_JoinsSessionChatID(t *testing.T) {
 	}
 
 	n := &memNotify{}
-	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, n)
+	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local"}), &captureBus{}, n)
 	svc.Sessions = sessRepo
 
 	ev := sharedkernel.TaskStatusEvent{
@@ -165,8 +165,8 @@ func TestNotify_JoinsSessionChatID(t *testing.T) {
 	if len(n.items) != 1 {
 		t.Fatalf("notify count=%d", len(n.items))
 	}
-	if n.items[0].ChatID != 100 {
-		t.Fatalf("chat_id=%d want 100 (via session join)", n.items[0].ChatID)
+	if n.items[0].ChatID != "tg:100" {
+		t.Fatalf("chat_id=%s want tg:100 (via session join)", n.items[0].ChatID)
 	}
 }
 
@@ -235,7 +235,7 @@ func TestReconcileReadsTaskOnly(t *testing.T) {
 	_ = tasks.Create(ctx, task)
 
 	n := &memNotify{}
-	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, n)
+	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local"}), &captureBus{}, n)
 	svc.Now = func() time.Time { return now }
 	if err := svc.ReconcileStale(ctx, time.Minute, 10); err != nil {
 		t.Fatal(err)
@@ -261,7 +261,7 @@ func TestReconcile_StaleQueuedWithoutPromptRePend(t *testing.T) {
 	_ = task.MarkQueued("local", staleAt)
 	_ = tasks.Create(ctx, task)
 
-	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, &memNotify{})
+	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local"}), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }
 	if err := svc.ReconcileStale(ctx, time.Minute, 10); err != nil {
 		t.Fatal(err)
@@ -270,8 +270,8 @@ func TestReconcile_StaleQueuedWithoutPromptRePend(t *testing.T) {
 	if got.Status != sharedkernel.TaskPending {
 		t.Fatalf("status=%s want pending", got.Status)
 	}
-	if got.InstanceID != "" {
-		t.Fatalf("instance_id=%q want empty", got.InstanceID)
+	if got.EdgeID != "" {
+		t.Fatalf("instance_id=%q want empty", got.EdgeID)
 	}
 }
 
@@ -281,7 +281,7 @@ func TestDispatch_PrepFailKeepsPending(t *testing.T) {
 	now := time.Unix(50, 0).UTC()
 	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
 
-	svc := orchestrator.New(tasks, static.New(instance.Instance{ID: "local"}), &captureBus{}, &memNotify{})
+	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local"}), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }
 	svc.Prep = failPrep{err: errors.New("blob down")}
 
@@ -293,8 +293,8 @@ func TestDispatch_PrepFailKeepsPending(t *testing.T) {
 	if got.Status != sharedkernel.TaskPending {
 		t.Fatalf("status=%s want pending after prep fail", got.Status)
 	}
-	if got.InstanceID != "" {
-		t.Fatalf("instance_id=%q want empty", got.InstanceID)
+	if got.EdgeID != "" {
+		t.Fatalf("instance_id=%q want empty", got.EdgeID)
 	}
 }
 
@@ -324,8 +324,8 @@ func TestDispatch_ConcurrentPrepareOnlyOneClaimable(t *testing.T) {
 
 	bus := &countingBus{}
 	reg := static.New(
-		instance.Instance{ID: "gpu-a", DispatchTopic: "dispatch.gpu-a"},
-		instance.Instance{ID: "gpu-b", DispatchTopic: "dispatch.gpu-b"},
+		edge.Instance{ID: "gpu-a", DispatchTopic: "dispatch.gpu-a"},
+		edge.Instance{ID: "gpu-b", DispatchTopic: "dispatch.gpu-b"},
 	)
 	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
 	svc.Now = func() time.Time { return now }
@@ -349,8 +349,8 @@ func TestDispatch_ConcurrentPrepareOnlyOneClaimable(t *testing.T) {
 	if got.Status != sharedkernel.TaskQueued {
 		t.Fatalf("status=%s want queued", got.Status)
 	}
-	if got.InstanceID != "gpu-a" && got.InstanceID != "gpu-b" {
-		t.Fatalf("instance_id=%q", got.InstanceID)
+	if got.EdgeID != "gpu-a" && got.EdgeID != "gpu-b" {
+		t.Fatalf("instance_id=%q", got.EdgeID)
 	}
 	if got.JobRef.Key == "" {
 		t.Fatal("expected job_ref")
@@ -378,8 +378,8 @@ func TestOrchestrator_RoundRobinAcrossHealthy(t *testing.T) {
 
 	bus := &captureBus{}
 	reg := static.New(
-		instance.Instance{ID: "gpu-a", DispatchTopic: "dispatch.gpu-a"},
-		instance.Instance{ID: "gpu-b", DispatchTopic: "dispatch.gpu-b"},
+		edge.Instance{ID: "gpu-a", DispatchTopic: "dispatch.gpu-a"},
+		edge.Instance{ID: "gpu-b", DispatchTopic: "dispatch.gpu-b"},
 	)
 	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
 	svc.Now = func() time.Time { return now }
@@ -394,11 +394,11 @@ func TestOrchestrator_RoundRobinAcrossHealthy(t *testing.T) {
 
 	t1, _ := tasks.Get(ctx, "t1")
 	t2, _ := tasks.Get(ctx, "t2")
-	if t1.InstanceID != "gpu-a" {
-		t.Fatalf("t1 instance=%s want gpu-a", t1.InstanceID)
+	if t1.EdgeID != "gpu-a" {
+		t.Fatalf("t1 instance=%s want gpu-a", t1.EdgeID)
 	}
-	if t2.InstanceID != "gpu-b" {
-		t.Fatalf("t2 instance=%s want gpu-b", t2.InstanceID)
+	if t2.EdgeID != "gpu-b" {
+		t.Fatalf("t2 instance=%s want gpu-b", t2.EdgeID)
 	}
 }
 
@@ -419,7 +419,7 @@ func TestOrchestrator_NoInstanceKeepsPending(t *testing.T) {
 	if got.Status != sharedkernel.TaskPending {
 		t.Fatalf("status=%s want pending", got.Status)
 	}
-	if got.InstanceID != "" {
-		t.Fatalf("instance_id=%q want empty", got.InstanceID)
+	if got.EdgeID != "" {
+		t.Fatalf("instance_id=%q want empty", got.EdgeID)
 	}
 }

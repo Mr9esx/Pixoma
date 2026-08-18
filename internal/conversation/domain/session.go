@@ -30,11 +30,11 @@ func (s Status) IsActive() bool {
 
 // DraftValue is a collected input before ConfirmRun.
 type DraftValue struct {
-	Key    string
-	Text   *string
-	Number *float64
-	Bool   *bool
-	Blob   *sharedkernel.BlobRef
+	Key     string
+	Text    *string
+	Number  *float64
+	Bool    *bool
+	Blob    *sharedkernel.BlobRef
 	Skipped bool
 }
 

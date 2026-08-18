@@ -8,11 +8,11 @@ import (
 )
 
 type StormConfig struct {
-	SchedulePerTick   int
-	ReconcilePerTick  int
-	RedispatchPerMin  int
-	BreakerFailures   int
-	BreakerCoolDown   time.Duration
+	SchedulePerTick  int
+	ReconcilePerTick int
+	RedispatchPerMin int
+	BreakerFailures  int
+	BreakerCoolDown  time.Duration
 }
 
 func (c StormConfig) withDefaults() StormConfig {
@@ -62,8 +62,8 @@ func (b *TokenBucket) Reset() {
 
 type CircuitBreaker struct {
 	mu        sync.Mutex
-	failures  map[sharedkernel.InstanceID]int
-	openUntil map[sharedkernel.InstanceID]time.Time
+	failures  map[sharedkernel.EdgeID]int
+	openUntil map[sharedkernel.EdgeID]time.Time
 	threshold int
 	coolDown  time.Duration
 	now       func() time.Time
@@ -71,15 +71,15 @@ type CircuitBreaker struct {
 
 func NewCircuitBreaker(threshold int, coolDown time.Duration) *CircuitBreaker {
 	return &CircuitBreaker{
-		failures:  map[sharedkernel.InstanceID]int{},
-		openUntil: map[sharedkernel.InstanceID]time.Time{},
+		failures:  map[sharedkernel.EdgeID]int{},
+		openUntil: map[sharedkernel.EdgeID]time.Time{},
 		threshold: threshold,
 		coolDown:  coolDown,
 		now:       time.Now,
 	}
 }
 
-func (c *CircuitBreaker) Allow(id sharedkernel.InstanceID) bool {
+func (c *CircuitBreaker) Allow(id sharedkernel.EdgeID) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if until, ok := c.openUntil[id]; ok && c.now().Before(until) {
@@ -88,7 +88,7 @@ func (c *CircuitBreaker) Allow(id sharedkernel.InstanceID) bool {
 	return true
 }
 
-func (c *CircuitBreaker) RecordFailure(id sharedkernel.InstanceID) {
+func (c *CircuitBreaker) RecordFailure(id sharedkernel.EdgeID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.failures[id]++
@@ -98,7 +98,7 @@ func (c *CircuitBreaker) RecordFailure(id sharedkernel.InstanceID) {
 	}
 }
 
-func (c *CircuitBreaker) RecordSuccess(id sharedkernel.InstanceID) {
+func (c *CircuitBreaker) RecordSuccess(id sharedkernel.EdgeID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.failures[id] = 0

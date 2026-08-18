@@ -8,8 +8,8 @@ const (
 	TopicNotifyUser  = "notify.user"
 )
 
-func TopicDispatch(instanceID InstanceID) string {
-	return "dispatch." + string(instanceID)
+func TopicDispatch(edgeID EdgeID) string {
+	return "dispatch." + string(edgeID)
 }
 
 type TaskCreated struct {
@@ -20,21 +20,21 @@ type TaskCreated struct {
 }
 
 type DispatchCommand struct {
-	TaskID      TaskID     `json:"task_id"`
-	InstanceID  InstanceID `json:"instance_id"`
-	InputPrefix string     `json:"input_prefix,omitempty"` // legacy; success path uses JobRef
-	JobRef      BlobRef    `json:"job_ref"`
+	TaskID      TaskID  `json:"task_id"`
+	EdgeID      EdgeID  `json:"edge_id"`
+	InputPrefix string  `json:"input_prefix,omitempty"` // legacy; success path uses JobRef
+	JobRef      BlobRef `json:"job_ref"`
 }
 
 type TaskStatusEvent struct {
-	TaskID     TaskID     `json:"task_id"`
-	InstanceID InstanceID `json:"instance_id"`
-	Status     TaskStatus `json:"status"`
-	PromptID   string     `json:"prompt_id,omitempty"`
-	Outputs    []BlobRef  `json:"outputs,omitempty"`
-	ErrorCode  string     `json:"error_code,omitempty"`
-	ErrorMsg   string     `json:"error_msg,omitempty"`
-	At         time.Time  `json:"at"`
+	TaskID    TaskID     `json:"task_id"`
+	EdgeID    EdgeID     `json:"edge_id"`
+	Status    TaskStatus `json:"status"`
+	PromptID  string     `json:"prompt_id,omitempty"`
+	Outputs   []BlobRef  `json:"outputs,omitempty"`
+	ErrorCode string     `json:"error_code,omitempty"`
+	ErrorMsg  string     `json:"error_msg,omitempty"`
+	At        time.Time  `json:"at"`
 }
 
 type UserNotify struct {

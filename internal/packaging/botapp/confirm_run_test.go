@@ -90,12 +90,12 @@ func TestConfirmRun_WritesSessionID(t *testing.T) {
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "sess-write" }, func() time.Time {
 		return time.Unix(10, 0).UTC()
 	})
-	_, err := sessSvc.StartCase(ctx, 100, "user-test", "text2img-demo", []string{"prompt"})
+	_, err := sessSvc.StartCase(ctx, "tg:100", "user-test", "text2img-demo", []string{"prompt"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	prompt := "a cat"
-	_, err = sessSvc.SubmitInput(ctx, 100, convdomain.DraftValue{Text: &prompt})
+	_, err = sessSvc.SubmitInput(ctx, "tg:100", convdomain.DraftValue{Text: &prompt})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestConfirmRun_WritesSessionID(t *testing.T) {
 		Now:          func() time.Time { return time.Unix(20, 0).UTC() },
 	}
 
-	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: 100})
+	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: "tg:100"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,8 +133,8 @@ func TestConfirmRun_WritesSessionID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sess.ChatID != 100 {
-		t.Fatalf("chat via session: %d", sess.ChatID)
+	if sess.ChatID != "tg:100" {
+		t.Fatalf("chat via session: %s", sess.ChatID)
 	}
 }
 
@@ -147,12 +147,12 @@ func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "sess-1" }, func() time.Time {
 		return time.Unix(10, 0).UTC()
 	})
-	_, err := sessSvc.StartCase(ctx, 100, "user-test", "text2img-demo", []string{"prompt"})
+	_, err := sessSvc.StartCase(ctx, "tg:100", "user-test", "text2img-demo", []string{"prompt"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	prompt := "a cat"
-	_, err = sessSvc.SubmitInput(ctx, 100, convdomain.DraftValue{Text: &prompt})
+	_, err = sessSvc.SubmitInput(ctx, "tg:100", convdomain.DraftValue{Text: &prompt})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 		Now:          func() time.Time { return time.Unix(20, 0).UTC() },
 	}
 
-	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: 100})
+	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: "tg:100"})
 	if err != nil {
 		t.Fatalf("ConfirmRun: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 		t.Fatalf("staged blob: %v", err)
 	}
 	_ = rc.Close()
-	if _, err := sessSvc.Get(ctx, 100); err == nil {
+	if _, err := sessSvc.Get(ctx, "tg:100"); err == nil {
 		t.Fatal("session should be cleared after submit")
 	}
 	if len(pub.msgs) != 1 || pub.msgs[0].Topic != sharedkernel.TopicTaskCreated {
@@ -205,7 +205,7 @@ func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 	if err := json.Unmarshal(pub.msgs[0].Payload, &ev); err != nil {
 		t.Fatal(err)
 	}
-	if ev.TaskID != "task-1" || ev.ChatID != 100 {
+	if ev.TaskID != "task-1" || ev.ChatID != "tg:100" {
 		t.Fatalf("event=%+v", ev)
 	}
 }

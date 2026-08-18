@@ -7,11 +7,11 @@ import (
 
 // JobPackage is the scheme-A payload stored at jobs/<task_id>/job.json.
 type JobPackage struct {
-	TaskID       sharedkernel.TaskID     `json:"task_id"`
-	InstanceID   sharedkernel.InstanceID `json:"instance_id"`
-	Workflow     comfyui.Graph           `json:"workflow"`
-	Images       []JobImage              `json:"images,omitempty"`
-	OutputPrefix string                  `json:"output_prefix"`
+	TaskID       sharedkernel.TaskID `json:"task_id"`
+	EdgeID       sharedkernel.EdgeID `json:"edge_id"`
+	Workflow     comfyui.Graph       `json:"workflow"`
+	Images       []JobImage          `json:"images,omitempty"`
+	OutputPrefix string              `json:"output_prefix"`
 }
 
 // JobImage describes an image that the executor must upload locally before Submit.

@@ -32,12 +32,12 @@ func (s StaticWorkflows) WorkflowForTask(_ context.Context, taskID sharedkernel.
 }
 
 type Worker struct {
-	InstanceID sharedkernel.InstanceID
-	Comfy      comfyui.Client
-	// Clients maps InstanceID → Comfy client; preferred over Comfy when set.
-	Clients map[sharedkernel.InstanceID]comfyui.Client
-	// ResolveClient optionally resolves a client by InstanceID (e.g. pool.Client).
-	ResolveClient func(sharedkernel.InstanceID) (comfyui.Client, error)
+	EdgeID sharedkernel.EdgeID
+	Comfy  comfyui.Client
+	// Clients maps EdgeID → Comfy client; preferred over Comfy when set.
+	Clients map[sharedkernel.EdgeID]comfyui.Client
+	// ResolveClient optionally resolves a client by EdgeID (e.g. pool.Client).
+	ResolveClient func(sharedkernel.EdgeID) (comfyui.Client, error)
 	Blob          blob.Store
 	Status        queue.Publisher
 	Workflows     CaseSnapshotProvider
@@ -46,7 +46,7 @@ type Worker struct {
 
 func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCommand) error {
 	now := w.now()
-	cli, err := w.clientFor(ev.InstanceID)
+	cli, err := w.clientFor(ev.EdgeID)
 	if err != nil {
 		return w.fail(ctx, ev, "comfy_client", err.Error(), now)
 	}
@@ -61,7 +61,7 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 		return w.fail(ctx, ev, "comfy_submit", err.Error(), now)
 	}
 	if err := w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
-		TaskID: ev.TaskID, InstanceID: ev.InstanceID, Status: sharedkernel.TaskRunning,
+		TaskID: ev.TaskID, EdgeID: ev.EdgeID, Status: sharedkernel.TaskRunning,
 		PromptID: promptID, At: w.now(),
 	}); err != nil {
 		return err
@@ -82,7 +82,7 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 		outs = append(outs, ref)
 	}
 	return w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
-		TaskID: ev.TaskID, InstanceID: ev.InstanceID, Status: sharedkernel.TaskSucceeded,
+		TaskID: ev.TaskID, EdgeID: ev.EdgeID, Status: sharedkernel.TaskSucceeded,
 		PromptID: promptID, Outputs: outs, At: w.now(),
 	})
 }
@@ -160,7 +160,7 @@ func (w *Worker) uploadJobImage(ctx context.Context, uploader ImageUploader, ref
 	return remote, nil
 }
 
-func (w *Worker) clientFor(id sharedkernel.InstanceID) (comfyui.Client, error) {
+func (w *Worker) clientFor(id sharedkernel.EdgeID) (comfyui.Client, error) {
 	if w.ResolveClient != nil {
 		return w.ResolveClient(id)
 	}
@@ -179,7 +179,7 @@ func (w *Worker) clientFor(id sharedkernel.InstanceID) (comfyui.Client, error) {
 
 func (w *Worker) fail(ctx context.Context, ev sharedkernel.DispatchCommand, code, msg string, now time.Time) error {
 	if err := w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
-		TaskID: ev.TaskID, InstanceID: ev.InstanceID, Status: sharedkernel.TaskFailed,
+		TaskID: ev.TaskID, EdgeID: ev.EdgeID, Status: sharedkernel.TaskFailed,
 		ErrorCode: code, ErrorMsg: msg, At: now,
 	}); err != nil {
 		return err

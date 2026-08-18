@@ -36,14 +36,14 @@ func TestHandleDispatchPublishesRunningAndSucceeded(t *testing.T) {
 	}
 	cap := &statusCap{}
 	w := &actuator.Worker{
-		InstanceID: "local",
-		Comfy:      &comfyui.Mock{},
-		Blob:       store,
-		Status:     cap,
-		Workflows:  actuator.StaticWorkflows{},
-		Now:        func() time.Time { return time.Unix(1, 0).UTC() },
+		EdgeID:    "local",
+		Comfy:     &comfyui.Mock{},
+		Blob:      store,
+		Status:    cap,
+		Workflows: actuator.StaticWorkflows{},
+		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
 	}
-	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{TaskID: "t1", InstanceID: "local"}); err != nil {
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{TaskID: "t1", EdgeID: "local"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(cap.msgs) != 2 {
@@ -68,7 +68,7 @@ func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var submitted []sharedkernel.InstanceID
+	var submitted []sharedkernel.EdgeID
 	mockA := &comfyui.Mock{
 		SubmitFn: func(_ context.Context, _ comfyui.Graph) (string, error) {
 			submitted = append(submitted, "gpu-a")
@@ -84,17 +84,17 @@ func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
 
 	cap := &statusCap{}
 	w := &actuator.Worker{
-		Blob:   store,
-		Status: cap,
+		Blob:      store,
+		Status:    cap,
 		Workflows: actuator.StaticWorkflows{},
 		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
-		Clients: map[sharedkernel.InstanceID]comfyui.Client{
+		Clients: map[sharedkernel.EdgeID]comfyui.Client{
 			"gpu-a": mockA,
 			"gpu-b": mockB,
 		},
 	}
 
-	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{TaskID: "t1", InstanceID: "gpu-b"}); err != nil {
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{TaskID: "t1", EdgeID: "gpu-b"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(submitted) != 1 || submitted[0] != "gpu-b" {
@@ -102,8 +102,8 @@ func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
 	}
 	var running sharedkernel.TaskStatusEvent
 	_ = json.Unmarshal(cap.msgs[0].Payload, &running)
-	if running.InstanceID != "gpu-b" {
-		t.Fatalf("status instance=%s want gpu-b", running.InstanceID)
+	if running.EdgeID != "gpu-b" {
+		t.Fatalf("status instance=%s want gpu-b", running.EdgeID)
 	}
 }
 
@@ -122,9 +122,9 @@ func TestWorker_BadJobRefPublishesFailed(t *testing.T) {
 		Now:    func() time.Time { return time.Unix(1, 0).UTC() },
 	}
 	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
-		TaskID:     "t-bad-job",
-		InstanceID: "local",
-		JobRef:     sharedkernel.BlobRef{Key: "jobs/missing/job.json", MIME: "application/json"},
+		TaskID: "t-bad-job",
+		EdgeID: "local",
+		JobRef: sharedkernel.BlobRef{Key: "jobs/missing/job.json", MIME: "application/json"},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestWorker_JobRefHappyPath(t *testing.T) {
 	}
 	job := actuator.JobPackage{
 		TaskID:       "t-job",
-		InstanceID:   "local",
+		EdgeID:       "local",
 		Workflow:     map[string]any{"1": map[string]any{"class_type": "Noop", "inputs": map[string]any{}}},
 		OutputPrefix: "outputs/t-job",
 	}
@@ -169,7 +169,7 @@ func TestWorker_JobRefHappyPath(t *testing.T) {
 		Now:    func() time.Time { return time.Unix(1, 0).UTC() },
 	}
 	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
-		TaskID: "t-job", InstanceID: "local", JobRef: ref,
+		TaskID: "t-job", EdgeID: "local", JobRef: ref,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +212,7 @@ func TestWorker_UploadUsesDispatchInstanceClient(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var uploadedTo, submittedTo sharedkernel.InstanceID
+	var uploadedTo, submittedTo sharedkernel.EdgeID
 	defaultUploader := &comfyui.Mock{
 		UploadImageFn: func(_ context.Context, _, _ string, _ []byte) (string, error) {
 			uploadedTo = "default"
@@ -244,14 +244,14 @@ func TestWorker_UploadUsesDispatchInstanceClient(t *testing.T) {
 		Status:    cap,
 		Workflows: snap,
 		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
-		Clients: map[sharedkernel.InstanceID]comfyui.Client{
+		Clients: map[sharedkernel.EdgeID]comfyui.Client{
 			"gpu-a": defaultUploader,
 			"gpu-b": mockB,
 		},
 	}
 
 	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
-		TaskID: "t-img", InstanceID: "gpu-b", InputPrefix: prefix,
+		TaskID: "t-img", EdgeID: "gpu-b", InputPrefix: prefix,
 	}); err != nil {
 		t.Fatal(err)
 	}
