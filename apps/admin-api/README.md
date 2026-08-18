@@ -72,22 +72,25 @@ curl -s -X POST localhost:8081/api/v1/tasks/<id>/cancel
 
 不可取消的任务返回明确错误（HTTP 409）；缺失资源为 404。
 
-## TG Menu
+## 渠道与渠道菜单
 
-树形读写主菜单（表 `tg_menus` + `tg_menu_items` + `tg_menu_item_cases`，文档 id=`default`）。PUT 为整份替换；校验失败返回 400。
+渠道管理（`/api/v1/channels`）：创建渠道（平台 + 名称 + Bot Token，凭证加密存储、回显掩码）、列表、启停、受限删除；菜单按渠道作用域读写（`/api/v1/channels/{id}/menu`），平台差异数据走 extras（`/api/v1/channels/{id}/menu/extras`）。
 
 ```bash
-curl -s localhost:8081/api/v1/tg-menu
-
-curl -s -X PUT localhost:8081/api/v1/tg-menu \
+# 创建 Telegram 渠道
+curl -s -X POST localhost:8081/api/v1/channels \
   -H 'Content-Type: application/json' \
-  -d '{"items":[{"id":"btn-image","label":"🖼 图片","row":0,"col":0,"enabled":true,"kind":"folder","intro_text":"点模板先看预览图","case_ids":["<case-id>"]}]}'
+  -d '{"platform":"telegram","name":"主机器人","token":"<bot-token>"}'
+
+# 读写某渠道菜单（整树替换；kind: folder / open_case / placeholder / reply_media）
+curl -s localhost:8081/api/v1/channels/<channel-id>/menu
+curl -s -X PUT localhost:8081/api/v1/channels/<channel-id>/menu \
+  -H 'Content-Type: application/json' \
+  -d '{"items":[{"id":"btn-image","label":"🖼 图片","order":0,"enabled":true,"kind":"folder","intro_text":"点模板先看预览图","case_ids":["<case-id>"]}]}'
 
 # Case 在菜单中的挂载路径
 curl -s localhost:8081/api/v1/cases/<case-id>/menu-placements
 ```
-
-节点类型 `kind`：`folder` / `open_case` / `list_cases_by_tag` / `placeholder` / `reply_media`（图片仅 http(s) URL，无本地上传）。
 
 ## 与 bot 的边界
 
