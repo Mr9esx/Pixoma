@@ -12,6 +12,7 @@ import (
 
 	"github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/pull"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
@@ -67,9 +68,9 @@ func TestLoop_ClaimExecuteReportStatus(t *testing.T) {
 			}
 			claimed.Store(true)
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"task_id":     "t-edge",
-				"instance_id": "gpu-1",
-				"job_ref":     map[string]any{"key": "jobs/t-edge/job.json"},
+				"task_id": "t-edge",
+				"edge_id": "gpu-1",
+				"job_ref": map[string]any{"key": "jobs/t-edge/job.json"},
 			})
 		case r.Method == http.MethodPost && r.URL.Path == "/agent/v1/jobs/t-edge/status":
 			var body map[string]any
@@ -91,9 +92,9 @@ func TestLoop_ClaimExecuteReportStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	job := actuator.JobPackage{
-		TaskID:     "t-edge",
-		InstanceID: "gpu-1",
-		Workflow:   map[string]any{"1": map[string]any{"inputs": map[string]any{}}},
+		TaskID:   "t-edge",
+		EdgeID:   "gpu-1",
+		Workflow: map[string]any{"1": map[string]any{"inputs": map[string]any{}}},
 	}
 	raw, _ := json.Marshal(job)
 	if _, err := store.Put(ctx, "jobs/t-edge/job.json", bytes.NewReader(raw), blob.PutOptions{MIME: "application/json"}); err != nil {
@@ -102,11 +103,11 @@ func TestLoop_ClaimExecuteReportStatus(t *testing.T) {
 
 	client := pull.NewClient(srv.URL, "secret", "gpu-1")
 	worker := &actuator.Worker{
-		InstanceID: "gpu-1",
-		Comfy:      &comfyui.Mock{},
-		Blob:       store,
-		Status:     pull.NewStatusPublisher(client),
-		Now:        func() time.Time { return time.Unix(1, 0).UTC() },
+		EdgeID: "gpu-1",
+		Comfy:  &comfyui.Mock{},
+		Blob:   store,
+		Status: pull.NewStatusPublisher(client),
+		Now:    func() time.Time { return time.Unix(1, 0).UTC() },
 	}
 	loop := &pull.Loop{
 		Client: client,
@@ -128,5 +129,83 @@ func TestLoop_ClaimExecuteReportStatus(t *testing.T) {
 	}
 	if !foundOK {
 		t.Fatalf("want succeeded status, got %v", statuses)
+	}
+}
+
+func TestClient_ReportPresence(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/agent/v1/presence" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer tok" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	c := pull.NewClient(srv.URL, "tok", "gpu-1")
+	refresh, err := c.ReportPresence(context.Background(), true, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refresh {
+		t.Fatal("204 should mean refresh=false")
+	}
+	if got["edge_id"] != "gpu-1" || got["comfy_running"] != true {
+		t.Fatalf("%v", got)
+	}
+	if _, ok := got["hardware"]; ok {
+		t.Fatalf("nil hardware must omit key: %v", got)
+	}
+}
+
+func TestClient_ReportPresence_SendsHardwareAndReadsRefresh(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_ = json.NewEncoder(w).Encode(map[string]any{"refresh_hardware": true})
+	}))
+	t.Cleanup(srv.Close)
+	c := pull.NewClient(srv.URL, "tok", "gpu-1")
+	hw := edge.Hardware{CPUModel: "Intel"}
+	refresh, err := c.ReportPresence(context.Background(), false, &hw, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !refresh {
+		t.Fatal("expected refresh_hardware")
+	}
+	raw, ok := got["hardware"].(map[string]any)
+	if !ok || raw["cpu_model"] != "Intel" {
+		t.Fatalf("hardware=%v", got["hardware"])
+	}
+}
+
+func TestClient_ReportPresence_SendsMetrics(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	c := pull.NewClient(srv.URL, "tok", "gpu-1")
+	usage := 42.5
+	m := edge.Metrics{
+		CPUUsagePercent: usage,
+		CollectedAt:     time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC),
+	}
+	if _, err := c.ReportPresence(context.Background(), true, nil, &m); err != nil {
+		t.Fatal(err)
+	}
+	raw, ok := got["metrics"].(map[string]any)
+	if !ok {
+		t.Fatalf("metrics missing: %v", got)
+	}
+	if raw["cpu_usage_percent"] != 42.5 {
+		t.Fatalf("cpu_usage_percent=%v", raw["cpu_usage_percent"])
 	}
 }
