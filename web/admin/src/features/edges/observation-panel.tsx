@@ -90,20 +90,21 @@ function rateStats(
   ]
 }
 
-// I/O 系列右侧三值：当前 / 最高 / 平均（人类可读字节速率）。
-function byteRateStats(
-  values: Array<number | null>,
-  series: string,
+// I/O 卡右侧三行：当前 / 最高 / 平均，每行读/写并排（读在前，与图例一致）。
+function ioStats(
+  read: Array<number | null>,
+  write: Array<number | null>,
   t: (key: string) => string
 ): StatItem[] {
-  const s = seriesStats(values, formatBytes)
+  const r = seriesStats(read, formatBytes)
+  const w = seriesStats(write, formatBytes)
   return [
     {
-      label: `${series} · ${t('edges.monitorCurrent')}`,
-      value: s.current,
+      label: t('edges.monitorCurrent'),
+      value: `${r.current} / ${w.current}`,
     },
-    { label: `${series} · ${t('edges.monitorMax')}`, value: s.max },
-    { label: `${series} · ${t('edges.monitorAvg')}`, value: s.avg },
+    { label: t('edges.monitorMax'), value: `${r.max} / ${w.max}` },
+    { label: t('edges.monitorAvg'), value: `${r.avg} / ${w.avg}` },
   ]
 }
 
@@ -112,32 +113,31 @@ function LineCardShell({
   title,
   config,
   stats,
+  compact = false,
   children,
 }: {
   title: string
   config: ChartConfig
   stats: StatItem[]
+  compact?: boolean
   children: ReactNode
 }) {
-  const legend = Object.entries(config)
   return (
     <div className='flex min-w-0 flex-1 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:shadow-none'>
       <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
         <div>
           <h2 className='text-base font-semibold'>{title}</h2>
-          {legend.length > 1 ? (
-            <div className='mt-3 flex items-center gap-4 text-[11px] text-muted-foreground'>
-              {legend.map(([key, entry]) => (
-                <span key={key} className='inline-flex items-center gap-1.5'>
-                  <span
-                    className='size-2 rounded-full'
-                    style={{ backgroundColor: entry.color }}
-                  />
-                  {entry.label}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          <div className='mt-3 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground'>
+            {Object.entries(config).map(([key, entry]) => (
+              <span key={key} className='inline-flex items-center gap-1.5'>
+                <span
+                  className='size-2 rounded-full'
+                  style={{ backgroundColor: entry.color }}
+                />
+                {entry.label}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
       <div className='grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_92px]'>
@@ -146,10 +146,22 @@ function LineCardShell({
             {children}
           </ChartContainer>
         </div>
-        <div className='grid grid-cols-3 content-center gap-2 text-center lg:grid-cols-1 lg:text-right'>
+        <div
+          className={`grid grid-cols-3 content-center text-center lg:grid-cols-1 lg:text-right ${
+            compact ? 'gap-1.5' : 'gap-2'
+          }`}
+        >
           {stats.map((stat) => (
             <div key={stat.label}>
-              <p className='text-lg leading-6 font-semibold'>{stat.value}</p>
+              <p
+                className={
+                  compact
+                    ? 'text-xs leading-5 font-semibold'
+                    : 'text-lg leading-6 font-semibold'
+                }
+              >
+                {stat.value}
+              </p>
               <p className='text-[11px] text-muted-foreground'>{stat.label}</p>
             </div>
           ))}
@@ -467,18 +479,12 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
     <LineCardShell
       title={t('edges.monitorIo')}
       config={config}
-      stats={[
-        ...byteRateStats(
-          series.map((p) => p.ioRead),
-          t('edges.monitorIoRead'),
-          t
-        ),
-        ...byteRateStats(
-          series.map((p) => p.ioWrite),
-          t('edges.monitorIoWrite'),
-          t
-        ),
-      ]}
+      stats={ioStats(
+        series.map((p) => p.ioRead),
+        series.map((p) => p.ioWrite),
+        t
+      )}
+      compact
     >
       <AreaChart data={data} margin={CHART_MARGIN}>
         <defs>

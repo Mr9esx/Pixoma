@@ -124,6 +124,11 @@ describe('compute node layout and detail', () => {
     expect(observe).toMatch(/h-full min-h-\[120px\] w-full min-w-0/)
     expect(observe).toMatch(/text-base font-semibold/)
     expect(observe).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_92px\]/)
+    expect(observe).toMatch(/inline-flex items-center gap-1\.5/)
+    expect(observe).not.toMatch(/legend\.length > 1/)
+    expect(observe).toMatch(/ioStats\(/)
+    expect(observe).toMatch(/\bcompact\b/)
+    expect(observe).toMatch(/text-xs leading-5 font-semibold/)
     expect(observe).toMatch(
       /text-\[11px\] text-muted-foreground|text-muted-foreground text-\[11px\]/
     )
