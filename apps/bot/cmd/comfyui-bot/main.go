@@ -13,15 +13,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-telegram/bot"
 	"github.com/google/uuid"
 
 	botserver "github.com/mr9esx/comfyui_tgbot/apps/bot/internal/server"
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/notifybridge"
+	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
+	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
+	channelruntime "github.com/mr9esx/comfyui_tgbot/internal/channel/runtime"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	convpersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
@@ -29,22 +29,23 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edgeonline"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	queueredis "github.com/mr9esx/comfyui_tgbot/internal/platform/queue/redis"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
-	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
-	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/infrastructure/persistence"
+	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	menupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 )
 
 func main() {
@@ -73,17 +74,28 @@ func run(ctx context.Context) error {
 	_ = os.MkdirAll(dataDir, 0o755)
 
 	dsn := resolveDSN(cfg.DatabaseDSN)
+	bootMeta, _, err := bootstrap.Open(filepath.Join(dataDir, "bootstrap.db"))
+	if err != nil {
+		return err
+	}
+	encKey, err := bootMeta.EncKey()
+	if err != nil {
+		return err
+	}
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
-		DSN:              dsn,
-		MigrateInstances: true,
+		DSN:          dsn,
+		MigrateEdges: true,
 		Models: []any{
 			&persistence.CaseRow{},
 			&identitypersist.UserRow{},
+			&identitypersist.UserExternalIdentityRow{},
 			&convpersist.SessionRow{},
 			&taskpersist.TaskRow{},
-			&tgmenupersist.MenuHeaderRow{},
-			&tgmenupersist.MenuItemRow{},
-			&tgmenupersist.MenuItemCaseRow{},
+			&channelpersist.ChannelRow{},
+			&menupersist.ChannelMenuRow{},
+			&menupersist.ChannelMenuItemRow{},
+			&menupersist.ChannelMenuItemCaseRow{},
+			&menupersist.ChannelMenuExtraRow{},
 		},
 	})
 	if err != nil {
@@ -93,13 +105,12 @@ func run(ctx context.Context) error {
 
 	caseRepo := persistence.NewGormRepository(gdb)
 	userRepo := identitypersist.NewUserRepository(gdb)
-	menuStore := tgmenupersist.NewGormRepository(gdb)
-	menuSvc := &tgmenuapp.Service{
+	menuStore := menupersist.NewGormRepository(gdb)
+	menuSvc := &menuapp.Service{
 		Store:            menuStore,
-		Cases:            tgmenuapp.CatalogCaseChecker{Repo: caseRepo},
-		ListImageCaseIDs: tgmenuapp.CatalogImageCaseIDs(caseRepo),
+		Cases:            menuapp.CatalogCaseChecker{Repo: caseRepo},
+		ListImageCaseIDs: menuapp.CatalogImageCaseIDs(caseRepo),
 	}
-	menuReader := tgMenuReader{svc: menuSvc}
 	if n, err := seedCasesDir(ctx, caseRepo, cfg.CaseSeedDir); err != nil {
 		slog.Warn("seed cases", "err", err)
 	} else {
@@ -124,50 +135,92 @@ func run(ctx context.Context) error {
 		return sharedkernel.SessionID(uuid.NewString())
 	}, nil)
 
-	instRepo := instpersist.NewInstanceRepository(gdb)
-	seedCfg := instance.SeedConfig{
-		DefaultInstanceID: cfg.DefaultInstanceID,
-		ComfyUIBaseURL:    cfg.ComfyUIBaseURL,
-		ComfyMock:         cfg.ComfyMock,
+	instRepo := instpersist.NewEdgeRepository(gdb)
+	seedCfg := edge.SeedConfig{
+		DefaultEdgeID: cfg.DefaultEdgeID,
+		ComfyMock:     cfg.ComfyMock,
 	}
-	for _, s := range cfg.ComfyInstances {
-		seedCfg.ComfyInstances = append(seedCfg.ComfyInstances, instance.SeedInstance{
+	for _, s := range cfg.Edges {
+		seedCfg.Edges = append(seedCfg.Edges, edge.SeedInstance{
 			ID:           s.ID,
-			BaseURL:      s.BaseURL,
 			Enabled:      s.Enabled,
 			Capabilities: s.Capabilities,
 		})
 	}
-	if n, err := instance.SeedFromConfig(ctx, instRepo, seedCfg); err != nil {
+	if n, err := edge.SeedFromConfig(ctx, instRepo, seedCfg); err != nil {
 		return err
 	} else {
 		slog.Info("comfy instances seeded", "count", n)
 	}
 
-	pool := instance.NewPool(instRepo, instance.PoolOptions{Mock: cfg.ComfyMock})
+	pool := edge.NewPool(instRepo, edge.PoolOptions{})
 	if err := pool.Refresh(ctx); err != nil {
 		return err
 	}
 
-	instID := sharedkernel.InstanceID(cfg.DefaultInstanceID)
-	comfy, err := pool.Client(instID)
+	// Edge records no longer carry a Comfy base URL; the legacy bot builds its
+	// own clients from bot YAML (comfy_instances / comfyui_base_url).
+	clients := map[sharedkernel.EdgeID]comfyui.Client{}
+	for _, s := range cfg.Edges {
+		cli, err := comfyui.NewClient(comfyui.Options{Mock: cfg.ComfyMock, BaseURL: s.BaseURL})
+		if err != nil {
+			return err
+		}
+		clients[sharedkernel.EdgeID(s.ID)] = cli
+	}
+	if len(clients) == 0 {
+		id := cfg.DefaultEdgeID
+		if id == "" {
+			id = "local"
+		}
+		baseURL := cfg.ComfyUIBaseURL
+		if baseURL == "" {
+			baseURL = "http://127.0.0.1:8188"
+		}
+		cli, err := comfyui.NewClient(comfyui.Options{Mock: cfg.ComfyMock, BaseURL: baseURL})
+		if err != nil {
+			return err
+		}
+		clients[sharedkernel.EdgeID(id)] = cli
+	}
+	resolveClient := func(id sharedkernel.EdgeID) (comfyui.Client, error) {
+		cli, ok := clients[id]
+		if !ok || cli == nil {
+			return nil, fmt.Errorf("bot: no comfy client for %s", id)
+		}
+		return cli, nil
+	}
+
+	instID := sharedkernel.EdgeID(cfg.DefaultEdgeID)
+	comfy, err := resolveClient(instID)
 	if err != nil {
 		// Fall back to first healthy/enabled instance when default id is absent.
-		healthy, listErr := pool.ListHealthy(ctx, instance.CapabilityFilter{})
+		healthy, listErr := pool.ListHealthy(ctx, edge.CapabilityFilter{})
 		if listErr != nil || len(healthy) == 0 {
 			return fmt.Errorf("comfy client for %s: %w", instID, err)
 		}
 		instID = healthy[0].ID
-		comfy, err = pool.Client(instID)
+		comfy, err = resolveClient(instID)
 		if err != nil {
 			return err
 		}
 	}
-	slog.Info("comfyui client ready", "mock", cfg.ComfyMock, "instance_id", instID)
+	slog.Info("comfyui client ready", "mock", cfg.ComfyMock, "edge_id", instID)
 
-	tgAdapter := tg.New(nil, nil)
-	notifyPub := &notifybridge.Publisher{Adapter: tgAdapter}
-	orch := orchestrator.New(tasks, pool, bus, notifyPub)
+	chSvc := &channelapp.Service{
+		Store: channelpersist.NewGormRepository(gdb),
+		Key:   encKey,
+		HasActiveRefs: func(ctx context.Context, channelID string) (bool, error) {
+			n, err := sessRepo.CountByChannel(ctx, channelID)
+			if err != nil {
+				return false, err
+			}
+			return n > 0, nil
+		},
+	}
+	notifyRegistry := &botNotifyRegistry{handlers: map[string]channelruntime.NotifyHandler{}}
+	notifyRouter := &channelruntime.NotifyRouter{HandlerByChannel: notifyRegistry.lookup}
+	orch := orchestrator.New(tasks, pool, bus, notifyRouter)
 	orch.Sessions = sessRepo
 	if cfg.RuntimeMode == botconfig.RuntimeModeSplit {
 		if redisClient == nil {
@@ -183,9 +236,9 @@ func run(ctx context.Context) error {
 		Uploader: comfy,
 	}
 	worker := &actuator.Worker{
-		InstanceID:    instID,
+		EdgeID:        instID,
 		Comfy:         comfy,
-		ResolveClient: pool.Client,
+		ResolveClient: resolveClient,
 		Blob:          blobStore,
 		Status:        bus,
 		Workflows:     snap,
@@ -206,19 +259,22 @@ func run(ctx context.Context) error {
 		},
 	}
 
-	var messenger tg.Messenger = logMessenger{}
-	token := cfg.TelegramBotToken
-	var tgBot *bot.Bot
-	if token != "" {
-		tgBot, err = bot.New(token)
-		if err != nil {
-			return err
-		}
-		messenger = &tg.BotMessenger{Bot: tgBot, Blob: blobStore, Menu: menuReader}
+	assembler := &channelruntime.Assembler{
+		Store: &botChannelSnapshotStore{svc: chSvc},
+		Factory: &botTGAdapterFactory{
+			facade:   facade,
+			menu:     menuSvc,
+			blob:     blobStore,
+			users:    botIdentityResolver{users: userRepo},
+			registry: notifyRegistry,
+		},
+		Interval: 5 * time.Second,
 	}
-	*tgAdapter = *tg.New(facade, messenger)
-	tgAdapter.Users = userRepo
-	tgAdapter.Menu = menuReader
+	go func() {
+		if err := assembler.Run(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("channel assembler stopped", "err", err)
+		}
+	}()
 
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskCreated, func(ctx context.Context, msg queue.Message) error {
 		var ev sharedkernel.TaskCreated
@@ -235,7 +291,7 @@ func run(ctx context.Context) error {
 		return worker.HandleDispatch(ctx, cmd)
 	}
 	var dispatchSubs queue.SubscriptionSet
-	ensureDispatchSubs := func(instances []instance.Instance) {
+	ensureDispatchSubs := func(instances []edge.Instance) {
 		for _, inst := range instances {
 			topic := inst.DispatchTopic
 			if topic == "" {
@@ -269,14 +325,6 @@ func run(ctx context.Context) error {
 			slog.Error("http server failed", "err", err)
 		}
 	}()
-
-	if tgBot != nil {
-		tg.RegisterHandlers(tgBot, tgAdapter)
-		go tgBot.Start(ctx)
-		slog.Info("telegram bot started")
-	} else {
-		slog.Info("TG_BOT_TOKEN empty; telegram polling disabled")
-	}
 
 	probeEvery := 30 * time.Second
 	if cfg.HealthProbeInterval != "" {
@@ -333,33 +381,6 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-type logMessenger struct{}
-
-func (logMessenger) SendText(_ context.Context, chatID int64, text string) error {
-	slog.Info("tg out text", "chat_id", chatID, "text", text)
-	return nil
-}
-func (logMessenger) SendMenu(_ context.Context, chatID int64, text string) error {
-	slog.Info("tg out menu", "chat_id", chatID, "text", text)
-	return nil
-}
-func (logMessenger) SendInline(_ context.Context, chatID int64, text string, rows [][]tg.InlineButton) error {
-	slog.Info("tg out inline", "chat_id", chatID, "text", text, "rows", len(rows))
-	return nil
-}
-func (logMessenger) SendPhoto(_ context.Context, chatID int64, ref sharedkernel.BlobRef, caption string) error {
-	slog.Info("tg out photo", "chat_id", chatID, "blob", ref.Key, "caption", caption)
-	return nil
-}
-func (logMessenger) SendPhotoURL(_ context.Context, chatID int64, imageURL, caption string) error {
-	slog.Info("tg out photo_url", "chat_id", chatID, "url", imageURL, "caption", caption)
-	return nil
-}
-func (logMessenger) AnswerCallback(_ context.Context, callbackID, text string) error {
-	slog.Info("tg answer callback", "id", callbackID, "text", text)
-	return nil
-}
-
 func seedCasesDir(ctx context.Context, repo catalogdomain.Repository, dir string) (int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -392,14 +413,6 @@ func seedCaseFile(ctx context.Context, repo catalogdomain.Repository, path strin
 		return repo.Save(ctx, c)
 	}
 	return repo.Create(ctx, c)
-}
-
-type tgMenuReader struct {
-	svc *tgmenuapp.Service
-}
-
-func (m tgMenuReader) GetMenu(ctx context.Context) (tgmenudomain.MenuTree, error) {
-	return m.svc.Get(ctx)
 }
 
 func envOr(k, def string) string {

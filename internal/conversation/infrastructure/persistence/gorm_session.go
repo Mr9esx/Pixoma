@@ -152,6 +152,18 @@ func (r *SessionRepository) ClearActive(ctx context.Context, chatID sharedkernel
 		}).Error
 }
 
+// CountByChannel counts active sessions for a channel (delete-restriction check).
+func (r *SessionRepository) CountByChannel(ctx context.Context, channelID string) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&SessionRow{}).
+		Where("channel_id = ? AND status IN ?", channelID, []string{
+			string(domain.StatusCollecting),
+			string(domain.StatusConfirming),
+		}).
+		Count(&n).Error
+	return n, err
+}
+
 func toRow(s *domain.Session) (*SessionRow, error) {
 	keys, err := json.Marshal(s.InputKeys)
 	if err != nil {

@@ -2,53 +2,57 @@ package app
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/sha256"
+	"encoding/hex"
 	"log/slog"
-	"os"
-	"path/filepath"
-	"strings"
+	"sync"
 
 	"github.com/go-telegram/bot"
 	"github.com/google/uuid"
 
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
+	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
+	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
+	channelruntime "github.com/mr9esx/comfyui_tgbot/internal/channel/runtime"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/notifybridge"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
+	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	menudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
-	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
+
+type telegramBot = bot.Bot
 
 var newTelegramBot = bot.New
 
-// BotRuntime is the in-process Telegram + notify wiring for pixoma.
+// BotRuntime carries the channel runtime and notify publisher for pixoma.
 type BotRuntime struct {
 	Facade *botapp.Facade
 	Notify notify.Publisher
+	Stop   func(ctx context.Context) error
 }
 
-// BotDeps is everything needed to accept Telegram work and notify users.
+// BotDeps is everything needed to run channel adapters and notify users.
 type BotDeps struct {
-	Token        string
+	Channels     *channelapp.Service
 	Cases        catalogdomain.Repository
 	Sessions     *convdomain.Service
 	SessionStore convdomain.Repository
 	Tasks        runtimedomain.TaskRepository
 	Users        identitydomain.Repository
-	Menu         *tgmenuapp.Service
+	Menu         *menuapp.Service
 	Blob         blob.Store
 	Bus          queue.Publisher
 }
 
-// StartBotRuntime builds the facade, notify publisher, and optional Telegram polling.
+// StartBotRuntime builds the facade, channel assembler, and notify router.
 func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 	facade := &botapp.Facade{
 		Cases:        deps.Cases,
@@ -62,114 +66,172 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 			return sharedkernel.TaskID(uuid.NewString())
 		},
 	}
-	adapter := tg.New(nil, nil)
-	menu := menuReader{svc: deps.Menu}
-	var messenger tg.Messenger = logMessenger{}
-	token := strings.TrimSpace(deps.Token)
-	if token != "" {
-		b, err := newTelegramBot(token)
-		if err != nil {
-			slog.Warn("telegram bot unavailable; polling disabled", "err", err)
-		} else {
-			messenger = &tg.BotMessenger{Bot: b, Blob: deps.Blob, Menu: menu}
-			*adapter = *tg.New(facade, messenger)
-			adapter.Users = deps.Users
-			adapter.Menu = menu
-			tg.RegisterHandlers(b, adapter)
-			go b.Start(ctx)
-			slog.Info("telegram bot started")
-			return &BotRuntime{
-				Facade: facade,
-				Notify: &notifybridge.Publisher{Adapter: adapter},
-			}, nil
-		}
-	} else {
-		slog.Info("telegram bot token empty; polling disabled")
+
+	registry := &notifyRegistry{handlers: map[string]channelruntime.NotifyHandler{}}
+	router := &channelruntime.NotifyRouter{
+		HandlerByChannel: registry.lookup,
 	}
-	*adapter = *tg.New(facade, messenger)
-	adapter.Users = deps.Users
-	adapter.Menu = menu
+	factory := &tgChannelFactory{
+		facade:   facade,
+		deps:     deps,
+		registry: registry,
+	}
+	assembler := &channelruntime.Assembler{
+		Store:    &channelSnapshotStore{svc: deps.Channels},
+		Factory:  factory,
+		Interval: channelWatchInterval,
+	}
+	go func() {
+		if err := assembler.Run(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("channel assembler stopped", "err", err)
+		}
+	}()
 	return &BotRuntime{
 		Facade: facade,
-		Notify: &notifybridge.Publisher{Adapter: adapter},
+		Notify: router,
+		Stop:   assembler.StopAll,
 	}, nil
 }
 
-type menuReader struct {
-	svc *tgmenuapp.Service
+const channelWatchInterval = 5 * 1000_000_000 // 5s
+
+type channelSnapshotStore struct {
+	svc *channelapp.Service
 }
 
-func (m menuReader) GetMenu(ctx context.Context) (tgmenudomain.MenuTree, error) {
-	if m.svc == nil {
-		return tgmenudomain.MenuTree{}, nil
-	}
-	return m.svc.Get(ctx)
-}
-
-type logMessenger struct{}
-
-func (logMessenger) SendText(_ context.Context, chatID int64, text string) error {
-	slog.Info("tg out text", "chat_id", chatID, "text", text)
-	return nil
-}
-func (logMessenger) SendMenu(_ context.Context, chatID int64, text string) error {
-	slog.Info("tg out menu", "chat_id", chatID, "text", text)
-	return nil
-}
-func (logMessenger) SendInline(_ context.Context, chatID int64, text string, rows [][]tg.InlineButton) error {
-	slog.Info("tg out inline", "chat_id", chatID, "text", text, "rows", len(rows))
-	return nil
-}
-func (logMessenger) SendPhoto(_ context.Context, chatID int64, ref sharedkernel.BlobRef, caption string) error {
-	slog.Info("tg out photo", "chat_id", chatID, "blob", ref.Key, "caption", caption)
-	return nil
-}
-func (logMessenger) SendPhotoURL(_ context.Context, chatID int64, imageURL, caption string) error {
-	slog.Info("tg out photo_url", "chat_id", chatID, "url", imageURL, "caption", caption)
-	return nil
-}
-func (logMessenger) AnswerCallback(_ context.Context, callbackID, text string) error {
-	slog.Info("tg answer callback", "id", callbackID, "text", text)
-	return nil
-}
-
-// SeedCasesDir loads JSON case files if the directory exists.
-func SeedCasesDir(ctx context.Context, repo catalogdomain.Repository, dir string) (int, error) {
-	if strings.TrimSpace(dir) == "" {
-		return 0, nil
-	}
-	entries, err := os.ReadDir(dir)
+func (s *channelSnapshotStore) ListChannels(ctx context.Context) ([]channelruntime.ChannelSnapshot, error) {
+	chs, err := s.svc.List(ctx)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return 0, nil
-		}
-		return 0, err
+		return nil, err
 	}
-	n := 0
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+	out := make([]channelruntime.ChannelSnapshot, 0, len(chs))
+	for _, ch := range chs {
+		cred, err := channeldomain.DecryptCredential(s.svc.Key, ch.CredentialCiphertext)
+		if err != nil {
+			slog.Error("channel credential decrypt", "err", err, "channel", ch.ID)
 			continue
 		}
-		if err := seedCaseFile(ctx, repo, filepath.Join(dir, e.Name())); err != nil {
-			return n, err
-		}
-		n++
+		sum := sha256.Sum256([]byte(cred.BotToken))
+		out = append(out, channelruntime.ChannelSnapshot{
+			ID:             ch.ID,
+			Platform:       ch.Platform,
+			Credential:     cred.BotToken,
+			CredentialHash: hex.EncodeToString(sum[:]),
+			Enabled:        ch.Enabled,
+			UpdatedAt:      ch.UpdatedAt,
+		})
 	}
-	return n, nil
+	return out, nil
 }
 
-func seedCaseFile(ctx context.Context, repo catalogdomain.Repository, path string) error {
-	raw, err := os.ReadFile(path)
+type notifyRegistry struct {
+	mu       sync.Mutex
+	handlers map[string]channelruntime.NotifyHandler
+}
+
+func (r *notifyRegistry) set(channelID string, h channelruntime.NotifyHandler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.handlers[channelID] = h
+}
+
+func (r *notifyRegistry) lookup(channelID string) (channelruntime.NotifyHandler, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	h, ok := r.handlers[channelID]
+	return h, ok
+}
+
+type tgChannelFactory struct {
+	facade   *botapp.Facade
+	deps     BotDeps
+	registry *notifyRegistry
+}
+
+func (f *tgChannelFactory) Create(snap channelruntime.ChannelSnapshot) (channelruntime.Adapter, error) {
+	menuReader := channelMenuReader{svc: f.deps.Menu, channelID: snap.ID}
+	extrasReader := channelMenuExtrasReader{svc: f.deps.Menu, channelID: snap.ID}
+	botInst, err := newTelegramBot(snap.Credential)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	var doc catalogdomain.CaseDocument
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return err
+	messenger := &tg.BotMessenger{
+		Bot:    botInst,
+		Blob:   f.deps.Blob,
+		Menu:   menuReader,
+		Extras: extrasReader,
 	}
-	c := &catalogdomain.Case{Document: doc, Enabled: true}
-	if _, err := repo.Get(ctx, doc.ID); err == nil {
-		return repo.Save(ctx, c)
+	adapter := tg.New(f.facade, messenger)
+	adapter.Media = tg.NewMediaBridge(botInst)
+	adapter.Users = identityResolver{users: f.deps.Users}
+	adapter.Menu = menuReader
+	adapter.Extras = extrasReader
+	adapter.ChannelID = snap.ID
+	tg.RegisterHandlers(botInst, adapter)
+	return &tgBotWrapper{
+		adapter:   adapter,
+		registry:  f.registry,
+		channelID: snap.ID,
+		bot:       botInst,
+	}, nil
+}
+
+type tgBotWrapper struct {
+	adapter   *tg.Adapter
+	registry  *notifyRegistry
+	channelID string
+	bot       *telegramBot
+	mu        sync.Mutex
+	cancel    context.CancelFunc
+}
+
+func (w *tgBotWrapper) Start(ctx context.Context) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	bctx, cancel := context.WithCancel(ctx)
+	w.cancel = cancel
+	go w.bot.Start(bctx)
+	w.registry.set(w.channelID, w.adapter)
+	slog.Info("telegram bot started", "channel", w.channelID)
+	return nil
+}
+
+func (w *tgBotWrapper) Stop(ctx context.Context) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.cancel != nil {
+		w.cancel()
+		w.cancel = nil
 	}
-	return repo.Create(ctx, c)
+	return nil
+}
+
+type channelMenuReader struct {
+	svc       *menuapp.Service
+	channelID string
+}
+
+func (r channelMenuReader) GetMenu(ctx context.Context) (menudomain.MenuTree, error) {
+	return r.svc.Get(ctx, r.channelID)
+}
+
+type channelMenuExtrasReader struct {
+	svc       *menuapp.Service
+	channelID string
+}
+
+func (r channelMenuExtrasReader) GetExtras(ctx context.Context) (map[string][]menudomain.Extra, error) {
+	return r.svc.ListExtras(ctx, r.channelID)
+}
+
+type identityResolver struct {
+	users identitydomain.Repository
+}
+
+func (r identityResolver) Resolve(ctx context.Context, _ sharedkernel.ChannelAddr, profile identitydomain.UpsertFrom) (string, error) {
+	u, err := r.users.UpsertByChannelExternal(ctx, profile)
+	if err != nil {
+		return "", err
+	}
+	return u.ID, nil
 }

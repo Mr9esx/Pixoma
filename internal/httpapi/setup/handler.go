@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -23,6 +24,10 @@ type Handler struct {
 	DataDir  string
 	// OpenBusiness is used after a successful DB ping so settings can be saved.
 	OpenBusiness func(driver, dsn string) (*gorm.DB, error)
+	// Restart reloads pixoma after finalize. Nil skips auto-reload (tests).
+	Restart func()
+	// RestartAfter delays Restart so the HTTP response can flush. Zero means 400ms.
+	RestartAfter time.Duration
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -34,6 +39,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/draft", h.draft)
 	r.Post("/finalize", h.finalize)
 	r.Get("/settings", h.getSettings)
+	r.Put("/settings", h.putSettings)
 }
 
 type statusDTO struct {
@@ -109,7 +115,13 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if err := h.Boot.ChangePassword(user, body.OldPassword, body.NewPassword); err != nil {
+	var err error
+	if h.Boot.MustChangePassword() {
+		err = h.Boot.SetPassword(user, body.NewPassword)
+	} else {
+		err = h.Boot.ChangePassword(user, body.OldPassword, body.NewPassword)
+	}
+	if err != nil {
 		if errors.Is(err, bootstrap.ErrInvalidCredentials) {
 			writeErr(w, http.StatusUnauthorized, err.Error())
 			return
@@ -118,10 +130,16 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "password must be at least 8 characters")
 			return
 		}
+		if errors.Is(err, bootstrap.ErrPasswordAlreadySet) {
+			writeErr(w, http.StatusBadRequest, "password already set")
+			return
+		}
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	_ = h.Boot.SetWizardStep("database")
+	if !h.Boot.Initialized() {
+		_ = h.Boot.SetWizardStep("database")
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "must_change_password": false})
 }
 
@@ -245,10 +263,90 @@ func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"configured": false})
 		return
 	}
-	got.TelegramBotToken = mask(got.TelegramBotToken)
 	got.BlobAccessKey = mask(got.BlobAccessKey)
 	got.BlobSecretKey = mask(got.BlobSecretKey)
 	writeJSON(w, http.StatusOK, map[string]any{"configured": true, "settings": got})
+}
+
+func (h *Handler) putSettings(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.requireSession(w, r); !ok {
+		return
+	}
+	if !h.Boot.Initialized() {
+		writeErr(w, http.StatusBadRequest, "finalize setup first")
+		return
+	}
+	var body settings.Settings
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	driver, dsn, err := h.Boot.AppDB()
+	if err != nil || strings.TrimSpace(dsn) == "" {
+		writeErr(w, http.StatusBadRequest, "configure database first")
+		return
+	}
+	st, cleanup, err := h.settingsStore(driver, dsn)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer func() { _ = cleanup() }()
+	existing, err := st.Load()
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "save settings first")
+		return
+	}
+	merged := mergePlatformSettings(existing, body)
+	merged.DBDriver = driver
+	merged.DBDSN = dsn
+	if err := merged.Validate(); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := st.Save(merged); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.Boot.SetRestartRequired(true); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":               true,
+		"restart_required": true,
+		"restarting":       h.Restart != nil,
+		"message":          "reloading pixoma",
+	})
+	h.scheduleRestart()
+}
+
+func mergePlatformSettings(existing, in settings.Settings) settings.Settings {
+	out := existing
+	if p := strings.TrimSpace(in.Placement); p != "" {
+		out.Placement = p
+	}
+	if b := strings.TrimSpace(in.BlobDriver); b != "" {
+		out.BlobDriver = b
+	}
+	out.BlobRoot = in.BlobRoot
+	out.BlobEndpoint = in.BlobEndpoint
+	out.BlobRegion = in.BlobRegion
+	out.BlobBucket = in.BlobBucket
+	out.BlobAccessKey = unmaskSecret(in.BlobAccessKey)
+	out.BlobSecretKey = unmaskSecret(in.BlobSecretKey)
+	out.AutoSpawnEdge = in.AutoSpawnEdge
+	out.ProxyKind = in.ProxyKind
+	out.ProxyHost = in.ProxyHost
+	out.ProxyPort = in.ProxyPort
+	return out
+}
+
+func unmaskSecret(s string) string {
+	if s == maskedSecret {
+		return ""
+	}
+	return s
 }
 
 func (h *Handler) finalize(w http.ResponseWriter, r *http.Request) {
@@ -292,8 +390,21 @@ func (h *Handler) finalize(w http.ResponseWriter, r *http.Request) {
 		"ok":               true,
 		"initialized":      true,
 		"restart_required": true,
-		"message":          "settings saved; restart pixoma for them to take effect",
+		"restarting":       h.Restart != nil,
+		"message":          "reloading pixoma",
 	})
+	h.scheduleRestart()
+}
+
+func (h *Handler) scheduleRestart() {
+	if h == nil || h.Restart == nil {
+		return
+	}
+	delay := h.RestartAfter
+	if delay <= 0 {
+		delay = 400 * time.Millisecond
+	}
+	time.AfterFunc(delay, h.Restart)
 }
 
 func (h *Handler) user(r *http.Request) (string, bool) {
@@ -342,11 +453,13 @@ func (h *Handler) settingsStore(driver, dsn string) (*settings.Store, func() err
 	return st, cleanup, nil
 }
 
+const maskedSecret = "********"
+
 func mask(s string) string {
 	if s == "" {
 		return ""
 	}
-	return "********"
+	return maskedSecret
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

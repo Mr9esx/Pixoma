@@ -22,7 +22,7 @@ func openUsersHandler(t *testing.T) (*persistence.UserRepository, *httptest.Serv
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.UserRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.UserRow{}, &persistence.UserExternalIdentityRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	repo := persistence.NewUserRepository(gdb)
@@ -40,8 +40,9 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 	repo, srv := openUsersHandler(t)
 	ctx := context.Background()
 
-	u, err := repo.UpsertByTgUserID(ctx, domain.UpsertFrom{
-		TgUserID: 9001, Username: "alice_admin", FirstName: "Alice", LastName: "A", LanguageCode: "zh",
+	u, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "9001",
+		Username: "alice_admin", FirstName: "Alice", LastName: "A", LanguageCode: "zh",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -63,12 +64,6 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 	for _, row := range list {
 		if row["id"] == u.ID {
 			found = true
-			if row["tg_user_id"] != float64(9001) && row["tg_user_id"] != int64(9001) {
-				// JSON numbers decode as float64
-				if tg, ok := row["tg_user_id"].(float64); !ok || int64(tg) != 9001 {
-					t.Fatalf("tg_user_id=%v", row["tg_user_id"])
-				}
-			}
 			if row["username"] != "alice_admin" {
 				t.Fatalf("username=%v", row["username"])
 			}

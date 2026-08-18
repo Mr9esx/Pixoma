@@ -35,10 +35,10 @@ func (h *Handler) Mount(r chi.Router) {
 type taskDTO struct {
 	ID           string    `json:"id"`
 	SessionID    string    `json:"session_id"`
-	ChatID       int64     `json:"chat_id,omitempty"`
+	ChatID       string    `json:"chat_id,omitempty"`
 	CaseID       string    `json:"case_id"`
 	Status       string    `json:"status"`
-	InstanceID   string    `json:"instance_id,omitempty"`
+	EdgeID       string    `json:"instance_id,omitempty"`
 	PromptID     string    `json:"prompt_id,omitempty"`
 	ErrorCode    string    `json:"error_code,omitempty"`
 	ErrorMessage string    `json:"error_message,omitempty"`
@@ -50,10 +50,10 @@ func toDTO(t *runtimedomain.Task) taskDTO {
 	return taskDTO{
 		ID:           string(t.ID),
 		SessionID:    string(t.SessionID),
-		ChatID:       int64(t.ChatID),
+		ChatID:       string(t.ChatID),
 		CaseID:       string(t.CaseID),
 		Status:       string(t.Status),
-		InstanceID:   string(t.InstanceID),
+		EdgeID:       string(t.EdgeID),
 		PromptID:     t.PromptID,
 		ErrorCode:    t.ErrorCode,
 		ErrorMessage: t.ErrorMessage,
@@ -129,8 +129,8 @@ func parseAdminListQuery(r *http.Request) (runtimedomain.AdminListQuery, error) 
 	if v := r.URL.Query().Get("status"); v != "" {
 		q.Status = sharedkernel.TaskStatus(v)
 	}
-	if v := r.URL.Query().Get("instance_id"); v != "" {
-		q.InstanceID = sharedkernel.InstanceID(v)
+	if v := r.URL.Query().Get("edge_id"); v != "" {
+		q.EdgeID = sharedkernel.EdgeID(v)
 	}
 	if v := r.URL.Query().Get("session_id"); v != "" {
 		q.SessionID = sharedkernel.SessionID(v)
@@ -139,11 +139,7 @@ func parseAdminListQuery(r *http.Request) (runtimedomain.AdminListQuery, error) 
 		q.CaseID = sharedkernel.CaseID(v)
 	}
 	if v := r.URL.Query().Get("chat_id"); v != "" {
-		n, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return q, errors.New("invalid chat_id")
-		}
-		q.ChatID = sharedkernel.ChatID(n)
+		q.ChatID = sharedkernel.ChatID(v)
 	}
 	if v := r.URL.Query().Get("created_from"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)

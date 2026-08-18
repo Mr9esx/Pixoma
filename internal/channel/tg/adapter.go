@@ -158,6 +158,11 @@ func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotif
 	return a.Out.SendText(ctx, addr, msg)
 }
 
+// HandleNotify satisfies channel runtime NotifyHandler.
+func (a *Adapter) HandleNotify(ctx context.Context, n sharedkernel.UserNotify) error {
+	return a.HandleUserNotify(ctx, n)
+}
+
 func (a *Adapter) dispatchAction(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID, userID string, action ports.Action) error {
 	switch action.Type {
 	case ports.ActionOpenMenu:

@@ -11,17 +11,17 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
+	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
-	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
@@ -64,7 +64,7 @@ func TestNewHandler_CORSPreflight(t *testing.T) {
 
 func TestNewHandler_WithoutInstances_ListNotFound(t *testing.T) {
 	h := server.NewHandler(server.Options{})
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/edges", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -120,28 +120,28 @@ func TestNewHandler_MountsResourceRoutes(t *testing.T) {
 	}
 }
 
-func TestNewHandler_MountsComfyInstances(t *testing.T) {
+func TestNewHandler_MountsEdges(t *testing.T) {
 	dsn := "file:admin_api_mount_" + t.Name() + "?mode=memory&cache=shared"
 	gdb, err := db.Open(db.Options{DSN: dsn})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &instpersist.InstanceRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	repo := instpersist.NewInstanceRepository(gdb)
-	pool := instance.NewPool(repo, instance.PoolOptions{Mock: true})
+	repo := instpersist.NewEdgeRepository(gdb)
+	pool := edge.NewPool(repo, edge.PoolOptions{})
 	tasks := runtimedomain.NewMemoryTaskRepository()
-	instAPI := &comfyinstances.Handler{
-		Repo:  repo,
-		Pool:  pool,
-		Tasks: tasks,
-		Mock:  true,
+	instAPI := &edges.Handler{
+		Repo:   repo,
+		Pool:   pool,
+		Tasks:  tasks,
+		EncKey: bytes.Repeat([]byte("k"), 32),
 	}
 
 	h := server.NewHandler(server.Options{Instances: instAPI})
 
-	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances", nil)
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/edges", nil)
 	listRec := httptest.NewRecorder()
 	h.ServeHTTP(listRec, listReq)
 	if listRec.Code != http.StatusOK {
@@ -149,11 +149,10 @@ func TestNewHandler_MountsComfyInstances(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(map[string]any{
-		"id":       "gpu-admin",
-		"base_url": "http://127.0.0.1:8188",
-		"enabled":  true,
+		"id":      "gpu-admin",
+		"enabled": true,
 	})
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/comfy-instances", bytes.NewReader(body))
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/edges", bytes.NewReader(body))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRec := httptest.NewRecorder()
 	h.ServeHTTP(createRec, createReq)
@@ -161,10 +160,4 @@ func TestNewHandler_MountsComfyInstances(t *testing.T) {
 		t.Fatalf("create status=%d", createRec.Code)
 	}
 
-	sysReq := httptest.NewRequest(http.MethodGet, "/api/v1/comfy-instances/gpu-admin/system", nil)
-	sysRec := httptest.NewRecorder()
-	h.ServeHTTP(sysRec, sysReq)
-	if sysRec.Code != http.StatusOK {
-		t.Fatalf("system status=%d, want 200", sysRec.Code)
-	}
 }

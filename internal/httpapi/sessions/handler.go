@@ -25,18 +25,18 @@ func (h *Handler) Mount(r chi.Router) {
 }
 
 type draftDTO struct {
-	Key     string                 `json:"key"`
-	Text    *string                `json:"text,omitempty"`
-	Number  *float64               `json:"number,omitempty"`
-	Bool    *bool                  `json:"bool,omitempty"`
-	Blob    *sharedkernel.BlobRef  `json:"blob,omitempty"`
-	Skipped bool                   `json:"skipped,omitempty"`
+	Key     string                `json:"key"`
+	Text    *string               `json:"text,omitempty"`
+	Number  *float64              `json:"number,omitempty"`
+	Bool    *bool                 `json:"bool,omitempty"`
+	Blob    *sharedkernel.BlobRef `json:"blob,omitempty"`
+	Skipped bool                  `json:"skipped,omitempty"`
 }
 
 type sessionDTO struct {
 	ID                string              `json:"id"`
 	UserID            string              `json:"user_id"`
-	ChatID            int64               `json:"chat_id"`
+	ChatID            string              `json:"chat_id"`
 	CaseID            string              `json:"case_id"`
 	Status            string              `json:"status"`
 	CurrentInputIndex int                 `json:"current_input_index"`
@@ -65,7 +65,7 @@ func toDTO(s *domain.Session) sessionDTO {
 	return sessionDTO{
 		ID:                string(s.ID),
 		UserID:            s.UserID,
-		ChatID:            int64(s.ChatID),
+		ChatID:            string(s.ChatID),
 		CaseID:            string(s.CaseID),
 		Status:            string(s.Status),
 		CurrentInputIndex: s.CurrentInputIndex,
@@ -120,11 +120,8 @@ func parseListQuery(r *http.Request) (domain.ListQuery, error) {
 		q.Status = domain.Status(v)
 	}
 	if v := r.URL.Query().Get("chat_id"); v != "" {
-		n, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return q, errors.New("invalid chat_id")
-		}
-		q.ChatID = &n
+		chat := sharedkernel.ChatID(v)
+		q.ChatID = &chat
 	}
 	if v := r.URL.Query().Get("created_from"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)

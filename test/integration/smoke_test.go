@@ -14,8 +14,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/static"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/static"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
@@ -28,7 +28,7 @@ import (
 type memCases struct{ c *domain.Case }
 
 func (m *memCases) Save(ctx context.Context, c *domain.Case) error { return m.Create(ctx, c) }
-func (m *memCases) Create(_ context.Context, c *domain.Case) error  { m.c = c; return nil }
+func (m *memCases) Create(_ context.Context, c *domain.Case) error { m.c = c; return nil }
 func (m *memCases) Get(_ context.Context, id sharedkernel.CaseID) (*domain.Case, error) {
 	if m.c == nil || m.c.Document.ID != id {
 		return nil, domain.ErrNotFound
@@ -54,7 +54,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	bus := memory.New()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	n := &memNotify{}
-	reg := static.New(instance.Instance{ID: "local", DispatchTopic: "dispatch.local"})
+	reg := static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"})
 	orch := orchestrator.New(tasks, reg, bus, n)
 	orch.Now = func() time.Time { return now }
 
@@ -73,12 +73,12 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: mock}
 	orch.Prep = snap
 	worker := &actuator.Worker{
-		InstanceID: "local",
-		Comfy:      mock,
-		Blob:       store,
-		Status:     bus,
-		Workflows:  snap,
-		Now:        func() time.Time { return now },
+		EdgeID:    "local",
+		Comfy:     mock,
+		Blob:      store,
+		Status:    bus,
+		Workflows: snap,
+		Now:       func() time.Time { return now },
 	}
 
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskCreated, func(ctx context.Context, msg queue.Message) error {
@@ -97,7 +97,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 			return nil
 		}
 		return worker.HandleDispatch(ctx, sharedkernel.DispatchCommand{
-			TaskID: claimed.ID, InstanceID: claimed.InstanceID, JobRef: claimed.JobRef,
+			TaskID: claimed.ID, EdgeID: claimed.EdgeID, JobRef: claimed.JobRef,
 		})
 	})
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskStatus, func(ctx context.Context, msg queue.Message) error {
@@ -125,9 +125,9 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 
 	sessRepo := convdomain.NewMemoryRepository()
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "s1" }, func() time.Time { return now })
-	_, _ = sessSvc.StartCase(ctx, 42, "user-smoke", "text2img-demo", []string{"prompt"})
+	_, _ = sessSvc.StartCase(ctx, "tg:42", "user-smoke", "text2img-demo", []string{"prompt"})
 	p := "cat"
-	_, _ = sessSvc.SubmitInput(ctx, 42, convdomain.DraftValue{Text: &p})
+	_, _ = sessSvc.SubmitInput(ctx, "tg:42", convdomain.DraftValue{Text: &p})
 
 	facade := &botapp.Facade{
 		Cases: cases, Validator: validation.New(), Sessions: sessSvc, SessionStore: sessRepo,
@@ -135,7 +135,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 		NewTaskID: func() sharedkernel.TaskID { return "task-smoke" },
 		Now:       func() time.Time { return now },
 	}
-	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: 42})
+	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: "tg:42"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 	bus := memory.New()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	n := &memNotify{}
-	reg := static.New(instance.Instance{ID: "local", DispatchTopic: "dispatch.local"})
+	reg := static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"})
 	orch := orchestrator.New(tasks, reg, bus, n)
 	orch.Now = func() time.Time { return now }
 
@@ -198,12 +198,12 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: mock}
 	orch.Prep = snap
 	worker := &actuator.Worker{
-		InstanceID: "local",
-		Comfy:      mock,
-		Blob:       store,
-		Status:     bus,
-		Workflows:  snap,
-		Now:        func() time.Time { return now },
+		EdgeID:    "local",
+		Comfy:     mock,
+		Blob:      store,
+		Status:    bus,
+		Workflows: snap,
+		Now:       func() time.Time { return now },
 	}
 
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskCreated, func(ctx context.Context, msg queue.Message) error {
@@ -222,7 +222,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 			return nil
 		}
 		return worker.HandleDispatch(ctx, sharedkernel.DispatchCommand{
-			TaskID: claimed.ID, InstanceID: claimed.InstanceID, JobRef: claimed.JobRef,
+			TaskID: claimed.ID, EdgeID: claimed.EdgeID, JobRef: claimed.JobRef,
 		})
 	})
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskStatus, func(ctx context.Context, msg queue.Message) error {
@@ -283,10 +283,10 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 
 	sessRepo := convdomain.NewMemoryRepository()
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "s-img" }, func() time.Time { return now })
-	_, _ = sessSvc.StartCase(ctx, 77, "user-img", "img-edit-smoke", []string{"reference", "prompt"})
-	_, _ = sessSvc.SubmitInput(ctx, 77, convdomain.DraftValue{Blob: &ref})
+	_, _ = sessSvc.StartCase(ctx, "tg:77", "user-img", "img-edit-smoke", []string{"reference", "prompt"})
+	_, _ = sessSvc.SubmitInput(ctx, "tg:77", convdomain.DraftValue{Blob: &ref})
 	prompt := "make it anime"
-	_, _ = sessSvc.SubmitInput(ctx, 77, convdomain.DraftValue{Text: &prompt})
+	_, _ = sessSvc.SubmitInput(ctx, "tg:77", convdomain.DraftValue{Text: &prompt})
 
 	facade := &botapp.Facade{
 		Cases: cases, Validator: validation.New(), Sessions: sessSvc, SessionStore: sessRepo,
@@ -294,7 +294,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 		NewTaskID: func() sharedkernel.TaskID { return "task-img-smoke" },
 		Now:       func() time.Time { return now },
 	}
-	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: 77})
+	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: "tg:77"})
 	if err != nil {
 		t.Fatal(err)
 	}

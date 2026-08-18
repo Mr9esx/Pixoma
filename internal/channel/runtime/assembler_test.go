@@ -29,9 +29,10 @@ func newFakeFactory() *fakeFactory {
 	return &fakeFactory{created: map[string]int{}, adapters: map[string]*fakeAdapter{}, failNext: map[string]bool{}}
 }
 
-func (f *fakeFactory) Create(_ string, credential string) (Adapter, error) {
+func (f *fakeFactory) Create(snap ChannelSnapshot) (Adapter, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	credential := snap.Credential
 	f.created[credential]++
 	if f.failNext[credential] {
 		f.failNext[credential] = false

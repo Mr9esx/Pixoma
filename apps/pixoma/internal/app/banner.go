@@ -40,7 +40,7 @@ type EdgeSpawnConfig struct {
 	Binary          string
 	ControlPlaneURL string
 	AgentToken      string
-	InstanceID      string
+	EdgeID          string
 	BlobDriver      string
 	BlobRoot        string
 	ComfyMock       bool
@@ -62,7 +62,7 @@ func EdgeCommand(cfg EdgeSpawnConfig) *exec.Cmd {
 	env = append(env,
 		"CONTROL_PLANE_URL="+cfg.ControlPlaneURL,
 		"AGENT_TOKEN="+cfg.AgentToken,
-		"INSTANCE_ID="+cfg.InstanceID,
+		"EDGE_ID="+cfg.EdgeID,
 		"BLOB_DRIVER="+cfg.BlobDriver,
 		"BLOB_LOCAL_ROOT="+cfg.BlobRoot,
 		"COMFY_MOCK="+mock,

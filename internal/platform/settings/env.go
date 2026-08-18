@@ -19,15 +19,6 @@ func ApplyEnv(s *Settings) {
 	if v := strings.TrimSpace(os.Getenv("COMFYUI_BASE_URL")); v != "" {
 		s.ComfyUIBaseURL = v
 	}
-	if v := strings.TrimSpace(os.Getenv("INSTANCE_ID")); v != "" {
-		s.DefaultInstanceID = v
-	}
-	if v := strings.TrimSpace(os.Getenv("TG_BOT_TOKEN")); v != "" {
-		s.TelegramBotToken = v
-	}
-	if v := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")); v != "" {
-		s.TelegramBotToken = v
-	}
 	if v := strings.TrimSpace(os.Getenv("S3_ACCESS_KEY")); v != "" {
 		s.BlobAccessKey = v
 	}
