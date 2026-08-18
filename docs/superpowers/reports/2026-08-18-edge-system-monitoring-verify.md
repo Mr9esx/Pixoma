@@ -74,3 +74,32 @@
 ## Assessment
 
 无 CRITICAL/WARNING，3 条需求与 10 个场景全部覆盖，Ready for archive。
+
+---
+
+# Round 2（2026-08-18，图表布局调整后复审）
+
+## 变更
+
+用户要求调整系统监控布局（archive 挂起后回退 build 实施，`verify_failures=1`）：
+1. CPU 占用率与内存占用率并排折线图，图高为基准 50%（`h-[100px] w-full min-w-0 sm:h-[120px] lg:h-[140px]`）
+2. 显卡占用率与显存占用率并排折线图（每张 GPU 一组），图高 50%
+3. 内存占用（字节）与显存占用（字节）分别作为内存占用率图/显存占用率图的辅助序列（右轴字节）
+4. I/O 读/写图高 50%
+
+同步更新：delta spec R3 布局要求、Design Doc §5 卡片表与布局说明、tasks.md 3.11–3.14、i18n（monitorMemRate / monitorVramRate）、合同测试（LineChart、50% 高度 class、移除环形图断言）。
+
+## Round 2 验证结果
+
+| 检查项 | 结果 |
+|---|---|
+| tasks.md 全部勾选（29/29） | PASS |
+| 实现符合更新后的 spec R3 布局要求 | PASS（`observation-panel.tsx`：`LineCardShell` + `CHART_HALF_HEIGHT`、`CpuCard`/`MemRateCard` 并排、`GpuLineCards` 每 GPU 两卡并排、`IOCard` 高度 50%；环形图卡已移除） |
+| 编译通过 | PASS（`go build ./...` exit 0；`web/admin npm run build` 成功） |
+| 测试通过 | PASS（`go test ./...` 全绿；`npx tsc -b` + `npx vitest run` 30 文件/104 测试通过） |
+| 无安全回归 | PASS（无新密钥/unsafe；仅前端展示层调整） |
+| 代码审查（standard） | build 阶段已审 diff，本轮仅前端布局改动且合同测试锁定关键 class；review-notes.md 已记录 |
+
+## Round 2 结论
+
+无 CRITICAL/WARNING。Ready for archive（待用户归档确认）。
