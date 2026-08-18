@@ -1,10 +1,11 @@
 export const queryKeys = {
-  instances: {
-    all: ['instances'] as const,
-    detail: (id: string) => ['instances', id] as const,
-    system: (id: string) => ['instances', id, 'system'] as const,
-    queue: (id: string) => ['instances', id, 'queue'] as const,
-    tasks: (id: string) => ['instances', id, 'tasks'] as const,
+  edges: {
+    all: ['edges'] as const,
+    presence: ['edges', 'presence'] as const,
+    detail: (id: string) => ['edges', id] as const,
+    tasks: (id: string) => ['edges', id, 'tasks'] as const,
+    stats: (id: string) => ['edges', id, 'stats'] as const,
+    metrics: (id: string) => ['edges', id, 'metrics'] as const,
   },
   cases: {
     all: ['cases'] as const,
@@ -25,5 +26,8 @@ export const queryKeys = {
   },
   tgMenu: {
     all: ['tg-menu'] as const,
+  },
+  settings: {
+    all: ['settings'] as const,
   },
 }
