@@ -1,10 +1,62 @@
-export type ComfyInstance = {
+export type EdgeHardwareGPU = {
+  name: string
+  vram_bytes?: number
+}
+
+export type EdgeHardware = {
+  cpu_model?: string
+  cpu_cores?: number
+  ram_bytes?: number
+  gpus?: EdgeHardwareGPU[]
+  collected_at?: string
+}
+
+export type EdgeGPUMetric = {
+  name: string
+  usage_percent?: number | null
+  vram_used_bytes?: number
+  vram_total_bytes?: number
+  vram_usage_percent?: number | null
+}
+
+export type EdgeMetrics = {
+  cpu_usage_percent: number
+  mem_used_bytes: number
+  mem_total_bytes: number
+  mem_usage_percent: number
+  gpus?: EdgeGPUMetric[]
+  disk_read_bytes_per_sec?: number | null
+  disk_write_bytes_per_sec?: number | null
+  collected_at: string
+}
+
+export type EdgeMetricsResponse = {
+  latest: EdgeMetrics | null
+  series: EdgeMetrics[]
+}
+
+export type ComfyEdge = {
   id: string
-  base_url: string
+  name: string
+  description?: string
   enabled: boolean
   capabilities: string[]
+  agent_token?: string
+  hardware?: EdgeHardware
   created_at: string
   updated_at: string
+}
+
+export type EdgeStats = {
+  task_count: number
+  runtime_ms: number
+  success_rate: number | null
+}
+
+export type EdgePresence = {
+  id: string
+  edge_online: boolean
+  comfy_running: boolean
 }
 
 export type CaseInputField = {
@@ -52,7 +104,7 @@ export type TaskRecord = {
   chat_id?: number
   case_id: string
   status: string
-  instance_id?: string
+  edge_id?: string
   prompt_id?: string
   error_code?: string
   error_message?: string

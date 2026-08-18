@@ -1,61 +1,79 @@
 import { apiFetch, toQuery } from './client'
-import type { ComfyInstance, TaskRecord } from './types'
+import type {
+  ComfyEdge,
+  EdgeMetricsResponse,
+  EdgePresence,
+  EdgeStats,
+  TaskRecord,
+  EdgeHardware,
+} from './types'
 
-export function listInstances() {
-  return apiFetch<ComfyInstance[]>('/api/v1/comfy-instances')
+export function listEdges() {
+  return apiFetch<ComfyEdge[]>('/api/v1/edges')
 }
 
-export function getInstance(id: string) {
-  return apiFetch<ComfyInstance>(
-    `/api/v1/comfy-instances/${encodeURIComponent(id)}`,
-  )
+export function listPresence() {
+  return apiFetch<EdgePresence[]>('/api/v1/edges/presence')
 }
 
-export function createInstance(body: {
-  id: string
-  base_url: string
+export function getEdge(id: string) {
+  return apiFetch<ComfyEdge>(`/api/v1/edges/${encodeURIComponent(id)}`)
+}
+
+export function createEdge(body: {
+  name: string
+  description?: string
   enabled?: boolean
   capabilities?: string[]
 }) {
-  return apiFetch<ComfyInstance>('/api/v1/comfy-instances', {
+  return apiFetch<ComfyEdge>('/api/v1/edges', {
     method: 'POST',
     body: JSON.stringify(body),
   })
 }
 
-export function patchInstance(
+export function patchEdge(
   id: string,
-  body: { base_url?: string; enabled?: boolean; capabilities?: string[] },
+  body: {
+    name?: string
+    description?: string
+    enabled?: boolean
+    capabilities?: string[]
+    refresh_hardware?: boolean
+    hardware?: EdgeHardware
+  }
 ) {
-  return apiFetch<ComfyInstance>(
-    `/api/v1/comfy-instances/${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    },
+  return apiFetch<ComfyEdge>(`/api/v1/edges/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function rotateEdgeToken(id: string) {
+  return apiFetch<ComfyEdge>(
+    `/api/v1/edges/${encodeURIComponent(id)}/rotate-token`,
+    { method: 'POST' }
   )
 }
 
-export function deleteInstance(id: string) {
-  return apiFetch<void>(`/api/v1/comfy-instances/${encodeURIComponent(id)}`, {
+export function deleteEdge(id: string) {
+  return apiFetch<void>(`/api/v1/edges/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
 }
 
-export function getInstanceSystem(id: string) {
-  return apiFetch<unknown>(
-    `/api/v1/comfy-instances/${encodeURIComponent(id)}/system`,
-  )
-}
-
-export function getInstanceQueue(id: string) {
-  return apiFetch<unknown>(
-    `/api/v1/comfy-instances/${encodeURIComponent(id)}/queue`,
-  )
-}
-
-export function listInstanceTasks(id: string, params?: { limit?: number }) {
+export function listEdgeTasks(id: string, params?: { limit?: number }) {
   return apiFetch<TaskRecord[]>(
-    `/api/v1/comfy-instances/${encodeURIComponent(id)}/tasks${toQuery(params)}`,
+    `/api/v1/edges/${encodeURIComponent(id)}/tasks${toQuery(params)}`
+  )
+}
+
+export function getEdgeStats(id: string) {
+  return apiFetch<EdgeStats>(`/api/v1/edges/${encodeURIComponent(id)}/stats`)
+}
+
+export function getEdgeMetrics(id: string, window: '1h' | '6h' | '24h' = '1h') {
+  return apiFetch<EdgeMetricsResponse>(
+    `/api/v1/edges/${encodeURIComponent(id)}/metrics?window=${window}`,
   )
 }
