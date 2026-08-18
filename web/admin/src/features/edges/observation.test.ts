@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { formatBytes, ioAxisTicks, parseMetrics } from './observation'
+import {
+  formatBytes,
+  formatMetricValue,
+  ioAxisTicks,
+  parseMetrics,
+} from './observation'
 
 describe('parseMetrics', () => {
   it('maps optional gpu and io fields', () => {
@@ -82,5 +87,17 @@ describe('ioAxisTicks', () => {
     const { ticks, format } = ioAxisTicks([])
     expect(ticks).toEqual([0])
     expect(format(0)).toBe('0 B')
+  })
+})
+
+describe('formatMetricValue', () => {
+  it('formats byte series with human units', () => {
+    expect(formatMetricValue(17179869184, 'used')).toBe('16.0 GiB')
+    expect(formatMetricValue(102400, 'read')).toBe('100 KiB')
+  })
+
+  it('formats percent series with %', () => {
+    expect(formatMetricValue(42.5, 'cpu')).toBe('42.5%')
+    expect(formatMetricValue(0, 'rate')).toBe('0.0%')
   })
 })

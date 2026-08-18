@@ -72,6 +72,20 @@ export function formatBytes(n: number): string {
   return `${text} ${units[idx]}`
 }
 
+// 图表 tooltip 数值格式化：字节序列走 formatBytes，其余按百分比展示。
+export function formatMetricValue(value: unknown, key: string): string {
+  const n = typeof value === 'number' ? value : Number(value)
+  const isBytes =
+    key === 'used' ||
+    key === 'vramUsed' ||
+    key === 'read' ||
+    key === 'write'
+  if (isBytes) {
+    return Number.isFinite(n) ? formatBytes(n) : String(value ?? '')
+  }
+  return Number.isFinite(n) ? `${n.toFixed(1)}%` : String(value ?? '')
+}
+
 // I/O 轴阶梯化：按显示单位（B/KiB/MiB/GiB）用 1/2/5×10ⁿ 的整齐步进生成 tick，
 // 避免小数值产生零碎小数（如 349.5 KiB、1.2 MiB）。
 function niceTickStep(raw: number): number {

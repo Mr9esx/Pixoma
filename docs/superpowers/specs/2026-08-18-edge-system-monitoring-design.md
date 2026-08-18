@@ -163,6 +163,8 @@ type MetricsRepository interface {
 
 > I/O 轴阶梯化（2026-08-18 build 第四轮）：`ioAxisTicks` 按显示单位（B/KiB/MiB/GiB，取 max/unit ≥ 4 的最大单位）以 1/2/5×10ⁿ 步进生成整齐 tick，Y 轴不再出现零碎小数；tooltip 仍显示精确值。
 
+> tooltip 与内边距（2026-08-18 build 第五轮）：tooltip 每行恢复「label: 值」格式（`formatMetricValue` 处理字节/百分比）；五张图统一 `CHART_MARGIN`（top 12 / right 4 / bottom 0 / left 4）、X 轴 `height=20`、`tickMargin=4`，消除各图底部 padding 差异并给 Y 轴顶部刻度留白防裁切。
+
 图例点抄参考：`size-2.5 rounded-full sm:size-3`（面积图）与 `size-2 rounded-full sm:size-2.5`（环形图），颜色用 `style={{ backgroundColor: 'var(--primary)' }}` 与 `color-mix` 表达式；均需暗色变体（`dark [data-chart=...]` 下的 85% 混色）。
 
 **集成**：`detail-panel.tsx` 删除 `getEdgeSystem`/`systemQuery`，改 `getEdgeMetrics(id, '1h')` + `refetchInterval: 15000`；`ObservationPanel` 仅接收 `metricsQuery` 与 `tasksQuery`；`parseSystem` 相关代码随系统节移除（队列节未实现，保留其余逻辑）。
