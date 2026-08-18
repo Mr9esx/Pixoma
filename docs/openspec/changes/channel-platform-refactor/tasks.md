@@ -1,9 +1,9 @@
 ## 1. 渠道领域与持久化
 
-- [ ] 1.1 新增 `internal/channel` 领域：Channel 实体（id/platform/name/credential/enabled/时间戳）与 Repository 端口
-- [ ] 1.2 GORM 实现 `channels` 表与 CRUD（含凭证加密/解密与 masked 回显）
+- [x] 1.1 新增 `internal/channel` 领域：Channel 实体（id/platform/name/credential/enabled/时间戳）与 Repository 端口
+- [x] 1.2 GORM 实现 `channels` 表与 CRUD（含凭证加密/解密与 masked 回显）
 - [ ] 1.3 凭证密钥注入：AES-GCM 密钥经 env 注入（开发可退化并告警）；无 env / `platform_settings` token 迁移
-- [ ] 1.4 渠道应用服务：Create/List/Get/Update/Delete，校验平台合法、凭证非空、删除/停用语义
+- [x] 1.4 渠道应用服务：Create/List/Get/Update/Delete，校验平台合法、凭证非空、删除/停用语义
 
 ## 2. 菜单模型中立化（tgmenu → menu）
 

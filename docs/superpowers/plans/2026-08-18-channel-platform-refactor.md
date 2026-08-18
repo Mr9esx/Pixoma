@@ -159,15 +159,15 @@ func TestParseChatIDInvalid(t *testing.T) {
 - Produces: `type Repository interface { Create(ctx, Channel) error; Get(ctx, id) (Channel, error); List(ctx) ([]Channel, error); Update(ctx, Channel) error; Delete(ctx, id) error }`
 - Produces: `application.Service{ Create/Get/List/Update/Disable/Delete }`；`Delete` 校验 enabled=false 且无活跃 session/task（通过注入 `HasActiveRefs(ctx, channelID) (bool, error)` 端口）
 
-- [ ] **Step 1: 写失败测试（凭证）** — `credential_test.go`：Encrypt→Decrypt 往返一致；错误 key 解密失败；`MaskedToken("1234567890") == "1234****7890"`，短 token 用 `"****"` 全遮
-- [ ] **Step 2: 写失败测试（持久化）** — `gorm_channel_test.go`（sqlite memory + AutoMigrate）：Create→Get 往返；List 含 enabled 过滤；Update 凭证后 Get 为密文新值；Delete 删除
-- [ ] **Step 3: 运行确认失败** — `go test ./internal/channel/...`，预期编译失败
-- [ ] **Step 4: 实现**
+- [x] **Step 1: 写失败测试（凭证）** — `credential_test.go`：Encrypt→Decrypt 往返一致；错误 key 解密失败；`MaskedToken("1234567890") == "1234****7890"`，短 token 用 `"****"` 全遮
+- [x] **Step 2: 写失败测试（持久化）** — `gorm_channel_test.go`（sqlite memory + AutoMigrate）：Create→Get 往返；List 含 enabled 过滤；Update 凭证后 Get 为密文新值；Delete 删除
+- [x] **Step 3: 运行确认失败** — `go test ./internal/channel/...`，预期编译失败
+- [x] **Step 4: 实现**
   - `internal/platform/crypto`：`Encrypt(key []byte, plaintext string) (string, error)` / `Decrypt(key, ct) (string, error)`（AES-GCM，nonce 前置 base64）；`settings` 复用并删除私有 encrypt/decrypt
   - `domain/channel.go` + `gorm_channel.go`：`channels` 表（id/platform/name/credential_ciphertext/enabled/created_at/updated_at）；`platform` 校验白名单
   - `application/service.go`：Create 时凭证加密；Get/List 回显 `MaskedToken`（DTO 层）；Update 支持 token 留空=不变；Delete 先查 `HasActiveRefs`
-- [ ] **Step 5: 运行通过** — `go test ./internal/channel/... ./internal/platform/settings/...` 全绿
-- [ ] **Step 6: 提交** — `git commit -m "feat(channel): add channel domain, credential crypto, and persistence"`
+- [x] **Step 5: 运行通过** — `go test ./internal/channel/... ./internal/platform/settings/...` 全绿
+- [x] **Step 6: 提交** — `git commit -m "feat(channel): add channel domain, credential crypto, and persistence"`
 
 ---
 
