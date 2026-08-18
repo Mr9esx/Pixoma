@@ -121,6 +121,7 @@ describe('compute node layout and detail', () => {
     const en = read('../../lib/i18n/locales/en.json')
     expect(chart).toMatch(/data-slot="chart"/)
     expect(chart).toMatch(/aspect-video/)
+    expect(observe).toMatch(/aspect-auto/)
     expect(observe).toMatch(/h-full min-h-\[120px\] w-full min-w-0/)
     expect(observe).toMatch(/text-base font-semibold/)
     expect(observe).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_92px\]/)
