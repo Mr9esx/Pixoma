@@ -1,9 +1,10 @@
-package comfyinstances_test
+package edges_test
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -12,10 +13,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
@@ -28,11 +30,10 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &instpersist.InstanceRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	repo := instpersist.NewInstanceRepository(gdb)
-	pool := instance.NewPool(repo, instance.PoolOptions{Mock: true})
+	repo := instpersist.NewEdgeRepository(gdb)
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	ctx := context.Background()
 	now := time.Now().UTC()
@@ -48,31 +49,30 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := tasks.Create(ctx, &runtimedomain.Task{
-		ID:         "t-queued",
-		SessionID:  "s1",
-		CaseID:     "c1",
-		Status:     sharedkernel.TaskQueued,
-		InstanceID: "gpu-2",
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ID:        "t-queued",
+		SessionID: "s1",
+		CaseID:    "c1",
+		Status:    sharedkernel.TaskQueued,
+		EdgeID:    "gpu-2",
+		CreatedAt: now,
+		UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	h := &comfyinstances.Handler{Repo: repo, Pool: pool, Tasks: tasks, Mock: true}
+	h := &edges.Handler{Repo: repo, Tasks: tasks, EncKey: testEncKey()}
 	r := chi.NewRouter()
-	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
+	r.Route("/api/v1/edges", func(r chi.Router) {
 		h.Mount(r)
 	})
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 
 	body, _ := json.Marshal(map[string]any{
-		"id":       "gpu-2",
-		"base_url": "http://127.0.0.1:8189",
-		"enabled":  true,
+		"id":      "gpu-2",
+		"enabled": true,
 	})
-	res, err := http.Post(srv.URL+"/api/v1/comfy-instances", "application/json", bytes.NewReader(body))
+	res, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 		t.Fatalf("create status=%d", res.StatusCode)
 	}
 
-	listRes, err := http.Get(srv.URL + "/api/v1/comfy-instances")
+	listRes, err := http.Get(srv.URL + "/api/v1/edges")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 		t.Fatalf("list missing gpu-2: %v", list)
 	}
 
-	tasksRes, err := http.Get(srv.URL + "/api/v1/comfy-instances/gpu-2/tasks")
+	tasksRes, err := http.Get(srv.URL + "/api/v1/edges/gpu-2/tasks")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,30 +120,6 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 		t.Fatalf("want only queued task, got %v", taskList)
 	}
 
-	sysRes, err := http.Get(srv.URL + "/api/v1/comfy-instances/gpu-2/system")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer sysRes.Body.Close()
-	if sysRes.StatusCode != http.StatusOK {
-		t.Fatalf("system status=%d", sysRes.StatusCode)
-	}
-	var sys map[string]any
-	if err := json.NewDecoder(sysRes.Body).Decode(&sys); err != nil {
-		t.Fatal(err)
-	}
-	if sys["mock"] != true || sys["reachable"] != true {
-		t.Fatalf("system=%v", sys)
-	}
-
-	missing, err := http.Get(srv.URL + "/api/v1/comfy-instances/no-such/system")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer missing.Body.Close()
-	if missing.StatusCode != http.StatusNotFound {
-		t.Fatalf("missing instance want 404, got %d", missing.StatusCode)
-	}
 }
 
 func TestHandler_CreateDuplicateIDReturns409(t *testing.T) {
@@ -152,24 +128,23 @@ func TestHandler_CreateDuplicateIDReturns409(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &instpersist.InstanceRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	repo := instpersist.NewInstanceRepository(gdb)
-	h := &comfyinstances.Handler{Repo: repo, Pool: instance.NewPool(repo, instance.PoolOptions{Mock: true}), Tasks: runtimedomain.NewMemoryTaskRepository(), Mock: true}
+	repo := instpersist.NewEdgeRepository(gdb)
+	h := &edges.Handler{Repo: repo, Tasks: runtimedomain.NewMemoryTaskRepository(), EncKey: testEncKey()}
 	r := chi.NewRouter()
-	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
+	r.Route("/api/v1/edges", func(r chi.Router) {
 		h.Mount(r)
 	})
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 
 	body, _ := json.Marshal(map[string]any{
-		"id":       "gpu-dup",
-		"base_url": "http://127.0.0.1:8188",
-		"enabled":  true,
+		"id":      "gpu-dup",
+		"enabled": true,
 	})
-	res1, err := http.Post(srv.URL+"/api/v1/comfy-instances", "application/json", bytes.NewReader(body))
+	res1, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,11 +154,10 @@ func TestHandler_CreateDuplicateIDReturns409(t *testing.T) {
 	}
 
 	body2, _ := json.Marshal(map[string]any{
-		"id":       "gpu-dup",
-		"base_url": "http://127.0.0.1:9999",
-		"enabled":  false,
+		"id":      "gpu-dup",
+		"enabled": false,
 	})
-	res2, err := http.Post(srv.URL+"/api/v1/comfy-instances", "application/json", bytes.NewReader(body2))
+	res2, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +170,7 @@ func TestHandler_CreateDuplicateIDReturns409(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.BaseURL != "http://127.0.0.1:8188" || !got.Enabled {
+	if !got.Enabled {
 		t.Fatalf("existing row overwritten: %+v", got)
 	}
 }
@@ -207,11 +181,11 @@ func TestHandler_CreateRefreshesPoolAndDispatchTopicReceivable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &instpersist.InstanceRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	repo := instpersist.NewInstanceRepository(gdb)
-	pool := instance.NewPool(repo, instance.PoolOptions{Mock: true})
+	repo := instpersist.NewEdgeRepository(gdb)
+	pool := edge.NewPool(repo, edge.PoolOptions{})
 	bus := memory.New()
 	t.Cleanup(func() { _ = bus.Close() })
 	ctx := context.Background()
@@ -222,7 +196,7 @@ func TestHandler_CreateRefreshesPoolAndDispatchTopicReceivable(t *testing.T) {
 		return nil
 	}
 	var subs queue.SubscriptionSet
-	ensure := func(instances []instance.Instance) {
+	ensure := func(instances []edge.Instance) {
 		for _, inst := range instances {
 			topic := inst.DispatchTopic
 			if topic == "" {
@@ -238,20 +212,19 @@ func TestHandler_CreateRefreshesPoolAndDispatchTopicReceivable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	api := &comfyinstances.Handler{Repo: repo, Pool: pool, Tasks: runtimedomain.NewMemoryTaskRepository(), Mock: true}
+	api := &edges.Handler{Repo: repo, Pool: pool, Tasks: runtimedomain.NewMemoryTaskRepository(), EncKey: testEncKey()}
 	r := chi.NewRouter()
-	r.Route("/api/v1/comfy-instances", func(r chi.Router) {
+	r.Route("/api/v1/edges", func(r chi.Router) {
 		api.Mount(r)
 	})
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 
 	body, _ := json.Marshal(map[string]any{
-		"id":       "gpu-new",
-		"base_url": "http://127.0.0.1:8199",
-		"enabled":  true,
+		"id":      "gpu-new",
+		"enabled": true,
 	})
-	res, err := http.Post(srv.URL+"/api/v1/comfy-instances", "application/json", bytes.NewReader(body))
+	res, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,5 +239,482 @@ func TestHandler_CreateRefreshesPoolAndDispatchTopicReceivable(t *testing.T) {
 	}
 	if got := hits.Load(); got != 1 {
 		t.Fatalf("dispatch hits=%d want 1 (topic subscribed after create/refresh)", got)
+	}
+}
+
+func testEncKey() []byte {
+	return bytes.Repeat([]byte("k"), 32)
+}
+
+func TestHandler_CreateMintsNameAndAgentToken(t *testing.T) {
+	dsn := "file:comfy_httpapi_token_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	h := &edges.Handler{
+		Repo:   repo,
+		Tasks:  runtimedomain.NewMemoryTaskRepository(),
+		EncKey: testEncKey(),
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", h.Mount)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	body, _ := json.Marshal(map[string]any{
+		"name":        "机房 A",
+		"description": "夜间出图",
+	})
+	res, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create status=%d", res.StatusCode)
+	}
+	var created map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	id, _ := created["id"].(string)
+	if id == "" {
+		t.Fatalf("expected generated id, got %v", created)
+	}
+	if created["name"] != "机房 A" || created["description"] != "夜间出图" {
+		t.Fatalf("name/desc=%v", created)
+	}
+	tok, _ := created["agent_token"].(string)
+	if tok == "" {
+		t.Fatalf("expected agent_token, got %v", created)
+	}
+
+	getRes, err := http.Get(srv.URL + "/api/v1/edges/" + id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer getRes.Body.Close()
+	var got map[string]any
+	if err := json.NewDecoder(getRes.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got["agent_token"] != tok {
+		t.Fatalf("get token=%v want %s", got["agent_token"], tok)
+	}
+
+	listRes, err := http.Get(srv.URL + "/api/v1/edges")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listRes.Body.Close()
+	var list []map[string]any
+	if err := json.NewDecoder(listRes.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("list=%v", list)
+	}
+	if _, ok := list[0]["agent_token"]; ok && list[0]["agent_token"] != "" && list[0]["agent_token"] != nil {
+		t.Fatalf("list must omit agent_token: %v", list[0])
+	}
+
+	rotate, err := http.Post(srv.URL+"/api/v1/edges/"+id+"/rotate-token", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rotate.Body.Close()
+	if rotate.StatusCode != http.StatusOK {
+		t.Fatalf("rotate status=%d", rotate.StatusCode)
+	}
+	var rotated map[string]any
+	if err := json.NewDecoder(rotate.Body).Decode(&rotated); err != nil {
+		t.Fatal(err)
+	}
+	next, _ := rotated["agent_token"].(string)
+	if next == "" || next == tok {
+		t.Fatalf("rotate must mint a new token, got %v", rotated)
+	}
+}
+
+func TestHandler_PresenceListsAllInstances(t *testing.T) {
+	dsn := "file:comfy_httpapi_presence_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	store := presence.NewStore()
+	now := time.Unix(1000, 0).UTC()
+	store.Now = func() time.Time { return now }
+
+	h := &edges.Handler{
+		Repo:     repo,
+		Tasks:    tasks,
+		EncKey:   testEncKey(),
+		Presence: store,
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", h.Mount)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	body, _ := json.Marshal(map[string]any{
+		"id":      "gpu-2",
+		"enabled": true,
+	})
+	res, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d", res.StatusCode)
+	}
+
+	presRes, err := http.Get(srv.URL + "/api/v1/edges/presence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer presRes.Body.Close()
+	if presRes.StatusCode != http.StatusOK {
+		t.Fatalf("unreported presence status=%d", presRes.StatusCode)
+	}
+	var unreported []map[string]any
+	if err := json.NewDecoder(presRes.Body).Decode(&unreported); err != nil {
+		t.Fatal(err)
+	}
+	row := presenceRow(t, unreported, "gpu-2")
+	if row["edge_online"] != false || row["comfy_running"] != false {
+		t.Fatalf("unreported: %v", row)
+	}
+
+	store.Report("gpu-2", true)
+	presRes2, err := http.Get(srv.URL + "/api/v1/edges/presence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer presRes2.Body.Close()
+	if presRes2.StatusCode != http.StatusOK {
+		t.Fatalf("reported presence status=%d", presRes2.StatusCode)
+	}
+	var reported []map[string]any
+	if err := json.NewDecoder(presRes2.Body).Decode(&reported); err != nil {
+		t.Fatal(err)
+	}
+	row = presenceRow(t, reported, "gpu-2")
+	if row["edge_online"] != true || row["comfy_running"] != true {
+		t.Fatalf("reported: %v", row)
+	}
+
+	now = now.Add(16 * time.Second)
+	presRes3, err := http.Get(srv.URL + "/api/v1/edges/presence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer presRes3.Body.Close()
+	var stale []map[string]any
+	if err := json.NewDecoder(presRes3.Body).Decode(&stale); err != nil {
+		t.Fatal(err)
+	}
+	row = presenceRow(t, stale, "gpu-2")
+	if row["edge_online"] != false || row["comfy_running"] != false {
+		t.Fatalf("stale: %v", row)
+	}
+}
+
+func presenceRow(t *testing.T, rows []map[string]any, id string) map[string]any {
+	t.Helper()
+	for _, row := range rows {
+		if row["id"] == id {
+			return row
+		}
+	}
+	t.Fatalf("missing id %s in %v", id, rows)
+	return nil
+}
+
+func TestHandler_PatchHardwareAndRefreshFlag(t *testing.T) {
+	dsn := "file:comfy_httpapi_hw_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	now := time.Now().UTC().Truncate(time.Second)
+	if err := repo.Upsert(context.Background(), &edge.Record{
+		ID:        "gpu-1",
+		Name:      "gpu-1",
+		Enabled:   true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	h := &edges.Handler{
+		Repo:   repo,
+		Tasks:  runtimedomain.NewMemoryTaskRepository(),
+		EncKey: testEncKey(),
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", h.Mount)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	body, _ := json.Marshal(map[string]any{
+		"hardware": map[string]any{"cpu_model": "Ryzen", "cpu_cores": 16},
+	})
+	req, err := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/edges/gpu-1", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("patch hardware status=%d", res.StatusCode)
+	}
+	var dto map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&dto); err != nil {
+		t.Fatal(err)
+	}
+	hw, _ := dto["hardware"].(map[string]any)
+	if hw["cpu_model"] != "Ryzen" {
+		t.Fatalf("hardware=%v", hw)
+	}
+	if hw["collected_at"] == nil || hw["collected_at"] == "" {
+		t.Fatal("hand edit must set collected_at")
+	}
+
+	flagBody, _ := json.Marshal(map[string]any{"refresh_hardware": true})
+	flagReq, _ := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/edges/gpu-1", bytes.NewReader(flagBody))
+	flagReq.Header.Set("Content-Type", "application/json")
+	flagRes, err := http.DefaultClient.Do(flagReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer flagRes.Body.Close()
+	if flagRes.StatusCode != http.StatusOK {
+		t.Fatalf("patch refresh status=%d", flagRes.StatusCode)
+	}
+	got, err := repo.Get(context.Background(), "gpu-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.HardwareRefreshRequested {
+		t.Fatal("refresh flag not set")
+	}
+	if got.Hardware.CPUModel != "Ryzen" {
+		t.Fatalf("refresh must not wipe hardware: %+v", got.Hardware)
+	}
+}
+
+func TestHandler_Stats(t *testing.T) {
+	dsn := "file:comfy_httpapi_stats_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	now := time.Unix(1_700_000_000, 0).UTC()
+	if err := repo.Upsert(context.Background(), &edge.Record{
+		ID:        "gpu-1",
+		Name:      "gpu-1",
+		Enabled:   true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	add := func(id string, status sharedkernel.TaskStatus, dur time.Duration) {
+		t.Helper()
+		if err := tasks.Create(context.Background(), &runtimedomain.Task{
+			ID:        sharedkernel.TaskID(id),
+			SessionID: "s1",
+			CaseID:    "c1",
+			Status:    status,
+			EdgeID:    "gpu-1",
+			CreatedAt: now,
+			UpdatedAt: now.Add(dur),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add("t-ok-1", sharedkernel.TaskSucceeded, 100*time.Millisecond)
+	add("t-ok-2", sharedkernel.TaskSucceeded, 200*time.Millisecond)
+	add("t-fail", sharedkernel.TaskFailed, 300*time.Millisecond)
+	add("t-run", sharedkernel.TaskRunning, time.Second)
+
+	h := &edges.Handler{
+		Repo:   repo,
+		Tasks:  tasks,
+		EncKey: testEncKey(),
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", h.Mount)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	res, err := http.Get(srv.URL + "/api/v1/edges/gpu-1/stats")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("stats status=%d", res.StatusCode)
+	}
+	var dto map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&dto); err != nil {
+		t.Fatal(err)
+	}
+	if dto["task_count"] != float64(4) {
+		t.Fatalf("task_count=%v", dto["task_count"])
+	}
+	if dto["runtime_ms"] != float64(600) {
+		t.Fatalf("runtime_ms=%v", dto["runtime_ms"])
+	}
+	rate, ok := dto["success_rate"].(float64)
+	if !ok {
+		t.Fatalf("success_rate=%v", dto["success_rate"])
+	}
+	if diff := rate - 2.0/3.0; diff > 1e-9 || diff < -1e-9 {
+		t.Fatalf("success_rate=%v want 2/3", rate)
+	}
+}
+
+func TestHandler_MetricsEndpoint(t *testing.T) {
+	dsn := "file:edges_metrics_test_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}, &instpersist.MetricsRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	metricsRepo := instpersist.NewMetricsRepository(gdb, 24*time.Hour)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID:        "gpu-1",
+		Name:      "gpu-1",
+		Enabled:   true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		m := edge.Metrics{CPUUsagePercent: float64(i), CollectedAt: now.Add(time.Duration(i) * time.Minute)}
+		if err := metricsRepo.Append(ctx, "gpu-1", m); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	h := &edges.Handler{Repo: repo, Metrics: metricsRepo, EncKey: testEncKey()}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", func(r chi.Router) {
+		h.Mount(r)
+	})
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	res, err := http.Get(srv.URL + "/api/v1/edges/gpu-1/metrics?window=1h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(res.Body)
+		t.Fatalf("status=%d body=%s", res.StatusCode, raw)
+	}
+	var out struct {
+		Latest *edge.Metrics  `json:"latest"`
+		Series []edge.Metrics `json:"series"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Series) != 2 || out.Latest == nil || out.Latest.CPUUsagePercent != 1 {
+		t.Fatalf("series=%+v latest=%+v", out.Series, out.Latest)
+	}
+
+	missing, err := http.Get(srv.URL + "/api/v1/edges/nope/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer missing.Body.Close()
+	if missing.StatusCode != http.StatusNotFound {
+		t.Fatalf("missing status=%d", missing.StatusCode)
+	}
+}
+
+func TestHandler_MetricsEmptySeries(t *testing.T) {
+	dsn := "file:edges_metrics_test_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}, &instpersist.MetricsRow{}); err != nil {
+		t.Fatal(err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	metricsRepo := instpersist.NewMetricsRepository(gdb, 24*time.Hour)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID:        "gpu-2",
+		Name:      "gpu-2",
+		Enabled:   true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	h := &edges.Handler{Repo: repo, Metrics: metricsRepo, EncKey: testEncKey()}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", func(r chi.Router) {
+		h.Mount(r)
+	})
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	res, err := http.Get(srv.URL + "/api/v1/edges/gpu-2/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d", res.StatusCode)
+	}
+	var out map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out["latest"] != nil {
+		t.Fatalf("latest must be null: %v", out["latest"])
+	}
+	series, ok := out["series"].([]any)
+	if !ok || len(series) != 0 {
+		t.Fatalf("series must be empty: %v", out["series"])
 	}
 }
