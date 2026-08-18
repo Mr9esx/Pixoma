@@ -12,22 +12,33 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 )
 
-// UserRow is the GORM model for the users table.
+// UserRow is the GORM model for the users table (internal identity).
 type UserRow struct {
 	ID           string `gorm:"primaryKey;size:36"`
-	TgUserID     int64  `gorm:"uniqueIndex;not null"`
 	Username     string `gorm:"size:256"`
 	FirstName    string `gorm:"size:256"`
 	LastName     string `gorm:"size:256"`
 	LanguageCode string `gorm:"size:64"`
-	IsBot        *bool
-	IsPremium    *bool
 	LastSeenAt   time.Time `gorm:"not null"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
 
 func (UserRow) TableName() string { return "users" }
+
+// UserExternalIdentityRow maps an internal user to a channel-scoped external id.
+type UserExternalIdentityRow struct {
+	ID             string    `gorm:"primaryKey;size:36"`
+	UserID         string    `gorm:"size:36;not null;index"`
+	ChannelID      string    `gorm:"size:128;not null;uniqueIndex:idx_channel_external"`
+	ExternalUserID string    `gorm:"size:256;not null;uniqueIndex:idx_channel_external"`
+	ProfileJSON    string    `gorm:"type:text"`
+	LastSeenAt     time.Time `gorm:"not null"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (UserExternalIdentityRow) TableName() string { return "user_external_identities" }
 
 // UserRepository is a GORM-backed identity.Repository.
 type UserRepository struct {
@@ -43,48 +54,64 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 	}
 }
 
-func (r *UserRepository) UpsertByTgUserID(ctx context.Context, in domain.UpsertFrom) (*domain.User, error) {
-	if in.TgUserID == 0 {
-		return nil, fmt.Errorf("identity: empty tg_user_id")
+// UpsertByChannelExternal upserts an internal user keyed by (channel, external id).
+func (r *UserRepository) UpsertByChannelExternal(ctx context.Context, in domain.UpsertFrom) (*domain.User, error) {
+	if in.ChannelID == "" || in.ExternalUserID == "" {
+		return nil, fmt.Errorf("identity: channel_id and external_user_id required")
 	}
-	now := r.now()
-	var row UserRow
-	err := r.db.WithContext(ctx).Where("tg_user_id = ?", in.TgUserID).Limit(1).Find(&row).Error
+	now := in.LastSeenAt
+	if now.IsZero() {
+		now = r.now()
+	}
+
+	var identity UserExternalIdentityRow
+	err := r.db.WithContext(ctx).
+		Where("channel_id = ? AND external_user_id = ?", in.ChannelID, in.ExternalUserID).
+		Limit(1).
+		Find(&identity).Error
 	if err != nil {
 		return nil, err
 	}
-	if row.ID == "" {
-		row = UserRow{
-			ID:           uuid.NewString(),
-			TgUserID:     in.TgUserID,
-			Username:     in.Username,
-			FirstName:    in.FirstName,
-			LastName:     in.LastName,
-			LanguageCode: in.LanguageCode,
-			IsBot:        in.IsBot,
-			IsPremium:    in.IsPremium,
-			LastSeenAt:   now,
-			CreatedAt:    now,
-			UpdatedAt:    now,
+
+	if identity.ID == "" {
+		userID := uuid.NewString()
+		user := UserRow{
+			ID: userID, Username: in.Username, FirstName: in.FirstName,
+			LastName: in.LastName, LanguageCode: in.LanguageCode,
+			LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
 		}
-		if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
-			return nil, err
+		ident := UserExternalIdentityRow{
+			ID: uuid.NewString(), UserID: userID,
+			ChannelID: in.ChannelID, ExternalUserID: in.ExternalUserID,
+			ProfileJSON: in.ProfileJSON, LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
 		}
-		return fromRow(row), nil
+		return fromRow(user), r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(&user).Error; err != nil {
+				return err
+			}
+			return tx.Create(&ident).Error
+		})
 	}
 
-	row.Username = in.Username
-	row.FirstName = in.FirstName
-	row.LastName = in.LastName
-	row.LanguageCode = in.LanguageCode
-	row.IsBot = in.IsBot
-	row.IsPremium = in.IsPremium
-	row.LastSeenAt = now
-	row.UpdatedAt = now
-	if err := r.db.WithContext(ctx).Save(&row).Error; err != nil {
+	var user UserRow
+	if err := r.db.WithContext(ctx).First(&user, "id = ?", identity.UserID).Error; err != nil {
 		return nil, err
 	}
-	return fromRow(row), nil
+	user.Username = in.Username
+	user.FirstName = in.FirstName
+	user.LastName = in.LastName
+	user.LanguageCode = in.LanguageCode
+	user.LastSeenAt = now
+	user.UpdatedAt = now
+	identity.ProfileJSON = in.ProfileJSON
+	identity.LastSeenAt = now
+	identity.UpdatedAt = now
+	return fromRow(user), r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&user).Error; err != nil {
+			return err
+		}
+		return tx.Save(&identity).Error
+	})
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
@@ -101,14 +128,21 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 
 func (r *UserRepository) List(ctx context.Context, q domain.ListQuery) ([]*domain.User, error) {
 	tx := r.db.WithContext(ctx).Model(&UserRow{})
-	if q.TgUserID != nil {
-		tx = tx.Where("tg_user_id = ?", *q.TgUserID)
+	if q.ChannelID != nil || q.ExternalUserID != nil {
+		sub := r.db.WithContext(ctx).Model(&UserExternalIdentityRow{}).Select("user_id")
+		if q.ChannelID != nil {
+			sub = sub.Where("channel_id = ?", *q.ChannelID)
+		}
+		if q.ExternalUserID != nil {
+			sub = sub.Where("external_user_id = ?", *q.ExternalUserID)
+		}
+		tx = tx.Where("id IN (?)", sub)
 	}
 	if q.Q != "" {
 		like := "%" + q.Q + "%"
 		tx = tx.Where(
-			"id LIKE ? OR username LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR CAST(tg_user_id AS TEXT) LIKE ?",
-			like, like, like, like, like,
+			"id LIKE ? OR username LIKE ? OR first_name LIKE ? OR last_name LIKE ?",
+			like, like, like, like,
 		)
 	}
 	if q.CreatedFrom != nil {
@@ -137,13 +171,10 @@ func (r *UserRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 func fromRow(row UserRow) *domain.User {
 	return &domain.User{
 		ID:           row.ID,
-		TgUserID:     row.TgUserID,
 		Username:     row.Username,
 		FirstName:    row.FirstName,
 		LastName:     row.LastName,
 		LanguageCode: row.LanguageCode,
-		IsBot:        row.IsBot,
-		IsPremium:    row.IsPremium,
 		LastSeenAt:   row.LastSeenAt,
 		CreatedAt:    row.CreatedAt,
 		UpdatedAt:    row.UpdatedAt,

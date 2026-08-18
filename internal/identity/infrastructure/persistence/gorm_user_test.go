@@ -17,25 +17,27 @@ func openTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.UserRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.UserRow{}, &persistence.UserExternalIdentityRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	return gdb
 }
 
-func TestUpsertByTgUserID_IdempotentAndRefresh(t *testing.T) {
-	gdb := openTestDB(t) // sqlite memory + AutoMigrate UserRow
+func TestUpsertByChannelExternal_IdempotentAndRefresh(t *testing.T) {
+	gdb := openTestDB(t)
 	repo := persistence.NewUserRepository(gdb)
 	ctx := context.Background()
 
-	u1, err := repo.UpsertByTgUserID(ctx, domain.UpsertFrom{
-		TgUserID: 42, Username: "alice", FirstName: "A", LanguageCode: "zh-hans",
+	u1, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "42",
+		Username: "alice", FirstName: "A", LanguageCode: "zh-hans",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	u2, err := repo.UpsertByTgUserID(ctx, domain.UpsertFrom{
-		TgUserID: 42, Username: "alice2", FirstName: "A2",
+	u2, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "42",
+		Username: "alice2", FirstName: "A2",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -46,8 +48,35 @@ func TestUpsertByTgUserID_IdempotentAndRefresh(t *testing.T) {
 	if u2.Username != "alice2" {
 		t.Fatalf("username not refreshed: %q", u2.Username)
 	}
-	if !u2.LastSeenAt.After(u1.LastSeenAt) && !u2.LastSeenAt.Equal(u1.LastSeenAt) {
-		// allow equal if same clock; prefer After when Now injects
+}
+
+func TestUpsert_DifferentChannelsIsolated(t *testing.T) {
+	gdb := openTestDB(t)
+	repo := persistence.NewUserRepository(gdb)
+	ctx := context.Background()
+
+	tg, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "42", Username: "tg-alice",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "feishu-1", ExternalUserID: "oc_42", Username: "fs-alice",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tg.ID == other.ID {
+		t.Fatalf("channels must map to distinct identities: %s", tg.ID)
+	}
+
+	byChannel, err := repo.List(ctx, domain.ListQuery{ChannelID: ptr("tg-default")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byChannel) != 1 || byChannel[0].ID != tg.ID {
+		t.Fatalf("channel filter: want 1 tg, got %+v", byChannel)
 	}
 }
 
@@ -56,26 +85,18 @@ func TestUserListFilters(t *testing.T) {
 	repo := persistence.NewUserRepository(gdb)
 	ctx := context.Background()
 
-	alice, err := repo.UpsertByTgUserID(ctx, domain.UpsertFrom{
-		TgUserID: 1001, Username: "alice_list", FirstName: "Alice", LastName: "One",
+	alice, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "1001",
+		Username: "alice_list", FirstName: "Alice", LastName: "One",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = repo.UpsertByTgUserID(ctx, domain.UpsertFrom{
-		TgUserID: 1002, Username: "bob_list", FirstName: "Bob", LastName: "Two",
-	})
-	if err != nil {
+	if _, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "1002",
+		Username: "bob_list", FirstName: "Bob", LastName: "Two",
+	}); err != nil {
 		t.Fatal(err)
-	}
-
-	tgID := int64(1001)
-	byTg, err := repo.List(ctx, domain.ListQuery{TgUserID: &tgID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(byTg) != 1 || byTg[0].ID != alice.ID {
-		t.Fatalf("tg_user_id exact: want 1 alice, got %+v", byTg)
 	}
 
 	byQ, err := repo.List(ctx, domain.ListQuery{Q: "alice_list"})
@@ -86,12 +107,14 @@ func TestUserListFilters(t *testing.T) {
 		t.Fatalf("q username: want 1 alice_list, got %+v", byQ)
 	}
 
-	byTgQ, err := repo.List(ctx, domain.ListQuery{Q: "1001"})
+	byExt, err := repo.List(ctx, domain.ListQuery{
+		ChannelID: ptr("tg-default"), ExternalUserID: ptr("1001"),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(byTgQ) != 1 || byTgQ[0].ID != alice.ID {
-		t.Fatalf("q matches tg_user_id: want 1 alice, got %+v", byTgQ)
+	if len(byExt) != 1 || byExt[0].ID != alice.ID {
+		t.Fatalf("external exact: want alice, got %+v", byExt)
 	}
 
 	limited, err := repo.List(ctx, domain.ListQuery{Limit: 1, Offset: 0})
@@ -102,3 +125,5 @@ func TestUserListFilters(t *testing.T) {
 		t.Fatalf("limit 1: want len 1, got %d", len(limited))
 	}
 }
+
+func ptr(s string) *string { return &s }
