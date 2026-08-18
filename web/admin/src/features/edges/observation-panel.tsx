@@ -142,7 +142,7 @@ function LineCardShell({
       </div>
       <div className='grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_92px]'>
         <div className='h-full min-h-[120px] w-full min-w-0'>
-          <ChartContainer config={config} className='h-full w-full'>
+          <ChartContainer config={config} className='aspect-auto h-full w-full'>
             {children}
           </ChartContainer>
         </div>
