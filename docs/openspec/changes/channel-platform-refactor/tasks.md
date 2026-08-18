@@ -23,8 +23,8 @@
 
 ## 4. 身份渠道化
 
-- [ ] 4.1 新增 `user_external_identities`：`channel + external_id` 唯一约束；`users` 新模型不含 `tg_user_id` 列
-- [ ] 4.2 upsert 按（channel, external_id）执行并刷新资料字段与 `last_seen_at`
+- [x] 4.1 新增 `user_external_identities`：`channel + external_id` 唯一约束；`users` 新模型不含 `tg_user_id` 列
+- [x] 4.2 upsert 按（channel, external_id）执行并刷新资料字段与 `last_seen_at`
 - [ ] 4.3 用户查询/列表接口支持按渠道外部身份过滤（兼容旧 tg_user_id 查询）
 
 ## 5. 渠道端口契约与 TG 适配器重构

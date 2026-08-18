@@ -229,14 +229,14 @@ func TestParseChatIDInvalid(t *testing.T) {
 - Produces: `Repository.UpsertByChannelExternal(ctx, in UpsertFrom) (*User, error)`；`GetByID`、`List(ctx, ListQuery{ChannelID, ExternalUserID, Q, ...})`
 - Removes: `UpsertByTgUserID`、`TgUserID` 字段
 
-- [ ] **Step 1: 写失败测试** — `UserRow` 无 `TgUserID` 编译失败；AutoMigrate `users + user_external_identities`；同 (channel, external_id) 两次 upsert 返回同一内部 id；不同渠道外部 id 并存；`List` 按 ChannelID 过滤
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/identity/...`
-- [ ] **Step 3: 实现**
+- [x] **Step 1: 写失败测试** — `UserRow` 无 `TgUserID` 编译失败；AutoMigrate `users + user_external_identities`；同 (channel, external_id) 两次 upsert 返回同一内部 id；不同渠道外部 id 并存；`List` 按 ChannelID 过滤
+- [x] **Step 2: 运行确认失败** — `go test ./internal/identity/...`
+- [x] **Step 3: 实现**
   - `user_external_identities(id PK, user_id, channel_id, external_user_id, profile_json, last_seen_at)`，UNIQUE(channel_id, external_user_id)
   - upsert 流程：按 (channel_id, external_user_id) 查外部身份 → 无则建内部 user（uuid）+ 外部身份；有则刷新 users 通用资料快照与 last_seen_at
   - `ListQuery` 增加 `ChannelID *string`、`ExternalUserID *string`，参数化查询
-- [ ] **Step 4: 运行通过** — `go test ./internal/identity/...`；修复 `internal/httpapi/users` 与 adapter 调用点（`UpsertByTgUserID` 引用改为新方法）
-- [ ] **Step 5: 提交** — `git commit -m "refactor(identity): channel-scoped external identities"`
+- [x] **Step 4: 运行通过** — `go test ./internal/identity/...`；修复 `internal/httpapi/users` 与 adapter 调用点（`UpsertByTgUserID` 引用改为新方法；httpapi/users 接线延至 Task 12）
+- [x] **Step 5: 提交** — `git commit -m "refactor(identity): channel-scoped external identities"`
 
 ---
 
