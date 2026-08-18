@@ -272,7 +272,7 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
           yAxisId='used'
           orientation='right'
           tickFormatter={(v: number) => formatBytes(v)}
-          width={48}
+          width={64}
           {...TICK_PROPS}
         />
         <ChartTooltip
@@ -425,7 +425,7 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
             yAxisId='used'
             orientation='right'
             tickFormatter={(v: number) => formatBytes(v)}
-            width={48}
+            width={64}
             {...TICK_PROPS}
           />
           <ChartTooltip
