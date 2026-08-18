@@ -90,3 +90,25 @@ func TestSample_MockGPU(t *testing.T) {
 		t.Fatalf("mock gpu: %+v", m.GPUs)
 	}
 }
+
+func TestSample_CPUPercentMustNotSleep(t *testing.T) {
+	// gopsutil cpu.PercentWithContext(interval>0) blocks for the interval;
+	// the sampler must always ask for a non-blocking since-last-call sample.
+	s := metrics.NewSampler(false)
+	s.Now = func() time.Time { return time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC) }
+	var got time.Duration
+	s.CPUPercent = func(_ context.Context, interval time.Duration) (float64, error) {
+		got = interval
+		return 0, nil
+	}
+	s.VirtualMemory = func(_ context.Context) (*mem.VirtualMemoryStat, error) {
+		return &mem.VirtualMemoryStat{Used: 1, Total: 2, UsedPercent: 50}, nil
+	}
+	s.DiskIO = func(_ context.Context) (map[string]disk.IOCountersStat, error) {
+		return map[string]disk.IOCountersStat{}, nil
+	}
+	_ = s.Sample(context.Background(), time.Time{})
+	if got != 0 {
+		t.Fatalf("cpu percent interval must be 0 (non-blocking), got %v", got)
+	}
+}
