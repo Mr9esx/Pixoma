@@ -151,10 +151,13 @@ type MetricsRepository interface {
 
 | 卡 | 数据 | 参考卡 | 关键 class |
 |---|---|---|---|
-| CPU 占用率（面积图） | series.cpu | Total Revenue | `bg-card flex min-w-0 flex-1 flex-col gap-4 rounded-xl border p-4 sm:gap-6 sm:p-6`；顶部大数字 `text-xl leading-tight font-semibold tracking-tight sm:text-2xl`；图高 `h-[200px] w-full min-w-0 sm:h-[240px] lg:h-[280px]`；`--color-cpu: var(--primary)`；渐变 0.3→0.05；Area strokeWidth 2 |
-| 内存（环形图） | latest.mem | Sales by Category | `bg-card flex flex-1 flex-col gap-4 rounded-xl border p-4 sm:p-5`；图 `relative size-[100px] shrink-0 sm:size-[120px]`；中心已用 % + 小标签；图例行 `size-2 rounded-full sm:size-2.5` + `tabular-nums`；`--color-used: var(--primary)`、`--color-free: color-mix(in oklch, var(--primary) 75%, var(--background))` |
-| GPU 占用率/显存（环形图，每 GPU 一张） | latest.gpus[] | Sales by Category | 同上；中心分别显示占用 % / 已用字节；无 GPU 数据整组隐藏 |
+| CPU 占用率（折线图，与内存占用率并排） | series.cpu | Total Revenue（样式体系） | `bg-card flex min-w-0 flex-1 flex-col gap-4 rounded-xl border p-4 sm:gap-6 sm:p-6`；顶部大数字 `text-xl leading-tight font-semibold tracking-tight sm:text-2xl`；图高为基准 50%：`h-[100px] w-full min-w-0 sm:h-[120px] lg:h-[140px]`；`--color-cpu: var(--primary)`；Line strokeWidth 2 |
+| 内存占用率（折线图，与 CPU 并排） | series.memPct + series.memUsed | Total Revenue（样式体系） | 同上；左轴 0–100%（占用率），右轴字节（内存占用，辅助序列）；`--color-memRate: var(--primary)`、`--color-memUsed: color-mix(... 75% ...)` |
+| GPU 占用率（折线图，与显存占用率并排，每 GPU 一组） | series.gpus[].usage | Total Revenue（样式体系） | 同上；无 GPU 数据整组隐藏 |
+| 显存占用率（折线图，与 GPU 占用率并排） | series.gpus[].vramPct + vramUsed | Total Revenue（样式体系） | 同上；左轴 0–100%，右轴字节（显存占用，辅助序列） |
 | I/O（双系列面积图） | series.ioRead/ioWrite | Total Revenue 双系列 | `--color-read: var(--primary)`、`--color-write: color-mix(in oklch, var(--primary) 75%, var(--background))`；两条 Area 各自渐变；y 轴字节/秒 |
+
+> 布局调整（2026-08-18 build 第二轮）：CPU 与内存占用率并排折线图、GPU 与显存占用率并排折线图（图高均为基准 50%），内存占用/显存占用字节作为对应占用率图的辅助序列（右轴），I/O 图高 50%；移除环形图卡。
 
 图例点抄参考：`size-2.5 rounded-full sm:size-3`（面积图）与 `size-2 rounded-full sm:size-2.5`（环形图），颜色用 `style={{ backgroundColor: 'var(--primary)' }}` 与 `color-mix` 表达式；均需暗色变体（`dark [data-chart=...]` 下的 85% 混色）。
 

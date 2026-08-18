@@ -42,11 +42,11 @@ Edge-Agent MUST 在每次 presence 心跳上报时携带最近一次采集的系
 
 ### Requirement: Admin 节点详情页系统监控视图
 
-节点详情页原有「系统」节 MUST 改名为「系统监控」。该节 MUST 从服务端指标接口取数并展示图表，MUST NOT 依赖控制面直连 Edge 或 Edge 本机 ComfyUI 获取系统数据；因此当 Edge 位于内网、控制面无法入站连接时，该节 MUST 仍能显示已上报的最新指标与历史图表，不得显示「连接被拒绝」等直连错误。展示 MUST 覆盖 CPU 占用率、内存占用与占用率、GPU 占用率、GPU 显存占用与占用率、磁盘 I/O 读/写速率。图表 MUST 使用参考 MHTML（Shadcnblocks Admin Kit dashboard-3）中同一套 chart 组件与样式体系，包括 `data-slot="chart"` 容器、`[&_.recharts-*]` 样式修饰、`aspect-video`、卡片图例、渐变填充与 `var(--primary)` / `color-mix` 配色，不得仅复制布局。页面 MUST 周期性刷新指标数据。
+节点详情页原有「系统」节 MUST 改名为「系统监控」。该节 MUST 从服务端指标接口取数并展示图表，MUST NOT 依赖控制面直连 Edge 或 Edge 本机 ComfyUI 获取系统数据；因此当 Edge 位于内网、控制面无法入站连接时，该节 MUST 仍能显示已上报的最新指标与历史图表，不得显示「连接被拒绝」等直连错误。展示 MUST 覆盖 CPU 占用率、内存占用与占用率、GPU 占用率、GPU 显存占用与占用率、磁盘 I/O 读/写速率。布局 MUST 满足：CPU 占用率与内存占用率并排各一张折线图，图高为基准高度的 50%；显卡占用率与显存占用率并排各一张折线图（每张 GPU 一组），图高为基准高度的 50%；内存占用（字节）MUST 在内存占用率折线图内以辅助序列展示，显存占用（字节）MUST 在显存占用率折线图内以辅助序列展示；I/O 读/写图表高度为基准高度的 50%。图表 MUST 使用参考 MHTML（Shadcnblocks Admin Kit dashboard-3）中同一套 chart 组件与样式体系，包括 `data-slot="chart"` 容器、`[&_.recharts-*]` 样式修饰、`aspect-video`、卡片图例、渐变填充与 `var(--primary)` / `color-mix` 配色，不得仅复制布局。页面 MUST 周期性刷新指标数据。
 
 #### Scenario: 内网 Edge 展示监控图表
 - **WHEN** 管理员打开一台已上报指标的内网 Edge 的详情页
-- **THEN** 「系统监控」节显示 CPU、内存、GPU 与 I/O 图表，数据来自服务端记录，页面不出现直连错误
+- **THEN** 「系统监控」节显示 CPU 占用率与内存占用率并排折线图、GPU 占用率与显存占用率并排折线图（内存/显存占用字节分别以辅助序列展示）、I/O 图表，数据来自服务端记录，页面不出现直连错误
 
 #### Scenario: 无历史数据
 - **WHEN** 管理员打开一台尚未上报指标的 Edge 的详情页
