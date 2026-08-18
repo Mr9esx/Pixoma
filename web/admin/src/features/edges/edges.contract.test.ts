@@ -108,7 +108,7 @@ describe('compute node layout and detail', () => {
     expect(observe).toMatch(/h-\[200px\] w-full min-w-0 sm:h-\[240px\] lg:h-\[280px\]/)
     expect(observe).toMatch(/size-2\.5 rounded-full sm:size-3/)
     expect(observe).toMatch(/size-\[100px\] shrink-0 sm:size-\[120px\]/)
-    expect(observe).toMatch(/rounded-xl border p-4 sm:p-5/)
+    expect(observe).toMatch(/rounded-xl border bg-card p-4 sm:p-5/)
     expect(observe).toMatch(/color-mix\(in oklch, var\(--primary\) 75%, var\(--background\)\)/)
     expect(observe).toMatch(/var\(--primary\)/)
     expect(observe).not.toMatch(/getEdgeSystem/)
