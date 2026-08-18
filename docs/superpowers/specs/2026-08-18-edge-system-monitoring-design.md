@@ -217,3 +217,7 @@ type MetricsRepository interface {
 
 - 上线：`MetricsRow` 随 AutoMigrate 创建，无存量迁移；先合并后端（presence 载荷兼容旧 Edge——无 `metrics` 字段时不落库），再合并前端切换。
 - 回滚：前端回退到 `getEdgeSystem` 即可恢复旧「系统」节；控制面停止写/读 `edge_metrics` 不影响其它功能。
+
+## 8. Implementation Divergence
+
+- CPU 占用率采样（2026-08-18 build）：design §3.1 原写“`cpu.PercentWithContext(ctx, interval)`，interval 为距上次采样时长”。实测 gopsutil 在 `interval > 0` 时会阻塞 `Sleep(interval)`（首拍 since 为零值会传入约 64 年间隔，直接卡死 presence 上报）。实现改为 `cpu.PercentWithContext(ctx, 0, false)`（距上次调用、不阻塞），磁盘 I/O 速率仍用自维护计数器差值除以采样间隔。spec 行为不变（CPU 首拍可 0、I/O 首拍空）。回归测试：`TestSample_CPUPercentMustNotSleep`。

@@ -1,6 +1,6 @@
 workflow: full
 language: zh-CN
-phase: build
+phase: verify
 context_compression: off
 build_mode: executing-plans
 build_pause: null
@@ -8,14 +8,14 @@ subagent_dispatch: null
 tdd_mode: tdd
 review_mode: standard
 isolation: current
-verify_mode: null
+verify_mode: full
 auto_transition: true
 base_ref: e3e0870cd9741dd665a3ce5dbe24bf1b59ea290a
 design_doc: docs/superpowers/specs/2026-08-18-edge-system-monitoring-design.md
 plan: docs/superpowers/plans/2026-08-18-edge-system-monitoring.md
 verify_result: pending
 verify_failures: 0
-verification_report: null
+verification_report: docs/superpowers/reports/2026-08-18-edge-system-monitoring-verify.md
 branch_status: pending
 created_at: 2026-08-18
 verified_at: null
