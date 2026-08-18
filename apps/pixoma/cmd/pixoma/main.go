@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -24,7 +26,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	setupapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
@@ -35,8 +37,9 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
@@ -47,6 +50,8 @@ import (
 	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/infrastructure/persistence"
 )
 
+var errRestart = errors.New("setup restart requested")
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
@@ -54,13 +59,22 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx); err != nil {
-		slog.Error("pixoma failed", "err", err)
-		os.Exit(1)
+	sess := setupapi.NewSessions()
+	for {
+		err := run(ctx, sess)
+		if errors.Is(err, errRestart) && ctx.Err() == nil {
+			slog.Info("reloading pixoma after setup")
+			continue
+		}
+		if err != nil {
+			slog.Error("pixoma failed", "err", err)
+			os.Exit(1)
+		}
+		return
 	}
 }
 
-func run(ctx context.Context) error {
+func run(ctx context.Context, sess *setupapi.Sessions) error {
 	dataDir := envOr("DATA_DIR", "data")
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return err
@@ -73,21 +87,9 @@ func run(ctx context.Context) error {
 	}
 	defer boot.Close()
 
-	agentTok, minted, err := boot.EnsureAgentToken()
+	encKey, err := boot.EncKey()
 	if err != nil {
 		return err
-	}
-	tokenFile := filepath.Join(dataDir, "agent.token")
-	if minted {
-		if err := app.WriteAgentTokenFile(tokenFile, agentTok); err != nil {
-			return err
-		}
-		slog.Info("minted agent token", "path", tokenFile)
-	} else {
-		agentTok, err = app.LoadVerifiedAgentToken(boot, tokenFile)
-		if err != nil {
-			return fmt.Errorf("agent token hash exists but %s invalid: %w (delete bootstrap to remint)", tokenFile, err)
-		}
 	}
 
 	addr := envOr("HTTP_ADDR", "127.0.0.1:8080")
@@ -121,9 +123,9 @@ func run(ctx context.Context) error {
 	}
 
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
-		Driver:           cfg.DBDriver,
-		DSN:              cfg.DBDSN,
-		MigrateInstances: true,
+		Driver:       cfg.DBDriver,
+		DSN:          cfg.DBDSN,
+		MigrateEdges: true,
 		Models: []any{
 			&casepersist.CaseRow{},
 			&userpersist.UserRow{},
@@ -133,10 +135,9 @@ func run(ctx context.Context) error {
 			&tgmenupersist.MenuItemRow{},
 			&tgmenupersist.MenuItemCaseRow{},
 		},
-		Seed: &instance.SeedConfig{
-			DefaultInstanceID: cfg.DefaultInstanceID,
-			ComfyUIBaseURL:    cfg.ComfyUIBaseURL,
-			ComfyMock:         cfg.ComfyMock,
+		Seed: &edge.SeedConfig{
+			DefaultEdgeID:  cfg.DefaultEdgeID,
+			ComfyMock:      cfg.ComfyMock,
 		},
 	})
 	if err != nil {
@@ -145,6 +146,7 @@ func run(ctx context.Context) error {
 	defer func() { _ = cleanup() }()
 
 	app.ApplyBlobEnv(cfg)
+	app.ApplyHTTPProxy(cfg)
 	blobStore, err := factory.NewFromConfig(botconfig.Config{
 		Blob: botconfig.BlobConfig{
 			Driver: cfg.BlobDriver,
@@ -164,8 +166,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	instRepo := instpersist.NewInstanceRepository(gdb)
-	pool := instance.NewPool(instRepo, instance.PoolOptions{Mock: cfg.ComfyMock})
+	instRepo := instpersist.NewEdgeRepository(gdb)
+	if err := edge.EnsureAgentTokens(ctx, instRepo, encKey); err != nil {
+		return err
+	}
+	pool := edge.NewPool(instRepo, edge.PoolOptions{})
 	if err := pool.Refresh(ctx); err != nil {
 		return err
 	}
@@ -218,13 +223,23 @@ func run(ctx context.Context) error {
 	}
 	app.RunScheduler(ctx, orch)
 
-	sess := setupapi.NewSessions()
-	setupH := &setupapi.Handler{Boot: boot, Sessions: sess, DataDir: dataDir}
+	restartCh := make(chan struct{})
+	var restartOnce sync.Once
+	setupH := &setupapi.Handler{
+		Boot:     boot,
+		Sessions: sess,
+		DataDir:  dataDir,
+		Restart: func() {
+			restartOnce.Do(func() { close(restartCh) })
+		},
+	}
 	gate := &setupapi.Gate{Boot: boot, Sessions: sess}
+	pres := presence.NewStore()
+	metricsRepo := instpersist.NewMetricsRepository(gdb, metricsRetention())
 
 	adminH := adminhost.NewHandler(adminhost.Options{
 		CORSOrigins: corsOrigins(),
-		Instances:   &comfyinstances.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Mock: cfg.ComfyMock},
+		Instances:   &edges.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Metrics: metricsRepo, EncKey: encKey, Presence: pres},
 		Cases:       &casesapi.Handler{Repo: caseRepo, Validate: validation.New().ValidateDocument},
 		Users:       &usersapi.Handler{Repo: userRepo},
 		Sessions:    &sessionsapi.Handler{Repo: sessionRepo},
@@ -234,10 +249,15 @@ func run(ctx context.Context) error {
 	})
 
 	agentH := &agentapi.Handler{
-		Token:  agentTok,
-		Tasks:  taskRepo,
-		Status: orch,
-		Lease:  leaseDuration(cfg),
+		Verify: func(ctx context.Context, id sharedkernel.EdgeID, tok string) bool {
+			return edge.VerifyAgentToken(ctx, instRepo, encKey, id, tok)
+		},
+		Tasks:    taskRepo,
+		Status:   orch,
+		Presence: pres,
+		Edges:    instRepo,
+		Metrics:  metricsRepo,
+		Lease:    leaseDuration(cfg),
 	}
 
 	r := chi.NewRouter()
@@ -247,7 +267,7 @@ func run(ctx context.Context) error {
 	r.Mount("/", adminH)
 	r.Route("/agent/v1", agentH.Mount)
 
-	ln, err := net.Listen("tcp", addr)
+	ln, err := listenWithRetry(addr, 20, 100*time.Millisecond)
 	if err != nil {
 		return err
 	}
@@ -256,25 +276,35 @@ func run(ctx context.Context) error {
 	var edgeCmd *os.Process
 	var edgeDone chan struct{}
 	if shouldSpawnEdge(boot.Initialized(), cfg) {
-		cmd := app.EdgeCommand(app.EdgeSpawnConfig{
-			Binary:          app.ResolveEdgeBinary(),
-			ControlPlaneURL: listenURL,
-			AgentToken:      agentTok,
-			InstanceID:      cfg.DefaultInstanceID,
-			BlobDriver:      cfg.BlobDriver,
-			BlobRoot:        cfg.BlobRoot,
-			ComfyMock:       cfg.ComfyMock,
-		})
-		if err := cmd.Start(); err != nil {
-			slog.Warn("edge auto-spawn failed (install pixoma-edge-agent or set EDGE_AGENT_BIN)", "err", err)
+		spawnTok, tokErr := edge.PlainAgentToken(
+			ctx,
+			instRepo,
+			encKey,
+			sharedkernel.EdgeID(cfg.DefaultEdgeID),
+		)
+		if tokErr != nil {
+			slog.Warn("edge auto-spawn skipped", "err", tokErr)
 		} else {
-			edgeCmd = cmd.Process
-			edgeDone = make(chan struct{})
-			slog.Info("spawned local edge", "pid", cmd.Process.Pid, "bin", cmd.Path)
-			go func() {
-				_ = cmd.Wait()
-				close(edgeDone)
-			}()
+			cmd := app.EdgeCommand(app.EdgeSpawnConfig{
+				Binary:          app.ResolveEdgeBinary(),
+				ControlPlaneURL: listenURL,
+				AgentToken:      spawnTok,
+				EdgeID:          cfg.DefaultEdgeID,
+				BlobDriver:      cfg.BlobDriver,
+				BlobRoot:        cfg.BlobRoot,
+				ComfyMock:       cfg.ComfyMock,
+			})
+			if err := cmd.Start(); err != nil {
+				slog.Warn("edge auto-spawn failed (install pixoma-edge-agent or set EDGE_AGENT_BIN)", "err", err)
+			} else {
+				edgeCmd = cmd.Process
+				edgeDone = make(chan struct{})
+				slog.Info("spawned local edge", "pid", cmd.Process.Pid, "bin", cmd.Path)
+				go func() {
+					_ = cmd.Wait()
+					close(edgeDone)
+				}()
+			}
 		}
 	}
 
@@ -289,19 +319,12 @@ func run(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		if edgeCmd != nil {
-			_ = edgeCmd.Signal(syscall.SIGTERM)
-			if edgeDone != nil {
-				select {
-				case <-edgeDone:
-				case <-time.After(5 * time.Second):
-					_ = edgeCmd.Kill()
-				}
-			}
+		return shutdownServer(srv, edgeCmd, edgeDone)
+	case <-restartCh:
+		if err := shutdownServer(srv, edgeCmd, edgeDone); err != nil {
+			return err
 		}
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		return srv.Shutdown(shutdownCtx)
+		return errRestart
 	case err := <-errCh:
 		if edgeCmd != nil {
 			_ = edgeCmd.Signal(syscall.SIGTERM)
@@ -310,17 +333,49 @@ func run(ctx context.Context) error {
 	}
 }
 
+func shutdownServer(srv *http.Server, edgeCmd *os.Process, edgeDone chan struct{}) error {
+	if edgeCmd != nil {
+		_ = edgeCmd.Signal(syscall.SIGTERM)
+		if edgeDone != nil {
+			select {
+			case <-edgeDone:
+			case <-time.After(5 * time.Second):
+				_ = edgeCmd.Kill()
+			}
+		}
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return srv.Shutdown(shutdownCtx)
+}
+
+func listenWithRetry(addr string, attempts int, pause time.Duration) (net.Listener, error) {
+	var last error
+	for i := 0; i < attempts; i++ {
+		ln, err := net.Listen("tcp", addr)
+		if err == nil {
+			return ln, nil
+		}
+		last = err
+		time.Sleep(pause)
+	}
+	if last == nil {
+		return nil, fmt.Errorf("listen %s: no attempts", addr)
+	}
+	return nil, last
+}
+
 func defaultRuntimeSettings(dataDir string) settings.Settings {
 	return settings.Settings{
-		Placement:         settings.PlacementLocal,
-		DBDriver:          settings.DriverSQLite,
-		DBDSN:             filepath.Join(dataDir, "app.db"),
-		BlobDriver:        botconfig.BlobDriverLocalFS,
-		BlobRoot:          filepath.Join(dataDir, "blob"),
-		ComfyMock:         envBool("COMFY_MOCK", true),
-		ComfyUIBaseURL:    envOr("COMFYUI_BASE_URL", "http://127.0.0.1:8188"),
-		DefaultInstanceID: envOr("INSTANCE_ID", "local"),
-		AutoSpawnEdge:     true,
+		Placement:      settings.PlacementLocal,
+		DBDriver:       settings.DriverSQLite,
+		DBDSN:          filepath.Join(dataDir, "app.db"),
+		BlobDriver:     botconfig.BlobDriverLocalFS,
+		BlobRoot:       filepath.Join(dataDir, "blob"),
+		ComfyMock:      envBool("COMFY_MOCK", true),
+		ComfyUIBaseURL: envOr("COMFYUI_BASE_URL", "http://127.0.0.1:8188"),
+		DefaultEdgeID:  "local",
+		AutoSpawnEdge:  true,
 	}
 }
 
@@ -366,6 +421,15 @@ func leaseDuration(cfg settings.Settings) time.Duration {
 		return time.Duration(cfg.LeaseSeconds) * time.Second
 	}
 	return 90 * time.Second
+}
+
+func metricsRetention() time.Duration {
+	if v := strings.TrimSpace(os.Getenv("METRICS_RETENTION")); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 24 * time.Hour
 }
 
 func corsOrigins() []string {
