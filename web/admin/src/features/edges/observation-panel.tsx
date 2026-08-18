@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import { useTranslation } from 'react-i18next'
 import type { TaskRecord } from '@/lib/api/types'
+import type { EdgeMetricsResponse } from '@/lib/api/types'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
@@ -22,7 +23,7 @@ import {
 } from '@/components/ui/chart'
 import { taskStatusLabelKey } from '@/features/tasks/list-panel'
 import { kit } from './kit-classes'
-import type { MetricsPoint } from './observation'
+import { parseMetrics, type MetricsPoint } from './observation'
 import { formatBytes } from './observation'
 
 export function CpuCard({ series }: { series: MetricsPoint[] }) {
@@ -511,6 +512,37 @@ function TasksSection({ tasks }: { tasks: TaskRecord[] }) {
   )
 }
 
+function MonitoringSection({
+  data,
+}: {
+  data: ReturnType<typeof parseMetrics>
+}) {
+  const { t } = useTranslation()
+  const hasData = data.series.length > 0
+  return (
+    <section className='flex flex-col gap-4'>
+      <SectionHead
+        title={t('edges.observationSystem')}
+        hint={t('edges.observationSystemHint')}
+      />
+      {!hasData ? (
+        <EmptyState className='py-6' message={t('edges.monitorEmpty')} />
+      ) : (
+        <>
+          <div className='flex flex-col gap-4 xl:flex-row'>
+            <CpuCard series={data.series} />
+            <div className='flex w-full flex-col gap-4 xl:w-[410px]'>
+              <MemCard point={data.latest} />
+            </div>
+          </div>
+          <GpuCards point={data.latest} />
+          <IOCard series={data.series} />
+        </>
+      )}
+    </section>
+  )
+}
+
 function BlockBody({
   query,
   children,
@@ -531,12 +563,16 @@ function BlockBody({
 }
 
 type Props = {
+  metricsQuery: QueryView<EdgeMetricsResponse | undefined>
   tasksQuery: QueryView<TaskRecord[] | undefined>
 }
 
-export function ObservationPanel({ tasksQuery }: Props) {
+export function ObservationPanel({ metricsQuery, tasksQuery }: Props) {
   return (
     <div className='flex flex-col gap-7' data-testid='edge-observation'>
+      <BlockBody query={metricsQuery}>
+        <MonitoringSection data={parseMetrics(metricsQuery.data)} />
+      </BlockBody>
       <BlockBody query={tasksQuery}>
         <TasksSection tasks={tasksQuery.data ?? []} />
       </BlockBody>
