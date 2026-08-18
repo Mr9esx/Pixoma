@@ -25,7 +25,6 @@ func (h *Handler) Mount(r chi.Router) {
 
 type userDTO struct {
 	ID           string    `json:"id"`
-	TgUserID     int64     `json:"tg_user_id"`
 	Username     string    `json:"username"`
 	FirstName    string    `json:"first_name"`
 	LastName     string    `json:"last_name"`
@@ -38,7 +37,6 @@ type userDTO struct {
 func toDTO(u *domain.User) userDTO {
 	return userDTO{
 		ID:           u.ID,
-		TgUserID:     u.TgUserID,
 		Username:     u.Username,
 		FirstName:    u.FirstName,
 		LastName:     u.LastName,
@@ -86,12 +84,11 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 
 func parseListQuery(r *http.Request) (domain.ListQuery, error) {
 	q := domain.ListQuery{Q: r.URL.Query().Get("q")}
-	if v := r.URL.Query().Get("tg_user_id"); v != "" {
-		n, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return q, errors.New("invalid tg_user_id")
-		}
-		q.TgUserID = &n
+	if v := r.URL.Query().Get("channel_id"); v != "" {
+		q.ChannelID = &v
+	}
+	if v := r.URL.Query().Get("external_user_id"); v != "" {
+		q.ExternalUserID = &v
 	}
 	if v := r.URL.Query().Get("created_from"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)

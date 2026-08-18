@@ -3,11 +3,20 @@ package tg
 import (
 	"context"
 	"fmt"
+
+	"github.com/go-telegram/bot"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
 )
 
 // tgMediaBridge implements ports.MediaBridge with Telegram file download.
 type tgMediaBridge struct {
 	dl FileDownloader
+}
+
+// NewMediaBridge returns a MediaBridge backed by Telegram file download.
+func NewMediaBridge(b *bot.Bot) ports.MediaBridge {
+	return &tgMediaBridge{dl: telegramDownloader(b)}
 }
 
 func (m *tgMediaBridge) Download(ctx context.Context, externalFileID, mime string) ([]byte, error) {

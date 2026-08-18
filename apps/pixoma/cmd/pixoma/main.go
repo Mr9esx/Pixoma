@@ -23,14 +23,17 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
+	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
+	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
+	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
+	channelmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channelmenu"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	setupapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
-	tgmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tgmenu"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
@@ -46,8 +49,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
 	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
+	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
 )
 
 var errRestart = errors.New("setup restart requested")
@@ -129,11 +132,14 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Models: []any{
 			&casepersist.CaseRow{},
 			&userpersist.UserRow{},
+			&userpersist.UserExternalIdentityRow{},
 			&sesspersist.SessionRow{},
 			&taskpersist.TaskRow{},
-			&tgmenupersist.MenuHeaderRow{},
-			&tgmenupersist.MenuItemRow{},
-			&tgmenupersist.MenuItemCaseRow{},
+			&channelpersist.ChannelRow{},
+			&tgmenupersist.ChannelMenuRow{},
+			&tgmenupersist.ChannelMenuItemRow{},
+			&tgmenupersist.ChannelMenuItemCaseRow{},
+			&tgmenupersist.ChannelMenuExtraRow{},
 		},
 		Seed: &edge.SeedConfig{
 			DefaultEdgeID:  cfg.DefaultEdgeID,
@@ -186,11 +192,23 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		return sharedkernel.SessionID(uuid.NewString())
 	}, nil)
 	taskRepo := taskpersist.NewTaskRepository(gdb)
+	channelStore := channelpersist.NewGormRepository(gdb)
+	chSvc := &channelapp.Service{
+		Store: channelStore,
+		Key:   encKey,
+		HasActiveRefs: func(ctx context.Context, channelID string) (bool, error) {
+			n, err := sessionRepo.CountByChannel(ctx, channelID)
+			if err != nil {
+				return false, err
+			}
+			return n > 0, nil
+		},
+	}
 	menuStore := tgmenupersist.NewGormRepository(gdb)
-	menuSvc := &tgmenuapp.Service{
+	menuSvc := &menuapp.Service{
 		Store:            menuStore,
-		Cases:            tgmenuapp.CatalogCaseChecker{Repo: caseRepo},
-		ListImageCaseIDs: tgmenuapp.CatalogImageCaseIDs(caseRepo),
+		Cases:            menuapp.CatalogCaseChecker{Repo: caseRepo},
+		ListImageCaseIDs: menuapp.CatalogImageCaseIDs(caseRepo),
 	}
 
 	bus := memory.New()
@@ -201,7 +219,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Blob:  blobStore,
 	}
 	botRT, err := app.StartBotRuntime(ctx, app.BotDeps{
-		Token:        cfg.TelegramBotToken,
+		Channels:     chSvc,
 		Cases:        caseRepo,
 		Sessions:     sessSvc,
 		SessionStore: sessionRepo,
@@ -244,7 +262,8 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Users:       &usersapi.Handler{Repo: userRepo},
 		Sessions:    &sessionsapi.Handler{Repo: sessionRepo},
 		Tasks:       &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
-		TGMenu:      &tgmenuapi.Handler{Svc: menuSvc},
+		Channels:    &channelsapi.Handler{Svc: chSvc},
+		ChannelMenu: &channelmenuapi.Handler{Channels: chSvc, Svc: menuSvc},
 		NotFound:    webembed.Handler(),
 	})
 

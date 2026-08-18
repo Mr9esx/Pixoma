@@ -117,7 +117,7 @@ func (a *Assembler) restartLocked(ctx context.Context, ma *managedAdapter) {
 			slog.Error("channel adapter stop", "err", err, "channel", ma.snapshot.ID)
 		}
 	}
-	ad, err := a.Factory.Create(ma.snapshot.Platform, ma.snapshot.Credential)
+	ad, err := a.Factory.Create(ma.snapshot)
 	if err != nil {
 		ma.state = stateError
 		ma.lastErr = err

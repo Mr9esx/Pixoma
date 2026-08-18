@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -17,21 +17,21 @@ func TestTickPool_RefreshesNewEnabledInstanceFromDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.InstanceRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.EdgeRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	repo := persistence.NewInstanceRepository(gdb)
+	repo := persistence.NewEdgeRepository(gdb)
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	if err := repo.Upsert(ctx, &instance.Record{
-		ID: "gpu-1", BaseURL: "http://127.0.0.1:8188", Enabled: true,
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID: "gpu-1", Enabled: true,
 		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	pool := instance.NewPool(repo, instance.PoolOptions{Mock: true})
+	pool := edge.NewPool(repo, edge.PoolOptions{})
 	if err := pool.Refresh(ctx); err != nil {
 		t.Fatalf("initial refresh: %v", err)
 	}
@@ -39,8 +39,8 @@ func TestTickPool_RefreshesNewEnabledInstanceFromDB(t *testing.T) {
 		t.Fatalf("initial list=%v", pool.List())
 	}
 
-	if err := repo.Upsert(ctx, &instance.Record{
-		ID: "gpu-new", BaseURL: "http://127.0.0.1:8190", Enabled: true,
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID: "gpu-new", Enabled: true,
 		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
@@ -48,7 +48,7 @@ func TestTickPool_RefreshesNewEnabledInstanceFromDB(t *testing.T) {
 
 	// Admin wrote to DB; bot has not refreshed yet.
 	for _, inst := range pool.List() {
-		if inst.ID == sharedkernel.InstanceID("gpu-new") {
+		if inst.ID == sharedkernel.EdgeID("gpu-new") {
 			t.Fatal("gpu-new must not appear before tickPool")
 		}
 	}
@@ -57,15 +57,12 @@ func TestTickPool_RefreshesNewEnabledInstanceFromDB(t *testing.T) {
 
 	found := false
 	for _, inst := range pool.List() {
-		if inst.ID == sharedkernel.InstanceID("gpu-new") {
+		if inst.ID == sharedkernel.EdgeID("gpu-new") {
 			found = true
 			break
 		}
 	}
 	if !found {
 		t.Fatalf("after tickPool list=%v missing gpu-new", pool.List())
-	}
-	if _, err := pool.Client("gpu-new"); err != nil {
-		t.Fatalf("client for gpu-new: %v", err)
 	}
 }

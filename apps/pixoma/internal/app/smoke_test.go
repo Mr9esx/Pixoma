@@ -15,8 +15,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/static"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/static"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
@@ -71,6 +71,68 @@ func TestApplyBlobEnv_SetsS3Connection(t *testing.T) {
 	}
 }
 
+func TestApplyHTTPProxy_FromSettingsWhenEnvEmpty(t *testing.T) {
+	for _, k := range []string{
+		"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "NO_PROXY", "no_proxy", "ALL_PROXY", "all_proxy",
+	} {
+		t.Setenv(k, "")
+		_ = os.Unsetenv(k)
+	}
+	app.ApplyHTTPProxy(settings.Settings{
+		ProxyKind: settings.ProxyHTTP,
+		ProxyHost: "127.0.0.1",
+		ProxyPort: 7897,
+	})
+	if os.Getenv("HTTPS_PROXY") != "http://127.0.0.1:7897" {
+		t.Fatalf("HTTPS_PROXY=%q", os.Getenv("HTTPS_PROXY"))
+	}
+	if os.Getenv("HTTP_PROXY") != "http://127.0.0.1:7897" {
+		t.Fatalf("HTTP_PROXY=%q", os.Getenv("HTTP_PROXY"))
+	}
+	if !strings.Contains(os.Getenv("NO_PROXY"), "127.0.0.1") {
+		t.Fatalf("NO_PROXY=%q", os.Getenv("NO_PROXY"))
+	}
+}
+
+func TestApplyHTTPProxy_Socks5(t *testing.T) {
+	for _, k := range []string{
+		"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "NO_PROXY", "no_proxy", "ALL_PROXY", "all_proxy",
+	} {
+		t.Setenv(k, "")
+		_ = os.Unsetenv(k)
+	}
+	app.ApplyHTTPProxy(settings.Settings{
+		ProxyKind: settings.ProxySOCKS,
+		ProxyHost: "127.0.0.1",
+		ProxyPort: 7897,
+	})
+	if os.Getenv("ALL_PROXY") != "socks5://127.0.0.1:7897" {
+		t.Fatalf("ALL_PROXY=%q", os.Getenv("ALL_PROXY"))
+	}
+	if os.Getenv("HTTPS_PROXY") != "socks5://127.0.0.1:7897" {
+		t.Fatalf("HTTPS_PROXY=%q", os.Getenv("HTTPS_PROXY"))
+	}
+}
+
+func TestApplyHTTPProxy_KeepsExistingEnv(t *testing.T) {
+	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:8888")
+	t.Setenv("HTTP_PROXY", "http://127.0.0.1:8888")
+	t.Setenv("NO_PROXY", "")
+	_ = os.Unsetenv("NO_PROXY")
+	_ = os.Unsetenv("no_proxy")
+	app.ApplyHTTPProxy(settings.Settings{
+		ProxyKind: settings.ProxyHTTP,
+		ProxyHost: "127.0.0.1",
+		ProxyPort: 7897,
+	})
+	if os.Getenv("HTTPS_PROXY") != "http://127.0.0.1:8888" {
+		t.Fatalf("HTTPS_PROXY=%q", os.Getenv("HTTPS_PROXY"))
+	}
+	if !strings.Contains(os.Getenv("NO_PROXY"), "192.168.0.0/16") {
+		t.Fatalf("NO_PROXY=%q", os.Getenv("NO_PROXY"))
+	}
+}
+
 func TestLoadVerifiedAgentToken_RejectsMismatch(t *testing.T) {
 	dir := t.TempDir()
 	st, _, err := bootstrap.Open(filepath.Join(dir, "bootstrap.db"))
@@ -109,7 +171,7 @@ func TestSubscribeTaskCreated_MakesClaimable(t *testing.T) {
 	if err := tasks.Create(ctx, runtimedomain.NewPending("t-bus", "s", "c", "in", now)); err != nil {
 		t.Fatal(err)
 	}
-	reg := static.New(instance.Instance{ID: "local", DispatchTopic: "dispatch.local"})
+	reg := static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"})
 	orch := orchestrator.New(tasks, reg, nil, notify.Nop{})
 	orch.Now = func() time.Time { return now }
 	orch.Prep = jobPrep{ref: sharedkernel.BlobRef{Key: "jobs/t-bus/job.json"}}
@@ -137,7 +199,7 @@ type jobPrep struct {
 	ref sharedkernel.BlobRef
 }
 
-func (j jobPrep) PrepareJob(context.Context, sharedkernel.TaskID, sharedkernel.InstanceID) (sharedkernel.BlobRef, error) {
+func (j jobPrep) PrepareJob(context.Context, sharedkernel.TaskID, sharedkernel.EdgeID) (sharedkernel.BlobRef, error) {
 	return j.ref, nil
 }
 

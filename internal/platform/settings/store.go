@@ -33,7 +33,6 @@ type row struct {
 	AutoSpawnEdge       bool   `gorm:"column:auto_spawn_edge;not null"`
 	ClaimWaitMS         int    `gorm:"column:claim_wait_ms"`
 	LeaseSeconds        int    `gorm:"column:lease_seconds"`
-	TelegramTokenCipher string `gorm:"column:telegram_token_cipher;type:text"`
 	ProxyKind           string `gorm:"column:proxy_kind;size:16"`
 	ProxyHost           string `gorm:"column:proxy_host;type:text"`
 	ProxyPort           int    `gorm:"column:proxy_port"`
@@ -62,10 +61,6 @@ func (s *Store) Save(in Settings) error {
 	}
 	var existing row
 	hasExisting := s.db.First(&existing, "id = ?", rowID).Error == nil
-	tg, err := EncryptString(s.key, in.TelegramBotToken)
-	if err != nil {
-		return err
-	}
 	ak, err := EncryptString(s.key, in.BlobAccessKey)
 	if err != nil {
 		return err
@@ -75,9 +70,6 @@ func (s *Store) Save(in Settings) error {
 		return err
 	}
 	if hasExisting {
-		if in.TelegramBotToken == "" {
-			tg = existing.TelegramTokenCipher
-		}
 		if in.BlobAccessKey == "" {
 			ak = existing.BlobAccessCipher
 		}
@@ -103,7 +95,6 @@ func (s *Store) Save(in Settings) error {
 		AutoSpawnEdge:       in.AutoSpawnEdge,
 		ClaimWaitMS:         in.ClaimWaitMS,
 		LeaseSeconds:        in.LeaseSeconds,
-		TelegramTokenCipher: tg,
 		ProxyKind:           in.ProxyKind,
 		ProxyHost:           in.ProxyHost,
 		ProxyPort:           in.ProxyPort,
@@ -117,10 +108,6 @@ func (s *Store) Load() (Settings, error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return Settings{}, err
 	}
-	if err != nil {
-		return Settings{}, err
-	}
-	tg, err := DecryptString(s.key, r.TelegramTokenCipher)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -149,7 +136,6 @@ func (s *Store) Load() (Settings, error) {
 		AutoSpawnEdge:    r.AutoSpawnEdge,
 		ClaimWaitMS:      r.ClaimWaitMS,
 		LeaseSeconds:     r.LeaseSeconds,
-		TelegramBotToken: tg,
 		ProxyKind:        r.ProxyKind,
 		ProxyHost:        r.ProxyHost,
 		ProxyPort:        r.ProxyPort,

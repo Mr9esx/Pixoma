@@ -23,7 +23,7 @@ func TestBotServer_HealthzOnly(t *testing.T) {
 	}
 
 	for _, path := range []string{
-		"/api/v1/cases", "/api/v1/users", "/api/v1/sessions", "/api/v1/tasks", "/api/v1/comfy-instances",
+		"/api/v1/cases", "/api/v1/users", "/api/v1/sessions", "/api/v1/tasks", "/api/v1/edges",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()

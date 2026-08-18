@@ -42,14 +42,14 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	s1 := domain.NewCollecting("sess-a", 101, "case-a", []string{"prompt"}, now)
+	s1 := domain.NewCollecting("sess-a", "tg:101", "case-a", []string{"prompt"}, now)
 	s1.UserID = "user-a"
 	text := "hello"
 	s1.Draft["prompt"] = domain.DraftValue{Key: "prompt", Text: &text}
 	if err := repo.Save(ctx, s1); err != nil {
 		t.Fatal(err)
 	}
-	s2 := domain.NewCollecting("sess-b", 202, "case-b", []string{"prompt"}, now)
+	s2 := domain.NewCollecting("sess-b", "tg:202", "case-b", []string{"prompt"}, now)
 	s2.UserID = "user-b"
 	s2.Status = domain.StatusSubmitted
 	if err := repo.Save(ctx, s2); err != nil {

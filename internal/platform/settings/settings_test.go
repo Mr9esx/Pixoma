@@ -28,12 +28,12 @@ func TestValidate_RemoteRejectsLocalFS(t *testing.T) {
 
 func TestValidate_LocalAllowsLocalFS(t *testing.T) {
 	s := settings.Settings{
-		Placement:         settings.PlacementLocal,
-		BlobDriver:        botconfig.BlobDriverLocalFS,
-		BlobRoot:          "data/blob",
-		DBDriver:          settings.DriverSQLite,
-		DBDSN:             "data/app.db",
-		DefaultInstanceID: "local",
+		Placement:     settings.PlacementLocal,
+		BlobDriver:    botconfig.BlobDriverLocalFS,
+		BlobRoot:      "data/blob",
+		DBDriver:      settings.DriverSQLite,
+		DBDSN:         "data/app.db",
+		DefaultEdgeID: "local",
 	}
 	if err := s.Validate(); err != nil {
 		t.Fatal(err)
@@ -54,18 +54,20 @@ func TestStore_SQLiteRoundTripSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	in := settings.Settings{
-		Placement:         settings.PlacementLocal,
-		DBDriver:          settings.DriverSQLite,
-		DBDSN:             filepath.Join(t.TempDir(), "app.db"),
-		BlobDriver:        botconfig.BlobDriverLocalFS,
-		BlobRoot:          "data/blob",
-		ComfyMock:         true,
-		ComfyUIBaseURL:    "http://127.0.0.1:8188",
-		DefaultInstanceID: "local",
-		AutoSpawnEdge:     true,
-		TelegramBotToken:  "tg-secret-token",
-		BlobAccessKey:     "ak-secret",
-		BlobSecretKey:     "sk-secret",
+		Placement:        settings.PlacementLocal,
+		DBDriver:         settings.DriverSQLite,
+		DBDSN:            filepath.Join(t.TempDir(), "app.db"),
+		BlobDriver:       botconfig.BlobDriverLocalFS,
+		BlobRoot:         "data/blob",
+		ComfyMock:        true,
+		ComfyUIBaseURL:   "http://127.0.0.1:8188",
+		DefaultEdgeID:    "local",
+		AutoSpawnEdge:    true,
+		BlobAccessKey:    "ak-secret",
+		BlobSecretKey:    "sk-secret",
+		ProxyKind:        settings.ProxyHTTP,
+		ProxyHost:        "127.0.0.1",
+		ProxyPort:        7897,
 	}
 	if err := st.Save(in); err != nil {
 		t.Fatal(err)
@@ -77,11 +79,7 @@ func TestStore_SQLiteRoundTripSecrets(t *testing.T) {
 	if got.Placement != settings.PlacementLocal {
 		t.Fatalf("placement=%q", got.Placement)
 	}
-	if got.TelegramBotToken != "tg-secret-token" {
-		t.Fatalf("token=%q", got.TelegramBotToken)
-	}
 	wipe := got
-	wipe.TelegramBotToken = ""
 	wipe.BlobAccessKey = ""
 	wipe.BlobSecretKey = ""
 	if err := st.Save(wipe); err != nil {
@@ -91,16 +89,44 @@ func TestStore_SQLiteRoundTripSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if again.TelegramBotToken != "tg-secret-token" {
-		t.Fatalf("empty save wiped token: %q", again.TelegramBotToken)
-	}
 	if again.BlobAccessKey != "ak-secret" || again.BlobSecretKey != "sk-secret" {
 		t.Fatalf("empty save wiped blob secrets: %+v", again)
 	}
 	if got.BlobAccessKey != "ak-secret" || got.BlobSecretKey != "sk-secret" {
 		t.Fatalf("blob secrets mismatch: %+v", got)
 	}
+	if got.ProxyKind != settings.ProxyHTTP || got.ProxyHost != "127.0.0.1" || got.ProxyPort != 7897 {
+		t.Fatalf("proxy mismatch: %+v", got)
+	}
 	if !got.ComfyMock {
 		t.Fatal("comfy_mock should round-trip")
+	}
+}
+
+func TestSettings_ProxyURLAndValidate(t *testing.T) {
+	ok := settings.Settings{
+		Placement:  settings.PlacementLocal,
+		BlobDriver: botconfig.BlobDriverLocalFS,
+		BlobRoot:   "data/blob",
+		DBDriver:   settings.DriverSQLite,
+		DBDSN:      "data/app.db",
+		ProxyKind:  settings.ProxyHTTP,
+		ProxyHost:  "127.0.0.1",
+		ProxyPort:  7897,
+	}
+	if err := ok.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if got := ok.ProxyURL(); got != "http://127.0.0.1:7897" {
+		t.Fatalf("ProxyURL=%q", got)
+	}
+	ok.ProxyKind = settings.ProxySOCKS
+	if got := ok.ProxyURL(); got != "socks5://127.0.0.1:7897" {
+		t.Fatalf("socks ProxyURL=%q", got)
+	}
+	ok.ProxyKind = settings.ProxyHTTP
+	ok.ProxyPort = 0
+	if err := ok.Validate(); err == nil {
+		t.Fatal("expected invalid port")
 	}
 }

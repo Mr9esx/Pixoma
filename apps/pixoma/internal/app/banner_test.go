@@ -39,7 +39,7 @@ func TestEdgeCommand_Env(t *testing.T) {
 		Binary:          "/tmp/pixoma-edge-agent",
 		ControlPlaneURL: "http://127.0.0.1:8080",
 		AgentToken:      "tok",
-		InstanceID:      "local",
+		EdgeID:          "local",
 		BlobDriver:      "localfs",
 		BlobRoot:        "/data/blob",
 		ComfyMock:       true,
@@ -51,7 +51,7 @@ func TestEdgeCommand_Env(t *testing.T) {
 	for _, want := range []string{
 		"CONTROL_PLANE_URL=http://127.0.0.1:8080",
 		"AGENT_TOKEN=tok",
-		"INSTANCE_ID=local",
+		"EDGE_ID=local",
 		"BLOB_DRIVER=localfs",
 		"BLOB_LOCAL_ROOT=/data/blob",
 		"COMFY_MOCK=true",

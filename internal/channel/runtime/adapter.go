@@ -13,9 +13,9 @@ type Adapter interface {
 	Stop(ctx context.Context) error
 }
 
-// AdapterFactory creates a channel adapter from platform + decrypted credential.
+// AdapterFactory creates a channel adapter from a channel snapshot.
 type AdapterFactory interface {
-	Create(platform string, credential string) (Adapter, error)
+	Create(snap ChannelSnapshot) (Adapter, error)
 }
 
 // ChannelSnapshot is a channel row projection used for reconciliation.
