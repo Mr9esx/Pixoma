@@ -218,7 +218,11 @@ export function EdgeDetailPanel({ id }: Props) {
           <InfoField
             icon={<Timer className='size-4' />}
             label={t('edges.fieldStartedAt')}
-            value={edge.started_at ? formatTime(edge.started_at) : '—'}
+            value={
+              edge.enabled && presence?.edge_online && edge.started_at
+                ? formatTime(edge.started_at)
+                : '—'
+            }
           />
           <InfoField
             icon={<Boxes className='size-4' />}

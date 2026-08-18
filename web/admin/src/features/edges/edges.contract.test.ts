@@ -198,6 +198,9 @@ describe('compute node layout and detail', () => {
     expect(detail).toMatch(/fieldCreatedAt[\s\S]*?fieldStartedAt/)
     expect(detail).toMatch(/fieldStartedAt[\s\S]*?fieldComfyVersion/)
     expect(detail).toMatch(/fieldComfyVersion[\s\S]*?fieldCapabilities/)
+    expect(detail).toMatch(
+      /fieldStartedAt[\s\S]*?edge\.enabled && presence\?\.edge_online[\s\S]*?edge\.started_at/
+    )
     expect(zh).toMatch(/"fieldStartedAt": "启动时间"/)
     expect(zh).toMatch(/"fieldComfyVersion": "Comfy 版本"/)
     expect(en).toMatch(/"fieldStartedAt": "Started at"/)
