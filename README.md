@@ -1,6 +1,6 @@
 # Pixoma
 
-Go monorepo：Telegram Bot + Case 目录 + 对话 Session + Task 运行时 + 多 ComfyUI 实例。
+Go monorepo：Telegram Bot + Case 目录 + 对话 Session + Task 运行时 + 多计算节点。
 
 ## 架构简述
 
@@ -45,12 +45,12 @@ go run ./apps/pixoma/cmd/pixoma
 
 ### 远程 Edge
 
-GPU 机器只需出站访问控制面，不要用本机目录当对象存储：
+GPU 机器只需出站访问控制面，不要用本机目录当对象存储。在后台新建计算节点后复制部署命令（每台一把 `AGENT_TOKEN`）：
 
 ```bash
 export CONTROL_PLANE_URL=http://控制面地址:8080
-export AGENT_TOKEN=...          # 控制面 data/agent.token
-export INSTANCE_ID=gpu-1
+export AGENT_TOKEN=...          # 该节点在后台显示的 token
+export EDGE_ID=...              # 该节点 ID（创建时自动生成）
 export BLOB_DRIVER=s3           # 或 tos，禁止 localfs
 export COMFY_MOCK=1             # 真机改 0
 go run ./apps/edge-agent/cmd/edge-agent
@@ -68,15 +68,17 @@ go run ./apps/edge-agent/cmd/edge-agent
 |---|---|---|
 | `DATA_DIR` | pixoma | 引导态与默认 SQLite / blob 目录（默认 `data`） |
 | `HTTP_ADDR` | pixoma | 监听地址（默认 `127.0.0.1:8080`） |
-| `TG_BOT_TOKEN` / `TELEGRAM_BOT_TOKEN` | 紧急覆盖 | Telegram Token（向导也会落库） |
+| `HTTPS_PROXY` / `HTTP_PROXY` | pixoma | 紧急覆盖出站代理；设置页「网络」也可配 HTTP/SOCKS |
 | `COMFY_MOCK` | pixoma / Edge | `1`/`true` = Mock；`0`/`false` = 真 Comfy |
 | `COMFYUI_BASE_URL` | pixoma / Edge | 真机 Comfy HTTP 根 |
-| `INSTANCE_ID` | Edge | 领取身份，须与实例池 id 一致 |
+| `EDGE_ID` | Edge | 领取身份，须与计算节点 id 一致 |
 | `CONTROL_PLANE_URL` / `PIXOMA_URL` | Edge | 控制面地址 |
-| `AGENT_TOKEN` | Edge | 共享 Agent Token |
+| `AGENT_TOKEN` | Edge | 该节点自己的 Agent Token（后台可见） |
 | `BLOB_DRIVER` | Edge / 紧急覆盖 | `localfs` / `s3` / `tos` |
 | `EDGE_AUTO_SPAWN` | pixoma | 本机是否自动拉起 Edge（默认开） |
 | `EDGE_AGENT_BIN` | pixoma | Edge 二进制路径 |
+| `METRICS_INTERVAL` | Edge | 系统指标采样/上报间隔（默认 `30s`，下限 `5s`） |
+| `METRICS_RETENTION` | 控制面 | `edge_metrics` 保留窗口（默认 `24h`） |
 | `S3_*` / `TOS_*` | 远程存储 | endpoint / region / bucket / keys |
 
 对象存储密钥不要提交进 git。真网 TOS 门禁：`go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip`。
@@ -131,6 +133,7 @@ Ctrl-C 两个一起停。改 `web/admin` 保存后页面会自己刷新；改 Go
 ```bash
 make build
 make test
+make clean            # 清掉 data/，下次启动重新走引导
 curl -s localhost:8080/healthz
 ```
 
