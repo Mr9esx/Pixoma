@@ -327,11 +327,11 @@ type IdentityResolver interface {
 }
 ```
 
-- [ ] **Step 1: 写失败测试** — Action JSON 往返；未知 ActionType 校验失败；`InboundEvent` 携带 Addr 完整
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/channel/ports/...`
-- [ ] **Step 3: 实现** — 按上述接口写 `ports.go`（依赖 `sharedkernel` 与 `identitydomain`）；`Action.Validate()` 按 Type 校验必填（open_folder 需 MenuItemID；open_case/start_case 需 CaseID）
-- [ ] **Step 4: 运行通过** — 测试全绿
-- [ ] **Step 5: 提交** — `git commit -m "feat(channel): define channel runtime ports"`
+- [x] **Step 1: 写失败测试** — Action JSON 往返；未知 ActionType 校验失败；`InboundEvent` 携带 Addr 完整
+- [x] **Step 2: 运行确认失败** — `go test ./internal/channel/ports/...`
+- [x] **Step 3: 实现** — 按上述接口写 `ports.go`（依赖 `sharedkernel` 与 `identitydomain`）；`Action.Validate()` 按 Type 校验必填（open_folder 需 MenuItemID；open_case/start_case 需 CaseID）
+- [x] **Step 4: 运行通过** — 测试全绿
+- [x] **Step 5: 提交** — `git commit -m "feat(channel): define channel runtime ports"`
 
 ---
 

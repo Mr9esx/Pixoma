@@ -29,8 +29,8 @@
 
 ## 5. 渠道端口契约与 TG 适配器重构
 
-- [ ] 5.1 `internal/channel` 端口定义：EventPort / Messenger / MediaBridge / IdentityResolver
-- [ ] 5.2 规范化事件与动作：文本/媒体/回调动作（OpenFolder/OpenCase/Back/StartCase/Confirm 等）
+- [x] 5.1 `internal/channel` 端口定义：EventPort / Messenger / MediaBridge / IdentityResolver
+- [x] 5.2 规范化事件与动作：文本/媒体/回调动作（OpenFolder/OpenCase/Back/StartCase/Confirm 等）
 - [ ] 5.3 `channel/tg` 实现端口：回调前缀协议解析 → 规范化动作（64 字节编码留在 tg 内部）
 - [ ] 5.4 TG 渲染下沉：ReplyKeyboard 优先读 extras 网格布局（缺省按 order 两列）、Inline、媒体上传与安全文件名、reply_media 图片；不抹平 TG 特色能力
 - [ ] 5.5 适配器装配：从 Channel 凭证启动 bot（启用/禁用生命周期）
