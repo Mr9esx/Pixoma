@@ -71,3 +71,46 @@ export function formatBytes(n: number): string {
         : value.toFixed(1)
   return `${text} ${units[idx]}`
 }
+
+// I/O 轴阶梯化：按显示单位（B/KiB/MiB/GiB）用 1/2/5×10ⁿ 的整齐步进生成 tick，
+// 避免小数值产生零碎小数（如 349.5 KiB、1.2 MiB）。
+function niceTickStep(raw: number): number {
+  if (raw <= 0) return 1
+  const mag = 10 ** Math.floor(Math.log10(raw))
+  const n = raw / mag
+  const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10
+  return nice * mag
+}
+
+export function ioAxisTicks(values: number[]): {
+  ticks: number[]
+  format: (v: number) => string
+} {
+  const max = values.length ? Math.max(...values) : 0
+  if (max <= 0) {
+    return { ticks: [0], format: () => '0 B' }
+  }
+  let unit = 1
+  let label = 'B'
+  if (max >= 4 * 1024 ** 3) {
+    unit = 1024 ** 3
+    label = 'GiB'
+  } else if (max >= 4 * 1024 ** 2) {
+    unit = 1024 ** 2
+    label = 'MiB'
+  } else if (max >= 4 * 1024) {
+    unit = 1024
+    label = 'KiB'
+  }
+  const maxUnits = max / unit
+  const step = niceTickStep(maxUnits / 4)
+  const ticks: number[] = []
+  for (let u = 0; u <= maxUnits + step && ticks.length < 7; u += step) {
+    ticks.push(Math.round(u * unit))
+  }
+  const format =
+    unit === 1
+      ? (v: number) => `${Math.round(v)} B`
+      : (v: number) => `${Math.round(v / unit)} ${label}`
+  return { ticks, format }
+}

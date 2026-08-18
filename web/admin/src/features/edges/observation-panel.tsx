@@ -33,7 +33,12 @@ import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { TaskDetailPanel } from '@/features/tasks/detail-panel'
 import { taskStatusLabelKey } from '@/features/tasks/list-panel'
 import { kit } from './kit-classes'
-import { formatBytes, parseMetrics, type MetricsPoint } from './observation'
+import {
+  formatBytes,
+  ioAxisTicks,
+  parseMetrics,
+  type MetricsPoint,
+} from './observation'
 
 // 基准高度的一半：h-[200px] sm:h-[240px] lg:h-[280px] → 50%
 const CHART_HALF_HEIGHT =
@@ -328,6 +333,9 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
     read: p.ioRead,
     write: p.ioWrite,
   }))
+  const ioAxis = ioAxisTicks(
+    data.flatMap((d) => [d.read, d.write]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+  )
   return (
     <div className='flex min-w-0 flex-1 flex-col gap-4 rounded-xl border bg-card p-4 sm:gap-6 sm:p-6'>
       <div className='flex flex-wrap items-center gap-2 sm:gap-4'>
@@ -410,7 +418,8 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
               axisLine={false}
             />
             <YAxis
-              tickFormatter={(v: number) => formatBytes(v)}
+              ticks={ioAxis.ticks}
+              tickFormatter={ioAxis.format}
               tickLine={false}
               axisLine={false}
               width={48}
