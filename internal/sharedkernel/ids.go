@@ -1,12 +1,37 @@
 package sharedkernel
 
+import (
+	"fmt"
+	"strings"
+)
+
 type (
 	CaseID     string
 	TaskID     string
 	SessionID  string
-	ChatID     int64
+	ChatID     string
 	InstanceID string
 )
+
+// ChannelAddr identifies a conversation on a specific channel.
+type ChannelAddr struct {
+	ChannelID      string
+	ExternalChatID string
+}
+
+// FormatChatID renders a ChannelAddr as "channelID:externalChatID" (e.g. "tg:123").
+func FormatChatID(addr ChannelAddr) string {
+	return addr.ChannelID + ":" + addr.ExternalChatID
+}
+
+// ParseChatID parses a "channelID:externalChatID" string into a ChannelAddr.
+func ParseChatID(s string) (ChannelAddr, error) {
+	channelID, externalChatID, ok := strings.Cut(s, ":")
+	if !ok || channelID == "" || externalChatID == "" {
+		return ChannelAddr{}, fmt.Errorf("invalid chat id %q", s)
+	}
+	return ChannelAddr{ChannelID: channelID, ExternalChatID: externalChatID}, nil
+}
 
 type BlobRef struct {
 	Bucket string `json:"bucket,omitempty"`
