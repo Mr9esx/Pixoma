@@ -23,9 +23,11 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
-	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
+
+var newTelegramBot = bot.New
 
 // BotRuntime is the in-process Telegram + notify wiring for pixoma.
 type BotRuntime struct {
@@ -65,23 +67,28 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 	var messenger tg.Messenger = logMessenger{}
 	token := strings.TrimSpace(deps.Token)
 	if token != "" {
-		b, err := bot.New(token)
+		b, err := newTelegramBot(token)
 		if err != nil {
-			return nil, err
+			slog.Warn("telegram bot unavailable; polling disabled", "err", err)
+		} else {
+			messenger = &tg.BotMessenger{Bot: b, Blob: deps.Blob, Menu: menu}
+			*adapter = *tg.New(facade, messenger)
+			adapter.Users = deps.Users
+			adapter.Menu = menu
+			tg.RegisterHandlers(b, adapter)
+			go b.Start(ctx)
+			slog.Info("telegram bot started")
+			return &BotRuntime{
+				Facade: facade,
+				Notify: &notifybridge.Publisher{Adapter: adapter},
+			}, nil
 		}
-		messenger = &tg.BotMessenger{Bot: b, Blob: deps.Blob, Menu: menu}
-		*adapter = *tg.New(facade, messenger)
-		adapter.Users = deps.Users
-		adapter.Menu = menu
-		tg.RegisterHandlers(b, adapter)
-		go b.Start(ctx)
-		slog.Info("telegram bot started")
 	} else {
-		*adapter = *tg.New(facade, messenger)
-		adapter.Users = deps.Users
-		adapter.Menu = menu
 		slog.Info("telegram bot token empty; polling disabled")
 	}
+	*adapter = *tg.New(facade, messenger)
+	adapter.Users = deps.Users
+	adapter.Menu = menu
 	return &BotRuntime{
 		Facade: facade,
 		Notify: &notifybridge.Publisher{Adapter: adapter},

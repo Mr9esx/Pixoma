@@ -29,8 +29,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
-	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
-	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/infrastructure/persistence"
+	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 )
 
 func main() {

@@ -19,7 +19,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 type memOut struct {

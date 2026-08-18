@@ -23,6 +23,7 @@ func Validate(ctx context.Context, tree MenuTree, caseExists CaseExistsFunc) err
 
 	seenIDs := make(map[string]struct{}, len(flat))
 	labelsByParent := make(map[string]map[string]struct{})
+	ordersByParent := make(map[string]map[int]struct{})
 	enabledRoots := 0
 
 	for i, it := range flat {
@@ -47,6 +48,14 @@ func Validate(ctx context.Context, tree MenuTree, caseExists CaseExistsFunc) err
 			return fmt.Errorf("%w: duplicate label %q under parent %q", ErrValidation, label, parentKey)
 		}
 		labelsByParent[parentKey][label] = struct{}{}
+
+		if ordersByParent[parentKey] == nil {
+			ordersByParent[parentKey] = make(map[int]struct{})
+		}
+		if _, ok := ordersByParent[parentKey][it.Order]; ok {
+			return fmt.Errorf("%w: duplicate order %d under parent %q", ErrValidation, it.Order, parentKey)
+		}
+		ordersByParent[parentKey][it.Order] = struct{}{}
 
 		if it.ParentID == "" && it.Enabled {
 			enabledRoots++
@@ -141,13 +150,6 @@ func validateItemKind(ctx context.Context, it MenuItem, caseExists CaseExistsFun
 		}
 		if !ok {
 			return fmt.Errorf("%w: item %q case_id %q not found", ErrValidation, it.ID, it.CaseIDs[0])
-		}
-	case KindListCasesByTag:
-		if strings.TrimSpace(it.Tag) == "" {
-			return fmt.Errorf("%w: item %q list_cases_by_tag requires tag", ErrValidation, it.ID)
-		}
-		if len(it.CaseIDs) > 0 {
-			return fmt.Errorf("%w: item %q list_cases_by_tag must not have case_ids", ErrValidation, it.ID)
 		}
 	case KindPlaceholder:
 		if len(it.CaseIDs) > 0 {

@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
-	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 // Handler serves TG menu admin GET/PUT under /api/v1/tg-menu.

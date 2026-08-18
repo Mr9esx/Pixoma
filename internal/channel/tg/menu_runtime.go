@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-telegram/bot/models"
 
-	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 // MenuReader is the read port for main ReplyKeyboard config.

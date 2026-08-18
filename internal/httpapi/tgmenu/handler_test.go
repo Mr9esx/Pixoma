@@ -15,8 +15,8 @@ import (
 	tgmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tgmenu"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
-	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/infrastructure/persistence"
+	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 )
 
 func openTgMenuServer(t *testing.T) *httptest.Server {
@@ -134,7 +134,7 @@ func TestTgMenuHandler_GetPutTreeValidation(t *testing.T) {
 	ftp := map[string]any{
 		"items": []map[string]any{{
 			"id": "btn-help", "label": "🆘 帮助", "row": 0, "col": 0, "enabled": true,
-			"kind": "reply_media",
+			"kind":  "reply_media",
 			"reply": map[string]any{"images": []string{"ftp://x/a.png"}},
 		}},
 	}
