@@ -130,3 +130,25 @@
 ## Round 3 结论
 
 无 CRITICAL/WARNING。Ready for archive（待用户归档确认）。
+
+---
+
+# Round 4（2026-08-18，I/O 轴阶梯化复审）
+
+## 变更
+
+用户反馈 I/O Y 轴小数零碎难看 → 新增 `ioAxisTicks`（observation.ts 纯逻辑，含 4 条单测）：按显示单位（B/KiB/MiB/GiB，取 max/unit ≥ 4 的最大单位）以 1/2/5×10ⁿ 步进生成整齐 tick，Y 轴只显示整单位（如 0/200/400/600 KiB）；tooltip 仍显示精确值。
+
+## Round 4 验证结果
+
+| 检查项 | 结果 |
+|---|---|
+| tasks.md 全部勾选（33/33） | PASS |
+| 实现符合要求 | PASS（`ioAxisTicks` 单测覆盖 KiB/MiB/B/空数据） |
+| 编译通过 | PASS（`npm run build` 成功） |
+| 测试通过 | PASS（`npx vitest run` 30 文件/108 测试；`go test ./...` 全绿） |
+| 无安全回归 | PASS（纯展示层） |
+
+## Round 4 结论
+
+无 CRITICAL/WARNING。Ready for archive（待用户归档确认）。

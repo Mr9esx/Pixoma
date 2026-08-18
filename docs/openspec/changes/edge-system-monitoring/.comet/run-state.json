@@ -5,7 +5,7 @@
   "skillHash": "9bd4ffab011ae18aef91dc0db336ffc12d454b513229178c15b8b75d50930ba1",
   "orchestration": "deterministic",
   "currentStep": "full.verify.run",
-  "iteration": 13,
+  "iteration": 17,
   "pending": null,
   "pendingRef": ".comet/pending-action.json",
   "trajectoryRef": ".comet/trajectory.jsonl",
