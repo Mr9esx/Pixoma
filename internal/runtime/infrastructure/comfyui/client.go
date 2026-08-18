@@ -31,10 +31,11 @@ type Client interface {
 
 // SystemStats is a read-only view of Comfy GET /system_stats.
 type SystemStats struct {
-	Mock      bool           `json:"mock,omitempty"`
-	Reachable bool           `json:"reachable"`
-	Error     string         `json:"error,omitempty"`
-	Raw       map[string]any `json:"raw,omitempty"`
+	Mock           bool           `json:"mock,omitempty"`
+	Reachable      bool           `json:"reachable"`
+	Error          string         `json:"error,omitempty"`
+	ComfyUIVersion string         `json:"comfyui_version,omitempty"`
+	Raw            map[string]any `json:"raw,omitempty"`
 }
 
 // QueueView is a read-only view of Comfy GET /queue.
@@ -88,10 +89,18 @@ func (m *Mock) UploadImage(ctx context.Context, filename, mime string, data []by
 
 func (m *Mock) SystemStats(_ context.Context) (*SystemStats, error) {
 	return &SystemStats{
-		Mock:      true,
-		Reachable: true,
+		Mock:           true,
+		Reachable:      true,
+		ComfyUIVersion: "mock",
 		Raw: map[string]any{
 			"system": map[string]any{"comfyui_version": "mock"},
+			"devices": []any{
+				map[string]any{
+					"name":       "Mock GPU",
+					"vram_total": float64(8 << 30),
+					"vram_free":  float64(8 << 30),
+				},
+			},
 		},
 	}, nil
 }
@@ -119,8 +128,8 @@ func GenerateMockPNG(w, h int, base color.RGBA) []byte {
 		}
 	}
 	// center block
-	for y := h/3; y < 2*h/3; y++ {
-		for x := w/3; x < 2*w/3; x++ {
+	for y := h / 3; y < 2*h/3; y++ {
+		for x := w / 3; x < 2*w/3; x++ {
 			img.Set(x, y, color.RGBA{R: 255, G: 255, B: 255, A: 255})
 		}
 	}

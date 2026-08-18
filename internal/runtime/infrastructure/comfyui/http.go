@@ -17,11 +17,11 @@ import (
 
 // HTTP talks to a real ComfyUI instance over its REST API.
 type HTTP struct {
-	BaseURL    string
-	Client     *http.Client
-	PollEvery  time.Duration
-	ClientID   string
-	MaxWait    time.Duration
+	BaseURL   string
+	Client    *http.Client
+	PollEvery time.Duration
+	ClientID  string
+	MaxWait   time.Duration
 }
 
 func NewHTTP(baseURL string) *HTTP {
@@ -131,7 +131,12 @@ func (h *HTTP) SystemStats(ctx context.Context) (*SystemStats, error) {
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return &SystemStats{Reachable: false, Error: err.Error()}, nil
 	}
-	return &SystemStats{Reachable: true, Raw: body}, nil
+	version, _ := body["system"].(map[string]any)["comfyui_version"].(string)
+	return &SystemStats{
+		Reachable:      true,
+		ComfyUIVersion: version,
+		Raw:            body,
+	}, nil
 }
 
 func (h *HTTP) Queue(ctx context.Context) (*QueueView, error) {

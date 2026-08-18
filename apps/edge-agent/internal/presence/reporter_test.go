@@ -39,6 +39,43 @@ func TestReporter_MockComfyReportsRunning(t *testing.T) {
 	}
 }
 
+func TestReporter_SendsStartedAtAndComfyVersion(t *testing.T) {
+	var startedAt any
+	var version any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		startedAt = body["started_at"]
+		version = body["comfy_version"]
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	comfy, err := comfyui.NewClient(comfyui.Options{Mock: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &presence.Reporter{
+		Client: pull.NewClient(srv.URL, "tok", "gpu-1"),
+		Comfy:  comfy,
+	}
+	if err := r.ProbeAndReport(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	first, ok := startedAt.(string)
+	if !ok || first == "" {
+		t.Fatalf("started_at=%v", startedAt)
+	}
+	if version != "mock" {
+		t.Fatalf("comfy_version=%v want mock", version)
+	}
+	if err := r.ProbeAndReport(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if second, ok := startedAt.(string); !ok || second != first {
+		t.Fatalf("started_at must stay the first heartbeat: first=%q got=%v", first, startedAt)
+	}
+}
+
 func TestReporter_UnreachableComfyReportsFalse(t *testing.T) {
 	var running any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   BadgeCheck,
+  Boxes,
   CalendarClock,
   Cpu,
   Gpu,
@@ -40,6 +41,8 @@ import { kit } from './kit-classes'
 import { formatBytes } from './observation'
 import { ObservationPanel } from './observation-panel'
 import { StatusTag } from './presence-tags'
+
+const TASKS_PAGE_SIZE = 10
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -97,6 +100,7 @@ export function EdgeDetailPanel({ id }: Props) {
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
   const [deployOpen, setDeployOpen] = useState(false)
+  const [tasksOffset, setTasksOffset] = useState(0)
 
   const detailQuery = useQuery({
     queryKey: queryKeys.edges.detail(id),
@@ -107,8 +111,9 @@ export function EdgeDetailPanel({ id }: Props) {
     queryFn: () => getEdgeStats(id),
   })
   const tasksQuery = useQuery({
-    queryKey: queryKeys.edges.tasks(id),
-    queryFn: () => listEdgeTasks(id, { limit: 50 }),
+    queryKey: queryKeys.edges.tasks(id, tasksOffset),
+    queryFn: () =>
+      listEdgeTasks(id, { limit: TASKS_PAGE_SIZE, offset: tasksOffset }),
   })
   const metricsQuery = useQuery({
     queryKey: queryKeys.edges.metrics(id),
@@ -211,6 +216,16 @@ export function EdgeDetailPanel({ id }: Props) {
             value={formatTime(edge.created_at)}
           />
           <InfoField
+            icon={<Timer className='size-4' />}
+            label={t('edges.fieldStartedAt')}
+            value={edge.started_at ? formatTime(edge.started_at) : '—'}
+          />
+          <InfoField
+            icon={<Boxes className='size-4' />}
+            label={t('edges.fieldComfyVersion')}
+            value={edge.comfy_version || '—'}
+          />
+          <InfoField
             icon={<Tags className='size-4' />}
             label={t('edges.fieldCapabilities')}
             value={edge.capabilities.join(', ')}
@@ -304,7 +319,15 @@ export function EdgeDetailPanel({ id }: Props) {
         </div>
       </div>
 
-      <ObservationPanel metricsQuery={metricsQuery} tasksQuery={tasksQuery} />
+      <ObservationPanel
+        metricsQuery={metricsQuery}
+        tasksQuery={tasksQuery}
+        tasksPagination={{
+          offset: tasksOffset,
+          pageSize: TASKS_PAGE_SIZE,
+          onOffsetChange: setTasksOffset,
+        }}
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>

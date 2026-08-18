@@ -104,10 +104,23 @@ func (c *Client) Heartbeat(ctx context.Context, taskID sharedkernel.TaskID) erro
 	return nil
 }
 
-func (c *Client) ReportPresence(ctx context.Context, comfyRunning bool, hw *edge.Hardware, m *edge.Metrics) (bool, error) {
+func (c *Client) ReportPresence(
+	ctx context.Context,
+	comfyRunning bool,
+	startedAt time.Time,
+	comfyVersion string,
+	hw *edge.Hardware,
+	m *edge.Metrics,
+) (bool, error) {
 	payload := map[string]any{
 		"edge_id":       c.EdgeID,
 		"comfy_running": comfyRunning,
+	}
+	if !startedAt.IsZero() {
+		payload["started_at"] = startedAt
+	}
+	if comfyVersion != "" {
+		payload["comfy_version"] = comfyVersion
 	}
 	if hw != nil {
 		payload["hardware"] = hw

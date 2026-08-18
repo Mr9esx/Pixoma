@@ -12,8 +12,8 @@ import (
 
 	"github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/pull"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -148,7 +148,7 @@ func TestClient_ReportPresence(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := pull.NewClient(srv.URL, "tok", "gpu-1")
-	refresh, err := c.ReportPresence(context.Background(), true, nil, nil)
+	refresh, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestClient_ReportPresence_SendsHardwareAndReadsRefresh(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := pull.NewClient(srv.URL, "tok", "gpu-1")
 	hw := edge.Hardware{CPUModel: "Intel"}
-	refresh, err := c.ReportPresence(context.Background(), false, &hw, nil)
+	refresh, err := c.ReportPresence(context.Background(), false, time.Time{}, "", &hw, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestClient_ReportPresence_SendsMetrics(t *testing.T) {
 		CPUUsagePercent: usage,
 		CollectedAt:     time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC),
 	}
-	if _, err := c.ReportPresence(context.Background(), true, nil, &m); err != nil {
+	if _, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, &m); err != nil {
 		t.Fatal(err)
 	}
 	raw, ok := got["metrics"].(map[string]any)
@@ -207,5 +207,36 @@ func TestClient_ReportPresence_SendsMetrics(t *testing.T) {
 	}
 	if raw["cpu_usage_percent"] != 42.5 {
 		t.Fatalf("cpu_usage_percent=%v", raw["cpu_usage_percent"])
+	}
+}
+
+func TestClient_ReportPresence_SendsStartedAtAndComfyVersion(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	c := pull.NewClient(srv.URL, "tok", "gpu-1")
+	startedAt := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
+	if _, err := c.ReportPresence(
+		context.Background(),
+		true,
+		startedAt,
+		"v0.1.0",
+		nil,
+		nil,
+	); err != nil {
+		t.Fatal(err)
+	}
+	raw, ok := got["started_at"].(string)
+	if !ok || raw != "2026-08-18T12:00:00Z" {
+		t.Fatalf("started_at=%v", got["started_at"])
+	}
+	if got["comfy_version"] != "v0.1.0" {
+		t.Fatalf("comfy_version=%v", got["comfy_version"])
+	}
+	if _, ok := got["hardware"]; ok {
+		t.Fatalf("nil hardware must omit key: %v", got)
 	}
 }

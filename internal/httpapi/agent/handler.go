@@ -161,6 +161,8 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		EdgeID       string         `json:"edge_id"`
 		ComfyRunning bool           `json:"comfy_running"`
+		StartedAt    *time.Time     `json:"started_at"`
+		ComfyVersion string         `json:"comfy_version"`
 		Hardware     *edge.Hardware `json:"hardware"`
 		Metrics      *edge.Metrics  `json:"metrics"`
 	}
@@ -194,6 +196,17 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 		if rec != nil {
 			if body.Hardware != nil && edge.ShouldWriteHardware(rec.Hardware, rec.HardwareRefreshRequested) {
 				if err := h.Edges.UpdateHardware(r.Context(), edgeID, *body.Hardware); err != nil {
+					writeErr(w, http.StatusInternalServerError, err.Error())
+					return
+				}
+			}
+			if body.StartedAt != nil || body.ComfyVersion != "" {
+				if err := h.Edges.UpdatePresenceInfo(
+					r.Context(),
+					edgeID,
+					body.StartedAt,
+					body.ComfyVersion,
+				); err != nil {
 					writeErr(w, http.StatusInternalServerError, err.Error())
 					return
 				}
