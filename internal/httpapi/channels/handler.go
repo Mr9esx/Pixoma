@@ -1,0 +1,204 @@
+package channels
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/application"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
+)
+
+// Handler serves channel management endpoints under /api/v1/channels.
+type Handler struct {
+	Svc *application.Service
+}
+
+func (h *Handler) Mount(r chi.Router) {
+	r.Get("/", h.list)
+	r.Post("/", h.create)
+	r.Get("/{id}", h.get)
+	r.Put("/{id}", h.update)
+	r.Post("/{id}/disable", h.disable)
+	r.Post("/{id}/enable", h.enable)
+	r.Delete("/{id}", h.delete)
+}
+
+type channelDTO struct {
+	ID          string    `json:"id"`
+	Platform    string    `json:"platform"`
+	Name        string    `json:"name"`
+	TokenMasked string    `json:"token_masked"`
+	Enabled     bool      `json:"enabled"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (h *Handler) toDTO(ctx *http.Request, ch domain.Channel) (channelDTO, error) {
+	masked, err := h.Svc.Masked(ctx.Context(), ch.ID)
+	if err != nil {
+		return channelDTO{}, err
+	}
+	return channelDTO{
+		ID: ch.ID, Platform: ch.Platform, Name: ch.Name,
+		TokenMasked: masked, Enabled: ch.Enabled,
+		CreatedAt: ch.CreatedAt, UpdatedAt: ch.UpdatedAt,
+	}, nil
+}
+
+type createBody struct {
+	ID       string `json:"id"`
+	Platform string `json:"platform"`
+	Name     string `json:"name"`
+	Token    string `json:"token"`
+}
+
+func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.Svc == nil {
+		writeErr(w, http.StatusInternalServerError, "channel service not configured")
+		return
+	}
+	var body createBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	id := body.ID
+	if id == "" {
+		id = uuid.NewString()
+	}
+	ch, err := h.Svc.Create(r.Context(), id, domain.Platform(body.Platform), body.Name, body.Token)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	dto, err := h.toDTO(r, ch)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, dto)
+}
+
+func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.Svc == nil {
+		writeErr(w, http.StatusInternalServerError, "channel service not configured")
+		return
+	}
+	chs, err := h.Svc.List(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	out := make([]channelDTO, 0, len(chs))
+	for _, ch := range chs {
+		dto, err := h.toDTO(r, ch)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		out = append(out, dto)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	ch, err := h.Svc.Get(r.Context(), id)
+	if errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "channel not found")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	dto, err := h.toDTO(r, ch)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, dto)
+}
+
+type updateBody struct {
+	Name  string  `json:"name"`
+	Token *string `json:"token"`
+}
+
+func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var body updateBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	ch, err := h.Svc.Update(r.Context(), id, body.Name, body.Token)
+	if errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "channel not found")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	dto, err := h.toDTO(r, ch)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, dto)
+}
+
+func (h *Handler) disable(w http.ResponseWriter, r *http.Request) {
+	if err := h.Svc.Disable(r.Context(), chi.URLParam(r, "id")); errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "channel not found")
+		return
+	} else if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
+}
+
+func (h *Handler) enable(w http.ResponseWriter, r *http.Request) {
+	if err := h.Svc.Enable(r.Context(), chi.URLParam(r, "id")); errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "channel not found")
+		return
+	} else if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"enabled": true})
+}
+
+func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
+	err := h.Svc.Delete(r.Context(), chi.URLParam(r, "id"))
+	if errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "channel not found")
+		return
+	}
+	if errors.Is(err, domain.ErrDeleteRestricted) {
+		writeErr(w, http.StatusConflict, "channel must be disabled and free of active sessions/tasks before deletion")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func writeErr(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
+}

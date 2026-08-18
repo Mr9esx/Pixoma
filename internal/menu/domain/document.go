@@ -67,9 +67,9 @@ type MenuPlacement struct {
 
 // Extra is a platform-specific data blob attached to a channel menu item.
 type Extra struct {
-	ChannelID  string
-	MenuItemID string
-	ExtraType  string
-	ExtraJSON  string
-	UpdatedAt  time.Time
+	ChannelID  string    `json:"channel_id"`
+	MenuItemID string    `json:"menu_item_id"`
+	ExtraType  string    `json:"extra_type"`
+	ExtraJSON  string    `json:"extra_json"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
