@@ -2,28 +2,27 @@ package domain
 
 import "time"
 
-// User is the internal identity aggregate keyed by UUID, with Telegram id as unique channel key.
+// User is the internal identity aggregate keyed by UUID, with channel-scoped
+// external identities as the unique lookup key.
 type User struct {
 	ID           string
-	TgUserID     int64
 	Username     string
 	FirstName    string
 	LastName     string
 	LanguageCode string
-	IsBot        *bool
-	IsPremium    *bool
 	LastSeenAt   time.Time
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
 
-// UpsertFrom holds Telegram From fields available for upsert.
+// UpsertFrom carries channel-scoped external identity and profile fields.
 type UpsertFrom struct {
-	TgUserID     int64
-	Username     string
-	FirstName    string
-	LastName     string
-	LanguageCode string
-	IsBot        *bool
-	IsPremium    *bool
+	ChannelID      string
+	ExternalUserID string
+	Username       string
+	FirstName      string
+	LastName       string
+	LanguageCode   string
+	ProfileJSON    string // platform-specific profile fields (e.g. is_bot/is_premium)
+	LastSeenAt     time.Time
 }
