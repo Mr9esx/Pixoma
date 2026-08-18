@@ -144,7 +144,7 @@ function LineCardShell({
         className={
           compact
             ? 'grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_122px]'
-            : 'grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_92px]'
+            : 'grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_62px]'
         }
       >
         <div className='h-full min-h-[120px] w-full min-w-0'>
@@ -272,7 +272,7 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
           yAxisId='used'
           orientation='right'
           tickFormatter={(v: number) => formatBytes(v)}
-          width={80}
+          width={70}
           {...TICK_PROPS}
         />
         <ChartTooltip
@@ -425,7 +425,7 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
             yAxisId='used'
             orientation='right'
             tickFormatter={(v: number) => formatBytes(v)}
-            width={80}
+            width={70}
             {...TICK_PROPS}
           />
           <ChartTooltip
