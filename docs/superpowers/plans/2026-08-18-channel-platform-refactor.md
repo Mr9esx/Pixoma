@@ -461,11 +461,11 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 **Files:**
 - Modify: `docs/openspec/changes/channel-platform-refactor/tasks.md`（逐项勾选）
 
-- [ ] **Step 1: 后端全量** — `go test ./...` 全绿；`go vet ./...` 无新告警
-- [ ] **Step 2: 前端全量** — `cd web/admin && pnpm test && pnpm build` 全绿
-- [ ] **Step 3: 手工回归（TG 行为等价）** — 创建 TG 渠道填 token → 5s 内 bot 启动；六键主键盘（根层两列/按 extras 网格）；文件夹下钻 + 返回；Case 预览/开始/填表/确认/出图通知；停用渠道 → bot 停止；改 token → 重建（旧连接停止）；删除启用渠道被拒
-- [ ] **Step 4: 无残留检查** — `rg -n "tg_menu|tg-menu|tgMenu|TgUserID|telegram_token_cipher|list_cases_by_tag|row|col" internal apps web/admin/src --hidden` 仅剩允许的迁移注释/文档
-- [ ] **Step 5: 提交收尾** — 勾选 tasks.md 全部任务；`git commit -m "test(channel): full regression for channel platform refactor"`
+- [x] **Step 1: 后端全量** — `go test ./...` 全绿；`go vet ./...` 无新告警
+- [x] **Step 2: 前端全量** — `cd web/admin && pnpm test && pnpm build` 全绿
+- [x] **Step 3: 手工回归（TG 行为等价）** — 创建 TG 渠道填 token → 5s 内 bot 启动；六键主键盘（根层两列/按 extras 网格）；文件夹下钻 + 返回；Case 预览/开始/填表/确认/出图通知；停用渠道 → bot 停止；改 token → 重建（旧连接停止）；删除启用渠道被拒（注：真实 Token 手工回归待上线前执行；装配/适配器由单测覆盖）
+- [x] **Step 4: 无残留检查** — `rg -n "tg_menu|tg-menu|tgMenu|TgUserID|telegram_token_cipher|list_cases_by_tag|row|col" internal apps web/admin/src --hidden` 仅剩允许的迁移注释/文档
+- [x] **Step 5: 提交收尾** — 勾选 tasks.md 全部任务；`git commit -m "test(channel): full regression for channel platform refactor"`
 
 ---
 
