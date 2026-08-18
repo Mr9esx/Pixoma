@@ -129,17 +129,17 @@ func TestParseChatIDInvalid(t *testing.T) {
 - Produces: `Repository interface { GetTree(ctx, channelID string) (MenuTree, error); ReplaceTree(ctx, tree MenuTree) error; ListPlacementsByCase(ctx, caseID string) ([]MenuPlacement, error) }`
 - Consumes: Task 1 的 `ChatID` 无关；本任务只动菜单领域
 
-- [ ] **Step 1: git mv 目录** — `git mv internal/tgmenu internal/menu`，更新全仓 import（`internal/tgmenu` → `internal/menu`）
-- [ ] **Step 2: 写失败测试（领域中立化）** — 在 `internal/menu/domain/validate_test.go` 追加：含 `Row`/`Col`/`Tag` 字段的节点编译失败；`KindListCasesByTag` 常量不存在；`Validate` 接受 `Order` 排序且同层 `Order` 重复报错
-- [ ] **Step 3: 运行确认失败** — `go test ./internal/menu/...`，预期编译失败
-- [ ] **Step 4: 实现中立模型**
+- [x] **Step 1: git mv 目录** — `git mv internal/tgmenu internal/menu`，更新全仓 import（`internal/tgmenu` → `internal/menu`）
+- [x] **Step 2: 写失败测试（领域中立化）** — 在 `internal/menu/domain/validate_test.go` 追加：含 `Row`/`Col`/`Tag` 字段的节点编译失败；`KindListCasesByTag` 常量不存在；`Validate` 接受 `Order` 排序且同层 `Order` 重复报错
+- [x] **Step 3: 运行确认失败** — `go test ./internal/menu/...`，预期编译失败
+- [x] **Step 4: 实现中立模型**
   - `document.go`：删除 `Row/Col/Tag` 与 `KindListCasesByTag`；`MenuItem`/`MenuNode` 增加 `Order int`；`BotID` → `ChannelID`
   - `tree.go`：`nodeToItem`/`itemToNode` 同步；排序逻辑改为按 `Order`（平铺时先按 Order）
   - `validate.go`：去 row/col/tag 校验；保留同层 label 唯一、深度 ≤5、kind 关联约束（folder 子项仅 folder；open_case 恰 1 个 case 且无 children；placeholder 无 case；reply_media 需 text 或 http(s) 图片）；新增同层 Order 唯一校验
   - `seed.go`：`DefaultSeedTree()` → `DefaultSeedTree(channelID string)`，根项带 `Order`
   - `repository.go`：`GetTree(ctx, channelID string)`；删除 `DocumentIDDefault`/`BotIDDefault` 语义（改用调用方传入 channelID）
-- [ ] **Step 5: 运行通过** — `go test ./internal/menu/...` 全绿（原有测试更新为 Order 语义）
-- [ ] **Step 6: 提交** — `git commit -m "refactor(menu): rename tgmenu to menu and neutralize model"`
+- [x] **Step 5: 运行通过** — `go test ./internal/menu/...` 全绿（原有测试更新为 Order 语义）
+- [x] **Step 6: 提交** — `git commit -m "refactor(menu): rename tgmenu to menu and neutralize model"`
 
 ---
 

@@ -7,9 +7,9 @@
 
 ## 2. 菜单模型中立化（tgmenu → menu）
 
-- [ ] 2.1 重命名 `internal/tgmenu` → `internal/menu` 并更新全部 import（domain/application/infrastructure/httpapi）
-- [ ] 2.2 领域模型去 TG 字段：`row/col` → 有序列表 `order`；`intro_text` 上限移出领域校验；`bot_id` → `channel_id`；移除 `list_cases_by_tag` kind 与 `tag` 字段
-- [ ] 2.3 校验规则更新：同层 label 唯一、深度上限、kind 关联约束保留；去除 row/col 与 tag 相关检查
+- [x] 2.1 重命名 `internal/tgmenu` → `internal/menu` 并更新全部 import（domain/application/infrastructure/httpapi）
+- [x] 2.2 领域模型去 TG 字段：`row/col` → 有序列表 `order`；`intro_text` 上限移出领域校验；`bot_id` → `channel_id`；移除 `list_cases_by_tag` kind 与 `tag` 字段
+- [x] 2.3 校验规则更新：同层 label 唯一、深度上限、kind 关联约束保留；去除 row/col 与 tag 相关检查
 - [ ] 2.4 新建 `channel_menus` / `channel_menu_items` / `channel_menu_item_cases` / `channel_menu_item_extras`；删除旧 `tg_menus*` 与 legacy JSON 表模型（无存量数据，不做迁移）
 - [ ] 2.5 删除 `MigrateFromLegacyIfNeeded` 等旧数据迁移逻辑（无存量兼容需求）
 - [ ] 2.6 默认种子按渠道生成：图片文件夹入口 + 挂载图片 Case；空渠道可读
