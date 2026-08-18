@@ -35,6 +35,7 @@ import { taskStatusLabelKey } from '@/features/tasks/list-panel'
 import { kit } from './kit-classes'
 import {
   formatBytes,
+  formatMetricValue,
   ioAxisTicks,
   parseMetrics,
   type MetricsPoint,
@@ -44,22 +45,22 @@ import {
 const CHART_HALF_HEIGHT =
   'h-[100px] w-full min-w-0 sm:h-[120px] lg:h-[140px]'
 
+// 统一图表内边距：顶部给 Y 轴最高刻度留白，底部最小化且各图一致
+const CHART_MARGIN = { top: 12, right: 4, bottom: 0, left: 4 }
+const TICK_PROPS = { tickLine: false, axisLine: false, tickMargin: 4 } as const
+
 function timeTick(v: number): string {
   return new Date(v).toLocaleTimeString()
 }
 
-function chartTooltipFormatter(value: unknown, name: unknown): ReactNode {
-  const n = typeof value === 'number' ? value : Number(value)
+function chartTooltipFormatter(
+  value: unknown,
+  name: unknown,
+  config: ChartConfig
+): ReactNode {
   const key = String(name)
-  if (
-    key === 'used' ||
-    key === 'vramUsed' ||
-    key === 'read' ||
-    key === 'write'
-  ) {
-    return Number.isFinite(n) ? formatBytes(n) : String(value ?? '')
-  }
-  return Number.isFinite(n) ? `${n.toFixed(1)}%` : String(value ?? '')
+  const label = config[key]?.label ?? key
+  return `${label}: ${formatMetricValue(value, key)}`
 }
 
 function LineCardShell({
@@ -112,26 +113,35 @@ export function CpuCard({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
   const latest = series[series.length - 1]
   const data = series.map((p) => ({ time: p.time, cpu: p.cpu }))
+  const config: ChartConfig = {
+    cpu: { label: t('edges.monitorCpu'), color: 'var(--primary)' },
+  }
   return (
     <LineCardShell
       title={t('edges.monitorCpu')}
       value={latest?.cpu != null ? `${latest.cpu.toFixed(1)}%` : '—'}
-      config={{
-        cpu: { label: t('edges.monitorCpu'), color: 'var(--primary)' },
-      }}
+      config={config}
     >
-      <LineChart data={data} margin={{ left: 4, right: 4 }}>
+      <LineChart data={data} margin={CHART_MARGIN}>
         <CartesianGrid vertical={false} />
-        <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
+        <XAxis
+          dataKey='time'
+          tickFormatter={timeTick}
+          {...TICK_PROPS}
+          height={20}
+        />
         <YAxis
           width={36}
           domain={[0, 100]}
           tickFormatter={(v: number) => `${v}%`}
-          tickLine={false}
-          axisLine={false}
+          {...TICK_PROPS}
         />
         <ChartTooltip
-          content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+          content={
+            <ChartTooltipContent
+              formatter={(v, n) => chartTooltipFormatter(v, n, config)}
+            />
+          }
         />
         <Line
           dataKey='cpu'
@@ -153,42 +163,50 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
     rate: p.memPct,
     used: p.memUsed,
   }))
+  const config: ChartConfig = {
+    rate: {
+      label: t('edges.monitorMemRate'),
+      color: 'var(--primary)',
+    },
+    used: {
+      label: t('edges.monitorMemUsed'),
+      color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+    },
+  }
   return (
     <LineCardShell
       title={t('edges.monitorMemRate')}
       value={latest?.memPct != null ? `${latest.memPct.toFixed(1)}%` : '—'}
-      config={{
-        rate: {
-          label: t('edges.monitorMemRate'),
-          color: 'var(--primary)',
-        },
-        used: {
-          label: t('edges.monitorMemUsed'),
-          color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
-        },
-      }}
+      config={config}
     >
-      <LineChart data={data} margin={{ left: 4, right: 4 }}>
+      <LineChart data={data} margin={CHART_MARGIN}>
         <CartesianGrid vertical={false} />
-        <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
+        <XAxis
+          dataKey='time'
+          tickFormatter={timeTick}
+          {...TICK_PROPS}
+          height={20}
+        />
         <YAxis
           yAxisId='rate'
           width={36}
           domain={[0, 100]}
           tickFormatter={(v: number) => `${v}%`}
-          tickLine={false}
-          axisLine={false}
+          {...TICK_PROPS}
         />
         <YAxis
           yAxisId='used'
           orientation='right'
           tickFormatter={(v: number) => formatBytes(v)}
-          tickLine={false}
-          axisLine={false}
           width={48}
+          {...TICK_PROPS}
         />
         <ChartTooltip
-          content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+          content={
+            <ChartTooltipContent
+              formatter={(v, n) => chartTooltipFormatter(v, n, config)}
+            />
+          }
         />
         <Line
           yAxisId='rate'
@@ -228,6 +246,22 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
         const latestGpu = last?.gpus[gi]
         const usage = latestGpu?.usage_percent
         const vramPct = latestGpu?.vram_usage_percent
+        const usageConfig: ChartConfig = {
+          usage: {
+            label: t('edges.monitorGpuUsage'),
+            color: 'var(--primary)',
+          },
+        }
+        const vramConfig: ChartConfig = {
+          rate: {
+            label: t('edges.monitorVramRate'),
+            color: 'var(--primary)',
+          },
+          used: {
+            label: t('edges.monitorVram'),
+            color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+          },
+        }
         return (
           <div
             key={`${name}-${gi}`}
@@ -236,25 +270,28 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
             <LineCardShell
               title={`${t('edges.monitorGpuUsage')} · ${name}`}
               value={usage != null ? `${usage.toFixed(1)}%` : '—'}
-              config={{
-                usage: {
-                  label: t('edges.monitorGpuUsage'),
-                  color: 'var(--primary)',
-                },
-              }}
+              config={usageConfig}
             >
-              <LineChart data={data} margin={{ left: 4, right: 4 }}>
+              <LineChart data={data} margin={CHART_MARGIN}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
+                <XAxis
+                  dataKey='time'
+                  tickFormatter={timeTick}
+                  {...TICK_PROPS}
+                  height={20}
+                />
                 <YAxis
                   width={36}
                   domain={[0, 100]}
                   tickFormatter={(v: number) => `${v}%`}
-                  tickLine={false}
-                  axisLine={false}
+                  {...TICK_PROPS}
                 />
                 <ChartTooltip
-                  content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+                  content={
+                    <ChartTooltipContent
+                      formatter={(v, n) => chartTooltipFormatter(v, n, usageConfig)}
+                    />
+                  }
                 />
                 <Line
                   dataKey='usage'
@@ -268,38 +305,36 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
             <LineCardShell
               title={`${t('edges.monitorVramRate')} · ${name}`}
               value={vramPct != null ? `${vramPct.toFixed(1)}%` : '—'}
-              config={{
-                rate: {
-                  label: t('edges.monitorVramRate'),
-                  color: 'var(--primary)',
-                },
-                used: {
-                  label: t('edges.monitorVram'),
-                  color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
-                },
-              }}
+              config={vramConfig}
             >
-              <LineChart data={data} margin={{ left: 4, right: 4 }}>
+              <LineChart data={data} margin={CHART_MARGIN}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
+                <XAxis
+                  dataKey='time'
+                  tickFormatter={timeTick}
+                  {...TICK_PROPS}
+                  height={20}
+                />
                 <YAxis
                   yAxisId='rate'
                   width={36}
                   domain={[0, 100]}
                   tickFormatter={(v: number) => `${v}%`}
-                  tickLine={false}
-                  axisLine={false}
+                  {...TICK_PROPS}
                 />
                 <YAxis
                   yAxisId='used'
                   orientation='right'
                   tickFormatter={(v: number) => formatBytes(v)}
-                  tickLine={false}
-                  axisLine={false}
                   width={48}
+                  {...TICK_PROPS}
                 />
                 <ChartTooltip
-                  content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+                  content={
+                    <ChartTooltipContent
+                      formatter={(v, n) => chartTooltipFormatter(v, n, vramConfig)}
+                    />
+                  }
                 />
                 <Line
                   yAxisId='rate'
@@ -336,6 +371,16 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
   const ioAxis = ioAxisTicks(
     data.flatMap((d) => [d.read, d.write]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
   )
+  const config: ChartConfig = {
+    read: {
+      label: t('edges.monitorIoRead'),
+      color: 'var(--primary)',
+    },
+    write: {
+      label: t('edges.monitorIoWrite'),
+      color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+    },
+  }
   return (
     <div className='flex min-w-0 flex-1 flex-col gap-4 rounded-xl border bg-card p-4 sm:gap-6 sm:p-6'>
       <div className='flex flex-wrap items-center gap-2 sm:gap-4'>
@@ -369,21 +414,8 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
         </div>
       </div>
       <div className={CHART_HALF_HEIGHT}>
-        <ChartContainer
-          config={{
-            read: {
-              label: t('edges.monitorIoRead'),
-              color: 'var(--primary)',
-            },
-            write: {
-              label: t('edges.monitorIoWrite'),
-              color:
-                'color-mix(in oklch, var(--primary) 75%, var(--background))',
-            },
-          }}
-          className='h-full w-full'
-        >
-          <AreaChart data={data} margin={{ left: 4, right: 4 }}>
+        <ChartContainer config={config} className='h-full w-full'>
+          <AreaChart data={data} margin={CHART_MARGIN}>
             <defs>
               <linearGradient id='readGradient' x1='0' y1='0' x2='0' y2='1'>
                 <stop
@@ -413,19 +445,22 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey='time'
-              tickFormatter={(v: number) => new Date(v).toLocaleTimeString()}
-              tickLine={false}
-              axisLine={false}
+              tickFormatter={timeTick}
+              {...TICK_PROPS}
+              height={20}
             />
             <YAxis
               ticks={ioAxis.ticks}
               tickFormatter={ioAxis.format}
-              tickLine={false}
-              axisLine={false}
               width={48}
+              {...TICK_PROPS}
             />
             <ChartTooltip
-              content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+              content={
+                <ChartTooltipContent
+                  formatter={(v, n) => chartTooltipFormatter(v, n, config)}
+                />
+              }
             />
             <Area
               dataKey='read'
