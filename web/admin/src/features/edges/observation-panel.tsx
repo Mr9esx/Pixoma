@@ -38,16 +38,18 @@ import {
   formatMetricValue,
   ioAxisTicks,
   parseMetrics,
+  seriesStats,
   type MetricsPoint,
 } from './observation'
 
 // 基准高度的一半：h-[200px] sm:h-[240px] lg:h-[280px] → 50%
-const CHART_HALF_HEIGHT =
-  'h-[100px] w-full min-w-0 sm:h-[120px] lg:h-[140px]'
+const CHART_HALF_HEIGHT = 'h-[100px] w-full min-w-0 sm:h-[120px] lg:h-[140px]'
 
 // 统一图表内边距：顶部给 Y 轴最高刻度留白，底部最小化且各图一致
 const CHART_MARGIN = { top: 12, right: 4, bottom: 0, left: 4 }
 const TICK_PROPS = { tickLine: false, axisLine: false, tickMargin: 4 } as const
+
+type StatItem = { label: string; value: string }
 
 function timeTick(v: number): string {
   return new Date(v).toLocaleTimeString()
@@ -63,47 +65,93 @@ function chartTooltipFormatter(
   return `${label}: ${formatMetricValue(value, key)}`
 }
 
+function percentText(v: number): string {
+  return `${v.toFixed(1)}%`
+}
+
+// 占用率系列右侧三值：当前 / 最高 / 平均（百分比）。
+function rateStats(
+  values: Array<number | null>,
+  t: (key: string) => string
+): StatItem[] {
+  const s = seriesStats(values, percentText)
+  return [
+    { label: t('edges.monitorCurrent'), value: s.current },
+    { label: t('edges.monitorMax'), value: s.max },
+    { label: t('edges.monitorAvg'), value: s.avg },
+  ]
+}
+
+// I/O 系列右侧三值：当前 / 最高 / 平均（人类可读字节速率）。
+function byteRateStats(
+  values: Array<number | null>,
+  series: string,
+  t: (key: string) => string
+): StatItem[] {
+  const s = seriesStats(values, formatBytes)
+  return [
+    {
+      label: `${series} · ${t('edges.monitorCurrent')}`,
+      value: s.current,
+    },
+    { label: `${series} · ${t('edges.monitorMax')}`, value: s.max },
+    { label: `${series} · ${t('edges.monitorAvg')}`, value: s.avg },
+  ]
+}
+
+// Sprint health 卡片：标题在上，主体左图右值（桌面端右列 92px 统计）。
 function LineCardShell({
   title,
-  value,
   config,
+  stats,
   children,
 }: {
   title: string
-  value: string
   config: ChartConfig
+  stats: StatItem[]
   children: ReactNode
 }) {
+  const legend = Object.entries(config)
   return (
-    <div className='flex min-w-0 flex-1 flex-col gap-4 rounded-xl border bg-card p-4 sm:gap-6 sm:p-6'>
-      <div className='flex flex-wrap items-center gap-2 sm:gap-4'>
-        <div className='flex flex-1 flex-col gap-1'>
-          <p className='text-xl leading-tight font-semibold tracking-tight sm:text-2xl'>
-            {value}
-          </p>
-          <p className='text-xs text-muted-foreground'>{title}</p>
-        </div>
-        <div className='hidden items-center gap-3 sm:flex sm:gap-5'>
-          {Object.entries(config).map(([key, entry]) => (
-            <div
-              key={key}
-              className='flex items-center gap-1.5 transition-opacity duration-200 motion-reduce:transition-none'
-            >
-              <div
-                className='size-2.5 rounded-full sm:size-3'
-                style={{ backgroundColor: entry.color }}
-              />
-              <span className='text-[10px] text-muted-foreground sm:text-xs'>
+    <div className='flex min-w-0 flex-1 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:shadow-none'>
+      <div className='mb-3'>
+        <h2 className='text-base font-semibold'>{title}</h2>
+        {legend.length > 1 ? (
+          <div className='mt-3 flex items-center gap-4 text-[11px] text-muted-foreground'>
+            {legend.map(([key, entry]) => (
+              <span key={key} className='inline-flex items-center gap-1.5'>
+                <span
+                  className='size-2 rounded-full'
+                  style={{ backgroundColor: entry.color }}
+                />
                 {entry.label}
               </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className='grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_92px]'>
+        <div className={CHART_HALF_HEIGHT}>
+          <ChartContainer config={config} className='h-full w-full'>
+            {children}
+          </ChartContainer>
+        </div>
+        <div className='grid grid-cols-3 content-center gap-2 text-center lg:grid-cols-1 lg:text-right'>
+          {stats.map((stat, i) => (
+            <div key={stat.label}>
+              <p
+                className={
+                  i === 0
+                    ? 'text-xl leading-6 font-semibold'
+                    : 'text-lg leading-6 font-semibold'
+                }
+              >
+                {stat.value}
+              </p>
+              <p className='text-[11px] text-muted-foreground'>{stat.label}</p>
             </div>
           ))}
         </div>
-      </div>
-      <div className={CHART_HALF_HEIGHT}>
-        <ChartContainer config={config} className='h-full w-full'>
-          {children}
-        </ChartContainer>
       </div>
     </div>
   )
@@ -111,7 +159,6 @@ function LineCardShell({
 
 export function CpuCard({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
-  const latest = series[series.length - 1]
   const data = series.map((p) => ({ time: p.time, cpu: p.cpu }))
   const config: ChartConfig = {
     cpu: { label: t('edges.monitorCpu'), color: 'var(--primary)' },
@@ -119,8 +166,11 @@ export function CpuCard({ series }: { series: MetricsPoint[] }) {
   return (
     <LineCardShell
       title={t('edges.monitorCpu')}
-      value={latest?.cpu != null ? `${latest.cpu.toFixed(1)}%` : '—'}
       config={config}
+      stats={rateStats(
+        series.map((p) => p.cpu),
+        t
+      )}
     >
       <LineChart data={data} margin={CHART_MARGIN}>
         <CartesianGrid vertical={false} />
@@ -157,7 +207,6 @@ export function CpuCard({ series }: { series: MetricsPoint[] }) {
 
 export function MemRateCard({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
-  const latest = series[series.length - 1]
   const data = series.map((p) => ({
     time: p.time,
     rate: p.memPct,
@@ -176,8 +225,11 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
   return (
     <LineCardShell
       title={t('edges.monitorMemRate')}
-      value={latest?.memPct != null ? `${latest.memPct.toFixed(1)}%` : '—'}
       config={config}
+      stats={rateStats(
+        series.map((p) => p.memPct),
+        t
+      )}
     >
       <LineChart data={data} margin={CHART_MARGIN}>
         <CartesianGrid vertical={false} />
@@ -243,9 +295,6 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
           vramPct: p.gpus[gi]?.vram_usage_percent ?? null,
           vramUsed: p.gpus[gi]?.vram_used_bytes ?? null,
         }))
-        const latestGpu = last?.gpus[gi]
-        const usage = latestGpu?.usage_percent
-        const vramPct = latestGpu?.vram_usage_percent
         const usageConfig: ChartConfig = {
           usage: {
             label: t('edges.monitorGpuUsage'),
@@ -269,8 +318,11 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
           >
             <LineCardShell
               title={`${t('edges.monitorGpuUsage')} · ${name}`}
-              value={usage != null ? `${usage.toFixed(1)}%` : '—'}
               config={usageConfig}
+              stats={rateStats(
+                series.map((p) => p.gpus[gi]?.usage_percent ?? null),
+                t
+              )}
             >
               <LineChart data={data} margin={CHART_MARGIN}>
                 <CartesianGrid vertical={false} />
@@ -289,7 +341,9 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
                 <ChartTooltip
                   content={
                     <ChartTooltipContent
-                      formatter={(v, n) => chartTooltipFormatter(v, n, usageConfig)}
+                      formatter={(v, n) =>
+                        chartTooltipFormatter(v, n, usageConfig)
+                      }
                     />
                   }
                 />
@@ -304,8 +358,11 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
             </LineCardShell>
             <LineCardShell
               title={`${t('edges.monitorVramRate')} · ${name}`}
-              value={vramPct != null ? `${vramPct.toFixed(1)}%` : '—'}
               config={vramConfig}
+              stats={rateStats(
+                series.map((p) => p.gpus[gi]?.vram_usage_percent ?? null),
+                t
+              )}
             >
               <LineChart data={data} margin={CHART_MARGIN}>
                 <CartesianGrid vertical={false} />
@@ -332,7 +389,9 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
                 <ChartTooltip
                   content={
                     <ChartTooltipContent
-                      formatter={(v, n) => chartTooltipFormatter(v, n, vramConfig)}
+                      formatter={(v, n) =>
+                        chartTooltipFormatter(v, n, vramConfig)
+                      }
                     />
                   }
                 />
@@ -369,7 +428,9 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
     write: p.ioWrite,
   }))
   const ioAxis = ioAxisTicks(
-    data.flatMap((d) => [d.read, d.write]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+    data
+      .flatMap((d) => [d.read, d.write])
+      .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
   )
   const config: ChartConfig = {
     read: {
@@ -382,104 +443,81 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
     },
   }
   return (
-    <div className='flex min-w-0 flex-1 flex-col gap-4 rounded-xl border bg-card p-4 sm:gap-6 sm:p-6'>
-      <div className='flex flex-wrap items-center gap-2 sm:gap-4'>
-        <div className='flex flex-1 flex-col gap-1'>
-          <p className='text-xs text-muted-foreground'>
-            {t('edges.monitorIo')}
-          </p>
-        </div>
-        <div className='hidden items-center gap-3 sm:flex sm:gap-5'>
-          <div className='flex items-center gap-1.5 transition-opacity duration-200 motion-reduce:transition-none'>
-            <div
-              className='size-2.5 rounded-full sm:size-3'
-              style={{ backgroundColor: 'var(--primary)' }}
+    <LineCardShell
+      title={t('edges.monitorIo')}
+      config={config}
+      stats={[
+        ...byteRateStats(
+          series.map((p) => p.ioRead),
+          t('edges.monitorIoRead'),
+          t
+        ),
+        ...byteRateStats(
+          series.map((p) => p.ioWrite),
+          t('edges.monitorIoWrite'),
+          t
+        ),
+      ]}
+    >
+      <AreaChart data={data} margin={CHART_MARGIN}>
+        <defs>
+          <linearGradient id='readGradient' x1='0' y1='0' x2='0' y2='1'>
+            <stop offset='0%' stopColor='var(--color-read)' stopOpacity={0.3} />
+            <stop
+              offset='100%'
+              stopColor='var(--color-read)'
+              stopOpacity={0.05}
             />
-            <span className='text-[10px] text-muted-foreground sm:text-xs'>
-              {t('edges.monitorIoRead')}
-            </span>
-          </div>
-          <div className='flex items-center gap-1.5 transition-opacity duration-200 motion-reduce:transition-none'>
-            <div
-              className='size-2.5 rounded-full sm:size-3'
-              style={{
-                backgroundColor:
-                  'color-mix(in oklch, var(--primary) 75%, var(--background))',
-              }}
+          </linearGradient>
+          <linearGradient id='writeGradient' x1='0' y1='0' x2='0' y2='1'>
+            <stop
+              offset='0%'
+              stopColor='var(--color-write)'
+              stopOpacity={0.2}
             />
-            <span className='text-[10px] text-muted-foreground sm:text-xs'>
-              {t('edges.monitorIoWrite')}
-            </span>
-          </div>
-        </div>
-      </div>
-      <div className={CHART_HALF_HEIGHT}>
-        <ChartContainer config={config} className='h-full w-full'>
-          <AreaChart data={data} margin={CHART_MARGIN}>
-            <defs>
-              <linearGradient id='readGradient' x1='0' y1='0' x2='0' y2='1'>
-                <stop
-                  offset='0%'
-                  stopColor='var(--color-read)'
-                  stopOpacity={0.3}
-                />
-                <stop
-                  offset='100%'
-                  stopColor='var(--color-read)'
-                  stopOpacity={0.05}
-                />
-              </linearGradient>
-              <linearGradient id='writeGradient' x1='0' y1='0' x2='0' y2='1'>
-                <stop
-                  offset='0%'
-                  stopColor='var(--color-write)'
-                  stopOpacity={0.2}
-                />
-                <stop
-                  offset='100%'
-                  stopColor='var(--color-write)'
-                  stopOpacity={0.02}
-                />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey='time'
-              tickFormatter={timeTick}
-              {...TICK_PROPS}
-              height={20}
+            <stop
+              offset='100%'
+              stopColor='var(--color-write)'
+              stopOpacity={0.02}
             />
-            <YAxis
-              ticks={ioAxis.ticks}
-              tickFormatter={ioAxis.format}
-              width={48}
-              {...TICK_PROPS}
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} />
+        <XAxis
+          dataKey='time'
+          tickFormatter={timeTick}
+          {...TICK_PROPS}
+          height={20}
+        />
+        <YAxis
+          ticks={ioAxis.ticks}
+          tickFormatter={ioAxis.format}
+          width={48}
+          {...TICK_PROPS}
+        />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              formatter={(v, n) => chartTooltipFormatter(v, n, config)}
             />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(v, n) => chartTooltipFormatter(v, n, config)}
-                />
-              }
-            />
-            <Area
-              dataKey='read'
-              type='natural'
-              fill='url(#readGradient)'
-              stroke='var(--color-read)'
-              strokeWidth={2}
-            />
-            <Area
-              dataKey='write'
-              type='natural'
-              fill='url(#writeGradient)'
-              stroke='var(--color-write)'
-              strokeWidth={2}
-            />
-          </AreaChart>
-        </ChartContainer>
-      </div>
-    </div>
+          }
+        />
+        <Area
+          dataKey='read'
+          type='natural'
+          fill='url(#readGradient)'
+          stroke='var(--color-read)'
+          strokeWidth={2}
+        />
+        <Area
+          dataKey='write'
+          type='natural'
+          fill='url(#writeGradient)'
+          stroke='var(--color-write)'
+          strokeWidth={2}
+        />
+      </AreaChart>
+    </LineCardShell>
   )
 }
 

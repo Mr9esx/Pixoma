@@ -1564,3 +1564,23 @@ cd /Users/mr9esx/Documents/Pixoma && COMFY_MOCK=true METRICS_INTERVAL=5s make de
 git add docs/openspec/changes/edge-system-monitoring/tasks.md
 git commit -m "chore(edge-system-monitoring): mark all build tasks complete"
 ```
+
+### Task 20: 图表改为 Sprint health 样式（Round 6）
+
+**Files:**
+- `web/admin/src/features/edges/observation-panel.tsx`
+- `web/admin/src/features/edges/observation.ts`
+- `web/admin/src/features/edges/observation.test.ts`
+- `web/admin/src/features/edges/edges.contract.test.ts`
+- `web/admin/src/lib/i18n/locales/zh.json` / `en.json`
+
+- [x] **Step 1: RED — 新增 `seriesStats` 单测与合同测试 Sprint health 断言，运行确认失败**
+- [x] **Step 2: GREEN — 实现 `seriesStats`、i18n（当前/最高/平均）、Sprint health 卡片壳（标题 + 左图右值 92px 统计列）**
+- [x] **Step 3: 全量验证**
+
+```bash
+cd /Users/mr9esx/Documents/Pixoma/web/admin && npx vitest run && npx tsc -b && npm run build
+cd /Users/mr9esx/Documents/Pixoma && go build ./... && go test ./...
+```
+
+- [x] **Step 4: 代码审查（standard）→ 勾选 tasks.md 3.20 并提交**

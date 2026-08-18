@@ -37,6 +37,7 @@
 - [x] 3.17 I/O Y 轴 tick 走自适应格式化，小速率不再显示为「0 MiB」
 - [x] 3.18 I/O Y 轴阶梯化：按显示单位生成 1/2/5×10ⁿ 整齐步进 tick（`ioAxisTicks` + 单测），不再显示零碎小数
 - [x] 3.19 tooltip 恢复系列名 label（`格式 label: 值`）；统一图表内边距（`CHART_MARGIN` top12/right4/bottom0/left4，X 轴高 20、tickMargin 4），修复各图底部 padding 不一致与 Y 轴顶部刻度裁切
+- [x] 3.20 图表改为 Sprint health 样式：卡片标题 `text-base font-semibold`；主体左图右值（`lg:grid-cols-[minmax(0,1fr)_92px]`），占用率系列右侧显示「当前 / 最高 / 平均」三值（百分比），I/O 读/写各显示三值（人类可读单位）；新增 `seriesStats` 辅助与 i18n（monitorCurrent/monitorMax/monitorAvg）
 
 ## 4. 文档与验证
 

@@ -4,6 +4,7 @@ import {
   formatMetricValue,
   ioAxisTicks,
   parseMetrics,
+  seriesStats,
 } from './observation'
 
 describe('parseMetrics', () => {
@@ -99,5 +100,32 @@ describe('formatMetricValue', () => {
   it('formats percent series with %', () => {
     expect(formatMetricValue(42.5, 'cpu')).toBe('42.5%')
     expect(formatMetricValue(0, 'rate')).toBe('0.0%')
+  })
+})
+
+describe('seriesStats', () => {
+  it('returns current, max and average with the formatter', () => {
+    const stats = seriesStats([10, 20, 15, 30], (v) => `${v.toFixed(1)}%`)
+    expect(stats.current).toBe('30.0%')
+    expect(stats.max).toBe('30.0%')
+    expect(stats.avg).toBe('18.8%')
+  })
+
+  it('formats byte series with human units', () => {
+    const stats = seriesStats([1024, 4 * 1024 ** 2], (v) => formatBytes(v))
+    expect(stats.current).toBe('4.0 MiB')
+    expect(stats.max).toBe('4.0 MiB')
+    expect(stats.avg).toBe('2.0 MiB')
+  })
+
+  it('ignores null and non-finite values and falls back to dash when empty', () => {
+    const stats = seriesStats([null, NaN, Infinity, 42, 48], (v) => `${v}%`)
+    expect(stats.current).toBe('48%')
+    expect(stats.max).toBe('48%')
+    expect(stats.avg).toBe('45%')
+    const empty = seriesStats([null, null], (v) => `${v}%`)
+    expect(empty.current).toBe('—')
+    expect(empty.max).toBe('—')
+    expect(empty.avg).toBe('—')
   })
 })

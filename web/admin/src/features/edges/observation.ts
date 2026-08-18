@@ -25,7 +25,8 @@ function toPoint(m: EdgeMetrics): MetricsPoint {
     cpu: typeof m.cpu_usage_percent === 'number' ? m.cpu_usage_percent : null,
     memUsed: typeof m.mem_used_bytes === 'number' ? m.mem_used_bytes : null,
     memTotal: typeof m.mem_total_bytes === 'number' ? m.mem_total_bytes : null,
-    memPct: typeof m.mem_usage_percent === 'number' ? m.mem_usage_percent : null,
+    memPct:
+      typeof m.mem_usage_percent === 'number' ? m.mem_usage_percent : null,
     gpus: Array.isArray(m.gpus)
       ? (m.gpus.filter((gpu) => isRecord(gpu)) as EdgeGPUMetric[])
       : [],
@@ -40,9 +41,10 @@ function toPoint(m: EdgeMetrics): MetricsPoint {
   }
 }
 
-export function parseMetrics(
-  data: unknown
-): { latest: MetricsPoint | null; series: MetricsPoint[] } {
+export function parseMetrics(data: unknown): {
+  latest: MetricsPoint | null
+  series: MetricsPoint[]
+} {
   if (!isRecord(data)) return { latest: null, series: [] }
   const latest = asMetrics(data.latest)
   const series = Array.isArray(data.series)
@@ -76,14 +78,31 @@ export function formatBytes(n: number): string {
 export function formatMetricValue(value: unknown, key: string): string {
   const n = typeof value === 'number' ? value : Number(value)
   const isBytes =
-    key === 'used' ||
-    key === 'vramUsed' ||
-    key === 'read' ||
-    key === 'write'
+    key === 'used' || key === 'vramUsed' || key === 'read' || key === 'write'
   if (isBytes) {
     return Number.isFinite(n) ? formatBytes(n) : String(value ?? '')
   }
   return Number.isFinite(n) ? `${n.toFixed(1)}%` : String(value ?? '')
+}
+
+// Sprint health 卡片右侧统计：过滤 null/非有限值后给出当前、最高、平均（按给定格式化函数）。
+export function seriesStats(
+  values: Array<number | null>,
+  format: (v: number) => string
+): { current: string; max: string; avg: string } {
+  const nums = values.filter(
+    (v): v is number => typeof v === 'number' && Number.isFinite(v)
+  )
+  if (nums.length === 0) {
+    return { current: '—', max: '—', avg: '—' }
+  }
+  const max = Math.max(...nums)
+  const avg = nums.reduce((sum, v) => sum + v, 0) / nums.length
+  return {
+    current: format(nums[nums.length - 1]),
+    max: format(max),
+    avg: format(avg),
+  }
 }
 
 // I/O 轴阶梯化：按显示单位（B/KiB/MiB/GiB）用 1/2/5×10ⁿ 的整齐步进生成 tick，
