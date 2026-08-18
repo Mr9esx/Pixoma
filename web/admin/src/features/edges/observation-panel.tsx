@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Activity } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -42,12 +42,18 @@ import {
   type MetricsPoint,
 } from './observation'
 
-// 基准高度的一半：h-[200px] sm:h-[240px] lg:h-[280px] → 50%
-const CHART_HALF_HEIGHT = 'h-[100px] w-full min-w-0 sm:h-[120px] lg:h-[140px]'
-
 // 统一图表内边距：顶部给 Y 轴最高刻度留白，底部最小化且各图一致
 const CHART_MARGIN = { top: 12, right: 4, bottom: 0, left: 4 }
 const TICK_PROPS = { tickLine: false, axisLine: false, tickMargin: 4 } as const
+
+// 多 GPU 折线配色：第一块沿用主题主色，后续走 chart 调色板。
+const GPU_SERIES_COLORS = [
+  'var(--primary)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+]
 
 type StatItem = { label: string; value: string }
 
@@ -72,13 +78,15 @@ function percentText(v: number): string {
 // 占用率系列右侧三值：当前 / 最高 / 平均（百分比）。
 function rateStats(
   values: Array<number | null>,
-  t: (key: string) => string
+  t: (key: string) => string,
+  prefix?: string
 ): StatItem[] {
   const s = seriesStats(values, percentText)
+  const label = (key: string) => (prefix ? `${prefix} · ${t(key)}` : t(key))
   return [
-    { label: t('edges.monitorCurrent'), value: s.current },
-    { label: t('edges.monitorMax'), value: s.max },
-    { label: t('edges.monitorAvg'), value: s.avg },
+    { label: label('edges.monitorCurrent'), value: s.current },
+    { label: label('edges.monitorMax'), value: s.max },
+    { label: label('edges.monitorAvg'), value: s.avg },
   ]
 }
 
@@ -133,23 +141,15 @@ function LineCardShell({
         </div>
       </div>
       <div className='grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_92px]'>
-        <div className={CHART_HALF_HEIGHT}>
+        <div className='h-full min-h-[120px] w-full min-w-0'>
           <ChartContainer config={config} className='h-full w-full'>
             {children}
           </ChartContainer>
         </div>
         <div className='grid grid-cols-3 content-center gap-2 text-center lg:grid-cols-1 lg:text-right'>
-          {stats.map((stat, i) => (
+          {stats.map((stat) => (
             <div key={stat.label}>
-              <p
-                className={
-                  i === 0
-                    ? 'text-xl leading-6 font-semibold'
-                    : 'text-lg leading-6 font-semibold'
-                }
-              >
-                {stat.value}
-              </p>
+              <p className='text-lg leading-6 font-semibold'>{stat.value}</p>
               <p className='text-[11px] text-muted-foreground'>{stat.label}</p>
             </div>
           ))}
@@ -288,137 +288,156 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
   const last = series[series.length - 1]
   const gpuNames = last?.gpus.map((gpu) => gpu.name) ?? []
   if (gpuNames.length === 0) return null
+  const multi = gpuNames.length > 1
+  const gpuPrefix = (gi: number) => (multi ? `GPU${gi}` : undefined)
+
+  const usageData = series.map((p) => {
+    const row: Record<string, number | null> = { time: p.time }
+    gpuNames.forEach((_, gi) => {
+      row[`gpu${gi}`] = p.gpus[gi]?.usage_percent ?? null
+    })
+    return row
+  })
+  const usageConfig: ChartConfig = {}
+  gpuNames.forEach((name, gi) => {
+    usageConfig[`gpu${gi}`] = {
+      label: name,
+      color: GPU_SERIES_COLORS[gi % GPU_SERIES_COLORS.length],
+    }
+  })
+
+  const vramData = series.map((p) => {
+    const row: Record<string, number | null> = { time: p.time }
+    gpuNames.forEach((_, gi) => {
+      const gpu = p.gpus[gi]
+      row[`gpu${gi}Rate`] = gpu?.vram_usage_percent ?? null
+      row[`gpu${gi}Used`] = gpu?.vram_used_bytes ?? null
+    })
+    return row
+  })
+  const vramConfig: ChartConfig = {}
+  gpuNames.forEach((name, gi) => {
+    const color = GPU_SERIES_COLORS[gi % GPU_SERIES_COLORS.length]
+    const label = (key: string) => (multi ? `${name} · ${t(key)}` : t(key))
+    vramConfig[`gpu${gi}Rate`] = {
+      label: label('edges.monitorVramRate'),
+      color,
+    }
+    vramConfig[`gpu${gi}Used`] = {
+      label: label('edges.monitorVram'),
+      color: `color-mix(in oklch, ${color} 75%, var(--background))`,
+    }
+  })
+
   return (
-    <>
-      {gpuNames.map((name, gi) => {
-        const data = series.map((p) => ({
-          time: p.time,
-          usage: p.gpus[gi]?.usage_percent ?? null,
-          vramPct: p.gpus[gi]?.vram_usage_percent ?? null,
-          vramUsed: p.gpus[gi]?.vram_used_bytes ?? null,
-        }))
-        const usageConfig: ChartConfig = {
-          usage: {
-            label: t('edges.monitorGpuUsage'),
-            color: 'var(--primary)',
-          },
-        }
-        const vramConfig: ChartConfig = {
-          rate: {
-            label: t('edges.monitorVramRate'),
-            color: 'var(--primary)',
-          },
-          used: {
-            label: t('edges.monitorVram'),
-            color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
-          },
-        }
-        return (
-          <div
-            key={`${name}-${gi}`}
-            className='flex flex-col gap-4 xl:flex-row'
-          >
-            <LineCardShell
-              title={`${t('edges.monitorGpuUsage')} · ${name}`}
-              config={usageConfig}
-              stats={rateStats(
-                series.map((p) => p.gpus[gi]?.usage_percent ?? null),
-                t
-              )}
-            >
-              <LineChart data={data} margin={CHART_MARGIN}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey='time'
-                  tickFormatter={timeTick}
-                  {...TICK_PROPS}
-                  height={20}
-                />
-                <YAxis
-                  width={36}
-                  domain={[0, 100]}
-                  tickFormatter={(v: number) => `${v}%`}
-                  {...TICK_PROPS}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(v, n) =>
-                        chartTooltipFormatter(v, n, usageConfig)
-                      }
-                    />
-                  }
-                />
-                <Line
-                  dataKey='usage'
-                  type='natural'
-                  stroke='var(--color-usage)'
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </LineCardShell>
-            <LineCardShell
-              title={`${t('edges.monitorVramRate')} · ${name}`}
-              config={vramConfig}
-              stats={rateStats(
-                series.map((p) => p.gpus[gi]?.vram_usage_percent ?? null),
-                t
-              )}
-            >
-              <LineChart data={data} margin={CHART_MARGIN}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey='time'
-                  tickFormatter={timeTick}
-                  {...TICK_PROPS}
-                  height={20}
-                />
-                <YAxis
-                  yAxisId='rate'
-                  width={36}
-                  domain={[0, 100]}
-                  tickFormatter={(v: number) => `${v}%`}
-                  {...TICK_PROPS}
-                />
-                <YAxis
-                  yAxisId='used'
-                  orientation='right'
-                  tickFormatter={(v: number) => formatBytes(v)}
-                  width={48}
-                  {...TICK_PROPS}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(v, n) =>
-                        chartTooltipFormatter(v, n, vramConfig)
-                      }
-                    />
-                  }
-                />
-                <Line
-                  yAxisId='rate'
-                  dataKey='vramPct'
-                  type='natural'
-                  stroke='var(--color-rate)'
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  yAxisId='used'
-                  dataKey='vramUsed'
-                  type='natural'
-                  stroke='var(--color-used)'
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </LineCardShell>
-          </div>
-        )
-      })}
-    </>
+    <div className='flex flex-col gap-4 xl:flex-row'>
+      <LineCardShell
+        title={t('edges.monitorGpuUsage')}
+        config={usageConfig}
+        stats={gpuNames.flatMap((_, gi) =>
+          rateStats(
+            series.map((p) => p.gpus[gi]?.usage_percent ?? null),
+            t,
+            gpuPrefix(gi)
+          )
+        )}
+      >
+        <LineChart data={usageData} margin={CHART_MARGIN}>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey='time'
+            tickFormatter={timeTick}
+            {...TICK_PROPS}
+            height={20}
+          />
+          <YAxis
+            width={36}
+            domain={[0, 100]}
+            tickFormatter={(v: number) => `${v}%`}
+            {...TICK_PROPS}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={(v, n) => chartTooltipFormatter(v, n, usageConfig)}
+              />
+            }
+          />
+          {gpuNames.map((_, gi) => (
+            <Line
+              key={gi}
+              dataKey={`gpu${gi}`}
+              type='natural'
+              stroke={`var(--color-gpu${gi})`}
+              strokeWidth={2}
+              dot={false}
+            />
+          ))}
+        </LineChart>
+      </LineCardShell>
+      <LineCardShell
+        title={t('edges.monitorVramRate')}
+        config={vramConfig}
+        stats={gpuNames.flatMap((_, gi) =>
+          rateStats(
+            series.map((p) => p.gpus[gi]?.vram_usage_percent ?? null),
+            t,
+            gpuPrefix(gi)
+          )
+        )}
+      >
+        <LineChart data={vramData} margin={CHART_MARGIN}>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey='time'
+            tickFormatter={timeTick}
+            {...TICK_PROPS}
+            height={20}
+          />
+          <YAxis
+            yAxisId='rate'
+            width={36}
+            domain={[0, 100]}
+            tickFormatter={(v: number) => `${v}%`}
+            {...TICK_PROPS}
+          />
+          <YAxis
+            yAxisId='used'
+            orientation='right'
+            tickFormatter={(v: number) => formatBytes(v)}
+            width={48}
+            {...TICK_PROPS}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={(v, n) => chartTooltipFormatter(v, n, vramConfig)}
+              />
+            }
+          />
+          {gpuNames.map((_, gi) => (
+            <Fragment key={gi}>
+              <Line
+                yAxisId='rate'
+                dataKey={`gpu${gi}Rate`}
+                type='natural'
+                stroke={`var(--color-gpu${gi}Rate)`}
+                strokeWidth={2}
+                dot={false}
+              />
+              <Line
+                yAxisId='used'
+                dataKey={`gpu${gi}Used`}
+                type='natural'
+                stroke={`var(--color-gpu${gi}Used)`}
+                strokeWidth={2}
+                dot={false}
+              />
+            </Fragment>
+          ))}
+        </LineChart>
+      </LineCardShell>
+    </div>
   )
 }
 
