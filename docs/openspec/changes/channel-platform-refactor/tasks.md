@@ -17,8 +17,8 @@
 ## 3. 会话寻址渠道化
 
 - [x] 3.1 `sharedkernel.ChatID` 由 int64 改为渠道命名 string（`tg:` 前缀）并新增 ChannelAddr 辅助类型
-- [ ] 3.2 `sessions` 新表直接使用 `channel_id` + `chat_external_id`（无存量迁移）；task/notify 事件载荷同步
-- [ ] 3.3 notify 事件载荷 ChatID 字段切换并保持 JSON 兼容
+- [x] 3.2 `sessions` 新表直接使用 `channel_id` + `chat_external_id`（无存量迁移）；task/notify 事件载荷同步
+- [x] 3.3 notify 事件载荷 ChatID 字段切换并保持 JSON 兼容
 - [ ] 3.4 TG 适配器入口/出口完成 chat_id ↔ `tg:xxx` 映射
 
 ## 4. 身份渠道化
