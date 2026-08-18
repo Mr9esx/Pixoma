@@ -7,8 +7,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
 )
 
 // Options configures shared DB open, migrate, and optional instance seeding.
@@ -17,14 +17,14 @@ type Options struct {
 	DSN    string
 	Debug  bool
 
-	// MigrateInstances AutoMigrates InstanceRow when true.
-	MigrateInstances bool
+	// MigrateEdges AutoMigrates EdgeRow when true.
+	MigrateEdges bool
 
 	// Models are additional GORM models to AutoMigrate (e.g. bot Case/User rows).
 	Models []any
 
-	// Seed, when non-nil, upserts comfy_instances via instance.SeedFromConfig.
-	Seed *instance.SeedConfig
+	// Seed, when non-nil, upserts comfy_instances via edge.SeedFromConfig.
+	Seed *edge.SeedConfig
 }
 
 // Bootstrap opens the database, runs AutoMigrate for requested models, and
@@ -35,9 +35,14 @@ func Bootstrap(ctx context.Context, opts Options) (*gorm.DB, func() error, error
 		return nil, nil, err
 	}
 
+	if err := db.RenameLegacy(gdb); err != nil {
+		_ = closeDB(gdb)
+		return nil, nil, err
+	}
+
 	models := append([]any(nil), opts.Models...)
-	if opts.MigrateInstances {
-		models = append(models, &instpersist.InstanceRow{})
+	if opts.MigrateEdges {
+		models = append(models, &instpersist.EdgeRow{}, &instpersist.MetricsRow{})
 	}
 	if len(models) > 0 {
 		if err := Migrate(gdb, models...); err != nil {
@@ -47,8 +52,8 @@ func Bootstrap(ctx context.Context, opts Options) (*gorm.DB, func() error, error
 	}
 
 	if opts.Seed != nil {
-		repo := instpersist.NewInstanceRepository(gdb)
-		if _, err := instance.SeedFromConfig(ctx, repo, *opts.Seed); err != nil {
+		repo := instpersist.NewEdgeRepository(gdb)
+		if _, err := edge.SeedFromConfig(ctx, repo, *opts.Seed); err != nil {
 			_ = closeDB(gdb)
 			return nil, nil, fmt.Errorf("appboot: seed instances: %w", err)
 		}
