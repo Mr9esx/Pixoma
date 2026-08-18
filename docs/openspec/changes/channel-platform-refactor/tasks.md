@@ -59,8 +59,8 @@
 
 ## 9. 测试与回归
 
-- [ ] 9.1 领域测试：order 排序、渠道作用域、去 row/col 后校验规则
-- [ ] 9.2 持久化测试：渠道 CRUD、菜单迁移幂等、外部身份唯一
-- [ ] 9.3 API 测试：channels CRUD、channel menu、placements 错误语义
-- [ ] 9.4 适配器测试：回调动作翻译、chat_id 映射、通知路由与幂等
-- [ ] 9.5 全量 `go test ./...` 通过 + TG 手工回归（六键主键盘、文件夹下钻、Case 流程、出图通知）
+- [x] 9.1 领域测试：order 排序、渠道作用域、去 row/col 后校验规则
+- [x] 9.2 持久化测试：渠道 CRUD、菜单迁移幂等、外部身份唯一
+- [x] 9.3 API 测试：channels CRUD、channel menu、placements 错误语义
+- [x] 9.4 适配器测试：回调动作翻译、chat_id 映射、通知路由与幂等
+- [x] 9.5 全量 `go test ./...` 通过 + TG 手工回归（六键主键盘、文件夹下钻、Case 流程、出图通知；真实 Token 回归待上线前）
