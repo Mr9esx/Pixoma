@@ -90,7 +90,7 @@ function rateStats(
   ]
 }
 
-// I/O 卡右侧三行：当前 / 最高 / 平均，每行读/写并排（读在前，与图例一致）。
+// I/O 卡右侧：当前读/写、最高读/写、平均读/写，每个值明确归属。
 function ioStats(
   read: Array<number | null>,
   write: Array<number | null>,
@@ -99,12 +99,12 @@ function ioStats(
   const r = seriesStats(read, formatBytes)
   const w = seriesStats(write, formatBytes)
   return [
-    {
-      label: t('edges.monitorCurrent'),
-      value: `${r.current} / ${w.current}`,
-    },
-    { label: t('edges.monitorMax'), value: `${r.max} / ${w.max}` },
-    { label: t('edges.monitorAvg'), value: `${r.avg} / ${w.avg}` },
+    { label: t('edges.monitorIoReadCurrent'), value: r.current },
+    { label: t('edges.monitorIoWriteCurrent'), value: w.current },
+    { label: t('edges.monitorIoReadMax'), value: r.max },
+    { label: t('edges.monitorIoWriteMax'), value: w.max },
+    { label: t('edges.monitorIoReadAvg'), value: r.avg },
+    { label: t('edges.monitorIoWriteAvg'), value: w.avg },
   ]
 }
 
@@ -140,16 +140,24 @@ function LineCardShell({
           </div>
         </div>
       </div>
-      <div className='grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_92px]'>
+      <div
+        className={
+          compact
+            ? 'grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1fr)_122px]'
+            : 'grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1fr)_92px]'
+        }
+      >
         <div className='h-full min-h-[120px] w-full min-w-0'>
           <ChartContainer config={config} className='aspect-auto h-full w-full'>
             {children}
           </ChartContainer>
         </div>
         <div
-          className={`grid grid-cols-3 content-center text-center lg:grid-cols-1 lg:text-right ${
-            compact ? 'gap-1.5' : 'gap-2'
-          }`}
+          className={
+            compact
+              ? 'grid grid-cols-2 content-center gap-1.5 text-center lg:text-right'
+              : 'grid grid-cols-3 content-center gap-2 text-center lg:grid-cols-1 lg:text-right'
+          }
         >
           {stats.map((stat) => (
             <div key={stat.label}>
