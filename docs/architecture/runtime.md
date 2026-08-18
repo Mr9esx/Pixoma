@@ -78,7 +78,7 @@ sequenceDiagram
 |---|---|---|
 | **Orchestrator** | `runtime/application/orchestrator` | 认领 pending、选健康实例、发 dispatch、收敛 status、终态 notify、对账 |
 | **Actuator** | `runtime/infrastructure/actuator` | 按实例客户端跑 workflow、产物入 blob、上报 status |
-| **Instance Pool** | `platform/instance` | CRUD 元数据、健康探测、持有 per-instance Client、RR 候选 |
+| **Edge Pool** | `platform/edge` | CRUD 元数据、健康探测、持有 per-edge Client、RR 候选 |
 
 Task 表是**执行态唯一真相源**（无独立 Actuator Ledger）。
 
@@ -88,7 +88,7 @@ Task 表是**执行态唯一真相源**（无独立 Actuator Ledger）。
 
 ### Queue topics（`sharedkernel`）
 
-同进程编排仍可用这些名字；跨进程向 Edge **不要求** Publish `dispatch.<instance_id>`。
+同进程编排仍可用这些名字；跨进程向 Edge **不要求** Publish `dispatch.<edge_id>`。
 
 | Topic | 载荷 | 方向 |
 |---|---|---|
@@ -148,6 +148,7 @@ cfg.ComfyMock ──► Pool.Refresh ──► comfyui.NewClient(Options{Mock, B
 
 - 产品链路变更须保持 **Mock 端到端可通**（项目规则 `comfy-mock-parity`）。
 - 观测 API：`GET .../system` → `/system_stats`；`GET .../queue` → `/queue`；业务历史**不用** Comfy `/history`，用 DB `tasks`。
+- 管理列表/详情的「节点在线」「Comfy运行中」两个 Tag **不以** 控制面探 Comfy 为准：Edge 本机 `SystemStats` 后 `POST /agent/v1/presence`，控制面内存 15 秒无报到视为掉线。`GET .../system` 仍是硬件明细，远程可能打不通。
 
 ---
 
@@ -162,7 +163,7 @@ pending → queued → running → succeeded
 | 迁移时机 | 谁写 |
 |---|---|
 | Create `pending` | ConfirmRun |
-| `queued` + `instance_id` | Orchestrator `ClaimQueued` |
+| `queued` + `edge_id` | Orchestrator `ClaimQueued` |
 | `running` + `prompt_id` | Actuator / status 回写 |
 | 终态 + outputs/error | Orchestrator `OnStatus` |
 
@@ -174,10 +175,15 @@ Session 状态机（独立）：`collecting` → `confirming` → `submitted` | 
 
 | HTTP | 数据源 |
 |---|---|
-| `GET/POST/PATCH/DELETE /api/v1/comfy-instances` | `comfy_instances` |
-| `GET .../{id}/system` | 该实例 Comfy system_stats |
-| `GET .../{id}/queue` | 该实例 Comfy queue |
-| `GET .../{id}/tasks` | `tasks WHERE instance_id=?` |
+| `GET/POST/PATCH/DELETE /api/v1/edges` | `edges` |
+| `POST .../{id}/rotate-token` | 换发该节点 AGENT_TOKEN |
+| `POST /agent/v1/presence` | Edge 上报 `{ edge_id, comfy_running, hardware?, metrics? }` → `{ refresh_hardware }`；`metrics` 按 `METRICS_INTERVAL`（默认 30s）采样随心跳携带，控制面写入 `edge_metrics` |
+| `GET /api/v1/edges/presence` | 内存；15s 无报到视为掉线，Comfy 一并显示未启动 |
+| `GET .../{id}/system` | 该节点 Comfy system_stats（硬件明细；远程可能不通） |
+| `GET .../{id}/queue` | 该节点 Comfy queue |
+| `GET .../{id}/metrics` | `edge_metrics` 窗口查询（默认 1h），返回 `{ latest, series }`；详情页「系统监控」图表数据源 |
+| `GET .../{id}/tasks` | `tasks WHERE edge_id=?` |
+| `GET .../{id}/stats` | 该节点任务数 / 累计耗时 / 成功率 |
 | `GET /healthz` | 进程存活 |
 
-> 实例 API **当前无鉴权**，仅本机/可信内网。
+> 计算节点 API **当前无鉴权**，仅本机/可信内网。

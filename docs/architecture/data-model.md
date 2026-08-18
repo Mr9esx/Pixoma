@@ -53,7 +53,7 @@
 | ChatID | ChatID | 可选缓存，**非**必需落库列 |
 | CaseID | CaseID | 逻辑关联 Case |
 | Status | pending→queued→running→终态 | 执行态唯一真相源 |
-| InstanceID | InstanceID | 派发后写入 |
+| EdgeID | EdgeID | 派发后写入 |
 | PromptID | string | Comfy prompt id |
 | JobRef | string | 可领取 job 包路径 |
 | LeaseUntil | time | claim 租约截止 |
@@ -61,14 +61,21 @@
 | Outputs | []OutputRef | 产物 Blob |
 | ErrorCode / ErrorMessage | string | |
 
-### 1.4 Comfy Instance Record（`internal/platform/instance`）
+### 1.4 Edge Record（`internal/platform/edge`）
+
+管理界面叫「计算节点」。代码/表/接口叫 edge。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| ID | InstanceID | 稳定字符串，如 `local` / `gpu-1` |
+| ID | EdgeID | 稳定字符串，系统生成（如 `local` / `node-…`） |
+| Name | string | 展示名 |
+| Description | string | 可选 |
 | BaseURL | string | Comfy HTTP 根 |
 | Enabled | bool | |
-| Capabilities | []string | 可选标签 |
+| Capabilities | []string | 可选分类 |
+| AgentTokenEnc | string | 该节点 AGENT_TOKEN 密文 |
+| Hardware | CPU / 内存 / 显卡列表 | 首次 presence 写入；手改或「从机器更新」可覆盖 |
+| HardwareRefreshRequested | bool | 下一拍心跳带规格 |
 
 ### 1.5 Case Document（存在 `catalog_cases.doc_json`）
 
@@ -113,7 +120,7 @@
 | session_id | NOT NULL, index | → sessions.id |
 | case_id | NOT NULL | |
 | status | NOT NULL, index | |
-| instance_id | index, 可空 | → comfy_instances.id（派发后） |
+| edge_id | index, 可空 | → edges.id（派发后） |
 | prompt_id | 可空 | |
 | job_ref_json | TEXT | 可领取 job 描述 |
 | lease_until | 可空 | claim 租约 |
@@ -122,21 +129,39 @@
 | error_code, error_message | | |
 | created_at, updated_at | NOT NULL | |
 
-### 2.4 `comfy_instances`
+### 2.4 `edges`
+
+启动时若仍有旧表 `comfy_instances` 则改名为 `edges`。
 
 | 列 | 约束 | 说明 |
 |---|---|---|
-| id | PK | |
+| id | PK | 系统生成 |
+| name | | 展示名 |
+| description | TEXT | |
 | base_url | NOT NULL | |
 | enabled | NOT NULL | |
 | capabilities_json | TEXT | |
+| agent_token_enc | TEXT | 加密后的 AGENT_TOKEN |
+| hardware_json | TEXT | CPU / 内存 / 显卡 |
+| hardware_refresh_requested | NOT NULL | 下一拍心跳覆盖规格 |
 | created_at, updated_at | NOT NULL | |
+
+### 2.4b `edge_metrics`
+
+Edge 心跳上报的实时系统指标快照，整快照 JSON 一列，写入时清理超保留窗口（默认 24h，`METRICS_RETENTION` 可配）的旧行。
+
+| 列 | 约束 | 说明 |
+|---|---|---|
+| id | PK 自增 | |
+| edge_id | index | → edges.id |
+| metrics_json | TEXT | CPU 占用率、内存占用/总量/占用率、GPU 占用率与显存占用/总量/占用率（nvidia-smi）、磁盘 I/O 读/写速率 |
+| collected_at | index | 采集时间（UTC） |
 
 ### 2.4a `platform_settings`
 
 业务库单行配置：部署位置（local/remote）、blob 驱动、密文 Token/密钥等。不含 `queue.driver`。
 
-引导态 `bootstrap_meta`（本机 `bootstrap.db`）：initialized、管理员哈希、业务库 driver/DSN、enc key、向导进度、agent token 哈希。 |
+引导态 `bootstrap_meta`（本机 `bootstrap.db`）：initialized、管理员哈希、业务库 driver/DSN、enc key、向导进度。 |
 
 ### 2.5 `catalog_cases`（既有）
 
@@ -210,7 +235,7 @@ erDiagram
   sessions ||--o{ tasks : "session_id"
   catalog_cases ||--o{ sessions : "case_id (逻辑)"
   catalog_cases ||--o{ tasks : "case_id (逻辑)"
-  comfy_instances ||--o{ tasks : "instance_id (派发后)"
+  edges ||--o{ tasks : "edge_id (派发后)"
   tg_menus ||--o{ tg_menu_items : "menu_id"
   tg_menu_items }o--o| tg_menu_items : "parent_id"
   tg_menu_items ||--o{ tg_menu_item_cases : "menu_item_id"
@@ -244,17 +269,20 @@ erDiagram
     string session_id FK
     string case_id
     string status
-    string instance_id FK
+    string edge_id FK
     string prompt_id
     string input_prefix
     text outputs_json
   }
 
-  comfy_instances {
+  edges {
     string id PK
+    string name
     string base_url
     bool enabled
     text capabilities_json
+    text agent_token_enc
+    text hardware_json
   }
 
   catalog_cases {
@@ -295,36 +323,39 @@ erDiagram
 
 - **强业务链**：`users` ← `sessions` ← `tasks`
 - **Case**：Session/Task 用字符串 `case_id` 指向目录
-- **实例**：仅在 Task `queued+` 后写入 `instance_id`
+- **计算节点**：仅在 Task `queued+` 后写入 `edge_id`
 - **TG 主菜单**：`tg_menus` + `tg_menu_items` 存树；`tg_menu_item_cases` 挂 Case；folder 子级用 `parent_id`
 
 ---
 
-## 4. 实例关系 ER / 运行关系图
+## 4. 计算节点关系 ER / 运行关系图
 
-「实例」既指 DB 中的 `comfy_instances`，也指进程内 Pool 客户端。
+「计算节点」既指 DB 中的 `edges`，也指进程内 Pool 客户端。
 
 ```mermaid
 erDiagram
-  comfy_instances ||--o| PoolClient : "id → HTTP/Mock Client"
-  comfy_instances ||--o{ tasks : "instance_id"
+  edges ||--o| PoolClient : "id → HTTP/Mock Client"
+  edges ||--o{ tasks : "edge_id"
   PoolClient ||--o{ ComfyUI_Remote : "base_url"
 
-  comfy_instances {
+  edges {
     string id PK
+    string name
     string base_url
     bool enabled
+    text agent_token_enc
+    text hardware_json
   }
 
   tasks {
     string id PK
-    string instance_id
+    string edge_id
     string status
     string prompt_id
   }
 
   PoolClient {
-    string instance_id
+    string edge_id
     bool healthy_memory
     Client comfy_client
   }
@@ -343,8 +374,8 @@ erDiagram
 flowchart LR
   T[tasks pending] --> O[Orchestrator ClaimQueued]
   O --> H[Pool ListHealthy ∩ 熔断]
-  H -->|round-robin| I[comfy_instances.id]
-  I --> D[dispatch.instance_id]
+  H -->|round-robin| I[edges.id]
+  I --> D["dispatch.<id>"]
   D --> W[Worker clientFor]
   W --> C[Comfy Submit/Wait/Upload]
   C --> S[task.status → 写回 tasks]
@@ -354,10 +385,12 @@ flowchart LR
 
 | 路径 | 数据源 |
 |---|---|
-| `GET /api/v1/comfy-instances` | `comfy_instances` |
-| `GET .../{id}/system` | 该实例 Comfy `/system_stats` |
-| `GET .../{id}/queue` | 该实例 Comfy `/queue` |
-| `GET .../{id}/tasks` | `tasks WHERE instance_id=?` |
+| `GET /api/v1/edges` | `edges` |
+| `GET /api/v1/edges/presence` | 控制面内存 last_seen / comfy_running（不落库） |
+| `GET .../{id}/system` | 该节点 Comfy `/system_stats` |
+| `GET .../{id}/queue` | 该节点 Comfy `/queue` |
+| `GET .../{id}/tasks` | `tasks WHERE edge_id=?` |
+| `GET .../{id}/stats` | 该节点任务数 / 累计耗时 / 成功率 |
 
 ---
 
@@ -365,7 +398,7 @@ flowchart LR
 
 **Session：** `collecting` → `confirming` → `submitted` | `exited`
 
-**Task：** `pending` → `queued`（写 instance_id）→ `running`（写 prompt_id）→ `succeeded` | `failed` | `cancelled`
+**Task：** `pending` → `queued`（写 edge_id）→ `running`（写 prompt_id）→ `succeeded` | `failed` | `cancelled`
 
 完整调度/事件语义见 [runtime.md](./runtime.md)。
 
@@ -378,10 +411,10 @@ flowchart LR
 | users | `internal/identity/infrastructure/persistence` |
 | sessions | `internal/conversation/infrastructure/persistence` |
 | tasks | `internal/runtime/infrastructure/persistence` |
-| comfy_instances / Pool | `internal/platform/instance` |
+| edges / Pool | `internal/platform/edge` |
 | catalog_cases | `internal/catalog/infrastructure/persistence` |
 | tg_menus / tg_menu_items / tg_menu_item_cases | `internal/tgmenu`（domain/application/persistence）；HTTP `internal/httpapi/tgmenu`；Case 反查 `GET .../cases/{id}/menu-placements` |
-| HTTP API | `internal/httpapi/comfyinstances` 等 |
+| HTTP API | `internal/httpapi/edges` 等 |
 | 接线 | `apps/bot/cmd/comfyui-bot/main.go`、`apps/admin-api/cmd/admin-api/main.go` |
 
 设计原文：`docs/superpowers/specs/2026-08-08-comfy-multi-instance-design.md`
