@@ -108,11 +108,18 @@ describe('compute node layout and detail', () => {
     expect(observe).toMatch(
       /h-\[100px\] w-full min-w-0 sm:h-\[120px\] lg:h-\[140px\]/
     )
-    expect(observe).toMatch(/size-2\.5 rounded-full sm:size-3/)
+    expect(observe).toMatch(/text-base font-semibold/)
+    expect(observe).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_92px\]/)
+    expect(observe).toMatch(
+      /text-\[11px\] text-muted-foreground|text-muted-foreground text-\[11px\]/
+    )
+    expect(observe).toMatch(/seriesStats\(/)
+    expect(observe).toMatch(/edges\.monitorCurrent/)
+    expect(observe).toMatch(/edges\.monitorMax/)
+    expect(observe).toMatch(/edges\.monitorAvg/)
     expect(observe).not.toMatch(/size-\[100px\] shrink-0 sm:size-\[120px\]/)
     expect(observe).not.toMatch(/PieChart/)
     expect(observe).toMatch(/LineChart/)
-    expect(observe).toMatch(/rounded-xl border bg-card p-4 sm:gap-6 sm:p-6/)
     expect(observe).toMatch(
       /color-mix\(in oklch, var\(--primary\) 75%, var\(--background\)\)/
     )
@@ -128,6 +135,12 @@ describe('compute node layout and detail', () => {
     expect(en).toMatch(/"monitorVramRate": "VRAM usage"/)
     expect(zh).toMatch(/"monitorEmptyHint": "请检查节点状态/)
     expect(en).toMatch(/"monitorEmptyHint": "Check the node/)
+    expect(zh).toMatch(/"monitorCurrent": "当前"/)
+    expect(en).toMatch(/"monitorCurrent": "Current"/)
+    expect(zh).toMatch(/"monitorMax": "最高"/)
+    expect(en).toMatch(/"monitorMax": "Highest"/)
+    expect(zh).toMatch(/"monitorAvg": "平均"/)
+    expect(en).toMatch(/"monitorAvg": "Average"/)
     expect(detail).toMatch(/getEdgeMetrics/)
     expect(detail).toMatch(/refetchInterval:\s*15000/)
   })
