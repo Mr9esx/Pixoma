@@ -444,15 +444,15 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 - Consumes: Task 5 API
 - Produces: 侧栏顺序 Dashboard/实例/Case/渠道/Task/User/Session；渠道详情 tabs（基本信息/菜单/extras）
 
-- [ ] **Step 1: 写契约测试** — `features/channels/channels.contract.test.ts`：创建向导 POST 载荷 `{platform:"telegram", name, token}`；详情 PUT token 留空不发 token；菜单 PUT 载荷无 row/col/tag；extras PUT 载荷 `{extra_type, extra_json}`
-- [ ] **Step 2: 运行确认失败** — `cd web/admin && pnpm test`
-- [ ] **Step 3: 实现**
+- [x] **Step 1: 写契约测试** — `features/channels/channels.contract.test.ts`：创建向导 POST 载荷 `{platform:"telegram", name, token}`；详情 PUT token 留空不发 token；菜单 PUT 载荷无 row/col/tag；extras PUT 载荷 `{extra_type, extra_json}`
+- [x] **Step 2: 运行确认失败** — `cd web/admin && pnpm test`
+- [x] **Step 3: 实现**
   - `menu.ts`：`tg-menu` 项替换为 `{ id:'channels', titleKey:'menu.channels', path:'/channels', icon: Radio }`；顺序调整；`menu.test.ts` 同步
   - `lib/api/channels.ts`：`listChannels/createChannel/getChannel/updateChannel/deleteChannel/setChannelEnabled`；`channel-menu.ts`：`getChannelMenu/putChannelMenu/getChannelMenuExtras/putChannelMenuExtras`；`query-keys.ts` 增加 `channels.all`、`channels.detail(id)`、`channelMenu.all(id)`
   - 路由：`/channels` 列表；`/channels/new` 向导（平台选择 TG → 名称+Token → 创建后跳详情）；`/channels/$id` 详情（tabs：基本信息：masked token/启停/删除受限提示；菜单：迁移原 `TgMenuEditor`（去 row/col，改 order 上下移动；文件夹/Case 挂载/占位/reply_media 保留）；extras：按平台 schema 渲染（TG 根层网格布局表单 + 键值 JSON 编辑器））
   - i18n：新增 `menu.channels`、`channels.*`（列表/新建/详情/菜单/extras 文案），移除 `menu.tgMenu` 与 `tgMenu.*` 中「主键盘」入口文案
-- [ ] **Step 4: 运行通过** — `cd web/admin && pnpm test && pnpm build`；`rg -n "tg-menu|tgMenu" web/admin/src` 仅剩测试夹具或已清理
-- [ ] **Step 5: 提交** — `git commit -m "feat(admin): channel management with menu and extras editors"`
+- [x] **Step 4: 运行通过** — `cd web/admin && pnpm test && pnpm build`；`rg -n "tg-menu|tgMenu" web/admin/src` 仅剩测试夹具或已清理
+- [x] **Step 5: 提交** — `git commit -m "feat(admin): channel management with menu and extras editors"`
 
 ---
 
