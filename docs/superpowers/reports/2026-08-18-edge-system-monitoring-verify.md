@@ -177,3 +177,32 @@
 ## Round 5 结论
 
 无 CRITICAL/WARNING。Ready for archive（待用户归档确认）。
+
+# Round 6（2026-08-18，Sprint health 图表样式复审）
+
+## 变更
+
+用户要求把系统监控图表样式改为 MHTML「Sprint health」卡片样式（archive 挂起后回退 build，新增任务 3.20）：
+
+1. 卡片带标题：`h2.text-base font-semibold`（多系列时下方渲染 `text-[11px]` legend，圆点 `size-2 rounded-full`）
+2. 主体左图右值：`grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_92px]`，右侧统计列 `grid grid-cols-3 content-center gap-2 text-center lg:grid-cols-1 lg:text-right`；值首项 `text-xl/leading-6 font-semibold`、其余 `text-lg`，说明 `text-muted-foreground text-[11px]`
+3. 占用率系列（CPU/内存/GPU/显存）右侧显示「当前 / 最高 / 平均」三值（百分比）；I/O 读/写各显示三值（`formatBytes` 人类可读单位）
+4. 内存/显存已用字节仍作为占用率图辅助线（仅进图例与 tooltip）；图高维持 Round 3 的 50% 约定，内边距与 tooltip 格式维持 Round 4/5 约定
+5. 新增纯函数 `seriesStats(values, format)`（过滤 null，返回 current/max/avg 格式化值）并单测；i18n 新增 monitorCurrent/monitorMax/monitorAvg（当前/最高/平均、Current/Highest/Average）
+
+实现提交：`d53645a`（feat）、`c2ce3cb`（对齐 MHTML 参考的 header 标记）。
+
+## Round 6 验证结果
+
+| 检查项 | 结果 |
+|---|---|
+| tasks.md 全部勾选（34/34，含 3.20） | PASS |
+| 实现与 MHTML Sprint health 参考一致 | PASS（title/legend、`lg:grid-cols-[minmax(0,1fr)_92px]`、右列 `grid-cols-3 … lg:grid-cols-1 lg:text-right`、值/说明字号均与参考一致） |
+| 合同测试锁定关键结构 | PASS（`text-base font-semibold`、`lg:grid-cols-[minmax(0,1fr)_92px]`、`edges.monitorCurrent/Max/Avg` 及中英文案） |
+| 编译通过 | PASS（`go build ./...`、`npx tsc -b`、`npm run build` 均成功） |
+| 测试通过 | PASS（`go test ./...` 全绿；`npx vitest run` 30 文件/113 测试） |
+| 无安全回归 | PASS（纯展示层改动） |
+
+## Round 6 结论
+
+无 CRITICAL/WARNING。Ready for archive（待用户归档确认）。
