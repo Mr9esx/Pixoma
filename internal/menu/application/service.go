@@ -55,3 +55,17 @@ func (s *Service) ListPlacementsByCase(ctx context.Context, caseID string) ([]do
 	}
 	return s.Store.ListPlacementsByCase(ctx, caseID)
 }
+
+func (s *Service) ListExtras(ctx context.Context, channelID string) (map[string][]domain.Extra, error) {
+	if s == nil || s.Store == nil {
+		return nil, fmt.Errorf("tgmenu service: nil store")
+	}
+	return s.Store.ListExtras(ctx, channelID)
+}
+
+func (s *Service) SaveExtras(ctx context.Context, channelID string, extras map[string][]domain.Extra) error {
+	if s == nil || s.Store == nil {
+		return fmt.Errorf("tgmenu service: nil store")
+	}
+	return s.Store.SaveExtras(ctx, channelID, extras)
+}

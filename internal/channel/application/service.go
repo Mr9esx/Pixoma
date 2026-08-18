@@ -61,6 +61,19 @@ func (s *Service) Get(ctx context.Context, id string) (domain.Channel, error) {
 	return s.Store.Get(ctx, id)
 }
 
+// Masked returns the channel with its credential rendered as a masked token.
+func (s *Service) Masked(ctx context.Context, id string) (string, error) {
+	ch, err := s.Store.Get(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	cred, err := domain.DecryptCredential(s.Key, ch.CredentialCiphertext)
+	if err != nil {
+		return "", err
+	}
+	return domain.MaskedToken(cred.BotToken), nil
+}
+
 func (s *Service) List(ctx context.Context) ([]domain.Channel, error) {
 	return s.Store.List(ctx)
 }
