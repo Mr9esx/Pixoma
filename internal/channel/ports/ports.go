@@ -108,6 +108,7 @@ type Outbound interface {
 	SendMenu(ctx context.Context, addr sharedkernel.ChannelAddr, title string, items []MenuEntry) error
 	SendList(ctx context.Context, addr sharedkernel.ChannelAddr, title string, rows [][]Button) error
 	SendMedia(ctx context.Context, addr sharedkernel.ChannelAddr, ref sharedkernel.BlobRef, caption string) error
+	SendMediaURL(ctx context.Context, addr sharedkernel.ChannelAddr, imageURL, caption string) error
 }
 
 // MediaBridge materializes platform media references to/from blobs.
