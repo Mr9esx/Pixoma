@@ -152,3 +152,28 @@
 ## Round 4 结论
 
 无 CRITICAL/WARNING。Ready for archive（待用户归档确认）。
+
+---
+
+# Round 5（2026-08-18，tooltip label 与图表内边距复审）
+
+## 变更
+
+用户反馈三点（archive 挂起后回退 build）：
+1. tooltip 没有系列名 label → `chartTooltipFormatter` 改为「label: 值」，新增 `formatMetricValue`（字节走 formatBytes、百分比补 %），并让每个卡片把 `config` 闭包传给 formatter
+2. 各图 bottom padding 不一致 → 五张图统一 `CHART_MARGIN`（top 12 / right 4 / bottom 0 / left 4）、X 轴 `height=20`、`tickMargin=4`
+3. Y 轴顶部刻度被裁切 → 顶部 margin 12px 留白
+
+## Round 5 验证结果
+
+| 检查项 | 结果 |
+|---|---|
+| tasks.md 全部勾选（34/34） | PASS |
+| 实现符合要求 | PASS（`formatMetricValue` 单测、`CHART_MARGIN`/`TICK_PROPS` 统一用于全部图表） |
+| 编译通过 | PASS（`npm run build` 成功） |
+| 测试通过 | PASS（`npx vitest run` 30 文件/110 测试；`go test ./...` 全绿） |
+| 无安全回归 | PASS（纯展示层） |
+
+## Round 5 结论
+
+无 CRITICAL/WARNING。Ready for archive（待用户归档确认）。
