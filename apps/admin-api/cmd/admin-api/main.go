@@ -14,8 +14,9 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/apps/admin-api/internal/server"
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
+	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/comfyinstances"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	tgmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tgmenu"
@@ -23,10 +24,9 @@ import (
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
-	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
@@ -58,8 +58,8 @@ func run(ctx context.Context) error {
 	}
 
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
-		DSN:              dsn,
-		MigrateInstances: true,
+		DSN:          dsn,
+		MigrateEdges: true,
 		Models: []any{
 			&casepersist.CaseRow{},
 			&userpersist.UserRow{},
@@ -75,8 +75,9 @@ func run(ctx context.Context) error {
 	}
 	defer func() { _ = cleanup() }()
 
-	instRepo := instpersist.NewInstanceRepository(gdb)
-	pool := instance.NewPool(instRepo, instance.PoolOptions{Mock: cfg.ComfyMock})
+	instRepo := instpersist.NewEdgeRepository(gdb)
+	metricsRepo := instpersist.NewMetricsRepository(gdb, metricsRetention())
+	pool := edge.NewPool(instRepo, edge.PoolOptions{})
 	if err := pool.Refresh(ctx); err != nil {
 		return err
 	}
@@ -93,11 +94,11 @@ func run(ctx context.Context) error {
 	orch := orchestrator.New(taskRepo, pool, nil, notify.Nop{})
 	orch.Sessions = sessionRepo
 
-	instAPI := &comfyinstances.Handler{
-		Repo:  instRepo,
-		Pool:  pool,
-		Tasks: taskRepo,
-		Mock:  cfg.ComfyMock,
+	instAPI := &edges.Handler{
+		Repo:    instRepo,
+		Pool:    pool,
+		Tasks:   taskRepo,
+		Metrics: metricsRepo,
 	}
 	casesAPI := &casesapi.Handler{
 		Repo:     caseRepo,
@@ -142,6 +143,15 @@ func run(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+func metricsRetention() time.Duration {
+	if v := strings.TrimSpace(os.Getenv("METRICS_RETENTION")); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 24 * time.Hour
 }
 
 func resolveDSN(configured string) string {
