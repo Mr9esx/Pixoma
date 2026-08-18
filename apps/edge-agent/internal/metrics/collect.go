@@ -34,7 +34,9 @@ func NewSampler(mock bool) *Sampler {
 	s := &Sampler{Mock: mock, lastDisk: map[string]disk.IOCountersStat{}}
 	s.Now = time.Now
 	s.CPUPercent = func(ctx context.Context, interval time.Duration) (float64, error) {
-		pcts, err := cpu.PercentWithContext(ctx, interval, false)
+		// interval>0 makes gopsutil sleep for the whole interval, which would
+		// stall the presence reporter; use the since-last-call variant instead.
+		pcts, err := cpu.PercentWithContext(ctx, 0, false)
 		if err != nil || len(pcts) == 0 {
 			return 0, err
 		}
@@ -73,7 +75,9 @@ func (s *Sampler) Sample(ctx context.Context, since time.Time) edge.Metrics {
 	}
 
 	if s.CPUPercent != nil {
-		if pct, err := s.CPUPercent(ctx, interval); err == nil {
+		// Pass 0 so the collector uses the since-last-call variant; a positive
+		// interval makes gopsutil sleep that long and stalls the heartbeat.
+		if pct, err := s.CPUPercent(ctx, 0); err == nil {
 			m.CPUUsagePercent = pct
 		}
 	}
