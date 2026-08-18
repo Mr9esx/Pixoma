@@ -9,7 +9,7 @@ import {
 describe('setupStepsFor', () => {
   it('keeps password as the first step when it must be changed', () => {
     expect(setupStepsFor(true)[0]).toBe('password')
-    expect(setupStepsFor(true)).toHaveLength(5)
+    expect(setupStepsFor(true)).toHaveLength(4)
   })
 
   it('skips password after it has already been changed', () => {
@@ -31,10 +31,10 @@ describe('initialSetupStep', () => {
     ).toBe('storage')
   })
 
-  it('maps a leftover edge step to telegram', () => {
+  it('maps a leftover edge step to the final storage step', () => {
     expect(
       initialSetupStep({ must_change_password: false, wizard_step: 'edge' })
-    ).toBe('channel')
+    ).toBe('storage')
   })
 })
 
@@ -50,11 +50,10 @@ describe('previousSetupStep', () => {
   it('returns the previous step so the wizard can go back', () => {
     expect(previousSetupStep(withPassword, 'database')).toBe('password')
     expect(previousSetupStep(withoutPassword, 'storage')).toBe('placement')
-    expect(previousSetupStep(withoutPassword, 'channel')).toBe('storage')
   })
 
   it('tracks progress index from 0', () => {
     expect(setupStepIndex(withPassword, 'password')).toBe(0)
-    expect(setupStepIndex(withPassword, 'channel')).toBe(4)
+    expect(setupStepIndex(withPassword, 'storage')).toBe(3)
   })
 })

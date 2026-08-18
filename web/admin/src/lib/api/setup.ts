@@ -24,7 +24,6 @@ export type SetupDraft = {
   comfyui_base_url: string
   default_edge_id: string
   auto_spawn_edge: boolean
-  telegram_bot_token?: string
   proxy_kind?: string
   proxy_host?: string
   proxy_port?: number

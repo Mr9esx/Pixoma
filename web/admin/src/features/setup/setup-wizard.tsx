@@ -63,8 +63,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const [blobBucket, setBlobBucket] = useState('')
   const [blobAccessKey, setBlobAccessKey] = useState('')
   const [blobSecretKey, setBlobSecretKey] = useState('')
-  const [tgToken, setTgToken] = useState('')
-
   const backStep = previousSetupStep(steps, step)
   const copy = SETUP_STEP_COPY[step]
 
@@ -84,7 +82,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
       comfyui_base_url: '',
       default_edge_id: 'local',
       auto_spawn_edge: placement === 'local',
-      telegram_bot_token: tgToken,
       ...overrides,
     }
   }
@@ -278,7 +275,8 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             e.preventDefault()
             void run(async () => {
               await saveSetupDraft(draft())
-              setStep('channel')
+              await finalizeSetup()
+              setReloading(true)
             })
           }}
         >
@@ -355,41 +353,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
         </form>
       ) : null}
 
-      {step === 'channel' ? (
-        <form
-          className='flex flex-col gap-4'
-          onSubmit={(e) => {
-            e.preventDefault()
-            void run(async () => {
-              await saveSetupDraft(draft())
-              await finalizeSetup()
-              setReloading(true)
-            })
-          }}
-        >
-          <Field label='Telegram Bot Token' htmlFor='tg-token'>
-            <Input
-              id='tg-token'
-              type='password'
-              value={tgToken}
-              onChange={(e) => setTgToken(e.target.value)}
-            />
-          </Field>
-          <StepActions
-            error={error}
-            pending={pending}
-            submit={copy.submit}
-            onBack={backStep ? goBack : undefined}
-            onSkip={() => {
-              void run(async () => {
-                await saveSetupDraft(draft({ telegram_bot_token: '' }))
-                await finalizeSetup()
-                setReloading(true)
-              })
-            }}
-          />
-        </form>
-      ) : null}
     </WizardCard>
   )
 }

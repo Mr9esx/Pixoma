@@ -41,10 +41,11 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/暂时跳过/)
   })
 
-  it('asks for the new password twice and lets Telegram be skipped', () => {
+  it('asks for the new password twice and no longer collects a Telegram token', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
     expect(wizard).not.toMatch(/htmlFor='old-password'/)
     expect(wizard).toMatch(/htmlFor='confirm-password'/)
-    expect(wizard).toMatch(/telegram_bot_token: ''/)
+    expect(wizard).not.toMatch(/telegram_bot_token/)
+    expect(wizard).not.toMatch(/tg-token/)
   })
 })

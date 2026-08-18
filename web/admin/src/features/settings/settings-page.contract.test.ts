@@ -17,13 +17,13 @@ describe('settings page', () => {
     ).toBe(true)
   })
 
-  it('lets operators change password, storage, and telegram after setup', () => {
+  it('lets operators change password, storage, and network after setup', () => {
     const page = read('settings-page.tsx')
     expect(page).toMatch(/htmlFor=['"]old-password['"]/)
     expect(page).toMatch(/htmlFor=['"]confirm-password['"]/)
     expect(page).toMatch(/htmlFor=['"]blob-driver['"]/)
     expect(page).toMatch(/htmlFor=['"]blob-root['"]/)
-    expect(page).toMatch(/htmlFor=['"]tg-token['"]/)
+    expect(page).not.toMatch(/htmlFor=['"]tg-token['"]/)
     expect(page).toMatch(/htmlFor=['"]proxy-kind['"]/)
     expect(page).toMatch(/htmlFor=['"]proxy-host['"]/)
     expect(page).toMatch(/htmlFor=['"]proxy-port['"]/)

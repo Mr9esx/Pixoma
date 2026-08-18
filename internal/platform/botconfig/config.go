@@ -26,16 +26,15 @@ const (
 
 // Config is the bot process configuration.
 type Config struct {
-	HTTPAddr          string `yaml:"http_addr"`
-	DatabaseDSN       string `yaml:"database_dsn"`
-	BlobRoot          string `yaml:"blob_root"`
-	ComfyUIBaseURL    string `yaml:"comfyui_base_url"`
-	DefaultInstanceID string `yaml:"default_instance_id"`
-	// ComfyInstances optionally seeds multiple ComfyUI instances on startup.
-	// When empty, ComfyUIBaseURL (+ DefaultInstanceID) is upserted instead.
-	ComfyInstances   []ComfyInstanceSeed `yaml:"comfy_instances"`
-	TelegramBotToken string              `yaml:"telegram_bot_token"`
-	CaseSeedDir      string              `yaml:"case_seed_dir"`
+	HTTPAddr       string `yaml:"http_addr"`
+	DatabaseDSN    string `yaml:"database_dsn"`
+	BlobRoot       string `yaml:"blob_root"`
+	ComfyUIBaseURL string `yaml:"comfyui_base_url"`
+	DefaultEdgeID  string `yaml:"default_edge_id"`
+	// Edges optionally seeds multiple ComfyUI instances on startup.
+	// When empty, ComfyUIBaseURL (+ DefaultEdgeID) is upserted instead.
+	Edges            []EdgeSeed `yaml:"edges"`
+	CaseSeedDir      string     `yaml:"case_seed_dir"`
 	// ComfyMock enables the in-process ComfyUI mock (default true).
 	// Set false (or COMFY_MOCK=0) to call a real ComfyUI at ComfyUIBaseURL.
 	ComfyMock bool `yaml:"comfy_mock"`
@@ -72,8 +71,8 @@ type BlobTOSConfig struct {
 	Bucket   string `yaml:"bucket"`
 }
 
-// ComfyInstanceSeed is one row under comfy_instances in bot YAML.
-type ComfyInstanceSeed struct {
+// EdgeSeed is one row under comfy_instances in bot YAML.
+type EdgeSeed struct {
 	ID           string   `yaml:"id"`
 	BaseURL      string   `yaml:"base_url"`
 	Enabled      *bool    `yaml:"enabled"`
@@ -85,7 +84,7 @@ func Default() Config {
 		HTTPAddr:            ":8080",
 		BlobRoot:            "data/blob",
 		ComfyUIBaseURL:      "http://127.0.0.1:8188",
-		DefaultInstanceID:   "local",
+		DefaultEdgeID:       "local",
 		CaseSeedDir:         "configs/cases",
 		ComfyMock:           true,
 		HealthProbeInterval: "30s",
@@ -205,15 +204,6 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("COMFYUI_BASE_URL"); v != "" {
 		cfg.ComfyUIBaseURL = v
-	}
-	if v := os.Getenv("INSTANCE_ID"); v != "" {
-		cfg.DefaultInstanceID = v
-	}
-	if v := os.Getenv("TG_BOT_TOKEN"); v != "" {
-		cfg.TelegramBotToken = v
-	}
-	if v := os.Getenv("TELEGRAM_BOT_TOKEN"); v != "" {
-		cfg.TelegramBotToken = v
 	}
 	if v := os.Getenv("CASE_SEED_DIR"); v != "" {
 		cfg.CaseSeedDir = v

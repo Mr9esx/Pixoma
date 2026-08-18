@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const API = join(here, '../../lib/api/channel-menu.ts')
-const EDITOR = join(here, 'menu-editor.tsx')
+const EDITOR = join(here, 'channel-menu-editor.tsx')
 const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
 
@@ -13,7 +13,7 @@ function read(path: string) {
   return readFileSync(path, 'utf8')
 }
 
-describe('tg menu tree editor', () => {
+describe('channel menu tree editor', () => {
   it('api types expose tree MenuNode with intro_text', () => {
     const source = read(API)
     expect(source).toContain("export type MenuKind =")
@@ -42,9 +42,9 @@ describe('tg menu tree editor', () => {
   })
 
   it('i18n has plain-language folder intro keys', () => {
-    const zh = JSON.parse(read(ZH)) as { tgMenu: Record<string, string> }
-    const en = JSON.parse(read(EN)) as { tgMenu: Record<string, string> }
-    for (const locale of [zh.tgMenu, en.tgMenu]) {
+    const zh = JSON.parse(read(ZH)) as { channelMenu: Record<string, string> }
+    const en = JSON.parse(read(EN)) as { channelMenu: Record<string, string> }
+    for (const locale of [zh.channelMenu, en.channelMenu]) {
       expect(locale.listTitle).toBeTruthy()
       expect(locale.fieldIntro).toBeTruthy()
       expect(locale.fieldIntroHint).toBeTruthy()
@@ -53,10 +53,10 @@ describe('tg menu tree editor', () => {
       expect(locale.addChild).toBeTruthy()
       expect(locale.kindFolder).toBeTruthy()
     }
-    expect(zh.tgMenu.listTitle).toBe('目录')
-    expect(zh.tgMenu.fieldIntro).toBe('本层说明')
-    expect(zh.tgMenu.fieldCaseIds).toBe('本层模板')
-    expect(zh.tgMenu.fieldChildren).toBe('下面的分类')
-    expect(zh.tgMenu.addChild).toBe('加一个分类')
+    expect(zh.channelMenu.listTitle).toBe('目录')
+    expect(zh.channelMenu.fieldIntro).toBe('本层说明')
+    expect(zh.channelMenu.fieldCaseIds).toBe('本层模板')
+    expect(zh.channelMenu.fieldChildren).toBe('下面的分类')
+    expect(zh.channelMenu.addChild).toBe('加一个分类')
   })
 })

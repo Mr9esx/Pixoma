@@ -3,7 +3,6 @@ export const SETUP_STEPS = [
   'database',
   'placement',
   'storage',
-  'channel',
 ] as const
 
 export type SetupStep = (typeof SETUP_STEPS)[number]
@@ -30,11 +29,6 @@ export const SETUP_STEP_COPY: Record<
   storage: {
     title: '文件放哪',
     desc: '生成的图和视频存在本机目录，或对象存储。',
-    submit: '保存并继续',
-  },
-  channel: {
-    title: 'Telegram',
-    desc: 'Bot Token 可先跳过，之后再用环境变量或设置补。',
     submit: '完成',
   },
 }
@@ -50,7 +44,7 @@ export function initialSetupStep(status: {
 }): SetupStep {
   if (status.must_change_password) return 'password'
   const steps = setupStepsFor(false)
-  if (status.wizard_step === 'edge') return 'channel'
+  if (status.wizard_step === 'edge') return 'storage'
   const saved = status.wizard_step as SetupStep | undefined
   if (saved && steps.includes(saved)) return saved
   return 'database'
