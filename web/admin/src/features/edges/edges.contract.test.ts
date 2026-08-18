@@ -1,0 +1,122 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const here = dirname(fileURLToPath(import.meta.url))
+
+function read(rel: string) {
+  return readFileSync(join(here, rel), 'utf8')
+}
+
+describe('compute node layout and detail', () => {
+  it('puts create on the page title row and searches by name only', () => {
+    const layout = read('../../routes/_app/edges/route.tsx')
+    const list = read('list-panel.tsx')
+    expect(layout).toMatch(/lg:flex-row lg:items-center lg:justify-between/)
+    expect(layout).toMatch(/flex min-w-0 flex-col gap-\[6px\]/)
+    expect(layout).toMatch(/leading-tight font-semibold tracking-tight/)
+    expect(layout).not.toMatch(/font-bold/)
+    expect(layout).toMatch(/md:grid-cols-\[280px_1fr\]/)
+    expect(list).not.toMatch(/border-b px-4 py-3/)
+    expect(list).toMatch(/<Input/)
+    expect(list).not.toMatch(/item\.base_url/)
+  })
+
+  it('copies subscription-detail classes without tabs', () => {
+    const detail = read('detail-panel.tsx')
+    const form = read('edge-form.tsx')
+    const observe = read('observation-panel.tsx')
+    const tags = read('presence-tags.tsx')
+    const kit = read('kit-classes.ts')
+    expect(detail).toMatch(/kit\.pageSection/)
+    expect(detail).toMatch(/flex min-w-0 flex-col gap-\[6px\]/)
+    expect(detail).toMatch(/data-orientation=['"]horizontal['"]/)
+    expect(detail).toMatch(/grid-cols-\[7rem_minmax\(0,1fr\)\]/)
+    expect(kit).toMatch(/grid-cols-\[7rem_minmax\(0,1fr\)\]/)
+    expect(detail).not.toMatch(/tabInfo/)
+    expect(detail).not.toMatch(/TabsTrigger/)
+    expect(observe).not.toMatch(/md:grid-cols-3/)
+    expect(detail).toMatch(/PenLine/)
+    expect(detail).toMatch(/Terminal/)
+    expect(form).toMatch(/RefreshCcw/)
+    expect(tags).not.toMatch(/from '@\/components\/ui\/badge'/)
+  })
+
+  it('opens create edit and deploy in dialogs', () => {
+    const detail = read('detail-panel.tsx')
+    const form = read('edge-form.tsx')
+    const layout = read('../../routes/_app/edges/route.tsx')
+    expect(detail).toMatch(/<Dialog/)
+    expect(form).toMatch(/refresh_hardware/)
+    expect(form).not.toMatch(/htmlFor=['"]edge-host['"]/)
+    expect(form).not.toMatch(/htmlFor=['"]edge-port['"]/)
+    expect(form).not.toMatch(/htmlFor=['"]instance-id['"]/)
+    expect(layout).not.toMatch(/edgeId === 'new'/)
+    expect(layout).toMatch(/<Dialog/)
+  })
+
+  it('shows a health dot in the list and polls presence every 5s', () => {
+    const list = read('list-panel.tsx')
+    const layout = read('../../routes/_app/edges/route.tsx')
+    const observe = read('observation-panel.tsx')
+    const zh = read('../../lib/i18n/locales/zh.json')
+    expect(list).toMatch(/listHealthTone/)
+    expect(list).toMatch(/data-health/)
+    expect(list).not.toMatch(/PresenceTags/)
+    expect(list).not.toMatch(/edges\.enabled/)
+    expect(layout).toMatch(/listPresence/)
+    expect(layout).toMatch(/refetchInterval:\s*5000/)
+    const listQuery = layout.match(
+      /useQuery\(\{[\s\S]*?queryFn:\s*listEdges[\s\S]*?\}\)/
+    )?.[0]
+    expect(listQuery).toBeTruthy()
+    expect(listQuery).not.toMatch(/refetchInterval/)
+    expect(observe).not.toMatch(/PresenceTags/)
+    expect(observe).not.toMatch(/edges\.reachable/)
+    expect(zh).toMatch(/"nodeOnline": "节点在线"/)
+    expect(zh).toMatch(/"nodeOffline": "节点掉线"/)
+    expect(zh).toMatch(/"comfyRunning": "Comfy运行中"/)
+    expect(zh).toMatch(/"comfyStopped": "Comfy未启动"/)
+  })
+
+  it('keeps deploy command on EDGE_ID', () => {
+    const creds = read('agent-credentials.tsx')
+    const deploy = read('deploy-command.ts')
+    expect(creds).toMatch(/agent_token/)
+    expect(deploy).toMatch(/CONTROL_PLANE_URL/)
+    expect(deploy).toMatch(/EDGE_ID/)
+    expect(deploy).not.toMatch(/INSTANCE_ID/)
+    expect(deploy).toMatch(/AGENT_TOKEN/)
+    expect(deploy).toMatch(/COMFYUI_BASE_URL=\$\{comfyURL\}/)
+    expect(deploy).toMatch(/127\.0\.0\.1:8188/)
+    expect(creds).toMatch(/rotateEdgeToken/)
+    expect(creds).toMatch(/PasswordInput/)
+    expect(creds).toMatch(/maskToken:\s*true/)
+    expect(creds).toMatch(/<pre/)
+    expect(creds).not.toMatch(/showCommand/)
+  })
+
+  it('locks system monitoring chart classes and copy', () => {
+    const chart = read('../../components/ui/chart.tsx')
+    const observe = read('observation-panel.tsx')
+    const detail = read('detail-panel.tsx')
+    const zh = read('../../lib/i18n/locales/zh.json')
+    const en = read('../../lib/i18n/locales/en.json')
+    expect(chart).toMatch(/data-slot="chart"/)
+    expect(chart).toMatch(/aspect-video/)
+    expect(observe).toMatch(/h-\[200px\] w-full min-w-0 sm:h-\[240px\] lg:h-\[280px\]/)
+    expect(observe).toMatch(/size-2\.5 rounded-full sm:size-3/)
+    expect(observe).toMatch(/size-\[100px\] shrink-0 sm:size-\[120px\]/)
+    expect(observe).toMatch(/rounded-xl border p-4 sm:p-5/)
+    expect(observe).toMatch(/color-mix\(in oklch, var\(--primary\) 75%, var\(--background\)\)/)
+    expect(observe).toMatch(/var\(--primary\)/)
+    expect(observe).not.toMatch(/getEdgeSystem/)
+    expect(detail).not.toMatch(/getEdgeSystem/)
+    expect(zh).toMatch(/"observationSystem": "系统监控"/)
+    expect(zh).toMatch(/"observationSystemHint": "CPU、内存、GPU、I\/O"/)
+    expect(en).toMatch(/"observationSystem": "System Monitoring"/)
+    expect(detail).toMatch(/getEdgeMetrics/)
+    expect(detail).toMatch(/refetchInterval:\s*15000/)
+  })
+})
