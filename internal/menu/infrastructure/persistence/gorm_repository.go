@@ -13,47 +13,49 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
-type MenuHeaderRow struct {
-	ID        string    `gorm:"primaryKey;size:64"`
-	BotID     string    `gorm:"size:64;not null"`
+// ChannelMenuRow is the channel-scoped menu document (1:1 with a channel).
+type ChannelMenuRow struct {
+	ChannelID string    `gorm:"primaryKey;size:128"`
 	UpdatedAt time.Time `gorm:"not null"`
 }
 
-func (MenuHeaderRow) TableName() string { return "tg_menus" }
+func (ChannelMenuRow) TableName() string { return "channel_menus" }
 
-type MenuItemRow struct {
-	ID              string  `gorm:"primaryKey;size:128"`
-	MenuID          string  `gorm:"size:64;not null;index"`
-	ParentID        *string `gorm:"size:128;index"`
-	Label           string  `gorm:"size:256;not null"`
-	Row             int     `gorm:"not null"`
-	Col             int     `gorm:"not null"`
-	Enabled         bool    `gorm:"not null"`
-	Kind            string  `gorm:"size:64;not null"`
-	PlaceholderText string  `gorm:"size:512"`
-	IntroText       string  `gorm:"type:text"`
-	Tag             string  `gorm:"size:128"`
-	ReplyJSON       string  `gorm:"type:text"`
+// ChannelMenuItemRow is a menu node under a channel.
+type ChannelMenuItemRow struct {
+	ID              string `gorm:"primaryKey;size:128"`
+	ChannelID       string `gorm:"size:128;not null;index;uniqueIndex:idx_ch_parent_label,priority:1;uniqueIndex:idx_ch_parent_order,priority:1"`
+	ParentID        string `gorm:"size:128;not null;default:'';uniqueIndex:idx_ch_parent_label,priority:2;uniqueIndex:idx_ch_parent_order,priority:2"`
+	Label           string `gorm:"size:256;not null;uniqueIndex:idx_ch_parent_label,priority:3"`
+	Order           int    `gorm:"column:sort_order;not null;uniqueIndex:idx_ch_parent_order,priority:3"`
+	Enabled         bool   `gorm:"not null"`
+	Kind            string `gorm:"size:64;not null"`
+	PlaceholderText string `gorm:"size:512"`
+	IntroText       string `gorm:"type:text"`
+	ReplyJSON       string `gorm:"type:text"`
 }
 
-func (MenuItemRow) TableName() string { return "tg_menu_items" }
+func (ChannelMenuItemRow) TableName() string { return "channel_menu_items" }
 
-type MenuItemCaseRow struct {
+// ChannelMenuItemCaseRow links a menu item to a case.
+type ChannelMenuItemCaseRow struct {
 	MenuItemID string `gorm:"primaryKey;size:128"`
 	CaseID     string `gorm:"primaryKey;size:128"`
 	Sort       int    `gorm:"not null"`
 }
 
-func (MenuItemCaseRow) TableName() string { return "tg_menu_item_cases" }
+func (ChannelMenuItemCaseRow) TableName() string { return "channel_menu_item_cases" }
 
-// LegacyMenuRow is the old JSON-backed menu config table used for one-time migration.
-type LegacyMenuRow struct {
-	ID        string    `gorm:"primaryKey;size:64"`
-	ItemsJSON string    `gorm:"type:text;not null"`
-	UpdatedAt time.Time `gorm:"not null"`
+// ChannelMenuExtraRow stores platform-specific extras per channel+item+type.
+type ChannelMenuExtraRow struct {
+	ChannelID  string    `gorm:"primaryKey;size:128"`
+	MenuItemID string    `gorm:"primaryKey;size:128"`
+	ExtraType  string    `gorm:"primaryKey;size:64"`
+	ExtraJSON  string    `gorm:"type:text;not null"`
+	UpdatedAt  time.Time `gorm:"not null"`
 }
 
-func (LegacyMenuRow) TableName() string { return "tg_menu_configs" }
+func (ChannelMenuExtraRow) TableName() string { return "channel_menu_item_extras" }
 
 type GormRepository struct {
 	db *gorm.DB
@@ -64,8 +66,8 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 }
 
 func (r *GormRepository) GetTree(ctx context.Context, channelID string) (domain.MenuTree, error) {
-	var header MenuHeaderRow
-	err := r.db.WithContext(ctx).First(&header, "id = ?", channelID).Error
+	var header ChannelMenuRow
+	err := r.db.WithContext(ctx).First(&header, "channel_id = ?", channelID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return domain.MenuTree{}, domain.ErrNotFound
 	}
@@ -73,10 +75,10 @@ func (r *GormRepository) GetTree(ctx context.Context, channelID string) (domain.
 		return domain.MenuTree{}, err
 	}
 
-	var itemRows []MenuItemRow
+	var itemRows []ChannelMenuItemRow
 	if err := r.db.WithContext(ctx).
-		Where("menu_id = ?", channelID).
-		Order("row, col, id").
+		Where("channel_id = ?", channelID).
+		Order("sort_order, id").
 		Find(&itemRows).Error; err != nil {
 		return domain.MenuTree{}, err
 	}
@@ -88,7 +90,7 @@ func (r *GormRepository) GetTree(ctx context.Context, channelID string) (domain.
 
 	caseByItem := map[string][]string{}
 	if len(itemIDs) > 0 {
-		var caseRows []MenuItemCaseRow
+		var caseRows []ChannelMenuItemCaseRow
 		if err := r.db.WithContext(ctx).
 			Where("menu_item_id IN ?", itemIDs).
 			Order("menu_item_id, sort").
@@ -115,37 +117,36 @@ func (r *GormRepository) GetTree(ctx context.Context, channelID string) (domain.
 	}
 
 	return domain.MenuTree{
-		ChannelID: header.ID,
+		ChannelID: header.ChannelID,
 		Items:     nodes,
 		UpdatedAt: header.UpdatedAt,
 	}, nil
 }
 
 func (r *GormRepository) ReplaceTree(ctx context.Context, tree domain.MenuTree) error {
+	if tree.ChannelID == "" {
+		return fmt.Errorf("menu: ReplaceTree requires channel_id")
+	}
 	flat := domain.Flatten(tree.Items)
 	now := time.Now().UTC()
 
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var itemIDs []string
-		if err := tx.Model(&MenuItemRow{}).
-			Where("menu_id = ?", tree.ChannelID).
+		if err := tx.Model(&ChannelMenuItemRow{}).
+			Where("channel_id = ?", tree.ChannelID).
 			Pluck("id", &itemIDs).Error; err != nil {
 			return err
 		}
 		if len(itemIDs) > 0 {
-			if err := tx.Where("menu_item_id IN ?", itemIDs).Delete(&MenuItemCaseRow{}).Error; err != nil {
+			if err := tx.Where("menu_item_id IN ?", itemIDs).Delete(&ChannelMenuItemCaseRow{}).Error; err != nil {
 				return err
 			}
 		}
-		if err := tx.Where("menu_id = ?", tree.ChannelID).Delete(&MenuItemRow{}).Error; err != nil {
+		if err := tx.Where("channel_id = ?", tree.ChannelID).Delete(&ChannelMenuItemRow{}).Error; err != nil {
 			return err
 		}
 
-		header := MenuHeaderRow{
-			ID:        tree.ChannelID,
-			BotID:     "default", // legacy column; removed in channel_menu migration (Task 4)
-			UpdatedAt: now,
-		}
+		header := ChannelMenuRow{ChannelID: tree.ChannelID, UpdatedAt: now}
 		if err := tx.Save(&header).Error; err != nil {
 			return err
 		}
@@ -159,7 +160,7 @@ func (r *GormRepository) ReplaceTree(ctx context.Context, tree domain.MenuTree) 
 				return err
 			}
 			for sort, caseID := range item.CaseIDs {
-				if err := tx.Create(&MenuItemCaseRow{
+				if err := tx.Create(&ChannelMenuItemCaseRow{
 					MenuItemID: item.ID,
 					CaseID:     caseID,
 					Sort:       sort,
@@ -173,7 +174,7 @@ func (r *GormRepository) ReplaceTree(ctx context.Context, tree domain.MenuTree) 
 }
 
 func (r *GormRepository) ListPlacementsByCase(ctx context.Context, caseID string) ([]domain.MenuPlacement, error) {
-	var links []MenuItemCaseRow
+	var links []ChannelMenuItemCaseRow
 	if err := r.db.WithContext(ctx).
 		Where("case_id = ?", caseID).
 		Find(&links).Error; err != nil {
@@ -193,24 +194,24 @@ func (r *GormRepository) ListPlacementsByCase(ctx context.Context, caseID string
 		itemIDs = append(itemIDs, link.MenuItemID)
 	}
 
-	var itemRows []MenuItemRow
+	var itemRows []ChannelMenuItemRow
 	if err := r.db.WithContext(ctx).Where("id IN ?", itemIDs).Find(&itemRows).Error; err != nil {
 		return nil, err
 	}
-	byID := make(map[string]MenuItemRow, len(itemRows))
-	menuIDs := map[string]struct{}{}
+	byID := make(map[string]ChannelMenuItemRow, len(itemRows))
+	channelIDs := map[string]struct{}{}
 	for _, row := range itemRows {
 		byID[row.ID] = row
-		menuIDs[row.MenuID] = struct{}{}
+		channelIDs[row.ChannelID] = struct{}{}
 	}
 
-	menuItemRows := map[string][]MenuItemRow{}
-	for menuID := range menuIDs {
-		var rows []MenuItemRow
-		if err := r.db.WithContext(ctx).Where("menu_id = ?", menuID).Find(&rows).Error; err != nil {
+	rowsByChannel := map[string][]ChannelMenuItemRow{}
+	for channelID := range channelIDs {
+		var rows []ChannelMenuItemRow
+		if err := r.db.WithContext(ctx).Where("channel_id = ?", channelID).Find(&rows).Error; err != nil {
 			return nil, err
 		}
-		menuItemRows[menuID] = rows
+		rowsByChannel[channelID] = rows
 	}
 
 	placements := make([]domain.MenuPlacement, 0, len(links))
@@ -219,20 +220,20 @@ func (r *GormRepository) ListPlacementsByCase(ctx context.Context, caseID string
 		if !ok {
 			continue
 		}
-		path, err := buildPlacementPath(menuItemRows[item.MenuID], item.ID)
+		path, err := buildPlacementPath(rowsByChannel[item.ChannelID], item.ID)
 		if err != nil {
 			return nil, err
 		}
 		placements = append(placements, domain.MenuPlacement{
-			MenuID: item.MenuID,
-			ItemID: item.ID,
-			Path:   path,
+			ChannelID: item.ChannelID,
+			ItemID:    item.ID,
+			Path:      path,
 		})
 	}
 
 	sort.Slice(placements, func(i, j int) bool {
-		if placements[i].MenuID != placements[j].MenuID {
-			return placements[i].MenuID < placements[j].MenuID
+		if placements[i].ChannelID != placements[j].ChannelID {
+			return placements[i].ChannelID < placements[j].ChannelID
 		}
 		return placements[i].ItemID < placements[j].ItemID
 	})
@@ -250,14 +251,6 @@ func (r *GormRepository) EnsureDefault(
 	}
 	if !errors.Is(err, domain.ErrNotFound) {
 		return domain.MenuTree{}, err
-	}
-
-	migrated, err := r.migrateLegacyJSON(ctx, channelID)
-	if err != nil {
-		return domain.MenuTree{}, err
-	}
-	if migrated {
-		return r.GetTree(ctx, channelID)
 	}
 
 	seed := domain.DefaultSeedTree(channelID)
@@ -279,126 +272,84 @@ func (r *GormRepository) EnsureDefault(
 	return r.GetTree(ctx, channelID)
 }
 
-// MigrateFromLegacyIfNeeded imports legacy JSON when relational tables are empty.
-func (r *GormRepository) MigrateFromLegacyIfNeeded(ctx context.Context) error {
-	_, err := r.migrateLegacyJSON(ctx, "default")
-	return err
+func (r *GormRepository) ListExtras(ctx context.Context, channelID string) (map[string][]domain.Extra, error) {
+	var rows []ChannelMenuExtraRow
+	if err := r.db.WithContext(ctx).
+		Where("channel_id = ?", channelID).
+		Order("menu_item_id, extra_type").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := map[string][]domain.Extra{}
+	for _, row := range rows {
+		out[row.MenuItemID] = append(out[row.MenuItemID], domain.Extra{
+			ChannelID:  row.ChannelID,
+			MenuItemID: row.MenuItemID,
+			ExtraType:  row.ExtraType,
+			ExtraJSON:  row.ExtraJSON,
+			UpdatedAt:  row.UpdatedAt,
+		})
+	}
+	return out, nil
 }
 
-func (r *GormRepository) migrateLegacyJSON(ctx context.Context, channelID string) (bool, error) {
-	var count int64
-	if err := r.db.WithContext(ctx).Model(&MenuHeaderRow{}).Count(&count).Error; err != nil {
-		return false, err
-	}
-	if count > 0 {
-		return false, nil
-	}
-
-	if !r.db.WithContext(ctx).Migrator().HasTable(&LegacyMenuRow{}) {
-		return false, nil
-	}
-
-	var legacy LegacyMenuRow
-	err := r.db.WithContext(ctx).First(&legacy, "id = ?", channelID).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	tree, err := legacyJSONToTree(legacy, channelID)
-	if err != nil {
-		return false, err
-	}
-	if err := r.ReplaceTree(ctx, tree); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-type legacyMenuItem struct {
-	ID              string               `json:"id"`
-	Label           string               `json:"label"`
-	Row             int                  `json:"row"`
-	Col             int                  `json:"col"`
-	Enabled         bool                 `json:"enabled"`
-	Action          string               `json:"action"`
-	CaseID          string               `json:"case_id"`
-	Tag             string               `json:"tag"`
-	PlaceholderText string               `json:"placeholder_text"`
-	Reply           *domain.ReplyPayload `json:"reply"`
-}
-
-func legacyJSONToTree(legacy LegacyMenuRow, channelID string) (domain.MenuTree, error) {
-	var legacyItems []legacyMenuItem
-	if err := json.Unmarshal([]byte(legacy.ItemsJSON), &legacyItems); err != nil {
-		return domain.MenuTree{}, fmt.Errorf("unmarshal legacy menu items: %w", err)
-	}
-
-	items := make([]domain.MenuNode, 0, len(legacyItems))
-	for _, it := range legacyItems {
-		node := domain.MenuNode{
-			ID:              it.ID,
-			Label:           it.Label,
-			Order:           it.Row,
-			Enabled:         it.Enabled,
-			Kind:            domain.MenuKind(it.Action),
-			PlaceholderText: it.PlaceholderText,
-			Reply:           it.Reply,
+func (r *GormRepository) SaveExtras(ctx context.Context, channelID string, extras map[string][]domain.Extra) error {
+	now := time.Now().UTC()
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("channel_id = ?", channelID).Delete(&ChannelMenuExtraRow{}).Error; err != nil {
+			return err
 		}
-		if it.CaseID != "" {
-			node.CaseIDs = []string{it.CaseID}
+		for _, itemExtras := range extras {
+			for _, extra := range itemExtras {
+				if err := tx.Create(&ChannelMenuExtraRow{
+					ChannelID:  channelID,
+					MenuItemID: extra.MenuItemID,
+					ExtraType:  extra.ExtraType,
+					ExtraJSON:  extra.ExtraJSON,
+					UpdatedAt:  now,
+				}).Error; err != nil {
+					return err
+				}
+			}
 		}
-		items = append(items, node)
-	}
-
-	return domain.MenuTree{
-		ChannelID: channelID,
-		Items:     items,
-		UpdatedAt: legacy.UpdatedAt,
-	}, nil
+		return nil
+	})
 }
 
-func itemToRow(menuID string, item domain.MenuItem) (MenuItemRow, error) {
-	row := MenuItemRow{
+func itemToRow(channelID string, item domain.MenuItem) (ChannelMenuItemRow, error) {
+	row := ChannelMenuItemRow{
 		ID:              item.ID,
-		MenuID:          menuID,
+		ChannelID:       channelID,
 		Label:           item.Label,
-		Row:             item.Order,
+		Order:           item.Order,
 		Enabled:         item.Enabled,
 		Kind:            string(item.Kind),
 		PlaceholderText: item.PlaceholderText,
 		IntroText:       item.IntroText,
 	}
-	if item.ParentID != "" {
-		parentID := item.ParentID
-		row.ParentID = &parentID
-	}
+	row.ParentID = item.ParentID
 	if item.Reply != nil {
 		raw, err := json.Marshal(item.Reply)
 		if err != nil {
-			return MenuItemRow{}, fmt.Errorf("marshal reply for %q: %w", item.ID, err)
+			return ChannelMenuItemRow{}, fmt.Errorf("marshal reply for %q: %w", item.ID, err)
 		}
 		row.ReplyJSON = string(raw)
 	}
 	return row, nil
 }
 
-func rowToItem(row MenuItemRow, caseIDs []string) (domain.MenuItem, error) {
+func rowToItem(row ChannelMenuItemRow, caseIDs []string) (domain.MenuItem, error) {
 	item := domain.MenuItem{
 		ID:              row.ID,
 		Label:           row.Label,
-		Order:           row.Row,
+		Order:           row.Order,
 		Enabled:         row.Enabled,
 		Kind:            domain.MenuKind(row.Kind),
 		CaseIDs:         append([]string(nil), caseIDs...),
 		PlaceholderText: row.PlaceholderText,
 		IntroText:       row.IntroText,
 	}
-	if row.ParentID != nil {
-		item.ParentID = *row.ParentID
-	}
+	item.ParentID = row.ParentID
 	if row.ReplyJSON != "" {
 		var reply domain.ReplyPayload
 		if err := json.Unmarshal([]byte(row.ReplyJSON), &reply); err != nil {
@@ -409,28 +360,23 @@ func rowToItem(row MenuItemRow, caseIDs []string) (domain.MenuItem, error) {
 	return item, nil
 }
 
-func buildPlacementPath(rows []MenuItemRow, itemID string) ([]domain.PlacementStep, error) {
-	byID := make(map[string]MenuItemRow, len(rows))
+func buildPlacementPath(rows []ChannelMenuItemRow, itemID string) ([]domain.PlacementStep, error) {
+	byID := make(map[string]ChannelMenuItemRow, len(rows))
 	for _, row := range rows {
 		byID[row.ID] = row
 	}
-
-	var steps []domain.PlacementStep
-	current := itemID
-	for current != "" {
-		row, ok := byID[current]
+	var path []domain.PlacementStep
+	cur := itemID
+	for cur != "" {
+		row, ok := byID[cur]
 		if !ok {
-			return nil, fmt.Errorf("unknown menu item %q while building placement path", current)
+			return nil, fmt.Errorf("menu placement: unknown item %q", cur)
 		}
-		steps = append(steps, domain.PlacementStep{ID: row.ID, Label: row.Label})
-		if row.ParentID == nil || *row.ParentID == "" {
+		path = append([]domain.PlacementStep{{ID: row.ID, Label: row.Label}}, path...)
+		if row.ParentID == "" {
 			break
 		}
-		current = *row.ParentID
+		cur = row.ParentID
 	}
-
-	for i, j := 0, len(steps)-1; i < j; i, j = i+1, j-1 {
-		steps[i], steps[j] = steps[j], steps[i]
-	}
-	return steps, nil
+	return path, nil
 }

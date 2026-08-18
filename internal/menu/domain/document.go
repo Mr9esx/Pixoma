@@ -60,7 +60,16 @@ type PlacementStep struct {
 }
 
 type MenuPlacement struct {
-	MenuID string          `json:"menu_id"`
-	ItemID string          `json:"item_id"`
-	Path   []PlacementStep `json:"path"`
+	ChannelID string          `json:"channel_id"`
+	ItemID    string          `json:"item_id"`
+	Path      []PlacementStep `json:"path"`
+}
+
+// Extra is a platform-specific data blob attached to a channel menu item.
+type Extra struct {
+	ChannelID  string
+	MenuItemID string
+	ExtraType  string
+	ExtraJSON  string
+	UpdatedAt  time.Time
 }

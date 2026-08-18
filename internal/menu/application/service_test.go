@@ -53,15 +53,23 @@ func (s *memStore) ListPlacementsByCase(_ context.Context, caseID string) ([]dom
 			for _, cid := range it.CaseIDs {
 				if cid == caseID {
 					out = append(out, domain.MenuPlacement{
-						MenuID: tree.ChannelID,
-						ItemID: it.ID,
-						Path:   []domain.PlacementStep{{ID: it.ID, Label: it.Label}},
+						ChannelID: tree.ChannelID,
+						ItemID:    it.ID,
+						Path:      []domain.PlacementStep{{ID: it.ID, Label: it.Label}},
 					})
 				}
 			}
 		}
 	}
 	return out, nil
+}
+
+func (s *memStore) ListExtras(context.Context, string) (map[string][]domain.Extra, error) {
+	return map[string][]domain.Extra{}, nil
+}
+
+func (s *memStore) SaveExtras(context.Context, string, map[string][]domain.Extra) error {
+	return nil
 }
 
 func (s *memStore) EnsureDefault(
