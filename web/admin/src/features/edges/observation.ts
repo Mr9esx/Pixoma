@@ -55,8 +55,19 @@ export function parseMetrics(
 }
 
 export function formatBytes(n: number): string {
-  const gib = 1024 ** 3
-  const mib = 1024 ** 2
-  if (Math.abs(n) >= gib) return `${(n / gib).toFixed(1)} GiB`
-  return `${Math.round(n / mib)} MiB`
+  if (!Number.isFinite(n) || n < 0) return '—'
+  if (n === 0) return '0 B'
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
+  const idx = Math.min(
+    Math.floor(Math.log(n) / Math.log(1024)),
+    units.length - 1
+  )
+  const value = n / 1024 ** idx
+  const text =
+    idx === 0
+      ? String(Math.round(value))
+      : value >= 100
+        ? value.toFixed(0)
+        : value.toFixed(1)
+  return `${text} ${units[idx]}`
 }
