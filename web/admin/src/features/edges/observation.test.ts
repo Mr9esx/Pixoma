@@ -94,6 +94,7 @@ describe('ioAxisTicks', () => {
 describe('formatMetricValue', () => {
   it('formats byte series with human units', () => {
     expect(formatMetricValue(17179869184, 'used')).toBe('16.0 GiB')
+    expect(formatMetricValue(17179869184, 'gpu0Used')).toBe('16.0 GiB')
     expect(formatMetricValue(102400, 'read')).toBe('100 KiB')
   })
 

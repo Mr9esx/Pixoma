@@ -78,7 +78,7 @@ export function formatBytes(n: number): string {
 export function formatMetricValue(value: unknown, key: string): string {
   const n = typeof value === 'number' ? value : Number(value)
   const isBytes =
-    key === 'used' || key === 'vramUsed' || key === 'read' || key === 'write'
+    key === 'used' || key.endsWith('Used') || key === 'read' || key === 'write'
   if (isBytes) {
     return Number.isFinite(n) ? formatBytes(n) : String(value ?? '')
   }

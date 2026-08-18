@@ -56,6 +56,22 @@ describe('compute node layout and detail', () => {
     expect(layout).toMatch(/<Dialog/)
   })
 
+  it('defaults to the first node and offers create from empty detail', () => {
+    const layout = read('../../routes/_app/edges/route.tsx')
+    const shell = read('../../components/master-detail/master-detail-shell.tsx')
+    const zh = read('../../lib/i18n/locales/zh.json')
+    expect(layout).toMatch(
+      /edgeId \?\? \(backToList \? undefined : items\[0\]\?\.id\)/
+    )
+    expect(layout).toMatch(/emptyDetail=/)
+    expect(layout).toMatch(/EmptyHeader/)
+    expect(layout).toMatch(/setCreateOpen\(true\)/)
+    expect(layout).toContain("to: '/edges/$edgeId'")
+    expect(layout).toContain('replace: true')
+    expect(shell).toMatch(/emptyDetail \?\? /)
+    expect(zh).toMatch(/"createNode": "新建节点"/)
+  })
+
   it('shows a health dot in the list and polls presence every 5s', () => {
     const list = read('list-panel.tsx')
     const layout = read('../../routes/_app/edges/route.tsx')
@@ -105,9 +121,7 @@ describe('compute node layout and detail', () => {
     const en = read('../../lib/i18n/locales/en.json')
     expect(chart).toMatch(/data-slot="chart"/)
     expect(chart).toMatch(/aspect-video/)
-    expect(observe).toMatch(
-      /h-\[100px\] w-full min-w-0 sm:h-\[120px\] lg:h-\[140px\]/
-    )
+    expect(observe).toMatch(/h-full min-h-\[120px\] w-full min-w-0/)
     expect(observe).toMatch(/text-base font-semibold/)
     expect(observe).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_92px\]/)
     expect(observe).toMatch(
@@ -117,9 +131,19 @@ describe('compute node layout and detail', () => {
     expect(observe).toMatch(/edges\.monitorCurrent/)
     expect(observe).toMatch(/edges\.monitorMax/)
     expect(observe).toMatch(/edges\.monitorAvg/)
+    expect(observe).toMatch(/text-lg leading-6 font-semibold/)
+    expect(observe).not.toMatch(/text-xl leading-6 font-semibold/)
     expect(observe).not.toMatch(/size-\[100px\] shrink-0 sm:size-\[120px\]/)
     expect(observe).not.toMatch(/PieChart/)
     expect(observe).toMatch(/LineChart/)
+    expect(observe).toMatch(/usageConfig\[`gpu\$\{gi\}`\]/)
+    expect(observe).toMatch(/vramConfig\[`gpu\$\{gi\}Rate`\]/)
+    expect(observe).toMatch(/multi \? `GPU\$\{gi\}`/)
+    expect(observe).toMatch(/dataKey=\{`gpu\$\{gi\}`\}/)
+    expect(observe).toMatch(/dataKey=\{`gpu\$\{gi\}Rate`\}/)
+    expect(observe).not.toMatch(
+      /\$\{t\('edges\.monitorGpuUsage'\)\} · \$\{name\}/
+    )
     expect(observe).toMatch(
       /color-mix\(in oklch, var\(--primary\) 75%, var\(--background\)\)/
     )
