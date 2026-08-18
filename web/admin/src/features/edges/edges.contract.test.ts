@@ -124,13 +124,14 @@ describe('compute node layout and detail', () => {
     expect(observe).toMatch(/aspect-auto/)
     expect(observe).toMatch(/h-full min-h-\[120px\] w-full min-w-0/)
     expect(observe).toMatch(
-      /orientation='right'\s+tickFormatter=\{\(v: number\) => formatBytes\(v\)\}\s+width=\{64\}/
+      /orientation='right'\s+tickFormatter=\{\(v: number\) => formatBytes\(v\)\}\s+width=\{80\}/
     )
-    expect(observe).not.toMatch(/formatBytes\(v\)\}\s*width=\{48\}/)
+    expect(observe).not.toMatch(/formatBytes\(v\)\}\s*width=\{(48|64)\}/)
     expect(observe).toMatch(/text-base font-semibold/)
     expect(observe).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_92px\]/)
     expect(observe).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_122px\]/)
-    expect(observe).toMatch(/grid min-h-0 flex-1 gap-2/)
+    expect(observe).toMatch(/grid min-h-0 flex-1 gap-1\.5/)
+    expect(observe).not.toMatch(/grid min-h-0 flex-1 gap-2/)
     expect(observe).toMatch(/inline-flex items-center gap-1\.5/)
     expect(observe).not.toMatch(/legend\.length > 1/)
     expect(observe).toMatch(/ioStats\(/)
