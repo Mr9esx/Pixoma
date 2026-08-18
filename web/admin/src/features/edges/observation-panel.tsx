@@ -1,322 +1,293 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
+import { Activity } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   Area,
   AreaChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
+  Line,
+  LineChart,
   XAxis,
   YAxis,
 } from 'recharts'
-import { useTranslation } from 'react-i18next'
-import type { TaskRecord } from '@/lib/api/types'
-import type { EdgeMetricsResponse } from '@/lib/api/types'
-import { EmptyState } from '@/components/feedback/empty-state'
-import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import type { EdgeMetricsResponse, TaskRecord } from '@/lib/api/types'
+import { Button } from '@/components/ui/button'
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  type ChartConfig,
 } from '@/components/ui/chart'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import { EmptyState } from '@/components/feedback/empty-state'
+import { ErrorBanner } from '@/components/feedback/error-banner'
+import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { TaskDetailPanel } from '@/features/tasks/detail-panel'
 import { taskStatusLabelKey } from '@/features/tasks/list-panel'
 import { kit } from './kit-classes'
-import { parseMetrics, type MetricsPoint } from './observation'
-import { formatBytes } from './observation'
+import { formatBytes, parseMetrics, type MetricsPoint } from './observation'
 
-export function CpuCard({ series }: { series: MetricsPoint[] }) {
-  const { t } = useTranslation()
-  const latest = series[series.length - 1]
-  const data = series.map((p) => ({ time: p.time, cpu: p.cpu }))
+// 基准高度的一半：h-[200px] sm:h-[240px] lg:h-[280px] → 50%
+const CHART_HALF_HEIGHT =
+  'h-[100px] w-full min-w-0 sm:h-[120px] lg:h-[140px]'
+
+function timeTick(v: number): string {
+  return new Date(v).toLocaleTimeString()
+}
+
+function LineCardShell({
+  title,
+  value,
+  config,
+  children,
+}: {
+  title: string
+  value: string
+  config: ChartConfig
+  children: ReactNode
+}) {
   return (
-    <div className='bg-card flex min-w-0 flex-1 flex-col gap-4 rounded-xl border p-4 sm:gap-6 sm:p-6'>
+    <div className='flex min-w-0 flex-1 flex-col gap-4 rounded-xl border bg-card p-4 sm:gap-6 sm:p-6'>
       <div className='flex flex-wrap items-center gap-2 sm:gap-4'>
         <div className='flex flex-1 flex-col gap-1'>
           <p className='text-xl leading-tight font-semibold tracking-tight sm:text-2xl'>
-            {latest?.cpu != null ? `${latest.cpu.toFixed(1)}%` : '—'}
+            {value}
           </p>
-          <p className='text-muted-foreground text-xs'>{t('edges.monitorCpu')}</p>
+          <p className='text-xs text-muted-foreground'>{title}</p>
         </div>
         <div className='hidden items-center gap-3 sm:flex sm:gap-5'>
-          <div className='flex items-center gap-1.5 transition-opacity duration-200 motion-reduce:transition-none'>
+          {Object.entries(config).map(([key, entry]) => (
             <div
-              className='size-2.5 rounded-full sm:size-3'
-              style={{ backgroundColor: 'var(--primary)' }}
-            />
-            <span className='text-muted-foreground text-[10px] sm:text-xs'>
-              {t('edges.monitorCpu')}
-            </span>
-          </div>
+              key={key}
+              className='flex items-center gap-1.5 transition-opacity duration-200 motion-reduce:transition-none'
+            >
+              <div
+                className='size-2.5 rounded-full sm:size-3'
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className='text-[10px] text-muted-foreground sm:text-xs'>
+                {entry.label}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
-      <div className='h-[200px] w-full min-w-0 sm:h-[240px] lg:h-[280px]'>
-        <ChartContainer
-          config={{
-            cpu: { label: t('edges.monitorCpu'), color: 'var(--primary)' },
-          }}
-          className='h-full w-full'
-        >
-          <AreaChart data={data} margin={{ left: 12, right: 12 }}>
-            <defs>
-              <linearGradient id='cpuGradient' x1='0' y1='0' x2='0' y2='1'>
-                <stop offset='0%' stopColor='var(--color-cpu)' stopOpacity={0.3} />
-                <stop offset='100%' stopColor='var(--color-cpu)' stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey='time'
-              tickFormatter={(v: number) => new Date(v).toLocaleTimeString()}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              domain={[0, 100]}
-              tickFormatter={(v: number) => `${v}%`}
-              tickLine={false}
-              axisLine={false}
-            />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Area
-              dataKey='cpu'
-              type='natural'
-              fill='url(#cpuGradient)'
-              stroke='var(--color-cpu)'
-              strokeWidth={2}
-            />
-          </AreaChart>
+      <div className={CHART_HALF_HEIGHT}>
+        <ChartContainer config={config} className='h-full w-full'>
+          {children}
         </ChartContainer>
       </div>
     </div>
   )
 }
 
-export function MemCard({ point }: { point: MetricsPoint | null }) {
+export function CpuCard({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
-  const pct = point?.memPct ?? 0
-  const used = point?.memUsed ?? 0
-  const total = point?.memTotal ?? 0
-  const free = Math.max(total - used, 0)
-  const data = [
-    {
-      name: t('edges.monitorMemUsed'),
-      value: used,
-      fill: 'var(--color-used)',
-    },
-    {
-      name: t('edges.monitorMemFree'),
-      value: free,
-      fill: 'var(--color-free)',
-    },
-  ]
+  const latest = series[series.length - 1]
+  const data = series.map((p) => ({ time: p.time, cpu: p.cpu }))
   return (
-    <div className='bg-card flex flex-1 flex-col gap-4 rounded-xl border p-4 sm:p-5'>
-      <div className='flex items-center justify-between'>
-        <div className='flex items-center gap-2 sm:gap-2.5'>
-          <div>
-            <span className='text-sm font-medium sm:text-base'>
-              {t('edges.monitorMem')}
-            </span>
-            <p className='text-muted-foreground text-[10px] sm:text-xs'>
-              {total > 0 ? formatBytes(total) : '—'}
-            </p>
-          </div>
-        </div>
-      </div>
-      <div className='flex flex-1 items-center gap-4 sm:gap-6'>
-        <div className='relative size-[100px] shrink-0 sm:size-[120px]'>
-          <ChartContainer
-            config={{
-              used: {
-                label: t('edges.monitorMemUsed'),
-                color: 'var(--primary)',
-              },
-              free: {
-                label: t('edges.monitorMemFree'),
-                color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
-              },
-            }}
-            className='h-full w-full'
-          >
-            <PieChart>
-              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-              <Pie
-                data={data}
-                dataKey='value'
-                nameKey='name'
-                innerRadius={30}
-                outerRadius={49.5}
-                strokeWidth={0}
-              >
-                {data.map((entry) => (
-                  <Cell key={entry.name} fill={entry.fill} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ChartContainer>
-          <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
-            <span className='text-sm font-semibold sm:text-base'>
-              {pct.toFixed(1)}%
-            </span>
-            <span className='text-muted-foreground text-[8px] sm:text-[10px]'>
-              {t('edges.monitorMemUsed')}
-            </span>
-          </div>
-        </div>
-        <div className='flex flex-1 flex-col gap-2 sm:gap-3'>
-          {data.map((entry) => (
-            <div
-              key={entry.name}
-              className='flex items-center justify-between gap-2'
-            >
-              <div className='flex items-center gap-2'>
-                <div
-                  className='size-2 rounded-full sm:size-2.5'
-                  style={{ backgroundColor: entry.fill }}
-                />
-                <span className='text-muted-foreground text-[10px] sm:text-xs'>
-                  {entry.name}
-                </span>
-              </div>
-              <div className='flex items-center gap-2 text-[10px] sm:text-xs'>
-                <span className='font-medium tabular-nums'>
-                  {formatBytes(entry.value)}
-                </span>
-                <span className='text-muted-foreground tabular-nums'>
-                  {total > 0
-                    ? `${((entry.value / total) * 100).toFixed(1)}%`
-                    : '—'}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+    <LineCardShell
+      title={t('edges.monitorCpu')}
+      value={latest?.cpu != null ? `${latest.cpu.toFixed(1)}%` : '—'}
+      config={{
+        cpu: { label: t('edges.monitorCpu'), color: 'var(--primary)' },
+      }}
+    >
+      <LineChart data={data} margin={{ left: 12, right: 12 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
+        <YAxis
+          domain={[0, 100]}
+          tickFormatter={(v: number) => `${v}%`}
+          tickLine={false}
+          axisLine={false}
+        />
+        <ChartTooltip content={<ChartTooltipContent />} />
+        <Line
+          dataKey='cpu'
+          type='natural'
+          stroke='var(--color-cpu)'
+          strokeWidth={2}
+          dot={false}
+        />
+      </LineChart>
+    </LineCardShell>
   )
 }
 
-function GpuDonut({
-  center,
-  label,
-  series,
-}: {
-  center: string
-  label: string
-  series: { name: string; value: number; fill: string }[]
-}) {
+export function MemRateCard({ series }: { series: MetricsPoint[] }) {
+  const { t } = useTranslation()
+  const latest = series[series.length - 1]
+  const data = series.map((p) => ({
+    time: p.time,
+    rate: p.memPct,
+    used: p.memUsed,
+  }))
   return (
-    <div className='relative size-[100px] shrink-0 sm:size-[120px]'>
-      <ChartContainer
-        config={{
-          a: { label, color: 'var(--primary)' },
-          b: {
-            label,
-            color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
-          },
-        }}
-        className='h-full w-full'
-      >
-        <PieChart>
-          <Pie
-            data={series}
-            dataKey='value'
-            nameKey='name'
-            innerRadius={30}
-            outerRadius={49.5}
-            strokeWidth={0}
-          >
-            {series.map((entry) => (
-              <Cell key={entry.name} fill={entry.fill} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ChartContainer>
-      <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
-        <span className='text-sm font-semibold sm:text-base'>{center}</span>
-        <span className='text-muted-foreground text-[8px] sm:text-[10px]'>
-          {label}
-        </span>
-      </div>
-    </div>
+    <LineCardShell
+      title={t('edges.monitorMemRate')}
+      value={latest?.memPct != null ? `${latest.memPct.toFixed(1)}%` : '—'}
+      config={{
+        rate: {
+          label: t('edges.monitorMemRate'),
+          color: 'var(--primary)',
+        },
+        used: {
+          label: t('edges.monitorMemUsed'),
+          color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+        },
+      }}
+    >
+      <LineChart data={data} margin={{ left: 12, right: 12 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
+        <YAxis
+          yAxisId='rate'
+          domain={[0, 100]}
+          tickFormatter={(v: number) => `${v}%`}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          yAxisId='used'
+          orientation='right'
+          tickFormatter={(v: number) => formatBytes(v)}
+          tickLine={false}
+          axisLine={false}
+          width={60}
+        />
+        <ChartTooltip content={<ChartTooltipContent />} />
+        <Line
+          yAxisId='rate'
+          dataKey='rate'
+          type='natural'
+          stroke='var(--color-rate)'
+          strokeWidth={2}
+          dot={false}
+        />
+        <Line
+          yAxisId='used'
+          dataKey='used'
+          type='natural'
+          stroke='var(--color-used)'
+          strokeWidth={2}
+          dot={false}
+        />
+      </LineChart>
+    </LineCardShell>
   )
 }
 
-export function GpuCards({ point }: { point: MetricsPoint | null }) {
+export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
-  const gpus = point?.gpus ?? []
-  if (gpus.length === 0) return null
+  const last = series[series.length - 1]
+  const gpuNames = last?.gpus.map((gpu) => gpu.name) ?? []
+  if (gpuNames.length === 0) return null
   return (
     <>
-      {gpus.map((gpu, index) => {
-        const usage = gpu.usage_percent ?? 0
-        const used = gpu.vram_used_bytes ?? 0
-        const total = gpu.vram_total_bytes ?? 0
-        const free = Math.max(total - used, 0)
+      {gpuNames.map((name, gi) => {
+        const data = series.map((p) => ({
+          time: p.time,
+          usage: p.gpus[gi]?.usage_percent ?? null,
+          vramPct: p.gpus[gi]?.vram_usage_percent ?? null,
+          vramUsed: p.gpus[gi]?.vram_used_bytes ?? null,
+        }))
+        const latestGpu = last?.gpus[gi]
+        const usage = latestGpu?.usage_percent
+        const vramPct = latestGpu?.vram_usage_percent
         return (
           <div
-            key={`${gpu.name}-${index}`}
-            className='bg-card flex flex-1 flex-col gap-4 rounded-xl border p-4 sm:p-5'
+            key={`${name}-${gi}`}
+            className='flex flex-col gap-4 xl:flex-row'
           >
-            <span className='text-sm font-medium sm:text-base'>
-              {gpu.name || t('edges.fieldGpu')}
-            </span>
-            <div className='flex flex-1 flex-wrap items-center gap-4 sm:gap-6'>
-              <GpuDonut
-                center={`${usage.toFixed(1)}%`}
-                label={t('edges.monitorGpuUsage')}
-                series={[
-                  {
-                    name: t('edges.monitorGpuUsage'),
-                    value: usage,
-                    fill: 'var(--primary)',
-                  },
-                  {
-                    name: t('edges.monitorGpuIdle'),
-                    value: Math.max(100 - usage, 0),
-                    fill: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
-                  },
-                ]}
-              />
-              <GpuDonut
-                center={total > 0 ? formatBytes(used) : '—'}
-                label={t('edges.monitorVram')}
-                series={[
-                  {
-                    name: t('edges.monitorMemUsed'),
-                    value: used,
-                    fill: 'var(--primary)',
-                  },
-                  {
-                    name: t('edges.monitorMemFree'),
-                    value: free,
-                    fill: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
-                  },
-                ]}
-              />
-              <div className='flex min-w-32 flex-col gap-2 sm:gap-3'>
-                <div className='flex items-center justify-between gap-2'>
-                  <span className='text-muted-foreground text-[10px] sm:text-xs'>
-                    {t('edges.monitorGpuUsage')}
-                  </span>
-                  <span className='font-medium tabular-nums text-[10px] sm:text-xs'>
-                    {usage.toFixed(1)}%
-                  </span>
-                </div>
-                <div className='flex items-center justify-between gap-2'>
-                  <span className='text-muted-foreground text-[10px] sm:text-xs'>
-                    {t('edges.monitorVram')}
-                  </span>
-                  <span className='font-medium tabular-nums text-[10px] sm:text-xs'>
-                    {total > 0
-                      ? `${formatBytes(used)} / ${formatBytes(total)}`
-                      : '—'}
-                  </span>
-                </div>
-              </div>
-            </div>
+            <LineCardShell
+              title={`${t('edges.monitorGpuUsage')} · ${name}`}
+              value={usage != null ? `${usage.toFixed(1)}%` : '—'}
+              config={{
+                usage: {
+                  label: t('edges.monitorGpuUsage'),
+                  color: 'var(--primary)',
+                },
+              }}
+            >
+              <LineChart data={data} margin={{ left: 12, right: 12 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
+                <YAxis
+                  domain={[0, 100]}
+                  tickFormatter={(v: number) => `${v}%`}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line
+                  dataKey='usage'
+                  type='natural'
+                  stroke='var(--color-usage)'
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </LineCardShell>
+            <LineCardShell
+              title={`${t('edges.monitorVramRate')} · ${name}`}
+              value={vramPct != null ? `${vramPct.toFixed(1)}%` : '—'}
+              config={{
+                rate: {
+                  label: t('edges.monitorVramRate'),
+                  color: 'var(--primary)',
+                },
+                used: {
+                  label: t('edges.monitorVram'),
+                  color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+                },
+              }}
+            >
+              <LineChart data={data} margin={{ left: 12, right: 12 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
+                <YAxis
+                  yAxisId='rate'
+                  domain={[0, 100]}
+                  tickFormatter={(v: number) => `${v}%`}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  yAxisId='used'
+                  orientation='right'
+                  tickFormatter={(v: number) => formatBytes(v)}
+                  tickLine={false}
+                  axisLine={false}
+                  width={60}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line
+                  yAxisId='rate'
+                  dataKey='vramPct'
+                  type='natural'
+                  stroke='var(--color-rate)'
+                  strokeWidth={2}
+                  dot={false}
+                />
+                <Line
+                  yAxisId='used'
+                  dataKey='vramUsed'
+                  type='natural'
+                  stroke='var(--color-used)'
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </LineCardShell>
           </div>
         )
       })}
@@ -332,10 +303,12 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
     write: p.ioWrite,
   }))
   return (
-    <div className='bg-card flex min-w-0 flex-1 flex-col gap-4 rounded-xl border p-4 sm:gap-6 sm:p-6'>
+    <div className='flex min-w-0 flex-1 flex-col gap-4 rounded-xl border bg-card p-4 sm:gap-6 sm:p-6'>
       <div className='flex flex-wrap items-center gap-2 sm:gap-4'>
         <div className='flex flex-1 flex-col gap-1'>
-          <p className='text-muted-foreground text-xs'>{t('edges.monitorIo')}</p>
+          <p className='text-xs text-muted-foreground'>
+            {t('edges.monitorIo')}
+          </p>
         </div>
         <div className='hidden items-center gap-3 sm:flex sm:gap-5'>
           <div className='flex items-center gap-1.5 transition-opacity duration-200 motion-reduce:transition-none'>
@@ -343,7 +316,7 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
               className='size-2.5 rounded-full sm:size-3'
               style={{ backgroundColor: 'var(--primary)' }}
             />
-            <span className='text-muted-foreground text-[10px] sm:text-xs'>
+            <span className='text-[10px] text-muted-foreground sm:text-xs'>
               {t('edges.monitorIoRead')}
             </span>
           </div>
@@ -355,13 +328,13 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
                   'color-mix(in oklch, var(--primary) 75%, var(--background))',
               }}
             />
-            <span className='text-muted-foreground text-[10px] sm:text-xs'>
+            <span className='text-[10px] text-muted-foreground sm:text-xs'>
               {t('edges.monitorIoWrite')}
             </span>
           </div>
         </div>
       </div>
-      <div className='h-[200px] w-full min-w-0 sm:h-[240px] lg:h-[280px]'>
+      <div className={CHART_HALF_HEIGHT}>
         <ChartContainer
           config={{
             read: {
@@ -370,7 +343,8 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
             },
             write: {
               label: t('edges.monitorIoWrite'),
-              color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+              color:
+                'color-mix(in oklch, var(--primary) 75%, var(--background))',
             },
           }}
           className='h-full w-full'
@@ -378,12 +352,28 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
           <AreaChart data={data} margin={{ left: 12, right: 12 }}>
             <defs>
               <linearGradient id='readGradient' x1='0' y1='0' x2='0' y2='1'>
-                <stop offset='0%' stopColor='var(--color-read)' stopOpacity={0.3} />
-                <stop offset='100%' stopColor='var(--color-read)' stopOpacity={0.05} />
+                <stop
+                  offset='0%'
+                  stopColor='var(--color-read)'
+                  stopOpacity={0.3}
+                />
+                <stop
+                  offset='100%'
+                  stopColor='var(--color-read)'
+                  stopOpacity={0.05}
+                />
               </linearGradient>
               <linearGradient id='writeGradient' x1='0' y1='0' x2='0' y2='1'>
-                <stop offset='0%' stopColor='var(--color-write)' stopOpacity={0.2} />
-                <stop offset='100%' stopColor='var(--color-write)' stopOpacity={0.02} />
+                <stop
+                  offset='0%'
+                  stopColor='var(--color-write)'
+                  stopOpacity={0.2}
+                />
+                <stop
+                  offset='100%'
+                  stopColor='var(--color-write)'
+                  stopOpacity={0.02}
+                />
               </linearGradient>
             </defs>
             <CartesianGrid vertical={false} />
@@ -457,8 +447,24 @@ function statusTagClass(status: string): string {
   return kit.tagSmOff
 }
 
-function TasksSection({ tasks }: { tasks: TaskRecord[] }) {
+export type TasksPagination = {
+  offset: number
+  pageSize: number
+  onOffsetChange: (offset: number) => void
+}
+
+function TasksSection({
+  tasks,
+  pagination,
+}: {
+  tasks: TaskRecord[]
+  pagination: TasksPagination
+}) {
   const { t } = useTranslation()
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const page = Math.floor(pagination.offset / pagination.pageSize) + 1
+  const hasPrev = pagination.offset > 0
+  const hasNext = tasks.length >= pagination.pageSize
   return (
     <section className='flex flex-col gap-4'>
       <SectionHead
@@ -468,46 +474,104 @@ function TasksSection({ tasks }: { tasks: TaskRecord[] }) {
       {tasks.length === 0 ? (
         <EmptyState className='py-6' message={t('tasks.empty')} />
       ) : (
-        <div className={kit.tableWrap}>
-          <table className='w-full caption-bottom text-sm'>
-            <thead>
-              <tr className='border-b bg-muted/25'>
-                <th className={`${kit.th} px-4`}>{t('tasks.fieldStatus')}</th>
-                <th className={kit.th}>{t('tasks.fieldCaseId')}</th>
-                <th className={kit.th}>{t('tasks.fieldId')}</th>
-                <th className={kit.th}>{t('tasks.fieldUpdatedAt')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((task) => {
-                const statusKey = taskStatusLabelKey(task.status)
-                return (
-                  <tr key={task.id} className='border-b last:border-0'>
-                    <td className='px-4 py-3'>
-                      <span className={statusTagClass(task.status)}>
-                        {statusKey ? t(statusKey) : task.status}
-                      </span>
-                    </td>
-                    <td className='max-w-32 truncate py-3'>{task.case_id}</td>
-                    <td className='max-w-40 truncate py-3 font-mono text-xs'>
-                      <Link
-                        to='/tasks/$taskId'
-                        params={{ taskId: task.id }}
-                        className='underline-offset-4 hover:underline'
-                      >
-                        {task.id}
-                      </Link>
-                    </td>
-                    <td className='py-3 whitespace-nowrap text-muted-foreground'>
-                      {formatTime(task.updated_at)}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className={kit.tableWrap}>
+            <table className='w-full caption-bottom text-sm'>
+              <thead>
+                <tr className='border-b bg-muted/25'>
+                  <th className={`${kit.th} px-4`}>{t('tasks.fieldStatus')}</th>
+                  <th className={kit.th}>{t('tasks.fieldCaseId')}</th>
+                  <th className={kit.th}>{t('tasks.fieldId')}</th>
+                  <th className={kit.th}>{t('tasks.fieldUpdatedAt')}</th>
+                  <th className={kit.th}>{t('edges.taskDetail')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.map((task) => {
+                  const statusKey = taskStatusLabelKey(task.status)
+                  return (
+                    <tr key={task.id} className='border-b last:border-0'>
+                      <td className='px-4 py-3'>
+                        <span className={statusTagClass(task.status)}>
+                          {statusKey ? t(statusKey) : task.status}
+                        </span>
+                      </td>
+                      <td className='max-w-32 truncate py-3'>{task.case_id}</td>
+                      <td className='max-w-40 truncate py-3 font-mono text-xs'>
+                        <Link
+                          to='/tasks/$taskId'
+                          params={{ taskId: task.id }}
+                          className='underline-offset-4 hover:underline'
+                        >
+                          {task.id}
+                        </Link>
+                      </td>
+                      <td className='py-3 whitespace-nowrap text-muted-foreground'>
+                        {formatTime(task.updated_at)}
+                      </td>
+                      <td className='py-3'>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='sm'
+                          onClick={() => setDetailId(task.id)}
+                        >
+                          {t('edges.taskDetail')}
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
+      {hasPrev || hasNext ? (
+        <div className='flex items-center justify-between gap-2'>
+          <span className='text-xs text-muted-foreground'>
+            {t('edges.tasksPage', { page })}
+          </span>
+          <div className='flex gap-2'>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={!hasPrev}
+              onClick={() =>
+                pagination.onOffsetChange(
+                  pagination.offset - pagination.pageSize
+                )
+              }
+            >
+              {t('edges.prevPage')}
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={!hasNext}
+              onClick={() =>
+                pagination.onOffsetChange(
+                  pagination.offset + pagination.pageSize
+                )
+              }
+            >
+              {t('edges.nextPage')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      <Dialog
+        open={detailId != null}
+        onOpenChange={(open) => {
+          if (!open) setDetailId(null)
+        }}
+      >
+        <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>
+          {detailId ? <TaskDetailPanel id={detailId} /> : null}
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }
@@ -526,16 +590,26 @@ function MonitoringSection({
         hint={t('edges.observationSystemHint')}
       />
       {!hasData ? (
-        <EmptyState className='py-6' message={t('edges.monitorEmpty')} />
+        <Empty className='border p-3 md:p-6'>
+          <EmptyHeader className='max-w-none'>
+            <EmptyMedia variant='icon'>
+              <Activity />
+            </EmptyMedia>
+            <EmptyTitle className='text-sm font-medium'>
+              {t('edges.monitorEmpty')}
+            </EmptyTitle>
+            <EmptyDescription className='whitespace-nowrap'>
+              {t('edges.monitorEmptyHint')}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
           <div className='flex flex-col gap-4 xl:flex-row'>
             <CpuCard series={data.series} />
-            <div className='flex w-full flex-col gap-4 xl:w-[410px]'>
-              <MemCard point={data.latest} />
-            </div>
+            <MemRateCard series={data.series} />
           </div>
-          <GpuCards point={data.latest} />
+          <GpuLineCards series={data.series} />
           <IOCard series={data.series} />
         </>
       )}
@@ -565,16 +639,24 @@ function BlockBody({
 type Props = {
   metricsQuery: QueryView<EdgeMetricsResponse | undefined>
   tasksQuery: QueryView<TaskRecord[] | undefined>
+  tasksPagination: TasksPagination
 }
 
-export function ObservationPanel({ metricsQuery, tasksQuery }: Props) {
+export function ObservationPanel({
+  metricsQuery,
+  tasksQuery,
+  tasksPagination,
+}: Props) {
   return (
     <div className='flex flex-col gap-7' data-testid='edge-observation'>
       <BlockBody query={metricsQuery}>
         <MonitoringSection data={parseMetrics(metricsQuery.data)} />
       </BlockBody>
       <BlockBody query={tasksQuery}>
-        <TasksSection tasks={tasksQuery.data ?? []} />
+        <TasksSection
+          tasks={tasksQuery.data ?? []}
+          pagination={tasksPagination}
+        />
       </BlockBody>
     </div>
   )

@@ -28,6 +28,10 @@
 - [x] 3.8 `detail-panel.tsx` 去掉 `getEdgeSystem`，改 `getEdgeMetrics` + `refetchInterval: 15000`；无历史数据渲染空态
 - [x] 3.9 i18n：`observationSystem` 改为「系统监控」/「System Monitoring」，hint 改为「CPU、内存、GPU、I/O」
 - [x] 3.10 合同测试锁定 chart 关键 class 与文案；补 `parseMetrics` 与空态测试
+- [x] 3.11 CPU 占用率与内存占用率并排折线图，图高改为基准 50%（`h-[100px] w-full min-w-0 sm:h-[120px] lg:h-[140px]`）；内存占用字节作为内存占用率图的辅助序列（右轴字节）
+- [x] 3.12 显卡占用率与显存占用率并排折线图（每张 GPU 一组），图高 50%；显存占用字节作为显存占用率图的辅助序列（右轴字节）；移除环形图卡
+- [x] 3.13 I/O 读/写图高度改为 50%
+- [x] 3.14 更新 i18n 标签（内存占用率/显存占用率）与合同测试（LineChart、50% 高度 class、无环形图 class）
 
 ## 4. 文档与验证
 
