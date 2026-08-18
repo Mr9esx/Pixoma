@@ -254,3 +254,70 @@ func TestChannelMenuItem_UniqueOrderWithinParent(t *testing.T) {
 		t.Fatal("duplicate order within same parent must be rejected by DB")
 	}
 }
+
+func TestReplaceTree_SameSeedAcrossChannels(t *testing.T) {
+	gdb := openTestDB(t)
+	migrateMenuTables(t, gdb)
+	repo := persistence.NewGormRepository(gdb)
+	ctx := context.Background()
+
+	chA := "tg-default"
+	chB := "feishu-1"
+	treeA := domain.DefaultSeedTree(chA)
+	treeA.Items[0].CaseIDs = []string{"case-a"}
+	treeB := domain.DefaultSeedTree(chB)
+	treeB.Items[0].CaseIDs = []string{"case-a"}
+
+	if err := repo.ReplaceTree(ctx, treeA); err != nil {
+		t.Fatalf("replace tree A: %v", err)
+	}
+	if err := repo.ReplaceTree(ctx, treeB); err != nil {
+		t.Fatalf("replace tree B: %v", err)
+	}
+
+	gotA, err := repo.GetTree(ctx, chA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotB, err := repo.GetTree(ctx, chB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotA.Items[0].ID != "btn-image" || gotB.Items[0].ID != "btn-image" {
+		t.Fatalf("seed ids: A=%q B=%q", gotA.Items[0].ID, gotB.Items[0].ID)
+	}
+	if gotA.ChannelID != chA || gotB.ChannelID != chB {
+		t.Fatalf("channel scoping: A=%q B=%q", gotA.ChannelID, gotB.ChannelID)
+	}
+	if len(gotA.Items[0].CaseIDs) != 1 || gotA.Items[0].CaseIDs[0] != "case-a" {
+		t.Fatalf("A case ids=%v", gotA.Items[0].CaseIDs)
+	}
+	if len(gotB.Items[0].CaseIDs) != 1 || gotB.Items[0].CaseIDs[0] != "case-a" {
+		t.Fatalf("B case ids=%v", gotB.Items[0].CaseIDs)
+	}
+
+	ps, err := repo.ListPlacementsByCase(ctx, "case-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	byChannel := map[string]domain.MenuPlacement{}
+	for _, p := range ps {
+		byChannel[p.ChannelID] = p
+	}
+	if len(byChannel) != 2 {
+		t.Fatalf("placements must resolve per channel, got %+v", ps)
+	}
+	for _, ch := range []string{chA, chB} {
+		p, ok := byChannel[ch]
+		if !ok {
+			t.Fatalf("missing placement for channel %q", ch)
+		}
+		if p.ItemID != "btn-image" {
+			t.Fatalf("channel %q item_id=%q", ch, p.ItemID)
+		}
+		last := p.Path[len(p.Path)-1]
+		if last.Label != "🖼 图片" {
+			t.Fatalf("channel %q path label=%q", ch, last.Label)
+		}
+	}
+}

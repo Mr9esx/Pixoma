@@ -23,8 +23,8 @@ func (ChannelMenuRow) TableName() string { return "channel_menus" }
 
 // ChannelMenuItemRow is a menu node under a channel.
 type ChannelMenuItemRow struct {
+	ChannelID       string `gorm:"primaryKey;size:128;not null;index;uniqueIndex:idx_ch_parent_label,priority:1;uniqueIndex:idx_ch_parent_order,priority:1"`
 	ID              string `gorm:"primaryKey;size:128"`
-	ChannelID       string `gorm:"size:128;not null;index;uniqueIndex:idx_ch_parent_label,priority:1;uniqueIndex:idx_ch_parent_order,priority:1"`
 	ParentID        string `gorm:"size:128;not null;default:'';uniqueIndex:idx_ch_parent_label,priority:2;uniqueIndex:idx_ch_parent_order,priority:2"`
 	Label           string `gorm:"size:256;not null;uniqueIndex:idx_ch_parent_label,priority:3"`
 	Order           int    `gorm:"column:sort_order;not null;uniqueIndex:idx_ch_parent_order,priority:3"`
@@ -39,6 +39,7 @@ func (ChannelMenuItemRow) TableName() string { return "channel_menu_items" }
 
 // ChannelMenuItemCaseRow links a menu item to a case.
 type ChannelMenuItemCaseRow struct {
+	ChannelID  string `gorm:"primaryKey;size:128;not null"`
 	MenuItemID string `gorm:"primaryKey;size:128"`
 	CaseID     string `gorm:"primaryKey;size:128"`
 	Sort       int    `gorm:"not null"`
@@ -92,7 +93,7 @@ func (r *GormRepository) GetTree(ctx context.Context, channelID string) (domain.
 	if len(itemIDs) > 0 {
 		var caseRows []ChannelMenuItemCaseRow
 		if err := r.db.WithContext(ctx).
-			Where("menu_item_id IN ?", itemIDs).
+			Where("menu_item_id IN ? AND channel_id = ?", itemIDs, channelID).
 			Order("menu_item_id, sort").
 			Find(&caseRows).Error; err != nil {
 			return domain.MenuTree{}, err
@@ -161,6 +162,7 @@ func (r *GormRepository) ReplaceTree(ctx context.Context, tree domain.MenuTree) 
 			}
 			for sort, caseID := range item.CaseIDs {
 				if err := tx.Create(&ChannelMenuItemCaseRow{
+					ChannelID:  tree.ChannelID,
 					MenuItemID: item.ID,
 					CaseID:     caseID,
 					Sort:       sort,
@@ -184,25 +186,34 @@ func (r *GormRepository) ListPlacementsByCase(ctx context.Context, caseID string
 		return nil, nil
 	}
 
-	itemIDs := make([]string, 0, len(links))
 	seen := map[string]struct{}{}
+	channelIDs := map[string]struct{}{}
+	itemIDs := map[string]struct{}{}
 	for _, link := range links {
-		if _, ok := seen[link.MenuItemID]; ok {
-			continue
-		}
-		seen[link.MenuItemID] = struct{}{}
-		itemIDs = append(itemIDs, link.MenuItemID)
+		channelIDs[link.ChannelID] = struct{}{}
+		itemIDs[link.MenuItemID] = struct{}{}
+		key := channelItemKey(link.ChannelID, link.MenuItemID)
+		seen[key] = struct{}{}
+	}
+
+	channelIDList := make([]string, 0, len(channelIDs))
+	for id := range channelIDs {
+		channelIDList = append(channelIDList, id)
+	}
+	itemIDList := make([]string, 0, len(itemIDs))
+	for id := range itemIDs {
+		itemIDList = append(itemIDList, id)
 	}
 
 	var itemRows []ChannelMenuItemRow
-	if err := r.db.WithContext(ctx).Where("id IN ?", itemIDs).Find(&itemRows).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Where("id IN ? AND channel_id IN ?", itemIDList, channelIDList).
+		Find(&itemRows).Error; err != nil {
 		return nil, err
 	}
-	byID := make(map[string]ChannelMenuItemRow, len(itemRows))
-	channelIDs := map[string]struct{}{}
+	byKey := make(map[string]ChannelMenuItemRow, len(itemRows))
 	for _, row := range itemRows {
-		byID[row.ID] = row
-		channelIDs[row.ChannelID] = struct{}{}
+		byKey[channelItemKey(row.ChannelID, row.ID)] = row
 	}
 
 	rowsByChannel := map[string][]ChannelMenuItemRow{}
@@ -216,7 +227,7 @@ func (r *GormRepository) ListPlacementsByCase(ctx context.Context, caseID string
 
 	placements := make([]domain.MenuPlacement, 0, len(links))
 	for _, link := range links {
-		item, ok := byID[link.MenuItemID]
+		item, ok := byKey[channelItemKey(link.ChannelID, link.MenuItemID)]
 		if !ok {
 			continue
 		}
@@ -238,6 +249,10 @@ func (r *GormRepository) ListPlacementsByCase(ctx context.Context, caseID string
 		return placements[i].ItemID < placements[j].ItemID
 	})
 	return placements, nil
+}
+
+func channelItemKey(channelID, itemID string) string {
+	return channelID + "\x00" + itemID
 }
 
 func (r *GormRepository) EnsureDefault(

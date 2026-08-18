@@ -135,6 +135,12 @@ func (r *notifyRegistry) set(channelID string, h channelruntime.NotifyHandler) {
 	r.handlers[channelID] = h
 }
 
+func (r *notifyRegistry) unset(channelID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.handlers, channelID)
+}
+
 func (r *notifyRegistry) lookup(channelID string) (channelruntime.NotifyHandler, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -203,6 +209,7 @@ func (w *tgBotWrapper) Stop(ctx context.Context) error {
 		w.cancel()
 		w.cancel = nil
 	}
+	w.registry.unset(w.channelID)
 	return nil
 }
 

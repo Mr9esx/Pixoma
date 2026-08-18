@@ -3,8 +3,7 @@ package domain
 import "time"
 
 const (
-	MaxTreeDepth    = 5
-	MaxIntroTextLen = 3500
+	MaxTreeDepth = 5
 )
 
 type MenuKind string

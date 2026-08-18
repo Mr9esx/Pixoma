@@ -28,7 +28,7 @@ func (m *BotMessenger) SendText(ctx context.Context, addr sharedkernel.ChannelAd
 	if err != nil {
 		return err
 	}
-	_, err = m.Bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: text})
+	_, err = m.Bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: truncateTGText(text, maxTGTextRunes)})
 	return err
 }
 
@@ -40,7 +40,7 @@ func (m *BotMessenger) SendMenu(ctx context.Context, addr sharedkernel.ChannelAd
 	kb := m.replyKeyboard(ctx)
 	_, err = m.Bot.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatID,
-		Text:        title,
+		Text:        truncateTGText(title, maxTGTextRunes),
 		ReplyMarkup: kb,
 	})
 	return err
@@ -53,7 +53,7 @@ func (m *BotMessenger) SendList(ctx context.Context, addr sharedkernel.ChannelAd
 	}
 	_, err = m.Bot.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatID,
-		Text:        title,
+		Text:        truncateTGText(title, maxTGTextRunes),
 		ReplyMarkup: toInlineMarkup(rows),
 	})
 	return err
@@ -67,7 +67,7 @@ func (m *BotMessenger) SendMedia(ctx context.Context, addr sharedkernel.ChannelA
 	if m.Blob == nil {
 		_, err := m.Bot.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatID,
-			Text:   caption + "\n(blob: " + ref.Key + ")",
+			Text:   truncateTGText(caption+"\n(blob: "+ref.Key+")", maxTGTextRunes),
 		})
 		return err
 	}
@@ -83,7 +83,7 @@ func (m *BotMessenger) SendMedia(ctx context.Context, addr sharedkernel.ChannelA
 	name := photoUploadName(ref.Key)
 	_, err = m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
 		ChatID:  chatID,
-		Caption: caption,
+		Caption: truncateTGText(caption, maxTGCaptionRunes),
 		Photo:   &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
 	})
 	return err
@@ -96,7 +96,7 @@ func (m *BotMessenger) SendMediaURL(ctx context.Context, addr sharedkernel.Chann
 	}
 	_, err = m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
 		ChatID:  chatID,
-		Caption: caption,
+		Caption: truncateTGText(caption, maxTGCaptionRunes),
 		Photo:   &models.InputFileString{Data: imageURL},
 	})
 	return err
@@ -133,4 +133,20 @@ func toInlineMarkup(rows [][]ports.Button) *models.InlineKeyboardMarkup {
 
 func externalChatID(addr sharedkernel.ChannelAddr) (int64, error) {
 	return strconv.ParseInt(addr.ExternalChatID, 10, 64)
+}
+
+const (
+	maxTGTextRunes    = 4096
+	maxTGCaptionRunes = 1024
+)
+
+func truncateTGText(s string, maxRunes int) string {
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+	if maxRunes <= 1 {
+		return "…"
+	}
+	return string(r[:maxRunes-1]) + "…"
 }
