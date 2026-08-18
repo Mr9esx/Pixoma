@@ -4,6 +4,9 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
   XAxis,
   YAxis,
 } from 'recharts'
@@ -20,6 +23,7 @@ import {
 import { taskStatusLabelKey } from '@/features/tasks/list-panel'
 import { kit } from './kit-classes'
 import type { MetricsPoint } from './observation'
+import { formatBytes } from './observation'
 
 export function CpuCard({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
@@ -83,6 +87,111 @@ export function CpuCard({ series }: { series: MetricsPoint[] }) {
             />
           </AreaChart>
         </ChartContainer>
+      </div>
+    </div>
+  )
+}
+
+export function MemCard({ point }: { point: MetricsPoint | null }) {
+  const { t } = useTranslation()
+  const pct = point?.memPct ?? 0
+  const used = point?.memUsed ?? 0
+  const total = point?.memTotal ?? 0
+  const free = Math.max(total - used, 0)
+  const data = [
+    {
+      name: t('edges.monitorMemUsed'),
+      value: used,
+      fill: 'var(--color-used)',
+    },
+    {
+      name: t('edges.monitorMemFree'),
+      value: free,
+      fill: 'var(--color-free)',
+    },
+  ]
+  return (
+    <div className='bg-card flex flex-1 flex-col gap-4 rounded-xl border p-4 sm:p-5'>
+      <div className='flex items-center justify-between'>
+        <div className='flex items-center gap-2 sm:gap-2.5'>
+          <div>
+            <span className='text-sm font-medium sm:text-base'>
+              {t('edges.monitorMem')}
+            </span>
+            <p className='text-muted-foreground text-[10px] sm:text-xs'>
+              {total > 0 ? formatBytes(total) : '—'}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className='flex flex-1 items-center gap-4 sm:gap-6'>
+        <div className='relative size-[100px] shrink-0 sm:size-[120px]'>
+          <ChartContainer
+            config={{
+              used: {
+                label: t('edges.monitorMemUsed'),
+                color: 'var(--primary)',
+              },
+              free: {
+                label: t('edges.monitorMemFree'),
+                color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+              },
+            }}
+            className='h-full w-full'
+          >
+            <PieChart>
+              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+              <Pie
+                data={data}
+                dataKey='value'
+                nameKey='name'
+                innerRadius={30}
+                outerRadius={49.5}
+                strokeWidth={0}
+              >
+                {data.map((entry) => (
+                  <Cell key={entry.name} fill={entry.fill} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ChartContainer>
+          <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
+            <span className='text-sm font-semibold sm:text-base'>
+              {pct.toFixed(1)}%
+            </span>
+            <span className='text-muted-foreground text-[8px] sm:text-[10px]'>
+              {t('edges.monitorMemUsed')}
+            </span>
+          </div>
+        </div>
+        <div className='flex flex-1 flex-col gap-2 sm:gap-3'>
+          {data.map((entry) => (
+            <div
+              key={entry.name}
+              className='flex items-center justify-between gap-2'
+            >
+              <div className='flex items-center gap-2'>
+                <div
+                  className='size-2 rounded-full sm:size-2.5'
+                  style={{ backgroundColor: entry.fill }}
+                />
+                <span className='text-muted-foreground text-[10px] sm:text-xs'>
+                  {entry.name}
+                </span>
+              </div>
+              <div className='flex items-center gap-2 text-[10px] sm:text-xs'>
+                <span className='font-medium tabular-nums'>
+                  {formatBytes(entry.value)}
+                </span>
+                <span className='text-muted-foreground tabular-nums'>
+                  {total > 0
+                    ? `${((entry.value / total) * 100).toFixed(1)}%`
+                    : '—'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
