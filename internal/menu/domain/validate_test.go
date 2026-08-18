@@ -126,8 +126,8 @@ func TestValidate_OpenCaseRequiresExistingCase(t *testing.T) {
 	}
 }
 
-func TestValidate_FolderIntroTooLong(t *testing.T) {
-	long := strings.Repeat("x", domain.MaxIntroTextLen+1)
+func TestValidate_FolderIntroHasNoPlatformLengthLimit(t *testing.T) {
+	long := strings.Repeat("x", 10000)
 	tree := domain.MenuTree{
 		ChannelID: "tg-default",
 		Items: []domain.MenuNode{{
@@ -135,8 +135,8 @@ func TestValidate_FolderIntroTooLong(t *testing.T) {
 		}},
 	}
 	err := domain.Validate(context.Background(), tree, nil)
-	if !errors.Is(err, domain.ErrValidation) {
-		t.Fatalf("got %v", err)
+	if err != nil {
+		t.Fatalf("neutral domain must not enforce platform length limits: %v", err)
 	}
 }
 

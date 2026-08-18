@@ -114,8 +114,12 @@ func (a *Assembler) reconcile(ctx context.Context) error {
 func (a *Assembler) restartLocked(ctx context.Context, ma *managedAdapter) {
 	if ma.adapter != nil && (ma.state == stateRunning || ma.state == stateStarting) {
 		if err := ma.adapter.Stop(ctx); err != nil {
+			ma.state = stateError
+			ma.lastErr = err
 			slog.Error("channel adapter stop", "err", err, "channel", ma.snapshot.ID)
+			return
 		}
+		ma.adapter = nil
 	}
 	ad, err := a.Factory.Create(ma.snapshot)
 	if err != nil {

@@ -149,6 +149,28 @@ func TestChannelMenuHandler_ScopedTreeAndExtras(t *testing.T) {
 		t.Fatalf("extras=%v", gotExtras)
 	}
 
+	// 载荷缺 menu_item_id 时以 map key 为准
+	extrasNoID := map[string]any{"btn-image": []any{
+		map[string]any{"extra_type": "tg_root_layout", "extra_json": `{"columns":3}`},
+	}}
+	rawExtrasNoID, _ := json.Marshal(extrasNoID)
+	noIDReq, _ := http.NewRequest(http.MethodPut, srv.URL+"/api/v1/channels/"+id+"/menu/extras", bytes.NewReader(rawExtrasNoID))
+	noIDResp, err := http.DefaultClient.Do(noIDReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	noIDResp.Body.Close()
+	if noIDResp.StatusCode != http.StatusOK {
+		t.Fatalf("put extras without menu_item_id status=%d", noIDResp.StatusCode)
+	}
+	gotExtrasRes2, _ := http.Get(srv.URL + "/api/v1/channels/" + id + "/menu/extras")
+	var gotExtras2 map[string][]any
+	_ = json.NewDecoder(gotExtrasRes2.Body).Decode(&gotExtras2)
+	gotExtrasRes2.Body.Close()
+	if len(gotExtras2["btn-image"]) != 1 {
+		t.Fatalf("extras after no-id put=%v", gotExtras2)
+	}
+
 	// 非法 extras 400
 	badExtras := map[string]any{"btn-image": []any{
 		map[string]any{"extra_type": "tg_root_layout", "extra_json": "not-json"},

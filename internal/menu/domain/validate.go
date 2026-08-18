@@ -114,9 +114,6 @@ func validateItemKind(ctx context.Context, it MenuItem, caseExists CaseExistsFun
 		if it.Kind != KindFolder {
 			return fmt.Errorf("%w: item %q intro_text only allowed on folder", ErrValidation, it.ID)
 		}
-		if len(it.IntroText) > MaxIntroTextLen {
-			return fmt.Errorf("%w: item %q intro_text exceeds %d characters", ErrValidation, it.ID, MaxIntroTextLen)
-		}
 	}
 
 	switch it.Kind {

@@ -99,17 +99,17 @@ func (h *Handler) putExtras(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for itemID, extras := range body {
-		for _, extra := range extras {
-			if extra.ExtraType == "" {
+		for i := range extras {
+			extras[i].MenuItemID = itemID
+			if extras[i].ExtraType == "" {
 				writeErr(w, http.StatusBadRequest, "extra_type required")
 				return
 			}
 			var probe any
-			if err := json.Unmarshal([]byte(extra.ExtraJSON), &probe); err != nil {
+			if err := json.Unmarshal([]byte(extras[i].ExtraJSON), &probe); err != nil {
 				writeErr(w, http.StatusBadRequest, "extra_json must be valid JSON")
 				return
 			}
-			extra.MenuItemID = itemID
 		}
 	}
 	if err := h.Svc.SaveExtras(r.Context(), chi.URLParam(r, "id"), body); err != nil {
