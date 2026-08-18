@@ -130,7 +130,15 @@ func nvidiaSMI(ctx context.Context) ([]edge.GPUMetric, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := csv.NewReader(strings.NewReader(string(out))).ReadAll()
+	return parseNvidiaSMIOutput(out)
+}
+
+func parseNvidiaSMIOutput(out []byte) ([]edge.GPUMetric, error) {
+	reader := csv.NewReader(strings.NewReader(string(out)))
+	// nvidia-smi pads fields with a space before quoted names; without this,
+	// a GPU name containing a comma would make the whole parse fail.
+	reader.TrimLeadingSpace = true
+	rows, err := reader.ReadAll()
 	if err != nil {
 		return nil, err
 	}
