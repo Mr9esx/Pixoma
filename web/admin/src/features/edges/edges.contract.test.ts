@@ -123,6 +123,10 @@ describe('compute node layout and detail', () => {
     expect(chart).toMatch(/aspect-video/)
     expect(observe).toMatch(/aspect-auto/)
     expect(observe).toMatch(/h-full min-h-\[120px\] w-full min-w-0/)
+    expect(observe).toMatch(
+      /orientation='right'\s+tickFormatter=\{\(v: number\) => formatBytes\(v\)\}\s+width=\{64\}/
+    )
+    expect(observe).not.toMatch(/formatBytes\(v\)\}\s*width=\{48\}/)
     expect(observe).toMatch(/text-base font-semibold/)
     expect(observe).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_92px\]/)
     expect(observe).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_122px\]/)
