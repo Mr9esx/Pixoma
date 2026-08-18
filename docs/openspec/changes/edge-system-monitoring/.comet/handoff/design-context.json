@@ -1,0 +1,14 @@
+{
+  "change": "edge-system-monitoring",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "5182cd588ca1df28d4a51d71502d42ec7ba0af49c3961a5af9cbea923dc1a008",
+  "files": [
+    { "path": "docs/openspec/changes/edge-system-monitoring/proposal.md", "sha256": "8279371780953c6d59784862ce12ad9b49f1fc604bc97420f38fe8a34c1c5ebe" },
+    { "path": "docs/openspec/changes/edge-system-monitoring/design.md", "sha256": "e9963e9cb3599401e05265f3b36c69ca331ff14ac946387ae8620b8f6c9bce56" },
+    { "path": "docs/openspec/changes/edge-system-monitoring/tasks.md", "sha256": "e7dd4a1421fe1d59f2e4cdffaa8198cb7b36fd21f3374d4fa8db48169993c06e" },
+    { "path": "docs/openspec/changes/edge-system-monitoring/specs/edge-metrics/spec.md", "sha256": "501a246675e015833d7a56bfa1eaa4fa3dc1b7335236acbfceb4fc296bc36d58" }
+  ]
+}

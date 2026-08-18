@@ -1,0 +1,57 @@
+## Purpose
+
+让节点详情页在不依赖控制面直连 Edge 的前提下展示实时系统指标：由 Edge 心跳主动上报、控制面持久化记录、管理端以参考页同款 chart 组件展示图表。
+
+## ADDED Requirements
+
+### Requirement: Edge 心跳上报系统指标
+
+Edge-Agent MUST 在每次 presence 心跳上报时携带最近一次采集的系统指标快照。快照 MUST 包含以下字段：CPU 占用率（百分比）、内存已用字节、内存总量字节、内存占用率（百分比）、GPU 列表（每张 GPU 的名称、占用率百分比、显存已用字节、显存总量字节、显存占用率百分比）、磁盘 I/O 读速率与写速率（字节/秒）。任一单项指标采集失败或当前不可用时，MUST 允许该字段为空或以明确标记呈现，且 MUST NOT 阻止其余字段的正常上报。控制面收到快照后 MUST 将其记录到该 Edge 名下。
+
+#### Scenario: 内网 Edge 正常上报
+- **WHEN** 一台部署在内网的 Edge 按心跳周期完成一次系统指标采集并上报
+- **THEN** 控制面成功接收并记录该快照，快照包含 CPU 占用率、内存占用与占用率、GPU 占用率与显存占用/占用率、I/O 读/写速率字段
+
+#### Scenario: 部分指标不可用
+- **WHEN** Edge 所在机器没有可查询的 GPU 占用率来源（例如非 NVIDIA 主机）
+- **THEN** 该 Edge 仍上报 CPU、内存与 I/O 等可用指标，GPU 字段为空或带不可用标记，上报不被整体拒绝
+
+#### Scenario: 心跳鉴权失败
+- **WHEN** Edge 携带非法或缺失的 agent token 上报指标
+- **THEN** 控制面拒绝该上报且不记录指标
+
+### Requirement: 控制面持久化并查询指标
+
+系统 MUST 为每个 Edge 持久化每次上报的系统指标快照及采集时间，并提供管理端查询接口 `GET /api/v1/edges/{id}/metrics`。该接口 MUST 返回指定时间窗口内按时间升序排列的指标序列与最新快照；查询不存在的 Edge 时 MUST 返回未找到错误；Edge 存在但尚无任何指标时 MUST 返回空序列。系统 MUST 定期清理超出保留窗口的历史数据，保留窗口默认为 24 小时且可通过配置调整。
+
+#### Scenario: 查询存在指标
+- **WHEN** 管理端查询一台已多次上报指标的 Edge 的 metrics 接口
+- **THEN** 响应包含按时间升序的指标序列，每项含 CPU、内存、GPU 与 I/O 字段及采集时间
+
+#### Scenario: 查询暂无指标的 Edge
+- **WHEN** 管理端查询一台已登记但从未上报过指标的 Edge
+- **THEN** 响应为 200 且指标序列为空，页面可呈现空态
+
+#### Scenario: 查询不存在的 Edge
+- **WHEN** 管理端查询一个不存在的 Edge ID
+- **THEN** 响应为未找到错误
+
+#### Scenario: 过期数据被清理
+- **WHEN** 系统写入新指标且存在超出保留窗口的旧记录
+- **THEN** 旧记录被清理，查询结果只包含窗口内的数据
+
+### Requirement: Admin 节点详情页系统监控视图
+
+节点详情页原有「系统」节 MUST 改名为「系统监控」。该节 MUST 从服务端指标接口取数并展示图表，MUST NOT 依赖控制面直连 Edge 或 Edge 本机 ComfyUI 获取系统数据；因此当 Edge 位于内网、控制面无法入站连接时，该节 MUST 仍能显示已上报的最新指标与历史图表，不得显示「连接被拒绝」等直连错误。展示 MUST 覆盖 CPU 占用率、内存占用与占用率、GPU 占用率、GPU 显存占用与占用率、磁盘 I/O 读/写速率。图表 MUST 使用参考 MHTML（Shadcnblocks Admin Kit dashboard-3）中同一套 chart 组件与样式体系，包括 `data-slot="chart"` 容器、`[&_.recharts-*]` 样式修饰、`aspect-video`、卡片图例、渐变填充与 `var(--primary)` / `color-mix` 配色，不得仅复制布局。页面 MUST 周期性刷新指标数据。
+
+#### Scenario: 内网 Edge 展示监控图表
+- **WHEN** 管理员打开一台已上报指标的内网 Edge 的详情页
+- **THEN** 「系统监控」节显示 CPU、内存、GPU 与 I/O 图表，数据来自服务端记录，页面不出现直连错误
+
+#### Scenario: 无历史数据
+- **WHEN** 管理员打开一台尚未上报指标的 Edge 的详情页
+- **THEN** 「系统监控」节显示空态且不渲染无数据的图表
+
+#### Scenario: 无 GPU 数据
+- **WHEN** Edge 上报的 GPU 字段为空
+- **THEN** 系统监控节隐藏或降级 GPU 相关图表，CPU、内存与 I/O 图表正常显示

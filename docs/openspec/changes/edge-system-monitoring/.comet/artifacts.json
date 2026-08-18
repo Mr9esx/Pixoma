@@ -1,0 +1,8 @@
+{
+  "openspec_proposal": "docs/openspec/changes/edge-system-monitoring/proposal.md",
+  "openspec_design": "docs/openspec/changes/edge-system-monitoring/design.md",
+  "openspec_tasks": "docs/openspec/changes/edge-system-monitoring/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/edge-system-monitoring/specs/edge-metrics/spec.md",
+  "handoff_context": "docs/openspec/changes/edge-system-monitoring/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/edge-system-monitoring/.comet/handoff/design-context.md"
+}
