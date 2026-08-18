@@ -103,3 +103,30 @@
 ## Round 2 结论
 
 无 CRITICAL/WARNING。Ready for archive（待用户归档确认）。
+
+---
+
+# Round 3（2026-08-18，数值可读性与图表内边距复审）
+
+## 变更
+
+用户反馈三点（archive 挂起后回退 build，`verify_failures` 重置）：
+1. 图表「已用」显示原始字节大数值 → `formatBytes` 改为自适应二进制单位（B/KiB/MiB/GiB/TiB，1 位小数、≥100 取整），内存占用/显存占用/I/O 读/写序列的 tooltip 与坐标轴 tick 全部走该格式化；百分比序列 tooltip 补 `%`
+2. chart 内边距过大 → 左右 margin 12→4px，百分比轴宽 36、字节轴宽 48
+3. I/O Y 轴一直为 0 → 根因是旧 `formatBytes` 对 <0.5 MiB 的值四舍五入为「0 MiB」；自适应格式化后小速率正常显示（如 349.5 KiB）
+
+单位说明：贴合实际采用 GiB/MiB（内存/显存为 1024 进制），用户已确认不强制 MB/GB。
+
+## Round 3 验证结果
+
+| 检查项 | 结果 |
+|---|---|
+| tasks.md 全部勾选（32/32） | PASS |
+| 实现符合要求 | PASS（`observation.ts` 自适应 `formatBytes`；`observation-panel.tsx` `chartTooltipFormatter` + margin/轴宽收窄） |
+| 编译通过 | PASS（`npm run build` 成功；`go build ./...` 通过） |
+| 测试通过 | PASS（`npx vitest run` 30 文件/104 测试；`go test ./...` 全绿） |
+| 无安全回归 | PASS（纯展示层改动） |
+
+## Round 3 结论
+
+无 CRITICAL/WARNING。Ready for archive（待用户归档确认）。
