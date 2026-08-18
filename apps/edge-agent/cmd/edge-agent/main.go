@@ -9,9 +9,13 @@ import (
 	"syscall"
 	"time"
 
+	edgehw "github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/hardware"
+	edgemetrics "github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/metrics"
+	"github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/presence"
 	"github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/pull"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -27,7 +31,7 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	instID := envOr("INSTANCE_ID", "local")
+	instID := envOr("EDGE_ID", "local")
 	baseURL := envOr("CONTROL_PLANE_URL", envOr("PIXOMA_URL", "http://127.0.0.1:8080"))
 	token := strings.TrimSpace(os.Getenv("AGENT_TOKEN"))
 	if token == "" {
@@ -43,31 +47,40 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	var comfy comfyui.Client
-	if comfyMock {
-		comfy = &comfyui.Mock{}
-	} else {
-		comfy, err = comfyui.NewClient(comfyui.Options{Mock: false, BaseURL: comfyURL})
-		if err != nil {
-			return err
-		}
+	comfy, err := comfyui.NewClient(comfyui.Options{Mock: comfyMock, BaseURL: comfyURL})
+	if err != nil {
+		return err
 	}
 
 	client := pull.NewClient(baseURL, token, instID)
 	worker := &actuator.Worker{
-		InstanceID: sharedkernel.InstanceID(instID),
-		Comfy:      comfy,
-		Blob:       blobStore,
-		Status:     pull.NewStatusPublisher(client),
+		EdgeID: sharedkernel.EdgeID(instID),
+		Comfy:  comfy,
+		Blob:   blobStore,
+		Status: pull.NewStatusPublisher(client),
 	}
 	loop := &pull.Loop{Client: client, Worker: worker, Wait: wait}
+	sampler := edgemetrics.NewSampler(comfyMock)
+	reporter := &presence.Reporter{
+		Client:          client,
+		Comfy:           comfy,
+		Collect: func(ctx context.Context) edge.Hardware {
+			return edgehw.Collect(ctx, edgehw.InspectGHW, comfy)
+		},
+		Sample:          sampler.Sample,
+		MetricsInterval: envDuration("METRICS_INTERVAL", 30*time.Second),
+		SendHardware:    true,
+	}
 
 	slog.Info("pixoma-edge-agent running",
-		"instance_id", instID,
+		"edge_id", instID,
 		"control_plane", baseURL,
 		"mock", comfyMock,
 		"blob_driver", driver,
 	)
+	go func() {
+		_ = reporter.Run(ctx)
+	}()
 	return loop.Run(ctx)
 }
 

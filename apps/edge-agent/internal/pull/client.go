@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -18,32 +20,32 @@ import (
 
 // Job is a claim response from the control-plane Agent API.
 type Job struct {
-	TaskID     sharedkernel.TaskID     `json:"task_id"`
-	InstanceID sharedkernel.InstanceID `json:"instance_id"`
-	JobRef     sharedkernel.BlobRef    `json:"job_ref"`
-	LeaseUntil time.Time               `json:"lease_until"`
+	TaskID     sharedkernel.TaskID  `json:"task_id"`
+	EdgeID     sharedkernel.EdgeID  `json:"edge_id"`
+	JobRef     sharedkernel.BlobRef `json:"job_ref"`
+	LeaseUntil time.Time            `json:"lease_until"`
 }
 
 // Client talks to control-plane /agent/v1.
 type Client struct {
-	BaseURL    string
-	Token      string
-	InstanceID string
-	HTTP       *http.Client
+	BaseURL string
+	Token   string
+	EdgeID  string
+	HTTP    *http.Client
 }
 
-func NewClient(baseURL, token, instanceID string) *Client {
+func NewClient(baseURL, token, edgeID string) *Client {
 	return &Client{
-		BaseURL:    strings.TrimRight(strings.TrimSpace(baseURL), "/"),
-		Token:      token,
-		InstanceID: instanceID,
-		HTTP:       &http.Client{Timeout: 60 * time.Second},
+		BaseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"),
+		Token:   token,
+		EdgeID:  edgeID,
+		HTTP:    &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
 func (c *Client) Claim(ctx context.Context, wait time.Duration) (*Job, error) {
 	q := url.Values{}
-	q.Set("instance_id", c.InstanceID)
+	q.Set("edge_id", c.EdgeID)
 	if wait > 0 {
 		q.Set("wait", wait.String())
 	} else {
@@ -80,7 +82,7 @@ func (c *Client) Claim(ctx context.Context, wait time.Duration) (*Job, error) {
 }
 
 func (c *Client) Heartbeat(ctx context.Context, taskID sharedkernel.TaskID) error {
-	body, _ := json.Marshal(map[string]string{"instance_id": c.InstanceID})
+	body, _ := json.Marshal(map[string]string{"edge_id": c.EdgeID})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/agent/v1/jobs/"+url.PathEscape(string(taskID))+"/heartbeat", bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -102,17 +104,62 @@ func (c *Client) Heartbeat(ctx context.Context, taskID sharedkernel.TaskID) erro
 	return nil
 }
 
+func (c *Client) ReportPresence(ctx context.Context, comfyRunning bool, hw *edge.Hardware, m *edge.Metrics) (bool, error) {
+	payload := map[string]any{
+		"edge_id":       c.EdgeID,
+		"comfy_running": comfyRunning,
+	}
+	if hw != nil {
+		payload["hardware"] = hw
+	}
+	if m != nil {
+		payload["metrics"] = m
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return false, fmt.Errorf("pull: encode presence: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/agent/v1/presence", bytes.NewReader(body))
+	if err != nil {
+		return false, err
+	}
+	c.auth(req)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode == http.StatusUnauthorized {
+		return false, fmt.Errorf("pull: unauthorized")
+	}
+	if res.StatusCode == http.StatusNoContent {
+		return false, nil
+	}
+	if res.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
+		return false, fmt.Errorf("pull: presence status %d: %s", res.StatusCode, raw)
+	}
+	var out struct {
+		RefreshHardware bool `json:"refresh_hardware"`
+	}
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&out); err != nil && !errors.Is(err, io.EOF) {
+		return false, fmt.Errorf("pull: decode presence: %w", err)
+	}
+	return out.RefreshHardware, nil
+}
+
 func (c *Client) ReportStatus(ctx context.Context, ev sharedkernel.TaskStatusEvent) error {
 	payload := map[string]any{
-		"instance_id": string(ev.InstanceID),
-		"status":      string(ev.Status),
-		"prompt_id":   ev.PromptID,
-		"outputs":     ev.Outputs,
-		"error_code":  ev.ErrorCode,
-		"error_msg":   ev.ErrorMsg,
+		"edge_id":    string(ev.EdgeID),
+		"status":     string(ev.Status),
+		"prompt_id":  ev.PromptID,
+		"outputs":    ev.Outputs,
+		"error_code": ev.ErrorCode,
+		"error_msg":  ev.ErrorMsg,
 	}
-	if payload["instance_id"] == "" {
-		payload["instance_id"] = c.InstanceID
+	if payload["edge_id"] == "" {
+		payload["edge_id"] = c.EdgeID
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -199,12 +246,12 @@ func (l *Loop) Run(ctx context.Context) error {
 			continue
 		}
 		cmd := sharedkernel.DispatchCommand{
-			TaskID:     job.TaskID,
-			InstanceID: job.InstanceID,
-			JobRef:     job.JobRef,
+			TaskID: job.TaskID,
+			EdgeID: job.EdgeID,
+			JobRef: job.JobRef,
 		}
-		if cmd.InstanceID == "" {
-			cmd.InstanceID = sharedkernel.InstanceID(l.Client.InstanceID)
+		if cmd.EdgeID == "" {
+			cmd.EdgeID = sharedkernel.EdgeID(l.Client.EdgeID)
 		}
 		hbCtx, cancel := context.WithCancel(ctx)
 		go l.heartbeat(hbCtx, job.TaskID)
