@@ -43,6 +43,20 @@ function timeTick(v: number): string {
   return new Date(v).toLocaleTimeString()
 }
 
+function chartTooltipFormatter(value: unknown, name: unknown): ReactNode {
+  const n = typeof value === 'number' ? value : Number(value)
+  const key = String(name)
+  if (
+    key === 'used' ||
+    key === 'vramUsed' ||
+    key === 'read' ||
+    key === 'write'
+  ) {
+    return Number.isFinite(n) ? formatBytes(n) : String(value ?? '')
+  }
+  return Number.isFinite(n) ? `${n.toFixed(1)}%` : String(value ?? '')
+}
+
 function LineCardShell({
   title,
   value,
@@ -101,16 +115,19 @@ export function CpuCard({ series }: { series: MetricsPoint[] }) {
         cpu: { label: t('edges.monitorCpu'), color: 'var(--primary)' },
       }}
     >
-      <LineChart data={data} margin={{ left: 12, right: 12 }}>
+      <LineChart data={data} margin={{ left: 4, right: 4 }}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
         <YAxis
+          width={36}
           domain={[0, 100]}
           tickFormatter={(v: number) => `${v}%`}
           tickLine={false}
           axisLine={false}
         />
-        <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartTooltip
+          content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+        />
         <Line
           dataKey='cpu'
           type='natural'
@@ -146,11 +163,12 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
         },
       }}
     >
-      <LineChart data={data} margin={{ left: 12, right: 12 }}>
+      <LineChart data={data} margin={{ left: 4, right: 4 }}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
         <YAxis
           yAxisId='rate'
+          width={36}
           domain={[0, 100]}
           tickFormatter={(v: number) => `${v}%`}
           tickLine={false}
@@ -162,9 +180,11 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
           tickFormatter={(v: number) => formatBytes(v)}
           tickLine={false}
           axisLine={false}
-          width={60}
+          width={48}
         />
-        <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartTooltip
+          content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+        />
         <Line
           yAxisId='rate'
           dataKey='rate'
@@ -218,16 +238,19 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
                 },
               }}
             >
-              <LineChart data={data} margin={{ left: 12, right: 12 }}>
+              <LineChart data={data} margin={{ left: 4, right: 4 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
                 <YAxis
+                  width={36}
                   domain={[0, 100]}
                   tickFormatter={(v: number) => `${v}%`}
                   tickLine={false}
                   axisLine={false}
                 />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip
+                  content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+                />
                 <Line
                   dataKey='usage'
                   type='natural'
@@ -251,11 +274,12 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
                 },
               }}
             >
-              <LineChart data={data} margin={{ left: 12, right: 12 }}>
+              <LineChart data={data} margin={{ left: 4, right: 4 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey='time' tickFormatter={timeTick} tickLine={false} axisLine={false} />
                 <YAxis
                   yAxisId='rate'
+                  width={36}
                   domain={[0, 100]}
                   tickFormatter={(v: number) => `${v}%`}
                   tickLine={false}
@@ -267,9 +291,11 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
                   tickFormatter={(v: number) => formatBytes(v)}
                   tickLine={false}
                   axisLine={false}
-                  width={60}
+                  width={48}
                 />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip
+                  content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+                />
                 <Line
                   yAxisId='rate'
                   dataKey='vramPct'
@@ -349,7 +375,7 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
           }}
           className='h-full w-full'
         >
-          <AreaChart data={data} margin={{ left: 12, right: 12 }}>
+          <AreaChart data={data} margin={{ left: 4, right: 4 }}>
             <defs>
               <linearGradient id='readGradient' x1='0' y1='0' x2='0' y2='1'>
                 <stop
@@ -387,9 +413,11 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
               tickFormatter={(v: number) => formatBytes(v)}
               tickLine={false}
               axisLine={false}
-              width={60}
+              width={48}
             />
-            <ChartTooltip content={<ChartTooltipContent />} />
+            <ChartTooltip
+              content={<ChartTooltipContent formatter={chartTooltipFormatter} />}
+            />
             <Area
               dataKey='read'
               type='natural'

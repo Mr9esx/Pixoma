@@ -52,6 +52,9 @@ describe('parseMetrics', () => {
 
   it('formats bytes for charts', () => {
     expect(formatBytes(1024 ** 3)).toBe('1.0 GiB')
-    expect(formatBytes(2 * 1024 ** 2)).toBe('2 MiB')
+    expect(formatBytes(2 * 1024 ** 2)).toBe('2.0 MiB')
+    expect(formatBytes(500)).toBe('500 B')
+    expect(formatBytes(0)).toBe('0 B')
+    expect(formatBytes(12 * 1024)).toBe('12.0 KiB')
   })
 })
