@@ -182,15 +182,15 @@ func TestParseChatIDInvalid(t *testing.T) {
 - Produces: `type Extra struct { ChannelID, MenuItemID, ExtraType, ExtraJSON string; UpdatedAt time.Time }`
 - Produces: `Repository` 追加 `ListExtras(ctx, channelID string) (map[string][]Extra, error)`、`SaveExtras(ctx, channelID string, extras map[string][]Extra) error`（按 menu_item 全量替换）
 
-- [ ] **Step 1: 写失败测试** — 更新 `gorm_repository_test.go`：AutoMigrate 换成 `channel_menus/channel_menu_items/channel_menu_item_cases/channel_menu_item_extras`；`GetTree(ctx, "tg-default")` 读取树含 Order；`SaveExtras` 后 `ListExtras` 按 item 返回且跨渠道隔离；UNIQUE(channel_id, parent_id, label/order) 冲突报错
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/menu/...`，预期旧表模型编译失败/测试失败
-- [ ] **Step 3: 实现**
+- [x] **Step 1: 写失败测试** — 更新 `gorm_repository_test.go`：AutoMigrate 换成 `channel_menus/channel_menu_items/channel_menu_item_cases/channel_menu_item_extras`；`GetTree(ctx, "tg-default")` 读取树含 Order；`SaveExtras` 后 `ListExtras` 按 item 返回且跨渠道隔离；UNIQUE(channel_id, parent_id, label/order) 冲突报错
+- [x] **Step 2: 运行确认失败** — `go test ./internal/menu/...`，预期旧表模型编译失败/测试失败
+- [x] **Step 3: 实现**
   - 表模型：`ChannelMenuRow{ChannelID PK}`、`ChannelMenuItemRow{ID PK, ChannelID, ParentID *string, Label, Order, Enabled, Kind, PlaceholderText, IntroText, ReplyJSON}`、`ChannelMenuItemCaseRow{MenuItemID, CaseID PK, Sort}`、`ChannelMenuExtraRow{ChannelID, MenuItemID, ExtraType PK, ExtraJSON, UpdatedAt}`
   - 删除 `MenuHeaderRow/BotID/MenuItemRow.Row/Col/Tag` 与 `LegacyMenuRow`；删除 `MigrateFromLegacyIfNeeded`
   - `GetTree` 按 channelID 查询并 `BuildTree`；`ReplaceTree` 事务内按 channelID 整树替换（items+links+extras 保留策略：extras 由 SaveExtras 单独管理，ReplaceTree 不动 extras）
   - `ListPlacementsByCase` 返回含 `ChannelID` 的路径
-- [ ] **Step 4: 运行通过** — `go test ./internal/menu/...` 全绿
-- [ ] **Step 5: 提交** — `git commit -m "feat(menu): channel-scoped menu persistence with extras table"`
+- [x] **Step 4: 运行通过** — `go test ./internal/menu/...` 全绿
+- [x] **Step 5: 提交** — `git commit -m "feat(menu): channel-scoped menu persistence with extras table"`
 
 ---
 
