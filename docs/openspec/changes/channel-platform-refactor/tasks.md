@@ -43,11 +43,11 @@
 
 ## 7. 管理 API
 
-- [ ] 7.1 `/api/v1/channels` CRUD（GET 列表 / POST / GET:id / PUT / DELETE）
-- [ ] 7.2 `/api/v1/channels/{id}/menu` GET/PUT（渠道作用域校验，不存在渠道 404）
-- [ ] 7.3 `/api/v1/cases/{id}/menu-placements` 返回含渠道标识的路径
-- [ ] 7.4 移除旧 `/api/v1/tg-menu` 路由与 `internal/httpapi/tgmenu` 引用（无兼容需求）
-- [ ] 7.5 admin-api host 挂载新渠道路由
+- [x] 7.1 `/api/v1/channels` CRUD（GET 列表 / POST / GET:id / PUT / DELETE）
+- [x] 7.2 `/api/v1/channels/{id}/menu` GET/PUT（渠道作用域校验，不存在渠道 404）
+- [x] 7.3 `/api/v1/cases/{id}/menu-placements` 返回含渠道标识的路径
+- [x] 7.4 移除旧 `/api/v1/tg-menu` 路由与 `internal/httpapi/tgmenu` 引用（无兼容需求）
+- [x] 7.5 admin-api host 挂载新渠道路由
 
 ## 8. 管理台改版
 

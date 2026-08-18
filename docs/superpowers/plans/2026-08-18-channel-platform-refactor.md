@@ -206,14 +206,14 @@ func TestParseChatIDInvalid(t *testing.T) {
 - Consumes: Task 3 Service、Task 4 Repository
 - Produces: `GET/POST /api/v1/channels`、`GET/PUT/DELETE /api/v1/channels/{id}`、`POST /api/v1/channels/{id}/disable|enable`、`GET/PUT /api/v1/channels/{id}/menu`、`GET/PUT /api/v1/channels/{id}/menu/extras`、`GET /api/v1/cases/{id}/menu-placements`
 
-- [ ] **Step 1: 写失败测试** — `handler_test.go`（sqlite + AutoMigrate channels/menu 表）：POST 创建返回 masked token；非法 platform 400；GET 列表；PUT 更新 token 留空不变；DELETE 启用中 409；disable 后无引用可删；GET/PUT menu 校验非法树 400；GET/PUT extras 按渠道隔离；placements 含渠道
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/httpapi/channels/... ./internal/httpapi/channelmenu/...`
-- [ ] **Step 3: 实现**
+- [x] **Step 1: 写失败测试** — `handler_test.go`（sqlite + AutoMigrate channels/menu 表）：POST 创建返回 masked token；非法 platform 400；GET 列表；PUT 更新 token 留空不变；DELETE 启用中 409；disable 后无引用可删；GET/PUT menu 校验非法树 400；GET/PUT extras 按渠道隔离；placements 含渠道
+- [x] **Step 2: 运行确认失败** — `go test ./internal/httpapi/channels/... ./internal/httpapi/channelmenu/...`
+- [x] **Step 3: 实现**
   - channels handler：DTO `{id, platform, name, token_masked, enabled, created_at, updated_at}`；写入时校验 `platform` 与凭证；删除检查 `HasActiveRefs`（注入查询 `sessions/tasks` 是否存在该 channel 引用）
   - channelmenu handler：`GET/PUT /api/v1/channels/{id}/menu`（校验存在渠道，404）；`/menu/extras` 读写（extra_type 白名单由适配器注册，未知类型忽略）；placements 从旧 tgmenu handler 迁移
   - adminhost：挂载 `/api/v1/channels`；移除 `/api/v1/tg-menu` 路由；`Options.TGMenu` 删除
-- [ ] **Step 4: 运行通过** — 上述测试全绿；`go build ./...`
-- [ ] **Step 5: 提交** — `git commit -m "feat(httpapi): channel and channel menu management APIs"`
+- [x] **Step 4: 运行通过** — 上述测试全绿；`go build ./...`
+- [x] **Step 5: 提交** — `git commit -m "feat(httpapi): channel and channel menu management APIs"`
 
 ---
 
