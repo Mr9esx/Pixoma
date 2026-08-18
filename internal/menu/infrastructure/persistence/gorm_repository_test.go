@@ -2,8 +2,8 @@ package persistence_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
@@ -24,9 +24,10 @@ func openTestDB(t *testing.T) *gorm.DB {
 func migrateMenuTables(t *testing.T, gdb *gorm.DB, extra ...any) {
 	t.Helper()
 	models := []any{
-		&persistence.MenuHeaderRow{},
-		&persistence.MenuItemRow{},
-		&persistence.MenuItemCaseRow{},
+		&persistence.ChannelMenuRow{},
+		&persistence.ChannelMenuItemRow{},
+		&persistence.ChannelMenuItemCaseRow{},
+		&persistence.ChannelMenuExtraRow{},
 	}
 	models = append(models, extra...)
 	if err := db.AutoMigrate(gdb, models...); err != nil {
@@ -190,41 +191,66 @@ func TestEnsureDefault_AppliesImageCaseIDs(t *testing.T) {
 	}
 }
 
-func TestEnsureDefault_MigratesLegacyJSON(t *testing.T) {
+func TestChannelMenuExtras_IsolatedAndPerItem(t *testing.T) {
 	gdb := openTestDB(t)
-	migrateMenuTables(t, gdb, &persistence.LegacyMenuRow{})
-	legacyItems := []map[string]any{
-		{
-			"id": "btn-go", "label": "Go", "row": 0, "col": 0, "enabled": true,
-			"action": "open_case", "case_id": "legacy-case",
-		},
-	}
-	raw, err := json.Marshal(legacyItems)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := gdb.Create(&persistence.LegacyMenuRow{
-		ID:        "tg-default",
-		ItemsJSON: string(raw),
-	}).Error; err != nil {
+	migrateMenuTables(t, gdb)
+	repo := persistence.NewGormRepository(gdb)
+	ctx := context.Background()
+
+	tree := domain.DefaultSeedTree("tg-default")
+	if err := repo.ReplaceTree(ctx, tree); err != nil {
 		t.Fatal(err)
 	}
 
-	repo := persistence.NewGormRepository(gdb)
-	tree, err := repo.EnsureDefault(context.Background(), "tg-default", nil)
+	extras := map[string][]domain.Extra{
+		"btn-image": {{ChannelID: "tg-default", MenuItemID: "btn-image", ExtraType: "tg_root_layout", ExtraJSON: `{"columns":2}`}},
+	}
+	if err := repo.SaveExtras(ctx, "tg-default", extras); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := repo.ListExtras(ctx, "tg-default")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tree.Items) != 1 {
-		t.Fatalf("items=%d", len(tree.Items))
+	if len(got["btn-image"]) != 1 || got["btn-image"][0].ExtraType != "tg_root_layout" {
+		t.Fatalf("extras=%+v", got)
 	}
-	if tree.Items[0].ID != "btn-go" {
-		t.Fatalf("id=%q", tree.Items[0].ID)
+
+	// 跨渠道隔离
+	other, err := repo.ListExtras(ctx, "feishu-1")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if tree.Items[0].Kind != domain.KindOpenCase {
-		t.Fatalf("kind=%q", tree.Items[0].Kind)
+	if len(other) != 0 {
+		t.Fatalf("cross-channel leak: %+v", other)
 	}
-	if len(tree.Items[0].CaseIDs) != 1 || tree.Items[0].CaseIDs[0] != "legacy-case" {
-		t.Fatalf("case ids=%v", tree.Items[0].CaseIDs)
+
+	// 覆盖保存（同 item 同 type 替换）
+	extras["btn-image"] = []domain.Extra{{ChannelID: "tg-default", MenuItemID: "btn-image", ExtraType: "tg_root_layout", ExtraJSON: `{"columns":3}`}}
+	if err := repo.SaveExtras(ctx, "tg-default", extras); err != nil {
+		t.Fatal(err)
+	}
+	got2, _ := repo.ListExtras(ctx, "tg-default")
+	if len(got2["btn-image"]) != 1 || got2["btn-image"][0].ExtraJSON != `{"columns":3}` {
+		t.Fatalf("replace extras=%+v", got2)
+	}
+}
+
+func TestChannelMenuItem_UniqueOrderWithinParent(t *testing.T) {
+	gdb := openTestDB(t)
+	migrateMenuTables(t, gdb)
+
+	now := time.Now().UTC()
+	if err := gdb.Create(&persistence.ChannelMenuRow{ChannelID: "tg-default", UpdatedAt: now}).Error; err != nil {
+		t.Fatal(err)
+	}
+	one := &persistence.ChannelMenuItemRow{ID: "a", ChannelID: "tg-default", Label: "A", Order: 0, Enabled: true, Kind: string(domain.KindPlaceholder)}
+	two := &persistence.ChannelMenuItemRow{ID: "b", ChannelID: "tg-default", Label: "B", Order: 0, Enabled: true, Kind: string(domain.KindPlaceholder)}
+	if err := gdb.Create(one).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.Create(two).Error; err == nil {
+		t.Fatal("duplicate order within same parent must be rejected by DB")
 	}
 }
