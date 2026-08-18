@@ -17,7 +17,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 // FileDownloader fetches Telegram file bytes by file_id (injectable for tests).

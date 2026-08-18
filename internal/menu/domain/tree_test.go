@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 func TestValidate_FolderCaseMustExist(t *testing.T) {
-	tree := domain.DefaultSeedTree()
+	tree := domain.DefaultSeedTree("tg-default")
 	tree.Items[0].CaseIDs = []string{"missing"}
 	err := domain.Validate(context.Background(), tree, func(context.Context, string) (bool, error) {
 		return false, nil
@@ -21,7 +21,7 @@ func TestValidate_FolderCaseMustExist(t *testing.T) {
 
 func TestValidate_FolderChildMustBeFolder(t *testing.T) {
 	tree := domain.MenuTree{
-		ID: domain.DocumentIDDefault, BotID: domain.BotIDDefault,
+		ChannelID: "tg-default",
 		Items: []domain.MenuNode{{
 			ID: "root", Label: "Root", Enabled: true, Kind: domain.KindFolder,
 			Children: []domain.MenuNode{{
@@ -39,7 +39,7 @@ func TestValidate_FolderChildMustBeFolder(t *testing.T) {
 
 func TestValidate_OpenCaseNeedsExactlyOne(t *testing.T) {
 	tree := domain.MenuTree{
-		ID: domain.DocumentIDDefault, BotID: domain.BotIDDefault,
+		ChannelID: "tg-default",
 		Items: []domain.MenuNode{{
 			ID: "x", Label: "X", Enabled: true, Kind: domain.KindOpenCase, CaseIDs: nil,
 		}},
@@ -54,8 +54,8 @@ func TestValidate_OpenCaseNeedsExactlyOne(t *testing.T) {
 
 func TestBuildTree_RoundTrip(t *testing.T) {
 	flat := []domain.MenuItem{
-		{ID: "r", Label: "R", Enabled: true, Kind: domain.KindFolder, Row: 0, Col: 0},
-		{ID: "c", ParentID: "r", Label: "C", Enabled: true, Kind: domain.KindFolder, Row: 0, Col: 0},
+		{ID: "r", Label: "R", Enabled: true, Kind: domain.KindFolder, Order: 0},
+		{ID: "c", ParentID: "r", Label: "C", Enabled: true, Kind: domain.KindFolder, Order: 0},
 	}
 	nodes, err := domain.BuildTree(flat)
 	if err != nil || len(nodes) != 1 || len(nodes[0].Children) != 1 {

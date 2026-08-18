@@ -10,7 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 type MenuHeaderRow struct {
@@ -63,9 +63,9 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 	return &GormRepository{db: db}
 }
 
-func (r *GormRepository) GetTree(ctx context.Context, id string) (domain.MenuTree, error) {
+func (r *GormRepository) GetTree(ctx context.Context, channelID string) (domain.MenuTree, error) {
 	var header MenuHeaderRow
-	err := r.db.WithContext(ctx).First(&header, "id = ?", id).Error
+	err := r.db.WithContext(ctx).First(&header, "id = ?", channelID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return domain.MenuTree{}, domain.ErrNotFound
 	}
@@ -75,7 +75,7 @@ func (r *GormRepository) GetTree(ctx context.Context, id string) (domain.MenuTre
 
 	var itemRows []MenuItemRow
 	if err := r.db.WithContext(ctx).
-		Where("menu_id = ?", id).
+		Where("menu_id = ?", channelID).
 		Order("row, col, id").
 		Find(&itemRows).Error; err != nil {
 		return domain.MenuTree{}, err
@@ -115,28 +115,20 @@ func (r *GormRepository) GetTree(ctx context.Context, id string) (domain.MenuTre
 	}
 
 	return domain.MenuTree{
-		ID:        header.ID,
-		BotID:     header.BotID,
+		ChannelID: header.ID,
 		Items:     nodes,
 		UpdatedAt: header.UpdatedAt,
 	}, nil
 }
 
 func (r *GormRepository) ReplaceTree(ctx context.Context, tree domain.MenuTree) error {
-	if tree.ID == "" {
-		tree.ID = domain.DocumentIDDefault
-	}
-	if tree.BotID == "" {
-		tree.BotID = domain.BotIDDefault
-	}
-
 	flat := domain.Flatten(tree.Items)
 	now := time.Now().UTC()
 
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var itemIDs []string
 		if err := tx.Model(&MenuItemRow{}).
-			Where("menu_id = ?", tree.ID).
+			Where("menu_id = ?", tree.ChannelID).
 			Pluck("id", &itemIDs).Error; err != nil {
 			return err
 		}
@@ -145,13 +137,13 @@ func (r *GormRepository) ReplaceTree(ctx context.Context, tree domain.MenuTree) 
 				return err
 			}
 		}
-		if err := tx.Where("menu_id = ?", tree.ID).Delete(&MenuItemRow{}).Error; err != nil {
+		if err := tx.Where("menu_id = ?", tree.ChannelID).Delete(&MenuItemRow{}).Error; err != nil {
 			return err
 		}
 
 		header := MenuHeaderRow{
-			ID:        tree.ID,
-			BotID:     tree.BotID,
+			ID:        tree.ChannelID,
+			BotID:     "default", // legacy column; removed in channel_menu migration (Task 4)
 			UpdatedAt: now,
 		}
 		if err := tx.Save(&header).Error; err != nil {
@@ -159,7 +151,7 @@ func (r *GormRepository) ReplaceTree(ctx context.Context, tree domain.MenuTree) 
 		}
 
 		for _, item := range flat {
-			row, err := itemToRow(tree.ID, item)
+			row, err := itemToRow(tree.ChannelID, item)
 			if err != nil {
 				return err
 			}
@@ -249,9 +241,10 @@ func (r *GormRepository) ListPlacementsByCase(ctx context.Context, caseID string
 
 func (r *GormRepository) EnsureDefault(
 	ctx context.Context,
+	channelID string,
 	listImageCaseIDs func(context.Context) ([]string, error),
 ) (domain.MenuTree, error) {
-	tree, err := r.GetTree(ctx, domain.DocumentIDDefault)
+	tree, err := r.GetTree(ctx, channelID)
 	if err == nil {
 		return tree, nil
 	}
@@ -259,15 +252,15 @@ func (r *GormRepository) EnsureDefault(
 		return domain.MenuTree{}, err
 	}
 
-	migrated, err := r.migrateLegacyJSON(ctx)
+	migrated, err := r.migrateLegacyJSON(ctx, channelID)
 	if err != nil {
 		return domain.MenuTree{}, err
 	}
 	if migrated {
-		return r.GetTree(ctx, domain.DocumentIDDefault)
+		return r.GetTree(ctx, channelID)
 	}
 
-	seed := domain.DefaultSeedTree()
+	seed := domain.DefaultSeedTree(channelID)
 	if listImageCaseIDs != nil {
 		ids, err := listImageCaseIDs(ctx)
 		if err != nil {
@@ -283,16 +276,16 @@ func (r *GormRepository) EnsureDefault(
 	if err := r.ReplaceTree(ctx, seed); err != nil {
 		return domain.MenuTree{}, err
 	}
-	return r.GetTree(ctx, domain.DocumentIDDefault)
+	return r.GetTree(ctx, channelID)
 }
 
 // MigrateFromLegacyIfNeeded imports legacy JSON when relational tables are empty.
 func (r *GormRepository) MigrateFromLegacyIfNeeded(ctx context.Context) error {
-	_, err := r.migrateLegacyJSON(ctx)
+	_, err := r.migrateLegacyJSON(ctx, "default")
 	return err
 }
 
-func (r *GormRepository) migrateLegacyJSON(ctx context.Context) (bool, error) {
+func (r *GormRepository) migrateLegacyJSON(ctx context.Context, channelID string) (bool, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&MenuHeaderRow{}).Count(&count).Error; err != nil {
 		return false, err
@@ -306,7 +299,7 @@ func (r *GormRepository) migrateLegacyJSON(ctx context.Context) (bool, error) {
 	}
 
 	var legacy LegacyMenuRow
-	err := r.db.WithContext(ctx).First(&legacy, "id = ?", domain.DocumentIDDefault).Error
+	err := r.db.WithContext(ctx).First(&legacy, "id = ?", channelID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, nil
 	}
@@ -314,7 +307,7 @@ func (r *GormRepository) migrateLegacyJSON(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	tree, err := legacyJSONToTree(legacy)
+	tree, err := legacyJSONToTree(legacy, channelID)
 	if err != nil {
 		return false, err
 	}
@@ -337,7 +330,7 @@ type legacyMenuItem struct {
 	Reply           *domain.ReplyPayload `json:"reply"`
 }
 
-func legacyJSONToTree(legacy LegacyMenuRow) (domain.MenuTree, error) {
+func legacyJSONToTree(legacy LegacyMenuRow, channelID string) (domain.MenuTree, error) {
 	var legacyItems []legacyMenuItem
 	if err := json.Unmarshal([]byte(legacy.ItemsJSON), &legacyItems); err != nil {
 		return domain.MenuTree{}, fmt.Errorf("unmarshal legacy menu items: %w", err)
@@ -348,11 +341,9 @@ func legacyJSONToTree(legacy LegacyMenuRow) (domain.MenuTree, error) {
 		node := domain.MenuNode{
 			ID:              it.ID,
 			Label:           it.Label,
-			Row:             it.Row,
-			Col:             it.Col,
+			Order:           it.Row,
 			Enabled:         it.Enabled,
 			Kind:            domain.MenuKind(it.Action),
-			Tag:             it.Tag,
 			PlaceholderText: it.PlaceholderText,
 			Reply:           it.Reply,
 		}
@@ -363,8 +354,7 @@ func legacyJSONToTree(legacy LegacyMenuRow) (domain.MenuTree, error) {
 	}
 
 	return domain.MenuTree{
-		ID:        domain.DocumentIDDefault,
-		BotID:     domain.BotIDDefault,
+		ChannelID: channelID,
 		Items:     items,
 		UpdatedAt: legacy.UpdatedAt,
 	}, nil
@@ -375,13 +365,11 @@ func itemToRow(menuID string, item domain.MenuItem) (MenuItemRow, error) {
 		ID:              item.ID,
 		MenuID:          menuID,
 		Label:           item.Label,
-		Row:             item.Row,
-		Col:             item.Col,
+		Row:             item.Order,
 		Enabled:         item.Enabled,
 		Kind:            string(item.Kind),
 		PlaceholderText: item.PlaceholderText,
 		IntroText:       item.IntroText,
-		Tag:             item.Tag,
 	}
 	if item.ParentID != "" {
 		parentID := item.ParentID
@@ -401,14 +389,12 @@ func rowToItem(row MenuItemRow, caseIDs []string) (domain.MenuItem, error) {
 	item := domain.MenuItem{
 		ID:              row.ID,
 		Label:           row.Label,
-		Row:             row.Row,
-		Col:             row.Col,
+		Order:           row.Row,
 		Enabled:         row.Enabled,
 		Kind:            domain.MenuKind(row.Kind),
 		CaseIDs:         append([]string(nil), caseIDs...),
 		PlaceholderText: row.PlaceholderText,
 		IntroText:       row.IntroText,
-		Tag:             row.Tag,
 	}
 	if row.ParentID != nil {
 		item.ParentID = *row.ParentID

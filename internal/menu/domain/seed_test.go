@@ -3,12 +3,12 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 func TestDefaultSeedTree_ImageIsFolder(t *testing.T) {
-	tree := domain.DefaultSeedTree()
-	if tree.ID != domain.DocumentIDDefault || tree.BotID != domain.BotIDDefault {
+	tree := domain.DefaultSeedTree("tg-default")
+	if tree.ChannelID != "tg-default" {
 		t.Fatalf("ids: %+v", tree)
 	}
 	roots := tree.Items

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 type CaseChecker interface {
@@ -13,7 +13,7 @@ type CaseChecker interface {
 
 type Store interface {
 	domain.Repository
-	EnsureDefault(ctx context.Context, listImageCaseIDs func(context.Context) ([]string, error)) (domain.MenuTree, error)
+	EnsureDefault(ctx context.Context, channelID string, listImageCaseIDs func(context.Context) ([]string, error)) (domain.MenuTree, error)
 }
 
 type Service struct {
@@ -22,20 +22,19 @@ type Service struct {
 	ListImageCaseIDs func(context.Context) ([]string, error)
 }
 
-func (s *Service) Get(ctx context.Context) (domain.MenuTree, error) {
+func (s *Service) Get(ctx context.Context, channelID string) (domain.MenuTree, error) {
 	if s == nil || s.Store == nil {
 		return domain.MenuTree{}, fmt.Errorf("tgmenu service: nil store")
 	}
-	return s.Store.EnsureDefault(ctx, s.ListImageCaseIDs)
+	return s.Store.EnsureDefault(ctx, channelID, s.ListImageCaseIDs)
 }
 
-func (s *Service) Replace(ctx context.Context, tree domain.MenuTree) (domain.MenuTree, error) {
+func (s *Service) Replace(ctx context.Context, channelID string, tree domain.MenuTree) (domain.MenuTree, error) {
 	if s == nil || s.Store == nil {
 		return domain.MenuTree{}, fmt.Errorf("tgmenu service: nil store")
 	}
 
-	tree.ID = domain.DocumentIDDefault
-	tree.BotID = domain.BotIDDefault
+	tree.ChannelID = channelID
 
 	var caseExists domain.CaseExistsFunc
 	if s.Cases != nil {
@@ -47,7 +46,7 @@ func (s *Service) Replace(ctx context.Context, tree domain.MenuTree) (domain.Men
 	if err := s.Store.ReplaceTree(ctx, tree); err != nil {
 		return domain.MenuTree{}, err
 	}
-	return s.Store.GetTree(ctx, domain.DocumentIDDefault)
+	return s.Store.GetTree(ctx, channelID)
 }
 
 func (s *Service) ListPlacementsByCase(ctx context.Context, caseID string) ([]domain.MenuPlacement, error) {

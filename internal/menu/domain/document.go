@@ -3,20 +3,17 @@ package domain
 import "time"
 
 const (
-	DocumentIDDefault = "default"
-	BotIDDefault      = "default"
-	MaxTreeDepth      = 5
-	MaxIntroTextLen   = 3500
+	MaxTreeDepth    = 5
+	MaxIntroTextLen = 3500
 )
 
 type MenuKind string
 
 const (
-	KindFolder         MenuKind = "folder"
-	KindOpenCase       MenuKind = "open_case"
-	KindPlaceholder    MenuKind = "placeholder"
-	KindReplyMedia     MenuKind = "reply_media"
-	KindListCasesByTag MenuKind = "list_cases_by_tag"
+	KindFolder      MenuKind = "folder"
+	KindOpenCase    MenuKind = "open_case"
+	KindPlaceholder MenuKind = "placeholder"
+	KindReplyMedia  MenuKind = "reply_media"
 )
 
 type ReplyPayload struct {
@@ -28,12 +25,10 @@ type MenuItem struct {
 	ID              string
 	ParentID        string
 	Label           string
-	Row             int
-	Col             int
+	Order           int
 	Enabled         bool
 	Kind            MenuKind
 	CaseIDs         []string
-	Tag             string
 	PlaceholderText string
 	IntroText       string
 	Reply           *ReplyPayload
@@ -43,12 +38,10 @@ type MenuNode struct {
 	ID              string        `json:"id"`
 	ParentID        string        `json:"parent_id,omitempty"`
 	Label           string        `json:"label"`
-	Row             int           `json:"row"`
-	Col             int           `json:"col"`
+	Order           int           `json:"order"`
 	Enabled         bool          `json:"enabled"`
 	Kind            MenuKind      `json:"kind"`
 	CaseIDs         []string      `json:"case_ids,omitempty"`
-	Tag             string        `json:"tag,omitempty"`
 	PlaceholderText string        `json:"placeholder_text,omitempty"`
 	IntroText       string        `json:"intro_text,omitempty"`
 	Reply           *ReplyPayload `json:"reply,omitempty"`
@@ -56,8 +49,7 @@ type MenuNode struct {
 }
 
 type MenuTree struct {
-	ID        string     `json:"id"`
-	BotID     string     `json:"bot_id"`
+	ChannelID string     `json:"channel_id"`
 	Items     []MenuNode `json:"items"`
 	UpdatedAt time.Time  `json:"updated_at"`
 }

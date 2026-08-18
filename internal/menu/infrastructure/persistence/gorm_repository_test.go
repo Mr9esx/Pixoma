@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 	"gorm.io/gorm"
 )
 
@@ -38,7 +38,7 @@ func TestReplaceTree_RoundTripAndPlacements(t *testing.T) {
 	gdb := openTestDB(t)
 	repo := persistence.NewGormRepository(gdb)
 	migrateMenuTables(t, gdb)
-	tree := domain.DefaultSeedTree()
+	tree := domain.DefaultSeedTree("tg-default")
 	tree.Items[0].CaseIDs = []string{"case-a"}
 	tree.Items[0].Children = []domain.MenuNode{{
 		ID: "folder-x", ParentID: "btn-image", Label: "子夹", Enabled: true, Kind: domain.KindFolder,
@@ -46,7 +46,7 @@ func TestReplaceTree_RoundTripAndPlacements(t *testing.T) {
 	if err := repo.ReplaceTree(context.Background(), tree); err != nil {
 		t.Fatal(err)
 	}
-	got, err := repo.GetTree(context.Background(), domain.DocumentIDDefault)
+	got, err := repo.GetTree(context.Background(), "tg-default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,12 +77,12 @@ func TestReplaceTree_PreservesIntroText(t *testing.T) {
 	repo := persistence.NewGormRepository(gdb)
 	migrateMenuTables(t, gdb)
 
-	tree := domain.DefaultSeedTree()
+	tree := domain.DefaultSeedTree("tg-default")
 	tree.Items[0].IntroText = "点模板先看预览图，再上传图片生成。"
 	if err := repo.ReplaceTree(context.Background(), tree); err != nil {
 		t.Fatal(err)
 	}
-	got, err := repo.GetTree(context.Background(), domain.DocumentIDDefault)
+	got, err := repo.GetTree(context.Background(), "tg-default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,18 +97,17 @@ func TestGetTree_PreservesRootAndChildOrder(t *testing.T) {
 	migrateMenuTables(t, gdb)
 
 	tree := domain.MenuTree{
-		ID:    domain.DocumentIDDefault,
-		BotID: domain.BotIDDefault,
+		ChannelID: "tg-default",
 		Items: []domain.MenuNode{
 			{
-				ID: "root-z", Label: "Z", Row: 1, Col: 0, Enabled: true, Kind: domain.KindPlaceholder,
+				ID: "root-z", Label: "Z", Order: 1, Enabled: true, Kind: domain.KindPlaceholder,
 			},
 			{
-				ID: "root-a", Label: "A", Row: 0, Col: 0, Enabled: true, Kind: domain.KindFolder,
+				ID: "root-a", Label: "A", Order: 0, Enabled: true, Kind: domain.KindFolder,
 				CaseIDs: []string{"case-b", "case-a"},
 				Children: []domain.MenuNode{
-					{ID: "child-b", Label: "B", Row: 0, Col: 1, Enabled: true, Kind: domain.KindFolder},
-					{ID: "child-a", Label: "A", Row: 0, Col: 0, Enabled: true, Kind: domain.KindFolder},
+					{ID: "child-b", Label: "B", Order: 1, Enabled: true, Kind: domain.KindFolder},
+					{ID: "child-a", Label: "A", Order: 0, Enabled: true, Kind: domain.KindFolder},
 				},
 			},
 		},
@@ -116,7 +115,7 @@ func TestGetTree_PreservesRootAndChildOrder(t *testing.T) {
 	if err := repo.ReplaceTree(context.Background(), tree); err != nil {
 		t.Fatal(err)
 	}
-	got, err := repo.GetTree(context.Background(), domain.DocumentIDDefault)
+	got, err := repo.GetTree(context.Background(), "tg-default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,12 +144,12 @@ func TestEnsureDefault_SeedsWhenEmpty(t *testing.T) {
 	migrateMenuTables(t, gdb)
 	repo := persistence.NewGormRepository(gdb)
 
-	tree, err := repo.EnsureDefault(context.Background(), nil)
+	tree, err := repo.EnsureDefault(context.Background(), "tg-default", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tree.ID != domain.DocumentIDDefault {
-		t.Fatalf("id=%q", tree.ID)
+	if tree.ChannelID != "tg-default" {
+		t.Fatalf("id=%q", tree.ChannelID)
 	}
 	if len(tree.Items) != 6 {
 		t.Fatalf("items=%d", len(tree.Items))
@@ -159,7 +158,7 @@ func TestEnsureDefault_SeedsWhenEmpty(t *testing.T) {
 		t.Fatalf("kind=%q", tree.Items[0].Kind)
 	}
 
-	again, err := repo.EnsureDefault(context.Background(), nil)
+	again, err := repo.EnsureDefault(context.Background(), "tg-default", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +175,7 @@ func TestEnsureDefault_AppliesImageCaseIDs(t *testing.T) {
 	list := func(context.Context) ([]string, error) {
 		return []string{"img-1", "img-2"}, nil
 	}
-	tree, err := repo.EnsureDefault(context.Background(), list)
+	tree, err := repo.EnsureDefault(context.Background(), "tg-default", list)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,14 +204,14 @@ func TestEnsureDefault_MigratesLegacyJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := gdb.Create(&persistence.LegacyMenuRow{
-		ID:        domain.DocumentIDDefault,
+		ID:        "tg-default",
 		ItemsJSON: string(raw),
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
 
 	repo := persistence.NewGormRepository(gdb)
-	tree, err := repo.EnsureDefault(context.Background(), nil)
+	tree, err := repo.EnsureDefault(context.Background(), "tg-default", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

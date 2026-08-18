@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
-	"github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 type memStore struct {
@@ -19,9 +19,9 @@ type memStore struct {
 func newMemStore(t *testing.T) *memStore {
 	t.Helper()
 	s := &memStore{trees: map[string]domain.MenuTree{}}
-	seed := domain.DefaultSeedTree()
+	seed := domain.DefaultSeedTree("tg-default")
 	seed.UpdatedAt = time.Now().UTC()
-	s.trees[domain.DocumentIDDefault] = seed
+	s.trees["tg-default"] = seed
 	return s
 }
 
@@ -39,7 +39,7 @@ func (s *memStore) ReplaceTree(_ context.Context, tree domain.MenuTree) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	tree.UpdatedAt = time.Now().UTC()
-	s.trees[tree.ID] = tree
+	s.trees[tree.ChannelID] = tree
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (s *memStore) ListPlacementsByCase(_ context.Context, caseID string) ([]dom
 			for _, cid := range it.CaseIDs {
 				if cid == caseID {
 					out = append(out, domain.MenuPlacement{
-						MenuID: tree.ID,
+						MenuID: tree.ChannelID,
 						ItemID: it.ID,
 						Path:   []domain.PlacementStep{{ID: it.ID, Label: it.Label}},
 					})
@@ -66,16 +66,17 @@ func (s *memStore) ListPlacementsByCase(_ context.Context, caseID string) ([]dom
 
 func (s *memStore) EnsureDefault(
 	ctx context.Context,
+	channelID string,
 	listImageCaseIDs func(context.Context) ([]string, error),
 ) (domain.MenuTree, error) {
-	tree, err := s.GetTree(ctx, domain.DocumentIDDefault)
+	tree, err := s.GetTree(ctx, channelID)
 	if err == nil {
 		return tree, nil
 	}
 	if !errors.Is(err, domain.ErrNotFound) {
 		return domain.MenuTree{}, err
 	}
-	seed := domain.DefaultSeedTree()
+	seed := domain.DefaultSeedTree(channelID)
 	if listImageCaseIDs != nil {
 		ids, err := listImageCaseIDs(ctx)
 		if err != nil {
@@ -91,7 +92,7 @@ func (s *memStore) EnsureDefault(
 	if err := s.ReplaceTree(ctx, seed); err != nil {
 		return domain.MenuTree{}, err
 	}
-	return s.GetTree(ctx, domain.DocumentIDDefault)
+	return s.GetTree(ctx, channelID)
 }
 
 type alwaysMissing struct{}
@@ -106,15 +107,15 @@ func TestService_ReplaceRejectsInvalidFolderCaseWithoutWriting(t *testing.T) {
 	store := newMemStore(t)
 	svc := &application.Service{Store: store, Cases: alwaysMissing{}}
 
-	invalid := domain.DefaultSeedTree()
+	invalid := domain.DefaultSeedTree("tg-default")
 	invalid.Items[0].CaseIDs = []string{"nope"}
 
-	_, err := svc.Replace(context.Background(), invalid)
+	_, err := svc.Replace(context.Background(), "tg-default", invalid)
 	if !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("err=%v", err)
 	}
 
-	got, _ := store.GetTree(context.Background(), domain.DocumentIDDefault)
+	got, _ := store.GetTree(context.Background(), "tg-default")
 	if len(got.Items) != 6 {
 		t.Fatalf("store mutated: %d items", len(got.Items))
 	}
@@ -124,16 +125,16 @@ func TestService_GetAndReplaceHappyPath(t *testing.T) {
 	store := newMemStore(t)
 	svc := &application.Service{Store: store, Cases: alwaysExists{}}
 
-	got, err := svc.Get(context.Background())
+	got, err := svc.Get(context.Background(), "tg-default")
 	if err != nil || len(got.Items) != 6 {
 		t.Fatalf("get: %v %+v", err, got)
 	}
 
-	tree := domain.DefaultSeedTree()
+	tree := domain.DefaultSeedTree("tg-default")
 	tree.Items[0].Label = "🖼 图生图"
 	tree.Items[0].CaseIDs = []string{"case-a"}
 
-	out, err := svc.Replace(context.Background(), tree)
+	out, err := svc.Replace(context.Background(), "tg-default", tree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +142,7 @@ func TestService_GetAndReplaceHappyPath(t *testing.T) {
 		t.Fatalf("replace: %+v", out.Items[0])
 	}
 
-	again, err := svc.Get(context.Background())
+	again, err := svc.Get(context.Background(), "tg-default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,20 +151,19 @@ func TestService_GetAndReplaceHappyPath(t *testing.T) {
 	}
 }
 
-func TestService_ReplaceForcesDefaultIDs(t *testing.T) {
+func TestService_ReplaceForcesChannelID(t *testing.T) {
 	store := newMemStore(t)
 	svc := &application.Service{Store: store, Cases: alwaysExists{}}
 
-	tree := domain.DefaultSeedTree()
-	tree.ID = "other"
-	tree.BotID = "bot-x"
+	tree := domain.DefaultSeedTree("tg-default")
+	tree.ChannelID = "other"
 
-	out, err := svc.Replace(context.Background(), tree)
+	out, err := svc.Replace(context.Background(), "tg-default", tree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.ID != domain.DocumentIDDefault || out.BotID != domain.BotIDDefault {
-		t.Fatalf("ids not forced: id=%q bot_id=%q", out.ID, out.BotID)
+	if out.ChannelID != "tg-default" {
+		t.Fatalf("channel id not forced: %q", out.ChannelID)
 	}
 }
 
@@ -171,9 +171,9 @@ func TestService_ListPlacementsByCase(t *testing.T) {
 	store := newMemStore(t)
 	svc := &application.Service{Store: store, Cases: alwaysExists{}}
 
-	tree := domain.DefaultSeedTree()
+	tree := domain.DefaultSeedTree("tg-default")
 	tree.Items[0].CaseIDs = []string{"img-1", "img-2"}
-	if _, err := svc.Replace(context.Background(), tree); err != nil {
+	if _, err := svc.Replace(context.Background(), "tg-default", tree); err != nil {
 		t.Fatal(err)
 	}
 

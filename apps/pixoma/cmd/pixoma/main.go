@@ -46,8 +46,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/application"
-	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/infrastructure/persistence"
+	tgmenuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 )
 
 var errRestart = errors.New("setup restart requested")

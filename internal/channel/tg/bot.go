@@ -16,7 +16,7 @@ import (
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/tgmenu/domain"
+	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
 // BotMessenger sends via go-telegram/bot.
