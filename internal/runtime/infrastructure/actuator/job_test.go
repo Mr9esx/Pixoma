@@ -10,8 +10,8 @@ import (
 
 func TestJobPackage_RoundTrip(t *testing.T) {
 	job := actuator.JobPackage{
-		TaskID:     "t1",
-		InstanceID: "local",
+		TaskID: "t1",
+		EdgeID: "local",
 		Workflow: map[string]any{
 			"1": map[string]any{"inputs": map[string]any{"text": "hi"}},
 		},

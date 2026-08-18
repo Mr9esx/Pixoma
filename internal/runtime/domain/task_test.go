@@ -79,8 +79,8 @@ func TestPrepareForClaim_SetsJobRefAndQueued(t *testing.T) {
 	if task.Status != sharedkernel.TaskQueued {
 		t.Fatalf("status=%s", task.Status)
 	}
-	if task.InstanceID != "gpu-1" || task.JobRef.Key != ref.Key {
-		t.Fatalf("instance/job_ref: %+v %+v", task.InstanceID, task.JobRef)
+	if task.EdgeID != "gpu-1" || task.JobRef.Key != ref.Key {
+		t.Fatalf("instance/job_ref: %+v %+v", task.EdgeID, task.JobRef)
 	}
 }
 

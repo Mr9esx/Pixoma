@@ -9,7 +9,7 @@ import (
 	"time"
 
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
@@ -25,7 +25,7 @@ type ExecutionQuery interface {
 
 // JobPreparer builds scheme-A job packages into Blob before dispatch.
 type JobPreparer interface {
-	PrepareJob(ctx context.Context, taskID sharedkernel.TaskID, instanceID sharedkernel.InstanceID) (sharedkernel.BlobRef, error)
+	PrepareJob(ctx context.Context, taskID sharedkernel.TaskID, edgeID sharedkernel.EdgeID) (sharedkernel.BlobRef, error)
 }
 
 type ExecutionView struct {
@@ -39,13 +39,13 @@ type ExecutionView struct {
 type Service struct {
 	Tasks     runtimedomain.TaskRepository
 	Sessions  convdomain.Repository // optional; notify joins chat via session_id
-	Instances instance.Registry
+	Instances edge.Registry
 	Dispatch  queue.Publisher
 	Notify    notify.Publisher
 	Query     ExecutionQuery
 	Prep      JobPreparer
 	// Online optionally filters candidates in split mode (nil = no extra filter).
-	Online func(ctx context.Context, id sharedkernel.InstanceID) bool
+	Online func(ctx context.Context, id sharedkernel.EdgeID) bool
 	Storm  *StormGuard
 	Now    func() time.Time
 
@@ -57,7 +57,7 @@ type Service struct {
 	notified   map[string]struct{}
 }
 
-func New(tasks runtimedomain.TaskRepository, instances instance.Registry, dispatch queue.Publisher, n notify.Publisher) *Service {
+func New(tasks runtimedomain.TaskRepository, instances edge.Registry, dispatch queue.Publisher, n notify.Publisher) *Service {
 	return &Service{
 		Tasks:     tasks,
 		Instances: instances,
@@ -142,8 +142,8 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	return nil
 }
 
-func (s *Service) listCandidates(ctx context.Context) ([]instance.Instance, error) {
-	filter := instance.CapabilityFilter{}
+func (s *Service) listCandidates(ctx context.Context) ([]edge.Instance, error) {
+	filter := edge.CapabilityFilter{}
 	// Claimable dispatch (Dispatch==nil) and Online filters use Edge presence, not cloud Comfy probes.
 	if s.Online != nil || s.Dispatch == nil {
 		return s.Instances.ListEnabled(ctx, filter)
@@ -161,18 +161,18 @@ func (s *Service) rollbackClaim(ctx context.Context, taskID sharedkernel.TaskID,
 		return
 	}
 	t.Status = sharedkernel.TaskPending
-	t.InstanceID = ""
+	t.EdgeID = ""
 	t.JobRef = sharedkernel.BlobRef{}
 	t.LeaseUntil = time.Time{}
 	t.UpdatedAt = now
 	_ = s.Tasks.Update(ctx, t)
 }
 
-func filterAllowed(insts []instance.Instance, breaker *CircuitBreaker) []instance.Instance {
+func filterAllowed(insts []edge.Instance, breaker *CircuitBreaker) []edge.Instance {
 	if len(insts) == 0 {
 		return nil
 	}
-	out := make([]instance.Instance, 0, len(insts))
+	out := make([]edge.Instance, 0, len(insts))
 	for _, inst := range insts {
 		if breaker == nil || breaker.Allow(inst.ID) {
 			out = append(out, inst)
@@ -190,7 +190,7 @@ func (s *Service) applyStatus(ctx context.Context, ev sharedkernel.TaskStatusEve
 	if err != nil {
 		return err
 	}
-	if ev.InstanceID != "" && t.InstanceID != "" && ev.InstanceID != t.InstanceID {
+	if ev.EdgeID != "" && t.EdgeID != "" && ev.EdgeID != t.EdgeID {
 		return ErrStaleHolder
 	}
 	now := ev.At
@@ -246,7 +246,7 @@ func (s *Service) publishNotify(ctx context.Context, t *runtimedomain.Task) erro
 		return nil
 	}
 	chatID := t.ChatID
-	if chatID == 0 && s.Sessions != nil {
+	if chatID == "" && s.Sessions != nil {
 		sess, err := s.Sessions.GetByID(ctx, t.SessionID)
 		if err != nil {
 			return fmt.Errorf("notify chat via session: %w", err)
@@ -303,20 +303,20 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 			}
 			fresh, err := s.Tasks.Get(ctx, t.ID)
 			if err != nil {
-				s.Storm.Breaker.RecordFailure(t.InstanceID)
+				s.Storm.Breaker.RecordFailure(t.EdgeID)
 				continue
 			}
-			s.Storm.Breaker.RecordSuccess(t.InstanceID)
+			s.Storm.Breaker.RecordSuccess(t.EdgeID)
 			view := executionViewFromTask(fresh)
 			switch view.Phase {
 			case "succeeded":
 				_ = s.applyStatus(ctx, sharedkernel.TaskStatusEvent{
-					TaskID: t.ID, InstanceID: t.InstanceID, Status: sharedkernel.TaskSucceeded,
+					TaskID: t.ID, EdgeID: t.EdgeID, Status: sharedkernel.TaskSucceeded,
 					Outputs: view.Outputs, At: now,
 				})
 			case "failed":
 				_ = s.applyStatus(ctx, sharedkernel.TaskStatusEvent{
-					TaskID: t.ID, InstanceID: t.InstanceID, Status: sharedkernel.TaskFailed,
+					TaskID: t.ID, EdgeID: t.EdgeID, Status: sharedkernel.TaskFailed,
 					ErrorMsg: view.ErrorMsg, At: now,
 				})
 			case "running":
@@ -326,7 +326,7 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 				// Queued with job_ref is waiting for Edge pull; leave it.
 				if fresh.Status == sharedkernel.TaskQueued && fresh.PromptID == "" && fresh.JobRef.Key == "" {
 					fresh.Status = sharedkernel.TaskPending
-					fresh.InstanceID = ""
+					fresh.EdgeID = ""
 					fresh.UpdatedAt = now
 					_ = s.Tasks.Update(ctx, fresh)
 				} else if fresh.Status == sharedkernel.TaskRunning {

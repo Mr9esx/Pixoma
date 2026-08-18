@@ -6,11 +6,11 @@ import (
 )
 
 type (
-	CaseID     string
-	TaskID     string
-	SessionID  string
-	ChatID     string
-	InstanceID string
+	CaseID    string
+	TaskID    string
+	SessionID string
+	ChatID    string
+	EdgeID    string
 )
 
 // ChannelAddr identifies a conversation on a specific channel.

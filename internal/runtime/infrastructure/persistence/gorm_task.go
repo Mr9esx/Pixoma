@@ -19,7 +19,7 @@ type TaskRow struct {
 	SessionID    string    `gorm:"column:session_id;size:36;index;not null"`
 	CaseID       string    `gorm:"column:case_id;size:128;not null"`
 	Status       string    `gorm:"size:32;not null;index"`
-	InstanceID   string    `gorm:"column:instance_id;size:128;index"`
+	EdgeID       string    `gorm:"column:edge_id;size:128;index"`
 	PromptID     string    `gorm:"column:prompt_id;size:128"`
 	InputPrefix  string    `gorm:"column:input_prefix;size:512;not null"`
 	JobRefJSON   string    `gorm:"column:job_ref_json;type:text"`
@@ -78,7 +78,7 @@ func (r *TaskRepository) Update(ctx context.Context, t *domain.Task) error {
 		"session_id":    row.SessionID,
 		"case_id":       row.CaseID,
 		"status":        row.Status,
-		"instance_id":   row.InstanceID,
+		"edge_id":       row.EdgeID,
 		"prompt_id":     row.PromptID,
 		"input_prefix":  row.InputPrefix,
 		"job_ref_json":  row.JobRefJSON,
@@ -97,13 +97,13 @@ func (r *TaskRepository) Update(ctx context.Context, t *domain.Task) error {
 	return nil
 }
 
-func (r *TaskRepository) ClaimQueued(ctx context.Context, id sharedkernel.TaskID, instanceID sharedkernel.InstanceID, now time.Time) (bool, error) {
+func (r *TaskRepository) ClaimQueued(ctx context.Context, id sharedkernel.TaskID, edgeID sharedkernel.EdgeID, now time.Time) (bool, error) {
 	res := r.db.WithContext(ctx).Model(&TaskRow{}).
 		Where("id = ? AND status = ?", string(id), string(sharedkernel.TaskPending)).
 		Updates(map[string]any{
-			"status":      string(sharedkernel.TaskQueued),
-			"instance_id": string(instanceID),
-			"updated_at":  now,
+			"status":     string(sharedkernel.TaskQueued),
+			"edge_id":    string(edgeID),
+			"updated_at": now,
 		})
 	if res.Error != nil {
 		return false, res.Error
@@ -121,8 +121,8 @@ func (r *TaskRepository) ClaimQueued(ctx context.Context, id sharedkernel.TaskID
 	return false, nil
 }
 
-func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.TaskID, instanceID sharedkernel.InstanceID, jobRef sharedkernel.BlobRef, now time.Time) (bool, error) {
-	if instanceID == "" || jobRef.Key == "" {
+func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.TaskID, edgeID sharedkernel.EdgeID, jobRef sharedkernel.BlobRef, now time.Time) (bool, error) {
+	if edgeID == "" || jobRef.Key == "" {
 		return false, domain.ErrInvalidTransition
 	}
 	raw, err := json.Marshal(jobRef)
@@ -133,7 +133,7 @@ func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.Ta
 		Where("id = ? AND status = ?", string(id), string(sharedkernel.TaskPending)).
 		Updates(map[string]any{
 			"status":       string(sharedkernel.TaskQueued),
-			"instance_id":  string(instanceID),
+			"edge_id":      string(edgeID),
 			"job_ref_json": string(raw),
 			"lease_until":  time.Time{},
 			"updated_at":   now,
@@ -154,8 +154,8 @@ func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.Ta
 	return false, nil
 }
 
-func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, instanceID sharedkernel.InstanceID, lease time.Duration, now time.Time) (*domain.Task, error) {
-	if instanceID == "" || lease <= 0 {
+func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, edgeID sharedkernel.EdgeID, lease time.Duration, now time.Time) (*domain.Task, error) {
+	if edgeID == "" || lease <= 0 {
 		return nil, nil
 	}
 	var claimed *domain.Task
@@ -163,8 +163,8 @@ func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, instanceID shar
 		for {
 			var row TaskRow
 			err := tx.Where(
-				"status = ? AND instance_id = ? AND job_ref_json != '' AND job_ref_json IS NOT NULL",
-				string(sharedkernel.TaskQueued), string(instanceID),
+				"status = ? AND edge_id = ? AND job_ref_json != '' AND job_ref_json IS NOT NULL",
+				string(sharedkernel.TaskQueued), string(edgeID),
 			).Order("created_at ASC").First(&row).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil
@@ -200,12 +200,12 @@ func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, instanceID shar
 	return claimed, err
 }
 
-func (r *TaskRepository) HeartbeatLease(ctx context.Context, id sharedkernel.TaskID, instanceID sharedkernel.InstanceID, lease time.Duration, now time.Time) (bool, error) {
+func (r *TaskRepository) HeartbeatLease(ctx context.Context, id sharedkernel.TaskID, edgeID sharedkernel.EdgeID, lease time.Duration, now time.Time) (bool, error) {
 	if lease <= 0 {
 		return false, nil
 	}
 	res := r.db.WithContext(ctx).Model(&TaskRow{}).
-		Where("id = ? AND status = ? AND instance_id = ?", string(id), string(sharedkernel.TaskRunning), string(instanceID)).
+		Where("id = ? AND status = ? AND edge_id = ?", string(id), string(sharedkernel.TaskRunning), string(edgeID)).
 		Updates(map[string]any{
 			"lease_until": now.Add(lease),
 			"updated_at":  now,
@@ -241,9 +241,13 @@ func (r *TaskRepository) RequeueExpiredLeases(ctx context.Context, now time.Time
 }
 
 func (r *TaskRepository) ListByChat(ctx context.Context, chatID sharedkernel.ChatID, limit int) ([]*domain.Task, error) {
+	addr, err := sharedkernel.ParseChatID(string(chatID))
+	if err != nil {
+		return nil, err
+	}
 	q := r.db.WithContext(ctx).Table("tasks").
 		Joins("JOIN sessions ON tasks.session_id = sessions.id").
-		Where("sessions.chat_id = ?", int64(chatID)).
+		Where("sessions.channel_id = ? AND sessions.chat_external_id = ?", addr.ChannelID, addr.ExternalChatID).
 		Order("tasks.created_at DESC")
 	if limit > 0 {
 		q = q.Limit(limit)
@@ -267,12 +271,12 @@ func (r *TaskRepository) ListByStatus(ctx context.Context, st sharedkernel.TaskS
 	return rowsToTasks(rows)
 }
 
-func (r *TaskRepository) ListByInstance(ctx context.Context, instanceID sharedkernel.InstanceID, q domain.ListByInstanceQuery) ([]*domain.Task, error) {
-	if instanceID == "" {
+func (r *TaskRepository) ListByInstance(ctx context.Context, edgeID sharedkernel.EdgeID, q domain.ListByInstanceQuery) ([]*domain.Task, error) {
+	if edgeID == "" {
 		return nil, nil
 	}
 	tx := r.db.WithContext(ctx).
-		Where("instance_id = ? AND instance_id != ?", string(instanceID), "").
+		Where("edge_id = ? AND edge_id != ?", string(edgeID), "").
 		Order("created_at ASC")
 	if q.Status != "" {
 		tx = tx.Where("status = ?", string(q.Status))
@@ -291,7 +295,7 @@ func (r *TaskRepository) ListByInstance(ctx context.Context, instanceID sharedke
 }
 
 func (r *TaskRepository) List(ctx context.Context, q domain.AdminListQuery) ([]*domain.Task, error) {
-	joinChat := q.ChatID != 0
+	joinChat := q.ChatID != ""
 	col := func(name string) string {
 		if joinChat {
 			return "tasks." + name
@@ -301,9 +305,13 @@ func (r *TaskRepository) List(ctx context.Context, q domain.AdminListQuery) ([]*
 
 	var tx *gorm.DB
 	if joinChat {
+		addr, err := sharedkernel.ParseChatID(string(q.ChatID))
+		if err != nil {
+			return nil, err
+		}
 		tx = r.db.WithContext(ctx).Table("tasks").
 			Joins("JOIN sessions ON tasks.session_id = sessions.id").
-			Where("sessions.chat_id = ?", int64(q.ChatID))
+			Where("sessions.channel_id = ? AND sessions.chat_external_id = ?", addr.ChannelID, addr.ExternalChatID)
 	} else {
 		tx = r.db.WithContext(ctx).Model(&TaskRow{})
 	}
@@ -311,8 +319,8 @@ func (r *TaskRepository) List(ctx context.Context, q domain.AdminListQuery) ([]*
 	if q.Status != "" {
 		tx = tx.Where(col("status")+" = ?", string(q.Status))
 	}
-	if q.InstanceID != "" {
-		tx = tx.Where(col("instance_id")+" = ?", string(q.InstanceID))
+	if q.EdgeID != "" {
+		tx = tx.Where(col("edge_id")+" = ?", string(q.EdgeID))
 	}
 	if q.SessionID != "" {
 		tx = tx.Where(col("session_id")+" = ?", string(q.SessionID))
@@ -369,7 +377,7 @@ func toRow(t *domain.Task) (*TaskRow, error) {
 		SessionID:    string(t.SessionID),
 		CaseID:       string(t.CaseID),
 		Status:       string(t.Status),
-		InstanceID:   string(t.InstanceID),
+		EdgeID:       string(t.EdgeID),
 		PromptID:     t.PromptID,
 		InputPrefix:  t.InputPrefix,
 		JobRefJSON:   jobRefJSON,
@@ -400,7 +408,7 @@ func fromRow(row TaskRow) (*domain.Task, error) {
 		SessionID:    sharedkernel.SessionID(row.SessionID),
 		CaseID:       sharedkernel.CaseID(row.CaseID),
 		Status:       sharedkernel.TaskStatus(row.Status),
-		InstanceID:   sharedkernel.InstanceID(row.InstanceID),
+		EdgeID:       sharedkernel.EdgeID(row.EdgeID),
 		PromptID:     row.PromptID,
 		InputPrefix:  row.InputPrefix,
 		JobRef:       jobRef,

@@ -17,7 +17,7 @@ var ErrEmptyUserID = errors.New("empty user id")
 type ListQuery struct {
 	Q           string
 	UserID      string
-	ChatID      *int64
+	ChatID      *sharedkernel.ChatID
 	Status      Status
 	CreatedFrom *time.Time
 	CreatedTo   *time.Time
@@ -76,7 +76,7 @@ func (r *MemoryRepository) List(_ context.Context, q ListQuery) ([]*Session, err
 		if q.UserID != "" && s.UserID != q.UserID {
 			continue
 		}
-		if q.ChatID != nil && int64(s.ChatID) != *q.ChatID {
+		if q.ChatID != nil && s.ChatID != *q.ChatID {
 			continue
 		}
 		if q.Status != "" && s.Status != q.Status {

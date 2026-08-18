@@ -23,14 +23,14 @@ func newSvc() *domain.Service {
 func TestStartCaseLocksAndRejectsSecond(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
-	s, err := svc.StartCase(ctx, 42, "user-1", "c1", []string{"prompt", "seed"})
+	s, err := svc.StartCase(ctx, "tg:42", "user-1", "c1", []string{"prompt", "seed"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if s.Status != domain.StatusCollecting {
 		t.Fatalf("status=%s", s.Status)
 	}
-	_, err = svc.StartCase(ctx, 42, "user-1", "c2", []string{"a"})
+	_, err = svc.StartCase(ctx, "tg:42", "user-1", "c2", []string{"a"})
 	if !errors.Is(err, domain.ErrSessionLocked) {
 		t.Fatalf("want locked, got %v", err)
 	}
@@ -39,14 +39,14 @@ func TestStartCaseLocksAndRejectsSecond(t *testing.T) {
 func TestStartCaseWritesUserID(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
-	s, err := svc.StartCase(ctx, 42, "user-abc", "c1", []string{"prompt"})
+	s, err := svc.StartCase(ctx, "tg:42", "user-abc", "c1", []string{"prompt"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if s.UserID != "user-abc" {
 		t.Fatalf("UserID=%q", s.UserID)
 	}
-	got, err := svc.Get(ctx, 42)
+	got, err := svc.Get(ctx, "tg:42")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestStartCaseWritesUserID(t *testing.T) {
 
 func TestStartCaseRejectsEmptyUserID(t *testing.T) {
 	svc := newSvc()
-	_, err := svc.StartCase(context.Background(), 1, "", "c1", []string{"a"})
+	_, err := svc.StartCase(context.Background(), "tg:1", "", "c1", []string{"a"})
 	if !errors.Is(err, domain.ErrEmptyUserID) {
 		t.Fatalf("want ErrEmptyUserID, got %v", err)
 	}
@@ -66,16 +66,16 @@ func TestStartCaseRejectsEmptyUserID(t *testing.T) {
 func TestSubmitThenSkipToConfirming(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
-	_, _ = svc.StartCase(ctx, 1, "u1", "c1", []string{"prompt", "seed"})
+	_, _ = svc.StartCase(ctx, "tg:1", "u1", "c1", []string{"prompt", "seed"})
 	prompt := "cat"
-	s, err := svc.SubmitInput(ctx, 1, domain.DraftValue{Text: &prompt})
+	s, err := svc.SubmitInput(ctx, "tg:1", domain.DraftValue{Text: &prompt})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if s.Status != domain.StatusCollecting || s.CurrentInputIndex != 1 {
 		t.Fatalf("after prompt: %+v", s)
 	}
-	s, err = svc.SkipInput(ctx, 1)
+	s, err = svc.SkipInput(ctx, "tg:1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,11 +87,11 @@ func TestSubmitThenSkipToConfirming(t *testing.T) {
 func TestExitUnlocks(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
-	_, _ = svc.StartCase(ctx, 7, "u1", "c1", []string{"prompt"})
-	if err := svc.Exit(ctx, 7); err != nil {
+	_, _ = svc.StartCase(ctx, "tg:7", "u1", "c1", []string{"prompt"})
+	if err := svc.Exit(ctx, "tg:7"); err != nil {
 		t.Fatal(err)
 	}
-	_, err := svc.StartCase(ctx, 7, "u1", "c2", []string{"x"})
+	_, err := svc.StartCase(ctx, "tg:7", "u1", "c2", []string{"x"})
 	if err != nil {
 		t.Fatalf("should unlock: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestExitUnlocks(t *testing.T) {
 func TestSubmitWrongState(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
-	_, err := svc.SubmitInput(ctx, 9, domain.DraftValue{})
+	_, err := svc.SubmitInput(ctx, "tg:9", domain.DraftValue{})
 	if !errors.Is(err, domain.ErrNoActiveSession) {
 		t.Fatalf("got %v", err)
 	}
@@ -112,12 +112,12 @@ func TestMemoryKeepsSubmittedByID(t *testing.T) {
 		return time.Unix(1, 0).UTC()
 	})
 	ctx := context.Background()
-	s, err := svc.StartCase(ctx, 3, "u1", "c1", []string{"prompt"})
+	s, err := svc.StartCase(ctx, "tg:3", "u1", "c1", []string{"prompt"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	prompt := "x"
-	s, err = svc.SubmitInput(ctx, 3, domain.DraftValue{Text: &prompt})
+	s, err = svc.SubmitInput(ctx, "tg:3", domain.DraftValue{Text: &prompt})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestMemoryKeepsSubmittedByID(t *testing.T) {
 	if err := repo.Save(ctx, s); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.GetActiveByChat(ctx, 3); !errors.Is(err, domain.ErrNoActiveSession) {
+	if _, err := repo.GetActiveByChat(ctx, "tg:3"); !errors.Is(err, domain.ErrNoActiveSession) {
 		t.Fatalf("want no active, got %v", err)
 	}
 	byID, err := repo.GetByID(ctx, "s-keep")

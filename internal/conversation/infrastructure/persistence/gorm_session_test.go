@@ -11,6 +11,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 func openShared(t *testing.T, dsn string) *gorm.DB {
@@ -32,7 +33,7 @@ func TestGormSession_ActiveSurviveReopenAndSubmittedKept(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	s := domain.NewCollecting("s1", 100, "case-1", []string{"prompt"}, now)
+	s := domain.NewCollecting("s1", "tg:100", "case-1", []string{"prompt"}, now)
 	s.UserID = "user-1"
 	if err := repo.Save(ctx, s); err != nil {
 		t.Fatal(err)
@@ -40,14 +41,14 @@ func TestGormSession_ActiveSurviveReopenAndSubmittedKept(t *testing.T) {
 
 	gdb2 := openShared(t, dsn)
 	repo2 := persistence.NewSessionRepository(gdb2)
-	got, err := repo2.GetActiveByChat(ctx, 100)
+	got, err := repo2.GetActiveByChat(ctx, "tg:100")
 	if err != nil || got.ID != "s1" || got.UserID != "user-1" {
 		t.Fatalf("active restore: %+v %v", got, err)
 	}
 
 	got.Status = domain.StatusSubmitted
 	_ = repo2.Save(ctx, got)
-	if _, err := repo2.GetActiveByChat(ctx, 100); err != domain.ErrNoActiveSession {
+	if _, err := repo2.GetActiveByChat(ctx, "tg:100"); err != domain.ErrNoActiveSession {
 		t.Fatalf("expected no active, got %v", err)
 	}
 	byID, err := repo2.GetByID(ctx, "s1")
@@ -63,13 +64,13 @@ func TestSessionListFilters(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	s1 := domain.NewCollecting("sess-alice-1", 100, "case-alpha", []string{"prompt"}, now)
+	s1 := domain.NewCollecting("sess-alice-1", "tg:100", "case-alpha", []string{"prompt"}, now)
 	s1.UserID = "user-alice"
 	if err := repo.Save(ctx, s1); err != nil {
 		t.Fatal(err)
 	}
 
-	s2 := domain.NewCollecting("sess-bob-2", 200, "case-beta", []string{"prompt"}, now.Add(time.Second))
+	s2 := domain.NewCollecting("sess-bob-2", "tg:200", "case-beta", []string{"prompt"}, now.Add(time.Second))
 	s2.UserID = "user-bob"
 	s2.Status = domain.StatusSubmitted
 	s2.UpdatedAt = now.Add(2 * time.Second)
@@ -93,7 +94,7 @@ func TestSessionListFilters(t *testing.T) {
 		t.Fatalf("status=submitted: want 1 bob, got %+v", byStatus)
 	}
 
-	chatID := int64(100)
+	chatID := sharedkernel.ChatID("tg:100")
 	byChat, err := repo.List(ctx, domain.ListQuery{ChatID: &chatID})
 	if err != nil {
 		t.Fatal(err)

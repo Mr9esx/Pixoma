@@ -23,7 +23,7 @@ type Task struct {
 	ChatID       sharedkernel.ChatID // optional cache; not persisted as required column
 	CaseID       sharedkernel.CaseID
 	Status       sharedkernel.TaskStatus
-	InstanceID   sharedkernel.InstanceID
+	EdgeID       sharedkernel.EdgeID
 	PromptID     string
 	InputPrefix  string
 	JobRef       sharedkernel.BlobRef
@@ -47,18 +47,18 @@ func NewPending(id sharedkernel.TaskID, sessionID sharedkernel.SessionID, caseID
 	}
 }
 
-func (t *Task) MarkQueued(instance sharedkernel.InstanceID, now time.Time) error {
+func (t *Task) MarkQueued(instance sharedkernel.EdgeID, now time.Time) error {
 	if t.Status != sharedkernel.TaskPending && t.Status != sharedkernel.TaskQueued {
 		return ErrInvalidTransition
 	}
 	t.Status = sharedkernel.TaskQueued
-	t.InstanceID = instance
+	t.EdgeID = instance
 	t.UpdatedAt = now
 	return nil
 }
 
 // PrepareForClaim marks a pending task queued for a specific instance with a job blob ref.
-func (t *Task) PrepareForClaim(instance sharedkernel.InstanceID, jobRef sharedkernel.BlobRef, now time.Time) error {
+func (t *Task) PrepareForClaim(instance sharedkernel.EdgeID, jobRef sharedkernel.BlobRef, now time.Time) error {
 	if t.Status != sharedkernel.TaskPending && t.Status != sharedkernel.TaskQueued {
 		return ErrInvalidTransition
 	}
@@ -66,7 +66,7 @@ func (t *Task) PrepareForClaim(instance sharedkernel.InstanceID, jobRef sharedke
 		return ErrInvalidTransition
 	}
 	t.Status = sharedkernel.TaskQueued
-	t.InstanceID = instance
+	t.EdgeID = instance
 	t.JobRef = jobRef
 	t.LeaseUntil = time.Time{}
 	t.UpdatedAt = now
@@ -74,11 +74,11 @@ func (t *Task) PrepareForClaim(instance sharedkernel.InstanceID, jobRef sharedke
 }
 
 // ClaimWithLease moves queued → running for the assigned instance and sets lease expiry.
-func (t *Task) ClaimWithLease(instance sharedkernel.InstanceID, lease time.Duration, now time.Time) error {
+func (t *Task) ClaimWithLease(instance sharedkernel.EdgeID, lease time.Duration, now time.Time) error {
 	if t.Status != sharedkernel.TaskQueued {
 		return ErrInvalidTransition
 	}
-	if instance == "" || t.InstanceID != instance {
+	if instance == "" || t.EdgeID != instance {
 		return ErrInvalidTransition
 	}
 	if t.JobRef.Key == "" {
