@@ -5,24 +5,26 @@ describe('MENU_ITEMS', () => {
   it('keeps required order', () => {
     expect(MENU_ITEMS.map((m) => m.id)).toEqual([
       'dashboard',
-      'instances',
+      'edges',
       'cases',
-      'tg-menu',
+      'channels',
       'tasks',
       'users',
       'sessions',
+      'settings',
     ])
   })
 
   it('maps paths', () => {
     expect(MENU_ITEMS.map((m) => m.path)).toEqual([
       '/',
-      '/instances',
+      '/edges',
       '/cases',
-      '/tg-menu',
+      '/channels',
       '/tasks',
       '/users',
       '/sessions',
+      '/settings',
     ])
   })
 })

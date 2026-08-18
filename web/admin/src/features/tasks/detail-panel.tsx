@@ -39,7 +39,7 @@ function TaskFields({ task, t }: { task: TaskRecord; t: (k: string) => string })
         label={t('tasks.fieldChatId')}
         value={task.chat_id != null ? String(task.chat_id) : undefined}
       />
-      <Field label={t('tasks.fieldInstanceId')} value={task.instance_id} />
+      <Field label={t('tasks.fieldEdgeId')} value={task.edge_id} />
       <Field label={t('tasks.fieldPromptId')} value={task.prompt_id} />
       <Field label={t('tasks.fieldErrorCode')} value={task.error_code} />
       <Field label={t('tasks.fieldErrorMessage')} value={task.error_message} />

@@ -66,4 +66,13 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
       /size='sm'[\s\S]*lang\.zh[\s\S]*size='sm'[\s\S]*lang\.en/
     )
   })
+
+  it('content region switches to fixed layout when a child opts in', () => {
+    const source = read(APP_LAYOUT)
+    expect(source).toContain('contentRegionClassName')
+    const region = read(join(here, 'content-region.ts'))
+    expect(region).toContain(
+      'min-h-0 flex-1 overflow-auto has-[>[data-layout=fixed]]:flex has-[>[data-layout=fixed]]:overflow-hidden',
+    )
+  })
 })

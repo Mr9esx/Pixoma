@@ -3,7 +3,8 @@ export const queryKeys = {
     all: ['edges'] as const,
     presence: ['edges', 'presence'] as const,
     detail: (id: string) => ['edges', id] as const,
-    tasks: (id: string) => ['edges', id, 'tasks'] as const,
+    tasks: (id: string, offset: number) =>
+      ['edges', id, 'tasks', offset] as const,
     stats: (id: string) => ['edges', id, 'stats'] as const,
     metrics: (id: string) => ['edges', id, 'metrics'] as const,
   },
@@ -24,8 +25,11 @@ export const queryKeys = {
     all: ['sessions'] as const,
     detail: (id: string) => ['sessions', id] as const,
   },
-  tgMenu: {
-    all: ['tg-menu'] as const,
+  channels: {
+    all: ['channels'] as const,
+    detail: (id: string) => ['channels', id] as const,
+    menu: (id: string) => ['channels', id, 'menu'] as const,
+    extras: (id: string) => ['channels', id, 'menu', 'extras'] as const,
   },
   settings: {
     all: ['settings'] as const,

@@ -334,8 +334,8 @@ export function EdgeDetailPanel({ id }: Props) {
       />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>
-          <DialogHeader>
+        <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-lg'>
+          <DialogHeader className='shrink-0'>
             <DialogTitle>{t('edges.editHeading')}</DialogTitle>
           </DialogHeader>
           <EdgeForm

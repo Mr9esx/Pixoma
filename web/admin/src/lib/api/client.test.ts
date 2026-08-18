@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { apiFetch, ApiError } from './client'
+import { apiFetch, type ApiError } from './client'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -14,8 +14,8 @@ describe('apiFetch', () => {
         new Response(JSON.stringify({ error: 'case not found' }), {
           status: 404,
           headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
+        })
+      )
     )
     await expect(apiFetch('/api/v1/cases/missing')).rejects.toMatchObject({
       status: 404,
@@ -30,10 +30,10 @@ describe('apiFetch', () => {
         new Response(JSON.stringify([{ id: 'gpu-1' }]), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
+        })
+      )
     )
-    const data = await apiFetch<{ id: string }[]>('/api/v1/comfy-instances')
+    const data = await apiFetch<{ id: string }[]>('/api/v1/edges')
     expect(data[0].id).toBe('gpu-1')
   })
 
@@ -43,7 +43,7 @@ describe('apiFetch', () => {
       new Response(JSON.stringify({ initialized: false }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      }),
+      })
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -53,7 +53,18 @@ describe('apiFetch', () => {
       '/api/v1/setup/status',
       expect.objectContaining({
         credentials: 'include',
-      }),
+      })
     )
+  })
+
+  it('maps fetch failure to a connection error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    )
+    await expect(apiFetch('/api/v1/setup/login')).rejects.toMatchObject({
+      status: 0,
+      message: '无法连接后台。请确认服务状态。',
+    } satisfies Partial<ApiError>)
   })
 })

@@ -9,40 +9,39 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SplatRouteImport } from './routes/$'
-import { Route as AppRouteImport } from './routes/_app'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as SetupRouteImport } from './routes/setup'
-import { Route as errors401RouteImport } from './routes/(errors)/401'
-import { Route as errors403RouteImport } from './routes/(errors)/403'
-import { Route as errors404RouteImport } from './routes/(errors)/404'
-import { Route as errors500RouteImport } from './routes/(errors)/500'
-import { Route as errors503RouteImport } from './routes/(errors)/503'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
-import { Route as AppCasesRouteRouteImport } from './routes/_app/cases/route'
-import { Route as AppInstancesRouteRouteImport } from './routes/_app/instances/route'
-import { Route as AppSessionsRouteRouteImport } from './routes/_app/sessions/route'
-import { Route as AppTasksRouteRouteImport } from './routes/_app/tasks/route'
+import { Route as errors503RouteImport } from './routes/(errors)/503'
+import { Route as errors500RouteImport } from './routes/(errors)/500'
+import { Route as errors404RouteImport } from './routes/(errors)/404'
+import { Route as errors403RouteImport } from './routes/(errors)/403'
+import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as AppUsersRouteRouteImport } from './routes/_app/users/route'
-import { Route as AppCasesIndexRouteImport } from './routes/_app/cases/index'
-import { Route as AppCasesCaseIdRouteImport } from './routes/_app/cases/$caseId'
-import { Route as AppInstancesIndexRouteImport } from './routes/_app/instances/index'
-import { Route as AppInstancesInstanceIdRouteImport } from './routes/_app/instances/$instanceId'
-import { Route as AppSessionsIndexRouteImport } from './routes/_app/sessions/index'
-import { Route as AppSessionsSessionIdRouteImport } from './routes/_app/sessions/$sessionId'
-import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
-import { Route as AppTasksTaskIdRouteImport } from './routes/_app/tasks/$taskId'
-import { Route as AppTgMenuIndexRouteImport } from './routes/_app/tg-menu/index'
+import { Route as AppTasksRouteRouteImport } from './routes/_app/tasks/route'
+import { Route as AppSessionsRouteRouteImport } from './routes/_app/sessions/route'
+import { Route as AppEdgesRouteRouteImport } from './routes/_app/edges/route'
+import { Route as AppCasesRouteRouteImport } from './routes/_app/cases/route'
 import { Route as AppUsersIndexRouteImport } from './routes/_app/users/index'
+import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as AppSessionsIndexRouteImport } from './routes/_app/sessions/index'
+import { Route as AppEdgesIndexRouteImport } from './routes/_app/edges/index'
+import { Route as AppChannelsIndexRouteImport } from './routes/_app/channels/index'
+import { Route as AppCasesIndexRouteImport } from './routes/_app/cases/index'
 import { Route as AppUsersUserIdRouteImport } from './routes/_app/users/$userId'
+import { Route as AppTasksTaskIdRouteImport } from './routes/_app/tasks/$taskId'
+import { Route as AppSessionsSessionIdRouteImport } from './routes/_app/sessions/$sessionId'
+import { Route as AppEdgesEdgeIdRouteImport } from './routes/_app/edges/$edgeId'
+import { Route as AppChannelsNewRouteImport } from './routes/_app/channels/new'
+import { Route as AppChannelsIdRouteImport } from './routes/_app/channels/$id'
+import { Route as AppCasesCaseIdRouteImport } from './routes/_app/cases/$caseId'
 
-const SplatRoute = SplatRouteImport.update({
-  id: '/$',
-  path: '/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -50,34 +49,13 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const errors401Route = errors401RouteImport.update({
-  id: '/(errors)/401',
-  path: '/401',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const errors403Route = errors403RouteImport.update({
-  id: '/(errors)/403',
-  path: '/403',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const errors404Route = errors404RouteImport.update({
-  id: '/(errors)/404',
-  path: '/404',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const errors500Route = errors500RouteImport.update({
-  id: '/(errors)/500',
-  path: '/500',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const errors503Route = errors503RouteImport.update({
-  id: '/(errors)/503',
-  path: '/503',
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -85,19 +63,34 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppCasesRouteRoute = AppCasesRouteRouteImport.update({
-  id: '/cases',
-  path: '/cases',
-  getParentRoute: () => AppRoute,
+const errors503Route = errors503RouteImport.update({
+  id: '/(errors)/503',
+  path: '/503',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppInstancesRouteRoute = AppInstancesRouteRouteImport.update({
-  id: '/instances',
-  path: '/instances',
-  getParentRoute: () => AppRoute,
+const errors500Route = errors500RouteImport.update({
+  id: '/(errors)/500',
+  path: '/500',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppSessionsRouteRoute = AppSessionsRouteRouteImport.update({
-  id: '/sessions',
-  path: '/sessions',
+const errors404Route = errors404RouteImport.update({
+  id: '/(errors)/404',
+  path: '/404',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const errors403Route = errors403RouteImport.update({
+  id: '/(errors)/403',
+  path: '/403',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const errors401Route = errors401RouteImport.update({
+  id: '/(errors)/401',
+  path: '/401',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppUsersRouteRoute = AppUsersRouteRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTasksRouteRoute = AppTasksRouteRouteImport.update({
@@ -105,54 +98,19 @@ const AppTasksRouteRoute = AppTasksRouteRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AppRoute,
 } as any)
-const AppUsersRouteRoute = AppUsersRouteRouteImport.update({
-  id: '/users',
-  path: '/users',
+const AppSessionsRouteRoute = AppSessionsRouteRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
   getParentRoute: () => AppRoute,
 } as any)
-const AppCasesIndexRoute = AppCasesIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppCasesRouteRoute,
+const AppEdgesRouteRoute = AppEdgesRouteRouteImport.update({
+  id: '/edges',
+  path: '/edges',
+  getParentRoute: () => AppRoute,
 } as any)
-const AppCasesCaseIdRoute = AppCasesCaseIdRouteImport.update({
-  id: '/$caseId',
-  path: '/$caseId',
-  getParentRoute: () => AppCasesRouteRoute,
-} as any)
-const AppInstancesIndexRoute = AppInstancesIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppInstancesRouteRoute,
-} as any)
-const AppInstancesInstanceIdRoute = AppInstancesInstanceIdRouteImport.update({
-  id: '/$instanceId',
-  path: '/$instanceId',
-  getParentRoute: () => AppInstancesRouteRoute,
-} as any)
-const AppSessionsIndexRoute = AppSessionsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppSessionsRouteRoute,
-} as any)
-const AppSessionsSessionIdRoute = AppSessionsSessionIdRouteImport.update({
-  id: '/$sessionId',
-  path: '/$sessionId',
-  getParentRoute: () => AppSessionsRouteRoute,
-} as any)
-const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppTasksRouteRoute,
-} as any)
-const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
-  id: '/$taskId',
-  path: '/$taskId',
-  getParentRoute: () => AppTasksRouteRoute,
-} as any)
-const AppTgMenuIndexRoute = AppTgMenuIndexRouteImport.update({
-  id: '/tg-menu/',
-  path: '/tg-menu/',
+const AppCasesRouteRoute = AppCasesRouteRouteImport.update({
+  id: '/cases',
+  path: '/cases',
   getParentRoute: () => AppRoute,
 } as any)
 const AppUsersIndexRoute = AppUsersIndexRouteImport.update({
@@ -160,10 +118,70 @@ const AppUsersIndexRoute = AppUsersIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppUsersRouteRoute,
 } as any)
+const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppTasksRouteRoute,
+} as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSessionsIndexRoute = AppSessionsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSessionsRouteRoute,
+} as any)
+const AppEdgesIndexRoute = AppEdgesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppEdgesRouteRoute,
+} as any)
+const AppChannelsIndexRoute = AppChannelsIndexRouteImport.update({
+  id: '/channels/',
+  path: '/channels/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCasesIndexRoute = AppCasesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppCasesRouteRoute,
+} as any)
 const AppUsersUserIdRoute = AppUsersUserIdRouteImport.update({
   id: '/$userId',
   path: '/$userId',
   getParentRoute: () => AppUsersRouteRoute,
+} as any)
+const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
+  id: '/$taskId',
+  path: '/$taskId',
+  getParentRoute: () => AppTasksRouteRoute,
+} as any)
+const AppSessionsSessionIdRoute = AppSessionsSessionIdRouteImport.update({
+  id: '/$sessionId',
+  path: '/$sessionId',
+  getParentRoute: () => AppSessionsRouteRoute,
+} as any)
+const AppEdgesEdgeIdRoute = AppEdgesEdgeIdRouteImport.update({
+  id: '/$edgeId',
+  path: '/$edgeId',
+  getParentRoute: () => AppEdgesRouteRoute,
+} as any)
+const AppChannelsNewRoute = AppChannelsNewRouteImport.update({
+  id: '/channels/new',
+  path: '/channels/new',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChannelsIdRoute = AppChannelsIdRouteImport.update({
+  id: '/channels/$id',
+  path: '/channels/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCasesCaseIdRoute = AppCasesCaseIdRouteImport.update({
+  id: '/$caseId',
+  path: '/$caseId',
+  getParentRoute: () => AppCasesRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -172,7 +190,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
   '/cases': typeof AppCasesRouteRouteWithChildren
-  '/instances': typeof AppInstancesRouteRouteWithChildren
+  '/edges': typeof AppEdgesRouteRouteWithChildren
   '/sessions': typeof AppSessionsRouteRouteWithChildren
   '/tasks': typeof AppTasksRouteRouteWithChildren
   '/users': typeof AppUsersRouteRouteWithChildren
@@ -182,15 +200,18 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/cases/$caseId': typeof AppCasesCaseIdRoute
-  '/instances/$instanceId': typeof AppInstancesInstanceIdRoute
+  '/channels/$id': typeof AppChannelsIdRoute
+  '/channels/new': typeof AppChannelsNewRoute
+  '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/users/$userId': typeof AppUsersUserIdRoute
   '/cases/': typeof AppCasesIndexRoute
-  '/instances/': typeof AppInstancesIndexRoute
+  '/channels/': typeof AppChannelsIndexRoute
+  '/edges/': typeof AppEdgesIndexRoute
   '/sessions/': typeof AppSessionsIndexRoute
+  '/settings/': typeof AppSettingsIndexRoute
   '/tasks/': typeof AppTasksIndexRoute
-  '/tg-menu/': typeof AppTgMenuIndexRoute
   '/users/': typeof AppUsersIndexRoute
 }
 export interface FileRoutesByTo {
@@ -204,15 +225,18 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/': typeof AppIndexRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
-  '/instances/$instanceId': typeof AppInstancesInstanceIdRoute
+  '/channels/$id': typeof AppChannelsIdRoute
+  '/channels/new': typeof AppChannelsNewRoute
+  '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/users/$userId': typeof AppUsersUserIdRoute
   '/cases': typeof AppCasesIndexRoute
-  '/instances': typeof AppInstancesIndexRoute
+  '/channels': typeof AppChannelsIndexRoute
+  '/edges': typeof AppEdgesIndexRoute
   '/sessions': typeof AppSessionsIndexRoute
+  '/settings': typeof AppSettingsIndexRoute
   '/tasks': typeof AppTasksIndexRoute
-  '/tg-menu': typeof AppTgMenuIndexRoute
   '/users': typeof AppUsersIndexRoute
 }
 export interface FileRoutesById {
@@ -222,7 +246,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
   '/_app/cases': typeof AppCasesRouteRouteWithChildren
-  '/_app/instances': typeof AppInstancesRouteRouteWithChildren
+  '/_app/edges': typeof AppEdgesRouteRouteWithChildren
   '/_app/sessions': typeof AppSessionsRouteRouteWithChildren
   '/_app/tasks': typeof AppTasksRouteRouteWithChildren
   '/_app/users': typeof AppUsersRouteRouteWithChildren
@@ -233,15 +257,18 @@ export interface FileRoutesById {
   '/(errors)/503': typeof errors503Route
   '/_app/': typeof AppIndexRoute
   '/_app/cases/$caseId': typeof AppCasesCaseIdRoute
-  '/_app/instances/$instanceId': typeof AppInstancesInstanceIdRoute
+  '/_app/channels/$id': typeof AppChannelsIdRoute
+  '/_app/channels/new': typeof AppChannelsNewRoute
+  '/_app/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/_app/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/_app/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/_app/users/$userId': typeof AppUsersUserIdRoute
   '/_app/cases/': typeof AppCasesIndexRoute
-  '/_app/instances/': typeof AppInstancesIndexRoute
+  '/_app/channels/': typeof AppChannelsIndexRoute
+  '/_app/edges/': typeof AppEdgesIndexRoute
   '/_app/sessions/': typeof AppSessionsIndexRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/tasks/': typeof AppTasksIndexRoute
-  '/_app/tg-menu/': typeof AppTgMenuIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
 }
 export interface FileRouteTypes {
@@ -252,7 +279,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/setup'
     | '/cases'
-    | '/instances'
+    | '/edges'
     | '/sessions'
     | '/tasks'
     | '/users'
@@ -262,15 +289,18 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/cases/$caseId'
-    | '/instances/$instanceId'
+    | '/channels/$id'
+    | '/channels/new'
+    | '/edges/$edgeId'
     | '/sessions/$sessionId'
     | '/tasks/$taskId'
     | '/users/$userId'
     | '/cases/'
-    | '/instances/'
+    | '/channels/'
+    | '/edges/'
     | '/sessions/'
+    | '/settings/'
     | '/tasks/'
-    | '/tg-menu/'
     | '/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -284,15 +314,18 @@ export interface FileRouteTypes {
     | '/503'
     | '/'
     | '/cases/$caseId'
-    | '/instances/$instanceId'
+    | '/channels/$id'
+    | '/channels/new'
+    | '/edges/$edgeId'
     | '/sessions/$sessionId'
     | '/tasks/$taskId'
     | '/users/$userId'
     | '/cases'
-    | '/instances'
+    | '/channels'
+    | '/edges'
     | '/sessions'
+    | '/settings'
     | '/tasks'
-    | '/tg-menu'
     | '/users'
   id:
     | '__root__'
@@ -301,7 +334,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/setup'
     | '/_app/cases'
-    | '/_app/instances'
+    | '/_app/edges'
     | '/_app/sessions'
     | '/_app/tasks'
     | '/_app/users'
@@ -312,15 +345,18 @@ export interface FileRouteTypes {
     | '/(errors)/503'
     | '/_app/'
     | '/_app/cases/$caseId'
-    | '/_app/instances/$instanceId'
+    | '/_app/channels/$id'
+    | '/_app/channels/new'
+    | '/_app/edges/$edgeId'
     | '/_app/sessions/$sessionId'
     | '/_app/tasks/$taskId'
     | '/_app/users/$userId'
     | '/_app/cases/'
-    | '/_app/instances/'
+    | '/_app/channels/'
+    | '/_app/edges/'
     | '/_app/sessions/'
+    | '/_app/settings/'
     | '/_app/tasks/'
-    | '/_app/tg-menu/'
     | '/_app/users/'
   fileRoutesById: FileRoutesById
 }
@@ -338,18 +374,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/$': {
-      id: '/$'
-      path: '/$'
-      fullPath: '/$'
-      preLoaderRoute: typeof SplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_app': {
-      id: '/_app'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppRouteImport
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -359,46 +388,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/setup': {
-      id: '/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(errors)/401': {
-      id: '/(errors)/401'
-      path: '/401'
-      fullPath: '/401'
-      preLoaderRoute: typeof errors401RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(errors)/403': {
-      id: '/(errors)/403'
-      path: '/403'
-      fullPath: '/403'
-      preLoaderRoute: typeof errors403RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(errors)/404': {
-      id: '/(errors)/404'
-      path: '/404'
-      fullPath: '/404'
-      preLoaderRoute: typeof errors404RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(errors)/500': {
-      id: '/(errors)/500'
-      path: '/500'
-      fullPath: '/500'
-      preLoaderRoute: typeof errors500RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(errors)/503': {
-      id: '/(errors)/503'
-      path: '/503'
-      fullPath: '/503'
-      preLoaderRoute: typeof errors503RouteImport
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -408,25 +409,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/cases': {
-      id: '/_app/cases'
-      path: '/cases'
-      fullPath: '/cases'
-      preLoaderRoute: typeof AppCasesRouteRouteImport
-      parentRoute: typeof AppRoute
+    '/(errors)/503': {
+      id: '/(errors)/503'
+      path: '/503'
+      fullPath: '/503'
+      preLoaderRoute: typeof errors503RouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/instances': {
-      id: '/_app/instances'
-      path: '/instances'
-      fullPath: '/instances'
-      preLoaderRoute: typeof AppInstancesRouteRouteImport
-      parentRoute: typeof AppRoute
+    '/(errors)/500': {
+      id: '/(errors)/500'
+      path: '/500'
+      fullPath: '/500'
+      preLoaderRoute: typeof errors500RouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/sessions': {
-      id: '/_app/sessions'
-      path: '/sessions'
-      fullPath: '/sessions'
-      preLoaderRoute: typeof AppSessionsRouteRouteImport
+    '/(errors)/404': {
+      id: '/(errors)/404'
+      path: '/404'
+      fullPath: '/404'
+      preLoaderRoute: typeof errors404RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(errors)/403': {
+      id: '/(errors)/403'
+      path: '/403'
+      fullPath: '/403'
+      preLoaderRoute: typeof errors403RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(errors)/401': {
+      id: '/(errors)/401'
+      path: '/401'
+      fullPath: '/401'
+      preLoaderRoute: typeof errors401RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/users': {
+      id: '/_app/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AppUsersRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/tasks': {
@@ -436,74 +458,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksRouteRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/users': {
-      id: '/_app/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof AppUsersRouteRouteImport
+    '/_app/sessions': {
+      id: '/_app/sessions'
+      path: '/sessions'
+      fullPath: '/sessions'
+      preLoaderRoute: typeof AppSessionsRouteRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/cases/': {
-      id: '/_app/cases/'
-      path: '/'
-      fullPath: '/cases/'
-      preLoaderRoute: typeof AppCasesIndexRouteImport
-      parentRoute: typeof AppCasesRouteRoute
+    '/_app/edges': {
+      id: '/_app/edges'
+      path: '/edges'
+      fullPath: '/edges'
+      preLoaderRoute: typeof AppEdgesRouteRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_app/cases/$caseId': {
-      id: '/_app/cases/$caseId'
-      path: '/$caseId'
-      fullPath: '/cases/$caseId'
-      preLoaderRoute: typeof AppCasesCaseIdRouteImport
-      parentRoute: typeof AppCasesRouteRoute
-    }
-    '/_app/instances/': {
-      id: '/_app/instances/'
-      path: '/'
-      fullPath: '/instances/'
-      preLoaderRoute: typeof AppInstancesIndexRouteImport
-      parentRoute: typeof AppInstancesRouteRoute
-    }
-    '/_app/instances/$instanceId': {
-      id: '/_app/instances/$instanceId'
-      path: '/$instanceId'
-      fullPath: '/instances/$instanceId'
-      preLoaderRoute: typeof AppInstancesInstanceIdRouteImport
-      parentRoute: typeof AppInstancesRouteRoute
-    }
-    '/_app/sessions/': {
-      id: '/_app/sessions/'
-      path: '/'
-      fullPath: '/sessions/'
-      preLoaderRoute: typeof AppSessionsIndexRouteImport
-      parentRoute: typeof AppSessionsRouteRoute
-    }
-    '/_app/sessions/$sessionId': {
-      id: '/_app/sessions/$sessionId'
-      path: '/$sessionId'
-      fullPath: '/sessions/$sessionId'
-      preLoaderRoute: typeof AppSessionsSessionIdRouteImport
-      parentRoute: typeof AppSessionsRouteRoute
-    }
-    '/_app/tasks/': {
-      id: '/_app/tasks/'
-      path: '/'
-      fullPath: '/tasks/'
-      preLoaderRoute: typeof AppTasksIndexRouteImport
-      parentRoute: typeof AppTasksRouteRoute
-    }
-    '/_app/tasks/$taskId': {
-      id: '/_app/tasks/$taskId'
-      path: '/$taskId'
-      fullPath: '/tasks/$taskId'
-      preLoaderRoute: typeof AppTasksTaskIdRouteImport
-      parentRoute: typeof AppTasksRouteRoute
-    }
-    '/_app/tg-menu/': {
-      id: '/_app/tg-menu/'
-      path: '/tg-menu'
-      fullPath: '/tg-menu/'
-      preLoaderRoute: typeof AppTgMenuIndexRouteImport
+    '/_app/cases': {
+      id: '/_app/cases'
+      path: '/cases'
+      fullPath: '/cases'
+      preLoaderRoute: typeof AppCasesRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/users/': {
@@ -513,12 +486,96 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUsersIndexRouteImport
       parentRoute: typeof AppUsersRouteRoute
     }
+    '/_app/tasks/': {
+      id: '/_app/tasks/'
+      path: '/'
+      fullPath: '/tasks/'
+      preLoaderRoute: typeof AppTasksIndexRouteImport
+      parentRoute: typeof AppTasksRouteRoute
+    }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/sessions/': {
+      id: '/_app/sessions/'
+      path: '/'
+      fullPath: '/sessions/'
+      preLoaderRoute: typeof AppSessionsIndexRouteImport
+      parentRoute: typeof AppSessionsRouteRoute
+    }
+    '/_app/edges/': {
+      id: '/_app/edges/'
+      path: '/'
+      fullPath: '/edges/'
+      preLoaderRoute: typeof AppEdgesIndexRouteImport
+      parentRoute: typeof AppEdgesRouteRoute
+    }
+    '/_app/channels/': {
+      id: '/_app/channels/'
+      path: '/channels'
+      fullPath: '/channels/'
+      preLoaderRoute: typeof AppChannelsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cases/': {
+      id: '/_app/cases/'
+      path: '/'
+      fullPath: '/cases/'
+      preLoaderRoute: typeof AppCasesIndexRouteImport
+      parentRoute: typeof AppCasesRouteRoute
+    }
     '/_app/users/$userId': {
       id: '/_app/users/$userId'
       path: '/$userId'
       fullPath: '/users/$userId'
       preLoaderRoute: typeof AppUsersUserIdRouteImport
       parentRoute: typeof AppUsersRouteRoute
+    }
+    '/_app/tasks/$taskId': {
+      id: '/_app/tasks/$taskId'
+      path: '/$taskId'
+      fullPath: '/tasks/$taskId'
+      preLoaderRoute: typeof AppTasksTaskIdRouteImport
+      parentRoute: typeof AppTasksRouteRoute
+    }
+    '/_app/sessions/$sessionId': {
+      id: '/_app/sessions/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/sessions/$sessionId'
+      preLoaderRoute: typeof AppSessionsSessionIdRouteImport
+      parentRoute: typeof AppSessionsRouteRoute
+    }
+    '/_app/edges/$edgeId': {
+      id: '/_app/edges/$edgeId'
+      path: '/$edgeId'
+      fullPath: '/edges/$edgeId'
+      preLoaderRoute: typeof AppEdgesEdgeIdRouteImport
+      parentRoute: typeof AppEdgesRouteRoute
+    }
+    '/_app/channels/new': {
+      id: '/_app/channels/new'
+      path: '/channels/new'
+      fullPath: '/channels/new'
+      preLoaderRoute: typeof AppChannelsNewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/channels/$id': {
+      id: '/_app/channels/$id'
+      path: '/channels/$id'
+      fullPath: '/channels/$id'
+      preLoaderRoute: typeof AppChannelsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cases/$caseId': {
+      id: '/_app/cases/$caseId'
+      path: '/$caseId'
+      fullPath: '/cases/$caseId'
+      preLoaderRoute: typeof AppCasesCaseIdRouteImport
+      parentRoute: typeof AppCasesRouteRoute
     }
   }
 }
@@ -537,18 +594,19 @@ const AppCasesRouteRouteWithChildren = AppCasesRouteRoute._addFileChildren(
   AppCasesRouteRouteChildren,
 )
 
-interface AppInstancesRouteRouteChildren {
-  AppInstancesInstanceIdRoute: typeof AppInstancesInstanceIdRoute
-  AppInstancesIndexRoute: typeof AppInstancesIndexRoute
+interface AppEdgesRouteRouteChildren {
+  AppEdgesEdgeIdRoute: typeof AppEdgesEdgeIdRoute
+  AppEdgesIndexRoute: typeof AppEdgesIndexRoute
 }
 
-const AppInstancesRouteRouteChildren: AppInstancesRouteRouteChildren = {
-  AppInstancesInstanceIdRoute: AppInstancesInstanceIdRoute,
-  AppInstancesIndexRoute: AppInstancesIndexRoute,
+const AppEdgesRouteRouteChildren: AppEdgesRouteRouteChildren = {
+  AppEdgesEdgeIdRoute: AppEdgesEdgeIdRoute,
+  AppEdgesIndexRoute: AppEdgesIndexRoute,
 }
 
-const AppInstancesRouteRouteWithChildren =
-  AppInstancesRouteRoute._addFileChildren(AppInstancesRouteRouteChildren)
+const AppEdgesRouteRouteWithChildren = AppEdgesRouteRoute._addFileChildren(
+  AppEdgesRouteRouteChildren,
+)
 
 interface AppSessionsRouteRouteChildren {
   AppSessionsSessionIdRoute: typeof AppSessionsSessionIdRoute
@@ -593,22 +651,28 @@ const AppUsersRouteRouteWithChildren = AppUsersRouteRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppCasesRouteRoute: typeof AppCasesRouteRouteWithChildren
-  AppInstancesRouteRoute: typeof AppInstancesRouteRouteWithChildren
+  AppEdgesRouteRoute: typeof AppEdgesRouteRouteWithChildren
   AppSessionsRouteRoute: typeof AppSessionsRouteRouteWithChildren
   AppTasksRouteRoute: typeof AppTasksRouteRouteWithChildren
   AppUsersRouteRoute: typeof AppUsersRouteRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
-  AppTgMenuIndexRoute: typeof AppTgMenuIndexRoute
+  AppChannelsIdRoute: typeof AppChannelsIdRoute
+  AppChannelsNewRoute: typeof AppChannelsNewRoute
+  AppChannelsIndexRoute: typeof AppChannelsIndexRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppCasesRouteRoute: AppCasesRouteRouteWithChildren,
-  AppInstancesRouteRoute: AppInstancesRouteRouteWithChildren,
+  AppEdgesRouteRoute: AppEdgesRouteRouteWithChildren,
   AppSessionsRouteRoute: AppSessionsRouteRouteWithChildren,
   AppTasksRouteRoute: AppTasksRouteRouteWithChildren,
   AppUsersRouteRoute: AppUsersRouteRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
-  AppTgMenuIndexRoute: AppTgMenuIndexRoute,
+  AppChannelsIdRoute: AppChannelsIdRoute,
+  AppChannelsNewRoute: AppChannelsNewRoute,
+  AppChannelsIndexRoute: AppChannelsIndexRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

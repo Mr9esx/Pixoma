@@ -5,9 +5,13 @@ describe('nextAdminPath', () => {
   it('sends uninitialized guests to login first', () => {
     expect(
       nextAdminPath(
-        { initialized: false, authenticated: false, must_change_password: true },
-        '/',
-      ),
+        {
+          initialized: false,
+          authenticated: false,
+          must_change_password: true,
+        },
+        '/'
+      )
     ).toBe('/login')
   })
 
@@ -15,17 +19,21 @@ describe('nextAdminPath', () => {
     expect(
       nextAdminPath(
         { initialized: false, authenticated: true, must_change_password: true },
-        '/',
-      ),
+        '/'
+      )
     ).toBe('/setup')
   })
 
   it('sends initialized guests to login', () => {
     expect(
       nextAdminPath(
-        { initialized: true, authenticated: false, must_change_password: false },
-        '/',
-      ),
+        {
+          initialized: true,
+          authenticated: false,
+          must_change_password: false,
+        },
+        '/'
+      )
     ).toBe('/login')
   })
 
@@ -38,8 +46,8 @@ describe('nextAdminPath', () => {
           must_change_password: false,
           restart_required: true,
         },
-        '/',
-      ),
+        '/'
+      )
     ).toBe('/setup')
   })
 
@@ -47,8 +55,22 @@ describe('nextAdminPath', () => {
     expect(
       nextAdminPath(
         { initialized: true, authenticated: true, must_change_password: false },
-        '/',
-      ),
+        '/'
+      )
+    ).toBeNull()
+  })
+
+  it('keeps the wizard up while pixoma is reloading', () => {
+    expect(
+      nextAdminPath(
+        {
+          initialized: true,
+          authenticated: true,
+          must_change_password: false,
+          restart_required: true,
+        },
+        '/setup'
+      )
     ).toBeNull()
   })
 })

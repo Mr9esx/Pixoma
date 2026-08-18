@@ -50,7 +50,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   } catch {
     throw new ApiError(
       0,
-      'Network error: check VITE_ADMIN_API_BASE and admin-api CORS',
+      '无法连接后台。请确认服务状态。',
     )
   }
 

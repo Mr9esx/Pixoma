@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { listCases } from '@/lib/api/cases'
-import { listInstances } from '@/lib/api/instances'
+import { listEdges } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTasks } from '@/lib/api/tasks'
 import { aggregateDashboard } from '@/lib/dashboard/aggregate'
@@ -65,19 +65,19 @@ function RatioBar({
   )
 }
 
-function InstancesCard() {
+function EdgesCard() {
   const { t } = useTranslation()
   const q = useQuery({
-    queryKey: queryKeys.instances.all,
-    queryFn: listInstances,
+    queryKey: queryKeys.edges.all,
+    queryFn: listEdges,
   })
 
   if (q.isError) {
     return (
-      <Card data-testid='dashboard-instances-card'>
+      <Card data-testid='dashboard-edges-card'>
         <CardHeader>
           <CardTitle className='text-sm font-medium'>
-            {t('dashboard.instancesTitle')}
+            {t('dashboard.edgesTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -92,10 +92,10 @@ function InstancesCard() {
 
   if (q.isLoading) {
     return (
-      <Card data-testid='dashboard-instances-card'>
+      <Card data-testid='dashboard-edges-card'>
         <CardHeader>
           <CardTitle className='text-sm font-medium'>
-            {t('dashboard.instancesTitle')}
+            {t('dashboard.edgesTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -113,15 +113,15 @@ function InstancesCard() {
   const disabled = stats.instanceTotal - stats.instanceEnabled
 
   return (
-    <Card data-testid='dashboard-instances-card'>
+    <Card data-testid='dashboard-edges-card'>
       <CardHeader className='pb-2'>
         <CardTitle className='text-sm font-medium'>
-          <Link to='/instances' className='hover:underline'>
-            {t('dashboard.instancesTitle')}
+          <Link to='/edges' className='hover:underline'>
+            {t('dashboard.edgesTitle')}
           </Link>
         </CardTitle>
         <CardDescription>
-          {t('dashboard.instancesSummary', {
+          {t('dashboard.edgesSummary', {
             total: stats.instanceTotal,
             enabled: stats.instanceEnabled,
           })}
@@ -137,7 +137,7 @@ function InstancesCard() {
         </div>
         <div>
           <p className='mb-2 text-xs font-medium'>
-            {t('dashboard.instanceEnabledRatio')}
+            {t('dashboard.edgeEnabledRatio')}
           </p>
           <RatioBar
             segments={[
@@ -341,7 +341,7 @@ export function DashboardPage() {
         </p>
       </div>
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-        <InstancesCard />
+        <EdgesCard />
         <CasesCard />
         <TasksCard />
       </div>

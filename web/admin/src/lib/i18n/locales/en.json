@@ -7,7 +7,8 @@
     "tasks": "Tasks",
     "users": "Users",
     "sessions": "Sessions",
-    "settings": "Settings"
+    "settings": "Settings",
+    "channels": "Channels"
   },
   "common": {
     "loading": "Loading…",
@@ -56,8 +57,7 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "edit": "Edit",
-    "createHeading": "Create",
-    "createNode": "Create node",
+    "createNode": "Add node",
     "editHeading": "Edit",
     "fieldName": "Name",
     "fieldDescription": "Description",
@@ -87,6 +87,18 @@
     "regenerateConfirmDesc": "The old token stops working immediately.",
     "deployCommand": "Deploy",
     "deployComfyHint": "Before deploying, confirm ComfyUI is running locally: open http://127.0.0.1:8188 in a browser. If the port differs, edit COMFYUI_BASE_URL in the command above.",
+    "deployHeading": "Deploy node",
+    "deploySkip": "Skip",
+    "deployContinue": "Continue",
+    "deployWaitHint": "Run the deploy command on the target machine, then continue once the node is online and Comfy is running.",
+    "createDoneHeading": "Node added",
+    "createDoneDesc": "The node has been added",
+    "createDoneView": "View node",
+    "createDoneClose": "Done",
+    "createAndContinue": "Create & continue",
+    "stepInfo": "Node info",
+    "stepDeploy": "Deploy node",
+    "stepDone": "Added",
     "createSuccess": "Created",
     "deleteSuccess": "Deleted",
     "deleteConfirmTitle": "Delete?",
@@ -291,7 +303,8 @@
     "addChild": "Add subfolder",
     "noChildren": "No subfolders yet — use “Add subfolder” above.",
     "updatedAt": "Updated at",
-    "save": "Save"
+    "save": "Save",
+    "fieldOrder": "Order"
   },
   "settings": {
     "title": "Settings",
@@ -333,5 +346,35 @@
     "databaseTitle": "Database",
     "fieldDbDriver": "Driver",
     "fieldDbDsn": "DSN"
+  },
+  "channels": {
+    "title": "Channels",
+    "description": "Messaging platform connections: pick platform, enter credential, enable/disable.",
+    "new": "New Channel",
+    "newDescription": "Pick a platform and enter the Bot Token; it takes effect within seconds.",
+    "empty": "No channels yet. Click \"New Channel\" to start.",
+    "platform": "Platform",
+    "name": "Name",
+    "token": "Bot Token",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enable": "Enable",
+    "disable": "Disable",
+    "delete": "Delete",
+    "deleted": "Channel deleted",
+    "created": "Channel created",
+    "open": "Open",
+    "tabBasic": "Basics",
+    "tabMenu": "Menu",
+    "tabExtras": "Platform Extras",
+    "tokenHint": "Leave blank to keep unchanged; tokens are stored encrypted and shown masked."
+  },
+  "extras": {
+    "description": "Platform-specific data (e.g. TG root layout). Each extra is keyed by channel + menu item + type.",
+    "empty": "No extras yet. Click \"Add\" to create one.",
+    "item": "Menu item",
+    "itemPrompt": "Menu item ID: ",
+    "typePrompt": "Extra type (default tg_root_layout): ",
+    "add": "Add"
   }
 }

@@ -7,7 +7,9 @@ type Props = {
   detail: ReactNode
   hasSelection: boolean
   onBackToList?: () => void
+  emptyDetail?: ReactNode
   className?: string
+  detailClassName?: string
 }
 
 export function MasterDetailShell({
@@ -15,7 +17,9 @@ export function MasterDetailShell({
   detail,
   hasSelection,
   onBackToList,
+  emptyDetail,
   className,
+  detailClassName,
 }: Props) {
   const { t } = useTranslation()
   return (
@@ -36,8 +40,9 @@ export function MasterDetailShell({
       </aside>
       <section
         className={cn(
-          'min-h-0 overflow-auto p-4',
-          !hasSelection ? 'hidden md:block' : 'block'
+          'min-h-0',
+          detailClassName ?? 'overflow-auto p-4',
+          !hasSelection && 'hidden md:block'
         )}
       >
         {hasSelection ? (
@@ -45,7 +50,7 @@ export function MasterDetailShell({
             {onBackToList ? (
               <button
                 type='button'
-                className='mb-3 text-sm underline md:hidden'
+                className='mb-3 px-4 pt-3 text-sm underline md:hidden'
                 onClick={onBackToList}
               >
                 {t('common.backToList', { defaultValue: '返回列表' })}
@@ -54,7 +59,11 @@ export function MasterDetailShell({
             {detail}
           </>
         ) : (
-          <p className='text-muted-foreground'>{t('common.selectItem')}</p>
+          (emptyDetail ?? (
+            <p className='p-4 text-muted-foreground'>
+              {t('common.selectItem')}
+            </p>
+          ))
         )}
       </section>
     </div>

@@ -1,37 +1,58 @@
-import { useMemo, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { ApiError } from '@/lib/api/client'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { ArrowLeft } from 'lucide-react'
 import {
   changeAdminPassword,
   finalizeSetup,
   saveSetupDraft,
   testDatabase,
+  waitForSetupReady,
+  type SetupDraft,
   type SetupStatus,
 } from '@/lib/api/setup'
-
-const steps = ['password', 'database', 'placement', 'storage', 'edge', 'channel'] as const
-type Step = (typeof steps)[number]
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { AuthShell } from './auth-shell'
+import {
+  initialSetupStep,
+  previousSetupStep,
+  SETUP_STEP_COPY,
+  setupStepIndex,
+  setupStepsFor,
+  type SetupStep,
+} from './setup-steps'
 
 export function SetupWizard({ status }: { status: SetupStatus }) {
-  const initial = useMemo<Step>(() => {
-    if (status.must_change_password) return 'password'
-    const s = status.wizard_step as Step | undefined
-    if (s && steps.includes(s)) return s
-    return 'database'
-  }, [status])
-  const [step, setStep] = useState<Step>(initial)
+  const navigate = useNavigate()
+  const steps = useMemo(
+    () => setupStepsFor(status.must_change_password),
+    [status.must_change_password]
+  )
+  const [step, setStep] = useState<SetupStep>(() => initialSetupStep(status))
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const [restartMessage, setRestartMessage] = useState<string | null>(
-    status.restart_required ? '配置已保存，重启 pixoma 后才会按新设置装配。' : null,
-  )
+  const [reloading, setReloading] = useState(Boolean(status.restart_required))
 
-  const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [driver, setDriver] = useState('sqlite')
   const [dsn, setDsn] = useState('data/app.db')
   const [placement, setPlacement] = useState<'local' | 'remote'>('local')
@@ -42,25 +63,13 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const [blobBucket, setBlobBucket] = useState('')
   const [blobAccessKey, setBlobAccessKey] = useState('')
   const [blobSecretKey, setBlobSecretKey] = useState('')
-  const [comfyMock, setComfyMock] = useState(true)
-  const [comfyURL, setComfyURL] = useState('http://127.0.0.1:8188')
-  const [instanceId, setInstanceId] = useState('local')
   const [tgToken, setTgToken] = useState('')
 
-  async function run(fn: () => Promise<void>) {
-    setPending(true)
-    setError(null)
-    try {
-      await fn()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '操作失败')
-    } finally {
-      setPending(false)
-    }
-  }
+  const backStep = previousSetupStep(steps, step)
+  const copy = SETUP_STEP_COPY[step]
 
-  async function saveDraftAnd(next: Step) {
-    await saveSetupDraft({
+  function draft(overrides?: Partial<SetupDraft>): SetupDraft {
+    return {
       placement,
       db_driver: driver,
       db_dsn: dsn,
@@ -71,52 +80,114 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
       blob_bucket: blobBucket,
       blob_access_key: blobAccessKey,
       blob_secret_key: blobSecretKey,
-      comfy_mock: comfyMock,
-      comfyui_base_url: comfyURL,
-      default_instance_id: instanceId,
+      comfy_mock: false,
+      comfyui_base_url: '',
+      default_edge_id: 'local',
       auto_spawn_edge: placement === 'local',
       telegram_bot_token: tgToken,
-    })
-    setStep(next)
+      ...overrides,
+    }
   }
 
-  if (restartMessage) {
+  async function run(fn: () => Promise<void>) {
+    setPending(true)
+    setError(null)
+    try {
+      await fn()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '操作失败')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  function goBack() {
+    if (!backStep) return
+    setError(null)
+    setStep(backStep)
+  }
+
+  useEffect(() => {
+    if (!reloading) return
+    let cancelled = false
+    void (async () => {
+      try {
+        await waitForSetupReady()
+        if (!cancelled) await navigate({ to: '/' })
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '等待重启失败')
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [reloading, navigate])
+
+  if (reloading) {
     return (
-      <Shell title='保存成功' desc='配置已写入。重启 pixoma 后才会按新设置装配。'>
-        <p className='text-sm'>{restartMessage}</p>
-        <p className='text-muted-foreground text-sm'>
-          停掉当前进程，再执行同一条启动命令即可。改过的管理员密码不会再出现在启动日志里。
-        </p>
-      </Shell>
+      <AuthShell>
+        <Card className='w-full max-w-md'>
+          <CardHeader>
+            <CardTitle>正在重启</CardTitle>
+            <CardDescription>
+              配置已经写好。等 pixoma 重新起来就会进后台，不用自己杀进程。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className='flex flex-col gap-3 text-sm'>
+            {error ? (
+              <p className='text-destructive'>{error}</p>
+            ) : (
+              <p className='text-muted-foreground'>正在等待服务回来…</p>
+            )}
+          </CardContent>
+        </Card>
+      </AuthShell>
     )
   }
 
   return (
-    <Shell title='初始化向导' desc='先改密码，再选库、部署位置和存储。完成后重启生效。'>
+    <WizardCard steps={steps} step={step} title={copy.title} desc={copy.desc}>
       {step === 'password' ? (
         <form
-          className='space-y-4'
+          className='flex flex-col gap-4'
           onSubmit={(e) => {
             e.preventDefault()
             void run(async () => {
-              await changeAdminPassword(oldPassword, newPassword)
+              if (newPassword !== confirmPassword) {
+                throw new Error('两次输入不一致')
+              }
+              await changeAdminPassword({ newPassword })
               setStep('database')
             })
           }}
         >
-          <Field label='当前密码'>
-            <Input type='password' value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} />
+          <Field label='新密码（至少 8 位）' htmlFor='new-password'>
+            <Input
+              id='new-password'
+              type='password'
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete='new-password'
+            />
           </Field>
-          <Field label='新密码（至少 8 位）'>
-            <Input type='password' value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          <Field label='再输一遍' htmlFor='confirm-password'>
+            <Input
+              id='confirm-password'
+              type='password'
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete='new-password'
+            />
           </Field>
-          <Actions error={error} pending={pending} submit='保存密码' />
+          <StepActions error={error} pending={pending} submit={copy.submit} />
         </form>
       ) : null}
 
       {step === 'database' ? (
         <form
-          className='space-y-4'
+          className='flex flex-col gap-4'
           onSubmit={(e) => {
             e.preventDefault()
             void run(async () => {
@@ -125,33 +196,59 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             })
           }}
         >
-          <Field label='业务库'>
-            <select
-              className='border-input h-9 w-full rounded-md border bg-transparent px-3 text-sm'
-              value={driver}
-              onChange={(e) => setDriver(e.target.value)}
-            >
-              <option value='sqlite'>SQLite（本机文件，适合先跑通）</option>
-              <option value='mysql'>MySQL</option>
-              <option value='postgres'>Postgres</option>
-            </select>
+          <Field label='业务库' htmlFor='db-driver'>
+            <Select value={driver} onValueChange={setDriver}>
+              <SelectTrigger id='db-driver' className='w-full'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value='sqlite'>
+                    SQLite（本机文件，适合先跑通）
+                  </SelectItem>
+                  <SelectItem value='mysql'>MySQL</SelectItem>
+                  <SelectItem value='postgres'>Postgres</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
-          <Field label='DSN / 文件路径'>
-            <Input value={dsn} onChange={(e) => setDsn(e.target.value)} />
+          <Field label='DSN / 文件路径' htmlFor='db-dsn'>
+            <Input
+              id='db-dsn'
+              value={dsn}
+              onChange={(e) => setDsn(e.target.value)}
+            />
           </Field>
-          <Actions error={error} pending={pending} submit='测连通并保存' />
+          <StepActions
+            error={error}
+            pending={pending}
+            submit={copy.submit}
+            onBack={backStep ? goBack : undefined}
+          />
         </form>
       ) : null}
 
       {step === 'placement' ? (
-        <div className='space-y-4'>
-          <RadioGroup value={placement} onValueChange={(v) => setPlacement(v as 'local' | 'remote')}>
+        <form
+          className='flex flex-col gap-4'
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (placement === 'local') setBlobDriver('localfs')
+            else if (blobDriver === 'localfs') setBlobDriver('s3')
+            setStep('storage')
+          }}
+        >
+          <RadioGroup
+            value={placement}
+            onValueChange={(v) => setPlacement(v as 'local' | 'remote')}
+          >
             <label className='flex items-start gap-3 text-sm'>
               <RadioGroupItem value='local' />
               <span>
                 <strong>本机</strong>
-                <span className='text-muted-foreground mt-1 block'>
-                  Comfy 和后台在同一台机器。文件用本地目录，pixoma 会自动拉起本机 Edge。
+                <span className='mt-1 block text-muted-foreground'>
+                  Comfy 和后台在同一台机器。文件用本地目录，pixoma
+                  会自动拉起本机 Edge。
                 </span>
               </span>
             </label>
@@ -159,198 +256,244 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <RadioGroupItem value='remote' />
               <span>
                 <strong>远程</strong>
-                <span className='text-muted-foreground mt-1 block'>
+                <span className='mt-1 block text-muted-foreground'>
                   GPU 在别的机器。必须用对象存储（S3 / TOS），不能用本机目录。
                 </span>
               </span>
             </label>
           </RadioGroup>
-          <Button
-            disabled={pending}
-            onClick={() => {
-              if (placement === 'local') setBlobDriver('localfs')
-              else if (blobDriver === 'localfs') setBlobDriver('s3')
-              setStep('storage')
-            }}
-          >
-            下一步
-          </Button>
-        </div>
+          <StepActions
+            error={error}
+            pending={pending}
+            submit={copy.submit}
+            onBack={backStep ? goBack : undefined}
+          />
+        </form>
       ) : null}
 
       {step === 'storage' ? (
         <form
-          className='space-y-4'
+          className='flex flex-col gap-4'
           onSubmit={(e) => {
             e.preventDefault()
             void run(async () => {
-              await saveDraftAnd('edge')
+              await saveSetupDraft(draft())
+              setStep('channel')
             })
           }}
         >
-          <Field label='对象存储'>
-            <select
-              className='border-input h-9 w-full rounded-md border bg-transparent px-3 text-sm'
-              value={blobDriver}
-              onChange={(e) => setBlobDriver(e.target.value)}
-            >
-              {placement === 'local' ? <option value='localfs'>本机目录</option> : null}
-              <option value='s3'>S3 兼容</option>
-              <option value='tos'>火山 TOS</option>
-            </select>
+          <Field label='对象存储' htmlFor='blob-driver'>
+            <Select value={blobDriver} onValueChange={setBlobDriver}>
+              <SelectTrigger id='blob-driver' className='w-full'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {placement === 'local' ? (
+                    <SelectItem value='localfs'>本机目录</SelectItem>
+                  ) : null}
+                  <SelectItem value='s3'>S3 兼容</SelectItem>
+                  <SelectItem value='tos'>火山 TOS</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
           {blobDriver === 'localfs' ? (
-            <Field label='目录'>
-              <Input value={blobRoot} onChange={(e) => setBlobRoot(e.target.value)} />
+            <Field label='目录' htmlFor='blob-root'>
+              <Input
+                id='blob-root'
+                value={blobRoot}
+                onChange={(e) => setBlobRoot(e.target.value)}
+              />
             </Field>
           ) : (
             <>
-              <Field label='Endpoint'>
-                <Input value={blobEndpoint} onChange={(e) => setBlobEndpoint(e.target.value)} />
+              <Field label='Endpoint' htmlFor='blob-endpoint'>
+                <Input
+                  id='blob-endpoint'
+                  value={blobEndpoint}
+                  onChange={(e) => setBlobEndpoint(e.target.value)}
+                />
               </Field>
-              <Field label='Region'>
-                <Input value={blobRegion} onChange={(e) => setBlobRegion(e.target.value)} />
+              <Field label='Region' htmlFor='blob-region'>
+                <Input
+                  id='blob-region'
+                  value={blobRegion}
+                  onChange={(e) => setBlobRegion(e.target.value)}
+                />
               </Field>
-              <Field label='Bucket'>
-                <Input value={blobBucket} onChange={(e) => setBlobBucket(e.target.value)} />
+              <Field label='Bucket' htmlFor='blob-bucket'>
+                <Input
+                  id='blob-bucket'
+                  value={blobBucket}
+                  onChange={(e) => setBlobBucket(e.target.value)}
+                />
               </Field>
-              <Field label='Access Key'>
-                <Input value={blobAccessKey} onChange={(e) => setBlobAccessKey(e.target.value)} />
+              <Field label='Access Key' htmlFor='blob-access'>
+                <Input
+                  id='blob-access'
+                  value={blobAccessKey}
+                  onChange={(e) => setBlobAccessKey(e.target.value)}
+                />
               </Field>
-              <Field label='Secret Key'>
-                <Input type='password' value={blobSecretKey} onChange={(e) => setBlobSecretKey(e.target.value)} />
+              <Field label='Secret Key' htmlFor='blob-secret'>
+                <Input
+                  id='blob-secret'
+                  type='password'
+                  value={blobSecretKey}
+                  onChange={(e) => setBlobSecretKey(e.target.value)}
+                />
               </Field>
             </>
           )}
-          <Actions error={error} pending={pending} submit='保存存储' />
+          <StepActions
+            error={error}
+            pending={pending}
+            submit={copy.submit}
+            onBack={backStep ? goBack : undefined}
+          />
         </form>
-      ) : null}
-
-      {step === 'edge' ? (
-        <div className='space-y-4'>
-          <Field label='节点 ID'>
-            <Input value={instanceId} onChange={(e) => setInstanceId(e.target.value)} />
-          </Field>
-          <Field label='Comfy 地址'>
-            <Input value={comfyURL} onChange={(e) => setComfyURL(e.target.value)} />
-          </Field>
-          <label className='flex items-center gap-2 text-sm'>
-            <input type='checkbox' checked={comfyMock} onChange={(e) => setComfyMock(e.target.checked)} />
-            使用 Comfy Mock（没有真机时勾上，仍能走完出图）
-          </label>
-          {placement === 'remote' ? (
-            <pre className='bg-muted overflow-x-auto rounded-md p-3 text-xs'>
-{`# 在 GPU 机器上启动执行面（出站连控制面，不要用本机目录）
-export CONTROL_PLANE_URL=<控制面地址>
-export AGENT_TOKEN=<data/agent.token 里的内容>
-export INSTANCE_ID=${instanceId}
-export BLOB_DRIVER=${blobDriver === 'localfs' ? 's3' : blobDriver}
-export COMFY_MOCK=${comfyMock ? 'true' : 'false'}
-pixoma-edge-agent`}
-            </pre>
-          ) : (
-            <p className='text-muted-foreground text-sm'>
-              本机部署会由 pixoma 自动拉起 Edge。也可以设 EDGE_AUTO_SPAWN=0 后手动启动 pixoma-edge-agent。
-            </p>
-          )}
-          <Button
-            disabled={pending}
-            onClick={() => {
-              void run(async () => {
-                await saveDraftAnd('channel')
-              })
-            }}
-          >
-            下一步
-          </Button>
-          {error ? <p className='text-sm text-destructive'>{error}</p> : null}
-        </div>
       ) : null}
 
       {step === 'channel' ? (
         <form
-          className='space-y-4'
+          className='flex flex-col gap-4'
           onSubmit={(e) => {
             e.preventDefault()
             void run(async () => {
-              await saveSetupDraft({
-                placement,
-                db_driver: driver,
-                db_dsn: dsn,
-                blob_driver: blobDriver,
-                blob_root: blobRoot,
-                blob_endpoint: blobEndpoint,
-                blob_region: blobRegion,
-                blob_bucket: blobBucket,
-                blob_access_key: blobAccessKey,
-                blob_secret_key: blobSecretKey,
-                comfy_mock: comfyMock,
-                comfyui_base_url: comfyURL,
-                default_instance_id: instanceId,
-                auto_spawn_edge: placement === 'local',
-                telegram_bot_token: tgToken,
-              })
-              const res = await finalizeSetup()
-              setRestartMessage(res.message)
+              await saveSetupDraft(draft())
+              await finalizeSetup()
+              setReloading(true)
             })
           }}
         >
-          <Field label='Telegram Bot Token（可先留空，之后用环境变量补）'>
-            <Input type='password' value={tgToken} onChange={(e) => setTgToken(e.target.value)} />
+          <Field label='Telegram Bot Token' htmlFor='tg-token'>
+            <Input
+              id='tg-token'
+              type='password'
+              value={tgToken}
+              onChange={(e) => setTgToken(e.target.value)}
+            />
           </Field>
-          <Actions error={error} pending={pending} submit='完成并提示重启' />
+          <StepActions
+            error={error}
+            pending={pending}
+            submit={copy.submit}
+            onBack={backStep ? goBack : undefined}
+            onSkip={() => {
+              void run(async () => {
+                await saveSetupDraft(draft({ telegram_bot_token: '' }))
+                await finalizeSetup()
+                setReloading(true)
+              })
+            }}
+          />
         </form>
       ) : null}
-    </Shell>
+    </WizardCard>
   )
 }
 
-function Shell({
+function WizardCard({
+  steps,
+  step,
   title,
   desc,
   children,
 }: {
+  steps: SetupStep[]
+  step: SetupStep
   title: string
   desc: string
   children: React.ReactNode
 }) {
+  const index = setupStepIndex(steps, step)
   return (
-    <div className='flex min-h-svh items-center justify-center p-6'>
-      <Card className='w-full max-w-xl'>
+    <AuthShell>
+      <Card className='w-full max-w-md'>
         <CardHeader>
+          <div className='flex gap-1' aria-hidden>
+            {steps.map((item, i) => (
+              <div
+                key={item}
+                className={cn(
+                  'h-1 flex-1 rounded-full',
+                  i <= index ? 'bg-primary' : 'bg-muted'
+                )}
+              />
+            ))}
+          </div>
+          <p className='text-sm text-muted-foreground'>
+            第 {index + 1} / {steps.length} 步
+          </p>
           <CardTitle>{title}</CardTitle>
-          <CardDescription>{desc}</CardDescription>
+          {desc ? <CardDescription>{desc}</CardDescription> : null}
         </CardHeader>
-        <CardContent className='space-y-4'>{children}</CardContent>
+        <CardContent className='flex flex-col gap-4'>{children}</CardContent>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string
+  htmlFor: string
+  children: React.ReactNode
+}) {
   return (
-    <div className='space-y-2'>
-      <Label>{label}</Label>
+    <div className='flex flex-col gap-2'>
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
     </div>
   )
 }
 
-function Actions({
+function StepActions({
   error,
   pending,
   submit,
+  onBack,
+  onSkip,
 }: {
   error: string | null
   pending: boolean
   submit: string
+  onBack?: () => void
+  onSkip?: () => void
 }) {
   return (
-    <div className='space-y-2'>
+    <div className='flex flex-col gap-2'>
       {error ? <p className='text-sm text-destructive'>{error}</p> : null}
-      <Button type='submit' disabled={pending}>
-        {pending ? '处理中…' : submit}
-      </Button>
+      <div className='flex gap-2'>
+        {onBack ? (
+          <Button
+            type='button'
+            variant='outline'
+            disabled={pending}
+            onClick={onBack}
+          >
+            <ArrowLeft />
+            上一步
+          </Button>
+        ) : null}
+        {onSkip ? (
+          <Button
+            type='button'
+            variant='ghost'
+            disabled={pending}
+            onClick={onSkip}
+          >
+            暂时跳过
+          </Button>
+        ) : null}
+        <Button type='submit' className='flex-1' disabled={pending}>
+          {pending ? '处理中…' : submit}
+        </Button>
+      </div>
     </div>
   )
 }
