@@ -323,6 +323,103 @@ export function GpuCards({ point }: { point: MetricsPoint | null }) {
   )
 }
 
+export function IOCard({ series }: { series: MetricsPoint[] }) {
+  const { t } = useTranslation()
+  const data = series.map((p) => ({
+    time: p.time,
+    read: p.ioRead,
+    write: p.ioWrite,
+  }))
+  return (
+    <div className='bg-card flex min-w-0 flex-1 flex-col gap-4 rounded-xl border p-4 sm:gap-6 sm:p-6'>
+      <div className='flex flex-wrap items-center gap-2 sm:gap-4'>
+        <div className='flex flex-1 flex-col gap-1'>
+          <p className='text-muted-foreground text-xs'>{t('edges.monitorIo')}</p>
+        </div>
+        <div className='hidden items-center gap-3 sm:flex sm:gap-5'>
+          <div className='flex items-center gap-1.5 transition-opacity duration-200 motion-reduce:transition-none'>
+            <div
+              className='size-2.5 rounded-full sm:size-3'
+              style={{ backgroundColor: 'var(--primary)' }}
+            />
+            <span className='text-muted-foreground text-[10px] sm:text-xs'>
+              {t('edges.monitorIoRead')}
+            </span>
+          </div>
+          <div className='flex items-center gap-1.5 transition-opacity duration-200 motion-reduce:transition-none'>
+            <div
+              className='size-2.5 rounded-full sm:size-3'
+              style={{
+                backgroundColor:
+                  'color-mix(in oklch, var(--primary) 75%, var(--background))',
+              }}
+            />
+            <span className='text-muted-foreground text-[10px] sm:text-xs'>
+              {t('edges.monitorIoWrite')}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className='h-[200px] w-full min-w-0 sm:h-[240px] lg:h-[280px]'>
+        <ChartContainer
+          config={{
+            read: {
+              label: t('edges.monitorIoRead'),
+              color: 'var(--primary)',
+            },
+            write: {
+              label: t('edges.monitorIoWrite'),
+              color: 'color-mix(in oklch, var(--primary) 75%, var(--background))',
+            },
+          }}
+          className='h-full w-full'
+        >
+          <AreaChart data={data} margin={{ left: 12, right: 12 }}>
+            <defs>
+              <linearGradient id='readGradient' x1='0' y1='0' x2='0' y2='1'>
+                <stop offset='0%' stopColor='var(--color-read)' stopOpacity={0.3} />
+                <stop offset='100%' stopColor='var(--color-read)' stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id='writeGradient' x1='0' y1='0' x2='0' y2='1'>
+                <stop offset='0%' stopColor='var(--color-write)' stopOpacity={0.2} />
+                <stop offset='100%' stopColor='var(--color-write)' stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey='time'
+              tickFormatter={(v: number) => new Date(v).toLocaleTimeString()}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              tickFormatter={(v: number) => formatBytes(v)}
+              tickLine={false}
+              axisLine={false}
+              width={60}
+            />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            <Area
+              dataKey='read'
+              type='natural'
+              fill='url(#readGradient)'
+              stroke='var(--color-read)'
+              strokeWidth={2}
+            />
+            <Area
+              dataKey='write'
+              type='natural'
+              fill='url(#writeGradient)'
+              stroke='var(--color-write)'
+              strokeWidth={2}
+            />
+          </AreaChart>
+        </ChartContainer>
+      </div>
+    </div>
+  )
+}
+
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
