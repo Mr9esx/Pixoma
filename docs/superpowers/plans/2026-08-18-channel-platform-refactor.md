@@ -423,11 +423,11 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 - Consumes: Task 3/5/10/11
 - Produces: `StartBotRuntime` 改为：读 `channels`（enabled）→ `assembler.Run(ctx)`；`adminhost.Options` 增加 `Channels *channels.Handler`、`ChannelMenu *channelmenu.Handler`，移除 `TGMenu`
 
-- [ ] **Step 1: 改 main.go 接线** — `appboot.Bootstrap` Models 换成 `channels/channel_menus/channel_menu_items/channel_menu_item_cases/channel_menu_item_extras/user_external_identities` 等新表模型；移除 `tgmenupersist.*` 与 `platform_settings` token 读取；`settings.ApplyEnv` 不再覆盖 token
-- [ ] **Step 2: 改 telegram.go** — `StartBotRuntime(ctx, deps)`：构建 facade → `assembler.Run(ctx)`（goroutine）；`TG adapter` 工厂注册进 `AdapterFactory`（从 channel 凭证解密拿 token → `bot.New` + `RegisterHandlers` + `Start`）
-- [ ] **Step 3: 改 adminhost + admin-api main** — 挂载 channels/channelmenu；删除 tg-menu 引用；跑 `go build ./...` 与 `go test ./...`，修复全部编译错误（含 `sharedkernel.ChatID` 使用点）
-- [ ] **Step 4: 冒烟** — 本地 `go run ./apps/pixoma`（mock 模式）启动成功；`curl /api/v1/channels` 返回空列表或种子
-- [ ] **Step 5: 提交** — `git commit -m "feat(app): wire channel runtime and admin APIs"`
+- [x] **Step 1: 改 main.go 接线** — `appboot.Bootstrap` Models 换成 `channels/channel_menus/channel_menu_items/channel_menu_item_cases/channel_menu_item_extras/user_external_identities` 等新表模型；移除 `tgmenupersist.*` 与 `platform_settings` token 读取；`settings.ApplyEnv` 不再覆盖 token
+- [x] **Step 2: 改 telegram.go** — `StartBotRuntime(ctx, deps)`：构建 facade → `assembler.Run(ctx)`（goroutine）；`TG adapter` 工厂注册进 `AdapterFactory`（从 channel 凭证解密拿 token → `bot.New` + `RegisterHandlers` + `Start`）
+- [x] **Step 3: 改 adminhost + admin-api main** — 挂载 channels/channelmenu；删除 tg-menu 引用；跑 `go build ./...` 与 `go test ./...`，修复全部编译错误（含 `sharedkernel.ChatID` 使用点）
+- [x] **Step 4: 冒烟** — 本地 `go run ./apps/pixoma`（mock 模式）启动成功；`curl /api/v1/channels` 返回空列表或种子
+- [x] **Step 5: 提交** — `git commit -m "feat(app): wire channel runtime and admin APIs"`
 
 ---
 
