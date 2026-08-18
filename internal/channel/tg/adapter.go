@@ -11,168 +11,123 @@ import (
 	"sync"
 	"time"
 
-	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
-	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
-// FileDownloader fetches Telegram file bytes by file_id (injectable for tests).
-type FileDownloader func(ctx context.Context, fileID string) ([]byte, error)
-
+// Adapter translates Telegram events into normalized actions over ports and the app facade.
 type Adapter struct {
-	App      *botapp.Facade
-	Out      Messenger
-	Download FileDownloader
-	// Users is optional; when set, message/callback From is upserted before handling.
-	Users identitydomain.Repository
-	// Menu is optional; when nil or load fails, DefaultSeed is used.
-	Menu     MenuReader
-	mu       sync.Mutex
-	notified map[string]struct{}
+	App       *botapp.Facade
+	Out       ports.Outbound
+	Media     ports.MediaBridge
+	Users     ports.IdentityResolver
+	Menu      MenuReader
+	Extras    ExtrasReader
+	ChannelID string
+	mu        sync.Mutex
+	notified  map[string]struct{}
 }
 
-// UpsertFromTG persists Telegram From into the users table when Users is configured.
-// Returns the internal user id when upsert succeeds; empty string otherwise.
-func (a *Adapter) UpsertFromTG(ctx context.Context, in identitydomain.UpsertFrom) (string, error) {
-	if a == nil || a.Users == nil {
-		return "", nil
-	}
-	if in.TgUserID == 0 {
-		return "", nil
-	}
-	u, err := a.Users.UpsertByTgUserID(ctx, in)
-	if err != nil {
-		return "", err
-	}
-	return u.ID, nil
-}
-
-func New(app *botapp.Facade, out Messenger) *Adapter {
+func New(app *botapp.Facade, out ports.Outbound) *Adapter {
 	return &Adapter{App: app, Out: out, notified: map[string]struct{}{}}
 }
 
+func addrOf(chatID sharedkernel.ChatID) (sharedkernel.ChannelAddr, error) {
+	return sharedkernel.ParseChatID(string(chatID))
+}
+
 // HandleUserMedia accepts a Photo/image Document when the current field is image.
-func (a *Adapter) HandleUserMedia(ctx context.Context, chatID int64, fileID, mime string) error {
+func (a *Adapter) HandleUserMedia(ctx context.Context, chatID sharedkernel.ChatID, fileID, mime string) error {
+	addr, err := addrOf(chatID)
+	if err != nil {
+		return err
+	}
 	ft, err := a.currentFieldType(ctx, chatID)
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "当前没有进行中的 Case，请先开始。")
+		return a.Out.SendText(ctx, addr, "当前没有进行中的 Case，请先开始。")
 	}
 	if ft != "image" {
-		return a.Out.SendText(ctx, chatID, "当前不需要图片，请按提示输入。")
+		return a.Out.SendText(ctx, addr, "当前不需要图片，请按提示输入。")
 	}
-	if a.Download == nil {
-		return a.Out.SendText(ctx, chatID, "无法下载图片：未配置下载器")
+	if a.Media == nil {
+		return a.Out.SendText(ctx, addr, "无法下载图片：未配置下载器")
 	}
 	if a.App == nil || a.App.Blob == nil {
-		return a.Out.SendText(ctx, chatID, "无法保存图片：未配置存储")
+		return a.Out.SendText(ctx, addr, "无法保存图片：未配置存储")
 	}
-	data, err := a.Download(ctx, fileID)
+	data, err := a.Media.Download(ctx, fileID, mime)
 	if err != nil {
 		slog.Error("tg download user media", "err", err, "chat_id", chatID, "file_id", fileID)
-		return a.Out.SendText(ctx, chatID, "下载图片失败")
+		return a.Out.SendText(ctx, addr, "下载图片失败")
 	}
 	if mime == "" {
 		mime = "image/jpeg"
 	}
-	key := fmt.Sprintf("tg/%d/%d%s", chatID, time.Now().UnixNano(), extForMIME(mime))
+	key := fmt.Sprintf("tg/%s/%d%s", addr.ExternalChatID, time.Now().UnixNano(), extForMIME(mime))
 	ref, err := a.App.Blob.Put(ctx, key, bytes.NewReader(data), blob.PutOptions{MIME: mime})
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "保存图片失败: "+err.Error())
+		return a.Out.SendText(ctx, addr, "保存图片失败: "+err.Error())
 	}
-	view, err := a.App.SubmitInput(ctx, sharedkernel.ChatID(chatID), convdomain.DraftValue{Blob: &ref})
+	view, err := a.App.SubmitInput(ctx, chatID, convdomain.DraftValue{Blob: &ref})
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "提交失败: "+err.Error())
+		return a.Out.SendText(ctx, addr, "提交失败: "+err.Error())
 	}
-	return a.renderSession(ctx, chatID, view)
+	return a.renderSession(ctx, addr, view)
 }
 
-func (a *Adapter) HandleText(ctx context.Context, chatID int64, text, userID string) error {
+func (a *Adapter) HandleText(ctx context.Context, chatID sharedkernel.ChatID, text, userID string) error {
+	addr, err := addrOf(chatID)
+	if err != nil {
+		return err
+	}
 	text = strings.TrimSpace(text)
 
-	// Active session: treat free text as input (unless menu command).
 	if !a.isMenuCommand(ctx, text) {
-		if _, err := a.App.GetSession(ctx, sharedkernel.ChatID(chatID)); err == nil {
-			return a.submitText(ctx, chatID, text)
+		if _, err := a.App.GetSession(ctx, chatID); err == nil {
+			return a.submitText(ctx, addr, chatID, text)
 		}
 	}
 
 	switch text {
-	case "/start", "/menu", CBMenu:
-		return a.sendMainMenu(ctx, chatID)
-	case "/cases":
-		return a.showCasesByTag(ctx, chatID, "image")
+	case "/start", "/menu":
+		return a.sendMainMenu(ctx, addr)
 	case "/help":
-		return a.Out.SendMenu(ctx, chatID, "帮助：点「图片」选 Case → 预览 → 开始 → 输入 prompt → 确认 → 等待出图。\n\n菜单更新后，点任意底部按钮或发 /menu 即可刷新。")
+		return a.Out.SendMenu(ctx, addr, "帮助：点「图片」选 Case → 预览 → 开始 → 输入 prompt → 确认 → 等待出图。\n\n菜单更新后，点任意底部按钮或发 /menu 即可刷新。", nil)
 	case "/skip":
-		return a.handleSkip(ctx, chatID)
+		return a.handleSkip(ctx, addr, chatID)
 	case "/exit":
-		return a.handleExit(ctx, chatID)
+		return a.handleExit(ctx, addr, chatID)
 	case "/confirm":
-		return a.handleConfirm(ctx, chatID)
+		return a.handleConfirm(ctx, addr, chatID)
 	case "🎬 视频脱衣", "🔥 热门模版", "🤝 邀请赚钱", "👤 我的", "🔞 图片", "🔞 视频":
-		// Legacy keyboard labels from older builds — refresh to current menu.
-		return a.Out.SendMenu(ctx, chatID, "菜单已更新，请使用下方新按钮。")
+		return a.Out.SendMenu(ctx, addr, "菜单已更新，请使用下方新按钮。", nil)
 	default:
 		if strings.HasPrefix(text, "/start_case ") {
 			id := strings.TrimSpace(strings.TrimPrefix(text, "/start_case "))
-			return a.startCase(ctx, chatID, sharedkernel.CaseID(id), userID)
+			return a.startCase(ctx, addr, chatID, sharedkernel.CaseID(id), userID)
 		}
 		doc := a.loadMenu(ctx)
 		if item, ok := FindEnabledRootByLabel(doc, text); ok {
-			return a.dispatchMenuItem(ctx, chatID, userID, item)
+			return a.dispatchMenuItem(ctx, addr, chatID, userID, item)
 		}
-		return a.sendMainMenu(ctx, chatID)
+		return a.sendMainMenu(ctx, addr)
 	}
 }
 
-func (a *Adapter) HandleCallback(ctx context.Context, chatID int64, callbackID, data, userID string) error {
-	_ = a.Out.AnswerCallback(ctx, callbackID, "")
-	switch {
-	case data == CBMenu || data == CBImgList:
-		if data == CBMenu {
-			return a.sendMainMenu(ctx, chatID)
-		}
-		return a.showCasesByTag(ctx, chatID, "image")
-	case data == CBConfirm:
-		return a.handleConfirm(ctx, chatID)
-	case data == CBExit:
-		return a.handleExit(ctx, chatID)
-	case data == CBSkip:
-		return a.handleSkip(ctx, chatID)
-	case data == CBContinue:
-		return a.handleContinue(ctx, chatID)
-	case strings.HasPrefix(data, CBReplaceStart):
-		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBReplaceStart))
-		return a.replaceAndStart(ctx, chatID, id, userID)
-	case strings.HasPrefix(data, CBCasePreviewFolder):
-		rest := strings.TrimPrefix(data, CBCasePreviewFolder)
-		folderID, caseID, ok := strings.Cut(rest, ":")
-		if !ok || folderID == "" || caseID == "" {
-			return a.Out.SendText(ctx, chatID, "未知操作")
-		}
-		return a.showCasePreview(ctx, chatID, sharedkernel.CaseID(caseID), CBMenuBack+folderID)
-	case strings.HasPrefix(data, CBCasePreview):
-		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBCasePreview))
-		return a.showCasePreview(ctx, chatID, id, CBImgList)
-	case strings.HasPrefix(data, CBCaseStart):
-		id := sharedkernel.CaseID(strings.TrimPrefix(data, CBCaseStart))
-		return a.startCase(ctx, chatID, id, userID)
-	case strings.HasPrefix(data, CBMenuFolder):
-		id := strings.TrimPrefix(data, CBMenuFolder)
-		return a.showMenuFolder(ctx, chatID, id)
-	case strings.HasPrefix(data, CBMenuBack):
-		target := strings.TrimPrefix(data, CBMenuBack)
-		if target == "root" {
-			return a.sendMainMenu(ctx, chatID)
-		}
-		return a.showMenuFolder(ctx, chatID, target)
-	default:
-		return a.Out.SendText(ctx, chatID, "未知操作")
+func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID, callbackID, data, userID string) error {
+	addr, err := addrOf(chatID)
+	if err != nil {
+		return err
 	}
+	action, err := TranslateCallback(data)
+	if err != nil {
+		return a.Out.SendText(ctx, addr, "未知操作")
+	}
+	return a.dispatchAction(ctx, addr, chatID, userID, action)
 }
 
 func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotify) error {
@@ -185,86 +140,89 @@ func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotif
 	a.notified[key] = struct{}{}
 	a.mu.Unlock()
 
-	chat := int64(n.ChatID)
+	addr, err := addrOf(n.ChatID)
+	if err != nil {
+		return err
+	}
 	if n.Kind == "task_succeeded" && len(n.Outputs) > 0 {
 		caption := fmt.Sprintf("✅ Case 完成\ntask=%s", n.TaskID)
-		if err := a.Out.SendPhoto(ctx, chat, n.Outputs[0], caption); err != nil {
+		if err := a.Out.SendMedia(ctx, addr, n.Outputs[0], caption); err != nil {
 			return err
 		}
-		return a.Out.SendMenu(ctx, chat, "还要继续？点菜单「"+BtnImage+"」再选一个 Case。")
+		return a.Out.SendMenu(ctx, addr, "还要继续？点菜单「"+BtnImage+"」再选一个 Case。", nil)
 	}
 	msg := fmt.Sprintf("任务 %s: %s", n.TaskID, n.Kind)
 	if n.ErrorMsg != "" {
 		msg += " — " + n.ErrorMsg
 	}
-	return a.Out.SendText(ctx, chat, msg)
+	return a.Out.SendText(ctx, addr, msg)
 }
 
-func (a *Adapter) sendMainMenu(ctx context.Context, chatID int64) error {
-	return a.Out.SendMenu(ctx, chatID, "欢迎使用 ComfyUI Bot（mock）\n请选择功能：")
+func (a *Adapter) dispatchAction(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID, userID string, action ports.Action) error {
+	switch action.Type {
+	case ports.ActionOpenMenu:
+		return a.sendMainMenu(ctx, addr)
+	case ports.ActionOpenFolder:
+		return a.showMenuFolder(ctx, addr, action.MenuItemID)
+	case ports.ActionOpenCase:
+		return a.showCasePreview(ctx, addr, sharedkernel.CaseID(action.CaseID), action.BackRef)
+	case ports.ActionStartCase:
+		return a.startCase(ctx, addr, chatID, sharedkernel.CaseID(action.CaseID), userID)
+	case ports.ActionSubmitText:
+		return a.submitText(ctx, addr, chatID, action.Text)
+	case ports.ActionConfirm:
+		return a.handleConfirm(ctx, addr, chatID)
+	case ports.ActionSkip:
+		return a.handleSkip(ctx, addr, chatID)
+	case ports.ActionExit:
+		return a.handleExit(ctx, addr, chatID)
+	case ports.ActionContinue:
+		return a.handleContinue(ctx, addr, chatID)
+	case ports.ActionReplaceStart:
+		return a.replaceAndStart(ctx, addr, chatID, sharedkernel.CaseID(action.CaseID), userID)
+	default:
+		return a.Out.SendText(ctx, addr, "未知操作")
+	}
 }
 
-func (a *Adapter) showImageCases(ctx context.Context, chatID int64) error {
-	return a.showCasesByTag(ctx, chatID, "image")
-}
-
-func (a *Adapter) showCasesByTag(ctx context.Context, chatID int64, tag string) error {
-	// ReplyKeyboard 只能随消息下发；进分区前先刷一次主菜单，避免用户仍停在旧键盘。
-	if err := a.Out.SendMenu(ctx, chatID, "已进入分区："+tag); err != nil {
-		return err
-	}
-	enabled := true
-	cases, err := a.App.ListCases(ctx, catalogdomain.ListQuery{Tag: tag, Enabled: &enabled})
-	if err != nil {
-		return a.Out.SendText(ctx, chatID, "列出 Case 失败: "+err.Error())
-	}
-	if len(cases) == 0 {
-		return a.Out.SendText(ctx, chatID, "暂无 Case（tag="+tag+"），请检查种子配置。")
-	}
-	var rows [][]InlineButton
-	for _, c := range cases {
-		rows = append(rows, []InlineButton{{
-			Text: fmt.Sprintf("%s · ¥%.0f", c.Document.Name, c.Document.Price),
-			Data: CBCasePreview + string(c.Document.ID),
-		}})
-	}
-	rows = append(rows, []InlineButton{{Text: "« 返回菜单", Data: CBMenu}})
-	title := tag + " Case（mock）\n点选查看预览："
-	if tag == "image" {
-		title = BtnImage + " Case（mock）\n点选查看预览："
-	}
-	return a.Out.SendInline(ctx, chatID, title, rows)
-}
-
-func (a *Adapter) dispatchMenuItem(ctx context.Context, chatID int64, userID string, item tgmenudomain.MenuNode) error {
-	switch item.Kind {
-	case tgmenudomain.KindFolder:
-		return a.showMenuFolder(ctx, chatID, item.ID)
-	case tgmenudomain.KindListCasesByTag:
-		return a.showCasesByTag(ctx, chatID, item.Tag)
-	case tgmenudomain.KindOpenCase:
-		if len(item.CaseIDs) == 0 {
-			return a.Out.SendMenu(ctx, chatID, "菜单配置无效：缺少 case")
+func (a *Adapter) sendMainMenu(ctx context.Context, addr sharedkernel.ChannelAddr) error {
+	tree := a.loadMenu(ctx)
+	items := make([]ports.MenuEntry, 0, len(tree.Items))
+	for _, it := range tree.Items {
+		if it.Enabled {
+			items = append(items, ports.MenuEntry{ID: it.ID, Label: it.Label})
 		}
-		return a.showCasePreview(ctx, chatID, sharedkernel.CaseID(item.CaseIDs[0]), CBImgList)
-	case tgmenudomain.KindPlaceholder:
+	}
+	return a.Out.SendMenu(ctx, addr, "欢迎使用 ComfyUI Bot\n请选择功能：", items)
+}
+
+func (a *Adapter) dispatchMenuItem(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID, userID string, item domain.MenuNode) error {
+	switch item.Kind {
+	case domain.KindFolder:
+		return a.showMenuFolder(ctx, addr, item.ID)
+	case domain.KindOpenCase:
+		if len(item.CaseIDs) == 0 {
+			return a.Out.SendMenu(ctx, addr, "菜单配置无效：缺少 case", nil)
+		}
+		return a.showCasePreview(ctx, addr, sharedkernel.CaseID(item.CaseIDs[0]), "root")
+	case domain.KindPlaceholder:
 		msg := strings.TrimSpace(item.PlaceholderText)
 		if msg == "" {
 			msg = item.Label + "：暂未开放，请先体验「" + BtnImage + "」。"
 		}
-		return a.Out.SendMenu(ctx, chatID, msg)
-	case tgmenudomain.KindReplyMedia:
-		return a.sendReplyMedia(ctx, chatID, item)
+		return a.Out.SendMenu(ctx, addr, msg, nil)
+	case domain.KindReplyMedia:
+		return a.sendReplyMedia(ctx, addr, item)
 	default:
-		return a.Out.SendMenu(ctx, chatID, "未知菜单动作")
+		return a.Out.SendMenu(ctx, addr, "未知菜单动作", nil)
 	}
 }
 
-func (a *Adapter) showMenuFolder(ctx context.Context, chatID int64, itemID string) error {
+func (a *Adapter) showMenuFolder(ctx context.Context, addr sharedkernel.ChannelAddr, itemID string) error {
 	tree := a.loadMenu(ctx)
 	node, ok := findNodeByID(tree.Items, itemID)
 	if !ok {
-		return a.Out.SendText(ctx, chatID, "菜单项不存在")
+		return a.Out.SendText(ctx, addr, "菜单项不存在")
 	}
 
 	text := strings.TrimSpace(node.IntroText)
@@ -272,67 +230,69 @@ func (a *Adapter) showMenuFolder(ctx context.Context, chatID int64, itemID strin
 		text = node.Label
 	}
 
-	var rows [][]InlineButton
+	backRef := "root"
+	if node.ParentID != "" {
+		backRef = node.ParentID
+	}
+	var rows [][]ports.Button
 	for _, caseID := range node.CaseIDs {
 		c, err := a.App.GetCase(ctx, sharedkernel.CaseID(caseID))
 		if err != nil {
 			continue
 		}
 		doc := c.Document
-		rows = append(rows, []InlineButton{{
-			Text: fmt.Sprintf("%s · ¥%.0f", doc.Name, doc.Price),
-			Data: CBCasePreviewFolder + itemID + ":" + string(doc.ID),
+		rows = append(rows, []ports.Button{{
+			Text:   fmt.Sprintf("%s · ¥%.0f", doc.Name, doc.Price),
+			Action: ports.Action{Type: ports.ActionOpenCase, CaseID: caseID, BackRef: backRef},
 		}})
 	}
 	for _, child := range node.Children {
 		if !child.Enabled {
 			continue
 		}
-		if child.Kind == tgmenudomain.KindFolder {
-			rows = append(rows, []InlineButton{{
-				Text: "📁 " + child.Label,
-				Data: CBMenuFolder + child.ID,
+		if child.Kind == domain.KindFolder {
+			rows = append(rows, []ports.Button{{
+				Text:   "📁 " + child.Label,
+				Action: ports.Action{Type: ports.ActionOpenFolder, MenuItemID: child.ID},
 			}})
 		}
 	}
-
-	backData := CBMenuBack + "root"
-	if node.ParentID != "" {
-		backData = CBMenuBack + node.ParentID
+	if node.ParentID == "" {
+		rows = append(rows, []ports.Button{{Text: "⬅️ 返回", Action: ports.Action{Type: ports.ActionOpenMenu}}})
+	} else {
+		rows = append(rows, []ports.Button{{Text: "⬅️ 返回", Action: ports.Action{Type: ports.ActionOpenFolder, MenuItemID: node.ParentID}}})
 	}
-	rows = append(rows, []InlineButton{{Text: "⬅️ 返回", Data: backData}})
-
-	return a.Out.SendInline(ctx, chatID, text, rows)
+	return a.Out.SendList(ctx, addr, text, rows)
 }
 
-func (a *Adapter) sendReplyMedia(ctx context.Context, chatID int64, item tgmenudomain.MenuNode) error {
+func (a *Adapter) sendReplyMedia(ctx context.Context, addr sharedkernel.ChannelAddr, item domain.MenuNode) error {
 	if item.Reply == nil {
-		return a.Out.SendText(ctx, chatID, "菜单配置无效：缺少 reply")
+		return a.Out.SendText(ctx, addr, "菜单配置无效：缺少 reply")
 	}
 	text := strings.TrimSpace(item.Reply.Text)
 	if text != "" {
-		if err := a.Out.SendText(ctx, chatID, text); err != nil {
+		if err := a.Out.SendText(ctx, addr, text); err != nil {
 			return err
 		}
 	}
 	okCount := 0
 	for _, u := range item.Reply.Images {
-		if err := a.Out.SendPhotoURL(ctx, chatID, u, ""); err != nil {
-			slog.Error("tg reply_media photo failed", "err", err, "url", u, "chat_id", chatID)
+		if err := a.Out.SendMediaURL(ctx, addr, u, ""); err != nil {
+			slog.Error("tg reply_media photo failed", "err", err, "url", u, "chat_id", addr.ExternalChatID)
 			continue
 		}
 		okCount++
 	}
 	if text == "" && okCount == 0 && len(item.Reply.Images) > 0 {
-		return a.Out.SendText(ctx, chatID, "图片发送失败，请稍后重试")
+		return a.Out.SendText(ctx, addr, "图片发送失败，请稍后重试")
 	}
 	return nil
 }
 
-func (a *Adapter) showCasePreview(ctx context.Context, chatID int64, id sharedkernel.CaseID, backData string) error {
+func (a *Adapter) showCasePreview(ctx context.Context, addr sharedkernel.ChannelAddr, id sharedkernel.CaseID, backRef string) error {
 	c, err := a.App.GetCase(ctx, id)
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "Case 不存在: "+err.Error())
+		return a.Out.SendText(ctx, addr, "Case 不存在: "+err.Error())
 	}
 	doc := c.Document
 	var b strings.Builder
@@ -359,35 +319,36 @@ func (a *Adapter) showCasePreview(ctx context.Context, chatID int64, id sharedke
 		b.WriteString("（mock）确认后将返回一张示例图")
 	}
 
-	if backData == "" {
-		backData = CBImgList
+	back := ports.Action{Type: ports.ActionOpenMenu}
+	if backRef != "" && backRef != "root" {
+		back = ports.Action{Type: ports.ActionOpenFolder, MenuItemID: backRef}
 	}
-	rows := [][]InlineButton{
-		{{Text: "▶ 开始 Case", Data: CBCaseStart + string(doc.ID)}},
-		{{Text: "« 返回列表", Data: backData}},
+	rows := [][]ports.Button{
+		{{Text: "▶ 开始 Case", Action: ports.Action{Type: ports.ActionStartCase, CaseID: string(id)}}},
+		{{Text: "« 返回列表", Action: back}},
 	}
-	return a.Out.SendInline(ctx, chatID, b.String(), rows)
+	return a.Out.SendList(ctx, addr, b.String(), rows)
 }
 
-func (a *Adapter) startCase(ctx context.Context, chatID int64, id sharedkernel.CaseID, userID string) error {
+func (a *Adapter) startCase(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID, id sharedkernel.CaseID, userID string) error {
 	view, err := a.App.StartCase(ctx, botapp.StartCaseCmd{
-		ChatID: sharedkernel.ChatID(chatID),
+		ChatID: chatID,
 		UserID: userID,
 		CaseID: id,
 	})
 	if errors.Is(err, convdomain.ErrSessionLocked) {
-		return a.showSessionConflict(ctx, chatID, id)
+		return a.showSessionConflict(ctx, addr, chatID, id)
 	}
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "无法开始: "+err.Error())
+		return a.Out.SendText(ctx, addr, "无法开始: "+err.Error())
 	}
-	return a.renderSession(ctx, chatID, view)
+	return a.renderSession(ctx, addr, view)
 }
 
-func (a *Adapter) showSessionConflict(ctx context.Context, chatID int64, want sharedkernel.CaseID) error {
-	cur, err := a.App.GetSession(ctx, sharedkernel.ChatID(chatID))
+func (a *Adapter) showSessionConflict(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID, want sharedkernel.CaseID) error {
+	cur, err := a.App.GetSession(ctx, chatID)
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "已有进行中的填表，但读取会话失败，请稍后再试。")
+		return a.Out.SendText(ctx, addr, "已有进行中的填表，但读取会话失败，请稍后再试。")
 	}
 
 	curName := string(cur.CaseID)
@@ -408,76 +369,70 @@ func (a *Adapter) showSessionConflict(ctx context.Context, chatID int64, want sh
 
 	same := cur.CaseID == want
 	var msg string
-	var rows [][]InlineButton
+	var rows [][]ports.Button
 	if same {
-		msg = fmt.Sprintf(
-			"你正在填写「%s」\n进度：%s\n\n要接着填，还是退出后重来？",
-			curName, step,
-		)
-		rows = [][]InlineButton{
-			{{Text: "继续当前 Case", Data: CBContinue}},
-			{{Text: "退出当前 Case", Data: CBExit}},
+		msg = fmt.Sprintf("你正在填写「%s」\n进度：%s\n\n要接着填，还是退出后重来？", curName, step)
+		rows = [][]ports.Button{
+			{{Text: "继续当前 Case", Action: ports.Action{Type: ports.ActionContinue}}},
+			{{Text: "退出当前 Case", Action: ports.Action{Type: ports.ActionExit}}},
 		}
 	} else {
-		msg = fmt.Sprintf(
-			"检测到未完成的 Case\n\n正在进行：%s\n进度：%s\n你刚想开始：%s\n\n请选择：继续刚才的，或废弃它并开始新选的。",
-			curName, step, wantName,
-		)
-		rows = [][]InlineButton{
-			{{Text: "继续当前 Case", Data: CBContinue}},
-			{{Text: "退出当前 Case", Data: CBExit}},
-			{{Text: "开始当前", Data: CBReplaceStart + string(want)}},
+		msg = fmt.Sprintf("检测到未完成的 Case\n\n正在进行：%s\n进度：%s\n你刚想开始：%s\n\n请选择：继续刚才的，或废弃它并开始新选的。", curName, step, wantName)
+		rows = [][]ports.Button{
+			{{Text: "继续当前 Case", Action: ports.Action{Type: ports.ActionContinue}}},
+			{{Text: "退出当前 Case", Action: ports.Action{Type: ports.ActionExit}}},
+			{{Text: "开始当前", Action: ports.Action{Type: ports.ActionReplaceStart, CaseID: string(want)}}},
 		}
 	}
-	return a.Out.SendInline(ctx, chatID, msg, rows)
+	return a.Out.SendList(ctx, addr, msg, rows)
 }
 
-func (a *Adapter) handleContinue(ctx context.Context, chatID int64) error {
-	view, err := a.App.GetSession(ctx, sharedkernel.ChatID(chatID))
+func (a *Adapter) handleContinue(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID) error {
+	view, err := a.App.GetSession(ctx, chatID)
 	if err != nil {
-		return a.Out.SendMenu(ctx, chatID, "当前没有进行中的 Case，已回到菜单。")
+		return a.Out.SendMenu(ctx, addr, "当前没有进行中的 Case，已回到菜单。", nil)
 	}
-	return a.renderSession(ctx, chatID, view)
+	return a.renderSession(ctx, addr, view)
 }
 
-func (a *Adapter) replaceAndStart(ctx context.Context, chatID int64, id sharedkernel.CaseID, userID string) error {
-	_ = a.App.ExitSession(ctx, sharedkernel.ChatID(chatID))
-	return a.startCase(ctx, chatID, id, userID)
+func (a *Adapter) replaceAndStart(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID, id sharedkernel.CaseID, userID string) error {
+	_ = a.App.ExitSession(ctx, chatID)
+	return a.startCase(ctx, addr, chatID, id, userID)
 }
 
-func (a *Adapter) submitText(ctx context.Context, chatID int64, text string) error {
+func (a *Adapter) submitText(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID, text string) error {
 	ft, err := a.currentFieldType(ctx, chatID)
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "提交失败: "+err.Error())
+		return a.Out.SendText(ctx, addr, "提交失败: "+err.Error())
 	}
 	var draft convdomain.DraftValue
 	switch ft {
 	case "image":
-		return a.Out.SendText(ctx, chatID, "当前需要一张图片，请发送 Photo 或图片文件。")
+		return a.Out.SendText(ctx, addr, "当前需要一张图片，请发送 Photo 或图片文件。")
 	case "number":
 		n, err := strconv.ParseFloat(text, 64)
 		if err != nil {
-			return a.Out.SendText(ctx, chatID, "请输入合法数字，例如 42")
+			return a.Out.SendText(ctx, addr, "请输入合法数字，例如 42")
 		}
 		draft = convdomain.DraftValue{Number: &n}
 	case "boolean":
 		b, err := strconv.ParseBool(text)
 		if err != nil {
-			return a.Out.SendText(ctx, chatID, "请输入 true 或 false")
+			return a.Out.SendText(ctx, addr, "请输入 true 或 false")
 		}
 		draft = convdomain.DraftValue{Bool: &b}
 	default:
 		draft = convdomain.DraftValue{Text: &text}
 	}
-	view, err := a.App.SubmitInput(ctx, sharedkernel.ChatID(chatID), draft)
+	view, err := a.App.SubmitInput(ctx, chatID, draft)
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "提交失败: "+err.Error())
+		return a.Out.SendText(ctx, addr, "提交失败: "+err.Error())
 	}
-	return a.renderSession(ctx, chatID, view)
+	return a.renderSession(ctx, addr, view)
 }
 
-func (a *Adapter) currentFieldType(ctx context.Context, chatID int64) (string, error) {
-	view, err := a.App.GetSession(ctx, sharedkernel.ChatID(chatID))
+func (a *Adapter) currentFieldType(ctx context.Context, chatID sharedkernel.ChatID) (string, error) {
+	view, err := a.App.GetSession(ctx, chatID)
 	if err != nil {
 		return "", err
 	}
@@ -510,32 +465,30 @@ func extForMIME(mime string) string {
 	}
 }
 
-func (a *Adapter) handleSkip(ctx context.Context, chatID int64) error {
-	view, err := a.App.SkipInput(ctx, sharedkernel.ChatID(chatID))
+func (a *Adapter) handleSkip(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID) error {
+	view, err := a.App.SkipInput(ctx, chatID)
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "跳过失败: "+err.Error())
+		return a.Out.SendText(ctx, addr, "跳过失败: "+err.Error())
 	}
-	return a.renderSession(ctx, chatID, view)
+	return a.renderSession(ctx, addr, view)
 }
 
-func (a *Adapter) handleExit(ctx context.Context, chatID int64) error {
-	if err := a.App.ExitSession(ctx, sharedkernel.ChatID(chatID)); err != nil {
-		return a.Out.SendText(ctx, chatID, "退出失败: "+err.Error())
+func (a *Adapter) handleExit(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID) error {
+	if err := a.App.ExitSession(ctx, chatID); err != nil {
+		return a.Out.SendText(ctx, addr, "退出失败: "+err.Error())
 	}
-	return a.Out.SendMenu(ctx, chatID, "已退出当前 Case，可以重新选择。")
+	return a.Out.SendMenu(ctx, addr, "已退出当前 Case，可以重新选择。", nil)
 }
 
-func (a *Adapter) handleConfirm(ctx context.Context, chatID int64) error {
-	// Memory queue is synchronous: ConfirmRun may finish the whole pipeline
-	// (including notify/photo) before returning. Acknowledge first so order is natural.
-	if err := a.Out.SendText(ctx, chatID, "⏳ 已提交，正在生成…"); err != nil {
+func (a *Adapter) handleConfirm(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID) error {
+	if err := a.Out.SendText(ctx, addr, "⏳ 已提交，正在生成…"); err != nil {
 		return err
 	}
-	res, err := a.App.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: sharedkernel.ChatID(chatID)})
+	res, err := a.App.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: chatID})
 	if err != nil {
-		return a.Out.SendText(ctx, chatID, "确认失败: "+err.Error())
+		return a.Out.SendText(ctx, addr, "确认失败: "+err.Error())
 	}
-	tasks, err := a.App.ListMyTasks(ctx, sharedkernel.ChatID(chatID), 20)
+	tasks, err := a.App.ListMyTasks(ctx, chatID, 20)
 	if err == nil {
 		for _, t := range tasks {
 			if t.ID != res.TaskID {
@@ -543,19 +496,18 @@ func (a *Adapter) handleConfirm(ctx context.Context, chatID int64) error {
 			}
 			switch t.Status {
 			case sharedkernel.TaskSucceeded, sharedkernel.TaskFailed, sharedkernel.TaskCancelled:
-				// Result notify already sent on the sync path; avoid a late "queued" message.
 				return nil
 			}
 			break
 		}
 	}
-	return a.Out.SendText(ctx, chatID, fmt.Sprintf("已排队\ntask=%s\n完成后会把图片发回来。", res.TaskID))
+	return a.Out.SendText(ctx, addr, fmt.Sprintf("已排队\ntask=%s\n完成后会把图片发回来。", res.TaskID))
 }
 
-func (a *Adapter) renderSession(ctx context.Context, chatID int64, view *botapp.SessionView) error {
+func (a *Adapter) renderSession(ctx context.Context, addr sharedkernel.ChannelAddr, view *botapp.SessionView) error {
 	if view.Status == convdomain.StatusConfirming {
-		return a.Out.SendInline(ctx, chatID, "输入完成，确认执行？", [][]InlineButton{
-			{{Text: "✅ 确认生成", Data: CBConfirm}, {Text: "✕ 退出", Data: CBExit}},
+		return a.Out.SendList(ctx, addr, "输入完成，确认执行？", [][]ports.Button{
+			{{Text: "✅ 确认生成", Action: ports.Action{Type: ports.ActionConfirm}}, {Text: "✕ 退出", Action: ports.Action{Type: ports.ActionExit}}},
 		})
 	}
 	key := currentKey(view)
@@ -567,18 +519,18 @@ func (a *Adapter) renderSession(ctx context.Context, chatID int64, view *botapp.
 				if in.Description != "" {
 					hint = in.Description
 				}
-				rows := [][]InlineButton{{{Text: "✕ 退出", Data: CBExit}}}
+				rows := [][]ports.Button{{{Text: "✕ 退出", Action: ports.Action{Type: ports.ActionExit}}}}
 				if !in.Required || in.SkipAllowed {
-					rows = [][]InlineButton{
-						{{Text: "跳过", Data: CBSkip}, {Text: "✕ 退出", Data: CBExit}},
+					rows = [][]ports.Button{
+						{{Text: "跳过", Action: ports.Action{Type: ports.ActionSkip}}, {Text: "✕ 退出", Action: ports.Action{Type: ports.ActionExit}}},
 					}
 				}
-				return a.Out.SendInline(ctx, chatID, fmt.Sprintf("请输入「%s」\n%s", key, hint), rows)
+				return a.Out.SendList(ctx, addr, fmt.Sprintf("请输入「%s」\n%s", key, hint), rows)
 			}
 		}
 	}
-	return a.Out.SendInline(ctx, chatID, "请输入「"+key+"」", [][]InlineButton{
-		{{Text: "✕ 退出", Data: CBExit}},
+	return a.Out.SendList(ctx, addr, "请输入「"+key+"」", [][]ports.Button{
+		{{Text: "✕ 退出", Action: ports.Action{Type: ports.ActionExit}}},
 	})
 }
 
@@ -591,7 +543,7 @@ func currentKey(view *botapp.SessionView) string {
 
 func (a *Adapter) isMenuCommand(ctx context.Context, text string) bool {
 	switch text {
-	case "/start", "/menu", "/help", "/cases", "/skip", "/exit", "/confirm":
+	case "/start", "/menu", "/help", "/skip", "/exit", "/confirm":
 		return true
 	}
 	if strings.HasPrefix(text, "/start_case ") {
@@ -601,7 +553,6 @@ func (a *Adapter) isMenuCommand(ctx context.Context, text string) bool {
 	if _, ok := FindEnabledRootByLabel(doc, text); ok {
 		return true
 	}
-	// Fallback legacy constants if menu load somehow omitted them.
 	switch text {
 	case BtnImage, BtnVideo, BtnRecharge, BtnCheckIn, BtnProfile, BtnHelp:
 		return true

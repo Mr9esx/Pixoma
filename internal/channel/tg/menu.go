@@ -1,6 +1,6 @@
 package tg
 
-// Main menu labels (ReplyKeyboard).
+// Main menu labels used in messages and legacy fallback.
 const (
 	BtnImage    = "🖼 图片"
 	BtnVideo    = "🎬 视频"
@@ -9,14 +9,6 @@ const (
 	BtnProfile  = "👤 个人中心"
 	BtnHelp     = "🆘 帮助"
 )
-
-func MainMenuRows() [][]string {
-	return [][]string{
-		{BtnImage, BtnVideo},
-		{BtnRecharge, BtnCheckIn},
-		{BtnProfile, BtnHelp},
-	}
-}
 
 // Callback data prefixes (Telegram limit 64 bytes).
 const (
@@ -27,7 +19,6 @@ const (
 	CBExit              = "ex"
 	CBSkip              = "sk"
 	CBMenu              = "mn"
-	CBImgList           = "il"
 	CBContinue          = "ct"  // resume active session
 	CBReplaceStart      = "rs:" // abandon active + start:<case_id>
 	CBMenuFolder        = "mf:" // mf:<menu_item_id>

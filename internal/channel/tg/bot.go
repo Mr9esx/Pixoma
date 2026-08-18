@@ -2,11 +2,13 @@ package tg
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,139 +16,103 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
 
-// BotMessenger sends via go-telegram/bot.
-type BotMessenger struct {
-	Bot  *bot.Bot
-	Blob blob.Store
-	Menu MenuReader
-}
+// FileDownloader fetches Telegram file bytes by file_id (injectable for tests).
+type FileDownloader func(ctx context.Context, fileID string) ([]byte, error)
 
-func (m *BotMessenger) SendText(ctx context.Context, chatID int64, text string) error {
-	_, err := m.Bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: text})
-	return err
-}
-
-func (m *BotMessenger) SendMenu(ctx context.Context, chatID int64, text string) error {
-	kb := m.replyKeyboard(ctx)
-	_, err := m.Bot.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatID,
-		Text:        text,
-		ReplyMarkup: kb,
-	})
-	return err
-}
-
-func (m *BotMessenger) SendInline(ctx context.Context, chatID int64, text string, rows [][]InlineButton) error {
-	_, err := m.Bot.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatID,
-		Text:        text,
-		ReplyMarkup: toInlineMarkup(rows),
-	})
-	return err
-}
-
-func (m *BotMessenger) SendPhoto(ctx context.Context, chatID int64, ref sharedkernel.BlobRef, caption string) error {
-	if m.Blob == nil {
-		_, err := m.Bot.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: chatID,
-			Text:   caption + "\n(blob: " + ref.Key + ")",
-		})
-		return err
+// RegisterHandlers wires message + callback handlers to the bot instance.
+func RegisterHandlers(b *bot.Bot, ad *Adapter) {
+	if ad == nil || ad.Media == nil {
+		return
 	}
-	rc, err := m.Blob.Get(ctx, ref)
-	if err != nil {
-		return err
+	if mb, ok := ad.Media.(*tgMediaBridge); ok && mb.dl == nil {
+		mb.dl = telegramDownloader(b)
 	}
-	defer rc.Close()
-	data, err := io.ReadAll(rc)
-	if err != nil {
-		return err
-	}
-	name := photoUploadName(ref.Key)
-	_, err = m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
-		ChatID:  chatID,
-		Caption: caption,
-		Photo:   &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
-	})
-	return err
-}
-
-func (m *BotMessenger) SendPhotoURL(ctx context.Context, chatID int64, imageURL, caption string) error {
-	_, err := m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
-		ChatID:  chatID,
-		Caption: caption,
-		Photo:   &models.InputFileString{Data: imageURL},
-	})
-	return err
-}
-
-// photoUploadName returns a Telegram-safe upload basename (no path separators).
-func photoUploadName(key string) string {
-	key = strings.ReplaceAll(key, "\\", "/")
-	name := path.Base(key)
-	if name == "" || name == "." || name == "/" {
-		return "result.png"
-	}
-	return name
-}
-
-func (m *BotMessenger) AnswerCallback(ctx context.Context, callbackID, text string) error {
-	if callbackID == "" {
-		return nil
-	}
-	_, err := m.Bot.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: callbackID,
-		Text:            text,
-	})
-	return err
-}
-
-func (m *BotMessenger) replyKeyboard(ctx context.Context) *models.ReplyKeyboardMarkup {
-	if m != nil && m.Menu != nil {
-		tree, err := m.Menu.GetMenu(ctx)
-		if err == nil {
-			return BuildReplyKeyboard(tree)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.Message != nil && update.Message.Text != ""
+	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
+		userID := resolveUser(ctx, ad, update.Message.From)
+		chatID := formatChatID(ad, update.Message.Chat.ID)
+		if err := ad.HandleText(ctx, chatID, update.Message.Text, userID); err != nil {
+			slog.Error("tg handle text", "err", err, "chat_id", chatID)
 		}
-		slog.Error("tg menu load for keyboard failed; using default seed", "err", err)
-	}
-	return BuildReplyKeyboard(tgmenudomain.DefaultSeedTree())
-}
-
-func mainReplyKeyboard() *models.ReplyKeyboardMarkup {
-	return BuildReplyKeyboard(tgmenudomain.DefaultSeedTree())
-}
-
-func toInlineMarkup(rows [][]InlineButton) *models.InlineKeyboardMarkup {
-	out := make([][]models.InlineKeyboardButton, 0, len(rows))
-	for _, row := range rows {
-		btns := make([]models.InlineKeyboardButton, 0, len(row))
-		for _, b := range row {
-			btns = append(btns, models.InlineKeyboardButton{Text: b.Text, CallbackData: b.Data})
+	})
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.Message != nil && len(update.Message.Photo) > 0
+	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
+		_ = resolveUser(ctx, ad, update.Message.From)
+		chatID := formatChatID(ad, update.Message.Chat.ID)
+		photos := update.Message.Photo
+		best := photos[len(photos)-1]
+		if err := ad.HandleUserMedia(ctx, chatID, best.FileID, "image/jpeg"); err != nil {
+			slog.Error("tg handle photo", "err", err, "chat_id", chatID)
 		}
-		out = append(out, btns)
-	}
-	return &models.InlineKeyboardMarkup{InlineKeyboard: out}
+	})
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.Message != nil && isImageDocument(update.Message.Document)
+	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
+		_ = resolveUser(ctx, ad, update.Message.From)
+		chatID := formatChatID(ad, update.Message.Chat.ID)
+		doc := update.Message.Document
+		if err := ad.HandleUserMedia(ctx, chatID, doc.FileID, documentMIME(doc)); err != nil {
+			slog.Error("tg handle document", "err", err, "chat_id", chatID)
+		}
+	})
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil
+	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
+		cq := update.CallbackQuery
+		userID := resolveUser(ctx, ad, &cq.From)
+		chatID := cq.From.ID
+		if cq.Message.Message != nil {
+			chatID = cq.Message.Message.Chat.ID
+		}
+		if err := ad.HandleCallback(ctx, formatChatID(ad, chatID), cq.ID, cq.Data, userID); err != nil {
+			slog.Error("tg handle callback", "err", err, "chat_id", chatID)
+		}
+	})
 }
 
-type byteReader struct {
-	b []byte
-	i int
+func formatChatID(ad *Adapter, chatID int64) sharedkernel.ChatID {
+	return sharedkernel.ChatID(sharedkernel.FormatChatID(sharedkernel.ChannelAddr{
+		ChannelID:      ad.ChannelID,
+		ExternalChatID: strconv.FormatInt(chatID, 10),
+	}))
 }
 
-func bytesReader(b []byte) *byteReader { return &byteReader{b: b} }
-
-func (r *byteReader) Read(p []byte) (int, error) {
-	if r.i >= len(r.b) {
-		return 0, io.EOF
+func resolveUser(ctx context.Context, ad *Adapter, from *models.User) string {
+	if ad == nil || ad.Users == nil || from == nil {
+		return ""
 	}
-	n := copy(p, r.b[r.i:])
-	r.i += n
-	return n, nil
+	isBot := from.IsBot
+	isPremium := from.IsPremium
+	profile, err := json.Marshal(map[string]any{
+		"is_bot":     isBot,
+		"is_premium": isPremium,
+	})
+	if err != nil {
+		profile = nil
+	}
+	externalID := strconv.FormatInt(from.ID, 10)
+	id, err := ad.Users.Resolve(ctx, sharedkernel.ChannelAddr{
+		ChannelID:      ad.ChannelID,
+		ExternalChatID: externalID,
+	}, identitydomain.UpsertFrom{
+		ChannelID:      ad.ChannelID,
+		ExternalUserID: externalID,
+		Username:       from.Username,
+		FirstName:      from.FirstName,
+		LastName:       from.LastName,
+		LanguageCode:   from.LanguageCode,
+		ProfileJSON:    string(profile),
+	})
+	if err != nil {
+		slog.Error("tg resolve user", "err", err, "tg_user_id", from.ID)
+		return ""
+	}
+	return id
 }
 
 func telegramDownloader(b *bot.Bot) FileDownloader {
@@ -230,74 +196,28 @@ func documentMIME(d *models.Document) string {
 	}
 }
 
-func upsertFromTGUser(ctx context.Context, ad *Adapter, from *models.User) string {
-	if ad == nil || from == nil {
-		return ""
+// photoUploadName returns a Telegram-safe upload basename (no path separators).
+func photoUploadName(key string) string {
+	key = strings.ReplaceAll(key, "\\", "/")
+	name := path.Base(key)
+	if name == "" || name == "." || name == "/" {
+		return "result.png"
 	}
-	isBot := from.IsBot
-	isPremium := from.IsPremium
-	id, err := ad.UpsertFromTG(ctx, identitydomain.UpsertFrom{
-		TgUserID:     from.ID,
-		Username:     from.Username,
-		FirstName:    from.FirstName,
-		LastName:     from.LastName,
-		LanguageCode: from.LanguageCode,
-		IsBot:        &isBot,
-		IsPremium:    &isPremium,
-	})
-	if err != nil {
-		slog.Error("tg upsert user", "err", err, "tg_user_id", from.ID)
-		return ""
-	}
-	return id
+	return name
 }
 
-// RegisterHandlers wires message + callback handlers.
-func RegisterHandlers(b *bot.Bot, ad *Adapter) {
-	if ad.Download == nil {
-		ad.Download = telegramDownloader(b)
+type byteReader struct {
+	b []byte
+	i int
+}
+
+func bytesReader(b []byte) *byteReader { return &byteReader{b: b} }
+
+func (r *byteReader) Read(p []byte) (int, error) {
+	if r.i >= len(r.b) {
+		return 0, io.EOF
 	}
-	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
-		return update.Message != nil && update.Message.Text != ""
-	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
-		userID := upsertFromTGUser(ctx, ad, update.Message.From)
-		chatID := update.Message.Chat.ID
-		if err := ad.HandleText(ctx, chatID, update.Message.Text, userID); err != nil {
-			slog.Error("tg handle text", "err", err, "chat_id", chatID)
-		}
-	})
-	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
-		return update.Message != nil && len(update.Message.Photo) > 0
-	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
-		_ = upsertFromTGUser(ctx, ad, update.Message.From)
-		chatID := update.Message.Chat.ID
-		photos := update.Message.Photo
-		best := photos[len(photos)-1]
-		if err := ad.HandleUserMedia(ctx, chatID, best.FileID, "image/jpeg"); err != nil {
-			slog.Error("tg handle photo", "err", err, "chat_id", chatID)
-		}
-	})
-	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
-		return update.Message != nil && isImageDocument(update.Message.Document)
-	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
-		_ = upsertFromTGUser(ctx, ad, update.Message.From)
-		chatID := update.Message.Chat.ID
-		doc := update.Message.Document
-		if err := ad.HandleUserMedia(ctx, chatID, doc.FileID, documentMIME(doc)); err != nil {
-			slog.Error("tg handle document", "err", err, "chat_id", chatID)
-		}
-	})
-	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
-		return update.CallbackQuery != nil
-	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
-		cq := update.CallbackQuery
-		userID := upsertFromTGUser(ctx, ad, &cq.From)
-		chatID := cq.From.ID
-		if cq.Message.Message != nil {
-			chatID = cq.Message.Message.Chat.ID
-		}
-		if err := ad.HandleCallback(ctx, chatID, cq.ID, cq.Data, userID); err != nil {
-			slog.Error("tg handle callback", "err", err, "chat_id", chatID)
-		}
-	})
+	n := copy(p, r.b[r.i:])
+	r.i += n
+	return n, nil
 }
