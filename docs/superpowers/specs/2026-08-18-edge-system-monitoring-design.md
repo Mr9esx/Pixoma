@@ -1,0 +1,219 @@
+---
+comet_change: edge-system-monitoring
+role: technical-design
+canonical_spec: openspec
+---
+
+# 深度技术设计：Edge 系统监控
+
+## 1. 背景与目标
+
+参见 OpenSpec `docs/openspec/changes/edge-system-monitoring/`：节点详情页「系统」节此前由控制面直连 Edge 本机 ComfyUI，内网 Edge 下必现「连接被拒绝」。本次改为 Edge 在 presence 心跳中主动上报实时系统指标，控制面落库，前端用与参考 MHTML（Shadcnblocks Admin Kit dashboard-3）同源的 chart 组件与 class 展示「系统监控」图表。
+
+已确认的边界：GPU 占用率只做 NVIDIA（`nvidia-smi`），AMD/Intel 字段留空；不引入 NVML/ROCm；不做实时推送；不改调度与健康检查；静态机器规格（右列）语义不变。
+
+## 2. 架构与数据流
+
+```text
+┌─────────────────────────────┐      presence 心跳（5s）      ┌──────────────────────────────┐
+│  Edge-Agent                 │ ─────────────────────────────▶ │  Control Plane (admin-api)   │
+│  internal/metrics           │   { edge_id, comfy_running,    │  POST /agent/v1/presence     │
+│  ├ CPU % (gopsutil)         │     hardware?, metrics? }      │  ├ Presence.Report           │
+│  ├ Mem used/total/% (gopsutil)│                             │  └ Metrics.Append ──▶ edge_metrics 表
+│  ├ Disk I/O rate (gopsutil) │                              └───────────▲──────────────────┘
+│  └ GPU usage/VRAM (nvidia-smi)│                                          │ GET /api/v1/edges/{id}/metrics
+│  └ Mock 合成（COMFY_MOCK=true）│                                          │ { latest, series }（window 过滤）
+└─────────────────────────────┘                                          ▼
+                                                          ┌──────────────────────────────┐
+                                                          │  Admin Web（节点详情页）       │
+                                                          │  「系统监控」chart 卡组        │
+                                                          │  15s 轮询 getEdgeMetrics      │
+                                                          └──────────────────────────────┘
+```
+
+采样与上报解耦在同一个 Reporter goroutine 内：presence 每 5s 一拍；距上次采样超过 `METRICS_INTERVAL`（默认 30s）才重新采集并随本次心跳携带 `metrics`，其余拍不带（服务端不落库）。
+
+## 3. 详细设计
+
+### 3.1 Edge 指标采集器 `apps/edge-agent/internal/metrics`
+
+对外入口：
+
+```go
+type Sampler struct {
+    Now       func() time.Time
+    InspectCPU   func(ctx context.Context, interval time.Duration) ([]float64, error)
+    InspectMem   func(ctx context.Context) (*mem.VirtualMemoryStat, error)
+    InspectDisk  func(ctx context.Context) (map[string]disk.IOCountersStat, error)
+    QueryNvidiaSMI func(ctx context.Context) ([]edge.GPUMetric, error) // nil 表示不可用
+    Mock       bool // COMFY_MOCK=true 时 GPU 用合成数据
+}
+
+func (s *Sampler) Sample(ctx context.Context, since time.Time) edge.Metrics
+```
+
+- **CPU**：`cpu.PercentWithContext(ctx, interval, false)`，`interval` 为距上次采样的时长，得到两次采样间的整机占用率。首次采样无历史，取 0 并正常上报。
+- **内存**：`mem.VirtualMemoryWithContext(ctx)` → `Used`、`Total`、`UsedPercent`。
+- **磁盘 I/O**：`disk.IOCountersWithContext(ctx)` 汇总所有设备的 `read_bytes` / `write_bytes`，与上次采样差值除以间隔得到字节/秒速率；首次采样（`since` 为零值）时速率字段为 `nil`。
+- **GPU（仅 NVIDIA）**：执行
+
+  ```text
+  nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits
+  ```
+
+  用 `encoding/csv` 解析（`name` 可能含逗号），显存单位 MiB 换算为字节；`usage_percent`、`vram_used_bytes`、`vram_total_bytes`、`vram_usage_percent` 均由数据直接得出。命令不存在、退出非零或解析失败时整组 GPU 字段返回 `nil`（不阻断 CPU/内存/I/O）。
+- **Mock**：`COMFY_MOCK=true` 时跳过 `nvidia-smi`，合成一张 `Mock GPU`（占用率 20–60% 波动、显存总量 8 GiB、已用随占用率变化），保证开发与演示环境页面有 GPU 图；CPU/内存/I/O 仍走真实采集。
+- **失败语义**：任一单项失败只留空该项；`edge.Metrics` 的 GPU 与 I/O 速率用 `*float64`/切片 + `omitempty` 表达“不可用”，CPU/内存字段必有值。整体采集不返回 error（局部失败不阻塞心跳）。
+
+领域类型放在 `internal/platform/edge/metrics.go`（agent 与控制面共用）：
+
+```go
+type GPUMetric struct {
+    Name             string   `json:"name"`
+    UsagePercent     *float64 `json:"usage_percent,omitempty"`
+    VRAMUsedBytes    uint64   `json:"vram_used_bytes,omitempty"`
+    VRAMTotalBytes   uint64   `json:"vram_total_bytes,omitempty"`
+    VRAMUsagePercent *float64 `json:"vram_usage_percent,omitempty"`
+}
+
+type Metrics struct {
+    CPUUsagePercent      float64     `json:"cpu_usage_percent"`
+    MemUsedBytes         uint64      `json:"mem_used_bytes"`
+    MemTotalBytes        uint64      `json:"mem_total_bytes"`
+    MemUsagePercent      float64     `json:"mem_usage_percent"`
+    GPUs                 []GPUMetric `json:"gpus,omitempty"`
+    DiskReadBytesPerSec  *float64    `json:"disk_read_bytes_per_sec,omitempty"`
+    DiskWriteBytesPerSec *float64    `json:"disk_write_bytes_per_sec,omitempty"`
+    CollectedAt          time.Time   `json:"collected_at"`
+}
+```
+
+### 3.2 presence 上报集成
+
+`apps/edge-agent/internal/presence/reporter.go`：
+
+- 新增字段 `MetricsInterval time.Duration`（默认 30s）与 `Sample func(ctx context.Context, since time.Time) *edge.Metrics`。
+- `Reporter` 增加 `lastMetrics time.Time`；`ProbeAndReport` 中：`now := time.Now().UTC()`，若 `lastMetrics.IsZero() || now.Sub(lastMetrics) >= interval`，则采样并把快照放入上报载荷，更新 `lastMetrics`；否则载荷不带 `metrics`。
+- `pull.Client.ReportPresence` 载荷新增 `metrics *edge.Metrics`（可选），JSON 序列化后经 `POST /agent/v1/presence` 发送；`RefreshHardware` 响应逻辑不变。
+
+### 3.3 数据模型与持久化
+
+`edge_metrics` 表（GORM `MetricsRow`，放 `internal/platform/edge/persistence/gorm_metrics.go`）：
+
+| 列 | 类型 | 说明 |
+|---|---|---|
+| `id` | BIGINT 自增 | 主键 |
+| `edge_id` | VARCHAR(128) | 索引 |
+| `metrics_json` | TEXT | 3.1 的 `edge.Metrics` 完整快照 |
+| `collected_at` | TIMESTAMP | 索引，查询窗口 |
+
+仓库接口（`internal/platform/edge/metrics_repository.go`）：
+
+```go
+type MetricsRepository interface {
+    Append(ctx context.Context, edgeID sharedkernel.EdgeID, m edge.Metrics) error
+    ListSince(ctx context.Context, edgeID sharedkernel.EdgeID, since time.Time, limit int) ([]edge.Metrics, error)
+}
+```
+
+- `Append`：写入新行后顺带 `DELETE FROM edge_metrics WHERE collected_at < now - retention`（幂等，无事务依赖）。
+- `ListSince`：按 `collected_at ASC` 取 `limit`（默认 720）条窗口内记录；解析 `metrics_json` 失败返回错误。
+- 保留窗口由 `MetricsRepository` 构造参数注入（默认 24h，控制面 `METRICS_RETENTION` 环境变量覆盖）。
+- 装配：`internal/platform/appboot/boot.go` 的 AutoMigrate 模型列表追加 `&persistence.MetricsRow{}`。
+
+### 3.4 控制面 API
+
+**Agent presence（`internal/httpapi/agent/handler.go`）**
+
+- 请求体新增 `Metrics *edge.Metrics \`json:"metrics,omitempty"\``；鉴权通过后，若 `h.Metrics != nil && body.Metrics != nil` 且 `body.Metrics.CollectedAt` 非零，则 `h.Metrics.Append(r.Context(), edgeID, *body.Metrics)`；写入失败返回 500。鉴权失败在任何写入之前返回 401（不落库）。
+
+**Admin metrics（`internal/httpapi/edges/handler.go`）**
+
+- 新增 `GET /{id}/metrics`：
+  - `window` 参数：`1h`（默认）/ `6h` / `24h`；非法值返回 400。
+  - Edge 不存在返回 404；存在但无数据返回 `{ "latest": null, "series": [] }`。
+  - 响应：`{ "latest": edge.Metrics|null, "series": edge.Metrics[] }`（升序，最多 720 点，超出截尾保留最近点）。
+- `Handler` 增加 `Metrics edge.MetricsRepository` 字段；`apps/admin-api/cmd/admin-api/main.go` 用同一个 `*gorm.DB` 构造并注入 agent 与 edges 两个 handler。
+
+### 3.5 Admin 前端
+
+**chart 组件**：新增 `web/admin/src/components/ui/chart.tsx`——shadcn/ui 现行 Tailwind v4 + `data-slot` 版（`ChartContainer`、`ChartTooltip`、`ChartTooltipContent`、`ChartLegend`、`ChartLegendContent`、`ChartStyle`），即参考 MHTML 渲染所依赖的同一组件；从 shadcn/ui 官方源复制（MIT），导入走项目现有 `@/lib/utils` 的 `cn`。`recharts@3.8.1` 已在依赖中。
+
+**API 与类型**：
+
+- `lib/api/types.ts`：`EdgeGPUMetric`、`EdgeMetrics`、`EdgeMetricsResponse { latest: EdgeMetrics|null; series: EdgeMetrics[] }`。
+- `lib/api/edges.ts`：`getEdgeMetrics(id, window)` → `GET /api/v1/edges/{id}/metrics?window=...`。
+- `lib/api/query-keys.ts`：`edges.metrics: (id) => ['edges', id, 'metrics']`。
+
+**解析**：`features/edges/observation.ts` 新增 `parseMetrics(data)`，把 `latest`/`series` 规整为图表行：`{ time, cpu, memUsed, memTotal, memPct, gpus[], ioRead, ioWrite }`；可选字段缺省为 `null`，供图表判空。
+
+**「系统监控」卡组（`observation-panel.tsx`）**：`SystemSection` 替换为图表卡组，卡片 class 逐条对照 MHTML dashboard-3：
+
+| 卡 | 数据 | 参考卡 | 关键 class |
+|---|---|---|---|
+| CPU 占用率（面积图） | series.cpu | Total Revenue | `bg-card flex min-w-0 flex-1 flex-col gap-4 rounded-xl border p-4 sm:gap-6 sm:p-6`；顶部大数字 `text-xl leading-tight font-semibold tracking-tight sm:text-2xl`；图高 `h-[200px] w-full min-w-0 sm:h-[240px] lg:h-[280px]`；`--color-cpu: var(--primary)`；渐变 0.3→0.05；Area strokeWidth 2 |
+| 内存（环形图） | latest.mem | Sales by Category | `bg-card flex flex-1 flex-col gap-4 rounded-xl border p-4 sm:p-5`；图 `relative size-[100px] shrink-0 sm:size-[120px]`；中心已用 % + 小标签；图例行 `size-2 rounded-full sm:size-2.5` + `tabular-nums`；`--color-used: var(--primary)`、`--color-free: color-mix(in oklch, var(--primary) 75%, var(--background))` |
+| GPU 占用率/显存（环形图，每 GPU 一张） | latest.gpus[] | Sales by Category | 同上；中心分别显示占用 % / 已用字节；无 GPU 数据整组隐藏 |
+| I/O（双系列面积图） | series.ioRead/ioWrite | Total Revenue 双系列 | `--color-read: var(--primary)`、`--color-write: color-mix(in oklch, var(--primary) 75%, var(--background))`；两条 Area 各自渐变；y 轴字节/秒 |
+
+图例点抄参考：`size-2.5 rounded-full sm:size-3`（面积图）与 `size-2 rounded-full sm:size-2.5`（环形图），颜色用 `style={{ backgroundColor: 'var(--primary)' }}` 与 `color-mix` 表达式；均需暗色变体（`dark [data-chart=...]` 下的 85% 混色）。
+
+**集成**：`detail-panel.tsx` 删除 `getEdgeSystem`/`systemQuery`，改 `getEdgeMetrics(id, '1h')` + `refetchInterval: 15000`；`ObservationPanel` 仅接收 `metricsQuery` 与 `tasksQuery`；`parseSystem` 相关代码随系统节移除（队列节未实现，保留其余逻辑）。
+
+**i18n**：`edges.observationSystem` → `系统监控`（zh）/ `System Monitoring`（en）；`observationSystemHint` → `CPU、内存、GPU、I/O`；新增图表标签 key（CPU 占用率、已用/剩余、GPU 占用率、显存、读/写、暂无数据等）。
+
+**空态**：`series` 为空时整组渲染空态，不渲染无数据图表。
+
+### 3.6 配置项
+
+| 环境变量 | 位置 | 默认 |
+|---|---|---|
+| `METRICS_INTERVAL` | Edge-Agent | `30s` |
+| `METRICS_RETENTION` | 控制面 | `24h` |
+
+解析失败回退默认值；`METRICS_INTERVAL < 5s` 时钳制到 5s（不与心跳节拍倒挂）。
+
+## 4. 边界条件与错误处理
+
+- `nvidia-smi` 不存在/非 NVIDIA/解析失败 → `GPUs` 为 nil，前端隐藏 GPU 卡。
+- 首次采样：CPU 占用率 0、I/O 速率 nil、GPU 照常；第二次起 I/O 有速率。
+- Edge 重启：`lastMetrics` 归零，重启后首拍即采样（I/O 因无历史仍为 nil）。
+- `metrics_json` 损坏 → `ListSince` 返回错误（500），不吞数据。
+- 大窗口：`limit=720` 截尾；写入侧保留窗口裁剪，避免表无限增长。
+- 时钟回拨：`now.Sub(lastMetrics) < 0` 视为未到期，不采样。
+- 前端无 GPU / 无历史 / 服务端 404 / 500：分别渲染隐藏、空态、错误横幅，不崩溃。
+
+## 5. 测试策略
+
+**Go 单测**
+
+- `metrics`：mock 注入 CPU/内存/磁盘/nvidia-smi 输出，覆盖正常、`nvidia-smi` 缺失、首拍 I/O nil、CPU 首拍 0、`COMFY_MOCK` 合成 GPU、磁盘设备空。
+- `presence.Reporter`：采样到期/未到期时载荷是否携带 `metrics`；首拍立即采样；interval 钳制。
+- `pull.Client.ReportPresence`：序列化含/不含 `metrics`。
+- `MetricsRepository`（gorm sqlite 内存库）：Append 落库、ListSince 排序与 limit、过期清理。
+- agent presence handler：指标落库、鉴权失败不落库、坏载荷 400。
+- admin metrics handler：window 解析、404、空序列、latest+series 结构。
+
+**前端**
+
+- `parseMetrics`：可选字段缺省、GPU 缺失、空 series。
+- 合同测试：锁定「系统监控」文案与关键 chart class（`data-slot="chart"`、`aspect-video`、`h-[200px] w-full min-w-0 sm:h-[240px] lg:h-[280px]`、`size-2.5 rounded-full sm:size-3`、`rounded-xl border p-4 sm:p-5`、`--color-` 变量等）；断言 `detail-panel` 不再调用 `getEdgeSystem`。
+- 组件测试：空态、无 GPU 降级。
+
+**端到端**：`COMFY_MOCK=true` 起本地 Edge + 控制面，页面详情页「系统监控」出图且数据随 30s 采样推进。
+
+## 6. 风险与缓解
+
+| 风险 | 缓解 |
+|---|---|
+| 非 NVIDIA 主机 GPU 无数据 | 页面隐藏 GPU 卡；spec 明确「不可用留空」 |
+| 磁盘 I/O 首拍/重启后缺速率 | 首拍 nil，后续差值计算 |
+| `edge_metrics` 增长 | Append 时清理超窗记录；查询限 720 点 |
+| 多实例控制面并发写 | 删除/插入幂等，无事务依赖 |
+| chart 组件与 recharts 版本漂移 | 固定 shadcn data-slot 版 + 合同测试锁 class；升级 recharts 需回归 |
+| nvidia-smi 解析被驱动版本差异破坏 | 只依赖稳定字段（utilization.gpu / memory.used / memory.total），解析失败整体留空 |
+
+## 7. 迁移与回滚
+
+- 上线：`MetricsRow` 随 AutoMigrate 创建，无存量迁移；先合并后端（presence 载荷兼容旧 Edge——无 `metrics` 字段时不落库），再合并前端切换。
+- 回滚：前端回退到 `getEdgeSystem` 即可恢复旧「系统」节；控制面停止写/读 `edge_metrics` 不影响其它功能。
