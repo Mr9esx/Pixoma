@@ -405,11 +405,11 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 **Interfaces:**
 - Produces: `type NotifyRouter struct { OutByChannel func(channelID string) (ports.Outbound, bool) }`；`func (r *NotifyRouter) Publish(ctx, n sharedkernel.UserNotify) error`（`ParseChatID(n.ChatID)` → 找 Outbound → `SendMedia/SendText`）
 
-- [ ] **Step 1: 写失败测试** — `UserNotify{ChatID:"tg:123", Kind:"task_succeeded", Outputs:[blob]}` → 对应 channel 的 fake Outbound 收到 SendMedia；未知渠道→记录并返回 nil（不崩溃）；重复终态通知去重（沿用 adapter 内 `notified` map，按 channel 隔离）
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/channel/runtime/... -run Notify`
-- [ ] **Step 3: 实现** — `notify.go` 按地址路由；`notifybridge` 包废弃删除，装配器在 Start 时把 router 注入 orchestrator 的 notify.Publisher
-- [ ] **Step 4: 运行通过** — 测试全绿；`go build ./...`
-- [ ] **Step 5: 提交** — `git commit -m "refactor(channel): route notifications by channel"`
+- [x] **Step 1: 写失败测试** — `UserNotify{ChatID:"tg:123", Kind:"task_succeeded", Outputs:[blob]}` → 对应 channel 的 fake Outbound 收到 SendMedia；未知渠道→记录并返回 nil（不崩溃）；重复终态通知去重（沿用 adapter 内 `notified` map，按 channel 隔离）
+- [x] **Step 2: 运行确认失败** — `go test ./internal/channel/runtime/... -run Notify`
+- [x] **Step 3: 实现** — `notify.go` 按地址路由；`notifybridge` 包废弃删除，装配器在 Start 时把 router 注入 orchestrator 的 notify.Publisher
+- [x] **Step 4: 运行通过** — 测试全绿；`go build ./...`
+- [x] **Step 5: 提交** — `git commit -m "refactor(channel): route notifications by channel"`
 
 ---
 
