@@ -347,17 +347,17 @@ type IdentityResolver interface {
 - Produces: `type Adapter struct { App *botapp.Facade; Out ports.Outbound; Media ports.MediaBridge; Users ports.IdentityResolver; Menu MenuReader; Extras ExtrasReader }`
 - Produces: `func TranslateCallback(data string) (ports.Action, error)`（`mf:`/`mb:`/`cp:`/`cs:`/`cf`/`sk`/`ex`/`ct`/`rs:`/`il` → Action）
 
-- [ ] **Step 1: 写失败测试（回调翻译）** — `TranslateCallback("mf:btn-image") == Action{OpenFolder, MenuItemID:"btn-image"}`；`mb:root` → OpenMenu；`cpf:folder:case` → OpenCase{BackRef:"mb:folder"}；未知前缀 → error；`cs:case1` → StartCase
-- [ ] **Step 2: 写失败测试（chat 映射与渲染）** — 适配器 `HandleText(ctx, "tg:123", text, userID)` 入口解析 Addr；`SendMenu` 对 root items 按 extras `tg_root_layout` 排布（缺省两列）；`SendList` 生成 Inline 且回调编码内部化；`SendMedia` 走 blob→photo
-- [ ] **Step 3: 运行确认失败** — `go test ./internal/channel/tg/...`
-- [ ] **Step 4: 实现**
+- [x] **Step 1: 写失败测试（回调翻译）** — `TranslateCallback("mf:btn-image") == Action{OpenFolder, MenuItemID:"btn-image"}`；`mb:root` → OpenMenu；`cpf:folder:case` → OpenCase{BackRef:"mb:folder"}；未知前缀 → error；`cs:case1` → StartCase
+- [x] **Step 2: 写失败测试（chat 映射与渲染）** — 适配器 `HandleText(ctx, "tg:123", text, userID)` 入口解析 Addr；`SendMenu` 对 root items 按 extras `tg_root_layout` 排布（缺省两列）；`SendList` 生成 Inline 且回调编码内部化；`SendMedia` 走 blob→photo
+- [x] **Step 3: 运行确认失败** — `go test ./internal/channel/tg/...`
+- [x] **Step 4: 实现**
   - `adapter.go`：`chatID int64` 参数改为 `addr sharedkernel.ChannelAddr`（或 `chatID string`）；入口 `ParseChatID`；`HandleCallback` 改调 `TranslateCallback` 后统一走 Action 分发（复用现有 Facade 调用：OpenFolder→showMenuFolder、OpenCase→showCasePreview、StartCase→startCase、Confirm/Skip/Exit/Continue/ReplaceStart 同现有）
   - `extras.go`：`ExtrasReader` 从 `internal/menu` 读 extras；`RootLayout(extras)` 返回 `[]int`（每行按钮数）或 nil（缺省两列）；`BuildReplyKeyboard(tree, extras)`
   - `messenger.go`：实现 `ports.Outbound`（`SendMenu`→ReplyKeyboard+文本；`SendList`→InlineKeyboard 用 `TranslateCallback` 反向编码；`SendMedia`→SendPhoto；`SendText`→SendMessage）；`AnswerCallback` 逻辑保留在 bot.go 层
   - `media.go`：`Download` 用现有 file_id 下载逻辑；`Upload` 返回 `not implemented`（本期仅预留）
   - `bot.go`：`RegisterHandlers` 中 chat id 用 `FormatChatID` 组装传给 Adapter；`BotMessenger` 适配 Outbound 签名
-- [ ] **Step 5: 运行通过** — `go test ./internal/channel/tg/...` 全绿
-- [ ] **Step 6: 提交** — `git commit -m "refactor(tg): implement channel ports and internalize callback protocol"`
+- [x] **Step 5: 运行通过** — `go test ./internal/channel/tg/...` 全绿
+- [x] **Step 6: 提交** — `git commit -m "refactor(tg): implement channel ports and internalize callback protocol"`
 
 ---
 
