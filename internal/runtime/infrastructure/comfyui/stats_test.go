@@ -17,6 +17,17 @@ func TestMock_SystemStatsAndQueue(t *testing.T) {
 	if err != nil || st == nil || !st.Mock || !st.Reachable {
 		t.Fatalf("%+v %v", st, err)
 	}
+	devices, _ := st.Raw["devices"].([]any)
+	if len(devices) == 0 {
+		t.Fatal("mock SystemStats devices empty")
+	}
+	dev, _ := devices[0].(map[string]any)
+	if _, ok := dev["vram_total"]; !ok {
+		t.Fatalf("mock device missing vram_total: %+v", dev)
+	}
+	if st.ComfyUIVersion != "mock" {
+		t.Fatalf("mock comfyui_version=%q want mock", st.ComfyUIVersion)
+	}
 	q, err := m.Queue(context.Background())
 	if err != nil || q == nil || !q.Mock || !q.Reachable {
 		t.Fatalf("%+v %v", q, err)
@@ -49,6 +60,9 @@ func TestHTTP_SystemStatsAndQueue(t *testing.T) {
 	}
 	if !st.Reachable || st.Mock || st.Raw == nil {
 		t.Fatalf("stats=%+v", st)
+	}
+	if st.ComfyUIVersion != "0.1" {
+		t.Fatalf("comfyui_version=%q want 0.1", st.ComfyUIVersion)
 	}
 	q, err := c.Queue(context.Background())
 	if err != nil {

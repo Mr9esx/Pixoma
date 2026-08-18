@@ -43,6 +43,8 @@ export type ComfyEdge = {
   capabilities: string[]
   agent_token?: string
   hardware?: EdgeHardware
+  started_at: string | null
+  comfy_version: string
   created_at: string
   updated_at: string
 }

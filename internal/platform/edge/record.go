@@ -1,4 +1,4 @@
-package instance
+package edge
 
 import (
 	"time"
@@ -8,10 +8,16 @@ import (
 
 // Record is the persisted ComfyUI instance metadata.
 type Record struct {
-	ID           sharedkernel.InstanceID
-	BaseURL      string
-	Enabled      bool
-	Capabilities []string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                       sharedkernel.EdgeID
+	Name                     string
+	Description              string
+	Enabled                  bool
+	Capabilities             []string
+	AgentTokenEnc            string
+	Hardware                 Hardware
+	HardwareRefreshRequested bool
+	StartedAt                *time.Time
+	ComfyVersion             string
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }

@@ -51,7 +51,7 @@
   },
   "edges": {
     "title": "计算节点",
-    "description": "登记能跑画图的电脑，看它在不在线、Comfy 开没开。",
+    "description": "管理和查看 ComfyUI 计算节点，可查看节点负载监控和执行任务情况。",
     "empty": "暂无计算节点",
     "enabled": "启用",
     "disabled": "未启用",
@@ -63,6 +63,8 @@
     "fieldDescription": "描述",
     "fieldId": "ID",
     "fieldCreatedAt": "创建时间",
+    "fieldStartedAt": "启动时间",
+    "fieldComfyVersion": "Comfy 版本",
     "fieldEnabled": "启用",
     "fieldCapabilities": "分类",
     "fieldAgentToken": "AGENT_TOKEN",

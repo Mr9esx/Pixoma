@@ -51,7 +51,7 @@
   },
   "edges": {
     "title": "Compute nodes",
-    "description": "Register machines that can generate images, and see if they are online and Comfy is running.",
+    "description": "Manage and view ComfyUI compute nodes, including node load monitoring and task execution status.",
     "empty": "No compute nodes",
     "enabled": "Enabled",
     "disabled": "Disabled",
@@ -63,6 +63,8 @@
     "fieldDescription": "Description",
     "fieldId": "ID",
     "fieldCreatedAt": "Created",
+    "fieldStartedAt": "Started at",
+    "fieldComfyVersion": "Comfy version",
     "fieldEnabled": "Enabled",
     "fieldCapabilities": "Category",
     "fieldAgentToken": "AGENT_TOKEN",

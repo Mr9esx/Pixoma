@@ -27,6 +27,7 @@ type Reporter struct {
 	SendHardware    bool
 	refreshNext     bool
 	lastMetrics     time.Time
+	startedAt       time.Time
 }
 
 func (r *Reporter) interval() time.Duration {
@@ -47,12 +48,19 @@ func (r *Reporter) ProbeAndReport(ctx context.Context) error {
 	if r == nil || r.Client == nil {
 		return fmt.Errorf("presence: client not configured")
 	}
+	if r.startedAt.IsZero() {
+		r.startedAt = time.Now().UTC()
+	}
 	running := false
+	comfyVersion := ""
 	if r.Comfy != nil {
 		probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 		st, err := r.Comfy.SystemStats(probeCtx)
 		cancel()
 		running = err == nil && st != nil && st.Reachable
+		if st != nil {
+			comfyVersion = st.ComfyUIVersion
+		}
 	}
 	var hw *edge.Hardware
 	if (r.SendHardware || r.refreshNext) && r.Collect != nil {
@@ -66,7 +74,7 @@ func (r *Reporter) ProbeAndReport(ctx context.Context) error {
 		r.lastMetrics = now
 		m = &collected
 	}
-	refresh, err := r.Client.ReportPresence(ctx, running, hw, m)
+	refresh, err := r.Client.ReportPresence(ctx, running, r.startedAt, comfyVersion, hw, m)
 	if err != nil {
 		return err
 	}

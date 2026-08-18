@@ -7,6 +7,7 @@
 - [x] 1.5 metrics 采集器单测：mock 模式、部分指标不可用、首拍 I/O 空、数值边界
 - [x] 1.6 `presence.Reporter` 按 `METRICS_INTERVAL`（默认 30s）采样，随 presence 载荷携带 `metrics`
 - [x] 1.7 `pull.Client.ReportPresence` 请求体支持 `metrics` 字段并补测试
+- [ ] 1.8 agent 上报 `started_at`（首次心跳时间，进程内只记一次）与 `comfy_version`（解析 `/system_stats` 的 `comfyui_version`）；`SystemStats` 新增 `ComfyUIVersion` 字段并补测试
 
 ## 2. 控制面持久化与 API
 
@@ -15,6 +16,7 @@
 - [x] 2.3 agent `presence` handler 接收 `metrics` 并落库；鉴权失败不落库；补 handler 测试
 - [x] 2.4 admin `GET /api/v1/edges/{id}/metrics`：`window` 解析（1h/6h/24h）、未知 Edge 404、无数据空序列、返回 `latest` + `series`
 - [x] 2.5 admin-api 装配：把 `MetricsRepository` 注入 agent 与 edges handler，`METRICS_RETENTION` 环境变量接线
+- [ ] 2.6 `edges` 表新增 `started_at` / `comfy_version` 列；`Record`/`EdgeRow`/`Repository.UpdatePresenceInfo`；agent presence handler 落库；admin DTO 返回两字段
 
 ## 3. Admin 前端系统监控
 
@@ -38,9 +40,11 @@
 - [x] 3.18 I/O Y 轴阶梯化：按显示单位生成 1/2/5×10ⁿ 整齐步进 tick（`ioAxisTicks` + 单测），不再显示零碎小数
 - [x] 3.19 tooltip 恢复系列名 label（`格式 label: 值`）；统一图表内边距（`CHART_MARGIN` top12/right4/bottom0/left4，X 轴高 20、tickMargin 4），修复各图底部 padding 不一致与 Y 轴顶部刻度裁切
 - [x] 3.20 图表改为 Sprint health 样式：卡片标题 `text-base font-semibold`；主体左图右值（`lg:grid-cols-[minmax(0,1fr)_92px]`），占用率系列右侧显示「当前 / 最高 / 平均」三值（百分比，多 GPU 时按 `GPU{n} ·` 前缀分组），I/O 读/写各显示三值（人类可读单位）；GPU 占用率与显存占用率各一张卡、多 GPU 同图多折线；无 legend 的占用率卡 chart 撑满高度；新增 `seriesStats` 辅助与 i18n（monitorCurrent/monitorMax/monitorAvg）
+- [ ] 3.21 节点信息新增「启动时间」（创建时间下方）与「Comfy 版本」（分类上方）；类型/i18n/合同测试同步
 
 ## 4. 文档与验证
 
 - [x] 4.1 同步 `docs/architecture/data-model.md`、`runtime.md`：`edge_metrics` 表与指标上报路径
 - [x] 4.2 根 `README.md` 补充 `METRICS_INTERVAL` / `METRICS_RETENTION` 环境变量
 - [x] 4.3 全量验证：`go build ./...` + `go test ./...`、前端 `tsc -b` + `vitest`，Mock 模式端到端确认详情页系统监控出图
+- [ ] 4.4 同步架构文档：`edges` 表 `started_at`/`comfy_version` 列与 presence 上报路径

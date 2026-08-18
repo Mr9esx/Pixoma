@@ -718,3 +718,60 @@ func TestHandler_MetricsEmptySeries(t *testing.T) {
 		t.Fatalf("series must be empty: %v", out["series"])
 	}
 }
+
+func TestEdge_GetIncludesStartedAtAndComfyVersion(t *testing.T) {
+	dsn := "file:comfy_httpapi_presence_info_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	startedAt := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID:           "gpu-1",
+		Enabled:      true,
+		Capabilities: []string{"sdxl"},
+		StartedAt:    &startedAt,
+		ComfyVersion: "v0.1.0",
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	h := &edges.Handler{
+		Repo:   repo,
+		Tasks:  runtimedomain.NewMemoryTaskRepository(),
+		EncKey: testEncKey(),
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", func(r chi.Router) {
+		h.Mount(r)
+	})
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	res, err := http.Get(srv.URL + "/api/v1/edges/gpu-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d", res.StatusCode)
+	}
+	var out map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out["comfy_version"] != "v0.1.0" {
+		t.Fatalf("comfy_version=%v", out["comfy_version"])
+	}
+	if got, ok := out["started_at"].(string); !ok || got != "2026-08-18T12:00:00Z" {
+		t.Fatalf("started_at=%v", out["started_at"])
+	}
+}

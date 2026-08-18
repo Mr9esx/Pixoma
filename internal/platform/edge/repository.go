@@ -1,4 +1,4 @@
-package instance
+package edge
 
 import (
 	"context"
@@ -10,53 +10,54 @@ import (
 )
 
 // ErrNotFound is returned when an instance id is missing.
-var ErrNotFound = errors.New("instance: not found")
+var ErrNotFound = errors.New("edge: not found")
 
 // Repository persists Comfy instance metadata.
 type Repository interface {
 	Upsert(ctx context.Context, r *Record) error
-	Get(ctx context.Context, id sharedkernel.InstanceID) (*Record, error)
+	Get(ctx context.Context, id sharedkernel.EdgeID) (*Record, error)
 	List(ctx context.Context) ([]*Record, error)
-	Delete(ctx context.Context, id sharedkernel.InstanceID) error
+	Delete(ctx context.Context, id sharedkernel.EdgeID) error
+	UpdateAgentTokenEnc(ctx context.Context, id sharedkernel.EdgeID, enc string) error
+	UpdateHardware(ctx context.Context, id sharedkernel.EdgeID, hw Hardware) error
+	SetHardwareRefreshRequested(ctx context.Context, id sharedkernel.EdgeID, requested bool) error
+	UpdatePresenceInfo(ctx context.Context, id sharedkernel.EdgeID, startedAt *time.Time, comfyVersion string) error
 }
 
 // SeedConfig drives startup upsert of instance rows from bot config.
 type SeedConfig struct {
-	ComfyInstances    []SeedInstance
-	DefaultInstanceID string
-	ComfyUIBaseURL    string
-	ComfyMock         bool
+	Edges         []SeedInstance
+	DefaultEdgeID string
+	ComfyMock     bool
 }
 
 // SeedInstance is one config-file seed row.
 type SeedInstance struct {
 	ID           string   `yaml:"id"`
-	BaseURL      string   `yaml:"base_url"`
 	Enabled      *bool    `yaml:"enabled"`
 	Capabilities []string `yaml:"capabilities"`
 }
 
-// SeedFromConfig upserts instances from comfy_instances or a single comfyui_base_url.
-// When ComfyMock is true and there is no explicit list, still upserts the default instance.
+// SeedFromConfig upserts instances from comfy_instances or a single default edge.
 func SeedFromConfig(ctx context.Context, repo Repository, cfg SeedConfig) (int, error) {
 	if repo == nil {
-		return 0, fmt.Errorf("instance: nil repository")
+		return 0, fmt.Errorf("edge: nil repository")
 	}
 	now := time.Now().UTC()
 	n := 0
 
-	if len(cfg.ComfyInstances) > 0 {
-		for _, s := range cfg.ComfyInstances {
-			if s.ID == "" || s.BaseURL == "" {
-				return n, fmt.Errorf("instance: seed entry requires id and base_url")
+	if len(cfg.Edges) > 0 {
+		for _, s := range cfg.Edges {
+			if s.ID == "" {
+				return n, fmt.Errorf("edge: seed entry requires id")
 			}
 			enabled := true
 			if s.Enabled != nil {
 				enabled = *s.Enabled
 			}
 			rec := &Record{
-				ID:           sharedkernel.InstanceID(s.ID),
-				BaseURL:      s.BaseURL,
+				ID:           sharedkernel.EdgeID(s.ID),
+				Name:         s.ID,
 				Enabled:      enabled,
 				Capabilities: append([]string(nil), s.Capabilities...),
 				CreatedAt:    now,
@@ -70,20 +71,16 @@ func SeedFromConfig(ctx context.Context, repo Repository, cfg SeedConfig) (int, 
 		return n, nil
 	}
 
-	if cfg.ComfyUIBaseURL == "" && !cfg.ComfyMock {
-		return 0, nil
-	}
-	id := cfg.DefaultInstanceID
+	id := cfg.DefaultEdgeID
 	if id == "" {
+		if !cfg.ComfyMock {
+			return 0, nil
+		}
 		id = "local"
 	}
-	baseURL := cfg.ComfyUIBaseURL
-	if baseURL == "" {
-		baseURL = "http://127.0.0.1:8188"
-	}
 	rec := &Record{
-		ID:        sharedkernel.InstanceID(id),
-		BaseURL:   baseURL,
+		ID:        sharedkernel.EdgeID(id),
+		Name:      id,
 		Enabled:   true,
 		CreatedAt: now,
 		UpdatedAt: now,

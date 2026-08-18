@@ -96,6 +96,67 @@ func TestAgent_PresenceStoresMetrics(t *testing.T) {
 	}
 }
 
+func TestAgent_PresenceStoresStartedAtAndComfyVersion(t *testing.T) {
+	dsn := "file:agent_presence_info_test_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
+		t.Fatal(err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	now := time.Now().UTC()
+	if err := repo.Upsert(context.Background(), &edge.Record{
+		ID:        "gpu-1",
+		Enabled:   true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	h := &agent.Handler{
+		Token:    "secret-token",
+		Presence: presence.NewStore(),
+		Edges:    repo,
+	}
+	r := chi.NewRouter()
+	r.Route("/agent/v1", h.Mount)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	body, _ := json.Marshal(map[string]any{
+		"edge_id":       "gpu-1",
+		"comfy_running": true,
+		"started_at":    "2026-08-18T12:00:00Z",
+		"comfy_version": "v0.1.0",
+	})
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/agent/v1/presence", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer secret-token")
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(res.Body)
+		t.Fatalf("status=%d body=%s", res.StatusCode, raw)
+	}
+
+	got, err := repo.Get(context.Background(), "gpu-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantStarted := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
+	if got.StartedAt == nil || !got.StartedAt.Equal(wantStarted) {
+		t.Fatalf("started_at=%v want %v", got.StartedAt, wantStarted)
+	}
+	if got.ComfyVersion != "v0.1.0" {
+		t.Fatalf("comfy_version=%q", got.ComfyVersion)
+	}
+}
+
 func TestAgent_PresenceUnauthorizedDoesNotStoreMetrics(t *testing.T) {
 	dsn := "file:agent_metrics_test_" + t.Name() + "?mode=memory&cache=shared"
 	gdb, err := db.Open(db.Options{DSN: dsn})

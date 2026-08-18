@@ -49,6 +49,8 @@ type instanceDTO struct {
 	Capabilities []string       `json:"capabilities"`
 	AgentToken   string         `json:"agent_token,omitempty"`
 	Hardware     *edge.Hardware `json:"hardware,omitempty"`
+	StartedAt    *time.Time     `json:"started_at,omitempty"`
+	ComfyVersion string         `json:"comfy_version,omitempty"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 }
@@ -105,6 +107,8 @@ func toDTO(rec *edge.Record, token string) instanceDTO {
 		Capabilities: caps,
 		AgentToken:   token,
 		Hardware:     hw,
+		StartedAt:    rec.StartedAt,
+		ComfyVersion: rec.ComfyVersion,
 		CreatedAt:    rec.CreatedAt,
 		UpdatedAt:    rec.UpdatedAt,
 	}
