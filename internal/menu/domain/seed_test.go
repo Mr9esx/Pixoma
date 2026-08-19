@@ -16,7 +16,7 @@ func TestDefaultSeedTree_ImageIsFolder(t *testing.T) {
 		t.Fatalf("roots=%d", len(roots))
 	}
 	img := roots[0]
-	if img.ID != "btn-image" || img.Kind != domain.KindFolder {
+	if img.ID != "btn-image" || img.CapabilityID != "open_case" {
 		t.Fatalf("want folder btn-image, got %+v", img)
 	}
 	if img.ParentID != "" {

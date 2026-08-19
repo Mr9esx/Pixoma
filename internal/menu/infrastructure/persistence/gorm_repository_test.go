@@ -40,9 +40,9 @@ func TestReplaceTree_RoundTripAndPlacements(t *testing.T) {
 	repo := persistence.NewGormRepository(gdb)
 	migrateMenuTables(t, gdb)
 	tree := domain.DefaultSeedTree("tg-default")
-	tree.Items[0].CaseIDs = []string{"case-a"}
+	tree.Items[0].Params = map[string]any{"case_ids": []any{"case-a"}}
 	tree.Items[0].Children = []domain.MenuNode{{
-		ID: "folder-x", ParentID: "btn-image", Label: "子夹", Enabled: true, Kind: domain.KindFolder,
+		ID: "folder-x", ParentID: "btn-image", Label: "子夹", Enabled: true,
 	}}
 	if err := repo.ReplaceTree(context.Background(), tree); err != nil {
 		t.Fatal(err)
@@ -51,8 +51,8 @@ func TestReplaceTree_RoundTripAndPlacements(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Items[0].CaseIDs) != 1 || got.Items[0].CaseIDs[0] != "case-a" {
-		t.Fatalf("case ids: %+v", got.Items[0].CaseIDs)
+	if got := domain.CaseIDsOf(got.Items[0]); len(got) != 1 || got[0] != "case-a" {
+		t.Fatalf("case ids: %+v", got)
 	}
 	if len(got.Items[0].Children) != 1 {
 		t.Fatalf("children=%d", len(got.Items[0].Children))
@@ -101,14 +101,14 @@ func TestGetTree_PreservesRootAndChildOrder(t *testing.T) {
 		ChannelID: "tg-default",
 		Items: []domain.MenuNode{
 			{
-				ID: "root-z", Label: "Z", Order: 1, Enabled: true, Kind: domain.KindPlaceholder,
+				ID: "root-z", Label: "Z", Order: 1, Enabled: true,
 			},
 			{
-				ID: "root-a", Label: "A", Order: 0, Enabled: true, Kind: domain.KindFolder,
-				CaseIDs: []string{"case-b", "case-a"},
+				ID: "root-a", Label: "A", Order: 0, Enabled: true,
+				CapabilityID: "open_case", Params: map[string]any{"case_ids": []any{"case-b", "case-a"}},
 				Children: []domain.MenuNode{
-					{ID: "child-b", Label: "B", Order: 1, Enabled: true, Kind: domain.KindFolder},
-					{ID: "child-a", Label: "A", Order: 0, Enabled: true, Kind: domain.KindFolder},
+					{ID: "child-b", Label: "B", Order: 1, Enabled: true},
+					{ID: "child-a", Label: "A", Order: 0, Enabled: true},
 				},
 			},
 		},
@@ -134,8 +134,9 @@ func TestGetTree_PreservesRootAndChildOrder(t *testing.T) {
 	}
 	wantCases := []string{"case-b", "case-a"}
 	for i, id := range wantCases {
-		if got.Items[0].CaseIDs[i] != id {
-			t.Fatalf("case order=%v", got.Items[0].CaseIDs)
+		gotCases := domain.CaseIDsOf(got.Items[0])
+		if gotCases[i] != id {
+			t.Fatalf("case order=%v", gotCases)
 		}
 	}
 }
@@ -155,8 +156,8 @@ func TestEnsureDefault_SeedsWhenEmpty(t *testing.T) {
 	if len(tree.Items) != 6 {
 		t.Fatalf("items=%d", len(tree.Items))
 	}
-	if tree.Items[0].Kind != domain.KindFolder {
-		t.Fatalf("kind=%q", tree.Items[0].Kind)
+	if tree.Items[0].CapabilityID != "open_case" {
+		t.Fatalf("capability=%q", tree.Items[0].CapabilityID)
 	}
 
 	again, err := repo.EnsureDefault(context.Background(), "tg-default", nil)
@@ -181,12 +182,13 @@ func TestEnsureDefault_AppliesImageCaseIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"img-1", "img-2"}
-	if len(tree.Items[0].CaseIDs) != len(want) {
-		t.Fatalf("case ids=%v", tree.Items[0].CaseIDs)
+	gotCases := domain.CaseIDsOf(tree.Items[0])
+	if len(gotCases) != len(want) {
+		t.Fatalf("case ids=%v", gotCases)
 	}
 	for i, id := range want {
-		if tree.Items[0].CaseIDs[i] != id {
-			t.Fatalf("case ids=%v", tree.Items[0].CaseIDs)
+		if gotCases[i] != id {
+			t.Fatalf("case ids=%v", gotCases)
 		}
 	}
 }
@@ -245,8 +247,8 @@ func TestChannelMenuItem_UniqueOrderWithinParent(t *testing.T) {
 	if err := gdb.Create(&persistence.ChannelMenuRow{ChannelID: "tg-default", UpdatedAt: now}).Error; err != nil {
 		t.Fatal(err)
 	}
-	one := &persistence.ChannelMenuItemRow{ID: "a", ChannelID: "tg-default", Label: "A", Order: 0, Enabled: true, Kind: string(domain.KindPlaceholder)}
-	two := &persistence.ChannelMenuItemRow{ID: "b", ChannelID: "tg-default", Label: "B", Order: 0, Enabled: true, Kind: string(domain.KindPlaceholder)}
+	one := &persistence.ChannelMenuItemRow{ID: "a", ChannelID: "tg-default", Label: "A", Order: 0, Enabled: true}
+	two := &persistence.ChannelMenuItemRow{ID: "b", ChannelID: "tg-default", Label: "B", Order: 0, Enabled: true}
 	if err := gdb.Create(one).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -264,9 +266,9 @@ func TestReplaceTree_SameSeedAcrossChannels(t *testing.T) {
 	chA := "tg-default"
 	chB := "feishu-1"
 	treeA := domain.DefaultSeedTree(chA)
-	treeA.Items[0].CaseIDs = []string{"case-a"}
+	treeA.Items[0].Params = map[string]any{"case_ids": []any{"case-a"}}
 	treeB := domain.DefaultSeedTree(chB)
-	treeB.Items[0].CaseIDs = []string{"case-a"}
+	treeB.Items[0].Params = map[string]any{"case_ids": []any{"case-a"}}
 
 	if err := repo.ReplaceTree(ctx, treeA); err != nil {
 		t.Fatalf("replace tree A: %v", err)
@@ -289,11 +291,11 @@ func TestReplaceTree_SameSeedAcrossChannels(t *testing.T) {
 	if gotA.ChannelID != chA || gotB.ChannelID != chB {
 		t.Fatalf("channel scoping: A=%q B=%q", gotA.ChannelID, gotB.ChannelID)
 	}
-	if len(gotA.Items[0].CaseIDs) != 1 || gotA.Items[0].CaseIDs[0] != "case-a" {
-		t.Fatalf("A case ids=%v", gotA.Items[0].CaseIDs)
+	if got := domain.CaseIDsOf(gotA.Items[0]); len(got) != 1 || got[0] != "case-a" {
+		t.Fatalf("A case ids=%v", got)
 	}
-	if len(gotB.Items[0].CaseIDs) != 1 || gotB.Items[0].CaseIDs[0] != "case-a" {
-		t.Fatalf("B case ids=%v", gotB.Items[0].CaseIDs)
+	if got := domain.CaseIDsOf(gotB.Items[0]); len(got) != 1 || got[0] != "case-a" {
+		t.Fatalf("B case ids=%v", got)
 	}
 
 	ps, err := repo.ListPlacementsByCase(ctx, "case-a")
