@@ -18,9 +18,12 @@ func text2imgDoc() domain.CaseDocument {
 		},
 		Outputs: []domain.OutputField{{Key: "image", Type: "image"}},
 		Bindings: domain.ComfyBindings{
-			WorkflowJSON: map[string]any{"1": map[string]any{}},
-			Inputs:       []domain.InputBinding{{Key: "prompt", NodeID: "1", FieldPath: "text"}},
-			Outputs:      []domain.OutputBinding{{Key: "image", NodeID: "2"}},
+			WorkflowJSON: map[string]any{
+				"1": map[string]any{"class_type": "CLIPTextEncode", "inputs": map[string]any{"text": "x"}},
+				"2": map[string]any{"class_type": "SaveImage", "inputs": map[string]any{"filename_prefix": "o"}},
+			},
+			Inputs:  []domain.InputBinding{{Key: "prompt", NodeID: "1", FieldPath: "text"}},
+			Outputs: []domain.OutputBinding{{Key: "image", NodeID: "2"}},
 		},
 		InputSchema: map[string]any{
 			"type":                 "object",
@@ -116,7 +119,11 @@ func mixedEditDoc() domain.CaseDocument {
 		},
 		Outputs: []domain.OutputField{{Key: "image", Type: "image"}},
 		Bindings: domain.ComfyBindings{
-			WorkflowJSON: map[string]any{"10": map[string]any{}, "20": map[string]any{}, "60": map[string]any{}},
+			WorkflowJSON: map[string]any{
+				"10": map[string]any{"class_type": "LoadImage", "inputs": map[string]any{"image": "ref.png"}},
+				"20": map[string]any{"class_type": "CLIPTextEncode", "inputs": map[string]any{"text": "x"}},
+				"60": map[string]any{"class_type": "SaveImage", "inputs": map[string]any{"filename_prefix": "o"}},
+			},
 			Inputs: []domain.InputBinding{
 				{Key: "reference", NodeID: "10", FieldPath: "image"},
 				{Key: "prompt", NodeID: "20", FieldPath: "text"},
@@ -195,6 +202,51 @@ func TestValidateInputsAcceptsImageBlob(t *testing.T) {
 	blob := &sharedkernel.BlobRef{Key: "inputs/a.png", MIME: "image/png"}
 	err := v.ValidateInputs(doc, []domain.InputValue{{Key: "source", Blob: blob}})
 	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+}
+
+func TestValidateDocumentRejectsGraphWithoutClassType(t *testing.T) {
+	v := validation.New()
+	doc := text2imgDoc()
+	doc.Bindings.WorkflowJSON = map[string]any{
+		"1": map[string]any{"inputs": map[string]any{"text": "x"}},
+	}
+	if err := v.ValidateDocument(doc); err == nil {
+		t.Fatal("expected graph structure error")
+	}
+}
+
+func TestValidateDocumentRejectsMissingBindingNode(t *testing.T) {
+	v := validation.New()
+	doc := text2imgDoc()
+	doc.Bindings.Inputs[0].NodeID = "99"
+	if err := v.ValidateDocument(doc); err == nil {
+		t.Fatal("expected missing node error")
+	}
+}
+
+func TestValidateDocumentRejectsMissingFieldPath(t *testing.T) {
+	v := validation.New()
+	doc := text2imgDoc()
+	doc.Bindings.Inputs[0].FieldPath = "not_a_field"
+	if err := v.ValidateDocument(doc); err == nil {
+		t.Fatal("expected missing field path error")
+	}
+}
+
+func TestValidateDocumentRejectsNegativeOutputIndex(t *testing.T) {
+	v := validation.New()
+	doc := text2imgDoc()
+	doc.Bindings.Outputs[0].Index = -1
+	if err := v.ValidateDocument(doc); err == nil {
+		t.Fatal("expected negative index error")
+	}
+}
+
+func TestValidateDocumentAcceptsValidGraphAndBindings(t *testing.T) {
+	v := validation.New()
+	if err := v.ValidateDocument(text2imgDoc()); err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}
 }
