@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { countUnsaved, validateMenu } from './lib/menu-validate'
 import { NodeConfigPanel } from './node-config-panel'
 import { PhoneSimulation } from './phone-simulation'
 
@@ -171,6 +172,21 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
   const selected = effectiveSelectedId
     ? findNode(items, effectiveSelectedId)
     : null
+  const baseline = menuQuery.data?.items ?? []
+  const validation = useMemo(() => validateMenu(items), [items])
+  const dirtyCount = useMemo(
+    () => countUnsaved(items, baseline),
+    [items, baseline]
+  )
+  const ERROR_KEYS: Record<string, string> = {
+    name: 'channelMenu.invalidNameEmpty',
+    action: 'channelMenu.invalidMissingAction',
+    open_case: 'channelMenu.invalidOpenCaseEmpty',
+    root_count: 'channelMenu.invalidMainKeyboard',
+    nested: 'channelMenu.invalidNested',
+  }
+  const firstError = validation.errors[0]
+  const firstErrorKey = firstError ? ERROR_KEYS[firstError.message] : undefined
 
   const saveMutation = useMutation({
     mutationFn: () => putChannelMenu(channelId, items.map(normalizeNode)),
@@ -222,6 +238,11 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
     })
   }
 
+  function save() {
+    if (!validation.ok) return
+    saveMutation.mutate()
+  }
+
   if (menuQuery.isLoading) {
     return (
       <div className='min-h-0 flex-1 overflow-hidden rounded-md border p-4'>
@@ -249,11 +270,13 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
       <div className='flex shrink-0 items-center justify-between gap-3'>
         <div className='min-w-0'>
           <h2 className='text-sm font-semibold'>{t('channelMenu.title')}</h2>
-          {updatedAt ? (
-            <p className='truncate text-xs text-muted-foreground'>
-              {t('channelMenu.updatedAt')}: {updatedAt}
-            </p>
-          ) : null}
+          <p className='truncate text-xs text-muted-foreground'>
+            {dirtyCount > 0
+              ? t('channelMenu.unsavedCount', { count: dirtyCount })
+              : updatedAt
+                ? `${t('channelMenu.updatedAt')}: ${updatedAt}`
+                : null}
+          </p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
           <Button
@@ -267,13 +290,22 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
           <Button
             type='button'
             size='sm'
-            onClick={() => saveMutation.mutate()}
+            onClick={save}
             disabled={saveMutation.isPending}
           >
             {t('common.save')}
           </Button>
         </div>
       </div>
+
+      {firstErrorKey ? (
+        <div
+          role='alert'
+          className='rounded-md border border-red-600/30 bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400'
+        >
+          {t(firstErrorKey)}
+        </div>
+      ) : null}
 
       {saveMutation.isError ? (
         <ErrorBanner
