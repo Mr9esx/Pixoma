@@ -32,7 +32,7 @@ describe('channel menu tree editor', () => {
     expect(source).toContain('visibleTreeRows')
     expect(source).toContain('expandedIds')
     expect(source).toContain('ancestorIds')
-    expect(source).toContain("paddingLeft: `${8 + depth * 16}px`")
+    expect(source).toContain('paddingLeft: `${8 + depth * 16}px`')
     expect(source).toContain('parentIsFolder')
     expect(source).toContain('fieldIntro')
     expect(source).toContain('fieldChildren')
@@ -58,5 +58,40 @@ describe('channel menu tree editor', () => {
     expect(zh.channelMenu.fieldCaseIds).toBe('本层模板')
     expect(zh.channelMenu.fieldChildren).toBe('下面的分类')
     expect(zh.channelMenu.addChild).toBe('加一个分类')
+  })
+})
+
+const NEW_KEYS = [
+  'userView',
+  'currentEditing',
+  'buttonLabel',
+  'buttonAction',
+  'actionShowChildren',
+  'actionOpenWorkflow',
+  'actionReplyText',
+  'actionReplyMedia',
+  'paramSelectWorkflows',
+  'paramReplyText',
+  'paramReplyImages',
+  'mainKeyboard',
+  'columnsPerRow',
+  'maxRootHint',
+  'oneLevelHint',
+  'unsavedCount',
+  'invalidMainKeyboard',
+  'invalidMissingAction',
+  'invalidOpenCaseEmpty',
+  'invalidNameEmpty',
+  'simNote',
+] as const
+
+describe('wysiwyg menu editor i18n', () => {
+  it('zh and en define every editor key', () => {
+    const zh = JSON.parse(read(ZH)) as { channelMenu: Record<string, string> }
+    const en = JSON.parse(read(EN)) as { channelMenu: Record<string, string> }
+    for (const key of NEW_KEYS) {
+      expect(zh.channelMenu[key], `zh missing channelMenu.${key}`).toBeTruthy()
+      expect(en.channelMenu[key], `en missing channelMenu.${key}`).toBeTruthy()
+    }
   })
 })
