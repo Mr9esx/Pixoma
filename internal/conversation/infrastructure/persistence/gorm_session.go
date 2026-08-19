@@ -18,9 +18,9 @@ import (
 type SessionRow struct {
 	ID                string    `gorm:"primaryKey;size:36"`
 	UserID            string    `gorm:"size:36;index;not null"`
-	ChannelID         string    `gorm:"size:128;not null;index;uniqueIndex:idx_chat_active"`
-	ChatExternalID    string    `gorm:"size:256;not null;index;uniqueIndex:idx_chat_active"`
-	Status            string    `gorm:"size:32;not null;uniqueIndex:idx_chat_active"`
+	ChannelID         string    `gorm:"size:128;not null;default:'';index:idx_chat_active"`
+	ChatExternalID    string    `gorm:"size:256;not null;default:'';index:idx_chat_active"`
+	Status            string    `gorm:"size:32;not null;index:idx_chat_active"`
 	CaseID            string    `gorm:"size:128;not null"`
 	CurrentInputIndex int       `gorm:"not null;default:0"`
 	InputKeysJSON     string    `gorm:"column:input_keys_json;type:text;not null"`

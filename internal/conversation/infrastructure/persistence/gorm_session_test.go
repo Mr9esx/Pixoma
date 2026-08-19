@@ -120,6 +120,51 @@ func TestSessionListFilters(t *testing.T) {
 	}
 }
 
+func TestAutoMigrate_UpgradesLegacySessionsTable(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:sess_migrate_test?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 旧 schema：chat_id int 列 + 已有数据
+	if err := gdb.Exec(`CREATE TABLE sessions (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		chat_id INTEGER NOT NULL,
+		case_id TEXT NOT NULL,
+		status TEXT NOT NULL,
+		current_input_index INTEGER NOT NULL DEFAULT 0,
+		input_keys_json TEXT NOT NULL,
+		draft_json TEXT NOT NULL,
+		created_at DATETIME NOT NULL,
+		updated_at DATETIME NOT NULL
+	)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	if err := gdb.Exec(`INSERT INTO sessions (id, user_id, chat_id, case_id, status, input_keys_json, draft_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+		"s-old-1", "u1", 100, "c1", "submitted", "[]", "{}", now, now,
+	).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.Exec(`INSERT INTO sessions (id, user_id, chat_id, case_id, status, input_keys_json, draft_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+		"s-old-2", "u1", 100, "c1", "submitted", "[]", "{}", now, now,
+	).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	// 新 schema AutoMigrate 必须成功（NOT NULL 新列带默认值；同 chat 多条 submitted 不冲突）
+	if err := db.AutoMigrate(gdb, &persistence.SessionRow{}); err != nil {
+		t.Fatalf("migrate legacy sessions: %v", err)
+	}
+	var count int64
+	if err := gdb.Model(&persistence.SessionRow{}).Count(&count).Error; err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("rows=%d", count)
+	}
+}
+
 func TestGetByIDNotFound(t *testing.T) {
 	dsn := "file:sess_notfound_test?mode=memory&cache=shared"
 	gdb := openShared(t, dsn)
