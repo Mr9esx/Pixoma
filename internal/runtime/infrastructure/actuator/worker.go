@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
@@ -52,7 +53,7 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 		return w.fail(ctx, ev, "comfy_client", err.Error(), now)
 	}
 
-	graph, err := w.resolveGraph(ctx, ev, cli)
+	graph, outputBindings, err := w.resolveJob(ctx, ev, cli)
 	if err != nil {
 		return w.fail(ctx, ev, "workflow", err.Error(), now)
 	}
@@ -73,23 +74,9 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 		return w.fail(ctx, ev, "comfy_wait", err.Error(), w.now())
 	}
 
-	var outs []sharedkernel.BlobRef
-	var nodeIDs []string
-	for nodeID := range res.Outputs {
-		nodeIDs = append(nodeIDs, nodeID)
-	}
-	sort.Strings(nodeIDs)
-	i := 0
-	for _, nodeID := range nodeIDs {
-		for _, img := range res.Outputs[nodeID].Images {
-			key := fmt.Sprintf("outputs/%s/%d_%s", ev.TaskID, i, img.Filename)
-			ref, err := w.Blob.Put(ctx, key, bytes.NewReader(img.Data), blob.PutOptions{MIME: img.Mime})
-			if err != nil {
-				return w.fail(ctx, ev, "blob_put", err.Error(), w.now())
-			}
-			outs = append(outs, ref)
-			i++
-		}
+	outs, err := w.storeOutputs(ctx, ev.TaskID, res, outputBindings)
+	if err != nil {
+		return w.fail(ctx, ev, "output_extract", err.Error(), w.now())
 	}
 	return w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
 		TaskID: ev.TaskID, EdgeID: ev.EdgeID, Status: sharedkernel.TaskSucceeded,
@@ -97,17 +84,22 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 	})
 }
 
-func (w *Worker) resolveGraph(ctx context.Context, ev sharedkernel.DispatchCommand, cli comfyui.Client) (comfyui.Graph, error) {
+func (w *Worker) resolveJob(ctx context.Context, ev sharedkernel.DispatchCommand, cli comfyui.Client) (comfyui.Graph, []catalogdomain.OutputBinding, error) {
 	if ev.JobRef.Key != "" {
-		return w.graphFromJob(ctx, ev.JobRef, cli)
+		job, err := w.jobFromBlob(ctx, ev.JobRef, cli)
+		if err != nil {
+			return nil, nil, err
+		}
+		return job.Workflow, job.Outputs, nil
 	}
 	if w.Workflows == nil {
-		return nil, fmt.Errorf("actuator: missing job_ref and workflows provider")
+		return nil, nil, fmt.Errorf("actuator: missing job_ref and workflows provider")
 	}
-	return w.Workflows.WorkflowForTask(ctx, ev.TaskID, cli)
+	graph, err := w.Workflows.WorkflowForTask(ctx, ev.TaskID, cli)
+	return graph, nil, err
 }
 
-func (w *Worker) graphFromJob(ctx context.Context, ref sharedkernel.BlobRef, uploader ImageUploader) (comfyui.Graph, error) {
+func (w *Worker) jobFromBlob(ctx context.Context, ref sharedkernel.BlobRef, uploader ImageUploader) (*JobPackage, error) {
 	if w.Blob == nil {
 		return nil, fmt.Errorf("actuator: blob store not configured")
 	}
@@ -136,7 +128,54 @@ func (w *Worker) graphFromJob(ctx context.Context, ref sharedkernel.BlobRef, upl
 			return nil, err
 		}
 	}
-	return job.Workflow, nil
+	return &job, nil
+}
+
+func (w *Worker) storeOutputs(ctx context.Context, taskID sharedkernel.TaskID, res *comfyui.Result, bindings []catalogdomain.OutputBinding) ([]sharedkernel.BlobRef, error) {
+	if len(bindings) == 0 {
+		var keys []string
+		for nodeID := range res.Outputs {
+			keys = append(keys, nodeID)
+		}
+		sort.Strings(keys)
+		var outs []sharedkernel.BlobRef
+		i := 0
+		for _, nodeID := range keys {
+			for _, img := range res.Outputs[nodeID].Images {
+				key := fmt.Sprintf("outputs/%s/%d_%s", taskID, i, img.Filename)
+				ref, err := w.Blob.Put(ctx, key, bytes.NewReader(img.Data), blob.PutOptions{MIME: img.Mime})
+				if err != nil {
+					return nil, err
+				}
+				outs = append(outs, ref)
+				i++
+			}
+		}
+		return outs, nil
+	}
+
+	var outs []sharedkernel.BlobRef
+	for _, binding := range bindings {
+		node, ok := res.Outputs[binding.NodeID]
+		if !ok || len(node.Images) == 0 {
+			return nil, fmt.Errorf("output binding %q: node %s produced no image outputs", binding.Key, binding.NodeID)
+		}
+		index := binding.Index
+		if index < 0 {
+			index = 0
+		}
+		if index >= len(node.Images) {
+			return nil, fmt.Errorf("output binding %q: node %s index %d out of range", binding.Key, binding.NodeID, index)
+		}
+		img := node.Images[index]
+		key := fmt.Sprintf("outputs/%s/%s_%d_%s", taskID, binding.Key, index, img.Filename)
+		ref, err := w.Blob.Put(ctx, key, bytes.NewReader(img.Data), blob.PutOptions{MIME: img.Mime})
+		if err != nil {
+			return nil, err
+		}
+		outs = append(outs, ref)
+	}
+	return outs, nil
 }
 
 func (w *Worker) uploadJobImage(ctx context.Context, uploader ImageUploader, ref sharedkernel.BlobRef) (string, error) {
