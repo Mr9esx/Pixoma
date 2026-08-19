@@ -36,6 +36,7 @@ export default defineConfig({
       'src/features/cases/lib/node-catalog.test.ts',
       'src/features/cases/lib/workflow-parse.test.ts',
       'src/features/cases/lib/derive.test.ts',
+      'src/features/channels/lib/menu-simulation.test.ts',
       'src/features/channels/channel-menu-editor.contract.test.ts',
       'src/features/edges/edges.contract.test.ts',
       'src/features/edges/agent-credentials.test.ts',
