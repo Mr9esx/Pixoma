@@ -124,7 +124,7 @@ func (alwaysExists) CaseExists(context.Context, string) (bool, error) { return t
 
 type allCapabilities struct{}
 
-func (allCapabilities) CapabilityExists(context.Context, string) (bool, error) { return true, nil }
+func (allCapabilities) CapabilityExists(context.Context, string) (bool, error)       { return true, nil }
 func (allCapabilities) ValidateParams(context.Context, string, map[string]any) error { return nil }
 
 func TestService_ReplaceRejectsInvalidFolderCaseWithoutWriting(t *testing.T) {
@@ -172,6 +172,41 @@ func TestService_GetAndReplaceHappyPath(t *testing.T) {
 	}
 	if again.Items[0].Label != "🖼 图生图" {
 		t.Fatalf("get after replace: %+v", again.Items[0])
+	}
+}
+
+func TestGetConvertsLegacyPlaceholderAndReply(t *testing.T) {
+	store := newMemStore(t)
+	legacy := domain.MenuTree{
+		ChannelID: "tg-default",
+		Items: []domain.MenuNode{
+			{ID: "p", Label: "占位", Order: 0, Enabled: true, PlaceholderText: "即将上线"},
+			{ID: "r", Label: "联系", Order: 1, Enabled: true, Reply: &domain.ReplyPayload{Text: "hi", Images: []string{"https://a/x.png"}}},
+		},
+	}
+	if err := store.ReplaceTree(context.Background(), legacy); err != nil {
+		t.Fatal(err)
+	}
+	svc := &application.Service{Store: store}
+	got, err := svc.Get(context.Background(), "tg-default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]domain.MenuNode{}
+	for _, it := range got.Items {
+		byID[it.ID] = it
+	}
+	p := byID["p"]
+	if p.CapabilityID != "reply_text" || p.Params["text"] != "即将上线" {
+		t.Fatalf("placeholder item=%+v", p)
+	}
+	r := byID["r"]
+	if r.CapabilityID != "reply_media" || r.Params["text"] != "hi" {
+		t.Fatalf("reply item=%+v", r)
+	}
+	images, _ := r.Params["images"].([]any)
+	if len(images) != 1 || images[0] != "https://a/x.png" {
+		t.Fatalf("reply images=%v", r.Params)
 	}
 }
 
