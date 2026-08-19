@@ -17,7 +17,7 @@ type MenuReader interface {
 
 // BuildReplyKeyboard builds a persistent ReplyKeyboard from enabled root items.
 // Root items are laid out by order with the configured column count (default 2).
-func BuildReplyKeyboard(tree domain.MenuTree, extras map[string][]domain.Extra) *models.ReplyKeyboardMarkup {
+func BuildReplyKeyboard(tree domain.MenuTree) *models.ReplyKeyboardMarkup {
 	items := make([]domain.MenuNode, 0, len(tree.Items))
 	for _, it := range tree.Items {
 		if it.Enabled {
@@ -31,7 +31,7 @@ func BuildReplyKeyboard(tree domain.MenuTree, extras map[string][]domain.Extra) 
 	cols := 2
 	for i, it := range items {
 		if i == 0 {
-			cols = RootColumns(extras, it.ID)
+			cols = RootColumns(it)
 			if cols < 1 {
 				cols = 2
 			}
@@ -83,15 +83,4 @@ func (a *Adapter) loadMenu(ctx context.Context) domain.MenuTree {
 		slog.Error("menu load failed; using default seed", "err", err)
 	}
 	return domain.DefaultSeedTree(a.ChannelID)
-}
-
-func (a *Adapter) loadExtras(ctx context.Context) map[string][]domain.Extra {
-	if a != nil && a.Extras != nil {
-		extras, err := a.Extras.GetExtras(ctx)
-		if err == nil {
-			return extras
-		}
-		slog.Error("menu extras load failed", "err", err)
-	}
-	return map[string][]domain.Extra{}
 }
