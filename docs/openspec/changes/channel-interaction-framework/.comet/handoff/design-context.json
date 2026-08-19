@@ -1,0 +1,22 @@
+{
+  "change": "channel-interaction-framework",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "1b88e9ae638e451a84d8bfe90540fa75986cd2773094cc8e3dd5ed7efff04308",
+  "files": [
+    { "path": "docs/openspec/changes/channel-interaction-framework/proposal.md", "sha256": "6658425cf84028602093ed1d9aee4581bd4dfe4ae5d0eda2754f447d5e641163" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/design.md", "sha256": "ee96c79f327efc68a84ff0a69e537a23006ffbed5582b85be95c2c75d1324b1c" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/tasks.md", "sha256": "a6ece2d1b9b3fba90c8c1458c16f1b4321366e2b0c69894cee9fac0763e04018" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/specs/admin-web-shell/spec.md", "sha256": "72f07bf13f34106309b96ef9e472554ee83a9ebeefaa5d29eb4367ebfee6400e" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/specs/capability-registry/spec.md", "sha256": "df91f575a44f4b8e8469fc79b34ad05758734d19e983f7e2cf02a579f120cfe8" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/specs/channel-account-context/spec.md", "sha256": "88bc02a86f1448b064ce3cdb2e7b2ab339ac7f07f01ff137a571c5f2f9ef9263" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/specs/channel-interaction-protocol/spec.md", "sha256": "06f44bc9f1bc5f3939adc113975f955502350dc46fd6bdbb90b6676c65afdf1d" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/specs/channel-menu-config/spec.md", "sha256": "c60a7651300430949c949f38f85fed5fe7fa3c37c9591ace5396b39eb4de2adc" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/specs/channel-menu-interaction/spec.md", "sha256": "be93b16674378dab681ee4eea1e28446867eee5235f24ba66261ea621185b3d0" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/specs/channel-runtime-ports/spec.md", "sha256": "0c419f11c8ac7aac5b7b6aca4fe2ec1411e08d21688b55eba9cd8316ad2685a9" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/specs/channel-tg/spec.md", "sha256": "9f50bb008db811de8aadb9c0465304f47606469ac24ed1bc97e6e890fca6227b" },
+    { "path": "docs/openspec/changes/channel-interaction-framework/specs/tg-menu-admin-api/spec.md", "sha256": "ddbd22f39a64323f41d437f9da2f44e19539fca59bca7fac8b49a599531b6688" }
+  ]
+}
