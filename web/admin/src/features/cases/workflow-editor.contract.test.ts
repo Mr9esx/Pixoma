@@ -7,6 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
 const IMPORT_SECTION = join(here, 'sections/workflow-import.tsx')
+const FIELD_CARDS = join(here, 'sections/field-cards.tsx')
 
 const REQUIRED_KEYS = [
   'importHeading',
@@ -70,5 +71,23 @@ describe('workflow import section', () => {
     expect(source).toContain('cases.importNodesCount')
     expect(source).toContain('cases.importValid')
     expect(source).toContain('cases.importFailed')
+  })
+})
+
+describe('field cards', () => {
+  it('input card picks node then parameter from workflow nodes', () => {
+    const source = readFileSync(FIELD_CARDS, 'utf8')
+    expect(source).toContain("data-testid='input-field-card'")
+    expect(source).toContain('cases.fieldFromNode')
+    expect(source).toContain('cases.fieldParam')
+    expect(source).toContain('nodeLabel(')
+    expect(source).toContain('nodes.find(')
+  })
+
+  it('output card hides index when node has a single output', () => {
+    const source = readFileSync(FIELD_CARDS, 'utf8')
+    expect(source).toContain("data-testid='output-field-card'")
+    expect(source).toContain('node.outputCount')
+    expect(source).toContain('cases.fieldOutput')
   })
 })
