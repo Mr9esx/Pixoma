@@ -3,16 +3,8 @@ package domain
 import "time"
 
 const (
-	MaxTreeDepth = 5
-)
-
-type MenuKind string
-
-const (
-	KindFolder      MenuKind = "folder"
-	KindOpenCase    MenuKind = "open_case"
-	KindPlaceholder MenuKind = "placeholder"
-	KindReplyMedia  MenuKind = "reply_media"
+	MaxTreeDepth      = 2 // root + one level of grouping
+	MaxRootEntries    = 6 // explicit main-keyboard entries
 )
 
 type ReplyPayload struct {
@@ -26,25 +18,27 @@ type MenuItem struct {
 	Label           string
 	Order           int
 	Enabled         bool
-	Kind            MenuKind
-	CaseIDs         []string
+	CapabilityID    string
+	Params          map[string]any
+	RenderOverride  map[string]any
 	PlaceholderText string
 	IntroText       string
 	Reply           *ReplyPayload
 }
 
 type MenuNode struct {
-	ID              string        `json:"id"`
-	ParentID        string        `json:"parent_id,omitempty"`
-	Label           string        `json:"label"`
-	Order           int           `json:"order"`
-	Enabled         bool          `json:"enabled"`
-	Kind            MenuKind      `json:"kind"`
-	CaseIDs         []string      `json:"case_ids,omitempty"`
-	PlaceholderText string        `json:"placeholder_text,omitempty"`
-	IntroText       string        `json:"intro_text,omitempty"`
-	Reply           *ReplyPayload `json:"reply,omitempty"`
-	Children        []MenuNode    `json:"children,omitempty"`
+	ID              string         `json:"id"`
+	ParentID        string         `json:"parent_id,omitempty"`
+	Label           string         `json:"label"`
+	Order           int            `json:"order"`
+	Enabled         bool           `json:"enabled"`
+	CapabilityID    string         `json:"capability_id,omitempty"`
+	Params          map[string]any `json:"params,omitempty"`
+	RenderOverride  map[string]any `json:"render_override,omitempty"`
+	PlaceholderText string         `json:"placeholder_text,omitempty"`
+	IntroText       string         `json:"intro_text,omitempty"`
+	Reply           *ReplyPayload  `json:"reply,omitempty"`
+	Children        []MenuNode     `json:"children,omitempty"`
 }
 
 type MenuTree struct {
@@ -64,11 +58,30 @@ type MenuPlacement struct {
 	Path      []PlacementStep `json:"path"`
 }
 
-// Extra is a platform-specific data blob attached to a channel menu item.
+// Extra is a legacy platform-specific data blob (phased out; see interaction
+// framework design D8 — platform differences move to capability render decls).
 type Extra struct {
 	ChannelID  string    `json:"channel_id"`
 	MenuItemID string    `json:"menu_item_id"`
 	ExtraType  string    `json:"extra_type"`
 	ExtraJSON  string    `json:"extra_json"`
 	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// CaseIDsOf returns the case_ids from an open_case capability's params.
+func CaseIDsOf(node MenuNode) []string {
+	if node.CapabilityID != "open_case" {
+		return nil
+	}
+	raw, ok := node.Params["case_ids"].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok && s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }

@@ -25,8 +25,9 @@ func nodeToItem(n MenuNode, parentID string) MenuItem {
 		Label:           n.Label,
 		Order:           n.Order,
 		Enabled:         n.Enabled,
-		Kind:            n.Kind,
-		CaseIDs:         append([]string(nil), n.CaseIDs...),
+		CapabilityID:    n.CapabilityID,
+		Params:          cloneMap(n.Params),
+		RenderOverride:  cloneMap(n.RenderOverride),
 		PlaceholderText: n.PlaceholderText,
 		IntroText:       n.IntroText,
 		Reply:           n.Reply,
@@ -101,12 +102,24 @@ func itemToNode(it MenuItem) MenuNode {
 		Label:           it.Label,
 		Order:           it.Order,
 		Enabled:         it.Enabled,
-		Kind:            it.Kind,
-		CaseIDs:         append([]string(nil), it.CaseIDs...),
+		CapabilityID:    it.CapabilityID,
+		Params:          cloneMap(it.Params),
+		RenderOverride:  cloneMap(it.RenderOverride),
 		PlaceholderText: it.PlaceholderText,
 		IntroText:       it.IntroText,
 		Reply:           it.Reply,
 	}
+}
+
+func cloneMap(in map[string]any) map[string]any {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 // DepthOf returns the maximum depth of nodes (root depth = 1).

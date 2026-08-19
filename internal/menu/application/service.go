@@ -11,6 +11,12 @@ type CaseChecker interface {
 	CaseExists(ctx context.Context, caseID string) (bool, error)
 }
 
+// CapabilityChecker provides capability existence and params validation.
+type CapabilityChecker interface {
+	CapabilityExists(ctx context.Context, capabilityID string) (bool, error)
+	ValidateParams(ctx context.Context, capabilityID string, params map[string]any) error
+}
+
 type Store interface {
 	domain.Repository
 	EnsureDefault(ctx context.Context, channelID string, listImageCaseIDs func(context.Context) ([]string, error)) (domain.MenuTree, error)
@@ -19,6 +25,7 @@ type Store interface {
 type Service struct {
 	Store            Store
 	Cases            CaseChecker
+	Capabilities     CapabilityChecker
 	ListImageCaseIDs func(context.Context) ([]string, error)
 }
 
@@ -40,7 +47,13 @@ func (s *Service) Replace(ctx context.Context, channelID string, tree domain.Men
 	if s.Cases != nil {
 		caseExists = s.Cases.CaseExists
 	}
-	if err := domain.Validate(ctx, tree, caseExists); err != nil {
+	var capExists domain.CapabilityExistsFunc
+	var validateParams domain.ParamsValidatorFunc
+	if s.Capabilities != nil {
+		capExists = s.Capabilities.CapabilityExists
+		validateParams = s.Capabilities.ValidateParams
+	}
+	if err := domain.Validate(ctx, tree, caseExists, capExists, validateParams); err != nil {
 		return domain.MenuTree{}, err
 	}
 	if err := s.Store.ReplaceTree(ctx, tree); err != nil {

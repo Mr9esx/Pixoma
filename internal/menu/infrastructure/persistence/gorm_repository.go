@@ -29,7 +29,9 @@ type ChannelMenuItemRow struct {
 	Label           string `gorm:"size:256;not null;uniqueIndex:idx_ch_parent_label,priority:3"`
 	Order           int    `gorm:"column:sort_order;not null;uniqueIndex:idx_ch_parent_order,priority:3"`
 	Enabled         bool   `gorm:"not null"`
-	Kind            string `gorm:"size:64;not null"`
+	CapabilityID    string `gorm:"size:64;not null;default:''"`
+	ParamsJSON      string `gorm:"column:params_json;type:text"`
+	RenderOverrideJSON string `gorm:"column:render_override_json;type:text"`
 	PlaceholderText string `gorm:"size:512"`
 	IntroText       string `gorm:"type:text"`
 	ReplyJSON       string `gorm:"type:text"`
@@ -160,7 +162,7 @@ func (r *GormRepository) ReplaceTree(ctx context.Context, tree domain.MenuTree) 
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
-			for sort, caseID := range item.CaseIDs {
+			for sort, caseID := range domain.CaseIDsOf(domain.MenuNode{CapabilityID: item.CapabilityID, Params: item.Params}) {
 				if err := tx.Create(&ChannelMenuItemCaseRow{
 					ChannelID:  tree.ChannelID,
 					MenuItemID: item.ID,
@@ -276,7 +278,18 @@ func (r *GormRepository) EnsureDefault(
 		}
 		for i := range seed.Items {
 			if seed.Items[i].ID == "btn-image" {
-				seed.Items[i].CaseIDs = append([]string(nil), ids...)
+				params := map[string]any{}
+				if seed.Items[i].Params != nil {
+					for k, v := range seed.Items[i].Params {
+						params[k] = v
+					}
+				}
+				anyIDs := make([]any, 0, len(ids))
+				for _, id := range ids {
+					anyIDs = append(anyIDs, id)
+				}
+				params["case_ids"] = anyIDs
+				seed.Items[i].Params = params
 				break
 			}
 		}
@@ -338,11 +351,25 @@ func itemToRow(channelID string, item domain.MenuItem) (ChannelMenuItemRow, erro
 		Label:           item.Label,
 		Order:           item.Order,
 		Enabled:         item.Enabled,
-		Kind:            string(item.Kind),
+		CapabilityID:    item.CapabilityID,
 		PlaceholderText: item.PlaceholderText,
 		IntroText:       item.IntroText,
 	}
 	row.ParentID = item.ParentID
+	if len(item.Params) > 0 {
+		raw, err := json.Marshal(item.Params)
+		if err != nil {
+			return ChannelMenuItemRow{}, fmt.Errorf("marshal params for %q: %w", item.ID, err)
+		}
+		row.ParamsJSON = string(raw)
+	}
+	if len(item.RenderOverride) > 0 {
+		raw, err := json.Marshal(item.RenderOverride)
+		if err != nil {
+			return ChannelMenuItemRow{}, fmt.Errorf("marshal render_override for %q: %w", item.ID, err)
+		}
+		row.RenderOverrideJSON = string(raw)
+	}
 	if item.Reply != nil {
 		raw, err := json.Marshal(item.Reply)
 		if err != nil {
@@ -359,12 +386,35 @@ func rowToItem(row ChannelMenuItemRow, caseIDs []string) (domain.MenuItem, error
 		Label:           row.Label,
 		Order:           row.Order,
 		Enabled:         row.Enabled,
-		Kind:            domain.MenuKind(row.Kind),
-		CaseIDs:         append([]string(nil), caseIDs...),
+		CapabilityID:    row.CapabilityID,
 		PlaceholderText: row.PlaceholderText,
 		IntroText:       row.IntroText,
 	}
 	item.ParentID = row.ParentID
+	if row.ParamsJSON != "" {
+		params := map[string]any{}
+		if err := json.Unmarshal([]byte(row.ParamsJSON), &params); err != nil {
+			return domain.MenuItem{}, fmt.Errorf("unmarshal params for %q: %w", row.ID, err)
+		}
+		item.Params = params
+	}
+	if row.RenderOverrideJSON != "" {
+		override := map[string]any{}
+		if err := json.Unmarshal([]byte(row.RenderOverrideJSON), &override); err != nil {
+			return domain.MenuItem{}, fmt.Errorf("unmarshal render_override for %q: %w", row.ID, err)
+		}
+		item.RenderOverride = override
+	}
+	if row.CapabilityID == "open_case" && len(caseIDs) > 0 {
+		ids := make([]any, 0, len(caseIDs))
+		for _, c := range caseIDs {
+			ids = append(ids, c)
+		}
+		if item.Params == nil {
+			item.Params = map[string]any{}
+		}
+		item.Params["case_ids"] = ids
+	}
 	if row.ReplyJSON != "" {
 		var reply domain.ReplyPayload
 		if err := json.Unmarshal([]byte(row.ReplyJSON), &reply); err != nil {

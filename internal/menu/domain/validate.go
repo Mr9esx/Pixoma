@@ -10,8 +10,20 @@ import (
 // CaseExistsFunc checks whether a catalog case id exists.
 type CaseExistsFunc func(ctx context.Context, caseID string) (bool, error)
 
+// CapabilityExistsFunc checks whether a capability id is registered.
+type CapabilityExistsFunc func(ctx context.Context, capabilityID string) (bool, error)
+
+// ParamsValidatorFunc validates capability params against its schema.
+type ParamsValidatorFunc func(ctx context.Context, capabilityID string, params map[string]any) error
+
 // Validate checks a menu tree before persistence.
-func Validate(ctx context.Context, tree MenuTree, caseExists CaseExistsFunc) error {
+func Validate(
+	ctx context.Context,
+	tree MenuTree,
+	caseExists CaseExistsFunc,
+	capabilityExists CapabilityExistsFunc,
+	validateParams ParamsValidatorFunc,
+) error {
 	if len(tree.Items) == 0 {
 		return fmt.Errorf("%w: items must not be empty", ErrValidation)
 	}
@@ -61,7 +73,7 @@ func Validate(ctx context.Context, tree MenuTree, caseExists CaseExistsFunc) err
 			enabledRoots++
 		}
 
-		if err := validateItemKind(ctx, it, caseExists); err != nil {
+		if err := validateItem(ctx, it, caseExists, capabilityExists, validateParams); err != nil {
 			return err
 		}
 	}
@@ -81,7 +93,9 @@ func Validate(ctx context.Context, tree MenuTree, caseExists CaseExistsFunc) err
 	if enabledRoots == 0 {
 		return fmt.Errorf("%w: at least one root item must be enabled", ErrValidation)
 	}
-
+	if enabledRoots > MaxRootEntries {
+		return fmt.Errorf("%w: root entries exceed %d", ErrValidation, MaxRootEntries)
+	}
 	if DepthOf(tree.Items) > MaxTreeDepth {
 		return fmt.Errorf("%w: tree depth exceeds %d", ErrValidation, MaxTreeDepth)
 	}
@@ -89,15 +103,17 @@ func Validate(ctx context.Context, tree MenuTree, caseExists CaseExistsFunc) err
 	return validateNodeChildren(tree.Items)
 }
 
+// validateNodeChildren enforces one-level grouping: a node with children is a
+// pure group (no capability, no display fields), and its children must not nest.
 func validateNodeChildren(nodes []MenuNode) error {
 	for _, n := range nodes {
-		if n.Kind == KindOpenCase && len(n.Children) > 0 {
-			return fmt.Errorf("%w: item %q open_case must not have children", ErrValidation, n.ID)
-		}
-		if n.Kind == KindFolder {
+		if len(n.Children) > 0 {
+			if n.CapabilityID != "" {
+				return fmt.Errorf("%w: item %q with children must be a pure group (no capability)", ErrValidation, n.ID)
+			}
 			for _, child := range n.Children {
-				if child.Kind != KindFolder {
-					return fmt.Errorf("%w: item %q folder child %q must be kind folder", ErrValidation, n.ID, child.ID)
+				if len(child.Children) > 0 {
+					return fmt.Errorf("%w: group %q children must not nest groups (one level only)", ErrValidation, n.ID)
 				}
 			}
 		}
@@ -108,61 +124,58 @@ func validateNodeChildren(nodes []MenuNode) error {
 	return nil
 }
 
-func validateItemKind(ctx context.Context, it MenuItem, caseExists CaseExistsFunc) error {
-	intro := strings.TrimSpace(it.IntroText)
-	if intro != "" {
-		if it.Kind != KindFolder {
-			return fmt.Errorf("%w: item %q intro_text only allowed on folder", ErrValidation, it.ID)
+func validateItem(
+	ctx context.Context,
+	it MenuItem,
+	caseExists CaseExistsFunc,
+	capabilityExists CapabilityExistsFunc,
+	validateParams ParamsValidatorFunc,
+) error {
+	if it.CapabilityID != "" {
+		if capabilityExists == nil {
+			return fmt.Errorf("%w: item %q capability check not configured", ErrValidation, it.ID)
+		}
+		ok, err := capabilityExists(ctx, it.CapabilityID)
+		if err != nil {
+			return fmt.Errorf("item %q capability lookup: %w", it.ID, err)
+		}
+		if !ok {
+			return fmt.Errorf("%w: item %q unknown capability %q", ErrValidation, it.ID, it.CapabilityID)
+		}
+		if validateParams != nil {
+			if err := validateParams(ctx, it.CapabilityID, it.Params); err != nil {
+				return fmt.Errorf("item %q params: %w", it.ID, err)
+			}
+		}
+		if it.CapabilityID == "open_case" {
+			caseIDs := CaseIDsOf(MenuNode{CapabilityID: it.CapabilityID, Params: it.Params})
+			if len(caseIDs) == 0 {
+				return fmt.Errorf("%w: item %q open_case requires case_ids", ErrValidation, it.ID)
+			}
+			for _, caseID := range caseIDs {
+				caseID = strings.TrimSpace(caseID)
+				if caseID == "" {
+					return fmt.Errorf("%w: item %q open_case has empty case_id", ErrValidation, it.ID)
+				}
+				if caseExists == nil {
+					return fmt.Errorf("%w: item %q open_case requires caseExists", ErrValidation, it.ID)
+				}
+				ok, err := caseExists(ctx, caseID)
+				if err != nil {
+					return fmt.Errorf("item %q case lookup: %w", it.ID, err)
+				}
+				if !ok {
+					return fmt.Errorf("%w: item %q case_id %q not found", ErrValidation, it.ID, caseID)
+				}
+			}
 		}
 	}
 
-	switch it.Kind {
-	case KindFolder:
-		for _, caseID := range it.CaseIDs {
-			caseID = strings.TrimSpace(caseID)
-			if caseID == "" {
-				return fmt.Errorf("%w: item %q folder has empty case_id", ErrValidation, it.ID)
-			}
-			if caseExists == nil {
-				return fmt.Errorf("%w: item %q folder requires caseExists", ErrValidation, it.ID)
-			}
-			ok, err := caseExists(ctx, caseID)
-			if err != nil {
-				return fmt.Errorf("item %q case lookup: %w", it.ID, err)
-			}
-			if !ok {
-				return fmt.Errorf("%w: item %q case_id %q not found", ErrValidation, it.ID, caseID)
-			}
-		}
-	case KindOpenCase:
-		if len(it.CaseIDs) != 1 || strings.TrimSpace(it.CaseIDs[0]) == "" {
-			return fmt.Errorf("%w: item %q open_case requires exactly one case_id", ErrValidation, it.ID)
-		}
-		if caseExists == nil {
-			return fmt.Errorf("%w: item %q open_case requires caseExists", ErrValidation, it.ID)
-		}
-		ok, err := caseExists(ctx, it.CaseIDs[0])
-		if err != nil {
-			return fmt.Errorf("item %q case lookup: %w", it.ID, err)
-		}
-		if !ok {
-			return fmt.Errorf("%w: item %q case_id %q not found", ErrValidation, it.ID, it.CaseIDs[0])
-		}
-	case KindPlaceholder:
-		if len(it.CaseIDs) > 0 {
-			return fmt.Errorf("%w: item %q placeholder must not have case_ids", ErrValidation, it.ID)
-		}
-	case KindReplyMedia:
-		if len(it.CaseIDs) > 0 {
-			return fmt.Errorf("%w: item %q reply_media must not have case_ids", ErrValidation, it.ID)
-		}
-		if it.Reply == nil {
-			return fmt.Errorf("%w: item %q reply_media requires reply", ErrValidation, it.ID)
-		}
+	if it.Reply != nil {
 		textOK := strings.TrimSpace(it.Reply.Text) != ""
 		imagesOK := len(it.Reply.Images) > 0
 		if !textOK && !imagesOK {
-			return fmt.Errorf("%w: item %q reply_media needs text or images", ErrValidation, it.ID)
+			return fmt.Errorf("%w: item %q reply needs text or images", ErrValidation, it.ID)
 		}
 		for j, raw := range it.Reply.Images {
 			u, err := url.Parse(raw)
@@ -170,8 +183,6 @@ func validateItemKind(ctx context.Context, it MenuItem, caseExists CaseExistsFun
 				return fmt.Errorf("%w: item %q images[%d] must be http(s) URL", ErrValidation, it.ID, j)
 			}
 		}
-	default:
-		return fmt.Errorf("%w: item %q unknown kind %q", ErrValidation, it.ID, it.Kind)
 	}
 	return nil
 }
