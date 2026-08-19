@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +26,167 @@ type statusCap struct {
 func (s *statusCap) Publish(_ context.Context, msg queue.Message) error {
 	s.msgs = append(s.msgs, msg)
 	return nil
+}
+
+func writeJob(t *testing.T, ctx context.Context, store blob.Store, job actuator.JobPackage) sharedkernel.BlobRef {
+	t.Helper()
+	raw, err := json.Marshal(job)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := store.Put(ctx, "jobs/"+string(job.TaskID)+"/job.json", bytes.NewReader(raw), blob.PutOptions{MIME: "application/json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ref
+}
+
+func TestWorkerExtractsOutputsByBinding(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	store, err := localfs.New(filepath.Join(dir, "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap := &statusCap{}
+	mock := &comfyui.Mock{
+		WaitFn: func(_ context.Context, _ string) (*comfyui.Result, error) {
+			return &comfyui.Result{
+				PromptID: "p1",
+				Outputs: comfyui.HistoryResult{
+					"9": {
+						Images: []comfyui.NodeImage{
+							{OutputFile: comfyui.OutputFile{Filename: "out.png", Mime: "image/png", Data: []byte("png")}},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+	w := &actuator.Worker{
+		EdgeID:    "local",
+		Comfy:     mock,
+		Blob:      store,
+		Status:    cap,
+		Workflows: actuator.StaticWorkflows{},
+		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
+	}
+	jobRef := writeJob(t, ctx, store, actuator.JobPackage{
+		TaskID:   "t1",
+		EdgeID:   "local",
+		Workflow: comfyui.Graph{"1": map[string]any{"class_type": "SaveImage", "inputs": map[string]any{}}},
+		Outputs:  []catalogdomain.OutputBinding{{Key: "image", NodeID: "9", Index: 0}},
+	})
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+		TaskID: "t1", EdgeID: "local", JobRef: jobRef,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(cap.msgs) != 2 {
+		t.Fatalf("msgs=%d", len(cap.msgs))
+	}
+	var done sharedkernel.TaskStatusEvent
+	_ = json.Unmarshal(cap.msgs[1].Payload, &done)
+	if done.Status != sharedkernel.TaskSucceeded || len(done.Outputs) != 1 {
+		t.Fatalf("done=%+v", done)
+	}
+	if !strings.HasPrefix(done.Outputs[0].Key, "outputs/t1/image_") {
+		t.Fatalf("want keyed output, got %q", done.Outputs[0].Key)
+	}
+}
+
+func TestWorkerFailsWhenBoundNodeMissing(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	store, err := localfs.New(filepath.Join(dir, "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap := &statusCap{}
+	mock := &comfyui.Mock{
+		WaitFn: func(_ context.Context, _ string) (*comfyui.Result, error) {
+			return &comfyui.Result{PromptID: "p1", Outputs: comfyui.HistoryResult{}}, nil
+		},
+	}
+	w := &actuator.Worker{
+		EdgeID:    "local",
+		Comfy:     mock,
+		Blob:      store,
+		Status:    cap,
+		Workflows: actuator.StaticWorkflows{},
+		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
+	}
+	jobRef := writeJob(t, ctx, store, actuator.JobPackage{
+		TaskID:   "t2",
+		EdgeID:   "local",
+		Workflow: comfyui.Graph{"1": map[string]any{"class_type": "SaveImage", "inputs": map[string]any{}}},
+		Outputs:  []catalogdomain.OutputBinding{{Key: "image", NodeID: "9", Index: 0}},
+	})
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+		TaskID: "t2", EdgeID: "local", JobRef: jobRef,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// HandleDispatch 对任务失败返回 nil，失败信息在 status 事件里
+	if len(cap.msgs) != 2 {
+		t.Fatalf("msgs=%d", len(cap.msgs))
+	}
+	var failed sharedkernel.TaskStatusEvent
+	_ = json.Unmarshal(cap.msgs[1].Payload, &failed)
+	if failed.Status != sharedkernel.TaskFailed || failed.ErrorCode != "output_extract" {
+		t.Fatalf("failed=%+v", failed)
+	}
+}
+
+func TestWorkerFallsBackToAllImagesWithoutBindings(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	store, err := localfs.New(filepath.Join(dir, "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap := &statusCap{}
+	mock := &comfyui.Mock{
+		WaitFn: func(_ context.Context, _ string) (*comfyui.Result, error) {
+			return &comfyui.Result{
+				PromptID: "p1",
+				Outputs: comfyui.HistoryResult{
+					"1": {Images: []comfyui.NodeImage{
+						{OutputFile: comfyui.OutputFile{Filename: "a.png", Mime: "image/png", Data: []byte("a")}},
+					}},
+					"2": {Images: []comfyui.NodeImage{
+						{OutputFile: comfyui.OutputFile{Filename: "b.png", Mime: "image/png", Data: []byte("b")}},
+					}},
+				},
+			}, nil
+		},
+	}
+	w := &actuator.Worker{
+		EdgeID:    "local",
+		Comfy:     mock,
+		Blob:      store,
+		Status:    cap,
+		Workflows: actuator.StaticWorkflows{},
+		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
+	}
+	jobRef := writeJob(t, ctx, store, actuator.JobPackage{
+		TaskID:   "t3",
+		EdgeID:   "local",
+		Workflow: comfyui.Graph{"1": map[string]any{"class_type": "SaveImage", "inputs": map[string]any{}}},
+	})
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+		TaskID: "t3", EdgeID: "local", JobRef: jobRef,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var done sharedkernel.TaskStatusEvent
+	_ = json.Unmarshal(cap.msgs[1].Payload, &done)
+	if done.Status != sharedkernel.TaskSucceeded || len(done.Outputs) != 2 {
+		t.Fatalf("done=%+v", done)
+	}
+	if done.Outputs[0].Key != "outputs/t3/0_a.png" || done.Outputs[1].Key != "outputs/t3/1_b.png" {
+		t.Fatalf("keys=%q %q", done.Outputs[0].Key, done.Outputs[1].Key)
+	}
 }
 
 func TestHandleDispatchPublishesRunningAndSucceeded(t *testing.T) {
