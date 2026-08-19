@@ -19,13 +19,15 @@ import (
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	channelmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channelmenu"
+	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
+	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	menupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
@@ -34,8 +36,6 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
-	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
-	menupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 )
 
 func main() {
@@ -138,6 +138,8 @@ func run(ctx context.Context) error {
 	channelsAPI := &channelsapi.Handler{Svc: chSvc}
 	adminCaps := capability.NewRegistry()
 	_ = adminCaps.Register(capability.OpenCase{})
+	_ = adminCaps.Register(capability.ReplyText{})
+	_ = adminCaps.Register(capability.ReplyMedia{})
 	menuSvc.Capabilities = adminMenuCaps{reg: adminCaps}
 	channelMenuAPI := &channelmenuapi.Handler{Channels: chSvc, Svc: menuSvc, Capabilities: adminCaps}
 
