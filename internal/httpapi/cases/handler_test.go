@@ -53,7 +53,9 @@ func validCaseBody(id, name string) map[string]any {
 			{"key": "image", "type": "image"},
 		},
 		"bindings": map[string]any{
-			"workflow": map[string]any{"1": map[string]any{}},
+			"workflow": map[string]any{
+				"1": map[string]any{"class_type": "CLIPTextEncode", "inputs": map[string]any{"text": "x"}},
+			},
 			"inputs": []map[string]any{
 				{"key": "prompt", "node_id": "1", "field_path": "text"},
 			},

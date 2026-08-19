@@ -36,10 +36,82 @@ func (v *Validator) ValidateDocument(doc domain.CaseDocument) error {
 	if doc.InputSchema == nil {
 		fields = append(fields, domain.FieldError{Key: "input_schema", Message: "required"})
 	}
+	if err := validateWorkflowGraph(doc.Bindings.WorkflowJSON); err != nil {
+		fields = append(fields, *err)
+	}
+	fields = append(fields, validateInputBindings(doc.Bindings.WorkflowJSON, doc.Bindings.Inputs)...)
+	fields = append(fields, validateOutputBindings(doc.Bindings.WorkflowJSON, doc.Bindings.Outputs)...)
 	if len(fields) > 0 {
 		return &domain.ValidationError{Fields: fields}
 	}
 	return nil
+}
+
+func workflowNodes(g map[string]any) (map[string]map[string]any, *domain.FieldError) {
+	nodes := make(map[string]map[string]any, len(g))
+	for id, raw := range g {
+		node, ok := raw.(map[string]any)
+		if !ok {
+			return nil, &domain.FieldError{Key: "bindings.workflow", Message: "node " + id + " must be an object"}
+		}
+		classType, _ := node["class_type"].(string)
+		if classType == "" {
+			return nil, &domain.FieldError{Key: "bindings.workflow", Message: "node " + id + " missing class_type"}
+		}
+		if inputs, exists := node["inputs"]; exists {
+			if _, ok := inputs.(map[string]any); !ok {
+				return nil, &domain.FieldError{Key: "bindings.workflow", Message: "node " + id + " inputs must be an object"}
+			}
+		}
+		nodes[id] = node
+	}
+	return nodes, nil
+}
+
+func validateWorkflowGraph(g map[string]any) *domain.FieldError {
+	if len(g) == 0 {
+		return &domain.FieldError{Key: "bindings.workflow", Message: "required"}
+	}
+	_, err := workflowNodes(g)
+	return err
+}
+
+func validateInputBindings(g map[string]any, bindings []domain.InputBinding) []domain.FieldError {
+	nodes, graphErr := workflowNodes(g)
+	if graphErr != nil {
+		return nil
+	}
+	var out []domain.FieldError
+	for i, b := range bindings {
+		node, ok := nodes[b.NodeID]
+		if !ok {
+			out = append(out, domain.FieldError{Key: fmt.Sprintf("bindings.inputs[%d].node_id", i), Message: "node not found"})
+			continue
+		}
+		inputs, _ := node["inputs"].(map[string]any)
+		if _, ok := inputs[b.FieldPath]; !ok {
+			out = append(out, domain.FieldError{Key: fmt.Sprintf("bindings.inputs[%d].field_path", i), Message: "field not found"})
+		}
+	}
+	return out
+}
+
+func validateOutputBindings(g map[string]any, bindings []domain.OutputBinding) []domain.FieldError {
+	nodes, graphErr := workflowNodes(g)
+	if graphErr != nil {
+		return nil
+	}
+	var out []domain.FieldError
+	for i, b := range bindings {
+		if _, ok := nodes[b.NodeID]; !ok {
+			out = append(out, domain.FieldError{Key: fmt.Sprintf("bindings.outputs[%d].node_id", i), Message: "node not found"})
+			continue
+		}
+		if b.Index < 0 {
+			out = append(out, domain.FieldError{Key: fmt.Sprintf("bindings.outputs[%d].index", i), Message: "must be >= 0"})
+		}
+	}
+	return out
 }
 
 func (v *Validator) ValidateInputs(doc domain.CaseDocument, values []domain.InputValue) error {

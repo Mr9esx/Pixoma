@@ -113,8 +113,10 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 		Inputs:  []domain.InputField{{Key: "prompt", Type: "string", Required: true}},
 		Outputs: []domain.OutputField{{Key: "image", Type: "image"}},
 		Bindings: domain.ComfyBindings{
-			WorkflowJSON: map[string]any{"1": map[string]any{}},
-			Inputs:       []domain.InputBinding{{Key: "prompt", NodeID: "1", FieldPath: "text"}},
+			WorkflowJSON: map[string]any{
+				"1": map[string]any{"class_type": "CLIPTextEncode", "inputs": map[string]any{"text": "x"}},
+			},
+			Inputs: []domain.InputBinding{{Key: "prompt", NodeID: "1", FieldPath: "text"}},
 		},
 		InputSchema: map[string]any{
 			"type": "object", "required": []any{"prompt"},
