@@ -115,8 +115,38 @@ func textWorkflowCase() catalogdomain.CaseDocument {
 			Inputs: []catalogdomain.InputBinding{
 				{Key: "prompt", NodeID: "20", FieldPath: "text"},
 			},
+			Outputs: []catalogdomain.OutputBinding{{Key: "image", NodeID: "9"}},
 		},
 		InputSchema: map[string]any{"type": "object"},
+	}
+}
+
+func TestBuildJobPackageCarriesOutputBindings(t *testing.T) {
+	ctx := context.Background()
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := "inputs/task-out"
+	if _, err := store.Put(ctx, prefix+"/prompt.txt", bytes.NewReader([]byte("out prompt")), blob.PutOptions{MIME: "text/plain"}); err != nil {
+		t.Fatal(err)
+	}
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(1, 0).UTC()
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-out", "s1", "text-inject", prefix, now)); err != nil {
+		t.Fatal(err)
+	}
+	cases := &memCases{}
+	if err := cases.Create(ctx, &catalogdomain.Case{Document: textWorkflowCase(), Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store}
+	job, err := snap.BuildJobPackage(ctx, "task-out", "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(job.Outputs) != 1 || job.Outputs[0].Key != "image" || job.Outputs[0].NodeID != "9" {
+		t.Fatalf("outputs=%+v", job.Outputs)
 	}
 }
 
