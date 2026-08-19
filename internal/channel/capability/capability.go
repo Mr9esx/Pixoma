@@ -1,0 +1,40 @@
+// Package capability provides the capability registry: business modules
+// register here so adapters and menus can invoke them without knowing internals.
+package capability
+
+import (
+	"context"
+	"encoding/json"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
+)
+
+// Capability is a registered business module.
+type Capability interface {
+	ID() string
+	DisplayName() string
+	ParamsSchema() json.RawMessage // JSON Schema (draft-07 subset)
+	Render(channelID string, override map[string]any) (protocol.RenderDecl, error)
+	Invoke(ctx context.Context, acct protocol.AccountCtx, nav protocol.Nav, params map[string]any) (protocol.Result, error)
+}
+
+// MergeRender applies a menu-item render override onto a capability's base
+// render declaration, replacing only the keys present in the override.
+func MergeRender(base protocol.RenderDecl, override map[string]any) protocol.RenderDecl {
+	if len(override) == 0 {
+		return base
+	}
+	merged := protocol.RenderDecl{Entry: base.Entry}
+	if base.Config == nil {
+		merged.Config = map[string]any{}
+	} else {
+		merged.Config = make(map[string]any, len(base.Config))
+		for k, v := range base.Config {
+			merged.Config[k] = v
+		}
+	}
+	for k, v := range override {
+		merged.Config[k] = v
+	}
+	return merged
+}
