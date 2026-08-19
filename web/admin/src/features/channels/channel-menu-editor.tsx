@@ -610,14 +610,16 @@ function NodeEditor({
             </p>
           ) : (
             <Select
-              value={node.capability_id ?? ''}
-              onValueChange={(value) => onCapability(node.id, value)}
+              value={node.capability_id || 'none'}
+              onValueChange={(value) =>
+                onCapability(node.id, value === 'none' ? '' : value)
+              }
             >
               <SelectTrigger className='w-full'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value=''>
+                <SelectItem value='none'>
                   {t('channelMenu.capabilityNone')}
                 </SelectItem>
                 {capabilities.map((c) => (
