@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { getCaseMenuPlacements } from './channel-menu'
+import { deleteCard, getCaseMenuPlacements, getMenu } from './channel-menu'
 import { listCapabilities } from './channels'
 
 afterEach(() => {
@@ -69,6 +69,36 @@ describe('channel-menu API', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8081/api/v1/channels/capabilities',
       expect.anything()
+    )
+  })
+
+  it('getMenu GETs the channel menu', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ id: 'm', name: '主', columns: 2, items: [] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    const menu = await getMenu('ch1')
+    expect(menu.name).toBe('主')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8081/api/v1/channels/ch1/menu',
+      expect.anything()
+    )
+  })
+
+  it('deleteCard sends DELETE', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await deleteCard('ch1', 'c1')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8081/api/v1/channels/ch1/cards/c1',
+      expect.objectContaining({ method: 'DELETE' })
     )
   })
 })

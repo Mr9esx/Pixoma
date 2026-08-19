@@ -1,37 +1,13 @@
-export type ActionType =
-  | 'open_card'
-  | 'open_workflow'
-  | 'send_text'
-  | 'send_media'
-  | 'open_url'
-  | 'copy_text'
-  | 'placeholder'
+import type {
+  Action,
+  ActionType,
+  Card,
+  CardButton,
+  Menu,
+  MenuItem,
+} from '@/lib/api/channel-menu'
 
-export type Action = {
-  type: ActionType
-  card_id?: string
-  workflow_ids?: string[]
-  mode?: 'list' | 'direct'
-  text?: string
-  media?: { kind: string; url: string; caption?: string }[]
-  url?: string
-}
-
-export type MenuItem = { id: string; label: string; action: Action }
-export type Menu = {
-  id: string
-  name: string
-  columns: number
-  items: MenuItem[]
-}
-export type CardButton = { id: string; label: string; action: Action }
-export type Card = {
-  id: string
-  name: string
-  media: { kind: string; url: string; caption?: string }[]
-  text: string
-  buttons: CardButton[]
-}
+export type { Action, ActionType, Card, CardButton, Menu, MenuItem }
 
 export function buildTgFlow(menu: Menu, cards: Card[]) {
   const cols = menu.columns >= 1 && menu.columns <= 8 ? menu.columns : 2
