@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
+import type { CaseRecord } from '@/lib/api/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import type { CaseRecord } from '@/lib/api/types'
 
 export type BasicsSlice = Pick<
   CaseRecord,

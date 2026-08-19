@@ -2,7 +2,6 @@ import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { parseWorkflow } from '../lib/workflow-parse'
 import type { WorkflowGraph } from '../lib/workflow-parse'
 
 type Props = {
@@ -97,8 +96,4 @@ export function WorkflowImportSection({
       />
     </section>
   )
-}
-
-export function parseRawWorkflow(raw: string) {
-  return parseWorkflow(raw)
 }
