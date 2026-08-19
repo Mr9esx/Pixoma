@@ -13,6 +13,7 @@ import (
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
 	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
 	channelruntime "github.com/mr9esx/comfyui_tgbot/internal/channel/runtime"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
@@ -75,6 +76,7 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 		facade:   facade,
 		deps:     deps,
 		registry: registry,
+		caps:     newCapabilityRegistry(facade),
 	}
 	assembler := &channelruntime.Assembler{
 		Store:    &channelSnapshotStore{svc: deps.Channels},
@@ -152,6 +154,13 @@ type tgChannelFactory struct {
 	facade   *botapp.Facade
 	deps     BotDeps
 	registry *notifyRegistry
+	caps     *capability.Registry
+}
+
+func newCapabilityRegistry(facade *botapp.Facade) *capability.Registry {
+	r := capability.NewRegistry()
+	_ = r.Register(capability.OpenCase{App: facade})
+	return r
 }
 
 func (f *tgChannelFactory) Create(snap channelruntime.ChannelSnapshot) (channelruntime.Adapter, error) {
@@ -167,7 +176,9 @@ func (f *tgChannelFactory) Create(snap channelruntime.ChannelSnapshot) (channelr
 		Menu:   menuReader,
 		Extras: extrasReader,
 	}
-	adapter := tg.New(f.facade, messenger)
+	adapter := tg.New(messenger)
+	adapter.Registry = f.caps
+	adapter.Blob = f.deps.Blob
 	adapter.Media = tg.NewMediaBridge(botInst)
 	adapter.Users = identityResolver{users: f.deps.Users}
 	adapter.Menu = menuReader

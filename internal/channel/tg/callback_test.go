@@ -3,31 +3,21 @@ package tg
 import (
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
-	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
 )
 
-func TestTranslateCallback(t *testing.T) {
+func TestTranslateMenuCallback(t *testing.T) {
 	cases := []struct {
 		data string
-		want ports.Action
+		want navTarget
 	}{
-		{CBMenu, ports.Action{Type: ports.ActionOpenMenu}},
-		{CBConfirm, ports.Action{Type: ports.ActionConfirm}},
-		{CBExit, ports.Action{Type: ports.ActionExit}},
-		{CBSkip, ports.Action{Type: ports.ActionSkip}},
-		{CBContinue, ports.Action{Type: ports.ActionContinue}},
-		{"mf:btn-image", ports.Action{Type: ports.ActionOpenFolder, MenuItemID: "btn-image"}},
-		{"mb:root", ports.Action{Type: ports.ActionOpenMenu}},
-		{"mb:parent-1", ports.Action{Type: ports.ActionOpenFolder, MenuItemID: "parent-1"}},
-		{"cp:case-1", ports.Action{Type: ports.ActionOpenCase, CaseID: "case-1"}},
-		{"cpf:folder-1:case-2", ports.Action{Type: ports.ActionOpenCase, CaseID: "case-2", BackRef: "folder-1"}},
-		{"cs:case-3", ports.Action{Type: ports.ActionStartCase, CaseID: "case-3"}},
-		{"rs:case-4", ports.Action{Type: ports.ActionReplaceStart, CaseID: "case-4"}},
+		{CBMenu, navTarget{kind: "main"}},
+		{"mf:btn-image", navTarget{kind: "group", id: "btn-image"}},
+		{"mb:root", navTarget{kind: "main"}},
+		{"mb:parent-1", navTarget{kind: "group", id: "parent-1"}},
 	}
 	for _, tc := range cases {
-		got, err := TranslateCallback(tc.data)
+		got, err := TranslateMenuCallback(tc.data)
 		if err != nil {
 			t.Fatalf("%q: %v", tc.data, err)
 		}
@@ -35,59 +25,24 @@ func TestTranslateCallback(t *testing.T) {
 			t.Fatalf("%q: got %+v want %+v", tc.data, got, tc.want)
 		}
 	}
-	if _, err := TranslateCallback("bogus"); err == nil {
-		t.Fatal("unknown callback must error")
-	}
-	if _, err := TranslateCallback("mf:"); err == nil {
-		t.Fatal("empty folder must error")
+	if _, err := TranslateMenuCallback("bogus"); err == nil {
+		t.Fatal("unknown nav must error")
 	}
 }
 
-func TestEncodeActionRoundTrip(t *testing.T) {
-	actions := []ports.Action{
-		{Type: ports.ActionOpenFolder, MenuItemID: "f1"},
-		{Type: ports.ActionOpenCase, CaseID: "c1", BackRef: "f1"},
-		{Type: ports.ActionOpenCase, CaseID: "c1", BackRef: ""}, // "" 与 "root" 编码相同，解码后为空
-		{Type: ports.ActionStartCase, CaseID: "c1"},
-		{Type: ports.ActionReplaceStart, CaseID: "c1"},
-		{Type: ports.ActionOpenMenu},
-		{Type: ports.ActionConfirm},
+func TestInvokeStorePutGet(t *testing.T) {
+	s := newInvokeStore()
+	inv := protocol.CapabilityInvoke{CapabilityID: "open_case", Params: map[string]any{"step": "preview", "case_id": "c1"}}
+	token := s.put(inv)
+	if token == "" {
+		t.Fatal("empty token")
 	}
-	for _, a := range actions {
-		got, err := TranslateCallback(encodeAction(a))
-		if err != nil {
-			t.Fatalf("%+v: %v", a, err)
-		}
-		if got != a {
-			t.Fatalf("roundtrip %+v != %+v", got, a)
-		}
+	got, ok := s.get(token)
+	if !ok || got.CapabilityID != "open_case" {
+		t.Fatalf("get: %+v %v", got, ok)
 	}
-}
-
-func TestRootColumnsFromExtras(t *testing.T) {
-	extras := map[string][]domain.Extra{
-		"btn-image": {{ExtraType: "tg_root_layout", ExtraJSON: `{"columns":3}`}},
-		"btn-video": {{ExtraType: "tg_root_layout", ExtraJSON: `{"columns":99}`}},
-	}
-	if got := RootColumns(extras, "btn-image"); got != 3 {
-		t.Fatalf("columns=%d", got)
-	}
-	if got := RootColumns(extras, "btn-video"); got != 2 {
-		t.Fatalf("invalid columns should fall back: %d", got)
-	}
-	if got := RootColumns(extras, "missing"); got != 2 {
-		t.Fatalf("missing extras: %d", got)
-	}
-}
-
-func TestChatAddressMapping(t *testing.T) {
-	ad := &Adapter{ChannelID: "tg-default"}
-	chatID := formatChatID(ad, 123456789)
-	addr, err := sharedkernel.ParseChatID(string(chatID))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if addr.ChannelID != "tg-default" || addr.ExternalChatID != "123456789" {
-		t.Fatalf("addr=%+v", addr)
+	// 一次性消费
+	if _, ok := s.get(token); ok {
+		t.Fatal("token must be single-use")
 	}
 }

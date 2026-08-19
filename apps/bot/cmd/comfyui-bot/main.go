@@ -28,10 +28,12 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	goredis "github.com/redis/go-redis/v9"
 
+	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	menupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
@@ -44,8 +46,6 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
-	menupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 )
 
 func main() {
@@ -136,10 +136,7 @@ func run(ctx context.Context) error {
 	}, nil)
 
 	instRepo := instpersist.NewEdgeRepository(gdb)
-	seedCfg := edge.SeedConfig{
-		DefaultEdgeID: cfg.DefaultEdgeID,
-		ComfyMock:     cfg.ComfyMock,
-	}
+	seedCfg := edge.SeedConfig{}
 	for _, s := range cfg.Edges {
 		seedCfg.Edges = append(seedCfg.Edges, edge.SeedInstance{
 			ID:           s.ID,
@@ -169,10 +166,7 @@ func run(ctx context.Context) error {
 		clients[sharedkernel.EdgeID(s.ID)] = cli
 	}
 	if len(clients) == 0 {
-		id := cfg.DefaultEdgeID
-		if id == "" {
-			id = "local"
-		}
+		id := "local"
 		baseURL := cfg.ComfyUIBaseURL
 		if baseURL == "" {
 			baseURL = "http://127.0.0.1:8188"
@@ -191,7 +185,7 @@ func run(ctx context.Context) error {
 		return cli, nil
 	}
 
-	instID := sharedkernel.EdgeID(cfg.DefaultEdgeID)
+	instID := sharedkernel.EdgeID("local")
 	comfy, err := resolveClient(instID)
 	if err != nil {
 		// Fall back to first healthy/enabled instance when default id is absent.
@@ -267,6 +261,7 @@ func run(ctx context.Context) error {
 			blob:     blobStore,
 			users:    botIdentityResolver{users: userRepo},
 			registry: notifyRegistry,
+			caps:     botCapabilities(facade),
 		},
 		Interval: 5 * time.Second,
 	}

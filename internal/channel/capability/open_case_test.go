@@ -36,6 +36,9 @@ func (fakeCaseService) GetSession(context.Context, sharedkernel.ChatID) (*botapp
 func (fakeCaseService) SkipInput(context.Context, sharedkernel.ChatID) (*botapp.SessionView, error) {
 	return nil, nil
 }
+func (fakeCaseService) SubmitInput(context.Context, sharedkernel.ChatID, convdomain.DraftValue) (*botapp.SessionView, error) {
+	return nil, nil
+}
 func (fakeCaseService) ExitSession(context.Context, sharedkernel.ChatID) error { return nil }
 func (fakeCaseService) ConfirmRun(context.Context, botapp.ConfirmRunCmd) (*botapp.ConfirmRunResult, error) {
 	return nil, nil

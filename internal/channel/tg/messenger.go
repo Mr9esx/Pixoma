@@ -124,7 +124,7 @@ func toInlineMarkup(rows [][]ports.Button) *models.InlineKeyboardMarkup {
 	for _, row := range rows {
 		btns := make([]models.InlineKeyboardButton, 0, len(row))
 		for _, b := range row {
-			btns = append(btns, models.InlineKeyboardButton{Text: b.Text, CallbackData: encodeAction(b.Action)})
+			btns = append(btns, models.InlineKeyboardButton{Text: b.Text, CallbackData: b.Data})
 		}
 		out = append(out, btns)
 	}
