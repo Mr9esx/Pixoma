@@ -28,18 +28,14 @@ describe('channel menu tree editor', () => {
     expect(source).not.toContain('action:')
   })
 
-  it('editor uses expandable tree and folder intro fields', () => {
+  it('editor is wysiwyg: phone simulation plus config panel', () => {
     const source = read(EDITOR)
-    expect(source).toContain('visibleTreeRows')
-    expect(source).toContain('expandedIds')
-    expect(source).toContain('ancestorIds')
-    expect(source).toContain('paddingLeft: `${8 + depth * 16}px`')
-    expect(source).toContain('parentIsFolder')
-    expect(source).toContain('fieldIntro')
-    expect(source).toContain('fieldChildren')
-    expect(source).toContain('intro_text')
-    expect(source).toContain('addChildToTree')
-    expect(source).toContain('onSelectChild')
+    expect(source).toContain('PhoneSimulation')
+    expect(source).toContain('NodeConfigPanel')
+    expect(source).toContain("from './phone-simulation'")
+    expect(source).toContain("from './node-config-panel'")
+    expect(source).not.toContain('visibleTreeRows')
+    expect(source).not.toContain('expandedIds')
   })
 
   it('i18n has plain-language folder intro keys', () => {
@@ -104,5 +100,22 @@ describe('params form', () => {
     expect(source).toContain('workflow_picker')
     expect(source).toContain('x-admin')
     expect(source).toContain('caseOptions')
+  })
+})
+
+describe('wysiwyg editor components', () => {
+  it('phone simulation renders keyboard and group message', () => {
+    const source = read(join(here, 'phone-simulation.tsx'))
+    expect(source).toContain("data-testid='phone-simulation'")
+    expect(source).toContain('buildTgSimulation')
+    expect(source).toContain('onSelect')
+  })
+
+  it('config panel offers group and capability actions with schema form', () => {
+    const source = read(join(here, 'node-config-panel.tsx'))
+    expect(source).toContain("data-testid='node-config-panel'")
+    expect(source).toContain('buttonAction')
+    expect(source).toContain('ParamsForm')
+    expect(source).toContain('actionShowChildren')
   })
 })
