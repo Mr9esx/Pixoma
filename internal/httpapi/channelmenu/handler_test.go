@@ -13,9 +13,10 @@ import (
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	channelmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channelmenu"
+	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
 	menupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
@@ -42,9 +43,9 @@ func openServer(t *testing.T) *httptest.Server {
 	_ = caseRepo.Create(t.Context(), &catalogdomain.Case{
 		Enabled: true,
 		Document: catalogdomain.CaseDocument{
-			ID:   sharedkernel.CaseID("c1"),
-			Name: "C1",
-			Inputs: []catalogdomain.InputField{{Key: "prompt", Type: "string", Required: true}},
+			ID:       sharedkernel.CaseID("c1"),
+			Name:     "C1",
+			Inputs:   []catalogdomain.InputField{{Key: "prompt", Type: "string", Required: true}},
 			Bindings: catalogdomain.ComfyBindings{WorkflowJSON: map[string]any{"1": map[string]any{}}},
 			InputSchema: map[string]any{"type": "object", "properties": map[string]any{
 				"prompt": map[string]any{"type": "string"},
@@ -206,5 +207,37 @@ func TestChannelMenuHandler_ScopedTreeAndExtras(t *testing.T) {
 	plRes.Body.Close()
 	if len(placements) != 0 {
 		t.Fatalf("placements expected empty, got %v", placements)
+	}
+}
+
+func TestListCapabilitiesIncludesParamsSchema(t *testing.T) {
+	reg := capability.NewRegistry()
+	if err := reg.Register(capability.ReplyText{}); err != nil {
+		t.Fatal(err)
+	}
+	h := &channelmenuapi.Handler{Capabilities: reg}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/channels/capabilities", nil)
+	w := httptest.NewRecorder()
+	h.ListCapabilities(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	var out []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("caps=%+v", out)
+	}
+	schema, ok := out[0]["params_schema"].(map[string]any)
+	if !ok {
+		t.Fatalf("params_schema missing: %+v", out[0])
+	}
+	if out[0]["display_name"] != "提示文字" {
+		t.Fatalf("display_name=%v", out[0]["display_name"])
+	}
+	props, _ := schema["properties"].(map[string]any)
+	if _, ok := props["text"]; !ok {
+		t.Fatalf("schema=%v", schema)
 	}
 }
