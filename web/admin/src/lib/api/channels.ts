@@ -29,7 +29,10 @@ export function getChannel(id: string) {
   return apiFetch<Channel>(`/api/v1/channels/${encodeURIComponent(id)}`)
 }
 
-export function updateChannel(id: string, body: { name?: string; token?: string }) {
+export function updateChannel(
+  id: string,
+  body: { name?: string; token?: string }
+) {
   return apiFetch<Channel>(`/api/v1/channels/${encodeURIComponent(id)}`, {
     method: 'PUT',
     body: JSON.stringify(body),
@@ -39,20 +42,21 @@ export function updateChannel(id: string, body: { name?: string; token?: string 
 export function setChannelEnabled(id: string, enabled: boolean) {
   return apiFetch<{ enabled: boolean }>(
     `/api/v1/channels/${encodeURIComponent(id)}/${enabled ? 'enable' : 'disable'}`,
-    { method: 'POST' },
+    { method: 'POST' }
   )
 }
 
 export function deleteChannel(id: string) {
   return apiFetch<{ deleted: boolean }>(
     `/api/v1/channels/${encodeURIComponent(id)}`,
-    { method: 'DELETE' },
+    { method: 'DELETE' }
   )
 }
 
 export type CapabilityBrief = {
   id: string
   display_name: string
+  params_schema: Record<string, unknown>
 }
 
 export function listCapabilities() {
