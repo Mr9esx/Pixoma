@@ -11,11 +11,11 @@
 - **THEN** 浏览器可打开管理控制台壳页面
 
 ### Requirement: 菜单模块
-系统 MUST 提供后台菜单模块，将菜单项映射到路由，并在侧栏展示 Dashboard 与全部一期资源入口；菜单顺序 MUST 为 Dashboard、实例、Case、主键盘、Task、User、Session。
+系统 MUST 提供后台菜单模块，将菜单项映射到路由，并在侧栏展示 Dashboard 与全部资源入口；菜单顺序 MUST 为 Dashboard、实例、Case、渠道、Task、User、Session；「主键盘」不再作为一级菜单项。
 
 #### Scenario: 侧栏展示菜单
 - **WHEN** 用户打开控制台
-- **THEN** 侧栏可见 Dashboard、实例、Case、主键盘、Task、User、Session 菜单项，且顺序如上
+- **THEN** 侧栏可见 Dashboard、实例、Case、渠道、Task、User、Session 菜单项，且顺序如上，且不含「主键盘」
 
 #### Scenario: 点击菜单进入对应路由
 - **WHEN** 用户点击某一菜单项
@@ -98,21 +98,25 @@
 - **WHEN** 平台已初始化且用户无会话访问控制台根路径
 - **THEN** 用户被引导至登录，而非直接进入需鉴权的业务页
 
-### Requirement: 侧栏包含 TG Menu 入口
-管理控制台侧栏 MUST 提供 TG Menu（或产品约定中文名，如「主键盘」）入口，并映射到对应路由。本期侧栏在既有资源项基础上增加该项；顺序置于 Case 附近。
-
-#### Scenario: 侧栏可见 Menu 入口
-- **WHEN** 用户打开管理控制台
-- **THEN** 侧栏可见 TG Menu 管理入口且可点击进入
-
-#### Scenario: 中英切换含 Menu 文案
-- **WHEN** 用户切换中/英文
-- **THEN** TG Menu 侧栏与页面关键文案随语言切换
-
 ### Requirement: 侧栏品牌为 Pixoma
 侧栏品牌区 MUST 展示项目名称「Pixoma」，且 MUST NOT 展示 shadcn-admin 模板默认文案（如「Shadcn-Admin」「Vite + ShadcnUI」）。
 
 #### Scenario: 侧栏可见 Pixoma
 - **WHEN** 用户打开管理控制台
 - **THEN** 侧栏顶部品牌区显示「Pixoma」，且不显示上述模板默认主/副标题文案
+
+### Requirement: 侧栏包含渠道入口
+管理控制台侧栏 MUST 提供「渠道」入口并映射到渠道列表路由；渠道详情内 MUST 提供该渠道的菜单配置入口（原「主键盘」编辑能力）。
+
+#### Scenario: 侧栏可见渠道入口
+- **WHEN** 用户打开管理控制台
+- **THEN** 侧栏可见「渠道」管理入口且可点击进入渠道列表
+
+#### Scenario: 渠道详情可编辑菜单
+- **WHEN** 用户进入某渠道详情
+- **THEN** 可进入该渠道的菜单配置页进行编辑
+
+#### Scenario: 中英切换含渠道文案
+- **WHEN** 用户切换中/英文
+- **THEN** 「渠道」相关侧栏与页面关键文案随语言切换
 

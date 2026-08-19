@@ -2,6 +2,7 @@
 change: channel-platform-refactor
 design-doc: docs/superpowers/specs/2026-08-18-channel-platform-refactor-design.md
 base-ref: 9b95701d047b591711b76658722c8937013982bb
+archived-with: 2026-08-19-channel-platform-refactor
 ---
 
 # 渠道层完整重构 Implementation Plan

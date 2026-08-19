@@ -1,8 +1,5 @@
-# user-directory Specification
+## MODIFIED Requirements
 
-## Purpose
-将 Telegram 用户身份持久化到数据库，作为 Session/Task 归属的稳定主体；支持多渠道扩展的内部用户主键。
-## Requirements
 ### Requirement: User 持久化与主键
 系统 MUST 将用户记录持久化到数据库。每条记录 MUST 使用内部 UUID（或等价内部 id）作为主键，并 MUST 对**渠道外部身份**（渠道 + 渠道外部用户 id）建立唯一约束；Telegram 用户 id 作为 `telegram` 渠道的外部身份。系统 MUST NOT 仅用 `chat_id` 充当唯一用户主键。
 
@@ -20,4 +17,3 @@
 #### Scenario: 资料变更被刷新
 - **WHEN** 同一用户稍后消息中 username 已变更
 - **THEN** upsert 后该用户行的 username 为新值，且 last_seen_at 更新
-

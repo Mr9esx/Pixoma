@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-18
+goal: 以渠道为一级实体重构后台与运行时，领域模型平台中立化
