@@ -8,6 +8,9 @@ const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
 const IMPORT_SECTION = join(here, 'sections/workflow-import.tsx')
 const FIELD_CARDS = join(here, 'sections/field-cards.tsx')
+const CASE_FORM = join(here, 'case-form.tsx')
+const PREVIEW = join(here, 'sections/preview.tsx')
+const ADVANCED = join(here, 'sections/advanced.tsx')
 
 const REQUIRED_KEYS = [
   'importHeading',
@@ -67,7 +70,7 @@ describe('workflow import section', () => {
   it('renders import UI and uses parseWorkflow', () => {
     const source = readFileSync(IMPORT_SECTION, 'utf8')
     expect(source).toContain("data-testid='case-section-workflow-import'")
-    expect(source).toContain('parseWorkflow(')
+    expect(source).toContain("'../lib/workflow-parse'")
     expect(source).toContain('cases.importNodesCount')
     expect(source).toContain('cases.importValid')
     expect(source).toContain('cases.importFailed')
@@ -89,5 +92,33 @@ describe('field cards', () => {
     expect(source).toContain("data-testid='output-field-card'")
     expect(source).toContain('node.outputCount')
     expect(source).toContain('cases.fieldOutput')
+  })
+})
+
+describe('editor form assembly', () => {
+  it('form renders step sections and no raw workflow textarea by default', () => {
+    const form = readFileSync(CASE_FORM, 'utf8')
+    expect(form).toContain('WorkflowImportSection')
+    expect(form).toContain('InputFieldCard')
+    expect(form).toContain('OutputFieldCard')
+    expect(form).toContain('PreviewSection')
+    expect(form).toContain('AdvancedSection')
+    expect(form).toContain('deriveBindings(')
+    expect(form).toContain('deriveInputSchema(')
+    expect(form).not.toContain('WorkflowJsonSection')
+    expect(form).not.toContain('InputSchemaSection')
+    expect(form).not.toContain('BindingsSection')
+    expect(form).not.toContain('IoFieldsSection')
+  })
+
+  it('preview is read-only and advanced is gated behind open + confirm', () => {
+    const preview = readFileSync(PREVIEW, 'utf8')
+    expect(preview).toContain("data-testid='case-section-preview'")
+    expect(preview).toContain('aria-readonly')
+    const advanced = readFileSync(ADVANCED, 'utf8')
+    expect(advanced).toContain("data-testid='case-section-advanced'")
+    expect(advanced).toContain('editMode')
+    expect(advanced).toContain('cases.advancedEnterEdit')
+    expect(advanced).toContain('readOnly')
   })
 })

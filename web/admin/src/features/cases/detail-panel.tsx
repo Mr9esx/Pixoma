@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { getCase } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
+import { ErrorBanner } from '@/components/feedback/error-banner'
+import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { CaseForm } from './case-form'
 import { MenuPlacementsSection } from './sections/menu-placements'
 
@@ -49,7 +49,7 @@ export function CaseDetailPanel({ id }: Props) {
     <div className='space-y-4' data-testid='case-detail-panel'>
       <div>
         <h2 className='text-lg font-semibold'>{record.id}</h2>
-        <p className='text-muted-foreground text-sm'>
+        <p className='text-sm text-muted-foreground'>
           {t('cases.editHeading')}
         </p>
       </div>

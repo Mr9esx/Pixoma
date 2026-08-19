@@ -1,17 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { getCaseMenuPlacements } from '@/lib/api/channel-menu'
 import { queryKeys } from '@/lib/api/query-keys'
+import { ErrorBanner } from '@/components/feedback/error-banner'
+import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
 
-function formatPlacementPath(
-  path: { id: string; label: string }[],
-): string {
+function formatPlacementPath(path: { id: string; label: string }[]): string {
   return path.map((step) => step.label).join(' / ')
 }
 
@@ -28,10 +26,7 @@ export function MenuPlacementsSection({ caseId }: Props) {
   })
 
   return (
-    <section
-      className='space-y-3'
-      data-testid='case-section-menu-placements'
-    >
+    <section className='space-y-3' data-testid='case-section-menu-placements'>
       <h3 className='text-sm font-semibold'>
         {t('cases.menuPlacementsTitle')}
       </h3>
@@ -58,7 +53,7 @@ export function MenuPlacementsSection({ caseId }: Props) {
             ))}
           </ul>
         ) : (
-          <p className='text-muted-foreground text-sm'>
+          <p className='text-sm text-muted-foreground'>
             {t('cases.menuPlacementsEmpty')}
           </p>
         )
