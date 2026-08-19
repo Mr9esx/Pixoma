@@ -9,6 +9,7 @@ import (
 
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
 	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
 	"github.com/mr9esx/comfyui_tgbot/internal/menu/application"
 	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
@@ -23,8 +24,21 @@ type Handler struct {
 func (h *Handler) MountMenu(r chi.Router) {
 	r.Get("/", h.get)
 	r.Put("/", h.put)
+	r.Get("/preview", h.preview)
 	r.Get("/extras", h.getExtras)
 	r.Put("/extras", h.putExtras)
+}
+
+func (h *Handler) preview(w http.ResponseWriter, r *http.Request) {
+	if !h.requireChannel(w, r) {
+		return
+	}
+	tree, err := h.Svc.Get(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, protocol.BuildPreview(tree))
 }
 
 func (h *Handler) requireChannel(w http.ResponseWriter, r *http.Request) bool {

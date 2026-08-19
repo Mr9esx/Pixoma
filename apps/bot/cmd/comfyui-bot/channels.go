@@ -91,7 +91,6 @@ func (f *botTGAdapterFactory) Create(snap channelruntime.ChannelSnapshot) (chann
 	adapter.Media = tg.NewMediaBridge(botInst)
 	adapter.Users = f.users
 	adapter.Menu = reader
-	adapter.Extras = &noopExtrasReader{}
 	adapter.ChannelID = snap.ID
 	tg.RegisterHandlers(botInst, adapter)
 	return &botTGWrapper{bot: botInst, adapter: adapter, registry: f.registry, channelID: snap.ID}, nil
@@ -104,12 +103,6 @@ type botMenuReader struct {
 
 func (r botMenuReader) GetMenu(ctx context.Context) (menudomain.MenuTree, error) {
 	return r.svc.Get(ctx, r.channelID)
-}
-
-type noopExtrasReader struct{}
-
-func (noopExtrasReader) GetExtras(context.Context) (map[string][]menudomain.Extra, error) {
-	return map[string][]menudomain.Extra{}, nil
 }
 
 type botIdentityResolver struct {

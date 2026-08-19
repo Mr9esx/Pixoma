@@ -149,6 +149,19 @@ func TestChannelMenuHandler_ScopedTreeAndExtras(t *testing.T) {
 		t.Fatalf("extras=%v", gotExtras)
 	}
 
+	// 预览 DTO
+	prevRes, _ := http.Get(srv.URL + "/api/v1/channels/" + id + "/menu/preview")
+	if prevRes.StatusCode != http.StatusOK {
+		t.Fatalf("preview status=%d", prevRes.StatusCode)
+	}
+	var prev map[string]any
+	_ = json.NewDecoder(prevRes.Body).Decode(&prev)
+	prevRes.Body.Close()
+	main := prev["main_keyboard"].([]any)
+	if len(main) == 0 {
+		t.Fatalf("preview main=%v", prev)
+	}
+
 	// 载荷缺 menu_item_id 时以 map key 为准
 	extrasNoID := map[string]any{"btn-image": []any{
 		map[string]any{"extra_type": "tg_root_layout", "extra_json": `{"columns":3}`},

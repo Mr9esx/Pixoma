@@ -21,21 +21,23 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/webembed"
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
+	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
+	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
-	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	channelmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channelmenu"
+	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	setupapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
+	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
@@ -49,8 +51,6 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
-	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
 )
 
 var errRestart = errors.New("setup restart requested")
@@ -140,10 +140,6 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			&tgmenupersist.ChannelMenuItemRow{},
 			&tgmenupersist.ChannelMenuItemCaseRow{},
 			&tgmenupersist.ChannelMenuExtraRow{},
-		},
-		Seed: &edge.SeedConfig{
-			DefaultEdgeID:  cfg.DefaultEdgeID,
-			ComfyMock:      cfg.ComfyMock,
 		},
 	})
 	if err != nil {
@@ -292,41 +288,6 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	}
 	srv := &http.Server{Handler: r, ReadHeaderTimeout: 5 * time.Second}
 
-	var edgeCmd *os.Process
-	var edgeDone chan struct{}
-	if shouldSpawnEdge(boot.Initialized(), cfg) {
-		spawnTok, tokErr := edge.PlainAgentToken(
-			ctx,
-			instRepo,
-			encKey,
-			sharedkernel.EdgeID(cfg.DefaultEdgeID),
-		)
-		if tokErr != nil {
-			slog.Warn("edge auto-spawn skipped", "err", tokErr)
-		} else {
-			cmd := app.EdgeCommand(app.EdgeSpawnConfig{
-				Binary:          app.ResolveEdgeBinary(),
-				ControlPlaneURL: listenURL,
-				AgentToken:      spawnTok,
-				EdgeID:          cfg.DefaultEdgeID,
-				BlobDriver:      cfg.BlobDriver,
-				BlobRoot:        cfg.BlobRoot,
-				ComfyMock:       cfg.ComfyMock,
-			})
-			if err := cmd.Start(); err != nil {
-				slog.Warn("edge auto-spawn failed (install pixoma-edge-agent or set EDGE_AGENT_BIN)", "err", err)
-			} else {
-				edgeCmd = cmd.Process
-				edgeDone = make(chan struct{})
-				slog.Info("spawned local edge", "pid", cmd.Process.Pid, "bin", cmd.Path)
-				go func() {
-					_ = cmd.Wait()
-					close(edgeDone)
-				}()
-			}
-		}
-	}
-
 	errCh := make(chan error, 1)
 	go func() {
 		slog.Info("pixoma listening", "addr", addr, "data_dir", dataDir, "comfy_mock", cfg.ComfyMock, "initialized", boot.Initialized())
@@ -338,31 +299,18 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 
 	select {
 	case <-ctx.Done():
-		return shutdownServer(srv, edgeCmd, edgeDone)
+		return shutdownServer(srv)
 	case <-restartCh:
-		if err := shutdownServer(srv, edgeCmd, edgeDone); err != nil {
+		if err := shutdownServer(srv); err != nil {
 			return err
 		}
 		return errRestart
 	case err := <-errCh:
-		if edgeCmd != nil {
-			_ = edgeCmd.Signal(syscall.SIGTERM)
-		}
 		return err
 	}
 }
 
-func shutdownServer(srv *http.Server, edgeCmd *os.Process, edgeDone chan struct{}) error {
-	if edgeCmd != nil {
-		_ = edgeCmd.Signal(syscall.SIGTERM)
-		if edgeDone != nil {
-			select {
-			case <-edgeDone:
-			case <-time.After(5 * time.Second):
-				_ = edgeCmd.Kill()
-			}
-		}
-	}
+func shutdownServer(srv *http.Server) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
@@ -393,8 +341,6 @@ func defaultRuntimeSettings(dataDir string) settings.Settings {
 		BlobRoot:       filepath.Join(dataDir, "blob"),
 		ComfyMock:      envBool("COMFY_MOCK", true),
 		ComfyUIBaseURL: envOr("COMFYUI_BASE_URL", "http://127.0.0.1:8188"),
-		DefaultEdgeID:  "local",
-		AutoSpawnEdge:  true,
 	}
 }
 
@@ -423,16 +369,6 @@ func loadSavedSettings(boot *bootstrap.Store) (settings.Settings, error) {
 		return settings.Settings{}, err
 	}
 	return st.Load()
-}
-
-func shouldSpawnEdge(initialized bool, cfg settings.Settings) bool {
-	if !envBool("EDGE_AUTO_SPAWN", true) {
-		return false
-	}
-	if !initialized {
-		return true
-	}
-	return cfg.Placement == settings.PlacementLocal && cfg.AutoSpawnEdge
 }
 
 func leaseDuration(cfg settings.Settings) time.Duration {

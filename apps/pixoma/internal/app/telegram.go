@@ -165,16 +165,14 @@ func newCapabilityRegistry(facade *botapp.Facade) *capability.Registry {
 
 func (f *tgChannelFactory) Create(snap channelruntime.ChannelSnapshot) (channelruntime.Adapter, error) {
 	menuReader := channelMenuReader{svc: f.deps.Menu, channelID: snap.ID}
-	extrasReader := channelMenuExtrasReader{svc: f.deps.Menu, channelID: snap.ID}
 	botInst, err := newTelegramBot(snap.Credential)
 	if err != nil {
 		return nil, err
 	}
 	messenger := &tg.BotMessenger{
-		Bot:    botInst,
-		Blob:   f.deps.Blob,
-		Menu:   menuReader,
-		Extras: extrasReader,
+		Bot:  botInst,
+		Blob: f.deps.Blob,
+		Menu: menuReader,
 	}
 	adapter := tg.New(messenger)
 	adapter.Registry = f.caps
@@ -182,7 +180,6 @@ func (f *tgChannelFactory) Create(snap channelruntime.ChannelSnapshot) (channelr
 	adapter.Media = tg.NewMediaBridge(botInst)
 	adapter.Users = identityResolver{users: f.deps.Users}
 	adapter.Menu = menuReader
-	adapter.Extras = extrasReader
 	adapter.ChannelID = snap.ID
 	tg.RegisterHandlers(botInst, adapter)
 	return &tgBotWrapper{
@@ -231,15 +228,6 @@ type channelMenuReader struct {
 
 func (r channelMenuReader) GetMenu(ctx context.Context) (menudomain.MenuTree, error) {
 	return r.svc.Get(ctx, r.channelID)
-}
-
-type channelMenuExtrasReader struct {
-	svc       *menuapp.Service
-	channelID string
-}
-
-func (r channelMenuExtrasReader) GetExtras(ctx context.Context) (map[string][]menudomain.Extra, error) {
-	return r.svc.ListExtras(ctx, r.channelID)
 }
 
 type identityResolver struct {
