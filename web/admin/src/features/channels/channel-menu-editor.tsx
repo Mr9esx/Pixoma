@@ -172,7 +172,7 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
   const selected = effectiveSelectedId
     ? findNode(items, effectiveSelectedId)
     : null
-  const baseline = menuQuery.data?.items ?? []
+  const baseline = useMemo(() => menuQuery.data?.items ?? [], [menuQuery.data])
   const validation = useMemo(() => validateMenu(items), [items])
   const dirtyCount = useMemo(
     () => countUnsaved(items, baseline),
