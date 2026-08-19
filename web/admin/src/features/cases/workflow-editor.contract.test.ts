@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 const here = dirname(fileURLToPath(import.meta.url))
 const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
+const IMPORT_SECTION = join(here, 'sections/workflow-import.tsx')
 
 const REQUIRED_KEYS = [
   'importHeading',
@@ -58,5 +59,16 @@ describe('workflow editor i18n', () => {
       expect(zh.cases[key], `zh missing cases.${key}`).toBeTruthy()
       expect(en.cases[key], `en missing cases.${key}`).toBeTruthy()
     }
+  })
+})
+
+describe('workflow import section', () => {
+  it('renders import UI and uses parseWorkflow', () => {
+    const source = readFileSync(IMPORT_SECTION, 'utf8')
+    expect(source).toContain("data-testid='case-section-workflow-import'")
+    expect(source).toContain('parseWorkflow(')
+    expect(source).toContain('cases.importNodesCount')
+    expect(source).toContain('cases.importValid')
+    expect(source).toContain('cases.importFailed')
   })
 })
