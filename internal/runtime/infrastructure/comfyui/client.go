@@ -12,7 +12,7 @@ type Graph map[string]any
 
 type Result struct {
 	PromptID string
-	Outputs  []OutputFile
+	Outputs  HistoryResult
 }
 
 type OutputFile struct {
@@ -72,11 +72,17 @@ func (m *Mock) Wait(ctx context.Context, promptID string) (*Result, error) {
 	}
 	return &Result{
 		PromptID: promptID,
-		Outputs: []OutputFile{{
-			Filename: "out.png",
-			Mime:     "image/png",
-			Data:     GenerateMockPNG(320, 240, c),
-		}},
+		Outputs: HistoryResult{
+			"1": {
+				Images: []NodeImage{{
+					OutputFile: OutputFile{
+						Filename: "out.png",
+						Mime:     "image/png",
+						Data:     GenerateMockPNG(320, 240, c),
+					},
+				}},
+			},
+		},
 	}, nil
 }
 

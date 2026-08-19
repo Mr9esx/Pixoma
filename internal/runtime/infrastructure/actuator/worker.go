@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"sort"
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
@@ -73,13 +74,22 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 	}
 
 	var outs []sharedkernel.BlobRef
-	for i, f := range res.Outputs {
-		key := fmt.Sprintf("outputs/%s/%d_%s", ev.TaskID, i, f.Filename)
-		ref, err := w.Blob.Put(ctx, key, bytes.NewReader(f.Data), blob.PutOptions{MIME: f.Mime})
-		if err != nil {
-			return w.fail(ctx, ev, "blob_put", err.Error(), w.now())
+	var nodeIDs []string
+	for nodeID := range res.Outputs {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	sort.Strings(nodeIDs)
+	i := 0
+	for _, nodeID := range nodeIDs {
+		for _, img := range res.Outputs[nodeID].Images {
+			key := fmt.Sprintf("outputs/%s/%d_%s", ev.TaskID, i, img.Filename)
+			ref, err := w.Blob.Put(ctx, key, bytes.NewReader(img.Data), blob.PutOptions{MIME: img.Mime})
+			if err != nil {
+				return w.fail(ctx, ev, "blob_put", err.Error(), w.now())
+			}
+			outs = append(outs, ref)
+			i++
 		}
-		outs = append(outs, ref)
 	}
 	return w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
 		TaskID: ev.TaskID, EdgeID: ev.EdgeID, Status: sharedkernel.TaskSucceeded,

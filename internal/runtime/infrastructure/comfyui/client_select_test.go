@@ -20,7 +20,13 @@ func TestNewClient_MockDefaultPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Outputs) == 0 || len(res.Outputs[0].Data) == 0 {
+	var found []byte
+	for _, node := range res.Outputs {
+		for _, img := range node.Images {
+			found = append(found, img.Data...)
+		}
+	}
+	if len(found) == 0 {
 		t.Fatal("mock must return image bytes")
 	}
 }
