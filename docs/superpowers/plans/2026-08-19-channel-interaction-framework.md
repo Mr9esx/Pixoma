@@ -101,11 +101,11 @@ base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
 - Modify: `internal/channel/tg/menu_runtime.go`、`messenger.go`
 - Test: `internal/channel/tg/menu_runtime_test.go`
 
-- [ ] **Step 1: 写失败测试** — 主键盘：根层能力入口 ≤6（超限由校验拒绝）；每行按钮数读渲染声明（默认 2，override 生效）；分组点击 → 消息按钮列出能力入口（无嵌套分组）；每步含返回/退出
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/channel/tg/...`
-- [ ] **Step 3: 实现** — 主键盘构建读 render decl；分组一层；Nav 返回/退出按钮统一生成
-- [ ] **Step 4: 运行通过** — 全绿
-- [ ] **Step 5: 提交** — `git commit -m "feat(tg): explicit main keyboard and one-level grouping"`
+- [x] **Step 1: 写失败测试** — 主键盘：根层能力入口 ≤6（超限由校验拒绝）；每行按钮数读渲染声明（默认 2，override 生效）；分组点击 → 消息按钮列出能力入口（无嵌套分组）；每步含返回/退出
+- [x] **Step 2: 运行确认失败** — `go test ./internal/channel/tg/...`
+- [x] **Step 3: 实现** — 主键盘构建读 render decl；分组一层；Nav 返回/退出按钮统一生成
+- [x] **Step 4: 运行通过** — 全绿
+- [x] **Step 5: 提交** — `git commit -m "feat(tg): explicit main keyboard and one-level grouping"`
 
 ### Task 6: 渲染 DTO（预览=真实，同源）
 
