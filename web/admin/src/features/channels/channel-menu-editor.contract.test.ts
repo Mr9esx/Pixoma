@@ -79,6 +79,7 @@ const NEW_KEYS = [
   'invalidMissingAction',
   'invalidOpenCaseEmpty',
   'invalidNameEmpty',
+  'invalidNested',
   'simNote',
 ] as const
 
