@@ -89,11 +89,11 @@ base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
 - Consumes: Task 1/2 协议与 registry；Task 3 菜单模型
 - Produces: 适配器 UI 事件 → `CapabilityInvoke` → `Registry.Invoke` → `Result` → `SendList/SendText/SendMedia`；Nav 渲染返回/退出按钮
 
-- [ ] **Step 1: 写失败测试** — 事件翻译：按钮 → CapabilityInvoke{open_case, params}；Nav 返回按钮生成（root/分组）；Result.Options → 消息按钮（encodeAction 改为 capability 载荷）
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/channel/tg/...`
-- [ ] **Step 3: 实现** — ports.Action 泛化；adapter 改走 registry（移除 open_folder/open_case 等业务 switch）；Nav 统一渲染返回/退出
-- [ ] **Step 4: 运行通过** — 全绿
-- [ ] **Step 5: 提交** — `git commit -m "refactor(tg): route events through capability protocol"`
+- [x] **Step 1: 写失败测试** — 事件翻译：按钮 → CapabilityInvoke{open_case, params}；Nav 返回按钮生成（root/分组）；Result.Options → 消息按钮（encodeAction 改为 capability 载荷）
+- [x] **Step 2: 运行确认失败** — `go test ./internal/channel/tg/...`
+- [x] **Step 3: 实现** — ports.Action 泛化；adapter 改走 registry（移除 open_folder/open_case 等业务 switch）；Nav 统一渲染返回/退出
+- [x] **Step 4: 运行通过** — 全绿
+- [x] **Step 5: 提交** — `git commit -m "refactor(tg): route events through capability protocol"`
 
 ### Task 5: TG 交互落地（主键盘≤6 + 一层分组 + 消息按钮流程）
 
