@@ -22,4 +22,9 @@ func TestDefaultSeedTree_ImageIsFolder(t *testing.T) {
 	if img.ParentID != "" {
 		t.Fatal("root must have empty parent")
 	}
+	for _, it := range roots {
+		if it.CapabilityID == "" {
+			t.Fatalf("seed leaf %q must have a capability", it.ID)
+		}
+	}
 }
