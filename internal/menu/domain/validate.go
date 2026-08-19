@@ -116,6 +116,8 @@ func validateNodeChildren(nodes []MenuNode) error {
 					return fmt.Errorf("%w: group %q children must not nest groups (one level only)", ErrValidation, n.ID)
 				}
 			}
+		} else if n.CapabilityID == "" {
+			return fmt.Errorf("%w: leaf item %q must have a capability", ErrValidation, n.ID)
 		}
 		if err := validateNodeChildren(n.Children); err != nil {
 			return err

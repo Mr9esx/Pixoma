@@ -47,7 +47,7 @@ func TestValidate_RejectsRootOverLimit(t *testing.T) {
 	tree := domain.MenuTree{ChannelID: "tg-default", Items: []domain.MenuNode{}}
 	for i := 0; i < 7; i++ {
 		tree.Items = append(tree.Items, domain.MenuNode{
-			ID: string(rune('a'+i)), Label: string(rune('a' + i)), Order: i, Enabled: true,
+			ID: string(rune('a' + i)), Label: string(rune('a' + i)), Order: i, Enabled: true,
 		})
 	}
 	err := domain.Validate(context.Background(), tree, exists, exists, nil)
@@ -86,8 +86,8 @@ func TestValidate_RejectsDuplicateOrderWithinParent(t *testing.T) {
 		ChannelID: "tg-default",
 		Items: []domain.MenuNode{
 			{ID: "a", Label: "A", Order: 0, Enabled: true,
-				Children: []domain.MenuNode{{ID: "a1", Label: "A1", Order: 0, Enabled: true}}},
-			{ID: "b", Label: "B", Order: 1, Enabled: true},
+				Children: []domain.MenuNode{{ID: "a1", Label: "A1", Order: 0, Enabled: true, CapabilityID: "reply_text", Params: map[string]any{"text": "x"}}}},
+			{ID: "b", Label: "B", Order: 1, Enabled: true, CapabilityID: "reply_text", Params: map[string]any{"text": "x"}},
 		},
 	}
 	if err := domain.Validate(ctx, ok, exists, exists, nil); err != nil {
@@ -106,6 +106,28 @@ func TestValidate_OpenCaseRequiresExistingCase(t *testing.T) {
 	tree.Items[0].Params = map[string]any{"case_ids": []any{"ok"}}
 	if err := domain.Validate(ctx, tree, existsID, exists, nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestValidate_LeafWithoutCapabilityRejected(t *testing.T) {
+	tree := domain.MenuTree{Items: []domain.MenuNode{
+		{ID: "a", Label: "A", Order: 0, Enabled: true},
+	}}
+	err := domain.Validate(context.Background(), tree, nil, nil, nil)
+	if err == nil {
+		t.Fatal("expected leaf-without-capability error")
+	}
+}
+
+func TestValidate_LeafWithCapabilityAccepted(t *testing.T) {
+	tree := domain.MenuTree{Items: []domain.MenuNode{
+		{ID: "a", Label: "A", Order: 0, Enabled: true, CapabilityID: "reply_text", Params: map[string]any{"text": "x"}},
+	}}
+	err := domain.Validate(context.Background(), tree, nil, func(_ context.Context, id string) (bool, error) {
+		return id == "reply_text", nil
+	}, func(_ context.Context, _ string, _ map[string]any) error { return nil })
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
 	}
 }
 
