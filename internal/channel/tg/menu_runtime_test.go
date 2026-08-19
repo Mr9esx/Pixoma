@@ -34,7 +34,9 @@ type captureOutbound struct {
 	lists [][][]ports.Button
 }
 
-func (c *captureOutbound) SendText(context.Context, sharedkernel.ChannelAddr, string) error { return nil }
+func (c *captureOutbound) SendText(context.Context, sharedkernel.ChannelAddr, string) error {
+	return nil
+}
 func (c *captureOutbound) SendMenu(context.Context, sharedkernel.ChannelAddr, string, []ports.MenuEntry) error {
 	return nil
 }
@@ -90,3 +92,40 @@ func TestRenderResultBackButton(t *testing.T) {
 }
 
 func isInvokeData(d string) bool { return len(d) > len(CBInvoke) && d[:len(CBInvoke)] == CBInvoke }
+
+type mediaURLOutbound struct {
+	mediaURLs []string
+}
+
+func (m *mediaURLOutbound) SendText(context.Context, sharedkernel.ChannelAddr, string) error {
+	return nil
+}
+func (m *mediaURLOutbound) SendMenu(context.Context, sharedkernel.ChannelAddr, string, []ports.MenuEntry) error {
+	return nil
+}
+func (m *mediaURLOutbound) SendList(context.Context, sharedkernel.ChannelAddr, string, [][]ports.Button) error {
+	return nil
+}
+func (m *mediaURLOutbound) SendMedia(context.Context, sharedkernel.ChannelAddr, sharedkernel.BlobRef, string) error {
+	return nil
+}
+func (m *mediaURLOutbound) SendMediaURL(_ context.Context, _ sharedkernel.ChannelAddr, imageURL, _ string) error {
+	m.mediaURLs = append(m.mediaURLs, imageURL)
+	return nil
+}
+
+func TestRenderResultSendsMediaURLs(t *testing.T) {
+	out := &mediaURLOutbound{}
+	ad := New(out)
+	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
+	res := protocol.Result{
+		Text:      "联系方式",
+		MediaURLs: []string{"https://a/qr.png", "https://a/b.png"},
+	}
+	if err := ad.renderResult(context.Background(), addr, "tg-default:1", protocol.CapabilityInvoke{}, res); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.mediaURLs) != 2 || out.mediaURLs[0] != "https://a/qr.png" {
+		t.Fatalf("mediaURLs=%q", out.mediaURLs)
+	}
+}

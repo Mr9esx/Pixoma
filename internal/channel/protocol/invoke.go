@@ -40,10 +40,11 @@ type MediaRef struct {
 
 // Result is the channel-agnostic outcome of a capability invocation.
 type Result struct {
-	Text    string     `json:"text"`
-	Options []Option   `json:"options"`
-	Media   []MediaRef `json:"media"`
-	Error   *string    `json:"error,omitempty"`
+	Text      string     `json:"text"`
+	Options   []Option   `json:"options"`
+	Media     []MediaRef `json:"media"`
+	MediaURLs []string   `json:"media_urls,omitempty"`
+	Error     *string    `json:"error,omitempty"`
 }
 
 // RenderDecl is the per-channel rendering declaration for a capability entry.
