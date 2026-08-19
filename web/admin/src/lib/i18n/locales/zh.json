@@ -363,14 +363,6 @@
     "tokenHint": "留空表示不修改；Token 只加密存储，页面仅显示掩码。",
     "tabPreview": "渠道预览"
   },
-  "extras": {
-    "description": "平台差异数据（如 TG 根层网格布局）。每条 extras 按 渠道+菜单项+类型 保存。",
-    "empty": "暂无 extras，点「添加」配置一条。",
-    "item": "菜单项",
-    "itemPrompt": "菜单项 ID：",
-    "typePrompt": "extra 类型（默认 tg_root_layout）：",
-    "add": "添加"
-  },
   "preview": {
     "mainKeyboard": "主键盘（TG）",
     "group": "分组",

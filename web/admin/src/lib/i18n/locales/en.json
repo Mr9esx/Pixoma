@@ -299,7 +299,7 @@
     "noChildren": "No subfolders yet — use “Add subfolder” above.",
     "updatedAt": "Updated at",
     "fieldOrder": "Order",
-    "fieldCapability": "Capability",
+    "fieldCapability": "Function",
     "capabilityNone": "None (display/group)",
     "fieldColumns": "Buttons per row"
   },
@@ -362,14 +362,6 @@
     "tabMenu": "Menu",
     "tokenHint": "Leave blank to keep unchanged; tokens are stored encrypted and shown masked.",
     "tabPreview": "Channel Preview"
-  },
-  "extras": {
-    "description": "Platform-specific data (e.g. TG root layout). Each extra is keyed by channel + menu item + type.",
-    "empty": "No extras yet. Click \"Add\" to create one.",
-    "item": "Menu item",
-    "itemPrompt": "Menu item ID: ",
-    "typePrompt": "Extra type (default tg_root_layout): ",
-    "add": "Add"
   },
   "preview": {
     "mainKeyboard": "Main keyboard (TG)",
