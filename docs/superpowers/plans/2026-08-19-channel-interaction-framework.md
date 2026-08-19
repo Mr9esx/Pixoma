@@ -72,11 +72,11 @@ base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
 - Produces: `MenuNode` 增加 `CapabilityID string`、`Params map[string]any`、`RenderOverride map[string]any`；移除业务 `Kind` 枚举语义（保留展示字段 IntroText/PlaceholderText/Reply）
 - Produces: 校验：未知 capability_id 拒绝（通过注入的 capability 存在性检查）、params 校验交给能力层、根层直达入口 ≤6、一层分组（分组节点 children 不得再含分组）
 
-- [ ] **Step 1: 写失败测试** — 根层 >6 拒绝；分组嵌套拒绝；未知 capability_id 拒绝；params/override 往返
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/menu/...`
-- [ ] **Step 3: 实现** — 模型字段、校验、持久化（capability_id/params_json/render_override_json 列）、种子改能力入口
-- [ ] **Step 4: 运行通过** — 全绿；`go build ./internal/menu/...`
-- [ ] **Step 5: 提交** — `git commit -m "refactor(menu): capability-entry menu model"`
+- [x] **Step 1: 写失败测试** — 根层 >6 拒绝；分组嵌套拒绝；未知 capability_id 拒绝；params/override 往返
+- [x] **Step 2: 运行确认失败** — `go test ./internal/menu/...`
+- [x] **Step 3: 实现** — 模型字段、校验、持久化（capability_id/params_json/render_override_json 列）、种子改能力入口
+- [x] **Step 4: 运行通过** — 全绿；`go build ./internal/menu/...`
+- [x] **Step 5: 提交** — `git commit -m "refactor(menu): capability-entry menu model"`
 
 ### Task 4: 交互协议接入适配器
 
