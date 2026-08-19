@@ -180,6 +180,7 @@ func (s *CaseSnapshot) BuildJobPackage(ctx context.Context, taskID sharedkernel.
 		Workflow:     graph,
 		Images:       images,
 		OutputPrefix: fmt.Sprintf("outputs/%s", taskID),
+		Outputs:      append([]catalogdomain.OutputBinding(nil), c.Document.Bindings.Outputs...),
 	}, nil
 }
 

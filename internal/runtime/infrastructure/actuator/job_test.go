@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -23,6 +24,9 @@ func TestJobPackage_RoundTrip(t *testing.T) {
 			},
 		},
 		OutputPrefix: "outputs/t1",
+		Outputs: []catalogdomain.OutputBinding{
+			{Key: "image", NodeID: "9", Index: 0},
+		},
 	}
 	raw, err := json.Marshal(job)
 	if err != nil {
@@ -34,6 +38,9 @@ func TestJobPackage_RoundTrip(t *testing.T) {
 	}
 	if got.TaskID != "t1" || got.OutputPrefix != "outputs/t1" {
 		t.Fatalf("got=%+v", got)
+	}
+	if len(got.Outputs) != 1 || got.Outputs[0].Key != "image" || got.Outputs[0].NodeID != "9" {
+		t.Fatalf("outputs=%+v", got.Outputs)
 	}
 	if len(got.Images) != 1 || got.Images[0].Blob.Key != "inputs/t1/photo.png" {
 		t.Fatalf("images=%+v", got.Images)
