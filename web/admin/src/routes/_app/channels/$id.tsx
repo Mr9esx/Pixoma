@@ -17,7 +17,6 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { ChannelMenuPreview } from '@/features/channels/menu-preview'
 import { MenuCardEditor } from '@/features/menu/menu-card-editor'
 
 export const Route = createFileRoute('/_app/channels/$id')({
@@ -111,7 +110,6 @@ function ChannelDetailPage() {
         <TabsList>
           <TabsTrigger value='basic'>{t('channels.tabBasic')}</TabsTrigger>
           <TabsTrigger value='menu'>{t('channels.tabMenu')}</TabsTrigger>
-          <TabsTrigger value='preview'>{t('channels.tabPreview')}</TabsTrigger>
         </TabsList>
         <TabsContent value='basic' className='mt-3'>
           <Card className='max-w-xl'>
@@ -149,9 +147,6 @@ function ChannelDetailPage() {
         </TabsContent>
         <TabsContent value='menu' className='mt-3 h-full'>
           <MenuCardEditor channelId={id} />
-        </TabsContent>
-        <TabsContent value='preview' className='mt-3'>
-          <ChannelMenuPreview channelId={id} />
         </TabsContent>
       </Tabs>
     </div>
