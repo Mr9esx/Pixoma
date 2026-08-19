@@ -221,46 +221,55 @@ func (h *HTTP) pollHistory(ctx context.Context, promptID string) (*Result, bool,
 	if res.StatusCode >= 300 {
 		return nil, false, fmt.Errorf("comfyui history: status %d: %s", res.StatusCode, truncate(raw, 256))
 	}
-	var hist map[string]struct {
-		Outputs map[string]struct {
-			Images []struct {
-				Filename  string `json:"filename"`
-				Subfolder string `json:"subfolder"`
-				Type      string `json:"type"`
-			} `json:"images"`
-		} `json:"outputs"`
+	hist, err := ParseHistory(raw)
+	if err != nil {
+		return nil, false, err
+	}
+	var statuses map[string]struct {
 		Status struct {
 			StatusStr string `json:"status_str"`
 			Completed bool   `json:"completed"`
 		} `json:"status"`
 	}
-	if err := json.Unmarshal(raw, &hist); err != nil {
+	if err := json.Unmarshal(raw, &statuses); err != nil {
 		return nil, false, fmt.Errorf("comfyui history decode: %w", err)
 	}
-	entry, ok := hist[promptID]
+	entry, ok := statuses[promptID]
 	if !ok {
 		return nil, false, nil
 	}
 	if entry.Status.StatusStr == "error" {
 		return nil, false, fmt.Errorf("comfyui wait: prompt %s failed", promptID)
 	}
-	var outs []OutputFile
-	for _, node := range entry.Outputs {
+	var nodeOutputs HistoryResult
+	for nodeID, node := range hist {
+		out := NodeOutput{}
 		for _, img := range node.Images {
+			if img.Filename == "" {
+				continue
+			}
 			data, mime, err := h.fetchView(ctx, img.Filename, img.Subfolder, img.Type)
 			if err != nil {
 				return nil, false, err
 			}
-			outs = append(outs, OutputFile{Filename: img.Filename, Mime: mime, Data: data})
+			out.Images = append(out.Images, NodeImage{
+				OutputFile: OutputFile{Filename: img.Filename, Mime: mime, Data: data},
+				Subfolder:  img.Subfolder,
+				Type:       img.Type,
+			})
+		}
+		out.Texts = append(out.Texts, node.Texts...)
+		if len(out.Images) > 0 || len(out.Texts) > 0 {
+			nodeOutputs[nodeID] = out
 		}
 	}
-	if len(outs) == 0 && !entry.Status.Completed {
+	if len(nodeOutputs) == 0 && !entry.Status.Completed {
 		return nil, false, nil
 	}
-	if len(outs) == 0 {
-		return nil, false, fmt.Errorf("comfyui wait: completed without image outputs")
+	if len(nodeOutputs) == 0 {
+		return nil, false, fmt.Errorf("comfyui wait: completed without outputs")
 	}
-	return &Result{PromptID: promptID, Outputs: outs}, true, nil
+	return &Result{PromptID: promptID, Outputs: nodeOutputs}, true, nil
 }
 
 func (h *HTTP) fetchView(ctx context.Context, filename, subfolder, typ string) ([]byte, string, error) {
