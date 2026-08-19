@@ -38,11 +38,11 @@ base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
 - Produces: `RenderDecl{Entry string; Config map[string]any}`、`AccountCtx{ChannelID, ExternalUserID, InternalUserID}`、`Nav{Back string; Step string}`、`CapabilityInvoke{CapabilityID string; Params map[string]any; Account AccountCtx; Nav Nav}`、`Result{Text string; Options []Option; Media []MediaRef; Error *string}`、`Option{Label string; Value map[string]any}`
 - Produces: `Registry.Register(cap Capability) error`（重复 id 报错）、`Registry.Get(id)`、`Registry.List()`
 
-- [ ] **Step 1: 写失败测试** — capability_test：注册/重复注册报错；Get/List；Render 合并 override（能力默认 `{columns:2}` + override `{columns:3}` → 3）；protocol_test：CapabilityInvoke JSON 往返、Nav/AccountCtx 字段
-- [ ] **Step 2: 运行确认失败** — `GOTOOLCHAIN=go1.25.0 go test ./internal/channel/capability/... ./internal/channel/protocol/...`
-- [ ] **Step 3: 实现** — 按接口写类型与 Registry；Render 合并语义（仅替换 override 指定 key）
-- [ ] **Step 4: 运行通过** — 测试全绿
-- [ ] **Step 5: 提交** — `git commit -m "feat(channel): capability registry and interaction protocol types"`
+- [x] **Step 1: 写失败测试** — capability_test：注册/重复注册报错；Get/List；Render 合并 override（能力默认 `{columns:2}` + override `{columns:3}` → 3）；protocol_test：CapabilityInvoke JSON 往返、Nav/AccountCtx 字段
+- [x] **Step 2: 运行确认失败** — `GOTOOLCHAIN=go1.25.0 go test ./internal/channel/capability/... ./internal/channel/protocol/...`
+- [x] **Step 3: 实现** — 按接口写类型与 Registry；Render 合并语义（仅替换 override 指定 key）
+- [x] **Step 4: 运行通过** — 测试全绿
+- [x] **Step 5: 提交** — `git commit -m "feat(channel): capability registry and interaction protocol types"`
 
 ### Task 2: open_case 能力 + JSON Schema 校验
 
