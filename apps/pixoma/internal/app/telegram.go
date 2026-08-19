@@ -163,6 +163,8 @@ type tgChannelFactory struct {
 func newCapabilityRegistry(facade *botapp.Facade) *capability.Registry {
 	r := capability.NewRegistry()
 	_ = r.Register(capability.OpenCase{App: facade})
+	_ = r.Register(capability.ReplyText{})
+	_ = r.Register(capability.ReplyMedia{})
 	return r
 }
 

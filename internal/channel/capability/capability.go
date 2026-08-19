@@ -19,6 +19,20 @@ type Capability interface {
 	Invoke(ctx context.Context, acct protocol.AccountCtx, nav protocol.Nav, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error)
 }
 
+// AdminSchemaProvider lets a capability expose a reduced schema for admin
+// configuration, hiding runtime-only params from the editor.
+type AdminSchemaProvider interface {
+	AdminParamsSchema() json.RawMessage
+}
+
+// AdminSchema returns the admin-editable params schema for a capability.
+func AdminSchema(c Capability) json.RawMessage {
+	if p, ok := c.(AdminSchemaProvider); ok {
+		return p.AdminParamsSchema()
+	}
+	return c.ParamsSchema()
+}
+
 // MergeRender applies a menu-item render override onto a capability's base
 // render declaration, replacing only the keys present in the override.
 func MergeRender(base protocol.RenderDecl, override map[string]any) protocol.RenderDecl {

@@ -31,7 +31,21 @@ type OpenCase struct {
 }
 
 func (OpenCase) ID() string          { return "open_case" }
-func (OpenCase) DisplayName() string { return "开 Case" }
+func (OpenCase) DisplayName() string { return "打开工作流" }
+
+// AdminParamsSchema exposes only the admin-configurable list entry params.
+func (OpenCase) AdminParamsSchema() json.RawMessage {
+	return json.RawMessage(`{
+		"type": "object",
+		"properties": {
+			"case_ids": {
+				"type": "array",
+				"items": { "type": "string" },
+				"x-admin": { "widget": "workflow_picker" }
+			}
+		}
+	}`)
+}
 
 func (OpenCase) ParamsSchema() json.RawMessage {
 	return json.RawMessage(`{
