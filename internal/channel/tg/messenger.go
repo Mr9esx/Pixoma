@@ -106,17 +106,11 @@ func (m *BotMessenger) replyKeyboard(ctx context.Context) *models.ReplyKeyboardM
 	if m != nil && m.Menu != nil {
 		tree, err := m.Menu.GetMenu(ctx)
 		if err == nil {
-			if m.Extras != nil {
-				if ex, err := m.Extras.GetExtras(ctx); err == nil {
-					return BuildReplyKeyboard(tree, ex)
-				}
-				slog.Error("tg menu extras load for keyboard failed", "err", err)
-			}
-			return BuildReplyKeyboard(tree, nil)
+			return BuildReplyKeyboard(tree)
 		}
 		slog.Error("tg menu load for keyboard failed; using default seed", "err", err)
 	}
-	return BuildReplyKeyboard(domain.DefaultSeedTree("default"), nil)
+	return BuildReplyKeyboard(domain.DefaultSeedTree("default"))
 }
 
 func toInlineMarkup(rows [][]ports.Button) *models.InlineKeyboardMarkup {
