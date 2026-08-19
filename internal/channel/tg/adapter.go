@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"strings"
 	"sync"
@@ -24,7 +25,6 @@ type Adapter struct {
 	Media     ports.MediaBridge
 	Users     ports.IdentityResolver
 	Menu      MenuReader
-	Extras    ExtrasReader
 	Registry  *capability.Registry
 	Blob      blob.Store
 	ChannelID string
@@ -181,11 +181,34 @@ func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotif
 		return err
 	}
 	if n.Kind == "task_succeeded" && len(n.Outputs) > 0 {
-		caption := fmt.Sprintf("✅ Case 完成\ntask=%s", n.TaskID)
-		if err := a.Out.SendMedia(ctx, addr, n.Outputs[0], caption); err != nil {
-			return err
+		for i, ref := range n.Outputs {
+			caption := ""
+			if i == 0 {
+				caption = fmt.Sprintf("✅ 工作流完成\ntask=%s", n.TaskID)
+			}
+			if strings.HasPrefix(ref.MIME, "text/") {
+				if a.Blob == nil {
+					continue
+				}
+				rc, err := a.Blob.Get(ctx, ref)
+				if err != nil {
+					return err
+				}
+				raw, readErr := io.ReadAll(rc)
+				rc.Close()
+				if readErr != nil {
+					return readErr
+				}
+				if err := a.Out.SendText(ctx, addr, string(raw)); err != nil {
+					return err
+				}
+				continue
+			}
+			if err := a.Out.SendMedia(ctx, addr, ref, caption); err != nil {
+				return err
+			}
 		}
-		return a.Out.SendMenu(ctx, addr, "还要继续？点菜单再选一个 Case。", nil)
+		return a.Out.SendMenu(ctx, addr, "还要继续？点菜单再选一个工作流。", nil)
 	}
 	msg := fmt.Sprintf("任务 %s: %s", n.TaskID, n.Kind)
 	if n.ErrorMsg != "" {
