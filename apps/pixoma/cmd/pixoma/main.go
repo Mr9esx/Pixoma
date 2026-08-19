@@ -228,6 +228,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	if err != nil {
 		return err
 	}
+	menuSvc.Capabilities = app.MenuCapabilityChecker{Reg: botRT.Capabilities}
 	orch := orchestrator.New(taskRepo, pool, nil, botRT.Notify)
 	orch.Sessions = sessionRepo
 	orch.Prep = snap

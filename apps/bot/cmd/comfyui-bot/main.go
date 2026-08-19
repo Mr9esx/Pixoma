@@ -253,6 +253,8 @@ func run(ctx context.Context) error {
 		},
 	}
 
+	caps := botCapabilities(facade)
+	menuSvc.Capabilities = botMenuCaps{reg: caps}
 	assembler := &channelruntime.Assembler{
 		Store: &botChannelSnapshotStore{svc: chSvc},
 		Factory: &botTGAdapterFactory{
@@ -261,7 +263,7 @@ func run(ctx context.Context) error {
 			blob:     blobStore,
 			users:    botIdentityResolver{users: userRepo},
 			registry: notifyRegistry,
-			caps:     botCapabilities(facade),
+			caps:     caps,
 		},
 		Interval: 5 * time.Second,
 	}
