@@ -1,8 +1,5 @@
-# tg-menu Specification
+## MODIFIED Requirements
 
-## Purpose
-定义单 Bot 场景下 Telegram 主键盘的可配置树模型：根层 ReplyKeyboard、文件夹下钻、菜单项与 Case 的持久化关联，并支持从 Case 反查挂载位置。
-## Requirements
 ### Requirement: Menu 树持久化
 系统 MUST 将**渠道菜单**持久化为渠道作用域的菜单文档、菜单项（含可选父项）与菜单项–Case 关联。根项（无父项）MUST 可用于渠道入口渲染；子项与关联 Case MUST 可用于目录下的浏览与选择。模型 MUST NOT 包含平台专有字段（如 Telegram 行/列网格、回调编码、消息长度上限）。
 
@@ -17,13 +14,6 @@
 #### Scenario: 绑定不存在的 Case 被拒绝
 - **WHEN** 提交的关联 `case_id` 在 Case 目录中不存在
 - **THEN** 系统拒绝保存并返回可理解的校验错误
-
-### Requirement: Case 反查菜单挂载
-系统 MUST 能根据 Case id 列出其出现的菜单路径（菜单文档与由根到该项的标签路径）。
-
-#### Scenario: 查询 Case 的菜单挂载
-- **WHEN** 调用方请求某 Case 的菜单挂载
-- **THEN** 系统返回零条或多条路径；每条能标识所在菜单项与可读路径
 
 ### Requirement: 默认种子与兼容
 系统在渠道无自定义菜单时 MUST 提供可用的默认入口种子；其中「图片」类入口 MUST 以文件夹（或等价可下钻节点）表达，并可挂载图片类 Case。
@@ -42,4 +32,3 @@
 #### Scenario: 空回复被拒绝
 - **WHEN** reply_media 的文本与图片皆空
 - **THEN** 系统拒绝保存
-

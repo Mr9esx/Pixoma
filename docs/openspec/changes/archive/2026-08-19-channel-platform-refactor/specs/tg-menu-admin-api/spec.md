@@ -1,8 +1,5 @@
-# tg-menu-admin-api Specification
+## MODIFIED Requirements
 
-## Purpose
-为管理端提供 Telegram 主键盘（树形 Menu）配置的 HTTP API，并支持按 Case 反查菜单挂载路径。
-## Requirements
 ### Requirement: Menu 树管理 HTTP 接口
 admin-api MUST 暴露渠道菜单管理接口（路径约定 `/api/v1/channels/{id}/menu`）：支持按渠道获取完整树形配置，以及整棵树写回。接口鉴权策略与现有 admin-api 一致（仅内网约定）。
 
@@ -39,4 +36,3 @@ admin-api MUST 暴露按 Case id 查询菜单挂载的接口（路径约定 `/ap
 #### Scenario: 控制台经 admin-api 读写
 - **WHEN** 管理前端在渠道详情中保存菜单或加载 Case 挂载
 - **THEN** 请求指向 admin-api 的渠道菜单路径，而非 bot 管理残留路径
-

@@ -1,0 +1,21 @@
+{
+  "change": "channel-platform-refactor",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "61bd8b96c6a9f5e9227753fdf0a40dc16e3018d80dc07ede88c05d635d23185e",
+  "files": [
+    { "path": "docs/openspec/changes/channel-platform-refactor/proposal.md", "sha256": "589f37eab96c67e4bb173003933840bc4ea090e16552173a5bceba01b6f5be3d" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/design.md", "sha256": "c5d26e779d72efb7024bd500bb9bc75691fc83aeb1942b205f7060df79cef4f9" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/tasks.md", "sha256": "6b67549b6048067877ffa8620aadd42c0e92769ead99084f1c8df5e43ef449c2" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/specs/admin-web-shell/spec.md", "sha256": "4fbb4bae6c5981c64268328e19622ae73789af6ea053f9211a67263154a6049e" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/specs/channel-management/spec.md", "sha256": "1aaafa063c600dcc560835dbbc37c392e783e285f485ec98eaa7c37536574630" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/specs/channel-menu-config/spec.md", "sha256": "01e6ce9156381374baba295056cfa83d35190ae94e7753d4455a1d34aebc03e2" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/specs/channel-runtime-ports/spec.md", "sha256": "3d4380bd2335999001f68b692f51eb242471b0511c439ba716529d19acc06ead" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/specs/channel-tg/spec.md", "sha256": "e7027772c4a089d5574bbc2d52dfb68137c45326bc728d58151918d29d0e0ade" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/specs/tg-menu/spec.md", "sha256": "08c0f93cb89f56daab27bf5a46280388f3511a20da8f28a1ff8fb9077fada775" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/specs/tg-menu-admin-api/spec.md", "sha256": "4dff3e2d3bf650ee8534e16848dda5f042c1f97b09aeea1d8ba3aaaef4d4b061" },
+    { "path": "docs/openspec/changes/channel-platform-refactor/specs/user-directory/spec.md", "sha256": "8358d7d610d6cf560920575841617708dd85c41fcee45bb771e20006d2e0c3e8" }
+  ]
+}
