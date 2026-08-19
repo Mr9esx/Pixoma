@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next'
 import type { Card, CardButton, Menu, MenuItem } from '@/lib/api/channel-menu'
 import { cn } from '@/lib/utils'
 import { buildTgFlow } from './lib/menu-flow'
@@ -20,7 +19,6 @@ export function PhoneSimulation({
   onOpenCard,
   onBack,
 }: Props) {
-  const { t } = useTranslation()
   const { keyboard, cardById } = buildTgFlow(menu, cards)
   const currentCardId = path[path.length - 1]
   const currentCard = currentCardId ? cardById.get(currentCardId) : undefined
@@ -67,9 +65,7 @@ export function PhoneSimulation({
               ) : null}
             </>
           ) : (
-            <p className='text-muted-foreground'>
-              欢迎使用，请选择功能 👇（{t('menu.cardList')}）
-            </p>
+            <p className='text-muted-foreground'>欢迎使用，请选择功能 👇</p>
           )}
         </div>
         <div className='mt-3 border-t pt-3'>

@@ -35,7 +35,9 @@ func (h *Handler) Mount(r chi.Router) {
 func (h *Handler) getMenu(w http.ResponseWriter, r *http.Request) {
 	menu, err := h.Repo.GetMenu(r.Context(), chi.URLParam(r, "id"))
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		writeJSON(w, http.StatusOK, mcdomain.Menu{ID: chi.URLParam(r, "id")})
+		def := mcdomain.DefaultMenu()
+		def.ID = chi.URLParam(r, "id")
+		writeJSON(w, http.StatusOK, def)
 		return
 	}
 	if err != nil {
