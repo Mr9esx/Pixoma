@@ -318,6 +318,11 @@ func (a *Adapter) renderResult(ctx context.Context, addr sharedkernel.ChannelAdd
 			return err
 		}
 	}
+	for _, u := range res.MediaURLs {
+		if err := a.Out.SendMediaURL(ctx, addr, u, res.Text); err != nil {
+			return err
+		}
+	}
 	if len(res.Options) > 0 {
 		var rows [][]ports.Button
 		for _, opt := range res.Options {
