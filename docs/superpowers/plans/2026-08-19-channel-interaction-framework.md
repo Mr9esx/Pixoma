@@ -133,11 +133,11 @@ base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
 - Modify: `web/admin/src/lib/api/query-keys.ts`、`routes/_app/channels/$id.tsx`（预览 tab）
 - Modify: i18n zh/en（直白文案；移除 extras 相关）
 
-- [ ] **Step 1: 写契约测试** — 能力下拉来自 registry；schema 表单按 params 渲染；预览 DTO 绘制
-- [ ] **Step 2: 运行确认失败** — `cd web/admin && pnpm test`
-- [ ] **Step 3: 实现** — 编辑器改版 + 预览绘制 + 文案术语约束（无 inline/capability/extras 等词）
-- [ ] **Step 4: 运行通过** — `pnpm test && pnpm build`；`rg -n "inline|capability|extras" web/admin/src` 仅代码/类型（无用户文案）
-- [ ] **Step 5: 提交** — `git commit -m "feat(admin): capability editor with schema form and preview"`
+- [x] **Step 1: 写契约测试** — 能力下拉来自 registry；schema 表单按 params 渲染；预览 DTO 绘制
+- [x] **Step 2: 运行确认失败** — `cd web/admin && pnpm test`
+- [x] **Step 3: 实现** — 编辑器改版 + 预览绘制 + 文案术语约束（无 inline/capability/extras 等词）
+- [x] **Step 4: 运行通过** — `pnpm test && pnpm build`；`rg -n "inline|capability|extras" web/admin/src` 仅代码/类型（无用户文案）
+- [x] **Step 5: 提交** — `git commit -m "feat(admin): capability editor with schema form and preview"`
 
 ### Task 8: 迁移与接线
 
