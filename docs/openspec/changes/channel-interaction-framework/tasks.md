@@ -1,9 +1,9 @@
 ## 1. 能力注册表
 
 - [x] 1.1 新增 `internal/channel/capability`：Capability 接口（ID/DisplayName/ParamsSchema(JSON Schema)/Invoke/Render）、Registry 与 `Register`
-- [ ] 1.2 参数校验：按能力 JSON Schema 校验能力调用参数，非法返回可理解错误
-- [ ] 1.3 内置 `open_case` 能力：包装现有 `botapp.Facade`（预览/开始/填表/确认/结果），params 支持 case 选择与 back 引用
-- [ ] 1.4 能力清单查询：注册表支持按渠道筛选渲染声明，供管理台与适配器读取
+- [x] 1.2 参数校验：按能力 JSON Schema 校验能力调用参数，非法返回可理解错误
+- [x] 1.3 内置 `open_case` 能力：包装现有 `botapp.Facade`（预览/开始/填表/确认/结果），params 支持 case 选择与 back 引用
+- [x] 1.4 能力清单查询：注册表支持按渠道筛选渲染声明，供管理台与适配器读取
 
 ## 2. 菜单模型改为能力入口
 

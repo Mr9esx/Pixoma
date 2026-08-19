@@ -55,11 +55,11 @@ base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
 - Produces: `open_case` 能力：params schema `{case_ids: [string], back: string}`；`Invoke` 包装 `botapp.Facade`（case 列表/预览/开始/填表/确认/结果，沿用现有会话逻辑）
 - Produces: `Registry.Invoke(ctx, inv CapabilityInvoke) (Result, error)`（先 JSON Schema 校验 params，再调用能力）
 
-- [ ] **Step 1: 写失败测试** — schema 校验：缺 case_ids 拒绝；非 string 数组拒绝；合法 params 通过；Invoke 分发到 Facade 流程
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/channel/capability/...`
-- [ ] **Step 3: 实现** — open_case 包装 Facade（迁移 adapter 中 case 流程为能力）；Registry.Invoke 注入 schema 校验
-- [ ] **Step 4: 运行通过** — 测试全绿
-- [ ] **Step 5: 提交** — `git commit -m "feat(channel): open_case capability with JSON Schema validation"`
+- [x] **Step 1: 写失败测试** — schema 校验：缺 case_ids 拒绝；非 string 数组拒绝；合法 params 通过；Invoke 分发到 Facade 流程
+- [x] **Step 2: 运行确认失败** — `go test ./internal/channel/capability/...`
+- [x] **Step 3: 实现** — open_case 包装 Facade（迁移 adapter 中 case 流程为能力）；Registry.Invoke 注入 schema 校验
+- [x] **Step 4: 运行通过** — 测试全绿
+- [x] **Step 5: 提交** — `git commit -m "feat(channel): open_case capability with JSON Schema validation"`
 
 ### Task 3: 菜单模型改能力入口
 
