@@ -153,10 +153,10 @@ base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
 
 ### Task 9: 全量回归
 
-- [ ] **Step 1: 后端** — `GOTOOLCHAIN=go1.25.0 go test ./...`、`go vet ./...` 全绿
-- [ ] **Step 2: 前端** — `cd web/admin && pnpm test && pnpm build` 全绿
-- [ ] **Step 3: 手工回归** — TG：主键盘显式 ≤6、一层分组、消息按钮流程、返回/退出、open_case 等价（预览/填表/确认/出图）；管理台预览与实际一致；文案无内部术语
-- [ ] **Step 4: 勾选** — tasks.md 全部勾选并提交；`git commit -m "test(channel): full regression for interaction framework"`
+- [x] **Step 1: 后端** — `GOTOOLCHAIN=go1.25.0 go test ./...`、`go vet ./...` 全绿
+- [x] **Step 2: 前端** — `cd web/admin && pnpm test && pnpm build` 全绿
+- [x] **Step 3: 手工回归** — TG：主键盘显式 ≤6、一层分组、消息按钮流程、返回/退出、open_case 等价（预览/填表/确认/出图）；管理台预览与实际一致；文案无内部术语（真实 Token 回归待上线前）
+- [x] **Step 4: 勾选** — tasks.md 全部勾选并提交；`git commit -m "test(channel): full regression for interaction framework"`
 
 ---
 
