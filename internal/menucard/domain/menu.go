@@ -20,6 +20,17 @@ type MenuItem struct {
 	Action Action `json:"action"`
 }
 
+// DefaultMenu is the fallback main menu when a channel has none configured.
+func DefaultMenu() Menu {
+	return Menu{
+		ID: "default", Name: "主菜单", Columns: 2,
+		Items: []MenuItem{
+			{ID: "mi-image", Label: "🖼 图片生成", Action: Action{Type: "open_workflow", Mode: "list"}},
+			{ID: "mi-help", Label: "🆘 帮助", Action: Action{Type: "placeholder"}},
+		},
+	}
+}
+
 // Action describes what happens when a button is clicked.
 type Action struct {
 	Type        string   `json:"type"` // open_card | open_workflow | send_text | send_media | open_url | copy_text | placeholder
