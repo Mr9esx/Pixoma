@@ -7,6 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
 const ACTION_FORM = join(here, 'action-form.tsx')
+const PHONE_SIM = join(here, 'phone-simulation.tsx')
 
 const NEW_KEYS = [
   'mainKeyboard',
@@ -74,5 +75,16 @@ describe('action form', () => {
     }
     expect(source).toContain('workflow_ids')
     expect(source).toContain('cards')
+  })
+})
+
+describe('phone simulation', () => {
+  it('renders main keyboard and card flow with back', () => {
+    const source = readFileSync(PHONE_SIM, 'utf8')
+    expect(source).toContain("data-testid='phone-simulation'")
+    expect(source).toContain('buildTgFlow')
+    expect(source).toContain('onOpenCard')
+    expect(source).toContain('onBack')
+    expect(source).toContain('‹ 返回')
   })
 })
