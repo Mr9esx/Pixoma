@@ -249,14 +249,7 @@ func (a *Adapter) menuItemDispatch(ctx context.Context, chatID sharedkernel.Chat
 	if len(item.Children) > 0 {
 		return a.showGroup(ctx, addr, item.ID)
 	}
-	if item.Reply != nil {
-		return a.sendReplyMedia(ctx, addr, item)
-	}
-	msg := strings.TrimSpace(item.PlaceholderText)
-	if msg == "" {
-		msg = item.Label + "：暂未开放。"
-	}
-	return a.Out.SendMenu(ctx, addr, msg, nil)
+	return a.Out.SendText(ctx, addr, "菜单配置无效")
 }
 
 func (a *Adapter) showGroup(ctx context.Context, addr sharedkernel.ChannelAddr, itemID string) error {
@@ -357,23 +350,6 @@ func (a *Adapter) sendMainMenu(ctx context.Context, addr sharedkernel.ChannelAdd
 		}
 	}
 	return a.Out.SendMenu(ctx, addr, "欢迎使用 ComfyUI Bot\n请选择功能：", items)
-}
-
-func (a *Adapter) sendReplyMedia(ctx context.Context, addr sharedkernel.ChannelAddr, item domain.MenuNode) error {
-	if item.Reply == nil {
-		return a.Out.SendText(ctx, addr, "配置无效")
-	}
-	if text := strings.TrimSpace(item.Reply.Text); text != "" {
-		if err := a.Out.SendText(ctx, addr, text); err != nil {
-			return err
-		}
-	}
-	for _, u := range item.Reply.Images {
-		if err := a.Out.SendMediaURL(ctx, addr, u, ""); err != nil {
-			slog.Error("tg reply_media photo failed", "err", err, "url", u)
-		}
-	}
-	return nil
 }
 
 func (a *Adapter) appSessionExists(ctx context.Context, chatID sharedkernel.ChatID) (bool, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
 	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
@@ -127,5 +128,64 @@ func TestRenderResultSendsMediaURLs(t *testing.T) {
 	}
 	if len(out.mediaURLs) != 2 || out.mediaURLs[0] != "https://a/qr.png" {
 		t.Fatalf("mediaURLs=%q", out.mediaURLs)
+	}
+}
+
+type textCaptureOutbound struct {
+	texts []string
+}
+
+func (c *textCaptureOutbound) SendText(_ context.Context, _ sharedkernel.ChannelAddr, text string) error {
+	c.texts = append(c.texts, text)
+	return nil
+}
+func (c *textCaptureOutbound) SendMenu(context.Context, sharedkernel.ChannelAddr, string, []ports.MenuEntry) error {
+	return nil
+}
+func (c *textCaptureOutbound) SendList(context.Context, sharedkernel.ChannelAddr, string, [][]ports.Button) error {
+	return nil
+}
+func (c *textCaptureOutbound) SendMedia(context.Context, sharedkernel.ChannelAddr, sharedkernel.BlobRef, string) error {
+	return nil
+}
+func (c *textCaptureOutbound) SendMediaURL(context.Context, sharedkernel.ChannelAddr, string, string) error {
+	return nil
+}
+
+func TestMenuItemDispatchInvokesReplyTextCapability(t *testing.T) {
+	out := &textCaptureOutbound{}
+	ad := New(out)
+	ad.ChannelID = "tg-default"
+	reg := capability.NewRegistry()
+	if err := reg.Register(capability.ReplyText{}); err != nil {
+		t.Fatal(err)
+	}
+	ad.Registry = reg
+	item := domain.MenuNode{
+		ID:           "p",
+		Label:        "占位",
+		Order:        0,
+		Enabled:      true,
+		CapabilityID: "reply_text",
+		Params:       map[string]any{"text": "即将上线"},
+	}
+	if err := ad.menuItemDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}, item); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.texts) != 1 || out.texts[0] != "即将上线" {
+		t.Fatalf("texts=%q", out.texts)
+	}
+}
+
+func TestMenuItemDispatchRejectsBareLeaf(t *testing.T) {
+	out := &textCaptureOutbound{}
+	ad := New(out)
+	ad.ChannelID = "tg-default"
+	item := domain.MenuNode{ID: "bare", Label: "Bare", Order: 0, Enabled: true}
+	if err := ad.menuItemDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}, item); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.texts) != 1 || out.texts[0] != "菜单配置无效" {
+		t.Fatalf("texts=%q", out.texts)
 	}
 }
