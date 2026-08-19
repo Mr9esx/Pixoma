@@ -12,10 +12,13 @@ afterEach(() => {
 describe('platform settings API', () => {
   it('fetchPlatformSettings GETs /api/v1/setup/settings', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ configured: true, settings: { placement: 'local' } }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+      new Response(
+        JSON.stringify({ configured: true, settings: { placement: 'local' } }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -26,7 +29,7 @@ describe('platform settings API', () => {
       'http://127.0.0.1:8081/api/v1/setup/settings',
       expect.objectContaining({
         headers: expect.objectContaining({ Accept: 'application/json' }),
-      }),
+      })
     )
   })
 
@@ -35,7 +38,7 @@ describe('platform settings API', () => {
       new Response(JSON.stringify({ ok: true, restarting: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      }),
+      })
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -47,8 +50,6 @@ describe('platform settings API', () => {
       blob_root: 'data/blob',
       comfy_mock: false,
       comfyui_base_url: 'http://127.0.0.1:8188',
-      default_edge_id: 'local',
-      auto_spawn_edge: true,
     }
     const data = await savePlatformSettings(draft)
 
@@ -58,7 +59,7 @@ describe('platform settings API', () => {
       expect.objectContaining({
         method: 'PUT',
         body: JSON.stringify(draft),
-      }),
+      })
     )
   })
 
@@ -67,7 +68,7 @@ describe('platform settings API', () => {
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      }),
+      })
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -84,7 +85,7 @@ describe('platform settings API', () => {
           new_password: 'later-secret-1',
           old_password: 'current-secret',
         }),
-      }),
+      })
     )
   })
 
@@ -93,7 +94,7 @@ describe('platform settings API', () => {
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      }),
+      })
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -106,7 +107,7 @@ describe('platform settings API', () => {
         body: JSON.stringify({
           new_password: 'new-secret-9',
         }),
-      }),
+      })
     )
   })
 })

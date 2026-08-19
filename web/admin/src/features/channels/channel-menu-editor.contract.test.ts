@@ -16,9 +16,9 @@ function read(path: string) {
 describe('channel menu tree editor', () => {
   it('api types expose tree MenuNode with intro_text', () => {
     const source = read(API)
-    expect(source).toContain("export type MenuKind =")
-    expect(source).toContain("kind: MenuKind")
-    expect(source).toContain('case_ids?: string[]')
+    expect(source).toContain('capability_id?: string')
+    expect(source).toContain('params?: Record<string, unknown>')
+    expect(source).toContain('render_override?: Record<string, unknown>')
     expect(source).toContain('children?: MenuNode[]')
     expect(source).toContain('intro_text?: string')
     expect(source).toContain('export type ChannelMenuTree')

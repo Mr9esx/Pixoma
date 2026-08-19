@@ -2,7 +2,7 @@
   "menu": {
     "dashboard": "仪表盘",
     "edges": "计算节点",
-    "cases": "Case",
+    "cases": "工作流",
     "tasks": "任务",
     "users": "用户",
     "sessions": "会话",
@@ -42,8 +42,8 @@
     "edgesTitle": "计算节点",
     "edgesSummary": "共 {{total}} 台，启用 {{enabled}}",
     "edgeEnabledRatio": "启用占比",
-    "casesTitle": "Case",
-    "casesEnabled": "启用 Case 数",
+    "casesTitle": "工作流",
+    "casesEnabled": "启用工作流数",
     "tasksTitle": "任务",
     "taskStatusDistribution": "状态分布",
     "enabled": "启用",
@@ -140,13 +140,13 @@
     "fieldVram": "VRAM"
   },
   "cases": {
-    "title": "Case",
-    "description": "用分段表单创建与编辑 Case 文档。",
-    "empty": "暂无 Case",
+    "title": "工作流",
+    "description": "用分段表单创建与编辑工作流。",
+    "empty": "暂无工作流",
     "enabled": "启用",
     "disabled": "未启用",
-    "createHeading": "新建 Case",
-    "editHeading": "编辑 Case",
+    "createHeading": "新建工作流",
+    "editHeading": "编辑工作流",
     "sectionBasics": "基础信息",
     "sectionInputs": "输入字段",
     "sectionOutputs": "输出字段",
@@ -184,11 +184,11 @@
     "filterEnabledAll": "全部",
     "filterEnabledTrue": "启用",
     "filterEnabledFalse": "停用",
-    "createSuccess": "Case 已创建",
+    "createSuccess": "工作流已创建",
     "enable": "启用",
     "disable": "禁用",
-    "enableSuccess": "Case 已启用",
-    "disableSuccess": "Case 已禁用",
+    "enableSuccess": "工作流已启用",
+    "disableSuccess": "工作流已禁用",
     "jsonMustBeObject": "必须是 JSON 对象",
     "menuPlacementsTitle": "出现在菜单",
     "menuPlacementsEmpty": "未挂到菜单"
@@ -210,7 +210,7 @@
     "filterQPlaceholder": "按 id / case_id 等搜索…",
     "fieldId": "ID",
     "fieldStatus": "状态",
-    "fieldCaseId": "Case ID",
+    "fieldCaseId": "工作流 ID",
     "fieldSessionId": "Session ID",
     "fieldChatId": "Chat ID",
     "fieldEdgeId": "节点 ID",
@@ -262,7 +262,7 @@
     "fieldStatus": "状态",
     "fieldUserId": "User ID",
     "fieldChatId": "Chat ID",
-    "fieldCaseId": "Case ID",
+    "fieldCaseId": "工作流 ID",
     "fieldCurrentInputIndex": "当前输入索引",
     "fieldInputKeys": "输入键",
     "fieldDraft": "Draft",
@@ -283,7 +283,7 @@
     "fieldLabel": "按钮上显示的名字",
     "fieldEnabled": "启用",
     "fieldKind": "类型",
-    "fieldCaseId": "Case",
+    "fieldCaseId": "工作流",
     "fieldCaseIds": "本层模板",
     "fieldIntro": "本层说明",
     "fieldIntroHint": "点进这一层时，消息上面显示的文字。留空则只用上面的名字。",
@@ -292,13 +292,16 @@
     "fieldReplyText": "回复文字",
     "fieldReplyImages": "图片链接（每行一个）",
     "kindFolder": "文件夹",
-    "kindOpenCase": "打开 Case",
+    "kindOpenCase": "打开工作流",
     "kindPlaceholder": "仅提示",
     "kindReplyMedia": "回复图文",
     "addChild": "加一个分类",
     "noChildren": "还没有分类，点上面「加一个分类」。",
     "updatedAt": "更新时间",
-    "fieldOrder": "顺序"
+    "fieldOrder": "顺序",
+    "fieldCapability": "功能",
+    "capabilityNone": "无（展示/分组）",
+    "fieldColumns": "每行按钮数"
   },
   "settings": {
     "title": "设置",
@@ -334,7 +337,6 @@
     "proxySOCKS": "SOCKS",
     "fieldProxyHost": "地址",
     "fieldProxyPort": "端口",
-    "fieldAutoSpawn": "自动拉起本机执行进程",
     "databaseTitle": "业务库",
     "fieldDbDriver": "类型",
     "fieldDbDsn": "连接"
@@ -358,8 +360,8 @@
     "open": "进入",
     "tabBasic": "基本信息",
     "tabMenu": "菜单配置",
-    "tabExtras": "平台扩展",
-    "tokenHint": "留空表示不修改；Token 只加密存储，页面仅显示掩码。"
+    "tokenHint": "留空表示不修改；Token 只加密存储，页面仅显示掩码。",
+    "tabPreview": "渠道预览"
   },
   "extras": {
     "description": "平台差异数据（如 TG 根层网格布局）。每条 extras 按 渠道+菜单项+类型 保存。",
@@ -368,5 +370,10 @@
     "itemPrompt": "菜单项 ID：",
     "typePrompt": "extra 类型（默认 tg_root_layout）：",
     "add": "添加"
+  },
+  "preview": {
+    "mainKeyboard": "主键盘（TG）",
+    "group": "分组",
+    "hint": "预览与真实渲染同源：保存后用户看到的就是这个形态。"
   }
 }

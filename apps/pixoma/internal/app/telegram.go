@@ -35,9 +35,10 @@ var newTelegramBot = bot.New
 
 // BotRuntime carries the channel runtime and notify publisher for pixoma.
 type BotRuntime struct {
-	Facade *botapp.Facade
-	Notify notify.Publisher
-	Stop   func(ctx context.Context) error
+	Facade       *botapp.Facade
+	Notify       notify.Publisher
+	Stop         func(ctx context.Context) error
+	Capabilities *capability.Registry
 }
 
 // BotDeps is everything needed to run channel adapters and notify users.
@@ -76,8 +77,9 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 		facade:   facade,
 		deps:     deps,
 		registry: registry,
-		caps:     newCapabilityRegistry(facade),
 	}
+	caps := newCapabilityRegistry(facade)
+	factory.caps = caps
 	assembler := &channelruntime.Assembler{
 		Store:    &channelSnapshotStore{svc: deps.Channels},
 		Factory:  factory,
@@ -89,9 +91,10 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 		}
 	}()
 	return &BotRuntime{
-		Facade: facade,
-		Notify: router,
-		Stop:   assembler.StopAll,
+		Facade:       facade,
+		Notify:       router,
+		Stop:         assembler.StopAll,
+		Capabilities: caps,
 	}, nil
 }
 

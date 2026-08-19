@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
 	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
 	"github.com/mr9esx/comfyui_tgbot/internal/menu/application"
@@ -17,8 +18,9 @@ import (
 // Handler serves channel-scoped menu endpoints under /api/v1/channels/{id}/menu
 // and case menu placements under /api/v1/cases/{id}/menu-placements.
 type Handler struct {
-	Channels *channelapp.Service
-	Svc      *application.Service
+	Channels     *channelapp.Service
+	Svc          *application.Service
+	Capabilities *capability.Registry
 }
 
 func (h *Handler) MountMenu(r chi.Router) {
@@ -148,6 +150,24 @@ func (h *Handler) ListPlacements(w http.ResponseWriter, r *http.Request) {
 		placements = []domain.MenuPlacement{}
 	}
 	writeJSON(w, http.StatusOK, placements)
+}
+
+// ListCapabilities returns registered capabilities for the admin editor.
+func (h *Handler) ListCapabilities(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.Capabilities == nil {
+		writeErr(w, http.StatusInternalServerError, "capability registry not configured")
+		return
+	}
+	type capDTO struct {
+		ID          string `json:"id"`
+		DisplayName string `json:"display_name"`
+	}
+	caps := h.Capabilities.List()
+	out := make([]capDTO, 0, len(caps))
+	for _, c := range caps {
+		out = append(out, capDTO{ID: c.ID(), DisplayName: c.DisplayName()})
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

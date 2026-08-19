@@ -20,11 +20,11 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { listCases } from '@/lib/api/cases'
+import { listCapabilities, type CapabilityBrief } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
 import {
   getChannelMenu,
   putChannelMenu,
-  type MenuKind,
   type MenuNode,
 } from '@/lib/api/channel-menu'
 import { cn } from '@/lib/utils'
@@ -48,14 +48,12 @@ function findParentNode(nodes: MenuNode[], id: string): MenuNode | null {
   return null
 }
 
-function emptyNode(kind: MenuKind = 'placeholder'): MenuNode {
+function emptyNode(): MenuNode {
   return {
     id: `btn-${Date.now()}`,
     label: '',
     order: 0,
     enabled: true,
-    kind,
-    ...(kind === 'folder' ? { children: [], case_ids: [] } : {}),
   }
 }
 
@@ -106,11 +104,11 @@ function updateNodeInTree(
   })
 }
 
-function setNodeKind(nodes: MenuNode[], id: string, kind: MenuKind): MenuNode[] {
+function setCapability(nodes: MenuNode[], id: string, capabilityID: string): MenuNode[] {
   return nodes.map((node) => {
     if (node.id !== id) {
       if (node.children?.length) {
-        return { ...node, children: setNodeKind(node.children, id, kind) }
+        return { ...node, children: setCapability(node.children, id, capabilityID) }
       }
       return node
     }
@@ -120,19 +118,17 @@ function setNodeKind(nodes: MenuNode[], id: string, kind: MenuKind): MenuNode[] 
       label: node.label,
       order: node.order,
       enabled: node.enabled,
-      kind,
     }
-
-    if (kind === 'folder') {
-      next.children = node.children ?? []
-      next.case_ids = node.case_ids ?? []
-    } else if (kind === 'open_case') {
-      next.case_ids = node.case_ids?.length ? [node.case_ids[0]] : []
-    } else if (kind === 'reply_media') {
-      next.reply = { text: '', images: [] }
-    } else if (kind === 'placeholder') {
-      next.placeholder_text = node.placeholder_text ?? ''
+    if (capabilityID) {
+      next.capability_id = capabilityID
+      if (capabilityID === 'open_case') {
+        next.params = { case_ids: [] }
+      }
     }
+    if (node.children?.length) next.children = node.children
+    if (node.placeholder_text) next.placeholder_text = node.placeholder_text
+    if (node.reply) next.reply = node.reply
+    if (node.intro_text) next.intro_text = node.intro_text
 
     return next
   })
@@ -171,38 +167,22 @@ function normalizeNode(node: MenuNode): MenuNode {
     label: node.label,
     order: Number(node.order) || 0,
     enabled: Boolean(node.enabled),
-    kind: node.kind,
   }
-
-  switch (node.kind) {
-    case 'folder': {
-      const intro = node.intro_text?.trim()
-      if (intro) next.intro_text = intro
-      const caseIds = (node.case_ids ?? []).map((id) => id.trim()).filter(Boolean)
-      if (caseIds.length) next.case_ids = caseIds
-      if (node.children?.length) {
-        next.children = node.children.map(normalizeNode)
-      }
-      break
-    }
-    case 'open_case': {
-      const caseId = node.case_ids?.[0]?.trim()
-      if (caseId) next.case_ids = [caseId]
-      break
-    }
-    case 'placeholder':
-      next.placeholder_text = node.placeholder_text?.trim() || undefined
-      break
-    case 'reply_media': {
-      const text = node.reply?.text?.trim() || undefined
-      const images = (node.reply?.images ?? [])
-        .map((url) => url.trim())
-        .filter(Boolean)
-      next.reply = { text, images: images.length ? images : undefined }
-      break
-    }
+  if (node.capability_id) next.capability_id = node.capability_id
+  if (node.params && Object.keys(node.params).length > 0) next.params = node.params
+  if (node.render_override && Object.keys(node.render_override).length > 0) {
+    next.render_override = node.render_override
   }
-
+  const intro = node.intro_text?.trim()
+  if (intro) next.intro_text = intro
+  const placeholder = node.placeholder_text?.trim()
+  if (placeholder) next.placeholder_text = placeholder
+  if (node.reply && (node.reply.text?.trim() || node.reply.images?.length)) {
+    next.reply = node.reply
+  }
+  if (node.children?.length) {
+    next.children = node.children.map(normalizeNode)
+  }
   return next
 }
 
@@ -226,24 +206,21 @@ function visibleTreeRows(
   for (const node of nodes) {
     out.push({ node, depth })
     const kids = node.children ?? []
-    if (node.kind === 'folder' && kids.length > 0 && expanded.has(node.id)) {
+    if (kids.length > 0 && expanded.has(node.id)) {
       out.push(...visibleTreeRows(kids, expanded, depth + 1))
     }
   }
   return out
 }
 
-function kindLabelKey(kind: MenuKind): string {
-  switch (kind) {
-    case 'folder':
-      return 'channelMenu.kindFolder'
-    case 'open_case':
-      return 'channelMenu.kindOpenCase'
-    case 'placeholder':
-      return 'channelMenu.kindPlaceholder'
-    case 'reply_media':
-      return 'channelMenu.kindReplyMedia'
+function nodeLabelKey(node: MenuNode): string {
+  if (node.capability_id) {
+    return 'channelMenu.kindOpenCase'
   }
+  if (node.children?.length) {
+    return 'channelMenu.kindFolder'
+  }
+  return 'channelMenu.kindPlaceholder'
 }
 
 export function ChannelMenuEditor({ channelId }: { channelId: string }) {
@@ -264,6 +241,11 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
     queryFn: () => listCases({ limit: 200 }),
   })
 
+  const capsQuery = useQuery({
+    queryKey: ['channels', 'capabilities'] as const,
+    queryFn: listCapabilities,
+  })
+
   const visibleNodes = useMemo(
     () => visibleTreeRows(items, expandedIds),
     [items, expandedIds],
@@ -271,7 +253,7 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
   const selected = selectedId ? findNode(items, selectedId) : null
   const parentOfSelected =
     selectedId != null ? findParentNode(items, selectedId) : null
-  const parentIsFolder = parentOfSelected?.kind === 'folder'
+  const parentIsFolder = (parentOfSelected?.children?.length ?? 0) > 0
   const isRootItem = parentOfSelected == null
 
   useEffect(() => {
@@ -310,8 +292,8 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
     setItems((prev) => updateNodeInTree(prev, id, patch))
   }
 
-  function changeKind(id: string, kind: MenuKind) {
-    setItems((prev) => setNodeKind(prev, id, kind))
+  function changeCapability(id: string, capabilityID: string) {
+    setItems((prev) => setCapability(prev, id, capabilityID))
   }
 
   function addRootItem() {
@@ -321,8 +303,7 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
   }
 
   function addChildItem(parentId: string) {
-    const parent = findNode(items, parentId)
-    const child = emptyNode(parent?.kind === 'folder' ? 'folder' : 'placeholder')
+    const child = emptyNode()
     setItems((prev) => addChildToTree(prev, parentId, child))
     setExpandedIds((prev) => new Set(prev).add(parentId))
     setSelectedId(child.id)
@@ -413,8 +394,7 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
               <ul className='min-h-0 flex-1 overflow-auto'>
                 {visibleNodes.map(({ node, depth }) => {
                   const active = selectedId === node.id
-                  const hasKids =
-                    node.kind === 'folder' && (node.children?.length ?? 0) > 0
+                  const hasKids = (node.children?.length ?? 0) > 0
                   const expanded = expandedIds.has(node.id)
                   return (
                     <li key={node.id}>
@@ -444,7 +424,7 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
                         >
                           <div className='flex items-center justify-between gap-2'>
                             <span className='truncate text-sm font-medium'>
-                              {node.kind === 'folder' ? '📁 ' : ''}
+                              {(node.children?.length ?? 0) > 0 ? '📁 ' : ''}
                               {node.label.trim() || t('channelMenu.untitled')}
                             </span>
                             <span
@@ -461,7 +441,7 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
                             </span>
                           </div>
                           <p className='mt-1 truncate text-xs text-muted-foreground'>
-                            {t(kindLabelKey(node.kind))}
+                            {t(nodeLabelKey(node))}
                             {depth === 0 ? ` · #${node.order}` : ''}
                           </p>
                         </button>
@@ -479,10 +459,11 @@ export function ChannelMenuEditor({ channelId }: { channelId: string }) {
               node={selected}
               canRemove={countNodes(items) > 1}
               caseOptions={casesQuery.data ?? []}
+              capabilities={capsQuery.data ?? []}
               parentIsFolder={parentIsFolder}
               isRoot={isRootItem}
               onUpdate={updateNode}
-              onKind={changeKind}
+              onCapability={changeCapability}
               onAddChild={addChildItem}
               onSelectChild={setSelectedId}
               onRemove={removeSelected}
@@ -500,10 +481,11 @@ function NodeEditor({
   node,
   canRemove,
   caseOptions,
+  capabilities,
   parentIsFolder,
   isRoot,
   onUpdate,
-  onKind,
+  onCapability,
   onAddChild,
   onSelectChild,
   onRemove,
@@ -511,27 +493,34 @@ function NodeEditor({
   node: MenuNode
   canRemove: boolean
   caseOptions: { id: string; name: string }[]
+  capabilities: CapabilityBrief[]
   parentIsFolder: boolean
   isRoot: boolean
   onUpdate: (id: string, patch: Partial<MenuNode>) => void
-  onKind: (id: string, kind: MenuKind) => void
+  onCapability: (id: string, capabilityID: string) => void
   onAddChild: (parentId: string) => void
   onSelectChild: (id: string) => void
   onRemove: () => void
 }) {
   const { t } = useTranslation()
-  const selectedCaseIds = node.case_ids ?? []
+  const isGroup = (node.children?.length ?? 0) > 0
+  const isOpenCase = node.capability_id === 'open_case'
+  const paramsCaseIds = (node.params?.case_ids as string[] | undefined) ?? []
+  const selectedCaseIds = isOpenCase ? paramsCaseIds : []
   const children = node.children ?? []
+  const hasCapability = Boolean(node.capability_id)
 
   function toggleCaseId(caseId: string, checked: boolean) {
-    if (node.kind === 'open_case') {
-      onUpdate(node.id, { case_ids: checked ? [caseId] : [] })
-      return
-    }
     const next = new Set(selectedCaseIds)
     if (checked) next.add(caseId)
     else next.delete(caseId)
-    onUpdate(node.id, { case_ids: [...next] })
+    onUpdate(node.id, { params: { ...(node.params ?? {}), case_ids: [...next] } })
+  }
+
+  function setColumns(columns: number) {
+    onUpdate(node.id, {
+      render_override: { ...(node.render_override ?? {}), columns },
+    })
   }
 
   return (
@@ -544,7 +533,7 @@ function NodeEditor({
           <p className='text-sm text-muted-foreground'>{t('channelMenu.detailHeading')}</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
-          {node.kind === 'folder' ? (
+          {isGroup && !hasCapability ? (
             <Button
               type='button'
               variant='outline'
@@ -614,33 +603,48 @@ function NodeEditor({
           />
         </div>
         <div className='min-w-56 flex-1 space-y-1.5'>
-          <Label>{t('channelMenu.fieldKind')}</Label>
+          <Label>{t('channelMenu.fieldCapability')}</Label>
           {parentIsFolder ? (
-            <p className='text-sm text-muted-foreground'>{t('channelMenu.kindFolder')}</p>
+            <p className='text-sm text-muted-foreground'>
+              {t('channelMenu.kindFolder')}
+            </p>
           ) : (
             <Select
-              value={node.kind}
-              onValueChange={(value) => onKind(node.id, value as MenuKind)}
+              value={node.capability_id ?? ''}
+              onValueChange={(value) => onCapability(node.id, value)}
             >
               <SelectTrigger className='w-full'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='folder'>{t('channelMenu.kindFolder')}</SelectItem>
-                <SelectItem value='open_case'>{t('channelMenu.kindOpenCase')}</SelectItem>
-                <SelectItem value='placeholder'>
-                  {t('channelMenu.kindPlaceholder')}
+                <SelectItem value=''>
+                  {t('channelMenu.capabilityNone')}
                 </SelectItem>
-                <SelectItem value='reply_media'>
-                  {t('channelMenu.kindReplyMedia')}
-                </SelectItem>
+                {capabilities.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.display_name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           )}
+          {isRoot && hasCapability ? (
+            <div className='min-w-40 space-y-1.5'>
+              <Label htmlFor={`channel-menu-columns-${node.id}`}>
+                {t('channelMenu.fieldColumns')}
+              </Label>
+              <Input
+                id={`channel-menu-columns-${node.id}`}
+                type='number'
+                value={(node.render_override?.columns as number) ?? 2}
+                onChange={(e) => setColumns(Number(e.target.value))}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {node.kind === 'folder' ? (
+      {isGroup || hasCapability ? (
         <div className='space-y-1.5'>
           <Label htmlFor={`channel-menu-intro-${node.id}`}>{t('channelMenu.fieldIntro')}</Label>
           <p className='text-xs text-muted-foreground'>{t('channelMenu.fieldIntroHint')}</p>
@@ -653,12 +657,10 @@ function NodeEditor({
         </div>
       ) : null}
 
-      {node.kind === 'folder' || node.kind === 'open_case' ? (
+      {isOpenCase ? (
         <div className='space-y-2'>
           <Label>
-            {node.kind === 'folder'
-              ? t('channelMenu.fieldCaseIds')
-              : t('channelMenu.fieldCaseId')}
+            {t('channelMenu.fieldCaseIds')}
           </Label>
           <div className='max-h-48 space-y-2 overflow-auto rounded-md border p-3'>
             {caseOptions.length === 0 ? (
@@ -683,7 +685,7 @@ function NodeEditor({
         </div>
       ) : null}
 
-      {node.kind === 'folder' ? (
+      {isGroup && !hasCapability ? (
         <div className='space-y-2'>
           <Label>{t('channelMenu.fieldChildren')}</Label>
           {children.length === 0 ? (
@@ -706,7 +708,7 @@ function NodeEditor({
         </div>
       ) : null}
 
-      {node.kind === 'placeholder' ? (
+      {!hasCapability && !isGroup ? (
         <div className='max-w-xl space-y-1.5'>
           <Label htmlFor={`channel-menu-placeholder-${node.id}`}>
             {t('channelMenu.fieldPlaceholderText')}
@@ -722,7 +724,7 @@ function NodeEditor({
         </div>
       ) : null}
 
-      {node.kind === 'reply_media' ? (
+      {!hasCapability && !isGroup && node.reply ? (
         <div className='grid gap-3 md:grid-cols-2'>
           <div className='space-y-1.5'>
             <Label htmlFor={`channel-menu-reply-text-${node.id}`}>
