@@ -7,17 +7,18 @@ import (
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 type stubCap struct{}
 
 func (stubCap) ID() string                  { return "stub" }
 func (stubCap) DisplayName() string         { return "Stub" }
-func (stubCap) ParamsSchema() json.RawMessage { return json.RawMessage(`{}`) }
+func (stubCap) ParamsSchema() json.RawMessage { return json.RawMessage(`{"type":"object"}`) }
 func (stubCap) Render(_ string, override map[string]any) (protocol.RenderDecl, error) {
 	return MergeRender(protocol.RenderDecl{Entry: "root", Config: map[string]any{"columns": 2}}, override), nil
 }
-func (stubCap) Invoke(context.Context, protocol.AccountCtx, protocol.Nav, map[string]any) (protocol.Result, error) {
+func (stubCap) Invoke(context.Context, protocol.AccountCtx, protocol.Nav, sharedkernel.ChatID, map[string]any) (protocol.Result, error) {
 	return protocol.Result{Text: "stub ok"}, nil
 }
 

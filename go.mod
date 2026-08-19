@@ -14,7 +14,7 @@ require (
 	github.com/jaypipes/ghw v0.25.0
 	github.com/johannesboyne/gofakes3 v1.2.0
 	github.com/redis/go-redis/v9 v9.18.0
-	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1
 	github.com/shirou/gopsutil/v4 v4.26.7
 	github.com/volcengine/ve-tos-golang-sdk/v2 v2.9.8
 	golang.org/x/crypto v0.31.0

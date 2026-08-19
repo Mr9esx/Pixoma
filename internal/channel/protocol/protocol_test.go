@@ -15,6 +15,7 @@ func TestCapabilityInvokeJSONRoundTrip(t *testing.T) {
 			InternalUserID: "u-1",
 		},
 		Nav: Nav{Back: "root"},
+		ChatID: "tg-default:1001",
 	}
 	raw, err := json.Marshal(inv)
 	if err != nil {
@@ -24,7 +25,7 @@ func TestCapabilityInvokeJSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(raw, &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.CapabilityID != inv.CapabilityID || got.Account != inv.Account || got.Nav != inv.Nav {
+	if got.CapabilityID != inv.CapabilityID || got.Account != inv.Account || got.Nav != inv.Nav || got.ChatID != inv.ChatID {
 		t.Fatalf("roundtrip mismatch: %+v != %+v", got, inv)
 	}
 	ids, ok := got.Params["case_ids"].([]any)

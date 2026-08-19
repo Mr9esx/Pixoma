@@ -23,6 +23,7 @@ type CapabilityInvoke struct {
 	Params       map[string]any `json:"params"`
 	Account      AccountCtx     `json:"account"`
 	Nav          Nav            `json:"nav"`
+	ChatID       string         `json:"chat_id"` // channel chat address (e.g. "tg-default:123")
 }
 
 // Option is a selectable choice rendered by adapters as buttons/cards.
