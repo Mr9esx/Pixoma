@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import type { Action, ActionType, Card } from '@/lib/api/channel-menu'
-import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { CardPicker } from './card-picker'
 
 const ACTION_KEYS: Record<ActionType, string> = {
   open_card: 'menu.actionOpenCard',
@@ -66,36 +66,13 @@ export function ActionForm({
       </div>
 
       {action.type === 'open_card' ? (
-        <div className='space-y-1.5'>
-          <Label>{t('menu.targetCard')}</Label>
-          <Select
-            value={action.card_id ?? ''}
-            onValueChange={(cardId) => onChange({ ...action, card_id: cardId })}
-            disabled={disabled}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t('menu.pickExistingCard')} />
-            </SelectTrigger>
-            <SelectContent>
-              {cards.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name || c.id}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {onCreateNewCard ? (
-            <Button
-              type='button'
-              size='sm'
-              variant='outline'
-              onClick={onCreateNewCard}
-              disabled={disabled}
-            >
-              {t('menu.newCard')}
-            </Button>
-          ) : null}
-        </div>
+        <CardPicker
+          cards={cards}
+          value={action.card_id}
+          onPick={(cardId) => onChange({ ...action, card_id: cardId })}
+          onCreateNew={onCreateNewCard}
+          disabled={disabled}
+        />
       ) : null}
 
       {action.type === 'open_workflow' ? (

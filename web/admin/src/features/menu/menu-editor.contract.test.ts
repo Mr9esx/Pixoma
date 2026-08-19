@@ -8,6 +8,7 @@ const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
 const ACTION_FORM = join(here, 'action-form.tsx')
 const PHONE_SIM = join(here, 'phone-simulation.tsx')
+const MENU_EDITOR = join(here, 'menu-card-editor.tsx')
 
 const NEW_KEYS = [
   'mainKeyboard',
@@ -86,5 +87,16 @@ describe('phone simulation', () => {
     expect(source).toContain('onOpenCard')
     expect(source).toContain('onBack')
     expect(source).toContain('‹ 返回')
+  })
+})
+
+describe('layered editor', () => {
+  it('renders layered chain with action form, picker and card list', () => {
+    const source = readFileSync(MENU_EDITOR, 'utf8')
+    expect(source).toContain("data-testid='menu-card-editor'")
+    expect(source).toContain('ActionForm')
+    expect(source).toContain('CardListPanel')
+    expect(source).toContain('validateMenuConfig')
+    expect(source).not.toContain('capability_id')
   })
 })
