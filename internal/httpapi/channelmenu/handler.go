@@ -159,13 +159,18 @@ func (h *Handler) ListCapabilities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type capDTO struct {
-		ID          string `json:"id"`
-		DisplayName string `json:"display_name"`
+		ID           string          `json:"id"`
+		DisplayName  string          `json:"display_name"`
+		ParamsSchema json.RawMessage `json:"params_schema"`
 	}
 	caps := h.Capabilities.List()
 	out := make([]capDTO, 0, len(caps))
 	for _, c := range caps {
-		out = append(out, capDTO{ID: c.ID(), DisplayName: c.DisplayName()})
+		out = append(out, capDTO{
+			ID:           c.ID(),
+			DisplayName:  c.DisplayName(),
+			ParamsSchema: capability.AdminSchema(c),
+		})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
