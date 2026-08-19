@@ -1,17 +1,8 @@
 import { useState } from 'react'
-import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ChannelMenuEditor } from '@/features/channels/channel-menu-editor'
-import { ChannelMenuPreview } from '@/features/channels/menu-preview'
 import {
   deleteChannel,
   getChannel,
@@ -19,6 +10,15 @@ import {
   updateChannel,
 } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ErrorBanner } from '@/components/feedback/error-banner'
+import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { ChannelMenuPreview } from '@/features/channels/menu-preview'
+import { MenuCardEditor } from '@/features/menu/menu-card-editor'
 
 export const Route = createFileRoute('/_app/channels/$id')({
   component: ChannelDetailPage,
@@ -46,7 +46,9 @@ function ChannelDetailPage() {
       }),
     onSuccess: () => {
       setToken('')
-      void queryClient.invalidateQueries({ queryKey: queryKeys.channels.detail(id) })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.channels.detail(id),
+      })
       void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
       toast.success(t('common.successSaved'))
     },
@@ -55,7 +57,9 @@ function ChannelDetailPage() {
   const enableMutation = useMutation({
     mutationFn: (enabled: boolean) => setChannelEnabled(id, enabled),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.channels.detail(id) })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.channels.detail(id),
+      })
       void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
     },
   })
@@ -74,7 +78,10 @@ function ChannelDetailPage() {
   }
 
   return (
-    <div data-layout='fixed' className='flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'>
+    <div
+      data-layout='fixed'
+      className='flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'
+    >
       <div className='flex items-center justify-between'>
         <div>
           <h1 className='text-2xl font-bold tracking-tight'>{ch.name}</h1>
@@ -125,10 +132,14 @@ function ChannelDetailPage() {
                   placeholder={ch.token_masked}
                   autoComplete='off'
                 />
-                <p className='text-xs text-muted-foreground'>{t('channels.tokenHint')}</p>
+                <p className='text-xs text-muted-foreground'>
+                  {t('channels.tokenHint')}
+                </p>
               </div>
               <Button
-                disabled={updateMutation.isPending || (!name.trim() && !token.trim())}
+                disabled={
+                  updateMutation.isPending || (!name.trim() && !token.trim())
+                }
                 onClick={() => updateMutation.mutate()}
               >
                 {t('common.save')}
@@ -137,7 +148,7 @@ function ChannelDetailPage() {
           </Card>
         </TabsContent>
         <TabsContent value='menu' className='mt-3 h-full'>
-          <ChannelMenuEditor channelId={id} />
+          <MenuCardEditor channelId={id} />
         </TabsContent>
         <TabsContent value='preview' className='mt-3'>
           <ChannelMenuPreview channelId={id} />
