@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 )
@@ -33,7 +34,40 @@ func (s *Service) Get(ctx context.Context, channelID string) (domain.MenuTree, e
 	if s == nil || s.Store == nil {
 		return domain.MenuTree{}, fmt.Errorf("tgmenu service: nil store")
 	}
-	return s.Store.EnsureDefault(ctx, channelID, s.ListImageCaseIDs)
+	tree, err := s.Store.EnsureDefault(ctx, channelID, s.ListImageCaseIDs)
+	if err != nil {
+		return domain.MenuTree{}, err
+	}
+	tree.Items = convertLegacyNodes(tree.Items)
+	return tree, nil
+}
+
+func convertLegacyNodes(nodes []domain.MenuNode) []domain.MenuNode {
+	out := make([]domain.MenuNode, 0, len(nodes))
+	for _, n := range nodes {
+		if n.CapabilityID == "" {
+			if text := strings.TrimSpace(n.PlaceholderText); text != "" {
+				n.CapabilityID = "reply_text"
+				n.Params = map[string]any{"text": text}
+			} else if n.Reply != nil {
+				n.CapabilityID = "reply_media"
+				images := make([]any, 0, len(n.Reply.Images))
+				for _, u := range n.Reply.Images {
+					images = append(images, u)
+				}
+				params := map[string]any{"text": n.Reply.Text}
+				if len(images) > 0 {
+					params["images"] = images
+				}
+				n.Params = params
+			}
+		}
+		if len(n.Children) > 0 {
+			n.Children = convertLegacyNodes(n.Children)
+		}
+		out = append(out, n)
+	}
+	return out
 }
 
 func (s *Service) Replace(ctx context.Context, channelID string, tree domain.MenuTree) (domain.MenuTree, error) {
