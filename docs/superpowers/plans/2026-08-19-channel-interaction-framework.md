@@ -118,11 +118,11 @@ base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
 - Produces: `BuildKeyboardPreview(tree, decls) PreviewDTO{MainKeyboard [][]string; Groups map[string]GroupPreview}`；与 TG 真实渲染共用同一构建函数
 - Produces: `GET /api/v1/channels/{id}/menu/preview` 返回 PreviewDTO
 
-- [ ] **Step 1: 写失败测试** — preview 与真实渲染同源（相同输入→相同结构）；API 返回 200 且结构正确
-- [ ] **Step 2: 运行确认失败** — `go test ./internal/channel/protocol/... ./internal/httpapi/channelmenu/...`
-- [ ] **Step 3: 实现** — 抽取共用构建函数；handler 挂预览端点
-- [ ] **Step 4: 运行通过** — 全绿
-- [ ] **Step 5: 提交** — `git commit -m "feat(channel): same-source render preview DTO"`
+- [x] **Step 1: 写失败测试** — preview 与真实渲染同源（相同输入→相同结构）；API 返回 200 且结构正确
+- [x] **Step 2: 运行确认失败** — `go test ./internal/channel/protocol/... ./internal/httpapi/channelmenu/...`
+- [x] **Step 3: 实现** — 抽取共用构建函数；handler 挂预览端点
+- [x] **Step 4: 运行通过** — 全绿
+- [x] **Step 5: 提交** — `git commit -m "feat(channel): same-source render preview DTO"`
 
 ### Task 7: 管理台编辑器（能力 + JSON Schema 表单 + 预览）
 
