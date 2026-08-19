@@ -19,15 +19,16 @@ import (
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	channelmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channelmenu"
 	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
+	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
 	menupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
+	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
@@ -76,6 +77,8 @@ func run(ctx context.Context) error {
 			&menupersist.ChannelMenuItemRow{},
 			&menupersist.ChannelMenuItemCaseRow{},
 			&menupersist.ChannelMenuExtraRow{},
+			&mencardpersist.MainMenuRow{},
+			&mencardpersist.CardRow{},
 		},
 	})
 	if err != nil {
@@ -141,7 +144,7 @@ func run(ctx context.Context) error {
 	_ = adminCaps.Register(capability.ReplyText{})
 	_ = adminCaps.Register(capability.ReplyMedia{})
 	menuSvc.Capabilities = adminMenuCaps{reg: adminCaps}
-	channelMenuAPI := &channelmenuapi.Handler{Channels: chSvc, Svc: menuSvc, Capabilities: adminCaps}
+	menuCardsAPI := menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb))
 
 	h := server.NewHandler(server.Options{
 		CORSOrigins: cfg.CORSOrigins,
@@ -151,7 +154,7 @@ func run(ctx context.Context) error {
 		Sessions:    sessionsAPI,
 		Tasks:       tasksAPI,
 		Channels:    channelsAPI,
-		ChannelMenu: channelMenuAPI,
+		MenuCards:   menuCardsAPI,
 	})
 	addr := cfg.HTTPAddr
 	srv := &http.Server{
