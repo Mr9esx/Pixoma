@@ -138,6 +138,7 @@ func run(ctx context.Context) error {
 	channelsAPI := &channelsapi.Handler{Svc: chSvc}
 	adminCaps := capability.NewRegistry()
 	_ = adminCaps.Register(capability.OpenCase{})
+	menuSvc.Capabilities = adminMenuCaps{reg: adminCaps}
 	channelMenuAPI := &channelmenuapi.Handler{Channels: chSvc, Svc: menuSvc, Capabilities: adminCaps}
 
 	h := server.NewHandler(server.Options{
@@ -225,4 +226,23 @@ func bootstrapDBPath(dsn string) string {
 		p = "data/app.db"
 	}
 	return filepath.Join(filepath.Dir(p), "bootstrap.db")
+}
+
+type adminMenuCaps struct {
+	reg *capability.Registry
+}
+
+func (c adminMenuCaps) CapabilityExists(_ context.Context, id string) (bool, error) {
+	if c.reg == nil {
+		return false, nil
+	}
+	_, ok := c.reg.Get(id)
+	return ok, nil
+}
+
+func (c adminMenuCaps) ValidateParams(ctx context.Context, id string, params map[string]any) error {
+	if c.reg == nil {
+		return nil
+	}
+	return c.reg.ValidateParams(ctx, id, params)
 }

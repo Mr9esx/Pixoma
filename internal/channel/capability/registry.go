@@ -85,3 +85,17 @@ func (r *Registry) Invoke(ctx context.Context, inv protocol.CapabilityInvoke) (p
 	}
 	return c.Invoke(ctx, inv.Account, inv.Nav, sharedkernel.ChatID(inv.ChatID), inv.Params)
 }
+
+// ValidateParams validates params against a capability's compiled JSON Schema.
+func (r *Registry) ValidateParams(ctx context.Context, capabilityID string, params map[string]any) error {
+	r.mu.RLock()
+	schema := r.comp[capabilityID]
+	r.mu.RUnlock()
+	if schema == nil {
+		return fmt.Errorf("capability: unknown capability %q", capabilityID)
+	}
+	if err := schema.Validate(params); err != nil {
+		return fmt.Errorf("capability %q: invalid params: %w", capabilityID, err)
+	}
+	return nil
+}
