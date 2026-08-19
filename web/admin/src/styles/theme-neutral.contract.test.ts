@@ -50,6 +50,10 @@ describe('admin theme neutral base color', () => {
     expect(value).toBe('oklch(0.145 0 0)')
   })
 
+  it('theme defines font-heading for base dialog titles', () => {
+    expect(read(THEME_CSS)).toMatch(/--font-heading:\s*var\(--font-sans\)/)
+  })
+
   it('source has no hardcoded slate color utilities', () => {
     expect(collectSlateHits(SRC_ROOT)).toEqual([])
   })
@@ -98,13 +102,13 @@ describe('admin theme surface has no drop shadow', () => {
       expect(body, rel).not.toMatch(/\bshadow-xs\b/)
     }
     expect(read(join(SRC_ROOT, 'components/ui/input-otp.tsx'))).not.toMatch(
-      /\bshadow-xs\b/,
+      /\bshadow-xs\b/
     )
     expect(read(join(SRC_ROOT, 'components/ui/calendar.tsx'))).not.toMatch(
-      /\bshadow-xs\b/,
+      /\bshadow-xs\b/
     )
     expect(read(join(SRC_ROOT, 'components/password-input.tsx'))).not.toMatch(
-      /\bshadow-xs\b/,
+      /\bshadow-xs\b/
     )
   })
 
@@ -116,7 +120,7 @@ describe('admin theme surface has no drop shadow', () => {
   it('select popover still has elevation', () => {
     const content = extractFunction(
       read(join(SRC_ROOT, 'components/ui/select.tsx')),
-      'SelectContent',
+      'SelectContent'
     )
     expect(content).toMatch(/\bshadow-md\b/)
   })

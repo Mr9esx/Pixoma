@@ -259,7 +259,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Sessions:    &sessionsapi.Handler{Repo: sessionRepo},
 		Tasks:       &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
 		Channels:    &channelsapi.Handler{Svc: chSvc},
-		ChannelMenu: &channelmenuapi.Handler{Channels: chSvc, Svc: menuSvc},
+		ChannelMenu: &channelmenuapi.Handler{Channels: chSvc, Svc: menuSvc, Capabilities: botRT.Capabilities},
 		NotFound:    webembed.Handler(),
 	})
 

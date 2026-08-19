@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ChannelMenuEditor } from '@/features/channels/channel-menu-editor'
-import { ExtrasEditor } from '@/features/channels/extras-editor'
+import { ChannelMenuPreview } from '@/features/channels/menu-preview'
 import {
   deleteChannel,
   getChannel,
@@ -104,7 +104,7 @@ function ChannelDetailPage() {
         <TabsList>
           <TabsTrigger value='basic'>{t('channels.tabBasic')}</TabsTrigger>
           <TabsTrigger value='menu'>{t('channels.tabMenu')}</TabsTrigger>
-          <TabsTrigger value='extras'>{t('channels.tabExtras')}</TabsTrigger>
+          <TabsTrigger value='preview'>{t('channels.tabPreview')}</TabsTrigger>
         </TabsList>
         <TabsContent value='basic' className='mt-3'>
           <Card className='max-w-xl'>
@@ -139,8 +139,8 @@ function ChannelDetailPage() {
         <TabsContent value='menu' className='mt-3 h-full'>
           <ChannelMenuEditor channelId={id} />
         </TabsContent>
-        <TabsContent value='extras' className='mt-3'>
-          <ExtrasEditor channelId={id} />
+        <TabsContent value='preview' className='mt-3'>
+          <ChannelMenuPreview channelId={id} />
         </TabsContent>
       </Tabs>
     </div>

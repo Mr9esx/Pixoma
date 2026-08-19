@@ -1,13 +1,12 @@
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import type { CaseRecord } from '@/lib/api/types'
+import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { FilterSegment } from '@/components/filters/filter-segment'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import type { CaseRecord } from '@/lib/api/types'
-import { cn } from '@/lib/utils'
 
 export type CaseListFilters = {
   q: string
@@ -38,16 +37,10 @@ export function CaseListPanel({
   const { t } = useTranslation()
 
   return (
-    <div className='flex h-full min-h-0 flex-col' data-testid='cases-list-panel'>
-      <div className='flex items-center justify-between gap-2 border-b px-4 py-3'>
-        <h2 className='text-sm font-semibold'>{t('cases.title')}</h2>
-        <Button asChild size='sm'>
-          <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
-            {t('common.create')}
-          </Link>
-        </Button>
-      </div>
-
+    <div
+      className='flex h-full min-h-0 flex-col'
+      data-testid='cases-list-panel'
+    >
       <div className='space-y-2 border-b px-4 py-3'>
         <Input
           id='cases-filter-q'
@@ -97,7 +90,7 @@ export function CaseListPanel({
                   params={{ caseId: item.id }}
                   className={cn(
                     'block w-full px-4 py-3 text-left text-sm hover:bg-accent',
-                    selected && 'bg-accent',
+                    selected && 'bg-accent'
                   )}
                 >
                   <div className='flex items-center justify-between gap-2'>
@@ -107,15 +100,13 @@ export function CaseListPanel({
                         'shrink-0 text-xs',
                         item.enabled
                           ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-muted-foreground',
+                          : 'text-muted-foreground'
                       )}
                     >
-                      {item.enabled
-                        ? t('cases.enabled')
-                        : t('cases.disabled')}
+                      {item.enabled ? t('cases.enabled') : t('cases.disabled')}
                     </span>
                   </div>
-                  <div className='text-muted-foreground mt-0.5 truncate text-xs'>
+                  <div className='mt-0.5 truncate text-xs text-muted-foreground'>
                     {item.name}
                   </div>
                 </Link>

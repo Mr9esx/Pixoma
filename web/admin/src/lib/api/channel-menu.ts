@@ -1,15 +1,14 @@
 import { apiFetch } from './client'
 
-export type MenuKind = 'folder' | 'open_case' | 'placeholder' | 'reply_media'
-
 export type MenuNode = {
   id: string
   parent_id?: string
   label: string
   order: number
   enabled: boolean
-  kind: MenuKind
-  case_ids?: string[]
+  capability_id?: string
+  params?: Record<string, unknown>
+  render_override?: Record<string, unknown>
   placeholder_text?: string
   intro_text?: string
   reply?: { text?: string; images?: string[] }
@@ -73,5 +72,19 @@ export type MenuPlacement = {
 export function getCaseMenuPlacements(caseId: string) {
   return apiFetch<MenuPlacement[]>(
     `/api/v1/cases/${encodeURIComponent(caseId)}/menu-placements`,
+  )
+}
+
+export type PreviewDTO = {
+  main_keyboard: string[][]
+  groups: Record<
+    string,
+    { title: string; buttons: { label: string; kind: string }[] }
+  >
+}
+
+export function getChannelMenuPreview(channelId: string) {
+  return apiFetch<PreviewDTO>(
+    `/api/v1/channels/${encodeURIComponent(channelId)}/menu/preview`,
   )
 }

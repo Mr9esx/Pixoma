@@ -80,8 +80,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
       blob_secret_key: blobSecretKey,
       comfy_mock: false,
       comfyui_base_url: '',
-      default_edge_id: 'local',
-      auto_spawn_edge: placement === 'local',
       ...overrides,
     }
   }
@@ -244,8 +242,8 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <span>
                 <strong>本机</strong>
                 <span className='mt-1 block text-muted-foreground'>
-                  Comfy 和后台在同一台机器。文件用本地目录，pixoma
-                  会自动拉起本机 Edge。
+                  Comfy 和后台在同一台机器。文件用本地目录，不再自动拉起本机
+                  Edge，需要时手动新增节点并部署 agent。
                 </span>
               </span>
             </label>
@@ -352,7 +350,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           />
         </form>
       ) : null}
-
     </WizardCard>
   )
 }

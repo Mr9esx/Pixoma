@@ -74,6 +74,7 @@ func NewHandler(opts Options) http.Handler {
 			opts.Channels.Mount(r)
 		}
 		if opts.ChannelMenu != nil {
+			r.Get("/capabilities", opts.ChannelMenu.ListCapabilities)
 			r.Route("/{id}/menu", func(r chi.Router) {
 				opts.ChannelMenu.MountMenu(r)
 			})

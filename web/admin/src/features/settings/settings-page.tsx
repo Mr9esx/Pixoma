@@ -2,8 +2,14 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { queryKeys } from '@/lib/api/query-keys'
+import {
+  changeAdminPassword,
+  fetchPlatformSettings,
+  savePlatformSettings,
+  waitForSetupReady,
+  type SetupDraft,
+} from '@/lib/api/setup'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,16 +22,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { queryKeys } from '@/lib/api/query-keys'
-import {
-  changeAdminPassword,
-  fetchPlatformSettings,
-  savePlatformSettings,
-  waitForSetupReady,
-  type SetupDraft,
-} from '@/lib/api/setup'
+import { ErrorBanner } from '@/components/feedback/error-banner'
+import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -76,7 +75,7 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [placement, setPlacement] = useState<'local' | 'remote'>(
-    initial.placement === 'remote' ? 'remote' : 'local',
+    initial.placement === 'remote' ? 'remote' : 'local'
   )
   const [blobDriver, setBlobDriver] = useState(initial.blob_driver || 'localfs')
   const [blobRoot, setBlobRoot] = useState(initial.blob_root ?? '')
@@ -84,16 +83,17 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
   const [blobRegion, setBlobRegion] = useState(initial.blob_region ?? '')
   const [blobBucket, setBlobBucket] = useState(initial.blob_bucket ?? '')
   const [blobAccessKey, setBlobAccessKey] = useState(
-    emptyIfMasked(initial.blob_access_key),
+    emptyIfMasked(initial.blob_access_key)
   )
   const [blobSecretKey, setBlobSecretKey] = useState(
-    emptyIfMasked(initial.blob_secret_key),
+    emptyIfMasked(initial.blob_secret_key)
   )
-  const [autoSpawn, setAutoSpawn] = useState(Boolean(initial.auto_spawn_edge))
   const [proxyKind, setProxyKind] = useState(initial.proxy_kind || '')
   const [proxyHost, setProxyHost] = useState(initial.proxy_host ?? '')
   const [proxyPort, setProxyPort] = useState(
-    initial.proxy_port && initial.proxy_port > 0 ? String(initial.proxy_port) : '',
+    initial.proxy_port && initial.proxy_port > 0
+      ? String(initial.proxy_port)
+      : ''
   )
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -104,9 +104,6 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
     setPlacement(value)
     if (value === 'remote' && blobDriver === 'localfs') {
       setBlobDriver('s3')
-    }
-    if (value === 'remote') {
-      setAutoSpawn(false)
     }
   }
 
@@ -127,8 +124,6 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
         blob_secret_key: secretPayload(blobSecretKey),
         comfy_mock: initial.comfy_mock,
         comfyui_base_url: initial.comfyui_base_url,
-        default_edge_id: initial.default_edge_id,
-        auto_spawn_edge: placement === 'local' ? autoSpawn : false,
         proxy_kind: proxyKind,
         proxy_host: proxyHost,
         proxy_port: Number(proxyPort) || 0,
@@ -170,7 +165,7 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
           </SettingRow>
           <Separator />
           <SettingRow label={t('settings.fieldDbDsn')}>
-            <p className='break-all text-sm'>{initial.db_dsn}</p>
+            <p className='text-sm break-all'>{initial.db_dsn}</p>
           </SettingRow>
         </section>
       </TabsContent>
@@ -299,22 +294,6 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
               </SettingRow>
             </>
           )}
-          {placement === 'local' ? (
-            <>
-              <Separator />
-              <SettingRow
-                label={t('settings.fieldAutoSpawn')}
-                htmlFor='auto-spawn'
-              >
-                <Switch
-                  id='auto-spawn'
-                  checked={autoSpawn}
-                  onCheckedChange={setAutoSpawn}
-                  disabled={pending}
-                />
-              </SettingRow>
-            </>
-          ) : null}
           {error ? (
             <p className='pt-3 text-sm text-destructive'>{error}</p>
           ) : null}
@@ -347,7 +326,9 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value='off'>{t('settings.proxyOff')}</SelectItem>
-                  <SelectItem value='http'>{t('settings.proxyHTTP')}</SelectItem>
+                  <SelectItem value='http'>
+                    {t('settings.proxyHTTP')}
+                  </SelectItem>
                   <SelectItem value='socks5'>
                     {t('settings.proxySOCKS')}
                   </SelectItem>
@@ -386,7 +367,6 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
           </div>
         </form>
       </TabsContent>
-
     </Tabs>
   )
 }
@@ -494,9 +474,7 @@ function SettingRow({
       <Label htmlFor={htmlFor}>{label}</Label>
       <div className='flex min-w-0 flex-col gap-1'>
         {children}
-        {hint ? (
-          <p className='text-xs text-muted-foreground'>{hint}</p>
-        ) : null}
+        {hint ? <p className='text-xs text-muted-foreground'>{hint}</p> : null}
       </div>
     </div>
   )

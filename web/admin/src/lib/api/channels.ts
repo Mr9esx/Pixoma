@@ -49,3 +49,12 @@ export function deleteChannel(id: string) {
     { method: 'DELETE' },
   )
 }
+
+export type CapabilityBrief = {
+  id: string
+  display_name: string
+}
+
+export function listCapabilities() {
+  return apiFetch<CapabilityBrief[]>('/api/v1/channels/capabilities')
+}

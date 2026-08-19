@@ -15,6 +15,7 @@ import (
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
@@ -135,7 +136,9 @@ func run(ctx context.Context) error {
 		},
 	}
 	channelsAPI := &channelsapi.Handler{Svc: chSvc}
-	channelMenuAPI := &channelmenuapi.Handler{Channels: chSvc, Svc: menuSvc}
+	adminCaps := capability.NewRegistry()
+	_ = adminCaps.Register(capability.OpenCase{})
+	channelMenuAPI := &channelmenuapi.Handler{Channels: chSvc, Svc: menuSvc, Capabilities: adminCaps}
 
 	h := server.NewHandler(server.Options{
 		CORSOrigins: cfg.CORSOrigins,

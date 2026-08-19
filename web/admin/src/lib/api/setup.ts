@@ -22,8 +22,6 @@ export type SetupDraft = {
   blob_secret_key?: string
   comfy_mock: boolean
   comfyui_base_url: string
-  default_edge_id: string
-  auto_spawn_edge: boolean
   proxy_kind?: string
   proxy_host?: string
   proxy_port?: number
@@ -97,7 +95,7 @@ export function finalizeSetup() {
 
 export function fetchPlatformSettings() {
   return apiFetch<{ configured: boolean; settings?: SetupDraft }>(
-    '/api/v1/setup/settings',
+    '/api/v1/setup/settings'
   )
 }
 

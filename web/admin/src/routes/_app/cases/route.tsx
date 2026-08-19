@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useParams,
+} from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { listCases } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
+import { Button } from '@/components/ui/button'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { CaseForm } from '@/features/cases/case-form'
 import { CaseDetailPanel } from '@/features/cases/detail-panel'
@@ -46,15 +52,23 @@ function CasesLayout() {
       className='flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'
       data-testid='cases-page'
     >
-      <div className='shrink-0'>
-        <h1 className='text-2xl font-bold tracking-tight'>
-          {t('cases.title')}
-        </h1>
-        <p className='text-sm text-muted-foreground'>
-          {t('cases.description')}
-        </p>
+      <div className='flex shrink-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
+        <div className='flex min-w-0 flex-col gap-[6px]'>
+          <h1 className='truncate text-2xl leading-tight font-semibold tracking-tight'>
+            {t('cases.title')}
+          </h1>
+          <p className='text-sm text-muted-foreground'>
+            {t('cases.description')}
+          </p>
+        </div>
+        <Button asChild>
+          <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
+            {t('common.create')}
+          </Link>
+        </Button>
       </div>
       <MasterDetailShell
+        className='md:grid-cols-[280px_1fr]'
         hasSelection={Boolean(caseId)}
         onBackToList={() => void navigate({ to: '/cases' })}
         list={
