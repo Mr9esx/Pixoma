@@ -1,0 +1,56 @@
+package comfyui_test
+
+import (
+	"testing"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
+)
+
+func TestParseHistoryGroupsByNode(t *testing.T) {
+	raw := []byte(`{
+		"prompt-id-1": {
+			"outputs": {
+				"4": { "images": [{ "filename": "a.png", "subfolder": "", "type": "output" }] },
+				"9": { "text": ["hello", "world"] }
+			},
+			"status": { "status_str": "success", "completed": true }
+		}
+	}`)
+	got, err := comfyui.ParseHistory(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node4, ok := got["4"]
+	if !ok || len(node4.Images) != 1 || node4.Images[0].Filename != "a.png" {
+		t.Fatalf("node 4 images: %+v", got["4"])
+	}
+	if node4.Images[0].Subfolder != "" || node4.Images[0].Type != "output" {
+		t.Fatalf("node 4 image meta: %+v", node4.Images[0])
+	}
+	node9, ok := got["9"]
+	if !ok || len(node9.Texts) != 2 || node9.Texts[0] != "hello" {
+		t.Fatalf("node 9 texts: %+v", got["9"])
+	}
+}
+
+func TestParseHistorySkipsEmptyNodes(t *testing.T) {
+	raw := []byte(`{
+		"prompt-id-1": {
+			"outputs": { "7": { "images": [] } },
+			"status": { "status_str": "success", "completed": true }
+		}
+	}`)
+	got, err := comfyui.ParseHistory(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("want empty result, got %+v", got)
+	}
+}
+
+func TestParseHistoryRejectsBadJSON(t *testing.T) {
+	if _, err := comfyui.ParseHistory([]byte("not json")); err == nil {
+		t.Fatal("expected error")
+	}
+}
