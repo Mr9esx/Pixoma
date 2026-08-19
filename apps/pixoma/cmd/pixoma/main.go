@@ -28,9 +28,9 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	channelmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channelmenu"
 	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
+	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	setupapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
@@ -38,6 +38,7 @@ import (
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
 	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
+	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
@@ -140,6 +141,8 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			&tgmenupersist.ChannelMenuItemRow{},
 			&tgmenupersist.ChannelMenuItemCaseRow{},
 			&tgmenupersist.ChannelMenuExtraRow{},
+			&mencardpersist.MainMenuRow{},
+			&mencardpersist.CardRow{},
 		},
 	})
 	if err != nil {
@@ -260,7 +263,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Sessions:    &sessionsapi.Handler{Repo: sessionRepo},
 		Tasks:       &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
 		Channels:    &channelsapi.Handler{Svc: chSvc},
-		ChannelMenu: &channelmenuapi.Handler{Channels: chSvc, Svc: menuSvc, Capabilities: botRT.Capabilities},
+		MenuCards:   menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb)),
 		NotFound:    webembed.Handler(),
 	})
 
