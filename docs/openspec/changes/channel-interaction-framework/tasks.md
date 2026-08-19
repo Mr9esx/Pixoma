@@ -17,7 +17,7 @@
 
 - [x] 3.1 端口 `Action` 泛化为 `CapabilityInvoke{CapabilityID, Params, Account, Nav}`；`Result{Text/Options/Media/Error}` 渠道无关结果结构
 - [x] 3.2 `AccountCtx{ChannelID, ExternalUserID, InternalUserID}`：适配器经身份解析填充，能力执行携带
-- [ ] 3.3 适配器契约：UI 事件 → CapabilityInvoke → registry 执行 → Result → 渠道渲染；适配器不写业务分支
+- [x] 3.3 适配器契约：UI 事件 → CapabilityInvoke → registry 执行 → Result → 渠道渲染；适配器不写业务分支
 
 ## 4. TG 适配器按协议渲染
 
