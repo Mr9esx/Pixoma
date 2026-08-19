@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 const here = dirname(fileURLToPath(import.meta.url))
 const API = join(here, '../../lib/api/channel-menu.ts')
 const EDITOR = join(here, 'channel-menu-editor.tsx')
+const PARAMS_FORM = join(here, 'params-form.tsx')
 const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
 
@@ -93,5 +94,15 @@ describe('wysiwyg menu editor i18n', () => {
       expect(zh.channelMenu[key], `zh missing channelMenu.${key}`).toBeTruthy()
       expect(en.channelMenu[key], `en missing channelMenu.${key}`).toBeTruthy()
     }
+  })
+})
+
+describe('params form', () => {
+  it('is schema driven with workflow picker widget', () => {
+    const source = read(PARAMS_FORM)
+    expect(source).toContain("data-testid='capability-params-form'")
+    expect(source).toContain('workflow_picker')
+    expect(source).toContain('x-admin')
+    expect(source).toContain('caseOptions')
   })
 })
