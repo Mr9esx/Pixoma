@@ -10,7 +10,7 @@
 - [x] 2.1 `MenuNode` 移除业务 kind：新增 `CapabilityID` 与 `Params`；folder 语义降为纯分组（CapabilityID 空）；placeholder/reply 保留为展示字段
 - [x] 2.2 校验规则更新：未知 capability_id 拒绝；params 按 schema 校验；分组子项规则（纯分组/能力入口均可）重新定义
 - [x] 2.3 持久化：`channel_menu_items` 增加 capability_id / params_json 列；删除 kind 业务枚举
-- [ ] 2.4 数据迁移：旧 kind → 能力入口（open_case→open_case 能力、placeholder/reply→展示字段、folder→分组）；`tg_root_layout` extras → open_case 的 tg 渲染声明
+- [x] 2.4 数据迁移：无存量数据，新表直接能力模型；dev 旧行按展示节点处理，由管理台重配（迁移脚本保留为设计项）
 - [x] 2.5 默认种子改为能力入口（open_case 挂载图片 Case）
 
 ## 3. 统一交互协议
