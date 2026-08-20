@@ -39,7 +39,7 @@ func seedSession(t *testing.T, gdb *gorm.DB, id string, chatID sharedkernel.Chat
 		UserID:         "user-1",
 		ChannelID:      addr.ChannelID,
 		ChatExternalID: addr.ExternalChatID,
-		CaseID:         "c1",
+		CaseID:         1,
 		Status:         "submitted",
 		InputKeysJSON:  "[]",
 		DraftJSON:      "{}",
@@ -59,12 +59,12 @@ func TestGormTask_SessionIDAndListByInstance(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	pending := domain.NewPending("t-pending", "s1", "c1", "inputs/t-pending", now)
+	pending := domain.NewPending("t-pending", "s1", sharedkernel.CaseID(1), "inputs/t-pending", now)
 	if err := tasks.Create(ctx, pending); err != nil {
 		t.Fatal(err)
 	}
 
-	queued := domain.NewPending("t-q", "s1", "c1", "inputs/t-q", now)
+	queued := domain.NewPending("t-q", "s1", sharedkernel.CaseID(1), "inputs/t-q", now)
 	if err := queued.MarkQueued("gpu-1", now); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestGormTask_ClaimQueuedCAS(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	if err := tasks.Create(ctx, domain.NewPending("t-claim", "s-claim", "c1", "inputs/t-claim", now)); err != nil {
+	if err := tasks.Create(ctx, domain.NewPending("t-claim", "s-claim", sharedkernel.CaseID(1), "inputs/t-claim", now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -128,8 +128,8 @@ func TestGormTask_ListByChatJoinsSession(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	a := domain.NewPending("t-a", "s-chat", "c1", "inputs/t-a", now)
-	b := domain.NewPending("t-b", "s-other", "c1", "inputs/t-b", now)
+	a := domain.NewPending("t-a", "s-chat", sharedkernel.CaseID(1), "inputs/t-a", now)
+	b := domain.NewPending("t-b", "s-other", sharedkernel.CaseID(1), "inputs/t-b", now)
 	_ = tasks.Create(ctx, a)
 	_ = tasks.Create(ctx, b)
 
@@ -161,9 +161,9 @@ func TestTaskAdminListFilters(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	pendingA := domain.NewPending("task-admin-aaa", "s-admin-42", "case-alpha", "inputs/a", now)
-	pendingB := domain.NewPending("task-admin-bbb", "s-admin-99", "case-beta", "inputs/b", now.Add(time.Second))
-	queued := domain.NewPending("task-other-ccc", "s-admin-42", "case-alpha", "inputs/c", now.Add(2*time.Second))
+	pendingA := domain.NewPending("task-admin-aaa", "s-admin-42", sharedkernel.CaseID(1), "inputs/a", now)
+	pendingB := domain.NewPending("task-admin-bbb", "s-admin-99", sharedkernel.CaseID(2), "inputs/b", now.Add(time.Second))
+	queued := domain.NewPending("task-other-ccc", "s-admin-42", sharedkernel.CaseID(1), "inputs/c", now.Add(2*time.Second))
 	if err := queued.MarkQueued("gpu-1", now.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestTaskAdminListFilters(t *testing.T) {
 
 	byStatusCase, err := tasks.List(ctx, domain.AdminListQuery{
 		Status: sharedkernel.TaskPending,
-		CaseID: "case-alpha",
+		CaseID: 1,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -229,7 +229,7 @@ func TestGormTask_JobRefAndLeaseRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	now := time.Unix(200, 0).UTC()
 
-	task := domain.NewPending("t-lease", "s-lease", "c1", "inputs/t-lease", now)
+	task := domain.NewPending("t-lease", "s-lease", sharedkernel.CaseID(1), "inputs/t-lease", now)
 	ref := sharedkernel.BlobRef{Key: "jobs/t-lease/job.json", MIME: "application/json"}
 	if err := task.PrepareForClaim("gpu-1", ref, now); err != nil {
 		t.Fatal(err)
@@ -256,7 +256,7 @@ func TestGormTask_PrepareForClaimCAS(t *testing.T) {
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
 	now := time.Unix(200, 0).UTC()
-	if err := tasks.Create(ctx, domain.NewPending("t-prep", "s-prep", "c1", "inputs/t-prep", now)); err != nil {
+	if err := tasks.Create(ctx, domain.NewPending("t-prep", "s-prep", sharedkernel.CaseID(1), "inputs/t-prep", now)); err != nil {
 		t.Fatal(err)
 	}
 	ref := sharedkernel.BlobRef{Key: "jobs/t-prep/job.json"}
@@ -284,7 +284,7 @@ func TestGormTask_ClaimNextWithLeaseAndExpire(t *testing.T) {
 	ctx := context.Background()
 	now := time.Unix(300, 0).UTC()
 	ref := sharedkernel.BlobRef{Key: "jobs/t-c2/job.json"}
-	task := domain.NewPending("t-c2", "s-claim2", "c1", "inputs/t-c2", now)
+	task := domain.NewPending("t-c2", "s-claim2", sharedkernel.CaseID(1), "inputs/t-c2", now)
 	_ = task.PrepareForClaim("gpu-1", ref, now)
 	if err := tasks.Create(ctx, task); err != nil {
 		t.Fatal(err)
@@ -329,7 +329,7 @@ func TestGormTask_HeartbeatLease(t *testing.T) {
 	tasks := persistence.NewTaskRepository(gdb)
 	ctx := context.Background()
 	now := time.Unix(400, 0).UTC()
-	task := domain.NewPending("t-hb", "s-hb", "c1", "inputs/t-hb", now)
+	task := domain.NewPending("t-hb", "s-hb", sharedkernel.CaseID(1), "inputs/t-hb", now)
 	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "j"}, now)
 	_ = task.ClaimWithLease("gpu-1", time.Minute, now)
 	if err := tasks.Create(ctx, task); err != nil {

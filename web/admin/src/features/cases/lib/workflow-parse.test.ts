@@ -45,7 +45,10 @@ describe('parseWorkflow', () => {
     expect(result.graph.nodes[0].inputs[0]).toEqual({
       name: 'image',
       kind: 'image',
+      ref: false,
     })
+    expect(result.graph.nodes[0].literals).toEqual([['image', 'ref.png']])
+    expect(result.graph.nodes[0].links).toEqual([])
   })
 
   it('converts ComfyUI UI format to API format', () => {

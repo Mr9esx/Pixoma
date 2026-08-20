@@ -89,6 +89,10 @@ func Open(path string) (*Store, Credentials, error) {
 			_ = st.Close()
 			return nil, Credentials{}, err
 		}
+		if err := writePlaintextPassword(path, pass); err != nil {
+			_ = st.Close()
+			return nil, Credentials{}, err
+		}
 		encB64, err := mintEncKeyB64()
 		if err != nil {
 			_ = st.Close()
@@ -381,6 +385,46 @@ func mintPassword() (plain, hash string, err error) {
 		return "", "", err
 	}
 	return plain, string(h), nil
+}
+
+// passwordFilePath derives the plaintext admin-password file path from the
+// bootstrap DB path (e.g. data/bootstrap.db -> data/bootstrap.admin-password).
+func passwordFilePath(bootPath string) string {
+	return strings.TrimSuffix(bootPath, ".db") + ".admin-password"
+}
+
+// writePlaintextPassword stores the freshly minted default admin password so it
+// can be re-printed after a restart before initialization completes. It is
+// written 0600 (owner-only). A failure here aborts bootstrap: without a
+// recoverable password the admin would be locked out on restart.
+func writePlaintextPassword(bootPath, pass string) error {
+	p := passwordFilePath(bootPath)
+	if err := os.WriteFile(p, []byte(pass+"\n"), 0o600); err != nil {
+		return fmt.Errorf("bootstrap: store plaintext password: %w", err)
+	}
+	return nil
+}
+
+// ReadStoredPassword returns the plaintext default admin password if it was
+// persisted by writePlaintextPassword and still applies (initialization not
+// finished). It returns os.ErrNotExist when no stored password exists.
+func ReadStoredPassword(bootPath string) (string, error) {
+	b, err := os.ReadFile(passwordFilePath(bootPath))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(b)), nil
+}
+
+// RemoveStoredPassword deletes the persisted plaintext default admin password.
+// It is called after the admin changes the password so the old initial secret
+// is no longer recoverable. Missing file is not an error.
+func RemoveStoredPassword(bootPath string) error {
+	err := os.Remove(passwordFilePath(bootPath))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }
 
 func closeDB(gdb *gorm.DB) error {

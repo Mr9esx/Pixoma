@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>输入字段交互 · 方案 D（图上点选绑定）原型</title>
+<style>
+  :root {
+    --bg:#fafafa; --card:#fff; --border:#e4e4e7; --muted:#f4f4f5; --fg:#18181b; --muted-fg:#71717a;
+    --primary:#18181b; --sky:#0369a1; --sky-bg:#e0f2fe; --emerald:#047857; --emerald-bg:#d1fae5;
+    --rose:#be123c; --rose-bg:#ffe4e6; --violet:#7c3aed; --violet-bg:#ede9fe;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--fg);padding:32px 24px 64px;line-height:1.5}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:20px;font-weight:650}
+  .sub{color:var(--muted-fg);font-size:13px;margin-top:6px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#ecfdf5;color:var(--emerald);
+    border:1px solid #a7f3d0;margin-left:8px;vertical-align:2px}
+  .grid{display:grid;grid-template-columns:400px 1fr;gap:28px;margin-top:28px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+  /* ===== 极简卡片 ===== */
+  .card{border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff}
+  .lbl{font-size:12px;color:var(--muted-fg);margin-bottom:5px;display:block}
+  input[type=text]{border:1px solid var(--border);border-radius:6px;height:34px;padding:0 10px;font-size:13px;width:100%;outline:none}
+  input[type=text]:focus{border-color:#a1a1aa;box-shadow:0 0 0 2px #e4e4e7}
+
+  /* 绑定位置大按钮 */
+  .bind-btn{display:flex;align-items:center;gap:10px;width:100%;border:1px dashed #cbd5e1;border-radius:8px;
+    padding:10px 12px;background:#f8fafc;cursor:pointer;text-align:left;font-size:13px;transition:border-color .15s,background .15s}
+  .bind-btn:hover{border-color:var(--sky);background:#f0f9ff}
+  .bind-btn .ph{color:var(--muted-fg)}
+  .bind-btn .set{display:flex;align-items:center;gap:8px;min-width:0}
+  .bind-btn .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted-fg)}
+  .bind-btn .arrow{margin-left:auto;color:#94a3b8;font-size:14px}
+  .node-ic{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;font-size:14px;flex-shrink:0}
+
+  .more-row{display:flex;align-items:center;gap:8px;font-size:12px}
+  select{border:1px solid var(--border);border-radius:6px;height:30px;padding:0 6px;font-size:13px;background:#fff}
+  .check{display:flex;align-items:center;gap:5px;color:var(--muted-fg);cursor:pointer}
+
+  /* ===== 弹层 ===== */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:50;padding:24px}
+  .overlay.open{display:flex}
+  .panel{background:#fff;border-radius:12px;width:min(720px,100%);max-height:82vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.2)}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+  .panel-head h3{font-size:15px;font-weight:650}
+  .panel-head .x{background:none;border:0;font-size:18px;color:var(--muted-fg);cursor:pointer;padding:2px 6px;border-radius:6px}
+  .panel-head .x:hover{background:var(--muted)}
+
+  /* 流程图（与详情页同款视觉） */
+  .flow{padding:18px;overflow-x:auto;border-bottom:1px solid var(--border);background:#fcfcfd}
+  .flow-inner{display:flex;align-items:stretch;gap:8px;min-width:max-content}
+  .fnode{display:flex;flex-direction:column;gap:5px;border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;background:#fff;cursor:pointer;width:150px;transition:all .12s;position:relative}
+  .fnode:hover{border-color:#94a3b8}
+  .fnode.active{border-color:var(--sky);background:var(--sky-bg);box-shadow:0 0 0 3px rgba(3,105,161,.15)}
+  .fnode.active::after{content:"已选";position:absolute;top:-8px;right:8px;font-size:10px;background:var(--sky);color:#fff;padding:0 6px;border-radius:99px}
+  .fnode .t1{display:flex;align-items:center;gap:6px}
+  .fnode .t1 .nm{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fnode .t2{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .farrow{display:flex;align-items:center;color:#d4d4d8;font-size:15px;flex-shrink:0}
+  .flow-hint{font-size:11px;color:var(--muted-fg);padding:8px 18px;border-bottom:1px solid var(--border);background:#fff}
+
+  /* 参数区 */
+  .params{padding:16px 18px;overflow:auto;flex:1}
+  .params h4{font-size:12px;color:var(--muted-fg);font-weight:600;margin-bottom:8px}
+  .param-list{display:flex;flex-direction:column;gap:6px}
+  .pitem{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:8px;padding:9px 12px;cursor:pointer;font-size:13px;transition:all .12s;background:#fff}
+  .pitem:hover{border-color:#94a3b8}
+  .pitem.sel{border-color:var(--emerald);background:var(--emerald-bg)}
+  .pitem .pn{font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+  .pitem .pv{margin-left:auto;font-size:11px;color:var(--muted-fg);max-width:46%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .pitem .tick{color:var(--emerald);font-weight:700;font-size:14px;visibility:hidden}
+  .pitem.sel .tick{visibility:visible}
+  .empty{padding:14px;font-size:13px;color:var(--muted-fg);text-align:center}
+
+  .panel-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;border-top:1px solid var(--border)}
+  .panel-foot .sel-info{font-size:12px;color:var(--muted-fg);min-width:0}
+  .panel-foot .sel-info b{color:var(--fg)}
+  .btn{border:1px solid var(--border);background:#fff;border-radius:7px;padding:7px 14px;font-size:13px;cursor:pointer}
+  .btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .btn.primary:disabled{opacity:.45;cursor:not-allowed}
+  .btn.primary:not(:disabled):hover{opacity:.9}
+
+  /* 说明 */
+  .notes{font-size:13px;color:#3f3f46}
+  .notes h3{font-size:14px;font-weight:650;margin-bottom:10px}
+  .notes ol{padding-left:20px;display:flex;flex-direction:column;gap:9px}
+  .notes li b{color:var(--fg)}
+  .demo{margin-top:16px;background:var(--muted);border:1px dashed var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px}
+  .demo button{border:1px solid var(--border);background:#fff;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;margin-right:6px}
+  .okline{display:none;margin-top:16px;border:1px solid #a7f3d0;background:#ecfdf5;border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--emerald)}
+  .okline.show{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>输入字段交互 · 方案 D（图上点选绑定）<span class="tag">可交互原型</span></h1>
+  <p class="sub">字段卡片：叫什么 + 用在工作流哪里。绑定 = 在弹出的工作流图上点一下。</p>
+
+  <div class="grid">
+    <!-- 极简卡片 -->
+    <div class="stage">
+      <div class="card">
+        <span class="lbl">字段名</span>
+        <input type="text" value="prompt" autocomplete="off" />
+
+        <div style="margin-top:12px">
+          <span class="lbl">绑定位置</span>
+          <button class="bind-btn" id="bind-btn" type="button">
+            <span class="set" id="bind-set">
+              <span class="ph" id="bind-ph">点击选择：这个字段对应工作流里的哪一步</span>
+            </span>
+            <span class="arrow">›</span>
+          </button>
+        </div>
+
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:8px">
+          <div class="more-row">
+            <span style="color:var(--muted-fg)">类型</span>
+            <select id="f-type">
+              <option value="string">文本</option>
+              <option value="image">图片</option>
+              <option value="audio">音频</option>
+              <option value="video">视频</option>
+              <option value="number">数字</option>
+              <option value="boolean">布尔</option>
+              <option value="enum">枚举</option>
+            </select>
+            <span id="type-note" style="color:var(--muted-fg);font-size:11px"></span>
+            <label class="check" style="margin-left:auto"><input type="checkbox" checked /> 必填</label>
+          </div>
+          <div class="more-row">
+            <span style="color:var(--muted-fg)">描述</span>
+            <input type="text" style="flex:1" placeholder="这个字段的用途…" autocomplete="off" />
+          </div>
+        </div>
+      </div>
+
+      <div class="okline" id="okline">✅ 绑定成功：<b id="ok-text"></b>。保存后用户填写的值会喂给这个位置。</div>
+
+      <div class="demo">
+        <b>试一试：</b>
+        <button type="button" id="demo-reset">重新绑定</button>
+        <button type="button" id="demo-open">打开绑定弹层</button>
+      </div>
+    </div>
+
+    <!-- 说明 -->
+    <div class="notes">
+      <h3>为什么这样更好理解</h3>
+      <ol>
+        <li><b>复用已见过的图</b>：弹层里就是详情页那张横向流程图（节点+箭头），用户无需理解"节点 ID、参数名"这些概念，<b>点一下想绑定的位置</b>即可。</li>
+        <li><b>卡片信息直接可见</b>：主卡片「字段名 + 绑定位置」，类型/必填/描述平铺在下方，不折叠。</li>
+        <li><b>绑定结果说人话</b>：绑定后按钮显示「📄 CLIPTextEncode #3 · text」，一眼看懂"这个字段会喂给哪一步"。</li>
+        <li><b>只排除节点间连线</b>：参数列表只过滤"引用"（clip、model、positive…这类工作流内部连线，用户无法提供）；text、seed、steps、ckpt_name 等字面量参数都可绑，类型不做限制。</li>
+        <li><b>类型自动带出</b>：绑定后类型自动填好（文本/图片/音频/视频），可手动改，但主流程不需要理解它。</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- 绑定弹层 -->
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>选择绑定位置</h3>
+      <button class="x" id="close" type="button">×</button>
+    </div>
+    <div class="flow-hint">① 在图上点一个节点 → ② 在下方点它的参数</div>
+    <div class="flow" id="flow"></div>
+    <div class="params">
+      <h4 id="params-title">请先在上方选择一个节点</h4>
+      <div class="param-list" id="params"></div>
+    </div>
+    <div class="panel-foot">
+      <div class="sel-info" id="sel-info">尚未选择</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="cancel" type="button">取消</button>
+        <button class="btn primary" id="confirm" type="button" disabled>完成绑定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ===== 数据（模拟典型 SDXL 工作流，与详情页流程图同构）=====
+  const RAW = {
+    '4': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'sd_xl_base_1.0.safetensors' } },
+    '5': { class_type: 'EmptyLatentImage', inputs: { width: 1024, height: 1024, batch_size: 1 } },
+    '6': { class_type: 'CLIPTextEncode', inputs: { text: 'a cat, masterpiece, best quality, highly detailed, cinematic lighting', clip: ['4', 1] } },
+    '7': { class_type: 'CLIPTextEncode', inputs: { text: 'blurry, low quality, watermark', clip: ['4', 1] } },
+    '3': { class_type: 'KSampler', inputs: { seed: 42, steps: 20, cfg: 7, sampler_name: 'euler', scheduler: 'normal', denoise: 1, model: ['4', 0], positive: ['6', 0], negative: ['7', 0], latent_image: ['5', 0] } },
+    '8': { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['4', 2] } },
+  }
+  const VIZ = {
+    video:{ic:'🎬',bg:'var(--rose-bg)'}, audio:{ic:'🎵',bg:'#ffedd5'}, sampler:{ic:'🎛️',bg:'#fef3c7'},
+    loader:{ic:'📦',bg:'var(--emerald-bg)'}, text:{ic:'📄',bg:'var(--sky-bg)'}, image:{ic:'🖼️',bg:'var(--violet-bg)'},
+    def:{ic:'✨',bg:'#eef2ff'},
+  }
+  function vizFor(ct){const c=ct.toLowerCase();
+    if(c.includes('video'))return VIZ.video; if(c.includes('audio')||c.includes('music'))return VIZ.audio;
+    if(c.includes('sample')||c.includes('noise')||c.includes('scheduler'))return VIZ.sampler;
+    if(c.includes('loader')||c.includes('lora')||c.includes('patch'))return VIZ.loader;
+    if(c.includes('text')||c.includes('clip')||c.includes('encode'))return VIZ.text;
+    if(c.includes('image')||c.includes('vae')||c.includes('decode'))return VIZ.image; return VIZ.def}
+
+  // 输入类型：除引用（节点间连线）外不做限制
+  const TYPE={string:'文本',number:'数字',boolean:'布尔',enum:'枚举',image:'图片',audio:'音频',video:'视频'}
+  function kindFor(ct,name){const n=name.toLowerCase(),c=ct.toLowerCase();
+    if(['width','height','batch_size','seed','steps','cfg','denoise'].includes(n))return 'number';
+    if(['ckpt_name','sampler_name','scheduler'].includes(n))return 'enum';
+    if(c.includes('text')||n==='text')return 'string';
+    if(c.includes('audio')||n.includes('audio'))return 'audio';
+    if(c.includes('video')||n.includes('video'))return 'video';
+    if(c.includes('image')||c.includes('vae')||c.includes('decode')||c.includes('encode'))return 'image'; return 'string'}
+
+  const NODES = Object.entries(RAW).map(([id,n])=>({
+    id, class_type:n.class_type, viz:vizFor(n.class_type),
+    literals:Object.entries(n.inputs).filter(([,v])=>!Array.isArray(v)),
+    // 只暴露字面量参数：引用（节点间连线）不是用户能提供的输入
+    params:Object.entries(n.inputs).filter(([,v])=>!Array.isArray(v))
+      .map(([name,v])=>({name, kind:kindFor(n.class_type,name), val:String(v)}))
+  }))
+
+  // 拓扑排序（简化：按依赖深度，与详情页一致）
+  const depth={}; for(const n of NODES) depth[n.id]=0
+  for(let pass=0;pass<NODES.length;pass++){let ch=false
+    for(const n of NODES) for(const [k,v] of Object.entries(RAW[n.id].inputs))
+      if(Array.isArray(v)&&depth[v[0]]!==undefined){const d=depth[v[0]]+1;if(d>depth[n.id]){depth[n.id]=d;ch=true}}
+    if(!ch)break}
+  const ORDER=[...NODES].sort((a,b)=>depth[a.id]-depth[b.id]||a.id.localeCompare(b.id))
+
+  // ===== 状态 =====
+  const S={nodeId:null,param:null}
+
+  // ===== 渲染流程图 =====
+  const flow=document.getElementById('flow')
+  flow.innerHTML=`<div class="flow-inner">`+ORDER.map(n=>`
+    <div class="fnode" data-id="${n.id}">
+      <div class="t1"><span class="node-ic" style="background:${n.viz.bg}">${n.viz.ic}</span>
+        <span class="nm">${n.class_type}</span></div>
+      <div class="t2">#${n.id}</div>
+    </div>`).join(`<div class="farrow">→</div>`)+`</div>`
+
+  // ===== 点节点 =====
+  function renderParams(){
+    const list=document.getElementById('params'),title=document.getElementById('params-title')
+    if(!S.nodeId){title.textContent='请先在上方选择一个节点';list.innerHTML='<div class="empty">点一下图上想绑定的节点</div>';return}
+    const n=NODES.find(x=>x.id===S.nodeId)
+    if(!n.params.length){
+      title.textContent=`${n.class_type} #${n.id} 没有可绑定的输入`
+      list.innerHTML='<div class="empty">这个节点的参数都是工作流内部连线，不能作为用户输入</div>'
+      document.querySelectorAll('.fnode').forEach(el=>el.classList.toggle('active',el.dataset.id===S.nodeId))
+      S.param=null;updateFoot();return
+    }
+    title.textContent=`${n.class_type} #${n.id} 的参数 — 点一个完成选择`
+    list.innerHTML=n.params.map(p=>`
+      <div class="pitem ${S.param===p.name?'sel':''}" data-p="${p.name}">
+        <span class="pn">${p.name}</span>
+        <span class="kind">${TYPE[p.kind]||p.kind}</span>
+        <span class="pv">${p.val}</span>
+        <span class="tick">✓</span>
+      </div>`).join('')
+    document.querySelectorAll('.fnode').forEach(el=>el.classList.toggle('active',el.dataset.id===S.nodeId))
+    if(S.param&&!n.params.some(p=>p.name===S.param))S.param=null
+    updateFoot()
+  }
+  flow.addEventListener('click',e=>{
+    const node=e.target.closest('.fnode');if(!node)return
+    S.nodeId=node.dataset.id;S.param=null;renderParams()
+  })
+  document.getElementById('params').addEventListener('click',e=>{
+    const item=e.target.closest('.pitem');if(!item)return
+    S.param=item.dataset.p;renderParams()
+  })
+
+  // ===== 底部状态 =====
+  const selInfo=document.getElementById('sel-info'),confirm=document.getElementById('confirm')
+  function updateFoot(){
+    if(!S.nodeId){selInfo.textContent='尚未选择';confirm.disabled=true;return}
+    const n=NODES.find(x=>x.id===S.nodeId)
+    if(!S.param){selInfo.innerHTML=`已选节点 <b>${n.class_type} #${n.id}</b>，请选一个参数`;confirm.disabled=true;return}
+    const p=n.params.find(x=>x.name===S.param)
+    selInfo.innerHTML=`将绑定：<b>${n.class_type} #${n.id} · ${p.name}</b>（${TYPE[p.kind]||'文本'}）`
+    confirm.disabled=false
+  }
+
+  // ===== 弹层开关 =====
+  const overlay=document.getElementById('overlay'),bindBtn=document.getElementById('bind-btn')
+  function open(){overlay.classList.add('open');renderParams()}
+  function close(){overlay.classList.remove('open')}
+  bindBtn.addEventListener('click',open)
+  document.getElementById('close').addEventListener('click',close)
+  document.getElementById('cancel').addEventListener('click',close)
+  overlay.addEventListener('click',e=>{if(e.target===overlay)close()})
+
+  // ===== 完成绑定 =====
+  confirm.addEventListener('click',()=>{
+    const n=NODES.find(x=>x.id===S.nodeId),p=n.params.find(x=>x.name===S.param)
+    const viz=n.viz
+    document.getElementById('bind-set').innerHTML=`
+      <span class="node-ic" style="background:${viz.bg}">${viz.ic}</span>
+      <span><b>${n.class_type}</b> <span class="mono">#${n.id} · ${p.name}</span></span>`
+    document.getElementById('bind-ph')?.remove()
+    document.getElementById('ok-text').textContent=`${n.class_type} #${n.id} 的 ${p.name}`
+    document.getElementById('okline').classList.add('show')
+    // 类型自动带出（映射到四类）
+    const autoMap={string:'string',number:'number',boolean:'boolean',enum:'enum',image:'image',audio:'audio',video:'video'}
+    const ft=document.getElementById('f-type');ft.value=autoMap[p.kind]||'string'
+    document.getElementById('type-note').textContent=`· 自动·来自 ${n.class_type} 的 ${p.name}`
+    close()
+  })
+
+  // ===== 演示按钮 =====
+  document.getElementById('demo-reset').addEventListener('click',()=>{
+    S.nodeId=null;S.param=null
+    document.getElementById('bind-set').innerHTML='<span class="ph" id="bind-ph">点击选择：这个字段对应工作流里的哪一步</span>'
+    document.getElementById('okline').classList.remove('show')
+    document.getElementById('type-note').textContent=''
+    document.getElementById('f-type').value='string'
+  })
+  document.getElementById('demo-open').addEventListener('click',open)
+</script>
+</body>
+</html>

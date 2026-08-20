@@ -1,30 +1,74 @@
 {
-  "id": "text2img-demo",
+  "id": 4,
   "name": "Text to Image Demo",
   "description": "Minimal text2img seed case",
   "price": 0,
-  "tags": ["image", "text2img"],
+  "tags": [
+    "image",
+    "text2img"
+  ],
   "menu_key": "create",
-  "categories": ["generate"],
+  "categories": [
+    "generate"
+  ],
   "inputs": [
-    {"key": "prompt", "type": "string", "required": true, "description": "Positive prompt"},
-    {"key": "seed", "type": "number", "required": false, "skip_allowed": true}
+    {
+      "key": "prompt",
+      "type": "string",
+      "required": true,
+      "description": "Positive prompt"
+    },
+    {
+      "key": "seed",
+      "type": "number",
+      "required": false,
+      "skip_allowed": true
+    }
   ],
   "outputs": [
-    {"key": "image", "type": "image"}
+    {
+      "key": "image",
+      "type": "image"
+    }
   ],
   "bindings": {
-    "workflow": {"1": {"class_type": "Stub", "inputs": {}}},
-    "inputs": [{"key": "prompt", "node_id": "1", "field_path": "text"}],
-    "outputs": [{"key": "image", "node_id": "1", "index": 0}]
+    "workflow": {
+      "1": {
+        "class_type": "Stub",
+        "inputs": {}
+      }
+    },
+    "inputs": [
+      {
+        "key": "prompt",
+        "node_id": "1",
+        "field_path": "text"
+      }
+    ],
+    "outputs": [
+      {
+        "key": "image",
+        "node_id": "1",
+        "index": 0
+      }
+    ]
   },
   "input_schema": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["prompt"],
+    "required": [
+      "prompt"
+    ],
     "properties": {
-      "prompt": {"type": "string", "minLength": 1, "maxLength": 2000},
-      "seed": {"type": "integer", "minimum": 0}
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "seed": {
+        "type": "integer",
+        "minimum": 0
+      }
     }
   }
 }

@@ -16,7 +16,7 @@ func TestDispatchSkippedWhenOnlineFilterRejects(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("t-online", "s", "c", "inputs/t-online", now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("t-online", "s", sharedkernel.CaseID(1), "inputs/t-online", now)); err != nil {
 		t.Fatal(err)
 	}
 	bus := &captureBus{}
@@ -46,7 +46,7 @@ func TestDispatchSetsJobRefWhenPrepSet(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("t-prep", "s", "c", "inputs/t-prep", now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("t-prep", "s", sharedkernel.CaseID(1), "inputs/t-prep", now)); err != nil {
 		t.Fatal(err)
 	}
 	bus := &captureBus{}
@@ -83,7 +83,7 @@ func TestDispatchClaimableUsesEnabledWithoutOnline(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("t-claim-enabled", "s", "c", "inputs/t", now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("t-claim-enabled", "s", sharedkernel.CaseID(1), "inputs/t", now)); err != nil {
 		t.Fatal(err)
 	}
 	n := &memNotify{}
@@ -108,7 +108,7 @@ func TestDispatchUsesOnlineEvenWhenInstanceMarkedUnhealthy(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("t-edge-health", "s", "c", "inputs/t", now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("t-edge-health", "s", sharedkernel.CaseID(1), "inputs/t", now)); err != nil {
 		t.Fatal(err)
 	}
 	bus := &captureBus{}

@@ -198,7 +198,11 @@ func (o OpenCase) list(ctx context.Context, params map[string]any) (protocol.Res
 		if !ok || id == "" {
 			continue
 		}
-		c, err := o.App.GetCase(ctx, sharedkernel.CaseID(id))
+		parsed, perr := sharedkernel.ParseCaseID(id)
+		if perr != nil {
+			continue
+		}
+		c, err := o.App.GetCase(ctx, parsed)
 		if err != nil {
 			continue
 		}
@@ -214,11 +218,15 @@ func (o OpenCase) preview(ctx context.Context, params map[string]any) (protocol.
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
-	caseID, _ := params["case_id"].(string)
-	if caseID == "" {
+	rawCaseID, _ := params["case_id"].(string)
+	if rawCaseID == "" {
 		return protocol.Result{}, fmt.Errorf("open_case: case_id required for preview")
 	}
-	c, err := o.App.GetCase(ctx, sharedkernel.CaseID(caseID))
+	caseID, perr := sharedkernel.ParseCaseID(rawCaseID)
+	if perr != nil {
+		return protocol.Result{}, fmt.Errorf("open_case: invalid case_id")
+	}
+	c, err := o.App.GetCase(ctx, caseID)
 	if err != nil {
 		return protocol.Result{}, err
 	}
@@ -248,12 +256,16 @@ func (o OpenCase) start(ctx context.Context, acct protocol.AccountCtx, chatID sh
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
-	caseID, _ := params["case_id"].(string)
-	if caseID == "" {
+	rawCaseID, _ := params["case_id"].(string)
+	if rawCaseID == "" {
 		return protocol.Result{}, fmt.Errorf("open_case: case_id required for start")
 	}
+	caseID, perr := sharedkernel.ParseCaseID(rawCaseID)
+	if perr != nil {
+		return protocol.Result{}, fmt.Errorf("open_case: invalid case_id")
+	}
 	view, err := o.App.StartCase(ctx, botapp.StartCaseCmd{
-		ChatID: chatID, UserID: acct.InternalUserID, CaseID: sharedkernel.CaseID(caseID),
+		ChatID: chatID, UserID: acct.InternalUserID, CaseID: caseID,
 	})
 	if err != nil {
 		return protocol.Result{}, err

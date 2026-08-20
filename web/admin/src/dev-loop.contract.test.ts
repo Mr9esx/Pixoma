@@ -16,7 +16,7 @@ describe('make dev loop', () => {
   it('dev.sh starts pixoma and vite, prints both URLs, and traps signals', () => {
     const sh = readFileSync(join(repoRoot, 'scripts/dev.sh'), 'utf8')
     expect(sh).toContain('管理页面: http://127.0.0.1:5173')
-    expect(sh).toMatch(/后台接口: \$\{PUBLIC_URL:-http:\/\/127\.0\.0\.1:8080\}/)
+    expect(sh).toMatch(/后台接口: \$\{PUBLIC_URL:-http:\/\/127\.0\.0\.1:8082\}/)
     expect(sh).toContain('COMFY_MOCK="${COMFY_MOCK:-0}"')
     expect(sh).toContain('go run ./apps/pixoma/cmd/pixoma')
     expect(sh).toContain('VITE_ADMIN_API_BASE=')

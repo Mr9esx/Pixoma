@@ -42,7 +42,7 @@ describe('Master–Detail shell + feedback primitives', () => {
     expect(existsSync(SHELL), 'master-detail-shell.tsx missing').toBe(true)
     const source = readFileSync(SHELL, 'utf8')
     expect(source).toContain('export function MasterDetailShell')
-    expect(source).toContain('md:grid-cols-[minmax(280px,360px)_1fr]')
+    expect(source).toContain('md:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]')
     expect(source).toContain('min-h-0')
     expect(source).toContain('flex-1')
     expect(source).not.toContain('100vh-5rem')

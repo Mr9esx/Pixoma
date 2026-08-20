@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -90,7 +91,7 @@ func (r *MemoryRepository) List(_ context.Context, q ListQuery) ([]*Session, err
 		}
 		if q.Q != "" {
 			if !strings.Contains(string(s.ID), q.Q) &&
-				!strings.Contains(string(s.CaseID), q.Q) &&
+				!strings.Contains(strconv.FormatUint(uint64(s.CaseID), 10), q.Q) &&
 				!strings.Contains(s.UserID, q.Q) {
 				continue
 			}

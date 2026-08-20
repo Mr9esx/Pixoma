@@ -17,10 +17,23 @@ describe('workflow detail panel', () => {
     expect(source).toContain('cases.sectionConfig')
     expect(source).toContain('cases.sectionEntries')
     expect(source).toContain('WorkflowConfigView')
+    expect(source).toContain('cases.editInfo')
+    expect(source).toContain('cases.editWorkflow')
+    expect(source).toContain("setEditDialog('info')")
+    expect(source).toContain('showWorkflow={false}')
+    expect(source).toContain('showBasics={false}')
     expect(source).toContain('<Dialog')
     expect(source).toContain('DialogContent')
     expect(source).toContain('<CaseForm')
-    expect(source).toContain('setEditOpen(false)')
+    expect(source).toContain('setEditDialog(null)')
+  })
+
+  it('config view receives onSaved that syncs the detail query cache', () => {
+    const source = readFileSync(DETAIL, 'utf8')
+    expect(source).toContain(
+      "onSaved={(next) => queryClient.setQueryData(queryKeys.cases.detail(id), next)}"
+    )
+    expect(source).toContain('<WorkflowConfigView')
   })
 
   it('case form can hide basics while keeping config sections', () => {
@@ -37,14 +50,37 @@ describe('workflow detail panel', () => {
     expect(source).toContain('WorkflowGraphPreview')
   })
 
-  it('graph preview uses react flow with simple/full modes and highlights', () => {
+  it('graph preview: io cards on top, horizontal process flow below', () => {
     const source = readFileSync(GRAPH, 'utf8')
-    expect(source).toContain("from '@xyflow/react'")
-    expect(source).toContain('ReactFlow')
-    expect(source).toContain('cases.graphSimple')
-    expect(source).toContain('cases.graphFull')
-    expect(source).toContain('inputBound')
-    expect(source).toContain('outputBound')
+    expect(source).toContain('cases.sectionInputs')
+    expect(source).toContain('cases.sectionOutputs')
+    expect(source).toContain('cases.sectionProcess')
+    expect(source).toContain('cases.editInputs')
+    expect(source).toContain('cases.editOutputs')
+    expect(source).toContain('bindings.inputs')
+    expect(source).toContain('bindings.outputs')
+    expect(source).toContain('overflow-x-auto')
+    expect(source).toContain('bg-muted/30')
+    expect(source).toContain('border-b border-border px-3 py-2')
+    expect(source).toContain("className='flex flex-col gap-2 px-3 py-2.5'")
+    expect(source).toContain('TooltipContent')
+    expect(source).toContain('font-mono text-sm')
+    expect(source).toContain('w-56')
+    expect(source).not.toContain('expandedNodes')
+    expect(source).not.toContain('cases.nodeExpand')
+  })
+
+  it('graph preview modals edit fields and save via patchCase + onSaved', () => {
+    const source = readFileSync(GRAPH, 'utf8')
+    expect(source).toContain('InputFieldCard')
+    expect(source).toContain('OutputFieldCard')
+    expect(source).toContain('deriveBindings(inputDrafts, outputDrafts)')
+    expect(source).toContain('patchCase(record.id, body)')
+    expect(source).toContain('queryClient.setQueryData(queryKeys.cases.detail(record.id), next)')
+    expect(source).toContain('onSaved?.(next)')
+    expect(source).toContain('cases.saveSuccess')
+    expect(source).toContain('cases.saveFailed')
+    expect(source).not.toContain('bg-slate-')
   })
 
   it('placements section renders a table', () => {

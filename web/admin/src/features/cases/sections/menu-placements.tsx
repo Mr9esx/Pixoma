@@ -14,7 +14,7 @@ function formatPlacementPath(path: { id: string; label: string }[]): string {
 }
 
 type Props = {
-  caseId: string
+  caseId: number
   showHeading?: boolean
 }
 

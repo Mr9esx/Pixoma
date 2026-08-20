@@ -96,7 +96,7 @@ func (r *memCases) Enable(context.Context, sharedkernel.CaseID) error  { return 
 
 func textWorkflowCase() catalogdomain.CaseDocument {
 	return catalogdomain.CaseDocument{
-		ID:   "text-inject",
+		ID:   1,
 		Name: "Text inject",
 		Inputs: []catalogdomain.InputField{
 			{Key: "prompt", Type: "string", Required: true},
@@ -133,7 +133,7 @@ func TestBuildJobPackageCarriesOutputBindings(t *testing.T) {
 	}
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-out", "s1", "text-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-out", "s1", sharedkernel.CaseID(1), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 	cases := &memCases{}
@@ -163,7 +163,7 @@ func TestCaseSnapshotInjectsStagedTextIntoNodeInputs(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-1", "s1", "text-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-1", "s1", sharedkernel.CaseID(1), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -204,7 +204,7 @@ func TestBuildJobPackage_InjectsTextWithoutUpload(t *testing.T) {
 	}
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-job", "s1", "text-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-job", "s1", sharedkernel.CaseID(1), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 	cases := &memCases{}
@@ -247,12 +247,12 @@ func TestCaseSnapshotFailsWhenBindingMissing(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-2", "s1", "no-bind", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-2", "s1", sharedkernel.CaseID(2), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
 	doc := textWorkflowCase()
-	doc.ID = "no-bind"
+	doc.ID = 2
 	doc.Bindings.Inputs = nil // staged prompt has no binding
 
 	cases := &memCases{}
@@ -273,7 +273,7 @@ func TestCaseSnapshotPropagatesNonMissingBlobGetError(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-blob-err", "s1", "text-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-blob-err", "s1", sharedkernel.CaseID(1), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -305,12 +305,12 @@ func TestCaseSnapshotFailsWhenWorkflowEmpty(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-3", "s1", "empty-wf", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-3", "s1", sharedkernel.CaseID(3), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
 	doc := textWorkflowCase()
-	doc.ID = "empty-wf"
+	doc.ID = 3
 	doc.Bindings.WorkflowJSON = map[string]any{}
 
 	cases := &memCases{}
@@ -327,7 +327,7 @@ func TestCaseSnapshotFailsWhenWorkflowEmpty(t *testing.T) {
 
 func imageWorkflowCase() catalogdomain.CaseDocument {
 	return catalogdomain.CaseDocument{
-		ID:   "image-inject",
+		ID:   4,
 		Name: "Image inject",
 		Inputs: []catalogdomain.InputField{
 			{Key: "reference", Type: "image", Required: true},
@@ -373,7 +373,7 @@ func TestCaseSnapshotUploadsImageAndWritesRemoteFilename(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img", "s1", "image-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img", "s1", sharedkernel.CaseID(4), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -435,7 +435,7 @@ func TestCaseSnapshotFailsWhenUploaderNilForImage(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img-nil", "s1", "image-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img-nil", "s1", sharedkernel.CaseID(4), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 	cases := &memCases{}
@@ -469,7 +469,7 @@ func TestCaseSnapshot_PrefersPassedUploader(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img-pass", "s1", "image-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("task-img-pass", "s1", sharedkernel.CaseID(4), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 	cases := &memCases{}

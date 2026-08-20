@@ -33,7 +33,7 @@ func TestGormSession_ActiveSurviveReopenAndSubmittedKept(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	s := domain.NewCollecting("s1", "tg:100", "case-1", []string{"prompt"}, now)
+	s := domain.NewCollecting("s1", "tg:100", 1, []string{"prompt"}, now)
 	s.UserID = "user-1"
 	if err := repo.Save(ctx, s); err != nil {
 		t.Fatal(err)
@@ -64,13 +64,13 @@ func TestSessionListFilters(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	s1 := domain.NewCollecting("sess-alice-1", "tg:100", "case-alpha", []string{"prompt"}, now)
+	s1 := domain.NewCollecting("sess-alice-1", "tg:100", 3, []string{"prompt"}, now)
 	s1.UserID = "user-alice"
 	if err := repo.Save(ctx, s1); err != nil {
 		t.Fatal(err)
 	}
 
-	s2 := domain.NewCollecting("sess-bob-2", "tg:200", "case-beta", []string{"prompt"}, now.Add(time.Second))
+	s2 := domain.NewCollecting("sess-bob-2", "tg:200", 4, []string{"prompt"}, now.Add(time.Second))
 	s2.UserID = "user-bob"
 	s2.Status = domain.StatusSubmitted
 	s2.UpdatedAt = now.Add(2 * time.Second)
@@ -103,7 +103,7 @@ func TestSessionListFilters(t *testing.T) {
 		t.Fatalf("chat_id: want 1 alice, got %+v", byChat)
 	}
 
-	byQCase, err := repo.List(ctx, domain.ListQuery{Q: "case-alpha"})
+	byQCase, err := repo.List(ctx, domain.ListQuery{Q: "3"})
 	if err != nil {
 		t.Fatal(err)
 	}

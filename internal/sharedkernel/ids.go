@@ -2,16 +2,26 @@ package sharedkernel
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
 type (
-	CaseID    string
+	CaseID    uint64
 	TaskID    string
 	SessionID string
 	ChatID    string
 	EdgeID    string
 )
+
+// ParseCaseID parses a decimal string into a CaseID.
+func ParseCaseID(s string) (CaseID, error) {
+	n, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return CaseID(n), nil
+}
 
 // ChannelAddr identifies a conversation on a specific channel.
 type ChannelAddr struct {

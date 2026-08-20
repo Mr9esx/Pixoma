@@ -61,7 +61,7 @@ func (p *capturePub) Publish(_ context.Context, msg queue.Message) error {
 
 func sampleDoc() domain.CaseDocument {
 	return domain.CaseDocument{
-		ID:   "text2img-demo",
+		ID:   1,
 		Name: "Demo",
 		Inputs: []domain.InputField{
 			{Key: "prompt", Type: "string", Required: true},
@@ -92,7 +92,7 @@ func TestConfirmRun_WritesSessionID(t *testing.T) {
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "sess-write" }, func() time.Time {
 		return time.Unix(10, 0).UTC()
 	})
-	_, err := sessSvc.StartCase(ctx, "tg:100", "user-test", "text2img-demo", []string{"prompt"})
+	_, err := sessSvc.StartCase(ctx, "tg:100", "user-test", 1, []string{"prompt"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestConfirmRunCreatesPendingAndPublishes(t *testing.T) {
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "sess-1" }, func() time.Time {
 		return time.Unix(10, 0).UTC()
 	})
-	_, err := sessSvc.StartCase(ctx, "tg:100", "user-test", "text2img-demo", []string{"prompt"})
+	_, err := sessSvc.StartCase(ctx, "tg:100", "user-test", 1, []string{"prompt"})
 	if err != nil {
 		t.Fatal(err)
 	}

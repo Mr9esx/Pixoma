@@ -41,7 +41,7 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 	if err := tasks.Create(ctx, &runtimedomain.Task{
 		ID:        "t-pending",
 		SessionID: "s1",
-		CaseID:    "c1",
+		CaseID:    sharedkernel.CaseID(1),
 		Status:    sharedkernel.TaskPending,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -51,7 +51,7 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 	if err := tasks.Create(ctx, &runtimedomain.Task{
 		ID:        "t-queued",
 		SessionID: "s1",
-		CaseID:    "c1",
+		CaseID:    sharedkernel.CaseID(1),
 		Status:    sharedkernel.TaskQueued,
 		EdgeID:    "gpu-2",
 		CreatedAt: now,
@@ -549,7 +549,7 @@ func TestHandler_Stats(t *testing.T) {
 		if err := tasks.Create(context.Background(), &runtimedomain.Task{
 			ID:        sharedkernel.TaskID(id),
 			SessionID: "s1",
-			CaseID:    "c1",
+			CaseID:    sharedkernel.CaseID(1),
 			Status:    status,
 			EdgeID:    "gpu-1",
 			CreatedAt: now,

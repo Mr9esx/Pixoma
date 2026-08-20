@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -21,7 +22,7 @@ func New() *Validator {
 
 func (v *Validator) ValidateDocument(doc domain.CaseDocument) error {
 	var fields []domain.FieldError
-	if strings.TrimSpace(string(doc.ID)) == "" {
+	if doc.ID == 0 {
 		fields = append(fields, domain.FieldError{Key: "id", Message: "required"})
 	}
 	if strings.TrimSpace(doc.Name) == "" {
@@ -151,7 +152,7 @@ func (v *Validator) ValidateInputs(doc domain.CaseDocument, values []domain.Inpu
 	if err != nil {
 		return fmt.Errorf("marshal input_schema: %w", err)
 	}
-	sch, err := compileSchema(v.compiler, string(doc.ID), schemaBytes)
+	sch, err := compileSchema(v.compiler, strconv.FormatUint(uint64(doc.ID), 10), schemaBytes)
 	if err != nil {
 		return fmt.Errorf("compile input_schema: %w", err)
 	}

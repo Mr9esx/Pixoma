@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"strconv"
 	"context"
 	"errors"
 	"strings"
@@ -274,12 +275,12 @@ func (r *MemoryTaskRepository) List(_ context.Context, q AdminListQuery) ([]*Tas
 		if q.SessionID != "" && t.SessionID != q.SessionID {
 			continue
 		}
-		if q.CaseID != "" && t.CaseID != q.CaseID {
+		if q.CaseID != 0 && t.CaseID != q.CaseID {
 			continue
 		}
 		if q.Q != "" {
 			needle := strings.ToLower(q.Q)
-			hay := strings.ToLower(string(t.ID) + " " + string(t.CaseID) + " " + string(t.SessionID))
+			hay := strings.ToLower(string(t.ID) + " " + strconv.FormatUint(uint64(t.CaseID), 10) + " " + string(t.SessionID))
 			if !strings.Contains(hay, needle) {
 				continue
 			}

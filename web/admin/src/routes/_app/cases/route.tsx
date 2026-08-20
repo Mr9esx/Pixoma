@@ -51,13 +51,19 @@ function CasesLayout() {
   })
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
   const backToList = locationState?.backToList === true
-  const selectedId = caseId ?? (backToList ? undefined : items[0]?.id)
+  const selectedId = useMemo(() => {
+    if (caseId == null || caseId === 'new') {
+      return backToList ? undefined : items[0]?.id
+    }
+    const n = Number(caseId)
+    return Number.isNaN(n) ? undefined : n
+  }, [caseId, backToList, items])
 
   useEffect(() => {
     if (caseId == null && !backToList && items.length > 0) {
       void navigate({
         to: '/cases/$caseId',
-        params: { caseId: items[0].id },
+        params: { caseId: String(items[0].id) },
         replace: true,
       })
     }
@@ -85,7 +91,7 @@ function CasesLayout() {
         </Button>
       </div>
       <MasterDetailShell
-        className='md:grid-cols-[280px_1fr]'
+        className='md:grid-cols-[280px_minmax(0,1fr)]'
         hasSelection={Boolean(selectedId)}
         onBackToList={() => {
           void navigate({ to: '/cases', state: { backToList: true } } as never)

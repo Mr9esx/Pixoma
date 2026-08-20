@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CodeEditor } from '@/components/code-editor'
 import type { WorkflowGraph } from '../lib/workflow-parse'
@@ -34,8 +35,8 @@ export function WorkflowImportSection({
   return (
     <section className='space-y-3' data-testid='case-section-workflow-import'>
       <div className='flex items-center gap-2'>
-        <span className='flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground'>
-          1
+        <span className='flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground'>
+          <Upload className='size-3' />
         </span>
         <h3 className='text-sm font-semibold'>{t('cases.importHeading')}</h3>
         <span className='text-xs text-muted-foreground'>

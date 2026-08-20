@@ -30,12 +30,35 @@ const REQUIRED_KEYS = [
   'outputsHeading',
   'outputsHint',
   'fieldFromNode',
-  'fieldParam',
-  'fieldOutput',
   'fieldEnumOptions',
+  'typeAutoSourceOutput',
+  'bindFlowHintOutput',
+  'typeString',
+  'typeImage',
+  'typeAudio',
+  'typeVideo',
+  'typeNumber',
+  'typeBoolean',
+  'typeEnum',
+  'typeText',
+  'typeFile',
+  'editInfo',
+  'editWorkflow',
+  'fieldBind',
+  'bindPickPlaceholder',
+  'bindDialogTitle',
+  'bindFlowHint',
+  'bindPickNodeFirst',
+  'bindPickParam',
+  'bindNoParams',
+  'bindWillBind',
+  'bindConfirm',
+  'typeAuto',
+  'typeCustom',
+  'typeRestoreAuto',
+  'typeAutoSource',
   'addInput',
   'addOutput',
-  'autoBoundHint',
   'singleOutputAuto',
   'nodeSearchPlaceholder',
   'advancedLabel',
@@ -73,7 +96,7 @@ describe('workflow import section', () => {
     const source = readFileSync(IMPORT_SECTION, 'utf8')
     expect(source).toContain("data-testid='case-section-workflow-import'")
     expect(source).toContain("'../lib/workflow-parse'")
-    expect(source).toMatch(/>\s*1\s*<\/span>/)
+    expect(source).toContain("<Upload className='size-3' />")
     expect(source).toContain('cases.importHeading')
     expect(source).toContain('cases.importNodesCount')
     expect(source).toContain('cases.importValid')
@@ -103,20 +126,29 @@ describe('code editor component', () => {
 })
 
 describe('field cards', () => {
-  it('input card picks node then parameter from workflow nodes', () => {
+  it('input card binds via flow dialog, filters refs, shows auto/custom type', () => {
     const source = readFileSync(FIELD_CARDS, 'utf8')
     expect(source).toContain("data-testid='input-field-card'")
-    expect(source).toContain('cases.fieldFromNode')
-    expect(source).toContain('cases.fieldParam')
-    expect(source).toContain('nodeLabel(')
-    expect(source).toContain('nodes.find(')
+    expect(source).toContain('BindNodeDialog')
+    expect(source).toContain('cases.bindPickPlaceholder')
+    expect(source).toContain('cases.bindConfirm')
+    expect(source).toContain('!input.ref')
+    expect(source).toContain('cases.typeAutoSource')
+    expect(source).toContain('cases.typeRestoreAuto')
+    expect(source).toContain('cases.typeCustom')
+    expect(source).toContain('nodeVisualFor(')
+    expect(source).toContain('inputKindFor(')
+    expect(source).not.toContain('autoBoundHint')
   })
 
-  it('output card hides index when node has a single output', () => {
+  it('output card binds via flow dialog slots with single-output auto note', () => {
     const source = readFileSync(FIELD_CARDS, 'utf8')
     expect(source).toContain("data-testid='output-field-card'")
-    expect(source).toContain('node.outputCount')
-    expect(source).toContain('cases.fieldOutput')
+    expect(source).toContain("mode='output'")
+    expect(source).toContain('outputKindFor(')
+    expect(source).toContain('selected.outputCount')
+    expect(source).toContain('cases.singleOutputAuto')
+    expect(source).toContain('cases.bindFlowHintOutput')
   })
 })
 

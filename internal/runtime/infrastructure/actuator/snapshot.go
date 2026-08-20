@@ -48,7 +48,7 @@ func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.
 	}
 
 	if len(c.Document.Bindings.WorkflowJSON) == 0 {
-		return nil, fmt.Errorf("actuator: empty workflow for case %s", c.Document.ID)
+		return nil, fmt.Errorf("actuator: empty workflow for case %d", c.Document.ID)
 	}
 
 	graph, err := deepCopyGraph(c.Document.Bindings.WorkflowJSON)
@@ -127,7 +127,7 @@ func (s *CaseSnapshot) BuildJobPackage(ctx context.Context, taskID sharedkernel.
 	}
 
 	if len(c.Document.Bindings.WorkflowJSON) == 0 {
-		return JobPackage{}, fmt.Errorf("actuator: empty workflow for case %s", c.Document.ID)
+		return JobPackage{}, fmt.Errorf("actuator: empty workflow for case %d", c.Document.ID)
 	}
 
 	graph, err := deepCopyGraph(c.Document.Bindings.WorkflowJSON)

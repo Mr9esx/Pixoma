@@ -31,7 +31,11 @@ export function fetchSetupStatus() {
   return apiFetch<SetupStatus>('/api/v1/setup/status')
 }
 
-export async function loginAdmin(username: string, password: string) {
+export async function loginAdmin(
+  username: string,
+  password: string,
+  remember = false
+) {
   const res = await apiFetch<{
     ok: boolean
     token: string
@@ -40,7 +44,7 @@ export async function loginAdmin(username: string, password: string) {
     initialized: boolean
   }>('/api/v1/setup/login', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, remember }),
   })
   setSessionToken(res.token)
   return res

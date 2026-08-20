@@ -80,7 +80,7 @@ type EdgeSeed struct {
 
 func Default() Config {
 	return Config{
-		HTTPAddr:            ":8080",
+		HTTPAddr:            ":8082",
 		BlobRoot:            "data/blob",
 		ComfyUIBaseURL:      "http://127.0.0.1:8188",
 		CaseSeedDir:         "configs/cases",

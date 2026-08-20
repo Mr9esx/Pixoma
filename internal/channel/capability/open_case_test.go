@@ -54,7 +54,7 @@ func TestOpenCase_ListAndPreviewFlow(t *testing.T) {
 	// 非法 step 被 schema 拒绝
 	if _, err := r.Invoke(ctx, protocol.CapabilityInvoke{
 		CapabilityID: "open_case",
-		Params:       map[string]any{"step": "bogus", "case_ids": []any{"c1"}},
+		Params:       map[string]any{"step": "bogus", "case_ids": []any{"1"}},
 	}); err == nil {
 		t.Fatal("invalid step must be rejected by schema")
 	}
@@ -62,7 +62,7 @@ func TestOpenCase_ListAndPreviewFlow(t *testing.T) {
 	// list → options
 	res, err := r.Invoke(ctx, protocol.CapabilityInvoke{
 		CapabilityID: "open_case",
-		Params:       map[string]any{"case_ids": []any{"c1"}},
+		Params:       map[string]any{"case_ids": []any{"1"}},
 		ChatID:       "tg-default:1",
 	})
 	if err != nil {
@@ -75,7 +75,7 @@ func TestOpenCase_ListAndPreviewFlow(t *testing.T) {
 	// preview → options 开始/返回
 	res, err = r.Invoke(ctx, protocol.CapabilityInvoke{
 		CapabilityID: "open_case",
-		Params:       map[string]any{"step": "preview", "case_id": "c1", "case_ids": []any{"c1"}},
+		Params:       map[string]any{"step": "preview", "case_id": "1", "case_ids": []any{"1"}},
 		ChatID:       "tg-default:1",
 	})
 	if err != nil {
@@ -88,7 +88,7 @@ func TestOpenCase_ListAndPreviewFlow(t *testing.T) {
 	// start → prompt 提示 + 跳过/退出
 	res, err = r.Invoke(ctx, protocol.CapabilityInvoke{
 		CapabilityID: "open_case",
-		Params:       map[string]any{"step": "start", "case_id": "c1"},
+		Params:       map[string]any{"step": "start", "case_id": "1"},
 		ChatID:       "tg-default:1",
 		Account:      protocol.AccountCtx{InternalUserID: "u1"},
 	})

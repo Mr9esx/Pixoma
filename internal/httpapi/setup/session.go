@@ -6,41 +6,86 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
 
 const (
 	CookieName = "pixoma_session"
+
+	// sessionTTL applies to ordinary (non-"remember me") sessions, kept in
+	// memory only and lost on restart.
 	sessionTTL = 12 * time.Hour
+
+	// rememberTTL applies to "remember me" sessions, persisted to disk so they
+	// survive a service restart (auto-login).
+	rememberTTL = 30 * 24 * time.Hour
+
+	// sessionStoreFile is the on-disk store for remember-me sessions, inside the
+	// DATA_DIR passed to NewSessions. Tokens are stored hashed.
+	sessionStoreFile = "sessions.json"
 )
 
+// Sessions issues and validates admin login tokens. Ordinary sessions live in
+// memory only; "remember me" sessions are additionally persisted to storePath
+// so they survive a service restart.
 type Sessions struct {
-	mu   sync.Mutex
-	byID map[string]session
+	mu        sync.Mutex
+	byID      map[string]session
+	storePath string // "" = pure in-memory (no persistence)
 }
 
 type session struct {
-	Username string
-	Expires  time.Time
+	Username string    `json:"username"`
+	Expires  time.Time `json:"expires"`
+	Remember bool      `json:"remember"`
 }
 
-func NewSessions() *Sessions {
-	return &Sessions{byID: map[string]session{}}
+// SessionStoreFile returns the basename of the on-disk remember-me session
+// store, so callers can build the full path as filepath.Join(dataDir,
+// SessionStoreFile()).
+func SessionStoreFile() string { return sessionStoreFile }
+
+// NewSessions creates a session store. When storePath is non-empty it loads any
+// previously persisted remember-me sessions (surviving restarts) and writes new
+// remember-me sessions back to disk.
+func NewSessions(storePath string) *Sessions {
+	s := &Sessions{
+		byID:      map[string]session{},
+		storePath: storePath,
+	}
+	s.load()
+	return s
 }
 
-func (s *Sessions) Issue(username string) (plain string, err error) {
+func (s *Sessions) Issue(username string, remember bool) (plain string, err error) {
 	var b [24]byte
 	if _, err = rand.Read(b[:]); err != nil {
 		return "", err
 	}
 	plain = base64.RawURLEncoding.EncodeToString(b[:])
+	ttl := sessionTTL
+	if remember {
+		ttl = rememberTTL
+	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.byID[hashToken(plain)] = session{
 		Username: username,
-		Expires:  time.Now().Add(sessionTTL),
+		Expires:  time.Now().Add(ttl),
+		Remember: remember,
+	}
+	// Persist only remember-me sessions; ordinary ones stay in memory.
+	persist := remember && s.storePath != ""
+	s.mu.Unlock()
+	if persist {
+		if err := s.save(); err != nil {
+			return "", err
+		}
 	}
 	return plain, nil
 }
@@ -51,10 +96,14 @@ func (s *Sessions) Lookup(plain string) (username string, ok bool) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	row, exists := s.byID[hashToken(plain)]
+	key := hashToken(plain)
+	row, exists := s.byID[key]
 	if !exists || time.Now().After(row.Expires) {
 		if exists {
-			delete(s.byID, hashToken(plain))
+			delete(s.byID, key)
+			if row.Remember && s.storePath != "" {
+				_ = s.save()
+			}
 		}
 		return "", false
 	}
@@ -67,7 +116,15 @@ func (s *Sessions) Revoke(plain string) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.byID, hashToken(plain))
+	key := hashToken(plain)
+	row, exists := s.byID[key]
+	if !exists {
+		return
+	}
+	delete(s.byID, key)
+	if row.Remember && s.storePath != "" {
+		_ = s.save()
+	}
 }
 
 func TokenFromRequest(r *http.Request) string {
@@ -84,14 +141,18 @@ func TokenFromRequest(r *http.Request) string {
 	return ""
 }
 
-func SetCookie(w http.ResponseWriter, token string) {
+func SetCookie(w http.ResponseWriter, token string, remember bool) {
+	maxAge := int(sessionTTL.Seconds())
+	if remember {
+		maxAge = int(rememberTTL.Seconds())
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(sessionTTL.Seconds()),
+		MaxAge:   maxAge,
 	})
 }
 
@@ -103,6 +164,61 @@ func ClearCookie(w http.ResponseWriter) {
 		HttpOnly: true,
 		MaxAge:   -1,
 	})
+}
+
+// save writes only remember-me sessions to disk (token hashes only), atomically
+// and with 0600 permissions. Caller must hold s.mu.
+func (s *Sessions) save() error {
+	if s.storePath == "" {
+		return nil
+	}
+	rows := map[string]session{}
+	for k, v := range s.byID {
+		if v.Remember && time.Now().Before(v.Expires) {
+			rows[k] = v
+		}
+	}
+	b, err := json.Marshal(rows)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Dir(s.storePath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp := s.storePath + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, s.storePath)
+}
+
+// load restores persisted remember-me sessions from disk. Called once at
+// construction.
+func (s *Sessions) load() {
+	if s.storePath == "" {
+		return
+	}
+	b, err := os.ReadFile(s.storePath)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			// Corrupt/unreadable store should not break startup; fall back empty.
+			return
+		}
+		return
+	}
+	var rows map[string]session
+	if err := json.Unmarshal(b, &rows); err != nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	for k, v := range rows {
+		if v.Remember && now.Before(v.Expires) {
+			s.byID[k] = v
+		}
+	}
 }
 
 func hashToken(plain string) string {

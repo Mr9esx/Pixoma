@@ -1,32 +1,82 @@
 {
-  "id": "img-logo",
+  "id": 2,
   "name": "Logo 草图",
   "description": "根据品牌关键词生成 Logo 草图（mock）。",
   "preview": "示例：极简几何狐狸图标",
   "price": 8,
-  "tags": ["image", "text2img", "logo"],
-  "menu_key": "image",
-  "categories": ["generate"],
-  "inputs": [
-    {"key": "prompt", "type": "string", "required": true, "description": "品牌名 / 关键词"},
-    {"key": "style", "type": "string", "required": false, "skip_allowed": true, "description": "风格（可选，可跳过）"}
+  "tags": [
+    "image",
+    "text2img",
+    "logo"
   ],
-  "outputs": [{"key": "image", "type": "image"}],
+  "menu_key": "image",
+  "categories": [
+    "generate"
+  ],
+  "inputs": [
+    {
+      "key": "prompt",
+      "type": "string",
+      "required": true,
+      "description": "品牌名 / 关键词"
+    },
+    {
+      "key": "style",
+      "type": "string",
+      "required": false,
+      "skip_allowed": true,
+      "description": "风格（可选，可跳过）"
+    }
+  ],
+  "outputs": [
+    {
+      "key": "image",
+      "type": "image"
+    }
+  ],
   "bindings": {
-    "workflow": {"1": {"class_type": "Stub", "inputs": {}}},
+    "workflow": {
+      "1": {
+        "class_type": "Stub",
+        "inputs": {}
+      }
+    },
     "inputs": [
-      {"key": "prompt", "node_id": "1", "field_path": "text"},
-      {"key": "style", "node_id": "1", "field_path": "style"}
+      {
+        "key": "prompt",
+        "node_id": "1",
+        "field_path": "text"
+      },
+      {
+        "key": "style",
+        "node_id": "1",
+        "field_path": "style"
+      }
     ],
-    "outputs": [{"key": "image", "node_id": "1", "index": 0}]
+    "outputs": [
+      {
+        "key": "image",
+        "node_id": "1",
+        "index": 0
+      }
+    ]
   },
   "input_schema": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["prompt"],
+    "required": [
+      "prompt"
+    ],
     "properties": {
-      "prompt": {"type": "string", "minLength": 1, "maxLength": 500},
-      "style": {"type": "string", "maxLength": 200}
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "style": {
+        "type": "string",
+        "maxLength": 200
+      }
     }
   }
 }

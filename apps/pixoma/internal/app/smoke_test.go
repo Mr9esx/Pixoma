@@ -168,7 +168,7 @@ func TestSubscribeTaskCreated_MakesClaimable(t *testing.T) {
 	defer cancel()
 	now := time.Unix(1000, 0).UTC()
 	tasks := runtimedomain.NewMemoryTaskRepository()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("t-bus", "s", "c", "in", now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("t-bus", "s", sharedkernel.CaseID(1), "in", now)); err != nil {
 		t.Fatal(err)
 	}
 	reg := static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"})

@@ -61,7 +61,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	sess := setupapi.NewSessions()
+	sess := setupapi.NewSessions(filepath.Join(envOr("DATA_DIR", "data"), setupapi.SessionStoreFile()))
 	for {
 		err := run(ctx, sess)
 		if errors.Is(err, errRestart) && ctx.Err() == nil {
@@ -94,9 +94,16 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		return err
 	}
 
-	addr := envOr("HTTP_ADDR", "127.0.0.1:8080")
+	addr := envOr("HTTP_ADDR", "127.0.0.1:8082")
 	listenURL := envOr("PUBLIC_URL", "http://"+addr)
 	bannerPass := creds.Password
+	if boot.MustChangePassword() && bannerPass == "" {
+		// 重启后明文密码不随 Open 返回（只存 bcrypt 哈希），
+		// 未完成初始化时从落盘文件恢复，便于再次展示默认密码。
+		if p, err := bootstrap.ReadStoredPassword(bootPath); err == nil {
+			bannerPass = p
+		}
+	}
 	if !boot.MustChangePassword() {
 		bannerPass = ""
 	}
