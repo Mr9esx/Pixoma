@@ -25,6 +25,7 @@ type Reporter struct {
 	Every           time.Duration
 	MetricsInterval time.Duration
 	SendHardware    bool
+	SubscribeTopics []string
 	refreshNext     bool
 	lastMetrics     time.Time
 	startedAt       time.Time
@@ -74,7 +75,7 @@ func (r *Reporter) ProbeAndReport(ctx context.Context) error {
 		r.lastMetrics = now
 		m = &collected
 	}
-	refresh, err := r.Client.ReportPresence(ctx, running, r.startedAt, comfyVersion, hw, m)
+	refresh, err := r.Client.ReportPresence(ctx, running, r.startedAt, comfyVersion, hw, m, r.SubscribeTopics)
 	if err != nil {
 		return err
 	}

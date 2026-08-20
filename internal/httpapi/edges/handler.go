@@ -13,6 +13,7 @@ import (
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -25,6 +26,7 @@ type Handler struct {
 	Metrics  edge.MetricsRepository
 	EncKey   []byte
 	Presence *presence.Store
+	Topics   topic.Repository
 }
 
 // Mount registers chi routes on r (caller should mount under /api/v1/edges).
@@ -42,17 +44,19 @@ func (h *Handler) Mount(r chi.Router) {
 }
 
 type instanceDTO struct {
-	ID           string         `json:"id"`
-	Name         string         `json:"name"`
-	Description  string         `json:"description,omitempty"`
-	Enabled      bool           `json:"enabled"`
-	Capabilities []string       `json:"capabilities"`
-	AgentToken   string         `json:"agent_token,omitempty"`
-	Hardware     *edge.Hardware `json:"hardware,omitempty"`
-	StartedAt    *time.Time     `json:"started_at,omitempty"`
-	ComfyVersion string         `json:"comfy_version,omitempty"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	Description     string         `json:"description,omitempty"`
+	Enabled         bool           `json:"enabled"`
+	Capabilities    []string       `json:"capabilities"`
+	SubscribeTopics []string       `json:"subscribe_topics"`
+	EffectiveTopics []string       `json:"effective_topics"`
+	AgentToken      string         `json:"agent_token,omitempty"`
+	Hardware        *edge.Hardware `json:"hardware,omitempty"`
+	StartedAt       *time.Time     `json:"started_at,omitempty"`
+	ComfyVersion    string         `json:"comfy_version,omitempty"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 type createRequest struct {
@@ -68,6 +72,7 @@ type patchRequest struct {
 	Description     *string        `json:"description"`
 	Enabled         *bool          `json:"enabled"`
 	Capabilities    []string       `json:"capabilities"`
+	SubscribeTopics []string       `json:"subscribe_topics"`
 	RefreshHardware *bool          `json:"refresh_hardware"`
 	Hardware        *edge.Hardware `json:"hardware"`
 }
@@ -100,17 +105,19 @@ func toDTO(rec *edge.Record, token string) instanceDTO {
 		hw = &cp
 	}
 	return instanceDTO{
-		ID:           string(rec.ID),
-		Name:         name,
-		Description:  rec.Description,
-		Enabled:      rec.Enabled,
-		Capabilities: caps,
-		AgentToken:   token,
-		Hardware:     hw,
-		StartedAt:    rec.StartedAt,
-		ComfyVersion: rec.ComfyVersion,
-		CreatedAt:    rec.CreatedAt,
-		UpdatedAt:    rec.UpdatedAt,
+		ID:              string(rec.ID),
+		Name:            name,
+		Description:     rec.Description,
+		Enabled:         rec.Enabled,
+		Capabilities:    caps,
+		SubscribeTopics: append([]string(nil), rec.SubscribeTopics...),
+		EffectiveTopics: rec.EffectiveTopics(),
+		AgentToken:      token,
+		Hardware:        hw,
+		StartedAt:       rec.StartedAt,
+		ComfyVersion:    rec.ComfyVersion,
+		CreatedAt:       rec.CreatedAt,
+		UpdatedAt:       rec.UpdatedAt,
 	}
 }
 
@@ -311,6 +318,21 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 	if req.Capabilities != nil {
 		rec.Capabilities = append([]string(nil), req.Capabilities...)
 	}
+	if req.SubscribeTopics != nil {
+		topics := topic.NormalizeTopics(req.SubscribeTopics)
+		if h.Topics == nil {
+			writeErr(w, http.StatusInternalServerError, "topics repository not configured")
+			return
+		}
+		for _, key := range topics {
+			got, err := h.Topics.Get(r.Context(), key)
+			if err != nil || !got.Enabled {
+				writeErr(w, http.StatusBadRequest, "unknown or disabled topic: "+key)
+				return
+			}
+		}
+		rec.SubscribeTopics = topics
+	}
 	if req.Hardware != nil {
 		hw := *req.Hardware
 		hw.CollectedAt = time.Now().UTC()
@@ -323,6 +345,12 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Hardware != nil {
 		if err := h.Repo.UpdateHardware(r.Context(), rec.ID, rec.Hardware); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	if req.SubscribeTopics != nil {
+		if err := h.Repo.UpdateSubscribeTopics(r.Context(), rec.ID, rec.SubscribeTopics); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
