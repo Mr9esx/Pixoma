@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "batch_id": "topic-routing-task-flow-editor",
+  "created_at": "2026-08-20T14:02:00Z",
+  "updated_at": "2026-08-20T14:45:00Z",
+  "goal_summary": "完善工作流→节点调度能力：新增 Topic 概念（一个 Case 一对 N Topic、节点订阅消费 Topic、应用默认初始化默认 Topic、Case 与 Topic 之间通过可扩展条件协议投放），并新增任务分流引擎（单步任务分流，React Flow 编辑查看）。",
+  "language": "zh-CN",
+  "split_decision": "create-multiple",
+  "decisions": {
+    "flow_scope": "single-step-routing",
+    "node_topic_binding": "node-subscribes-multiple-topics-competitive-claim",
+    "routing_semantics": "first-match-wins-fallback-default-topic",
+    "no_online_node": "keep-pending-with-reason",
+    "condition_attributes": "examples: user.is_premium / case.category / case.tags; user.level and user.paid only as protocol examples, no real fields this round",
+    "condition_protocol": "declarative JSON rules (field/op/value, and/or), field providers + JSON Schema driven UI, no engine change for new conditions",
+    "editor": "react-flow"
+  },
+  "changes": [
+    {
+      "name": "topic-routing",
+      "status": "selected",
+      "order": 1,
+      "goal": "新增 Topic 调度能力：Topic 实体与 CRUD、应用启动自动创建默认 Topic、Case 一对 N Topic 的条件投放协议与求值（首个命中即投，无命中回退默认 Topic）、节点订阅一个或多个 Topic（默认订阅 default）、并发 claim 的原子抢占与租约/超时/失败重回 Topic 处理、Admin API。",
+      "scope": "internal/runtime（Task 增加 dispatch_topic 等）、internal/platform/edge（订阅 Topic 绑定）、internal/runtime/application/orchestrator（按 Topic 选路、原子 claim、失败重回 Topic、超时对账）、internal/httpapi（Topic 管理 API）、apps/edge-agent（订阅配置与默认 Topic）、启动种子（默认 Topic）、协议与规则求值模块、配置样例与测试。",
+      "non_goals": [
+        "不做多步任务流水线（任务只投一个 Topic 执行完，不跨 Topic 流转）",
+        "不做用户等级/是否充值的真实业务字段与会员/计费体系",
+        "不按机器规格自动选路（规格差异通过管理员把高规格节点订阅到对应 Topic 体现）",
+        "不做 React Flow 任务流程编辑器（归 task-flow-editor change）",
+        "不做强取消（interrupt running）"
+      ],
+      "acceptance": [
+        "Case A 配置规则：user.is_premium=true → Topic B；case.category=image → Topic A；无命中任务进入默认 Topic",
+        "任务只会被一台节点消费：多节点高并发向同一 Topic claim 时，同一任务最多被领取一次",
+        "节点执行失败后任务回到 Topic 可被再次领取（有界重试）",
+        "节点长时间无进展（租约/心跳超时）后任务被回收重回 Topic 或标记失败，不永久卡死",
+        "节点启动不指定 Topic 时默认订阅 default Topic；应用初始化自动创建 default Topic",
+        "新增条件属性只需注册 provider + schema（不改引擎代码）即可保存规则并求值",
+        "Admin API 可管理 Topic 与 Case 路由规则、节点订阅绑定"
+      ]
+    },
+    {
+      "name": "task-flow-editor",
+      "status": "open-complete",
+      "order": 2,
+      "goal": "用 React Flow 实现任务分流引擎的可视化编辑与查看：Case→条件→Topic 的有向图编辑（单步分流语义）、节点（Edge）订阅 Topic 的查看/编辑、规则由条件 schema 自动生成配置表单，保存为 topic-routing 的 API 载荷。",
+      "scope": "web/admin：引入 @xyflow/react，Case 编辑页新增任务分流画布（或独立页面）、条件规则配置面板（由条件 schema 自动渲染）、节点详情展示订阅 Topic、与 topic-routing Admin API 对接；合同测试与单测。",
+      "non_goals": [
+        "不做 ComfyUI workflow 画布编辑器（现有表单式 Case 工作流编辑器保持）",
+        "不实现多步流水线编辑（本 change 只编辑单步分流）",
+        "不改后端调度/求值逻辑（只消费 topic-routing 的 API 与 schema）",
+        "不做画布外的图表/统计可视化"
+      ],
+      "acceptance": [
+        "React Flow 画布可展示并编辑 Case→条件→Topic 图，保存后生成符合 topic-routing API 的路由配置",
+        "新增条件属性时，编辑器按该属性的 JSON Schema 自动渲染配置表单，无需改前端代码",
+        "节点详情可查看/编辑订阅的 Topic 列表",
+        "画布只读查看模式与编辑模式可切换，非法配置（无 Topic、条件字段缺失）阻止保存并给出可读错误",
+        "现有 Case 工作流编辑器（导入/输入输出绑定）不被破坏"
+      ]
+    }
+  ],
+  "notes": "拆分已确认（用户选择 create-multiple）。两个 change 均完成 open 阶段后暂停，由用户选择先进入 design 的 change；selected 状态在用户选择后更新。"
+}
