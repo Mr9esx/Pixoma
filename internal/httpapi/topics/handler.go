@@ -149,6 +149,10 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		got.Name = strings.TrimSpace(*req.Name)
 	}
 	if req.Enabled != nil {
+		if key == topic.DefaultKey && !*req.Enabled {
+			writeErr(w, http.StatusConflict, "default topic cannot be disabled")
+			return
+		}
 		got.Enabled = *req.Enabled
 	}
 	got.UpdatedAt = time.Now().UTC()

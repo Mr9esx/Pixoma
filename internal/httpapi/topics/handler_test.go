@@ -140,6 +140,20 @@ func TestTopics_Update(t *testing.T) {
 	}
 }
 
+func TestTopics_CannotDisableDefault(t *testing.T) {
+	repo := &fakeRepo{topics: map[string]topic.Topic{}}
+	seedRepo(repo)
+	r := newTestRouter(repo, 0, 0)
+	rec := do(t, r, http.MethodPut, "/default", `{"enabled":false}`)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("disable default status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	got, _ := repo.Get(context.Background(), "default")
+	if !got.Enabled {
+		t.Fatal("default must stay enabled")
+	}
+}
+
 func TestTopics_DeleteProtections(t *testing.T) {
 	repo := &fakeRepo{topics: map[string]topic.Topic{}}
 	seedRepo(repo)
