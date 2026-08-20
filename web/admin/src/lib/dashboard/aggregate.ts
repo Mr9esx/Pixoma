@@ -1,6 +1,6 @@
 export type AggregateInput = {
   instances: { id: string; enabled: boolean }[]
-  cases: { id: string; enabled: boolean }[]
+  cases: { id: number; enabled: boolean }[]
   tasks: { id: string; status: string }[]
 }
 

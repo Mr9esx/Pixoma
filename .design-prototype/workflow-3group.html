@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pixoma 工作流 · 输入/输出标注在工作流节点上（最终）</title>
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1a1a1a; --muted:#6b7280; --line:#e5e3de; --amber:#d97706; --emerald:#059669; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink); padding-bottom:60px; }
+  .hero { max-width:1200px; margin:0 auto; padding:36px 24px 12px; }
+  .hero .tag { display:inline-flex; font-size:12px; color:var(--amber); font-weight:600; letter-spacing:.06em; border:1px solid rgba(217,119,6,.25); background:rgba(217,119,6,.06); padding:4px 10px; border-radius:999px; margin-bottom:12px; }
+  .hero h1 { font-size:24px; font-weight:700; letter-spacing:-.02em; }
+  .hero p { color:var(--muted); margin-top:6px; font-size:14px; line-height:1.6; }
+  .hero .note { margin-top:10px; font-size:12.5px; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; padding:10px 14px; border-radius:10px; line-height:1.7; }
+  .canvas-wrap { max-width:1200px; margin:20px auto 0; padding:0 24px; }
+  .canvas { background:#fdfdfc; border:1px solid var(--line); border-radius:16px; padding:20px; overflow:auto; max-height:760px; }
+  .canvas::-webkit-scrollbar { height:10px; width:10px; } .canvas::-webkit-scrollbar-thumb { background:#ddd; border-radius:6px; }
+  .legend { display:flex; gap:18px; padding:2px 4px 16px; font-size:11.5px; color:var(--muted); }
+  .legend span { display:flex; align-items:center; gap:6px; } .legend .sw { width:11px; height:11px; border-radius:3px; display:inline-block; }
+  .flow { display:flex; gap:48px; align-items:flex-start; min-width:max-content; padding:20px 10px 10px; }
+  .col { display:flex; flex-direction:column; gap:200px; }
+  .wf-node { width:240px; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .wf-node .head { display:flex; align-items:center; gap:9px; padding:10px 12px; border-bottom:1px solid var(--line); }
+  .wf-node .head .ico { width:26px; height:26px; border-radius:7px; display:grid; place-items:center; font-size:13px; color:#fff; flex-shrink:0; }
+  .wf-node .head .tt { font-size:13px; font-weight:600; line-height:1.15; }
+  .wf-node .head .dd { font-size:9.5px; color:var(--muted); font-family:ui-monospace,monospace; margin-top:1px; }
+  .wf-node .body { padding:7px 12px; display:flex; flex-direction:column; gap:3px; }
+  .wf-node .kv { display:flex; justify-content:space-between; gap:8px; font-size:10.5px; }
+  .wf-node .kv .k { color:var(--muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wf-node .kv .v { color:var(--ink); font-family:ui-monospace,monospace; font-size:9.5px; font-weight:600; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bind-badge { display:flex; align-items:center; gap:5px; padding:3px 8px; font-size:11px; font-weight:500; border-radius:6px; margin:4px 12px 6px; }
+  .bind-badge.in { background:#fffbeb; color:#b45309; }
+  .bind-badge.out { background:#ecfdf5; color:#047857; }
+  .bind-badge .f { margin-left:auto; font-family:ui-monospace,monospace; font-size:10px; opacity:.75; }
+  .edge-h { display:flex; align-items:center; align-self:center; }
+  .edge-h .line { width:36px; height:1.5px; background:#d4d4d8; position:relative; }
+  .edge-h .line::after { content:''; position:absolute; right:-1px; top:50%; transform:translateY(-50%); border:5px solid transparent; border-left-color:#d4d4d8; border-right:none; }
+  .footnote { max-width:1200px; margin:16px auto 0; padding:0 24px; font-size:12px; color:var(--muted); line-height:1.8; }
+  .footnote code { font-family:ui-monospace,monospace; background:#f1f5f9; padding:1px 6px; border-radius:5px; }
+</style>
+</head>
+<body>
+<div class="hero">
+  <span class="tag">最终 · 只渲染工作流节点，输入/输出在节点上标注</span>
+  <h1>图片编辑工作流（真实数据 img-edit）</h1>
+  <p>不单独渲染输入/输出节点。只渲染工作流原本的节点，输入/输出直接标注在对应节点上（徽章），节点间为真实拓扑连线，间距已放大无重叠。</p>
+  <div class="note">
+    <b>对应关系：</b>输入 <code>reference</code>、<code>prompt</code> 分别标注在 <code>LoadImage #10</code>、<code>CLIPTextEncode #20</code> 上；
+    输出 <code>image</code> 标注在 <code>SaveImage #60</code> 上。这些徽章就在节点卡片内部，不额外造任何节点。
+  </div>
+</div>
+<div class="canvas-wrap"><div class="canvas">
+  <div class="legend">
+    <span><span class="sw" style="background:var(--amber)"></span>输入绑定（标在节点上）</span>
+    <span><span class="sw" style="background:var(--emerald)"></span>输出绑定（标在节点上）</span>
+  </div>
+  <div class="flow">
+    <div class="col">
+      <div class="wf-node"><div class="head"><span class="ico" style="background:#059669">🧩</span><div><div class="tt">加载模型</div><div class="dd">UNETLoader #1</div></div></div><div class="body"><div class="kv"><span class="k">模型</span><span class="v">flux_model…</span></div></div></div>
+      <div class="wf-node"><div class="head"><span class="ico" style="background:#8b5cf6">🖼️</span><div><div class="tt">加载图片</div><div class="dd">LoadImage #10</div></div></div><div class="body"><div class="kv"><span class="k">文件</span><span class="v">face_r…</span></div><div class="bind-badge in"><span>输入 · reference</span><span class="f">image</span></div></div></div>
+      <div class="wf-node"><div class="head"><span class="ico" style="background:#0284c7">🧠</span><div><div class="tt">加载文本</div><div class="dd">CLIPLoader #2</div></div></div><div class="body"></div></div>
+    </div>
+    <div class="col" style="justify-content:center"><div class="edge-h"><div class="line"></div></div></div>
+    <div class="col">
+      <div class="wf-node"><div class="head"><span class="ico" style="background:#8b5cf6">📐</span><div><div class="tt">缩放</div><div class="dd">ImageScale #11</div></div></div><div class="body"></div></div>
+      <div class="wf-node"><div class="head"><span class="ico" style="background:#0284c7">✏️</span><div><div class="tt">写提示词</div><div class="dd">CLIPTextEncode #20</div></div></div><div class="body"><div class="bind-badge in"><span>输入 · prompt</span><span class="f">text</span></div></div></div>
+    </div>
+    <div class="col" style="justify-content:center"><div class="edge-h"><div class="line"></div></div></div>
+    <div class="col">
+      <div class="wf-node"><div class="head"><span class="ico" style="background:#8b5cf6">🔀</span><div><div class="tt">参照融合</div><div class="dd">ReferenceLatent ×2</div></div></div><div class="body"></div></div>
+    </div>
+    <div class="col" style="justify-content:center"><div class="edge-h"><div class="line"></div></div></div>
+    <div class="col">
+      <div class="wf-node"><div class="head"><span class="ico" style="background:#d97706">⚙️</span><div><div class="tt">采样</div><div class="dd">KSampler #40</div></div></div><div class="body"><div class="kv"><span class="k">步数</span><span class="v">20</span></div></div></div>
+    </div>
+    <div class="col" style="justify-content:center"><div class="edge-h"><div class="line"></div></div></div>
+    <div class="col">
+      <div class="wf-node"><div class="head"><span class="ico" style="background:#8b5cf6">🔊</span><div><div class="tt">解码</div><div class="dd">VAEDecode #50</div></div></div><div class="body"></div></div>
+    </div>
+    <div class="col" style="justify-content:center"><div class="edge-h"><div class="line"></div></div></div>
+    <div class="col">
+      <div class="wf-node"><div class="head"><span class="ico" style="background:#e11d48">💾</span><div><div class="tt">保存图片</div><div class="dd">SaveImage #60</div></div></div><div class="body"><div class="kv"><span class="k">前缀</span><span class="v">img_…</span></div><div class="bind-badge out"><span>输出 · image</span><span class="f">[0]</span></div></div></div>
+    </div>
+  </div>
+</div></div>
+<div class="footnote">
+  <b>落实：</b>只渲染工作流原本节点；输入/输出以徽章标注在对应节点上（不单独造节点）；
+  节点间为真实拓扑连线（img-edit 17 条）；同层间距 200px，节点最高 184px → 不重叠。
+</div>
+</body>
+</html>

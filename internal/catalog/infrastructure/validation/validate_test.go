@@ -10,7 +10,7 @@ import (
 
 func text2imgDoc() domain.CaseDocument {
 	return domain.CaseDocument{
-		ID:   "text2img-demo",
+		ID:   1,
 		Name: "Demo",
 		Inputs: []domain.InputField{
 			{Key: "prompt", Type: "string", Required: true},
@@ -70,7 +70,7 @@ func TestValidateInputsRejectsEmptyPrompt(t *testing.T) {
 func TestValidateDocumentRequiresID(t *testing.T) {
 	v := validation.New()
 	doc := text2imgDoc()
-	doc.ID = ""
+	doc.ID = 0
 	if err := v.ValidateDocument(doc); err == nil {
 		t.Fatal("expected error")
 	}
@@ -111,7 +111,7 @@ func TestValidateInputsRejectsBadEnum(t *testing.T) {
 
 func mixedEditDoc() domain.CaseDocument {
 	return domain.CaseDocument{
-		ID:   "img-edit",
+		ID:   2,
 		Name: "图片编辑",
 		Inputs: []domain.InputField{
 			{Key: "reference", Type: "image", Required: true},

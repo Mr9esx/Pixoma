@@ -1,27 +1,66 @@
 {
-  "id": "img-portrait",
+  "id": 3,
   "name": "写真人像",
   "description": "人像写真风文生图（mock）。",
   "preview": "示例：窗边自然光，浅景深",
   "price": 15,
-  "tags": ["image", "text2img", "portrait"],
-  "menu_key": "image",
-  "categories": ["generate"],
-  "inputs": [
-    {"key": "prompt", "type": "string", "required": true, "description": "人物与场景描述"}
+  "tags": [
+    "image",
+    "text2img",
+    "portrait"
   ],
-  "outputs": [{"key": "image", "type": "image"}],
+  "menu_key": "image",
+  "categories": [
+    "generate"
+  ],
+  "inputs": [
+    {
+      "key": "prompt",
+      "type": "string",
+      "required": true,
+      "description": "人物与场景描述"
+    }
+  ],
+  "outputs": [
+    {
+      "key": "image",
+      "type": "image"
+    }
+  ],
   "bindings": {
-    "workflow": {"1": {"class_type": "Stub", "inputs": {}}},
-    "inputs": [{"key": "prompt", "node_id": "1", "field_path": "text"}],
-    "outputs": [{"key": "image", "node_id": "1", "index": 0}]
+    "workflow": {
+      "1": {
+        "class_type": "Stub",
+        "inputs": {}
+      }
+    },
+    "inputs": [
+      {
+        "key": "prompt",
+        "node_id": "1",
+        "field_path": "text"
+      }
+    ],
+    "outputs": [
+      {
+        "key": "image",
+        "node_id": "1",
+        "index": 0
+      }
+    ]
   },
   "input_schema": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["prompt"],
+    "required": [
+      "prompt"
+    ],
     "properties": {
-      "prompt": {"type": "string", "minLength": 1, "maxLength": 2000}
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
     }
   }
 }

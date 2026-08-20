@@ -17,7 +17,7 @@ import (
 type TaskRow struct {
 	ID           string    `gorm:"primaryKey;size:64"`
 	SessionID    string    `gorm:"column:session_id;size:36;index;not null"`
-	CaseID       string    `gorm:"column:case_id;size:128;not null"`
+	CaseID       uint64    `gorm:"column:case_id;not null"`
 	Status       string    `gorm:"size:32;not null;index"`
 	EdgeID       string    `gorm:"column:edge_id;size:128;index"`
 	PromptID     string    `gorm:"column:prompt_id;size:128"`
@@ -325,8 +325,8 @@ func (r *TaskRepository) List(ctx context.Context, q domain.AdminListQuery) ([]*
 	if q.SessionID != "" {
 		tx = tx.Where(col("session_id")+" = ?", string(q.SessionID))
 	}
-	if q.CaseID != "" {
-		tx = tx.Where(col("case_id")+" = ?", string(q.CaseID))
+	if q.CaseID != 0 {
+		tx = tx.Where(col("case_id")+" = ?", q.CaseID)
 	}
 	if q.Q != "" {
 		like := "%" + q.Q + "%"
@@ -375,7 +375,7 @@ func toRow(t *domain.Task) (*TaskRow, error) {
 	return &TaskRow{
 		ID:           string(t.ID),
 		SessionID:    string(t.SessionID),
-		CaseID:       string(t.CaseID),
+		CaseID:       uint64(t.CaseID),
 		Status:       string(t.Status),
 		EdgeID:       string(t.EdgeID),
 		PromptID:     t.PromptID,

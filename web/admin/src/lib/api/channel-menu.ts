@@ -12,7 +12,7 @@ export type MenuPlacement = {
   path: MenuPlacementPathStep[]
 }
 
-export function getCaseMenuPlacements(caseId: string) {
+export function getCaseMenuPlacements(caseId: number) {
   return apiFetch<MenuPlacement[]>(
     `/api/v1/cases/${encodeURIComponent(caseId)}/menu-placements`
   )
@@ -32,7 +32,7 @@ export type ActionType =
 export type Action = {
   type: ActionType
   card_id?: string
-  workflow_ids?: string[]
+  workflow_ids?: number[]
   mode?: 'list' | 'direct'
   text?: string
   media?: { kind: string; url: string; caption?: string }[]

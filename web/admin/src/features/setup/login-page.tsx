@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthShell } from './auth-shell'
@@ -18,6 +19,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -26,7 +28,7 @@ export function LoginPage() {
     setPending(true)
     setError(null)
     try {
-      const res = await loginAdmin(username, password)
+      const res = await loginAdmin(username, password, remember)
       if (!res.initialized) {
         await navigate({ to: '/setup' })
         return
@@ -69,6 +71,13 @@ export function LoginPage() {
                 autoComplete='current-password'
               />
             </div>
+            <label className='flex items-center gap-2 text-sm text-muted-foreground cursor-pointer'>
+              <Checkbox
+                checked={remember}
+                onCheckedChange={(v) => setRemember(v === true)}
+              />
+              记住我，30 天内免登录
+            </label>
             {error ? <p className='text-sm text-destructive'>{error}</p> : null}
             <Button type='submit' className='w-full' disabled={pending}>
               {pending ? '登录中…' : '登录'}

@@ -75,7 +75,7 @@ type patchRequest struct {
 type taskDTO struct {
 	ID           string    `json:"id"`
 	SessionID    string    `json:"session_id"`
-	CaseID       string    `json:"case_id"`
+	CaseID       uint64    `json:"case_id"`
 	Status       string    `json:"status"`
 	EdgeID       string    `json:"edge_id,omitempty"`
 	PromptID     string    `json:"prompt_id,omitempty"`
@@ -403,7 +403,7 @@ func (h *Handler) listTasks(w http.ResponseWriter, r *http.Request) {
 		out = append(out, taskDTO{
 			ID:           string(t.ID),
 			SessionID:    string(t.SessionID),
-			CaseID:       string(t.CaseID),
+			CaseID:       uint64(t.CaseID),
 			Status:       string(t.Status),
 			EdgeID:       string(t.EdgeID),
 			PromptID:     t.PromptID,

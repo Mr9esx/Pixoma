@@ -23,14 +23,14 @@ func newSvc() *domain.Service {
 func TestStartCaseLocksAndRejectsSecond(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
-	s, err := svc.StartCase(ctx, "tg:42", "user-1", "c1", []string{"prompt", "seed"})
+	s, err := svc.StartCase(ctx, "tg:42", "user-1", 1, []string{"prompt", "seed"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if s.Status != domain.StatusCollecting {
 		t.Fatalf("status=%s", s.Status)
 	}
-	_, err = svc.StartCase(ctx, "tg:42", "user-1", "c2", []string{"a"})
+	_, err = svc.StartCase(ctx, "tg:42", "user-1", 2, []string{"a"})
 	if !errors.Is(err, domain.ErrSessionLocked) {
 		t.Fatalf("want locked, got %v", err)
 	}
@@ -39,7 +39,7 @@ func TestStartCaseLocksAndRejectsSecond(t *testing.T) {
 func TestStartCaseWritesUserID(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
-	s, err := svc.StartCase(ctx, "tg:42", "user-abc", "c1", []string{"prompt"})
+	s, err := svc.StartCase(ctx, "tg:42", "user-abc", 1, []string{"prompt"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestStartCaseWritesUserID(t *testing.T) {
 
 func TestStartCaseRejectsEmptyUserID(t *testing.T) {
 	svc := newSvc()
-	_, err := svc.StartCase(context.Background(), "tg:1", "", "c1", []string{"a"})
+	_, err := svc.StartCase(context.Background(), "tg:1", "", 1, []string{"a"})
 	if !errors.Is(err, domain.ErrEmptyUserID) {
 		t.Fatalf("want ErrEmptyUserID, got %v", err)
 	}
@@ -66,7 +66,7 @@ func TestStartCaseRejectsEmptyUserID(t *testing.T) {
 func TestSubmitThenSkipToConfirming(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
-	_, _ = svc.StartCase(ctx, "tg:1", "u1", "c1", []string{"prompt", "seed"})
+	_, _ = svc.StartCase(ctx, "tg:1", "u1", 1, []string{"prompt", "seed"})
 	prompt := "cat"
 	s, err := svc.SubmitInput(ctx, "tg:1", domain.DraftValue{Text: &prompt})
 	if err != nil {
@@ -87,11 +87,11 @@ func TestSubmitThenSkipToConfirming(t *testing.T) {
 func TestExitUnlocks(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
-	_, _ = svc.StartCase(ctx, "tg:7", "u1", "c1", []string{"prompt"})
+	_, _ = svc.StartCase(ctx, "tg:7", "u1", 1, []string{"prompt"})
 	if err := svc.Exit(ctx, "tg:7"); err != nil {
 		t.Fatal(err)
 	}
-	_, err := svc.StartCase(ctx, "tg:7", "u1", "c2", []string{"x"})
+	_, err := svc.StartCase(ctx, "tg:7", "u1", 2, []string{"x"})
 	if err != nil {
 		t.Fatalf("should unlock: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestMemoryKeepsSubmittedByID(t *testing.T) {
 		return time.Unix(1, 0).UTC()
 	})
 	ctx := context.Background()
-	s, err := svc.StartCase(ctx, "tg:3", "u1", "c1", []string{"prompt"})
+	s, err := svc.StartCase(ctx, "tg:3", "u1", 1, []string{"prompt"})
 	if err != nil {
 		t.Fatal(err)
 	}

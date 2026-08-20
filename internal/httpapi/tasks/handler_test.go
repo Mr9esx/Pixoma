@@ -29,11 +29,11 @@ func TestTasksHandler_ListGetCancel(t *testing.T) {
 
 	ctx := t.Context()
 	now := time.Now().UTC()
-	pending := runtimedomain.NewPending("t-pending", "sess-1", "case-1", "pfx", now)
+	pending := runtimedomain.NewPending("t-pending", "sess-1", 1, "pfx", now)
 	if err := tasks.Create(ctx, pending); err != nil {
 		t.Fatal(err)
 	}
-	done := runtimedomain.NewPending("t-done", "sess-1", "case-1", "pfx", now)
+	done := runtimedomain.NewPending("t-done", "sess-1", 1, "pfx", now)
 	done.Status = sharedkernel.TaskSucceeded
 	if err := tasks.Create(ctx, done); err != nil {
 		t.Fatal(err)

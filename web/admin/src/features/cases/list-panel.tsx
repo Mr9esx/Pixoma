@@ -15,7 +15,7 @@ export type CaseListFilters = {
 
 type Props = {
   items: CaseRecord[]
-  selectedId?: string
+  selectedId?: number
   filters: CaseListFilters
   onFiltersChange: (next: CaseListFilters) => void
   isLoading?: boolean
@@ -87,7 +87,7 @@ export function CaseListPanel({
               <li key={item.id}>
                 <Link
                   to='/cases/$caseId'
-                  params={{ caseId: item.id }}
+                  params={{ caseId: String(item.id) }}
                   className={cn(
                     'block w-full px-4 py-3 text-left text-sm hover:bg-accent',
                     selected && 'bg-accent'

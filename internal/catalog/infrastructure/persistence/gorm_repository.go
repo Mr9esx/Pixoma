@@ -14,7 +14,7 @@ import (
 )
 
 type CaseRow struct {
-	ID        string `gorm:"primaryKey;size:128"`
+	ID        uint64 `gorm:"primaryKey;autoIncrement"`
 	Name      string `gorm:"size:256;not null"`
 	MenuKey   string `gorm:"size:128;index"`
 	TagsJSON  string `gorm:"type:text"`
@@ -40,7 +40,7 @@ func (r *GormRepository) Create(ctx context.Context, c *domain.Case) error {
 		return fmt.Errorf("nil case")
 	}
 	var n int64
-	if err := r.db.WithContext(ctx).Model(&CaseRow{}).Where("id = ?", string(c.Document.ID)).Count(&n).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&CaseRow{}).Where("id = ?", c.Document.ID).Count(&n).Error; err != nil {
 		return err
 	}
 	if n > 0 {
@@ -66,7 +66,7 @@ func (r *GormRepository) Save(ctx context.Context, c *domain.Case) error {
 
 func (r *GormRepository) Get(ctx context.Context, id sharedkernel.CaseID) (*domain.Case, error) {
 	var row CaseRow
-	err := r.db.WithContext(ctx).First(&row, "id = ?", string(id)).Error
+	err := r.db.WithContext(ctx).First(&row, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domain.ErrNotFound
 	}
@@ -122,7 +122,7 @@ func (r *GormRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 }
 
 func (r *GormRepository) Disable(ctx context.Context, id sharedkernel.CaseID) error {
-	res := r.db.WithContext(ctx).Model(&CaseRow{}).Where("id = ?", string(id)).Update("enabled", false)
+	res := r.db.WithContext(ctx).Model(&CaseRow{}).Where("id = ?", id).Update("enabled", false)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -133,7 +133,7 @@ func (r *GormRepository) Disable(ctx context.Context, id sharedkernel.CaseID) er
 }
 
 func (r *GormRepository) Enable(ctx context.Context, id sharedkernel.CaseID) error {
-	res := r.db.WithContext(ctx).Model(&CaseRow{}).Where("id = ?", string(id)).Update("enabled", true)
+	res := r.db.WithContext(ctx).Model(&CaseRow{}).Where("id = ?", id).Update("enabled", true)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -157,7 +157,7 @@ func toRow(c *domain.Case) (*CaseRow, error) {
 		return nil, err
 	}
 	return &CaseRow{
-		ID:       string(c.Document.ID),
+		ID:       uint64(c.Document.ID),
 		Name:     c.Document.Name,
 		MenuKey:  c.Document.MenuKey,
 		TagsJSON: string(tags),

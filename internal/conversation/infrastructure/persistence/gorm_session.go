@@ -21,7 +21,7 @@ type SessionRow struct {
 	ChannelID         string    `gorm:"size:128;not null;default:'';index:idx_chat_active"`
 	ChatExternalID    string    `gorm:"size:256;not null;default:'';index:idx_chat_active"`
 	Status            string    `gorm:"size:32;not null;index:idx_chat_active"`
-	CaseID            string    `gorm:"size:128;not null"`
+	CaseID            uint64    `gorm:"not null"`
 	CurrentInputIndex int       `gorm:"not null;default:0"`
 	InputKeysJSON     string    `gorm:"column:input_keys_json;type:text;not null"`
 	DraftJSON         string    `gorm:"column:draft_json;type:text;not null"`
@@ -186,7 +186,7 @@ func toRow(s *domain.Session) (*SessionRow, error) {
 		UserID:            s.UserID,
 		ChannelID:         addr.ChannelID,
 		ChatExternalID:    addr.ExternalChatID,
-		CaseID:            string(s.CaseID),
+		CaseID:            uint64(s.CaseID),
 		Status:            string(s.Status),
 		CurrentInputIndex: s.CurrentInputIndex,
 		InputKeysJSON:     string(keys),

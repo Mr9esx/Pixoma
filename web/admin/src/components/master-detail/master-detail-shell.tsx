@@ -26,7 +26,7 @@ export function MasterDetailShell({
     <div
       className={cn(
         'grid min-h-0 flex-1 gap-0 overflow-hidden rounded-md border',
-        'md:grid-cols-[minmax(280px,360px)_1fr]',
+        'md:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]',
         className
       )}
     >

@@ -81,7 +81,7 @@ export type InputBinding = { key: string; node_id: string; field_path: string }
 export type OutputBinding = { key: string; node_id: string; index?: number }
 
 export type CaseRecord = {
-  id: string
+  id: number
   name: string
   description?: string
   preview?: string
@@ -105,7 +105,7 @@ export type TaskRecord = {
   id: string
   session_id: string
   chat_id?: number
-  case_id: string
+  case_id: number
   status: string
   edge_id?: string
   prompt_id?: string
@@ -140,7 +140,7 @@ export type SessionRecord = {
   id: string
   user_id: string
   chat_id: number
-  case_id: string
+  case_id: number
   status: string
   current_input_index: number
   input_keys: string[]

@@ -41,7 +41,7 @@ func openCasesHandler(t *testing.T) (*casesapi.Handler, *persistence.GormReposit
 	return h, repo, srv
 }
 
-func validCaseBody(id, name string) map[string]any {
+func validCaseBody(id uint64, name string) map[string]any {
 	return map[string]any{
 		"id":   id,
 		"name": name,
@@ -85,7 +85,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	ctx := context.Background()
 
 	// POST valid → 201
-	body, _ := json.Marshal(validCaseBody("alpha-case", "Alpha Workflow"))
+	body, _ := json.Marshal(validCaseBody(1, "Alpha Workflow"))
 	res, err := http.Post(srv.URL+"/api/v1/cases", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -99,12 +99,12 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&created); err != nil {
 		t.Fatal(err)
 	}
-	if created["id"] != "alpha-case" || created["enabled"] != true {
+	if created["id"] != float64(1) || created["enabled"] != true {
 		t.Fatalf("create dto=%v", created)
 	}
 
 	// POST invalid (empty name) → 400，库中无脏数据
-	bad := validCaseBody("bad-case", "")
+	bad := validCaseBody(999999, "")
 	badBody, _ := json.Marshal(bad)
 	badRes, err := http.Post(srv.URL+"/api/v1/cases", "application/json", bytes.NewReader(badBody))
 	if err != nil {
@@ -117,7 +117,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	if msg := decodeErr(t, badRes); msg == "" {
 		t.Fatal("want validation error message")
 	}
-	if _, err := repo.Get(ctx, "bad-case"); err == nil {
+	if _, err := repo.Get(ctx, sharedkernel.CaseID(999999)); err == nil {
 		t.Fatal("invalid case should not be persisted")
 	} else if err != domain.ErrNotFound {
 		t.Fatalf("want ErrNotFound for dirty check, got %v", err)
@@ -136,12 +136,12 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	if err := json.NewDecoder(listRes.Body).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
-	if len(list) != 1 || list[0]["id"] != "alpha-case" {
+	if len(list) != 1 || list[0]["id"] != float64(1) {
 		t.Fatalf("list=%v", list)
 	}
 
 	// GET /{id}
-	getRes, err := http.Get(srv.URL + "/api/v1/cases/alpha-case")
+	getRes, err := http.Get(srv.URL + "/api/v1/cases/1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,8 +151,8 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	}
 
 	// PATCH update name
-	patchBody, _ := json.Marshal(validCaseBody("alpha-case", "Alpha Updated"))
-	patchReq, err := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/cases/alpha-case", bytes.NewReader(patchBody))
+	patchBody, _ := json.Marshal(validCaseBody(1, "Alpha Updated"))
+	patchReq, err := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/cases/1", bytes.NewReader(patchBody))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	}
 
 	// POST /{id}/disable → enabled=false
-	disRes, err := http.Post(srv.URL+"/api/v1/cases/alpha-case/disable", "application/json", nil)
+	disRes, err := http.Post(srv.URL+"/api/v1/cases/1/disable", "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	if disabled["enabled"] != false {
 		t.Fatalf("after disable: %v", disabled)
 	}
-	got, err := repo.Get(ctx, sharedkernel.CaseID("alpha-case"))
+	got, err := repo.Get(ctx, sharedkernel.CaseID(1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +199,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	}
 
 	// POST /{id}/enable → enabled=true
-	enRes, err := http.Post(srv.URL+"/api/v1/cases/alpha-case/enable", "application/json", nil)
+	enRes, err := http.Post(srv.URL+"/api/v1/cases/1/enable", "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	}
 
 	// GET missing → 404
-	missing, err := http.Get(srv.URL + "/api/v1/cases/no-such")
+	missing, err := http.Get(srv.URL + "/api/v1/cases/999999")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 
 func TestCasesHandler_CreateDuplicateReturns409(t *testing.T) {
 	_, _, srv := openCasesHandler(t)
-	body, _ := json.Marshal(validCaseBody("dup-case", "Dup"))
+	body, _ := json.Marshal(validCaseBody(2, "Dup"))
 	res1, err := http.Post(srv.URL+"/api/v1/cases", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)

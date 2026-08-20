@@ -1,6 +1,13 @@
 import { useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Coins, FolderOpen, Hash, KeyRound, PenLine, Tags } from 'lucide-react'
+import {
+  Coins,
+  FolderOpen,
+  KeyRound,
+  PenLine,
+  Settings2,
+  Tags,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getCase } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
@@ -67,13 +74,13 @@ function SectionHead({ title, hint }: { title: string; hint: string }) {
 }
 
 type Props = {
-  id: string
+  id: number
 }
 
 export function CaseDetailPanel({ id }: Props) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [editOpen, setEditOpen] = useState(false)
+  const [editDialog, setEditDialog] = useState<'info' | 'workflow' | null>(null)
 
   const detailQuery = useQuery({
     queryKey: queryKeys.cases.detail(id),
@@ -121,12 +128,6 @@ export function CaseDetailPanel({ id }: Props) {
             ) : null}
             <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
               <MetaChip
-                icon={<Hash className='size-3.5' />}
-                label={t('cases.fieldId')}
-                value={record.id}
-                divider
-              />
-              <MetaChip
                 icon={<KeyRound className='size-3.5' />}
                 label={t('cases.fieldMenuKey')}
                 value={record.menu_key}
@@ -155,10 +156,19 @@ export function CaseDetailPanel({ id }: Props) {
             <Button
               type='button'
               className={kit.btnPrimary}
-              onClick={() => setEditOpen(true)}
+              onClick={() => setEditDialog('info')}
             >
               <PenLine className='size-3.5' />
-              {t('cases.editHeading')}
+              {t('cases.editInfo')}
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              className='h-8 gap-1.5 px-3 text-xs'
+              onClick={() => setEditDialog('workflow')}
+            >
+              <Settings2 className='size-3.5' />
+              {t('cases.editWorkflow')}
             </Button>
           </div>
         </div>
@@ -167,7 +177,10 @@ export function CaseDetailPanel({ id }: Props) {
           title={t('cases.sectionConfig')}
           hint={t('cases.sectionConfigHint')}
         />
-        <WorkflowConfigView record={record} />
+        <WorkflowConfigView
+          record={record}
+          onSaved={(next) => queryClient.setQueryData(queryKeys.cases.detail(id), next)}
+        />
 
         <SectionHead
           title={t('cases.sectionEntries')}
@@ -176,21 +189,59 @@ export function CaseDetailPanel({ id }: Props) {
         <MenuPlacementsSection caseId={record.id} showHeading={false} />
       </div>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-3xl'>
-          <DialogHeader>
-            <DialogTitle>{t('cases.editHeading')}</DialogTitle>
+      <Dialog
+        open={editDialog !== null}
+        onOpenChange={(v) => (v ? undefined : setEditDialog(null))}
+      >
+        <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-3xl'>
+          <DialogHeader className='border-b px-5 py-4'>
+            <DialogTitle>
+              {editDialog === 'info'
+                ? t('cases.editInfo')
+                : t('cases.editWorkflow')}
+            </DialogTitle>
           </DialogHeader>
-          <div className='min-h-0 flex-1 overflow-auto'>
-            <CaseForm
-              key={`edit-${record.id}`}
-              mode='edit'
-              initial={record}
-              onSaved={(next) => {
-                queryClient.setQueryData(queryKeys.cases.detail(id), next)
-                setEditOpen(false)
-              }}
-            />
+          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
+            {editDialog === 'info' ? (
+              <CaseForm
+                key={`info-${record.id}`}
+                mode='edit'
+                initial={record}
+                showWorkflow={false}
+                onSaved={(next) => {
+                  queryClient.setQueryData(queryKeys.cases.detail(id), next)
+                  setEditDialog(null)
+                }}
+              />
+            ) : editDialog === 'workflow' ? (
+              <CaseForm
+                key={`wf-${record.id}`}
+                mode='edit'
+                initial={record}
+                showBasics={false}
+                onSaved={(next) => {
+                  queryClient.setQueryData(queryKeys.cases.detail(id), next)
+                  setEditDialog(null)
+                }}
+              />
+            ) : null}
+          </div>
+          <div className='flex items-center justify-end gap-2 border-t px-5 py-3'>
+            <Button
+              type='button'
+              variant='outline'
+              className='h-8 gap-1.5 px-3 text-xs'
+              onClick={() => setEditDialog(null)}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type='submit'
+              form='case-edit-form'
+              className='h-8 gap-1.5 px-3 text-xs'
+            >
+              {t('common.save')}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -7,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea'
 
 export type BasicsSlice = Pick<
   CaseRecord,
-  | 'id'
   | 'name'
   | 'description'
   | 'preview'
@@ -21,7 +20,6 @@ export type BasicsSlice = Pick<
 type Props = {
   value: BasicsSlice
   onChange: (next: BasicsSlice) => void
-  idEditable: boolean
   /** Create-only: edit mode uses topbar Enable/Disable API instead. */
   showEnabled?: boolean
   disabled?: boolean
@@ -41,7 +39,6 @@ function splitList(raw: string): string[] {
 export function BasicsSection({
   value,
   onChange,
-  idEditable,
   showEnabled = false,
   disabled,
 }: Props) {
@@ -56,17 +53,6 @@ export function BasicsSection({
       <h3 className='text-sm font-semibold'>{t('cases.sectionBasics')}</h3>
 
       <div className='grid gap-4 sm:grid-cols-2'>
-        <div className='space-y-2'>
-          <Label htmlFor='case-id'>{t('cases.fieldId')}</Label>
-          <Input
-            id='case-id'
-            value={value.id}
-            onChange={(e) => patch({ id: e.target.value })}
-            disabled={!idEditable || disabled}
-            required={idEditable}
-            autoComplete='off'
-          />
-        </div>
         <div className='space-y-2'>
           <Label htmlFor='case-name'>{t('cases.fieldName')}</Label>
           <Input

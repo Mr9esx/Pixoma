@@ -72,7 +72,9 @@ func TestAgent_PresenceStoresMetrics(t *testing.T) {
 		"comfy_running": true,
 		"metrics": edge.Metrics{
 			CPUUsagePercent: 42,
-			CollectedAt:     time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC),
+			// Use a fresh timestamp so the repository's retention cleanup
+			// (24h) does not delete the row right after Append.
+			CollectedAt: time.Now().UTC(),
 		},
 	})
 	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/agent/v1/presence", bytes.NewReader(body))
@@ -220,7 +222,7 @@ func TestAgent_ClaimReturnsJob(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1000, 0).UTC()
-	task := runtimedomain.NewPending("t1", "s1", "c1", "in", now)
+	task := runtimedomain.NewPending("t1", "s1", 1, "in", now)
 	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "jobs/t1/job.json"}, now)
 	if err := tasks.Create(ctx, task); err != nil {
 		t.Fatal(err)
@@ -286,7 +288,7 @@ func TestAgent_StatusReports(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1000, 0).UTC()
-	task := runtimedomain.NewPending("t1", "s1", "c1", "in", now)
+	task := runtimedomain.NewPending("t1", "s1", 1, "in", now)
 	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "j"}, now)
 	_ = task.ClaimWithLease("gpu-1", time.Minute, now)
 	_ = tasks.Create(ctx, task)
@@ -319,7 +321,7 @@ func TestAgent_StatusRejectsWrongInstance(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1000, 0).UTC()
-	task := runtimedomain.NewPending("t1", "s1", "c1", "in", now)
+	task := runtimedomain.NewPending("t1", "s1", 1, "in", now)
 	_ = task.PrepareForClaim("gpu-2", sharedkernel.BlobRef{Key: "j"}, now)
 	_ = task.ClaimWithLease("gpu-2", time.Minute, now)
 	_ = tasks.Create(ctx, task)

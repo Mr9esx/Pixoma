@@ -11,8 +11,8 @@ export function listCases(params?: {
   return apiFetch<CaseRecord[]>(`/api/v1/cases${toQuery(params)}`)
 }
 
-export function getCase(id: string) {
-  return apiFetch<CaseRecord>(`/api/v1/cases/${encodeURIComponent(id)}`)
+export function getCase(id: number) {
+  return apiFetch<CaseRecord>(`/api/v1/cases/${id}`)
 }
 
 export function createCase(body: Omit<CaseRecord, never>) {
@@ -22,8 +22,8 @@ export function createCase(body: Omit<CaseRecord, never>) {
   })
 }
 
-export function patchCase(id: string, body: Partial<CaseRecord>) {
-  return apiFetch<CaseRecord>(`/api/v1/cases/${encodeURIComponent(id)}`, {
+export function patchCase(id: number, body: Partial<CaseRecord>) {
+  return apiFetch<CaseRecord>(`/api/v1/cases/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   })

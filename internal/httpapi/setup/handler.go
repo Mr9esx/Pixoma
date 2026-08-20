@@ -67,6 +67,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		Remember bool   `json:"remember"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json")
@@ -81,12 +82,12 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
-	tok, err := h.Sessions.Issue(body.Username)
+	tok, err := h.Sessions.Issue(body.Username, body.Remember)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	SetCookie(w, tok)
+	SetCookie(w, tok, body.Remember)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                   true,
 		"token":                tok,
@@ -139,6 +140,11 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 	}
 	if !h.Boot.Initialized() {
 		_ = h.Boot.SetWizardStep("database")
+	}
+	// 改密成功后清除落盘的初始明文密码，旧默认密码不再可恢复。
+	if err := bootstrap.RemoveStoredPassword(filepath.Join(h.DataDir, "bootstrap.db")); err != nil {
+		// 仅记录，不阻断响应。
+		_ = err
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "must_change_password": false})
 }

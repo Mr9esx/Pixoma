@@ -32,7 +32,7 @@ func main() {
 
 func run(ctx context.Context) error {
 	instID := envOr("EDGE_ID", "local")
-	baseURL := envOr("CONTROL_PLANE_URL", envOr("PIXOMA_URL", "http://127.0.0.1:8080"))
+	baseURL := envOr("CONTROL_PLANE_URL", envOr("PIXOMA_URL", "http://127.0.0.1:8082"))
 	token := strings.TrimSpace(os.Getenv("AGENT_TOKEN"))
 	if token == "" {
 		return errString("AGENT_TOKEN is required")

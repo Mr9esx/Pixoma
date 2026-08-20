@@ -2,7 +2,7 @@ import type { CaseRecord } from '@/lib/api/types'
 
 export function emptyCase(): CaseRecord {
   return {
-    id: '',
+    id: 0,
     name: '',
     price: 0,
     inputs: [],

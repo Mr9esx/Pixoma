@@ -64,7 +64,9 @@ type EditProps = {
   initial: CaseRecord
   readOnly?: boolean
   showBasics?: boolean
+  showWorkflow?: boolean
   onSaved?: (next: CaseRecord) => void
+  onCancel?: () => void
 }
 
 type Props = CreateProps | EditProps
@@ -77,6 +79,7 @@ export function CaseForm(props: Props) {
   const initial = props.mode === 'edit' ? props.initial : emptyCase()
   const readOnly = props.mode === 'edit' && props.readOnly === true
   const showBasics = props.mode !== 'edit' || props.showBasics !== false
+  const showWorkflow = props.mode !== 'edit' || props.showWorkflow !== false
   const [draft, setDraft] = useState<CaseRecord>(() => structuredClone(initial))
   const [workflowText, setWorkflowText] = useState(() =>
     stringifyObject(initial.bindings.workflow)
@@ -118,7 +121,7 @@ export function CaseForm(props: Props) {
       toast.success(t('cases.createSuccess'))
       void navigate({
         to: '/cases/$caseId',
-        params: { caseId: created.id },
+        params: { caseId: String(created.id) },
       })
     },
   })
@@ -172,6 +175,19 @@ export function CaseForm(props: Props) {
   }
 
   function buildPayload(): CaseRecord | null {
+    if (!showWorkflow) {
+      setEditorError(undefined)
+      return {
+        ...draft,
+        id: draft.id,
+        name: draft.name.trim(),
+        description: draft.description?.trim() || undefined,
+        preview: draft.preview?.trim() || undefined,
+        menu_key: draft.menu_key?.trim() || undefined,
+        tags: draft.tags?.length ? draft.tags : undefined,
+        categories: draft.categories?.length ? draft.categories : undefined,
+      }
+    }
     if (!graph) {
       setEditorError(t('cases.emptyWorkflowLock'))
       return null
@@ -196,7 +212,7 @@ export function CaseForm(props: Props) {
     const inputSchema = deriveInputSchema(inputDrafts)
     return {
       ...draft,
-      id: draft.id.trim(),
+      id: draft.id,
       name: draft.name.trim(),
       description: draft.description?.trim() || undefined,
       preview: draft.preview?.trim() || undefined,
@@ -246,7 +262,6 @@ export function CaseForm(props: Props) {
       {showBasics ? (
         <BasicsSection
           value={{
-            id: draft.id,
             name: draft.name,
             description: draft.description,
             preview: draft.preview,
@@ -257,22 +272,24 @@ export function CaseForm(props: Props) {
             enabled: draft.enabled,
           }}
           onChange={(basics) => setDraft((prev) => ({ ...prev, ...basics }))}
-          idEditable={props.mode === 'create'}
           showEnabled={props.mode === 'create'}
           disabled={disabled}
         />
       ) : null}
 
-      <WorkflowImportSection
-        value={workflowText}
-        graph={graph}
-        error={importError}
-        filename={workflowFilename || undefined}
-        onChange={onWorkflowTextChange}
-        onFileName={setWorkflowFilename}
-        disabled={disabled}
-      />
+      {showWorkflow ? (
+        <WorkflowImportSection
+          value={workflowText}
+          graph={graph}
+          error={importError}
+          filename={workflowFilename || undefined}
+          onChange={onWorkflowTextChange}
+          onFileName={setWorkflowFilename}
+          disabled={disabled}
+        />
+      ) : null}
 
+      {showWorkflow ? (
       <section className='space-y-3'>
         <div className='flex items-center gap-2'>
           <span className='flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground'>
@@ -330,7 +347,9 @@ export function CaseForm(props: Props) {
           </p>
         )}
       </section>
+      ) : null}
 
+      {showWorkflow ? (
       <section className='space-y-3'>
         <div className='flex items-center gap-2'>
           <span className='flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground'>
@@ -384,21 +403,26 @@ export function CaseForm(props: Props) {
           </p>
         )}
       </section>
+      ) : null}
 
+      {showWorkflow ? (
       <PreviewSection
         bindings={deriveBindings(inputDrafts, outputDrafts)}
         inputSchema={deriveInputSchema(inputDrafts)}
       />
+      ) : null}
 
-      <AdvancedSection
-        open={advancedOpen}
-        editMode={advancedEdit}
-        text={advancedText}
-        onOpen={() => setAdvancedOpen(true)}
-        onEnterEdit={() => setAdvancedEdit(true)}
-        onTextChange={setAdvancedText}
-        disabled={disabled}
-      />
+      {showWorkflow ? (
+        <AdvancedSection
+          open={advancedOpen}
+          editMode={advancedEdit}
+          text={advancedText}
+          onOpen={() => setAdvancedOpen(true)}
+          onEnterEdit={() => setAdvancedEdit(true)}
+          onTextChange={setAdvancedText}
+          disabled={disabled}
+        />
+      ) : null}
 
       {mutationError ? (
         <ErrorBanner message={errorMessage(mutationError)} />

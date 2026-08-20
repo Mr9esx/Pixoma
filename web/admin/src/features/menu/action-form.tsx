@@ -26,7 +26,7 @@ const ACTION_KEYS: Record<ActionType, string> = {
 type Props = {
   action: Action
   cards: Card[]
-  workflows: { id: string; name: string }[]
+  workflows: { id: number; name: string }[]
   onChange: (next: Action) => void
   onCreateNewCard?: () => void
   disabled?: boolean

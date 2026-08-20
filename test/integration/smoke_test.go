@@ -109,7 +109,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	})
 
 	doc := domain.CaseDocument{
-		ID: "text2img-demo", Name: "Demo",
+		ID: 4, Name: "Demo",
 		Inputs:  []domain.InputField{{Key: "prompt", Type: "string", Required: true}},
 		Outputs: []domain.OutputField{{Key: "image", Type: "image"}},
 		Bindings: domain.ComfyBindings{
@@ -127,7 +127,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 
 	sessRepo := convdomain.NewMemoryRepository()
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "s1" }, func() time.Time { return now })
-	_, _ = sessSvc.StartCase(ctx, "tg:42", "user-smoke", "text2img-demo", []string{"prompt"})
+	_, _ = sessSvc.StartCase(ctx, "tg:42", "user-smoke", sharedkernel.CaseID(4), []string{"prompt"})
 	p := "cat"
 	_, _ = sessSvc.SubmitInput(ctx, "tg:42", convdomain.DraftValue{Text: &p})
 
@@ -236,7 +236,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 	})
 
 	doc := domain.CaseDocument{
-		ID: "img-edit-smoke", Name: "Edit smoke",
+		ID: 5, Name: "Edit smoke",
 		Inputs: []domain.InputField{
 			{Key: "reference", Type: "image", Required: true},
 			{Key: "prompt", Type: "string", Required: true},
@@ -285,7 +285,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 
 	sessRepo := convdomain.NewMemoryRepository()
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "s-img" }, func() time.Time { return now })
-	_, _ = sessSvc.StartCase(ctx, "tg:77", "user-img", "img-edit-smoke", []string{"reference", "prompt"})
+	_, _ = sessSvc.StartCase(ctx, "tg:77", "user-img", sharedkernel.CaseID(5), []string{"reference", "prompt"})
 	_, _ = sessSvc.SubmitInput(ctx, "tg:77", convdomain.DraftValue{Blob: &ref})
 	prompt := "make it anime"
 	_, _ = sessSvc.SubmitInput(ctx, "tg:77", convdomain.DraftValue{Text: &prompt})

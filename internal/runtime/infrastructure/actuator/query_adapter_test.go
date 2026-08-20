@@ -14,7 +14,7 @@ func TestQueryAdapterGetRunMapsTask(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(10, 0).UTC()
-	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	task := runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now)
 	_ = task.MarkQueued("local", now)
 	_ = task.MarkRunning("prompt-1", now)
 	_ = task.MarkSucceeded([]runtimedomain.OutputRef{

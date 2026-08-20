@@ -36,7 +36,7 @@ type taskDTO struct {
 	ID           string    `json:"id"`
 	SessionID    string    `json:"session_id"`
 	ChatID       string    `json:"chat_id,omitempty"`
-	CaseID       string    `json:"case_id"`
+	CaseID       uint64    `json:"case_id"`
 	Status       string    `json:"status"`
 	EdgeID       string    `json:"instance_id,omitempty"`
 	PromptID     string    `json:"prompt_id,omitempty"`
@@ -51,7 +51,7 @@ func toDTO(t *runtimedomain.Task) taskDTO {
 		ID:           string(t.ID),
 		SessionID:    string(t.SessionID),
 		ChatID:       string(t.ChatID),
-		CaseID:       string(t.CaseID),
+		CaseID:       uint64(t.CaseID),
 		Status:       string(t.Status),
 		EdgeID:       string(t.EdgeID),
 		PromptID:     t.PromptID,
@@ -136,7 +136,9 @@ func parseAdminListQuery(r *http.Request) (runtimedomain.AdminListQuery, error) 
 		q.SessionID = sharedkernel.SessionID(v)
 	}
 	if v := r.URL.Query().Get("case_id"); v != "" {
-		q.CaseID = sharedkernel.CaseID(v)
+		if parsed, perr := sharedkernel.ParseCaseID(v); perr == nil {
+			q.CaseID = parsed
+		}
 	}
 	if v := r.URL.Query().Get("chat_id"); v != "" {
 		q.ChatID = sharedkernel.ChatID(v)

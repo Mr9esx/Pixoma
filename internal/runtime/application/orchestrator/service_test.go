@@ -51,7 +51,7 @@ func TestOnTaskCreatedMakesClaimable(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now))
 
 	bus := &captureBus{}
 	n := &memNotify{}
@@ -79,7 +79,7 @@ func TestApplyStatusSucceededIdempotentNotify(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	task := runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now)
 	task.ChatID = "tg:9"
 	_ = task.MarkQueued("local", now)
 	_ = task.MarkRunning("p", now)
@@ -108,7 +108,7 @@ func TestApplyStatusRejectsWrongInstance(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	task := runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now)
 	_ = task.PrepareForClaim("gpu-2", sharedkernel.BlobRef{Key: "j"}, now)
 	_ = task.ClaimWithLease("gpu-2", time.Minute, now)
 	if err := tasks.Create(ctx, task); err != nil {
@@ -133,7 +133,7 @@ func TestNotify_JoinsSessionChatID(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now)
+	task := runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now)
 	_ = task.MarkQueued("local", now)
 	_ = task.MarkRunning("p", now)
 	_ = tasks.Create(ctx, task)
@@ -143,7 +143,7 @@ func TestNotify_JoinsSessionChatID(t *testing.T) {
 		ID:        "s1",
 		UserID:    "u1",
 		ChatID:    "tg:100",
-		CaseID:    "c1",
+		CaseID: 1,
 		Status:    convdomain.StatusSubmitted,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -174,7 +174,7 @@ func TestCancelPending(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now))
 	n := &memNotify{}
 	svc := orchestrator.New(tasks, static.New(), &captureBus{}, n)
 	svc.Now = func() time.Time { return now }
@@ -191,7 +191,7 @@ func TestRequestCancelViaOrchestrator(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now))
 
 	orch := orchestrator.New(tasks, nil, nil, notify.Nop{})
 	orch.Now = func() time.Time { return now }
@@ -206,7 +206,7 @@ func TestRequestCancelViaOrchestrator(t *testing.T) {
 		t.Fatalf("status=%s", got.Status)
 	}
 
-	done := runtimedomain.NewPending("t2", "s1", "c1", "inputs/t2", now)
+	done := runtimedomain.NewPending("t2", "s1", sharedkernel.CaseID(1), "inputs/t2", now)
 	if err := done.MarkQueued("local", now); err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +229,7 @@ func TestReconcileReadsTaskOnly(t *testing.T) {
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(100, 0).UTC()
 	staleAt := now.Add(-2 * time.Minute)
-	task := runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", staleAt)
+	task := runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", staleAt)
 	_ = task.MarkQueued("local", staleAt)
 	_ = task.MarkRunning("prompt-keep", staleAt)
 	_ = tasks.Create(ctx, task)
@@ -257,7 +257,7 @@ func TestReconcile_StaleQueuedWithoutPromptRePend(t *testing.T) {
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(100, 0).UTC()
 	staleAt := now.Add(-2 * time.Minute)
-	task := runtimedomain.NewPending("t-q", "s1", "c1", "inputs/t-q", staleAt)
+	task := runtimedomain.NewPending("t-q", "s1", sharedkernel.CaseID(1), "inputs/t-q", staleAt)
 	_ = task.MarkQueued("local", staleAt)
 	_ = tasks.Create(ctx, task)
 
@@ -279,7 +279,7 @@ func TestDispatch_PrepFailKeepsPending(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now))
 
 	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local"}), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }
@@ -320,7 +320,7 @@ func TestDispatch_ConcurrentPrepareOnlyOneClaimable(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now))
 
 	bus := &countingBus{}
 	reg := static.New(
@@ -373,8 +373,8 @@ func TestOrchestrator_RoundRobinAcrossHealthy(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t2", "s1", "c1", "inputs/t2", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t2", "s1", sharedkernel.CaseID(1), "inputs/t2", now))
 
 	bus := &captureBus{}
 	reg := static.New(
@@ -406,7 +406,7 @@ func TestOrchestrator_NoInstanceKeepsPending(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
-	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", "c1", "inputs/t1", now))
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now))
 
 	svc := orchestrator.New(tasks, static.New(), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }

@@ -37,7 +37,7 @@ type sessionDTO struct {
 	ID                string              `json:"id"`
 	UserID            string              `json:"user_id"`
 	ChatID            string              `json:"chat_id"`
-	CaseID            string              `json:"case_id"`
+	CaseID       uint64    `json:"case_id"`
 	Status            string              `json:"status"`
 	CurrentInputIndex int                 `json:"current_input_index"`
 	InputKeys         []string            `json:"input_keys"`
@@ -66,7 +66,7 @@ func toDTO(s *domain.Session) sessionDTO {
 		ID:                string(s.ID),
 		UserID:            s.UserID,
 		ChatID:            string(s.ChatID),
-		CaseID:            string(s.CaseID),
+		CaseID:            uint64(s.CaseID),
 		Status:            string(s.Status),
 		CurrentInputIndex: s.CurrentInputIndex,
 		InputKeys:         keys,

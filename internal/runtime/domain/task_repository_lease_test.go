@@ -13,7 +13,7 @@ func TestMemory_PrepareAndClaimWithLease(t *testing.T) {
 	ctx := context.Background()
 	repo := domain.NewMemoryTaskRepository()
 	now := time.Unix(10, 0).UTC()
-	if err := repo.Create(ctx, domain.NewPending("t1", "s1", "c1", "in", now)); err != nil {
+	if err := repo.Create(ctx, domain.NewPending("t1", "s1", sharedkernel.CaseID(1), "in", now)); err != nil {
 		t.Fatal(err)
 	}
 	ref := sharedkernel.BlobRef{Key: "jobs/t1/job.json"}
@@ -38,7 +38,7 @@ func TestMemory_RequeueExpiredThenClaim(t *testing.T) {
 	ctx := context.Background()
 	repo := domain.NewMemoryTaskRepository()
 	now := time.Unix(10, 0).UTC()
-	task := domain.NewPending("t1", "s1", "c1", "in", now)
+	task := domain.NewPending("t1", "s1", sharedkernel.CaseID(1), "in", now)
 	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "j"}, now)
 	_ = task.ClaimWithLease("gpu-1", time.Second, now)
 	if err := repo.Create(ctx, task); err != nil {

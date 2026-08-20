@@ -366,7 +366,7 @@ func TestWorker_UploadUsesDispatchInstanceClient(t *testing.T) {
 
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("t-img", "s1", "image-inject", prefix, now)); err != nil {
+	if err := tasks.Create(ctx, runtimedomain.NewPending("t-img", "s1", sharedkernel.CaseID(4), prefix, now)); err != nil {
 		t.Fatal(err)
 	}
 	cases := &memCases{}

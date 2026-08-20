@@ -28,7 +28,7 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 	}
 	defer boot.Close()
 
-	sess := setup.NewSessions()
+	sess := setup.NewSessions("")
 	restarted := make(chan struct{}, 1)
 	h := &setup.Handler{
 		Boot:         boot,
@@ -183,7 +183,7 @@ func TestPutSettings_RequiresInitialized(t *testing.T) {
 	}
 	defer boot.Close()
 
-	sess := setup.NewSessions()
+	sess := setup.NewSessions("")
 	h := &setup.Handler{Boot: boot, Sessions: sess, DataDir: dir}
 	r := chi.NewRouter()
 	r.Use((&setup.Gate{Boot: boot, Sessions: sess}).Middleware)
@@ -335,7 +335,7 @@ func completeWizard(t *testing.T) *wizardEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := setup.NewSessions()
+	sess := setup.NewSessions("")
 	restarted := make(chan struct{}, 2)
 	h := &setup.Handler{
 		Boot:         boot,

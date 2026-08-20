@@ -94,8 +94,20 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toDTO(got))
 }
 
+func parseCaseID(s string) (sharedkernel.CaseID, error) {
+	n, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return sharedkernel.CaseID(n), nil
+}
+
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
-	id := sharedkernel.CaseID(chi.URLParam(r, "id"))
+	id, err := parseCaseID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid case id")
+		return
+	}
 	c, err := h.Repo.Get(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "case not found")
@@ -109,7 +121,11 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
-	id := sharedkernel.CaseID(chi.URLParam(r, "id"))
+	id, err := parseCaseID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid case id")
+		return
+	}
 	existing, err := h.Repo.Get(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "case not found")
@@ -147,7 +163,11 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) disable(w http.ResponseWriter, r *http.Request) {
-	id := sharedkernel.CaseID(chi.URLParam(r, "id"))
+	id, err := parseCaseID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid case id")
+		return
+	}
 	if err := h.Repo.Disable(r.Context(), id); errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "case not found")
 		return
@@ -164,7 +184,11 @@ func (h *Handler) disable(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) enable(w http.ResponseWriter, r *http.Request) {
-	id := sharedkernel.CaseID(chi.URLParam(r, "id"))
+	id, err := parseCaseID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid case id")
+		return
+	}
 	if err := h.Repo.Enable(r.Context(), id); errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "case not found")
 		return
