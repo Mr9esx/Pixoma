@@ -250,29 +250,6 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	if err != nil {
 		return err
 	}
-	orch := orchestrator.New(taskRepo, pool, nil, botRT.Notify)
-	orch.Sessions = sessionRepo
-	orch.Prep = snap
-	orch.Now = func() time.Time { return time.Now().UTC() }
-	if err := app.SubscribeTaskCreated(ctx, bus, orch); err != nil {
-		return err
-	}
-	app.RunScheduler(ctx, orch)
-
-	restartCh := make(chan struct{})
-	var restartOnce sync.Once
-	setupH := &setupapi.Handler{
-		Boot:     boot,
-		Sessions: sess,
-		DataDir:  dataDir,
-		Restart: func() {
-			restartOnce.Do(func() { close(restartCh) })
-		},
-	}
-	gate := &setupapi.Gate{Boot: boot, Sessions: sess}
-	pres := presence.NewStore()
-	metricsRepo := instpersist.NewMetricsRepository(gdb, metricsRetention())
-
 	conditionReg := condition.NewRegistry()
 	conditionReg.Register(&condition.UserProvider{Lookup: func(ctx context.Context, userID string) (*bool, error) {
 		var row struct {
@@ -302,6 +279,31 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		}
 		return category, c.Document.Tags, nil
 	}})
+
+	orch := orchestrator.New(taskRepo, pool, nil, botRT.Notify)
+	orch.Sessions = sessionRepo
+	orch.Prep = snap
+	orch.Now = func() time.Time { return time.Now().UTC() }
+	orch.Cases = caseDocReader{repo: caseRepo}
+	orch.Condition = conditionReg
+	if err := app.SubscribeTaskCreated(ctx, bus, orch); err != nil {
+		return err
+	}
+	app.RunScheduler(ctx, orch)
+
+	restartCh := make(chan struct{})
+	var restartOnce sync.Once
+	setupH := &setupapi.Handler{
+		Boot:     boot,
+		Sessions: sess,
+		DataDir:  dataDir,
+		Restart: func() {
+			restartOnce.Do(func() { close(restartCh) })
+		},
+	}
+	gate := &setupapi.Gate{Boot: boot, Sessions: sess}
+	pres := presence.NewStore()
+	metricsRepo := instpersist.NewMetricsRepository(gdb, metricsRetention())
 
 	validator := validation.New()
 	adminH := adminhost.NewHandler(adminhost.Options{
@@ -513,4 +515,18 @@ func parsePremium(profileJSON string) *bool {
 		return nil
 	}
 	return profile.IsPremium
+}
+
+// caseDocReader adapts the catalog repository to the orchestrator CaseReader
+// port (routing evaluation only needs the protocol document).
+type caseDocReader struct {
+	repo *casepersist.GormRepository
+}
+
+func (c caseDocReader) GetCase(ctx context.Context, id sharedkernel.CaseID) (*catalogdomain.CaseDocument, error) {
+	got, err := c.repo.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &got.Document, nil
 }

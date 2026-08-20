@@ -148,6 +148,9 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	if got.Status != sharedkernel.TaskSucceeded {
 		t.Fatalf("want succeeded, got %s", got.Status)
 	}
+	if got.DispatchTopic != "default" {
+		t.Fatalf("dispatch_topic = %q, want default (no routing)", got.DispatchTopic)
+	}
 	if n.last == nil || n.last.Kind != "task_succeeded" {
 		t.Fatalf("notify=%+v", n.last)
 	}
