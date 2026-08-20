@@ -57,6 +57,9 @@
 | PromptID | string | Comfy prompt id |
 | JobRef | string | 可领取 job 包路径 |
 | LeaseUntil | time | claim 租约截止 |
+| DispatchTopic | string | 实际路由 Topic（空值按默认 Topic 处理） |
+| Attempts | int | 失败/执行尝试计数（有界重试） |
+| RequeueAt | time | 失败重试退避到期时间；到期前不可被领取 |
 | InputPrefix | string | blob 路径前缀 |
 | Outputs | []OutputRef | 产物 Blob |
 | ErrorCode / ErrorMessage | string | |
@@ -76,10 +79,11 @@
 | AgentTokenEnc | string | 该节点 AGENT_TOKEN 密文 |
 | Hardware | CPU / 内存 / 显卡列表 | 首次 presence 写入；手改或「从机器更新」可覆盖 |
 | HardwareRefreshRequested | bool | 下一拍心跳带规格 |
+| SubscribeTopics | []string | 订阅 Topic 列表；空 = 默认 Topic。Edge 首次 presence 声明写入，管理端 PATCH 可覆盖 |
 
 ### 1.5 Case Document（存在 `catalog_cases.doc_json`）
 
-顶层：`id/name/description/.../inputs/outputs/bindings/input_schema`。  
+顶层：`id/name/description/.../inputs/outputs/bindings/input_schema`，可选 `routing`（`{rules: [{when: <条件 JSON>, topic: <key>}]}`，首个命中即投，无命中回退默认 Topic）。  
 `bindings.workflow` = **整份 Comfy API workflow JSON**；`bindings.inputs/outputs` = 字段↔节点映射。
 
 ---
@@ -169,11 +173,21 @@ Edge 心跳上报的实时系统指标快照，整快照 JSON 一列，写入时
 |---|---|---|
 | id | PK | Case id |
 | name | NOT NULL | |
-| menu_key | index | |
 | tags_json / cats_json | | 冗余索引用 |
 | doc_json | NOT NULL | 完整 CaseDocument（含 workflow） |
 | enabled | index | |
 | created_at, updated_at | | |
+
+### 2.5b `topics`（新增）
+
+| 列 | 约束 | 说明 |
+|---|---|---|
+| key | PK | 稳定 Topic 标识（`^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$`）；`default` 保留且不可删除 |
+| name | NOT NULL | 显示名 |
+| enabled | NOT NULL | 禁用后不可作新路由目标/新订阅 |
+| created_at, updated_at | | |
+
+启动时幂等种入 `default`；调度只向 `dispatch_topic` 对应的 Topic 投放，节点按订阅集合原子领取。
 
 ### 2.6 TG 主键盘树（`tg_menus` / `tg_menu_items` / `tg_menu_item_cases`）
 
@@ -288,7 +302,6 @@ erDiagram
   catalog_cases {
     string id PK
     string name
-    string menu_key
     text doc_json
     bool enabled
   }

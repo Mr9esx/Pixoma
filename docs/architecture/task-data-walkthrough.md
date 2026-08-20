@@ -273,6 +273,8 @@ Adapter：`已排队\ntask=task-a1b2c3d4\n完成后会把图片发回来。`（T
 
 ## 7. 阶段 E — Orchestrator 调度（认领 + 任务包 + dispatch）
 
+> **Topic 分流（2026-08-20 起）**：调度改为「求值 Case 路由 → `dispatch_topic`（无命中 `default`）→ prep edge 无关任务包 → `PrepareForTopic`（queued + topic，**不绑定节点**）」。`/agent/v1/jobs/claim` 按节点订阅集合原子抢占（同一任务只被一台消费）；失败有界重试（5s/15s/45s），租约过期回收不烧 attempts。下文旧示例保留作历史对照。
+
 **入口**：`OnTaskCreated` → `dispatchTask`。
 
 ### 7.1 读

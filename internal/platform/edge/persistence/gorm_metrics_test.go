@@ -21,7 +21,7 @@ func TestMetricsRepository_AppendAndList(t *testing.T) {
 	}
 	repo := persistence.NewMetricsRepository(gdb, 24*time.Hour)
 	ctx := context.Background()
-	base := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
+	base := time.Now().UTC().Add(-2 * time.Hour)
 	for i := 0; i < 3; i++ {
 		m := edge.Metrics{CPUUsagePercent: float64(i), CollectedAt: base.Add(time.Duration(i) * time.Minute)}
 		if err := repo.Append(ctx, "e1", m); err != nil {
