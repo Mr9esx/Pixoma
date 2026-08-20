@@ -41,8 +41,10 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
 
   it('Logo accessible name is Pixoma', () => {
     const source = read(LOGO)
-    expect(source).toContain('<title>Pixoma</title>')
+    expect(source).toContain("alt = 'Pixoma'")
+    expect(source).toContain("src='/images/logo.png'")
     expect(source).toContain("id='pixoma-admin-logo'")
+    expect(source).toContain('<img')
     expect(source).not.toContain('Shadcn-Admin')
     expect(source).not.toContain('shadcn-admin')
   })
@@ -72,7 +74,7 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
     expect(source).toContain('contentRegionClassName')
     const region = read(join(here, 'content-region.ts'))
     expect(region).toContain(
-      'min-h-0 flex-1 overflow-auto has-[>[data-layout=fixed]]:flex has-[>[data-layout=fixed]]:overflow-hidden',
+      'min-h-0 flex-1 overflow-auto has-[>[data-layout=fixed]]:flex has-[>[data-layout=fixed]]:overflow-hidden'
     )
   })
 })

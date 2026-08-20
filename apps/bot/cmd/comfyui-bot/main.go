@@ -25,11 +25,10 @@ import (
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	convpersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
+	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	goredis "github.com/redis/go-redis/v9"
 
-	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
-	menupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
@@ -92,25 +91,25 @@ func run(ctx context.Context) error {
 			&convpersist.SessionRow{},
 			&taskpersist.TaskRow{},
 			&channelpersist.ChannelRow{},
-			&menupersist.ChannelMenuRow{},
-			&menupersist.ChannelMenuItemRow{},
-			&menupersist.ChannelMenuItemCaseRow{},
-			&menupersist.ChannelMenuExtraRow{},
+			&mencardpersist.MainMenuRow{},
+			&mencardpersist.CardRow{},
 		},
 	})
 	if err != nil {
+		return err
+	}
+	if err := gdb.Migrator().DropTable(
+		"channel_menus",
+		"channel_menu_items",
+		"channel_menu_item_cases",
+		"channel_menu_item_extras",
+	); err != nil {
 		return err
 	}
 	defer func() { _ = cleanup() }()
 
 	caseRepo := persistence.NewGormRepository(gdb)
 	userRepo := identitypersist.NewUserRepository(gdb)
-	menuStore := menupersist.NewGormRepository(gdb)
-	menuSvc := &menuapp.Service{
-		Store:            menuStore,
-		Cases:            menuapp.CatalogCaseChecker{Repo: caseRepo},
-		ListImageCaseIDs: menuapp.CatalogImageCaseIDs(caseRepo),
-	}
 	if n, err := seedCasesDir(ctx, caseRepo, cfg.CaseSeedDir); err != nil {
 		slog.Warn("seed cases", "err", err)
 	} else {
@@ -254,12 +253,11 @@ func run(ctx context.Context) error {
 	}
 
 	caps := botCapabilities(facade)
-	menuSvc.Capabilities = botMenuCaps{reg: caps}
 	assembler := &channelruntime.Assembler{
 		Store: &botChannelSnapshotStore{svc: chSvc},
 		Factory: &botTGAdapterFactory{
 			facade:   facade,
-			menu:     menuSvc,
+			cards:    mencardpersist.NewGormCardRepository(gdb),
 			blob:     blobStore,
 			users:    botIdentityResolver{users: userRepo},
 			registry: notifyRegistry,

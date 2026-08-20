@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { createChannel } from '@/lib/api/channels'
+import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createChannel } from '@/lib/api/channels'
-import { queryKeys } from '@/lib/api/query-keys'
 
 export const Route = createFileRoute('/_app/channels/new')({
   component: NewChannelPage,
@@ -31,10 +31,17 @@ function NewChannelPage() {
   })
 
   return (
-    <div data-layout='fixed' className='flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'>
+    <div
+      data-layout='fixed'
+      className='flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'
+    >
       <div>
-        <h1 className='text-2xl font-bold tracking-tight'>{t('channels.new')}</h1>
-        <p className='text-sm text-muted-foreground'>{t('channels.newDescription')}</p>
+        <h1 className='text-2xl font-bold tracking-tight'>
+          {t('channels.new')}
+        </h1>
+        <p className='text-sm text-muted-foreground'>
+          {t('channels.newDescription')}
+        </p>
       </div>
       <Card className='max-w-xl'>
         <CardContent className='space-y-4 pt-6'>

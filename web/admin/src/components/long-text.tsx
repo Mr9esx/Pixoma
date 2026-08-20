@@ -43,7 +43,7 @@ export function LongText({
 
   return (
     <>
-      <div className='hidden sm:block'>
+      <div className='hidden min-w-0 sm:block'>
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -57,7 +57,7 @@ export function LongText({
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div className='sm:hidden'>
+      <div className='min-w-0 sm:hidden'>
         <Popover>
           <PopoverTrigger asChild>
             <div ref={refCallback} className={cn('truncate', className)}>

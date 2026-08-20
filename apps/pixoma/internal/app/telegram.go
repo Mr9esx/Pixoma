@@ -19,8 +19,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
-	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
-	menudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
+	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
+	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
@@ -49,7 +49,7 @@ type BotDeps struct {
 	SessionStore convdomain.Repository
 	Tasks        runtimedomain.TaskRepository
 	Users        identitydomain.Repository
-	Menu         *menuapp.Service
+	MenuCards    mencardpersist.CardRepository
 	Blob         blob.Store
 	Bus          queue.Publisher
 }
@@ -163,13 +163,11 @@ type tgChannelFactory struct {
 func newCapabilityRegistry(facade *botapp.Facade) *capability.Registry {
 	r := capability.NewRegistry()
 	_ = r.Register(capability.OpenCase{App: facade})
-	_ = r.Register(capability.ReplyText{})
-	_ = r.Register(capability.ReplyMedia{})
 	return r
 }
 
 func (f *tgChannelFactory) Create(snap channelruntime.ChannelSnapshot) (channelruntime.Adapter, error) {
-	menuReader := channelMenuReader{svc: f.deps.Menu, channelID: snap.ID}
+	menuReader := channelMenuReader{cards: f.deps.MenuCards, channelID: snap.ID}
 	botInst, err := newTelegramBot(snap.Credential)
 	if err != nil {
 		return nil, err
@@ -227,12 +225,12 @@ func (w *tgBotWrapper) Stop(ctx context.Context) error {
 }
 
 type channelMenuReader struct {
-	svc       *menuapp.Service
+	cards     mencardpersist.CardRepository
 	channelID string
 }
 
-func (r channelMenuReader) GetMenu(ctx context.Context) (menudomain.MenuTree, error) {
-	return r.svc.Get(ctx, r.channelID)
+func (r channelMenuReader) GetMenu(ctx context.Context) (mcdomain.Menu, error) {
+	return r.cards.GetMenu(ctx, r.channelID)
 }
 
 type identityResolver struct {

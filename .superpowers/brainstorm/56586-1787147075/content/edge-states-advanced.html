@@ -1,0 +1,96 @@
+<h2>细化：导入边界状态 + 高级模式</h2>
+<p class="subtitle">三个状态卡片：导入前、导入失败、以及“原始 JSON”要不要留一个高级入口。</p>
+
+<div class="cards">
+  <!-- A: 未导入空态 -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="width:92%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:left;font-size:11px;">
+        <div style="padding:10px;border-bottom:1px solid var(--border);background:var(--bg-primary);font-weight:600;">① 导入工作流</div>
+        <div style="padding:10px;border-bottom:1px dashed var(--border);">
+          <div style="border:1px dashed var(--border);border-radius:6px;padding:12px;text-align:center;color:var(--text-tertiary);background:var(--bg-primary);">
+            拖拽 JSON 文件 / 选择文件 / 粘贴
+          </div>
+        </div>
+        <div style="padding:10px;opacity:0.45;">
+          <div style="font-weight:600;">② 用户需要提供什么</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;color:var(--text-tertiary);">
+            先导入工作流，这里才会开放
+            <div style="margin-top:6px;border:1px dashed var(--border);border-radius:4px;padding:4px 6px;text-align:center;">＋ 添加输入（不可用）</div>
+          </div>
+          <div style="font-weight:600;margin-top:10px;">③ 用户会得到什么</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;color:var(--text-tertiary);">同上，导入后开放</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · 未导入时的空态</h3>
+      <p>步骤 2/3 置灰不可点，只保留一个说明：“先导入工作流”。避免用户填了字段却绑不上节点。</p>
+    </div>
+  </div>
+
+  <!-- B: 校验失败 -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="width:92%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:left;font-size:11px;">
+        <div style="padding:10px;border-bottom:1px solid var(--border);background:var(--bg-primary);font-weight:600;">① 导入工作流</div>
+        <div style="padding:10px;">
+          <div style="border:1px solid var(--error);border-radius:8px;padding:10px;background:rgba(255,59,48,0.06);">
+            <div style="color:var(--error);font-weight:600;">✗ 校验失败</div>
+            <div style="color:var(--text-secondary);margin-top:4px;">第 3 个节点缺少类型信息，无法识别。</div>
+            <div style="color:var(--text-tertiary);margin-top:4px;font-size:10px;">常见原因：</div>
+            <div style="color:var(--text-tertiary);font-size:10px;line-height:1.7;">
+              · 文件不是 JSON，或不是从 ComfyUI 导出的<br>
+              · 用的是旧版导出（缺少 API 格式字段）<br>
+              · JSON 被手动改坏（多了逗号/括号不匹配）
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;">
+            <span style="border:1px solid var(--border);border-radius:4px;padding:4px 10px;">重新选择文件</span>
+            <span style="border:1px solid var(--border);border-radius:4px;padding:4px 10px;">粘贴别的 JSON</span>
+            <span style="color:var(--text-tertiary);padding:4px 0;font-size:10px;">导入不成功不影响已保存内容</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 校验失败</h3>
+      <p>错误用一句人话 + 常见原因清单，不把 JSON 解析报错甩给用户；失败不破坏当前已保存内容。</p>
+    </div>
+  </div>
+
+  <!-- C: 高级模式 -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="width:92%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:left;font-size:11px;">
+        <div style="display:flex;align-items:center;padding:10px;border-bottom:1px solid var(--border);background:var(--bg-primary);">
+          <b>② 用户需要提供什么</b>
+          <span style="margin-left:auto;border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:2px 8px;font-size:10px;">高级</span>
+        </div>
+        <div style="padding:10px;">
+          <div style="font-size:10px;color:var(--text-tertiary);">点击“高级”后展开的只读原始数据：</div>
+          <div style="font-family:ui-monospace,monospace;font-size:9px;color:var(--text-tertiary);border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;background:var(--bg-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            { "bindings": { "workflow": {…}, "inputs": [{"key":"reference","node_id":"4","field_path":"image"}] }, "input_schema": {…} }
+          </div>
+          <div style="margin-top:6px;font-size:10px;color:var(--text-tertiary);">只读，禁止手改；“高级编辑”需二次确认后才会变成可编辑。</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · 高级模式</h3>
+      <p>默认隐藏，只在页面右上角一个小入口；展开后原始数据只读，真要改需二次确认。普通用户一辈子看不到。</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:1.5rem;">最后一个方向问题：原始 JSON 要不要保留“高级入口”？</p>
+<div class="options">
+  <div class="option" data-choice="keep" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content"><h3>保留高级模式（推荐）</h3><p>默认只读，二次确认后才可编辑。留一个逃生口，不影响普通用户体验。</p></div>
+  </div>
+  <div class="option" data-choice="remove" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content"><h3>彻底去掉 JSON</h3><p>表单是唯一入口，最干净；代价是万一表单覆盖不到的节点类型，就配不了。</p></div>
+  </div>
+</div>

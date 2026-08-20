@@ -11,9 +11,9 @@ import (
 
 // Config is the admin-api process configuration (no Telegram fields).
 type Config struct {
-	HTTPAddr     string   `yaml:"http_addr"`
-	DatabaseDSN  string   `yaml:"database_dsn"`
-	CORSOrigins  []string `yaml:"cors_origins"`
+	HTTPAddr    string   `yaml:"http_addr"`
+	DatabaseDSN string   `yaml:"database_dsn"`
+	CORSOrigins []string `yaml:"cors_origins"`
 	// ComfyMock aligns observation paths with bot (COMFY_MOCK).
 	ComfyMock bool `yaml:"comfy_mock"`
 }

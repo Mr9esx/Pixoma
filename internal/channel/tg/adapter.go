@@ -3,6 +3,7 @@ package tg
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -14,7 +15,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
+	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -25,16 +26,23 @@ type Adapter struct {
 	Media     ports.MediaBridge
 	Users     ports.IdentityResolver
 	Menu      MenuReader
+	Cards     CardProvider
 	Registry  *capability.Registry
 	Blob      blob.Store
 	ChannelID string
+	back      *backStack
 	mu        sync.Mutex
 	notified  map[string]struct{}
 	store     *invokeStore
 }
 
 func New(out ports.Outbound) *Adapter {
-	return &Adapter{Out: out, notified: map[string]struct{}{}, store: newInvokeStore()}
+	return &Adapter{
+		Out:      out,
+		notified: map[string]struct{}{},
+		store:    newInvokeStore(),
+		back:     newBackStack(),
+	}
 }
 
 func addrOf(chatID sharedkernel.ChatID) (sharedkernel.ChannelAddr, error) {
@@ -132,8 +140,8 @@ func (a *Adapter) HandleText(ctx context.Context, chatID sharedkernel.ChatID, te
 		return a.Out.SendMenu(ctx, addr, "菜单已更新，请使用下方新按钮。", nil)
 	default:
 		doc := a.loadMenu(ctx)
-		if item, ok := FindEnabledRootByLabel(doc, text); ok {
-			return a.menuItemDispatch(ctx, chatID, addr, item)
+		if item, ok := FindEnabledItemByLabel(doc, text); ok {
+			return a.actionDispatch(ctx, chatID, addr, item.Action, "root")
 		}
 		return a.sendMainMenu(ctx, addr)
 	}
@@ -150,6 +158,15 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID
 		if !ok {
 			return a.Out.SendText(ctx, addr, "操作已过期，请重新选择。")
 		}
+		if inv.CapabilityID == "" {
+			if raw, ok := inv.Params["action"].(json.RawMessage); ok {
+				var action mcdomain.Action
+				if err := json.Unmarshal(raw, &action); err == nil {
+					return a.actionDispatch(ctx, chatID, addr, action, inv.Nav.Back)
+				}
+			}
+			return a.Out.SendText(ctx, addr, "未知操作")
+		}
 		return a.dispatchInvoke(ctx, chatID, inv)
 	}
 	nav, err := TranslateMenuCallback(data)
@@ -159,8 +176,8 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID
 	switch nav.kind {
 	case "main":
 		return a.sendMainMenu(ctx, addr)
-	case "group":
-		return a.showGroup(ctx, addr, nav.id)
+	case "back":
+		return a.handleBack(ctx, chatID, addr, nav.id)
 	default:
 		return a.Out.SendText(ctx, addr, "未知操作")
 	}
@@ -235,58 +252,99 @@ func (a *Adapter) openCaseStep(ctx context.Context, chatID sharedkernel.ChatID, 
 	return a.dispatchInvoke(ctx, chatID, inv)
 }
 
-func (a *Adapter) menuItemDispatch(ctx context.Context, chatID sharedkernel.ChatID, addr sharedkernel.ChannelAddr, item domain.MenuNode) error {
-	if item.CapabilityID != "" {
+func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID, addr sharedkernel.ChannelAddr, action mcdomain.Action, backCtx string) error {
+	switch action.Type {
+	case "open_card":
+		if a.Cards == nil {
+			return a.Out.SendText(ctx, addr, "卡片服务未配置")
+		}
+		card, err := a.Cards.GetCard(ctx, a.ChannelID, action.CardID)
+		if err != nil {
+			return a.Out.SendText(ctx, addr, "卡片不存在或已删除")
+		}
+		a.back.push(string(chatID), backCtx)
+		return a.sendCard(ctx, addr, card, backCtx)
+	case "open_workflow":
 		inv, err := a.baseInvoke(ctx, chatID)
 		if err != nil {
 			return err
 		}
-		inv.CapabilityID = item.CapabilityID
-		inv.Params = item.Params
-		inv.Nav = protocol.Nav{Back: "root"}
+		inv.CapabilityID = "open_case"
+		inv.Params = map[string]any{"step": "list", "workflow_ids": action.WorkflowIDs}
+		inv.Nav = protocol.Nav{Back: backCtx}
 		return a.dispatchInvoke(ctx, chatID, inv)
+	case "send_text", "copy_text":
+		return a.Out.SendText(ctx, addr, action.Text)
+	case "send_media":
+		for _, m := range action.Media {
+			if err := a.Out.SendMediaURL(ctx, addr, m.URL, action.Text); err != nil {
+				return err
+			}
+		}
+		if action.Text != "" && len(action.Media) == 0 {
+			return a.Out.SendText(ctx, addr, action.Text)
+		}
+		return nil
+	case "open_url":
+		return a.Out.SendText(ctx, addr, action.URL)
+	case "placeholder":
+		return a.Out.SendText(ctx, addr, "暂未开放")
+	default:
+		return a.Out.SendText(ctx, addr, "菜单配置无效")
 	}
-	if len(item.Children) > 0 {
-		return a.showGroup(ctx, addr, item.ID)
-	}
-	return a.Out.SendText(ctx, addr, "菜单配置无效")
 }
 
-func (a *Adapter) showGroup(ctx context.Context, addr sharedkernel.ChannelAddr, itemID string) error {
-	tree := a.loadMenu(ctx)
-	node, ok := findNodeByID(tree.Items, itemID)
-	if !ok {
-		return a.Out.SendText(ctx, addr, "菜单项不存在")
+func (a *Adapter) sendCard(ctx context.Context, addr sharedkernel.ChannelAddr, card mcdomain.Card, backCtx string) error {
+	for _, m := range card.Media {
+		if err := a.Out.SendMediaURL(ctx, addr, m.URL, card.Text); err != nil {
+			return err
+		}
 	}
-	text := strings.TrimSpace(node.IntroText)
-	if text == "" {
-		text = node.Label
+	if len(card.Buttons) == 0 {
+		if card.Text != "" {
+			return a.Out.SendText(ctx, addr, card.Text)
+		}
+		return nil
 	}
 	base, err := a.baseInvoke(ctx, sharedkernel.ChatID(sharedkernel.FormatChatID(addr)))
 	if err != nil {
 		return err
 	}
-	var rows [][]ports.Button
-	for _, child := range node.Children {
-		if !child.Enabled {
-			continue
-		}
-		if child.CapabilityID != "" {
-			inv := base
-			inv.CapabilityID = child.CapabilityID
-			inv.Params = child.Params
-			inv.Nav = protocol.Nav{Back: node.ID}
-			rows = append(rows, []ports.Button{{Text: child.Label, Data: CBInvoke + a.store.put(inv)}})
-		} else {
-			rows = append(rows, []ports.Button{{Text: child.Label, Data: CBMenuFolder + child.ID}})
-		}
+	rows := make([][]ports.Button, 0, len(card.Buttons)+1)
+	for _, b := range card.Buttons {
+		inv := base
+		raw, _ := json.Marshal(b.Action)
+		inv.CapabilityID = ""
+		inv.Params = map[string]any{"action": json.RawMessage(raw)}
+		inv.Nav = protocol.Nav{Back: card.ID}
+		rows = append(rows, []ports.Button{{Text: b.Label, Data: CBInvoke + a.store.put(inv)}})
 	}
-	if node.ParentID == "" {
-		rows = append(rows, []ports.Button{{Text: "⬅️ 返回", Data: CBMenu}})
-	} else {
-		rows = append(rows, []ports.Button{{Text: "⬅️ 返回", Data: CBMenuBack + node.ParentID}})
+	backData := CBMenuBack + backCtx
+	rows = append(rows, []ports.Button{{Text: "‹ 返回", Data: backData}})
+	return a.Out.SendList(ctx, addr, card.Text, rows)
+}
+
+func (a *Adapter) handleBack(ctx context.Context, chatID sharedkernel.ChatID, addr sharedkernel.ChannelAddr, target string) error {
+	if target == "root" {
+		a.back.clear(string(chatID))
+		return a.sendMainMenu(ctx, addr)
 	}
-	return a.Out.SendList(ctx, addr, text, rows)
+	_, ok := a.back.pop(string(chatID))
+	if !ok {
+		return a.sendMainMenu(ctx, addr)
+	}
+	if a.Cards == nil {
+		return a.sendMainMenu(ctx, addr)
+	}
+	card, err := a.Cards.GetCard(ctx, a.ChannelID, target)
+	if err != nil {
+		return a.sendMainMenu(ctx, addr)
+	}
+	source := "root"
+	if top, ok := a.back.top(string(chatID)); ok {
+		source = top
+	}
+	return a.sendCard(ctx, addr, card, source)
 }
 
 func (a *Adapter) dispatchInvoke(ctx context.Context, chatID sharedkernel.ChatID, inv protocol.CapabilityInvoke) error {
@@ -342,12 +400,10 @@ func (a *Adapter) backButton(nav protocol.Nav) []ports.Button {
 }
 
 func (a *Adapter) sendMainMenu(ctx context.Context, addr sharedkernel.ChannelAddr) error {
-	tree := a.loadMenu(ctx)
-	items := make([]ports.MenuEntry, 0, len(tree.Items))
-	for _, it := range tree.Items {
-		if it.Enabled {
-			items = append(items, ports.MenuEntry{ID: it.ID, Label: it.Label})
-		}
+	menu := a.loadMenu(ctx)
+	items := make([]ports.MenuEntry, 0, len(menu.Items))
+	for _, it := range menu.Items {
+		items = append(items, ports.MenuEntry{ID: it.ID, Label: it.Label})
 	}
 	return a.Out.SendMenu(ctx, addr, "欢迎使用 ComfyUI Bot\n请选择功能：", items)
 }
@@ -385,7 +441,7 @@ func (a *Adapter) isMenuCommand(ctx context.Context, text string) bool {
 		return true
 	}
 	doc := a.loadMenu(ctx)
-	if _, ok := FindEnabledRootByLabel(doc, text); ok {
+	if _, ok := FindEnabledItemByLabel(doc, text); ok {
 		return true
 	}
 	return false

@@ -23,6 +23,7 @@ import { Route as AppUsersRouteRouteImport } from './routes/_app/users/route'
 import { Route as AppTasksRouteRouteImport } from './routes/_app/tasks/route'
 import { Route as AppSessionsRouteRouteImport } from './routes/_app/sessions/route'
 import { Route as AppEdgesRouteRouteImport } from './routes/_app/edges/route'
+import { Route as AppChannelsRouteRouteImport } from './routes/_app/channels/route'
 import { Route as AppCasesRouteRouteImport } from './routes/_app/cases/route'
 import { Route as AppUsersIndexRouteImport } from './routes/_app/users/index'
 import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
@@ -108,6 +109,11 @@ const AppEdgesRouteRoute = AppEdgesRouteRouteImport.update({
   path: '/edges',
   getParentRoute: () => AppRoute,
 } as any)
+const AppChannelsRouteRoute = AppChannelsRouteRouteImport.update({
+  id: '/channels',
+  path: '/channels',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCasesRouteRoute = AppCasesRouteRouteImport.update({
   id: '/cases',
   path: '/cases',
@@ -139,9 +145,9 @@ const AppEdgesIndexRoute = AppEdgesIndexRouteImport.update({
   getParentRoute: () => AppEdgesRouteRoute,
 } as any)
 const AppChannelsIndexRoute = AppChannelsIndexRouteImport.update({
-  id: '/channels/',
-  path: '/channels/',
-  getParentRoute: () => AppRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppChannelsRouteRoute,
 } as any)
 const AppCasesIndexRoute = AppCasesIndexRouteImport.update({
   id: '/',
@@ -169,14 +175,14 @@ const AppEdgesEdgeIdRoute = AppEdgesEdgeIdRouteImport.update({
   getParentRoute: () => AppEdgesRouteRoute,
 } as any)
 const AppChannelsNewRoute = AppChannelsNewRouteImport.update({
-  id: '/channels/new',
-  path: '/channels/new',
-  getParentRoute: () => AppRoute,
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppChannelsRouteRoute,
 } as any)
 const AppChannelsIdRoute = AppChannelsIdRouteImport.update({
-  id: '/channels/$id',
-  path: '/channels/$id',
-  getParentRoute: () => AppRoute,
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppChannelsRouteRoute,
 } as any)
 const AppCasesCaseIdRoute = AppCasesCaseIdRouteImport.update({
   id: '/$caseId',
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
   '/cases': typeof AppCasesRouteRouteWithChildren
+  '/channels': typeof AppChannelsRouteRouteWithChildren
   '/edges': typeof AppEdgesRouteRouteWithChildren
   '/sessions': typeof AppSessionsRouteRouteWithChildren
   '/tasks': typeof AppTasksRouteRouteWithChildren
@@ -246,6 +253,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
   '/_app/cases': typeof AppCasesRouteRouteWithChildren
+  '/_app/channels': typeof AppChannelsRouteRouteWithChildren
   '/_app/edges': typeof AppEdgesRouteRouteWithChildren
   '/_app/sessions': typeof AppSessionsRouteRouteWithChildren
   '/_app/tasks': typeof AppTasksRouteRouteWithChildren
@@ -279,6 +287,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/setup'
     | '/cases'
+    | '/channels'
     | '/edges'
     | '/sessions'
     | '/tasks'
@@ -334,6 +343,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/setup'
     | '/_app/cases'
+    | '/_app/channels'
     | '/_app/edges'
     | '/_app/sessions'
     | '/_app/tasks'
@@ -472,6 +482,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEdgesRouteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/channels': {
+      id: '/_app/channels'
+      path: '/channels'
+      fullPath: '/channels'
+      preLoaderRoute: typeof AppChannelsRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/cases': {
       id: '/_app/cases'
       path: '/cases'
@@ -516,10 +533,10 @@ declare module '@tanstack/react-router' {
     }
     '/_app/channels/': {
       id: '/_app/channels/'
-      path: '/channels'
+      path: '/'
       fullPath: '/channels/'
       preLoaderRoute: typeof AppChannelsIndexRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppChannelsRouteRoute
     }
     '/_app/cases/': {
       id: '/_app/cases/'
@@ -558,17 +575,17 @@ declare module '@tanstack/react-router' {
     }
     '/_app/channels/new': {
       id: '/_app/channels/new'
-      path: '/channels/new'
+      path: '/new'
       fullPath: '/channels/new'
       preLoaderRoute: typeof AppChannelsNewRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppChannelsRouteRoute
     }
     '/_app/channels/$id': {
       id: '/_app/channels/$id'
-      path: '/channels/$id'
+      path: '/$id'
       fullPath: '/channels/$id'
       preLoaderRoute: typeof AppChannelsIdRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppChannelsRouteRoute
     }
     '/_app/cases/$caseId': {
       id: '/_app/cases/$caseId'
@@ -593,6 +610,21 @@ const AppCasesRouteRouteChildren: AppCasesRouteRouteChildren = {
 const AppCasesRouteRouteWithChildren = AppCasesRouteRoute._addFileChildren(
   AppCasesRouteRouteChildren,
 )
+
+interface AppChannelsRouteRouteChildren {
+  AppChannelsIdRoute: typeof AppChannelsIdRoute
+  AppChannelsNewRoute: typeof AppChannelsNewRoute
+  AppChannelsIndexRoute: typeof AppChannelsIndexRoute
+}
+
+const AppChannelsRouteRouteChildren: AppChannelsRouteRouteChildren = {
+  AppChannelsIdRoute: AppChannelsIdRoute,
+  AppChannelsNewRoute: AppChannelsNewRoute,
+  AppChannelsIndexRoute: AppChannelsIndexRoute,
+}
+
+const AppChannelsRouteRouteWithChildren =
+  AppChannelsRouteRoute._addFileChildren(AppChannelsRouteRouteChildren)
 
 interface AppEdgesRouteRouteChildren {
   AppEdgesEdgeIdRoute: typeof AppEdgesEdgeIdRoute
@@ -651,27 +683,23 @@ const AppUsersRouteRouteWithChildren = AppUsersRouteRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppCasesRouteRoute: typeof AppCasesRouteRouteWithChildren
+  AppChannelsRouteRoute: typeof AppChannelsRouteRouteWithChildren
   AppEdgesRouteRoute: typeof AppEdgesRouteRouteWithChildren
   AppSessionsRouteRoute: typeof AppSessionsRouteRouteWithChildren
   AppTasksRouteRoute: typeof AppTasksRouteRouteWithChildren
   AppUsersRouteRoute: typeof AppUsersRouteRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
-  AppChannelsIdRoute: typeof AppChannelsIdRoute
-  AppChannelsNewRoute: typeof AppChannelsNewRoute
-  AppChannelsIndexRoute: typeof AppChannelsIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppCasesRouteRoute: AppCasesRouteRouteWithChildren,
+  AppChannelsRouteRoute: AppChannelsRouteRouteWithChildren,
   AppEdgesRouteRoute: AppEdgesRouteRouteWithChildren,
   AppSessionsRouteRoute: AppSessionsRouteRouteWithChildren,
   AppTasksRouteRoute: AppTasksRouteRouteWithChildren,
   AppUsersRouteRoute: AppUsersRouteRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
-  AppChannelsIdRoute: AppChannelsIdRoute,
-  AppChannelsNewRoute: AppChannelsNewRoute,
-  AppChannelsIndexRoute: AppChannelsIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 

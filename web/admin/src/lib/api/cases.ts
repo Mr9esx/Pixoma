@@ -28,17 +28,3 @@ export function patchCase(id: string, body: Partial<CaseRecord>) {
     body: JSON.stringify(body),
   })
 }
-
-export function enableCase(id: string) {
-  return apiFetch<CaseRecord>(
-    `/api/v1/cases/${encodeURIComponent(id)}/enable`,
-    { method: 'POST' },
-  )
-}
-
-export function disableCase(id: string) {
-  return apiFetch<CaseRecord>(
-    `/api/v1/cases/${encodeURIComponent(id)}/disable`,
-    { method: 'POST' },
-  )
-}

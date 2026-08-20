@@ -1,0 +1,156 @@
+<h2>步骤式编辑器：完整交互稿</h2>
+<p class="subtitle">从上到下一步步走。用户全程只填“看得懂的话”，节点和 JSON 由系统在背后处理。</p>
+
+<div class="mockup">
+  <div class="mockup-header">编辑工作流 · 图片编辑</div>
+  <div class="mockup-body">
+    <div style="max-width:760px;margin:0 auto;font-size:13px;">
+      <!-- 顶栏 -->
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--bg-primary);">
+        <b>图片编辑</b>
+        <span style="color:var(--success);font-size:12px;">● 启用</span>
+        <span style="margin-left:auto;color:var(--text-tertiary);font-size:12px;">最后保存：刚刚</span>
+        <span style="background:var(--accent);color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;">保存</span>
+      </div>
+
+      <!-- Step 1 -->
+      <div style="margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg-secondary);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;">1</span>
+          <b>导入工作流</b>
+          <span style="color:var(--text-tertiary);font-size:12px;">从 ComfyUI 导出的 JSON 文件或文本</span>
+        </div>
+        <div style="margin-top:10px;border:1px dashed var(--border);border-radius:8px;padding:16px;text-align:center;color:var(--text-tertiary);background:var(--bg-primary);">
+          拖拽 JSON 文件到这里，或 <span style="color:var(--accent);">选择文件 / 粘贴 JSON</span>
+        </div>
+        <div style="margin-top:10px;border:1px solid var(--success);border-radius:8px;padding:10px 12px;background:rgba(52,199,89,0.08);display:flex;align-items:center;gap:8px;">
+          <span style="color:var(--success);font-weight:600;">✓ 校验通过</span>
+          <span style="color:var(--text-secondary);">已识别 12 个节点 · 3 个可调输入 · 1 个输出</span>
+          <span style="margin-left:auto;color:var(--text-tertiary);font-size:12px;text-decoration:underline;cursor:pointer;">重新导入</span>
+        </div>
+        <div style="margin-top:6px;color:var(--text-tertiary);font-size:12px;">
+          查看识别出的节点（12） ▾
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:var(--text-secondary);border-top:1px dashed var(--border);padding-top:8px;">
+          ⚠ 校验失败示例（红色提示，不阻断页面）：<span style="color:var(--error);">“第 3 个节点缺少类型信息，无法识别；请确认是从 ComfyUI 导出的完整 JSON。”</span>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div style="margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg-secondary);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;">2</span>
+          <b>用户需要提供什么</b>
+          <span style="color:var(--text-tertiary);font-size:12px;">用户使用时按顺序被问到这些内容</span>
+        </div>
+
+        <!-- 已配置卡片 -->
+        <div style="margin-top:10px;border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--bg-primary);">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--text-tertiary);">字段名</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">参考图</span>
+            <span style="font-size:12px;color:var(--text-tertiary);margin-left:6px;">类型</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">图片 ▾</span>
+            <span style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:12px;"><span style="border:1px solid var(--accent);border-radius:3px;width:14px;height:14px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;">✓</span>必填</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--text-tertiary);">来自节点</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">Load Image（加载图片）▾</span>
+            <span style="font-size:12px;color:var(--text-tertiary);">参数</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">image ▾</span>
+          </div>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:12px;color:var(--text-tertiary);">说明</span>
+            <span style="flex:1;border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;color:var(--text-secondary);">上传一张参考图，编辑会按它来生成</span>
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--success);">✓ 节点和参数是从导入的工作流自动读出来的，不需要手填任何 ID</div>
+        </div>
+
+        <!-- 配置中卡片：节点下拉展开 -->
+        <div style="margin-top:10px;border:1px solid var(--accent);border-radius:8px;padding:12px;background:var(--bg-primary);">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--text-tertiary);">字段名</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">提示词</span>
+            <span style="font-size:12px;color:var(--text-tertiary);margin-left:6px;">类型</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">文本 ▾</span>
+            <span style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-tertiary);"><span style="border:1px solid var(--border);border-radius:3px;width:14px;height:14px;"></span>必填</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--text-tertiary);">来自节点</span>
+            <div style="position:relative;display:inline-block;">
+              <span style="border:1px solid var(--accent);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">CLIP Text Encode ▾</span>
+              <div style="position:absolute;top:30px;left:0;width:230px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.12);padding:6px;z-index:5;">
+                <div style="padding:5px 8px;font-size:12px;color:var(--text-tertiary);">搜索节点…</div>
+                <div style="padding:5px 8px;font-size:12px;background:var(--selected-bg);border-radius:5px;">CLIP Text Encode（写提示词）</div>
+                <div style="padding:5px 8px;font-size:12px;">Load Image（加载图片）</div>
+                <div style="padding:5px 8px;font-size:12px;">KSampler（采样）</div>
+                <div style="padding:5px 8px;font-size:12px;border-top:1px solid var(--border);color:var(--text-tertiary);">…共 12 个节点</div>
+              </div>
+            </div>
+            <span style="font-size:12px;color:var(--text-tertiary);">参数</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;color:var(--text-tertiary);">选择节点后自动出现 ▾</span>
+          </div>
+          <div style="margin-top:36px;font-size:11px;color:var(--text-tertiary);">
+            拿不准选哪个？→ 用户要改哪一步就选哪一步：填文字选“写提示词”类节点，传图片选“加载图片”类节点。
+          </div>
+        </div>
+
+        <div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--border);border-radius:6px;padding:6px 12px;color:var(--text-secondary);font-size:12px;cursor:pointer;">＋ 添加一个输入</div>
+      </div>
+
+      <!-- Step 3 -->
+      <div style="margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg-secondary);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;">3</span>
+          <b>用户会得到什么</b>
+          <span style="color:var(--text-tertiary);font-size:12px;">用户完成后收到这些结果</span>
+        </div>
+        <div style="margin-top:10px;border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--bg-primary);">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--text-tertiary);">字段名</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">结果图</span>
+            <span style="font-size:12px;color:var(--text-tertiary);margin-left:6px;">类型</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">图片 ▾</span>
+            <span style="font-size:12px;color:var(--text-tertiary);margin-left:6px;">来自节点</span>
+            <span style="border:1px solid var(--border);background:var(--bg-secondary);border-radius:5px;padding:4px 8px;">Save Image（保存图片）▾</span>
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--success);">✓ 该节点只有 1 个输出，已自动选好；输出序号无需手填</div>
+        </div>
+        <div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--border);border-radius:6px;padding:6px 12px;color:var(--text-secondary);font-size:12px;cursor:pointer;">＋ 添加一个输出</div>
+      </div>
+
+      <!-- 预览 / 保存 -->
+      <div style="margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg-secondary);">
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-secondary);font-size:13px;">
+          <b>预览（自动生成，只读）</b>
+          <span style="margin-left:auto;font-size:12px;">▾ 展开</span>
+        </div>
+        <div style="margin-top:8px;font-family:ui-monospace,monospace;font-size:11px;color:var(--text-tertiary);border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--bg-primary);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
+          { "workflow": {…}, "inputs": [ {"key":"reference","node_id":"4","field_path":"image"}, … ], "input_schema": {…} }
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-tertiary);">绑定关系与校验规则都由上面的表单自动生成；需要核对或复制时再展开这里。</div>
+      </div>
+
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:10px;">
+        <span style="border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text-secondary);font-size:12px;">取消</span>
+        <span style="background:var(--accent);color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;">保存工作流</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:1.5rem;">这一稿要确认的点：</p>
+<div class="options">
+  <div class="option" data-choice="ok" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content"><h3>整体流程 OK</h3><p>就按这个细化，继续往下画（比如导入校验的具体状态、高级模式）。</p></div>
+  </div>
+  <div class="option" data-choice="node-select" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content"><h3>“选节点”还不够直观</h3><p>下拉里全是英文节点名，需要换成更易懂的呈现（比如按用途分组、中文别名）。</p></div>
+  </div>
+  <div class="option" data-choice="auto" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content"><h3>想更省事：自动推断输入输出</h3><p>导入后系统直接猜好输入/输出并标红“待确认”，用户只改名字。</p></div>
+  </div>
+</div>

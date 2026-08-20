@@ -26,9 +26,7 @@ type Repository interface {
 
 // SeedConfig drives startup upsert of instance rows from bot config.
 type SeedConfig struct {
-	Edges         []SeedInstance
-	DefaultEdgeID string
-	ComfyMock     bool
+	Edges []SeedInstance
 }
 
 // SeedInstance is one config-file seed row.
@@ -38,55 +36,33 @@ type SeedInstance struct {
 	Capabilities []string `yaml:"capabilities"`
 }
 
-// SeedFromConfig upserts instances from comfy_instances or a single default edge.
+// SeedFromConfig upserts instances from an explicit comfy_instances list.
 func SeedFromConfig(ctx context.Context, repo Repository, cfg SeedConfig) (int, error) {
 	if repo == nil {
 		return 0, fmt.Errorf("edge: nil repository")
 	}
 	now := time.Now().UTC()
 	n := 0
-
-	if len(cfg.Edges) > 0 {
-		for _, s := range cfg.Edges {
-			if s.ID == "" {
-				return n, fmt.Errorf("edge: seed entry requires id")
-			}
-			enabled := true
-			if s.Enabled != nil {
-				enabled = *s.Enabled
-			}
-			rec := &Record{
-				ID:           sharedkernel.EdgeID(s.ID),
-				Name:         s.ID,
-				Enabled:      enabled,
-				Capabilities: append([]string(nil), s.Capabilities...),
-				CreatedAt:    now,
-				UpdatedAt:    now,
-			}
-			if err := repo.Upsert(ctx, rec); err != nil {
-				return n, err
-			}
-			n++
+	for _, s := range cfg.Edges {
+		if s.ID == "" {
+			return n, fmt.Errorf("edge: seed entry requires id")
 		}
-		return n, nil
-	}
-
-	id := cfg.DefaultEdgeID
-	if id == "" {
-		if !cfg.ComfyMock {
-			return 0, nil
+		enabled := true
+		if s.Enabled != nil {
+			enabled = *s.Enabled
 		}
-		id = "local"
+		rec := &Record{
+			ID:           sharedkernel.EdgeID(s.ID),
+			Name:         s.ID,
+			Enabled:      enabled,
+			Capabilities: append([]string(nil), s.Capabilities...),
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		if err := repo.Upsert(ctx, rec); err != nil {
+			return n, err
+		}
+		n++
 	}
-	rec := &Record{
-		ID:        sharedkernel.EdgeID(id),
-		Name:      id,
-		Enabled:   true,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	if err := repo.Upsert(ctx, rec); err != nil {
-		return 0, err
-	}
-	return 1, nil
+	return n, nil
 }

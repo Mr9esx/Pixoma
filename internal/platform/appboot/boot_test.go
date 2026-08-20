@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -16,8 +16,8 @@ func TestBootstrap_MigratesInstancesAndAllowsRoundTrip(t *testing.T) {
 	dsn := "file:appboot_" + t.Name() + "?mode=memory&cache=shared"
 
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
-		DSN:              dsn,
-		MigrateInstances: true,
+		DSN:          dsn,
+		MigrateEdges: true,
 	})
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
@@ -28,11 +28,10 @@ func TestBootstrap_MigratesInstancesAndAllowsRoundTrip(t *testing.T) {
 		}
 	})
 
-	repo := persistence.NewInstanceRepository(gdb)
+	repo := persistence.NewEdgeRepository(gdb)
 	now := time.Now().UTC().Truncate(time.Second)
-	rec := &instance.Record{
-		ID:           sharedkernel.InstanceID("gpu-1"),
-		BaseURL:      "http://127.0.0.1:8188",
+	rec := &edge.Record{
+		ID:           sharedkernel.EdgeID("gpu-1"),
 		Enabled:      true,
 		Capabilities: []string{"sdxl"},
 		CreatedAt:    now,
@@ -46,7 +45,7 @@ func TestBootstrap_MigratesInstancesAndAllowsRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	if got.BaseURL != rec.BaseURL || !got.Enabled {
+	if !got.Enabled {
 		t.Fatalf("get mismatch: %+v", got)
 	}
 }
@@ -57,12 +56,11 @@ func TestBootstrap_SeedsInstancesFromOptions(t *testing.T) {
 	enabled := true
 
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
-		DSN:              dsn,
-		MigrateInstances: true,
-		Seed: &instance.SeedConfig{
-			ComfyInstances: []instance.SeedInstance{{
+		DSN:          dsn,
+		MigrateEdges: true,
+		Seed: &edge.SeedConfig{
+			Edges: []edge.SeedInstance{{
 				ID:           "seed-1",
-				BaseURL:      "http://127.0.0.1:9000",
 				Enabled:      &enabled,
 				Capabilities: []string{"mock"},
 			}},
@@ -77,12 +75,39 @@ func TestBootstrap_SeedsInstancesFromOptions(t *testing.T) {
 		}
 	})
 
-	repo := persistence.NewInstanceRepository(gdb)
+	repo := persistence.NewEdgeRepository(gdb)
 	got, err := repo.Get(ctx, "seed-1")
 	if err != nil {
 		t.Fatalf("get seeded: %v", err)
 	}
-	if got.BaseURL != "http://127.0.0.1:9000" {
-		t.Fatalf("base_url=%q", got.BaseURL)
+	if got.ID != "seed-1" || !got.Enabled {
+		t.Fatalf("seeded=%+v", got)
+	}
+}
+
+func TestBootstrap_WithoutSeedInsertsNoEdges(t *testing.T) {
+	ctx := context.Background()
+	dsn := "file:appboot_" + t.Name() + "?mode=memory&cache=shared"
+
+	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
+		DSN:          dsn,
+		MigrateEdges: true,
+	})
+	if err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	t.Cleanup(func() {
+		if cleanup != nil {
+			_ = cleanup()
+		}
+	})
+
+	repo := persistence.NewEdgeRepository(gdb)
+	rows, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("expected no seeded edges, got %d: %+v", len(rows), rows)
 	}
 }

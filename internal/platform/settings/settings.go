@@ -22,25 +22,23 @@ const (
 
 // Settings is the persisted platform configuration (no queue.driver / runtime_mode).
 type Settings struct {
-	Placement        string `json:"placement"`
-	DBDriver         string `json:"db_driver"`
-	DBDSN            string `json:"db_dsn"`
-	BlobDriver       string `json:"blob_driver"`
-	BlobRoot         string `json:"blob_root"`
-	BlobEndpoint     string `json:"blob_endpoint"`
-	BlobRegion       string `json:"blob_region"`
-	BlobBucket       string `json:"blob_bucket"`
-	BlobAccessKey    string `json:"blob_access_key,omitempty"`
-	BlobSecretKey    string `json:"blob_secret_key,omitempty"`
-	ComfyMock        bool   `json:"comfy_mock"`
-	ComfyUIBaseURL   string `json:"comfyui_base_url"`
-	DefaultEdgeID    string `json:"default_edge_id"`
-	AutoSpawnEdge    bool   `json:"auto_spawn_edge"`
-	ClaimWaitMS      int    `json:"claim_wait_ms"`
-	LeaseSeconds     int    `json:"lease_seconds"`
-	ProxyKind        string `json:"proxy_kind,omitempty"`
-	ProxyHost        string `json:"proxy_host,omitempty"`
-	ProxyPort        int    `json:"proxy_port,omitempty"`
+	Placement      string `json:"placement"`
+	DBDriver       string `json:"db_driver"`
+	DBDSN          string `json:"db_dsn"`
+	BlobDriver     string `json:"blob_driver"`
+	BlobRoot       string `json:"blob_root"`
+	BlobEndpoint   string `json:"blob_endpoint"`
+	BlobRegion     string `json:"blob_region"`
+	BlobBucket     string `json:"blob_bucket"`
+	BlobAccessKey  string `json:"blob_access_key,omitempty"`
+	BlobSecretKey  string `json:"blob_secret_key,omitempty"`
+	ComfyMock      bool   `json:"comfy_mock"`
+	ComfyUIBaseURL string `json:"comfyui_base_url"`
+	ClaimWaitMS    int    `json:"claim_wait_ms"`
+	LeaseSeconds   int    `json:"lease_seconds"`
+	ProxyKind      string `json:"proxy_kind,omitempty"`
+	ProxyHost      string `json:"proxy_host,omitempty"`
+	ProxyPort      int    `json:"proxy_port,omitempty"`
 }
 
 // Validate checks local/remote vs blob legality.

@@ -34,9 +34,6 @@ func ApplyEnv(s *Settings) {
 	if v := strings.TrimSpace(os.Getenv("COMFY_MOCK")); v != "" {
 		s.ComfyMock = parseBool(v, s.ComfyMock)
 	}
-	if v := strings.TrimSpace(os.Getenv("EDGE_AUTO_SPAWN")); v != "" {
-		s.AutoSpawnEdge = parseBool(v, s.AutoSpawnEdge)
-	}
 }
 
 func parseBool(v string, def bool) bool {

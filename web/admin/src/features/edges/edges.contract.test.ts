@@ -31,9 +31,17 @@ describe('compute node layout and detail', () => {
     const kit = read('kit-classes.ts')
     expect(detail).toMatch(/kit\.pageSection/)
     expect(detail).toMatch(/flex min-w-0 flex-col gap-\[6px\]/)
-    expect(detail).toMatch(/data-orientation=['"]horizontal['"]/)
-    expect(detail).toMatch(/grid-cols-\[7rem_minmax\(0,1fr\)\]/)
-    expect(kit).toMatch(/grid-cols-\[7rem_minmax\(0,1fr\)\]/)
+    expect(detail).not.toMatch(/data-orientation=['"]horizontal['"]/)
+    expect(detail).toMatch(/kit\.metaChip/)
+    expect(detail).toMatch(/kit\.specsWrap/)
+    expect(detail).toMatch(
+      /fieldCpu[\s\S]*?fieldGpu[\s\S]*?fieldCpuCores[\s\S]*?fieldMemory/
+    )
+    expect(kit).toMatch(/rounded-full border px-2\.5 py-1\.5 sm:border-0/)
+    expect(kit).toMatch(
+      /border-border bg-muted\/20 grid grid-cols-2 overflow-hidden border-y xl:grid-cols-\[3fr_3fr_1fr_1fr\]/
+    )
+    expect(kit).toMatch(/specsValue/)
     expect(detail).not.toMatch(/tabInfo/)
     expect(detail).not.toMatch(/TabsTrigger/)
     expect(observe).not.toMatch(/md:grid-cols-3/)
@@ -246,6 +254,12 @@ describe('compute node layout and detail', () => {
     expect(zh).toMatch(/"observationSystem": "系统监控"/)
     expect(zh).toMatch(/"observationSystemHint": "节点实时监控"/)
     expect(en).toMatch(/"observationSystem": "System Monitoring"/)
+    expect(detail).toMatch(/edges\.overviewTitle/)
+    expect(detail).toMatch(/SectionHead/)
+    expect(zh).toMatch(/"overviewTitle": "节点概览"/)
+    expect(en).toMatch(/"overviewTitle": "Node overview"/)
+    expect(detail).toMatch(/kit\.desc/)
+    expect(detail).not.toMatch(/descriptionTitle/)
     expect(zh).toMatch(/"monitorMemRate": "内存占用率"/)
     expect(en).toMatch(/"monitorMemRate": "Memory usage"/)
     expect(zh).toMatch(/"monitorVramRate": "显存占用率"/)

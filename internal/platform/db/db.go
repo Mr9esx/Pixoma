@@ -2,6 +2,9 @@ package db
 
 import (
 	"fmt"
+	"io"
+	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -28,9 +31,8 @@ func Open(opts Options) (*gorm.DB, error) {
 	if opts.DSN == "" {
 		return nil, fmt.Errorf("db: empty DSN")
 	}
-	cfg := &gorm.Config{}
-	if !opts.Debug {
-		cfg.Logger = logger.Default.LogMode(logger.Warn)
+	cfg := &gorm.Config{
+		Logger: newGormLogger(opts.Debug, os.Stdout),
 	}
 	dial, err := dialector(opts.Driver, opts.DSN)
 	if err != nil {
@@ -46,6 +48,19 @@ func Open(opts Options) (*gorm.DB, error) {
 		sqlDB.SetMaxOpenConns(16)
 	}
 	return gdb, nil
+}
+
+func newGormLogger(debug bool, w io.Writer) logger.Interface {
+	level := logger.Warn
+	if debug {
+		level = logger.Info
+	}
+	return logger.New(log.New(w, "\r\n", log.LstdFlags), logger.Config{
+		SlowThreshold:             200 * time.Millisecond,
+		LogLevel:                  level,
+		IgnoreRecordNotFoundError: true,
+		Colorful:                  false,
+	})
 }
 
 func dialector(driver, dsn string) (gorm.Dialector, error) {

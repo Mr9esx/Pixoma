@@ -1,6 +1,5 @@
 export const kit = {
   pageSection: 'mx-auto flex w-full max-w-7xl flex-col gap-7 px-6 py-7 md:px-8',
-  header: 'flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between',
   title: 'truncate text-2xl leading-tight font-semibold tracking-tight',
   tagOn:
     'inline-flex items-center border py-0.5 h-6 rounded-md border-emerald-600/20 bg-emerald-50 px-2 text-xs font-medium text-emerald-700 shadow-none dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -11,18 +10,28 @@ export const kit = {
     'border border-input bg-background shadow-xs hover:bg-accent rounded-md text-xs h-8 gap-1.5 px-3',
   btnPrimary:
     'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 rounded-md text-xs h-8 gap-1.5 px-3',
-  rule: 'bg-border shrink-0 h-[1px] w-full',
-  dl: 'grid gap-x-20 gap-y-4 text-sm md:grid-cols-2',
-  field: 'grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-1',
-  dt: 'text-muted-foreground flex items-center gap-3 font-medium',
-  dd: 'min-w-0 truncate font-medium',
+  specsWrap:
+    'border-border bg-muted/20 grid grid-cols-2 overflow-hidden border-y xl:grid-cols-[3fr_3fr_1fr_1fr] xl:border-x-0',
+  specsCell:
+    'border-border/70 min-w-0 border-b p-3.5 even:border-l sm:p-4 xl:border-b-0 xl:border-l xl:first:border-l-0 [&:nth-last-child(-n+2)]:border-b-0',
+  specsLabel:
+    'text-muted-foreground flex min-w-0 items-center gap-2 text-xs font-medium',
+  specsValue: 'min-w-0 truncate text-sm font-semibold',
+  specsNote: 'text-muted-foreground min-w-0 truncate text-xs xl:shrink-0',
+  metaChip:
+    'flex min-w-0 items-center gap-3 border-border/70 bg-muted/25 rounded-full border px-2.5 py-1.5 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0',
+  metaChipDivider: 'bg-border hidden h-4 w-px shrink-0 sm:block',
   statsWrap:
-    'text-card-foreground border bg-muted/15 rounded-lg p-1 shadow-none',
-  statsGrid: 'grid gap-1 md:grid-cols-3',
-  statsCell: 'bg-background rounded-md border px-4 py-3',
+    'bg-card rounded-[8px] border shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none overflow-hidden',
+  statsGrid: 'grid md:grid-cols-3',
+  statsCell: [
+    'min-w-0 border-b p-3.5 sm:p-4 md:border-b-0 md:border-r',
+    'min-w-0 border-b p-3.5 sm:p-4 md:border-b-0 md:border-r',
+    'min-w-0 p-3.5 sm:p-4',
+  ],
   statsLabel:
     'text-muted-foreground flex items-center gap-2 text-xs font-medium',
-  statsValue: 'mt-5 text-2xl font-semibold tracking-tight',
+  statsValue: 'mt-1.5 text-sm font-semibold sm:mt-2',
   sectionTitle: 'text-[15px] font-semibold',
   sectionDash: 'border-border min-w-0 flex-1 border-t border-dashed',
   tableWrap: 'overflow-hidden rounded-md border',

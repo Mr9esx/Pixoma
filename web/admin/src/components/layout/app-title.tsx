@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Menu, X } from 'lucide-react'
+import { Logo } from '@/assets/logo'
 import { cn } from '@/lib/utils'
 import {
   SidebarMenu,
@@ -25,7 +26,10 @@ export function AppTitle() {
               onClick={() => setOpenMobile(false)}
               className='grid flex-1 text-start text-sm leading-tight'
             >
-              <span className='truncate font-bold'>Pixoma</span>
+              <span className='flex min-w-0 items-center gap-1.5 font-bold'>
+                <Logo className='size-5 rounded-md' />
+                <span className='truncate'>Pixoma</span>
+              </span>
             </Link>
             <ToggleSidebar />
           </div>

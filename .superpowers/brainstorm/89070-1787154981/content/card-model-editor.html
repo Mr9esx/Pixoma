@@ -1,0 +1,114 @@
+<h2>TG 菜单/卡片：全新模型 + 编辑器</h2>
+<p class="subtitle">核心：卡片 = 用户看到的一条消息（媒体 + 文字 + 按钮）；按钮 = 名字 + 动作；动作点了触发什么（卡片/文字/工作流/链接…）。主键盘只是入口，卡片可以无限互相打开。</p>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-size:12px;">
+  <span style="border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--bg-secondary);">主键盘（入口）</span>
+  <span style="color:var(--text-tertiary);">→</span>
+  <span style="border:1px solid var(--accent);border-radius:6px;padding:5px 10px;background:var(--selected-bg);">卡片 = 媒体 + 文字 + 按钮[]</span>
+  <span style="color:var(--text-tertiary);">→</span>
+  <span style="border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--bg-secondary);">按钮 → 动作：打开卡片 / 发文字 / 发媒体 / 打开工作流 / 链接 / 复制 / 暂未开放</span>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">卡片中心编辑器 · 图片助手</div>
+  <div class="mockup-body">
+    <div style="max-width:980px;margin:0 auto;font-size:13px;">
+      <!-- 顶栏 -->
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--bg-primary);">
+        <b>图片助手</b>
+        <span style="font-size:12px;color:var(--text-tertiary);">路径：主键盘 › 图片生成 › 风格</span>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-secondary);border:1px solid var(--border);border-radius:5px;padding:4px 10px;">卡片清单</span>
+        <span style="background:var(--accent);color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;">保存</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;margin-top:14px;">
+        <!-- 左：手机模拟 -->
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg-secondary);">
+          <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:8px;">用户视角（可点击，点按钮往下走）</div>
+          <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg-primary);">
+            <div style="padding:12px;display:flex;flex-direction:column;gap:8px;min-height:300px;">
+              <div style="align-self:flex-start;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:12px;">欢迎使用图片助手 👇</div>
+              <!-- 卡片 -->
+              <div style="align-self:flex-end;background:var(--accent);color:#fff;border-radius:10px;padding:8px 10px;font-size:12px;">图片生成</div>
+              <div style="align-self:flex-start;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:10px;max-width:90%;font-size:12px;">
+                <div style="border-radius:8px;background:linear-gradient(135deg,#8ab4f8,#c58af9);height:90px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">示例图片</div>
+                <div style="margin-top:8px;"><b>图片生成</b></div>
+                <div style="color:var(--text-secondary);margin-top:3px;">选一种风格开始生成：</div>
+                <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;background:var(--selected-bg);font-size:11px;">写实风格</span>
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;">二次元</span>
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;">风格说明</span>
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;">联系客服</span>
+                </div>
+                <div style="margin-top:6px;font-size:11px;color:var(--text-tertiary);">‹ 返回主菜单</div>
+              </div>
+              <!-- 下一张卡片（点「风格说明」后） -->
+              <div style="align-self:flex-start;background:var(--selected-bg);border:1px solid var(--accent);border-radius:12px;padding:10px;max-width:90%;font-size:12px;">
+                <b>风格说明</b>
+                <div style="color:var(--text-secondary);margin-top:3px;">写实风 = 照片级真实；二次元 = 动漫手绘…</div>
+                <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;background:var(--selected-bg);font-size:11px;">‹ 返回图片生成</span>
+                </div>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding:8px;">
+              <div style="display:flex;gap:6px;margin-bottom:6px;">
+                <span style="flex:1;border:2px solid var(--accent);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--selected-bg);">🖼 图片生成</span>
+                <span style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--bg-secondary);">🎬 视频生成</span>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <span style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--bg-secondary);">💰 充值</span>
+                <span style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--bg-secondary);">🆘 帮助</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右：编辑面板 -->
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg-secondary);">
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <span style="background:var(--selected-bg);border:1px solid var(--accent);border-radius:5px;padding:4px 10px;font-size:11px;">卡片</span>
+            <span style="border:1px solid var(--border);border-radius:5px;padding:4px 10px;font-size:11px;color:var(--text-secondary);">按钮</span>
+          </div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">这张卡片的名字（管理用）</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:10px;background:var(--bg-primary);font-size:12px;">图片生成</div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">卡片媒体（图片/视频，可多张）</div>
+          <div style="border:1px dashed var(--border);border-radius:6px;padding:10px;text-align:center;color:var(--text-tertiary);font-size:11px;margin-bottom:10px;">＋ 上传 / 填链接</div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">卡片文字</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:10px;background:var(--bg-primary);font-size:12px;color:var(--text-secondary);min-height:42px;">选一种风格开始生成：</div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">卡片按钮（按顺序显示）</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:6px;background:var(--bg-primary);margin-bottom:12px;">
+            <div style="padding:6px 8px;border-radius:5px;background:var(--selected-bg);font-size:12px;">写实风格 <span style="color:var(--text-tertiary);font-size:11px;">→ 打开工作流</span> <span style="margin-left:auto;color:var(--accent);">›</span></div>
+            <div style="padding:6px 8px;font-size:12px;">二次元 <span style="color:var(--text-tertiary);font-size:11px;">→ 打开工作流</span> <span style="margin-left:auto;color:var(--accent);">›</span></div>
+            <div style="padding:6px 8px;font-size:12px;">风格说明 <span style="color:var(--text-tertiary);font-size:11px;">→ 打开卡片</span> <span style="margin-left:auto;color:var(--accent);">›</span></div>
+            <div style="padding:6px 8px;border-top:1px dashed var(--border);color:var(--text-tertiary);font-size:11px;">＋ 加一个按钮</div>
+          </div>
+
+          <div style="border-top:1px dashed var(--border);padding-top:10px;font-size:11px;color:var(--text-tertiary);">
+            ⚠ 编辑中不校验；点「保存」时才提示缺什么（比如某个按钮没选动作）。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:1.5rem;">确认点：</p>
+<div class="options">
+  <div class="option" data-choice="ok" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content"><h3>模型 + 交互 OK，继续细化</h3><p>接着画「按钮动作」的参数表单（工作流/链接/复制/媒体）和卡片清单管理。</p></div>
+  </div>
+  <div class="option" data-choice="data" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content"><h3>先看数据怎么组织</h3><p>卡片/按钮/动作的数据结构和后端接口长什么样，确认后再定交互。</p></div>
+  </div>
+  <div class="option" data-choice="panel" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content"><h3>交互细节不对</h3><p>比如编辑区布局、卡片切换方式、按钮动作选择器等需要调整。</p></div>
+  </div>
+</div>

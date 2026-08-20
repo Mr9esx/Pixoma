@@ -96,7 +96,7 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | 调度 | Orchestrator：prep `job_ref` 后进入可领取态（queued + lease） |
 | 执行 | Edge 长轮询 claim → Worker：Submit/Wait，产物入 blob |
 | 通知 | 终态 → `notify.Publisher` → TG 发图/文案 |
-| 多实例 | `comfy_instances` + Pool；健康探测 |
+| 多计算节点 | `edges` + Pool；健康探测 |
 | Mock | `comfy_mock` / `COMFY_MOCK` → `comfyui.NewClient`；主路径可无真实 Comfy |
 
 ---
@@ -107,12 +107,12 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 |---|---|
 | 向导 settings / `TG_BOT_TOKEN` | Bot Token（落库加密；env 可紧急覆盖） |
 | `comfy_mock` / `COMFY_MOCK` | Mock ↔ 真实 HTTP |
-| `comfyui_base_url` + `default_instance_id` | 单实例种子 |
+| `comfyui_base_url` + `default_edge_id` | 单节点种子 |
 | `placement` | local / remote（校验 blob；远程禁 localfs） |
 | `DATA_DIR` | bootstrap、默认 SQLite、blob |
 | `http_addr` / `HTTP_ADDR` | 控制面监听 |
 
-默认本地数据：`data/bootstrap.db`、`data/app.db`、`data/blob/`、`data/agent.token`。
+默认本地数据：`data/bootstrap.db`、`data/app.db`、`data/blob/`。
 
 ---
 

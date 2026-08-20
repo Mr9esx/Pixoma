@@ -5,7 +5,6 @@ http_addr: ":8080"
 database_dsn: "file:data/app.db?cache=shared&_pragma=foreign_keys(1)"
 blob_root: "data/blob"
 comfyui_base_url: "http://127.0.0.1:8188"
-default_instance_id: "local"
 case_seed_dir: "configs/cases"
 telegram_bot_token: "" # prefer env TG_BOT_TOKEN / TELEGRAM_BOT_TOKEN
 

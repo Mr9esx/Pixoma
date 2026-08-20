@@ -30,11 +30,10 @@ type Config struct {
 	DatabaseDSN    string `yaml:"database_dsn"`
 	BlobRoot       string `yaml:"blob_root"`
 	ComfyUIBaseURL string `yaml:"comfyui_base_url"`
-	DefaultEdgeID  string `yaml:"default_edge_id"`
 	// Edges optionally seeds multiple ComfyUI instances on startup.
-	// When empty, ComfyUIBaseURL (+ DefaultEdgeID) is upserted instead.
-	Edges            []EdgeSeed `yaml:"edges"`
-	CaseSeedDir      string     `yaml:"case_seed_dir"`
+	// When empty, no default instance is upserted; nodes are added manually.
+	Edges       []EdgeSeed `yaml:"edges"`
+	CaseSeedDir string     `yaml:"case_seed_dir"`
 	// ComfyMock enables the in-process ComfyUI mock (default true).
 	// Set false (or COMFY_MOCK=0) to call a real ComfyUI at ComfyUIBaseURL.
 	ComfyMock bool `yaml:"comfy_mock"`
@@ -84,7 +83,6 @@ func Default() Config {
 		HTTPAddr:            ":8080",
 		BlobRoot:            "data/blob",
 		ComfyUIBaseURL:      "http://127.0.0.1:8188",
-		DefaultEdgeID:       "local",
 		CaseSeedDir:         "configs/cases",
 		ComfyMock:           true,
 		HealthProbeInterval: "30s",
