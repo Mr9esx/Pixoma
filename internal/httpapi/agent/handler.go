@@ -93,10 +93,16 @@ func (h *Handler) claim(w http.ResponseWriter, r *http.Request) {
 	}
 	wait := parseWait(r.URL.Query().Get("wait"))
 	deadline := h.now().Add(wait)
+	topics := []string{topic.DefaultKey}
+	if h.Edges != nil {
+		if rec, err := h.Edges.Get(r.Context(), edgeID); err == nil && rec != nil {
+			topics = rec.EffectiveTopics()
+		}
+	}
 	for {
 		h.touch(edgeID)
 		_, _ = h.Tasks.RequeueExpiredLeases(r.Context(), h.now())
-		claimed, err := h.Tasks.ClaimNextWithLease(r.Context(), edgeID, h.lease(), h.now())
+		claimed, err := h.Tasks.ClaimNextWithLease(r.Context(), edgeID, topics, h.lease(), h.now())
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
