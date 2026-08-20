@@ -199,7 +199,7 @@ type jobPrep struct {
 	ref sharedkernel.BlobRef
 }
 
-func (j jobPrep) PrepareJob(context.Context, sharedkernel.TaskID, sharedkernel.EdgeID) (sharedkernel.BlobRef, error) {
+func (j jobPrep) PrepareJob(context.Context, sharedkernel.TaskID) (sharedkernel.BlobRef, error) {
 	return j.ref, nil
 }
 

@@ -4,14 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/routing"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -25,7 +29,12 @@ type ExecutionQuery interface {
 
 // JobPreparer builds scheme-A job packages into Blob before dispatch.
 type JobPreparer interface {
-	PrepareJob(ctx context.Context, taskID sharedkernel.TaskID, edgeID sharedkernel.EdgeID) (sharedkernel.BlobRef, error)
+	PrepareJob(ctx context.Context, taskID sharedkernel.TaskID) (sharedkernel.BlobRef, error)
+}
+
+// CaseReader loads the protocol document of a Case for routing evaluation.
+type CaseReader interface {
+	GetCase(ctx context.Context, caseID sharedkernel.CaseID) (*catalogdomain.CaseDocument, error)
 }
 
 type ExecutionView struct {
@@ -44,6 +53,8 @@ type Service struct {
 	Notify    notify.Publisher
 	Query     ExecutionQuery
 	Prep      JobPreparer
+	Cases     CaseReader
+	Condition *condition.Registry
 	// Online optionally filters candidates in split mode (nil = no extra filter).
 	Online func(ctx context.Context, id sharedkernel.EdgeID) bool
 	Storm  *StormGuard
@@ -100,46 +111,78 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	if t.Status != sharedkernel.TaskPending {
 		return nil
 	}
-	insts, err := s.listCandidates(ctx)
+	topicKey, err := s.resolveTopic(ctx, t)
 	if err != nil {
-		return err
-	}
-	candidates := filterAllowed(insts, s.Storm.Breaker)
-	if s.Online != nil {
-		filtered := candidates[:0]
-		for _, inst := range candidates {
-			if s.Online(ctx, inst.ID) {
-				filtered = append(filtered, inst)
-			}
-		}
-		candidates = filtered
-	}
-	if len(candidates) == 0 {
-		// Keep pending; SchedulePending must not treat this as fatal.
+		// Evaluation failure: keep pending with a recorded reason; the next
+		// SchedulePending cycle retries (transient provider errors self-heal).
+		t.ErrorMessage = "routing: " + err.Error()
+		t.UpdatedAt = s.Now()
+		_ = s.Tasks.Update(ctx, t)
 		return nil
 	}
-	idx := int(atomic.AddUint64(&s.rrIndex, 1)-1) % len(candidates)
-	chosen := candidates[idx]
+	if !s.topicHasOnlineConsumer(ctx, topicKey) {
+		t.ErrorMessage = fmt.Sprintf("routing: no online consumer for topic %s", topicKey)
+		t.UpdatedAt = s.Now()
+		_ = s.Tasks.Update(ctx, t)
+		return nil
+	}
 	now := s.Now()
 	if s.Prep == nil {
 		return fmt.Errorf("orchestrator: job preparer required for claimable dispatch")
 	}
-	ref, err := s.Prep.PrepareJob(ctx, t.ID, chosen.ID)
+	ref, err := s.Prep.PrepareJob(ctx, t.ID)
 	if err != nil {
 		return fmt.Errorf("orchestrator: prepare job: %w", err)
 	}
 	if ref.Key == "" {
 		return fmt.Errorf("orchestrator: empty job_ref")
 	}
-	prepared, err := s.Tasks.PrepareForClaim(ctx, taskID, chosen.ID, ref, now)
+	prepared, err := s.Tasks.PrepareForClaim(ctx, taskID, topicKey, ref, now)
 	if err != nil {
 		return err
 	}
 	if !prepared {
 		return nil
 	}
-	s.Storm.Breaker.RecordSuccess(chosen.ID)
 	return nil
+}
+
+func (s *Service) resolveTopic(ctx context.Context, t *runtimedomain.Task) (string, error) {
+	if s.Cases == nil || s.Condition == nil {
+		return topic.DefaultKey, nil
+	}
+	caseDoc, err := s.Cases.GetCase(ctx, t.CaseID)
+	if err != nil {
+		return "", fmt.Errorf("load case %d: %w", t.CaseID, err)
+	}
+	evalCtx := ctx
+	if s.Sessions != nil {
+		if sess, err := s.Sessions.GetByID(ctx, t.SessionID); err == nil && sess != nil {
+			evalCtx = condition.WithUserID(evalCtx, sess.UserID)
+		}
+	}
+	evalCtx = condition.WithCaseID(evalCtx, strconv.FormatUint(uint64(t.CaseID), 10))
+	return routing.Resolve(caseDoc.Routing, evalCtx, s.Condition)
+}
+
+func (s *Service) topicHasOnlineConsumer(ctx context.Context, topicKey string) bool {
+	if s.Instances == nil {
+		return true
+	}
+	insts, err := s.Instances.ListEnabled(ctx, edge.CapabilityFilter{})
+	if err != nil {
+		return true
+	}
+	for _, inst := range insts {
+		for _, t := range inst.EffectiveTopics() {
+			if t == topicKey {
+				if s.Online == nil || s.Online(ctx, inst.ID) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func (s *Service) listCandidates(ctx context.Context) ([]edge.Instance, error) {

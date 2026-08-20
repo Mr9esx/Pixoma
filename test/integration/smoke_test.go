@@ -89,7 +89,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 		if err := orch.OnTaskCreated(ctx, ev); err != nil {
 			return err
 		}
-		claimed, err := tasks.ClaimNextWithLease(ctx, "local", 90*time.Second, now)
+		claimed, err := tasks.ClaimNextWithLease(ctx, "local", []string{"default"}, 90*time.Second, now)
 		if err != nil {
 			return err
 		}
@@ -216,7 +216,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 		if err := orch.OnTaskCreated(ctx, ev); err != nil {
 			return err
 		}
-		claimed, err := tasks.ClaimNextWithLease(ctx, "local", 90*time.Second, now)
+		claimed, err := tasks.ClaimNextWithLease(ctx, "local", []string{"default"}, 90*time.Second, now)
 		if err != nil {
 			return err
 		}

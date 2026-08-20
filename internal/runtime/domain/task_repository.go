@@ -45,10 +45,13 @@ type TaskRepository interface {
 	// ClaimQueued atomically moves a pending task to queued with edgeID.
 	// Returns (true, nil) on success; (false, nil) if not pending; ErrTaskNotFound if missing.
 	ClaimQueued(ctx context.Context, id sharedkernel.TaskID, edgeID sharedkernel.EdgeID, now time.Time) (bool, error)
-	// PrepareForClaim atomically pending→queued with instance + job_ref (claimable).
-	PrepareForClaim(ctx context.Context, id sharedkernel.TaskID, edgeID sharedkernel.EdgeID, jobRef sharedkernel.BlobRef, now time.Time) (bool, error)
-	// ClaimNextWithLease claims the oldest claimable queued task for instance (queued→running+lease).
-	ClaimNextWithLease(ctx context.Context, edgeID sharedkernel.EdgeID, lease time.Duration, now time.Time) (*Task, error)
+	// PrepareForClaim atomically pending→queued with topic + job_ref (claimable
+	// by any node subscribed to the topic).
+	PrepareForClaim(ctx context.Context, id sharedkernel.TaskID, topicKey string, jobRef sharedkernel.BlobRef, now time.Time) (bool, error)
+	// ClaimNextWithLease atomically claims the oldest claimable queued task
+	// subscribed by any of the given topics (queued→running+lease). At most one
+	// caller ever wins a given task.
+	ClaimNextWithLease(ctx context.Context, edgeID sharedkernel.EdgeID, topics []string, lease time.Duration, now time.Time) (*Task, error)
 	// HeartbeatLease extends lease_until for a running task owned by edge.
 	HeartbeatLease(ctx context.Context, id sharedkernel.TaskID, edgeID sharedkernel.EdgeID, lease time.Duration, now time.Time) (bool, error)
 	// RequeueExpiredLeases moves running tasks with expired leases back to queued.
@@ -120,7 +123,7 @@ func (r *MemoryTaskRepository) ClaimQueued(_ context.Context, id sharedkernel.Ta
 	return true, nil
 }
 
-func (r *MemoryTaskRepository) PrepareForClaim(_ context.Context, id sharedkernel.TaskID, edgeID sharedkernel.EdgeID, jobRef sharedkernel.BlobRef, now time.Time) (bool, error) {
+func (r *MemoryTaskRepository) PrepareForClaim(_ context.Context, id sharedkernel.TaskID, topicKey string, jobRef sharedkernel.BlobRef, now time.Time) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	t, ok := r.byID[id]
@@ -130,21 +133,35 @@ func (r *MemoryTaskRepository) PrepareForClaim(_ context.Context, id sharedkerne
 	if t.Status != sharedkernel.TaskPending {
 		return false, nil
 	}
-	if err := t.PrepareForClaim(edgeID, jobRef, now); err != nil {
+	if err := t.PrepareForTopic(topicKey, jobRef, now); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func (r *MemoryTaskRepository) ClaimNextWithLease(_ context.Context, edgeID sharedkernel.EdgeID, lease time.Duration, now time.Time) (*Task, error) {
+func (r *MemoryTaskRepository) ClaimNextWithLease(_ context.Context, edgeID sharedkernel.EdgeID, topics []string, lease time.Duration, now time.Time) (*Task, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if edgeID == "" || lease <= 0 {
+	if edgeID == "" || len(topics) == 0 || lease <= 0 {
 		return nil, nil
+	}
+	want := map[string]bool{}
+	for _, t := range topics {
+		want[t] = true
 	}
 	var best *Task
 	for _, t := range r.byID {
-		if t.Status != sharedkernel.TaskQueued || t.EdgeID != edgeID || t.JobRef.Key == "" {
+		if t.Status != sharedkernel.TaskQueued || t.JobRef.Key == "" {
+			continue
+		}
+		topicKey := t.DispatchTopic
+		if topicKey == "" {
+			topicKey = "default"
+		}
+		if !want[topicKey] {
+			continue
+		}
+		if !t.RequeueAt.IsZero() && now.Before(t.RequeueAt) {
 			continue
 		}
 		if best == nil || t.CreatedAt.Before(best.CreatedAt) {

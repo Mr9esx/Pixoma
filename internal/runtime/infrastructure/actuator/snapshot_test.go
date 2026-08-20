@@ -141,7 +141,7 @@ func TestBuildJobPackageCarriesOutputBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store}
-	job, err := snap.BuildJobPackage(ctx, "task-out", "local")
+	job, err := snap.BuildJobPackage(ctx, "task-out")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestBuildJobPackage_InjectsTextWithoutUpload(t *testing.T) {
 	}
 	up := &recordingUploader{}
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: up}
-	job, err := snap.BuildJobPackage(ctx, "task-job", "local")
+	job, err := snap.BuildJobPackage(ctx, "task-job")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestBuildJobPackage_InjectsTextWithoutUpload(t *testing.T) {
 	if inputs["text"] != "job prompt" {
 		t.Fatalf("text=%v", inputs["text"])
 	}
-	ref, err := snap.PrepareJob(ctx, "task-job", "local")
+	ref, err := snap.PrepareJob(ctx, "task-job")
 	if err != nil {
 		t.Fatal(err)
 	}

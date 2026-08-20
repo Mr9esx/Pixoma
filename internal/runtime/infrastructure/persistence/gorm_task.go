@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -127,8 +128,8 @@ func (r *TaskRepository) ClaimQueued(ctx context.Context, id sharedkernel.TaskID
 	return false, nil
 }
 
-func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.TaskID, edgeID sharedkernel.EdgeID, jobRef sharedkernel.BlobRef, now time.Time) (bool, error) {
-	if edgeID == "" || jobRef.Key == "" {
+func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.TaskID, topicKey string, jobRef sharedkernel.BlobRef, now time.Time) (bool, error) {
+	if topicKey == "" || jobRef.Key == "" {
 		return false, domain.ErrInvalidTransition
 	}
 	raw, err := json.Marshal(jobRef)
@@ -138,11 +139,13 @@ func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.Ta
 	res := r.db.WithContext(ctx).Model(&TaskRow{}).
 		Where("id = ? AND status = ?", string(id), string(sharedkernel.TaskPending)).
 		Updates(map[string]any{
-			"status":       string(sharedkernel.TaskQueued),
-			"edge_id":      string(edgeID),
-			"job_ref_json": string(raw),
-			"lease_until":  time.Time{},
-			"updated_at":   now,
+			"status":         string(sharedkernel.TaskQueued),
+			"edge_id":        "",
+			"dispatch_topic": topicKey,
+			"job_ref_json":   string(raw),
+			"lease_until":    time.Time{},
+			"requeue_at":     time.Time{},
+			"updated_at":     now,
 		})
 	if res.Error != nil {
 		return false, res.Error
@@ -160,17 +163,27 @@ func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.Ta
 	return false, nil
 }
 
-func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, edgeID sharedkernel.EdgeID, lease time.Duration, now time.Time) (*domain.Task, error) {
-	if edgeID == "" || lease <= 0 {
+func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, edgeID sharedkernel.EdgeID, topics []string, lease time.Duration, now time.Time) (*domain.Task, error) {
+	if edgeID == "" || len(topics) == 0 || lease <= 0 {
 		return nil, nil
 	}
+	placeholders := make([]string, len(topics))
+	args := make([]any, 0, len(topics)+2)
+	args = append(args, string(sharedkernel.TaskQueued))
+	for i, t := range topics {
+		placeholders[i] = "?"
+		args = append(args, t)
+	}
+	args = append(args, now)
 	var claimed *domain.Task
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for {
 			var row TaskRow
 			err := tx.Where(
-				"status = ? AND edge_id = ? AND job_ref_json != '' AND job_ref_json IS NOT NULL",
-				string(sharedkernel.TaskQueued), string(edgeID),
+				"status = ? AND (dispatch_topic IN ("+strings.Join(placeholders, ",")+") OR dispatch_topic = '') "+
+					"AND job_ref_json != '' AND job_ref_json IS NOT NULL "+
+					"AND (requeue_at IS NULL OR requeue_at <= ?)",
+				args...,
 			).Order("created_at ASC").First(&row).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil
@@ -183,6 +196,7 @@ func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, edgeID sharedke
 				Where("id = ? AND status = ?", row.ID, string(sharedkernel.TaskQueued)).
 				Updates(map[string]any{
 					"status":      string(sharedkernel.TaskRunning),
+					"edge_id":     string(edgeID),
 					"lease_until": leaseUntil,
 					"updated_at":  now,
 				})
