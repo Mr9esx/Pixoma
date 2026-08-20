@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   createFileRoute,
   Link,
   useNavigate,
   useParams,
+  useRouterState,
 } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { listCases } from '@/lib/api/cases'
@@ -17,6 +18,7 @@ import {
   CaseListPanel,
   type CaseListFilters,
 } from '@/features/cases/list-panel'
+import { kit } from '@/features/edges/kit-classes'
 
 export const Route = createFileRoute('/_app/cases')({
   component: CasesLayout,
@@ -30,12 +32,14 @@ function CasesLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { caseId } = useParams({ strict: false }) as { caseId?: string }
+  const locationState = useRouterState({
+    select: (s) => s.location.state,
+  }) as { backToList?: boolean } | undefined
 
   const [filters, setFilters] = useState<CaseListFilters>({
     q: '',
     enabled: 'all',
   })
-
   const listParams = {
     q: filters.q.trim() || undefined,
     enabled: filters.enabled === 'all' ? undefined : filters.enabled === 'true',
@@ -45,6 +49,19 @@ function CasesLayout() {
     queryKey: [...queryKeys.cases.all, listParams] as const,
     queryFn: () => listCases(listParams),
   })
+  const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
+  const backToList = locationState?.backToList === true
+  const selectedId = caseId ?? (backToList ? undefined : items[0]?.id)
+
+  useEffect(() => {
+    if (caseId == null && !backToList && items.length > 0) {
+      void navigate({
+        to: '/cases/$caseId',
+        params: { caseId: items[0].id },
+        replace: true,
+      })
+    }
+  }, [caseId, backToList, items, navigate])
 
   return (
     <div
@@ -69,12 +86,15 @@ function CasesLayout() {
       </div>
       <MasterDetailShell
         className='md:grid-cols-[280px_1fr]'
-        hasSelection={Boolean(caseId)}
-        onBackToList={() => void navigate({ to: '/cases' })}
+        hasSelection={Boolean(selectedId)}
+        onBackToList={() => {
+          void navigate({ to: '/cases', state: { backToList: true } } as never)
+        }}
+        detailClassName='flex min-h-0 flex-col p-0'
         list={
           <CaseListPanel
-            items={listQuery.data ?? []}
-            selectedId={caseId}
+            items={items}
+            selectedId={selectedId}
             filters={filters}
             onFiltersChange={setFilters}
             isLoading={listQuery.isLoading}
@@ -85,14 +105,14 @@ function CasesLayout() {
         }
         detail={
           caseId === 'new' ? (
-            <div className='space-y-4'>
+            <div className={`${kit.pageSection} min-h-0 flex-1 overflow-auto`}>
               <h2 className='text-lg font-semibold'>
                 {t('cases.createHeading')}
               </h2>
               <CaseForm mode='create' />
             </div>
-          ) : caseId ? (
-            <CaseDetailPanel id={caseId} />
+          ) : selectedId ? (
+            <CaseDetailPanel id={selectedId} />
           ) : null
         }
       />
