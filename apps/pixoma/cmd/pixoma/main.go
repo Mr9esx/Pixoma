@@ -34,6 +34,7 @@ import (
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	setupapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
@@ -43,11 +44,11 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
-	topicpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/topic/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
+	topicpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/topic/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
@@ -277,7 +278,21 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Tasks:       &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
 		Channels:    &channelsapi.Handler{Svc: chSvc},
 		MenuCards:   menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb)),
-		NotFound:    webembed.Handler(),
+		Topics: &topicsapi.Handler{
+			Repo: topicRepo,
+			CountCaseRefs: func(ctx context.Context, key string) (int, error) {
+				var n int64
+				like := `%"topic":"` + key + `"%`
+				err := gdb.WithContext(ctx).Model(&casepersist.CaseRow{}).Where("doc_json LIKE ?", like).Count(&n).Error
+				return int(n), err
+			},
+			CountEdgeRefs: func(ctx context.Context, key string) (int, error) {
+				var n int64
+				err := gdb.WithContext(ctx).Model(&instpersist.EdgeRow{}).Where("subscribe_topics_json LIKE ?", `%"`+key+`"%`).Count(&n).Error
+				return int(n), err
+			},
+		},
+		NotFound: webembed.Handler(),
 	})
 
 	agentH := &agentapi.Handler{

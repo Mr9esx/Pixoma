@@ -12,6 +12,7 @@ import (
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 )
 
@@ -26,6 +27,7 @@ type Options struct {
 	Tasks     *tasksapi.Handler
 	Channels  *channelapi.Handler
 	MenuCards *menucardsapi.Handler
+	Topics    *topicsapi.Handler
 	// NotFound handles unmatched paths (SPA embed).
 	NotFound http.Handler
 }
@@ -71,12 +73,23 @@ func NewHandler(opts Options) http.Handler {
 	})
 	r.Route("/api/v1/channels", func(r chi.Router) {
 		if opts.Channels != nil {
-			opts.Channels.Mount(r)
-		}
-		if opts.MenuCards != nil {
+			r.Get("/", opts.Channels.List)
+			r.Post("/", opts.Channels.Create)
 			r.Route("/{id}", func(r chi.Router) {
-				opts.MenuCards.Mount(r)
+				r.Get("/", opts.Channels.Get)
+				r.Put("/", opts.Channels.Update)
+				r.Post("/disable", opts.Channels.Disable)
+				r.Post("/enable", opts.Channels.Enable)
+				r.Delete("/", opts.Channels.Delete)
+				if opts.MenuCards != nil {
+					opts.MenuCards.Mount(r)
+				}
 			})
+		}
+	})
+	r.Route("/api/v1/topics", func(r chi.Router) {
+		if opts.Topics != nil {
+			opts.Topics.Mount(r)
 		}
 	})
 
