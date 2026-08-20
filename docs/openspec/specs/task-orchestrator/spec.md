@@ -22,31 +22,43 @@ TBD - created by archiving change workflow-engine-core. Update Purpose after arc
 - **THEN** Task 保持已收敛状态，且不重复发送终态通知
 
 ### Requirement: 调度与 pending 扫描双触发
-系统 MUST 支持事件触发调度，并 MUST 提供定时扫描 `pending` 的兜底。本期调度 MUST 按实例选择目标（健康/熔断/在线 Edge 等条件），在可选集合上使用轮询（round-robin）分配，将 Task 置为可被该实例领取的状态（并准备含 `job_ref` 的任务包），MUST NOT 默认向 Redis `dispatch.<instance_id>` Publish 作为唯一派发手段。当没有可投递实例/在线 Edge 时 MUST 保持 Task 为 `pending` 并记录原因，MUST NOT 假装已排队。MUST NOT 假设控制面一定能直连家里 ComfyUI。
+系统 MUST 支持事件触发调度，并 MUST 提供定时扫描 `pending` 的兜底。调度 MUST 先求值 Case 路由规则确定目标 Topic（无命中回退默认 Topic），再仅在订阅该 Topic 的可用节点（健康/熔断/在线 Edge 等条件）上抢占领取，将 Task 置为可被该 Topic 订阅节点领取的状态（并准备含 `job_ref` 的任务包），MUST NOT 默认向 Redis `dispatch.<instance_id>` Publish 作为唯一派发手段。当目标 Topic 没有可投递节点/在线 Edge 时 MUST 保持 Task 为 `pending` 并记录原因，MUST NOT 假装已排队。MUST NOT 假设控制面一定能直连家里 ComfyUI。
 
 #### Scenario: 创建事件丢失仍被扫到
 - **WHEN** Task 长期处于 pending 且无成功调度
-- **THEN** SchedulePending 仍能将其变为可领取（若存在可投递实例/在线 Edge）
+- **THEN** SchedulePending 仍能将其变为可领取（若目标 Topic 存在可投递节点/在线 Edge）
 
 #### Scenario: 多健康实例轮询
-- **WHEN** 存在至少两台健康且未熔断的可投递实例，连续调度多个 pending Task
-- **THEN** 连续选定的 InstanceID 在轮询意义上分散到这些实例，而非每次都是同一台
+- **WHEN** 目标 Topic 存在多个在线订阅节点并发领取
+- **THEN** 领取按先到先得分散到这些节点，同一任务只被一台消费，而非预绑定轮询某台
 
 #### Scenario: 按实例 Topic 投递
-- **WHEN** 选定实例 `gpu-1` 且可投递
-- **THEN** 任务对该实例可领取且含有效 `job_ref`，且 Blob 中存在可读任务包
+- **WHEN** pending Task 的路由规则命中 Topic `fast-gpu`
+- **THEN** 任务置为可领取、`dispatch_topic=fast-gpu`、含有效 `job_ref`，且 Blob 中存在可读任务包
 
 #### Scenario: 按实例可领取
-- **WHEN** 选定实例 `gpu-1` 且可投递
-- **THEN** 任务对该实例可领取且含有效 `job_ref`，且 Blob 中存在可读任务包
+- **WHEN** pending Task 的路由规则命中 Topic `fast-gpu`
+- **THEN** 订阅 fast-gpu 的节点可领取该任务，且领取载荷含有效 `job_ref`
 
 #### Scenario: 全部不可用时不投递
-- **WHEN** 没有任何健康且未熔断的可投递实例（或无在线 Edge）
-- **THEN** Task 仍保持 pending（或未被标记为可领取），且不向任意实例交付任务
+- **WHEN** 目标 Topic 没有任何可投递订阅节点（或无在线 Edge）
+- **THEN** Task 仍保持 pending（或未被标记为可领取），且不向任意节点交付任务
 
 #### Scenario: 无可投递目标时不投递
-- **WHEN** 无健康可投递实例（或无在线 Edge）
+- **WHEN** 目标 Topic 无健康可投递订阅节点（或无在线 Edge）
 - **THEN** Task 仍保持 pending，且不假装成功投递
+
+#### Scenario: 条件路由到目标 Topic
+- **WHEN** pending Task 的路由规则命中 Topic `fast-gpu`
+- **THEN** 任务置为可领取、`dispatch_topic=fast-gpu`、含有效 `job_ref`，且 Blob 中存在可读任务包
+
+#### Scenario: 同 Topic 多节点并发领取互斥
+- **WHEN** 目标 Topic 存在多个在线订阅节点并发领取同一个任务
+- **THEN** 恰好一台节点成功领取（带租约），其余获得空结果，任务不被重复分配
+
+#### Scenario: 目标 Topic 全部不可用时不投递
+- **WHEN** 目标 Topic 没有任何可投递订阅节点（或无在线 Edge）
+- **THEN** Task 仍保持 pending（或未被标记为可领取），且不向任意节点交付任务
 
 ### Requirement: Status 丢失时对账兜底
 对处于 `queued`/`running` 且超时的 Task，Orchestrator MUST 通过 ExecutionQuery（或等价真相源）探测执行结果，并经 `applyStatus` 补写；多次失败或超过最大存活时间 MUST 收口为 failed 并通知。
