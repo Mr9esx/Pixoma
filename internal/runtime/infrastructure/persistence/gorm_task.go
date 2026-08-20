@@ -444,3 +444,18 @@ func rowsToTasks(rows []TaskRow) ([]*domain.Task, error) {
 	}
 	return out, nil
 }
+
+// MigrateLegacyTasks reassigns pre-topic queued tasks: rows bound to an edge
+// with an expired lease become claimable on the default topic.
+func MigrateLegacyTasks(ctx context.Context, gdb *gorm.DB, now time.Time) (int64, error) {
+	res := gdb.WithContext(ctx).Model(&TaskRow{}).
+		Where("status = ? AND edge_id != '' AND lease_until < ?", string(sharedkernel.TaskQueued), now).
+		Updates(map[string]any{
+			"edge_id":        "",
+			"lease_until":    time.Time{},
+			"requeue_at":     time.Time{},
+			"dispatch_topic": "default",
+			"updated_at":     now,
+		})
+	return res.RowsAffected, res.Error
+}
