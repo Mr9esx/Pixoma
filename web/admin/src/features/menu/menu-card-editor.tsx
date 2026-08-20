@@ -260,7 +260,7 @@ export function MenuCardEditor({ channelId }: { channelId: string }) {
           <h2 className='text-sm font-semibold'>{t('menu.mainKeyboard')}</h2>
           <p className='truncate text-xs text-muted-foreground'>
             {dirtyCount > 0
-              ? t('channelMenu.unsavedCount', { count: dirtyCount })
+              ? t('menu.unsavedCount', { count: dirtyCount })
               : ''}
           </p>
         </div>
@@ -329,7 +329,7 @@ export function MenuCardEditor({ channelId }: { channelId: string }) {
                     onClick={() => openMenuItem(it)}
                     className='w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted'
                   >
-                    {it.label.trim() || t('channelMenu.untitled')}
+                    {it.label.trim() || t('menu.untitled')}
                     <span className='ml-2 text-xs text-muted-foreground'>
                       {t(
                         ACTION_KEY[it.action.type] ?? 'menu.actionPlaceholder'
@@ -405,7 +405,7 @@ export function MenuCardEditor({ channelId }: { channelId: string }) {
                       }
                       className='w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted'
                     >
-                      {b.label.trim() || t('channelMenu.untitled')}
+                      {b.label.trim() || t('menu.untitled')}
                       <span className='ml-2 text-xs text-muted-foreground'>
                         {t(
                           ACTION_KEY[b.action.type] ?? 'menu.actionPlaceholder'
