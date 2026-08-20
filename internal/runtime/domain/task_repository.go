@@ -204,6 +204,8 @@ func (r *MemoryTaskRepository) RequeueExpiredLeases(_ context.Context, now time.
 			return n, err
 		}
 		if ok {
+			t.EdgeID = ""
+			t.RequeueAt = now
 			n++
 		}
 	}

@@ -251,7 +251,9 @@ func (r *TaskRepository) RequeueExpiredLeases(ctx context.Context, now time.Time
 		Where("status = ? AND lease_until != ? AND lease_until < ?", string(sharedkernel.TaskRunning), time.Time{}, now).
 		Updates(map[string]any{
 			"status":      string(sharedkernel.TaskQueued),
+			"edge_id":     "",
 			"lease_until": time.Time{},
+			"requeue_at":  now,
 			"updated_at":  now,
 		})
 	if res.Error != nil {
