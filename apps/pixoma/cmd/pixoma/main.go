@@ -33,6 +33,7 @@ import (
 	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
+	routingapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	setupapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
@@ -331,6 +332,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 				return int(n), err
 			},
 		},
+		Routing:  &routingapi.Handler{Registry: conditionReg},
 		NotFound: webembed.Handler(),
 	})
 

@@ -16,10 +16,10 @@ var ErrUnknownField = errors.New("condition: unknown field")
 
 // AttributeDescriptor describes one evaluable attribute and its JSON Schema.
 type AttributeDescriptor struct {
-	Key     string         // e.g. "user.is_premium"
-	Context string         // "user" | "case" | "input"
-	Label   string         // UI label
-	Schema  map[string]any // JSON Schema subset: type/enum/description
+	Key     string         `json:"key"`     // e.g. "user.is_premium"
+	Context string         `json:"context"` // "user" | "case" | "input"
+	Label   string         `json:"label"`   // UI label
+	Schema  map[string]any `json:"schema"`  // JSON Schema subset: type/enum/description
 }
 
 // Provider resolves attribute values for one namespace.
