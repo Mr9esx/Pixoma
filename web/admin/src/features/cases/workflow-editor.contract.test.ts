@@ -7,6 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
 const IMPORT_SECTION = join(here, 'sections/workflow-import.tsx')
+const CODE_EDITOR = join(here, '../../components/code-editor.tsx')
 const FIELD_CARDS = join(here, 'sections/field-cards.tsx')
 const CASE_FORM = join(here, 'case-form.tsx')
 const PREVIEW = join(here, 'sections/preview.tsx')
@@ -14,6 +15,7 @@ const ADVANCED = join(here, 'sections/advanced.tsx')
 
 const REQUIRED_KEYS = [
   'importHeading',
+  'jsonTitle',
   'importHint',
   'importDropHint',
   'importValid',
@@ -71,9 +73,32 @@ describe('workflow import section', () => {
     const source = readFileSync(IMPORT_SECTION, 'utf8')
     expect(source).toContain("data-testid='case-section-workflow-import'")
     expect(source).toContain("'../lib/workflow-parse'")
+    expect(source).toMatch(/>\s*1\s*<\/span>/)
+    expect(source).toContain('cases.importHeading')
     expect(source).toContain('cases.importNodesCount')
     expect(source).toContain('cases.importValid')
     expect(source).toContain('cases.importFailed')
+    expect(source).toContain('fileRef.current?.click()')
+    expect(source).toContain("role='button'")
+    expect(source).toContain("accept='.json,application/json'")
+    expect(source).toContain('CodeEditor')
+    expect(source).toContain('cases.jsonTitle')
+    expect(source).toContain('maxHeight={250}')
+  })
+})
+
+describe('code editor component', () => {
+  it('renders an IDE-style dark container with an in-border header', () => {
+    const source = readFileSync(CODE_EDITOR, 'utf8')
+    expect(source).toContain('export function CodeEditor')
+    expect(source).toContain('title')
+    expect(source).toContain('border-b border-[#30363d]')
+    expect(source).toContain("backgroundColor: '#0d1117'")
+    expect(source).toContain('maxHeight = 250')
+    expect(source).toContain("color: '#7ee787'")
+    expect(source).toContain("theme='none'")
+    expect(source).toContain('lab(75.0771%')
+    expect(source).not.toContain('focus-within')
   })
 })
 

@@ -45,30 +45,48 @@ export function MenuPlacementsSection({ caseId, showHeading = true }: Props) {
 
       {!placementsQuery.isLoading && !placementsQuery.isError ? (
         placementsQuery.data?.length ? (
-          <ul className='space-y-2'>
-            {placementsQuery.data.map((placement) => (
-              <li
-                key={`${placement.channel_id}:${placement.item_id}`}
-                className='flex flex-wrap items-center gap-2 text-sm'
-              >
-                <span
-                  className={`rounded-sm px-1.5 py-0.5 text-[10px] ${
-                    placement.kind === 'card_button'
-                      ? 'bg-violet-500/15 text-violet-700 dark:text-violet-400'
-                      : 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400'
-                  }`}
-                >
-                  {placement.kind === 'card_button'
-                    ? t('cases.placementCardButton')
-                    : t('cases.placementMenuItem')}
-                </span>
-                {formatPlacementPath(placement.path)}
-                <span className='text-xs text-muted-foreground'>
-                  · {placement.channel_id}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className='overflow-auto rounded-md border'>
+            <table className='w-full text-sm'>
+              <thead className='bg-muted/40 text-left text-xs text-muted-foreground'>
+                <tr>
+                  <th className='px-3 py-2 font-medium'>
+                    {t('cases.entriesColType')}
+                  </th>
+                  <th className='px-3 py-2 font-medium'>
+                    {t('cases.entriesColEntry')}
+                  </th>
+                  <th className='px-3 py-2 font-medium'>
+                    {t('cases.entriesColChannel')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className='divide-y'>
+                {placementsQuery.data.map((placement) => (
+                  <tr key={`${placement.channel_id}:${placement.item_id}`}>
+                    <td className='px-3 py-2'>
+                      <span
+                        className={`rounded-sm px-1.5 py-0.5 text-[10px] ${
+                          placement.kind === 'card_button'
+                            ? 'bg-violet-500/15 text-violet-700 dark:text-violet-400'
+                            : 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400'
+                        }`}
+                      >
+                        {placement.kind === 'card_button'
+                          ? t('cases.placementCardButton')
+                          : t('cases.placementMenuItem')}
+                      </span>
+                    </td>
+                    <td className='px-3 py-2'>
+                      {formatPlacementPath(placement.path)}
+                    </td>
+                    <td className='px-3 py-2 font-mono text-xs text-muted-foreground'>
+                      {placement.channel_id}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <p className='text-sm text-muted-foreground'>
             {t('cases.menuPlacementsEmpty')}

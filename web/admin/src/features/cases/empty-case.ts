@@ -9,6 +9,7 @@ export function emptyCase(): CaseRecord {
     outputs: [],
     bindings: { workflow: {}, inputs: [], outputs: [] },
     input_schema: {},
+    workflow_filename: '',
     enabled: true,
   }
 }

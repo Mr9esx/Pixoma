@@ -1,14 +1,15 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { CodeEditor } from '@/components/code-editor'
 import type { WorkflowGraph } from '../lib/workflow-parse'
 
 type Props = {
   value: string
   graph?: WorkflowGraph
   error?: string
+  filename?: string
   onChange: (next: string) => void
+  onFileName?: (name: string) => void
   disabled?: boolean
 }
 
@@ -16,7 +17,9 @@ export function WorkflowImportSection({
   value,
   graph,
   error,
+  filename,
   onChange,
+  onFileName,
   disabled,
 }: Props) {
   const { t } = useTranslation()
@@ -25,30 +28,57 @@ export function WorkflowImportSection({
   async function onFile(file: File | undefined) {
     if (!file) return
     onChange(await file.text())
+    onFileName?.(file.name)
   }
 
   return (
     <section className='space-y-3' data-testid='case-section-workflow-import'>
-      <div>
+      <div className='flex items-center gap-2'>
+        <span className='flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground'>
+          1
+        </span>
         <h3 className='text-sm font-semibold'>{t('cases.importHeading')}</h3>
-        <p className='text-xs text-muted-foreground'>{t('cases.importHint')}</p>
+        <span className='text-xs text-muted-foreground'>
+          {t('cases.importHint')}
+        </span>
       </div>
 
       <div
-        className='rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground'
+        role='button'
+        tabIndex={0}
+        className='cursor-pointer rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground hover:bg-accent/50'
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
-          void onFile(e.dataTransfer.files[0])
+          if (!disabled) void onFile(e.dataTransfer.files[0])
+        }}
+        onClick={() => {
+          if (!disabled) fileRef.current?.click()
+        }}
+        onKeyDown={(e) => {
+          if (disabled) return
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            fileRef.current?.click()
+          }
         }}
       >
         <p>{t('cases.importDropHint')}</p>
+        {filename ? (
+          <p className='mt-1 text-xs text-emerald-600 dark:text-emerald-400'>
+            {t('cases.importFile')}: {filename}
+          </p>
+        ) : null}
         <input
           ref={fileRef}
           type='file'
           accept='.json,application/json'
           className='hidden'
-          onChange={(e) => void onFile(e.target.files?.[0])}
+          disabled={disabled}
+          onChange={(e) => {
+            void onFile(e.target.files?.[0])
+            e.target.value = ''
+          }}
         />
       </div>
 
@@ -82,17 +112,14 @@ export function WorkflowImportSection({
         </div>
       ) : null}
 
-      <Label htmlFor='case-workflow-json' className='sr-only'>
-        {t('cases.importHeading')}
-      </Label>
-      <Textarea
-        id='case-workflow-json'
+      <CodeEditor
+        title={t('cases.jsonTitle')}
+        aria-label={t('cases.jsonTitle')}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        rows={6}
-        className='font-mono text-xs'
+        onChange={onChange}
+        readOnly={disabled}
         placeholder={t('cases.importDropHint')}
+        maxHeight={250}
       />
     </section>
   )
