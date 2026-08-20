@@ -2,7 +2,7 @@
   "version": 1,
   "batch_id": "topic-routing-task-flow-editor",
   "created_at": "2026-08-20T14:02:00Z",
-  "updated_at": "2026-08-20T14:45:00Z",
+  "updated_at": "2026-08-20T16:00:00Z",
   "goal_summary": "完善工作流→节点调度能力：新增 Topic 概念（一个 Case 一对 N Topic、节点订阅消费 Topic、应用默认初始化默认 Topic、Case 与 Topic 之间通过可扩展条件协议投放），并新增任务分流引擎（单步任务分流，React Flow 编辑查看）。",
   "language": "zh-CN",
   "split_decision": "create-multiple",
@@ -60,5 +60,5 @@
       ]
     }
   ],
-  "notes": "拆分已确认（用户选择 create-multiple）。两个 change 均完成 open 阶段后暂停，由用户选择先进入 design 的 change；selected 状态在用户选择后更新。"
+  "notes": "拆分已确认（用户选择 create-multiple）。topic-routing 已走完 open→design→build→verify→archive 全流程并于 2026-08-20 归档推送（archive 提交 36f59e7）；task-flow-editor 保持 active（phase=design，open 产物已提交），稍后通过 /comet-classic 恢复。"
 }
