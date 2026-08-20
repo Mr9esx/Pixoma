@@ -15,9 +15,10 @@ function formatPlacementPath(path: { id: string; label: string }[]): string {
 
 type Props = {
   caseId: string
+  showHeading?: boolean
 }
 
-export function MenuPlacementsSection({ caseId }: Props) {
+export function MenuPlacementsSection({ caseId, showHeading = true }: Props) {
   const { t } = useTranslation()
 
   const placementsQuery = useQuery({
@@ -27,9 +28,11 @@ export function MenuPlacementsSection({ caseId }: Props) {
 
   return (
     <section className='space-y-3' data-testid='case-section-menu-placements'>
-      <h3 className='text-sm font-semibold'>
-        {t('cases.menuPlacementsTitle')}
-      </h3>
+      {showHeading ? (
+        <h3 className='text-sm font-semibold'>
+          {t('cases.menuPlacementsTitle')}
+        </h3>
+      ) : null}
 
       {placementsQuery.isError ? (
         <ErrorBanner

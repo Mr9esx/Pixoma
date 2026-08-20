@@ -33,6 +33,7 @@ export default defineConfig({
       'src/styles/theme-neutral.contract.test.ts',
       'src/features/cases/menu-placements.contract.test.ts',
       'src/features/cases/workflow-editor.contract.test.ts',
+      'src/features/cases/cases-detail.contract.test.ts',
       'src/features/cases/lib/node-catalog.test.ts',
       'src/features/cases/lib/workflow-parse.test.ts',
       'src/features/cases/lib/derive.test.ts',
