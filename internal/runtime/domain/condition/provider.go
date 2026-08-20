@@ -62,7 +62,12 @@ func (r *Registry) ProviderFor(field string) (Provider, error) {
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrUnknownField, field)
 	}
-	return p, nil
+	for _, d := range p.ListAttributes() {
+		if d.Key == field {
+			return p, nil
+		}
+	}
+	return nil, fmt.Errorf("%w: %s", ErrUnknownField, field)
 }
 
 // Attributes returns the full attribute catalog in registration order.
