@@ -15,20 +15,23 @@ import (
 
 // TaskRow is the GORM model for the tasks table.
 type TaskRow struct {
-	ID           string    `gorm:"primaryKey;size:64"`
-	SessionID    string    `gorm:"column:session_id;size:36;index;not null"`
-	CaseID       uint64    `gorm:"column:case_id;not null"`
-	Status       string    `gorm:"size:32;not null;index"`
-	EdgeID       string    `gorm:"column:edge_id;size:128;index"`
-	PromptID     string    `gorm:"column:prompt_id;size:128"`
-	InputPrefix  string    `gorm:"column:input_prefix;size:512;not null"`
-	JobRefJSON   string    `gorm:"column:job_ref_json;type:text"`
-	LeaseUntil   time.Time `gorm:"column:lease_until"`
-	OutputsJSON  string    `gorm:"column:outputs_json;type:text;not null"`
-	ErrorCode    string    `gorm:"column:error_code;size:128"`
-	ErrorMessage string    `gorm:"column:error_message;type:text"`
-	CreatedAt    time.Time `gorm:"not null"`
-	UpdatedAt    time.Time `gorm:"not null"`
+	ID            string    `gorm:"primaryKey;size:64"`
+	SessionID     string    `gorm:"column:session_id;size:36;index;not null"`
+	CaseID        uint64    `gorm:"column:case_id;not null"`
+	Status        string    `gorm:"size:32;not null;index"`
+	EdgeID        string    `gorm:"column:edge_id;size:128;index"`
+	DispatchTopic string    `gorm:"column:dispatch_topic;size:64;index"`
+	Attempts      int       `gorm:"column:attempts;not null;default:0"`
+	RequeueAt     time.Time `gorm:"column:requeue_at"`
+	PromptID      string    `gorm:"column:prompt_id;size:128"`
+	InputPrefix   string    `gorm:"column:input_prefix;size:512;not null"`
+	JobRefJSON    string    `gorm:"column:job_ref_json;type:text"`
+	LeaseUntil    time.Time `gorm:"column:lease_until"`
+	OutputsJSON   string    `gorm:"column:outputs_json;type:text;not null"`
+	ErrorCode     string    `gorm:"column:error_code;size:128"`
+	ErrorMessage  string    `gorm:"column:error_message;type:text"`
+	CreatedAt     time.Time `gorm:"not null"`
+	UpdatedAt     time.Time `gorm:"not null"`
 }
 
 func (TaskRow) TableName() string { return "tasks" }
@@ -75,18 +78,21 @@ func (r *TaskRepository) Update(ctx context.Context, t *domain.Task) error {
 		return err
 	}
 	res := r.db.WithContext(ctx).Model(&TaskRow{}).Where("id = ?", row.ID).Updates(map[string]any{
-		"session_id":    row.SessionID,
-		"case_id":       row.CaseID,
-		"status":        row.Status,
-		"edge_id":       row.EdgeID,
-		"prompt_id":     row.PromptID,
-		"input_prefix":  row.InputPrefix,
-		"job_ref_json":  row.JobRefJSON,
-		"lease_until":   row.LeaseUntil,
-		"outputs_json":  row.OutputsJSON,
-		"error_code":    row.ErrorCode,
-		"error_message": row.ErrorMessage,
-		"updated_at":    row.UpdatedAt,
+		"session_id":     row.SessionID,
+		"case_id":        row.CaseID,
+		"status":         row.Status,
+		"edge_id":        row.EdgeID,
+		"dispatch_topic": row.DispatchTopic,
+		"attempts":       row.Attempts,
+		"requeue_at":     row.RequeueAt,
+		"prompt_id":      row.PromptID,
+		"input_prefix":   row.InputPrefix,
+		"job_ref_json":   row.JobRefJSON,
+		"lease_until":    row.LeaseUntil,
+		"outputs_json":   row.OutputsJSON,
+		"error_code":     row.ErrorCode,
+		"error_message":  row.ErrorMessage,
+		"updated_at":     row.UpdatedAt,
 	})
 	if res.Error != nil {
 		return res.Error
@@ -373,20 +379,23 @@ func toRow(t *domain.Task) (*TaskRow, error) {
 		jobRefJSON = string(raw)
 	}
 	return &TaskRow{
-		ID:           string(t.ID),
-		SessionID:    string(t.SessionID),
-		CaseID:       uint64(t.CaseID),
-		Status:       string(t.Status),
-		EdgeID:       string(t.EdgeID),
-		PromptID:     t.PromptID,
-		InputPrefix:  t.InputPrefix,
-		JobRefJSON:   jobRefJSON,
-		LeaseUntil:   t.LeaseUntil,
-		OutputsJSON:  string(b),
-		ErrorCode:    t.ErrorCode,
-		ErrorMessage: t.ErrorMessage,
-		CreatedAt:    t.CreatedAt,
-		UpdatedAt:    t.UpdatedAt,
+		ID:            string(t.ID),
+		SessionID:     string(t.SessionID),
+		CaseID:        uint64(t.CaseID),
+		Status:        string(t.Status),
+		EdgeID:        string(t.EdgeID),
+		DispatchTopic: t.DispatchTopic,
+		Attempts:      t.Attempts,
+		RequeueAt:     t.RequeueAt,
+		PromptID:      t.PromptID,
+		InputPrefix:   t.InputPrefix,
+		JobRefJSON:    jobRefJSON,
+		LeaseUntil:    t.LeaseUntil,
+		OutputsJSON:   string(b),
+		ErrorCode:     t.ErrorCode,
+		ErrorMessage:  t.ErrorMessage,
+		CreatedAt:     t.CreatedAt,
+		UpdatedAt:     t.UpdatedAt,
 	}, nil
 }
 
@@ -404,20 +413,23 @@ func fromRow(row TaskRow) (*domain.Task, error) {
 		}
 	}
 	return &domain.Task{
-		ID:           sharedkernel.TaskID(row.ID),
-		SessionID:    sharedkernel.SessionID(row.SessionID),
-		CaseID:       sharedkernel.CaseID(row.CaseID),
-		Status:       sharedkernel.TaskStatus(row.Status),
-		EdgeID:       sharedkernel.EdgeID(row.EdgeID),
-		PromptID:     row.PromptID,
-		InputPrefix:  row.InputPrefix,
-		JobRef:       jobRef,
-		LeaseUntil:   row.LeaseUntil,
-		Outputs:      outputs,
-		ErrorCode:    row.ErrorCode,
-		ErrorMessage: row.ErrorMessage,
-		CreatedAt:    row.CreatedAt,
-		UpdatedAt:    row.UpdatedAt,
+		ID:            sharedkernel.TaskID(row.ID),
+		SessionID:     sharedkernel.SessionID(row.SessionID),
+		CaseID:        sharedkernel.CaseID(row.CaseID),
+		Status:        sharedkernel.TaskStatus(row.Status),
+		EdgeID:        sharedkernel.EdgeID(row.EdgeID),
+		DispatchTopic: row.DispatchTopic,
+		Attempts:      row.Attempts,
+		RequeueAt:     row.RequeueAt,
+		PromptID:      row.PromptID,
+		InputPrefix:   row.InputPrefix,
+		JobRef:        jobRef,
+		LeaseUntil:    row.LeaseUntil,
+		Outputs:       outputs,
+		ErrorCode:     row.ErrorCode,
+		ErrorMessage:  row.ErrorMessage,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
 	}, nil
 }
 

@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+import (
+	"encoding/json"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+)
 
 // CaseDocument is the protocol document stored for a Case.
 type CaseDocument struct {
@@ -10,13 +14,26 @@ type CaseDocument struct {
 	Preview          string              `json:"preview,omitempty"`
 	Price            float64             `json:"price"`
 	Tags             []string            `json:"tags,omitempty"`
-	MenuKey          string              `json:"menu_key,omitempty"`
 	Categories       []string            `json:"categories,omitempty"`
+	Routing          *RoutingConfig      `json:"routing,omitempty"`
 	Inputs           []InputField        `json:"inputs"`
 	Outputs          []OutputField       `json:"outputs"`
 	Bindings         ComfyBindings       `json:"bindings"`
 	InputSchema      map[string]any      `json:"input_schema"` // JSON Schema object for values map
 	WorkflowFilename string              `json:"workflow_filename,omitempty"`
+}
+
+// RoutingConfig declares how tasks of this Case are delivered to topics.
+// Rules are evaluated in order; the first match wins. No match falls back to
+// the system default topic.
+type RoutingConfig struct {
+	Rules []RoutingRule `json:"rules"`
+}
+
+// RoutingRule binds a condition to a target topic key.
+type RoutingRule struct {
+	When  json.RawMessage `json:"when"`
+	Topic string          `json:"topic"`
 }
 
 type InputField struct {

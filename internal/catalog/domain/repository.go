@@ -22,7 +22,6 @@ type Case struct {
 
 type ListQuery struct {
 	Tag         string
-	MenuKey     string
 	Category    string
 	Enabled     *bool // nil = all
 	Q           string
