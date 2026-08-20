@@ -43,6 +43,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	topicpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/topic/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
@@ -185,6 +186,15 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	instRepo := instpersist.NewEdgeRepository(gdb)
 	if err := edge.EnsureAgentTokens(ctx, instRepo, encKey); err != nil {
 		return err
+	}
+	topicRepo := topicpersist.NewTopicRepository(gdb)
+	if err := topic.EnsureDefaultTopic(ctx, topicRepo); err != nil {
+		return err
+	}
+	if n, err := taskpersist.MigrateLegacyTasks(ctx, gdb, time.Now().UTC()); err != nil {
+		return err
+	} else if n > 0 {
+		slog.Info("legacy tasks migrated", "count", n)
 	}
 	pool := edge.NewPool(instRepo, edge.PoolOptions{})
 	if err := pool.Refresh(ctx); err != nil {
