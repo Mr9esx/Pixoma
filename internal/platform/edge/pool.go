@@ -1,4 +1,4 @@
-package instance
+package edge
 
 import (
 	"context"
@@ -6,32 +6,29 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
-// PoolOptions configures client construction when Refresh runs.
+// PoolOptions configures Refresh behavior.
 type PoolOptions struct {
-	Mock bool
 	// AfterRefresh is invoked after a successful Refresh with the new List().
 	AfterRefresh func(instances []Instance)
 }
 
 type pooled struct {
 	record  Record
-	client  comfyui.Client
 	healthy bool
 }
 
-// Pool keeps an in-process Comfy client map keyed by instance id and
-// implements Registry for scheduling.
+// Pool keeps an in-process edge map keyed by instance id and implements
+// Registry for scheduling.
 type Pool struct {
 	repo Repository
 	opts PoolOptions
 
-	mu            sync.RWMutex
-	byID          map[sharedkernel.InstanceID]*pooled
-	afterRefresh  func(instances []Instance)
+	mu           sync.RWMutex
+	byID         map[sharedkernel.EdgeID]*pooled
+	afterRefresh func(instances []Instance)
 }
 
 // NewPool constructs a Pool. Call Refresh after seeding the repository.
@@ -39,7 +36,7 @@ func NewPool(repo Repository, opts PoolOptions) *Pool {
 	return &Pool{
 		repo:         repo,
 		opts:         opts,
-		byID:         make(map[sharedkernel.InstanceID]*pooled),
+		byID:         make(map[sharedkernel.EdgeID]*pooled),
 		afterRefresh: opts.AfterRefresh,
 	}
 }
@@ -51,35 +48,28 @@ func (p *Pool) SetAfterRefresh(fn func(instances []Instance)) {
 	p.afterRefresh = fn
 }
 
-// Refresh rebuilds the client map from the repository.
+// Refresh rebuilds the edge map from the repository.
 // Enabled instances start healthy; existing health flags are preserved when possible.
 func (p *Pool) Refresh(ctx context.Context) error {
 	if p.repo == nil {
-		return fmt.Errorf("instance: nil repository")
+		return fmt.Errorf("edge: nil repository")
 	}
 	list, err := p.repo.List(ctx)
 	if err != nil {
 		return err
 	}
 
-	prevHealthy := map[sharedkernel.InstanceID]bool{}
+	prevHealthy := map[sharedkernel.EdgeID]bool{}
 	p.mu.RLock()
 	for id, e := range p.byID {
 		prevHealthy[id] = e.healthy
 	}
 	p.mu.RUnlock()
 
-	next := make(map[sharedkernel.InstanceID]*pooled, len(list))
+	next := make(map[sharedkernel.EdgeID]*pooled, len(list))
 	for _, rec := range list {
 		if rec == nil || !rec.Enabled {
 			continue
-		}
-		cli, err := comfyui.NewClient(comfyui.Options{
-			Mock:    p.opts.Mock,
-			BaseURL: rec.BaseURL,
-		})
-		if err != nil {
-			return fmt.Errorf("instance: client %s: %w", rec.ID, err)
 		}
 		healthy := true
 		if was, ok := prevHealthy[rec.ID]; ok {
@@ -93,7 +83,6 @@ func (p *Pool) Refresh(ctx context.Context) error {
 		}
 		next[rec.ID] = &pooled{
 			record:  cp,
-			client:  cli,
 			healthy: healthy,
 		}
 	}
@@ -108,19 +97,8 @@ func (p *Pool) Refresh(ctx context.Context) error {
 	return nil
 }
 
-// Client returns the Comfy client for an instance id.
-func (p *Pool) Client(id sharedkernel.InstanceID) (comfyui.Client, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	e, ok := p.byID[id]
-	if !ok || e == nil || e.client == nil {
-		return nil, fmt.Errorf("instance: client %s not found", id)
-	}
-	return e.client, nil
-}
-
 // SetHealthy updates the in-memory health flag used by ListHealthy.
-func (p *Pool) SetHealthy(id sharedkernel.InstanceID, ok bool) {
+func (p *Pool) SetHealthy(id sharedkernel.EdgeID, ok bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if e, exists := p.byID[id]; exists && e != nil {
@@ -183,41 +161,13 @@ func (p *Pool) List() []Instance {
 	return out
 }
 
-// Probe checks SystemStats on each enabled non-mock instance and updates health.
-// When PoolOptions.Mock is true, probing is skipped (instances stay healthy).
-func (p *Pool) Probe(ctx context.Context) {
-	if p.opts.Mock {
-		return
-	}
-
-	type item struct {
-		id     sharedkernel.InstanceID
-		client comfyui.Client
-	}
-	p.mu.RLock()
-	items := make([]item, 0, len(p.byID))
-	for id, e := range p.byID {
-		if e == nil || e.client == nil || !e.record.Enabled {
-			continue
-		}
-		items = append(items, item{id: id, client: e.client})
-	}
-	p.mu.RUnlock()
-
-	for _, it := range items {
-		st, err := it.client.SystemStats(ctx)
-		ok := err == nil && st != nil && st.Reachable
-		p.SetHealthy(it.id, ok)
-	}
-}
-
 // Get returns a scheduling view for one instance (enabled or not).
-func (p *Pool) Get(_ context.Context, id sharedkernel.InstanceID) (*Instance, error) {
+func (p *Pool) Get(_ context.Context, id sharedkernel.EdgeID) (*Instance, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	e, ok := p.byID[id]
 	if !ok || e == nil {
-		return nil, fmt.Errorf("instance: %s not found", id)
+		return nil, fmt.Errorf("edge: %s not found", id)
 	}
 	cp := Instance{
 		ID:            e.record.ID,

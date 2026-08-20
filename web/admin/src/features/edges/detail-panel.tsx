@@ -39,7 +39,7 @@ import { AgentCredentials } from './agent-credentials'
 import { EdgeForm } from './edge-form'
 import { kit } from './kit-classes'
 import { formatBytes } from './observation'
-import { ObservationPanel } from './observation-panel'
+import { ObservationPanel, SectionHead } from './observation-panel'
 import { StatusTag } from './presence-tags'
 
 const TASKS_PAGE_SIZE = 10
@@ -68,24 +68,33 @@ function formatRate(rate: number | null): string {
   return `${(rate * 100).toFixed(1)}%`
 }
 
-function InfoField({
+function MetaChip({
   icon,
   label,
   value,
+  divider = false,
 }: {
   icon: ReactNode
   label: string
   value: string
+  divider?: boolean
 }) {
   return (
-    <div className='grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-1'>
-      <dt className={kit.dt}>
+    <div className={kit.metaChip}>
+      <div className='flex min-w-0 items-center gap-2 text-muted-foreground'>
         {icon}
-        {label}
-      </dt>
-      <dd className={kit.dd}>
-        <LongText className='min-w-0 font-medium'>{value || '—'}</LongText>
-      </dd>
+        <span className='shrink-0'>{label}</span>
+        <span className='min-w-0 truncate font-medium text-foreground'>
+          {value || '—'}
+        </span>
+      </div>
+      {divider ? (
+        <div
+          data-orientation='vertical'
+          role='none'
+          className={kit.metaChipDivider}
+        />
+      ) : null}
     </div>
   )
 }
@@ -158,9 +167,9 @@ export function EdgeDetailPanel({ id }: Props) {
 
   return (
     <section className={kit.pageSection} data-testid='edge-detail'>
-      <div className={kit.header}>
-        <div className='flex min-w-0 flex-col gap-[6px]'>
-          <div className='flex flex-wrap items-center gap-2'>
+      <div className='flex min-w-0 flex-col gap-[6px]'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{edge.name || edge.id}</h2>
             <StatusTag on={edge.enabled}>
               {edge.enabled ? t('edges.enabled') : t('edges.disabled')}
@@ -176,152 +185,168 @@ export function EdgeDetailPanel({ id }: Props) {
                 : t('edges.comfyStopped')}
             </StatusTag>
           </div>
-          {edge.description ? (
-            <p className={kit.desc}>{edge.description}</p>
-          ) : null}
+          <div className='flex shrink-0 flex-wrap gap-2'>
+            <Button
+              type='button'
+              variant='outline'
+              className={kit.btnGhost}
+              onClick={() => setDeployOpen(true)}
+            >
+              <Terminal className='size-3.5' />
+              {t('edges.deployCommand')}
+            </Button>
+            <Button
+              type='button'
+              className={kit.btnPrimary}
+              onClick={() => setEditOpen(true)}
+            >
+              <PenLine className='size-3.5' />
+              {t('edges.edit')}
+            </Button>
+          </div>
         </div>
-        <div className='flex shrink-0 flex-wrap gap-2'>
-          <Button
-            type='button'
-            variant='outline'
-            className={kit.btnGhost}
-            onClick={() => setDeployOpen(true)}
-          >
-            <Terminal className='size-3.5' />
-            {t('edges.deployCommand')}
-          </Button>
-          <Button
-            type='button'
-            className={kit.btnPrimary}
-            onClick={() => setEditOpen(true)}
-          >
-            <PenLine className='size-3.5' />
-            {t('edges.edit')}
-          </Button>
-        </div>
-      </div>
-
-      <div data-orientation='horizontal' role='none' className={kit.rule} />
-
-      <dl className={kit.dl}>
-        <div className='flex flex-col gap-4'>
-          <InfoField
-            icon={<Hash className='size-4' />}
-            label={t('edges.fieldId')}
+        {edge.description ? (
+          <p className={kit.desc}>{edge.description}</p>
+        ) : null}
+        <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
+          <MetaChip
+            icon={<Hash className='size-3.5' />}
+            label={t('edges.fieldNodeId')}
             value={edge.id}
+            divider
           />
-          <InfoField
-            icon={<CalendarClock className='size-4' />}
+          <MetaChip
+            icon={<CalendarClock className='size-3.5' />}
             label={t('edges.fieldCreatedAt')}
             value={formatTime(edge.created_at)}
+            divider
           />
-          <InfoField
-            icon={<Timer className='size-4' />}
+          <MetaChip
+            icon={<Timer className='size-3.5' />}
             label={t('edges.fieldStartedAt')}
             value={
               edge.enabled && presence?.edge_online && edge.started_at
                 ? formatTime(edge.started_at)
                 : '—'
             }
+            divider
           />
-          <InfoField
-            icon={<Boxes className='size-4' />}
+          <MetaChip
+            icon={<Boxes className='size-3.5' />}
             label={t('edges.fieldComfyVersion')}
-            value={edge.comfy_version || '—'}
+            value={edge.comfy_version}
+            divider
           />
-          <InfoField
-            icon={<Tags className='size-4' />}
+          <MetaChip
+            icon={<Tags className='size-3.5' />}
             label={t('edges.fieldCapabilities')}
             value={edge.capabilities.join(', ')}
           />
         </div>
-        <div className='flex flex-col gap-4'>
-          <InfoField
-            icon={<Cpu className='size-4' />}
-            label={t('edges.fieldCpu')}
-            value={cpuModel}
-          />
-          {cpuCores && cpuCores > 0 ? (
-            <InfoField
-              icon={<Cpu className='size-4' />}
-              label={t('edges.fieldCpuCores')}
-              value={t('edges.coresValue', { count: cpuCores })}
-            />
-          ) : null}
-          <InfoField
-            icon={<MemoryStick className='size-4' />}
-            label={t('edges.fieldMemory')}
-            value={ramValue}
-          />
+      </div>
+
+      <section className={kit.specsWrap}>
+        <div className={kit.specsCell}>
+          <div className={kit.specsLabel}>
+            <Cpu className='size-3.5 shrink-0' />
+            {t('edges.fieldCpu')}
+          </div>
+          <div className='mt-2 flex min-w-0 flex-col gap-1 xl:flex-row xl:items-end xl:justify-between xl:gap-3'>
+            <LongText className={kit.specsValue}>{cpuModel || '—'}</LongText>
+          </div>
+        </div>
+        <div className={kit.specsCell}>
+          <div className={kit.specsLabel}>
+            <Gpu className='size-3.5 shrink-0' />
+            {t('edges.fieldGpu')}
+          </div>
           {gpus.length > 0 ? (
-            gpus.flatMap((gpu, index) => {
-              const suffix = gpus.length > 1 ? ` ${index + 1}` : ''
-              return [
-                <InfoField
-                  key={`gpu-${index}`}
-                  icon={<Gpu className='size-4' />}
-                  label={`${t('edges.fieldGpu')}${suffix}`}
-                  value={gpu.name}
-                />,
-                <InfoField
-                  key={`vram-${index}`}
-                  icon={<Gpu className='size-4' />}
-                  label={`${t('edges.fieldVram')}${suffix}`}
-                  value={
-                    gpu.vram_bytes && gpu.vram_bytes > 0
+            <div className='mt-2 flex min-w-0 flex-col gap-2'>
+              {gpus.map((gpu, index) => (
+                <div
+                  key={`${gpu.name}-${index}`}
+                  className='flex min-w-0 flex-col gap-1 xl:flex-row xl:items-end xl:justify-between xl:gap-3'
+                >
+                  <LongText className={kit.specsValue}>{gpu.name}</LongText>
+                  <p className={kit.specsNote}>
+                    {gpu.vram_bytes && gpu.vram_bytes > 0
                       ? formatBytes(gpu.vram_bytes)
-                      : '—'
-                  }
-                />,
-              ]
-            })
+                      : '—'}
+                  </p>
+                </div>
+              ))}
+            </div>
           ) : (
-            <InfoField
-              icon={<Gpu className='size-4' />}
-              label={t('edges.fieldGpu')}
-              value=''
-            />
+            <div className='mt-2 flex min-w-0 flex-col gap-1 xl:flex-row xl:items-end xl:justify-between xl:gap-3'>
+              <LongText className={kit.specsValue}>—</LongText>
+            </div>
           )}
         </div>
-      </dl>
-
-      <div data-orientation='horizontal' role='none' className={kit.rule} />
-
-      <div className={kit.statsWrap}>
-        <div className={kit.statsGrid}>
-          <div className={kit.statsCell}>
-            <p className={kit.statsLabel}>
-              <ListTodo className='size-4' />
-              {t('edges.statsTasks')}
-            </p>
-            <p className={kit.statsValue}>
-              {statsQuery.isLoading ? '—' : String(stats?.task_count ?? 0)}
-            </p>
+        <div className={kit.specsCell}>
+          <div className={kit.specsLabel}>
+            <Cpu className='size-3.5 shrink-0' />
+            {t('edges.fieldCpuCores')}
           </div>
-          <div className={kit.statsCell}>
-            <p className={kit.statsLabel}>
-              <Timer className='size-4' />
-              {t('edges.statsRuntime')}
-            </p>
-            <p className={kit.statsValue}>
-              {statsQuery.isLoading
-                ? '—'
-                : formatRuntime(stats?.runtime_ms ?? 0)}
-            </p>
-          </div>
-          <div className={kit.statsCell}>
-            <p className={kit.statsLabel}>
-              <BadgeCheck className='size-4' />
-              {t('edges.statsSuccess')}
-            </p>
-            <p className={kit.statsValue}>
-              {statsQuery.isLoading
-                ? '—'
-                : formatRate(stats?.success_rate ?? null)}
-            </p>
+          <div className='mt-2 flex min-w-0 flex-col gap-1 xl:flex-row xl:items-end xl:justify-between xl:gap-3'>
+            <LongText className={kit.specsValue}>
+              {cpuCores && cpuCores > 0
+                ? t('edges.coresValue', { count: cpuCores })
+                : '—'}
+            </LongText>
           </div>
         </div>
-      </div>
+        <div className={kit.specsCell}>
+          <div className={kit.specsLabel}>
+            <MemoryStick className='size-3.5 shrink-0' />
+            {t('edges.fieldMemory')}
+          </div>
+          <div className='mt-2 flex min-w-0 flex-col gap-1 xl:flex-row xl:items-end xl:justify-between xl:gap-3'>
+            <LongText className={kit.specsValue}>{ramValue || '—'}</LongText>
+          </div>
+        </div>
+      </section>
+
+      <section className='flex flex-col gap-4'>
+        <SectionHead
+          title={t('edges.overviewTitle')}
+          hint={t('edges.overviewHint')}
+        />
+        <div className={kit.statsWrap}>
+          <div className={kit.statsGrid}>
+            <div className={kit.statsCell[0]}>
+              <p className={kit.statsLabel}>
+                <ListTodo className='size-4' />
+                {t('edges.statsTasks')}
+              </p>
+              <p className={kit.statsValue}>
+                {statsQuery.isLoading ? '—' : String(stats?.task_count ?? 0)}
+              </p>
+            </div>
+            <div className={kit.statsCell[1]}>
+              <p className={kit.statsLabel}>
+                <Timer className='size-4' />
+                {t('edges.statsRuntime')}
+              </p>
+              <p className={kit.statsValue}>
+                {statsQuery.isLoading
+                  ? '—'
+                  : formatRuntime(stats?.runtime_ms ?? 0)}
+              </p>
+            </div>
+            <div className={kit.statsCell[2]}>
+              <p className={kit.statsLabel}>
+                <BadgeCheck className='size-4' />
+                {t('edges.statsSuccess')}
+              </p>
+              <p className={kit.statsValue}>
+                {statsQuery.isLoading
+                  ? '—'
+                  : formatRate(stats?.success_rate ?? null)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <ObservationPanel
         metricsQuery={metricsQuery}

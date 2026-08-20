@@ -1,0 +1,101 @@
+<h2>修正：菜单项 ≠ 卡片，两者都是独立定义</h2>
+<p class="subtitle">先定义菜单项（如「图片生成」），点击后弹出什么（卡片 / 直接执行工作流 / 发文字…），再单独定义那张卡片的内容（媒体 + 文字 + 按钮）。卡片按钮点击后同样可以弹卡片 / 执行工作流，无限往下。</p>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-size:12px;">
+  <span style="border:1px solid var(--accent);border-radius:6px;padding:5px 10px;background:var(--selected-bg);">菜单项「图片生成」= 名字 + 点击动作</span>
+  <span style="color:var(--text-tertiary);">点击 →</span>
+  <span style="border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--bg-secondary);">弹出卡片（内容单独定义）</span>
+  <span style="color:var(--text-tertiary);">或</span>
+  <span style="border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--bg-secondary);">直接执行工作流</span>
+  <span style="color:var(--text-tertiary);">或</span>
+  <span style="border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--bg-secondary);">发文字 / 发媒体 / 链接…</span>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">编辑器 · 图片助手（菜单 / 卡片分开管理）</div>
+  <div class="mockup-body">
+    <div style="max-width:980px;margin:0 auto;font-size:13px;">
+      <!-- 顶栏 -->
+      <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--bg-primary);">
+        <span style="border:1px solid var(--accent);border-radius:5px;padding:4px 12px;background:var(--selected-bg);font-size:12px;">菜单</span>
+        <span style="border:1px solid var(--border);border-radius:5px;padding:4px 12px;font-size:12px;color:var(--text-secondary);">卡片</span>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-tertiary);">路径：菜单 › 图片生成 › 卡片 › 写实风格</span>
+        <span style="background:var(--accent);color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;">保存</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;margin-top:14px;">
+        <!-- 左：手机模拟 -->
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg-secondary);">
+          <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:8px;">用户视角（点菜单项 → 弹卡片 → 点卡片按钮 → 继续）</div>
+          <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg-primary);">
+            <div style="padding:12px;display:flex;flex-direction:column;gap:8px;min-height:300px;">
+              <div style="align-self:flex-start;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:12px;">欢迎使用图片助手 👇</div>
+              <div style="align-self:flex-end;background:var(--accent);color:#fff;border-radius:10px;padding:8px 10px;font-size:12px;">🖼 图片生成</div>
+              <!-- 弹出的卡片 -->
+              <div style="align-self:flex-start;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:10px;max-width:90%;font-size:12px;">
+                <div style="border-radius:8px;background:linear-gradient(135deg,#8ab4f8,#c58af9);height:90px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">示例图片</div>
+                <div style="margin-top:8px;"><b>开始生成</b></div>
+                <div style="color:var(--text-secondary);margin-top:3px;">选一种风格，就开始生成：</div>
+                <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;background:var(--selected-bg);font-size:11px;">写实风格</span>
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;">二次元</span>
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;">风格说明</span>
+                </div>
+                <div style="margin-top:6px;font-size:11px;color:var(--text-tertiary);">‹ 返回菜单</div>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding:8px;">
+              <div style="display:flex;gap:6px;margin-bottom:6px;">
+                <span style="flex:1;border:2px solid var(--accent);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--selected-bg);">🖼 图片生成</span>
+                <span style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--bg-secondary);">🎬 视频生成</span>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <span style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--bg-secondary);">💰 充值</span>
+                <span style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--bg-secondary);">🆘 帮助</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右：编辑面板（当前：菜单项） -->
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg-secondary);">
+          <div style="font-size:11px;color:var(--text-tertiary);">正在编辑：<b>菜单项</b></div>
+          <div style="display:flex;align-items:center;gap:8px;margin:2px 0 10px;">
+            <b style="font-size:14px;">🖼 图片生成</b>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-tertiary);text-decoration:underline;">删除</span>
+          </div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">菜单项名字</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:10px;background:var(--bg-primary);font-size:12px;">🖼 图片生成</div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">点击后做什么</div>
+          <div style="border:1px solid var(--accent);border-radius:6px;padding:7px 9px;margin-bottom:10px;background:var(--bg-primary);font-size:12px;">弹出卡片 ▾</div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">弹出哪张卡片</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:12px;background:var(--bg-primary);font-size:12px;">开始生成（图片）▾</div>
+
+          <div style="border-top:1px dashed var(--border);padding-top:10px;">
+            <div style="font-size:11px;color:var(--text-tertiary);">其它点击动作：直接执行工作流 / 发文字 / 发媒体 / 跳转链接 / 复制 / 暂未开放</div>
+            <div style="margin-top:8px;font-size:11px;color:var(--text-tertiary);">👇 切换到「卡片」Tab，编辑「开始生成」这张卡片的内容（媒体 / 文字 / 按钮）。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:1.5rem;">确认点：</p>
+<div class="options">
+  <div class="option" data-choice="ok" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content"><h3>对，就是这样，继续细化</h3><p>接着画「菜单 Tab」和「卡片 Tab」各自的完整视图，以及动作参数表单。</p></div>
+  </div>
+  <div class="option" data-choice="data" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content"><h3>先看数据怎么组织</h3><p>菜单 / 菜单项 / 卡片 / 按钮 / 动作的数据结构，确认后再细化交互。</p></div>
+  </div>
+  <div class="option" data-choice="panel" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content"><h3>还有不对的地方</h3><p>继续修正。</p></div>
+  </div>
+</div>

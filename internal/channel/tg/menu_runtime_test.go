@@ -4,30 +4,38 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
-	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
+	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
-func TestBuildReplyKeyboardColumns(t *testing.T) {
-	tree := domain.MenuTree{
-		Items: []domain.MenuNode{
-			{ID: "a", Label: "A", Order: 0, Enabled: true, RenderOverride: map[string]any{"columns": 3}},
-			{ID: "b", Label: "B", Order: 1, Enabled: true},
-			{ID: "c", Label: "C", Order: 2, Enabled: true},
-		},
+func TestBuildReplyKeyboardFreeColumns(t *testing.T) {
+	menu := mcdomain.Menu{ID: "m", Name: "主", Columns: 3, Items: []mcdomain.MenuItem{
+		{ID: "a", Label: "A", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "b", Label: "B", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "c", Label: "C", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "d", Label: "D", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "e", Label: "E", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "f", Label: "F", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "g", Label: "G", Action: mcdomain.Action{Type: "placeholder"}},
+	}}
+	kb := BuildReplyKeyboard(menu)
+	if len(kb.Keyboard) != 3 { // 3+3+1，7 个按钮不设上限
+		t.Fatalf("rows=%d kb=%+v", len(kb.Keyboard), kb.Keyboard)
 	}
-	kb := BuildReplyKeyboard(tree)
-	if len(kb.Keyboard) != 1 || len(kb.Keyboard[0]) != 3 {
-		t.Fatalf("columns=3 expected one row of 3, got %+v", kb.Keyboard)
+	if len(kb.Keyboard[0]) != 3 || len(kb.Keyboard[2]) != 1 {
+		t.Fatalf("layout=%+v", kb.Keyboard)
 	}
+}
 
-	tree.Items[0].RenderOverride = nil
-	kb2 := BuildReplyKeyboard(tree)
-	if len(kb2.Keyboard) != 2 || len(kb2.Keyboard[0]) != 2 || len(kb2.Keyboard[1]) != 1 {
-		t.Fatalf("default 2 columns expected 2+1, got %+v", kb2.Keyboard)
+func TestFindEnabledItemByLabel(t *testing.T) {
+	menu := mcdomain.Menu{Items: []mcdomain.MenuItem{
+		{ID: "a", Label: "图片", Action: mcdomain.Action{Type: "open_card", CardID: "c1"}},
+	}}
+	it, ok := FindEnabledItemByLabel(menu, "图片")
+	if !ok || it.Action.CardID != "c1" {
+		t.Fatalf("item=%+v ok=%v", it, ok)
 	}
 }
 
@@ -152,24 +160,46 @@ func (c *textCaptureOutbound) SendMediaURL(context.Context, sharedkernel.Channel
 	return nil
 }
 
-func TestMenuItemDispatchInvokesReplyTextCapability(t *testing.T) {
-	out := &textCaptureOutbound{}
+type cardProviderStub struct {
+	card mcdomain.Card
+	err  error
+}
+
+func (p cardProviderStub) GetCard(_ context.Context, _, _ string) (mcdomain.Card, error) {
+	return p.card, p.err
+}
+
+func TestActionDispatchOpenCardSendsCard(t *testing.T) {
+	out := &captureOutbound{}
 	ad := New(out)
-	ad.ChannelID = "tg-default"
-	reg := capability.NewRegistry()
-	if err := reg.Register(capability.ReplyText{}); err != nil {
+	ad.ChannelID = "ch1"
+	ad.Cards = cardProviderStub{card: mcdomain.Card{
+		ID: "c1", Name: "x", Text: "选一种风格：",
+		Buttons: []mcdomain.CardButton{
+			{ID: "b", Label: "写实", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"w1"}}},
+		},
+	}}
+	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
+	if err := ad.actionDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), addr, mcdomain.Action{Type: "open_card", CardID: "c1"}, "root"); err != nil {
 		t.Fatal(err)
 	}
-	ad.Registry = reg
-	item := domain.MenuNode{
-		ID:           "p",
-		Label:        "占位",
-		Order:        0,
-		Enabled:      true,
-		CapabilityID: "reply_text",
-		Params:       map[string]any{"text": "即将上线"},
+	if len(out.lists) != 1 {
+		t.Fatalf("lists=%d", len(out.lists))
 	}
-	if err := ad.menuItemDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}, item); err != nil {
+	rows := out.lists[0]
+	if rows[0][0].Text != "写实" {
+		t.Fatalf("row0=%+v", rows[0])
+	}
+	if rows[len(rows)-1][0].Text != "‹ 返回" || rows[len(rows)-1][0].Data != CBMenuBack+"root" {
+		t.Fatalf("back=%+v", rows[len(rows)-1])
+	}
+}
+
+func TestActionDispatchSendText(t *testing.T) {
+	out := &textCaptureOutbound{}
+	ad := New(out)
+	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
+	if err := ad.actionDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), addr, mcdomain.Action{Type: "send_text", Text: "即将上线"}, "root"); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.texts) != 1 || out.texts[0] != "即将上线" {
@@ -177,15 +207,15 @@ func TestMenuItemDispatchInvokesReplyTextCapability(t *testing.T) {
 	}
 }
 
-func TestMenuItemDispatchRejectsBareLeaf(t *testing.T) {
-	out := &textCaptureOutbound{}
-	ad := New(out)
-	ad.ChannelID = "tg-default"
-	item := domain.MenuNode{ID: "bare", Label: "Bare", Order: 0, Enabled: true}
-	if err := ad.menuItemDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}, item); err != nil {
-		t.Fatal(err)
-	}
-	if len(out.texts) != 1 || out.texts[0] != "菜单配置无效" {
-		t.Fatalf("texts=%q", out.texts)
+func TestBackChainTracksSources(t *testing.T) {
+	ad := New(&captureOutbound{})
+	ad.ChannelID = "ch1"
+	ad.Cards = cardProviderStub{card: mcdomain.Card{ID: "c2", Name: "x", Text: "第二张"}}
+	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
+	chat := "tg-default:1"
+	_ = ad.actionDispatch(context.Background(), sharedkernel.ChatID(chat), addr, mcdomain.Action{Type: "open_card", CardID: "c1"}, "root")
+	_ = ad.actionDispatch(context.Background(), sharedkernel.ChatID(chat), addr, mcdomain.Action{Type: "open_card", CardID: "c2"}, "c1")
+	if top, ok := ad.back.top(chat); !ok || top != "c1" {
+		t.Fatalf("top=%q ok=%v", top, ok)
 	}
 }

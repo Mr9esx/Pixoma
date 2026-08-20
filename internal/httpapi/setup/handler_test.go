@@ -112,15 +112,13 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 	}
 
 	okDraft, _ := json.Marshal(settings.Settings{
-		Placement:        settings.PlacementLocal,
-		BlobDriver:       botconfig.BlobDriverLocalFS,
-		BlobRoot:         filepath.Join(dir, "blob"),
-		DBDriver:         "sqlite",
-		DBDSN:            dsn,
-		ComfyMock:        true,
-		ComfyUIBaseURL:   "http://127.0.0.1:8188",
-		DefaultEdgeID:    "local",
-		AutoSpawnEdge:    true,
+		Placement:      settings.PlacementLocal,
+		BlobDriver:     botconfig.BlobDriverLocalFS,
+		BlobRoot:       filepath.Join(dir, "blob"),
+		DBDriver:       "sqlite",
+		DBDSN:          dsn,
+		ComfyMock:      true,
+		ComfyUIBaseURL: "http://127.0.0.1:8188",
 	})
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/setup/draft", bytes.NewReader(okDraft))
 	auth(req)
@@ -267,17 +265,15 @@ func TestSettings_AfterInit_PasswordAndUpdate(t *testing.T) {
 
 	newRoot := filepath.Join(env.dir, "blob-2")
 	putBody, _ := json.Marshal(settings.Settings{
-		Placement:        settings.PlacementLocal,
-		BlobDriver:       botconfig.BlobDriverLocalFS,
-		BlobRoot:         newRoot,
-		DBDriver:         "mysql",
-		DBDSN:            "user:pass@tcp(127.0.0.1:3306)/pixoma",
-		ComfyMock:        false,
-		ComfyUIBaseURL:   "http://should-not-stick:9",
-		DefaultEdgeID:    "should-keep-existing",
-		AutoSpawnEdge:    true,
-		BlobAccessKey:    "********",
-		BlobSecretKey:    "********",
+		Placement:      settings.PlacementLocal,
+		BlobDriver:     botconfig.BlobDriverLocalFS,
+		BlobRoot:       newRoot,
+		DBDriver:       "mysql",
+		DBDSN:          "user:pass@tcp(127.0.0.1:3306)/pixoma",
+		ComfyMock:      false,
+		ComfyUIBaseURL: "http://should-not-stick:9",
+		BlobAccessKey:  "********",
+		BlobSecretKey:  "********",
 	})
 	req = httptest.NewRequest(http.MethodPut, "/api/v1/setup/settings", bytes.NewReader(putBody))
 	env.auth(req)
@@ -310,9 +306,6 @@ func TestSettings_AfterInit_PasswordAndUpdate(t *testing.T) {
 	}
 	if !got.ComfyMock {
 		t.Fatal("comfy_mock must stay as stored, not follow the settings form")
-	}
-	if got.DefaultEdgeID != "local" {
-		t.Fatalf("instance id must stay, got %q", got.DefaultEdgeID)
 	}
 	if got.ComfyUIBaseURL != "http://127.0.0.1:8188" {
 		t.Fatalf("comfy url is not a settings field, got %q", got.ComfyUIBaseURL)
@@ -395,15 +388,13 @@ func completeWizard(t *testing.T) *wizardEnv {
 	}
 
 	okDraft, _ := json.Marshal(settings.Settings{
-		Placement:        settings.PlacementLocal,
-		BlobDriver:       botconfig.BlobDriverLocalFS,
-		BlobRoot:         filepath.Join(dir, "blob"),
-		DBDriver:         "sqlite",
-		DBDSN:            dsn,
-		ComfyMock:        true,
-		ComfyUIBaseURL:   "http://127.0.0.1:8188",
-		DefaultEdgeID:    "local",
-		AutoSpawnEdge:    true,
+		Placement:      settings.PlacementLocal,
+		BlobDriver:     botconfig.BlobDriverLocalFS,
+		BlobRoot:       filepath.Join(dir, "blob"),
+		DBDriver:       "sqlite",
+		DBDSN:          dsn,
+		ComfyMock:      true,
+		ComfyUIBaseURL: "http://127.0.0.1:8188",
 	})
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/setup/draft", bytes.NewReader(okDraft))
 	auth(req)

@@ -568,7 +568,7 @@ type QueryView<T> = {
   refetch: () => void
 }
 
-function SectionHead({ title, hint }: { title: string; hint: string }) {
+export function SectionHead({ title, hint }: { title: string; hint: string }) {
   return (
     <div className='flex flex-col gap-1'>
       <div className='flex items-center gap-3'>

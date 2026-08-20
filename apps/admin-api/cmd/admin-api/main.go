@@ -15,7 +15,6 @@ import (
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
@@ -26,8 +25,6 @@ import (
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
-	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
-	menupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
@@ -73,15 +70,19 @@ func run(ctx context.Context) error {
 			&sesspersist.SessionRow{},
 			&taskpersist.TaskRow{},
 			&channelpersist.ChannelRow{},
-			&menupersist.ChannelMenuRow{},
-			&menupersist.ChannelMenuItemRow{},
-			&menupersist.ChannelMenuItemCaseRow{},
-			&menupersist.ChannelMenuExtraRow{},
 			&mencardpersist.MainMenuRow{},
 			&mencardpersist.CardRow{},
 		},
 	})
 	if err != nil {
+		return err
+	}
+	if err := gdb.Migrator().DropTable(
+		"channel_menus",
+		"channel_menu_items",
+		"channel_menu_item_cases",
+		"channel_menu_item_extras",
+	); err != nil {
 		return err
 	}
 	defer func() { _ = cleanup() }()
@@ -96,12 +97,6 @@ func run(ctx context.Context) error {
 	userRepo := userpersist.NewUserRepository(gdb)
 	sessionRepo := sesspersist.NewSessionRepository(gdb)
 	taskRepo := taskpersist.NewTaskRepository(gdb)
-	menuStore := menupersist.NewGormRepository(gdb)
-	menuSvc := &menuapp.Service{
-		Store:            menuStore,
-		Cases:            menuapp.CatalogCaseChecker{Repo: caseRepo},
-		ListImageCaseIDs: menuapp.CatalogImageCaseIDs(caseRepo),
-	}
 	bootPath := bootstrapDBPath(dsn)
 	bootMeta, _, err := bootstrap.Open(bootPath)
 	if err != nil {
@@ -139,11 +134,6 @@ func run(ctx context.Context) error {
 		},
 	}
 	channelsAPI := &channelsapi.Handler{Svc: chSvc}
-	adminCaps := capability.NewRegistry()
-	_ = adminCaps.Register(capability.OpenCase{})
-	_ = adminCaps.Register(capability.ReplyText{})
-	_ = adminCaps.Register(capability.ReplyMedia{})
-	menuSvc.Capabilities = adminMenuCaps{reg: adminCaps}
 	menuCardsAPI := menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb))
 
 	h := server.NewHandler(server.Options{
@@ -231,23 +221,4 @@ func bootstrapDBPath(dsn string) string {
 		p = "data/app.db"
 	}
 	return filepath.Join(filepath.Dir(p), "bootstrap.db")
-}
-
-type adminMenuCaps struct {
-	reg *capability.Registry
-}
-
-func (c adminMenuCaps) CapabilityExists(_ context.Context, id string) (bool, error) {
-	if c.reg == nil {
-		return false, nil
-	}
-	_, ok := c.reg.Get(id)
-	return ok, nil
-}
-
-func (c adminMenuCaps) ValidateParams(ctx context.Context, id string, params map[string]any) error {
-	if c.reg == nil {
-		return nil
-	}
-	return c.reg.ValidateParams(ctx, id, params)
 }

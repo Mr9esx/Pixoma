@@ -15,8 +15,8 @@ import (
 	channelruntime "github.com/mr9esx/comfyui_tgbot/internal/channel/runtime"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
-	menudomain "github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
-	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
+	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
+	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -71,7 +71,7 @@ func (r *botNotifyRegistry) lookup(channelID string) (channelruntime.NotifyHandl
 
 type botTGAdapterFactory struct {
 	facade   *botapp.Facade
-	menu     *menuapp.Service
+	cards    mencardpersist.CardRepository
 	blob     blob.Store
 	users    botIdentityResolver
 	registry *botNotifyRegistry
@@ -83,7 +83,7 @@ func (f *botTGAdapterFactory) Create(snap channelruntime.ChannelSnapshot) (chann
 	if err != nil {
 		return nil, err
 	}
-	reader := botMenuReader{svc: f.menu, channelID: snap.ID}
+	reader := botMenuReader{cards: f.cards, channelID: snap.ID}
 	messenger := &tg.BotMessenger{Bot: botInst, Blob: f.blob, Menu: reader}
 	adapter := tg.New(messenger)
 	adapter.Registry = f.caps
@@ -97,12 +97,12 @@ func (f *botTGAdapterFactory) Create(snap channelruntime.ChannelSnapshot) (chann
 }
 
 type botMenuReader struct {
-	svc       *menuapp.Service
+	cards     mencardpersist.CardRepository
 	channelID string
 }
 
-func (r botMenuReader) GetMenu(ctx context.Context) (menudomain.MenuTree, error) {
-	return r.svc.Get(ctx, r.channelID)
+func (r botMenuReader) GetMenu(ctx context.Context) (mcdomain.Menu, error) {
+	return r.cards.GetMenu(ctx, r.channelID)
 }
 
 type botIdentityResolver struct {

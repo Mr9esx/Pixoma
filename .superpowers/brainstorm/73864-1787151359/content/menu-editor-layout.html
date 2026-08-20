@@ -1,0 +1,106 @@
+<h2>TG 菜单编辑器：整体布局怎么定？</h2>
+<p class="subtitle">目标：不熟悉 Telegram / 菜单内部概念的人，也能把机器人菜单配明白，而且配置时就能看到用户视角的效果。两个方向，A 是我推荐的。</p>
+
+<div class="cards">
+  <!-- A: WYSIWYG -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="width:94%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:left;font-size:10px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);background:var(--bg-primary);">
+          <b style="font-size:11px;">图片助手</b>
+          <span style="color:var(--success);">● 启用</span>
+          <span style="margin-left:auto;background:var(--accent);color:#fff;border-radius:4px;padding:3px 10px;font-size:10px;">保存</span>
+        </div>
+        <div style="display:flex;min-height:210px;">
+          <!-- 手机模拟 -->
+          <div style="width:46%;border-right:1px solid var(--border);padding:8px;background:var(--bg-primary);">
+            <div style="font-size:9px;color:var(--text-tertiary);margin-bottom:4px;">用户视角（实时）</div>
+            <div style="border:1px solid var(--border);border-radius:10px;padding:6px;background:var(--bg-secondary);">
+              <div style="background:var(--selected-bg);border-radius:6px;padding:5px 7px;margin-bottom:5px;font-size:9px;">
+                📂 工具<br><span style="color:var(--text-secondary);">请选择功能</span>
+              </div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                <span style="border:1px solid var(--accent);border-radius:4px;padding:2px 5px;background:var(--selected-bg);">AI 修图</span>
+                <span style="border:1px solid var(--border);border-radius:4px;padding:2px 5px;">抠图</span>
+                <span style="border:1px solid var(--border);border-radius:4px;padding:2px 5px;color:var(--text-secondary);">‹ 返回</span>
+              </div>
+              <div style="border-top:1px solid var(--border);padding-top:4px;margin-top:4px;font-size:9px;color:var(--text-tertiary);">[ 主键盘 ]</div>
+              <div style="display:flex;gap:4px;margin-top:3px;">
+                <span style="flex:1;border:1px solid var(--border);border-radius:4px;padding:3px 0;text-align:center;">🖼 图片生成</span>
+                <span style="flex:1;border:1px solid var(--border);border-radius:4px;padding:3px 0;text-align:center;">🎬 视频生成</span>
+              </div>
+              <div style="display:flex;gap:4px;margin-top:3px;">
+                <span style="flex:1;border:1px solid var(--accent);border-radius:4px;padding:3px 0;text-align:center;background:var(--selected-bg);">📂 工具</span>
+                <span style="flex:1;border:1px solid var(--border);border-radius:4px;padding:3px 0;text-align:center;">💰 充值</span>
+              </div>
+            </div>
+          </div>
+          <!-- 配置面板 -->
+          <div style="flex:1;padding:8px;">
+            <div style="font-size:9px;color:var(--text-tertiary);margin-bottom:4px;">当前编辑：📂 工具</div>
+            <div style="font-size:9px;color:var(--text-secondary);">按钮名</div>
+            <div style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;margin-bottom:5px;background:var(--bg-primary);">📂 工具</div>
+            <div style="font-size:9px;color:var(--text-secondary);">功能</div>
+            <div style="border:1px solid var(--accent);border-radius:4px;padding:3px 6px;margin-bottom:5px;background:var(--bg-primary);">显示子按钮（文件夹）▾</div>
+            <div style="font-size:9px;color:var(--text-secondary);">本层说明</div>
+            <div style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;margin-bottom:5px;background:var(--bg-primary);color:var(--text-tertiary);">点进来先看到的文字…</div>
+            <div style="font-size:9px;color:var(--text-secondary);">下面的按钮</div>
+            <div style="border:1px solid var(--border);border-radius:4px;padding:4px 6px;background:var(--bg-primary);">
+              <div style="padding:2px 0;">AI 修图 <span style="color:var(--accent);">›</span></div>
+              <div style="padding:2px 0;border-top:1px dashed var(--border);">抠图 <span style="color:var(--accent);">›</span></div>
+              <div style="padding:3px 0;border-top:1px dashed var(--border);color:var(--text-tertiary);">＋ 加一个按钮</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · 所见即所得（推荐）</h3>
+      <p>左边是 Telegram 手机模拟（可点击、实时反映配置），右边配当前选中的按钮/分组。点哪配哪，保存前就能看到用户视角。</p>
+    </div>
+  </div>
+
+  <!-- B: 步骤式 -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="width:94%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:left;font-size:10px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);background:var(--bg-primary);">
+          <b style="font-size:11px;">图片助手</b>
+          <span style="color:var(--success);">● 启用</span>
+          <span style="margin-left:auto;background:var(--accent);color:#fff;border-radius:4px;padding:3px 10px;font-size:10px;">保存</span>
+        </div>
+        <div style="padding:10px;">
+          <div style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin-bottom:5px;">
+            <b>① 主键盘按钮</b>
+            <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">
+              <span style="border:1px solid var(--border);border-radius:4px;padding:2px 5px;">🖼 图片生成</span>
+              <span style="border:1px solid var(--border);border-radius:4px;padding:2px 5px;">🎬 视频生成</span>
+              <span style="border:1px solid var(--accent);border-radius:4px;padding:2px 5px;background:var(--selected-bg);">📂 工具</span>
+              <span style="border:1px solid var(--border);border-radius:4px;padding:2px 5px;">💰 充值</span>
+            </div>
+          </div>
+          <div style="border:1px solid var(--accent);border-radius:6px;padding:6px 8px;margin-bottom:5px;background:var(--selected-bg);">
+            <b>② 选中按钮的行为</b>
+            <div style="color:var(--text-secondary);font-size:9px;">功能：显示子按钮 ▾ · 本层说明：…</div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin-bottom:5px;">
+            <b>③ 子按钮</b>
+            <div style="display:flex;gap:4px;margin-top:4px;">
+              <span style="border:1px solid var(--border);border-radius:4px;padding:2px 5px;">AI 修图</span>
+              <span style="border:1px solid var(--border);border-radius:4px;padding:2px 5px;">抠图</span>
+            </div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text-tertiary);">
+            <b>④ 预览</b>（只读 TG 模拟，展开查看）
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 步骤式表单</h3>
+      <p>沿用工作流编辑器的做法：主键盘 → 行为 → 子按钮 → 预览，一列走完。线性、清晰，但预览和配置分开了。</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:1.5rem;">点卡片选择（或直接在终端告诉我）：A 把「配置」和「预览」合在一起、所见即所得；B 更线性但预览在最后一步。选哪个？</p>

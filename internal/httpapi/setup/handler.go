@@ -335,7 +335,6 @@ func mergePlatformSettings(existing, in settings.Settings) settings.Settings {
 	out.BlobBucket = in.BlobBucket
 	out.BlobAccessKey = unmaskSecret(in.BlobAccessKey)
 	out.BlobSecretKey = unmaskSecret(in.BlobSecretKey)
-	out.AutoSpawnEdge = in.AutoSpawnEdge
 	out.ProxyKind = in.ProxyKind
 	out.ProxyHost = in.ProxyHost
 	out.ProxyPort = in.ProxyPort

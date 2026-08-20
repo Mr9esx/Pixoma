@@ -1,16 +1,13 @@
-package instance_test
+package edge_test
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -20,33 +17,33 @@ func TestPool_RefreshAndHealthyFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.InstanceRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.EdgeRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	repo := persistence.NewInstanceRepository(gdb)
+	repo := persistence.NewEdgeRepository(gdb)
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	if err := repo.Upsert(ctx, &instance.Record{
-		ID: "gpu-1", BaseURL: "http://127.0.0.1:8188", Enabled: true,
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID: "gpu-1", Enabled: true,
 		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.Upsert(ctx, &instance.Record{
-		ID: "gpu-2", BaseURL: "http://127.0.0.1:8189", Enabled: false,
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID: "gpu-2", Enabled: false,
 		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	pool := instance.NewPool(repo, instance.PoolOptions{Mock: false})
+	pool := edge.NewPool(repo, edge.PoolOptions{})
 	if err := pool.Refresh(ctx); err != nil {
 		t.Fatalf("refresh: %v", err)
 	}
 
 	pool.SetHealthy("gpu-1", true)
-	healthy, err := pool.ListHealthy(ctx, instance.CapabilityFilter{})
+	healthy, err := pool.ListHealthy(ctx, edge.CapabilityFilter{})
 	if err != nil {
 		t.Fatalf("list healthy: %v", err)
 	}
@@ -54,57 +51,51 @@ func TestPool_RefreshAndHealthyFilter(t *testing.T) {
 		t.Fatalf("healthy=%v", healthy)
 	}
 
-	// Update base_url and refresh; Client must point at new URL.
-	if err := repo.Upsert(ctx, &instance.Record{
-		ID: "gpu-1", BaseURL: "http://127.0.0.1:9191", Enabled: true,
-		CreatedAt: now, UpdatedAt: now.Add(time.Second),
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := pool.Refresh(ctx); err != nil {
-		t.Fatalf("refresh after url change: %v", err)
-	}
-	cli, err := pool.Client("gpu-1")
-	if err != nil {
-		t.Fatalf("client: %v", err)
-	}
-	httpCli, ok := cli.(*comfyui.HTTP)
-	if !ok {
-		t.Fatalf("client type %T", cli)
-	}
-	if httpCli.BaseURL != "http://127.0.0.1:9191" {
-		t.Fatalf("client base_url=%q", httpCli.BaseURL)
-	}
-
 	// Disabled remains excluded even if marked healthy.
 	pool.SetHealthy("gpu-2", true)
-	healthy, err = pool.ListHealthy(ctx, instance.CapabilityFilter{})
+	healthy, err = pool.ListHealthy(ctx, edge.CapabilityFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, h := range healthy {
-		if h.ID == sharedkernel.InstanceID("gpu-2") {
+		if h.ID == sharedkernel.EdgeID("gpu-2") {
 			t.Fatal("disabled gpu-2 must not appear in ListHealthy")
 		}
 	}
 }
 
-func TestSeedFromConfig_SingleBaseURL(t *testing.T) {
+func TestSeedFromConfig_OnlyExplicitEdges(t *testing.T) {
 	dsn := "file:comfy_seed_test_" + t.Name() + "?mode=memory&cache=shared"
 	gdb, err := db.Open(db.Options{DSN: dsn})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.InstanceRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.EdgeRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	repo := persistence.NewInstanceRepository(gdb)
+	repo := persistence.NewEdgeRepository(gdb)
 	ctx := context.Background()
 
-	n, err := instance.SeedFromConfig(ctx, repo, instance.SeedConfig{
-		DefaultInstanceID: "local",
-		ComfyUIBaseURL:    "http://127.0.0.1:8188",
-		ComfyMock:         true,
+	// 没有显式 comfy_instances 时不再插入默认节点。
+	n, err := edge.SeedFromConfig(ctx, repo, edge.SeedConfig{})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("seeded=%d", n)
+	}
+	rows, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("expected no rows, got %d", len(rows))
+	}
+
+	// 显式列表仍然按配置种子插入。
+	enabled := true
+	n, err = edge.SeedFromConfig(ctx, repo, edge.SeedConfig{
+		Edges: []edge.SeedInstance{{ID: "gpu-1", Enabled: &enabled}},
 	})
 	if err != nil {
 		t.Fatalf("seed: %v", err)
@@ -112,11 +103,11 @@ func TestSeedFromConfig_SingleBaseURL(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("seeded=%d", n)
 	}
-	got, err := repo.Get(ctx, "local")
+	got, err := repo.Get(ctx, "gpu-1")
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	if got.BaseURL != "http://127.0.0.1:8188" || !got.Enabled {
+	if !got.Enabled {
 		t.Fatalf("got=%+v", got)
 	}
 }
@@ -127,23 +118,23 @@ func TestPool_AfterRefreshCalledWithInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.InstanceRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.EdgeRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	repo := persistence.NewInstanceRepository(gdb)
+	repo := persistence.NewEdgeRepository(gdb)
 	ctx := context.Background()
 	now := time.Now().UTC()
 
-	if err := repo.Upsert(ctx, &instance.Record{
-		ID: "gpu-1", BaseURL: "http://127.0.0.1:8188", Enabled: true,
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID: "gpu-1", Enabled: true,
 		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	var seen []sharedkernel.InstanceID
-	pool := instance.NewPool(repo, instance.PoolOptions{Mock: true})
-	pool.SetAfterRefresh(func(instances []instance.Instance) {
+	var seen []sharedkernel.EdgeID
+	pool := edge.NewPool(repo, edge.PoolOptions{})
+	pool.SetAfterRefresh(func(instances []edge.Instance) {
 		seen = nil
 		for _, inst := range instances {
 			seen = append(seen, inst.ID)
@@ -156,8 +147,8 @@ func TestPool_AfterRefreshCalledWithInstances(t *testing.T) {
 		t.Fatalf("after first refresh seen=%v", seen)
 	}
 
-	if err := repo.Upsert(ctx, &instance.Record{
-		ID: "gpu-new", BaseURL: "http://127.0.0.1:8190", Enabled: true,
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID: "gpu-new", Enabled: true,
 		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
@@ -176,48 +167,5 @@ func TestPool_AfterRefreshCalledWithInstances(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("seen=%v missing gpu-new", seen)
-	}
-}
-
-func TestPool_ProbeMarksUnhealthy(t *testing.T) {
-	dsn := "file:comfy_probe_test_" + t.Name() + "?mode=memory&cache=shared"
-	gdb, err := db.Open(db.Options{DSN: dsn})
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	if err := db.AutoMigrate(gdb, &persistence.InstanceRow{}); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
-	repo := persistence.NewInstanceRepository(gdb)
-	ctx := context.Background()
-	now := time.Now().UTC()
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "down", http.StatusServiceUnavailable)
-	}))
-	t.Cleanup(srv.Close)
-
-	if err := repo.Upsert(ctx, &instance.Record{
-		ID: "gpu-down", BaseURL: srv.URL, Enabled: true,
-		CreatedAt: now, UpdatedAt: now,
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	pool := instance.NewPool(repo, instance.PoolOptions{Mock: false})
-	if err := pool.Refresh(ctx); err != nil {
-		t.Fatal(err)
-	}
-	pool.SetHealthy("gpu-down", true)
-	pool.Probe(ctx)
-
-	healthy, err := pool.ListHealthy(ctx, instance.CapabilityFilter{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, h := range healthy {
-		if h.ID == "gpu-down" {
-			t.Fatal("unreachable instance must leave ListHealthy")
-		}
 	}
 }

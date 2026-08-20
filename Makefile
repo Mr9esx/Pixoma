@@ -1,4 +1,6 @@
-.PHONY: build test run run-mock run-admin-api embed-admin dev
+DATA_DIR ?= data
+
+.PHONY: build test run run-mock run-admin-api embed-admin clean dev
 
 build:
 	go build -o bin/pixoma ./apps/pixoma/cmd/pixoma
@@ -24,3 +26,10 @@ embed-admin:
 	cd web/admin && pnpm build
 	rm -rf apps/pixoma/internal/webembed/dist
 	cp -R web/admin/dist apps/pixoma/internal/webembed/dist
+
+# Stop pixoma first. DATA_DIR=... if not using data/.
+clean:
+	@if [ -z "$(DATA_DIR)" ] || [ "$(DATA_DIR)" = "." ] || [ "$(DATA_DIR)" = "/" ]; then \
+		echo "refusing to clean DATA_DIR=$(DATA_DIR)"; exit 1; \
+	fi
+	rm -rf "$(DATA_DIR)"

@@ -33,20 +33,6 @@ type OpenCase struct {
 func (OpenCase) ID() string          { return "open_case" }
 func (OpenCase) DisplayName() string { return "打开工作流" }
 
-// AdminParamsSchema exposes only the admin-configurable list entry params.
-func (OpenCase) AdminParamsSchema() json.RawMessage {
-	return json.RawMessage(`{
-		"type": "object",
-		"properties": {
-			"case_ids": {
-				"type": "array",
-				"items": { "type": "string" },
-				"x-admin": { "widget": "workflow_picker" }
-			}
-		}
-	}`)
-}
-
 func (OpenCase) ParamsSchema() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
@@ -199,9 +185,12 @@ func (o OpenCase) list(ctx context.Context, params map[string]any) (protocol.Res
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
-	ids, _ := params["case_ids"].([]any)
+	ids := params["case_ids"].([]any)
+	if raw, ok := params["workflow_ids"].([]any); ok && len(raw) > 0 {
+		ids = raw
+	}
 	if len(ids) == 0 {
-		return protocol.Result{}, fmt.Errorf("open_case: case_ids required")
+		return protocol.Result{Text: "暂无可用工作流"}, nil
 	}
 	var options []protocol.Option
 	for _, raw := range ids {

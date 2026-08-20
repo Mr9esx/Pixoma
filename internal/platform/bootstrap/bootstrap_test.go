@@ -1,6 +1,7 @@
 package bootstrap_test
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -132,5 +133,28 @@ func TestChangePassword(t *testing.T) {
 	}
 	if ok {
 		t.Fatal("old password must fail")
+	}
+}
+
+func TestSetPassword(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bootstrap.db")
+	st, creds, err := bootstrap.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if err := st.SetPassword(creds.Username, "new-secret-pass"); err != nil {
+		t.Fatal(err)
+	}
+	if st.MustChangePassword() {
+		t.Fatal("must-change should clear after set")
+	}
+	ok, err := st.VerifyPassword(creds.Username, "new-secret-pass")
+	if err != nil || !ok {
+		t.Fatalf("new password: ok=%v err=%v", ok, err)
+	}
+	if err := st.SetPassword(creds.Username, "another-secret"); !errors.Is(err, bootstrap.ErrPasswordAlreadySet) {
+		t.Fatalf("second set: %v", err)
 	}
 }

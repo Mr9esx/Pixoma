@@ -25,6 +25,7 @@ var (
 	ErrNotInitialized     = errors.New("bootstrap: platform not initialized")
 	ErrInvalidCredentials = errors.New("bootstrap: invalid credentials")
 	ErrWeakPassword       = errors.New("bootstrap: password too short")
+	ErrPasswordAlreadySet = errors.New("bootstrap: password already set")
 )
 
 // Credentials is returned only when a new default password is minted (first Open).
@@ -204,6 +205,34 @@ func (s *Store) ChangePassword(username, oldPassword, newPassword string) error 
 			return ErrInvalidCredentials
 		}
 		return err
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.db.Model(&metaRow{}).Where("id = ?", metaKey).Updates(map[string]any{
+		"admin_password_hash":  string(hash),
+		"must_change_password": false,
+	}).Error
+}
+
+// SetPassword sets the admin password after first login. It only works while
+// MustChangePassword is true — the session already proved the bootstrap secret.
+func (s *Store) SetPassword(username, newPassword string) error {
+	if len(newPassword) < 8 {
+		return ErrWeakPassword
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, err := s.load()
+	if err != nil {
+		return err
+	}
+	if username != row.AdminUsername {
+		return ErrInvalidCredentials
+	}
+	if !row.MustChangePassword {
+		return ErrPasswordAlreadySet
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {

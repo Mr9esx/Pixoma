@@ -4,31 +4,31 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/instance"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 type Registry struct {
-	items []instance.Instance
+	items []edge.Instance
 }
 
-func New(items ...instance.Instance) *Registry {
-	out := make([]instance.Instance, len(items))
+func New(items ...edge.Instance) *Registry {
+	out := make([]edge.Instance, len(items))
 	copy(out, items)
 	return &Registry{items: out}
 }
 
-func (r *Registry) ListHealthy(_ context.Context, filter instance.CapabilityFilter) ([]instance.Instance, error) {
+func (r *Registry) ListHealthy(_ context.Context, filter edge.CapabilityFilter) ([]edge.Instance, error) {
 	return r.list(filter)
 }
 
-func (r *Registry) ListEnabled(_ context.Context, filter instance.CapabilityFilter) ([]instance.Instance, error) {
+func (r *Registry) ListEnabled(_ context.Context, filter edge.CapabilityFilter) ([]edge.Instance, error) {
 	return r.list(filter)
 }
 
-func (r *Registry) list(filter instance.CapabilityFilter) ([]instance.Instance, error) {
+func (r *Registry) list(filter edge.CapabilityFilter) ([]edge.Instance, error) {
 	if len(filter.AnyOf) == 0 {
-		out := make([]instance.Instance, len(r.items))
+		out := make([]edge.Instance, len(r.items))
 		copy(out, r.items)
 		return out, nil
 	}
@@ -36,7 +36,7 @@ func (r *Registry) list(filter instance.CapabilityFilter) ([]instance.Instance, 
 	for _, c := range filter.AnyOf {
 		need[c] = struct{}{}
 	}
-	var out []instance.Instance
+	var out []edge.Instance
 	for _, it := range r.items {
 		for _, c := range it.Capabilities {
 			if _, ok := need[c]; ok {
@@ -48,14 +48,14 @@ func (r *Registry) list(filter instance.CapabilityFilter) ([]instance.Instance, 
 	return out, nil
 }
 
-func (r *Registry) Get(_ context.Context, id sharedkernel.InstanceID) (*instance.Instance, error) {
+func (r *Registry) Get(_ context.Context, id sharedkernel.EdgeID) (*edge.Instance, error) {
 	for i := range r.items {
 		if r.items[i].ID == id {
 			cp := r.items[i]
 			return &cp, nil
 		}
 	}
-	return nil, fmt.Errorf("instance: %s not found", id)
+	return nil, fmt.Errorf("edge: %s not found", id)
 }
 
-var _ instance.Registry = (*Registry)(nil)
+var _ edge.Registry = (*Registry)(nil)

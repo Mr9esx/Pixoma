@@ -9,13 +9,13 @@ import (
 )
 
 // Key is the Redis heartbeat key written by edge-agent.
-func Key(instanceID sharedkernel.InstanceID) string {
-	return "edge:online:" + string(instanceID)
+func Key(edgeID sharedkernel.EdgeID) string {
+	return "edge:online:" + string(edgeID)
 }
 
 // Checker returns an Online filter that treats a live TTL key as presence.
-func Checker(rdb goredis.Cmdable) func(context.Context, sharedkernel.InstanceID) bool {
-	return func(ctx context.Context, id sharedkernel.InstanceID) bool {
+func Checker(rdb goredis.Cmdable) func(context.Context, sharedkernel.EdgeID) bool {
+	return func(ctx context.Context, id sharedkernel.EdgeID) bool {
 		if rdb == nil || id == "" {
 			return false
 		}

@@ -36,8 +36,6 @@ import (
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
-	menuapp "github.com/mr9esx/comfyui_tgbot/internal/menu/application"
-	tgmenupersist "github.com/mr9esx/comfyui_tgbot/internal/menu/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
@@ -137,15 +135,19 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			&sesspersist.SessionRow{},
 			&taskpersist.TaskRow{},
 			&channelpersist.ChannelRow{},
-			&tgmenupersist.ChannelMenuRow{},
-			&tgmenupersist.ChannelMenuItemRow{},
-			&tgmenupersist.ChannelMenuItemCaseRow{},
-			&tgmenupersist.ChannelMenuExtraRow{},
 			&mencardpersist.MainMenuRow{},
 			&mencardpersist.CardRow{},
 		},
 	})
 	if err != nil {
+		return err
+	}
+	if err := gdb.Migrator().DropTable(
+		"channel_menus",
+		"channel_menu_items",
+		"channel_menu_item_cases",
+		"channel_menu_item_extras",
+	); err != nil {
 		return err
 	}
 	defer func() { _ = cleanup() }()
@@ -203,13 +205,6 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			return n > 0, nil
 		},
 	}
-	menuStore := tgmenupersist.NewGormRepository(gdb)
-	menuSvc := &menuapp.Service{
-		Store:            menuStore,
-		Cases:            menuapp.CatalogCaseChecker{Repo: caseRepo},
-		ListImageCaseIDs: menuapp.CatalogImageCaseIDs(caseRepo),
-	}
-
 	bus := memory.New()
 	defer func() { _ = bus.Close() }()
 	snap := &actuator.CaseSnapshot{
@@ -224,14 +219,13 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		SessionStore: sessionRepo,
 		Tasks:        taskRepo,
 		Users:        userRepo,
-		Menu:         menuSvc,
+		MenuCards:    mencardpersist.NewGormCardRepository(gdb),
 		Blob:         blobStore,
 		Bus:          bus,
 	})
 	if err != nil {
 		return err
 	}
-	menuSvc.Capabilities = app.MenuCapabilityChecker{Reg: botRT.Capabilities}
 	orch := orchestrator.New(taskRepo, pool, nil, botRT.Notify)
 	orch.Sessions = sessionRepo
 	orch.Prep = snap

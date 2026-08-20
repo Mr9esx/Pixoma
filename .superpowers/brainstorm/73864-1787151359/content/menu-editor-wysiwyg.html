@@ -1,0 +1,124 @@
+<h2>所见即所得编辑器：完整交互稿</h2>
+<p class="subtitle">左边是 Telegram 手机模拟（点按钮 = 用户在 TG 里点），右边只配「当前选中的按钮」，改动即时反映到左边。</p>
+
+<div class="mockup">
+  <div class="mockup-header">菜单配置 · 图片助手（TG）</div>
+  <div class="mockup-body">
+    <div style="max-width:920px;margin:0 auto;font-size:13px;">
+      <!-- 顶栏 -->
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--bg-primary);">
+        <b>图片助手</b>
+        <span style="color:var(--success);font-size:12px;">● 启用</span>
+        <span style="margin-left:auto;color:var(--text-tertiary);font-size:12px;">未保存的改动：2 处</span>
+        <span style="background:var(--accent);color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;">保存</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;margin-top:14px;">
+        <!-- 左：手机模拟 -->
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg-secondary);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+            <b style="font-size:12px;">用户视角（Telegram）</b>
+            <span style="font-size:11px;color:var(--text-tertiary);">点下面的按钮试试</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--accent);text-decoration:underline;">刷新</span>
+          </div>
+
+          <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg-primary);">
+            <!-- 聊天区 -->
+            <div style="padding:12px;min-height:230px;display:flex;flex-direction:column;gap:8px;">
+              <div style="align-self:flex-start;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:12px;max-width:85%;">
+                欢迎使用图片助手，请选择功能 👇
+              </div>
+              <div style="align-self:flex-end;background:var(--accent);color:#fff;border-radius:10px;padding:8px 10px;font-size:12px;">
+                📂 工具
+              </div>
+              <div style="align-self:flex-start;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:12px;max-width:85%;">
+                处理图片的小工具们，选一个开始 👇
+                <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 8px;background:var(--selected-bg);font-size:11px;">AI 修图</span>
+                  <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 8px;font-size:11px;">抠图</span>
+                </div>
+                <div style="margin-top:6px;font-size:11px;color:var(--text-tertiary);">‹ 返回主菜单</div>
+              </div>
+            </div>
+            <!-- 输入条 -->
+            <div style="border-top:1px solid var(--border);padding:8px 10px;color:var(--text-tertiary);font-size:11px;">
+              ⌨ 点击下方按钮或输入文字…
+            </div>
+            <!-- 主键盘 -->
+            <div style="border-top:1px solid var(--border);padding:8px;">
+              <div style="display:flex;gap:6px;margin-bottom:6px;">
+                <span style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--bg-secondary);">🖼 图片生成</span>
+                <span style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--bg-secondary);">🎬 视频生成</span>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <span style="flex:1;border:2px solid var(--accent);border-radius:8px;padding:6px 0;text-align:center;font-size:12px;background:var(--selected-bg);">📂 工具</span>
+                <span style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;background:var(--bg-secondary);">💰 充值</span>
+              </div>
+            </div>
+          </div>
+          <p style="margin-top:8px;font-size:11px;color:var(--text-tertiary);">
+            ⚠ 模拟里只支持一层子按钮（TG 键盘限制）；主键盘建议不超过 6 个按钮。
+          </p>
+        </div>
+
+        <!-- 右：配置面板 -->
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg-secondary);">
+          <div style="font-size:11px;color:var(--text-tertiary);">当前编辑</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:2px 0 10px;">
+            <b style="font-size:14px;">📂 工具</b>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-tertiary);text-decoration:underline;">删除按钮</span>
+          </div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">按钮上显示的名字</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:10px;background:var(--bg-primary);font-size:12px;">📂 工具</div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">这个按钮做什么</div>
+          <div style="border:1px solid var(--accent);border-radius:6px;padding:7px 9px;margin-bottom:10px;background:var(--bg-primary);font-size:12px;">显示子按钮 ▾</div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">点进来先看到的文字</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:10px;background:var(--bg-primary);font-size:12px;color:var(--text-secondary);min-height:38px;">处理图片的小工具们，选一个开始 👇</div>
+
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">子按钮（按顺序显示）</div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:6px;background:var(--bg-primary);margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:5px;background:var(--selected-bg);font-size:12px;">
+              AI 修图 <span style="margin-left:auto;color:var(--accent);">›</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:12px;">
+              抠图 <span style="margin-left:auto;color:var(--text-tertiary);">›</span>
+            </div>
+            <div style="padding:6px 8px;border-top:1px dashed var(--border);color:var(--text-tertiary);font-size:11px;">＋ 加一个子按钮</div>
+          </div>
+
+          <div style="border-top:1px dashed var(--border);padding-top:10px;">
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;">主键盘整体</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+              <span>每行按钮数</span>
+              <span style="border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--bg-primary);">2 ▾</span>
+            </div>
+          </div>
+
+          <div style="border-top:1px dashed var(--border);margin-top:10px;padding-top:8px;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:var(--text-tertiary);">高级（ID / 排序）</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--accent);">▾</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:1.5rem;">这一稿要确认的点：</p>
+<div class="options">
+  <div class="option" data-choice="ok" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content"><h3>整体 OK，继续细化</h3><p>接着画「功能」下的具体表单（打开工作流/提示文字/回复图文）和保存校验。</p></div>
+  </div>
+  <div class="option" data-choice="clickable" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content"><h3>手机模拟要能点到底</h3><p>点「AI 修图」还要能模拟工作流的填表/确认流程，而不只是菜单层。</p></div>
+  </div>
+  <div class="option" data-choice="panel" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content"><h3>配置面板有遗漏</h3><p>比如按钮排序、复制、主键盘超 6 个的提示、回复图文等，需要补上。</p></div>
+  </div>
+</div>

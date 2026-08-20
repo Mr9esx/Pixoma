@@ -1,0 +1,93 @@
+<h2>细化：功能表单 + 保存校验</h2>
+<p class="subtitle">选完「这个按钮做什么」后，下面自动出现对应的参数表单（表单由后端能力注册表的 schema 驱动，不写死在页面里）。</p>
+
+<div class="cards">
+  <!-- A: 打开工作流 -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="width:94%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:left;font-size:11px;">
+        <div style="padding:8px 10px;border-bottom:1px solid var(--border);background:var(--bg-primary);font-weight:600;">按钮做什么：打开工作流 ▾</div>
+        <div style="padding:10px;">
+          <div style="font-size:10px;color:var(--text-secondary);">用户点这个按钮后，会看到这些工作流：</div>
+          <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
+            <span style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;background:var(--bg-primary);">🔍 搜索…</span>
+          </div>
+          <div style="margin-top:6px;border:1px solid var(--border);border-radius:6px;padding:5px 7px;background:var(--bg-primary);">
+            <div style="display:flex;align-items:center;gap:5px;padding:3px 0;"><span style="border:1px solid var(--accent);border-radius:3px;width:12px;height:12px;background:var(--accent);"></span>图片编辑 · ¥20</div>
+            <div style="display:flex;align-items:center;gap:5px;padding:3px 0;"><span style="border:1px solid var(--border);border-radius:3px;width:12px;height:12px;"></span>文生图 · ¥15</div>
+            <div style="display:flex;align-items:center;gap:5px;padding:3px 0;"><span style="border:1px solid var(--border);border-radius:3px;width:12px;height:12px;"></span>视频生成 · ¥50</div>
+          </div>
+          <div style="margin-top:8px;font-size:10px;color:var(--text-tertiary);">✓ 表单内容来自能力注册表的参数 schema，以后加新能力不用改页面</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>打开工作流</h3>
+      <p>选工作流（可搜索、多选）；用户点按钮后先看到工作流列表再进入。</p>
+    </div>
+  </div>
+
+  <!-- B: 提示文字 -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="width:94%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:left;font-size:11px;">
+        <div style="padding:8px 10px;border-bottom:1px solid var(--border);background:var(--bg-primary);font-weight:600;">按钮做什么：提示文字 ▾</div>
+        <div style="padding:10px;">
+          <div style="font-size:10px;color:var(--text-secondary);">用户点这个按钮后，只看到这段话：</div>
+          <div style="margin-top:6px;border:1px solid var(--border);border-radius:6px;padding:7px 9px;background:var(--bg-primary);min-height:48px;color:var(--text-secondary);font-size:11px;">充值功能即将上线，敬请期待～</div>
+          <div style="margin-top:8px;font-size:10px;color:var(--text-tertiary);">留空则显示「XX：暂未开放」</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>提示文字</h3>
+      <p>只回复一段固定文字，适合「即将上线」「活动说明」这类占位按钮。</p>
+    </div>
+  </div>
+
+  <!-- C: 回复图文 -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="width:94%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:left;font-size:11px;">
+        <div style="padding:8px 10px;border-bottom:1px solid var(--border);background:var(--bg-primary);font-weight:600;">按钮做什么：回复图文 ▾</div>
+        <div style="padding:10px;">
+          <div style="font-size:10px;color:var(--text-secondary);">回复文字</div>
+          <div style="margin-top:4px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;background:var(--bg-primary);color:var(--text-secondary);font-size:11px;">这是我们的联系方式 👇</div>
+          <div style="font-size:10px;color:var(--text-secondary);margin-top:8px;">图片链接（每行一个）</div>
+          <div style="margin-top:4px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;background:var(--bg-primary);color:var(--text-tertiary);font-size:10px;font-family:ui-monospace,monospace;">https://…/qrcode.png</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>回复图文</h3>
+      <p>点完直接回复一段文字 + 若干图片，适合联系方式、公告、广告位。</p>
+    </div>
+  </div>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">保存校验状态（顶栏右侧 + 手机模拟联动）</div>
+  <div class="mockup-body">
+    <div style="max-width:920px;margin:0 auto;">
+      <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--error);border-radius:8px;padding:8px 12px;background:rgba(255,59,48,0.06);font-size:12px;">
+        <span style="color:var(--error);font-weight:600;">✗ 有 1 个问题，还不能保存</span>
+        <span style="color:var(--text-secondary);">主键盘有 7 个按钮（最多 6 个）· 「AI 修图」还没选功能</span>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-tertiary);">
+        对应位置会在手机模拟和配置面板里标红；问题清空后按钮才可点，保存成功显示「已保存」。
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:1.5rem;">最后一个方向问题：提示文字 / 回复图文怎么建模？</p>
+<div class="options">
+  <div class="option" data-choice="builtin" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content"><h3>内置展示能力（推荐）</h3><p>把「提示文字」「回复图文」也注册成能力（registry 里有 schema），编辑器逻辑完全统一：选能力 → schema 表单。加新展示类型不用改页面。</p></div>
+  </div>
+  <div class="option" data-choice="special" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content"><h3>保留特殊表单</h3><p>提示/回复作为菜单项内置字段，前端特判渲染。改动小，但以后每加一种展示都要改前端。</p></div>
+  </div>
+</div>

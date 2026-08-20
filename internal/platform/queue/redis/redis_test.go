@@ -20,9 +20,9 @@ func TestPublishSubscribeRoundTrip(t *testing.T) {
 	t.Cleanup(func() { _ = client.Close() })
 
 	bus, err := queueredis.New(queueredis.Options{
-		Client:       client,
+		Client:        client,
 		ConsumerGroup: "test-group",
-		ConsumerName: "edge-1",
+		ConsumerName:  "edge-1",
 	})
 	if err != nil {
 		t.Fatal(err)

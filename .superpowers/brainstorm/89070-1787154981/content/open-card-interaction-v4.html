@@ -1,0 +1,80 @@
+<h2>「打开卡片」动作：用户视角 + 编辑视角</h2>
+<p class="subtitle">点卡片按钮「风格说明」→ 机器人发出新卡片（内容 + 它自己的按钮），上一张卡片留在聊天记录里；新卡片自动带一个「‹ 返回」按钮，返回来源。</p>
+
+<div class="split">
+  <!-- 左：用户视角 -->
+  <div class="mockup">
+    <div class="mockup-header">用户视角（TG）</div>
+    <div class="mockup-body">
+      <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg-primary);font-size:12px;">
+        <div style="padding:12px;display:flex;flex-direction:column;gap:8px;">
+          <div style="align-self:flex-start;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:8px 10px;max-width:90%;">
+            <b>开始生成</b>
+            <div style="color:var(--text-secondary);margin-top:3px;">选一种风格：</div>
+            <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
+              <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;">写实风格</span>
+              <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;">二次元</span>
+              <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;background:var(--selected-bg);font-size:11px;">风格说明</span>
+            </div>
+          </div>
+          <div style="align-self:flex-end;background:var(--accent);color:#fff;border-radius:10px;padding:7px 10px;font-size:11px;">风格说明</div>
+          <!-- 新卡片 -->
+          <div style="align-self:flex-start;background:var(--bg-secondary);border:1px solid var(--accent);border-radius:12px;padding:10px;max-width:90%;">
+            <b>风格说明</b>
+            <div style="color:var(--text-secondary);margin-top:3px;">写实风 = 照片级真实；二次元 = 动漫手绘；混合 = 两者之间。</div>
+            <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
+              <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;">看示例</span>
+              <span style="border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;">联系客服</span>
+            </div>
+            <div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:6px;font-size:11px;color:var(--text-tertiary);">‹ 返回开始生成</div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding:8px;font-size:11px;color:var(--text-tertiary);">[ 主键盘 ] 🖼 图片生成 | 🎬 视频生成 | 💰 充值 | 🆘 帮助</div>
+      </div>
+      <p style="margin-top:8px;font-size:11px;color:var(--text-tertiary);">「‹ 返回开始生成」是自动生成的：记录来源，点一下回到上一张卡片；从主键盘直接进入的卡片，返回按钮 = 返回主菜单。</p>
+    </div>
+  </div>
+
+  <!-- 右：编辑视角 -->
+  <div class="mockup">
+    <div class="mockup-header">编辑视角（同一处继续展开）</div>
+    <div class="mockup-body">
+      <div style="font-size:11px;color:var(--text-tertiary);">面包屑：主键盘 › 图片生成 › 卡片 › <b>风格说明</b></div>
+      <div style="margin-top:8px;border:1px solid var(--accent);border-radius:8px;padding:10px;background:var(--bg-primary);">
+        <div style="font-size:10px;color:var(--text-tertiary);">③ 按钮「风格说明」</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin:6px 0 3px;">点击后做什么</div>
+        <div style="border:1px solid var(--accent);border-radius:5px;padding:5px 8px;font-size:12px;background:var(--selected-bg);">打开卡片 ▾</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin:8px 0 3px;">打开哪张卡片</div>
+        <div style="border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;">＋ 新建「风格说明」<span style="color:var(--text-tertiary);font-size:11px;">（就地编辑，或从已有卡片选）</span></div>
+      </div>
+      <div style="margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--bg-primary);">
+        <div style="font-size:10px;color:var(--text-tertiary);">④ 新卡片「风格说明」（就地展开）</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin:6px 0 3px;">卡片文字</div>
+        <div style="border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;color:var(--text-secondary);min-height:34px;">写实风 = 照片级真实；二次元 = 动漫手绘…</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin:8px 0 3px;">卡片按钮</div>
+        <div style="border:1px solid var(--border);border-radius:5px;padding:5px;">
+          <div style="padding:4px 6px;font-size:12px;">看示例 › <span style="color:var(--text-tertiary);font-size:10px;">打开卡片</span></div>
+          <div style="padding:4px 6px;font-size:12px;">联系客服 › <span style="color:var(--text-tertiary);font-size:10px;">发文字</span></div>
+          <div style="padding:4px 6px;border-top:1px dashed var(--border);color:var(--text-tertiary);font-size:11px;">＋ 加一个按钮</div>
+        </div>
+      </div>
+      <p style="margin-top:8px;font-size:11px;color:var(--text-tertiary);">「返回」不用配置：任何卡片默认有返回入口（返回来源），根卡片返回主菜单。编辑器里点面包屑回跳，点「看示例」就继续展开下一张。</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:1.5rem;">确认点：返回按钮怎么处理？</p>
+<div class="options">
+  <div class="option" data-choice="auto" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content"><h3>自动返回（推荐）</h3><p>每张卡片自动带返回（回来源 / 回主菜单），不用配置，不会迷路。</p></div>
+  </div>
+  <div class="option" data-choice="manual" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content"><h3>手动配置返回</h3><p>返回按钮也当普通按钮配（自由但繁琐，且容易漏配）。</p></div>
+  </div>
+  <div class="option" data-choice="none" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content"><h3>不要返回按钮</h3><p>只靠聊天记录往上翻，卡片链最简洁但容易迷路。</p></div>
+  </div>
+</div>

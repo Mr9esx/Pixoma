@@ -12,9 +12,8 @@ func TestTranslateMenuCallback(t *testing.T) {
 		want navTarget
 	}{
 		{CBMenu, navTarget{kind: "main"}},
-		{"mf:btn-image", navTarget{kind: "group", id: "btn-image"}},
 		{"mb:root", navTarget{kind: "main"}},
-		{"mb:parent-1", navTarget{kind: "group", id: "parent-1"}},
+		{"mb:card-1", navTarget{kind: "back", id: "card-1"}},
 	}
 	for _, tc := range cases {
 		got, err := TranslateMenuCallback(tc.data)

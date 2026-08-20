@@ -21,7 +21,7 @@ User (TG) ──► Session ──► Task
 
 | 你怎么用 | 日常差别 | 文件存在哪 | 进程 |
 |---|---|---|---|
-| **本机** | 一台电脑起 `pixoma`，它会自动拉起本机 Edge | 本地目录 `data/blob` | `pixoma` + 自动 spawn 的 `pixoma-edge-agent` |
+| **本机** | 一台电脑起 `pixoma`；计算节点需在后台手动新增，再按部署命令跑 agent | 本地目录 `data/blob` | `pixoma` + 手动部署的 `pixoma-edge-agent` |
 | **远程** | 控制面在一台机器，GPU 在另一台；Edge **主动连过来领活** | S3 或火山 TOS（禁止本机目录） | `pixoma` + 远端 `pixoma-edge-agent` |
 
 完整架构：[`docs/architecture/`](docs/architecture/)。运行时：[`docs/architecture/runtime.md`](docs/architecture/runtime.md)。
@@ -41,7 +41,7 @@ go run ./apps/pixoma/cmd/pixoma
 
 改密之后，启动日志不再打印明文密码。
 
-本机路径会自动拉起 Edge（`EDGE_AUTO_SPAWN=0` 可关）。没有真 Comfy 时保持 `COMFY_MOCK=1`（默认），向导里也可勾 Mock。
+计算节点不会自动创建：本机或远程都需要在后台「新增节点」后，按部署命令手动运行 `pixoma-edge-agent`。没有真 Comfy 时保持 `COMFY_MOCK=1`（默认），向导里也可勾 Mock。
 
 ### 远程 Edge
 
@@ -75,8 +75,6 @@ go run ./apps/edge-agent/cmd/edge-agent
 | `CONTROL_PLANE_URL` / `PIXOMA_URL` | Edge | 控制面地址 |
 | `AGENT_TOKEN` | Edge | 该节点自己的 Agent Token（后台可见） |
 | `BLOB_DRIVER` | Edge / 紧急覆盖 | `localfs` / `s3` / `tos` |
-| `EDGE_AUTO_SPAWN` | pixoma | 本机是否自动拉起 Edge（默认开） |
-| `EDGE_AGENT_BIN` | pixoma | Edge 二进制路径 |
 | `METRICS_INTERVAL` | Edge | 系统指标采样/上报间隔（默认 `30s`，下限 `5s`） |
 | `METRICS_RETENTION` | 控制面 | `edge_metrics` 保留窗口（默认 `24h`） |
 | `S3_*` / `TOS_*` | 远程存储 | endpoint / region / bucket / keys |

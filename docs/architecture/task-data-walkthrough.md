@@ -54,14 +54,17 @@ Case 输入定义（摘要）：
 | `doc_json` | 完整 CaseDocument（含 `bindings.workflow`） |
 | `tags_json` | `["image","text2img"]` |
 
-### 1.2 `comfy_instances`
+### 1.2 `edges`
 
 | 列 | 样例值 |
 |---|---|
 | `id` | `local` |
+| `name` | `local` |
 | `base_url` | `http://127.0.0.1:8188`（mock 时仍可有配置值） |
 | `enabled` | `1` |
 | `capabilities_json` | `[]` |
+| `agent_token_enc` | AES-GCM 密文 |
+| `hardware_json` | CPU / 显卡（首次 presence 可写） |
 
 ### 1.3 菜单（可选）
 
@@ -87,7 +90,7 @@ Case 输入定义（摘要）：
 | B 开 Session | `sessions` INSERT | `catalog_cases` |
 | C 采输入 | `sessions` UPDATE；图片则 Blob `tg/...` | — |
 | D ConfirmRun | Blob `inputs/<task>/…`；`tasks` INSERT；`sessions` → submitted；MQ `task.created` | session draft + case |
-| E 调度 | `tasks` → queued；Blob `jobs/<task>/job.json`；MQ `dispatch.<id>` | instances / online |
+| E 调度 | `tasks` → queued；Blob `jobs/<task>/job.json`；MQ `dispatch.<id>` | edges / online |
 | F 执行 | Blob `outputs/…`；MQ `task.status`；Comfy HTTP | Blob job + images |
 | G 收敛 | `tasks` UPDATE；进程内 Notify → TG API | session.chat_id |
 
@@ -224,7 +227,7 @@ Case 输入定义（摘要）：
 | `session_id` | `sess-20260811-001` |
 | `case_id` | `text2img-demo` |
 | `status` | `pending` |
-| `instance_id` | `""` |
+| `edge_id` | `""` |
 | `prompt_id` | `""` |
 | `input_prefix` | `inputs/task-a1b2c3d4` |
 | `outputs_json` | `[]` |
@@ -285,7 +288,7 @@ Adapter：`已排队\ntask=task-a1b2c3d4\n完成后会把图片发回来。`（T
 | 列 | 新值 |
 |---|---|
 | `status` | `queued` |
-| `instance_id` | `local` |
+| `edge_id` | `local` |
 | `updated_at` | `T0+5.1s` |
 
 认领失败（已被别人抢走）则不再发 dispatch。
@@ -309,7 +312,7 @@ Adapter：`已排队\ntask=task-a1b2c3d4\n完成后会把图片发回来。`（T
 ```json
 {
   "task_id": "task-a1b2c3d4",
-  "instance_id": "local",
+  "edge_id": "local",
   "workflow": {
     "1": {
       "class_type": "Stub",
@@ -327,19 +330,19 @@ Adapter：`已排队\ntask=task-a1b2c3d4\n完成后会把图片发回来。`（T
 - image 字段放在 `images[]`，由执行面本机 `UploadImage` 后再写节点。  
 - **执行面不读 Case/Task DB** 拼装图。
 
-Prepare 失败会 **rollback** claim：`status` 回到 `pending`，`instance_id` 清空。
+Prepare 失败会 **rollback** claim：`status` 回到 `pending`，`edge_id` 清空。
 
 ### 7.4 MQ：`dispatch.local`
 
 | 字段 | 值 |
 |---|---|
-| Topic | `dispatch.local`（`TopicDispatch(instance_id)`） |
+| Topic | `dispatch.local`（`TopicDispatch(edge_id)`） |
 | Key | `task-a1b2c3d4` |
 
 ```json
 {
   "task_id": "task-a1b2c3d4",
-  "instance_id": "local",
+  "edge_id": "local",
   "input_prefix": "inputs/task-a1b2c3d4",
   "job_ref": {
     "key": "jobs/task-a1b2c3d4/job.json",
@@ -355,11 +358,9 @@ Prepare 失败会 **rollback** claim：`status` 回到 `pending`，`instance_id`
 
 ### 7.5 split 额外：在线心跳（非 Task 表）
 
-| Redis Key | 值 | TTL |
-|---|---|---|
-| `edge:online:local` | 任意（存在即可） | 由 edge-agent 续期 |
+Edge 每 5 秒本机探 Comfy，`POST /agent/v1/presence` `{ edge_id, comfy_running, hardware? }`，响应 `{ refresh_hardware }`。控制面内存记 `last_seen`；超过约 15 秒无报到视为工人掉线，界面 Comfy 也显示未启动。claim 长轮询与任务 heartbeat 只刷新 `last_seen`，不改 Comfy 状态。不落库、不用 Redis `edge:online:*`。
 
-云侧 `Online` 过滤器：`EXISTS edge:online:<instance_id>`。
+管理页 `GET /api/v1/edges/presence` 读这套内存，不是控制面 ping 画图机。
 
 ---
 
@@ -385,7 +386,7 @@ Prepare 失败会 **rollback** claim：`status` 回到 `pending`，`instance_id`
 ```json
 {
   "task_id": "task-a1b2c3d4",
-  "instance_id": "local",
+  "edge_id": "local",
   "status": "running",
   "prompt_id": "prompt-mock",
   "at": "2026-08-11T06:00:06Z"
@@ -403,7 +404,7 @@ Prepare 失败会 **rollback** claim：`status` 回到 `pending`，`instance_id`
 ```json
 {
   "task_id": "task-a1b2c3d4",
-  "instance_id": "local",
+  "edge_id": "local",
   "status": "succeeded",
   "prompt_id": "prompt-mock",
   "outputs": [
@@ -497,7 +498,7 @@ id            = task-a1b2c3d4
 session_id    = sess-20260811-001
 case_id       = text2img-demo
 status        = succeeded
-instance_id   = local
+edge_id       = local
 prompt_id     = prompt-mock
 input_prefix  = inputs/task-a1b2c3d4
 outputs_json  = [{"Key":"out-0","Blob":{"key":"outputs/task-a1b2c3d4/0_out.png",...}}]
@@ -537,9 +538,10 @@ task.status (succeeded)
 | `POST /api/v1/tasks/{id}/cancel` | 仅 `pending`/`queued` → `cancelled` + notify |
 | `GET /api/v1/sessions` | `sessions` |
 | `GET /api/v1/cases` | `catalog_cases` |
-| `GET /api/v1/comfy-instances/{id}/tasks` | `tasks WHERE instance_id=?` |
-| `GET /api/v1/comfy-instances/{id}/system` | 该实例 Comfy `system_stats`（非 DB） |
-| `GET /api/v1/comfy-instances/{id}/queue` | 该实例 Comfy `queue`（非 DB） |
+| `GET /api/v1/edges/{id}/tasks` | `tasks WHERE edge_id=?` |
+| `GET /api/v1/edges/{id}/system` | 该节点 Comfy `system_stats`（非 DB） |
+| `GET /api/v1/edges/{id}/queue` | 该节点 Comfy `queue`（非 DB） |
+| `GET /api/v1/edges/{id}/stats` | 该节点任务数 / 累计耗时 / 成功率 |
 
 ---
 
@@ -597,4 +599,4 @@ pending → queued → running → succeeded
 | PrepareJob / JobPackage | `internal/runtime/infrastructure/actuator/snapshot.go`、`job.go` |
 | Worker | `internal/runtime/infrastructure/actuator/worker.go` |
 | TG 适配 | `internal/channel/tg/adapter.go` |
-| Edge 在线 | `internal/platform/edgeonline/online.go` |
+| Edge 在线 | `internal/platform/presence/store.go` |

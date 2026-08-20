@@ -31,7 +31,7 @@
 │ domain.Task │ orchestrator │ actuator │ comfyui │
 └───────┬─────────────┬─────────────┬─────────────┘
         ▼             ▼             ▼
-   platform/instance  queue/blob   notify 端口
+   platform/edge  queue/blob   notify 端口
 ```
 
 ---
@@ -46,9 +46,9 @@
 | **Runtime** | `internal/runtime` | Task 状态机、Orchestrator、Actuator、Comfy Client | TG UI、User 资料 |
 | **Channel TG** | `internal/channel/tg` | Telegram 适配、菜单/回调、通知落地 | 领域规则 |
 | **TG Menu** | `internal/tgmenu` | 主键盘树持久化、校验、`MenuPlacement` 反查 | TG Inline 发送、callback 路由 |
-| **Platform** | `internal/platform` | db/blob/queue/notify/instance/botconfig | 业务决策 |
+| **Platform** | `internal/platform` | db/blob/queue/notify/edge/botconfig | 业务决策 |
 | **Packaging** | `internal/packaging/botapp` | 跨 BC 用例门面 | 基础设施实现细节 |
-| **HTTP API** | `internal/httpapi` | 实例 CRUD/观测；Case/User/Session/Task；TG Menu | TG 通道实现 |
+| **HTTP API** | `internal/httpapi` | 计算节点 CRUD/观测；Case/User/Session/Task；TG Menu | TG 通道实现 |
 | **Shared Kernel** | `internal/sharedkernel` | ID、状态枚举、事件 DTO、topic | 业务行为 |
 
 ---
@@ -95,7 +95,7 @@
 | `blob` + `blob/localfs` / `blob/s3` / `blob/tos` | 文件端口（localfs；S3 兼容；火山 TOS） |
 | `queue` + `queue/memory` | 进程内 Bus；`SubscriptionSet` |
 | `notify` | `Publisher` 端口（同步接口，非 bus） |
-| `instance` + `persistence` | `Record` / Pool / Seed；表 `comfy_instances` |
+| `edge` + `persistence` | `Record` / Pool / Seed；表 `edges` |
 
 ---
 
@@ -106,7 +106,7 @@
 3. **`channel/tg` → `botapp` → domains/platform`**；禁止 domain 反向依赖 channel。`channel/tg` 只读依赖 `tgmenu`（窄端口）；`httpapi/tgmenu` 写同一真相源；`apps/admin-api` **禁止** import `channel/tg`。
 4. **Orchestrator / Actuator** 依赖 `runtime/domain` + platform **ports**；通知只调 `notify.Publisher`，不直接 import TG。
 5. **换实现**（Memory→NATS、LocalFS→S3/TOS）= 加 port 适配器，不改 BC 边界。
-6. **已知特例**：`platform/instance.Pool` 持有 `runtime/.../comfyui.Client`（池在平台层建客户端）。
+6. **已知特例**：`platform/edge.Pool` 持有 `runtime/.../comfyui.Client`（池在平台层建客户端）。
 7. **组合根** `apps/bot` 是唯一允许全局接线的层；`apps/admin-api` 约定不依赖 `channel/tg`。
 
 ```text
@@ -123,7 +123,7 @@ sharedkernel ← domain BCs（含 tgmenu）← application / packaging ← chann
 
 ```text
 all-in-one = tg + botapp + domains + orchestrator + actuator
-           + memory queue + local blob + sqlite + instance pool
+           + memory queue + local blob + sqlite + edge pool
 ```
 
 **可拆方向（未做，边界已留）：**

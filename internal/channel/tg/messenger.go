@@ -10,17 +10,15 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
-	"github.com/mr9esx/comfyui_tgbot/internal/menu/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 // BotMessenger renders ports.Outbound through the Telegram Bot API.
 type BotMessenger struct {
-	Bot    *bot.Bot
-	Blob   blob.Store
-	Menu   MenuReader
-	Extras ExtrasReader
+	Bot  *bot.Bot
+	Blob blob.Store
+	Menu MenuReader
 }
 
 func (m *BotMessenger) SendText(ctx context.Context, addr sharedkernel.ChannelAddr, text string) error {
@@ -104,13 +102,13 @@ func (m *BotMessenger) SendMediaURL(ctx context.Context, addr sharedkernel.Chann
 
 func (m *BotMessenger) replyKeyboard(ctx context.Context) *models.ReplyKeyboardMarkup {
 	if m != nil && m.Menu != nil {
-		tree, err := m.Menu.GetMenu(ctx)
+		menu, err := m.Menu.GetMenu(ctx)
 		if err == nil {
-			return BuildReplyKeyboard(tree)
+			return BuildReplyKeyboard(menu)
 		}
-		slog.Error("tg menu load for keyboard failed; using default seed", "err", err)
+		slog.Error("tg menu load for keyboard failed; using default", "err", err)
 	}
-	return BuildReplyKeyboard(domain.DefaultSeedTree("default"))
+	return BuildReplyKeyboard(DefaultMainMenu())
 }
 
 func toInlineMarkup(rows [][]ports.Button) *models.InlineKeyboardMarkup {
