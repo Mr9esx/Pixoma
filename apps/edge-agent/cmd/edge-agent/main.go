@@ -62,14 +62,15 @@ func run(ctx context.Context) error {
 	loop := &pull.Loop{Client: client, Worker: worker, Wait: wait}
 	sampler := edgemetrics.NewSampler(comfyMock)
 	reporter := &presence.Reporter{
-		Client:          client,
-		Comfy:           comfy,
+		Client: client,
+		Comfy:  comfy,
 		Collect: func(ctx context.Context) edge.Hardware {
 			return edgehw.Collect(ctx, edgehw.InspectGHW, comfy)
 		},
 		Sample:          sampler.Sample,
 		MetricsInterval: envDuration("METRICS_INTERVAL", 30*time.Second),
 		SendHardware:    true,
+		SubscribeTopics: parseSubscribeTopics(os.Getenv("EDGE_SUBSCRIBE_TOPICS")),
 	}
 
 	slog.Info("pixoma-edge-agent running",
@@ -82,6 +83,21 @@ func run(ctx context.Context) error {
 		_ = reporter.Run(ctx)
 	}()
 	return loop.Run(ctx)
+}
+
+// parseSubscribeTopics parses a comma-separated topic list; empty means the
+// edge does not declare subscriptions (control plane falls back to default).
+func parseSubscribeTopics(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		if v := strings.TrimSpace(part); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 type errString string

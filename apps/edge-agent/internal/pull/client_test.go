@@ -148,7 +148,7 @@ func TestClient_ReportPresence(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := pull.NewClient(srv.URL, "tok", "gpu-1")
-	refresh, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, nil)
+	refresh, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestClient_ReportPresence_SendsHardwareAndReadsRefresh(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := pull.NewClient(srv.URL, "tok", "gpu-1")
 	hw := edge.Hardware{CPUModel: "Intel"}
-	refresh, err := c.ReportPresence(context.Background(), false, time.Time{}, "", &hw, nil)
+	refresh, err := c.ReportPresence(context.Background(), false, time.Time{}, "", &hw, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestClient_ReportPresence_SendsMetrics(t *testing.T) {
 		CPUUsagePercent: usage,
 		CollectedAt:     time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC),
 	}
-	if _, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, &m); err != nil {
+	if _, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, &m, nil); err != nil {
 		t.Fatal(err)
 	}
 	raw, ok := got["metrics"].(map[string]any)
@@ -224,6 +224,7 @@ func TestClient_ReportPresence_SendsStartedAtAndComfyVersion(t *testing.T) {
 		true,
 		startedAt,
 		"v0.1.0",
+		nil,
 		nil,
 		nil,
 	); err != nil {
