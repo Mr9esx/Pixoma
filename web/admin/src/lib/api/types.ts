@@ -97,6 +97,7 @@ export type CaseRecord = {
     outputs: OutputBinding[]
   }
   input_schema: Record<string, unknown>
+  workflow_filename?: string
   enabled: boolean
 }
 

@@ -81,6 +81,9 @@ export function CaseForm(props: Props) {
   const [workflowText, setWorkflowText] = useState(() =>
     stringifyObject(initial.bindings.workflow)
   )
+  const [workflowFilename, setWorkflowFilename] = useState(
+    initial.workflow_filename ?? ''
+  )
   const [graph, setGraph] = useState<WorkflowGraph | undefined>(() => {
     if (props.mode !== 'edit') return undefined
     const result = parseWorkflow(
@@ -136,6 +139,7 @@ export function CaseForm(props: Props) {
       const text = stringifyObject(updated.bindings.workflow)
       const parsed = parseWorkflow(text)
       setWorkflowText(text)
+      setWorkflowFilename(updated.workflow_filename ?? '')
       setGraph(parsed.ok ? parsed.graph : undefined)
       setImportError(parsed.ok ? undefined : parsed.error)
       setInputDrafts(toInputDrafts(updated))
@@ -215,6 +219,7 @@ export function CaseForm(props: Props) {
         ...bindings,
       },
       input_schema: inputSchema,
+      workflow_filename: workflowFilename.trim() || undefined,
     }
   }
 
@@ -262,7 +267,9 @@ export function CaseForm(props: Props) {
         value={workflowText}
         graph={graph}
         error={importError}
+        filename={workflowFilename || undefined}
         onChange={onWorkflowTextChange}
+        onFileName={setWorkflowFilename}
         disabled={disabled}
       />
 
