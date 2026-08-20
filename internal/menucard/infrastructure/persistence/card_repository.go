@@ -37,6 +37,15 @@ type CardRepository interface {
 	UpdateCard(ctx context.Context, channelID string, card mcdomain.Card) error
 	DeleteCard(ctx context.Context, channelID, id string) error
 	CardReferences(ctx context.Context, channelID, id string) ([]string, error)
+	WorkflowPlacements(ctx context.Context, workflowID string) ([]WorkflowPlacement, error)
+}
+
+// WorkflowPlacement is where an open_workflow action references a workflow.
+type WorkflowPlacement struct {
+	ChannelID string
+	ItemID    string
+	Label     string
+	Kind      string // menu_item | card_button
 }
 
 // GormCardRepository implements CardRepository with GORM.
@@ -144,4 +153,51 @@ func (r *GormCardRepository) CardReferences(ctx context.Context, channelID, id s
 		}
 	}
 	return refs, nil
+}
+
+func (r *GormCardRepository) WorkflowPlacements(ctx context.Context, workflowID string) ([]WorkflowPlacement, error) {
+	var out []WorkflowPlacement
+	var menus []MainMenuRow
+	if err := r.db.WithContext(ctx).Find(&menus).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range menus {
+		var menu mcdomain.Menu
+		if err := json.Unmarshal([]byte(row.DocJSON), &menu); err != nil {
+			return nil, fmt.Errorf("decode menu: %w", err)
+		}
+		for _, it := range menu.Items {
+			if actionContainsWorkflow(it.Action, workflowID) {
+				out = append(out, WorkflowPlacement{ChannelID: row.ChannelID, ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
+			}
+		}
+	}
+	var cards []CardRow
+	if err := r.db.WithContext(ctx).Find(&cards).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range cards {
+		var card mcdomain.Card
+		if err := json.Unmarshal([]byte(row.DocJSON), &card); err != nil {
+			return nil, fmt.Errorf("decode card: %w", err)
+		}
+		for _, b := range card.Buttons {
+			if actionContainsWorkflow(b.Action, workflowID) {
+				out = append(out, WorkflowPlacement{ChannelID: row.ChannelID, ItemID: b.ID, Label: b.Label, Kind: "card_button"})
+			}
+		}
+	}
+	return out, nil
+}
+
+func actionContainsWorkflow(a mcdomain.Action, workflowID string) bool {
+	if a.Type != "open_workflow" {
+		return false
+	}
+	for _, id := range a.WorkflowIDs {
+		if id == workflowID {
+			return true
+		}
+	}
+	return false
 }

@@ -58,6 +58,20 @@ func (m *memCardRepo) CardReferences(ctx context.Context, channelID, id string) 
 	return referencesOf(m.menu, m.cards, id), nil
 }
 
+func (m *memCardRepo) WorkflowPlacements(_ context.Context, workflowID string) ([]persistence.WorkflowPlacement, error) {
+	var out []persistence.WorkflowPlacement
+	for _, it := range m.menu.Items {
+		if it.Action.Type == "open_workflow" {
+			for _, id := range it.Action.WorkflowIDs {
+				if id == workflowID {
+					out = append(out, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
 func referencesOf(menu mcdomain.Menu, cards map[string]mcdomain.Card, id string) []string {
 	refs := []string{}
 	for _, it := range menu.Items {
@@ -92,6 +106,7 @@ func TestMenuCardsHandlerCRUD(t *testing.T) {
 	h := menucardsapi.NewHandler(repo)
 	r := chi.NewRouter()
 	r.Route("/api/v1/channels/{id}", func(r chi.Router) { h.Mount(r) })
+	r.Get("/api/v1/cases/{id}/menu-placements", h.ListWorkflowPlacements)
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
@@ -131,6 +146,22 @@ func TestMenuCardsHandlerCRUD(t *testing.T) {
 	refResp.Body.Close()
 	if len(refs) != 1 || refs[0] != "menu:mi" {
 		t.Fatalf("refs=%v", refs)
+	}
+
+	// workflow placements reverse lookup
+	wfMenu, _ := json.Marshal(mcdomain.Menu{ID: "m", Name: "主", Columns: 2, Items: []mcdomain.MenuItem{
+		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"w1"}}},
+	}})
+	_, _ = http.DefaultClient.Do(mustReq(t, http.MethodPut, srv.URL+"/api/v1/channels/ch1/menu", wfMenu))
+	wfResp, err := http.DefaultClient.Do(mustReq(t, http.MethodGet, srv.URL+"/api/v1/cases/w1/menu-placements", nil))
+	if err != nil || wfResp.StatusCode != http.StatusOK {
+		t.Fatalf("workflow placements status=%v err=%v", wfResp.StatusCode, err)
+	}
+	var placements []map[string]any
+	_ = json.NewDecoder(wfResp.Body).Decode(&placements)
+	wfResp.Body.Close()
+	if len(placements) != 1 || placements[0]["kind"] != "menu_item" {
+		t.Fatalf("placements=%v", placements)
 	}
 }
 

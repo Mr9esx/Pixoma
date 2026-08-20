@@ -149,6 +149,36 @@ func (h *Handler) cardReferences(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, refs)
 }
 
+// ListWorkflowPlacements returns where a workflow is referenced across menus
+// and card buttons (new model reverse lookup).
+func (h *Handler) ListWorkflowPlacements(w http.ResponseWriter, r *http.Request) {
+	placements, err := h.Repo.WorkflowPlacements(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	type step struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
+	}
+	type placementDTO struct {
+		ChannelID string `json:"channel_id"`
+		ItemID    string `json:"item_id"`
+		Kind      string `json:"kind"`
+		Path      []step `json:"path"`
+	}
+	out := make([]placementDTO, 0, len(placements))
+	for _, p := range placements {
+		out = append(out, placementDTO{
+			ChannelID: p.ChannelID,
+			ItemID:    p.ItemID,
+			Kind:      p.Kind,
+			Path:      []step{{ID: p.ItemID, Label: p.Label}},
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

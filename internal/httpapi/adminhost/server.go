@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	channelmenuapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channelmenu"
 	channelapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
@@ -20,14 +19,13 @@ import (
 type Options struct {
 	CORSOrigins []string
 	// Instances, when non-nil, is mounted at /api/v1/edges.
-	Instances   *edges.Handler
-	Cases       *casesapi.Handler
-	Users       *usersapi.Handler
-	Sessions    *sessionsapi.Handler
-	Tasks       *tasksapi.Handler
-	Channels    *channelapi.Handler
-	ChannelMenu *channelmenuapi.Handler
-	MenuCards   *menucardsapi.Handler
+	Instances *edges.Handler
+	Cases     *casesapi.Handler
+	Users     *usersapi.Handler
+	Sessions  *sessionsapi.Handler
+	Tasks     *tasksapi.Handler
+	Channels  *channelapi.Handler
+	MenuCards *menucardsapi.Handler
 	// NotFound handles unmatched paths (SPA embed).
 	NotFound http.Handler
 }
@@ -52,8 +50,8 @@ func NewHandler(opts Options) http.Handler {
 		if opts.Cases != nil {
 			opts.Cases.Mount(r)
 		}
-		if opts.ChannelMenu != nil {
-			r.Get("/{id}/menu-placements", opts.ChannelMenu.ListPlacements)
+		if opts.MenuCards != nil {
+			r.Get("/{id}/menu-placements", opts.MenuCards.ListWorkflowPlacements)
 		}
 	})
 	r.Route("/api/v1/users", func(r chi.Router) {

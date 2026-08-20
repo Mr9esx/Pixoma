@@ -46,9 +46,23 @@ export function MenuPlacementsSection({ caseId }: Props) {
             {placementsQuery.data.map((placement) => (
               <li
                 key={`${placement.channel_id}:${placement.item_id}`}
-                className='text-sm'
+                className='flex flex-wrap items-center gap-2 text-sm'
               >
+                <span
+                  className={`rounded-sm px-1.5 py-0.5 text-[10px] ${
+                    placement.kind === 'card_button'
+                      ? 'bg-violet-500/15 text-violet-700 dark:text-violet-400'
+                      : 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400'
+                  }`}
+                >
+                  {placement.kind === 'card_button'
+                    ? t('cases.placementCardButton')
+                    : t('cases.placementMenuItem')}
+                </span>
                 {formatPlacementPath(placement.path)}
+                <span className='text-xs text-muted-foreground'>
+                  · {placement.channel_id}
+                </span>
               </li>
             ))}
           </ul>
