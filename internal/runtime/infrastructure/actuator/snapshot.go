@@ -110,8 +110,9 @@ func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.
 }
 
 // BuildJobPackage assembles a scheme-A job: non-image fields injected into workflow;
-// images listed as BlobRefs for the executor to upload locally.
-func (s *CaseSnapshot) BuildJobPackage(ctx context.Context, taskID sharedkernel.TaskID, edgeID sharedkernel.EdgeID) (JobPackage, error) {
+// images listed as BlobRefs for the executor to upload locally. The package is
+// edge-agnostic: the claiming node is chosen after prep.
+func (s *CaseSnapshot) BuildJobPackage(ctx context.Context, taskID sharedkernel.TaskID) (JobPackage, error) {
 	if s == nil || s.Tasks == nil || s.Cases == nil || s.Blob == nil {
 		return JobPackage{}, fmt.Errorf("actuator: CaseSnapshot not configured")
 	}
@@ -176,7 +177,6 @@ func (s *CaseSnapshot) BuildJobPackage(ctx context.Context, taskID sharedkernel.
 
 	return JobPackage{
 		TaskID:       taskID,
-		EdgeID:       edgeID,
 		Workflow:     graph,
 		Images:       images,
 		OutputPrefix: fmt.Sprintf("outputs/%s", taskID),
@@ -185,8 +185,8 @@ func (s *CaseSnapshot) BuildJobPackage(ctx context.Context, taskID sharedkernel.
 }
 
 // PrepareJob builds a job package and writes it to Blob at jobs/<task_id>/job.json.
-func (s *CaseSnapshot) PrepareJob(ctx context.Context, taskID sharedkernel.TaskID, edgeID sharedkernel.EdgeID) (sharedkernel.BlobRef, error) {
-	job, err := s.BuildJobPackage(ctx, taskID, edgeID)
+func (s *CaseSnapshot) PrepareJob(ctx context.Context, taskID sharedkernel.TaskID) (sharedkernel.BlobRef, error) {
+	job, err := s.BuildJobPackage(ctx, taskID)
 	if err != nil {
 		return sharedkernel.BlobRef{}, err
 	}

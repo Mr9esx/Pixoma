@@ -17,18 +17,18 @@ func TestMemory_PrepareAndClaimWithLease(t *testing.T) {
 		t.Fatal(err)
 	}
 	ref := sharedkernel.BlobRef{Key: "jobs/t1/job.json"}
-	ok, err := repo.PrepareForClaim(ctx, "t1", "gpu-1", ref, now)
+	ok, err := repo.PrepareForClaim(ctx, "t1", "default", ref, now)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
-	claimed, err := repo.ClaimNextWithLease(ctx, "gpu-1", time.Minute, now)
+	claimed, err := repo.ClaimNextWithLease(ctx, "gpu-1", []string{"default"}, time.Minute, now)
 	if err != nil || claimed == nil {
 		t.Fatalf("claimed=%v err=%v", claimed, err)
 	}
 	if claimed.Status != sharedkernel.TaskRunning || claimed.JobRef.Key != ref.Key {
 		t.Fatalf("%+v", claimed)
 	}
-	none, err := repo.ClaimNextWithLease(ctx, "gpu-1", time.Minute, now)
+	none, err := repo.ClaimNextWithLease(ctx, "gpu-1", []string{"default"}, time.Minute, now)
 	if err != nil || none != nil {
 		t.Fatalf("none=%v err=%v", none, err)
 	}
@@ -49,7 +49,7 @@ func TestMemory_RequeueExpiredThenClaim(t *testing.T) {
 	if err != nil || n != 1 {
 		t.Fatalf("n=%d err=%v", n, err)
 	}
-	claimed, err := repo.ClaimNextWithLease(ctx, "gpu-1", time.Minute, later)
+	claimed, err := repo.ClaimNextWithLease(ctx, "gpu-1", []string{"default"}, time.Minute, later)
 	if err != nil || claimed == nil || claimed.ID != "t1" {
 		t.Fatalf("claimed=%v err=%v", claimed, err)
 	}

@@ -75,7 +75,7 @@ type jobPrepStub struct {
 	ref sharedkernel.BlobRef
 }
 
-func (j jobPrepStub) PrepareJob(context.Context, sharedkernel.TaskID, sharedkernel.EdgeID) (sharedkernel.BlobRef, error) {
+func (j jobPrepStub) PrepareJob(context.Context, sharedkernel.TaskID) (sharedkernel.BlobRef, error) {
 	return j.ref, nil
 }
 
@@ -99,7 +99,7 @@ func TestDispatchClaimableUsesEnabledWithoutOnline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "edge-1" {
+	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "" || got.DispatchTopic != "default" {
 		t.Fatalf("claimable dispatch must use ListEnabled when Dispatch is nil, got %+v", got)
 	}
 }
@@ -126,8 +126,8 @@ func TestDispatchUsesOnlineEvenWhenInstanceMarkedUnhealthy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "edge-1" {
-		t.Fatalf("expected claimable on edge-1, got %+v", got)
+	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "" || got.DispatchTopic != "default" {
+		t.Fatalf("expected claimable on default topic, got %+v", got)
 	}
 	if len(bus.msgs) != 0 {
 		t.Fatalf("must not publish, got %d", len(bus.msgs))

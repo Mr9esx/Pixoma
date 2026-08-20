@@ -37,13 +37,13 @@ func (c *captureBus) Publish(_ context.Context, msg queue.Message) error {
 
 type stubPrep struct{}
 
-func (stubPrep) PrepareJob(_ context.Context, taskID sharedkernel.TaskID, _ sharedkernel.EdgeID) (sharedkernel.BlobRef, error) {
+func (stubPrep) PrepareJob(_ context.Context, taskID sharedkernel.TaskID) (sharedkernel.BlobRef, error) {
 	return sharedkernel.BlobRef{Key: "jobs/" + string(taskID) + "/job.json", MIME: "application/json"}, nil
 }
 
 type failPrep struct{ err error }
 
-func (f failPrep) PrepareJob(_ context.Context, _ sharedkernel.TaskID, _ sharedkernel.EdgeID) (sharedkernel.BlobRef, error) {
+func (f failPrep) PrepareJob(_ context.Context, _ sharedkernel.TaskID) (sharedkernel.BlobRef, error) {
 	return sharedkernel.BlobRef{}, f.err
 }
 
@@ -64,8 +64,11 @@ func TestOnTaskCreatedMakesClaimable(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := tasks.Get(ctx, "t1")
-	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "local" {
+	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "" {
 		t.Fatalf("task=%+v", got)
+	}
+	if got.DispatchTopic != "default" {
+		t.Fatalf("dispatch_topic=%q, want default", got.DispatchTopic)
 	}
 	if got.JobRef.Key != "jobs/t1/job.json" {
 		t.Fatalf("job_ref=%+v", got.JobRef)
@@ -349,8 +352,8 @@ func TestDispatch_ConcurrentPrepareOnlyOneClaimable(t *testing.T) {
 	if got.Status != sharedkernel.TaskQueued {
 		t.Fatalf("status=%s want queued", got.Status)
 	}
-	if got.EdgeID != "gpu-a" && got.EdgeID != "gpu-b" {
-		t.Fatalf("instance_id=%q", got.EdgeID)
+	if got.EdgeID != "" || got.DispatchTopic != "default" {
+		t.Fatalf("edge=%q topic=%q want unbound default", got.EdgeID, got.DispatchTopic)
 	}
 	if got.JobRef.Key == "" {
 		t.Fatal("expected job_ref")
@@ -369,7 +372,7 @@ func TestCircuitBreakerOpens(t *testing.T) {
 	}
 }
 
-func TestOrchestrator_RoundRobinAcrossHealthy(t *testing.T) {
+func TestOrchestrator_TopicClaimableWithoutRoundRobin(t *testing.T) {
 	ctx := context.Background()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(50, 0).UTC()
@@ -394,11 +397,11 @@ func TestOrchestrator_RoundRobinAcrossHealthy(t *testing.T) {
 
 	t1, _ := tasks.Get(ctx, "t1")
 	t2, _ := tasks.Get(ctx, "t2")
-	if t1.EdgeID != "gpu-a" {
-		t.Fatalf("t1 instance=%s want gpu-a", t1.EdgeID)
+	if t1.EdgeID != "" || t1.DispatchTopic != "default" {
+		t.Fatalf("t1 edge=%q topic=%q want unbound default", t1.EdgeID, t1.DispatchTopic)
 	}
-	if t2.EdgeID != "gpu-b" {
-		t.Fatalf("t2 instance=%s want gpu-b", t2.EdgeID)
+	if t2.EdgeID != "" || t2.DispatchTopic != "default" {
+		t.Fatalf("t2 edge=%q topic=%q want unbound default", t2.EdgeID, t2.DispatchTopic)
 	}
 }
 

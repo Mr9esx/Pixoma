@@ -1,0 +1,94 @@
+package routing_test
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/routing"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
+)
+
+func TestResolve_FirstMatchWins(t *testing.T) {
+	reg := condition.NewRegistry()
+	reg.Register(&condition.UserProvider{Lookup: func(context.Context, string) (*bool, error) {
+		trueVal := true
+		return &trueVal, nil
+	}})
+	ctx := condition.WithUserID(context.Background(), "u1")
+
+	cfg := &domain.RoutingConfig{Rules: []domain.RoutingRule{
+		{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
+		{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":false}`), Topic: "slow-gpu"},
+	}}
+	got, err := routing.Resolve(cfg, ctx, reg)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if got != "fast-gpu" {
+		t.Fatalf("topic = %q, want fast-gpu", got)
+	}
+}
+
+func TestResolve_NoMatchFallsBackToDefault(t *testing.T) {
+	reg := condition.NewRegistry()
+	reg.Register(&condition.UserProvider{Lookup: func(context.Context, string) (*bool, error) {
+		return nil, nil // missing → false
+	}})
+	ctx := condition.WithUserID(context.Background(), "u1")
+
+	cfg := &domain.RoutingConfig{Rules: []domain.RoutingRule{
+		{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
+	}}
+	got, err := routing.Resolve(cfg, ctx, reg)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if got != "default" {
+		t.Fatalf("topic = %q, want default", got)
+	}
+}
+
+func TestResolve_NilRoutingFallsBackToDefault(t *testing.T) {
+	reg := condition.NewRegistry()
+	got, err := routing.Resolve(nil, context.Background(), reg)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if got != "default" {
+		t.Fatalf("topic = %q, want default", got)
+	}
+}
+
+func TestResolve_ProviderErrorPropagates(t *testing.T) {
+	boom := errors.New("provider boom")
+	reg := condition.NewRegistry()
+	reg.Register(&condition.UserProvider{Lookup: func(context.Context, string) (*bool, error) {
+		return nil, boom
+	}})
+	cfg := &domain.RoutingConfig{Rules: []domain.RoutingRule{
+		{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
+	}}
+	_, err := routing.Resolve(cfg, condition.WithUserID(context.Background(), "u1"), reg)
+	if !errors.Is(err, boom) {
+		t.Fatalf("expected provider error, got %v", err)
+	}
+}
+
+func TestResolve_RuleOrderMatters(t *testing.T) {
+	reg := condition.NewRegistry()
+	reg.Register(&condition.UserProvider{Lookup: func(context.Context, string) (*bool, error) {
+		trueVal := true
+		return &trueVal, nil
+	}})
+	cfg := &domain.RoutingConfig{Rules: []domain.RoutingRule{
+		{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "first"},
+		{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "second"},
+	}}
+	got, _ := routing.Resolve(cfg, condition.WithUserID(context.Background(), "u1"), reg)
+	if got != "first" {
+		t.Fatalf("topic = %q, want first", got)
+	}
+}

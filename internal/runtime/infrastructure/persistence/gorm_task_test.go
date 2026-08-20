@@ -260,11 +260,11 @@ func TestGormTask_PrepareForClaimCAS(t *testing.T) {
 		t.Fatal(err)
 	}
 	ref := sharedkernel.BlobRef{Key: "jobs/t-prep/job.json"}
-	ok, err := tasks.PrepareForClaim(ctx, "t-prep", "gpu-1", ref, now)
+	ok, err := tasks.PrepareForClaim(ctx, "t-prep", "fast-gpu", ref, now)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
-	ok2, err := tasks.PrepareForClaim(ctx, "t-prep", "gpu-2", sharedkernel.BlobRef{Key: "other"}, now.Add(time.Second))
+	ok2, err := tasks.PrepareForClaim(ctx, "t-prep", "default", sharedkernel.BlobRef{Key: "other"}, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +272,7 @@ func TestGormTask_PrepareForClaimCAS(t *testing.T) {
 		t.Fatal("second prepare must fail")
 	}
 	got, _ := tasks.Get(ctx, "t-prep")
-	if got.EdgeID != "gpu-1" || got.JobRef.Key != ref.Key {
+	if got.DispatchTopic != "fast-gpu" || got.EdgeID != "" || got.JobRef.Key != ref.Key {
 		t.Fatalf("got %+v", got)
 	}
 }
@@ -290,7 +290,7 @@ func TestGormTask_ClaimNextWithLeaseAndExpire(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	claimed, err := tasks.ClaimNextWithLease(ctx, "gpu-1", 90*time.Second, now)
+	claimed, err := tasks.ClaimNextWithLease(ctx, "gpu-1", []string{"default"}, 90*time.Second, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +301,7 @@ func TestGormTask_ClaimNextWithLeaseAndExpire(t *testing.T) {
 		t.Fatalf("lease=%v", claimed.LeaseUntil)
 	}
 
-	second, err := tasks.ClaimNextWithLease(ctx, "gpu-1", time.Minute, now)
+	second, err := tasks.ClaimNextWithLease(ctx, "gpu-1", []string{"default"}, time.Minute, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +317,7 @@ func TestGormTask_ClaimNextWithLeaseAndExpire(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("requeued=%d", n)
 	}
-	again, err := tasks.ClaimNextWithLease(ctx, "gpu-1", time.Minute, later)
+	again, err := tasks.ClaimNextWithLease(ctx, "gpu-1", []string{"default"}, time.Minute, later)
 	if err != nil || again == nil || again.ID != "t-c2" {
 		t.Fatalf("reclaim=%+v err=%v", again, err)
 	}
