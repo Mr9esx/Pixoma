@@ -76,7 +76,7 @@ sequenceDiagram
 
 | 角色 | 包 | 职责 |
 |---|---|---|
-| **Orchestrator** | `runtime/application/orchestrator` | 认领 pending、选健康实例、发 dispatch、收敛 status、终态 notify、对账 |
+| **Orchestrator** | `runtime/application/orchestrator` | 路由求值、按 Topic 置可领取、收敛 status、失败有界重试、终态 notify、对账 |
 | **Actuator** | `runtime/infrastructure/actuator` | 按实例客户端跑 workflow、产物入 blob、上报 status |
 | **Edge Pool** | `platform/edge` | CRUD 元数据、健康探测、持有 per-edge Client、RR 候选 |
 
@@ -122,19 +122,21 @@ Orchestrator ──Publish(UserNotify)──► platform/notify.Publisher
 
 ---
 
-## 4. 调度策略
+## 4. 调度策略（Topic 分流）
 
 ```text
 pending Task
-    → ListHealthy(enabled ∩ 探测成功 ∩ 未熔断)
-    → prep job + PrepareForClaim（queued，可领取）
-    → Edge GET /agent/v1/jobs/claim（带 lease）
+    → 求值 Case 路由（首个命中即投；无命中 → default）
+    → 目标 Topic 无在线订阅节点 → 保持 pending 记原因
+    → prep job（edge 无关）+ PrepareForTopic（queued + dispatch_topic，不绑定节点）
+    → Edge GET /agent/v1/jobs/claim（按节点订阅 Topic 集合原子抢占 + lease）
 ```
 
-- **无可用实例**：不投递（Task 保持 pending）。
-- **Round-robin**：在健康集合上轮转。
+- **同一任务只被一台消费**：claim 端点按订阅集合在事务内条件 UPDATE 抢占。
+- **失败有界重试**：`attempts+1`，退避 5s/15s/45s，超限收敛 failed；沿用原 `dispatch_topic`。
 - **租约过期**：回到 queued 可再领。
-- **健康探测**：周期调该实例 `SystemStats`。
+- **默认 Topic**：启动幂等创建 `default`；节点未配置订阅 = 订阅 `default`；无规则命中回退 `default`。
+- **条件协议**：声明式 JSON 规则 + 属性提供方（`user.is_premium` / `case.category` / `case.tags`），新增属性只注册 provider + schema，不改引擎。
 
 ---
 
