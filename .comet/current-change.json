@@ -1,6 +1,6 @@
 {
   "schema": "comet.selection.v2",
   "workflow": "classic",
-  "change": "channel-interaction-framework",
+  "change": "topic-routing",
   "branch": "feat-init"
 }
