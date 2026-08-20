@@ -1,0 +1,73 @@
+package validation_test
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
+)
+
+type fakeTopicRepo struct {
+	topics map[string]bool // key -> enabled
+}
+
+func (f *fakeTopicRepo) List(_ context.Context, _ *bool) ([]topic.Topic, error) { return nil, nil }
+
+func (f *fakeTopicRepo) Get(_ context.Context, key string) (*topic.Topic, error) {
+	enabled, ok := f.topics[key]
+	if !ok {
+		return nil, topic.ErrTopicNotFound
+	}
+	return &topic.Topic{Key: key, Enabled: enabled}, nil
+}
+
+func (f *fakeTopicRepo) Create(_ context.Context, _ topic.Topic) error { return nil }
+func (f *fakeTopicRepo) Update(_ context.Context, _ topic.Topic) error { return nil }
+func (f *fakeTopicRepo) Delete(_ context.Context, _ string) error      { return nil }
+
+func TestValidateRouting(t *testing.T) {
+	topics := &fakeTopicRepo{topics: map[string]bool{"fast-gpu": true, "disabled": false}}
+	reg := condition.NewRegistry()
+	reg.Register(&condition.UserProvider{Lookup: func(context.Context, string) (*bool, error) { return nil, nil }})
+
+	ok := &domain.RoutingConfig{Rules: []domain.RoutingRule{
+		{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
+	}}
+	if err := validation.ValidateRouting(context.Background(), ok, topics, reg); err != nil {
+		t.Fatalf("valid routing rejected: %v", err)
+	}
+
+	if err := validation.ValidateRouting(context.Background(), nil, topics, reg); err != nil {
+		t.Fatalf("nil routing rejected: %v", err)
+	}
+
+	bad := []struct {
+		name string
+		cfg  *domain.RoutingConfig
+		want string
+	}{
+		{"unknown topic", &domain.RoutingConfig{Rules: []domain.RoutingRule{
+			{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "nope"},
+		}}, "nope"},
+		{"disabled topic", &domain.RoutingConfig{Rules: []domain.RoutingRule{
+			{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "disabled"},
+		}}, "disabled"},
+		{"unknown condition field", &domain.RoutingConfig{Rules: []domain.RoutingRule{
+			{When: json.RawMessage(`{"field":"user.unknown","op":"eq","value":1}`), Topic: "fast-gpu"},
+		}}, "user.unknown"},
+		{"missing topic", &domain.RoutingConfig{Rules: []domain.RoutingRule{
+			{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`)},
+		}}, "topic required"},
+	}
+	for _, tc := range bad {
+		err := validation.ValidateRouting(context.Background(), tc.cfg, topics, reg)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("%s: err=%v want contains %q", tc.name, err, tc.want)
+		}
+	}
+}

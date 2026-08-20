@@ -19,10 +19,13 @@ func text2imgDoc() domain.CaseDocument {
 		Outputs: []domain.OutputField{{Key: "image", Type: "image"}},
 		Bindings: domain.ComfyBindings{
 			WorkflowJSON: map[string]any{
-				"1": map[string]any{"class_type": "CLIPTextEncode", "inputs": map[string]any{"text": "x"}},
+				"1": map[string]any{"class_type": "CLIPTextEncode", "inputs": map[string]any{"text": "x", "seed": 42}},
 				"2": map[string]any{"class_type": "SaveImage", "inputs": map[string]any{"filename_prefix": "o"}},
 			},
-			Inputs:  []domain.InputBinding{{Key: "prompt", NodeID: "1", FieldPath: "text"}},
+			Inputs: []domain.InputBinding{
+				{Key: "prompt", NodeID: "1", FieldPath: "text"},
+				{Key: "seed", NodeID: "1", FieldPath: "seed"},
+			},
 			Outputs: []domain.OutputBinding{{Key: "image", NodeID: "2"}},
 		},
 		InputSchema: map[string]any{
@@ -34,6 +37,30 @@ func text2imgDoc() domain.CaseDocument {
 				"seed":   map[string]any{"type": "integer", "minimum": 0},
 			},
 		},
+	}
+}
+
+func TestValidateDocumentRejectsUnboundInput(t *testing.T) {
+	v := validation.New()
+	doc := text2imgDoc()
+	doc.Bindings.Inputs = []domain.InputBinding{{Key: "prompt", NodeID: "1", FieldPath: "text"}}
+	err := v.ValidateDocument(doc)
+	if err == nil {
+		t.Fatal("expected error for unbound seed input")
+	}
+	var ve *domain.ValidationError
+	if !asValidation(err, &ve) {
+		t.Fatalf("want ValidationError, got %T %v", err, err)
+	}
+	found := false
+	for _, f := range ve.Fields {
+		if f.Message == "binding required for input seed" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected unbound seed error, got %+v", ve.Fields)
 	}
 }
 
@@ -192,6 +219,7 @@ func TestValidateInputsAcceptsImageBlob(t *testing.T) {
 	v := validation.New()
 	doc := text2imgDoc()
 	doc.Inputs = []domain.InputField{{Key: "source", Type: "image", Required: true}}
+	doc.Bindings.Inputs = []domain.InputBinding{{Key: "source", NodeID: "1", FieldPath: "text"}}
 	doc.InputSchema = map[string]any{
 		"type": "object",
 		"properties": map[string]any{
