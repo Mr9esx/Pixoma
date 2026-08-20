@@ -22,4 +22,11 @@ describe('channel layout aligned with compute nodes', () => {
     expect(source).toContain('ChannelDetailPanel')
     expect(source).toContain("to='/channels/new'")
   })
+
+  it('auto-selects the first channel and navigates the url', () => {
+    const source = readFileSync(ROUTE, 'utf8')
+    expect(source).toContain('items[0]?.id')
+    expect(source).toContain('replace: true')
+    expect(source).toContain('backToList')
+  })
 })

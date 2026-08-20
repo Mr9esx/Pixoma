@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   createFileRoute,
@@ -28,15 +29,30 @@ function ChannelsLayout() {
   const navigate = useNavigate()
   const { id } = useParams({ strict: false }) as { id?: string }
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const locationState = useRouterState({
+    select: (s) => s.location.state,
+  }) as { backToList?: boolean } | undefined
 
   const listQuery = useQuery({
     queryKey: queryKeys.channels.all,
     queryFn: listChannels,
   })
+  const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
+  const backToList = locationState?.backToList === true
+  const selectedId = id ?? (backToList ? undefined : items[0]?.id)
 
-  if (pathname.endsWith('/new')) {
-    return <Outlet />
-  }
+  useEffect(() => {
+    if (pathname.endsWith('/new')) return
+    if (id == null && !backToList && items.length > 0) {
+      void navigate({
+        to: '/channels/$id',
+        params: { id: items[0].id },
+        replace: true,
+      })
+    }
+  }, [id, backToList, items, navigate, pathname])
+
+  if (pathname.endsWith('/new')) return <Outlet />
 
   return (
     <div
@@ -59,20 +75,25 @@ function ChannelsLayout() {
       </div>
       <MasterDetailShell
         className='md:grid-cols-[280px_1fr]'
-        hasSelection={Boolean(id)}
-        onBackToList={() => void navigate({ to: '/channels' })}
+        hasSelection={Boolean(selectedId)}
+        onBackToList={() => {
+          void navigate({
+            to: '/channels',
+            state: { backToList: true },
+          } as never)
+        }}
         detailClassName='flex min-h-0 flex-col overflow-auto p-0'
         list={
           <ChannelListPanel
-            items={listQuery.data ?? []}
-            selectedId={id}
+            items={items}
+            selectedId={selectedId}
             isLoading={listQuery.isLoading}
             isError={listQuery.isError}
             errorMessage={errorMessage(listQuery.error)}
             onRetry={() => void listQuery.refetch()}
           />
         }
-        detail={id ? <ChannelDetailPanel id={id} /> : null}
+        detail={selectedId ? <ChannelDetailPanel id={selectedId} /> : null}
       />
     </div>
   )

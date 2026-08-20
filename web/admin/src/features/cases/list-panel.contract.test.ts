@@ -36,6 +36,13 @@ describe('case list filters (option A: single search + enabled segment)', () => 
     expect(source).not.toMatch(/menu_key:\s*filters/)
   })
 
+  it('cases route auto-selects the first workflow and navigates the url', () => {
+    const source = read(CASES_ROUTE)
+    expect(source).toContain('items[0]?.id')
+    expect(source).toContain('replace: true')
+    expect(source).toContain('backToList')
+  })
+
   it('search placeholder mentions menu_key', () => {
     const zh = JSON.parse(read(ZH)) as {
       cases: { filterQPlaceholder: string }
