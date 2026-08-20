@@ -17,7 +17,6 @@ import { kit } from '@/features/edges/kit-classes'
 import { StatusTag } from '@/features/edges/presence-tags'
 import { CaseForm } from './case-form'
 import { MenuPlacementsSection } from './sections/menu-placements'
-import { WorkflowConfigView } from './sections/workflow-config-view'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -167,7 +166,13 @@ export function CaseDetailPanel({ id }: Props) {
           title={t('cases.sectionConfig')}
           hint={t('cases.sectionConfigHint')}
         />
-        <WorkflowConfigView record={record} />
+        <CaseForm
+          key={`view-${record.id}`}
+          mode='edit'
+          initial={record}
+          readOnly
+          showBasics={false}
+        />
 
         <SectionHead
           title={t('cases.sectionEntries')}

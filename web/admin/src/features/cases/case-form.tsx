@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { createCase, disableCase, enableCase, patchCase } from '@/lib/api/cases'
+import { createCase, patchCase } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { CaseRecord } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
@@ -62,6 +62,9 @@ type CreateProps = {
 type EditProps = {
   mode: 'edit'
   initial: CaseRecord
+  readOnly?: boolean
+  showBasics?: boolean
+  onSaved?: (next: CaseRecord) => void
 }
 
 type Props = CreateProps | EditProps
@@ -72,6 +75,8 @@ export function CaseForm(props: Props) {
   const queryClient = useQueryClient()
 
   const initial = props.mode === 'edit' ? props.initial : emptyCase()
+  const readOnly = props.mode === 'edit' && props.readOnly === true
+  const showBasics = props.mode !== 'edit' || props.showBasics !== false
   const [draft, setDraft] = useState<CaseRecord>(() => structuredClone(initial))
   const [workflowText, setWorkflowText] = useState(() =>
     stringifyObject(initial.bindings.workflow)
@@ -137,39 +142,14 @@ export function CaseForm(props: Props) {
       setOutputDrafts(toOutputDrafts(updated))
       setAdvancedText(text)
       toast.success(t('common.successSaved'))
+      if (props.mode === 'edit') props.onSaved?.(updated)
     },
   })
 
-  const toggleMutation = useMutation({
-    mutationFn: async () => {
-      if (props.mode !== 'edit') {
-        throw new Error('toggle requires edit mode')
-      }
-      return draft.enabled
-        ? disableCase(props.initial.id)
-        : enableCase(props.initial.id)
-    },
-    onSuccess: async (updated) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.cases.all })
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.cases.detail(updated.id),
-      })
-      setDraft((prev) => ({ ...prev, enabled: updated.enabled }))
-      toast.success(
-        updated.enabled ? t('cases.enableSuccess') : t('cases.disableSuccess')
-      )
-    },
-  })
-
-  const pending =
-    createMutation.isPending ||
-    updateMutation.isPending ||
-    toggleMutation.isPending
+  const pending = createMutation.isPending || updateMutation.isPending
   const mutationError =
-    createMutation.error ??
-    updateMutation.error ??
-    toggleMutation.error ??
-    undefined
+    createMutation.error ?? updateMutation.error ?? undefined
+  const disabled = pending || readOnly
 
   function onWorkflowTextChange(next: string) {
     setWorkflowText(next)
@@ -252,45 +232,38 @@ export function CaseForm(props: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} className='space-y-8' data-testid='case-form'>
-      {props.mode === 'edit' ? (
-        <div className='flex flex-wrap gap-2'>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            disabled={pending}
-            onClick={() => toggleMutation.mutate()}
-          >
-            {draft.enabled ? t('cases.disable') : t('cases.enable')}
-          </Button>
-        </div>
+    <form
+      id={props.mode === 'edit' ? 'case-edit-form' : undefined}
+      onSubmit={onSubmit}
+      className='space-y-8'
+      data-testid='case-form'
+    >
+      {showBasics ? (
+        <BasicsSection
+          value={{
+            id: draft.id,
+            name: draft.name,
+            description: draft.description,
+            preview: draft.preview,
+            price: draft.price,
+            tags: draft.tags,
+            menu_key: draft.menu_key,
+            categories: draft.categories,
+            enabled: draft.enabled,
+          }}
+          onChange={(basics) => setDraft((prev) => ({ ...prev, ...basics }))}
+          idEditable={props.mode === 'create'}
+          showEnabled={props.mode === 'create'}
+          disabled={disabled}
+        />
       ) : null}
-
-      <BasicsSection
-        value={{
-          id: draft.id,
-          name: draft.name,
-          description: draft.description,
-          preview: draft.preview,
-          price: draft.price,
-          tags: draft.tags,
-          menu_key: draft.menu_key,
-          categories: draft.categories,
-          enabled: draft.enabled,
-        }}
-        onChange={(basics) => setDraft((prev) => ({ ...prev, ...basics }))}
-        idEditable={props.mode === 'create'}
-        showEnabled={props.mode === 'create'}
-        disabled={pending}
-      />
 
       <WorkflowImportSection
         value={workflowText}
         graph={graph}
         error={importError}
         onChange={onWorkflowTextChange}
-        disabled={pending}
+        disabled={disabled}
       />
 
       <section className='space-y-3'>
@@ -319,7 +292,7 @@ export function CaseForm(props: Props) {
                   onRemove={() =>
                     setInputDrafts((prev) => prev.filter((_, i) => i !== index))
                   }
-                  disabled={pending}
+                  disabled={disabled}
                 />
               ))}
             </ul>
@@ -327,7 +300,7 @@ export function CaseForm(props: Props) {
               type='button'
               size='sm'
               variant='outline'
-              disabled={pending}
+              disabled={disabled}
               onClick={() =>
                 setInputDrafts((prev) => [
                   ...prev,
@@ -379,7 +352,7 @@ export function CaseForm(props: Props) {
                       prev.filter((_, i) => i !== index)
                     )
                   }
-                  disabled={pending}
+                  disabled={disabled}
                 />
               ))}
             </ul>
@@ -387,7 +360,7 @@ export function CaseForm(props: Props) {
               type='button'
               size='sm'
               variant='outline'
-              disabled={pending}
+              disabled={disabled}
               onClick={() =>
                 setOutputDrafts((prev) => [
                   ...prev,
@@ -417,7 +390,7 @@ export function CaseForm(props: Props) {
         onOpen={() => setAdvancedOpen(true)}
         onEnterEdit={() => setAdvancedEdit(true)}
         onTextChange={setAdvancedText}
-        disabled={pending}
+        disabled={disabled}
       />
 
       {mutationError ? (
@@ -429,13 +402,11 @@ export function CaseForm(props: Props) {
         </p>
       ) : null}
 
-      <div className='flex flex-wrap gap-2'>
-        <Button type='submit' disabled={pending}>
-          {props.mode === 'create'
-            ? t('common.create')
-            : t('cases.saveWorkflow')}
-        </Button>
-        {props.mode === 'create' ? (
+      {props.mode === 'edit' ? null : (
+        <div className='flex flex-wrap gap-2'>
+          <Button type='submit' disabled={pending}>
+            {t('common.create')}
+          </Button>
           <Button
             type='button'
             variant='outline'
@@ -444,8 +415,8 @@ export function CaseForm(props: Props) {
           >
             {t('common.cancel')}
           </Button>
-        ) : null}
-      </div>
+        </div>
+      )}
     </form>
   )
 }

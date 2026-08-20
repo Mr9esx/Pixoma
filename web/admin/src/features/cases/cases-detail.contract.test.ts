@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const DETAIL = join(here, 'detail-panel.tsx')
-const CONFIG_VIEW = join(here, 'sections/workflow-config-view.tsx')
+const CASE_FORM = join(here, 'case-form.tsx')
 
 describe('workflow detail panel', () => {
   it('is view-only with config and entries sections and edit modal', () => {
@@ -13,21 +13,19 @@ describe('workflow detail panel', () => {
     expect(source).toContain('SectionHead')
     expect(source).toContain('cases.sectionConfig')
     expect(source).toContain('cases.sectionEntries')
-    expect(source).toContain('WorkflowConfigView')
+    expect(source).toContain('readOnly')
+    expect(source).toContain('showBasics={false}')
     expect(source).toContain('<Dialog')
     expect(source).toContain('DialogContent')
     expect(source).toContain('<CaseForm')
     expect(source).toContain('setEditOpen(false)')
-    expect(source).not.toContain('BasicsSection')
   })
 
-  it('config view shows inputs, outputs and bindings only (no basics)', () => {
-    const source = readFileSync(CONFIG_VIEW, 'utf8')
-    expect(source).toContain('cases.sectionInputs')
-    expect(source).toContain('cases.sectionOutputs')
-    expect(source).toContain('cases.sectionBindingInputs')
-    expect(source).toContain('cases.sectionBindingOutputs')
-    expect(source).not.toContain('BasicsSection')
-    expect(source).not.toContain('cases.fieldPrice')
+  it('case form can hide basics while keeping config sections', () => {
+    const source = readFileSync(CASE_FORM, 'utf8')
+    expect(source).toContain('showBasics')
+    expect(source).toContain('BasicsSection')
+    expect(source).toContain('WorkflowImportSection')
+    expect(source).toContain('PreviewSection')
   })
 })
