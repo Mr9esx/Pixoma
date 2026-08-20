@@ -2,6 +2,7 @@
 change: topic-routing
 design-doc: docs/superpowers/specs/2026-08-20-topic-routing-design.md
 base-ref: 3f2cc67642628024536fb2baa9ca160a5e2bdf04
+archived-with: 2026-08-20-topic-routing
 ---
 
 # Topic 调度（任务分流）实施计划

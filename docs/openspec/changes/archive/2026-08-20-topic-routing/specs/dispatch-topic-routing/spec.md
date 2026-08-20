@@ -1,14 +1,10 @@
-# dispatch-topic-routing Specification
+## REMOVED Requirements
 
-## Purpose
-TBD - created by archiving change edge-agent-topic-routing. Update Purpose after archive.
-## Requirements
-### Requirement: Topic 无消费者时不假装投递成功
-当目标实例的 dispatch Topic 在 split 模式下无在线 Edge（或等价消费者）时，系统 MUST 保持 Task 可重试并记录原因，MUST NOT 假装已可靠交付执行。
+### Requirement: 本期不实现投放表达式选路
+**Reason**: 本期交付按条件表达式选 Topic 投放，延后声明作废。
+**Migration**: 以本 delta 新增的「按条件表达式选 Topic 投放」要求为准。
 
-#### Scenario: split 下无在线 Edge
-- **WHEN** runtime_mode 为 split 且目标实例无在线 Edge
-- **THEN** Task 保持 pending（或未被标记为已可靠 queued）
+## ADDED Requirements
 
 ### Requirement: 按条件表达式选 Topic 投放
 调度 MUST 在任务调度时求值 Case 路由规则，选中目标 Topic，并仅使订阅该 Topic 的节点可领取；求值结果 MUST 记录在 Task（`dispatch_topic`）。无规则命中时 MUST 回退默认 Topic。
@@ -24,4 +20,3 @@ TBD - created by archiving change edge-agent-topic-routing. Update Purpose after
 #### Scenario: 求值错误保持 pending
 - **WHEN** 规则求值出现错误（如 provider 读取用户属性失败）
 - **THEN** Task 保持 pending 并记录原因，不投递到默认 Topic，后续调度周期重试
-

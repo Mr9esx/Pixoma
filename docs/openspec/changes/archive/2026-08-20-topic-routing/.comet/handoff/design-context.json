@@ -1,0 +1,25 @@
+{
+  "change": "topic-routing",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "0f6199f4d295ed146081c80fa8d490babadca2528e761f101b19eb4babcf1ee5",
+  "files": [
+    { "path": "docs/openspec/changes/topic-routing/proposal.md", "sha256": "9e6a13114c9ce66864319bbdbc952741eba13ab1aa7b63046ec2aff60fb3eada" },
+    { "path": "docs/openspec/changes/topic-routing/design.md", "sha256": "ad5e510474e11155f27e71c8d7c6bde169891d16f96721e603cb0f182ec9d98a" },
+    { "path": "docs/openspec/changes/topic-routing/tasks.md", "sha256": "e763d759ccef6fe1dbad630df82648c2543ebc6bf6cd3d3a53239cf5a3b24b83" },
+    { "path": "docs/openspec/changes/topic-routing/specs/agent-pull-dispatch/spec.md", "sha256": "63bce7c14bff4975520cee2db86a3de824d91f4ba031b0240a147e136989bbb7" },
+    { "path": "docs/openspec/changes/topic-routing/specs/case-admin-api/spec.md", "sha256": "8b13922ae030411f04c79f755afe41061eb419bc13c8aa24c8780ce925dfe81d" },
+    { "path": "docs/openspec/changes/topic-routing/specs/comfy-instance-pool/spec.md", "sha256": "0bc0100269476a59399db1a176e0cb13e129f5b69d17c77e36106dbfe7efa078" },
+    { "path": "docs/openspec/changes/topic-routing/specs/condition-protocol/spec.md", "sha256": "5c4eef1f88cd6a2b474c6b2bd7f1feb654f58c0f88e49b71387557a10493d233" },
+    { "path": "docs/openspec/changes/topic-routing/specs/dispatch-topic-routing/spec.md", "sha256": "031025ff854b9e6ff6bbf7906f2d38fb2408298cc32560d8d56e1439b26e84c9" },
+    { "path": "docs/openspec/changes/topic-routing/specs/edge-agent/spec.md", "sha256": "c5b255f4400d85c4e01adf76f596bb44458dd32f9ea41c3143d8d07a263c464f" },
+    { "path": "docs/openspec/changes/topic-routing/specs/platform-bootstrap/spec.md", "sha256": "cf634be325746cdd1edef754c68702f0c553bb8a04bd7e31dc2370b6a70ff0f3" },
+    { "path": "docs/openspec/changes/topic-routing/specs/task-orchestrator/spec.md", "sha256": "4c85de71d069affb3d302050c569edc6b43c060dff9684f1373afbc6c1b34de3" },
+    { "path": "docs/openspec/changes/topic-routing/specs/task-persistence/spec.md", "sha256": "6785441c923b2e6e2c6faa70f714062517bc2f79396c7961b4d68554fa5d97e7" },
+    { "path": "docs/openspec/changes/topic-routing/specs/topic-admin/spec.md", "sha256": "66343787b60821dbe673accc90b2df1e6d16e9e43660aa54802d1c75e8570708" },
+    { "path": "docs/openspec/changes/topic-routing/specs/topic-routing-config/spec.md", "sha256": "1ca6e9a7ef3c8300c1113218bf6277039ce530fcda0598889b5ec7b0dbc33c11" },
+    { "path": "docs/openspec/changes/topic-routing/specs/workflow-protocol/spec.md", "sha256": "82c8a5ffbbb20a4be37cb6a4105eaf56d8fc97021bae16f5da85c51380655c61" }
+  ]
+}

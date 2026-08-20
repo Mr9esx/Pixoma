@@ -2,6 +2,8 @@
 comet_change: topic-routing
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-20-topic-routing
+status: final
 ---
 
 # Topic 调度（任务分流）— 技术设计

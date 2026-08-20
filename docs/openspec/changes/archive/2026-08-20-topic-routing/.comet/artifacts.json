@@ -1,0 +1,9 @@
+{
+  "openspec_proposal": "docs/openspec/changes/topic-routing/proposal.md",
+  "openspec_design": "docs/openspec/changes/topic-routing/design.md",
+  "openspec_tasks": "docs/openspec/changes/topic-routing/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/topic-routing/specs/agent-pull-dispatch/spec.md",
+  "handoff_context": "docs/openspec/changes/archive/2026-08-20-topic-routing/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/archive/2026-08-20-topic-routing/.comet/handoff/design-context.md",
+  "archive_directory": "docs/openspec/changes/archive/2026-08-20-topic-routing"
+}
