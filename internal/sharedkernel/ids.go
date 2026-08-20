@@ -12,6 +12,7 @@ type (
 	SessionID string
 	ChatID    string
 	EdgeID    string
+	TopicKey  string
 )
 
 // ParseCaseID parses a decimal string into a CaseID.

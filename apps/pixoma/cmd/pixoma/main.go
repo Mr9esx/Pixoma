@@ -43,6 +43,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
+	topicpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/topic/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
@@ -141,6 +142,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			&userpersist.UserExternalIdentityRow{},
 			&sesspersist.SessionRow{},
 			&taskpersist.TaskRow{},
+			&topicpersist.TopicRow{},
 			&channelpersist.ChannelRow{},
 			&mencardpersist.MainMenuRow{},
 			&mencardpersist.CardRow{},
