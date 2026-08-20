@@ -81,6 +81,11 @@ func (p *Pool) Refresh(ctx context.Context) error {
 		} else {
 			cp.Capabilities = append([]string(nil), cp.Capabilities...)
 		}
+		if cp.SubscribeTopics == nil {
+			cp.SubscribeTopics = []string{}
+		} else {
+			cp.SubscribeTopics = append([]string(nil), cp.SubscribeTopics...)
+		}
 		next[rec.ID] = &pooled{
 			record:  cp,
 			healthy: healthy,
@@ -133,9 +138,10 @@ func (p *Pool) list(filter CapabilityFilter, requireHealthy bool) ([]Instance, e
 			continue
 		}
 		out = append(out, Instance{
-			ID:            e.record.ID,
-			DispatchTopic: sharedkernel.TopicDispatch(e.record.ID),
-			Capabilities:  append([]string(nil), e.record.Capabilities...),
+			ID:              e.record.ID,
+			DispatchTopic:   sharedkernel.TopicDispatch(e.record.ID),
+			Capabilities:    append([]string(nil), e.record.Capabilities...),
+			SubscribeTopics: append([]string(nil), e.record.SubscribeTopics...),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })

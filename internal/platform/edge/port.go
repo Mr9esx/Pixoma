@@ -3,13 +3,20 @@ package edge
 import (
 	"context"
 
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 type Instance struct {
-	ID            sharedkernel.EdgeID
-	DispatchTopic string
-	Capabilities  []string
+	ID              sharedkernel.EdgeID
+	DispatchTopic   string
+	Capabilities    []string
+	SubscribeTopics []string
+}
+
+// EffectiveTopics returns the normalized subscription set (empty = default).
+func (i *Instance) EffectiveTopics() []string {
+	return topic.NormalizeTopics(i.SubscribeTopics)
 }
 
 type CapabilityFilter struct {

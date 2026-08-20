@@ -2,6 +2,7 @@ package topic
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -27,3 +28,26 @@ type Topic struct {
 
 // TopicID is the stable topic key.
 type TopicID = sharedkernel.TopicKey
+
+// NormalizeTopics maps a raw subscription list to the effective topic set:
+// empty or missing values resolve to the default topic, duplicates are removed,
+// and order is preserved.
+func NormalizeTopics(raw []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(raw))
+	for _, t := range raw {
+		key := strings.TrimSpace(t)
+		if key == "" {
+			key = DefaultKey
+		}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, key)
+	}
+	if len(out) == 0 {
+		return []string{DefaultKey}
+	}
+	return out
+}

@@ -3,6 +3,7 @@ package edge
 import (
 	"time"
 
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -13,6 +14,7 @@ type Record struct {
 	Description              string
 	Enabled                  bool
 	Capabilities             []string
+	SubscribeTopics          []string
 	AgentTokenEnc            string
 	Hardware                 Hardware
 	HardwareRefreshRequested bool
@@ -20,4 +22,9 @@ type Record struct {
 	ComfyVersion             string
 	CreatedAt                time.Time
 	UpdatedAt                time.Time
+}
+
+// EffectiveTopics returns the normalized subscription set (empty = default).
+func (r *Record) EffectiveTopics() []string {
+	return topic.NormalizeTopics(r.SubscribeTopics)
 }

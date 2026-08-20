@@ -21,6 +21,7 @@ type EdgeRow struct {
 	Description              string     `gorm:"type:text"`
 	Enabled                  bool       `gorm:"not null"`
 	CapabilitiesJSON         string     `gorm:"column:capabilities_json;type:text;not null"`
+	SubscribeTopicsJSON      string     `gorm:"column:subscribe_topics_json;type:text"`
 	AgentTokenEnc            string     `gorm:"column:agent_token_enc;type:text"`
 	HardwareJSON             string     `gorm:"column:hardware_json;type:text"`
 	HardwareRefreshRequested bool       `gorm:"column:hardware_refresh_requested;not null;default:false"`
@@ -181,12 +182,38 @@ func (r *EdgeRepository) UpdatePresenceInfo(ctx context.Context, id sharedkernel
 	return nil
 }
 
+// UpdateSubscribeTopics stores the edge's topic subscription list.
+func (r *EdgeRepository) UpdateSubscribeTopics(ctx context.Context, id sharedkernel.EdgeID, topics []string) error {
+	if id == "" {
+		return fmt.Errorf("edge: empty id")
+	}
+	raw, err := json.Marshal(topics)
+	if err != nil {
+		return fmt.Errorf("edge: subscribe_topics_json: %w", err)
+	}
+	res := r.db.WithContext(ctx).Model(&EdgeRow{}).Where("id = ?", string(id)).Updates(map[string]any{
+		"subscribe_topics_json": string(raw),
+		"updated_at":            time.Now().UTC(),
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return edge.ErrNotFound
+	}
+	return nil
+}
+
 func toRow(rec *edge.Record) (*EdgeRow, error) {
 	caps := rec.Capabilities
 	if caps == nil {
 		caps = []string{}
 	}
 	raw, err := json.Marshal(caps)
+	if err != nil {
+		return nil, err
+	}
+	topics, err := json.Marshal(rec.SubscribeTopics)
 	if err != nil {
 		return nil, err
 	}
@@ -204,6 +231,7 @@ func toRow(rec *edge.Record) (*EdgeRow, error) {
 		Description:              rec.Description,
 		Enabled:                  rec.Enabled,
 		CapabilitiesJSON:         string(raw),
+		SubscribeTopicsJSON:      string(topics),
 		AgentTokenEnc:            rec.AgentTokenEnc,
 		HardwareJSON:             hwJSON,
 		HardwareRefreshRequested: rec.HardwareRefreshRequested,
@@ -221,6 +249,12 @@ func fromRow(row EdgeRow) (*edge.Record, error) {
 			return nil, fmt.Errorf("edge: capabilities_json: %w", err)
 		}
 	}
+	var topics []string
+	if row.SubscribeTopicsJSON != "" {
+		if err := json.Unmarshal([]byte(row.SubscribeTopicsJSON), &topics); err != nil {
+			return nil, fmt.Errorf("edge: subscribe_topics_json: %w", err)
+		}
+	}
 	var hw edge.Hardware
 	if row.HardwareJSON != "" {
 		if err := json.Unmarshal([]byte(row.HardwareJSON), &hw); err != nil {
@@ -233,6 +267,7 @@ func fromRow(row EdgeRow) (*edge.Record, error) {
 		Description:              row.Description,
 		Enabled:                  row.Enabled,
 		Capabilities:             caps,
+		SubscribeTopics:          topics,
 		AgentTokenEnc:            row.AgentTokenEnc,
 		Hardware:                 hw,
 		HardwareRefreshRequested: row.HardwareRefreshRequested,

@@ -18,21 +18,24 @@ type OutputRef struct {
 }
 
 type Task struct {
-	ID           sharedkernel.TaskID
-	SessionID    sharedkernel.SessionID
-	ChatID       sharedkernel.ChatID // optional cache; not persisted as required column
-	CaseID       sharedkernel.CaseID
-	Status       sharedkernel.TaskStatus
-	EdgeID       sharedkernel.EdgeID
-	PromptID     string
-	InputPrefix  string
-	JobRef       sharedkernel.BlobRef
-	LeaseUntil   time.Time
-	Outputs      []OutputRef
-	ErrorCode    string
-	ErrorMessage string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID            sharedkernel.TaskID
+	SessionID     sharedkernel.SessionID
+	ChatID        sharedkernel.ChatID // optional cache; not persisted as required column
+	CaseID        sharedkernel.CaseID
+	Status        sharedkernel.TaskStatus
+	EdgeID        sharedkernel.EdgeID
+	DispatchTopic string
+	Attempts      int
+	RequeueAt     time.Time
+	PromptID      string
+	InputPrefix   string
+	JobRef        sharedkernel.BlobRef
+	LeaseUntil    time.Time
+	Outputs       []OutputRef
+	ErrorCode     string
+	ErrorMessage  string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 func NewPending(id sharedkernel.TaskID, sessionID sharedkernel.SessionID, caseID sharedkernel.CaseID, inputPrefix string, now time.Time) *Task {
@@ -73,12 +76,35 @@ func (t *Task) PrepareForClaim(instance sharedkernel.EdgeID, jobRef sharedkernel
 	return nil
 }
 
+// PrepareForTopic marks a pending task queued for a delivery topic with a job
+// blob ref, without binding a specific edge. Any node subscribed to the topic
+// may claim it.
+func (t *Task) PrepareForTopic(topicKey string, jobRef sharedkernel.BlobRef, now time.Time) error {
+	if t.Status != sharedkernel.TaskPending {
+		return ErrInvalidTransition
+	}
+	if topicKey == "" || jobRef.Key == "" {
+		return ErrInvalidTransition
+	}
+	t.Status = sharedkernel.TaskQueued
+	t.DispatchTopic = topicKey
+	t.JobRef = jobRef
+	t.EdgeID = ""
+	t.LeaseUntil = time.Time{}
+	t.RequeueAt = time.Time{}
+	t.UpdatedAt = now
+	return nil
+}
+
 // ClaimWithLease moves queued → running for the assigned instance and sets lease expiry.
 func (t *Task) ClaimWithLease(instance sharedkernel.EdgeID, lease time.Duration, now time.Time) error {
 	if t.Status != sharedkernel.TaskQueued {
 		return ErrInvalidTransition
 	}
-	if instance == "" || t.EdgeID != instance {
+	if instance == "" {
+		return ErrInvalidTransition
+	}
+	if t.EdgeID != "" && t.EdgeID != instance {
 		return ErrInvalidTransition
 	}
 	if t.JobRef.Key == "" {
@@ -88,6 +114,7 @@ func (t *Task) ClaimWithLease(instance sharedkernel.EdgeID, lease time.Duration,
 		return ErrInvalidTransition
 	}
 	t.Status = sharedkernel.TaskRunning
+	t.EdgeID = instance
 	t.LeaseUntil = now.Add(lease)
 	t.UpdatedAt = now
 	return nil

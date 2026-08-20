@@ -22,6 +22,7 @@ type Repository interface {
 	UpdateHardware(ctx context.Context, id sharedkernel.EdgeID, hw Hardware) error
 	SetHardwareRefreshRequested(ctx context.Context, id sharedkernel.EdgeID, requested bool) error
 	UpdatePresenceInfo(ctx context.Context, id sharedkernel.EdgeID, startedAt *time.Time, comfyVersion string) error
+	UpdateSubscribeTopics(ctx context.Context, id sharedkernel.EdgeID, topics []string) error
 }
 
 // SeedConfig drives startup upsert of instance rows from bot config.
