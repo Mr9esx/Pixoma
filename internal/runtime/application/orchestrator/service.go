@@ -256,8 +256,18 @@ func (s *Service) applyStatus(ctx context.Context, ev sharedkernel.TaskStatusEve
 			return err
 		}
 	case sharedkernel.TaskFailed:
-		if err := t.MarkFailed(ev.ErrorCode, ev.ErrorMsg, now); err != nil {
+		if t.Status == sharedkernel.TaskFailed {
+			return nil // idempotent
+		}
+		requeued, err := t.RequeueAfterFailure(runtimedomain.BackoffFor(t.Attempts+1), now, ev.ErrorMsg)
+		if err != nil {
 			return err
+		}
+		if requeued {
+			if err := s.Tasks.Update(ctx, t); err != nil {
+				return err
+			}
+			return nil
 		}
 	case sharedkernel.TaskCancelled:
 		if err := t.MarkCancelled(now); err != nil {
