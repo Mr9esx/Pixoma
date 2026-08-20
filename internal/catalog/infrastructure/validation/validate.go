@@ -40,7 +40,7 @@ func (v *Validator) ValidateDocument(doc domain.CaseDocument) error {
 	if err := validateWorkflowGraph(doc.Bindings.WorkflowJSON); err != nil {
 		fields = append(fields, *err)
 	}
-	fields = append(fields, validateInputBindings(doc.Bindings.WorkflowJSON, doc.Bindings.Inputs)...)
+	fields = append(fields, validateInputBindings(doc.Inputs, doc.Bindings.WorkflowJSON, doc.Bindings.Inputs)...)
 	fields = append(fields, validateOutputBindings(doc.Bindings.WorkflowJSON, doc.Bindings.Outputs)...)
 	if len(fields) > 0 {
 		return &domain.ValidationError{Fields: fields}
@@ -77,13 +77,25 @@ func validateWorkflowGraph(g map[string]any) *domain.FieldError {
 	return err
 }
 
-func validateInputBindings(g map[string]any, bindings []domain.InputBinding) []domain.FieldError {
+func validateInputBindings(inputs []domain.InputField, g map[string]any, bindings []domain.InputBinding) []domain.FieldError {
 	nodes, graphErr := workflowNodes(g)
 	if graphErr != nil {
 		return nil
 	}
+	byKey := make(map[string]domain.InputBinding, len(bindings))
+	for _, b := range bindings {
+		byKey[b.Key] = b
+	}
 	var out []domain.FieldError
-	for i, b := range bindings {
+	for i, in := range inputs {
+		b, ok := byKey[in.Key]
+		if !ok || b.NodeID == "" || b.FieldPath == "" {
+			out = append(out, domain.FieldError{
+				Key:     fmt.Sprintf("bindings.inputs[%d].node_id", i),
+				Message: "binding required for input " + in.Key,
+			})
+			continue
+		}
 		node, ok := nodes[b.NodeID]
 		if !ok {
 			out = append(out, domain.FieldError{Key: fmt.Sprintf("bindings.inputs[%d].node_id", i), Message: "node not found"})

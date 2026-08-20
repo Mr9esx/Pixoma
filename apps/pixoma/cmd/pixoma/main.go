@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/app"
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/webembed"
+	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
@@ -50,6 +52,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	topicpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/topic/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -269,15 +272,51 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	pres := presence.NewStore()
 	metricsRepo := instpersist.NewMetricsRepository(gdb, metricsRetention())
 
+	conditionReg := condition.NewRegistry()
+	conditionReg.Register(&condition.UserProvider{Lookup: func(ctx context.Context, userID string) (*bool, error) {
+		var row struct {
+			ProfileJSON string
+		}
+		if err := gdb.WithContext(ctx).Model(&userpersist.UserExternalIdentityRow{}).
+			Where("user_id = ?", userID).
+			Order("last_seen_at DESC").
+			Limit(1).
+			Scan(&row).Error; err != nil {
+			return nil, err
+		}
+		return parsePremium(row.ProfileJSON), nil
+	}})
+	conditionReg.Register(&condition.CaseProvider{Lookup: func(ctx context.Context, caseID string) (string, []string, error) {
+		cid, err := sharedkernel.ParseCaseID(caseID)
+		if err != nil {
+			return "", nil, err
+		}
+		c, err := caseRepo.Get(ctx, cid)
+		if err != nil {
+			return "", nil, err
+		}
+		category := ""
+		if len(c.Document.Categories) > 0 {
+			category = c.Document.Categories[0]
+		}
+		return category, c.Document.Tags, nil
+	}})
+
+	validator := validation.New()
 	adminH := adminhost.NewHandler(adminhost.Options{
 		CORSOrigins: corsOrigins(),
 		Instances:   &edges.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Metrics: metricsRepo, EncKey: encKey, Presence: pres},
-		Cases:       &casesapi.Handler{Repo: caseRepo, Validate: validation.New().ValidateDocument},
-		Users:       &usersapi.Handler{Repo: userRepo},
-		Sessions:    &sessionsapi.Handler{Repo: sessionRepo},
-		Tasks:       &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
-		Channels:    &channelsapi.Handler{Svc: chSvc},
-		MenuCards:   menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb)),
+		Cases: &casesapi.Handler{Repo: caseRepo, Validate: func(doc catalogdomain.CaseDocument) error {
+			if err := validator.ValidateDocument(doc); err != nil {
+				return err
+			}
+			return validation.ValidateRouting(context.Background(), doc.Routing, topicRepo, conditionReg)
+		}},
+		Users:     &usersapi.Handler{Repo: userRepo},
+		Sessions:  &sessionsapi.Handler{Repo: sessionRepo},
+		Tasks:     &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
+		Channels:  &channelsapi.Handler{Svc: chSvc},
+		MenuCards: menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb)),
 		Topics: &topicsapi.Handler{
 			Repo: topicRepo,
 			CountCaseRefs: func(ctx context.Context, key string) (int, error) {
@@ -457,4 +496,19 @@ func envBool(k string, def bool) bool {
 	default:
 		return def
 	}
+}
+
+// parsePremium reads the Telegram premium flag from the platform profile JSON.
+// Missing or unparsable profile yields nil (attribute treated as missing).
+func parsePremium(profileJSON string) *bool {
+	if strings.TrimSpace(profileJSON) == "" {
+		return nil
+	}
+	var profile struct {
+		IsPremium *bool `json:"is_premium"`
+	}
+	if err := json.Unmarshal([]byte(profileJSON), &profile); err != nil {
+		return nil
+	}
+	return profile.IsPremium
 }
