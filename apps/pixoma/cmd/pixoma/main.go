@@ -324,13 +324,13 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			Repo: topicRepo,
 			CountCaseRefs: func(ctx context.Context, key string) (int, error) {
 				var n int64
-				like := `%"topic":"` + key + `"%`
+				like := `%"topic":"` + escapeLike(key) + `"%`
 				err := gdb.WithContext(ctx).Model(&casepersist.CaseRow{}).Where("doc_json LIKE ?", like).Count(&n).Error
 				return int(n), err
 			},
 			CountEdgeRefs: func(ctx context.Context, key string) (int, error) {
 				var n int64
-				err := gdb.WithContext(ctx).Model(&instpersist.EdgeRow{}).Where("subscribe_topics_json LIKE ?", `%"`+key+`"%`).Count(&n).Error
+				err := gdb.WithContext(ctx).Model(&instpersist.EdgeRow{}).Where("subscribe_topics_json LIKE ?", `%"`+escapeLike(key)+`"%`).Count(&n).Error
 				return int(n), err
 			},
 		},
@@ -515,6 +515,14 @@ func parsePremium(profileJSON string) *bool {
 		return nil
 	}
 	return profile.IsPremium
+}
+
+// escapeLike neutralizes LIKE wildcards in user-supplied keys.
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }
 
 // caseDocReader adapts the catalog repository to the orchestrator CaseReader
