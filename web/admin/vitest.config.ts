@@ -47,6 +47,7 @@ export default defineConfig({
       'src/features/task-flow/lib/graph.test.ts',
       'src/features/task-flow/lib/elk-layout.test.ts',
       'src/features/task-flow/lib/topic-binding.test.ts',
+      'src/features/task-flow/lib/validate.test.ts',
       'src/features/task-flow/task-flow.contract.test.ts',
     ],
   },

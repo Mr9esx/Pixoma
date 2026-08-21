@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import { useNodesInitialized, useReactFlow } from '@xyflow/react'
+import { useNodesInitialized, useReactFlow, type Node } from '@xyflow/react'
 import { computeFitViewport, elkLayout } from './elk-layout'
 
 /**
  * ELK 自动布局编排：
  * - 节点首次测量完成后布局一次并 fitView；
- * - 之后结构/尺寸变化由调用方 bump()，防抖后重排（打字过程中不跳动）；
- * - 拖动期间不重排，松手后由调用方通过规则重排触发。
+ * - 之后仅由调用方显式 bump()（「自动整理」按钮 / 增删分支）触发重排；
+ * - 拖动期间不重排，松手后位置由调用方记录（freePos），下次 bump 才可能被 ELK 覆盖；
+ * - onLayouted 在每次布局完成后回调节点位置（调用方用于持久化"当前布局位置"）。
  */
-export function useElkLayout(containerRef: RefObject<HTMLDivElement | null>) {
+export function useElkLayout(
+  containerRef: RefObject<HTMLDivElement | null>,
+  onLayouted?: (nodes: Node[]) => void,
+) {
   const { getNodes, getEdges, setNodes, setViewport } = useReactFlow()
   const nodesInitialized = useNodesInitialized()
 
@@ -25,6 +29,7 @@ export function useElkLayout(containerRef: RefObject<HTMLDivElement | null>) {
     const nextNodes = await elkLayout(getNodes(), getEdges())
     if (seq !== requestSeqRef.current) return // 已被更新的布局请求取代
     setNodes(nextNodes)
+    onLayouted?.(nextNodes)
     if (fitNextRef.current) {
       fitNextRef.current = false
       const el = containerRef.current
@@ -34,7 +39,7 @@ export function useElkLayout(containerRef: RefObject<HTMLDivElement | null>) {
         void setViewport(vp, { duration: 200 })
       }
     }
-  }, [getNodes, getEdges, setNodes, setViewport, containerRef])
+  }, [getNodes, getEdges, setNodes, setViewport, containerRef, onLayouted])
 
   const requestLayout = useCallback(
     (delay = 250) => {
@@ -63,9 +68,10 @@ export function useElkLayout(containerRef: RefObject<HTMLDivElement | null>) {
     }
   }, [nodesInitialized, fitAfterNextLayout, requestLayout])
 
-  // 图结构/内容变化后防抖重排。
+  // bump() 由调用方显式触发（「自动整理」按钮 / 增删分支）；拖动/打字不经过这里，
+  // 无需防抖，直接重排。
   useEffect(() => {
-    if (tick > 0 && nodesInitialized) requestLayout(300)
+    if (tick > 0 && nodesInitialized) requestLayout(0)
   }, [tick, nodesInitialized, requestLayout])
 
   useEffect(() => () => window.clearTimeout(timerRef.current), [])
