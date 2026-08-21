@@ -138,19 +138,19 @@ func (r *GormStatsRepository) ListDaily(ctx context.Context, from, to string) ([
 func (r *GormStatsRepository) ListErrors(ctx context.Context, from, to string, limit int) ([]taskstats.ErrorRow, error) {
 	type item struct {
 		ErrorCode string
-		Count     int
+		Total     int
 	}
 	var items []item
 	if err := r.db.WithContext(ctx).Model(&ErrorDailyStatsRow{}).
-		Select("error_code", "SUM(count) AS count").
+		Select("error_code", "SUM(count) AS total").
 		Where("stat_date BETWEEN ? AND ?", from, to).
-		Group("error_code").Order("count DESC").Limit(limit).
+		Group("error_code").Order("total DESC").Limit(limit).
 		Scan(&items).Error; err != nil {
 		return nil, err
 	}
 	out := make([]taskstats.ErrorRow, 0, len(items))
 	for _, it := range items {
-		out = append(out, taskstats.ErrorRow{ErrorCode: it.ErrorCode, Count: it.Count})
+		out = append(out, taskstats.ErrorRow{ErrorCode: it.ErrorCode, Count: it.Total})
 	}
 	return out, nil
 }
@@ -158,19 +158,19 @@ func (r *GormStatsRepository) ListErrors(ctx context.Context, from, to string, l
 func (r *GormStatsRepository) ListEdges(ctx context.Context, from, to string) ([]taskstats.EdgeRow, error) {
 	type item struct {
 		EdgeID string
-		Count  int
+		Total  int
 	}
 	var items []item
 	if err := r.db.WithContext(ctx).Model(&EdgeDailyStatsRow{}).
-		Select("edge_id", "SUM(processed_count) AS count").
+		Select("edge_id", "SUM(processed_count) AS total").
 		Where("stat_date BETWEEN ? AND ?", from, to).
-		Group("edge_id").Order("count DESC").
+		Group("edge_id").Order("total DESC").
 		Scan(&items).Error; err != nil {
 		return nil, err
 	}
 	out := make([]taskstats.EdgeRow, 0, len(items))
 	for _, it := range items {
-		out = append(out, taskstats.EdgeRow{EdgeID: it.EdgeID, Count: it.Count})
+		out = append(out, taskstats.EdgeRow{EdgeID: it.EdgeID, Count: it.Total})
 	}
 	return out, nil
 }
