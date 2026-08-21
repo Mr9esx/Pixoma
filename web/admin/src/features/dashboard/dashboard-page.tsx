@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { listCases } from '@/lib/api/cases'
 import { listEdges } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
-import { listTasks } from '@/lib/api/tasks'
 import { aggregateDashboard } from '@/lib/dashboard/aggregate'
 import {
   Card,
@@ -15,7 +14,7 @@ import {
 } from '@/components/ui/card'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { taskStatusLabelKey } from '@/features/tasks/list-panel'
+import { TaskStatsSection } from './task-stats-section'
 
 const DASHBOARD_LIST_LIMIT = 200
 
@@ -227,103 +226,6 @@ function CasesCard() {
   )
 }
 
-const TASK_STATUS_COLORS = [
-  'bg-sky-500',
-  'bg-amber-500',
-  'bg-emerald-500',
-  'bg-rose-500',
-  'bg-violet-500',
-  'bg-zinc-400',
-]
-
-function TasksCard() {
-  const { t } = useTranslation()
-  const q = useQuery({
-    queryKey: [
-      ...queryKeys.tasks.all,
-      { limit: DASHBOARD_LIST_LIMIT },
-    ] as const,
-    queryFn: () => listTasks({ limit: DASHBOARD_LIST_LIMIT }),
-  })
-
-  if (q.isError) {
-    return (
-      <Card data-testid='dashboard-tasks-card'>
-        <CardHeader>
-          <CardTitle className='text-sm font-medium'>
-            {t('dashboard.tasksTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ErrorBanner
-            message={errorMessage(q.error)}
-            onRetry={() => void q.refetch()}
-          />
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (q.isLoading) {
-    return (
-      <Card data-testid='dashboard-tasks-card'>
-        <CardHeader>
-          <CardTitle className='text-sm font-medium'>
-            {t('dashboard.tasksTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LoadingSkeleton rows={4} />
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const stats = aggregateDashboard({
-    instances: [],
-    cases: [],
-    tasks: q.data ?? [],
-  })
-  const entries = Object.entries(stats.taskByStatus).sort(([a], [b]) =>
-    a.localeCompare(b)
-  )
-
-  return (
-    <Card
-      data-testid='dashboard-tasks-card'
-      className='sm:col-span-2 lg:col-span-1'
-    >
-      <CardHeader className='pb-2'>
-        <CardTitle className='text-sm font-medium'>
-          <Link to='/tasks' className='hover:underline'>
-            {t('dashboard.tasksTitle')}
-          </Link>
-        </CardTitle>
-        <CardDescription>
-          {t('dashboard.taskStatusDistribution')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {entries.length === 0 ? (
-          <p className='text-sm text-muted-foreground'>{t('common.empty')}</p>
-        ) : (
-          <RatioBar
-            segments={entries.map(([status, count], i) => {
-              const statusKey = taskStatusLabelKey(status)
-              return {
-                key: status,
-                label: statusKey ? t(statusKey) : status,
-                count,
-                className: TASK_STATUS_COLORS[i % TASK_STATUS_COLORS.length]!,
-              }
-            })}
-          />
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
 export function DashboardPage() {
   const { t } = useTranslation()
 
@@ -343,7 +245,9 @@ export function DashboardPage() {
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
         <EdgesCard />
         <CasesCard />
-        <TasksCard />
+        <div className='sm:col-span-2 lg:col-span-3'>
+          <TaskStatsSection />
+        </div>
       </div>
     </div>
   )

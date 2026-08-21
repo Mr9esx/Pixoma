@@ -80,7 +80,16 @@
     "tasksTitle": "Tasks",
     "taskStatusDistribution": "Status distribution",
     "enabled": "Enabled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "taskDailyTitle": "Daily processed tasks",
+    "taskDailyDescription": "Processed tasks by completion date {{from}} ~ {{to}}",
+    "range7d": "Last 7 days",
+    "range30d": "Last 30 days",
+    "range90d": "Last 90 days",
+    "processed": "Processed",
+    "statsSuccessRate": "Success rate",
+    "statsErrorTop": "Top error codes",
+    "statsEdgeLoad": "Node load"
   },
   "edges": {
     "title": "Compute nodes",

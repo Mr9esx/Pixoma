@@ -80,7 +80,16 @@
     "tasksTitle": "任务",
     "taskStatusDistribution": "状态分布",
     "enabled": "启用",
-    "disabled": "未启用"
+    "disabled": "未启用",
+    "taskDailyTitle": "每日处理任务数",
+    "taskDailyDescription": "按完成时间统计 {{from}} ~ {{to}} 的已处理任务",
+    "range7d": "近 7 天",
+    "range30d": "近 30 天",
+    "range90d": "近 90 天",
+    "processed": "已处理",
+    "statsSuccessRate": "成功率",
+    "statsErrorTop": "错误码 Top",
+    "statsEdgeLoad": "节点负载"
   },
   "edges": {
     "title": "计算节点",
