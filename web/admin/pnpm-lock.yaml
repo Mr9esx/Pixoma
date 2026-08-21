@@ -110,6 +110,9 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      elkjs:
+        specifier: ^0.12.0
+        version: 0.12.0
       i18next:
         specifier: ^26.3.6
         version: 26.3.6(typescript@6.0.3)
@@ -2468,6 +2471,9 @@ packages:
 
   electron-to-chromium@1.5.173:
     resolution: {integrity: sha512-2bFhXP2zqSfQHugjqJIDFVwa+qIxyNApenmXTp9EjaKtdPrES5Qcn9/aSFy/NaP2E+fWG/zxKu/LBvY36p5VNQ==}
+
+  elkjs@0.12.0:
+    resolution: {integrity: sha512-YZcKynxVxYoKIOEpywEPwCFdg+BTbxQRNf3pbwdDCvc8O3kQD8bmIwSxKU1eOTVc4Xo+VG9Te+575mlfvOrhEQ==}
 
   enhanced-resolve@5.20.1:
     resolution: {integrity: sha512-Qohcme7V1inbAfvjItgw0EaxVX5q2rdVEZHRBrEQdRZTssLDGsL8Lwrznl8oQ/6kuTJONLaDcGjkNP247XEhcA==}
@@ -5736,6 +5742,8 @@ snapshots:
       gopd: 1.2.0
 
   electron-to-chromium@1.5.173: {}
+
+  elkjs@0.12.0: {}
 
   enhanced-resolve@5.20.1:
     dependencies:

@@ -44,6 +44,10 @@ export default defineConfig({
       'src/features/edges/agent-credentials.test.ts',
       'src/features/edges/observation.test.ts',
       'src/features/edges/list-health.test.ts',
+      'src/features/task-flow/lib/graph.test.ts',
+      'src/features/task-flow/lib/elk-layout.test.ts',
+      'src/features/task-flow/lib/topic-binding.test.ts',
+      'src/features/task-flow/task-flow.contract.test.ts',
     ],
   },
 })
