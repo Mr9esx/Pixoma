@@ -55,7 +55,7 @@ export function RuleEditor({
         </div>
       </div>
 
-      <div className='border-t border-border bg-muted/15 px-4 py-3'>
+      <div className='border-t border-border px-4 py-3'>
         <div className='nodrag'>
           <ConditionForm value={rule.when} attributes={attributes} onChange={onConditionChange} />
         </div>
