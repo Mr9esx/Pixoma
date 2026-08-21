@@ -79,6 +79,8 @@ go run ./apps/edge-agent/cmd/edge-agent
 | `BLOB_DRIVER` | Edge / 紧急覆盖 | `localfs` / `s3` / `tos` |
 | `METRICS_INTERVAL` | Edge | 系统指标采样/上报间隔（默认 `30s`，下限 `5s`） |
 | `METRICS_RETENTION` | 控制面 | `edge_metrics` 保留窗口（默认 `24h`） |
+| `STATS_TIMEZONE` | 控制面 | 任务统计归天时区（默认 `Asia/Shanghai`） |
+| `TASK_STATS_RETENTION` | 控制面 | 任务统计保留时长（默认 `8760h`，即 365 天） |
 | `S3_*` / `TOS_*` | 远程存储 | endpoint / region / bucket / keys |
 
 对象存储密钥不要提交进 git。真网 TOS 门禁：`go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip`。

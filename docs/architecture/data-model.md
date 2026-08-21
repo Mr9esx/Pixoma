@@ -167,6 +167,23 @@ Edge 心跳上报的实时系统指标快照，整快照 JSON 一列，写入时
 
 引导态 `bootstrap_meta`（本机 `bootstrap.db`）：initialized、管理员哈希、业务库 driver/DSN、enc key、向导进度。 |
 
+### 2.4c 任务统计表（`task_daily_stats` / `task_edge_daily_stats` / `task_error_daily_stats`）
+
+任务进入终态（succeeded / failed / cancelled）时由 orchestrator 写路径按 `completed_at` 归天（`STATS_TIMEZONE`，默认 Asia/Shanghai）幂等 upsert 三张窄表；读取走管理端 `/api/v1/stats/tasks/{daily,errors,edges}`，不扫描任务全表。保留期默认 365 天（`TASK_STATS_RETENTION` 可配），写入后清理过期行；`apps/admin-api/cmd/backfill-task-stats` 可从 `tasks` 表按天重算绝对值覆盖（可重复执行）。
+
+`task_daily_stats`（按天全局计数）：
+
+| 列 | 约束 | 说明 |
+|---|---|---|
+| stat_date | PK | YYYY-MM-DD（应用层按时区归天） |
+| processed_count / succeeded_count / failed_count / cancelled_count | not null default 0 | processed = 成功 + 失败 + 取消 |
+| total_duration_ms | not null default 0 | 终态耗时累计（completed_at - created_at） |
+| updated_at | not null | 最近更新（UTC） |
+
+`task_edge_daily_stats`：PK `(stat_date, edge_id)`，`processed_count` 为每节点每日已处理任务数（仅终态任务按 edge_id 计数）。
+
+`task_error_daily_stats`：PK `(stat_date, error_code)`，`count` 为每日错误码出现次数（仅非空 error_code）。
+
 ### 2.5 `catalog_cases`（既有）
 
 | 列 | 约束 | 说明 |
@@ -428,6 +445,7 @@ flowchart LR
 | catalog_cases | `internal/catalog/infrastructure/persistence` |
 | tg_menus / tg_menu_items / tg_menu_item_cases | `internal/tgmenu`（domain/application/persistence）；HTTP `internal/httpapi/tgmenu`；Case 反查 `GET .../cases/{id}/menu-placements` |
 | HTTP API | `internal/httpapi/edges` 等 |
+| 任务统计 | `internal/platform/taskstats`（领域/仓储）、`internal/httpapi/stats`（HTTP）、backfill `apps/admin-api/cmd/backfill-task-stats` |
 | 接线 | `apps/bot/cmd/comfyui-bot/main.go`、`apps/admin-api/cmd/admin-api/main.go` |
 
 设计原文：`docs/superpowers/specs/2026-08-08-comfy-multi-instance-design.md`
