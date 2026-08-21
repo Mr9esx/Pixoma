@@ -186,6 +186,9 @@ Session 状态机（独立）：`collecting` → `confirming` → `submitted` | 
 | `GET .../{id}/metrics` | `edge_metrics` 窗口查询（默认 1h），返回 `{ latest, series }`；详情页「系统监控」图表数据源 |
 | `GET .../{id}/tasks` | `tasks WHERE edge_id=?` |
 | `GET .../{id}/stats` | 该节点任务数 / 累计耗时 / 成功率 |
+| `GET /api/v1/stats/tasks/daily?from&to` | `task_daily_stats` 按天查询（零填充，默认近 30 天、上限 365 天），附成功率汇总；任务终态由 orchestrator 写入统计表 |
+| `GET /api/v1/stats/tasks/errors?from&to&limit` | `task_error_daily_stats` 错误码 Top-N |
+| `GET /api/v1/stats/tasks/edges?from&to` | `task_edge_daily_stats` 每节点已处理任务数与 total |
 | `GET /healthz` | 进程存活 |
 
 > 计算节点 API **当前无鉴权**，仅本机/可信内网。
