@@ -22,6 +22,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
+	statsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/stats"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
@@ -32,6 +33,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
+	taskstatspersist "github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 )
@@ -69,6 +71,9 @@ func run(ctx context.Context) error {
 			&userpersist.UserExternalIdentityRow{},
 			&sesspersist.SessionRow{},
 			&taskpersist.TaskRow{},
+			&taskstatspersist.DailyStatsRow{},
+			&taskstatspersist.EdgeDailyStatsRow{},
+			&taskstatspersist.ErrorDailyStatsRow{},
 			&channelpersist.ChannelRow{},
 			&mencardpersist.MainMenuRow{},
 			&mencardpersist.CardRow{},
@@ -89,6 +94,7 @@ func run(ctx context.Context) error {
 
 	instRepo := instpersist.NewEdgeRepository(gdb)
 	metricsRepo := instpersist.NewMetricsRepository(gdb, metricsRetention())
+	statsRepo := taskstatspersist.NewGormStatsRepository(gdb, statsRetention(), statsLocation())
 	pool := edge.NewPool(instRepo, edge.PoolOptions{})
 	if err := pool.Refresh(ctx); err != nil {
 		return err
@@ -108,6 +114,7 @@ func run(ctx context.Context) error {
 	}
 	orch := orchestrator.New(taskRepo, pool, nil, notify.Nop{})
 	orch.Sessions = sessionRepo
+	orch.Stats = statsRepo
 
 	instAPI := &edges.Handler{
 		Repo:    instRepo,
@@ -122,6 +129,7 @@ func run(ctx context.Context) error {
 	usersAPI := &usersapi.Handler{Repo: userRepo}
 	sessionsAPI := &sessionsapi.Handler{Repo: sessionRepo}
 	tasksAPI := &tasksapi.Handler{Tasks: taskRepo, Cancel: orch}
+	statsAPI := &statsapi.Handler{Repo: statsRepo, Loc: statsLocation()}
 	chSvc := &channelapp.Service{
 		Store: channelpersist.NewGormRepository(gdb),
 		Key:   encKey,
@@ -143,6 +151,7 @@ func run(ctx context.Context) error {
 		Users:       usersAPI,
 		Sessions:    sessionsAPI,
 		Tasks:       tasksAPI,
+		Stats:       statsAPI,
 		Channels:    channelsAPI,
 		MenuCards:   menuCardsAPI,
 	})
@@ -180,6 +189,27 @@ func metricsRetention() time.Duration {
 		}
 	}
 	return 24 * time.Hour
+}
+
+func statsRetention() time.Duration {
+	if v := strings.TrimSpace(os.Getenv("TASK_STATS_RETENTION")); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 365 * 24 * time.Hour
+}
+
+func statsLocation() *time.Location {
+	v := strings.TrimSpace(os.Getenv("STATS_TIMEZONE"))
+	if v == "" {
+		v = "Asia/Shanghai"
+	}
+	loc, err := time.LoadLocation(v)
+	if err != nil {
+		return time.FixedZone("Asia/Shanghai", 8*3600)
+	}
+	return loc
 }
 
 func resolveDSN(configured string) string {
