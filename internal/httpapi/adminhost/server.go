@@ -12,6 +12,7 @@ import (
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	routingapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
+	statsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/stats"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
@@ -26,6 +27,7 @@ type Options struct {
 	Users     *usersapi.Handler
 	Sessions  *sessionsapi.Handler
 	Tasks     *tasksapi.Handler
+	Stats     *statsapi.Handler
 	Channels  *channelapi.Handler
 	MenuCards *menucardsapi.Handler
 	Topics    *topicsapi.Handler
@@ -71,6 +73,11 @@ func NewHandler(opts Options) http.Handler {
 	r.Route("/api/v1/tasks", func(r chi.Router) {
 		if opts.Tasks != nil {
 			opts.Tasks.Mount(r)
+		}
+	})
+	r.Route("/api/v1/stats", func(r chi.Router) {
+		if opts.Stats != nil {
+			opts.Stats.Mount(r)
 		}
 	})
 	r.Route("/api/v1/channels", func(r chi.Router) {
