@@ -13,6 +13,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/routing"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
@@ -55,6 +56,8 @@ type Service struct {
 	Prep      JobPreparer
 	Cases     CaseReader
 	Condition *condition.Registry
+	// Stats optionally records terminal task rollups; nil disables stats writes.
+	Stats taskstats.Repository
 	// Online optionally filters candidates in split mode (nil = no extra filter).
 	Online func(ctx context.Context, id sharedkernel.EdgeID) bool
 	Storm  *StormGuard
@@ -282,6 +285,9 @@ func (s *Service) applyStatus(ctx context.Context, ev sharedkernel.TaskStatusEve
 	}
 
 	if isTerminal(t.Status) && t.Status != prev {
+		if err := s.recordTerminalStats(ctx, t, now); err != nil {
+			return err
+		}
 		return s.publishNotify(ctx, t)
 	}
 	return nil
@@ -328,13 +334,46 @@ func (s *Service) RequestCancel(ctx context.Context, taskID sharedkernel.TaskID)
 	if err != nil {
 		return err
 	}
-	if err := t.MarkCancelled(s.Now()); err != nil {
+	now := s.Now()
+	prev := t.Status
+	if err := t.MarkCancelled(now); err != nil {
 		return err
 	}
 	if err := s.Tasks.Update(ctx, t); err != nil {
 		return err
 	}
+	if prev != sharedkernel.TaskCancelled {
+		if err := s.recordTerminalStats(ctx, t, now); err != nil {
+			return err
+		}
+	}
 	return s.publishNotify(ctx, t)
+}
+
+// recordTerminalStats writes one terminal transition into the daily rollup.
+// The old!=new guard is applied by callers; a zero CompletedAt (e.g. retries
+// exhausted) falls back to the event time so the row is bucketed correctly.
+func (s *Service) recordTerminalStats(ctx context.Context, t *runtimedomain.Task, now time.Time) error {
+	if s.Stats == nil {
+		return nil
+	}
+	status := taskstats.Status(t.Status)
+	switch status {
+	case taskstats.StatusSucceeded, taskstats.StatusFailed, taskstats.StatusCancelled:
+	default:
+		return nil
+	}
+	completedAt := t.CompletedAt
+	if completedAt.IsZero() {
+		completedAt = now
+	}
+	return s.Stats.AddTerminal(ctx, taskstats.AddTerminalInput{
+		EdgeID:      string(t.EdgeID),
+		ErrorCode:   t.ErrorCode,
+		Status:      status,
+		CompletedAt: completedAt,
+		CreatedAt:   t.CreatedAt,
+	})
 }
 
 func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, limit int) error {
