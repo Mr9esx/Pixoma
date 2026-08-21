@@ -71,14 +71,18 @@ func main() {
 			break
 		}
 		for _, row := range rows {
-			d := taskstats.DateOf(row.CompletedAt, loc)
+			completedAt := row.CompletedAt
+			if completedAt.IsZero() {
+				completedAt = row.UpdatedAt
+			}
+			d := taskstats.DateOf(completedAt, loc)
 			a := byDate[d]
 			if a == nil {
 				a = &dayAgg{}
 				byDate[d] = a
 			}
 			a.processed++
-			dur := row.CompletedAt.Sub(row.CreatedAt).Milliseconds()
+			dur := completedAt.Sub(row.CreatedAt).Milliseconds()
 			if dur < 0 {
 				dur = 0
 			}
