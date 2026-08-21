@@ -1,0 +1,15 @@
+{
+  "change": "task-daily-stats",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "0b29135fc7e54a4fb68486292da9aa114700e66d32a16e26d4a0bceaf8ca7ae6",
+  "files": [
+    { "path": "docs/openspec/changes/task-daily-stats/proposal.md", "sha256": "86abb2c9508e4eefb99f33c13ef03cf33f3e4911b88868c45459eb64b6f40349" },
+    { "path": "docs/openspec/changes/task-daily-stats/design.md", "sha256": "9220a1fde244f13c84f1370f791b17f7e184700f9c3cd6bab5d25ea31e34e732" },
+    { "path": "docs/openspec/changes/task-daily-stats/tasks.md", "sha256": "500b6de5adbcd2ab070fefbad61edf54f9b38a662f2d47ea0d3c82e052f5f993" },
+    { "path": "docs/openspec/changes/task-daily-stats/specs/admin-resource-pages/spec.md", "sha256": "41c936be49d39eee705a1ec8fa219e493ce2d4f07eee0386e25601d7c1fa98f6" },
+    { "path": "docs/openspec/changes/task-daily-stats/specs/task-daily-stats/spec.md", "sha256": "dfeb1f83a7bca46f293684c746e6247748cc8c92bea3b35feddc84fd8a3709c6" }
+  ]
+}
