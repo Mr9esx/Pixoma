@@ -115,6 +115,30 @@ export type TaskRecord = {
   updated_at: string
 }
 
+export type TaskDailyStat = {
+  date: string
+  processed: number
+  succeeded: number
+  failed: number
+  cancelled: number
+  avg_duration_ms: number | null
+}
+
+export type TaskDailyStatsResponse = {
+  range: { from: string; to: string }
+  days: TaskDailyStat[]
+  summary: {
+    processed: number
+    succeeded: number
+    failed: number
+    cancelled: number
+    success_rate: number | null
+  }
+}
+
+export type TaskErrorStat = { error_code: string; count: number }
+export type TaskEdgeStat = { edge_id: string; count: number }
+
 export type UserRecord = {
   id: string
   tg_user_id: number

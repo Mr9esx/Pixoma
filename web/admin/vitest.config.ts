@@ -25,6 +25,7 @@ export default defineConfig({
       'src/lib/api/users.test.ts',
       'src/lib/api/sessions.test.ts',
       'src/lib/api/query-keys.test.ts',
+      'src/lib/api/stats.test.ts',
       'src/lib/dashboard/aggregate.test.ts',
       'src/config/menu.test.ts',
       'src/lib/i18n/locale.test.ts',
@@ -48,6 +49,8 @@ export default defineConfig({
       'src/features/task-flow/lib/elk-layout.test.ts',
       'src/features/task-flow/lib/topic-binding.test.ts',
       'src/features/task-flow/task-flow.contract.test.ts',
+      'src/features/dashboard/date-range.test.ts',
+      'src/features/dashboard/task-stats.contract.test.ts',
     ],
   },
 })

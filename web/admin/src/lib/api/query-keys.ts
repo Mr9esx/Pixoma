@@ -17,6 +17,14 @@ export const queryKeys = {
     all: ['tasks'] as const,
     detail: (id: string) => ['tasks', id] as const,
   },
+  stats: {
+    tasksDaily: (from: string, to: string) =>
+      ['stats', 'tasks', 'daily', from, to] as const,
+    tasksErrors: (from: string, to: string) =>
+      ['stats', 'tasks', 'errors', from, to] as const,
+    tasksEdges: (from: string, to: string) =>
+      ['stats', 'tasks', 'edges', from, to] as const,
+  },
   users: {
     all: ['users'] as const,
     detail: (id: string) => ['users', id] as const,
