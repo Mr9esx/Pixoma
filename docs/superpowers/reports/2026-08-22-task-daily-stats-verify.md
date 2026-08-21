@@ -54,3 +54,15 @@ SUGGESTION（记录，不阻塞）：
 ## Final Assessment
 
 全部检查通过，无关键问题。Ready for archive。
+
+## 补充：运行期崩溃修复（verify-fail → build → 复验）
+
+归档确认期间用户反馈 Dashboard 运行期崩溃：`TypeError: Cannot read properties of undefined (reading 'success_rate')`（`task-stats-section.tsx`）。
+
+**根因**：开发前端（Vite 代理 → `127.0.0.1:8082`）连接的是改动前构建的 `pixoma` 旧二进制；旧二进制没有 `/api/v1/stats/*` 路由，`webembed` 的 SPA fallback 对未匹配路径返回 index.html（HTTP 200），`apiFetch` 把 HTML 字符串当作数据返回，`daily.data?.summary.success_rate` 在 `summary` 缺失时抛异常。
+
+**修复**：
+- 前端：新增 `task-stats-parse.ts`（`pickDays` / `pickSuccessRate` / `pickErrorItems` / `pickEdgeItems`）对畸形/非 JSON 载荷防御性解析，组件不再因缺字段崩溃，降级为空态；配套 5 个单测。
+- 后端：`webembed.Handler` 对 `/api/*` 未匹配路径返回 JSON 404（不再回退 SPA index.html），避免旧/未知 API 路径伪装成 200 HTML；配套测试。
+
+**复验**：`verify-fail`（第 1 次）→ build 修复提交 → `go build ./...`、`go test ./...`、`pnpm tsc -b`、`pnpm vitest run`（52 文件 / 240 测试）全部通过；build 与 verify command-check 均已重新记录 exit=0。
