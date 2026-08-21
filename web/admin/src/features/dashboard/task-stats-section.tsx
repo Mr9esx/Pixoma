@@ -27,6 +27,12 @@ import {
   listTaskErrorStats,
 } from '@/lib/api/stats'
 import { DAILY_PRESETS, daysAgo, formatDate } from './date-range'
+import {
+  pickDays,
+  pickEdgeItems,
+  pickErrorItems,
+  pickSuccessRate,
+} from './task-stats-parse'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -55,11 +61,14 @@ export function TaskStatsSection() {
       color: 'var(--primary)',
     },
   }
-  const chartData = (daily.data?.days ?? []).map((d) => ({
+  const days = pickDays(daily.data)
+  const chartData = days.map((d) => ({
     date: d.date,
     processed: d.processed,
   }))
-  const successRate = daily.data?.summary.success_rate ?? null
+  const successRate = pickSuccessRate(daily.data)
+  const errorItems = pickErrorItems(errors.data)
+  const edgeItems = pickEdgeItems(edges.data)
 
   return (
     <div className='space-y-4'>
@@ -175,9 +184,9 @@ export function TaskStatsSection() {
                 message={errorMessage(errors.error)}
                 onRetry={() => void errors.refetch()}
               />
-            ) : errors.data?.items.length ? (
+            ) : errorItems.length ? (
               <ul className='space-y-1 text-sm'>
-                {errors.data.items.map((e) => (
+                {errorItems.map((e) => (
                   <li key={e.error_code} className='flex justify-between gap-2'>
                     <span className='truncate'>{e.error_code}</span>
                     <span className='tabular-nums'>{e.count}</span>
@@ -204,9 +213,9 @@ export function TaskStatsSection() {
                 message={errorMessage(edges.error)}
                 onRetry={() => void edges.refetch()}
               />
-            ) : edges.data?.items.length ? (
+            ) : edgeItems.length ? (
               <ul className='space-y-1 text-sm'>
-                {edges.data.items.slice(0, 5).map((e) => (
+                {edgeItems.slice(0, 5).map((e) => (
                   <li key={e.edge_id} className='flex justify-between gap-2'>
                     <span className='truncate'>{e.edge_id}</span>
                     <span className='tabular-nums'>{e.count}</span>

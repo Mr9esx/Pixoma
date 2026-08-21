@@ -19,6 +19,14 @@ func Handler() http.Handler {
 	files := http.FS(sub)
 	fileServer := http.FileServer(files)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Unknown API paths must return JSON 404 instead of the SPA index, so
+		// the frontend can surface a real error rather than parse HTML.
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"not found"}`))
+			return
+		}
 		p := strings.TrimPrefix(r.URL.Path, "/")
 		if p == "" {
 			p = "index.html"
