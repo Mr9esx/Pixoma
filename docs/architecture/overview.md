@@ -71,7 +71,6 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 |---|---|
 | `apps/pixoma/cmd/pixoma` | 控制面一体入口（引导、向导、管理 API、Agent API、本机 spawn Edge） |
 | `apps/edge-agent` | 执行面：长轮询 claim、读 blob job、本机 Comfy |
-| `apps/admin-api` | 过渡期独立管理 HTTP（新部署不必再起） |
 | `web/admin` | 管理 SPA：登录 / 向导 / 业务壳；发布 `go:embed` 进 pixoma |
 | `internal/catalog` | Case 目录与协议校验 |
 | `internal/conversation` | 填表 Session（不含 Task 执行） |

@@ -59,7 +59,7 @@ go run ./apps/edge-agent/cmd/edge-agent
 
 ### BREAKING
 
-相对旧版 YAML/`runtime_mode`/`queue.driver`/Redis Streams 派发：新安装只走 `pixoma` + 向导 + Edge 拉取。旧 Redis split **不保证原地升级**。独立 `admin-api` 仅过渡期保留，不再是新部署默认路径。
+相对旧版 YAML/`runtime_mode`/`queue.driver`/Redis Streams 派发：新安装只走 `pixoma` + 向导 + Edge 拉取。旧 Redis split **不保证原地升级**。独立 `admin-api` 与旧 `apps/bot` 入口已移除，管理 HTTP 由 `pixoma` 一体托管。
 
 管理 API 初始化后需要管理员会话（登录 cookie / Bearer）；未初始化只放行登录与向导。
 
@@ -81,6 +81,7 @@ go run ./apps/edge-agent/cmd/edge-agent
 | `METRICS_RETENTION` | 控制面 | `edge_metrics` 保留窗口（默认 `24h`） |
 | `STATS_TIMEZONE` | 控制面 | 任务统计归天时区（默认 `Asia/Shanghai`） |
 | `TASK_STATS_RETENTION` | 控制面 | 任务统计保留时长（默认 `8760h`，即 365 天） |
+| `DB_DRIVER` / `DATABASE_DSN` | backfill | 统计回填命令的数据库驱动与 DSN（默认 sqlite / `DATA_DIR/app.db`） |
 | `S3_*` / `TOS_*` | 远程存储 | endpoint / region / bucket / keys |
 
 对象存储密钥不要提交进 git。真网 TOS 门禁：`go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip`。
@@ -139,4 +140,4 @@ make clean            # 清掉 data/，下次启动重新走引导
 curl -s localhost:8080/healthz
 ```
 
-独立 `admin-api` 仅过渡期保留，调试请用 `make dev`。
+调试请用 `make dev`（`pixoma` + Vite）。
