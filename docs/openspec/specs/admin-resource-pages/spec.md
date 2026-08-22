@@ -15,7 +15,7 @@
 
 #### Scenario: Case 左栏筛选
 - **WHEN** 运维打开 Case 列表
-- **THEN** 可见单一搜索（覆盖 id / 名称 / menu_key）与启用状态横向 Segment，且无独立 menu_key 输入框
+- **THEN** 可见单一搜索（覆盖 id / 名称）与启用状态横向 Segment
 
 #### Scenario: Task / Session 状态筛选
 - **WHEN** 运维在 Task 或 Session 左栏切换状态
@@ -96,4 +96,3 @@ Case 详情 MUST 展示该 Case 出现在主键盘中的路径列表（只读）
 #### Scenario: Network 指向 admin-api
 - **WHEN** 运维加载主键盘页或带挂载信息的 Case 详情
 - **THEN** 浏览器请求前缀为配置的 admin-api 基址
-

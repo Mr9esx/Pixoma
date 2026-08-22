@@ -2,6 +2,8 @@
 comet_change: edge-system-monitoring
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-22-edge-system-monitoring
+status: final
 ---
 
 # 深度技术设计：Edge 系统监控
