@@ -10,29 +10,25 @@ import (
 
 	"gorm.io/gorm/clause"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/adminconfig"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
 	taskstatspersist "github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats/persistence"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 )
 
-// backfill-task-stats recomputes the three task stats tables from the tasks
-// table (authoritative source) as absolute per-day values. It is idempotent
-// and safe to re-run.
+// backfill-task-stats recomputes the task stats tables from the tasks table
+// (authoritative source) as absolute per-day values. It is idempotent and safe
+// to re-run. Config comes from env: DB_DRIVER (default sqlite), DATABASE_DSN
+// (default DATA_DIR/app.db), DATA_DIR (default data).
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	cfg, err := adminconfig.Load("")
-	if err != nil {
-		slog.Error("load config", "err", err)
-		os.Exit(1)
-	}
-	dsn := resolveDSN(cfg.DatabaseDSN)
+	driver, dsn := resolveBackfillDSN()
 	ctx := context.Background()
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
-		DSN: dsn,
+		Driver: driver,
+		DSN:    dsn,
 		Models: []any{
 			&taskpersist.TaskRow{},
 			&taskstatspersist.DailyStatsRow{},
@@ -158,7 +154,8 @@ func main() {
 	for d, a := range byDate {
 		row := taskstatspersist.DailyStatsRow{
 			StatDate: d, ProcessedCount: a.processed, SucceededCount: a.succ,
-			FailedCount: a.fail, CancelledCount: a.canc, TotalDurationMS: a.dur, UpdatedAt: now,
+			FailedCount: a.fail, CancelledCount: a.canc, TotalDurationMS: a.dur,
+			TotalQueueMS: a.queue, TotalExecMS: a.exec, UpdatedAt: now,
 		}
 		if err := gdb.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "stat_date"}},
@@ -191,18 +188,6 @@ func main() {
 			}
 		}
 	}
-	for d, cases := range byCase {
-		for caseID, c := range cases {
-			row := taskstatspersist.CaseDailyStatsRow{StatDate: d, CaseID: caseID, Count: c.count, TotalDurationMS: c.dur, UpdatedAt: now}
-			if err := gdb.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "stat_date"}, {Name: "case_id"}},
-				DoUpdates: clause.Assignments(map[string]any{"count": c.count, "total_duration_ms": c.dur, "updated_at": now}),
-			}).Create(&row).Error; err != nil {
-				slog.Error("upsert case", "err", err)
-				os.Exit(1)
-			}
-		}
-	}
 	for d, codes := range byErr {
 		for code, count := range codes {
 			row := taskstatspersist.ErrorDailyStatsRow{StatDate: d, ErrorCode: code, Count: count, UpdatedAt: now}
@@ -215,6 +200,18 @@ func main() {
 			}
 		}
 	}
+	for d, cases := range byCase {
+		for caseID, c := range cases {
+			row := taskstatspersist.CaseDailyStatsRow{StatDate: d, CaseID: caseID, Count: c.count, TotalDurationMS: c.dur, UpdatedAt: now}
+			if err := gdb.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "stat_date"}, {Name: "case_id"}},
+				DoUpdates: clause.Assignments(map[string]any{"count": c.count, "total_duration_ms": c.dur, "updated_at": now}),
+			}).Create(&row).Error; err != nil {
+				slog.Error("upsert case", "err", err)
+				os.Exit(1)
+			}
+		}
+	}
 
 	repo := taskstatspersist.NewGormStatsRepository(gdb, statsRetention(), loc)
 	if err := repo.Prune(ctx, taskstats.DateOf(time.Now().In(loc).Add(-statsRetention()), loc)); err != nil {
@@ -222,6 +219,22 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("backfill complete", "days", len(byDate))
+}
+
+func resolveBackfillDSN() (driver, dsn string) {
+	driver = strings.TrimSpace(os.Getenv("DB_DRIVER"))
+	if driver == "" {
+		driver = "sqlite"
+	}
+	dsn = strings.TrimSpace(os.Getenv("DATABASE_DSN"))
+	if dsn != "" {
+		return driver, dsn
+	}
+	dataDir := strings.TrimSpace(os.Getenv("DATA_DIR"))
+	if dataDir == "" {
+		dataDir = "data"
+	}
+	return driver, filepath.Join(dataDir, "app.db")
 }
 
 func statsRetention() time.Duration {
@@ -243,15 +256,4 @@ func statsLocation() *time.Location {
 		return time.FixedZone("Asia/Shanghai", 8*3600)
 	}
 	return loc
-}
-
-func resolveDSN(configured string) string {
-	if configured != "" {
-		return configured
-	}
-	dataDir := os.Getenv("DATA_DIR")
-	if dataDir == "" {
-		dataDir = "data"
-	}
-	return filepath.Join(dataDir, "app.db")
 }
