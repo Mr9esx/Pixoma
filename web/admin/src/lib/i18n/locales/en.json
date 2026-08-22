@@ -346,7 +346,9 @@
     "typeAutoSourceOutput": "Auto-detected — you can override",
     "bindFlowHintOutput": "① Click a node → ② click one of its outputs",
     "saveSuccess": "Saved",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "sectionProcessing": "Processing",
+    "sectionProcessingHint": "Configure routing rules (conditions → Topic); saved immediately"
   },
   "tasks": {
     "title": "Tasks",
@@ -587,5 +589,25 @@
     "resave": "Saved (re-save)",
     "saveFailed": "Save failed",
     "saveAllPublish": "Save all and publish"
+  },
+  "configContext": {
+    "title": "Context",
+    "ready": "Ready",
+    "warn": "Warning",
+    "idle": "Not linked",
+    "routingTopics": "Routing topics",
+    "execNodes": "Executing nodes",
+    "menuMounts": "Menu mounts",
+    "onlineNodes": "{{n}} online",
+    "noOnlineNode": "No online subscriber",
+    "online": "Online",
+    "offline": "Offline",
+    "mounted": "Mounted",
+    "saveRouting": "Save routing",
+    "saved": "Routing saved",
+    "relatedCases": "Cases routed here",
+    "subscribedNodes": "Subscribed nodes",
+    "reachableCases": "Reachable cases",
+    "subscribedTopics": "Subscribed topics"
   }
 }
