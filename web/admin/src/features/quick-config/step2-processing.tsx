@@ -18,8 +18,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { TaskFlowCanvas } from '@/features/task-flow/task-flow-canvas'
+import { TaskFlowEditor } from '@/features/task-flow/task-flow-editor'
 import { topicBindings } from '@/features/task-flow/lib/topic-binding'
+import { validateRouting as validateEditorRouting } from '@/features/task-flow/lib/validate'
 import type {
   AttributeDescriptor,
   EdgePresence,
@@ -31,16 +32,6 @@ import { WizardChrome } from './wizard-chrome'
 import type { StepActions, WizardShared } from './types'
 
 type Props = StepActions & { shared: WizardShared }
-
-function validateRouting(routing: RoutingConfig | undefined): string | null {
-  if (!routing || routing.rules.length === 0) {
-    return 'quickConfig.requireRule'
-  }
-  if (routing.rules.some((rule) => !rule.topic)) {
-    return 'quickConfig.unboundRule'
-  }
-  return null
-}
 
 const TOPIC_KEY_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
@@ -150,6 +141,11 @@ export function Step2Processing({ shared, next, back }: Props) {
     }
   }, [edgesQuery.data, presenceQuery.data, routing])
 
+  const validation = useMemo(
+    () => validateEditorRouting(routing, topics, attributes),
+    [routing, topics, attributes]
+  )
+
   const loading =
     topicsQuery.isLoading ||
     attributesQuery.isLoading ||
@@ -157,9 +153,8 @@ export function Step2Processing({ shared, next, back }: Props) {
     presenceQuery.isLoading
 
   function handleNext() {
-    const invalid = validateRouting(routing)
-    if (invalid) {
-      setError(invalid)
+    if (!validation.valid) {
+      setError(validation.issues[0]?.message ?? 'quickConfig.requireRule')
       return
     }
     setError(null)
@@ -183,29 +178,27 @@ export function Step2Processing({ shared, next, back }: Props) {
         <LoadingSkeleton rows={4} />
       ) : (
         <>
-          <div className='mb-2 flex flex-wrap gap-2'>
-            <Button type='button' variant='outline' size='sm' onClick={() => setTopicOpen(true)}>
-              <Plus className='size-4' />
-              {t('quickConfig.newTopic')}
-            </Button>
-            <Button type='button' variant='outline' size='sm' onClick={() => setNodeOpen(true)}>
-              <Plus className='size-4' />
-              {t('quickConfig.newNode')}
-            </Button>
-          </div>
-          <div className='h-[520px] overflow-hidden rounded-lg border border-border bg-muted/20'>
-            <TaskFlowCanvas
-              routing={routing}
-              topics={topics}
-              attributes={attributes}
-              edges={edges}
-              presence={presence}
-              defaultTopicKey='default'
-              readOnly={false}
-              caseName={shared.caseRecord?.name ?? 'Case 任务'}
-              onChange={setRouting}
-            />
-          </div>
+          <TaskFlowEditor
+            routing={routing}
+            topics={topics}
+            attributes={attributes}
+            edges={edges}
+            presence={presence}
+            caseName={shared.caseRecord?.name ?? 'Case 任务'}
+            onChange={setRouting}
+            headerActions={
+              <>
+                <Button type='button' variant='outline' size='sm' onClick={() => setTopicOpen(true)}>
+                  <Plus className='size-4' />
+                  {t('quickConfig.newTopic')}
+                </Button>
+                <Button type='button' variant='outline' size='sm' onClick={() => setNodeOpen(true)}>
+                  <Plus className='size-4' />
+                  {t('quickConfig.newNode')}
+                </Button>
+              </>
+            }
+          />
         </>
       )}
       {bindingSummary.bound.length > 0 ? (
