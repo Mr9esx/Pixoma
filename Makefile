@@ -1,11 +1,10 @@
 DATA_DIR ?= data
 
-.PHONY: build test run run-mock run-admin-api embed-admin clean dev
+.PHONY: build test run run-mock embed-admin clean dev
 
 build:
 	go build -o bin/pixoma ./apps/pixoma/cmd/pixoma
 	go build -o bin/pixoma-edge-agent ./apps/edge-agent/cmd/edge-agent
-	go build -o bin/admin-api ./apps/admin-api/cmd/admin-api
 
 test:
 	go test ./...
@@ -15,9 +14,6 @@ run: build
 
 run-mock: build
 	COMFY_MOCK=1 go run ./apps/pixoma/cmd/pixoma
-
-run-admin-api:
-	go run ./apps/admin-api/cmd/admin-api
 
 dev:
 	bash scripts/dev.sh
