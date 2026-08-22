@@ -24,6 +24,9 @@ export const queryKeys = {
       ['stats', 'tasks', 'errors', from, to] as const,
     tasksEdges: (from: string, to: string) =>
       ['stats', 'tasks', 'edges', from, to] as const,
+    casesTop: (from: string, to: string) =>
+      ['stats', 'cases', 'top', from, to] as const,
+    fleet: ['stats', 'fleet'] as const,
   },
   users: {
     all: ['users'] as const,

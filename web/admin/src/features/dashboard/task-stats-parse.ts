@@ -1,4 +1,6 @@
 import type {
+  FleetStats,
+  TaskCaseStat,
   TaskDailyStat,
   TaskEdgeStat,
   TaskErrorStat,
@@ -33,4 +35,16 @@ export function pickEdgeItems(data: unknown): TaskEdgeStat[] {
   const obj = asObject(data)
   const items = obj?.items
   return Array.isArray(items) ? (items as TaskEdgeStat[]) : []
+}
+
+export function pickCaseItems(data: unknown): TaskCaseStat[] {
+  const obj = asObject(data)
+  const items = obj?.items
+  return Array.isArray(items) ? (items as TaskCaseStat[]) : []
+}
+
+export function pickFleetStats(data: unknown): FleetStats | null {
+  const obj = asObject(data)
+  if (!obj || typeof obj.online !== 'number' || !Array.isArray(obj.nodes)) return null
+  return obj as unknown as FleetStats
 }

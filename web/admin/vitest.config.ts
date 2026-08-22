@@ -53,6 +53,7 @@ export default defineConfig({
       'src/features/dashboard/date-range.test.ts',
       'src/features/dashboard/task-stats.contract.test.ts',
       'src/features/dashboard/task-stats-parse.test.ts',
+      'src/features/dashboard/hardware-summary.test.ts',
       'src/features/dashboard/date-range.test.ts',
       'src/features/dashboard/task-stats.contract.test.ts',
     ],
