@@ -126,18 +126,32 @@ export function buildGraph(routing: RoutingConfig | undefined, defaultTopicKey: 
  * 在路由拓扑之上叠加消费绑定层：每个「后台已绑定该 Topic」的计算节点
  * 作为独立节点，用边与 Topic 相连（edge 在线与否决定边的样式与节点状态）。
  * 只展示当前 Case 路由中出现的 Topic（含默认回退）的绑定关系。
+ *
+ * isolatedTopics：用户从右侧 Topic 池拖入画布、但尚未被任何规则引用的 Topic。
+ * 它们作为孤立节点保留在画布上（无边），供用户临时调整/稍后连线；
+ * 一旦被规则引用，就从 isolated 集合中移除（由调用方维护）。
  */
 export function buildBindingGraph(
   routing: RoutingConfig | undefined,
   defaultTopicKey: string,
   edges: EdgeRecord[],
   presence: EdgePresence[],
+  isolatedTopics: string[] = [],
 ): FlowGraph {
   const graph = buildGraph(routing, defaultTopicKey)
   const topicNodeIdByKey = new Map<string, string>()
   topicNodeIdByKey.set(defaultTopicKey, 'default-topic')
   for (const node of graph.nodes) {
     if (node.kind === 'topic-target' && node.topic) topicNodeIdByKey.set(node.topic, node.id)
+  }
+
+  // 孤立 Topic：未被规则引用、但用户拖入画布的 Topic，作为独立节点保留。
+  for (const key of isolatedTopics) {
+    if (key === defaultTopicKey) continue
+    if (topicNodeIdByKey.has(key)) continue // 已被规则引用，不算孤立
+    const id = `topic-${key}`
+    topicNodeIdByKey.set(key, id)
+    graph.nodes.push({ id, kind: 'topic-target', label: key, topic: key })
   }
 
   const added = new Set<string>()
