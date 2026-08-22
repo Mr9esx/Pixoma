@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { CalendarClock, Hash, PenLine, Timer } from 'lucide-react'
 import { deleteTopic, getTopic, updateTopic } from '@/lib/api/topics'
+import { listCases } from '@/lib/api/cases'
 import { listEdges, patchEdge } from '@/lib/api/edges'
 import type { ComfyEdge } from '@/lib/api/types'
 import { queryKeys } from '@/lib/api/query-keys'
@@ -31,6 +32,11 @@ import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { kit } from '@/features/edges/kit-classes'
 import { SectionHead } from '@/features/edges/observation-panel'
+import {
+  ContextLinks,
+  type ContextGroup,
+  type ContextState,
+} from '@/features/config-context/context-links'
 import { TopicStatsPanel } from './topic-stats-panel'
 
 function errorMessage(err: unknown): string | undefined {
@@ -128,6 +134,40 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   })
 
   const edges = edgesQuery.data ?? []
+  const casesQuery = useQuery({
+    queryKey: queryKeys.cases.all,
+    queryFn: () => listCases(),
+  })
+  const relatedCases = (casesQuery.data ?? []).filter((c) =>
+    (c.routing?.rules ?? []).some((r) => r.topic === topicKey)
+  )
+  const boundEnabled = edges.filter(
+    (e) => e.enabled && (e.subscribe_topics ?? []).includes(topicKey)
+  )
+  const contextGroups: ContextGroup[] = [
+    {
+      title: t('configContext.relatedCases'),
+      items: relatedCases.map((c) => ({
+        key: String(c.id),
+        label: c.name || `#${c.id}`,
+        to: `/cases/${c.id}`,
+        state: (boundEnabled.length > 0 ? 'ready' : 'warn') as ContextState,
+        note: boundEnabled.length > 0
+          ? t('configContext.onlineNodes', { n: boundEnabled.length })
+          : t('configContext.noOnlineNode'),
+      })),
+    },
+    {
+      title: t('configContext.subscribedNodes'),
+      items: boundEnabled.map((e) => ({
+        key: e.id,
+        label: e.name,
+        to: `/edges/${e.id}`,
+        state: 'ready' as ContextState,
+        note: t('configContext.mounted'),
+      })),
+    },
+  ].filter((g) => g.items.length > 0)
   const boundFirst = [...edges].sort((a, b) => {
     const aBound = (a.subscribe_topics ?? []).includes(topicKey)
     const bBound = (b.subscribe_topics ?? []).includes(topicKey)
@@ -317,6 +357,12 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           <TopicStatsPanel topicKey={topicKey} />
         </div>
       </section>
+
+      {contextGroups.length > 0 ? (
+        <section className='mt-4'>
+          <ContextLinks groups={contextGroups} />
+        </section>
+      ) : null}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='sm:max-w-md'>
