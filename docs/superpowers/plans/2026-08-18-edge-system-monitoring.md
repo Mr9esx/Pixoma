@@ -2,6 +2,7 @@
 change: edge-system-monitoring
 design-doc: docs/superpowers/specs/2026-08-18-edge-system-monitoring-design.md
 base-ref: e3e0870cd9741dd665a3ce5dbe24bf1b59ea290a
+archived-with: 2026-08-22-edge-system-monitoring
 ---
 
 # Edge 系统监控 Implementation Plan

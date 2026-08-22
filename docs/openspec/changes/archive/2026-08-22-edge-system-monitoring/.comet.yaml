@@ -19,11 +19,11 @@ verification_report: docs/superpowers/reports/2026-08-18-edge-system-monitoring-
 branch_status: pending
 created_at: 2026-08-18
 verified_at: 2026-08-18
-archive_confirmation: pending
-archived: false
+archive_confirmation: confirmed
+archived: true
 bound_branch: feat-init
 direct_override: null
-handoff_context: docs/openspec/changes/edge-system-monitoring/.comet/handoff/design-context.json
+handoff_context: docs/openspec/changes/archive/2026-08-22-edge-system-monitoring/.comet/handoff/design-context.json
 handoff_hash: 5182cd588ca1df28d4a51d71502d42ec7ba0af49c3961a5af9cbea923dc1a008
 classic_profile: full
 classic_migration: 1
