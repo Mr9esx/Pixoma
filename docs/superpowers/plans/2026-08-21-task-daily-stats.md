@@ -2,6 +2,7 @@
 change: task-daily-stats
 design-doc: docs/superpowers/specs/2026-08-21-task-daily-stats-design.md
 base-ref: 05b221f6569c5e15f940a8b1de21e4c8aa92d160
+archived-with: 2026-08-22-task-daily-stats
 ---
 
 # task-daily-stats Implementation Plan

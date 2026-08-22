@@ -2,6 +2,8 @@
 comet_change: task-daily-stats
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-22-task-daily-stats
+status: final
 ---
 
 # task-daily-stats 深度技术设计
