@@ -30,6 +30,9 @@ func (f *fakeStatsRepo) ListErrors(context.Context, string, string, int) ([]task
 func (f *fakeStatsRepo) ListEdges(context.Context, string, string) ([]taskstats.EdgeRow, error) {
 	return nil, nil
 }
+func (f *fakeStatsRepo) ListCases(context.Context, string, string, int) ([]taskstats.CaseRow, error) {
+	return nil, nil
+}
 func (f *fakeStatsRepo) Prune(context.Context, string) error { return nil }
 
 func TestApplyStatusRecordsTerminalStats(t *testing.T) {
@@ -65,6 +68,9 @@ func TestApplyStatusRecordsTerminalStats(t *testing.T) {
 	got := stats.calls[0]
 	if got.Status != taskstats.StatusSucceeded || got.EdgeID != "local" || !got.CompletedAt.Equal(now) {
 		t.Fatalf("stats input: %+v", got)
+	}
+	if got.CaseID != 1 {
+		t.Fatalf("stats case_id: %+v", got)
 	}
 }
 

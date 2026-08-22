@@ -16,8 +16,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/routing"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -367,12 +367,23 @@ func (s *Service) recordTerminalStats(ctx context.Context, t *runtimedomain.Task
 	if completedAt.IsZero() {
 		completedAt = now
 	}
+	queueMS := t.StartedAt.Sub(t.CreatedAt).Milliseconds()
+	if queueMS < 0 {
+		queueMS = 0
+	}
+	execMS := completedAt.Sub(t.StartedAt).Milliseconds()
+	if execMS < 0 {
+		execMS = 0
+	}
 	return s.Stats.AddTerminal(ctx, taskstats.AddTerminalInput{
-		EdgeID:      string(t.EdgeID),
-		ErrorCode:   t.ErrorCode,
-		Status:      status,
-		CompletedAt: completedAt,
-		CreatedAt:   t.CreatedAt,
+		EdgeID:          string(t.EdgeID),
+		ErrorCode:       t.ErrorCode,
+		Status:          status,
+		CompletedAt:     completedAt,
+		CreatedAt:       t.CreatedAt,
+		CaseID:          uint64(t.CaseID),
+		QueueDurationMS: queueMS,
+		ExecDurationMS:  execMS,
 	})
 }
 

@@ -19,6 +19,8 @@ type DailyStatsRow struct {
 	FailedCount     int       `gorm:"column:failed_count;not null;default:0"`
 	CancelledCount  int       `gorm:"column:cancelled_count;not null;default:0"`
 	TotalDurationMS int64     `gorm:"column:total_duration_ms;not null;default:0"`
+	TotalQueueMS    int64     `gorm:"column:total_queue_ms;not null;default:0"`
+	TotalExecMS     int64     `gorm:"column:total_exec_ms;not null;default:0"`
 	UpdatedAt       time.Time `gorm:"column:updated_at;not null"`
 }
 
@@ -29,6 +31,8 @@ type EdgeDailyStatsRow struct {
 	StatDate       string    `gorm:"column:stat_date;primaryKey;size:10"`
 	EdgeID         string    `gorm:"column:edge_id;primaryKey;size:64"`
 	ProcessedCount int       `gorm:"column:processed_count;not null;default:0"`
+	SucceededCount int       `gorm:"column:succeeded_count;not null;default:0"`
+	FailedCount    int       `gorm:"column:failed_count;not null;default:0"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;not null"`
 }
 
@@ -43,6 +47,17 @@ type ErrorDailyStatsRow struct {
 }
 
 func (ErrorDailyStatsRow) TableName() string { return "task_error_daily_stats" }
+
+// CaseDailyStatsRow is the GORM model for the task_case_daily_stats table.
+type CaseDailyStatsRow struct {
+	StatDate        string    `gorm:"column:stat_date;primaryKey;size:10"`
+	CaseID          uint64    `gorm:"column:case_id;primaryKey"`
+	Count           int       `gorm:"column:count;not null;default:0"`
+	TotalDurationMS int64     `gorm:"column:total_duration_ms;not null;default:0"`
+	UpdatedAt       time.Time `gorm:"column:updated_at;not null"`
+}
+
+func (CaseDailyStatsRow) TableName() string { return "task_case_daily_stats" }
 
 // GormStatsRepository is a GORM-backed taskstats.Repository.
 type GormStatsRepository struct {
@@ -63,6 +78,8 @@ func (r *GormStatsRepository) AddTerminal(ctx context.Context, in taskstats.AddT
 		dur = 0
 	}
 	daily := DailyStatsRow{StatDate: date, ProcessedCount: 1, UpdatedAt: now, TotalDurationMS: dur}
+	daily.TotalQueueMS = in.QueueDurationMS
+	daily.TotalExecMS = in.ExecDurationMS
 	switch in.Status {
 	case taskstats.StatusSucceeded:
 		daily.SucceededCount = 1
@@ -81,6 +98,8 @@ func (r *GormStatsRepository) AddTerminal(ctx context.Context, in taskstats.AddT
 			"failed_count":      gorm.Expr("failed_count + ?", daily.FailedCount),
 			"cancelled_count":   gorm.Expr("cancelled_count + ?", daily.CancelledCount),
 			"total_duration_ms": gorm.Expr("total_duration_ms + ?", daily.TotalDurationMS),
+			"total_queue_ms":    gorm.Expr("total_queue_ms + ?", daily.TotalQueueMS),
+			"total_exec_ms":     gorm.Expr("total_exec_ms + ?", daily.TotalExecMS),
 			"updated_at":        now,
 		}),
 	}).Create(&daily).Error; err != nil {
@@ -88,13 +107,34 @@ func (r *GormStatsRepository) AddTerminal(ctx context.Context, in taskstats.AddT
 	}
 	if in.EdgeID != "" {
 		edgeRow := EdgeDailyStatsRow{StatDate: date, EdgeID: in.EdgeID, ProcessedCount: 1, UpdatedAt: now}
+		switch in.Status {
+		case taskstats.StatusSucceeded:
+			edgeRow.SucceededCount = 1
+		case taskstats.StatusFailed:
+			edgeRow.FailedCount = 1
+		}
 		if err := r.db.WithContext(ctx).Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "stat_date"}, {Name: "edge_id"}},
 			DoUpdates: clause.Assignments(map[string]any{
 				"processed_count": gorm.Expr("processed_count + 1"),
+				"succeeded_count": gorm.Expr("succeeded_count + ?", edgeRow.SucceededCount),
+				"failed_count":    gorm.Expr("failed_count + ?", edgeRow.FailedCount),
 				"updated_at":      now,
 			}),
 		}).Create(&edgeRow).Error; err != nil {
+			return err
+		}
+	}
+	if in.CaseID != 0 {
+		caseRow := CaseDailyStatsRow{StatDate: date, CaseID: in.CaseID, Count: 1, TotalDurationMS: dur, UpdatedAt: now}
+		if err := r.db.WithContext(ctx).Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "stat_date"}, {Name: "case_id"}},
+			DoUpdates: clause.Assignments(map[string]any{
+				"count":             gorm.Expr("count + 1"),
+				"total_duration_ms": gorm.Expr("total_duration_ms + ?", dur),
+				"updated_at":        now,
+			}),
+		}).Create(&caseRow).Error; err != nil {
 			return err
 		}
 	}
@@ -130,6 +170,8 @@ func (r *GormStatsRepository) ListDaily(ctx context.Context, from, to string) ([
 			Failed:          row.FailedCount,
 			Cancelled:       row.CancelledCount,
 			TotalDurationMS: row.TotalDurationMS,
+			TotalQueueMS:    row.TotalQueueMS,
+			TotalExecMS:     row.TotalExecMS,
 		})
 	}
 	return out, nil
@@ -157,12 +199,14 @@ func (r *GormStatsRepository) ListErrors(ctx context.Context, from, to string, l
 
 func (r *GormStatsRepository) ListEdges(ctx context.Context, from, to string) ([]taskstats.EdgeRow, error) {
 	type item struct {
-		EdgeID string
-		Total  int
+		EdgeID    string
+		Total     int
+		Succeeded int
+		Failed    int
 	}
 	var items []item
 	if err := r.db.WithContext(ctx).Model(&EdgeDailyStatsRow{}).
-		Select("edge_id", "SUM(processed_count) AS total").
+		Select("edge_id", "SUM(processed_count) AS total", "SUM(succeeded_count) AS succeeded", "SUM(failed_count) AS failed").
 		Where("stat_date BETWEEN ? AND ?", from, to).
 		Group("edge_id").Order("total DESC").
 		Scan(&items).Error; err != nil {
@@ -170,13 +214,34 @@ func (r *GormStatsRepository) ListEdges(ctx context.Context, from, to string) ([
 	}
 	out := make([]taskstats.EdgeRow, 0, len(items))
 	for _, it := range items {
-		out = append(out, taskstats.EdgeRow{EdgeID: it.EdgeID, Count: it.Total})
+		out = append(out, taskstats.EdgeRow{EdgeID: it.EdgeID, Count: it.Total, Succeeded: it.Succeeded, Failed: it.Failed})
+	}
+	return out, nil
+}
+
+func (r *GormStatsRepository) ListCases(ctx context.Context, from, to string, limit int) ([]taskstats.CaseRow, error) {
+	type item struct {
+		CaseID          uint64
+		Total           int
+		TotalDurationMS int64
+	}
+	var items []item
+	if err := r.db.WithContext(ctx).Model(&CaseDailyStatsRow{}).
+		Select("case_id", "SUM(count) AS total", "SUM(total_duration_ms) AS total_duration_ms").
+		Where("stat_date BETWEEN ? AND ?", from, to).
+		Group("case_id").Order("total DESC").Limit(limit).
+		Scan(&items).Error; err != nil {
+		return nil, err
+	}
+	out := make([]taskstats.CaseRow, 0, len(items))
+	for _, it := range items {
+		out = append(out, taskstats.CaseRow{CaseID: it.CaseID, Count: it.Total, TotalDurationMS: it.TotalDurationMS})
 	}
 	return out, nil
 }
 
 func (r *GormStatsRepository) Prune(ctx context.Context, before string) error {
-	for _, m := range []any{&DailyStatsRow{}, &EdgeDailyStatsRow{}, &ErrorDailyStatsRow{}} {
+	for _, m := range []any{&DailyStatsRow{}, &EdgeDailyStatsRow{}, &ErrorDailyStatsRow{}, &CaseDailyStatsRow{}} {
 		if err := r.db.WithContext(ctx).Where("stat_date < ?", before).Delete(m).Error; err != nil {
 			return err
 		}

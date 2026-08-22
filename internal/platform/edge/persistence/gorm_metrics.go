@@ -71,4 +71,26 @@ func (r *MetricsRepository) ListSince(ctx context.Context, edgeID sharedkernel.E
 	return out, nil
 }
 
+// LatestAll returns the most recent snapshot per edge collected at/after since.
+func (r *MetricsRepository) LatestAll(ctx context.Context, since time.Time) (map[sharedkernel.EdgeID]edge.Metrics, error) {
+	sub := r.db.WithContext(ctx).
+		Model(&MetricsRow{}).
+		Select("MAX(id)").
+		Where("collected_at >= ?", since).
+		Group("edge_id")
+	var rows []MetricsRow
+	if err := r.db.WithContext(ctx).Where("id IN (?)", sub).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[sharedkernel.EdgeID]edge.Metrics, len(rows))
+	for _, row := range rows {
+		var m edge.Metrics
+		if err := json.Unmarshal([]byte(row.MetricsJSON), &m); err != nil {
+			return nil, fmt.Errorf("edge: metrics_json: %w", err)
+		}
+		out[sharedkernel.EdgeID(row.EdgeID)] = m
+	}
+	return out, nil
+}
+
 var _ edge.MetricsRepository = (*MetricsRepository)(nil)
