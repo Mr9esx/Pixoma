@@ -1,0 +1,14 @@
+{
+  "change": "remove-legacy-apps",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "b732d1a3183885b13e4379f505ad33e32fc48b015fabd1fe318b2a66a12057a5",
+  "files": [
+    { "path": "docs/openspec/changes/remove-legacy-apps/proposal.md", "sha256": "64433073a9c3d553a0db22f60afcda663ff185b3fc70ff3f9803e367eb4cc440" },
+    { "path": "docs/openspec/changes/remove-legacy-apps/design.md", "sha256": "d21591e12d6adf4adb54eeff909b05c833748b1dee1a04c3b0de3ab2113b6dff" },
+    { "path": "docs/openspec/changes/remove-legacy-apps/tasks.md", "sha256": "15cd389fb952076b42e7449d866755c043509d8b19d4b40f30ba09002cacf433" },
+    { "path": "docs/openspec/changes/remove-legacy-apps/specs/admin-api-host/spec.md", "sha256": "d4f02c72b51c2eb19b19746483d1ea72bcffb356b601339f0e46630482c6eda1" }
+  ]
+}
