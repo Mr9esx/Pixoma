@@ -346,7 +346,9 @@
     "typeAutoSourceOutput": "已自动判断，可手动修改",
     "bindFlowHintOutput": "① 在图上点一个节点 → ② 在下方点它的输出",
     "saveSuccess": "保存成功",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "sectionProcessing": "处理流程",
+    "sectionProcessingHint": "配置路由规则（条件 → Topic），保存后立即生效"
   },
   "tasks": {
     "title": "任务",
@@ -587,5 +589,25 @@
     "resave": "已保存（重新保存）",
     "saveFailed": "保存失败",
     "saveAllPublish": "保存全部配置并发布"
+  },
+  "configContext": {
+    "title": "关联上下文",
+    "ready": "就绪",
+    "warn": "警告",
+    "idle": "未关联",
+    "routingTopics": "路由 Topic",
+    "execNodes": "执行节点",
+    "menuMounts": "菜单挂载",
+    "onlineNodes": "{{n}} 台在线",
+    "noOnlineNode": "无在线订阅节点",
+    "online": "在线",
+    "offline": "离线",
+    "mounted": "已挂载",
+    "saveRouting": "保存路由",
+    "saved": "路由已保存",
+    "relatedCases": "路由到它的 Case",
+    "subscribedNodes": "订阅节点",
+    "reachableCases": "可达 Case",
+    "subscribedTopics": "订阅 Topic"
   }
 }
