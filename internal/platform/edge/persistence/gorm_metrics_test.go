@@ -8,6 +8,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 func TestMetricsRepository_AppendAndList(t *testing.T) {
@@ -67,5 +68,39 @@ func TestMetricsRepository_PrunesOldRows(t *testing.T) {
 	}
 	if len(series) != 1 || series[0].CPUUsagePercent != 2 {
 		t.Fatalf("want only fresh row, got %+v", series)
+	}
+}
+
+func TestMetricsRepository_LatestAll(t *testing.T) {
+	dsn := "file:metrics_latest_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, &persistence.MetricsRow{}); err != nil {
+		t.Fatal(err)
+	}
+	repo := persistence.NewMetricsRepository(gdb, 24*time.Hour)
+	ctx := context.Background()
+	base := time.Now().UTC().Add(-time.Hour)
+	for _, tc := range []struct {
+		edge string
+		cpu  float64
+		at   time.Time
+	}{
+		{"e1", 10, base},
+		{"e1", 40, base.Add(5 * time.Minute)},
+		{"e2", 25, base.Add(2 * time.Minute)},
+	} {
+		if err := repo.Append(ctx, sharedkernel.EdgeID(tc.edge), edge.Metrics{CPUUsagePercent: tc.cpu, CollectedAt: tc.at}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	latest, err := repo.LatestAll(ctx, base.Add(-time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(latest) != 2 || latest["e1"].CPUUsagePercent != 40 || latest["e2"].CPUUsagePercent != 25 {
+		t.Fatalf("latest: %+v", latest)
 	}
 }

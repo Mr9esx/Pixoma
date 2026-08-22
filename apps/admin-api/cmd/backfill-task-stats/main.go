@@ -38,6 +38,7 @@ func main() {
 			&taskstatspersist.DailyStatsRow{},
 			&taskstatspersist.EdgeDailyStatsRow{},
 			&taskstatspersist.ErrorDailyStatsRow{},
+			&taskstatspersist.CaseDailyStatsRow{},
 		},
 	})
 	if err != nil {
@@ -51,11 +52,18 @@ func main() {
 	const batchSize = 1000
 	type dayAgg struct {
 		processed, succ, fail, canc int
-		dur                         int64
+		dur, queue, exec            int64
+	}
+	type caseAgg struct {
+		count int
+		dur   int64
 	}
 	byDate := map[string]*dayAgg{}
 	byEdge := map[string]map[string]int{}
+	byEdgeSucc := map[string]map[string]int{}
+	byEdgeFail := map[string]map[string]int{}
 	byErr := map[string]map[string]int{}
+	byCase := map[string]map[uint64]*caseAgg{}
 
 	for offset := 0; ; offset += batchSize {
 		var rows []taskpersist.TaskRow
@@ -87,11 +95,33 @@ func main() {
 				dur = 0
 			}
 			a.dur += dur
+			queue := row.StartedAt.Sub(row.CreatedAt).Milliseconds()
+			if queue < 0 {
+				queue = 0
+			}
+			exec := completedAt.Sub(row.StartedAt).Milliseconds()
+			if exec < 0 {
+				exec = 0
+			}
+			a.queue += queue
+			a.exec += exec
 			switch row.Status {
 			case "succeeded":
 				a.succ++
+				if byEdgeSucc[d] == nil {
+					byEdgeSucc[d] = map[string]int{}
+				}
+				if row.EdgeID != "" {
+					byEdgeSucc[d][row.EdgeID]++
+				}
 			case "failed":
 				a.fail++
+				if byEdgeFail[d] == nil {
+					byEdgeFail[d] = map[string]int{}
+				}
+				if row.EdgeID != "" {
+					byEdgeFail[d][row.EdgeID]++
+				}
 				if row.ErrorCode != "" {
 					if byErr[d] == nil {
 						byErr[d] = map[string]int{}
@@ -107,6 +137,18 @@ func main() {
 				}
 				byEdge[d][row.EdgeID]++
 			}
+			if row.CaseID != 0 {
+				if byCase[d] == nil {
+					byCase[d] = map[uint64]*caseAgg{}
+				}
+				c := byCase[d][row.CaseID]
+				if c == nil {
+					c = &caseAgg{}
+					byCase[d][row.CaseID] = c
+				}
+				c.count++
+				c.dur += dur
+			}
 		}
 		if len(rows) < batchSize {
 			break
@@ -119,13 +161,15 @@ func main() {
 			FailedCount: a.fail, CancelledCount: a.canc, TotalDurationMS: a.dur, UpdatedAt: now,
 		}
 		if err := gdb.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "stat_date"}},
+			Columns: []clause.Column{{Name: "stat_date"}},
 			DoUpdates: clause.Assignments(map[string]any{
 				"processed_count":   a.processed,
 				"succeeded_count":   a.succ,
 				"failed_count":      a.fail,
 				"cancelled_count":   a.canc,
 				"total_duration_ms": a.dur,
+				"total_queue_ms":    a.queue,
+				"total_exec_ms":     a.exec,
 				"updated_at":        now,
 			}),
 		}).Create(&row).Error; err != nil {
@@ -135,12 +179,26 @@ func main() {
 	}
 	for d, edges := range byEdge {
 		for edgeID, count := range edges {
-			row := taskstatspersist.EdgeDailyStatsRow{StatDate: d, EdgeID: edgeID, ProcessedCount: count, UpdatedAt: now}
+			succ := byEdgeSucc[d][edgeID]
+			fail := byEdgeFail[d][edgeID]
+			row := taskstatspersist.EdgeDailyStatsRow{StatDate: d, EdgeID: edgeID, ProcessedCount: count, SucceededCount: succ, FailedCount: fail, UpdatedAt: now}
 			if err := gdb.Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "stat_date"}, {Name: "edge_id"}},
-				DoUpdates: clause.Assignments(map[string]any{"processed_count": count, "updated_at": now}),
+				DoUpdates: clause.Assignments(map[string]any{"processed_count": count, "succeeded_count": succ, "failed_count": fail, "updated_at": now}),
 			}).Create(&row).Error; err != nil {
 				slog.Error("upsert edge", "err", err)
+				os.Exit(1)
+			}
+		}
+	}
+	for d, cases := range byCase {
+		for caseID, c := range cases {
+			row := taskstatspersist.CaseDailyStatsRow{StatDate: d, CaseID: caseID, Count: c.count, TotalDurationMS: c.dur, UpdatedAt: now}
+			if err := gdb.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "stat_date"}, {Name: "case_id"}},
+				DoUpdates: clause.Assignments(map[string]any{"count": c.count, "total_duration_ms": c.dur, "updated_at": now}),
+			}).Create(&row).Error; err != nil {
+				slog.Error("upsert case", "err", err)
 				os.Exit(1)
 			}
 		}

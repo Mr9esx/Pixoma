@@ -74,6 +74,7 @@ func run(ctx context.Context) error {
 			&taskstatspersist.DailyStatsRow{},
 			&taskstatspersist.EdgeDailyStatsRow{},
 			&taskstatspersist.ErrorDailyStatsRow{},
+			&taskstatspersist.CaseDailyStatsRow{},
 			&channelpersist.ChannelRow{},
 			&mencardpersist.MainMenuRow{},
 			&mencardpersist.CardRow{},
@@ -129,7 +130,7 @@ func run(ctx context.Context) error {
 	usersAPI := &usersapi.Handler{Repo: userRepo}
 	sessionsAPI := &sessionsapi.Handler{Repo: sessionRepo}
 	tasksAPI := &tasksapi.Handler{Tasks: taskRepo, Cancel: orch}
-	statsAPI := &statsapi.Handler{Repo: statsRepo, Loc: statsLocation()}
+	statsAPI := &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo}
 	chSvc := &channelapp.Service{
 		Store: channelpersist.NewGormRepository(gdb),
 		Key:   encKey,
