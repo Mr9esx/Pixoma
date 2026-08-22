@@ -36,6 +36,7 @@ import (
 	routingapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	setupapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
+	statsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/stats"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
@@ -50,6 +51,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
+	taskstatspersist "github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	topicpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/topic/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
@@ -148,6 +150,10 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			&userpersist.UserExternalIdentityRow{},
 			&sesspersist.SessionRow{},
 			&taskpersist.TaskRow{},
+			&taskstatspersist.DailyStatsRow{},
+			&taskstatspersist.EdgeDailyStatsRow{},
+			&taskstatspersist.ErrorDailyStatsRow{},
+			&taskstatspersist.CaseDailyStatsRow{},
 			&topicpersist.TopicRow{},
 			&channelpersist.ChannelRow{},
 			&mencardpersist.MainMenuRow{},
@@ -304,11 +310,13 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	gate := &setupapi.Gate{Boot: boot, Sessions: sess}
 	pres := presence.NewStore()
 	metricsRepo := instpersist.NewMetricsRepository(gdb, metricsRetention())
+	statsRepo := taskstatspersist.NewGormStatsRepository(gdb, statsRetention(), statsLocation())
+	orch.Stats = statsRepo
 
 	validator := validation.New()
 	adminH := adminhost.NewHandler(adminhost.Options{
 		CORSOrigins: corsOrigins(),
-		Instances:   &edges.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Metrics: metricsRepo, EncKey: encKey, Presence: pres},
+		Instances:   &edges.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Metrics: metricsRepo, EncKey: encKey, Presence: pres, Topics: topicRepo},
 		Cases: &casesapi.Handler{Repo: caseRepo, Validate: func(doc catalogdomain.CaseDocument) error {
 			if err := validator.ValidateDocument(doc); err != nil {
 				return err
@@ -318,10 +326,12 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Users:     &usersapi.Handler{Repo: userRepo},
 		Sessions:  &sessionsapi.Handler{Repo: sessionRepo},
 		Tasks:     &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
+		Stats:     &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
 		Channels:  &channelsapi.Handler{Svc: chSvc},
 		MenuCards: menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb)),
 		Topics: &topicsapi.Handler{
-			Repo: topicRepo,
+			Repo:  topicRepo,
+			Tasks: taskRepo,
 			CountCaseRefs: func(ctx context.Context, key string) (int, error) {
 				var n int64
 				like := `%"topic":"` + escapeLike(key) + `"%`
@@ -460,6 +470,27 @@ func metricsRetention() time.Duration {
 		}
 	}
 	return 24 * time.Hour
+}
+
+func statsRetention() time.Duration {
+	if v := strings.TrimSpace(os.Getenv("TASK_STATS_RETENTION")); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 365 * 24 * time.Hour
+}
+
+func statsLocation() *time.Location {
+	v := strings.TrimSpace(os.Getenv("STATS_TIMEZONE"))
+	if v == "" {
+		v = "Asia/Shanghai"
+	}
+	loc, err := time.LoadLocation(v)
+	if err != nil {
+		return time.FixedZone("Asia/Shanghai", 8*3600)
+	}
+	return loc
 }
 
 func corsOrigins() []string {
