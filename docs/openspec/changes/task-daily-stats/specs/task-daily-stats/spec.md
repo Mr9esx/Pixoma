@@ -71,3 +71,43 @@
 #### Scenario: 口径一致
 - **WHEN** 同一时间范围内分别查询 daily 汇总与逐日数据
 - **THEN** 汇总计数等于各日计数之和
+
+### Requirement: 排队与执行耗时聚合
+系统 MUST 在每日统计中记录排队耗时（created_at → started_at）与执行耗时（started_at → completed_at），供 Dashboard 按天堆叠展示。
+
+#### Scenario: 终态写入排队与执行耗时
+- **WHEN** 任务进入终态且 started_at / completed_at 可用
+- **THEN** 当日统计累计 total_queue_ms 与 total_exec_ms（负值按 0 处理），daily 接口返回 avg_queue_ms / avg_exec_ms
+
+#### Scenario: 无开始时间不产生排队耗时
+- **WHEN** 任务终态时 started_at 为零
+- **THEN** 该任务不计入 total_queue_ms，exec 按 completed_at − started_at 不可用时为 0
+
+### Requirement: 每节点成功率
+系统 MUST 提供每节点在所选时间范围内的成功/失败计数与成功率，供 Dashboard 每节点任务量图叠加展示。
+
+#### Scenario: 每节点成功失败计数
+- **WHEN** 客户端请求每节点统计接口并携带 from / to
+- **THEN** 返回每节点 processed / succeeded / failed 与 success_rate（succeeded/(succeeded+failed)，分母为 0 时为 null）
+
+### Requirement: Case 维度统计
+系统 MUST 提供按 Case 聚合的终态任务统计（数量与平均耗时），供 Dashboard Case 热度 Top 与耗时散点图使用。
+
+#### Scenario: Case 热度与平均耗时
+- **WHEN** 客户端请求 Case 统计接口并携带 from / to 与 limit
+- **THEN** 返回按终态任务数降序的 Case 列表，每项含 case_id、count、avg_duration_ms（count 为 0 时 avg 为 null）
+
+#### Scenario: Case 统计空数据
+- **WHEN** 范围内无终态任务
+- **THEN** 返回空列表，HTTP 200
+
+### Requirement: 集群实时负载聚合
+系统 MUST 提供集群实时负载快照（每节点最新 CPU / 内存 / GPU 利用率、VRAM 占用、平均利用率与最热节点），供 Dashboard 实时状态区展示；该接口不依赖时间范围参数。
+
+#### Scenario: 返回最新快照
+- **WHEN** 客户端请求集群负载接口
+- **THEN** 返回在线节点数、平均 CPU/内存/GPU、VRAM 已用/总量、最热节点（CPU 最高），以及每节点最新利用率；24h 内无上报的节点不计入
+
+#### Scenario: 无指标数据降级
+- **WHEN** 没有任何节点上报过指标
+- **THEN** 返回空聚合与空节点列表，HTTP 200，前端展示空态

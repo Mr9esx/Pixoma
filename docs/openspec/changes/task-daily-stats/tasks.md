@@ -39,3 +39,28 @@
 - [x] 6.1 全量验证：`go build ./...` + `go test ./...`；前端 `tsc -b` + `vitest`
 - [x] 6.2 端到端确认：Mock 数据下 Dashboard 切换日期范围后柱状图与统计卡正确刷新
 - [x] 6.3 同步 `docs/architecture/data-model.md`、`runtime.md` 与根 `README.md`
+
+## 7. 数据层与接口扩展（范围扩展：分区仪表盘）
+
+- [x] 7.1 `task_daily_stats` 增加 total_queue_ms / total_exec_ms 列；`task_edge_daily_stats` 增加 succeeded_count / failed_count；新增 `task_case_daily_stats`（stat_date + case_id + count + total_duration_ms）模型与 AutoMigrate
+- [x] 7.2 `AddTerminalInput` 增加 CaseID / QueueDurationMS / ExecDurationMS；GORM `AddTerminal` 写入新列与新表（排队=started−created、执行=completed−started，负值按 0）；单测
+- [x] 7.3 backfill 重算排队/执行耗时与每节点成功失败、Case 维度
+- [x] 7.4 `MetricsRepository.LatestAll(ctx, since)`（每 edge 最新快照）与 `GET /api/v1/stats/fleet`（在线数、平均 CPU/内存/GPU、VRAM、最热节点、每节点利用率）；单测
+- [x] 7.5 `GET /api/v1/stats/tasks/daily` 返回 avg_queue_ms / avg_exec_ms；`/tasks/edges` 返回每节点 succeeded/failed/success_rate；新增 `GET /api/v1/stats/cases/top`（count + avg_duration_ms）；handler 单测
+- [x] 7.6 adminhost / main 接线：stats Handler 注入 metrics 仓储；AutoMigrate 新增表
+
+## 8. 前端分区仪表盘
+
+- [x] 8.1 全局时间范围组件（近 7 / 30 / 90 天 + Calendar range），从任务区提取为共享状态
+- [x] 8.2 Dashboard 重构三区：实时状态（节点启用、在线/Comfy、算力池、实时负载摘要）、任务效能（每日双轴、排队/执行堆叠、状态 donut、错误码 donut、每节点任务量+成功率）、业务分析（Case 散点、Case 热度 Top）
+- [x] 8.3 fleet API client、类型与集群负载分组条形图（每节点 CPU/内存/GPU + VRAM + 最热节点）
+- [x] 8.4 每日柱状图叠加成功率折线（双轴）；排队 vs 执行耗时堆叠柱
+- [x] 8.5 错误码占比 donut、任务状态分布 donut（区间内终态）
+- [x] 8.6 Case 耗时散点（recharts ScatterChart，点=Case）与 Case 热度 Top
+- [x] 8.7 i18n 更新（去样本提示改全量口径、分区标题、实时徽标）；合同测试更新
+
+## 9. 扩展验证与文档
+
+- [x] 9.1 全量验证：`go build ./...` + `go test ./...`；前端 `tsc -b` + `vitest`
+- [x] 9.2 端到端：fleet / cases/top / daily 双轴与堆叠数据冒烟确认
+- [x] 9.3 架构文档补充新表列、fleet 与 cases/top 端点

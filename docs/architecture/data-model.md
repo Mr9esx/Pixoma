@@ -178,11 +178,14 @@ Edge 心跳上报的实时系统指标快照，整快照 JSON 一列，写入时
 | stat_date | PK | YYYY-MM-DD（应用层按时区归天） |
 | processed_count / succeeded_count / failed_count / cancelled_count | not null default 0 | processed = 成功 + 失败 + 取消 |
 | total_duration_ms | not null default 0 | 终态耗时累计（completed_at - created_at） |
+| total_queue_ms / total_exec_ms | not null default 0 | 排队耗时累计（created→started）与执行耗时累计（started→completed），负值按 0 |
 | updated_at | not null | 最近更新（UTC） |
 
-`task_edge_daily_stats`：PK `(stat_date, edge_id)`，`processed_count` 为每节点每日已处理任务数（仅终态任务按 edge_id 计数）。
+`task_edge_daily_stats`：PK `(stat_date, edge_id)`，`processed_count` 为每节点每日已处理任务数（仅终态任务按 edge_id 计数），`succeeded_count` / `failed_count` 供每节点成功率。
 
 `task_error_daily_stats`：PK `(stat_date, error_code)`，`count` 为每日错误码出现次数（仅非空 error_code）。
+
+`task_case_daily_stats`：PK `(stat_date, case_id)`，`count` 与 `total_duration_ms` 为按 Case 聚合的终态任务数与耗时累计（Case 热度与耗时散点数据源）。
 
 ### 2.5 `catalog_cases`（既有）
 

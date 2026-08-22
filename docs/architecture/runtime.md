@@ -189,6 +189,8 @@ Session 状态机（独立）：`collecting` → `confirming` → `submitted` | 
 | `GET /api/v1/stats/tasks/daily?from&to` | `task_daily_stats` 按天查询（零填充，默认近 30 天、上限 365 天），附成功率汇总；任务终态由 orchestrator 写入统计表 |
 | `GET /api/v1/stats/tasks/errors?from&to&limit` | `task_error_daily_stats` 错误码 Top-N |
 | `GET /api/v1/stats/tasks/edges?from&to` | `task_edge_daily_stats` 每节点已处理任务数与 total |
+| `GET /api/v1/stats/cases/top?from&to&limit` | `task_case_daily_stats` 按 Case 聚合的终态任务数与平均耗时 |
+| `GET /api/v1/stats/fleet` | `edge_metrics` 每节点最新快照聚合：在线数、平均 CPU/内存/GPU、VRAM 占用、最热节点（实时，无时间范围） |
 | `GET /healthz` | 进程存活 |
 
 > 计算节点 API **当前无鉴权**，仅本机/可信内网。
