@@ -1,0 +1,8 @@
+{
+  "openspec_proposal": "docs/openspec/changes/quick-config-wizard/proposal.md",
+  "openspec_design": "docs/openspec/changes/quick-config-wizard/design.md",
+  "openspec_tasks": "docs/openspec/changes/quick-config-wizard/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/quick-config-wizard/specs/admin-web-shell/spec.md",
+  "handoff_context": "docs/openspec/changes/quick-config-wizard/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/quick-config-wizard/.comet/handoff/design-context.md"
+}

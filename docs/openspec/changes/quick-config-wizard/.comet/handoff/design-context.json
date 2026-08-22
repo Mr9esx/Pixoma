@@ -1,0 +1,15 @@
+{
+  "change": "quick-config-wizard",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "72d85d85449e8db8bb47189d194ba8dde1b7bccd26e4c9dca00c8fe9be289060",
+  "files": [
+    { "path": "docs/openspec/changes/quick-config-wizard/proposal.md", "sha256": "1ed2dc0760006b584625c652ed8bec223fc1131ffbcebe0f3ba72bdd23cb6b90" },
+    { "path": "docs/openspec/changes/quick-config-wizard/design.md", "sha256": "a74ff66b4412c5229c2d66658df78812e7fa33b318814f56e8d1632835978561" },
+    { "path": "docs/openspec/changes/quick-config-wizard/tasks.md", "sha256": "0e6e0a8fe2dc18bb733d312ed9121a906883a1240f229a0ca64fe672af91840f" },
+    { "path": "docs/openspec/changes/quick-config-wizard/specs/admin-web-shell/spec.md", "sha256": "9173552d4ec79813f4fd80924af6a57c91cfbd37d64c3b17b2d0f47bb420ec5f" },
+    { "path": "docs/openspec/changes/quick-config-wizard/specs/quick-config-wizard/spec.md", "sha256": "7de73f83d6ed1fabe8770b8b54ece8f8e3fbd9ff0d834ecd09e7acce3e9c3294" }
+  ]
+}
