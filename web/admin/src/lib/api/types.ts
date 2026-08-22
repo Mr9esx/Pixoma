@@ -122,6 +122,8 @@ export type TaskDailyStat = {
   failed: number
   cancelled: number
   avg_duration_ms: number | null
+  avg_queue_ms: number | null
+  avg_exec_ms: number | null
 }
 
 export type TaskDailyStatsResponse = {
@@ -137,7 +139,41 @@ export type TaskDailyStatsResponse = {
 }
 
 export type TaskErrorStat = { error_code: string; count: number }
-export type TaskEdgeStat = { edge_id: string; count: number }
+export type TaskEdgeStat = {
+  edge_id: string
+  count: number
+  succeeded: number
+  failed: number
+  success_rate: number | null
+}
+
+export type TaskCaseStat = {
+  case_id: number
+  count: number
+  avg_duration_ms: number | null
+}
+
+export type TaskCaseTopResponse = { items: TaskCaseStat[] }
+
+export type FleetNode = {
+  edge_id: string
+  cpu_usage_percent: number
+  mem_usage_percent: number
+  gpu_usage_percent?: number | null
+  vram_used_bytes?: number
+  vram_total_bytes?: number
+}
+
+export type FleetStats = {
+  online: number
+  avg_cpu_usage_percent: number
+  avg_mem_usage_percent: number
+  avg_gpu_usage_percent?: number | null
+  vram_used_bytes: number
+  vram_total_bytes: number
+  hottest?: { edge_id: string; cpu_usage_percent: number } | null
+  nodes: FleetNode[]
+}
 
 export type UserRecord = {
   id: string
