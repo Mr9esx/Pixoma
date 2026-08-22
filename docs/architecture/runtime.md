@@ -179,7 +179,7 @@ Session 状态机（独立）：`collecting` → `confirming` → `submitted` | 
 |---|---|
 | `GET/POST/PATCH/DELETE /api/v1/edges` | `edges` |
 | `POST .../{id}/rotate-token` | 换发该节点 AGENT_TOKEN |
-| `POST /agent/v1/presence` | Edge 上报 `{ edge_id, comfy_running, hardware?, metrics? }` → `{ refresh_hardware }`；`metrics` 按 `METRICS_INTERVAL`（默认 30s）采样随心跳携带，控制面写入 `edge_metrics` |
+| `POST /agent/v1/presence` | Edge 上报 `{ edge_id, comfy_running, started_at, comfy_version, hardware?, metrics? }` → `{ refresh_hardware }`；`started_at` 首次心跳只记一次，`comfy_version` 来自 `/system_stats`；`metrics` 按 `METRICS_INTERVAL`（默认 30s）采样随心跳携带，控制面写入 `edge_metrics` 与 `edges` |
 | `GET /api/v1/edges/presence` | 内存；15s 无报到视为掉线，Comfy 一并显示未启动 |
 | `GET .../{id}/system` | 该节点 Comfy system_stats（硬件明细；远程可能不通） |
 | `GET .../{id}/queue` | 该节点 Comfy queue |

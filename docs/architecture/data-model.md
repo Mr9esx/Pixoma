@@ -148,6 +148,8 @@
 | agent_token_enc | TEXT | 加密后的 AGENT_TOKEN |
 | hardware_json | TEXT | CPU / 内存 / 显卡 |
 | hardware_refresh_requested | NOT NULL | 下一拍心跳覆盖规格 |
+| started_at | nullable | 节点 agent 首次心跳时间（进程内只记一次） |
+| comfy_version | nullable | 节点 Comfy 版本（解析 `/system_stats` 的 comfyui_version） |
 | created_at, updated_at | NOT NULL | |
 
 ### 2.4b `edge_metrics`
