@@ -32,11 +32,7 @@ import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { kit } from '@/features/edges/kit-classes'
 import { SectionHead } from '@/features/edges/observation-panel'
-import {
-  ContextLinks,
-  type ContextGroup,
-  type ContextState,
-} from '@/features/config-context/context-links'
+import { ConfigChain, type ChainDetail, type ChainHop } from '@/features/config-context/config-chain'
 import { TopicStatsPanel } from './topic-stats-panel'
 
 function errorMessage(err: unknown): string | undefined {
@@ -144,30 +140,59 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   const boundEnabled = edges.filter(
     (e) => e.enabled && (e.subscribe_topics ?? []).includes(topicKey)
   )
-  const contextGroups: ContextGroup[] = [
+  const topicReady = boundEnabled.length > 0
+  const chainHops: ChainHop[] = [
     {
-      title: t('configContext.relatedCases'),
-      items: relatedCases.map((c) => ({
-        key: String(c.id),
-        label: c.name || `#${c.id}`,
-        to: `/cases/${c.id}`,
-        state: (boundEnabled.length > 0 ? 'ready' : 'warn') as ContextState,
-        note: boundEnabled.length > 0
-          ? t('configContext.onlineNodes', { n: boundEnabled.length })
-          : t('configContext.noOnlineNode'),
-      })),
+      key: 'case',
+      kind: t('configChain.workflow'),
+      label: relatedCases[0]?.name ?? t('configChain.noRelatedCase'),
+      sub: t('configChain.rules', { n: relatedCases.length }),
+      state: relatedCases.length > 0 ? 'ok' : 'warn',
+      to: relatedCases[0] ? `/cases/${relatedCases[0].id}` : '/cases',
     },
     {
-      title: t('configContext.subscribedNodes'),
-      items: boundEnabled.map((e) => ({
-        key: e.id,
-        label: e.name,
-        to: `/edges/${e.id}`,
-        state: 'ready' as ContextState,
-        note: t('configContext.mounted'),
-      })),
+      key: 'topic',
+      kind: t('configChain.delivery'),
+      label: name || topicKey,
+      sub: t('configChain.onlineNodes', { n: boundEnabled.length }),
+      state: topicReady ? 'ok' : 'warn',
+      to: `/topics/${topicKey}`,
     },
-  ].filter((g) => g.items.length > 0)
+    {
+      key: 'node',
+      kind: t('configChain.exec'),
+      label: boundEnabled.map((e) => e.name).join(' / ') || t('configChain.noOnlineNode'),
+      sub: topicReady ? t('configChain.onlineNodes', { n: boundEnabled.length }) : t('configChain.noExec'),
+      state: topicReady ? 'ok' : 'warn',
+      to: boundEnabled[0] ? `/edges/${boundEnabled[0].id}` : '/edges',
+    },
+  ]
+  const chainDetails: Record<string, ChainDetail> = {
+    case: {
+      conclusion: relatedCases.length > 0
+        ? t('configChain.topicUsedBy', { topic: name || topicKey, n: relatedCases.length })
+        : t('configChain.topicUnused', { topic: name || topicKey }),
+      rows: relatedCases.slice(0, 5).map((c) => ({
+        q: t('configChain.whoUses'),
+        a: c.name || `#${c.id}`,
+      })),
+      actionTo: relatedCases[0] ? `/cases/${relatedCases[0].id}` : '/cases',
+    },
+    topic: {
+      conclusion: topicReady
+        ? t('configChain.topicReady', { topic: name || topicKey, n: boundEnabled.length })
+        : t('configChain.topicBlocked', { topic: name || topicKey }),
+      rows: [],
+      actionTo: `/topics/${topicKey}`,
+    },
+    node: {
+      conclusion: topicReady
+        ? t('configChain.nodeReady', { n: boundEnabled.length, topic: name || topicKey })
+        : t('configChain.nodeBlocked', { topic: name || topicKey }),
+      rows: boundEnabled.map((e) => ({ q: t('configChain.execNodes'), a: e.name })),
+      actionTo: boundEnabled[0] ? `/edges/${boundEnabled[0].id}` : '/edges',
+    },
+  }
   const boundFirst = [...edges].sort((a, b) => {
     const aBound = (a.subscribe_topics ?? []).includes(topicKey)
     const bBound = (b.subscribe_topics ?? []).includes(topicKey)
@@ -358,11 +383,17 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
         </div>
       </section>
 
-      {contextGroups.length > 0 ? (
-        <section className='mt-4'>
-          <ContextLinks groups={contextGroups} />
-        </section>
-      ) : null}
+      <section className='mt-4'>
+        <ConfigChain
+          health={
+            topicReady
+              ? { state: 'ok', text: t('configChain.healthTopicOk', { topic: name || topicKey, n: boundEnabled.length }) }
+              : { state: 'warn', text: t('configChain.healthTopicWarn', { topic: name || topicKey }) }
+          }
+          hops={chainHops}
+          details={chainDetails}
+        />
+      </section>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='sm:max-w-md'>

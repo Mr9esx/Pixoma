@@ -12,7 +12,7 @@ import type { CaseRecord, RoutingConfig } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { TaskFlowEditor } from '@/features/task-flow/task-flow-editor'
 import type { EdgePresence, EdgeRecord, TopicRecord } from '@/features/task-flow/types'
-import { ContextLinks, type ContextGroup } from './context-links'
+import { ConfigChain, type ChainDetail, type ChainHop } from './config-chain'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -56,45 +56,133 @@ export function CaseContextSection({ record }: { record: CaseRecord }) {
     },
   })
 
-  const groups: ContextGroup[] = useMemo(() => {
+  const chain = useMemo(() => {
     const ruleTopics = Array.from(
       new Set((routing?.rules ?? []).map((r) => r.topic).filter((x): x is string => Boolean(x)))
     )
-    const topicItems = ruleTopics.map((key) => {
-      const topic = topics.find((x) => x.key === key)
-      const online = edges.filter(
-        (e) => (e.subscribe_topics ?? []).includes(key) && byPresence.get(e.id)?.edge_online
-      ).length
-      return {
-        key,
-        label: topic?.name ?? key,
-        to: `/topics/${key}`,
-        state: online > 0 ? ('ready' as const) : ('warn' as const),
-        note: online > 0 ? t('configContext.onlineNodes', { n: online }) : t('configContext.noOnlineNode'),
-      }
-    })
-    const nodeItems = edges
+    const topicKeys = ruleTopics.length > 0 ? ruleTopics : ['default']
+    const firstTopic = topics.find((x) => x.key === topicKeys[0])
+    const topicOnline = edges.filter(
+      (e) =>
+        (e.subscribe_topics ?? []).includes(topicKeys[0]) &&
+        byPresence.get(e.id)?.edge_online
+    ).length
+    const execEdges = edges
       .filter((e) => ruleTopics.some((k) => (e.subscribe_topics ?? []).includes(k)))
-      .map((e) => ({
-        key: e.id,
-        label: e.name,
-        to: `/edges/${e.id}`,
-        state: (byPresence.get(e.id)?.edge_online ? 'ready' : 'warn') as ContextGroup['items'][number]['state'],
-        note: byPresence.get(e.id)?.edge_online ? t('configContext.online') : t('configContext.offline'),
-      }))
-    const menuItems = (placementsQuery.data ?? []).map((p) => ({
-      key: String(p.channel_id),
-      label: p.channel_name ?? p.channel_id,
-      to: `/channels/${p.channel_id}`,
-      state: 'ready' as const,
-      note: t('configContext.mounted'),
-    }))
-    return [
-      { title: t('configContext.routingTopics'), items: topicItems },
-      { title: t('configContext.execNodes'), items: nodeItems },
-      { title: t('configContext.menuMounts'), items: menuItems },
-    ].filter((g) => g.items.length > 0)
-  }, [routing, topics, edges, byPresence, placementsQuery.data, t])
+    const onlineEdges = execEdges.filter((e) => byPresence.get(e.id)?.edge_online)
+    const placements = placementsQuery.data ?? []
+    const menuHop: ChainHop = placements[0]
+      ? {
+          key: 'menu',
+          kind: t('configChain.entry'),
+          label: placements[0].channel_name ?? placements[0].channel_id,
+          sub: t('configChain.mounted', { n: placements.length }),
+          state: 'ok',
+          to: `/channels/${placements[0].channel_id}`,
+        }
+      : {
+          key: 'menu',
+          kind: t('configChain.entry'),
+          label: t('configChain.noMenu'),
+          sub: '',
+          state: 'warn',
+          to: '/',
+        }
+    const topicHop: ChainHop = {
+      key: 'topic',
+      kind: t('configChain.delivery'),
+      label: firstTopic?.name ?? topicKeys[0],
+      sub:
+        topicOnline > 0
+          ? t('configChain.onlineNodes', { n: topicOnline })
+          : t('configChain.noOnlineNode'),
+      state: topicOnline > 0 ? 'ok' : 'warn',
+      to: `/topics/${topicKeys[0]}`,
+    }
+    const nodeHop: ChainHop = {
+      key: 'node',
+      kind: t('configChain.exec'),
+      label: onlineEdges.length > 0 ? onlineEdges.map((e) => e.name).join(' / ') : t('configChain.noOnlineNode'),
+      sub:
+        onlineEdges.length > 0
+          ? t('configChain.onlineNodes', { n: onlineEdges.length })
+          : t('configChain.noExec'),
+      state: onlineEdges.length > 0 ? 'ok' : 'warn',
+      to: onlineEdges[0] ? `/edges/${onlineEdges[0].id}` : '/edges',
+    }
+    const caseHop: ChainHop = {
+      key: 'case',
+      kind: t('configChain.workflow'),
+      label: record.name || `#${record.id}`,
+      sub: t('configChain.rules', { n: ruleTopics.length }),
+      state: ruleTopics.length > 0 ? 'ok' : 'warn',
+      to: `/cases/${record.id}`,
+    }
+    const hops = [menuHop, caseHop, topicHop, nodeHop]
+    const blocked = hops.filter((h) => h.state === 'warn').length
+    const health =
+      blocked > 0
+        ? {
+            state: 'warn' as const,
+            text: t('configChain.healthWarn', {
+              name: record.name || `#${record.id}`,
+              topic: firstTopic?.name ?? topicKeys[0],
+            }),
+          }
+        : {
+            state: 'ok' as const,
+            text: t('configChain.healthOk', {
+              name: record.name || `#${record.id}`,
+              topic: firstTopic?.name ?? topicKeys[0],
+              n: onlineEdges.length,
+            }),
+          }
+    const topicReady = topicOnline > 0
+    const details: Record<string, ChainDetail> = {
+      menu: {
+        conclusion:
+          placements.length > 0
+            ? t('configChain.menuConclusion', { n: placements.length })
+            : t('configChain.noMenuConclusion'),
+        rows: placements.slice(0, 3).map((p) => ({
+          q: t('configChain.mountedAt'),
+          a: p.channel_name ?? p.channel_id,
+        })),
+      },
+      case: {
+        conclusion: t('configChain.caseConclusion', {
+          name: record.name || `#${record.id}`,
+          topic: firstTopic?.name ?? topicKeys[0],
+        }),
+        rows: [
+          { q: t('configChain.sendsTo'), a: firstTopic?.name ?? topicKeys[0] },
+          { q: t('configChain.whoExecutes'), a: onlineEdges.length > 0 ? onlineEdges.map((e) => e.name).join('、') : t('configChain.noExec') },
+        ],
+      },
+      topic: {
+        conclusion: topicReady
+          ? t('configChain.topicReady', { topic: firstTopic?.name ?? topicKeys[0], n: topicOnline })
+          : t('configChain.topicBlocked', { topic: firstTopic?.name ?? topicKeys[0] }),
+        rows: [
+          { q: t('configChain.whoUses'), a: record.name || `#${record.id}` },
+          { q: t('configChain.whoSubscribes'), a: topicOnline > 0 ? t('configChain.onlineNodes', { n: topicOnline }) : t('configChain.noOnlineNode') },
+        ],
+        actionTo: `/topics/${topicKeys[0]}`,
+      },
+      node: {
+        conclusion:
+          onlineEdges.length > 0
+            ? t('configChain.nodeReady', { n: onlineEdges.length, topic: firstTopic?.name ?? topicKeys[0] })
+            : t('configChain.nodeBlocked', { topic: firstTopic?.name ?? topicKeys[0] }),
+        rows: execEdges.slice(0, 5).map((e) => ({
+          q: t('configChain.execNodes'),
+          a: `${e.name}（${byPresence.get(e.id)?.edge_online ? t('configChain.online') : t('configChain.offline')}）`,
+        })),
+        actionTo: onlineEdges[0] ? `/edges/${onlineEdges[0].id}` : '/edges',
+      },
+    }
+    return { health, hops, details }
+  }, [routing, topics, edges, byPresence, placementsQuery.data, record, t])
 
   return (
     <div className='space-y-4'>
@@ -125,7 +213,7 @@ export function CaseContextSection({ record }: { record: CaseRecord }) {
           </p>
         ) : null}
       </div>
-      {groups.length > 0 ? <ContextLinks groups={groups} /> : null}
+      <ConfigChain {...chain} />
     </div>
   )
 }
