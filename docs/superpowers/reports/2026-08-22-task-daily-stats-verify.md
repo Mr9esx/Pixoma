@@ -66,3 +66,13 @@ SUGGESTION（记录，不阻塞）：
 - 后端：`webembed.Handler` 对 `/api/*` 未匹配路径返回 JSON 404（不再回退 SPA index.html），避免旧/未知 API 路径伪装成 200 HTML；配套测试。
 
 **复验**：`verify-fail`（第 1 次）→ build 修复提交 → `go build ./...`、`go test ./...`、`pnpm tsc -b`、`pnpm vitest run`（52 文件 / 240 测试）全部通过；build 与 verify command-check 均已重新记录 exit=0。
+
+## 补充：分区仪表盘范围扩展验证（2026-08-22，第 2 轮）
+
+用户确认将 Dashboard 扩展为「实时状态 / 任务效能 / 业务分析」三区，并新增耗时散点、排队/执行、状态/错误 donut、集群负载等图表（见 Design Doc Implementation Divergence）。扩展后按 spec 增量验证：
+
+- 新增需求实现：排队/执行耗时聚合（daily avg_queue_ms / avg_exec_ms）、每节点成功率（edges succeeded/failed/success_rate）、Case 维度统计（task_case_daily_stats + cases/top）、集群实时负载（MetricsRepository.LatestAll + /stats/fleet）——均有单测与端到端冒烟覆盖。
+- 前端三区布局 + 全局时间范围（7/30/90 + Calendar range）驱动任务效能与业务分析，实时区不受影响；移除「受 limit 限制」样本提示，改全量口径；i18n zh/en 同步。
+- 端到端冒烟（临时库）：seed 4 终态任务 + 2 节点指标 → backfill → daily（avg_queue=3600000ms、avg_exec=3600000ms、success_rate=2/3）、edges（gpu-1 success_rate=1、gpu-2=0）、cases/top（count + avg_duration_ms）、fleet（online=2、avg CPU=64%、VRAM 24+12GiB 等）全部符合预期。
+- 全量验证：`go build ./...`、`go test ./...`、`pnpm tsc -b`、`pnpm vitest run`（243 测试）全部通过；build / verify command-check 已重新记录 exit=0。
+- tasks.md 全部勾选（含 7.x/8.x/9.x 扩展任务）；实施计划追加分区仪表盘记录。
