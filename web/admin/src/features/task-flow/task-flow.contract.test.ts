@@ -10,6 +10,7 @@ const CANVAS = read('task-flow-canvas.tsx')
 const CONDITION_FORM = read('condition-form.tsx')
 const RULE_EDITOR = read('rule-editor.tsx')
 const PROTOTYPE = read('task-flow-prototype.tsx')
+const EDITOR = read('task-flow-editor.tsx')
 const TYPES = read('types.ts')
 const BINDING = read('lib/topic-binding.ts')
 
@@ -80,11 +81,12 @@ describe('task-flow prototype contract', () => {
     expect(PROTOTYPE).toContain('mockCases')
     // 右侧 Topic 池：抖入可拖拽 Topic 项，样式与数据（mockTopics/binding）驱动；
     // header 与左侧顶栏同高水平对齐（h-14），无多余说明文案。
-    expect(PROTOTYPE).toContain('data-topic-pool-item')
-    expect(PROTOTYPE).toContain('application/pixoma-topic')
-    expect(PROTOTYPE).toContain('onDragStart')
-    expect(PROTOTYPE).toContain('bindingByTopic')
-    expect(PROTOTYPE).toContain('flex h-14 items-center border-b border-border px-3')
+    expect(PROTOTYPE).toContain('TaskFlowEditor')
+    expect(EDITOR).toContain('data-topic-pool-item')
+    expect(EDITOR).toContain('application/pixoma-topic')
+    expect(EDITOR).toContain('onDragStart')
+    expect(EDITOR).toContain('bindingByTopic')
+    expect(EDITOR).toContain('flex h-14 items-center border-b border-border px-3')
     expect(PROTOTYPE).not.toContain('拖入画布放置为孤立 Topic')
     const MOCK = read('mock-data.ts')
     expect(MOCK).toContain('mockCases')
@@ -182,9 +184,9 @@ describe('task-flow prototype contract', () => {
     expect(CANVAS).toContain('修复前不可保存')
     expect(PROTOTYPE).toContain('validateRouting')
     expect(PROTOTYPE).toContain('data-save-button')
-    expect(PROTOTYPE).toContain('data-save-status')
-    expect(PROTOTYPE).toContain('校验通过，可保存')
-    expect(PROTOTYPE).toContain('条规则未通过校验')
+    expect(EDITOR).toContain('data-save-status')
+    expect(EDITOR).toContain('校验通过，可保存')
+    expect(EDITOR).toContain('条规则未通过校验')
   })
 
   it('节点细边框 + 点击 active 态 border 变 primary', () => {
