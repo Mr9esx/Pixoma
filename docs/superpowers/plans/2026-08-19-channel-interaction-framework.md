@@ -2,6 +2,7 @@
 change: channel-interaction-framework
 design-doc: docs/superpowers/specs/2026-08-19-channel-interaction-framework-design.md
 base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
+archived-with: 2026-08-22-channel-interaction-framework
 ---
 
 # 渠道交互框架 Implementation Plan

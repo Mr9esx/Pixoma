@@ -1,0 +1,44 @@
+# channel-interaction-protocol Specification
+
+## Purpose
+统一交互协议定义渠道上「用户点了一下」如何变成「业务执行并渲染结果」：适配器把 UI 事件翻译为能力调用，执行后按能力的渠道渲染声明输出结果；适配器不再认识具体业务。
+## Requirements
+### Requirement: 事件 → 能力调用协议
+系统 MUST 将渠道 UI 事件（按钮点击、文本、媒体、返回）翻译为能力调用（capability_id + params + 渠道账户上下文）；能力调用 MUST 携带执行上下文，其中用户身份为渠道账户（渠道 + 外部用户 id）。
+
+#### Scenario: 按钮点击触发能力
+- **WHEN** 用户点击 TG 主键盘或消息按钮
+- **THEN** 适配器翻译为对应能力调用并执行，返回结果按渠道渲染
+
+### Requirement: 结果渲染协议
+能力执行结果 MUST 以渠道无关的结果结构返回（文本/选项列表/媒体/错误），由适配器按本渠道渲染声明输出；同一结果在不同渠道可呈现不同形态。
+
+#### Scenario: 结果跨渠道形态不同
+- **WHEN** 同一能力返回选项列表
+- **THEN** TG 渲染为消息按钮，飞书（后续）渲染为卡片按钮，内容语义一致
+
+### Requirement: 适配器不感知具体业务
+适配器 MUST 仅依赖能力调用与结果结构，MUST NOT 为具体业务编写分支（如签到、计费）；新增业务能力不得要求修改适配器。
+
+#### Scenario: 新能力不改适配器
+- **WHEN** 注册一个新能力并加入菜单
+- **THEN** 既有适配器无需改动即可完成事件翻译与结果渲染
+
+### Requirement: 用户文案术语约束
+所有面向用户的消息、按钮与错误文案 MUST 使用用户可理解的表达（按钮/选项/功能/返回等），MUST NOT 出现内部术语（inline、callback、extras、capability、参数 schema 等）；内部术语仅允许出现在代码、文档与内部配置。
+
+#### Scenario: 文案无内部术语
+- **WHEN** 检查面向用户的文案（bot 消息、管理台引导语）
+- **THEN** 不存在 inline/callback/extras/capability 等内部术语
+
+### Requirement: 协议层导航上下文
+能力调用 MUST 携带协议层导航上下文（NavContext：back 锚点为 root 或分组/流程步 id），与能力参数分离；返回/退出按钮 MUST 由适配器按导航上下文统一渲染与处理，能力 MUST NOT 感知导航栈。
+
+#### Scenario: 任意流程步可返回
+- **WHEN** 用户处于某能力流程中的任一步骤
+- **THEN** 适配器按 NavContext 渲染返回按钮（回 root 或上一层分组），无需该能力实现返回逻辑
+
+#### Scenario: 退出回到主菜单
+- **WHEN** 用户点击退出
+- **THEN** 回到主菜单并清理当前流程上下文（如填表会话），无歧义残留
+

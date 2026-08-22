@@ -2,6 +2,8 @@
 comet_change: channel-interaction-framework
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-22-channel-interaction-framework
+status: final
 ---
 
 # 渠道交互框架：深度技术设计（channel-interaction-framework）
