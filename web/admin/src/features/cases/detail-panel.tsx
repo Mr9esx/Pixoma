@@ -22,6 +22,7 @@ import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { LongText } from '@/components/long-text'
 import { kit } from '@/features/edges/kit-classes'
 import { CaseForm } from './case-form'
+import { CaseContextSection } from '@/features/config-context/case-context-section'
 import { MenuPlacementsSection } from './sections/menu-placements'
 import { WorkflowConfigView } from './sections/workflow-config-view'
 
@@ -179,6 +180,12 @@ export function CaseDetailPanel({ id }: Props) {
           hint={t('cases.sectionEntriesHint')}
         />
         <MenuPlacementsSection caseId={record.id} showHeading={false} />
+
+        <SectionHead
+          title={t('cases.sectionProcessing')}
+          hint={t('cases.sectionProcessingHint')}
+        />
+        <CaseContextSection record={record} />
       </div>
 
       <Dialog
