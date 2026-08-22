@@ -15,29 +15,29 @@
 - **THEN** 返回 404 且不创建隐式菜单
 
 ### Requirement: 菜单模型平台中立
-菜单领域模型 MUST 使用平台中立的目录/动作语义（文件夹、打开 Case、占位提示、回复媒体），中立核心字段 MUST NOT 包含平台专有字段（如 Telegram 行/列网格、回调编码、消息长度上限）；平台差异数据 MAY 通过渠道扩展数据（extras）按渠道存放，MUST NOT 进入中立核心字段；平台渲染差异（键盘形态、按钮布局、回调数据、媒体上传）MUST 由对应渠道适配器处理，且 MUST NOT 因通用化抹平平台特色能力。
+菜单领域模型 MUST 使用平台中立的**能力入口**语义：菜单项 = {展示字段（label/intro/占位/回复媒体）、能力入口（capability_id + params）、children}；中立核心字段 MUST NOT 包含平台专有字段（如 Telegram 行/列网格、回调编码、消息长度上限）。平台渲染差异 MUST 由能力的渠道渲染声明承载，MUST NOT 进入中立核心字段，且 MUST NOT 因通用化抹平平台特色能力。
 
 #### Scenario: 中立字段不含 TG 专有字段
 - **WHEN** 通过管理 API 读取或提交菜单的中立字段
-- **THEN** 中立字段中不存在 row/col、回调前缀或 TG 消息长度约束；平台差异仅出现在该渠道的 extras 数据中
+- **THEN** 中立字段中不存在 row/col、回调前缀或 TG 消息长度约束；平台差异仅存在于能力的渠道渲染声明
 
 #### Scenario: TG 特色能力保留
-- **WHEN** 管理员为 TG 渠道配置根层网格布局等 TG 特色数据
-- **THEN** 数据存入该渠道 extras，TG 适配器按 extras 渲染；其他渠道读取不到且不受影响
+- **WHEN** 管理员为 TG 渠道配置能力入口的渠道展示参数（如根层每行按钮数）
+- **THEN** 参数存于该能力的渠道渲染声明，TG 适配器按声明渲染；其他渠道读取不到且不受影响
 
 #### Scenario: 同一菜单可被多平台适配器渲染
-- **WHEN** 同一份渠道菜单（folder + open_case + placeholder）分别由 TG 与后续平台适配器消费
-- **THEN** 各适配器能按各自平台形态渲染，无需改写菜单配置
+- **WHEN** 同一份渠道菜单（能力入口 + 分组）分别由 TG 与后续平台适配器消费
+- **THEN** 各适配器按各自平台形态渲染，无需改写菜单配置
 
 ### Requirement: Case 挂载与反查
-系统 MUST 支持菜单项挂载 Case 并从 Case 反查其出现的菜单路径；挂载的 Case 必须存在，否则拒绝保存。
+系统 MUST 支持 open_case 能力入口引用 Case（作为能力参数）并从 Case 反查其出现的菜单路径；引用的 Case 必须存在，否则拒绝保存。
 
 #### Scenario: 保存文件夹并挂载 Case
-- **WHEN** 管理面在渠道菜单中创建文件夹并关联已存在的 Case 后保存
-- **THEN** 持久化成功，后续读取可见文件夹及其 Case 关联
+- **WHEN** 管理面在渠道菜单中创建文件夹项，其 open_case 能力参数引用已存在的 Case 后保存
+- **THEN** 持久化成功，后续读取可见该文件夹及其 Case 引用
 
 #### Scenario: 绑定不存在的 Case 被拒绝
-- **WHEN** 提交的关联 `case_id` 不存在
+- **WHEN** 提交的 open_case 能力参数引用不存在的 `case_id`
 - **THEN** 系统拒绝保存并返回可理解的校验错误
 
 #### Scenario: 查询 Case 的菜单挂载
@@ -45,24 +45,9 @@
 - **THEN** 系统返回零条或多条路径；每条能标识所在渠道、菜单项与可读路径
 
 ### Requirement: 默认种子按渠道
-系统在渠道无自定义菜单时 MUST 提供可用的默认种子菜单；种子包含「图片」文件夹入口并可挂载图片类 Case。
+系统在渠道无自定义菜单时 MUST 提供可用的默认种子菜单；种子根层入口 MUST 使用 open_case 能力并挂载图片类 Case。
 
 #### Scenario: 空配置使用默认种子
 - **WHEN** 渠道尚无自定义菜单
-- **THEN** 运行时仍能得到可用的根菜单项集合
-
-### Requirement: 渠道差异数据（extras）管理
-系统 MUST 支持按渠道为菜单项保存平台差异数据（extras）：每条 extras 以（channel_id, menu_item_id, extra_type）唯一标识，内容为 JSON；仅对应渠道的适配器读取，其他渠道不得受影响。无效或未知的 extras MUST 被忽略或按适配器校验规则拒绝，MUST NOT 影响中立字段语义。管理台 MUST 提供 extras 的可视化编辑入口。
-
-#### Scenario: 按渠道保存与读取 extras
-- **WHEN** 管理面为 TG 渠道某根菜单项保存网格布局 extras 后再次读取
-- **THEN** 该渠道可读回该 extras，其他渠道读取不到
-
-#### Scenario: 管理台编辑 extras
-- **WHEN** 管理员在 TG 渠道菜单中编辑根层网格布局
-- **THEN** 变更写入该渠道 extras，保存后按适配器刷新策略生效
-
-#### Scenario: 无效 extras 不影响中立字段
-- **WHEN** extras 内容为无效或未知类型
-- **THEN** 适配器忽略或拒绝该 extras，菜单中立字段行为不受影响
+- **THEN** 运行时仍能得到可用的根菜单项集合（open_case 能力入口）
 

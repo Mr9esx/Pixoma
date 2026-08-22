@@ -19,11 +19,11 @@ verification_report: docs/superpowers/reports/2026-08-19-channel-interaction-fra
 branch_status: pending
 created_at: 2026-08-19
 verified_at: 2026-08-19
-archive_confirmation: pending
-archived: false
+archive_confirmation: confirmed
+archived: true
 bound_branch: feat-init
 direct_override: null
-handoff_context: docs/openspec/changes/channel-interaction-framework/.comet/handoff/design-context.json
+handoff_context: docs/openspec/changes/archive/2026-08-22-channel-interaction-framework/.comet/handoff/design-context.json
 handoff_hash: 1b88e9ae638e451a84d8bfe90540fa75986cd2773094cc8e3dd5ed7efff04308
 classic_profile: full
 classic_migration: 1
