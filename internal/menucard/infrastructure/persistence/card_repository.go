@@ -42,10 +42,11 @@ type CardRepository interface {
 
 // WorkflowPlacement is where an open_workflow action references a workflow.
 type WorkflowPlacement struct {
-	ChannelID string
-	ItemID    string
-	Label     string
-	Kind      string // menu_item | card_button
+	ChannelID   string
+	ChannelName string
+	ItemID      string
+	Label       string
+	Kind        string // menu_item | card_button
 }
 
 // GormCardRepository implements CardRepository with GORM.
@@ -187,7 +188,44 @@ func (r *GormCardRepository) WorkflowPlacements(ctx context.Context, workflowID 
 			}
 		}
 	}
+	if len(out) > 0 {
+		if err := r.fillChannelNames(ctx, out); err != nil {
+			return nil, err
+		}
+	}
 	return out, nil
+}
+
+func (r *GormCardRepository) fillChannelNames(ctx context.Context, placements []WorkflowPlacement) error {
+	seen := make(map[string]struct{}, len(placements))
+	ids := make([]string, 0, len(placements))
+	for _, p := range placements {
+		if _, ok := seen[p.ChannelID]; ok {
+			continue
+		}
+		seen[p.ChannelID] = struct{}{}
+		ids = append(ids, p.ChannelID)
+	}
+	type channelNameRow struct {
+		ID   string
+		Name string
+	}
+	var rows []channelNameRow
+	if err := r.db.WithContext(ctx).
+		Table("channels").
+		Select("id, name").
+		Where("id IN ?", ids).
+		Scan(&rows).Error; err != nil {
+		return fmt.Errorf("load channel names: %w", err)
+	}
+	byID := make(map[string]string, len(rows))
+	for _, row := range rows {
+		byID[row.ID] = row.Name
+	}
+	for i := range placements {
+		placements[i].ChannelName = byID[placements[i].ChannelID]
+	}
+	return nil
 }
 
 func actionContainsWorkflow(a mcdomain.Action, workflowID string) bool {

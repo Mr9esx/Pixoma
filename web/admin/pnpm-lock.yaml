@@ -17,6 +17,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.9
         version: 6.43.9
+      '@formity/react':
+        specifier: ^3.0.0
+        version: 3.0.0(react@19.2.5)
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.72.1(react@19.2.5))
@@ -786,6 +789,14 @@ packages:
 
   '@floating-ui/utils@0.2.9':
     resolution: {integrity: sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg==}
+
+  '@formity/react@3.0.0':
+    resolution: {integrity: sha512-SUPJJl0WX10uI9dOuQsLt89rITCN7c+6YOpROZXO4IdJ2scdXJKLVue4M9lE51anPzJRPLwNpKW3eRXfrt63EA==}
+    peerDependencies:
+      react: '>=16'
+
+  '@formity/system@3.0.0':
+    resolution: {integrity: sha512-sdbcPQej+JYIdXXHntHRe4tM/xDBPDZl99iY7B8UtHW8jov9sSSgg7b2MafD2MzUWQDKsT7patcTpr9B4WNkEQ==}
 
   '@hookform/resolvers@5.2.2':
     resolution: {integrity: sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA==}
@@ -4107,6 +4118,13 @@ snapshots:
       react-dom: 19.2.5(react@19.2.5)
 
   '@floating-ui/utils@0.2.9': {}
+
+  '@formity/react@3.0.0(react@19.2.5)':
+    dependencies:
+      '@formity/system': 3.0.0
+      react: 19.2.5
+
+  '@formity/system@3.0.0': {}
 
   '@hookform/resolvers@5.2.2(react-hook-form@7.72.1(react@19.2.5))':
     dependencies:

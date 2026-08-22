@@ -39,6 +39,7 @@ export function patchEdge(
     description?: string
     enabled?: boolean
     capabilities?: string[]
+    subscribe_topics?: string[]
     refresh_hardware?: boolean
     hardware?: EdgeHardware
   }

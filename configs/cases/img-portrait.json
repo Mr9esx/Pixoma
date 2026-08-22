@@ -9,7 +9,6 @@
     "text2img",
     "portrait"
   ],
-  "menu_key": "image",
   "categories": [
     "generate"
   ],
@@ -31,7 +30,9 @@
     "workflow": {
       "1": {
         "class_type": "Stub",
-        "inputs": {}
+        "inputs": {
+          "text": ""
+        }
       }
     },
     "inputs": [

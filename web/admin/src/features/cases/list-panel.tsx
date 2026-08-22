@@ -6,11 +6,10 @@ import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { FilterSegment } from '@/components/filters/filter-segment'
+import { LongText } from '@/components/long-text'
 
 export type CaseListFilters = {
   q: string
-  enabled: 'all' | 'true' | 'false'
 }
 
 type Props = {
@@ -50,17 +49,6 @@ export function CaseListPanel({
           autoComplete='off'
           aria-label={t('cases.filterQ')}
         />
-        <FilterSegment
-          data-testid='cases-filter-enabled'
-          aria-label={t('cases.filterEnabled')}
-          value={filters.enabled}
-          onValueChange={(enabled) => onFiltersChange({ ...filters, enabled })}
-          options={[
-            { value: 'all', label: t('cases.filterEnabledAll') },
-            { value: 'true', label: t('cases.filterEnabledTrue') },
-            { value: 'false', label: t('cases.filterEnabledFalse') },
-          ]}
-        />
       </div>
 
       {isError ? (
@@ -93,22 +81,14 @@ export function CaseListPanel({
                     selected && 'bg-accent'
                   )}
                 >
-                  <div className='flex items-center justify-between gap-2'>
-                    <span className='font-medium'>{item.id}</span>
-                    <span
-                      className={cn(
-                        'shrink-0 text-xs',
-                        item.enabled
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-muted-foreground'
-                      )}
-                    >
-                      {item.enabled ? t('cases.enabled') : t('cases.disabled')}
-                    </span>
-                  </div>
-                  <div className='mt-0.5 truncate text-xs text-muted-foreground'>
+                  <span className='block truncate font-medium'>
                     {item.name}
-                  </div>
+                  </span>
+                  {item.description ? (
+                    <LongText className='mt-0.5 text-xs text-muted-foreground'>
+                      {item.description}
+                    </LongText>
+                  ) : null}
                 </Link>
               </li>
             )

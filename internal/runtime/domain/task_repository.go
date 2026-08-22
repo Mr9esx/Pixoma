@@ -1,9 +1,9 @@
 package domain
 
 import (
-	"strconv"
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +22,15 @@ type ListByInstanceQuery struct {
 	Status sharedkernel.TaskStatus // empty = no filter
 	Limit  int
 	Offset int
+}
+
+// ListByTopicQuery filters tasks dispatched to a topic.
+type ListByTopicQuery struct {
+	Status      sharedkernel.TaskStatus // empty = no filter
+	CreatedFrom *time.Time
+	CreatedTo   *time.Time
+	Limit       int
+	Offset      int
 }
 
 // AdminListQuery filters tasks for admin list (parameterized; no client keys in SQL).
@@ -59,6 +68,7 @@ type TaskRepository interface {
 	ListByChat(ctx context.Context, chatID sharedkernel.ChatID, limit int) ([]*Task, error)
 	ListByStatus(ctx context.Context, st sharedkernel.TaskStatus, limit int) ([]*Task, error)
 	ListByInstance(ctx context.Context, edgeID sharedkernel.EdgeID, q ListByInstanceQuery) ([]*Task, error)
+	ListByTopic(ctx context.Context, topicKey string, q ListByTopicQuery) ([]*Task, error)
 	List(ctx context.Context, q AdminListQuery) ([]*Task, error)
 }
 
@@ -261,6 +271,47 @@ func (r *MemoryTaskRepository) ListByInstance(_ context.Context, edgeID sharedke
 			continue
 		}
 		if q.Status != "" && t.Status != q.Status {
+			continue
+		}
+		if q.Offset > 0 && skipped < q.Offset {
+			skipped++
+			continue
+		}
+		cp := *t
+		cp.Outputs = append([]OutputRef(nil), t.Outputs...)
+		out = append(out, &cp)
+		if q.Limit > 0 && len(out) >= q.Limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (r *MemoryTaskRepository) ListByTopic(_ context.Context, topicKey string, q ListByTopicQuery) ([]*Task, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if topicKey == "" {
+		return nil, nil
+	}
+	normalized := func(t *Task) string {
+		if t.DispatchTopic == "" {
+			return "default"
+		}
+		return t.DispatchTopic
+	}
+	var out []*Task
+	skipped := 0
+	for _, t := range r.byID {
+		if normalized(t) != topicKey {
+			continue
+		}
+		if q.Status != "" && t.Status != q.Status {
+			continue
+		}
+		if q.CreatedFrom != nil && t.CreatedAt.Before(*q.CreatedFrom) {
+			continue
+		}
+		if q.CreatedTo != nil && t.CreatedAt.After(*q.CreatedTo) {
 			continue
 		}
 		if q.Offset > 0 && skipped < q.Offset {

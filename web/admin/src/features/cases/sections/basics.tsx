@@ -12,7 +12,6 @@ export type BasicsSlice = Pick<
   | 'preview'
   | 'price'
   | 'tags'
-  | 'menu_key'
   | 'categories'
   | 'enabled'
 >
@@ -104,16 +103,6 @@ export function BasicsSection({
       </div>
 
       <div className='grid gap-4 sm:grid-cols-2'>
-        <div className='space-y-2'>
-          <Label htmlFor='case-menu-key'>{t('cases.fieldMenuKey')}</Label>
-          <Input
-            id='case-menu-key'
-            value={value.menu_key ?? ''}
-            onChange={(e) => patch({ menu_key: e.target.value })}
-            disabled={disabled}
-            autoComplete='off'
-          />
-        </div>
         {showEnabled ? (
           <div className='flex items-center justify-between gap-3 self-end rounded-md border px-3 py-2'>
             <Label htmlFor='case-enabled'>{t('cases.fieldEnabled')}</Label>

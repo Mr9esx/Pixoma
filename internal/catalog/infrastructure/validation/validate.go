@@ -22,9 +22,6 @@ func New() *Validator {
 
 func (v *Validator) ValidateDocument(doc domain.CaseDocument) error {
 	var fields []domain.FieldError
-	if doc.ID == 0 {
-		fields = append(fields, domain.FieldError{Key: "id", Message: "required"})
-	}
 	if strings.TrimSpace(doc.Name) == "" {
 		fields = append(fields, domain.FieldError{Key: "name", Message: "required"})
 	}

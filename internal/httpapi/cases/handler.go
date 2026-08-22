@@ -86,7 +86,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	got, err := h.Repo.Get(r.Context(), body.ID)
+	got, err := h.Repo.Get(r.Context(), c.Document.ID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -216,7 +216,6 @@ func parseListQuery(r *http.Request) (domain.ListQuery, error) {
 		Q:        r.URL.Query().Get("q"),
 		Category: r.URL.Query().Get("category"),
 		Tag:      r.URL.Query().Get("tag"),
-		MenuKey:  r.URL.Query().Get("menu_key"),
 	}
 	if v := r.URL.Query().Get("enabled"); v != "" {
 		b, err := parseBoolQuery(v)

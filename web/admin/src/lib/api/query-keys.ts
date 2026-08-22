@@ -42,6 +42,11 @@ export const queryKeys = {
     menu: (id: string) => ['channels', id, 'menu'] as const,
     extras: (id: string) => ['channels', id, 'menu', 'extras'] as const,
   },
+  topics: {
+    all: ['topics'] as const,
+    detail: (key: string) => ['topics', key] as const,
+    stats: (key: string) => ['topics', key, 'stats'] as const,
+  },
   settings: {
     all: ['settings'] as const,
   },

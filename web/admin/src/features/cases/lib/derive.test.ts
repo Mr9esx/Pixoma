@@ -100,9 +100,16 @@ describe('derive', () => {
     ]
     expect(validateEditor(bad, [])).toEqual({
       duplicateKey: 'x',
-      unboundRequired: 'x',
+      unboundInput: 'x',
       noOutput: true,
     })
     expect(validateEditor([inputs[0]], outputs)).toEqual({})
+  })
+
+  it('rejects optional inputs without a binding', () => {
+    const unbound = [{ ...inputs[3], node_id: '', field_path: '' }]
+    expect(validateEditor(unbound, outputs)).toEqual({
+      unboundInput: 'seed',
+    })
   })
 })

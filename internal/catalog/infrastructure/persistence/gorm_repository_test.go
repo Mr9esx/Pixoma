@@ -45,7 +45,6 @@ func sampleCase(id sharedkernel.CaseID, tags ...string) *domain.Case {
 					"prompt": map[string]any{"type": "string"},
 				},
 			},
-			MenuKey: "create",
 		},
 	}
 }
@@ -96,11 +95,9 @@ func TestEnableAndListFilters(t *testing.T) {
 	c1 := sampleCase(3, "t1")
 	c1.Document.Name = "Alpha Workflow"
 	c1.Document.Categories = []string{"gen"}
-	c1.Document.MenuKey = "menu-alpha"
 	_ = repo.Create(ctx, c1)
 	c2 := sampleCase(4, "t2")
 	c2.Document.Name = "Beta Other"
-	c2.Document.MenuKey = "menu-beta"
 	_ = repo.Create(ctx, c2)
 
 	if err := repo.Disable(ctx, 3); err != nil {
@@ -120,10 +117,6 @@ func TestEnableAndListFilters(t *testing.T) {
 	list, err := repo.List(ctx, domain.ListQuery{Q: "Alpha", Limit: 10})
 	if err != nil || len(list) != 1 || list[0].Document.ID != 3 {
 		t.Fatalf("q filter: err=%v list=%+v", err, list)
-	}
-	list, err = repo.List(ctx, domain.ListQuery{Q: "menu-alpha", Limit: 10})
-	if err != nil || len(list) != 1 || list[0].Document.ID != 3 {
-		t.Fatalf("q matches menu_key: err=%v list=%+v", err, list)
 	}
 	en := true
 	list, err = repo.List(ctx, domain.ListQuery{Enabled: &en, Category: "gen", Limit: 10})

@@ -4,7 +4,6 @@ import type { CaseRecord } from './types'
 export function listCases(params?: {
   q?: string
   enabled?: boolean
-  menu_key?: string
   limit?: number
   offset?: number
 }) {
@@ -27,4 +26,12 @@ export function patchCase(id: number, body: Partial<CaseRecord>) {
     method: 'PATCH',
     body: JSON.stringify(body),
   })
+}
+
+export function enableCase(id: number) {
+  return apiFetch<CaseRecord>(`/api/v1/cases/${id}/enable`, { method: 'POST' })
+}
+
+export function disableCase(id: number) {
+  return apiFetch<CaseRecord>(`/api/v1/cases/${id}/disable`, { method: 'POST' })
 }

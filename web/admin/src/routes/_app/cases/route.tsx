@@ -38,11 +38,9 @@ function CasesLayout() {
 
   const [filters, setFilters] = useState<CaseListFilters>({
     q: '',
-    enabled: 'all',
   })
   const listParams = {
     q: filters.q.trim() || undefined,
-    enabled: filters.enabled === 'all' ? undefined : filters.enabled === 'true',
   }
 
   const listQuery = useQuery({

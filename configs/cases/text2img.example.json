@@ -7,7 +7,6 @@
     "image",
     "text2img"
   ],
-  "menu_key": "create",
   "categories": [
     "generate"
   ],
@@ -35,7 +34,10 @@
     "workflow": {
       "1": {
         "class_type": "Stub",
-        "inputs": {}
+        "inputs": {
+          "text": "",
+          "seed": 0
+        }
       }
     },
     "inputs": [
@@ -43,6 +45,11 @@
         "key": "prompt",
         "node_id": "1",
         "field_path": "text"
+      },
+      {
+        "key": "seed",
+        "node_id": "1",
+        "field_path": "seed"
       }
     ],
     "outputs": [

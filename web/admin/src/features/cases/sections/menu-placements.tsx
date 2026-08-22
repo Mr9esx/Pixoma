@@ -44,25 +44,37 @@ export function MenuPlacementsSection({ caseId, showHeading = true }: Props) {
       {placementsQuery.isLoading ? <LoadingSkeleton rows={2} /> : null}
 
       {!placementsQuery.isLoading && !placementsQuery.isError ? (
-        placementsQuery.data?.length ? (
-          <div className='overflow-auto rounded-md border'>
-            <table className='w-full text-sm'>
-              <thead className='bg-muted/40 text-left text-xs text-muted-foreground'>
-                <tr>
-                  <th className='px-3 py-2 font-medium'>
-                    {t('cases.entriesColType')}
-                  </th>
-                  <th className='px-3 py-2 font-medium'>
-                    {t('cases.entriesColEntry')}
-                  </th>
-                  <th className='px-3 py-2 font-medium'>
-                    {t('cases.entriesColChannel')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className='divide-y'>
-                {placementsQuery.data.map((placement) => (
+        <div className='overflow-auto rounded-md border'>
+          <table className='w-full text-sm'>
+            <thead className='bg-muted/40 text-left text-xs text-muted-foreground'>
+              <tr>
+                <th className='px-3 py-2 font-medium'>
+                  {t('cases.entriesColChannel')}
+                </th>
+                <th className='px-3 py-2 font-medium'>
+                  {t('cases.entriesColEntry')}
+                </th>
+                <th className='px-3 py-2 font-medium'>
+                  {t('cases.entriesColType')}
+                </th>
+              </tr>
+            </thead>
+            <tbody className='divide-y'>
+              {placementsQuery.data?.length ? (
+                placementsQuery.data.map((placement) => (
                   <tr key={`${placement.channel_id}:${placement.item_id}`}>
+                    <td className='px-3 py-2'>
+                      {placement.channel_name ? (
+                        placement.channel_name
+                      ) : (
+                        <span className='font-mono text-xs text-muted-foreground'>
+                          {placement.channel_id}
+                        </span>
+                      )}
+                    </td>
+                    <td className='px-3 py-2'>
+                      {formatPlacementPath(placement.path)}
+                    </td>
                     <td className='px-3 py-2'>
                       <span
                         className={`rounded-sm px-1.5 py-0.5 text-[10px] ${
@@ -76,22 +88,21 @@ export function MenuPlacementsSection({ caseId, showHeading = true }: Props) {
                           : t('cases.placementMenuItem')}
                       </span>
                     </td>
-                    <td className='px-3 py-2'>
-                      {formatPlacementPath(placement.path)}
-                    </td>
-                    <td className='px-3 py-2 font-mono text-xs text-muted-foreground'>
-                      {placement.channel_id}
-                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className='text-sm text-muted-foreground'>
-            {t('cases.menuPlacementsEmpty')}
-          </p>
-        )
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className='px-3 py-8 text-center text-sm text-muted-foreground'
+                  >
+                    {t('cases.menuPlacementsEmpty')}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       ) : null}
     </section>
   )

@@ -1,6 +1,17 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -286,6 +297,55 @@ export function BindNodeDialog({
   )
 }
 
+// ===== 删除按钮（红色 + 二次确认，独占一行）=====
+
+function RemoveFieldButton({
+  fieldKey,
+  disabled,
+  onRemove,
+}: {
+  fieldKey: string
+  disabled?: boolean
+  onRemove: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          type='button'
+          variant='ghost'
+          size='sm'
+          className='text-destructive hover:bg-destructive/10 hover:text-destructive'
+          disabled={disabled}
+        >
+          {t('cases.removeRow')}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('cases.deleteFieldTitle')}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t('cases.deleteFieldBody', { key: fieldKey })}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel type='button'>
+            {t('common.cancel')}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            type='button'
+            onClick={onRemove}
+            className='bg-destructive text-white hover:bg-destructive/90'
+          >
+            {t('common.delete')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 // ===== 输入字段卡片 =====
 
 type InputCardProps = {
@@ -327,16 +387,20 @@ export function InputFieldCard({
           disabled={disabled}
           autoComplete='off'
         />
-        <label className='ml-auto flex items-center gap-1.5 text-sm'>
-          <Checkbox
-            checked={value.required}
-            onCheckedChange={(v) =>
-              onChange({ ...value, required: v === true })
-            }
-            disabled={disabled}
-          />
-          {t('cases.fieldRequired')}
-        </label>
+      </div>
+
+      {/* 描述（字段名下方） */}
+      <div className='flex items-center gap-2'>
+        <span className='shrink-0 text-sm text-foreground'>
+          {t('cases.fieldDescription')}
+        </span>
+        <Input
+          className='h-8 flex-1'
+          value={value.description ?? ''}
+          onChange={(e) => onChange({ ...value, description: e.target.value })}
+          disabled={disabled}
+          autoComplete='off'
+        />
       </div>
 
       {/* 绑定位置（图上点选） */}
@@ -349,7 +413,7 @@ export function InputFieldCard({
           variant='outline'
           disabled={disabled || nodes.length === 0}
           onClick={() => setBindOpen(true)}
-          className='mt-1 flex h-auto w-full items-center justify-between gap-2 border-2 border-dashed border-foreground/30 px-3 py-2.5 text-left hover:border-foreground/50 hover:bg-muted/40'
+          className='mt-1 flex h-auto w-full items-center justify-between gap-2 border border-dashed border-foreground/30 px-3 py-2.5 text-left hover:border-foreground/50 hover:bg-muted/40'
         >
           {bound && node ? (
             <span className='flex min-w-0 items-center gap-2'>
@@ -395,7 +459,7 @@ export function InputFieldCard({
           }
           disabled={disabled}
         >
-          <SelectTrigger className='h-8 w-28'>
+          <SelectTrigger size='sm' className='w-28'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -460,27 +524,23 @@ export function InputFieldCard({
         </div>
       ) : null}
 
-      {/* 描述 + 删除 */}
-      <div className='flex items-center gap-2'>
-        <span className='text-sm text-foreground'>
-          {t('cases.fieldDescription')}
-        </span>
-        <Input
-          className='h-8 flex-1'
-          value={value.description ?? ''}
-          onChange={(e) => onChange({ ...value, description: e.target.value })}
+      {/* 删除（独占一行） */}
+      <div className='flex items-center justify-between border-t pt-2'>
+        <label className='flex items-center gap-1.5 text-sm'>
+          <Checkbox
+            checked={value.required}
+            onCheckedChange={(v) =>
+              onChange({ ...value, required: v === true })
+            }
+            disabled={disabled}
+          />
+          {t('cases.fieldRequired')}
+        </label>
+        <RemoveFieldButton
+          fieldKey={value.key}
           disabled={disabled}
-          autoComplete='off'
+          onRemove={onRemove}
         />
-        <Button
-          type='button'
-          size='sm'
-          variant='ghost'
-          disabled={disabled}
-          onClick={onRemove}
-        >
-          {t('cases.removeRow')}
-        </Button>
       </div>
 
       <BindNodeDialog
@@ -554,7 +614,7 @@ export function OutputFieldCard({
           }
           disabled={disabled}
         >
-          <SelectTrigger className='h-8 w-28'>
+          <SelectTrigger size='sm' className='w-28'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -595,6 +655,20 @@ export function OutputFieldCard({
         ) : null}
       </div>
 
+      {/* 描述（字段名下方） */}
+      <div className='flex items-center gap-2'>
+        <span className='shrink-0 text-sm text-foreground'>
+          {t('cases.fieldDescription')}
+        </span>
+        <Input
+          className='h-8 flex-1'
+          value={value.description ?? ''}
+          onChange={(e) => onChange({ ...value, description: e.target.value })}
+          disabled={disabled}
+          autoComplete='off'
+        />
+      </div>
+
       {/* 绑定位置（图上点选输出槽位） */}
       <div>
         <span className='text-sm text-foreground'>
@@ -605,7 +679,7 @@ export function OutputFieldCard({
           variant='outline'
           disabled={disabled || nodes.length === 0}
           onClick={() => setBindOpen(true)}
-          className='mt-1 flex h-auto w-full items-center justify-between gap-2 border-2 border-dashed border-foreground/30 px-3 py-2.5 text-left hover:border-foreground/50 hover:bg-muted/40'
+          className='mt-1 flex h-auto w-full items-center justify-between gap-2 border border-dashed border-foreground/30 px-3 py-2.5 text-left hover:border-foreground/50 hover:bg-muted/40'
         >
           {bound && node ? (
             <span className='flex min-w-0 items-center gap-2'>
@@ -639,27 +713,13 @@ export function OutputFieldCard({
         </Button>
       </div>
 
-      {/* 描述 + 删除 */}
-      <div className='flex items-center gap-2'>
-        <span className='text-sm text-foreground'>
-          {t('cases.fieldDescription')}
-        </span>
-        <Input
-          className='h-8 flex-1'
-          value={value.description ?? ''}
-          onChange={(e) => onChange({ ...value, description: e.target.value })}
+      {/* 删除（独占一行） */}
+      <div className='flex justify-end border-t pt-2'>
+        <RemoveFieldButton
+          fieldKey={value.key}
           disabled={disabled}
-          autoComplete='off'
+          onRemove={onRemove}
         />
-        <Button
-          type='button'
-          size='sm'
-          variant='ghost'
-          disabled={disabled}
-          onClick={onRemove}
-        >
-          {t('cases.removeRow')}
-        </Button>
       </div>
 
       <BindNodeDialog

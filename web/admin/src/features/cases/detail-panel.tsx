@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Coins,
   FolderOpen,
-  KeyRound,
   PenLine,
   Settings2,
   Tags,
@@ -20,8 +19,8 @@ import {
 } from '@/components/ui/dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { LongText } from '@/components/long-text'
 import { kit } from '@/features/edges/kit-classes'
-import { StatusTag } from '@/features/edges/presence-tags'
 import { CaseForm } from './case-form'
 import { MenuPlacementsSection } from './sections/menu-placements'
 import { WorkflowConfigView } from './sections/workflow-config-view'
@@ -115,61 +114,54 @@ export function CaseDetailPanel({ id }: Props) {
       data-testid='case-detail-panel'
     >
       <div className={`${kit.pageSection} min-h-0 flex-1 overflow-auto`}>
-        <div className='flex flex-wrap items-start justify-between gap-3'>
-          <div className='flex min-w-0 flex-col gap-[6px]'>
-            <div className='flex flex-wrap items-center gap-2'>
+        <div className='flex min-w-0 flex-col gap-[6px]'>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
+            <div className='flex min-w-0 flex-wrap items-center gap-2'>
               <h2 className={kit.title}>{record.name || record.id}</h2>
-              <StatusTag on={record.enabled}>
-                {record.enabled ? t('cases.enabled') : t('cases.disabled')}
-              </StatusTag>
             </div>
-            {record.description ? (
-              <p className={kit.desc}>{record.description}</p>
-            ) : null}
-            <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
-              <MetaChip
-                icon={<KeyRound className='size-3.5' />}
-                label={t('cases.fieldMenuKey')}
-                value={record.menu_key}
-                divider
-              />
-              <MetaChip
-                icon={<Coins className='size-3.5' />}
-                label={t('cases.fieldPrice')}
-                value={String(record.price)}
-                divider
-              />
-              <MetaChip
-                icon={<Tags className='size-3.5' />}
-                label={t('cases.fieldTags')}
-                value={record.tags?.join(', ')}
-                divider
-              />
-              <MetaChip
-                icon={<FolderOpen className='size-3.5' />}
-                label={t('cases.fieldCategories')}
-                value={record.categories?.join(', ')}
-              />
+            <div className='flex shrink-0 flex-wrap gap-2'>
+              <Button
+                type='button'
+                className={kit.btnPrimary}
+                onClick={() => setEditDialog('info')}
+              >
+                <PenLine className='size-3.5' />
+                {t('cases.editInfo')}
+              </Button>
+              <Button
+                type='button'
+                variant='outline'
+                className='h-8 gap-1.5 px-3 text-xs'
+                onClick={() => setEditDialog('workflow')}
+              >
+                <Settings2 className='size-3.5' />
+                {t('cases.editWorkflow')}
+              </Button>
             </div>
           </div>
-          <div className='flex shrink-0 gap-2'>
-            <Button
-              type='button'
-              className={kit.btnPrimary}
-              onClick={() => setEditDialog('info')}
-            >
-              <PenLine className='size-3.5' />
-              {t('cases.editInfo')}
-            </Button>
-            <Button
-              type='button'
-              variant='outline'
-              className='h-8 gap-1.5 px-3 text-xs'
-              onClick={() => setEditDialog('workflow')}
-            >
-              <Settings2 className='size-3.5' />
-              {t('cases.editWorkflow')}
-            </Button>
+          {record.description ? (
+            <LongText className='max-w-full text-sm text-muted-foreground'>
+              {record.description}
+            </LongText>
+          ) : null}
+          <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
+            <MetaChip
+              icon={<Coins className='size-3.5' />}
+              label={t('cases.fieldPrice')}
+              value={String(record.price)}
+              divider
+            />
+            <MetaChip
+              icon={<Tags className='size-3.5' />}
+              label={t('cases.fieldTags')}
+              value={record.tags?.join(', ')}
+              divider
+            />
+            <MetaChip
+              icon={<FolderOpen className='size-3.5' />}
+              label={t('cases.fieldCategories')}
+              value={record.categories?.join(', ')}
+            />
           </div>
         </div>
 

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { MENU_ITEMS } from '@/config/menu'
+import { MENU_GROUPS } from '@/config/menu'
 import { useTranslation } from 'react-i18next'
 import { useLayout } from '@/context/layout-provider'
 import {
@@ -8,6 +8,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -30,36 +31,41 @@ export function AppSidebar() {
       <SidebarHeader>
         <AppTitle />
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {MENU_ITEMS.map((item) => {
-                const label = t(item.titleKey)
-                const isActive =
-                  item.path === '/'
-                    ? pathname === '/'
-                    : pathname === item.path ||
-                      pathname.startsWith(`${item.path}/`)
+      <SidebarContent className='gap-1'>
+        {MENU_GROUPS.map((group) => (
+          <SidebarGroup key={group.id} className='px-2 py-1'>
+            {group.titleKey ? (
+              <SidebarGroupLabel>{t(group.titleKey)}</SidebarGroupLabel>
+            ) : null}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const label = t(item.titleKey)
+                  const isActive =
+                    item.path === '/'
+                      ? pathname === '/'
+                      : pathname === item.path ||
+                        pathname.startsWith(`${item.path}/`)
 
-                return (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={label}
-                    >
-                      <Link to={item.path} onClick={() => setOpenMobile(false)}>
-                        <item.icon />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                  return (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={label}
+                      >
+                        <Link to={item.path} onClick={() => setOpenMobile(false)}>
+                          <item.icon />
+                          <span>{label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <div className='flex items-center gap-2 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center'>
