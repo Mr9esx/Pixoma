@@ -2,6 +2,7 @@
 change: quick-config-wizard
 design-doc: docs/superpowers/specs/2026-08-21-quick-config-design.md
 base-ref: ed3d2c38dc1f8f998d1384dd24868fc9fcf7517f
+archived-with: 2026-08-22-quick-config-wizard
 ---
 
 # quick-config-wizard 剩余任务实施计划
