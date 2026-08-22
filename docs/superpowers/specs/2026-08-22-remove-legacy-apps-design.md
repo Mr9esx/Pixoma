@@ -2,6 +2,8 @@
 comet_change: remove-legacy-apps
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-22-remove-legacy-apps
+status: final
 ---
 
 # remove-legacy-apps 深度技术设计

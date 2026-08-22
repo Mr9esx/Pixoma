@@ -2,6 +2,7 @@
 change: remove-legacy-apps
 design-doc: docs/superpowers/specs/2026-08-22-remove-legacy-apps-design.md
 base-ref: dc04ae28c9ee876d0fcf9961afd7092141c915c2
+archived-with: 2026-08-22-remove-legacy-apps
 ---
 
 # remove-legacy-apps Implementation Plan
