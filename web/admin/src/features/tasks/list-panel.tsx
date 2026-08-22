@@ -1,12 +1,9 @@
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { FilterSegment } from '@/components/filters/filter-segment'
-import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import type { TaskRecord } from '@/lib/api/types'
-import { cn } from '@/lib/utils'
 
 export const TASK_STATUS_FILTERS = [
   'all',
@@ -41,16 +38,9 @@ export function taskStatusLabelKey(
   return undefined
 }
 
-export type TaskListFilters = {
-  status: TaskStatusFilter
-  q: string
-}
-
 type Props = {
   items: TaskRecord[]
-  selectedId?: string
-  filters: TaskListFilters
-  onFiltersChange: (next: TaskListFilters) => void
+  onOpenDetail: (item: TaskRecord) => void
   isLoading?: boolean
   isError?: boolean
   errorMessage?: string
@@ -59,9 +49,7 @@ type Props = {
 
 export function TaskListPanel({
   items,
-  selectedId,
-  filters,
-  onFiltersChange,
+  onOpenDetail,
   isLoading,
   isError,
   errorMessage,
@@ -70,35 +58,7 @@ export function TaskListPanel({
   const { t } = useTranslation()
 
   return (
-    <div className='flex h-full min-h-0 flex-col' data-testid='tasks-list-panel'>
-      <div className='border-b px-4 py-3'>
-        <h2 className='text-sm font-semibold'>{t('tasks.title')}</h2>
-      </div>
-
-      <div className='space-y-2 border-b px-4 py-3'>
-        <Input
-          id='tasks-filter-q'
-          value={filters.q}
-          onChange={(e) => onFiltersChange({ ...filters, q: e.target.value })}
-          placeholder={t('tasks.filterQPlaceholder')}
-          autoComplete='off'
-          aria-label={t('tasks.filterQ')}
-        />
-        <FilterSegment
-          data-testid='tasks-filter-status'
-          aria-label={t('tasks.filterStatus')}
-          value={filters.status}
-          onValueChange={(status) => onFiltersChange({ ...filters, status })}
-          options={TASK_STATUS_FILTERS.map((status) => ({
-            value: status,
-            label:
-              status === 'all'
-                ? t('tasks.filterStatusAll')
-                : t(TASK_STATUS_LABEL_KEYS[status]),
-          }))}
-        />
-      </div>
-
+    <div data-testid='tasks-list-panel'>
       {isError ? (
         <div className='p-4'>
           <ErrorBanner message={errorMessage} onRetry={onRetry} />
@@ -116,34 +76,123 @@ export function TaskListPanel({
       ) : null}
 
       {!isLoading && !isError && items.length > 0 ? (
-        <ul className='min-h-0 flex-1 divide-y overflow-auto'>
-          {items.map((item) => {
-            const selected = selectedId === item.id
-            const statusKey = taskStatusLabelKey(item.status)
-            return (
-              <li key={item.id}>
-                <Link
-                  to='/tasks/$taskId'
-                  params={{ taskId: item.id }}
-                  className={cn(
-                    'block w-full px-4 py-3 text-left text-sm hover:bg-accent',
-                    selected && 'bg-accent',
-                  )}
+        <>
+          <div className='hidden overflow-x-auto pt-3 md:block'>
+            <div className='relative w-full overflow-auto'>
+              <table className='w-full caption-bottom text-sm min-w-[980px]'>
+                <thead className='[&_tr]:border-b'>
+                  <tr className='group/row border-b bg-muted/40 transition-colors hover:bg-muted/40'>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('tasks.fieldId')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('tasks.fieldStatus')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('tasks.fieldCaseId')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('tasks.fieldSessionId')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('tasks.fieldEdgeId')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('tasks.fieldCreatedAt')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium w-[48px]' />
+                  </tr>
+                </thead>
+                <tbody className='[&_tr:last-child]:border-0'>
+                  {items.map((item) => {
+                    const statusKey = taskStatusLabelKey(item.status)
+                    return (
+                      <tr
+                        key={item.id}
+                        className='group/row border-b transition-colors hover:bg-muted/50'
+                      >
+                        <td className='p-2 align-middle font-medium'>
+                          {item.id}
+                        </td>
+                        <td className='p-2 align-middle'>
+                          {statusKey ? t(statusKey) : item.status}
+                        </td>
+                        <td className='text-muted-foreground p-2 align-middle'>
+                          {item.case_id}
+                        </td>
+                        <td className='text-muted-foreground p-2 align-middle'>
+                          {item.session_id}
+                        </td>
+                        <td className='text-muted-foreground p-2 align-middle'>
+                          {item.edge_id || '—'}
+                        </td>
+                        <td className='text-muted-foreground p-2 align-middle'>
+                          {item.created_at}
+                        </td>
+                        <td className='p-2 align-middle'>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='sm'
+                            onClick={() => onOpenDetail(item)}
+                          >
+                            {t('common.detail')}
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className='flex flex-col gap-4 pt-3 md:hidden'>
+            {items.map((item) => {
+              const statusKey = taskStatusLabelKey(item.status)
+              return (
+                <article
+                  key={item.id}
+                  className='border-border/70 bg-card rounded-2xl border p-4'
                 >
-                  <div className='flex items-center justify-between gap-2'>
-                    <span className='font-medium'>{item.id}</span>
-                    <span className='text-muted-foreground shrink-0 text-xs'>
-                      {statusKey ? t(statusKey) : item.status}
-                    </span>
+                  <div className='flex items-start justify-between gap-3'>
+                    <div className='min-w-0'>
+                      <p className='truncate text-base font-medium'>
+                        {item.id}
+                      </p>
+                      <p className='text-muted-foreground mt-1 text-sm'>
+                        {statusKey ? t(statusKey) : item.status}
+                      </p>
+                    </div>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      className='shrink-0'
+                      onClick={() => onOpenDetail(item)}
+                    >
+                      {t('common.detail')}
+                    </Button>
                   </div>
-                  <div className='text-muted-foreground mt-0.5 truncate text-xs'>
-                    {t('tasks.fieldCaseId')}: {item.case_id}
+                  <div className='mt-3 grid grid-cols-2 gap-3 text-sm'>
+                    <div className='flex flex-col gap-1'>
+                      <span className='text-muted-foreground text-xs'>
+                        {t('tasks.fieldCaseId')}
+                      </span>
+                      <span>{item.case_id}</span>
+                    </div>
+                    <div className='flex flex-col gap-1'>
+                      <span className='text-muted-foreground text-xs'>
+                        {t('tasks.fieldCreatedAt')}
+                      </span>
+                      <span>{item.created_at}</span>
+                    </div>
                   </div>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+                </article>
+              )
+            })}
+          </div>
+        </>
       ) : null}
     </div>
   )

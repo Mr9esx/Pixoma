@@ -34,6 +34,8 @@ type Task struct {
 	Outputs       []OutputRef
 	ErrorCode     string
 	ErrorMessage  string
+	StartedAt     time.Time
+	CompletedAt   time.Time
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -116,6 +118,7 @@ func (t *Task) ClaimWithLease(instance sharedkernel.EdgeID, lease time.Duration,
 	t.Status = sharedkernel.TaskRunning
 	t.EdgeID = instance
 	t.LeaseUntil = now.Add(lease)
+	t.StartedAt = now
 	t.UpdatedAt = now
 	return nil
 }
@@ -138,6 +141,9 @@ func (t *Task) MarkRunning(promptID string, now time.Time) error {
 	if t.Status != sharedkernel.TaskQueued && t.Status != sharedkernel.TaskRunning {
 		return ErrInvalidTransition
 	}
+	if t.Status == sharedkernel.TaskQueued {
+		t.StartedAt = now
+	}
 	t.Status = sharedkernel.TaskRunning
 	if promptID != "" {
 		t.PromptID = promptID
@@ -155,6 +161,7 @@ func (t *Task) MarkSucceeded(outputs []OutputRef, now time.Time) error {
 	}
 	t.Status = sharedkernel.TaskSucceeded
 	t.Outputs = append([]OutputRef(nil), outputs...)
+	t.CompletedAt = now
 	t.UpdatedAt = now
 	return nil
 }
@@ -169,6 +176,7 @@ func (t *Task) MarkFailed(code, msg string, now time.Time) error {
 	t.Status = sharedkernel.TaskFailed
 	t.ErrorCode = code
 	t.ErrorMessage = msg
+	t.CompletedAt = now
 	t.UpdatedAt = now
 	return nil
 }
@@ -182,6 +190,7 @@ func (t *Task) MarkCancelled(now time.Time) error {
 		return ErrCancelNotAllowed
 	}
 	t.Status = sharedkernel.TaskCancelled
+	t.CompletedAt = now
 	t.UpdatedAt = now
 	return nil
 }

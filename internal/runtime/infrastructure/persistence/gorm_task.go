@@ -31,6 +31,8 @@ type TaskRow struct {
 	OutputsJSON   string    `gorm:"column:outputs_json;type:text;not null"`
 	ErrorCode     string    `gorm:"column:error_code;size:128"`
 	ErrorMessage  string    `gorm:"column:error_message;type:text"`
+	StartedAt     time.Time `gorm:"column:started_at"`
+	CompletedAt   time.Time `gorm:"column:completed_at"`
 	CreatedAt     time.Time `gorm:"not null"`
 	UpdatedAt     time.Time `gorm:"not null"`
 }
@@ -93,6 +95,8 @@ func (r *TaskRepository) Update(ctx context.Context, t *domain.Task) error {
 		"outputs_json":   row.OutputsJSON,
 		"error_code":     row.ErrorCode,
 		"error_message":  row.ErrorMessage,
+		"started_at":     row.StartedAt,
+		"completed_at":   row.CompletedAt,
 		"updated_at":     row.UpdatedAt,
 	})
 	if res.Error != nil {
@@ -198,6 +202,7 @@ func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, edgeID sharedke
 					"status":      string(sharedkernel.TaskRunning),
 					"edge_id":     string(edgeID),
 					"lease_until": leaseUntil,
+					"started_at":  now,
 					"updated_at":  now,
 				})
 			if res.Error != nil {
@@ -208,6 +213,7 @@ func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, edgeID sharedke
 			}
 			row.Status = string(sharedkernel.TaskRunning)
 			row.LeaseUntil = leaseUntil
+			row.StartedAt = now
 			row.UpdatedAt = now
 			t, err := fromRow(row)
 			if err != nil {
@@ -316,6 +322,38 @@ func (r *TaskRepository) ListByInstance(ctx context.Context, edgeID sharedkernel
 	return rowsToTasks(rows)
 }
 
+func (r *TaskRepository) ListByTopic(ctx context.Context, topicKey string, q domain.ListByTopicQuery) ([]*domain.Task, error) {
+	if topicKey == "" {
+		return nil, nil
+	}
+	tx := r.db.WithContext(ctx).Model(&TaskRow{}).Order("created_at ASC")
+	if topicKey == "default" {
+		tx = tx.Where("dispatch_topic = ? OR dispatch_topic = ''", topicKey)
+	} else {
+		tx = tx.Where("dispatch_topic = ?", topicKey)
+	}
+	if q.Status != "" {
+		tx = tx.Where("status = ?", string(q.Status))
+	}
+	if q.CreatedFrom != nil {
+		tx = tx.Where("created_at >= ?", *q.CreatedFrom)
+	}
+	if q.CreatedTo != nil {
+		tx = tx.Where("created_at <= ?", *q.CreatedTo)
+	}
+	if q.Offset > 0 {
+		tx = tx.Offset(q.Offset)
+	}
+	if q.Limit > 0 {
+		tx = tx.Limit(q.Limit)
+	}
+	var rows []TaskRow
+	if err := tx.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rowsToTasks(rows)
+}
+
 func (r *TaskRepository) List(ctx context.Context, q domain.AdminListQuery) ([]*domain.Task, error) {
 	joinChat := q.ChatID != ""
 	col := func(name string) string {
@@ -410,6 +448,8 @@ func toRow(t *domain.Task) (*TaskRow, error) {
 		OutputsJSON:   string(b),
 		ErrorCode:     t.ErrorCode,
 		ErrorMessage:  t.ErrorMessage,
+		StartedAt:     t.StartedAt,
+		CompletedAt:   t.CompletedAt,
 		CreatedAt:     t.CreatedAt,
 		UpdatedAt:     t.UpdatedAt,
 	}, nil
@@ -444,6 +484,8 @@ func fromRow(row TaskRow) (*domain.Task, error) {
 		Outputs:       outputs,
 		ErrorCode:     row.ErrorCode,
 		ErrorMessage:  row.ErrorMessage,
+		StartedAt:     row.StartedAt,
+		CompletedAt:   row.CompletedAt,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}, nil

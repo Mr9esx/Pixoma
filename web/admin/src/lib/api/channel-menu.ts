@@ -7,6 +7,7 @@ export type MenuPlacementPathStep = {
 
 export type MenuPlacement = {
   channel_id: string
+  channel_name?: string
   item_id: string
   kind?: string
   path: MenuPlacementPathStep[]

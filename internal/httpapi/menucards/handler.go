@@ -162,18 +162,20 @@ func (h *Handler) ListWorkflowPlacements(w http.ResponseWriter, r *http.Request)
 		Label string `json:"label"`
 	}
 	type placementDTO struct {
-		ChannelID string `json:"channel_id"`
-		ItemID    string `json:"item_id"`
-		Kind      string `json:"kind"`
-		Path      []step `json:"path"`
+		ChannelID   string `json:"channel_id"`
+		ChannelName string `json:"channel_name"`
+		ItemID      string `json:"item_id"`
+		Kind        string `json:"kind"`
+		Path        []step `json:"path"`
 	}
 	out := make([]placementDTO, 0, len(placements))
 	for _, p := range placements {
 		out = append(out, placementDTO{
-			ChannelID: p.ChannelID,
-			ItemID:    p.ItemID,
-			Kind:      p.Kind,
-			Path:      []step{{ID: p.ItemID, Label: p.Label}},
+			ChannelID:   p.ChannelID,
+			ChannelName: p.ChannelName,
+			ItemID:      p.ItemID,
+			Kind:        p.Kind,
+			Path:        []step{{ID: p.ItemID, Label: p.Label}},
 		})
 	}
 	writeJSON(w, http.StatusOK, out)

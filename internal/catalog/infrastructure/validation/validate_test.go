@@ -94,12 +94,12 @@ func TestValidateInputsRejectsEmptyPrompt(t *testing.T) {
 	}
 }
 
-func TestValidateDocumentRequiresID(t *testing.T) {
+func TestValidateDocumentAllowsAutoAssignedID(t *testing.T) {
 	v := validation.New()
 	doc := text2imgDoc()
 	doc.ID = 0
-	if err := v.ValidateDocument(doc); err == nil {
-		t.Fatal("expected error")
+	if err := v.ValidateDocument(doc); err != nil {
+		t.Fatalf("id=0 应允许自动分配，got %v", err)
 	}
 }
 

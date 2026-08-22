@@ -19,13 +19,13 @@ type Handler struct {
 }
 
 func (h *Handler) Mount(r chi.Router) {
-	r.Get("/", h.list)
-	r.Post("/", h.create)
-	r.Get("/{id}", h.get)
-	r.Put("/{id}", h.update)
-	r.Post("/{id}/disable", h.disable)
-	r.Post("/{id}/enable", h.enable)
-	r.Delete("/{id}", h.delete)
+	r.Get("/", h.List)
+	r.Post("/", h.Create)
+	r.Get("/{id}", h.Get)
+	r.Put("/{id}", h.Update)
+	r.Post("/{id}/disable", h.Disable)
+	r.Post("/{id}/enable", h.Enable)
+	r.Delete("/{id}", h.Delete)
 }
 
 type channelDTO struct {
@@ -57,7 +57,7 @@ type createBody struct {
 	Token    string `json:"token"`
 }
 
-func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.Svc == nil {
 		writeErr(w, http.StatusInternalServerError, "channel service not configured")
 		return
@@ -84,7 +84,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, dto)
 }
 
-func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.Svc == nil {
 		writeErr(w, http.StatusInternalServerError, "channel service not configured")
 		return
@@ -106,7 +106,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ch, err := h.Svc.Get(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
@@ -130,7 +130,7 @@ type updateBody struct {
 	Token *string `json:"token"`
 }
 
-func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var body updateBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -154,7 +154,7 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, dto)
 }
 
-func (h *Handler) disable(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Disable(w http.ResponseWriter, r *http.Request) {
 	if err := h.Svc.Disable(r.Context(), chi.URLParam(r, "id")); errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "channel not found")
 		return
@@ -165,7 +165,7 @@ func (h *Handler) disable(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
 }
 
-func (h *Handler) enable(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Enable(w http.ResponseWriter, r *http.Request) {
 	if err := h.Svc.Enable(r.Context(), chi.URLParam(r, "id")); errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "channel not found")
 		return
@@ -176,7 +176,7 @@ func (h *Handler) enable(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"enabled": true})
 }
 
-func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	err := h.Svc.Delete(r.Context(), chi.URLParam(r, "id"))
 	if errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "channel not found")

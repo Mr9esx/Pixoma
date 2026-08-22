@@ -66,7 +66,6 @@ func validCaseBody(id uint64, name string) map[string]any {
 				"prompt": map[string]any{"type": "string"},
 			},
 		},
-		"menu_key": "create",
 		"enabled":  true,
 	}
 }
@@ -101,6 +100,30 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	}
 	if created["id"] != float64(1) || created["enabled"] != true {
 		t.Fatalf("create dto=%v", created)
+	}
+
+	// POST id=0 → 201，自动分配新 id
+	autoBody, _ := json.Marshal(validCaseBody(0, "Auto ID Workflow"))
+	autoRes, err := http.Post(
+		srv.URL+"/api/v1/cases",
+		"application/json",
+		bytes.NewReader(autoBody),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer autoRes.Body.Close()
+	if autoRes.StatusCode != http.StatusCreated {
+		raw, _ := io.ReadAll(autoRes.Body)
+		t.Fatalf("create with id=0 status=%d body=%s", autoRes.StatusCode, raw)
+	}
+	var autoCreated map[string]any
+	if err := json.NewDecoder(autoRes.Body).Decode(&autoCreated); err != nil {
+		t.Fatal(err)
+	}
+	autoID, ok := autoCreated["id"].(float64)
+	if !ok || autoID <= 0 {
+		t.Fatalf("want auto-assigned id > 0, got %v", autoCreated["id"])
 	}
 
 	// POST invalid (empty name) → 400，库中无脏数据

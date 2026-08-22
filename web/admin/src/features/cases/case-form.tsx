@@ -57,6 +57,24 @@ function toOutputDrafts(record: CaseRecord): OutputFieldDraft[] {
 type CreateProps = {
   mode: 'create'
   initial?: undefined
+  /** 创建模式的默认名称（向导传入「未命名工作流」）。 */
+  initialName?: string
+  /** 保存成功后是否跳转到 Case 详情页（向导内嵌时置 false）。 */
+  redirectAfterSave?: boolean
+  /** 隐藏表单自带的创建/取消按钮（向导内嵌时由向导底部按钮驱动）。 */
+  hideActions?: boolean
+  /** 只收集校验后的载荷，不落库（向导统一在完成页提交）。 */
+  collectOnly?: boolean
+  /** 左栏工作流配置（滚动）+ 右栏基础信息（固定），向导 Step 1 使用。 */
+  splitPane?: boolean
+  /** splitPane 时渲染在左栏顶部的提示。 */
+  leftIntro?: React.ReactNode
+  /** 创建成功回调（向导内嵌时用于推进步骤）。 */
+  onSaved?: (next: CaseRecord) => void
+  /** collectOnly 时回调校验后的载荷。 */
+  onCollect?: (payload: CaseRecord) => void
+  /** 表单 id（向导内嵌时由外部按钮通过 id 触发 requestSubmit）。 */
+  formId?: string
 }
 
 type EditProps = {
@@ -67,6 +85,16 @@ type EditProps = {
   showWorkflow?: boolean
   onSaved?: (next: CaseRecord) => void
   onCancel?: () => void
+  /** 只收集校验后的载荷，不落库（向导统一在完成页提交）。 */
+  collectOnly?: boolean
+  /** 左栏工作流配置（滚动）+ 右栏基础信息（固定），向导 Step 1 使用。 */
+  splitPane?: boolean
+  /** splitPane 时渲染在左栏顶部的提示。 */
+  leftIntro?: React.ReactNode
+  /** collectOnly 时回调校验后的载荷。 */
+  onCollect?: (payload: CaseRecord) => void
+  /** 表单 id（向导内嵌时由外部按钮通过 id 触发 requestSubmit）。 */
+  formId?: string
 }
 
 type Props = CreateProps | EditProps
@@ -80,7 +108,12 @@ export function CaseForm(props: Props) {
   const readOnly = props.mode === 'edit' && props.readOnly === true
   const showBasics = props.mode !== 'edit' || props.showBasics !== false
   const showWorkflow = props.mode !== 'edit' || props.showWorkflow !== false
-  const [draft, setDraft] = useState<CaseRecord>(() => structuredClone(initial))
+  const [draft, setDraft] = useState<CaseRecord>(() => ({
+    ...structuredClone(initial),
+    ...(props.mode === 'create' && props.initialName
+      ? { name: props.initialName }
+      : {}),
+  }))
   const [workflowText, setWorkflowText] = useState(() =>
     stringifyObject(initial.bindings.workflow)
   )
@@ -119,10 +152,14 @@ export function CaseForm(props: Props) {
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.cases.all })
       toast.success(t('cases.createSuccess'))
-      void navigate({
-        to: '/cases/$caseId',
-        params: { caseId: String(created.id) },
-      })
+      const redirectAfterSave = props.mode === 'create' && props.redirectAfterSave !== false
+      if (redirectAfterSave) {
+        void navigate({
+          to: '/cases/$caseId',
+          params: { caseId: String(created.id) },
+        })
+      }
+      if (props.mode === 'create') props.onSaved?.(created)
     },
   })
 
@@ -183,7 +220,6 @@ export function CaseForm(props: Props) {
         name: draft.name.trim(),
         description: draft.description?.trim() || undefined,
         preview: draft.preview?.trim() || undefined,
-        menu_key: draft.menu_key?.trim() || undefined,
         tags: draft.tags?.length ? draft.tags : undefined,
         categories: draft.categories?.length ? draft.categories : undefined,
       }
@@ -195,13 +231,13 @@ export function CaseForm(props: Props) {
     const validation = validateEditor(inputDrafts, outputDrafts)
     if (
       validation.duplicateKey ||
-      validation.unboundRequired ||
+      validation.unboundInput ||
       validation.noOutput
     ) {
       setEditorError(
         validation.duplicateKey
           ? t('cases.errDuplicateKey')
-          : validation.unboundRequired
+          : validation.unboundInput
             ? t('cases.errInputNotBound')
             : t('cases.errNoOutput')
       )
@@ -216,7 +252,6 @@ export function CaseForm(props: Props) {
       name: draft.name.trim(),
       description: draft.description?.trim() || undefined,
       preview: draft.preview?.trim() || undefined,
-      menu_key: draft.menu_key?.trim() || undefined,
       tags: draft.tags?.length ? draft.tags : undefined,
       categories: draft.categories?.length ? draft.categories : undefined,
       inputs: inputDrafts.map((f) => ({
@@ -244,52 +279,50 @@ export function CaseForm(props: Props) {
     const payload = buildPayload()
     if (!payload) return
 
+    if (props.collectOnly) {
+      props.onCollect?.(payload)
+      return
+    }
+
     if (props.mode === 'create') {
-      if (!payload.id || !payload.name) return
+      // id=0 时由后端自动分配（快速配置向导依赖此行为）。
+      if (!payload.name) return
       createMutation.mutate(payload)
       return
     }
     updateMutation.mutate(payload)
   }
 
-  return (
-    <form
-      id={props.mode === 'edit' ? 'case-edit-form' : undefined}
-      onSubmit={onSubmit}
-      className='space-y-8'
-      data-testid='case-form'
-    >
-      {showBasics ? (
-        <BasicsSection
-          value={{
-            name: draft.name,
-            description: draft.description,
-            preview: draft.preview,
-            price: draft.price,
-            tags: draft.tags,
-            menu_key: draft.menu_key,
-            categories: draft.categories,
-            enabled: draft.enabled,
-          }}
-          onChange={(basics) => setDraft((prev) => ({ ...prev, ...basics }))}
-          showEnabled={props.mode === 'create'}
-          disabled={disabled}
-        />
-      ) : null}
+  const basicsSection = showBasics ? (
+    <BasicsSection
+      value={{
+        name: draft.name,
+        description: draft.description,
+        preview: draft.preview,
+        price: draft.price,
+        tags: draft.tags,
+        categories: draft.categories,
+        enabled: draft.enabled,
+      }}
+      onChange={(basics) => setDraft((prev) => ({ ...prev, ...basics }))}
+      showEnabled={props.mode === 'create'}
+      disabled={disabled}
+    />
+  ) : null
 
-      {showWorkflow ? (
-        <WorkflowImportSection
-          value={workflowText}
-          graph={graph}
-          error={importError}
-          filename={workflowFilename || undefined}
-          onChange={onWorkflowTextChange}
-          onFileName={setWorkflowFilename}
-          disabled={disabled}
-        />
-      ) : null}
+  const importSection = showWorkflow ? (
+    <WorkflowImportSection
+      value={workflowText}
+      graph={graph}
+      error={importError}
+      filename={workflowFilename || undefined}
+      onChange={onWorkflowTextChange}
+      onFileName={setWorkflowFilename}
+      disabled={disabled}
+    />
+  ) : null
 
-      {showWorkflow ? (
+  const inputsSection = showWorkflow ? (
       <section className='space-y-3'>
         <div className='flex items-center gap-2'>
           <span className='flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground'>
@@ -347,9 +380,9 @@ export function CaseForm(props: Props) {
           </p>
         )}
       </section>
-      ) : null}
+  ) : null
 
-      {showWorkflow ? (
+  const outputsSection = showWorkflow ? (
       <section className='space-y-3'>
         <div className='flex items-center gap-2'>
           <span className='flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground'>
@@ -403,16 +436,16 @@ export function CaseForm(props: Props) {
           </p>
         )}
       </section>
-      ) : null}
+  ) : null
 
-      {showWorkflow ? (
+  const previewSection = showWorkflow ? (
       <PreviewSection
         bindings={deriveBindings(inputDrafts, outputDrafts)}
         inputSchema={deriveInputSchema(inputDrafts)}
       />
-      ) : null}
+  ) : null
 
-      {showWorkflow ? (
+  const advancedSection = showWorkflow ? (
         <AdvancedSection
           open={advancedOpen}
           editMode={advancedEdit}
@@ -422,8 +455,10 @@ export function CaseForm(props: Props) {
           onTextChange={setAdvancedText}
           disabled={disabled}
         />
-      ) : null}
+  ) : null
 
+  const errorBlock = (
+    <>
       {mutationError ? (
         <ErrorBanner message={errorMessage(mutationError)} />
       ) : null}
@@ -432,8 +467,44 @@ export function CaseForm(props: Props) {
           {editorError}
         </p>
       ) : null}
+    </>
+  )
 
-      {props.mode === 'edit' ? null : (
+  return (
+    <form
+      id={props.formId ?? (props.mode === 'edit' ? 'case-edit-form' : undefined)}
+      onSubmit={onSubmit}
+      className='space-y-8'
+      data-testid='case-form'
+    >
+      {props.splitPane ? (
+        <div className='flex items-start gap-6'>
+          <div className='min-w-0 flex-1 space-y-6'>
+            {props.leftIntro}
+            {importSection}
+            {inputsSection}
+            {outputsSection}
+            {errorBlock}
+          </div>
+          <div className='sticky top-0 w-80 shrink-0'>
+            <div className='rounded-xl border border-border bg-card p-5'>
+              {basicsSection}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {basicsSection}
+          {importSection}
+          {inputsSection}
+          {outputsSection}
+          {previewSection}
+          {advancedSection}
+          {errorBlock}
+        </>
+      )}
+
+      {props.mode === 'edit' || props.hideActions ? null : (
         <div className='flex flex-wrap gap-2'>
           <Button type='submit' disabled={pending}>
             {t('common.create')}

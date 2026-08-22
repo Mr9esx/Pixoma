@@ -206,7 +206,9 @@ export function EdgeDetailPanel({ id }: Props) {
           </div>
         </div>
         {edge.description ? (
-          <p className={kit.desc}>{edge.description}</p>
+          <LongText className='max-w-full text-sm text-muted-foreground'>
+            {edge.description}
+          </LongText>
         ) : null}
         <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
           <MetaChip

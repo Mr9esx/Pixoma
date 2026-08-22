@@ -1,12 +1,9 @@
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { FilterSegment } from '@/components/filters/filter-segment'
-import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import type { SessionRecord } from '@/lib/api/types'
-import { cn } from '@/lib/utils'
 
 export const SESSION_STATUS_FILTERS = [
   'all',
@@ -39,16 +36,9 @@ export function sessionStatusLabelKey(
   return undefined
 }
 
-export type SessionListFilters = {
-  status: SessionStatusFilter
-  q: string
-}
-
 type Props = {
   items: SessionRecord[]
-  selectedId?: string
-  filters: SessionListFilters
-  onFiltersChange: (next: SessionListFilters) => void
+  onOpenDetail: (item: SessionRecord) => void
   isLoading?: boolean
   isError?: boolean
   errorMessage?: string
@@ -57,9 +47,7 @@ type Props = {
 
 export function SessionListPanel({
   items,
-  selectedId,
-  filters,
-  onFiltersChange,
+  onOpenDetail,
   isLoading,
   isError,
   errorMessage,
@@ -68,38 +56,7 @@ export function SessionListPanel({
   const { t } = useTranslation()
 
   return (
-    <div
-      className='flex h-full min-h-0 flex-col'
-      data-testid='sessions-list-panel'
-    >
-      <div className='border-b px-4 py-3'>
-        <h2 className='text-sm font-semibold'>{t('sessions.title')}</h2>
-      </div>
-
-      <div className='space-y-2 border-b px-4 py-3'>
-        <Input
-          id='sessions-filter-q'
-          value={filters.q}
-          onChange={(e) => onFiltersChange({ ...filters, q: e.target.value })}
-          placeholder={t('sessions.filterQPlaceholder')}
-          autoComplete='off'
-          aria-label={t('sessions.filterQ')}
-        />
-        <FilterSegment
-          data-testid='sessions-filter-status'
-          aria-label={t('sessions.filterStatus')}
-          value={filters.status}
-          onValueChange={(status) => onFiltersChange({ ...filters, status })}
-          options={SESSION_STATUS_FILTERS.map((status) => ({
-            value: status,
-            label:
-              status === 'all'
-                ? t('sessions.filterStatusAll')
-                : t(SESSION_STATUS_LABEL_KEYS[status]),
-          }))}
-        />
-      </div>
-
+    <div data-testid='sessions-list-panel'>
       {isError ? (
         <div className='p-4'>
           <ErrorBanner message={errorMessage} onRetry={onRetry} />
@@ -117,37 +74,123 @@ export function SessionListPanel({
       ) : null}
 
       {!isLoading && !isError && items.length > 0 ? (
-        <ul className='min-h-0 flex-1 divide-y overflow-auto'>
-          {items.map((item) => {
-            const selected = selectedId === item.id
-            const statusKey = sessionStatusLabelKey(item.status)
-            return (
-              <li key={item.id}>
-                <Link
-                  to='/sessions/$sessionId'
-                  params={{ sessionId: item.id }}
-                  className={cn(
-                    'block w-full px-4 py-3 text-left text-sm hover:bg-accent',
-                    selected && 'bg-accent',
-                  )}
+        <>
+          <div className='hidden overflow-x-auto pt-3 md:block'>
+            <div className='relative w-full overflow-auto'>
+              <table className='w-full caption-bottom text-sm min-w-[980px]'>
+                <thead className='[&_tr]:border-b'>
+                  <tr className='group/row border-b bg-muted/40 transition-colors hover:bg-muted/40'>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('sessions.fieldId')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('sessions.fieldStatus')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('sessions.fieldUserId')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('sessions.fieldCaseId')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('sessions.fieldChatId')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium'>
+                      {t('sessions.fieldCreatedAt')}
+                    </th>
+                    <th className='text-muted-foreground h-10 px-2 text-left align-middle font-medium w-[48px]' />
+                  </tr>
+                </thead>
+                <tbody className='[&_tr:last-child]:border-0'>
+                  {items.map((item) => {
+                    const statusKey = sessionStatusLabelKey(item.status)
+                    return (
+                      <tr
+                        key={item.id}
+                        className='group/row border-b transition-colors hover:bg-muted/50'
+                      >
+                        <td className='p-2 align-middle font-medium'>
+                          {item.id}
+                        </td>
+                        <td className='p-2 align-middle'>
+                          {statusKey ? t(statusKey) : item.status}
+                        </td>
+                        <td className='text-muted-foreground p-2 align-middle'>
+                          {item.user_id}
+                        </td>
+                        <td className='text-muted-foreground p-2 align-middle'>
+                          {item.case_id}
+                        </td>
+                        <td className='text-muted-foreground p-2 align-middle'>
+                          {item.chat_id}
+                        </td>
+                        <td className='text-muted-foreground p-2 align-middle'>
+                          {item.created_at}
+                        </td>
+                        <td className='p-2 align-middle'>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='sm'
+                            onClick={() => onOpenDetail(item)}
+                          >
+                            {t('common.detail')}
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className='flex flex-col gap-4 pt-3 md:hidden'>
+            {items.map((item) => {
+              const statusKey = sessionStatusLabelKey(item.status)
+              return (
+                <article
+                  key={item.id}
+                  className='border-border/70 bg-card rounded-2xl border p-4'
                 >
-                  <div className='flex items-center justify-between gap-2'>
-                    <span className='font-medium'>{item.id}</span>
-                    <span className='text-muted-foreground shrink-0 text-xs'>
-                      {statusKey ? t(statusKey) : item.status}
-                    </span>
+                  <div className='flex items-start justify-between gap-3'>
+                    <div className='min-w-0'>
+                      <p className='truncate text-base font-medium'>
+                        {item.id}
+                      </p>
+                      <p className='text-muted-foreground mt-1 text-sm'>
+                        {statusKey ? t(statusKey) : item.status}
+                      </p>
+                    </div>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      className='shrink-0'
+                      onClick={() => onOpenDetail(item)}
+                    >
+                      {t('common.detail')}
+                    </Button>
                   </div>
-                  <div className='text-muted-foreground mt-0.5 truncate text-xs'>
-                    {t('sessions.fieldUserId')}: {item.user_id}
+                  <div className='mt-3 grid grid-cols-2 gap-3 text-sm'>
+                    <div className='flex flex-col gap-1'>
+                      <span className='text-muted-foreground text-xs'>
+                        {t('sessions.fieldUserId')}
+                      </span>
+                      <span>{item.user_id}</span>
+                    </div>
+                    <div className='flex flex-col gap-1'>
+                      <span className='text-muted-foreground text-xs'>
+                        {t('sessions.fieldCaseId')}
+                      </span>
+                      <span>{item.case_id}</span>
+                    </div>
                   </div>
-                  <div className='text-muted-foreground truncate text-xs'>
-                    {t('sessions.fieldCaseId')}: {item.case_id}
-                  </div>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+                </article>
+              )
+            })}
+          </div>
+        </>
       ) : null}
     </div>
   )

@@ -11,8 +11,8 @@ import (
 
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
+	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	statsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/stats"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
@@ -30,6 +30,9 @@ func (statsFakeRepo) ListErrors(context.Context, string, string, int) ([]tasksta
 	return nil, nil
 }
 func (statsFakeRepo) ListEdges(context.Context, string, string) ([]taskstats.EdgeRow, error) {
+	return nil, nil
+}
+func (statsFakeRepo) ListCases(context.Context, string, string, int) ([]taskstats.CaseRow, error) {
 	return nil, nil
 }
 func (statsFakeRepo) Prune(context.Context, string) error { return nil }

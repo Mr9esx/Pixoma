@@ -33,33 +33,46 @@ func (h *Handler) Mount(r chi.Router) {
 }
 
 type taskDTO struct {
-	ID           string    `json:"id"`
-	SessionID    string    `json:"session_id"`
-	ChatID       string    `json:"chat_id,omitempty"`
-	CaseID       uint64    `json:"case_id"`
-	Status       string    `json:"status"`
-	EdgeID       string    `json:"instance_id,omitempty"`
-	PromptID     string    `json:"prompt_id,omitempty"`
-	ErrorCode    string    `json:"error_code,omitempty"`
-	ErrorMessage string    `json:"error_message,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID            string     `json:"id"`
+	SessionID     string     `json:"session_id"`
+	ChatID        string     `json:"chat_id,omitempty"`
+	CaseID        uint64     `json:"case_id"`
+	Status        string     `json:"status"`
+	EdgeID        string     `json:"instance_id,omitempty"`
+	DispatchTopic string     `json:"dispatch_topic"`
+	PromptID      string     `json:"prompt_id,omitempty"`
+	ErrorCode     string     `json:"error_code,omitempty"`
+	ErrorMessage  string     `json:"error_message,omitempty"`
+	StartedAt     *time.Time `json:"started_at,omitempty"`
+	CompletedAt   *time.Time `json:"completed_at,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 func toDTO(t *runtimedomain.Task) taskDTO {
 	return taskDTO{
-		ID:           string(t.ID),
-		SessionID:    string(t.SessionID),
-		ChatID:       string(t.ChatID),
-		CaseID:       uint64(t.CaseID),
-		Status:       string(t.Status),
-		EdgeID:       string(t.EdgeID),
-		PromptID:     t.PromptID,
-		ErrorCode:    t.ErrorCode,
-		ErrorMessage: t.ErrorMessage,
-		CreatedAt:    t.CreatedAt,
-		UpdatedAt:    t.UpdatedAt,
+		ID:            string(t.ID),
+		SessionID:     string(t.SessionID),
+		ChatID:        string(t.ChatID),
+		CaseID:        uint64(t.CaseID),
+		Status:        string(t.Status),
+		EdgeID:        string(t.EdgeID),
+		DispatchTopic: t.DispatchTopic,
+		PromptID:      t.PromptID,
+		ErrorCode:     t.ErrorCode,
+		ErrorMessage:  t.ErrorMessage,
+		StartedAt:     timePtr(t.StartedAt),
+		CompletedAt:   timePtr(t.CompletedAt),
+		CreatedAt:     t.CreatedAt,
+		UpdatedAt:     t.UpdatedAt,
 	}
+}
+
+func timePtr(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {

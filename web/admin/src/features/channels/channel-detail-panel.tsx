@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { Bot, CalendarDays, Clock, KeyRound, PenLine } from 'lucide-react'
 import {
   deleteChannel,
   getChannel,
@@ -9,9 +10,24 @@ import {
   updateChannel,
 } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
-import { cn } from '@/lib/utils'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ErrorBanner } from '@/components/feedback/error-banner'
@@ -23,9 +39,53 @@ function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
 
+function SectionHead({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className='flex flex-col gap-1'>
+      <div className='flex items-center gap-3'>
+        <h2 className={kit.sectionTitle}>{title}</h2>
+        <span className={kit.sectionDash} />
+      </div>
+      <p className='text-xs text-muted-foreground'>{hint}</p>
+    </div>
+  )
+}
+
+function MetaChip({
+  icon,
+  label,
+  value,
+  divider = false,
+}: {
+  icon: ReactNode
+  label: string
+  value: string
+  divider?: boolean
+}) {
+  return (
+    <div className={kit.metaChip}>
+      <div className='flex min-w-0 items-center gap-2 text-muted-foreground'>
+        {icon}
+        <span className='shrink-0'>{label}</span>
+        <span className='min-w-0 truncate font-medium text-foreground'>
+          {value || '—'}
+        </span>
+      </div>
+      {divider ? (
+        <div
+          data-orientation='vertical'
+          role='none'
+          className={kit.metaChipDivider}
+        />
+      ) : null}
+    </div>
+  )
+}
+
 export function ChannelDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [editOpen, setEditOpen] = useState(false)
   const [name, setName] = useState('')
   const [token, setToken] = useState('')
 
@@ -43,6 +103,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
       }),
     onSuccess: () => {
       setToken('')
+      setEditOpen(false)
       void queryClient.invalidateQueries({
         queryKey: queryKeys.channels.detail(id),
       })
@@ -79,71 +140,122 @@ export function ChannelDetailPanel({ id }: { id: string }) {
   }
 
   return (
-    <section className={kit.pageSection} data-testid='channel-detail-panel'>
-      <div className='flex min-w-0 flex-col gap-[6px]'>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div className='flex min-w-0 flex-wrap items-center gap-2'>
-            <h2 className={kit.title}>{ch.name}</h2>
-            <span
-              className={cn(
-                'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
-                ch.enabled
-                  ? 'border-emerald-600/20 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400'
-                  : 'border-zinc-300 bg-zinc-50 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300'
-              )}
-            >
-              {ch.enabled ? t('channels.enabled') : t('channels.disabled')}
-            </span>
+    <div
+      className='flex min-h-0 flex-1 flex-col'
+      data-testid='channel-detail-panel'
+    >
+      <div className={`${kit.pageSection} min-h-0 flex-1 overflow-auto`}>
+        <div className='flex min-w-0 flex-col gap-[6px]'>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
+            <div className='flex min-w-0 flex-wrap items-center gap-2'>
+              <h2 className={kit.title}>{ch.name}</h2>
+              <span className={ch.enabled ? kit.tagOn : kit.tagOff}>
+                {ch.enabled ? t('channels.enabled') : t('channels.disabled')}
+              </span>
+            </div>
+            <div className='flex shrink-0 flex-wrap gap-2'>
+              <Button
+                type='button'
+                className={kit.btnPrimary}
+                onClick={() => setEditOpen(true)}
+              >
+                <PenLine className='size-3.5' />
+                {t('channels.editInfo')}
+              </Button>
+              <Button
+                type='button'
+                variant='outline'
+                className={kit.btnGhost}
+                onClick={() => enableMutation.mutate(!ch.enabled)}
+                disabled={enableMutation.isPending}
+              >
+                {ch.enabled ? t('channels.disable') : t('channels.enable')}
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type='button'
+                    variant='destructive'
+                    className='h-8 gap-1.5 rounded-md px-3 text-xs'
+                    disabled={ch.enabled || deleteMutation.isPending}
+                  >
+                    {t('channels.delete')}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t('channels.deleteConfirmTitle')}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t('channels.deleteConfirmBody', { name: ch.name })}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel type='button'>
+                      {t('common.cancel')}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      type='button'
+                      onClick={() => deleteMutation.mutate()}
+                      className='bg-destructive text-white hover:bg-destructive/90'
+                    >
+                      {t('channels.delete')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
-          <div className='flex shrink-0 flex-wrap gap-2'>
-            <Button
-              type='button'
-              variant='outline'
-              className={kit.btnGhost}
-              onClick={() => enableMutation.mutate(!ch.enabled)}
-              disabled={enableMutation.isPending}
-            >
-              {ch.enabled ? t('channels.disable') : t('channels.enable')}
-            </Button>
-            <Button
-              type='button'
-              variant='destructive'
-              className='h-8 gap-1.5 rounded-md px-3 text-xs'
-              disabled={ch.enabled || deleteMutation.isPending}
-              onClick={() => deleteMutation.mutate()}
-            >
-              {t('channels.delete')}
-            </Button>
+          <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
+            <MetaChip
+              icon={<Bot className='size-3.5' />}
+              label={t('channels.platform')}
+              value={ch.platform}
+              divider
+            />
+            <MetaChip
+              icon={<KeyRound className='size-3.5' />}
+              label={t('channels.token')}
+              value={ch.token_masked}
+              divider
+            />
+            <MetaChip
+              icon={<CalendarDays className='size-3.5' />}
+              label={t('channels.fieldCreatedAt')}
+              value={formatTime(ch.created_at)}
+              divider
+            />
+            <MetaChip
+              icon={<Clock className='size-3.5' />}
+              label={t('channels.fieldUpdatedAt')}
+              value={formatTime(ch.updated_at)}
+            />
           </div>
         </div>
-        <p className={kit.desc}>
-          {ch.platform} · {ch.token_masked}
-        </p>
-        <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
-          <MetaChip label={t('channels.platform')} value={ch.platform} />
-          <MetaChip label={t('channels.token')} value={ch.token_masked} />
-          <MetaChip
-            label={t('channels.fieldCreatedAt')}
-            value={formatTime(ch.created_at)}
-          />
-          <MetaChip
-            label={t('channels.fieldUpdatedAt')}
-            value={formatTime(ch.updated_at)}
-          />
+
+        {updateMutation.isError ? (
+          <ErrorBanner message={errorMessage(updateMutation.error)} />
+        ) : null}
+        {deleteMutation.isError ? (
+          <ErrorBanner message={errorMessage(deleteMutation.error)} />
+        ) : null}
+
+        <SectionHead
+          title={t('channels.tabMenu')}
+          hint={t('channels.tabMenuHint')}
+        />
+        <div className='min-h-[480px] rounded-md border p-4'>
+          <MenuCardEditor channelId={id} />
         </div>
       </div>
 
-      {updateMutation.isError ? (
-        <ErrorBanner message={errorMessage(updateMutation.error)} />
-      ) : null}
-      {deleteMutation.isError ? (
-        <ErrorBanner message={errorMessage(deleteMutation.error)} />
-      ) : null}
-
-      <section className='space-y-3'>
-        <h3 className='text-sm font-semibold'>{t('channels.tabBasic')}</h3>
-        <Card className='max-w-xl'>
-          <CardContent className='space-y-4 pt-6'>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className='sm:max-w-lg'>
+          <DialogHeader>
+            <DialogTitle>{t('channels.editInfo')}</DialogTitle>
+          </DialogHeader>
+          <div className='space-y-4'>
             <div className='space-y-1.5'>
               <Label>{t('channels.name')}</Label>
               <Input
@@ -164,6 +276,15 @@ export function ChannelDetailPanel({ id }: { id: string }) {
                 {t('channels.tokenHint')}
               </p>
             </div>
+          </div>
+          <div className='flex justify-end gap-2'>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => setEditOpen(false)}
+            >
+              {t('common.cancel')}
+            </Button>
             <Button
               disabled={
                 updateMutation.isPending || (!name.trim() && !token.trim())
@@ -172,26 +293,10 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             >
               {t('common.save')}
             </Button>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className='space-y-3'>
-        <h3 className='text-sm font-semibold'>{t('channels.tabMenu')}</h3>
-        <div className='min-h-[480px] rounded-md border p-4'>
-          <MenuCardEditor channelId={id} />
-        </div>
-      </section>
-    </section>
-  )
-}
-
-function MetaChip({ label, value }: { label: string; value: string }) {
-  return (
-    <span className='inline-flex items-center gap-1 rounded-md border px-2 py-1'>
-      <span className='text-muted-foreground'>{label}</span>
-      <span className='font-medium'>{value}</span>
-    </span>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }
 

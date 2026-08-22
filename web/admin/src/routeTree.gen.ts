@@ -14,18 +14,22 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppQuickConfigRouteImport } from './routes/_app/quick-config'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
 import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as AppUsersRouteRouteImport } from './routes/_app/users/route'
+import { Route as AppTopicsRouteRouteImport } from './routes/_app/topics/route'
 import { Route as AppTasksRouteRouteImport } from './routes/_app/tasks/route'
+import { Route as AppTaskFlowPrototypeRouteRouteImport } from './routes/_app/task-flow-prototype/route'
 import { Route as AppSessionsRouteRouteImport } from './routes/_app/sessions/route'
 import { Route as AppEdgesRouteRouteImport } from './routes/_app/edges/route'
 import { Route as AppChannelsRouteRouteImport } from './routes/_app/channels/route'
 import { Route as AppCasesRouteRouteImport } from './routes/_app/cases/route'
 import { Route as AppUsersIndexRouteImport } from './routes/_app/users/index'
+import { Route as AppTopicsIndexRouteImport } from './routes/_app/topics/index'
 import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSessionsIndexRouteImport } from './routes/_app/sessions/index'
@@ -33,6 +37,8 @@ import { Route as AppEdgesIndexRouteImport } from './routes/_app/edges/index'
 import { Route as AppChannelsIndexRouteImport } from './routes/_app/channels/index'
 import { Route as AppCasesIndexRouteImport } from './routes/_app/cases/index'
 import { Route as AppUsersUserIdRouteImport } from './routes/_app/users/$userId'
+import { Route as AppTopicsNewRouteImport } from './routes/_app/topics/new'
+import { Route as AppTopicsKeyRouteImport } from './routes/_app/topics/$key'
 import { Route as AppTasksTaskIdRouteImport } from './routes/_app/tasks/$taskId'
 import { Route as AppSessionsSessionIdRouteImport } from './routes/_app/sessions/$sessionId'
 import { Route as AppEdgesEdgeIdRouteImport } from './routes/_app/edges/$edgeId'
@@ -62,6 +68,11 @@ const SplatRoute = SplatRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppQuickConfigRoute = AppQuickConfigRouteImport.update({
+  id: '/quick-config',
+  path: '/quick-config',
   getParentRoute: () => AppRoute,
 } as any)
 const errors503Route = errors503RouteImport.update({
@@ -94,11 +105,22 @@ const AppUsersRouteRoute = AppUsersRouteRouteImport.update({
   path: '/users',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTopicsRouteRoute = AppTopicsRouteRouteImport.update({
+  id: '/topics',
+  path: '/topics',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTasksRouteRoute = AppTasksRouteRouteImport.update({
   id: '/tasks',
   path: '/tasks',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTaskFlowPrototypeRouteRoute =
+  AppTaskFlowPrototypeRouteRouteImport.update({
+    id: '/task-flow-prototype',
+    path: '/task-flow-prototype',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppSessionsRouteRoute = AppSessionsRouteRouteImport.update({
   id: '/sessions',
   path: '/sessions',
@@ -123,6 +145,11 @@ const AppUsersIndexRoute = AppUsersIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppUsersRouteRoute,
+} as any)
+const AppTopicsIndexRoute = AppTopicsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppTopicsRouteRoute,
 } as any)
 const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
   id: '/',
@@ -158,6 +185,16 @@ const AppUsersUserIdRoute = AppUsersUserIdRouteImport.update({
   id: '/$userId',
   path: '/$userId',
   getParentRoute: () => AppUsersRouteRoute,
+} as any)
+const AppTopicsNewRoute = AppTopicsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppTopicsRouteRoute,
+} as any)
+const AppTopicsKeyRoute = AppTopicsKeyRouteImport.update({
+  id: '/$key',
+  path: '/$key',
+  getParentRoute: () => AppTopicsRouteRoute,
 } as any)
 const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
   id: '/$taskId',
@@ -199,19 +236,24 @@ export interface FileRoutesByFullPath {
   '/channels': typeof AppChannelsRouteRouteWithChildren
   '/edges': typeof AppEdgesRouteRouteWithChildren
   '/sessions': typeof AppSessionsRouteRouteWithChildren
+  '/task-flow-prototype': typeof AppTaskFlowPrototypeRouteRoute
   '/tasks': typeof AppTasksRouteRouteWithChildren
+  '/topics': typeof AppTopicsRouteRouteWithChildren
   '/users': typeof AppUsersRouteRouteWithChildren
   '/401': typeof errors401Route
   '/403': typeof errors403Route
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/quick-config': typeof AppQuickConfigRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/channels/$id': typeof AppChannelsIdRoute
   '/channels/new': typeof AppChannelsNewRoute
   '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
+  '/topics/$key': typeof AppTopicsKeyRoute
+  '/topics/new': typeof AppTopicsNewRoute
   '/users/$userId': typeof AppUsersUserIdRoute
   '/cases/': typeof AppCasesIndexRoute
   '/channels/': typeof AppChannelsIndexRoute
@@ -219,17 +261,20 @@ export interface FileRoutesByFullPath {
   '/sessions/': typeof AppSessionsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/tasks/': typeof AppTasksIndexRoute
+  '/topics/': typeof AppTopicsIndexRoute
   '/users/': typeof AppUsersIndexRoute
 }
 export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/task-flow-prototype': typeof AppTaskFlowPrototypeRouteRoute
   '/401': typeof errors401Route
   '/403': typeof errors403Route
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/quick-config': typeof AppQuickConfigRoute
   '/': typeof AppIndexRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/channels/$id': typeof AppChannelsIdRoute
@@ -237,6 +282,8 @@ export interface FileRoutesByTo {
   '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
+  '/topics/$key': typeof AppTopicsKeyRoute
+  '/topics/new': typeof AppTopicsNewRoute
   '/users/$userId': typeof AppUsersUserIdRoute
   '/cases': typeof AppCasesIndexRoute
   '/channels': typeof AppChannelsIndexRoute
@@ -244,6 +291,7 @@ export interface FileRoutesByTo {
   '/sessions': typeof AppSessionsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/tasks': typeof AppTasksIndexRoute
+  '/topics': typeof AppTopicsIndexRoute
   '/users': typeof AppUsersIndexRoute
 }
 export interface FileRoutesById {
@@ -256,13 +304,16 @@ export interface FileRoutesById {
   '/_app/channels': typeof AppChannelsRouteRouteWithChildren
   '/_app/edges': typeof AppEdgesRouteRouteWithChildren
   '/_app/sessions': typeof AppSessionsRouteRouteWithChildren
+  '/_app/task-flow-prototype': typeof AppTaskFlowPrototypeRouteRoute
   '/_app/tasks': typeof AppTasksRouteRouteWithChildren
+  '/_app/topics': typeof AppTopicsRouteRouteWithChildren
   '/_app/users': typeof AppUsersRouteRouteWithChildren
   '/(errors)/401': typeof errors401Route
   '/(errors)/403': typeof errors403Route
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
+  '/_app/quick-config': typeof AppQuickConfigRoute
   '/_app/': typeof AppIndexRoute
   '/_app/cases/$caseId': typeof AppCasesCaseIdRoute
   '/_app/channels/$id': typeof AppChannelsIdRoute
@@ -270,6 +321,8 @@ export interface FileRoutesById {
   '/_app/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/_app/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/_app/tasks/$taskId': typeof AppTasksTaskIdRoute
+  '/_app/topics/$key': typeof AppTopicsKeyRoute
+  '/_app/topics/new': typeof AppTopicsNewRoute
   '/_app/users/$userId': typeof AppUsersUserIdRoute
   '/_app/cases/': typeof AppCasesIndexRoute
   '/_app/channels/': typeof AppChannelsIndexRoute
@@ -277,6 +330,7 @@ export interface FileRoutesById {
   '/_app/sessions/': typeof AppSessionsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/tasks/': typeof AppTasksIndexRoute
+  '/_app/topics/': typeof AppTopicsIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
 }
 export interface FileRouteTypes {
@@ -290,19 +344,24 @@ export interface FileRouteTypes {
     | '/channels'
     | '/edges'
     | '/sessions'
+    | '/task-flow-prototype'
     | '/tasks'
+    | '/topics'
     | '/users'
     | '/401'
     | '/403'
     | '/404'
     | '/500'
     | '/503'
+    | '/quick-config'
     | '/cases/$caseId'
     | '/channels/$id'
     | '/channels/new'
     | '/edges/$edgeId'
     | '/sessions/$sessionId'
     | '/tasks/$taskId'
+    | '/topics/$key'
+    | '/topics/new'
     | '/users/$userId'
     | '/cases/'
     | '/channels/'
@@ -310,17 +369,20 @@ export interface FileRouteTypes {
     | '/sessions/'
     | '/settings/'
     | '/tasks/'
+    | '/topics/'
     | '/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$'
     | '/login'
     | '/setup'
+    | '/task-flow-prototype'
     | '/401'
     | '/403'
     | '/404'
     | '/500'
     | '/503'
+    | '/quick-config'
     | '/'
     | '/cases/$caseId'
     | '/channels/$id'
@@ -328,6 +390,8 @@ export interface FileRouteTypes {
     | '/edges/$edgeId'
     | '/sessions/$sessionId'
     | '/tasks/$taskId'
+    | '/topics/$key'
+    | '/topics/new'
     | '/users/$userId'
     | '/cases'
     | '/channels'
@@ -335,6 +399,7 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/tasks'
+    | '/topics'
     | '/users'
   id:
     | '__root__'
@@ -346,13 +411,16 @@ export interface FileRouteTypes {
     | '/_app/channels'
     | '/_app/edges'
     | '/_app/sessions'
+    | '/_app/task-flow-prototype'
     | '/_app/tasks'
+    | '/_app/topics'
     | '/_app/users'
     | '/(errors)/401'
     | '/(errors)/403'
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
+    | '/_app/quick-config'
     | '/_app/'
     | '/_app/cases/$caseId'
     | '/_app/channels/$id'
@@ -360,6 +428,8 @@ export interface FileRouteTypes {
     | '/_app/edges/$edgeId'
     | '/_app/sessions/$sessionId'
     | '/_app/tasks/$taskId'
+    | '/_app/topics/$key'
+    | '/_app/topics/new'
     | '/_app/users/$userId'
     | '/_app/cases/'
     | '/_app/channels/'
@@ -367,6 +437,7 @@ export interface FileRouteTypes {
     | '/_app/sessions/'
     | '/_app/settings/'
     | '/_app/tasks/'
+    | '/_app/topics/'
     | '/_app/users/'
   fileRoutesById: FileRoutesById
 }
@@ -419,6 +490,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/quick-config': {
+      id: '/_app/quick-config'
+      path: '/quick-config'
+      fullPath: '/quick-config'
+      preLoaderRoute: typeof AppQuickConfigRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/(errors)/503': {
       id: '/(errors)/503'
       path: '/503'
@@ -461,11 +539,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUsersRouteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/topics': {
+      id: '/_app/topics'
+      path: '/topics'
+      fullPath: '/topics'
+      preLoaderRoute: typeof AppTopicsRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/tasks': {
       id: '/_app/tasks'
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof AppTasksRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/task-flow-prototype': {
+      id: '/_app/task-flow-prototype'
+      path: '/task-flow-prototype'
+      fullPath: '/task-flow-prototype'
+      preLoaderRoute: typeof AppTaskFlowPrototypeRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/sessions': {
@@ -502,6 +594,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/users/'
       preLoaderRoute: typeof AppUsersIndexRouteImport
       parentRoute: typeof AppUsersRouteRoute
+    }
+    '/_app/topics/': {
+      id: '/_app/topics/'
+      path: '/'
+      fullPath: '/topics/'
+      preLoaderRoute: typeof AppTopicsIndexRouteImport
+      parentRoute: typeof AppTopicsRouteRoute
     }
     '/_app/tasks/': {
       id: '/_app/tasks/'
@@ -551,6 +650,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/users/$userId'
       preLoaderRoute: typeof AppUsersUserIdRouteImport
       parentRoute: typeof AppUsersRouteRoute
+    }
+    '/_app/topics/new': {
+      id: '/_app/topics/new'
+      path: '/new'
+      fullPath: '/topics/new'
+      preLoaderRoute: typeof AppTopicsNewRouteImport
+      parentRoute: typeof AppTopicsRouteRoute
+    }
+    '/_app/topics/$key': {
+      id: '/_app/topics/$key'
+      path: '/$key'
+      fullPath: '/topics/$key'
+      preLoaderRoute: typeof AppTopicsKeyRouteImport
+      parentRoute: typeof AppTopicsRouteRoute
     }
     '/_app/tasks/$taskId': {
       id: '/_app/tasks/$taskId'
@@ -667,6 +780,22 @@ const AppTasksRouteRouteWithChildren = AppTasksRouteRoute._addFileChildren(
   AppTasksRouteRouteChildren,
 )
 
+interface AppTopicsRouteRouteChildren {
+  AppTopicsKeyRoute: typeof AppTopicsKeyRoute
+  AppTopicsNewRoute: typeof AppTopicsNewRoute
+  AppTopicsIndexRoute: typeof AppTopicsIndexRoute
+}
+
+const AppTopicsRouteRouteChildren: AppTopicsRouteRouteChildren = {
+  AppTopicsKeyRoute: AppTopicsKeyRoute,
+  AppTopicsNewRoute: AppTopicsNewRoute,
+  AppTopicsIndexRoute: AppTopicsIndexRoute,
+}
+
+const AppTopicsRouteRouteWithChildren = AppTopicsRouteRoute._addFileChildren(
+  AppTopicsRouteRouteChildren,
+)
+
 interface AppUsersRouteRouteChildren {
   AppUsersUserIdRoute: typeof AppUsersUserIdRoute
   AppUsersIndexRoute: typeof AppUsersIndexRoute
@@ -686,8 +815,11 @@ interface AppRouteChildren {
   AppChannelsRouteRoute: typeof AppChannelsRouteRouteWithChildren
   AppEdgesRouteRoute: typeof AppEdgesRouteRouteWithChildren
   AppSessionsRouteRoute: typeof AppSessionsRouteRouteWithChildren
+  AppTaskFlowPrototypeRouteRoute: typeof AppTaskFlowPrototypeRouteRoute
   AppTasksRouteRoute: typeof AppTasksRouteRouteWithChildren
+  AppTopicsRouteRoute: typeof AppTopicsRouteRouteWithChildren
   AppUsersRouteRoute: typeof AppUsersRouteRouteWithChildren
+  AppQuickConfigRoute: typeof AppQuickConfigRoute
   AppIndexRoute: typeof AppIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
@@ -697,8 +829,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppChannelsRouteRoute: AppChannelsRouteRouteWithChildren,
   AppEdgesRouteRoute: AppEdgesRouteRouteWithChildren,
   AppSessionsRouteRoute: AppSessionsRouteRouteWithChildren,
+  AppTaskFlowPrototypeRouteRoute: AppTaskFlowPrototypeRouteRoute,
   AppTasksRouteRoute: AppTasksRouteRouteWithChildren,
+  AppTopicsRouteRoute: AppTopicsRouteRouteWithChildren,
   AppUsersRouteRoute: AppUsersRouteRouteWithChildren,
+  AppQuickConfigRoute: AppQuickConfigRoute,
   AppIndexRoute: AppIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }

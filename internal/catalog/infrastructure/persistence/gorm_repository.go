@@ -16,7 +16,6 @@ import (
 type CaseRow struct {
 	ID        uint64 `gorm:"primaryKey;autoIncrement"`
 	Name      string `gorm:"size:256;not null"`
-	MenuKey   string `gorm:"size:128;index"`
 	TagsJSON  string `gorm:"type:text"`
 	CatsJSON  string `gorm:"type:text"`
 	DocJSON   string `gorm:"type:text;not null"`
@@ -50,7 +49,25 @@ func (r *GormRepository) Create(ctx context.Context, c *domain.Case) error {
 	if err != nil {
 		return err
 	}
-	return r.db.WithContext(ctx).Create(row).Error
+	if err := r.db.WithContext(ctx).Create(row).Error; err != nil {
+		return err
+	}
+	// id=0 时由数据库自动分配：回写调用方并同步文档内嵌 id，
+	// 保证回读（fromRow）时 CaseDocument.ID 与行主键一致。
+	if c.Document.ID == 0 && row.ID != 0 {
+		c.Document.ID = sharedkernel.CaseID(row.ID)
+		docBytes, err := json.Marshal(c.Document)
+		if err != nil {
+			return err
+		}
+		if err := r.db.WithContext(ctx).
+			Model(&CaseRow{}).
+			Where("id = ?", row.ID).
+			Update("doc_json", string(docBytes)).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *GormRepository) Save(ctx context.Context, c *domain.Case) error {
@@ -81,9 +98,6 @@ func (r *GormRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 	if q.Enabled != nil {
 		tx = tx.Where("enabled = ?", *q.Enabled)
 	}
-	if q.MenuKey != "" {
-		tx = tx.Where("menu_key = ?", q.MenuKey)
-	}
 	if q.Tag != "" {
 		tx = tx.Where("tags_json LIKE ?", "%\""+q.Tag+"\"%")
 	}
@@ -92,7 +106,7 @@ func (r *GormRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 	}
 	if q.Q != "" {
 		like := "%" + q.Q + "%"
-		tx = tx.Where("id LIKE ? OR name LIKE ? OR menu_key LIKE ?", like, like, like)
+		tx = tx.Where("id LIKE ? OR name LIKE ?", like, like)
 	}
 	if q.CreatedFrom != nil {
 		tx = tx.Where("created_at >= ?", *q.CreatedFrom)
@@ -159,7 +173,6 @@ func toRow(c *domain.Case) (*CaseRow, error) {
 	return &CaseRow{
 		ID:       uint64(c.Document.ID),
 		Name:     c.Document.Name,
-		MenuKey:  c.Document.MenuKey,
 		TagsJSON: string(tags),
 		CatsJSON: string(cats),
 		DocJSON:  string(docBytes),

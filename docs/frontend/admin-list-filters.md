@@ -10,7 +10,7 @@
    左栏筛选默认高度应尽量低。禁止「每个字段 Label + 全宽控件」三层以上堆叠。
 
 2. **能并进搜索的字段，并进一个搜索框**  
-   文本/标识类条件（id、名称、menu_key、tg_user_id、user_id 等）合并为单一 `q`（或等价统一搜索）。  
+   文本/标识类条件（id、名称、tg_user_id、user_id 等）合并为单一 `q`（或等价统一搜索）。  
    Placeholder / `aria-label` 写清可搜范围；**不要**再为每个字段单独放 Input。  
    后端 `q` MUST 覆盖 UI 承诺的字段（模糊或等价匹配）；不要只改文案不改查询。
 
@@ -40,7 +40,7 @@
 
 ## 反例
 
-- Label「搜索」+ Input，再 Label「menu_key」+ Input，再 Label「启用」+ Select  
+- Label「搜索」+ Input，再 Label「启用」+ Select  
 - 状态 7 项做成 `grid-cols-7` 挤在一行（字不可读）  
 - UI 写「可搜 tg_user_id」但后端 `q` 不查该列  
 

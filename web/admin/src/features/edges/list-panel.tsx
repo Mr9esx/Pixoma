@@ -45,7 +45,7 @@ export function EdgeListPanel({
       className='flex h-full min-h-0 flex-col'
       data-testid='edges-list-panel'
     >
-      <div className='p-3'>
+      <div className='space-y-2 border-b px-4 py-3'>
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}

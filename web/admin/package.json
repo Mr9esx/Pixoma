@@ -23,6 +23,7 @@
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/language": "^6.12.4",
     "@codemirror/view": "^6.43.9",
+    "@formity/react": "^3.0.0",
     "@hookform/resolvers": "^5.2.2",
     "@lezer/highlight": "^1.2.3",
     "@radix-ui/react-alert-dialog": "^1.1.15",

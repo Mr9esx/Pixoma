@@ -81,10 +81,10 @@ export function deriveBindings(
 export function validateEditor(
   inputs: InputFieldDraft[],
   outputs: OutputFieldDraft[]
-): { duplicateKey?: string; unboundRequired?: string; noOutput?: boolean } {
+): { duplicateKey?: string; unboundInput?: string; noOutput?: boolean } {
   const out: {
     duplicateKey?: string
-    unboundRequired?: string
+    unboundInput?: string
     noOutput?: boolean
   } = {}
   const seen = new Set<string>()
@@ -93,12 +93,8 @@ export function validateEditor(
     if (!key) continue
     if (seen.has(key) && !out.duplicateKey) out.duplicateKey = key
     seen.add(key)
-    if (
-      field.required &&
-      (!field.node_id || !field.field_path) &&
-      !out.unboundRequired
-    ) {
-      out.unboundRequired = key
+    if ((!field.node_id || !field.field_path) && !out.unboundInput) {
+      out.unboundInput = key
     }
   }
   if (

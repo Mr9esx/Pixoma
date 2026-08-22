@@ -42,6 +42,8 @@ export type ComfyEdge = {
   enabled: boolean
   capabilities: string[]
   agent_token?: string
+  subscribe_topics?: string[]
+  effective_topics?: string[]
   hardware?: EdgeHardware
   started_at: string | null
   comfy_version: string
@@ -87,7 +89,6 @@ export type CaseRecord = {
   preview?: string
   price: number
   tags?: string[]
-  menu_key?: string
   categories?: string[]
   inputs: CaseInputField[]
   outputs: CaseOutputField[]
@@ -99,6 +100,36 @@ export type CaseRecord = {
   input_schema: Record<string, unknown>
   workflow_filename?: string
   enabled: boolean
+  routing?: RoutingConfig
+}
+
+/** Case 路由配置（与后端 CaseDocument.Routing 对齐）。 */
+export type ConditionOp =
+  | 'eq'
+  | 'ne'
+  | 'in'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'exists'
+
+export type RoutingCondition =
+  | { field: string; op: ConditionOp; value?: unknown }
+  | { and: RoutingCondition[] }
+  | { or: RoutingCondition[] }
+
+export type RoutingRule = {
+  when: RoutingCondition
+  topic?: string
+}
+
+export type RoutingConfig = {
+  rules: RoutingRule[]
+}
+
+export type CaseWithRouting = CaseRecord & {
+  routing?: RoutingConfig
 }
 
 export type TaskRecord = {
@@ -108,9 +139,12 @@ export type TaskRecord = {
   case_id: number
   status: string
   edge_id?: string
+  dispatch_topic?: string
   prompt_id?: string
   error_code?: string
   error_message?: string
+  started_at?: string
+  completed_at?: string
   created_at: string
   updated_at: string
 }

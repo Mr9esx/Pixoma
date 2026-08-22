@@ -13,7 +13,7 @@ function read(path: string) {
   return readFileSync(path, 'utf8')
 }
 
-describe('case list filters (option A: single search + enabled segment)', () => {
+describe('case list filters (single search, no status segment)', () => {
   it('list panel has one search field and no menu_key input', () => {
     const source = read(LIST_PANEL)
     expect(source).toContain("id='cases-filter-q'")
@@ -22,12 +22,19 @@ describe('case list filters (option A: single search + enabled segment)', () => 
     expect(source).not.toMatch(/menuKey/)
   })
 
-  it('enabled filter uses FilterSegment (not Select)', () => {
+  it('no status filter or status badge remains', () => {
     const source = read(LIST_PANEL)
-    expect(source).toContain("data-testid='cases-filter-enabled'")
-    expect(source).toContain("from '@/components/filters/filter-segment'")
-    expect(source).not.toContain('<Select')
-    expect(source).not.toContain('SelectTrigger')
+    expect(source).not.toContain('cases-filter-enabled')
+    expect(source).not.toContain('FilterSegment')
+    expect(source).not.toContain('item.enabled')
+    expect(source).not.toContain("t('cases.enabled')")
+  })
+
+  it('list item title is the workflow name and secondary line is the description', () => {
+    const source = read(LIST_PANEL)
+    expect(source).toMatch(/font-medium'[^>]*>\s*\{item\.name\}/)
+    expect(source).toContain('{item.description}')
+    expect(source).not.toMatch(/font-medium'[^>]*>\{item\.id\}/)
   })
 
   it('cases route does not send menu_key query param from filters', () => {
@@ -43,14 +50,14 @@ describe('case list filters (option A: single search + enabled segment)', () => 
     expect(source).toContain('backToList')
   })
 
-  it('search placeholder mentions menu_key', () => {
+  it('search placeholder does not mention menu_key', () => {
     const zh = JSON.parse(read(ZH)) as {
       cases: { filterQPlaceholder: string }
     }
     const en = JSON.parse(read(EN)) as {
       cases: { filterQPlaceholder: string }
     }
-    expect(zh.cases.filterQPlaceholder.toLowerCase()).toContain('menu_key')
-    expect(en.cases.filterQPlaceholder.toLowerCase()).toContain('menu_key')
+    expect(zh.cases.filterQPlaceholder.toLowerCase()).not.toContain('menu_key')
+    expect(en.cases.filterQPlaceholder.toLowerCase()).not.toContain('menu_key')
   })
 })
