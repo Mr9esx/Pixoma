@@ -76,3 +76,11 @@ SUGGESTION（记录，不阻塞）：
 - 端到端冒烟（临时库）：seed 4 终态任务 + 2 节点指标 → backfill → daily（avg_queue=3600000ms、avg_exec=3600000ms、success_rate=2/3）、edges（gpu-1 success_rate=1、gpu-2=0）、cases/top（count + avg_duration_ms）、fleet（online=2、avg CPU=64%、VRAM 24+12GiB 等）全部符合预期。
 - 全量验证：`go build ./...`、`go test ./...`、`pnpm tsc -b`、`pnpm vitest run`（243 测试）全部通过；build / verify command-check 已重新记录 exit=0。
 - tasks.md 全部勾选（含 7.x/8.x/9.x 扩展任务）；实施计划追加分区仪表盘记录。
+
+## 补充：pixoma 集成缺失修复（2026-08-22，第 3 轮）
+
+用户反馈 Dashboard 全部统计卡显示 `not found`（计算节点/在线/算力池正常）。根因：`/api/v1/stats/*` 只接入了 `admin-api`（8081），而前端实际连接的是 `pixoma` 组合服务（8082）；pixoma 未挂载 stats 路由，请求落到 webembed 的 `/api/*` JSON 404 兜底。
+
+修复：在 `apps/pixoma/cmd/pixoma/main.go` 中注入 `taskstats` 仓储（AutoMigrate 四张统计表）、`orch.Stats` 写路径与 `adminhost.Options.Stats`（含 metrics 仓储）；新增 `statsRetention` / `statsLocation` 环境变量解析。冒烟验证：stats / fleet / edges 请求在未初始化平台上统一返回 403 `not_initialized`（说明路由已进入平台门禁，不再 404），已初始化实例将正常返回 200。
+
+复验：`go build ./...`、`go test ./...`、`pnpm tsc -b`、`pnpm vitest run` 全部通过；build / verify command-check 已重新记录 exit=0。
