@@ -3,6 +3,7 @@
   "openspec_design": "docs/openspec/changes/remove-legacy-apps/design.md",
   "openspec_tasks": "docs/openspec/changes/remove-legacy-apps/tasks.md",
   "openspec_delta_spec": "docs/openspec/changes/remove-legacy-apps/specs/admin-api-host/spec.md",
-  "handoff_context": "docs/openspec/changes/remove-legacy-apps/.comet/handoff/design-context.json",
-  "handoff_markdown": "docs/openspec/changes/remove-legacy-apps/.comet/handoff/design-context.md"
+  "handoff_context": "docs/openspec/changes/archive/2026-08-22-remove-legacy-apps/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/archive/2026-08-22-remove-legacy-apps/.comet/handoff/design-context.md",
+  "archive_directory": "docs/openspec/changes/archive/2026-08-22-remove-legacy-apps"
 }

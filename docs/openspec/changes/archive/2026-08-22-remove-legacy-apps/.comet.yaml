@@ -19,11 +19,11 @@ verification_report: docs/superpowers/reports/2026-08-22-remove-legacy-apps-veri
 branch_status: pending
 created_at: 2026-08-22
 verified_at: 2026-08-22
-archive_confirmation: pending
-archived: false
+archive_confirmation: confirmed
+archived: true
 bound_branch: feature/20260822/remove-legacy-apps
 direct_override: null
-handoff_context: docs/openspec/changes/remove-legacy-apps/.comet/handoff/design-context.json
+handoff_context: docs/openspec/changes/archive/2026-08-22-remove-legacy-apps/.comet/handoff/design-context.json
 handoff_hash: b732d1a3183885b13e4379f505ad33e32fc48b015fabd1fe318b2a66a12057a5
 classic_profile: full
 classic_migration: 1
