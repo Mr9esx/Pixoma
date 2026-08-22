@@ -153,3 +153,18 @@ Go：
 1. 后端先合并：AutoMigrate 三表 → orchestrator 写路径 → stats API → 执行 backfill；空表期接口返回零填充数据，不影响既有功能。
 2. 前端后合并：Dashboard 任务区切到统计接口；任一接口失败仅对应卡片降级。
 3. 回滚：前端回退为样本版任务卡；后端停止写统计表即可，不影响调度、列表与任务功能。
+
+## 11. Implementation Divergence：分区仪表盘范围扩展（2026-08-22）
+
+用户确认后扩展范围：Dashboard 重构为「实时状态 / 任务效能 / 业务分析」三区，全局时间范围（近 7/30/90 天 + 起止日期）只驱动任务效能与业务分析区；实时状态区（节点启用、在线/Comfy、算力池、集群实时负载）为当前快照，不随时间范围变化。原「受 limit 限制」样本提示移除，改为全量统计口径。
+
+与初版设计的差异：
+
+- `task_daily_stats` 增加 `total_queue_ms`（created→started）与 `total_exec_ms`（started→completed）列；daily 接口返回 `avg_queue_ms` / `avg_exec_ms` 供排队 vs 执行堆叠图。
+- `task_edge_daily_stats` 增加 `succeeded_count` / `failed_count`；edges 接口返回每节点 `success_rate`。
+- 新增第四张窄表 `task_case_daily_stats (stat_date, case_id, count, total_duration_ms)`；`AddTerminalInput` 增加 `CaseID` / `QueueDurationMS` / `ExecDurationMS`；新增 `GET /api/v1/stats/cases/top`（count + avg_duration_ms）供 Case 热度与耗时散点。
+- 新增 `GET /api/v1/stats/fleet`（实时快照，无 from/to）：`MetricsRepository.LatestAll` 取每 edge 最新指标，聚合在线数、平均 CPU/内存/GPU、VRAM 占用、最热节点（CPU 最高）与每节点利用率。
+- 前端：`DashboardPage` 三区布局；全局范围控件（presets + Calendar range）；每日柱状图叠加成功率折线（双轴）；排队/执行堆叠柱；错误码与状态 donut；每节点任务量条形叠成功率；Case 散点（ScatterChart，点=Case）+ Case 热度 Top。
+- 状态分布口径：donut 展示所选区间内终态（成功/失败/取消）构成；运行/排队数作为实时状态补充，不混入区间 donut。
+
+明确不做（维持原非目标）：按小时吞吐、实时推送、节点详情页改造、Case 分类/价格/复杂度、Comfy 版本分布、会话状态卡、能力分布。

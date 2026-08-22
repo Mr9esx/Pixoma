@@ -1771,3 +1771,12 @@ git commit -m "chore(task-daily-stats): 端到端确认日期范围与失败隔�
 git add docs README.md
 git commit -m "docs(task-daily-stats): 同步统计表、接口与环境变量文档"
 ```
+
+## 10. 分区仪表盘扩展（2026-08-22，并入当前 change）
+
+- [x] 10.1 数据层扩展：task_daily_stats 排队/执行耗时列、task_edge_daily_stats 成功/失败列、task_case_daily_stats 表、AddTerminal/backfill 同步
+- [x] 10.2 接口扩展：daily 返回 avg_queue_ms/avg_exec_ms、edges 返回 success_rate、cases/top、fleet（MetricsRepository.LatestAll）
+- [x] 10.3 前端三区仪表盘：实时状态（启用/在线/算力池/实时负载 + 集群负载分组条形）、任务效能（每日双轴、排队/执行堆叠、状态/错误 donut、每节点负载）、业务分析（Case 散点 + 热度 Top）
+- [x] 10.4 全局时间范围（近 7/30/90 + Calendar range）驱动任务效能与业务分析；实时区不受影响
+- [x] 10.5 i18n 全量口径文案、合同测试、硬件汇总单测
+- [x] 10.6 全量验证与端到端冒烟（daily/edges/cases/fleet）
