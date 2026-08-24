@@ -72,6 +72,60 @@ func (m *memCardRepo) WorkflowPlacements(_ context.Context, workflowID string) (
 	return out, nil
 }
 
+func (m *memCardRepo) RemoveWorkflowReferences(_ context.Context, workflowID string) ([]persistence.WorkflowPlacement, error) {
+	var removed []persistence.WorkflowPlacement
+	items := m.menu.Items[:0]
+	for _, it := range m.menu.Items {
+		if it.Action.Type != "open_workflow" {
+			items = append(items, it)
+			continue
+		}
+		var kept []string
+		for _, id := range it.Action.WorkflowIDs {
+			if id != workflowID {
+				kept = append(kept, id)
+			}
+		}
+		if len(kept) == len(it.Action.WorkflowIDs) {
+			items = append(items, it)
+			continue
+		}
+		removed = append(removed, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
+		if len(kept) > 0 {
+			it.Action.WorkflowIDs = kept
+			items = append(items, it)
+		}
+	}
+	m.menu.Items = items
+	for id, card := range m.cards {
+		buttons := card.Buttons[:0]
+		for _, b := range card.Buttons {
+			if b.Action.Type != "open_workflow" {
+				buttons = append(buttons, b)
+				continue
+			}
+			var kept []string
+			for _, wid := range b.Action.WorkflowIDs {
+				if wid != workflowID {
+					kept = append(kept, wid)
+				}
+			}
+			if len(kept) == len(b.Action.WorkflowIDs) {
+				buttons = append(buttons, b)
+				continue
+			}
+			removed = append(removed, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: b.ID, Label: b.Label, Kind: "card_button"})
+			if len(kept) > 0 {
+				b.Action.WorkflowIDs = kept
+				buttons = append(buttons, b)
+			}
+		}
+		card.Buttons = buttons
+		m.cards[id] = card
+	}
+	return removed, nil
+}
+
 func referencesOf(menu mcdomain.Menu, cards map[string]mcdomain.Card, id string) []string {
 	refs := []string{}
 	for _, it := range menu.Items {

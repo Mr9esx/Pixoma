@@ -38,6 +38,10 @@ type CardRepository interface {
 	DeleteCard(ctx context.Context, channelID, id string) error
 	CardReferences(ctx context.Context, channelID, id string) ([]string, error)
 	WorkflowPlacements(ctx context.Context, workflowID string) ([]WorkflowPlacement, error)
+	// RemoveWorkflowReferences removes workflowID from open_workflow actions in
+	// all menus and cards; drops items/buttons whose workflow list becomes empty.
+	// Returns the placements that were removed.
+	RemoveWorkflowReferences(ctx context.Context, workflowID string) ([]WorkflowPlacement, error)
 }
 
 // WorkflowPlacement is where an open_workflow action references a workflow.
@@ -238,4 +242,105 @@ func actionContainsWorkflow(a mcdomain.Action, workflowID string) bool {
 		}
 	}
 	return false
+}
+
+func removeWorkflowID(ids []string, workflowID string) []string {
+	var out []string
+	for _, id := range ids {
+		if id != workflowID {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func (r *GormCardRepository) RemoveWorkflowReferences(ctx context.Context, workflowID string) ([]WorkflowPlacement, error) {
+	var removed []WorkflowPlacement
+	var menus []MainMenuRow
+	if err := r.db.WithContext(ctx).Find(&menus).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range menus {
+		var menu mcdomain.Menu
+		if err := json.Unmarshal([]byte(row.DocJSON), &menu); err != nil {
+			return nil, fmt.Errorf("decode menu: %w", err)
+		}
+		items := menu.Items[:0]
+		changed := false
+		for _, it := range menu.Items {
+			if it.Action.Type != "open_workflow" {
+				items = append(items, it)
+				continue
+			}
+			kept := removeWorkflowID(it.Action.WorkflowIDs, workflowID)
+			if len(kept) == len(it.Action.WorkflowIDs) {
+				items = append(items, it)
+				continue
+			}
+			changed = true
+			removed = append(removed, WorkflowPlacement{ChannelID: row.ChannelID, ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
+			if len(kept) > 0 {
+				it.Action.WorkflowIDs = kept
+				items = append(items, it)
+			}
+		}
+		if !changed {
+			continue
+		}
+		menu.Items = items
+		raw, err := json.Marshal(menu)
+		if err != nil {
+			return nil, err
+		}
+		if err := r.db.WithContext(ctx).Model(&MainMenuRow{}).Where("channel_id = ?", row.ChannelID).Update("doc_json", string(raw)).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	var cards []CardRow
+	if err := r.db.WithContext(ctx).Find(&cards).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range cards {
+		var card mcdomain.Card
+		if err := json.Unmarshal([]byte(row.DocJSON), &card); err != nil {
+			return nil, fmt.Errorf("decode card: %w", err)
+		}
+		buttons := card.Buttons[:0]
+		changed := false
+		for _, b := range card.Buttons {
+			if b.Action.Type != "open_workflow" {
+				buttons = append(buttons, b)
+				continue
+			}
+			kept := removeWorkflowID(b.Action.WorkflowIDs, workflowID)
+			if len(kept) == len(b.Action.WorkflowIDs) {
+				buttons = append(buttons, b)
+				continue
+			}
+			changed = true
+			removed = append(removed, WorkflowPlacement{ChannelID: row.ChannelID, ItemID: b.ID, Label: b.Label, Kind: "card_button"})
+			if len(kept) > 0 {
+				b.Action.WorkflowIDs = kept
+				buttons = append(buttons, b)
+			}
+		}
+		if !changed {
+			continue
+		}
+		card.Buttons = buttons
+		raw, err := json.Marshal(card)
+		if err != nil {
+			return nil, err
+		}
+		if err := r.db.WithContext(ctx).Model(&CardRow{}).Where("id = ?", row.ID).Update("doc_json", string(raw)).Error; err != nil {
+			return nil, err
+		}
+	}
+	if len(removed) > 0 {
+		if err := r.fillChannelNames(ctx, removed); err != nil {
+			return nil, err
+		}
+	}
+	return removed, nil
 }
