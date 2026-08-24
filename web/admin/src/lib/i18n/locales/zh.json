@@ -655,6 +655,7 @@
   },
   "linkHealth": {
     "title": "链路健康",
+    "sectionHint": "检查入口、Topic 与节点的依赖是否就绪，并给出下一步处理指引",
     "alertTitle": "{{name}} 当前不可用",
     "alertSummary": "有 {{n}} 处问题需要处理",
     "alertViewDetails": "查看处理指引",

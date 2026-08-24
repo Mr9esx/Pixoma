@@ -1,13 +1,13 @@
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { SectionHead } from '@/features/edges/observation-panel'
 import type { EntityHealth, ReferenceItem } from './lib/references'
 
 const stateClass: Record<string, string> = {
-  ok: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  bad: 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300',
+  ok: 'border-emerald-600/20 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400',
+  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300',
+  bad: 'border-red-600/20 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-900/30 dark:text-red-400',
 }
 
 export type LinkHealthSectionProps = {
@@ -26,18 +26,22 @@ export function LinkHealthSection({
   const { t } = useTranslation()
   const blocked = health.breakpoints.length > 0
   return (
-    <Card id='link-health-section' data-testid='link-health-section'>
-      <CardContent className='space-y-4 p-4'>
-        <h3 className='text-sm font-semibold'>{title}</h3>
-        {blocked ? (
-          <ul
-            className='space-y-2 text-xs'
-            data-testid='link-health-breakpoints'
-          >
+    <section
+      id='link-health-section'
+      data-testid='link-health-section'
+      className='space-y-3'
+    >
+      <SectionHead title={title} hint={t('linkHealth.sectionHint')} />
+      {blocked ? (
+        <div
+          className='overflow-hidden rounded-md border'
+          data-testid='link-health-breakpoints'
+        >
+          <ul className='divide-y'>
             {health.breakpoints.map((b, i) => (
-              <li key={`${b.stage}-${i}`} className='space-y-1'>
+              <li key={`${b.stage}-${i}`} className='space-y-1 px-3 py-2.5'>
                 <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-amber-700 dark:text-amber-300'>
+                  <span className='text-xs text-amber-700 dark:text-amber-300'>
                     {t(b.key, b.params)}
                   </span>
                   <span
@@ -54,7 +58,7 @@ export function LinkHealthSection({
                   </span>
                   <Link
                     to={b.action.to}
-                    className='font-medium text-foreground underline underline-offset-2'
+                    className='ml-auto font-medium text-foreground underline underline-offset-2'
                   >
                     {t(b.action.key)} →
                   </Link>
@@ -68,13 +72,13 @@ export function LinkHealthSection({
               </li>
             ))}
           </ul>
-        ) : null}
-        <div className='grid gap-4 sm:grid-cols-2'>
-          <ReferenceList title={upstream.title} items={upstream.items} />
-          <ReferenceList title={downstream.title} items={downstream.items} />
         </div>
-      </CardContent>
-    </Card>
+      ) : null}
+      <div className='grid gap-3 sm:grid-cols-2'>
+        <ReferenceList title={upstream.title} items={upstream.items} />
+        <ReferenceList title={downstream.title} items={downstream.items} />
+      </div>
+    </section>
   )
 }
 
@@ -87,18 +91,23 @@ function ReferenceList({
 }) {
   const { t } = useTranslation()
   return (
-    <div className='space-y-2' data-testid='link-health-reference-list'>
+    <div
+      className='rounded-md border bg-muted/20 p-3'
+      data-testid='link-health-reference-list'
+    >
       <p className='text-xs font-medium text-muted-foreground'>{title}</p>
       {items.length === 0 ? (
-        <p className='text-xs text-muted-foreground'>{t('linkHealth.none')}</p>
+        <p className='mt-1.5 text-xs text-muted-foreground'>
+          {t('linkHealth.none')}
+        </p>
       ) : (
-        <ul className='flex flex-wrap gap-2'>
+        <ul className='mt-2 flex flex-wrap gap-1.5'>
           {items.map((item) => (
             <li key={`${item.id}:${item.name}`}>
               <Link
                 to={item.to}
                 className={cn(
-                  'rounded-sm border px-2 py-1 text-xs',
+                  'inline-flex items-center rounded-md border px-2 py-1 text-xs',
                   stateClass[item.state],
                 )}
               >
