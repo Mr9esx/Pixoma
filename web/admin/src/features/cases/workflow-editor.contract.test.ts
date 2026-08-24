@@ -47,7 +47,6 @@ const REQUIRED_KEYS = [
   'deleteWorkflow',
   'deleteWorkflowTitle',
   'deleteWorkflowBody',
-  'deleteWorkflowNeedDisable',
   'deleteSuccess',
   'deleteFailed',
   'fieldBind',
