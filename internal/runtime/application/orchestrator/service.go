@@ -116,6 +116,14 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 	}
 	topicKey, err := s.resolveTopic(ctx, t)
 	if err != nil {
+		if errors.Is(err, catalogdomain.ErrNotFound) {
+			now := s.Now()
+			if merr := t.MarkFailed(sharedkernel.TaskErrorCaseDeleted, sharedkernel.CaseDeletedMessage, now); merr == nil {
+				_ = s.Tasks.Update(ctx, t)
+				_ = s.publishNotify(ctx, t)
+			}
+			return nil
+		}
 		// Evaluation failure: keep pending with a recorded reason; the next
 		// SchedulePending cycle retries (transient provider errors self-heal).
 		t.ErrorMessage = "routing: " + err.Error()
