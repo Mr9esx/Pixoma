@@ -11,8 +11,12 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { deleteCase, disableCase, getCase } from '@/lib/api/cases'
+import { deleteCase, getCase } from '@/lib/api/cases'
+import { getCaseMenuPlacements } from '@/lib/api/channel-menu'
+import { caseDeleteErrorMessage } from '@/lib/api/localized-errors'
 import { queryKeys } from '@/lib/api/query-keys'
+import { listSessions } from '@/lib/api/sessions'
+import { listTasks } from '@/lib/api/tasks'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,6 +100,7 @@ export function CaseDetailPanel({ id }: Props) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [editDialog, setEditDialog] = useState<'info' | 'workflow' | null>(null)
+  const [ackRefs, setAckRefs] = useState(false)
 
   const detailQuery = useQuery({
     queryKey: queryKeys.cases.detail(id),
@@ -103,20 +108,53 @@ export function CaseDetailPanel({ id }: Props) {
   })
   const record = detailQuery.data
 
+  const placementsQuery = useQuery({
+    queryKey: queryKeys.cases.menuPlacements(id),
+    queryFn: () => getCaseMenuPlacements(id),
+  })
+  const pendingTasksQuery = useQuery({
+    queryKey: ['cases', id, 'pending-tasks'] as const,
+    queryFn: () => listTasks({ case_id: id, status: 'pending' }),
+  })
+  const activeSessionsQuery = useQuery({
+    queryKey: ['cases', id, 'active-sessions'] as const,
+    queryFn: async () => {
+      const [collecting, confirming] = await Promise.all([
+        listSessions({ case_id: id, status: 'collecting' }),
+        listSessions({ case_id: id, status: 'confirming' }),
+      ])
+      return collecting.length + confirming.length
+    },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!record) throw new Error('case missing')
-      if (record.enabled) await disableCase(record.id)
-      return deleteCase(record.id)
+      return deleteCase(record.id, ackRefs)
     },
-    onSuccess: async () => {
-      toast.success(t('cases.deleteSuccess'))
+    onSuccess: async (summary) => {
+      const refs = summary.removed_placements?.length ?? 0
+      if (
+        refs > 0 ||
+        (summary.failed_tasks ?? 0) > 0 ||
+        (summary.terminated_sessions ?? 0) > 0
+      ) {
+        toast.success(
+          t('cases.deleteSuccessSummary', {
+            refs,
+            tasks: summary.failed_tasks ?? 0,
+            sessions: summary.terminated_sessions ?? 0,
+          })
+        )
+      } else {
+        toast.success(t('cases.deleteSuccess'))
+      }
       await queryClient.invalidateQueries({ queryKey: queryKeys.cases.all })
       queryClient.removeQueries({ queryKey: queryKeys.cases.detail(id) })
       void navigate({ to: '/cases', state: { backToList: true } } as never)
     },
     onError: (err) => {
-      const detail = errorMessage(err)
+      const detail = caseDeleteErrorMessage(err, t) ?? errorMessage(err)
       toast.error(
         detail
           ? `${t('cases.deleteFailed')}：${detail}`
@@ -196,11 +234,48 @@ export function CaseDetailPanel({ id }: Props) {
                       {t('cases.deleteWorkflowBody', {
                         name: record.name || record.id,
                       })}
-                      {record.enabled ? (
-                        <p className='mt-2 text-destructive'>
-                          {t('cases.deleteWorkflowNeedDisable')}
+                      {placementsQuery.data &&
+                      placementsQuery.data.length > 0 ? (
+                        <div className='mt-3 space-y-2'>
+                          <p className='font-medium'>
+                            {t('cases.deleteWillRemoveRefs', {
+                              count: placementsQuery.data.length,
+                            })}
+                          </p>
+                          <ul className='max-h-32 overflow-auto rounded-md border bg-muted/20 p-3 text-xs'>
+                            {placementsQuery.data.map((p) => (
+                              <li key={`${p.channel_id}:${p.item_id}`}>
+                                {p.channel_name || p.channel_id} ·{' '}
+                                {p.path.map((s) => s.label).join(' / ')}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {(pendingTasksQuery.data?.length ?? 0) > 0 ||
+                      (activeSessionsQuery.data ?? 0) > 0 ? (
+                        <p className='mt-3 text-xs text-muted-foreground'>
+                          {(pendingTasksQuery.data?.length ?? 0) > 0
+                            ? t('cases.deleteWillFailTasks', {
+                                count: pendingTasksQuery.data?.length ?? 0,
+                              })
+                            : null}
+                          {(activeSessionsQuery.data ?? 0) > 0
+                            ? t('cases.deleteWillEndSessions', {
+                                count: activeSessionsQuery.data ?? 0,
+                              })
+                            : null}
                         </p>
                       ) : null}
+                      <label className='mt-4 flex items-start gap-2 text-sm'>
+                        <input
+                          type='checkbox'
+                          checked={ackRefs}
+                          onChange={(e) => setAckRefs(e.target.checked)}
+                          data-testid='case-delete-ack'
+                        />
+                        <span>{t('cases.deleteAckRefs')}</span>
+                      </label>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -213,7 +288,7 @@ export function CaseDetailPanel({ id }: Props) {
                     <AlertDialogAction
                       type='button'
                       className='bg-destructive text-white hover:bg-destructive/90'
-                      disabled={deleteMutation.isPending}
+                      disabled={deleteMutation.isPending || !ackRefs}
                       onClick={() => deleteMutation.mutate()}
                     >
                       {t('common.delete')}
