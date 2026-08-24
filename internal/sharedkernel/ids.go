@@ -61,3 +61,9 @@ const (
 	TaskFailed    TaskStatus = "failed"
 	TaskCancelled TaskStatus = "cancelled"
 )
+
+// Terminal-failure metadata used when a workflow is deleted.
+const (
+	TaskErrorCaseDeleted = "case_deleted"
+	CaseDeletedMessage   = "工作流已删除"
+)
