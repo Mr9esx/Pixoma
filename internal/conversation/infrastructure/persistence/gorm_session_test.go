@@ -120,6 +120,31 @@ func TestSessionListFilters(t *testing.T) {
 	}
 }
 
+func TestSessionListActiveByCase(t *testing.T) {
+	gdb := openShared(t, "file:sess_active_"+t.Name()+"?mode=memory&cache=shared")
+	repo := persistence.NewSessionRepository(gdb)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := repo.Save(ctx, domain.NewCollecting("s1", "tg:1", 10, []string{"a"}, now)); err != nil {
+		t.Fatal(err)
+	}
+	s2 := domain.NewCollecting("s2", "tg:2", 10, []string{"a"}, now)
+	s2.Status = domain.StatusSubmitted
+	if err := repo.Save(ctx, s2); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Save(ctx, domain.NewCollecting("s3", "tg:3", 20, []string{"a"}, now)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.ListActiveByCase(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != "s1" {
+		t.Fatalf("ListActiveByCase(10)=%+v", got)
+	}
+}
+
 func TestAutoMigrate_UpgradesLegacySessionsTable(t *testing.T) {
 	gdb, err := db.Open(db.Options{DSN: "file:sess_migrate_test?mode=memory&cache=shared"})
 	if err != nil {

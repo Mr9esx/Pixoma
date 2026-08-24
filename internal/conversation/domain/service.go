@@ -30,6 +30,8 @@ type Repository interface {
 	GetActiveByChat(ctx context.Context, chatID sharedkernel.ChatID) (*Session, error)
 	GetByID(ctx context.Context, id sharedkernel.SessionID) (*Session, error)
 	List(ctx context.Context, q ListQuery) ([]*Session, error)
+	// ListActiveByCase returns collecting/confirming sessions for a case.
+	ListActiveByCase(ctx context.Context, caseID sharedkernel.CaseID) ([]*Session, error)
 	Save(ctx context.Context, s *Session) error
 	ClearActive(ctx context.Context, chatID sharedkernel.ChatID) error
 }
@@ -109,6 +111,19 @@ func (r *MemoryRepository) List(_ context.Context, q ListQuery) ([]*Session, err
 	}
 	if q.Limit > 0 && len(out) > q.Limit {
 		out = out[:q.Limit]
+	}
+	return out, nil
+}
+
+func (r *MemoryRepository) ListActiveByCase(_ context.Context, caseID sharedkernel.CaseID) ([]*Session, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []*Session
+	for _, s := range r.byID {
+		if s.CaseID != caseID || !s.Status.IsActive() {
+			continue
+		}
+		out = append(out, cloneSession(s))
 	}
 	return out, nil
 }
