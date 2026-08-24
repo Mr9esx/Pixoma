@@ -1,13 +1,16 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { CalendarClock, Hash, PenLine, Timer } from 'lucide-react'
 import { deleteTopic, getTopic, updateTopic } from '@/lib/api/topics'
 import { listCases } from '@/lib/api/cases'
-import { listEdges, patchEdge } from '@/lib/api/edges'
+import { listEdges, listPresence, patchEdge } from '@/lib/api/edges'
 import type { ComfyEdge } from '@/lib/api/types'
 import { queryKeys } from '@/lib/api/query-keys'
+import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
+import { LinkHealthSection } from '@/features/link-health/link-health-section'
+import { topicReferences } from '@/features/link-health/lib/references'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -136,6 +139,19 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   })
   const relatedCases = (casesQuery.data ?? []).filter((c) =>
     (c.routing?.rules ?? []).some((r) => r.topic === topicKey)
+  )
+  const presenceQuery = useQuery({
+    queryKey: queryKeys.edges.presence,
+    queryFn: listPresence,
+  })
+  const linkInput = {
+    cases: casesQuery.data ?? [],
+    edges,
+    presence: presenceQuery.data ?? [],
+  }
+  const topicRefs = useMemo(
+    () => topicReferences(topicKey, linkInput),
+    [topicKey, linkInput],
   )
   const boundEnabled = edges.filter(
     (e) => e.enabled && (e.subscribe_topics ?? []).includes(topicKey)
@@ -299,6 +315,12 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
         </div>
       </div>
 
+      <LinkHealthAlert
+        name={name || topicKey}
+        health={topicRefs.health}
+        anchorTo='#link-health-section'
+      />
+
       {updateMutation.isError ? (
         <ErrorBanner message={errorMessage(updateMutation.error)} />
       ) : null}
@@ -394,6 +416,13 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           details={chainDetails}
         />
       </section>
+
+      <LinkHealthSection
+        title={t('linkHealth.title')}
+        health={topicRefs.health}
+        upstream={{ title: t('linkHealth.referencingCases'), items: topicRefs.cases }}
+        downstream={{ title: t('linkHealth.edges'), items: topicRefs.edges }}
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='sm:max-w-md'>
