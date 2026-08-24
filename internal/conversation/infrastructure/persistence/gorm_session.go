@@ -121,6 +121,28 @@ func (r *SessionRepository) List(ctx context.Context, q domain.ListQuery) ([]*do
 	return out, nil
 }
 
+func (r *SessionRepository) ListActiveByCase(ctx context.Context, caseID sharedkernel.CaseID) ([]*domain.Session, error) {
+	var rows []SessionRow
+	if err := r.db.WithContext(ctx).
+		Where("case_id = ? AND status IN ?", uint64(caseID), []string{
+			string(domain.StatusCollecting),
+			string(domain.StatusConfirming),
+		}).
+		Order("updated_at desc").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Session, 0, len(rows))
+	for _, row := range rows {
+		s, err := fromRow(row)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
 func (r *SessionRepository) Save(ctx context.Context, s *domain.Session) error {
 	if s == nil {
 		return fmt.Errorf("conversation: nil session")
