@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/app"
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/webembed"
+	"github.com/mr9esx/comfyui_tgbot/internal/caseadmin"
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
@@ -315,6 +316,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 
 	validator := validation.New()
 	menuRepo := mencardpersist.NewGormCardRepository(gdb)
+	caseDeleteSvc := caseadmin.NewService(gdb, botRT.Notify)
 	adminH := adminhost.NewHandler(adminhost.Options{
 		CORSOrigins: corsOrigins(),
 		Instances:   &edges.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Metrics: metricsRepo, EncKey: encKey, Presence: pres, Topics: topicRepo},
@@ -323,24 +325,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 				return err
 			}
 			return validation.ValidateRouting(context.Background(), doc.Routing, topicRepo, conditionReg)
-		}, CountMenuRefs: func(ctx context.Context, workflowID string) (int, error) {
-			placements, err := menuRepo.WorkflowPlacements(ctx, workflowID)
-			return len(placements), err
-		}, CountActiveSessions: func(ctx context.Context, id sharedkernel.CaseID) (int, error) {
-			var n int64
-			err := gdb.WithContext(ctx).Model(&sesspersist.SessionRow{}).
-				Where("case_id = ? AND status IN ?", uint64(id),
-					[]string{string(convdomain.StatusCollecting), string(convdomain.StatusConfirming)}).
-				Count(&n).Error
-			return int(n), err
-		}, CountActiveTasks: func(ctx context.Context, id sharedkernel.CaseID) (int, error) {
-			var n int64
-			err := gdb.WithContext(ctx).Model(&taskpersist.TaskRow{}).
-				Where("case_id = ? AND status IN ?", uint64(id),
-					[]string{string(sharedkernel.TaskPending), string(sharedkernel.TaskQueued), string(sharedkernel.TaskRunning)}).
-				Count(&n).Error
-			return int(n), err
-		}},
+		}, DeleteWithCleanup: caseDeleteSvc.DeleteCase},
 		Users:     &usersapi.Handler{Repo: userRepo},
 		Sessions:  &sessionsapi.Handler{Repo: sessionRepo},
 		Tasks:     &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},

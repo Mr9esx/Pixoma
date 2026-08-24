@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/mr9esx/comfyui_tgbot/internal/caseadmin"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -18,12 +19,8 @@ import (
 type Handler struct {
 	Repo     domain.Repository
 	Validate func(domain.CaseDocument) error
-	// CountMenuRefs counts menu/card placements referencing a workflow (case id as string).
-	CountMenuRefs func(ctx context.Context, workflowID string) (int, error)
-	// CountActiveSessions counts collecting/confirming sessions for a case.
-	CountActiveSessions func(ctx context.Context, id sharedkernel.CaseID) (int, error)
-	// CountActiveTasks counts pending/queued/running tasks for a case.
-	CountActiveTasks func(ctx context.Context, id sharedkernel.CaseID) (int, error)
+	// DeleteWithCleanup performs the cleanup delete (see internal/caseadmin).
+	DeleteWithCleanup func(ctx context.Context, id sharedkernel.CaseID, ack bool) (caseadmin.DeleteSummary, error)
 }
 
 // Mount registers chi routes on r (caller mounts under /api/v1/cases).
@@ -128,16 +125,30 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toDTO(c))
 }
 
-// delete removes a disabled case that is free of menu/card references and
-// active tasks. Deleting keeps historical task rows intact (their job_ref
-// snapshots remain queryable), so the policy is: disable first, then delete.
+// delete removes a case with cleanup: pending tasks are failed with a recorded
+// reason, active sessions are terminated, menu/card references are unlinked,
+// and the case row is deleted. running/queued tasks keep their job_ref
+// snapshots and finish normally; historical task rows remain queryable.
 func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseCaseID(chi.URLParam(r, "id"))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid case id")
 		return
 	}
-	c, err := h.Repo.Get(r.Context(), id)
+	var body struct {
+		AckReferences bool `json:"ack_references"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if h.DeleteWithCleanup == nil {
+		writeErr(w, http.StatusInternalServerError, "delete cleanup not configured")
+		return
+	}
+	summary, err := h.DeleteWithCleanup(r.Context(), id, body.AckReferences)
+	if errors.Is(err, caseadmin.ErrNeedsAck) {
+		writeErrCode(w, http.StatusConflict, "case_delete_needs_ack",
+			"case is referenced by menu or card entries; confirm with ack_references to remove references")
+		return
+	}
 	if errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "case not found")
 		return
@@ -146,52 +157,12 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if c.Enabled {
-		writeErr(w, http.StatusConflict, "case must be disabled before deletion")
-		return
-	}
-	if h.CountMenuRefs != nil {
-		n, err := h.CountMenuRefs(r.Context(), strconv.FormatUint(uint64(id), 10))
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if n > 0 {
-			writeErr(w, http.StatusConflict, "case is referenced by menu or card entries")
-			return
-		}
-	}
-	if h.CountActiveSessions != nil {
-		n, err := h.CountActiveSessions(r.Context(), id)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if n > 0 {
-			writeErr(w, http.StatusConflict, "case has active sessions")
-			return
-		}
-	}
-	if h.CountActiveTasks != nil {
-		n, err := h.CountActiveTasks(r.Context(), id)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if n > 0 {
-			writeErr(w, http.StatusConflict, "case has active tasks")
-			return
-		}
-	}
-	if err := h.Repo.Delete(r.Context(), id); err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			writeErr(w, http.StatusNotFound, "case not found")
-			return
-		}
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"deleted":             true,
+		"removed_placements":  summary.RemovedPlacements,
+		"failed_tasks":        summary.FailedTasks,
+		"terminated_sessions": summary.TerminatedSessions,
+	})
 }
 
 func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
@@ -348,4 +319,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+func writeErrCode(w http.ResponseWriter, status int, code, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg, "code": code})
 }
