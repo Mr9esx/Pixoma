@@ -1,0 +1,15 @@
+{
+  "change": "config-context-association",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "c87881928447b68d560f95e32345b87a62771195cf04c10e2f5c0e31e8f3614f",
+  "files": [
+    { "path": "docs/openspec/changes/config-context-association/proposal.md", "sha256": "603c22e7bb67696b90cb5d8307e57c289116722526362a2e322b60ba5467ddde" },
+    { "path": "docs/openspec/changes/config-context-association/design.md", "sha256": "51cee194b6aa3e3850c5ffc6aa90028b1796e7c803f68d65131581df02bb6529" },
+    { "path": "docs/openspec/changes/config-context-association/tasks.md", "sha256": "aa5848f31d405cbecae062d0932ee30f4543d95578498ae7dbdae39d840f1535" },
+    { "path": "docs/openspec/changes/config-context-association/specs/admin-resource-pages/spec.md", "sha256": "50bdda51a284cd68b6fceb35742b3843cbec4286370a6da343d2f180bc2f0d3a" },
+    { "path": "docs/openspec/changes/config-context-association/specs/config-context-association/spec.md", "sha256": "a256f63c0eb404602c2ea9e50b6ec68cf9862c645e761a4b2c43e01d01ffbcb5" }
+  ]
+}

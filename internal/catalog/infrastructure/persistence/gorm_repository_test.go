@@ -124,3 +124,22 @@ func TestEnableAndListFilters(t *testing.T) {
 		t.Fatalf("enabled+category: err=%v n=%d", err, len(list))
 	}
 }
+
+func TestRepository_Delete(t *testing.T) {
+	repo := openTestDB(t)
+	ctx := context.Background()
+
+	if err := repo.Create(ctx, sampleCase(7)); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if err := repo.Delete(ctx, 7); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if _, err := repo.Get(ctx, 7); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("want ErrNotFound after delete, got %v", err)
+	}
+	if err := repo.Delete(ctx, 7); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("want ErrNotFound for missing delete, got %v", err)
+	}
+}

@@ -39,4 +39,6 @@ type Repository interface {
 	List(ctx context.Context, q ListQuery) ([]*Case, error)
 	Disable(ctx context.Context, id sharedkernel.CaseID) error
 	Enable(ctx context.Context, id sharedkernel.CaseID) error
+	// Delete removes a case row; ErrNotFound when the id does not exist.
+	Delete(ctx context.Context, id sharedkernel.CaseID) error
 }

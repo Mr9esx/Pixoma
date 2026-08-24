@@ -314,6 +314,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	orch.Stats = statsRepo
 
 	validator := validation.New()
+	menuRepo := mencardpersist.NewGormCardRepository(gdb)
 	adminH := adminhost.NewHandler(adminhost.Options{
 		CORSOrigins: corsOrigins(),
 		Instances:   &edges.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Metrics: metricsRepo, EncKey: encKey, Presence: pres, Topics: topicRepo},
@@ -322,13 +323,30 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 				return err
 			}
 			return validation.ValidateRouting(context.Background(), doc.Routing, topicRepo, conditionReg)
+		}, CountMenuRefs: func(ctx context.Context, workflowID string) (int, error) {
+			placements, err := menuRepo.WorkflowPlacements(ctx, workflowID)
+			return len(placements), err
+		}, CountActiveSessions: func(ctx context.Context, id sharedkernel.CaseID) (int, error) {
+			var n int64
+			err := gdb.WithContext(ctx).Model(&sesspersist.SessionRow{}).
+				Where("case_id = ? AND status IN ?", uint64(id),
+					[]string{string(convdomain.StatusCollecting), string(convdomain.StatusConfirming)}).
+				Count(&n).Error
+			return int(n), err
+		}, CountActiveTasks: func(ctx context.Context, id sharedkernel.CaseID) (int, error) {
+			var n int64
+			err := gdb.WithContext(ctx).Model(&taskpersist.TaskRow{}).
+				Where("case_id = ? AND status IN ?", uint64(id),
+					[]string{string(sharedkernel.TaskPending), string(sharedkernel.TaskQueued), string(sharedkernel.TaskRunning)}).
+				Count(&n).Error
+			return int(n), err
 		}},
 		Users:     &usersapi.Handler{Repo: userRepo},
 		Sessions:  &sessionsapi.Handler{Repo: sessionRepo},
 		Tasks:     &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
 		Stats:     &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
 		Channels:  &channelsapi.Handler{Svc: chSvc},
-		MenuCards: menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb)),
+		MenuCards: menucardsapi.NewHandler(menuRepo),
 		Topics: &topicsapi.Handler{
 			Repo:  topicRepo,
 			Tasks: taskRepo,

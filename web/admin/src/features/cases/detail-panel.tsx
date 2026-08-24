@@ -1,15 +1,29 @@
 import { useState, type ReactNode } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   Coins,
   FolderOpen,
   PenLine,
   Settings2,
   Tags,
+  Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { getCase } from '@/lib/api/cases'
+import { toast } from 'sonner'
+import { deleteCase, disableCase, getCase } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -20,9 +34,9 @@ import {
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { LongText } from '@/components/long-text'
+import { CaseContextSection } from '@/features/config-context/case-context-section'
 import { kit } from '@/features/edges/kit-classes'
 import { CaseForm } from './case-form'
-import { CaseContextSection } from '@/features/config-context/case-context-section'
 import { MenuPlacementsSection } from './sections/menu-placements'
 import { WorkflowConfigView } from './sections/workflow-config-view'
 
@@ -80,11 +94,35 @@ type Props = {
 export function CaseDetailPanel({ id }: Props) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [editDialog, setEditDialog] = useState<'info' | 'workflow' | null>(null)
 
   const detailQuery = useQuery({
     queryKey: queryKeys.cases.detail(id),
     queryFn: () => getCase(id),
+  })
+  const record = detailQuery.data
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!record) throw new Error('case missing')
+      if (record.enabled) await disableCase(record.id)
+      return deleteCase(record.id)
+    },
+    onSuccess: async () => {
+      toast.success(t('cases.deleteSuccess'))
+      await queryClient.invalidateQueries({ queryKey: queryKeys.cases.all })
+      queryClient.removeQueries({ queryKey: queryKeys.cases.detail(id) })
+      void navigate({ to: '/cases', state: { backToList: true } } as never)
+    },
+    onError: (err) => {
+      const detail = errorMessage(err)
+      toast.error(
+        detail
+          ? `${t('cases.deleteFailed')}：${detail}`
+          : t('cases.deleteFailed')
+      )
+    },
   })
 
   if (detailQuery.isLoading) {
@@ -106,7 +144,6 @@ export function CaseDetailPanel({ id }: Props) {
     )
   }
 
-  const record = detailQuery.data
   if (!record) return null
 
   return (
@@ -138,6 +175,52 @@ export function CaseDetailPanel({ id }: Props) {
                 <Settings2 className='size-3.5' />
                 {t('cases.editWorkflow')}
               </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    className='h-8 gap-1.5 px-3 text-xs text-destructive hover:text-destructive'
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className='size-3.5' />
+                    {t('cases.deleteWorkflow')}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t('cases.deleteWorkflowTitle')}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t('cases.deleteWorkflowBody', {
+                        name: record.name || record.id,
+                      })}
+                      {record.enabled ? (
+                        <p className='mt-2 text-destructive'>
+                          {t('cases.deleteWorkflowNeedDisable')}
+                        </p>
+                      ) : null}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel
+                      type='button'
+                      disabled={deleteMutation.isPending}
+                    >
+                      {t('common.cancel')}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      type='button'
+                      className='bg-destructive text-white hover:bg-destructive/90'
+                      disabled={deleteMutation.isPending}
+                      onClick={() => deleteMutation.mutate()}
+                    >
+                      {t('common.delete')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
           {record.description ? (

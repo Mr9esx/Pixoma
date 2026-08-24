@@ -93,6 +93,15 @@ func (r *memCases) List(context.Context, catalogdomain.ListQuery) ([]*catalogdom
 
 func (r *memCases) Disable(context.Context, sharedkernel.CaseID) error { return nil }
 func (r *memCases) Enable(context.Context, sharedkernel.CaseID) error  { return nil }
+func (r *memCases) Delete(_ context.Context, id sharedkernel.CaseID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.m[id]; !ok {
+		return catalogdomain.ErrNotFound
+	}
+	delete(r.m, id)
+	return nil
+}
 
 func textWorkflowCase() catalogdomain.CaseDocument {
 	return catalogdomain.CaseDocument{

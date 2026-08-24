@@ -157,6 +157,17 @@ func (r *GormRepository) Enable(ctx context.Context, id sharedkernel.CaseID) err
 	return nil
 }
 
+func (r *GormRepository) Delete(ctx context.Context, id sharedkernel.CaseID) error {
+	res := r.db.WithContext(ctx).Where("id = ?", id).Delete(&CaseRow{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 func toRow(c *domain.Case) (*CaseRow, error) {
 	docBytes, err := json.Marshal(c.Document)
 	if err != nil {
