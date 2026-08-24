@@ -36,8 +36,22 @@ export function disableCase(id: number) {
   return apiFetch<CaseRecord>(`/api/v1/cases/${id}/disable`, { method: 'POST' })
 }
 
-export function deleteCase(id: number) {
-  return apiFetch<{ deleted: boolean }>(`/api/v1/cases/${id}`, {
+export type DeleteCaseResult = {
+  deleted: boolean
+  removed_placements?: {
+    channel_id: string
+    channel_name?: string
+    item_id: string
+    label: string
+    kind: string
+  }[]
+  failed_tasks?: number
+  terminated_sessions?: number
+}
+
+export function deleteCase(id: number, ack?: boolean) {
+  return apiFetch<DeleteCaseResult>(`/api/v1/cases/${id}`, {
     method: 'DELETE',
+    ...(ack ? { body: JSON.stringify({ ack_references: true }) } : {}),
   })
 }

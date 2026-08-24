@@ -24,6 +24,24 @@ describe('tasks API', () => {
     )
   })
 
+  it('listTasks filters by case_id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ id: 't1', status: 'pending' }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const data = await listTasks({ case_id: 10, status: 'pending' })
+
+    expect(data[0].id).toBe('t1')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8081/api/v1/tasks?case_id=10&status=pending',
+      expect.anything(),
+    )
+  })
+
   it('cancelTask POSTs /api/v1/tasks/{id}/cancel', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 't1', status: 'cancelled' }), {
