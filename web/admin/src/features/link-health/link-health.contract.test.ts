@@ -54,6 +54,8 @@ describe('link health visibility', () => {
     expect(panel).toContain('LinkHealthAlert')
     expect(panel).toContain('edgeReferences')
     expect(panel).toContain('listCases')
+    expect(panel).toContain('linkHealth.reachableWorkflows')
+    expect(panel).toContain('linkHealth.subscribedTopics')
   })
 
   it('Edge 详情 hook 顺序合规（edgeRefs useMemo 必须在 loading 早退之前）', () => {
@@ -71,6 +73,8 @@ describe('link health visibility', () => {
     expect(panel).toContain('LinkHealthAlert')
     expect(panel).toContain('topicReferences')
     expect(panel).toContain('listPresence')
+    expect(panel).toContain('linkHealth.usedWorkflows')
+    expect(panel).toContain('linkHealth.boundNodes')
   })
 
   it('Case 详情接入可达性提示与行动', () => {
@@ -79,5 +83,7 @@ describe('link health visibility', () => {
     expect(section).toContain('LinkHealthAlert')
     expect(section).toContain('caseReferences')
     expect(section).toContain('linkHealth.title')
+    expect(section).toContain('linkHealth.relatedEntries')
+    expect(section).toContain('linkHealth.routeTopics')
   })
 })
