@@ -41,12 +41,12 @@ export function LinkHealthSection({
             {health.breakpoints.map((b, i) => (
               <li key={`${b.stage}-${i}`} className='space-y-1 px-3 py-2.5'>
                 <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-xs text-amber-700 dark:text-amber-300'>
+                  <span className='text-sm text-amber-700 dark:text-amber-300'>
                     {t(b.key, b.params)}
                   </span>
                   <span
                     className={cn(
-                      'rounded-sm px-1.5 py-0.5 text-[10px]',
+                      'rounded-sm px-1.5 py-0.5 text-[11px]',
                       b.fix === 'config'
                         ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
                         : 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
@@ -58,13 +58,13 @@ export function LinkHealthSection({
                   </span>
                   <Link
                     to={b.action.to}
-                    className='ml-auto font-medium text-foreground underline underline-offset-2'
+                    className='ml-auto text-sm font-medium text-foreground underline underline-offset-2'
                   >
                     {t(b.action.key)} →
                   </Link>
                 </div>
                 <p
-                  className='text-xs text-muted-foreground'
+                  className='text-sm text-muted-foreground'
                   data-testid='link-health-guide'
                 >
                   {t('linkHealth.howToHandle')}：{t(b.guide)}
