@@ -45,6 +45,24 @@ export interface HealthInput {
   placements?: MenuPlacement[]
 }
 
+export interface TopicReferencesResult {
+  cases: ReferenceItem[]
+  edges: ReferenceItem[]
+  health: EntityHealth
+}
+
+export interface EdgeReferencesResult {
+  topics: ReferenceItem[]
+  cases: ReferenceItem[]
+  health: EntityHealth
+}
+
+export interface CaseReferencesResult {
+  menuEntries: ReferenceItem[]
+  topics: ReferenceItem[]
+  health: EntityHealth
+}
+
 export function caseRoutingTopics(routing: RoutingConfig | undefined): string[] {
   const keys = (routing?.rules ?? [])
     .map((r) => r.topic)
@@ -69,7 +87,7 @@ export function edgeIsReady(edge: EdgeLike, presence: EdgePresence[]): boolean {
 const ok = (id: string, name: string, to: string): ReferenceItem => ({ id, name, state: 'ok', to })
 const warn = (id: string, name: string, to: string): ReferenceItem => ({ id, name, state: 'warn', to })
 
-export function topicReferences(key: string, input: HealthInput) {
+export function topicReferences(key: string, input: HealthInput): TopicReferencesResult {
   const cases = input.cases.filter((c) => caseRoutingTopics(c.routing).includes(key))
   const edges = input.edges.filter((e) => edgeTopics(e).includes(key))
   const ready = edges.filter((e) => edgeIsReady(e, input.presence))
@@ -109,7 +127,7 @@ export function topicReferences(key: string, input: HealthInput) {
   }
 }
 
-export function edgeReferences(id: string, input: HealthInput) {
+export function edgeReferences(id: string, input: HealthInput): EdgeReferencesResult {
   const edge = input.edges.find((e) => e.id === id)
   if (!edge) {
     return {
@@ -118,8 +136,8 @@ export function edgeReferences(id: string, input: HealthInput) {
       health: {
         state: 'bad' as HealthState,
         breakpoints: [{
-          stage: 'node',
-          fix: 'config',
+          stage: 'node' as const,
+          fix: 'config' as const,
           key: 'linkHealth.edgeMissing',
           action: { to: '/edges', key: 'linkHealth.actionManageNodes' },
           guide: 'linkHealth.guideEdgeMissing',
@@ -166,7 +184,7 @@ export function edgeReferences(id: string, input: HealthInput) {
   }
 }
 
-export function caseReferences(caseId: number, input: HealthInput) {
+export function caseReferences(caseId: number, input: HealthInput): CaseReferencesResult {
   const record = input.cases.find((c) => c.id === caseId)
   if (!record) {
     return {
@@ -175,8 +193,8 @@ export function caseReferences(caseId: number, input: HealthInput) {
       health: {
         state: 'bad' as HealthState,
         breakpoints: [{
-          stage: 'workflow',
-          fix: 'config',
+          stage: 'workflow' as const,
+          fix: 'config' as const,
           key: 'linkHealth.caseMissing',
           action: { to: '/cases', key: 'linkHealth.actionConfigureRouting' },
           guide: 'linkHealth.guideCaseMissing',
