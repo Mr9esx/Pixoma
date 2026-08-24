@@ -7,6 +7,7 @@ import {
   caseRoutingTopics,
   edgeReferences,
   edgeIsReady,
+  edgeTopics,
   topicReferences,
 } from './references'
 
@@ -61,6 +62,31 @@ describe('edgeIsReady', () => {
   })
   it('停用节点不算就绪', () => {
     expect(edgeIsReady({ ...edgeT1, enabled: false }, presence)).toBe(false)
+  })
+})
+
+describe('edgeTopics', () => {
+  it('未显式订阅的节点按默认订阅 Default 计', () => {
+    expect(
+      edgeTopics({
+        id: 'n1',
+        name: 'n',
+        enabled: true,
+        subscribe_topics: [],
+        effective_topics: ['default'],
+      }),
+    ).toEqual(['default'])
+  })
+  it('effective_topics 非空时优先于显式订阅', () => {
+    expect(
+      edgeTopics({
+        id: 'n1',
+        name: 'n',
+        enabled: true,
+        subscribe_topics: ['a'],
+        effective_topics: ['a', 'default'],
+      }),
+    ).toEqual(['a', 'default'])
   })
 })
 

@@ -10,7 +10,7 @@ import type { ComfyEdge } from '@/lib/api/types'
 import { queryKeys } from '@/lib/api/query-keys'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
-import { topicReferences } from '@/features/link-health/lib/references'
+import { edgeTopics, topicReferences } from '@/features/link-health/lib/references'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -154,7 +154,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
     [topicKey, linkInput],
   )
   const boundEnabled = edges.filter(
-    (e) => e.enabled && (e.subscribe_topics ?? []).includes(topicKey)
+    (e) => e.enabled && edgeTopics(e).includes(topicKey)
   )
   const topicReady = boundEnabled.length > 0
   const chainHops: ChainHop[] = [
@@ -210,8 +210,8 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
     },
   }
   const boundFirst = [...edges].sort((a, b) => {
-    const aBound = (a.subscribe_topics ?? []).includes(topicKey)
-    const bBound = (b.subscribe_topics ?? []).includes(topicKey)
+    const aBound = edgeTopics(a).includes(topicKey)
+    const bBound = edgeTopics(b).includes(topicKey)
     return Number(bBound) - Number(aBound)
   })
 
@@ -361,7 +361,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           {!edgesQuery.isLoading && !edgesQuery.isError && edges.length > 0 ? (
             <ul className='divide-y'>
               {boundFirst.map((edge) => {
-                const bound = (edge.subscribe_topics ?? []).includes(topicKey)
+                const bound = edgeTopics(edge).includes(topicKey)
                 const pending =
                   toggleMutation.isPending &&
                   toggleMutation.variables?.edge.id === edge.id
