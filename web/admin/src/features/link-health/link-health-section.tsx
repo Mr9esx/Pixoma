@@ -105,27 +105,44 @@ function ReferenceList({
   const { t } = useTranslation()
   return (
     <div
-      className='rounded-md border bg-muted/20 p-3'
+      className='overflow-hidden rounded-md border bg-muted/20'
       data-testid='link-health-reference-list'
     >
-      <p className='text-xs font-medium text-muted-foreground'>{title}</p>
+      <div className='flex items-center justify-between border-b px-3 py-2'>
+        <p className='text-xs font-medium text-muted-foreground'>{title}</p>
+        <span className='text-xs text-muted-foreground'>{items.length}</span>
+      </div>
       {items.length === 0 ? (
-        <p className='mt-1.5 text-xs text-muted-foreground'>
+        <p className='px-3 py-2 text-sm text-muted-foreground'>
           {t('linkHealth.none')}
         </p>
       ) : (
-        <ul className='mt-2 flex flex-wrap gap-1.5'>
+        <ul className='max-h-64 divide-y overflow-y-auto'>
           {items.map((item) => (
-            <li key={`${item.id}:${item.name}`}>
+            <li
+              key={`${item.id}:${item.name}`}
+              className='flex items-center gap-2 px-3 py-2'
+            >
               <Link
                 to={item.to}
                 className={cn(
-                  'inline-flex items-center rounded-md border px-2 py-1 text-xs',
-                  stateClass[item.state],
+                  'min-w-0 truncate text-sm font-medium text-foreground hover:underline',
                 )}
               >
                 {item.name}
               </Link>
+              <span
+                className={cn(
+                  'ml-auto shrink-0 rounded-md border px-1.5 py-0.5 text-[11px]',
+                  stateClass[item.state],
+                )}
+              >
+                {item.state === 'ok'
+                  ? t('linkHealth.stateReady')
+                  : item.state === 'warn'
+                    ? t('linkHealth.stateWarn')
+                    : t('linkHealth.stateBad')}
+              </span>
             </li>
           ))}
         </ul>
