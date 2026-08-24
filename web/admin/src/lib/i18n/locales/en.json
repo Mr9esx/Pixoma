@@ -665,7 +665,7 @@
     "healthTopicWarn": "{{topic}} blocked: no online subscriber"
   },
   "linkHealth": {
-    "title": "Link health",
+    "title": "Link info",
     "sectionHint": "Checks whether entries, topics, and nodes are ready, with next-step guidance",
     "stateOk": "All ready",
     "stateOkDetail": "Entries, topics, and nodes are ready",
