@@ -90,3 +90,20 @@ func TestHandleUserNotifySendsTextOutput(t *testing.T) {
 		t.Fatalf("texts=%q", out.texts)
 	}
 }
+
+func TestHandleUserNotifySessionTerminated(t *testing.T) {
+	out := &recordingOutbound{}
+	a := tg.New(out)
+	a.ChannelID = "tg"
+	err := a.HandleUserNotify(context.Background(), sharedkernel.UserNotify{
+		ChatID:   sharedkernel.ChatID("tg:123"),
+		Kind:     "session_terminated",
+		ErrorMsg: "该工作流已被管理员删除，当前会话已结束。",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.texts) != 1 || out.texts[0] != "该工作流已被管理员删除，当前会话已结束。" {
+		t.Fatalf("texts=%+v", out.texts)
+	}
+}

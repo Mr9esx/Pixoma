@@ -227,6 +227,13 @@ func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotif
 		}
 		return a.Out.SendMenu(ctx, addr, "还要继续？点菜单再选一个工作流。", nil)
 	}
+	if n.Kind == "session_terminated" {
+		msg := n.ErrorMsg
+		if msg == "" {
+			msg = "该工作流已被管理员删除，当前会话已结束。"
+		}
+		return a.Out.SendText(ctx, addr, msg)
+	}
 	msg := fmt.Sprintf("任务 %s: %s", n.TaskID, n.Kind)
 	if n.ErrorMsg != "" {
 		msg += " — " + n.ErrorMsg
