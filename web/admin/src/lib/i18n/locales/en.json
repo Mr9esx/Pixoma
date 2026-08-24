@@ -655,6 +655,7 @@
   },
   "linkHealth": {
     "title": "Link health",
+    "sectionHint": "Checks whether entries, topics, and nodes are ready, with next-step guidance",
     "alertTitle": "{{name}} is currently unavailable",
     "alertSummary": "{{n}} issue(s) need attention",
     "alertViewDetails": "View fix guide",
