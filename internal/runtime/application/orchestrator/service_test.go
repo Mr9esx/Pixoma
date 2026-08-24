@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/static"
@@ -14,6 +15,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -275,6 +277,40 @@ func TestReconcile_StaleQueuedWithoutPromptRePend(t *testing.T) {
 	}
 	if got.EdgeID != "" {
 		t.Fatalf("instance_id=%q want empty", got.EdgeID)
+	}
+}
+
+type missingCaseReader struct{}
+
+func (missingCaseReader) GetCase(context.Context, sharedkernel.CaseID) (*catalogdomain.CaseDocument, error) {
+	return nil, catalogdomain.ErrNotFound
+}
+
+func TestDispatchPendingFailsTerminalWhenCaseDeleted(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(60, 0).UTC()
+	task := runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now)
+	task.ChatID = "tg:9"
+	_ = tasks.Create(ctx, task)
+	n := &memNotify{}
+	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"}), &captureBus{}, n)
+	svc.Now = func() time.Time { return now }
+	svc.Cases = missingCaseReader{}
+	svc.Condition = condition.NewRegistry()
+
+	if err := svc.SchedulePending(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	got, err := tasks.Get(ctx, "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != sharedkernel.TaskFailed || got.ErrorCode != sharedkernel.TaskErrorCaseDeleted {
+		t.Fatalf("task=%+v", got)
+	}
+	if len(n.items) != 1 || n.items[0].Kind != "task_failed" {
+		t.Fatalf("notifies=%+v", n.items)
 	}
 }
 
