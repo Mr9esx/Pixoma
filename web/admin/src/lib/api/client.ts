@@ -1,9 +1,11 @@
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  code?: string
+  constructor(status: number, message: string, code?: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
   }
 }
 
@@ -72,7 +74,14 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       typeof (body as { error: unknown }).error === 'string'
         ? (body as { error: string }).error
         : `Request failed (${res.status})`
-    throw new ApiError(res.status, msg)
+    const code =
+      typeof body === 'object' &&
+      body !== null &&
+      'code' in body &&
+      typeof (body as { code: unknown }).code === 'string'
+        ? (body as { code: string }).code
+        : undefined
+    throw new ApiError(res.status, msg, code)
   }
 
   return body as T

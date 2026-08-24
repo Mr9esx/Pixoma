@@ -23,6 +23,30 @@ describe('apiFetch', () => {
     } satisfies Partial<ApiError>)
   })
 
+  it('throws ApiError with backend error code', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: 'case is referenced',
+            code: 'case_delete_needs_ack',
+          }),
+          {
+            status: 409,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+    )
+    await expect(
+      apiFetch('/api/v1/cases/1', { method: 'DELETE' })
+    ).rejects.toMatchObject({
+      status: 409,
+      code: 'case_delete_needs_ack',
+    } satisfies Partial<ApiError>)
+  })
+
   it('returns parsed JSON on 2xx', async () => {
     vi.stubGlobal(
       'fetch',
