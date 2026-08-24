@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { CircleCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHead } from '@/features/edges/observation-panel'
+import { Button } from '@/components/ui/button'
 import type { EntityHealth, ReferenceItem } from './lib/references'
 
 const stateClass: Record<string, string> = {
@@ -10,6 +12,8 @@ const stateClass: Record<string, string> = {
   warn: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300',
   bad: 'border-red-600/20 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-900/30 dark:text-red-400',
 }
+
+const PAGE_SIZE = 10
 
 export type LinkHealthSectionProps = {
   title: string
@@ -103,6 +107,11 @@ function ReferenceList({
   items: ReferenceItem[]
 }) {
   const { t } = useTranslation()
+  const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const start = (safePage - 1) * PAGE_SIZE
+  const pageItems = items.slice(start, start + PAGE_SIZE)
   return (
     <div
       className='overflow-hidden rounded-md border bg-muted/20'
@@ -117,35 +126,64 @@ function ReferenceList({
           {t('linkHealth.none')}
         </p>
       ) : (
-        <ul className='max-h-64 divide-y overflow-y-auto'>
-          {items.map((item) => (
-            <li
-              key={`${item.id}:${item.name}`}
-              className='flex items-center gap-2 px-3 py-2'
-            >
-              <Link
-                to={item.to}
-                className={cn(
-                  'min-w-0 truncate text-sm font-medium text-foreground hover:underline',
-                )}
+        <>
+          <ul className='divide-y'>
+            {pageItems.map((item) => (
+              <li
+                key={`${item.id}:${item.name}`}
+                className='flex items-center gap-2 px-3 py-2'
               >
-                {item.name}
-              </Link>
-              <span
-                className={cn(
-                  'ml-auto shrink-0 rounded-md border px-1.5 py-0.5 text-[11px]',
-                  stateClass[item.state],
-                )}
-              >
-                {item.state === 'ok'
-                  ? t('linkHealth.stateReady')
-                  : item.state === 'warn'
-                    ? t('linkHealth.stateWarn')
-                    : t('linkHealth.stateBad')}
+                <Link
+                  to={item.to}
+                  className={cn(
+                    'min-w-0 truncate text-sm font-medium text-foreground hover:underline',
+                  )}
+                >
+                  {item.name}
+                </Link>
+                <span
+                  className={cn(
+                    'ml-auto shrink-0 rounded-md border px-1.5 py-0.5 text-[11px]',
+                    stateClass[item.state],
+                  )}
+                >
+                  {item.state === 'ok'
+                    ? t('linkHealth.stateReady')
+                    : item.state === 'warn'
+                      ? t('linkHealth.stateWarn')
+                      : t('linkHealth.stateBad')}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {totalPages > 1 ? (
+            <div className='flex items-center justify-between border-t px-3 py-2'>
+              <span className='text-xs text-muted-foreground'>
+                {t('linkHealth.page', { page: safePage, total: totalPages })}
               </span>
-            </li>
-          ))}
-        </ul>
+              <div className='flex gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  disabled={safePage <= 1}
+                  onClick={() => setPage(safePage - 1)}
+                >
+                  {t('linkHealth.prev')}
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage(safePage + 1)}
+                >
+                  {t('linkHealth.next')}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   )
