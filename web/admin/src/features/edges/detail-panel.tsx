@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -23,8 +23,12 @@ import {
   listEdgeTasks,
   listPresence,
 } from '@/lib/api/edges'
+import { listCases } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { ComfyEdge } from '@/lib/api/types'
+import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
+import { LinkHealthSection } from '@/features/link-health/link-health-section'
+import { edgeReferences } from '@/features/link-health/lib/references'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -134,6 +138,10 @@ export function EdgeDetailPanel({ id }: Props) {
     queryFn: listPresence,
     refetchInterval: 5000,
   })
+  const casesQuery = useQuery({
+    queryKey: queryKeys.cases.all,
+    queryFn: () => listCases(),
+  })
 
   if (detailQuery.isError) {
     return (
@@ -155,6 +163,19 @@ export function EdgeDetailPanel({ id }: Props) {
 
   const edge = detailQuery.data
   const presence = presenceQuery.data?.find((row) => row.id === edge.id)
+  const edgeLike = {
+    id: edge.id,
+    name: edge.name,
+    enabled: edge.enabled,
+    subscribe_topics: edge.subscribe_topics ?? [],
+    effective_topics: edge.effective_topics ?? [],
+  }
+  const linkInput = {
+    cases: casesQuery.data ?? [],
+    edges: [edgeLike],
+    presence: presenceQuery.data ?? [],
+  }
+  const edgeRefs = useMemo(() => edgeReferences(id, linkInput), [id, linkInput])
   const hardware = edge.hardware
   const gpus = hardware?.gpus?.filter((gpu) => gpu.name.trim()) ?? []
   const cpuModel = hardware?.cpu_model ?? ''
@@ -246,6 +267,12 @@ export function EdgeDetailPanel({ id }: Props) {
           />
         </div>
       </div>
+
+      <LinkHealthAlert
+        name={edge.name}
+        health={edgeRefs.health}
+        anchorTo='#link-health-section'
+      />
 
       <section className={kit.specsWrap}>
         <div className={kit.specsCell}>
@@ -393,6 +420,13 @@ export function EdgeDetailPanel({ id }: Props) {
           />
         </DialogContent>
       </Dialog>
+
+      <LinkHealthSection
+        title={t('linkHealth.title')}
+        health={edgeRefs.health}
+        upstream={{ title: t('linkHealth.referencingCases'), items: edgeRefs.cases }}
+        downstream={{ title: t('linkHealth.boundTopics'), items: edgeRefs.topics }}
+      />
     </section>
   )
 }

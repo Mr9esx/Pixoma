@@ -40,4 +40,12 @@ describe('link health visibility', () => {
       expect(en.linkHealth[k]).toBeTruthy()
     }
   })
+
+  it('Edge 详情接入绑定提示与行动', () => {
+    const panel = read('../edges/detail-panel.tsx')
+    expect(panel).toContain('LinkHealthSection')
+    expect(panel).toContain('LinkHealthAlert')
+    expect(panel).toContain('edgeReferences')
+    expect(panel).toContain('listCases')
+  })
 })
