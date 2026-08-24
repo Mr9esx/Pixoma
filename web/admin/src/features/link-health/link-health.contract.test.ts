@@ -48,4 +48,12 @@ describe('link health visibility', () => {
     expect(panel).toContain('edgeReferences')
     expect(panel).toContain('listCases')
   })
+
+  it('Topic 详情接入引用列表与行动', () => {
+    const panel = read('../topics/topic-detail-panel.tsx')
+    expect(panel).toContain('LinkHealthSection')
+    expect(panel).toContain('LinkHealthAlert')
+    expect(panel).toContain('topicReferences')
+    expect(panel).toContain('listPresence')
+  })
 })
