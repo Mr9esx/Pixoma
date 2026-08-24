@@ -1,0 +1,43 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const here = dirname(fileURLToPath(import.meta.url))
+
+function read(rel: string) {
+  return readFileSync(join(here, rel), 'utf8')
+}
+
+describe('link health visibility', () => {
+  it('LinkHealthAlert 在 Header 展示告警摘要（仅异常时）', () => {
+    const alert = read('link-health-alert.tsx')
+    expect(alert).toContain("data-testid='link-health-alert'")
+    expect(alert).toContain("role='alert'")
+    expect(alert).toContain('linkHealth.alertTitle')
+    expect(alert).toContain('linkHealth.alertSummary')
+    expect(alert).toContain('linkHealth.alertViewDetails')
+    expect(alert).toContain('anchorTo')
+    expect(alert).toContain("health.state === 'ok'")
+  })
+
+  it('LinkHealthSection 提供断点（分类 + 行动 + 指引）与引用列表', () => {
+    const section = read('link-health-section.tsx')
+    expect(section).toContain("data-testid='link-health-section'")
+    expect(section).toContain("data-testid='link-health-breakpoints'")
+    expect(section).toContain('linkHealth.fixConfig')
+    expect(section).toContain('linkHealth.fixRuntime')
+    expect(section).toContain('b.action.to')
+    expect(section).toContain('b.guide')
+    expect(section).toContain('linkHealth.howToHandle')
+    expect(section).toContain("data-testid='link-health-reference-list'")
+  })
+
+  it('i18n linkHealth 命名空间 zh/en 成对', () => {
+    const zh = JSON.parse(read('../../lib/i18n/locales/zh.json'))
+    const en = JSON.parse(read('../../lib/i18n/locales/en.json'))
+    for (const k of Object.keys(zh.linkHealth)) {
+      expect(en.linkHealth[k]).toBeTruthy()
+    }
+  })
+})
