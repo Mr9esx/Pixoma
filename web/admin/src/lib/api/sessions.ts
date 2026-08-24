@@ -3,6 +3,7 @@ import type { SessionRecord } from './types'
 
 export function listSessions(params?: {
   user_id?: string
+  case_id?: number
   status?: string
   q?: string
   limit?: number

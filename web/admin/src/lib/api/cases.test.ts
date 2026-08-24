@@ -40,4 +40,24 @@ describe('cases API', () => {
       expect.objectContaining({ method: 'DELETE' })
     )
   })
+
+  it('deleteCase sends ack_references body when ack is true', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ deleted: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await deleteCase(42, true)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8081/api/v1/cases/42',
+      expect.objectContaining({
+        method: 'DELETE',
+        body: JSON.stringify({ ack_references: true }),
+      })
+    )
+  })
 })
