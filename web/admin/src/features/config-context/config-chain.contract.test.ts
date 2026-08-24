@@ -20,12 +20,12 @@ describe('config chain association', () => {
     expect(chain).toContain('<Link')
   })
 
-  it('Case 详情接入链路视图与处理流程编辑器', () => {
+  it('Case 详情处理流程编辑器保留；ConfigChain 已由状态与关联取代', () => {
     const section = read('case-context-section.tsx')
     expect(section).toContain('TaskFlowEditor')
     expect(section).toContain('patchCase')
-    expect(section).toContain('ConfigChain')
-    expect(section).toContain('configChain.healthWarn')
+    expect(section).not.toContain('ConfigChain')
+    expect(section).toContain('LinkHealthSection')
     const panel = read('../cases/detail-panel.tsx')
     expect(panel).toContain('CaseContextSection')
   })
