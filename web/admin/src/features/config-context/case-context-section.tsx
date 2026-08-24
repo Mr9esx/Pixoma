@@ -12,6 +12,9 @@ import type { CaseRecord, RoutingConfig } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { TaskFlowEditor } from '@/features/task-flow/task-flow-editor'
 import type { EdgePresence, EdgeRecord, TopicRecord } from '@/features/task-flow/types'
+import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
+import { LinkHealthSection } from '@/features/link-health/link-health-section'
+import { caseReferences } from '@/features/link-health/lib/references'
 import { ConfigChain, type ChainDetail, type ChainHop } from './config-chain'
 
 function errorMessage(err: unknown): string | undefined {
@@ -184,8 +187,24 @@ export function CaseContextSection({ record }: { record: CaseRecord }) {
     return { health, hops, details }
   }, [routing, topics, edges, byPresence, placementsQuery.data, record, t])
 
+  const linkInput = {
+    cases: [record],
+    edges,
+    presence,
+    placements: placementsQuery.data ?? [],
+  }
+  const caseRefs = useMemo(
+    () => caseReferences(record.id, linkInput),
+    [record.id, linkInput],
+  )
+
   return (
     <div className='space-y-4'>
+      <LinkHealthAlert
+        name={record.name}
+        health={caseRefs.health}
+        anchorTo='#link-health-section'
+      />
       <div>
         <TaskFlowEditor
           routing={routing}
@@ -214,6 +233,12 @@ export function CaseContextSection({ record }: { record: CaseRecord }) {
         ) : null}
       </div>
       <ConfigChain {...chain} />
+      <LinkHealthSection
+        title={t('linkHealth.title')}
+        health={caseRefs.health}
+        upstream={{ title: t('linkHealth.menuEntries'), items: caseRefs.menuEntries }}
+        downstream={{ title: t('linkHealth.topics'), items: caseRefs.topics }}
+      />
     </div>
   )
 }

@@ -56,4 +56,12 @@ describe('link health visibility', () => {
     expect(panel).toContain('topicReferences')
     expect(panel).toContain('listPresence')
   })
+
+  it('Case 详情接入可达性提示与行动', () => {
+    const section = read('../config-context/case-context-section.tsx')
+    expect(section).toContain('LinkHealthSection')
+    expect(section).toContain('LinkHealthAlert')
+    expect(section).toContain('caseReferences')
+    expect(section).toContain('linkHealth.title')
+  })
 })
