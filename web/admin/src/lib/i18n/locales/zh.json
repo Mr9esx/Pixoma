@@ -665,7 +665,7 @@
     "healthTopicWarn": "{{topic}} 阻塞：没有在线订阅节点"
   },
   "linkHealth": {
-    "title": "链路信息",
+    "title": "状态与关联",
     "sectionHint": "检查入口、Topic 与节点的依赖是否就绪，并给出下一步处理指引",
     "stateOk": "链路正常",
     "stateOkDetail": "入口、Topic、节点均就绪",
