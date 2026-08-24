@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { CircleCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHead } from '@/features/edges/observation-panel'
 import type { EntityHealth, ReferenceItem } from './lib/references'
@@ -32,6 +33,18 @@ export function LinkHealthSection({
       className='space-y-3'
     >
       <SectionHead title={title} hint={t('linkHealth.sectionHint')} />
+      {health.state === 'ok' ? (
+        <div
+          data-testid='link-health-ok'
+          className='flex items-center gap-2 rounded-md border border-emerald-600/20 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400'
+        >
+          <CircleCheck className='size-4 shrink-0' aria-hidden='true' />
+          <span className='font-medium'>{t('linkHealth.stateOk')}</span>
+          <span className='text-emerald-700/70 dark:text-emerald-400/70'>
+            {t('linkHealth.stateOkDetail')}
+          </span>
+        </div>
+      ) : null}
       {blocked ? (
         <div
           className='overflow-hidden rounded-md border'
