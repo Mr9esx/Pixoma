@@ -73,6 +73,13 @@ describe('task-flow prototype contract', () => {
     expect(CANVAS).toContain('+ 添加分支')
   })
 
+  it('编辑器支持预览模式：只读画布、隐藏顶栏与 Topic 池', () => {
+    expect(EDITOR).toContain('preview?: boolean')
+    expect(EDITOR).toContain('readOnly || preview')
+    expect(EDITOR).toContain('!preview')
+    expect(EDITOR).toContain('TaskFlowCanvas')
+  })
+
   it('顶栏 Case 下拉切换流程，右侧 Topic 池可拖入画布（孤立 Topic 保留在画布）', () => {
     // Case 下拉：Select 组件列出所有 Case，切换即加载对应 routing。
     expect(PROTOTYPE).toContain('Select')

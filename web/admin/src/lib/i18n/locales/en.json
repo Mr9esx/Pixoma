@@ -620,6 +620,7 @@
     "online": "Online",
     "offline": "Offline",
     "mounted": "Mounted",
+    "editFlow": "Edit processing flow",
     "saveRouting": "Save routing",
     "saved": "Routing saved",
     "relatedCases": "Cases routed here",

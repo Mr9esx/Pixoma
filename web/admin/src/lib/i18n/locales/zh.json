@@ -620,6 +620,7 @@
     "online": "在线",
     "offline": "离线",
     "mounted": "已挂载",
+    "editFlow": "编辑处理流程",
     "saveRouting": "保存路由",
     "saved": "路由已保存",
     "relatedCases": "路由到它的 Case",

@@ -15,6 +15,8 @@ export type TaskFlowEditorProps = {
   caseName: string
   onChange: (next: RoutingConfig) => void
   readOnly?: boolean
+  /** 预览模式：只读画布，隐藏顶栏与右侧 Topic 池。 */
+  preview?: boolean
   title?: string
   headerActions?: ReactNode
   className?: string
@@ -33,10 +35,12 @@ export function TaskFlowEditor({
   caseName,
   onChange,
   readOnly = false,
+  preview = false,
   title = '任务分流编辑器',
   headerActions,
   className,
 }: TaskFlowEditorProps) {
+  const effectiveReadOnly = readOnly || preview
   const validation = useMemo(
     () => validateRouting(routing, topics, attributes),
     [routing, topics, attributes]
@@ -52,29 +56,31 @@ export function TaskFlowEditor({
     <div className={cn('overflow-hidden rounded-xl border border-border bg-background shadow-sm', className)}>
       <div className='flex'>
         <div className='flex min-w-0 flex-1 flex-col'>
-          <div className='flex h-14 items-center justify-between gap-3 border-b border-border px-4'>
-            <div className='flex min-w-0 items-center gap-3'>
-              <h1 className='truncate text-lg leading-tight font-semibold tracking-tight'>{title}</h1>
-            </div>
-            <div className='flex shrink-0 items-center gap-2'>
-              <div
-                data-save-status
-                className={cn(
-                  'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs',
-                  validation.valid
-                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
-                    : 'border-destructive/50 bg-destructive/10 text-destructive'
-                )}
-              >
-                {validation.valid ? <CircleCheck className='size-3.5' /> : <CircleAlert className='size-3.5' />}
-                <span>
-                  {validation.valid ? '校验通过，可保存' : `${validation.issues.length} 条规则未通过校验`}
-                </span>
+          {!preview ? (
+            <div className='flex h-14 items-center justify-between gap-3 border-b border-border px-4'>
+              <div className='flex min-w-0 items-center gap-3'>
+                <h1 className='truncate text-lg leading-tight font-semibold tracking-tight'>{title}</h1>
               </div>
-              {headerActions}
+              <div className='flex shrink-0 items-center gap-2'>
+                <div
+                  data-save-status
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs',
+                    validation.valid
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+                      : 'border-destructive/50 bg-destructive/10 text-destructive'
+                  )}
+                >
+                  {validation.valid ? <CircleCheck className='size-3.5' /> : <CircleAlert className='size-3.5' />}
+                  <span>
+                    {validation.valid ? '校验通过，可保存' : `${validation.issues.length} 条规则未通过校验`}
+                  </span>
+                </div>
+                {headerActions}
+              </div>
             </div>
-          </div>
-          <div className='min-h-[520px] bg-muted/10'>
+          ) : null}
+          <div className={cn('bg-muted/10', preview ? 'min-h-[420px]' : 'min-h-[520px]')}>
             <TaskFlowCanvas
               routing={routing}
               topics={topics}
@@ -82,65 +88,67 @@ export function TaskFlowEditor({
               edges={edges}
               presence={presence}
               defaultTopicKey={DEFAULT_TOPIC_KEY}
-              readOnly={readOnly}
+              readOnly={effectiveReadOnly}
               onChange={onChange}
               caseName={caseName}
             />
           </div>
         </div>
 
-        <aside className='flex w-48 shrink-0 flex-col border-l border-border bg-muted/20'>
-          <div className='flex h-14 items-center border-b border-border px-3 text-xs font-medium text-muted-foreground'>
-            Topic 池
-          </div>
-          <div className='flex flex-1 flex-col gap-1.5 overflow-y-auto p-2'>
-            {topics
-              .filter((t) => t.enabled && t.key !== DEFAULT_TOPIC_KEY)
-              .map((topic) => {
-                const binding = bindingByTopic.get(topic.key)
-                return (
-                  <div
-                    key={topic.key}
-                    data-topic-pool-item={topic.key}
-                    draggable={!readOnly}
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('application/pixoma-topic', topic.key)
-                      e.dataTransfer.effectAllowed = 'move'
-                    }}
-                    className={cn(
-                      'flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-2 text-xs transition-colors',
-                      readOnly ? 'cursor-default opacity-60' : 'cursor-grab hover:border-primary/50 hover:bg-muted/40'
-                    )}
-                    title='拖入画布'
-                  >
-                    <GripVertical className='size-3.5 shrink-0 text-muted-foreground' />
-                    <div className='min-w-0 flex-1'>
-                      <div className='truncate font-medium'>{topic.name}</div>
-                      <div className='truncate text-[10px] text-muted-foreground'>
-                        {binding
-                          ? binding.status === 'ready'
-                            ? `${binding.onlineEdges.length} 台在线`
-                            : binding.status === 'bound-offline'
-                              ? '已绑定，无在线 agent'
-                              : '未绑定'
-                          : '未绑定'}
-                      </div>
-                    </div>
-                    <span
+        {!preview ? (
+          <aside className='flex w-48 shrink-0 flex-col border-l border-border bg-muted/20'>
+            <div className='flex h-14 items-center border-b border-border px-3 text-xs font-medium text-muted-foreground'>
+              Topic 池
+            </div>
+            <div className='flex flex-1 flex-col gap-1.5 overflow-y-auto p-2'>
+              {topics
+                .filter((t) => t.enabled && t.key !== DEFAULT_TOPIC_KEY)
+                .map((topic) => {
+                  const binding = bindingByTopic.get(topic.key)
+                  return (
+                    <div
+                      key={topic.key}
+                      data-topic-pool-item={topic.key}
+                      draggable={!effectiveReadOnly}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/pixoma-topic', topic.key)
+                        e.dataTransfer.effectAllowed = 'move'
+                      }}
                       className={cn(
-                        'size-2 shrink-0 rounded-full',
-                        binding?.status === 'ready'
-                          ? 'bg-emerald-500'
-                          : binding?.status === 'bound-offline'
-                            ? 'bg-amber-500'
-                            : 'bg-rose-400'
+                        'flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-2 text-xs transition-colors',
+                        effectiveReadOnly ? 'cursor-default opacity-60' : 'cursor-grab hover:border-primary/50 hover:bg-muted/40'
                       )}
-                    />
-                  </div>
-                )
-              })}
-          </div>
-        </aside>
+                      title='拖入画布'
+                    >
+                      <GripVertical className='size-3.5 shrink-0 text-muted-foreground' />
+                      <div className='min-w-0 flex-1'>
+                        <div className='truncate font-medium'>{topic.name}</div>
+                        <div className='truncate text-[10px] text-muted-foreground'>
+                          {binding
+                            ? binding.status === 'ready'
+                              ? `${binding.onlineEdges.length} 台在线`
+                              : binding.status === 'bound-offline'
+                                ? '已绑定，无在线 agent'
+                                : '未绑定'
+                            : '未绑定'}
+                        </div>
+                      </div>
+                      <span
+                        className={cn(
+                          'size-2 shrink-0 rounded-full',
+                          binding?.status === 'ready'
+                            ? 'bg-emerald-500'
+                            : binding?.status === 'bound-offline'
+                              ? 'bg-amber-500'
+                              : 'bg-rose-400'
+                        )}
+                      />
+                    </div>
+                  )
+                })}
+            </div>
+          </aside>
+        ) : null}
       </div>
     </div>
   )
