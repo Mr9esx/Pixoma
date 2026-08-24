@@ -8,14 +8,14 @@ const DETAIL = join(here, 'detail-panel.tsx')
 const CASE_FORM = join(here, 'case-form.tsx')
 const CONFIG_VIEW = join(here, 'sections/workflow-config-view.tsx')
 const GRAPH = join(here, 'sections/workflow-graph-preview.tsx')
-const PLACEMENTS = join(here, 'sections/menu-placements.tsx')
 
 describe('workflow detail panel', () => {
-  it('is view-only with config and entries sections and edit modal', () => {
+  it('is view-only with config section and edit modal; entries moved into status & relations', () => {
     const source = readFileSync(DETAIL, 'utf8')
     expect(source).toContain('SectionHead')
     expect(source).toContain('cases.sectionConfig')
-    expect(source).toContain('cases.sectionEntries')
+    expect(source).not.toContain('cases.sectionEntries')
+    expect(source).not.toContain('MenuPlacementsSection')
     expect(source).toContain('WorkflowConfigView')
     expect(source).toContain('cases.editInfo')
     expect(source).toContain('cases.editWorkflow')
@@ -83,13 +83,6 @@ describe('workflow detail panel', () => {
     expect(source).toContain('cases.saveSuccess')
     expect(source).toContain('cases.saveFailed')
     expect(source).not.toContain('bg-slate-')
-  })
-
-  it('placements section renders a table', () => {
-    const source = readFileSync(PLACEMENTS, 'utf8')
-    expect(source).toContain('<table')
-    expect(source).toContain('cases.entriesColType')
-    expect(source).toContain('cases.entriesColChannel')
   })
 
   it('detail panel offers delete workflow with confirmation', () => {
