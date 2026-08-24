@@ -11,6 +11,7 @@ dist/
 *.exe
 web/admin/node_modules/
 web/admin/dist/
+.worktrees/
 .DS_Store
 comfyui-bot
 
