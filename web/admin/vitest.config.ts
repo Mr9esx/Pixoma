@@ -62,6 +62,7 @@ export default defineConfig({
       'src/features/dashboard/task-stats-parse.test.ts',
       'src/features/dashboard/hardware-summary.test.ts',
       'src/features/config-context/config-chain.contract.test.ts',
+      'src/features/link-health/link-health.contract.test.ts',
       'src/features/link-health/lib/references.test.ts',
     ],
   },
