@@ -31,7 +31,7 @@ describe('workflow detail panel', () => {
   it('config view receives onSaved that syncs the detail query cache', () => {
     const source = readFileSync(DETAIL, 'utf8')
     expect(source).toContain(
-      "onSaved={(next) => queryClient.setQueryData(queryKeys.cases.detail(id), next)}"
+      'onSaved={(next) => queryClient.setQueryData(queryKeys.cases.detail(id), next)}'
     )
     expect(source).toContain('<WorkflowConfigView')
   })
@@ -76,7 +76,9 @@ describe('workflow detail panel', () => {
     expect(source).toContain('OutputFieldCard')
     expect(source).toContain('deriveBindings(inputDrafts, outputDrafts)')
     expect(source).toContain('patchCase(record.id, body)')
-    expect(source).toContain('queryClient.setQueryData(queryKeys.cases.detail(record.id), next)')
+    expect(source).toContain(
+      'queryClient.setQueryData(queryKeys.cases.detail(record.id), next)'
+    )
     expect(source).toContain('onSaved?.(next)')
     expect(source).toContain('cases.saveSuccess')
     expect(source).toContain('cases.saveFailed')
@@ -88,5 +90,15 @@ describe('workflow detail panel', () => {
     expect(source).toContain('<table')
     expect(source).toContain('cases.entriesColType')
     expect(source).toContain('cases.entriesColChannel')
+  })
+
+  it('detail panel offers delete workflow with confirmation', () => {
+    const source = readFileSync(DETAIL, 'utf8')
+    expect(source).toContain('cases.deleteWorkflow')
+    expect(source).toContain('Trash2')
+    expect(source).toContain('AlertDialog')
+    expect(source).toContain('deleteCase(record.id)')
+    expect(source).toContain('cases.deleteSuccess')
+    expect(source).toContain('cases.deleteFailed')
   })
 })

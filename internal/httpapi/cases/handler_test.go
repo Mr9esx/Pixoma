@@ -66,7 +66,7 @@ func validCaseBody(id uint64, name string) map[string]any {
 				"prompt": map[string]any{"type": "string"},
 			},
 		},
-		"enabled":  true,
+		"enabled": true,
 	}
 }
 
@@ -268,5 +268,116 @@ func TestCasesHandler_CreateDuplicateReturns409(t *testing.T) {
 	defer res2.Body.Close()
 	if res2.StatusCode != http.StatusConflict {
 		t.Fatalf("duplicate status=%d want 409", res2.StatusCode)
+	}
+}
+
+func TestCasesHandler_DeleteProtections(t *testing.T) {
+	h, repo, srv := openCasesHandler(t)
+	ctx := context.Background()
+
+	menuRefs := 0
+	activeSessions := 0
+	activeTasks := 0
+	h.CountMenuRefs = func(_ context.Context, _ string) (int, error) {
+		return menuRefs, nil
+	}
+	h.CountActiveSessions = func(_ context.Context, _ sharedkernel.CaseID) (int, error) {
+		return activeSessions, nil
+	}
+	h.CountActiveTasks = func(_ context.Context, _ sharedkernel.CaseID) (int, error) {
+		return activeTasks, nil
+	}
+
+	doDelete := func(id string) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/cases/"+id, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+
+	// DELETE missing → 404
+	res := doDelete("999999")
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("missing delete status=%d want 404", res.StatusCode)
+	}
+	res.Body.Close()
+
+	// Create enabled case.
+	body, _ := json.Marshal(validCaseBody(10, "To Delete"))
+	createRes, err := http.Post(srv.URL+"/api/v1/cases", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	createRes.Body.Close()
+	if createRes.StatusCode != http.StatusCreated {
+		t.Fatalf("create status=%d want 201", createRes.StatusCode)
+	}
+
+	// Enabled → 409 must disable first.
+	res = doDelete("10")
+	if res.StatusCode != http.StatusConflict || decodeErr(t, res) != "case must be disabled before deletion" {
+		t.Fatalf("enabled delete status=%d want 409 disabled-first", res.StatusCode)
+	}
+	res.Body.Close()
+
+	// Disable, then referenced by menu/card → 409.
+	disRes, err := http.Post(srv.URL+"/api/v1/cases/10/disable", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	disRes.Body.Close()
+	if disRes.StatusCode != http.StatusOK {
+		t.Fatalf("disable status=%d want 200", disRes.StatusCode)
+	}
+	menuRefs = 1
+	res = doDelete("10")
+	if res.StatusCode != http.StatusConflict || decodeErr(t, res) != "case is referenced by menu or card entries" {
+		t.Fatalf("menu-ref delete status=%d want 409 referenced", res.StatusCode)
+	}
+	res.Body.Close()
+
+	// Active session (collecting/confirming) → 409.
+	menuRefs = 0
+	activeSessions = 1
+	res = doDelete("10")
+	if res.StatusCode != http.StatusConflict || decodeErr(t, res) != "case has active sessions" {
+		t.Fatalf("active-session delete status=%d want 409 active-sessions", res.StatusCode)
+	}
+	res.Body.Close()
+
+	// Active tasks → 409.
+	activeSessions = 0
+	menuRefs = 0
+	activeTasks = 1
+	res = doDelete("10")
+	if res.StatusCode != http.StatusConflict || decodeErr(t, res) != "case has active tasks" {
+		t.Fatalf("active-tasks delete status=%d want 409 active-tasks", res.StatusCode)
+	}
+	res.Body.Close()
+
+	// No refs/tasks → 200 and row gone.
+	activeSessions = 0
+	activeTasks = 0
+	res = doDelete("10")
+	if res.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(res.Body)
+		t.Fatalf("delete status=%d want 200 body=%s", res.StatusCode, raw)
+	}
+	var deleted map[string]bool
+	if err := json.NewDecoder(res.Body).Decode(&deleted); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if !deleted["deleted"] {
+		t.Fatalf("delete dto=%v", deleted)
+	}
+	if _, err := repo.Get(ctx, sharedkernel.CaseID(10)); err != domain.ErrNotFound {
+		t.Fatalf("want ErrNotFound after delete, got %v", err)
 	}
 }

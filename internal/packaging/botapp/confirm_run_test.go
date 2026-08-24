@@ -49,6 +49,15 @@ func (r *memCases) List(context.Context, domain.ListQuery) ([]*domain.Case, erro
 }
 func (r *memCases) Disable(context.Context, sharedkernel.CaseID) error { return nil }
 func (r *memCases) Enable(context.Context, sharedkernel.CaseID) error  { return nil }
+func (r *memCases) Delete(_ context.Context, id sharedkernel.CaseID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.m[id]; !ok {
+		return domain.ErrNotFound
+	}
+	delete(r.m, id)
+	return nil
+}
 
 type capturePub struct {
 	msgs []queue.Message

@@ -35,3 +35,9 @@ export function enableCase(id: number) {
 export function disableCase(id: number) {
   return apiFetch<CaseRecord>(`/api/v1/cases/${id}/disable`, { method: 'POST' })
 }
+
+export function deleteCase(id: number) {
+  return apiFetch<{ deleted: boolean }>(`/api/v1/cases/${id}`, {
+    method: 'DELETE',
+  })
+}

@@ -1,6 +1,7 @@
 package cases
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -17,6 +18,12 @@ import (
 type Handler struct {
 	Repo     domain.Repository
 	Validate func(domain.CaseDocument) error
+	// CountMenuRefs counts menu/card placements referencing a workflow (case id as string).
+	CountMenuRefs func(ctx context.Context, workflowID string) (int, error)
+	// CountActiveSessions counts collecting/confirming sessions for a case.
+	CountActiveSessions func(ctx context.Context, id sharedkernel.CaseID) (int, error)
+	// CountActiveTasks counts pending/queued/running tasks for a case.
+	CountActiveTasks func(ctx context.Context, id sharedkernel.CaseID) (int, error)
 }
 
 // Mount registers chi routes on r (caller mounts under /api/v1/cases).
@@ -25,6 +32,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/", h.create)
 	r.Get("/{id}", h.get)
 	r.Patch("/{id}", h.patch)
+	r.Delete("/{id}", h.delete)
 	r.Post("/{id}/disable", h.disable)
 	r.Post("/{id}/enable", h.enable)
 }
@@ -118,6 +126,72 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, toDTO(c))
+}
+
+// delete removes a disabled case that is free of menu/card references and
+// active tasks. Deleting keeps historical task rows intact (their job_ref
+// snapshots remain queryable), so the policy is: disable first, then delete.
+func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
+	id, err := parseCaseID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid case id")
+		return
+	}
+	c, err := h.Repo.Get(r.Context(), id)
+	if errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "case not found")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if c.Enabled {
+		writeErr(w, http.StatusConflict, "case must be disabled before deletion")
+		return
+	}
+	if h.CountMenuRefs != nil {
+		n, err := h.CountMenuRefs(r.Context(), strconv.FormatUint(uint64(id), 10))
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if n > 0 {
+			writeErr(w, http.StatusConflict, "case is referenced by menu or card entries")
+			return
+		}
+	}
+	if h.CountActiveSessions != nil {
+		n, err := h.CountActiveSessions(r.Context(), id)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if n > 0 {
+			writeErr(w, http.StatusConflict, "case has active sessions")
+			return
+		}
+	}
+	if h.CountActiveTasks != nil {
+		n, err := h.CountActiveTasks(r.Context(), id)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if n > 0 {
+			writeErr(w, http.StatusConflict, "case has active tasks")
+			return
+		}
+	}
+	if err := h.Repo.Delete(r.Context(), id); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "case not found")
+			return
+		}
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
 func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
