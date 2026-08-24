@@ -16,6 +16,15 @@ const COMMAND_MENU_I18N_KEYS = [
   'theme.system',
 ] as const
 
+const CASE_DELETE_I18N_KEYS = [
+  'cases.deleteNeedsAck',
+  'cases.deleteWillRemoveRefs',
+  'cases.deleteWillFailTasks',
+  'cases.deleteWillEndSessions',
+  'cases.deleteAckRefs',
+  'cases.deleteSuccessSummary',
+] as const
+
 function lookup(locale: Record<string, unknown>, dottedKey: string): unknown {
   return dottedKey.split('.').reduce<unknown>((node, part) => {
     if (node == null || typeof node !== 'object') return undefined
@@ -76,6 +85,15 @@ describe('command menu shell i18n', () => {
     )
     for (const key of COMMAND_MENU_I18N_KEYS) {
       expect(source).toContain(`t('${key}')`)
+    }
+  })
+})
+
+describe('case delete i18n', () => {
+  it('defines case-delete keys in zh and en locales', () => {
+    for (const key of CASE_DELETE_I18N_KEYS) {
+      expect(lookup(zh, key), `zh missing ${key}`).toEqual(expect.any(String))
+      expect(lookup(en, key), `en missing ${key}`).toEqual(expect.any(String))
     }
   })
 })
