@@ -142,6 +142,22 @@ export function EdgeDetailPanel({ id }: Props) {
     queryKey: queryKeys.cases.all,
     queryFn: () => listCases(),
   })
+  const edgeRefs = useMemo(() => {
+    const data = detailQuery.data
+    return edgeReferences(id, {
+      cases: casesQuery.data ?? [],
+      edges: data
+        ? [{
+            id: data.id,
+            name: data.name,
+            enabled: data.enabled,
+            subscribe_topics: data.subscribe_topics ?? [],
+            effective_topics: data.effective_topics ?? [],
+          }]
+        : [],
+      presence: presenceQuery.data ?? [],
+    })
+  }, [id, detailQuery.data, casesQuery.data, presenceQuery.data])
 
   if (detailQuery.isError) {
     return (
@@ -163,19 +179,6 @@ export function EdgeDetailPanel({ id }: Props) {
 
   const edge = detailQuery.data
   const presence = presenceQuery.data?.find((row) => row.id === edge.id)
-  const edgeLike = {
-    id: edge.id,
-    name: edge.name,
-    enabled: edge.enabled,
-    subscribe_topics: edge.subscribe_topics ?? [],
-    effective_topics: edge.effective_topics ?? [],
-  }
-  const linkInput = {
-    cases: casesQuery.data ?? [],
-    edges: [edgeLike],
-    presence: presenceQuery.data ?? [],
-  }
-  const edgeRefs = useMemo(() => edgeReferences(id, linkInput), [id, linkInput])
   const hardware = edge.hardware
   const gpus = hardware?.gpus?.filter((gpu) => gpu.name.trim()) ?? []
   const cpuModel = hardware?.cpu_model ?? ''

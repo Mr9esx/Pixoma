@@ -52,6 +52,15 @@ describe('link health visibility', () => {
     expect(panel).toContain('listCases')
   })
 
+  it('Edge 详情 hook 顺序合规（edgeRefs useMemo 必须在 loading 早退之前）', () => {
+    const panel = read('../edges/detail-panel.tsx')
+    const memoAt = panel.indexOf('const edgeRefs = useMemo')
+    const earlyReturnAt = panel.indexOf('if (detailQuery.isLoading')
+    expect(memoAt).toBeGreaterThan(-1)
+    expect(earlyReturnAt).toBeGreaterThan(-1)
+    expect(memoAt).toBeLessThan(earlyReturnAt)
+  })
+
   it('Topic 详情接入引用列表与行动', () => {
     const panel = read('../topics/topic-detail-panel.tsx')
     expect(panel).toContain('LinkHealthSection')
