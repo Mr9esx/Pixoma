@@ -37,6 +37,8 @@ describe('link health visibility', () => {
     expect(section).toContain('text-sm text-muted-foreground')
     expect(section).toContain("data-testid='link-health-ok'")
     expect(section).toContain('linkHealth.stateOk')
+    expect(section).toContain('max-h-64')
+    expect(section).toContain('overflow-y-auto')
     expect(section).toContain("data-testid='link-health-reference-list'")
   })
 
@@ -54,7 +56,7 @@ describe('link health visibility', () => {
     expect(panel).toContain('LinkHealthAlert')
     expect(panel).toContain('edgeReferences')
     expect(panel).toContain('listCases')
-    expect(panel).toContain('linkHealth.reachableWorkflows')
+    expect(panel).toContain('linkHealth.executedWorkflows')
     expect(panel).toContain('linkHealth.subscribedTopics')
   })
 

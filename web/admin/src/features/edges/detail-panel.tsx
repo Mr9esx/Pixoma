@@ -448,7 +448,7 @@ export function EdgeDetailPanel({ id }: Props) {
         title={t('linkHealth.title')}
         health={edgeRefs.health}
         upstream={{
-          title: t('linkHealth.reachableWorkflows'),
+          title: t('linkHealth.executedWorkflows'),
           items: edgeRefs.cases,
         }}
         downstream={{
