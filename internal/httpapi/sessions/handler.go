@@ -123,6 +123,13 @@ func parseListQuery(r *http.Request) (domain.ListQuery, error) {
 		chat := sharedkernel.ChatID(v)
 		q.ChatID = &chat
 	}
+	if v := r.URL.Query().Get("case_id"); v != "" {
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return q, errors.New("invalid case_id")
+		}
+		q.CaseID = sharedkernel.CaseID(n)
+	}
 	if v := r.URL.Query().Get("created_from"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)
 		if err != nil {
