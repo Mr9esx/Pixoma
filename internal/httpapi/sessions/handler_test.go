@@ -72,6 +72,22 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 		t.Fatalf("filter user_id: %+v", list)
 	}
 
+	resCase, err := http.Get(srv.URL + "/api/v1/sessions?case_id=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resCase.Body.Close()
+	if resCase.StatusCode != http.StatusOK {
+		t.Fatalf("list case_id status=%d", resCase.StatusCode)
+	}
+	var byCase []map[string]any
+	if err := json.NewDecoder(resCase.Body).Decode(&byCase); err != nil {
+		t.Fatal(err)
+	}
+	if len(byCase) != 1 || byCase[0]["id"] != "sess-a" {
+		t.Fatalf("filter case_id: %+v", byCase)
+	}
+
 	res2, err := http.Get(srv.URL + "/api/v1/sessions/sess-a")
 	if err != nil {
 		t.Fatal(err)
