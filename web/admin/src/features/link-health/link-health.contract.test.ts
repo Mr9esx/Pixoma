@@ -35,6 +35,8 @@ describe('link health visibility', () => {
     expect(section).toContain('linkHealth.howToHandle')
     expect(section).toContain('text-sm text-amber-700')
     expect(section).toContain('text-sm text-muted-foreground')
+    expect(section).toContain("data-testid='link-health-ok'")
+    expect(section).toContain('linkHealth.stateOk')
     expect(section).toContain("data-testid='link-health-reference-list'")
   })
 
