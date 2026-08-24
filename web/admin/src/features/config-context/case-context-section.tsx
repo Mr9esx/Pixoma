@@ -14,7 +14,7 @@ import { TaskFlowEditor } from '@/features/task-flow/task-flow-editor'
 import type { EdgePresence, EdgeRecord, TopicRecord } from '@/features/task-flow/types'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
-import { caseReferences } from '@/features/link-health/lib/references'
+import { caseReferences, edgeTopics } from '@/features/link-health/lib/references'
 import { ConfigChain, type ChainDetail, type ChainHop } from './config-chain'
 
 function errorMessage(err: unknown): string | undefined {
@@ -67,11 +67,11 @@ export function CaseContextSection({ record }: { record: CaseRecord }) {
     const firstTopic = topics.find((x) => x.key === topicKeys[0])
     const topicOnline = edges.filter(
       (e) =>
-        (e.subscribe_topics ?? []).includes(topicKeys[0]) &&
+        edgeTopics(e).includes(topicKeys[0]) &&
         byPresence.get(e.id)?.edge_online
     ).length
     const execEdges = edges
-      .filter((e) => ruleTopics.some((k) => (e.subscribe_topics ?? []).includes(k)))
+      .filter((e) => ruleTopics.some((k) => edgeTopics(e).includes(k)))
     const onlineEdges = execEdges.filter((e) => byPresence.get(e.id)?.edge_online)
     const placements = placementsQuery.data ?? []
     const menuHop: ChainHop = placements[0]
