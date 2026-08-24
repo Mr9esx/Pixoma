@@ -41,7 +41,6 @@ import { LongText } from '@/components/long-text'
 import { CaseContextSection } from '@/features/config-context/case-context-section'
 import { kit } from '@/features/edges/kit-classes'
 import { CaseForm } from './case-form'
-import { MenuPlacementsSection } from './sections/menu-placements'
 import { WorkflowConfigView } from './sections/workflow-config-view'
 
 function errorMessage(err: unknown): string | undefined {
@@ -332,12 +331,6 @@ export function CaseDetailPanel({ id }: Props) {
           record={record}
           onSaved={(next) => queryClient.setQueryData(queryKeys.cases.detail(id), next)}
         />
-
-        <SectionHead
-          title={t('cases.sectionEntries')}
-          hint={t('cases.sectionEntriesHint')}
-        />
-        <MenuPlacementsSection caseId={record.id} showHeading={false} />
 
         <SectionHead
           title={t('cases.sectionProcessing')}
