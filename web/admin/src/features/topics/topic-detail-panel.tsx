@@ -420,8 +420,8 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
       <LinkHealthSection
         title={t('linkHealth.title')}
         health={topicRefs.health}
-        upstream={{ title: t('linkHealth.referencingCases'), items: topicRefs.cases }}
-        downstream={{ title: t('linkHealth.edges'), items: topicRefs.edges }}
+        upstream={{ title: t('linkHealth.usedWorkflows'), items: topicRefs.cases }}
+        downstream={{ title: t('linkHealth.boundNodes'), items: topicRefs.edges }}
       />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

@@ -16,19 +16,17 @@ import {
   Timer,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { listCases } from '@/lib/api/cases'
 import {
   getEdge,
   getEdgeMetrics,
   getEdgeStats,
   listEdgeTasks,
   listPresence,
+  type MetricsRange,
 } from '@/lib/api/edges'
-import { listCases } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { ComfyEdge } from '@/lib/api/types'
-import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
-import { LinkHealthSection } from '@/features/link-health/link-health-section'
-import { edgeReferences } from '@/features/link-health/lib/references'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -39,6 +37,9 @@ import {
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { LongText } from '@/components/long-text'
+import { edgeReferences } from '@/features/link-health/lib/references'
+import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
+import { LinkHealthSection } from '@/features/link-health/link-health-section'
 import { AgentCredentials } from './agent-credentials'
 import { EdgeForm } from './edge-form'
 import { kit } from './kit-classes'
@@ -114,6 +115,10 @@ export function EdgeDetailPanel({ id }: Props) {
   const [editOpen, setEditOpen] = useState(false)
   const [deployOpen, setDeployOpen] = useState(false)
   const [tasksOffset, setTasksOffset] = useState(0)
+  const [metricsRange, setMetricsRange] = useState<MetricsRange>({
+    kind: 'preset',
+    window: '1h',
+  })
 
   const detailQuery = useQuery({
     queryKey: queryKeys.edges.detail(id),
@@ -129,8 +134,19 @@ export function EdgeDetailPanel({ id }: Props) {
       listEdgeTasks(id, { limit: TASKS_PAGE_SIZE, offset: tasksOffset }),
   })
   const metricsQuery = useQuery({
-    queryKey: queryKeys.edges.metrics(id),
-    queryFn: () => getEdgeMetrics(id, '1h'),
+    queryKey: queryKeys.edges.metrics(
+      id,
+      metricsRange.kind === 'preset'
+        ? metricsRange.window
+        : `custom:${metricsRange.from}:${metricsRange.to}`
+    ),
+    queryFn: () =>
+      metricsRange.kind === 'preset'
+        ? getEdgeMetrics(id, metricsRange.window)
+        : getEdgeMetrics(id, 'custom', {
+            from: metricsRange.from,
+            to: metricsRange.to,
+          }),
     refetchInterval: 15000,
   })
   const presenceQuery = useQuery({
@@ -147,13 +163,15 @@ export function EdgeDetailPanel({ id }: Props) {
     return edgeReferences(id, {
       cases: casesQuery.data ?? [],
       edges: data
-        ? [{
-            id: data.id,
-            name: data.name,
-            enabled: data.enabled,
-            subscribe_topics: data.subscribe_topics ?? [],
-            effective_topics: data.effective_topics ?? [],
-          }]
+        ? [
+            {
+              id: data.id,
+              name: data.name,
+              enabled: data.enabled,
+              subscribe_topics: data.subscribe_topics ?? [],
+              effective_topics: data.effective_topics ?? [],
+            },
+          ]
         : [],
       presence: presenceQuery.data ?? [],
     })
@@ -382,6 +400,8 @@ export function EdgeDetailPanel({ id }: Props) {
 
       <ObservationPanel
         metricsQuery={metricsQuery}
+        metricsRange={metricsRange}
+        onMetricsRangeChange={setMetricsRange}
         tasksQuery={tasksQuery}
         tasksPagination={{
           offset: tasksOffset,
@@ -427,8 +447,14 @@ export function EdgeDetailPanel({ id }: Props) {
       <LinkHealthSection
         title={t('linkHealth.title')}
         health={edgeRefs.health}
-        upstream={{ title: t('linkHealth.referencingCases'), items: edgeRefs.cases }}
-        downstream={{ title: t('linkHealth.boundTopics'), items: edgeRefs.topics }}
+        upstream={{
+          title: t('linkHealth.reachableWorkflows'),
+          items: edgeRefs.cases,
+        }}
+        downstream={{
+          title: t('linkHealth.subscribedTopics'),
+          items: edgeRefs.topics,
+        }}
       />
     </section>
   )

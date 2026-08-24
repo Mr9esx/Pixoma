@@ -236,8 +236,8 @@ export function CaseContextSection({ record }: { record: CaseRecord }) {
       <LinkHealthSection
         title={t('linkHealth.title')}
         health={caseRefs.health}
-        upstream={{ title: t('linkHealth.menuEntries'), items: caseRefs.menuEntries }}
-        downstream={{ title: t('linkHealth.topics'), items: caseRefs.topics }}
+        upstream={{ title: t('linkHealth.relatedEntries'), items: caseRefs.menuEntries }}
+        downstream={{ title: t('linkHealth.routeTopics'), items: caseRefs.topics }}
       />
     </div>
   )
