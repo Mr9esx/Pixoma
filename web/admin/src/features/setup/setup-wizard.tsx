@@ -19,6 +19,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -36,6 +41,7 @@ import {
   buildPostgresDSN,
   buildSqliteDSN,
 } from './db-dsn'
+import { setupErrorCopy, type AlertCopy } from './db-error'
 import {
   initialSetupStep,
   previousSetupStep,
@@ -52,7 +58,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
     [status.must_change_password]
   )
   const [step, setStep] = useState<SetupStep>(() => initialSetupStep(status))
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<AlertCopy | null>(null)
   const [pending, setPending] = useState(false)
   const [reloading, setReloading] = useState(Boolean(status.restart_required))
 
@@ -143,7 +149,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
     try {
       await fn()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '操作失败')
+      setError(setupErrorCopy(err))
     } finally {
       setPending(false)
     }
@@ -164,7 +170,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
         if (!cancelled) await navigate({ to: '/' })
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : '等待重启失败')
+          setError(setupErrorCopy(err))
         }
       }
     })()
@@ -185,7 +191,10 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           </CardHeader>
           <CardContent className='flex flex-col gap-3 text-sm'>
             {error ? (
-              <p className='text-destructive'>{error}</p>
+              <Alert variant='destructive'>
+                <AlertTitle>{error.title}</AlertTitle>
+                <AlertDescription>{error.detail}</AlertDescription>
+              </Alert>
             ) : (
               <p className='text-muted-foreground'>正在等待服务回来…</p>
             )}
@@ -597,7 +606,7 @@ function StepActions({
   onBack,
   onSkip,
 }: {
-  error: string | null
+  error: AlertCopy | null
   pending: boolean
   submit: string
   onBack?: () => void
@@ -605,7 +614,12 @@ function StepActions({
 }) {
   return (
     <div className='flex flex-col gap-2'>
-      {error ? <p className='text-sm text-destructive'>{error}</p> : null}
+      {error ? (
+        <Alert variant='destructive'>
+          <AlertTitle>{error.title}</AlertTitle>
+          <AlertDescription>{error.detail}</AlertDescription>
+        </Alert>
+      ) : null}
       <div className='flex gap-2'>
         {onBack ? (
           <Button

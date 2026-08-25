@@ -684,6 +684,36 @@ git add web/admin/src/features/setup/db-dsn.ts web/admin/src/features/setup/db-d
 git commit -m "feat(setup): structured database connection form for mysql/postgres"
 ```
 
+### Task 8: 错误用 Alert 展示（中文友好标题 + 实际详情）
+
+**Files:**
+- Create: `web/admin/src/features/setup/db-error.ts`、`web/admin/src/features/setup/db-error.test.ts`
+- Modify: `web/admin/src/features/setup/setup-wizard.tsx`、`web/admin/src/features/setup/setup-pages.contract.test.ts`、`web/admin/vitest.config.ts`
+- Docs: `specs/setup-wizard/spec.md`、`design.md`、Design Doc、`tasks.md`、本计划
+
+**Interfaces:**
+- Consumes: Task 7 的结构化表单。
+- Produces: `setupErrorCopy(err): { title: string; detail: string }`；向导与 StepActions 的错误渲染改用 `Alert variant="destructive"`。
+
+- [x] **Step 1: 写 db-error 映射与单元测试（TDD）**
+
+6 个用例覆盖：拒绝连接、鉴权失败（1045/28000）、库不存在（1049）、超时、未知驱动、通用回退；先 RED（模块不存在）再实现 `db-error.ts` 转 GREEN。
+
+- [x] **Step 2: 向导错误渲染改 Alert**
+
+`run()` 捕获错误改为 `setError(setupErrorCopy(err))`；StepActions 与「正在重启」卡片渲染 `Alert variant="destructive"`（AlertTitle=友好标题、AlertDescription=实际详情）；删除旧的 `<p className='text-sm text-destructive'>`。
+
+- [x] **Step 3: 合同测试与全量验证**
+
+合同测试断言 Alert destructive / AlertTitle / AlertDescription / setupErrorCopy 且无旧错误文本；`pnpm vitest run` 全 PASS、`pnpm tsc -b` 通过。
+
+- [x] **Step 4: 提交**
+
+```bash
+git add web/admin/src/features/setup/db-error.ts web/admin/src/features/setup/db-error.test.ts web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts web/admin/vitest.config.ts docs/openspec/changes/mysql-postgres-support/specs/setup-wizard/spec.md docs/openspec/changes/mysql-postgres-support/design.md docs/superpowers/specs/2026-08-25-mysql-postgres-support-design.md docs/openspec/changes/mysql-postgres-support/tasks.md docs/superpowers/plans/2026-08-25-mysql-postgres-support.md
+git commit -m "feat(setup): alert-based error copy with friendly Chinese titles"
+```
+
 ---
 
 ## 自检记录（写完后由创建者核对）

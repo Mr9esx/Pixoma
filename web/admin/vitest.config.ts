@@ -12,6 +12,7 @@ export default defineConfig({
       'src/lib/setup-guard.test.ts',
       'src/features/setup/setup-steps.test.ts',
       'src/features/setup/db-dsn.test.ts',
+      'src/features/setup/db-error.test.ts',
       'src/features/setup/setup-pages.contract.test.ts',
       'src/features/settings/settings-page.contract.test.ts',
       'src/lib/api/setup-settings.test.ts',

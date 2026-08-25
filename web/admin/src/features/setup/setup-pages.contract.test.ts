@@ -152,4 +152,13 @@ describe('login and setup pages', () => {
     expect(wizard).not.toMatch(/高级：直接输入 DSN/)
     expect(wizard).not.toMatch(/db-dsn-raw/)
   })
+
+  it('shows errors as destructive alerts with friendly copy and raw detail', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/Alert variant='destructive'/)
+    expect(wizard).toMatch(/AlertTitle>/)
+    expect(wizard).toMatch(/AlertDescription>/)
+    expect(wizard).toMatch(/setupErrorCopy/)
+    expect(wizard).not.toMatch(/<p className='text-sm text-destructive'>/)
+  })
 })
