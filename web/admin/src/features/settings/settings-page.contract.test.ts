@@ -47,4 +47,12 @@ describe('settings page', () => {
     expect(page).not.toMatch(/testDatabase\(/)
     expect(page).not.toMatch(/DB_DSN_PLACEHOLDER/)
   })
+
+  it('settings deep-links to a tab via ?tab=', () => {
+    const route = read('../../routes/_app/settings/index.tsx')
+    const page = read('settings-page.tsx')
+    expect(route).toMatch(/validateSearch/)
+    expect(route).toMatch(/search\.tab/)
+    expect(page).toMatch(/initialTab/)
+  })
 })

@@ -40,12 +40,14 @@ function emptyIfMasked(value: string | undefined): string {
   return value
 }
 
-export function SettingsPage() {
+export function SettingsPage({ initialTab }: { initialTab?: string }) {
   const { t } = useTranslation()
   const q = useQuery({
     queryKey: queryKeys.settings.all,
     queryFn: fetchPlatformSettings,
   })
+  const tab =
+    initialTab === 'storage' || initialTab === 'network' ? initialTab : 'account'
 
   return (
     <div
@@ -65,13 +67,23 @@ export function SettingsPage() {
         />
       ) : null}
       {q.data?.configured && q.data.settings ? (
-        <SettingsEditor key={q.dataUpdatedAt} initial={q.data.settings} />
+        <SettingsEditor
+          key={q.dataUpdatedAt}
+          initial={q.data.settings}
+          initialTab={tab}
+        />
       ) : null}
     </div>
   )
 }
 
-function SettingsEditor({ initial }: { initial: SetupDraft }) {
+function SettingsEditor({
+  initial,
+  initialTab,
+}: {
+  initial: SetupDraft
+  initialTab?: string
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [placement, setPlacement] = useState<'local' | 'remote'>(
@@ -149,7 +161,7 @@ function SettingsEditor({ initial }: { initial: SetupDraft }) {
   }
 
   return (
-    <Tabs defaultValue='account' className='max-w-2xl gap-4'>
+    <Tabs defaultValue={initialTab ?? 'account'} className='max-w-2xl gap-4'>
       <TabsList>
         <TabsTrigger value='account'>{t('settings.tabAccount')}</TabsTrigger>
         <TabsTrigger value='storage'>{t('settings.tabStorage')}</TabsTrigger>
