@@ -29,6 +29,8 @@
 
 向导数据库步骤按 driver 提供**结构化连接表单**：SQLite 为数据库文件路径；MySQL 为 Host/端口/用户/密码/数据库；Postgres 为 Host/端口/用户/密码/数据库/SSL 模式。前端用纯函数按字段组装连接字符串（GORM 兼容格式），密码字段不回显；每个服务型驱动提供「附加参数」输入框，用户直接追加任意 key=value 参数（MySQL 追加到 query string，Postgres 以空格分隔追加），不提供整串 DSN 编辑入口。切换驱动时端口默认值自动切换（3306↔5432），字段值保留可编辑。
 
+向导错误展示使用 `Alert variant="destructive"`：常见错误（拒绝连接、鉴权失败、库不存在、超时、未知驱动、缺 DSN）映射为中文友好标题，正文展示实际错误详情；映射逻辑放 `db-error.ts`（可单测）。
+
 ### D2：MySQL/Postgres 启动链路兼容策略
 
 - `RenameLegacy`：legacy 重命名仅当检测到旧表/旧列时执行；全新 MySQL/Postgres 库均为 no-op，保留现状，不引入 driver 分支（降低兼容面）。
