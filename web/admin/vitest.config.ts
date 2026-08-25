@@ -24,6 +24,7 @@ export default defineConfig({
       'src/lib/api/cases.test.ts',
       'src/lib/api/channel-menu.test.ts',
       'src/lib/api/tasks.test.ts',
+      'src/features/tasks/list-panel.contract.test.ts',
       'src/lib/api/task-errors.test.ts',
       'src/lib/api/localized-errors.test.ts',
       'src/lib/api/users.test.ts',
