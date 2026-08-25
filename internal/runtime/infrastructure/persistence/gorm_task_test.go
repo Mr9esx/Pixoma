@@ -352,3 +352,62 @@ func TestGormTask_HeartbeatLease(t *testing.T) {
 		t.Fatal("wrong instance must not heartbeat")
 	}
 }
+
+func TestGormTask_NullTimestampsAfterPrepareForClaim(t *testing.T) {
+	gdb := openTestDB(t)
+	seedSession(t, gdb, "s-null", sharedkernel.ChatID("tg:11"))
+	tasks := persistence.NewTaskRepository(gdb)
+	ctx := context.Background()
+	now := time.Unix(600, 0).UTC()
+	if err := tasks.Create(ctx, domain.NewPending("t-null", "s-null", sharedkernel.CaseID(1), "inputs/t-null", now)); err != nil {
+		t.Fatal(err)
+	}
+	ref := sharedkernel.BlobRef{Key: "jobs/t-null/job.json"}
+	ok, err := tasks.PrepareForClaim(ctx, "t-null", "default", ref, now)
+	if err != nil || !ok {
+		t.Fatalf("prepare ok=%v err=%v", ok, err)
+	}
+	var raw struct {
+		LeaseUntil *time.Time
+		RequeueAt  *time.Time
+	}
+	if err := gdb.Model(&persistence.TaskRow{}).Where("id = ?", "t-null").Scan(&raw).Error; err != nil {
+		t.Fatal(err)
+	}
+	if raw.LeaseUntil != nil || raw.RequeueAt != nil {
+		t.Fatalf("want NULL lease/requeue after prepare, got %v / %v", raw.LeaseUntil, raw.RequeueAt)
+	}
+}
+
+func TestGormTask_RequeueClearsLeaseToNULL(t *testing.T) {
+	gdb := openTestDB(t)
+	seedSession(t, gdb, "s-req", sharedkernel.ChatID("tg:12"))
+	tasks := persistence.NewTaskRepository(gdb)
+	ctx := context.Background()
+	now := time.Unix(700, 0).UTC()
+	ref := sharedkernel.BlobRef{Key: "jobs/t-req/job.json"}
+	task := domain.NewPending("t-req", "s-req", sharedkernel.CaseID(1), "inputs/t-req", now)
+	_ = task.PrepareForClaim("gpu-1", ref, now)
+	_ = task.ClaimWithLease("gpu-1", time.Minute, now)
+	if err := tasks.Create(ctx, task); err != nil {
+		t.Fatal(err)
+	}
+	later := now.Add(2 * time.Minute)
+	n, err := tasks.RequeueExpiredLeases(ctx, later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("requeued=%d want 1", n)
+	}
+	var raw struct {
+		Status     string
+		LeaseUntil *time.Time
+	}
+	if err := gdb.Model(&persistence.TaskRow{}).Where("id = ?", "t-req").Scan(&raw).Error; err != nil {
+		t.Fatal(err)
+	}
+	if raw.Status != string(sharedkernel.TaskQueued) || raw.LeaseUntil != nil {
+		t.Fatalf("want queued with NULL lease, got %+v", raw)
+	}
+}

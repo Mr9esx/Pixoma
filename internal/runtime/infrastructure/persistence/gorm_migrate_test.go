@@ -62,4 +62,15 @@ func TestMigrateLegacyTasks(t *testing.T) {
 	if run2.Status != sharedkernel.TaskRunning {
 		t.Fatalf("running task touched: %+v", run2)
 	}
+
+	var raw struct {
+		LeaseUntil *time.Time
+		RequeueAt  *time.Time
+	}
+	if err := gdb.Model(&persistence.TaskRow{}).Where("id = ?", "t-stale").Scan(&raw).Error; err != nil {
+		t.Fatal(err)
+	}
+	if raw.LeaseUntil != nil || raw.RequeueAt != nil {
+		t.Fatalf("want NULL lease/requeue after migrate, got %v / %v", raw.LeaseUntil, raw.RequeueAt)
+	}
 }
