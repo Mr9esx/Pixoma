@@ -631,7 +631,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <AlertTitle>注意！</AlertTitle>
               <AlertDescription>
                 需要先在所有机器上挂载同一共享目录（SMB / NFS）。
-                <pre className='mt-2 overflow-x-auto rounded-md border bg-card p-2 text-xs leading-relaxed'>
+                <pre className='mt-2 w-full overflow-x-auto rounded-md border bg-card p-2 text-xs leading-relaxed'>
                   {`# Linux NFS
 mount -t nfs 192.168.1.10:/srv/pixoma /mnt/pixoma-shared
 
