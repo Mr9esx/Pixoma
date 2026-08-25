@@ -14,3 +14,10 @@
 
 - [x] 3.1 README 增加 SMB/NFS 挂载指引与 `sharedfs` 说明
 - [x] 3.2 `go build ./...` + `go test ./...`；`pnpm tsc -b` + `pnpm vitest run`（web/admin）
+
+## 代码审查记录（review_mode: standard）
+
+- 审查方式：内联轻量审查（reviewer subagent 派发通道本会话多次失败，沿用降级记录）。
+- 范围：`2342921..HEAD` 全部实现 diff。
+- 结论：`sharedfs` 复用 localfs 实现、factory 与 `blob-test` 分发/推断一致；`settings.Validate` 组合矩阵（sharedfs 空路径拒绝、remote+localfs 拒绝、remote+sharedfs 通过）与既有用例并存；前端向导选项、挂载指引、S3 局域网提示与 placement 推断有合同测试覆盖。未发现 Critical/Important。
+- 接受的小项（Minor）：`blob-test` handler 用字面量驱动值 `"sharedfs"`（与既有 `"s3"`/`"tos"` 写法一致，保持风格统一）。接受原因：与既有代码模式一致，不影响行为。
