@@ -49,3 +49,5 @@
 ## 结论
 
 全部检查项通过，无 CRITICAL / IMPORTANT 问题。Ready for archive。
+
+补充（归档前重开 0686c13，文案与提示）：存储步骤 Title「文件存储配置」/ Desc「决定了生成的图和视频存放的位置。」；`localfs` 选中时展示 Alert「这个配置只适合 ComfyUI 和后台在同一台机器上使用。」。前端 57 文件 / 363 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过；合同测试 `setup-pages.contract.test.ts` 锁定。
