@@ -20,6 +20,7 @@ const (
 	QueueDriverRedis  = "redis"
 
 	BlobDriverLocalFS = "localfs"
+	BlobDriverSharedFS = "sharedfs"
 	BlobDriverS3      = "s3"
 	BlobDriverTOS     = "tos"
 )

@@ -66,19 +66,21 @@ func (s Settings) Validate() error {
 	switch p {
 	case PlacementLocal:
 		switch b {
-		case botconfig.BlobDriverLocalFS, botconfig.BlobDriverS3, botconfig.BlobDriverTOS:
+		case botconfig.BlobDriverLocalFS, botconfig.BlobDriverSharedFS,
+			botconfig.BlobDriverS3, botconfig.BlobDriverTOS:
 		default:
 			return fmt.Errorf("settings: unknown blob.driver %q", b)
 		}
-		if b == botconfig.BlobDriverLocalFS && strings.TrimSpace(s.BlobRoot) == "" {
-			return fmt.Errorf("settings: localfs requires blob root")
+		if (b == botconfig.BlobDriverLocalFS || b == botconfig.BlobDriverSharedFS) &&
+			strings.TrimSpace(s.BlobRoot) == "" {
+			return fmt.Errorf("settings: %s requires blob root", b)
 		}
 	case PlacementRemote:
 		if b == botconfig.BlobDriverLocalFS {
 			return fmt.Errorf("settings: remote deployment cannot use blob.driver=localfs")
 		}
-		if b != botconfig.BlobDriverS3 && b != botconfig.BlobDriverTOS {
-			return fmt.Errorf("settings: remote requires blob.driver=s3 or tos, got %q", b)
+		if b != botconfig.BlobDriverS3 && b != botconfig.BlobDriverTOS && b != botconfig.BlobDriverSharedFS {
+			return fmt.Errorf("settings: remote requires blob.driver=s3, tos or sharedfs, got %q", b)
 		}
 	default:
 		return fmt.Errorf("settings: unknown placement %q", p)
