@@ -531,7 +531,6 @@
     "checkingReachability": "Checking…",
     "reachabilityOK": "Connected",
     "reachabilityNetwork": "Cannot reach Telegram",
-    "reachabilityNetworkAction": "Configure proxy",
     "reachabilityAuth": "Token invalid",
     "reachabilityFailed": "Connection failed"
   },
