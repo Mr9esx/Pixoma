@@ -32,7 +32,7 @@
 - Consumes: 无（不改变公开签名）。
 - Produces: `TaskRepository.PrepareForClaim`、`TaskRepository.RequeueExpiredLeases`、`persistence.MigrateLegacyTasks` 行为变化——`lease_until`/`requeue_at` 落库为 NULL（而非零值时间），`RequeueExpiredLeases` 的 WHERE 使用 `lease_until IS NOT NULL AND lease_until < ?`。
 
-- [ ] **Step 1: 写失败测试（PrepareForClaim 写 NULL）**
+- [x] **Step 1: 写失败测试（PrepareForClaim 写 NULL）**
 
 在 `gorm_task_test.go` 末尾追加：
 
@@ -64,12 +64,12 @@ func TestGormTask_NullTimestampsAfterPrepareForClaim(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `go test ./internal/runtime/infrastructure/persistence/ -run TestGormTask_NullTimestampsAfterPrepareForClaim -v`
 Expected: FAIL——当前实现把 `time.Time{}` 写进 `lease_until`/`requeue_at`，扫描到非 nil 指针。
 
-- [ ] **Step 3: 写失败测试（RequeueExpiredLeases 清空租约并保留条件语义）**
+- [x] **Step 3: 写失败测试（RequeueExpiredLeases 清空租约并保留条件语义）**
 
 在 `gorm_task_test.go` 末尾追加：
 
@@ -108,12 +108,12 @@ func TestGormTask_RequeueClearsLeaseToNULL(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认失败**
+- [x] **Step 4: 运行测试确认失败**
 
 Run: `go test ./internal/runtime/infrastructure/persistence/ -run 'TestGormTask_(NullTimestampsAfterPrepareForClaim|RequeueClearsLeaseToNULL)' -v`
 Expected: 两个测试都 FAIL（当前写零值时间，扫描非 nil）。
 
-- [ ] **Step 5: 追加 MigrateLegacyTasks 的 NULL 断言**
+- [x] **Step 5: 追加 MigrateLegacyTasks 的 NULL 断言**
 
 在 `gorm_migrate_test.go` 的 `TestMigrateLegacyTasks` 末尾（现有 `run2` 断言之后）追加：
 
@@ -130,12 +130,12 @@ Expected: 两个测试都 FAIL（当前写零值时间，扫描非 nil）。
 	}
 ```
 
-- [ ] **Step 6: 运行测试确认失败**
+- [x] **Step 6: 运行测试确认失败**
 
 Run: `go test ./internal/runtime/infrastructure/persistence/ -run TestMigrateLegacyTasks -v`
 Expected: FAIL（`t-stale` 的 `lease_until`/`requeue_at` 当前是零值时间而非 NULL）。
 
-- [ ] **Step 7: 实现零值时间 NULL 化**
+- [x] **Step 7: 实现零值时间 NULL 化**
 
 修改 `internal/runtime/infrastructure/persistence/gorm_task.go`：
 
@@ -183,12 +183,12 @@ Expected: FAIL（`t-stale` 的 `lease_until`/`requeue_at` 当前是零值时间�
 
 `gorm` 已在文件 import 中（`"gorm.io/gorm"`），无需新增 import。
 
-- [ ] **Step 8: 运行全部任务相关测试确认通过**
+- [x] **Step 8: 运行全部任务相关测试确认通过**
 
 Run: `go test ./internal/runtime/infrastructure/persistence/`
 Expected: PASS（含既有 `TestGormTask_ClaimNextWithLeaseAndExpire` 等回归）。
 
-- [ ] **Step 9: 提交**
+- [x] **Step 9: 提交**
 
 ```bash
 git add internal/runtime/infrastructure/persistence/gorm_task.go internal/runtime/infrastructure/persistence/gorm_task_test.go internal/runtime/infrastructure/persistence/gorm_migrate_test.go
@@ -207,7 +207,7 @@ git commit -m "fix(tasks): write NULL lease/requeue timestamps for MySQL strict 
 - Consumes: 无。
 - Produces: 向导数据库步骤 DSN 输入按 driver 展示占位；新增模块级常量 `DB_DSN_PLACEHOLDER: Record<string, string>`（sqlite/mysql/postgres）。
 
-- [ ] **Step 1: 写失败合同测试**
+- [x] **Step 1: 写失败合同测试**
 
 在 `setup-pages.contract.test.ts` 的 `describe` 内追加：
 
@@ -224,12 +224,12 @@ git commit -m "fix(tasks): write NULL lease/requeue timestamps for MySQL strict 
   })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd web/admin && pnpm vitest run src/features/setup/setup-pages.contract.test.ts`
 Expected: FAIL——`setup-wizard.tsx` 尚无 `DB_DSN_PLACEHOLDER`。
 
-- [ ] **Step 3: 实现 DSN 占位**
+- [x] **Step 3: 实现 DSN 占位**
 
 在 `setup-wizard.tsx` 的 import 之后、`SetupWizard` 组件之前添加：
 
@@ -256,12 +256,12 @@ const DB_DSN_PLACEHOLDER: Record<string, string> = {
           </Field>
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd web/admin && pnpm vitest run src/features/setup/setup-pages.contract.test.ts`
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts
@@ -279,7 +279,7 @@ git commit -m "feat(setup): per-driver DSN placeholders in wizard"
 - Consumes: 设置页现状——account tab 用 `<p>` 展示 `initial.db_driver` / `initial.db_dsn`。
 - Produces: 锁定「设置页只读展示业务库信息、无编辑/切换控件」的合同断言。
 
-- [ ] **Step 1: 写合同测试（锁定既有行为，预期直接 PASS）**
+- [x] **Step 1: 写合同测试（锁定既有行为，预期直接 PASS）**
 
 在 `settings-page.contract.test.ts` 的 `describe('settings page', ...)` 内追加：
 
@@ -295,12 +295,12 @@ git commit -m "feat(setup): per-driver DSN placeholders in wizard"
   })
 ```
 
-- [ ] **Step 2: 运行测试确认通过**
+- [x] **Step 2: 运行测试确认通过**
 
 Run: `cd web/admin && pnpm vitest run src/features/settings/settings-page.contract.test.ts`
 Expected: PASS（无源码改动，仅锁行为；若 FAIL 说明设置页已被改成编辑表单，需停下与用户对齐）。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add web/admin/src/features/settings/settings-page.contract.test.ts
@@ -318,7 +318,7 @@ git commit -m "test(admin): lock read-only business DB info on settings page"
 - Consumes: `db.Open`/`db.AutoMigrate`/`db.RenameLegacy`；`settings.NewStore`/`Store.Save`/`Store.Load`；`topicpersist.NewTopicRepository`/`Create`/`Get`；`casepersist.NewGormRepository`/`Create`/`Get`；`runtimepersist.NewTaskRepository`/`Create`/`Get`/`ClaimNextWithLease`、`persistence.MigrateLegacyTasks`；`stats` 仓储 `AddTerminal`。
 - Produces: `TestIntegration_FullMigrateAndRoundtrip`（env 门控、driver 子测试）；helper `openEnvDB`、`allBusinessModels`、`exerciseCoreRoundtrip`。
 
-- [ ] **Step 1: 写失败测试（先让新测试函数就位）**
+- [x] **Step 1: 写失败测试（先让新测试函数就位）**
 
 整体替换 `drivers_integration_test.go` 内容为：
 
@@ -551,17 +551,17 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 
 `settings.Store` 会自行 AutoMigrate `platform_settings`（`NewStore` 内），故无需显式加入模型列表。
 
-- [ ] **Step 2: 无 env 时验证 skip**
+- [x] **Step 2: 无 env 时验证 skip**
 
 Run: `go test -tags integration ./internal/platform/db/ -v`
 Expected: SKIP（`PIXOMA_MYSQL_DSN`/`PIXOMA_POSTGRES_DSN` 未设置）；若设置了 env，则连真实库执行并 Expected: PASS。
 
-- [ ] **Step 3: 本地回归（非 integration 包不受影响）**
+- [x] **Step 3: 本地回归（非 integration 包不受影响）**
 
 Run: `go build ./...`
 Expected: 编译通过（新测试文件带 build tag，正常 `go build` 不编译）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add internal/platform/db/drivers_integration_test.go
@@ -580,7 +580,7 @@ git commit -m "test(db): full-model MySQL/Postgres integration roundtrip"
 - Consumes: 无。
 - Produces: 文档说明 Setup 配置入口、MySQL 8.0+ 建议、换库为非目标。
 
-- [ ] **Step 1: 更新 README**
+- [x] **Step 1: 更新 README**
 
 在「常用环境变量」表格附近的 `DB_DRIVER` / `DATABASE_DSN` 行下方（或「新部署」段落）追加：
 
@@ -590,7 +590,7 @@ git commit -m "test(db): full-model MySQL/Postgres integration roundtrip"
 新部署在初始化向导的「数据库配置」步骤选择 SQLite / MySQL / Postgres 并填写连接；设置页只读展示业务库驱动与 DSN。MySQL 建议 8.0+。业务库连接只在 Setup 向导配置，换库/跨引擎数据迁移不在界面内支持：需要迁移时请走数据迁移后重跑初始化向导。
 ```
 
-- [ ] **Step 2: 更新 data-model.md**
+- [x] **Step 2: 更新 data-model.md**
 
 把第 5 行引言块从：
 
@@ -606,7 +606,7 @@ git commit -m "test(db): full-model MySQL/Postgres integration roundtrip"
 > 引导态另存本机 `data/bootstrap.db`。业务 settings 在 `platform_settings`。
 ```
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add README.md docs/architecture/data-model.md
@@ -624,28 +624,28 @@ git commit -m "docs: multi-database setup guidance and read-only settings note"
 - Consumes: Task 1-5 产物。
 - Produces: 可交付的 build 阶段证据与勾选完成的 tasks.md。
 
-- [ ] **Step 1: Go 全量构建与测试**
+- [x] **Step 1: Go 全量构建与测试**
 
 Run: `go build ./... && go test ./...`
 Expected: 全 PASS。
 
-- [ ] **Step 2: 前端类型检查与测试**
+- [x] **Step 2: 前端类型检查与测试**
 
 Run: `cd web/admin && pnpm tsc -b && pnpm vitest run`
 Expected: 全 PASS。
 
-- [ ] **Step 3: 勾选 tasks.md 全部任务**
+- [x] **Step 3: 勾选 tasks.md 全部任务**
 
 把 `docs/openspec/changes/mysql-postgres-support/tasks.md` 中全部 `- [ ]` 改为 `- [x]`（1.1、1.2、2.1、2.2、3.1、4.1、4.2、5.1、5.2）。
 
-- [ ] **Step 4: 提交收尾**
+- [x] **Step 4: 提交收尾**
 
 ```bash
 git add docs/openspec/changes/mysql-postgres-support/tasks.md
 git commit -m "chore: complete mysql-postgres-support build tasks"
 ```
 
-- [ ] **Step 5: 运行 build 阶段守卫（由主会话执行，不属于本任务提交内容）**
+- [x] **Step 5: 运行 build 阶段守卫（由主会话执行，不属于本任务提交内容）**
 
 Run: `comet guard mysql-postgres-support build --apply`
 Expected: ALL PASS，phase 推进到 verify。
