@@ -42,7 +42,6 @@ import { Route as AppTopicsKeyRouteImport } from './routes/_app/topics/$key'
 import { Route as AppTasksTaskIdRouteImport } from './routes/_app/tasks/$taskId'
 import { Route as AppSessionsSessionIdRouteImport } from './routes/_app/sessions/$sessionId'
 import { Route as AppEdgesEdgeIdRouteImport } from './routes/_app/edges/$edgeId'
-import { Route as AppChannelsNewRouteImport } from './routes/_app/channels/new'
 import { Route as AppChannelsIdRouteImport } from './routes/_app/channels/$id'
 import { Route as AppCasesCaseIdRouteImport } from './routes/_app/cases/$caseId'
 
@@ -211,11 +210,6 @@ const AppEdgesEdgeIdRoute = AppEdgesEdgeIdRouteImport.update({
   path: '/$edgeId',
   getParentRoute: () => AppEdgesRouteRoute,
 } as any)
-const AppChannelsNewRoute = AppChannelsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AppChannelsRouteRoute,
-} as any)
 const AppChannelsIdRoute = AppChannelsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -248,7 +242,6 @@ export interface FileRoutesByFullPath {
   '/quick-config': typeof AppQuickConfigRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/channels/$id': typeof AppChannelsIdRoute
-  '/channels/new': typeof AppChannelsNewRoute
   '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
@@ -278,7 +271,6 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/channels/$id': typeof AppChannelsIdRoute
-  '/channels/new': typeof AppChannelsNewRoute
   '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
@@ -317,7 +309,6 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/cases/$caseId': typeof AppCasesCaseIdRoute
   '/_app/channels/$id': typeof AppChannelsIdRoute
-  '/_app/channels/new': typeof AppChannelsNewRoute
   '/_app/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/_app/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/_app/tasks/$taskId': typeof AppTasksTaskIdRoute
@@ -356,7 +347,6 @@ export interface FileRouteTypes {
     | '/quick-config'
     | '/cases/$caseId'
     | '/channels/$id'
-    | '/channels/new'
     | '/edges/$edgeId'
     | '/sessions/$sessionId'
     | '/tasks/$taskId'
@@ -386,7 +376,6 @@ export interface FileRouteTypes {
     | '/'
     | '/cases/$caseId'
     | '/channels/$id'
-    | '/channels/new'
     | '/edges/$edgeId'
     | '/sessions/$sessionId'
     | '/tasks/$taskId'
@@ -424,7 +413,6 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/cases/$caseId'
     | '/_app/channels/$id'
-    | '/_app/channels/new'
     | '/_app/edges/$edgeId'
     | '/_app/sessions/$sessionId'
     | '/_app/tasks/$taskId'
@@ -686,13 +674,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEdgesEdgeIdRouteImport
       parentRoute: typeof AppEdgesRouteRoute
     }
-    '/_app/channels/new': {
-      id: '/_app/channels/new'
-      path: '/new'
-      fullPath: '/channels/new'
-      preLoaderRoute: typeof AppChannelsNewRouteImport
-      parentRoute: typeof AppChannelsRouteRoute
-    }
     '/_app/channels/$id': {
       id: '/_app/channels/$id'
       path: '/$id'
@@ -726,13 +707,11 @@ const AppCasesRouteRouteWithChildren = AppCasesRouteRoute._addFileChildren(
 
 interface AppChannelsRouteRouteChildren {
   AppChannelsIdRoute: typeof AppChannelsIdRoute
-  AppChannelsNewRoute: typeof AppChannelsNewRoute
   AppChannelsIndexRoute: typeof AppChannelsIndexRoute
 }
 
 const AppChannelsRouteRouteChildren: AppChannelsRouteRouteChildren = {
   AppChannelsIdRoute: AppChannelsIdRoute,
-  AppChannelsNewRoute: AppChannelsNewRoute,
   AppChannelsIndexRoute: AppChannelsIndexRoute,
 }
 

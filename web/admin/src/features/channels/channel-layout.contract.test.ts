@@ -20,7 +20,9 @@ describe('channel layout aligned with compute nodes', () => {
     expect(source).toContain('MasterDetailShell')
     expect(source).toContain('md:grid-cols-[280px_1fr]')
     expect(source).toContain('ChannelDetailPanel')
-    expect(source).toContain("to='/channels/new'")
+    expect(source).toContain('CreateChannelDialog')
+    expect(source).toContain('setCreateOpen(true)')
+    expect(source).not.toContain('/channels/new')
   })
 
   it('auto-selects the first channel and navigates the url', () => {
