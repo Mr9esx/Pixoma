@@ -192,7 +192,22 @@ func (h *Handler) CheckReachability(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, res)
+	dto := struct {
+		application.ReachabilityResult
+		CheckedAt    time.Time `json:"checked_at"`
+		AdapterState string    `json:"adapter_state,omitempty"`
+		AdapterError string    `json:"adapter_error,omitempty"`
+	}{
+		ReachabilityResult: res,
+		CheckedAt:          time.Now().UTC(),
+	}
+	if h.Svc.AdapterStatus != nil {
+		if state, lastErr, found := h.Svc.AdapterStatus(r.Context(), id); found {
+			dto.AdapterState = state
+			dto.AdapterError = lastErr
+		}
+	}
+	writeJSON(w, http.StatusOK, dto)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {

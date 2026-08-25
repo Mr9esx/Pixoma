@@ -31,6 +31,9 @@ type Service struct {
 	DeleteWithCleanup func(ctx context.Context, channelID string) ([]sharedkernel.ChatID, error)
 	// CheckTelegram overrides the default getMe probe (tests).
 	CheckTelegram func(ctx context.Context, token string) (ReachabilityResult, error)
+	// AdapterStatus reports the background adapter state for a channel
+	// (state, last error, found); wired from the channel runtime in main.
+	AdapterStatus func(ctx context.Context, id string) (state string, lastErr string, found bool)
 	now               func() time.Time
 }
 

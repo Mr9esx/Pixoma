@@ -24,6 +24,12 @@ type managedAdapter struct {
 	lastErr  error
 }
 
+// AdapterStatus is the live state of a managed channel adapter.
+type AdapterStatus struct {
+	State   adapterState
+	LastErr error
+}
+
 // Assembler reconciles channel snapshots with running adapters (hot reload).
 type Assembler struct {
 	Store    SnapshotStore
@@ -39,6 +45,17 @@ func (a *Assembler) interval() time.Duration {
 		return a.Interval
 	}
 	return 5 * time.Second
+}
+
+// Status returns the current state of every managed adapter keyed by channel ID.
+func (a *Assembler) Status() map[string]AdapterStatus {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	out := make(map[string]AdapterStatus, len(a.adapters))
+	for id, ma := range a.adapters {
+		out[id] = AdapterStatus{State: ma.state, LastErr: ma.lastErr}
+	}
+	return out
 }
 
 // Run reconciles channels until ctx is cancelled.

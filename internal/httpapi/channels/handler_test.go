@@ -142,13 +142,22 @@ func TestChannelsHandler_CheckReachability(t *testing.T) {
 		gotToken = token
 		return channelapp.ReachabilityResult{OK: false, Kind: channelapp.ReachabilityNetwork, Message: "dial timeout"}, nil
 	}
+	svc.AdapterStatus = func(_ context.Context, id string) (state string, lastErr string, found bool) {
+		return "error", "dial timeout", true
+	}
 
 	checkRes, err := http.Post(srv.URL+"/api/v1/channels/"+id+"/check", "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer checkRes.Body.Close()
-	var out channelapp.ReachabilityResult
+	var out struct {
+		OK           bool                       `json:"ok"`
+		Kind         channelapp.ReachabilityKind `json:"kind"`
+		CheckedAt    string                     `json:"checked_at"`
+		AdapterState string                     `json:"adapter_state"`
+		AdapterError string                     `json:"adapter_error"`
+	}
 	_ = json.NewDecoder(checkRes.Body).Decode(&out)
 	if checkRes.StatusCode != http.StatusOK {
 		t.Fatalf("check status=%d", checkRes.StatusCode)
@@ -157,6 +166,9 @@ func TestChannelsHandler_CheckReachability(t *testing.T) {
 		t.Fatalf("token=%q", gotToken)
 	}
 	if out.OK || out.Kind != channelapp.ReachabilityNetwork {
+		t.Fatalf("out=%+v", out)
+	}
+	if out.CheckedAt == "" || out.AdapterState != "error" || out.AdapterError != "dial timeout" {
 		t.Fatalf("out=%+v", out)
 	}
 

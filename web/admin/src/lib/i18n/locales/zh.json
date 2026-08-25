@@ -533,7 +533,17 @@
     "reachabilityNetwork": "无法连接 Telegram",
     "reachabilityNetworkAction": "去设置代理",
     "reachabilityAuth": "Token 无效",
-    "reachabilityFailed": "连接失败"
+    "reachabilityFailed": "连接失败",
+    "statusTitle": "状态",
+    "statusHint": "进入页面时检测一次",
+    "statusConnection": "连接状态",
+    "statusLastCheck": "最近检测",
+    "statusAdapter": "后台适配器",
+    "statusNeverChecked": "未检测",
+    "adapterRunning": "运行中",
+    "adapterStarting": "启动中",
+    "adapterRetrying": "连接失败，后台重试中",
+    "adapterAbsent": "未启动"
   },
   "topics": {
     "title": "调度通道",

@@ -533,7 +533,17 @@
     "reachabilityNetwork": "Cannot reach Telegram",
     "reachabilityNetworkAction": "Configure proxy",
     "reachabilityAuth": "Token invalid",
-    "reachabilityFailed": "Connection failed"
+    "reachabilityFailed": "Connection failed",
+    "statusTitle": "Status",
+    "statusHint": "Checked once when the page opens",
+    "statusConnection": "Connection",
+    "statusLastCheck": "Last check",
+    "statusAdapter": "Adapter",
+    "statusNeverChecked": "Not checked",
+    "adapterRunning": "Running",
+    "adapterStarting": "Starting",
+    "adapterRetrying": "Connection failed, retrying in background",
+    "adapterAbsent": "Not started"
   },
   "topics": {
     "title": "Dispatch channels",

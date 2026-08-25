@@ -253,6 +253,9 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		return err
 	}
 	chSvc.Notify = botRT.Notify
+	chSvc.AdapterStatus = func(_ context.Context, id string) (state string, lastErr string, found bool) {
+		return botRT.ChannelStatus(id)
+	}
 	edgeDeleteSvc := edgeadmin.NewService(gdb, botRT.Notify)
 	topicDeleteSvc := topicadmin.NewService(gdb, botRT.Notify)
 	conditionReg := condition.NewRegistry()

@@ -39,6 +39,9 @@ type BotRuntime struct {
 	Notify       notify.Publisher
 	Stop         func(ctx context.Context) error
 	Capabilities *capability.Registry
+	// ChannelStatus reports the background adapter state for a channel ID
+	// (state, last error, found).
+	ChannelStatus func(channelID string) (state string, lastErr string, found bool)
 }
 
 // BotDeps is everything needed to run channel adapters and notify users.
@@ -90,12 +93,24 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 			slog.Error("channel assembler stopped", "err", err)
 		}
 	}()
-	return &BotRuntime{
+	botRT := &BotRuntime{
 		Facade:       facade,
 		Notify:       router,
 		Stop:         assembler.StopAll,
 		Capabilities: caps,
-	}, nil
+	}
+	botRT.ChannelStatus = func(channelID string) (string, string, bool) {
+		st, ok := assembler.Status()[channelID]
+		if !ok {
+			return "", "", false
+		}
+		lastErr := ""
+		if st.LastErr != nil {
+			lastErr = st.LastErr.Error()
+		}
+		return string(st.State), lastErr, true
+	}
+	return botRT, nil
 }
 
 const channelWatchInterval = 5 * 1000_000_000 // 5s
