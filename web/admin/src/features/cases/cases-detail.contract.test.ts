@@ -41,7 +41,8 @@ describe('workflow detail panel', () => {
     expect(source).toContain('showBasics')
     expect(source).toContain('BasicsSection')
     expect(source).toContain('WorkflowImportSection')
-    expect(source).toContain('PreviewSection')
+    expect(source).not.toContain('PreviewSection')
+    expect(source).not.toContain('previewSection')
   })
 
   it('create form keeps actions in a sticky bottom footer', () => {

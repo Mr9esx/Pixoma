@@ -20,7 +20,6 @@ import { parseWorkflow, type WorkflowGraph } from './lib/workflow-parse'
 import { AdvancedSection } from './sections/advanced'
 import { BasicsSection } from './sections/basics'
 import { InputFieldCard, OutputFieldCard } from './sections/field-cards'
-import { PreviewSection } from './sections/preview'
 import { WorkflowImportSection } from './sections/workflow-import'
 
 function errorMessage(err: unknown): string | undefined {
@@ -438,13 +437,6 @@ export function CaseForm(props: Props) {
       </section>
   ) : null
 
-  const previewSection = showWorkflow ? (
-      <PreviewSection
-        bindings={deriveBindings(inputDrafts, outputDrafts)}
-        inputSchema={deriveInputSchema(inputDrafts)}
-      />
-  ) : null
-
   const advancedSection = showWorkflow ? (
         <AdvancedSection
           open={advancedOpen}
@@ -498,7 +490,6 @@ export function CaseForm(props: Props) {
           {importSection}
           {inputsSection}
           {outputsSection}
-          {previewSection}
           {advancedSection}
           {errorBlock}
         </>
