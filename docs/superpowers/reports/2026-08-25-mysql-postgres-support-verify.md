@@ -28,6 +28,10 @@
 
 补充（归档前重开 193b5ad，成功 Alert）：测连通通过时「连接正常」由纯文本改为默认 Alert（`<Alert><AlertTitle>连接正常</AlertTitle></Alert>`），合同测试锁定。前端 59 文件 / 356 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（71 包 ok）全部通过。
 
+补充（归档前重开 fbfd916，success 变体）：`alert.tsx` 新增 `success` 变体（emerald 系，与项目成功态一致），「连接正常」改用 `Alert variant="success"`。前端 59 文件 / 356 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（71 包 ok）全部通过。
+
+补充（归档前重开 bacdf3c，success 图标）：「连接正常」的 success Alert 增加 `CircleCheck` 图标（`aria-hidden`），与项目成功态样式一致。前端 59 文件 / 356 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（71 包 ok）全部通过。
+
 ## Completeness
 
 | 检查项 | 状态 |
@@ -60,6 +64,8 @@
 | 测连通与继续分离 | `setup-pages.contract.test.ts`（连通性测试 / 继续 / `dbTested` / `submitDisabled` 断言，归档前重开 3053cbf） |
 | 目标库不存在自动创建 | `ensure_test.go`（5 用例）+ `drivers_integration_test.go TestIntegration_EnsureDatabaseCreatesMissingDB` + `setup-pages.contract.test.ts`（无 `submitDisabled`，归档前重开 d7b016a） |
 | 连接正常以 Alert 展示 | `setup-pages.contract.test.ts`（`AlertTitle>连接正常</AlertTitle>`、无 `text-emerald-600`，归档前重开 193b5ad） |
+| success Alert 变体 | `alert.tsx` 新增 success 变体 + `setup-pages.contract.test.ts`（`Alert variant='success'`，归档前重开 fbfd916） |
+| success 图标 | `setup-pages.contract.test.ts`（`CircleCheck` 断言，归档前重开 bacdf3c） |
 | 本机路径完成向导 / 远程禁止 localfs | 既有 `completeWizard` 流程测试与 `settings_test.go` 既有用例 |
 | MySQL/Postgres 完成向导 | 向导数据库步骤合同测试 + 后端 `POST /api/v1/setup/database`（三驱动白名单） |
 
