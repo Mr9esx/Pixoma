@@ -21,3 +21,10 @@
 
 - [x] 5.1 README 与 `docs/architecture/data-model.md` 更新多库说明：Setup 配置入口、MySQL 8.0+ 建议、换库为非目标
 - [x] 5.2 `go build ./...` + `go test ./...`（含 integration tags）；`pnpm tsc -b` + `pnpm vitest run`（web/admin）
+
+## 代码审查记录（review_mode: standard）
+
+- 审查方式：内联轻量审查（reviewer subagent 三次派发均因消息投递失败未收到任务，已记录降级原因）。
+- 范围：`88eb0fa..de9bd62` 全部实现 diff。
+- 结论：实现与设计文档/tasks 对齐（无换库、设置页保持只读）；零值时间 NULL 化三处一致，`lease_until IS NOT NULL` 条件与 `ClaimNextWithLease` 的 `requeue_at IS NULL OR requeue_at <= ?` 语义兼容；测试验证真实 DB 行为（`*time.Time` 扫描 NULL 断言）；集成测试 env 门控、覆盖全模型迁移与核心链路。未发现 Critical/Important 问题。
+- 接受的小项（Minor，不影响交付）：`DB_DSN_PLACEHOLDER[driver]` 的回退值为 sqlite 占位（driver 由 Select 约束，实际恒合法）；合同测试 `mysql:`/`postgres:` 断言略宽，但与 `DB_DSN_PLACEHOLDER` 断言组合后足够精确。接受原因：均为防御性写法，不改变行为。
