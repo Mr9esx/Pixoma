@@ -94,6 +94,8 @@ go run ./apps/edge-agent/cmd/edge-agent
 
 初始化向导步骤为 密码 → 数据库 → 对象存储（不再单独选择部署位置，`localfs` 视为本机、`s3`/`tos` 视为远程）。对象存储步骤支持「连通性测试」：`localfs` 校验目录可写；S3/TOS 校验 endpoint/region/bucket/密钥（HeadBucket）。bucket 不存在时会提示是否代为创建，确认后自动创建（需账号具备建桶权限）。`localfs` 跨机使用需把同一目录挂载到所有机器（NFS / SMB）。
 
+同机房多设备可选用「共享目录（SMB / NFS）」驱动 `sharedfs`：先在所有机器上挂载同一共享目录（`mount -t nfs` 或 `mount -t cifs`），再在向导「文件存储配置」里选择并填写挂载路径，连通性测试会校验目录可写；控制面与 Edge 挂载同一目录后按 key 互通读写。S3 端点也可填局域网 MinIO 等 S3 兼容服务地址。
+
 ## 跑通 TG 对话（默认 mock / 本机）
 
 向导里填好 Bot Token 并重启，或：
