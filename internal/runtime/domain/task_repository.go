@@ -39,6 +39,8 @@ type AdminListQuery struct {
 	Status      sharedkernel.TaskStatus
 	EdgeID      sharedkernel.EdgeID
 	ChatID      sharedkernel.ChatID // "" = no filter
+	// ChannelID filters tasks whose session belongs to a channel (join sessions).
+	ChannelID   string
 	SessionID   sharedkernel.SessionID
 	CaseID      sharedkernel.CaseID
 	CreatedFrom *time.Time

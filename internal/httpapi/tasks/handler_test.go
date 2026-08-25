@@ -1,6 +1,7 @@
 package tasks_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,10 +10,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
+	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -106,5 +111,53 @@ func TestTasksHandler_ListGetCancel(t *testing.T) {
 	defer gres.Body.Close()
 	if gres.StatusCode != http.StatusOK {
 		t.Fatalf("get status=%d", gres.StatusCode)
+	}
+}
+
+func TestTasksHandler_FilterByChannel(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:tasks_chan_" + t.Name() + "?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, &taskpersist.TaskRow{}, &sesspersist.SessionRow{}); err != nil {
+		t.Fatal(err)
+	}
+	tasks := taskpersist.NewTaskRepository(gdb)
+	sessions := sesspersist.NewSessionRepository(gdb)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := sessions.Save(ctx, convdomain.NewCollecting("s1", "tg:9", 1, []string{"a"}, now)); err != nil {
+		t.Fatal(err)
+	}
+	if err := sessions.Save(ctx, convdomain.NewCollecting("s2", "ig:9", 1, []string{"a"}, now)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", 1, "inputs/t1", now)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tasks.Create(ctx, runtimedomain.NewPending("t2", "s2", 1, "inputs/t2", now)); err != nil {
+		t.Fatal(err)
+	}
+
+	h := &tasksapi.Handler{Tasks: tasks}
+	r := chi.NewRouter()
+	r.Route("/api/v1/tasks", func(r chi.Router) { h.Mount(r) })
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+
+	res, err := http.Get(srv.URL + "/api/v1/tasks?channel_id=tg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d", res.StatusCode)
+	}
+	var list []map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0]["id"] != "t1" {
+		t.Fatalf("channel filter: %+v", list)
 	}
 }

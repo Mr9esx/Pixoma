@@ -355,16 +355,17 @@ func (r *TaskRepository) ListByTopic(ctx context.Context, topicKey string, q dom
 }
 
 func (r *TaskRepository) List(ctx context.Context, q domain.AdminListQuery) ([]*domain.Task, error) {
-	joinChat := q.ChatID != ""
+	join := q.ChatID != "" || q.ChannelID != ""
 	col := func(name string) string {
-		if joinChat {
+		if join {
 			return "tasks." + name
 		}
 		return name
 	}
 
 	var tx *gorm.DB
-	if joinChat {
+	switch {
+	case q.ChatID != "":
 		addr, err := sharedkernel.ParseChatID(string(q.ChatID))
 		if err != nil {
 			return nil, err
@@ -372,7 +373,11 @@ func (r *TaskRepository) List(ctx context.Context, q domain.AdminListQuery) ([]*
 		tx = r.db.WithContext(ctx).Table("tasks").
 			Joins("JOIN sessions ON tasks.session_id = sessions.id").
 			Where("sessions.channel_id = ? AND sessions.chat_external_id = ?", addr.ChannelID, addr.ExternalChatID)
-	} else {
+	case q.ChannelID != "":
+		tx = r.db.WithContext(ctx).Table("tasks").
+			Joins("JOIN sessions ON tasks.session_id = sessions.id").
+			Where("sessions.channel_id = ?", q.ChannelID)
+	default:
 		tx = r.db.WithContext(ctx).Model(&TaskRow{})
 	}
 
