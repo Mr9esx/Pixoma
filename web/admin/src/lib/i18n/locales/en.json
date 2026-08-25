@@ -527,7 +527,13 @@
     "deleteInFlightTasks": "{{count}} running/queued task(s) will continue, but completion notifications cannot be delivered",
     "deleteAckImpact": "I understand the impact above",
     "tokenHint": "Leave blank to keep unchanged; tokens are stored encrypted and shown masked.",
-    "tabPreview": "Channel Preview"
+    "tabPreview": "Channel Preview",
+    "checkingReachability": "Checking…",
+    "reachabilityOK": "Connected",
+    "reachabilityNetwork": "Cannot reach Telegram",
+    "reachabilityNetworkAction": "Configure proxy",
+    "reachabilityAuth": "Token invalid",
+    "reachabilityFailed": "Connection failed"
   },
   "topics": {
     "title": "Dispatch channels",

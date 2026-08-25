@@ -10,6 +10,10 @@ export const kit = {
     'inline-flex items-center border py-0.5 h-6 rounded-md border-emerald-600/20 bg-emerald-50 px-2 text-xs font-medium text-emerald-700 shadow-none dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400',
   tagOff:
     'inline-flex items-center border py-0.5 h-6 rounded-md border-zinc-300 bg-zinc-50 px-2 text-xs font-medium text-zinc-700 shadow-none dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300',
+  tagFail:
+    'inline-flex items-center border py-0.5 h-6 rounded-md border-red-600/20 bg-red-50 px-2 text-xs font-medium text-red-700 shadow-none dark:border-red-400/20 dark:bg-red-900/30 dark:text-red-400',
+  tagWarn:
+    'inline-flex items-center border py-0.5 h-6 rounded-md border-amber-500/40 bg-amber-500/10 px-2 text-xs font-medium text-amber-700 shadow-none hover:bg-amber-500/20 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300 dark:hover:bg-amber-400/20',
   desc: 'text-muted-foreground flex max-w-full flex-wrap items-center gap-x-4 gap-y-2 text-sm',
   btnGhost:
     'border border-input bg-background shadow-xs hover:bg-accent rounded-md text-xs h-8 gap-1.5 px-3',
