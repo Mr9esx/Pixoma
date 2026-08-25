@@ -29,4 +29,13 @@ describe('channel layout aligned with compute nodes', () => {
     expect(source).toContain('replace: true')
     expect(source).toContain('backToList')
   })
+
+  it('delete is available while enabled and shows impact', () => {
+    const source = readFileSync(join(here, 'channel-detail-panel.tsx'), 'utf8')
+    expect(source).toContain('disabled={deleteMutation.isPending')
+    expect(source).not.toContain('ch.enabled || deleteMutation.isPending')
+    expect(source).toContain('channels.deleteWillEndSessions')
+    expect(source).toContain('channels.deleteInFlightTasks')
+    expect(source).toContain('channels.deleteAckImpact')
+  })
 })
