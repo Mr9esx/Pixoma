@@ -57,3 +57,5 @@
 补充（归档前重开 ce4a8ac，换行与 S3 标签）：localfs warn 文案两行展示（`<br />` 分隔）；驱动标签「S3 兼容」改「S3」（向导 + 设置页 i18n zh/en 同步）。前端 57 文件 / 364 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
 
 补充（归档前重开 275aa7d，warn 图标）：localfs warn Alert 增加 `CircleAlert` 图标（`aria-hidden`）。前端 57 文件 / 364 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
+
+补充（归档前重开 e8c41d0，结构修正）：localfs warn Alert 改为 Title「注意！」+ Description 两行文案（`<br />` 分隔），避免 `AlertTitle` 的 `line-clamp-1` 截断。前端 57 文件 / 364 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
