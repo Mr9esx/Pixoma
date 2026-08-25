@@ -55,7 +55,13 @@ function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
 
-export function ChannelDetailPanel({ id }: { id: string }) {
+export function ChannelDetailPanel({
+  id,
+  onCreate,
+}: {
+  id: string
+  onCreate?: () => void
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
@@ -152,11 +158,12 @@ export function ChannelDetailPanel({ id }: { id: string }) {
                 <Link to='/channels'>{t('channels.backToList')}</Link>
               </Button>
               <Button
-                asChild
+                type='button'
                 variant='outline'
                 className='h-8 gap-1.5 rounded-md px-3 text-xs'
+                onClick={onCreate}
               >
-                <Link to='/channels/new'>{t('channels.new')}</Link>
+                {t('channels.new')}
               </Button>
             </>
           }

@@ -1,9 +1,8 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   createFileRoute,
   Link,
-  Outlet,
   useNavigate,
   useParams,
   useRouterState,
@@ -13,6 +12,7 @@ import { Plus, Radio } from 'lucide-react'
 import { listChannels } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   Empty,
   EmptyContent,
@@ -24,6 +24,7 @@ import {
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { ChannelDetailPanel } from '@/features/channels/channel-detail-panel'
 import { ChannelListPanel } from '@/features/channels/channel-list-panel'
+import { CreateChannelDialog } from '@/features/channels/create-channel-dialog'
 import { kit } from '@/features/edges/kit-classes'
 
 export const Route = createFileRoute('/_app/channels')({
@@ -38,10 +39,10 @@ function ChannelsLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { id } = useParams({ strict: false }) as { id?: string }
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
   const locationState = useRouterState({
     select: (s) => s.location.state,
   }) as { backToList?: boolean } | undefined
+  const [createOpen, setCreateOpen] = useState(false)
 
   const listQuery = useQuery({
     queryKey: queryKeys.channels.all,
@@ -52,7 +53,6 @@ function ChannelsLayout() {
   const selectedId = id ?? (backToList ? undefined : items[0]?.id)
 
   useEffect(() => {
-    if (pathname.endsWith('/new')) return
     if (id == null && !backToList && items.length > 0) {
       void navigate({
         to: '/channels/$id',
@@ -60,9 +60,7 @@ function ChannelsLayout() {
         replace: true,
       })
     }
-  }, [id, backToList, items, navigate, pathname])
-
-  if (pathname.endsWith('/new')) return <Outlet />
+  }, [id, backToList, items, navigate])
 
   return (
     <div
@@ -79,11 +77,13 @@ function ChannelsLayout() {
             {t('channels.description')}
           </p>
         </div>
-        <Button asChild className={kit.btnPrimary}>
-          <Link to='/channels/new'>
-            <Plus className='size-3.5' />
-            {t('channels.new')}
-          </Link>
+        <Button
+          type='button'
+          className={kit.btnPrimary}
+          onClick={() => setCreateOpen(true)}
+        >
+          <Plus className='size-3.5' />
+          {t('channels.new')}
         </Button>
       </div>
       <MasterDetailShell
@@ -106,7 +106,14 @@ function ChannelsLayout() {
             onRetry={() => void listQuery.refetch()}
           />
         }
-        detail={selectedId ? <ChannelDetailPanel id={selectedId} /> : null}
+        detail={
+          selectedId ? (
+            <ChannelDetailPanel
+              id={selectedId}
+              onCreate={() => setCreateOpen(true)}
+            />
+          ) : null
+        }
         emptyDetail={
           !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
             <Empty>
@@ -122,8 +129,12 @@ function ChannelsLayout() {
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
-                <Button asChild className={kit.btnPrimary}>
-                  <Link to='/channels/new'>{t('channels.new')}</Link>
+                <Button
+                  type='button'
+                  className={kit.btnPrimary}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  {t('channels.new')}
                 </Button>
                 <Button
                   asChild
@@ -137,6 +148,19 @@ function ChannelsLayout() {
           ) : undefined
         }
       />
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className='sm:max-w-md'>
+          <CreateChannelDialog
+            onDone={(ch) => {
+              setCreateOpen(false)
+              void navigate({
+                to: '/channels/$id',
+                params: { id: ch.id },
+              })
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
