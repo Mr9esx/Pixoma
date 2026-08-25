@@ -60,6 +60,24 @@ describe('tasks API', () => {
     )
   })
 
+  it('listTasks filters by dispatch_topic', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ id: 't1', status: 'queued' }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const data = await listTasks({ dispatch_topic: 'fast-gpu', status: 'queued' })
+
+    expect(data[0].id).toBe('t1')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8081/api/v1/tasks?dispatch_topic=fast-gpu&status=queued',
+      expect.anything(),
+    )
+  })
+
   it('cancelTask POSTs /api/v1/tasks/{id}/cancel', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 't1', status: 'cancelled' }), {
