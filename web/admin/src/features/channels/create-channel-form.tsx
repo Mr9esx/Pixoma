@@ -53,7 +53,7 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
           autoComplete='off'
         />
       </div>
-      <div className='flex gap-2 pt-2'>
+      <div className='sticky bottom-0 z-10 -mx-6 -mb-7 flex flex-wrap gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
         <Button
           disabled={
             !name.trim() || !token.trim() || createMutation.isPending

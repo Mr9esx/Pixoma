@@ -75,4 +75,9 @@ describe('topics admin page contract', () => {
     expect(NEW).toContain('keyValid')
     expect(NEW).toContain('canCreate')
   })
+
+  it('新建表单：按钮在 sticky footer', () => {
+    expect(NEW).toMatch(/sticky bottom-0/)
+    expect(NEW).toMatch(/border-t bg-card/)
+  })
 })
