@@ -217,4 +217,12 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/SelectItem value='s3'>S3<\/SelectItem>/)
     expect(wizard).not.toMatch(/S3 兼容/)
   })
+
+  it('prefills tos defaults when the driver is selected', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/tos-cn-beijing\.volces\.com/)
+    expect(wizard).toMatch(/cn-beijing/)
+    expect(wizard).toMatch(/TOS_DEFAULTS/)
+    expect(wizard).toMatch(/onBlobDriverChange/)
+  })
 })

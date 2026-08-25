@@ -46,6 +46,8 @@
 
 `blob-error.ts` 错误映射只认 `NoSuchBucket`/`NoSuchKey` 为 bucket 不存在；裸 `404`（如旧后端未更新返回的 `Request failed (404)`）走通用「对象存储配置失败，请重试」，避免误报。
 
+选择火山 TOS 时预填默认值：endpoint `https://tos-cn-beijing.volces.com`、region `cn-beijing`、bucket `pixoma`（字段为空才填充，已手输保留；bucket 不存在可走「帮你创建」流程）。
+
 ### D4：步骤序列与测试
 
 - `setup-steps.ts`：删除 `placement` 步骤与 copy；`initialSetupStep`/`previousSetupStep`/`setupStepIndex` 相应更新。

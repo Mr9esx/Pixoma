@@ -635,6 +635,31 @@ git add web/admin/src/components/ui/alert.tsx web/admin/src/features/setup/setup
 git commit -m "feat(setup): localfs warn alert with remote-node caveat"
 ```
 
+### Task 8: 火山 TOS 默认值预填
+
+**Files:**
+- Modify: `web/admin/src/features/setup/setup-wizard.tsx`、`web/admin/src/features/setup/setup-pages.contract.test.ts`
+- Docs: `design.md`、Design Doc、`tasks.md`、本计划
+
+**Interfaces:**
+- Consumes: Task 1 的对象存储驱动下拉。
+- Produces: 选择 TOS 时预填 `TOS_DEFAULTS`（endpoint/region/bucket），空值才填、不覆盖手输。
+
+- [x] **Step 1: 先写失败合同测试**
+
+断言 `tos-cn-beijing.volces.com`、`cn-beijing`、`TOS_DEFAULTS`、`onBlobDriverChange` 存在；RED 确认。
+
+- [x] **Step 2: 实现并全量验证**
+
+新增 `TOS_DEFAULTS` 常量与 `onBlobDriverChange`（切到 tos 且字段为空时填充）；驱动下拉 `onValueChange={onBlobDriverChange}`；`pnpm vitest run`（57 文件 / 366 测试）与 `pnpm tsc -b` 通过。
+
+- [x] **Step 3: 提交**
+
+```bash
+git add web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts docs/openspec/changes/setup-storage-flow/design.md docs/superpowers/specs/2026-08-25-setup-storage-flow-design.md docs/openspec/changes/setup-storage-flow/tasks.md docs/superpowers/plans/2026-08-25-setup-storage-flow.md
+git commit -m "feat(setup): prefill volcengine tos defaults"
+```
+
 ---
 
 ## 自检记录（写完后由创建者核对）
