@@ -2,6 +2,8 @@
 comet_change: shared-directory-storage
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-25-shared-directory-storage
+status: final
 ---
 
 # shared-directory-storage 深度设计
