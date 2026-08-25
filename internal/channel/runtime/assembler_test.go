@@ -132,6 +132,30 @@ func TestAssembler_StartStopRestartDelete(t *testing.T) {
 	}
 }
 
+func TestAssembler_Status(t *testing.T) {
+	store := newMemStore()
+	factory := newFakeFactory()
+	as := &Assembler{Store: store, Factory: factory}
+	ctx := context.Background()
+
+	// 创建失败 → stateError + lastErr
+	store.upsert("tg-err", "token-err", true)
+	factory.failNext["token-err"] = true
+	runOnce(as, ctx)
+	st := as.Status()["tg-err"]
+	if st.State != stateError || st.LastErr == nil {
+		t.Fatalf("status=%+v", st)
+	}
+
+	// 创建成功 → running，无 lastErr
+	store.upsert("tg-ok", "token-ok", true)
+	runOnce(as, ctx)
+	st = as.Status()["tg-ok"]
+	if st.State != stateRunning || st.LastErr != nil {
+		t.Fatalf("status=%+v", st)
+	}
+}
+
 func TestAssembler_StartFailureBackoffThenRetry(t *testing.T) {
 	store := newMemStore()
 	store.upsert("tg-1", "token-x", true)

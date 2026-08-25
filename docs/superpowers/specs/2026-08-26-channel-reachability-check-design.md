@@ -43,6 +43,12 @@ canonical_spec: openspec
   - `auth` → 红色 tag「Token 无效」
   - `other` → 灰色 tag「连接失败」，`title` 展示后端 message
 
+### 3.2.1 渠道详情页「状态」区（不做关联）
+
+- meta 区下方新增「状态」卡片：连接状态（复用 3.2 tag）+ 最近检测时间 + 后台适配器状态。
+- `/check` 响应补 `checked_at`（服务器 UTC 时间）与 `adapter_state` / `adapter_error`（来自 assembler 每 5s 的适配器状态，通过 `BotRuntime.ChannelStatus` → `chSvc.AdapterStatus` 注入）。
+- 适配器状态文案：运行中（绿）/ 启动中（灰）/ 连接失败，后台重试中（红，title 显示错误）/ 未启动（灰）。
+
 ### 3.3 设置页深链
 
 - `/_app/settings` 路由支持 search 参数 `?tab=account|storage|network`；`SettingsPage` 的 Tabs 默认值读 search，无参数时默认 account。

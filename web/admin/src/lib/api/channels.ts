@@ -14,6 +14,9 @@ export type ChannelReachability = {
   ok: boolean
   kind: 'ok' | 'network' | 'auth' | 'other'
   message: string
+  checked_at?: string
+  adapter_state?: 'absent' | 'starting' | 'running' | 'error'
+  adapter_error?: string
 }
 
 export function listChannels() {

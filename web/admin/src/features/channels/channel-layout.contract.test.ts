@@ -53,6 +53,7 @@ describe('channel layout aligned with compute nodes', () => {
     const api = readFileSync(join(here, '../../lib/api/channels.ts'), 'utf8')
     expect(api).toMatch(/checkChannelReachability/)
     expect(api).toMatch(/\/check`/)
+    expect(api).toMatch(/adapter_state/)
     expect(detail).toMatch(/checkChannelReachability\(id\)/)
     expect(detail).toMatch(/kit\.tagWarn/)
     expect(detail).not.toMatch(/kit\.tagSmWarn/)
@@ -60,6 +61,9 @@ describe('channel layout aligned with compute nodes', () => {
     expect(detail).toMatch(/to='\/settings'/)
     expect(detail).toMatch(/search=\{\{ tab: 'network' \}\}/)
     expect(detail).not.toMatch(/variant='warn'/)
+    expect(detail).toMatch(/channels\.statusTitle/)
+    expect(detail).toMatch(/channels\.statusLastCheck/)
+    expect(detail).toMatch(/channels\.statusAdapter/)
   })
 
   it('delete is available while enabled and shows impact', () => {

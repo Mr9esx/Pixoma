@@ -303,6 +303,8 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         </div>
       </div>
 
+      <ChannelStatusSection query={reachabilityQuery} />
+
       {updateMutation.isError ? (
         <ErrorBanner message={errorMessage(updateMutation.error)} />
       ) : null}
@@ -416,4 +418,75 @@ function ChannelReachabilityTag({
       {t('channels.reachabilityFailed')}
     </span>
   )
+}
+
+function ChannelStatusSection({
+  query,
+}: {
+  query: ReturnType<typeof useQuery<ChannelReachability, Error>>
+}) {
+  const { t } = useTranslation()
+  return (
+    <section className='flex flex-col gap-3 rounded-lg border border-border bg-card p-4'>
+      <SectionHead
+        title={t('channels.statusTitle')}
+        hint={t('channels.statusHint')}
+      />
+      <div className='flex flex-col gap-2 text-sm'>
+        <div className='flex items-center gap-2'>
+          <span className='w-24 shrink-0 text-muted-foreground'>
+            {t('channels.statusConnection')}
+          </span>
+          <ChannelReachabilityTag query={query} />
+        </div>
+        <div className='flex items-center gap-2'>
+          <span className='w-24 shrink-0 text-muted-foreground'>
+            {t('channels.statusLastCheck')}
+          </span>
+          <span>
+            {query.isPending
+              ? t('channels.checkingReachability')
+              : query.data?.checked_at
+                ? formatTime(query.data.checked_at)
+                : t('channels.statusNeverChecked')}
+          </span>
+        </div>
+        <div className='flex items-center gap-2'>
+          <span className='w-24 shrink-0 text-muted-foreground'>
+            {t('channels.statusAdapter')}
+          </span>
+          <AdapterStatusTag query={query} />
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function AdapterStatusTag({
+  query,
+}: {
+  query: ReturnType<typeof useQuery<ChannelReachability, Error>>
+}) {
+  const { t } = useTranslation()
+  if (query.isPending) {
+    return <span className={kit.tagOff}>{t('channels.checkingReachability')}</span>
+  }
+  const state = query.data?.adapter_state
+  if (state === 'running') {
+    return <span className={kit.tagOn}>{t('channels.adapterRunning')}</span>
+  }
+  if (state === 'error') {
+    return (
+      <span
+        className={kit.tagFail}
+        title={query.data?.adapter_error || undefined}
+      >
+        {t('channels.adapterRetrying')}
+      </span>
+    )
+  }
+  if (state === 'starting') {
+    return <span className={kit.tagOff}>{t('channels.adapterStarting')}</span>
+  }
+  return <span className={kit.tagOff}>{t('channels.adapterAbsent')}</span>
 }
