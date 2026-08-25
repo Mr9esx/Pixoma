@@ -531,7 +531,6 @@
     "checkingReachability": "检测中…",
     "reachabilityOK": "连接正常",
     "reachabilityNetwork": "无法连接 Telegram",
-    "reachabilityNetworkAction": "去设置代理",
     "reachabilityAuth": "Token 无效",
     "reachabilityFailed": "连接失败"
   },

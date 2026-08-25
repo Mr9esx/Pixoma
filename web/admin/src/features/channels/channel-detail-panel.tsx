@@ -419,16 +419,7 @@ function ChannelReachabilityTag({
     return <span className={kit.tagOn}>{t('channels.reachabilityOK')}</span>
   }
   if (result.kind === 'network') {
-    return (
-      <Link
-        to='/settings'
-        search={{ tab: 'network' }}
-        className={kit.tagWarn}
-        aria-label={t('channels.reachabilityNetworkAction')}
-      >
-        {t('channels.reachabilityNetwork')}
-      </Link>
-    )
+    return <span className={kit.tagWarn}>{t('channels.reachabilityNetwork')}</span>
   }
   if (result.kind === 'auth') {
     return <span className={kit.tagFail}>{t('channels.reachabilityAuth')}</span>
