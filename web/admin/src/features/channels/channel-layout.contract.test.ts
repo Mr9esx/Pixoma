@@ -36,6 +36,15 @@ describe('channel layout aligned with compute nodes', () => {
     expect(source).toContain('backToList')
   })
 
+  it('create form keeps actions in a sticky bottom footer', () => {
+    const form = readFileSync(
+      join(here, 'create-channel-form.tsx'),
+      'utf8'
+    )
+    expect(form).toMatch(/sticky bottom-0/)
+    expect(form).toMatch(/border-t bg-card/)
+  })
+
   it('delete is available while enabled and shows impact', () => {
     const source = readFileSync(join(here, 'channel-detail-panel.tsx'), 'utf8')
     expect(source).toContain('disabled={deleteMutation.isPending')

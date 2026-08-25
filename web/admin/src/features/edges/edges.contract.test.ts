@@ -42,7 +42,9 @@ describe('compute node layout and detail', () => {
     expect(detail).toMatch(/flex min-w-0 flex-col gap-\[6px\]/)
     expect(detail).not.toMatch(/data-orientation=['"]horizontal['"]/)
     expect(detail).toMatch(/<MetaChip/)
-    expect(detail).toMatch(/noConsume/)
+    expect(detail).toMatch(/noTopicBinding/)
+    expect(detail).toMatch(/setDeployOpen/)
+    expect(detail).toMatch(/scrollAndFlash/)
     expect(detail).toMatch(/kit\.specsWrap/)
     expect(detail).toMatch(
       /fieldCpu[\s\S]*?fieldGpu[\s\S]*?fieldCpuCores[\s\S]*?fieldMemory/
@@ -106,7 +108,9 @@ describe('compute node layout and detail', () => {
     )
     expect(layout).toMatch(/emptyDetail=/)
     expect(layout).toMatch(/EmptyHeader/)
-    expect(layout).toMatch(/to='\/edges\/\$edgeId' params=\{\{ edgeId: 'new' \}\}/)
+    expect(layout).toMatch(
+      /to='\/edges\/\$edgeId' params=\{\{ edgeId: 'new' \}\}/
+    )
     expect(layout).toContain("to: '/edges/$edgeId'")
     expect(layout).toContain('replace: true')
     expect(shell).toMatch(/emptyDetail \?\? /)
@@ -204,10 +208,10 @@ describe('compute node layout and detail', () => {
     expect(wizard).toMatch(/edges\.deployContinue/)
     expect(wizard).toMatch(/disabled=\{!ready\}/)
     expect(wizard).toMatch(
-      /<div className='flex shrink-0 items-center justify-end gap-2'>[\s\S]*edges\.deploySkip[\s\S]*edges\.deployContinue/
+      /sticky bottom-0[\s\S]*?edges\.deploySkip[\s\S]*?edges\.deployContinue/
     )
     expect(wizard).toMatch(
-      /<div className='flex shrink-0 items-center justify-end gap-2'>[\s\S]*edges\.createDoneClose[\s\S]*edges\.createDoneView/
+      /sticky bottom-0[\s\S]*?edges\.createDoneClose[\s\S]*?edges\.createDoneView/
     )
     expect(form).toMatch(/edges\.createAndContinue/)
     expect(layout).not.toMatch(/flex max-h-\[85vh\] flex-col sm:max-w-lg/)

@@ -117,7 +117,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
           <p className='text-xs text-muted-foreground'>
             {t('edges.deployWaitHint')}
           </p>
-          <div className='flex shrink-0 items-center justify-end gap-2'>
+          <div className='sticky bottom-0 z-10 -mx-6 -mb-7 flex shrink-0 items-center justify-end gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
             <Button
               type='button'
               variant='ghost'
@@ -148,7 +148,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
               </p>
             </div>
           </div>
-          <div className='flex shrink-0 items-center justify-end gap-2'>
+          <div className='sticky bottom-0 z-10 -mx-6 -mb-7 flex shrink-0 items-center justify-end gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
             <Button
               type='button'
               variant='outline'
