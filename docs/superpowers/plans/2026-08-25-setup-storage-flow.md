@@ -618,21 +618,21 @@ git commit -m "chore: complete setup-storage-flow build tasks"
 
 **Interfaces:**
 - Consumes: Task 1 的 storage 步骤。
-- Produces: 存储步骤 Title「文件存储配置」/ Desc「决定了生成的图和视频存放的位置。」；`blobDriver === 'localfs'` 时展示 Alert「这个配置只适合 ComfyUI 和后台在同一台机器上使用。」。
+- Produces: 存储步骤 Title「文件存储配置」/ Desc「决定了生成的图和视频存放的位置。」；`blobDriver === 'localfs'` 时展示 warn Alert「这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。」（Alert 组件新增 `warn` 变体）。
 
 - [x] **Step 1: 先写失败合同测试**
 
-断言 `title: '文件存储配置'`、`desc: '决定了生成的图和视频存放的位置。'`、wizard 含 localfs 提示与 `blobDriver === 'localfs'` 条件；RED 确认。
+断言 `title: '文件存储配置'`、`desc: '决定了生成的图和视频存放的位置。'`、wizard 含「无法使用远程节点」文案与 `Alert variant='warn'` 条件；RED 确认。
 
 - [x] **Step 2: 实现并全量验证**
 
-`setup-steps.ts` 更新 storage copy；`setup-wizard.tsx` 在 `blobDriver === 'localfs'` 时渲染 Alert；`pnpm vitest run`（57 文件 / 363 测试）与 `pnpm tsc -b` 通过。
+`setup-steps.ts` 更新 storage copy；`alert.tsx` 新增 `warn` 变体（amber 系）；`setup-wizard.tsx` 在 `blobDriver === 'localfs'` 时渲染 `Alert variant='warn'`；`pnpm vitest run`（57 文件 / 363 测试）与 `pnpm tsc -b` 通过。
 
 - [x] **Step 3: 提交**
 
 ```bash
-git add web/admin/src/features/setup/setup-steps.ts web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts docs/openspec/changes/setup-storage-flow/design.md docs/superpowers/specs/2026-08-25-setup-storage-flow-design.md docs/openspec/changes/setup-storage-flow/tasks.md docs/superpowers/plans/2026-08-25-setup-storage-flow.md
-git commit -m "feat(setup): storage step copy and localfs single-machine hint"
+git add web/admin/src/components/ui/alert.tsx web/admin/src/features/setup/setup-steps.ts web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts docs/openspec/changes/setup-storage-flow/design.md docs/superpowers/specs/2026-08-25-setup-storage-flow-design.md docs/openspec/changes/setup-storage-flow/tasks.md docs/superpowers/plans/2026-08-25-setup-storage-flow.md
+git commit -m "feat(setup): localfs warn alert with remote-node caveat"
 ```
 
 ---
