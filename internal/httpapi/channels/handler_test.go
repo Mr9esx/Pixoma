@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +16,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 )
 
-func openChannelsServer(t *testing.T) *httptest.Server {
+func openChannelsServer(t *testing.T) (*httptest.Server, *channelapp.Service) {
 	t.Helper()
 	gdb, err := db.Open(db.Options{DSN: "file:ch_http_" + t.Name() + "?mode=memory&cache=shared"})
 	if err != nil {
@@ -35,7 +36,7 @@ func openChannelsServer(t *testing.T) *httptest.Server {
 	})
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
-	return srv
+	return srv, svc
 }
 
 func post(t *testing.T, url string, body any) (*http.Response, map[string]any) {
@@ -52,7 +53,7 @@ func post(t *testing.T, url string, body any) (*http.Response, map[string]any) {
 }
 
 func TestChannelsHandler_CreateListDetailUpdateDelete(t *testing.T) {
-	srv := openChannelsServer(t)
+	srv, _ := openChannelsServer(t)
 
 	res, m := post(t, srv.URL+"/api/v1/channels", map[string]any{
 		"platform": "telegram", "name": "主机器人", "token": "1234567890",
@@ -123,5 +124,48 @@ func TestChannelsHandler_CreateListDetailUpdateDelete(t *testing.T) {
 	delRes.Body.Close()
 	if delRes.StatusCode != http.StatusOK {
 		t.Fatalf("delete enabled status=%d want 200", delRes.StatusCode)
+	}
+}
+
+func TestChannelsHandler_CheckReachability(t *testing.T) {
+	srv, svc := openChannelsServer(t)
+	res, m := post(t, srv.URL+"/api/v1/channels", map[string]any{
+		"platform": "telegram", "name": "主机器人", "token": "1234567890",
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d body=%v", res.StatusCode, m)
+	}
+	id := m["id"].(string)
+
+	var gotToken string
+	svc.CheckTelegram = func(_ context.Context, token string) (channelapp.ReachabilityResult, error) {
+		gotToken = token
+		return channelapp.ReachabilityResult{OK: false, Kind: channelapp.ReachabilityNetwork, Message: "dial timeout"}, nil
+	}
+
+	checkRes, err := http.Post(srv.URL+"/api/v1/channels/"+id+"/check", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer checkRes.Body.Close()
+	var out channelapp.ReachabilityResult
+	_ = json.NewDecoder(checkRes.Body).Decode(&out)
+	if checkRes.StatusCode != http.StatusOK {
+		t.Fatalf("check status=%d", checkRes.StatusCode)
+	}
+	if gotToken != "1234567890" {
+		t.Fatalf("token=%q", gotToken)
+	}
+	if out.OK || out.Kind != channelapp.ReachabilityNetwork {
+		t.Fatalf("out=%+v", out)
+	}
+
+	notFoundRes, err := http.Post(srv.URL+"/api/v1/channels/missing/check", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notFoundRes.Body.Close()
+	if notFoundRes.StatusCode != http.StatusNotFound {
+		t.Fatalf("not found status=%d", notFoundRes.StatusCode)
 	}
 }

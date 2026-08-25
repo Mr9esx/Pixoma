@@ -29,6 +29,8 @@ type Service struct {
 	// and removes channel-scoped menu/card rows in one transaction; returns
 	// chats to notify after commit.
 	DeleteWithCleanup func(ctx context.Context, channelID string) ([]sharedkernel.ChatID, error)
+	// CheckTelegram overrides the default getMe probe (tests).
+	CheckTelegram func(ctx context.Context, token string) (ReachabilityResult, error)
 	now               func() time.Time
 }
 
@@ -76,6 +78,24 @@ func (s *Service) Masked(ctx context.Context, id string) (string, error) {
 		return "", err
 	}
 	return domain.MaskedToken(cred.BotToken), nil
+}
+
+// CheckReachability probes the Telegram Bot API once with the channel token
+// and classifies the result (ok / network / auth / other).
+func (s *Service) CheckReachability(ctx context.Context, id string) (ReachabilityResult, error) {
+	ch, err := s.Store.Get(ctx, id)
+	if err != nil {
+		return ReachabilityResult{}, err
+	}
+	cred, err := domain.DecryptCredential(s.Key, ch.CredentialCiphertext)
+	if err != nil {
+		return ReachabilityResult{}, err
+	}
+	probe := s.CheckTelegram
+	if probe == nil {
+		probe = checkTelegramReachability
+	}
+	return probe(ctx, cred.BotToken)
 }
 
 func (s *Service) List(ctx context.Context) ([]domain.Channel, error) {
