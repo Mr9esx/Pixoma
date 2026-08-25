@@ -7,6 +7,10 @@
 - **WHEN** 用户配置可用业务库与 localfs 目录，并完成节点与渠道必要项
 - **THEN** 向导可标记初始化完成，设置持久化到业务库（或引导态约定位置），`placement` 推断为本机
 
+#### Scenario: 远程禁止 localfs
+- **WHEN** 用户选择远程部署并尝试将对象存储选为 localfs
+- **THEN** 向导拒绝该组合并说明原因
+
 #### Scenario: 使用 MySQL 完成向导
 - **WHEN** 用户在数据库步骤选择 MySQL、填写可达 DSN 并测连通
 - **THEN** 向导继续后续步骤并可完成初始化，重启后控制面使用该 MySQL 库
@@ -65,6 +69,10 @@
 
 ### Requirement: 本机与远程部署说明
 系统 MUST 在向导完成页或项目文档中说明本机/远程两种部署与 `pixoma-edge-agent` 的部署要点（控制面地址、instance_id、鉴权、blob）；向导流程 MUST NOT 要求用户先选择部署位置，部署位置由对象存储选型决定。
+
+#### Scenario: 远程展示 Edge 部署指引
+- **WHEN** 用户在向导中选择远程部署
+- **THEN** 界面展示 Edge 独立进程启动与登记节点所需信息
 
 #### Scenario: 完成向导后可获得部署指引
 - **WHEN** 用户完成初始化向导
