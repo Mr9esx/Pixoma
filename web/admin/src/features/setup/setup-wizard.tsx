@@ -597,9 +597,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <CircleAlert aria-hidden='true' />
               <AlertTitle>注意！</AlertTitle>
               <AlertDescription>
-                这个配置只适合 ComfyUI 和后台在同一台机器上使用，
-                <br />
-                无法使用远程节点。
+                这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。
               </AlertDescription>
             </Alert>
           ) : null}
