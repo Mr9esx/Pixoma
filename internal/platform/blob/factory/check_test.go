@@ -51,3 +51,12 @@ func TestEnsureBucket_S3(t *testing.T) {
 		t.Fatalf("check after ensure: %v", err)
 	}
 }
+
+func TestCheck_SharedFS(t *testing.T) {
+	if err := factory.Check(context.Background(), factory.CheckOptions{
+		Driver:    botconfig.BlobDriverSharedFS,
+		LocalRoot: t.TempDir(),
+	}); err != nil {
+		t.Fatalf("sharedfs check: %v", err)
+	}
+}

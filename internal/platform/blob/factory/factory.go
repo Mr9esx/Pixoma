@@ -25,7 +25,7 @@ func New(driver, localRoot string) (blob.Store, error) {
 // S3/TOS access keys always come from environment.
 func NewFromConfig(cfg botconfig.Config, localRoot string) (blob.Store, error) {
 	switch strings.TrimSpace(cfg.Blob.Driver) {
-	case "", botconfig.BlobDriverLocalFS:
+	case "", botconfig.BlobDriverLocalFS, botconfig.BlobDriverSharedFS:
 		return localfs.New(localRoot)
 	case botconfig.BlobDriverS3:
 		return blobs3.New(S3Options(cfg))

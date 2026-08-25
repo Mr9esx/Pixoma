@@ -531,3 +531,18 @@ func TestBlobTest_BucketNotFoundAndCreate(t *testing.T) {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestBlobTest_SharedFSSuccess(t *testing.T) {
+	env := completeWizard(t)
+	body, _ := json.Marshal(map[string]any{
+		"blob_driver": "sharedfs",
+		"blob_root":   t.TempDir(),
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/blob-test", bytes.NewReader(body))
+	env.auth(req)
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"ok":true`) {
+		t.Fatalf("sharedfs: %d %s", rec.Code, rec.Body.String())
+	}
+}
