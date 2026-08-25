@@ -88,8 +88,11 @@ describe('login and setup pages', () => {
     // Title is the generic config noun; the step is self-explanatory, so desc is empty
     expect(steps).toMatch(/title: '数据库配置'/)
     expect(steps).toMatch(/database: \{[\s\S]*?title: '数据库配置',\s*desc: '',/)
-    // DSN field is '连接', matching settings.db fieldDbDsn
-    expect(wizard).toMatch(/label='连接' htmlFor='db-dsn'/)
+    // Database step uses a structured per-driver form, not a raw one-line DSN
+    expect(wizard).toMatch(/htmlFor='db-driver'/)
+    expect(wizard).toMatch(/htmlFor='db-sqlite-path'/)
+    expect(wizard).toMatch(/htmlFor='db-host'/)
+    expect(wizard).toMatch(/htmlFor='db-password'/)
     // Old patterns must not return: any desc for this step, empty deixis,
     // redundant '记录', the deictic question phrasing, and the padded
     // parenthetical on SQLite
@@ -132,11 +135,20 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/SelectItem value='postgres'/)
   })
 
-  it('switches the DSN input to the selected driver example', () => {
+  it('switches structured fields and port defaults when driver changes', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
     expect(wizard).toMatch(/onValueChange=\{onDriverChange\}/)
     expect(wizard).toMatch(/function onDriverChange\(next: string\)/)
-    expect(wizard).toMatch(/examples\.includes\(dsn\)/)
-    expect(wizard).toMatch(/setDsn\(example\)/)
+    expect(wizard).toMatch(/setDbPort\('3306'\)/)
+    expect(wizard).toMatch(/setDbPort\('5432'\)/)
+    expect(wizard).toMatch(/buildMySQLDSN/)
+    expect(wizard).toMatch(/buildPostgresDSN/)
+  })
+
+  it('offers an advanced raw DSN editor that can override the form', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/高级：直接输入 DSN/)
+    expect(wizard).toMatch(/htmlFor='db-dsn-raw'/)
+    expect(wizard).toMatch(/setRawDsn\(dsn\)/)
   })
 })
