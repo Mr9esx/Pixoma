@@ -170,10 +170,21 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/setDbTested\(true\)/)
     expect(wizard).not.toMatch(/测连通并继续/)
     expect(wizard).not.toMatch(/submitDisabled/)
-    expect(wizard).toMatch(/setStep\('placement'\)/)
+    expect(wizard).toMatch(/setStep\('storage'\)/)
     expect(wizard).toMatch(/Alert variant='success'/)
     expect(wizard).toMatch(/AlertTitle>连接正常<\/AlertTitle>/)
     expect(wizard).toMatch(/CircleCheck/)
     expect(wizard).not.toMatch(/text-emerald-600/)
+  })
+
+  it('removes the deployment placement step', () => {
+    const steps = read('src/features/setup/setup-steps.ts')
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(steps).not.toMatch(/placement/)
+    expect(wizard).not.toMatch(/出图机器在哪/)
+    expect(wizard).not.toMatch(/RadioGroup/)
+    expect(wizard).toMatch(
+      /placement: blobDriver === 'localfs' \? 'local' : 'remote'/
+    )
   })
 })

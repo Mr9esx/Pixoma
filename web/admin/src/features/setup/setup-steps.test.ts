@@ -9,12 +9,13 @@ import {
 describe('setupStepsFor', () => {
   it('keeps password as the first step when it must be changed', () => {
     expect(setupStepsFor(true)[0]).toBe('password')
-    expect(setupStepsFor(true)).toHaveLength(4)
+    expect(setupStepsFor(true)).toHaveLength(3)
   })
 
   it('skips password after it has already been changed', () => {
     expect(setupStepsFor(false)[0]).toBe('database')
     expect(setupStepsFor(false)).not.toContain('password')
+    expect(setupStepsFor(false)).toEqual(['database', 'storage'])
   })
 })
 
@@ -49,11 +50,11 @@ describe('previousSetupStep', () => {
 
   it('returns the previous step so the wizard can go back', () => {
     expect(previousSetupStep(withPassword, 'database')).toBe('password')
-    expect(previousSetupStep(withoutPassword, 'storage')).toBe('placement')
+    expect(previousSetupStep(withoutPassword, 'storage')).toBe('database')
   })
 
   it('tracks progress index from 0', () => {
     expect(setupStepIndex(withPassword, 'password')).toBe(0)
-    expect(setupStepIndex(withPassword, 'storage')).toBe(3)
+    expect(setupStepIndex(withPassword, 'storage')).toBe(2)
   })
 })
