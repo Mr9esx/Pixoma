@@ -4,23 +4,20 @@ import { Link } from '@tanstack/react-router'
 import {
   Bot,
   CalendarDays,
-  CheckCircle2,
   Clock,
-  KeyRound,
   PenLine,
   Power,
   SearchX,
   Trash2,
-  WifiOff,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
+  checkChannelReachability,
   deleteChannel,
   getChannel,
   setChannelEnabled,
   updateChannel,
-  checkChannelReachability,
   type ChannelReachability,
 } from '@/lib/api/channels'
 import { ApiError } from '@/lib/api/client'
@@ -47,7 +44,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
@@ -195,6 +191,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             <span className={ch.enabled ? kit.tagOn : kit.tagOff}>
               {ch.enabled ? t('channels.enabled') : t('channels.disabled')}
             </span>
+            <ChannelReachabilityTag query={reachabilityQuery} />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
             <Button
@@ -312,19 +309,6 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <ErrorBanner message={errorMessage(deleteMutation.error)} />
       ) : null}
 
-      {reachabilityQuery.isPending ? (
-        <p className='text-xs text-muted-foreground'>
-          {t('channels.checkingReachability')}
-        </p>
-      ) : reachabilityQuery.isError ? (
-        <ErrorBanner
-          message={errorMessage(reachabilityQuery.error)}
-          onRetry={() => void reachabilityQuery.refetch()}
-        />
-      ) : reachabilityQuery.data ? (
-        <ChannelReachabilityAlert result={reachabilityQuery.data} />
-      ) : null}
-
       <section id='channel-menu-section' className='flex flex-col gap-4'>
         <SectionHead
           title={t('channels.tabMenu')}
@@ -391,38 +375,44 @@ function formatTime(iso: string): string {
   return new Date(ms).toLocaleString()
 }
 
-function ChannelReachabilityAlert({ result }: { result: ChannelReachability }) {
+function ChannelReachabilityTag({
+  query,
+}: {
+  query: ReturnType<typeof useQuery<ChannelReachability, Error>>
+}) {
   const { t } = useTranslation()
-  if (result.kind === 'ok') {
+  if (query.isPending) {
     return (
-      <Alert variant='success'>
-        <CheckCircle2 aria-hidden='true' />
-        <AlertTitle>{t('channels.reachabilityOK')}</AlertTitle>
-      </Alert>
+      <span className={kit.tagSmOff}>{t('channels.checkingReachability')}</span>
     )
+  }
+  if (query.isError || !query.data) {
+    return (
+      <span className={kit.tagSmFail}>{t('channels.reachabilityFailed')}</span>
+    )
+  }
+  const result = query.data
+  if (result.kind === 'ok') {
+    return <span className={kit.tagOn}>{t('channels.reachabilityOK')}</span>
   }
   if (result.kind === 'network') {
     return (
-      <Alert variant='warn'>
-        <WifiOff aria-hidden='true' />
-        <AlertTitle>{t('channels.reachabilityNetwork')}</AlertTitle>
-        <AlertDescription>
-          <Button asChild size='sm'>
-            <Link to='/settings' search={{ tab: 'network' }}>
-              {t('channels.reachabilityNetworkAction')}
-            </Link>
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <Link
+        to='/settings'
+        search={{ tab: 'network' }}
+        className={kit.tagSmWarn}
+        aria-label={t('channels.reachabilityNetworkAction')}
+      >
+        {t('channels.reachabilityNetwork')}
+      </Link>
     )
   }
   if (result.kind === 'auth') {
-    return (
-      <Alert variant='destructive'>
-        <KeyRound aria-hidden='true' />
-        <AlertTitle>{t('channels.reachabilityAuth')}</AlertTitle>
-      </Alert>
-    )
+    return <span className={kit.tagSmFail}>{t('channels.reachabilityAuth')}</span>
   }
-  return <ErrorBanner message={result.message || t('common.errorGeneric')} />
+  return (
+    <span className={kit.tagSmOff} title={result.message || undefined}>
+      {t('channels.reachabilityFailed')}
+    </span>
+  )
 }

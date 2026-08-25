@@ -33,15 +33,15 @@ canonical_spec: openspec
 - 新端点 `POST /api/v1/channels/{id}/check`，返回 `{ ok, kind, message }`；渠道不存在返回 404。
 - 不缓存，每次进详情页触发一次。
 
-### 3.2 前端：连通状态元素（不新增独立 Alert）
+### 3.2 前端：title 旁的连通状态 tag（不新增独立 Alert）
 
 - `api/channels.ts` 加 `checkChannelReachability(id)`。
-- `ChannelDetailPanel` 挂载时（id 变化）用 `useQuery` 调一次，单个元素承载全部状态：
-  - 检测中 → 小字「检测中…」
-  - `ok` → 绿色标签「Telegram 连接正常」
-  - `network` → Alert：「无法连接 Telegram。若网络受限，请在设置中配置代理」+ 按钮「去设置代理」→ `/settings?tab=network`
-  - `auth` → Alert：「Bot Token 无效，请检查」
-  - `other` → 展示后端返回的 message
+- `ChannelDetailPanel` 挂载时（id 变化）用 `useQuery` 调一次，title 旁单个 tag 承载全部状态：
+  - 检测中 → 灰色小 tag「检测中…」
+  - `ok` → 绿色 tag「连接正常」
+  - `network` → amber tag「无法连接 Telegram」，可点直达 `/settings?tab=network`
+  - `auth` → 红色 tag「Token 无效」
+  - `other` → 灰色 tag「连接失败」，`title` 展示后端 message
 
 ### 3.3 设置页深链
 
@@ -50,9 +50,10 @@ canonical_spec: openspec
 ## 4. 文案（pixoma-voice）
 
 - 检测中：「检测中…」
-- 正常：「Telegram 连接正常」
-- 被墙：「无法连接 Telegram。若网络受限，请在设置中配置代理」+ 按钮「去设置代理」
-- Token 无效：「Bot Token 无效，请检查」
+- 正常：「连接正常」
+- 被墙：「无法连接 Telegram」（可点，aria-label「去设置代理」）
+- Token 无效：「Token 无效」
+- 其他错误：「连接失败」
 
 ## 5. 测试
 

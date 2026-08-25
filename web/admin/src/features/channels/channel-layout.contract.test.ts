@@ -54,9 +54,11 @@ describe('channel layout aligned with compute nodes', () => {
     expect(api).toMatch(/checkChannelReachability/)
     expect(api).toMatch(/\/check`/)
     expect(detail).toMatch(/checkChannelReachability\(id\)/)
+    expect(detail).toMatch(/kit\.tagSmWarn/)
     expect(detail).toMatch(/channels\.reachabilityNetwork/)
     expect(detail).toMatch(/to='\/settings'/)
     expect(detail).toMatch(/search=\{\{ tab: 'network' \}\}/)
+    expect(detail).not.toMatch(/variant='warn'/)
   })
 
   it('delete is available while enabled and shows impact', () => {
