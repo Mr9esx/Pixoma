@@ -2,7 +2,7 @@
 
 > 系统总览见 [overview.md](./overview.md)；运行时链路见 [runtime.md](./runtime.md)。  
 > 端到端样例（每阶段表行 / Blob / MQ）见 [task-data-walkthrough.md](./task-data-walkthrough.md)。  
-> 数据库：默认 SQLite（`data/app.db`），向导可选 MySQL / Postgres；GORM AutoMigrate。  
+> 数据库：默认 SQLite（`data/app.db`），Setup 向导可选 MySQL / Postgres（建议 MySQL 8.0+）；GORM AutoMigrate。业务库连接只在 Setup 向导配置，设置页只读展示驱动与 DSN；换库/跨引擎数据迁移为非目标（迁移走数据迁移 + 重跑 Setup）。  
 > 引导态另存本机 `data/bootstrap.db`。业务 settings 在 `platform_settings`。
 
 非库内状态（有意不落库）：
