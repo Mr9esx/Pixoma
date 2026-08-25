@@ -196,7 +196,9 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
                 variant='outline'
                 className='h-8 gap-1.5 rounded-md px-3 text-xs'
               >
-                <Link to='/topics/new'>{t('topics.new')}</Link>
+                <Link to='/topics/$key' params={{ key: 'new' }}>
+                  {t('topics.new')}
+                </Link>
               </Button>
             </>
           }

@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import {
   createFileRoute,
   Link,
-  Outlet,
   useNavigate,
   useParams,
   useRouterState,
@@ -23,6 +22,7 @@ import {
 } from '@/components/ui/empty'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { kit } from '@/features/edges/kit-classes'
+import { CreateTopicForm } from '@/features/topics/create-topic-form'
 import { TopicDetailPanel } from '@/features/topics/topic-detail-panel'
 import { TopicListPanel } from '@/features/topics/topic-list-panel'
 
@@ -38,7 +38,6 @@ function TopicsLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { key } = useParams({ strict: false }) as { key?: string }
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
   const locationState = useRouterState({
     select: (s) => s.location.state,
   }) as { backToList?: boolean } | undefined
@@ -50,9 +49,9 @@ function TopicsLayout() {
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
   const backToList = locationState?.backToList === true
   const selectedKey = key ?? (backToList ? undefined : items[0]?.key)
+  const create = key === 'new'
 
   useEffect(() => {
-    if (pathname.endsWith('/new')) return
     if (key == null && !backToList && items.length > 0) {
       void navigate({
         to: '/topics/$key',
@@ -60,9 +59,7 @@ function TopicsLayout() {
         replace: true,
       })
     }
-  }, [key, backToList, items, navigate, pathname])
-
-  if (pathname.endsWith('/new')) return <Outlet />
+  }, [key, backToList, items, navigate])
 
   return (
     <div
@@ -80,7 +77,7 @@ function TopicsLayout() {
           </p>
         </div>
         <Button asChild className={kit.btnPrimary}>
-          <Link to='/topics/new'>
+          <Link to='/topics/$key' params={{ key: 'new' }}>
             <Plus className='size-3.5' />
             {t('topics.new')}
           </Link>
@@ -88,7 +85,7 @@ function TopicsLayout() {
       </div>
       <MasterDetailShell
         className='md:grid-cols-[280px_1fr]'
-        hasSelection={Boolean(selectedKey)}
+        hasSelection={Boolean(selectedKey) || key === 'new'}
         onBackToList={() => {
           void navigate({
             to: '/topics',
@@ -106,7 +103,24 @@ function TopicsLayout() {
             onRetry={() => void listQuery.refetch()}
           />
         }
-        detail={selectedKey ? <TopicDetailPanel topicKey={selectedKey} /> : null}
+        detail={
+          create ? (
+            <div className={kit.pageSection}>
+              <h2 className={kit.title}>{t('topics.new')}</h2>
+              <CreateTopicForm
+                onDone={(topic) => {
+                  void navigate({
+                    to: '/topics/$key',
+                    params: { key: topic.key },
+                  })
+                }}
+                onCancel={() => void navigate({ to: '/topics' })}
+              />
+            </div>
+          ) : selectedKey ? (
+            <TopicDetailPanel topicKey={selectedKey} />
+          ) : null
+        }
         emptyDetail={
           !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
             <Empty>
@@ -123,7 +137,9 @@ function TopicsLayout() {
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
                 <Button asChild className={kit.btnPrimary}>
-                  <Link to='/topics/new'>{t('topics.new')}</Link>
+                  <Link to='/topics/$key' params={{ key: 'new' }}>
+                    {t('topics.new')}
+                  </Link>
                 </Button>
                 <Button
                   asChild
