@@ -655,62 +655,67 @@ function TasksSection({
         title={t('edges.observationTasks')}
         hint={t('edges.observationTasksHint')}
       />
-      {tasks.length === 0 ? (
-        <EmptyState className='py-6' message={t('tasks.empty')} />
-      ) : (
-        <>
-          <div className={kit.tableWrap}>
-            <table className='w-full caption-bottom text-sm'>
-              <thead>
-                <tr className='border-b bg-muted/25'>
-                  <th className={`${kit.th} px-4`}>{t('tasks.fieldStatus')}</th>
-                  <th className={kit.th}>{t('tasks.fieldCaseId')}</th>
-                  <th className={kit.th}>{t('tasks.fieldId')}</th>
-                  <th className={kit.th}>{t('tasks.fieldUpdatedAt')}</th>
-                  <th className={kit.th}>{t('edges.taskDetail')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((task) => {
-                  const statusKey = taskStatusLabelKey(task.status)
-                  return (
-                    <tr key={task.id} className='border-b last:border-0'>
-                      <td className='px-4 py-3'>
-                        <span className={statusTagClass(task.status)}>
-                          {statusKey ? t(statusKey) : task.status}
-                        </span>
-                      </td>
-                      <td className='max-w-32 truncate py-3'>{task.case_id}</td>
-                      <td className='max-w-40 truncate py-3 font-mono text-xs'>
-                        <Link
-                          to='/tasks/$taskId'
-                          params={{ taskId: task.id }}
-                          className='underline-offset-4 hover:underline'
-                        >
-                          {task.id}
-                        </Link>
-                      </td>
-                      <td className='py-3 whitespace-nowrap text-muted-foreground'>
-                        {formatTime(task.updated_at)}
-                      </td>
-                      <td className='py-3'>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          size='sm'
-                          onClick={() => setDetailId(task.id)}
-                        >
-                          {t('edges.taskDetail')}
-                        </Button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+      <div className={kit.tableWrap}>
+        <table className='w-full caption-bottom text-sm'>
+          <thead>
+            <tr className='border-b bg-muted/25'>
+              <th className={`${kit.th} px-4`}>{t('tasks.fieldStatus')}</th>
+              <th className={kit.th}>{t('tasks.fieldCaseId')}</th>
+              <th className={kit.th}>{t('tasks.fieldId')}</th>
+              <th className={kit.th}>{t('tasks.fieldUpdatedAt')}</th>
+              <th className={kit.th}>{t('edges.taskDetail')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tasks.length === 0 ? (
+              <tr>
+                <td colSpan={5} className='p-0'>
+                  <EmptyState
+                    className='py-6'
+                    message={t('tasks.empty')}
+                  />
+                </td>
+              </tr>
+            ) : (
+              tasks.map((task) => {
+                const statusKey = taskStatusLabelKey(task.status)
+                return (
+                  <tr key={task.id} className='border-b last:border-0'>
+                    <td className='px-4 py-3'>
+                      <span className={statusTagClass(task.status)}>
+                        {statusKey ? t(statusKey) : task.status}
+                      </span>
+                    </td>
+                    <td className='max-w-32 truncate py-3'>{task.case_id}</td>
+                    <td className='max-w-40 truncate py-3 font-mono text-xs'>
+                      <Link
+                        to='/tasks/$taskId'
+                        params={{ taskId: task.id }}
+                        className='underline-offset-4 hover:underline'
+                      >
+                        {task.id}
+                      </Link>
+                    </td>
+                    <td className='py-3 whitespace-nowrap text-muted-foreground'>
+                      {formatTime(task.updated_at)}
+                    </td>
+                    <td className='py-3'>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='sm'
+                        onClick={() => setDetailId(task.id)}
+                      >
+                        {t('edges.taskDetail')}
+                      </Button>
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
       {hasPrev || hasNext ? (
         <div className='flex items-center justify-between gap-2'>
           <span className='text-xs text-muted-foreground'>
