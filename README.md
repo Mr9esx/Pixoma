@@ -90,6 +90,10 @@ go run ./apps/edge-agent/cmd/edge-agent
 
 新部署在初始化向导的「数据库配置」步骤选择 SQLite / MySQL / Postgres 并填写连接；设置页只读展示业务库驱动与 DSN。MySQL 建议 8.0+。业务库连接只在 Setup 向导配置，换库/跨引擎数据迁移不在界面内支持：需要迁移时请走数据迁移后重跑初始化向导。
 
+### 对象存储
+
+初始化向导步骤为 密码 → 数据库 → 对象存储（不再单独选择部署位置，`localfs` 视为本机、`s3`/`tos` 视为远程）。对象存储步骤支持「连通性测试」：`localfs` 校验目录可写；S3/TOS 校验 endpoint/region/bucket/密钥（HeadBucket）。bucket 不存在时会提示是否代为创建，确认后自动创建（需账号具备建桶权限）。`localfs` 跨机使用需把同一目录挂载到所有机器（NFS / SMB）。
+
 ## 跑通 TG 对话（默认 mock / 本机）
 
 向导里填好 Bot Token 并重启，或：
