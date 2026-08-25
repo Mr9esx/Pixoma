@@ -337,7 +337,12 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           className='flex flex-col gap-4'
           onSubmit={(e) => {
             e.preventDefault()
-            void run(async () => setStep('storage'))
+            void run(async () => {
+              await testDatabase(driver, dsn)
+              lastTestedDsn.current = dsn
+              setDbTested(true)
+              setStep('storage')
+            })
           }}
         >
           <Field label='业务库' htmlFor='db-driver'>

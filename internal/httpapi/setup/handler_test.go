@@ -435,6 +435,56 @@ func completeWizard(t *testing.T) *wizardEnv {
 	}
 }
 
+func envWithoutDB(t *testing.T) *wizardEnv {
+	t.Helper()
+	dir := t.TempDir()
+	boot, creds, err := bootstrap.Open(filepath.Join(dir, "bootstrap.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess := setup.NewSessions("")
+	h := &setup.Handler{Boot: boot, Sessions: sess, DataDir: dir}
+	r := chi.NewRouter()
+	r.Use((&setup.Gate{Boot: boot, Sessions: sess}).Middleware)
+	r.Route("/api/v1/setup", h.Mount)
+
+	loginBody, _ := json.Marshal(map[string]string{
+		"username": creds.Username,
+		"password": creds.Password,
+	})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/login", bytes.NewReader(loginBody)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login: %d %s", rec.Code, rec.Body.String())
+	}
+	var loginResp struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
+		t.Fatal(err)
+	}
+	auth := func(req *http.Request) {
+		req.Header.Set("Authorization", "Bearer "+loginResp.Token)
+		req.Header.Set("Content-Type", "application/json")
+	}
+	pw, _ := json.Marshal(map[string]string{"new_password": "new-secret-9"})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/password", bytes.NewReader(pw))
+	auth(req)
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("password: %d %s", rec.Code, rec.Body.String())
+	}
+	return &wizardEnv{
+		t:        t,
+		dir:      dir,
+		boot:     boot,
+		router:   r,
+		token:    loginResp.Token,
+		username: creds.Username,
+	}
+}
+
 func loadSettings(t *testing.T, env *wizardEnv) settings.Settings {
 	t.Helper()
 	key, err := env.boot.EncKey()
@@ -544,5 +594,30 @@ func TestBlobTest_SharedFSSuccess(t *testing.T) {
 	env.router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"ok":true`) {
 		t.Fatalf("sharedfs: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDraft_LazyConfiguresDatabase(t *testing.T) {
+	env := envWithoutDB(t)
+	dsn := filepath.Join(env.dir, "app.db")
+	body, _ := json.Marshal(settings.Settings{
+		Placement:      settings.PlacementLocal,
+		BlobDriver:     botconfig.BlobDriverLocalFS,
+		BlobRoot:       filepath.Join(env.dir, "blob"),
+		DBDriver:       "sqlite",
+		DBDSN:          dsn,
+		ComfyMock:      true,
+		ComfyUIBaseURL: "http://127.0.0.1:8188",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/draft", bytes.NewReader(body))
+	env.auth(req)
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("draft: %d %s", rec.Code, rec.Body.String())
+	}
+	driver, gotDSN, err := env.boot.AppDB()
+	if err != nil || driver != "sqlite" || gotDSN != dsn {
+		t.Fatalf("app db not configured: driver=%q dsn=%q err=%v", driver, gotDSN, err)
 	}
 }

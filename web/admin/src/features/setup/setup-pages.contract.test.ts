@@ -175,6 +175,9 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/AlertTitle>连接正常<\/AlertTitle>/)
     expect(wizard).toMatch(/CircleCheck/)
     expect(wizard).not.toMatch(/text-emerald-600/)
+    expect(wizard).toMatch(
+      /onSubmit=\{[\s\S]*?await testDatabase\(driver, dsn\)[\s\S]*?setStep\('storage'\)/
+    )
   })
 
   it('removes the deployment placement step', () => {
