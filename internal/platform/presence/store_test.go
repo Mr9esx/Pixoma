@@ -54,3 +54,15 @@ func TestStore_UnknownInstanceOffline(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 }
+
+func TestStore_RemoveClearsRecord(t *testing.T) {
+	s := presence.NewStore()
+	s.Report("gpu-1", true)
+	if got := s.Snapshot("gpu-1"); !got.EdgeOnline {
+		t.Fatalf("snapshot before remove: %+v", got)
+	}
+	s.Remove("gpu-1")
+	if got := s.Snapshot("gpu-1"); got.EdgeOnline || got.ComfyRunning {
+		t.Fatalf("snapshot after remove: %+v", got)
+	}
+}
