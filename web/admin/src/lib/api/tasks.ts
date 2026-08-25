@@ -5,6 +5,7 @@ export function listTasks(params?: {
   status?: string
   case_id?: number
   channel_id?: string
+  dispatch_topic?: string
   q?: string
   limit?: number
   offset?: number

@@ -48,9 +48,17 @@ export function updateTopic(
   })
 }
 
-export function deleteTopic(key: string) {
-  return apiFetch<void>(`/api/v1/topics/${encodeURIComponent(key)}`, {
+export type DeleteTopicResult = {
+  deleted: boolean
+  removed_case_rules?: number
+  removed_edge_subscriptions?: number
+  failed_tasks?: number
+}
+
+export function deleteTopic(key: string, ack?: boolean) {
+  return apiFetch<DeleteTopicResult>(`/api/v1/topics/${encodeURIComponent(key)}`, {
     method: 'DELETE',
+    ...(ack ? { body: JSON.stringify({ ack_references: true }) } : {}),
   })
 }
 
