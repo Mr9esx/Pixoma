@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
@@ -19,7 +19,6 @@ import {
   getChannel,
   setChannelEnabled,
   updateChannel,
-  type ChannelReachability,
 } from '@/lib/api/channels'
 import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
@@ -36,6 +35,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
+import { LinkHealthSection } from '@/features/link-health/link-health-section'
+import { channelReferences } from '@/features/link-health/lib/references'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -75,6 +77,10 @@ export function ChannelDetailPanel({ id }: { id: string }) {
     queryFn: () => checkChannelReachability(id),
     enabled: Boolean(ch),
   })
+  const channelHealth = useMemo(
+    () => channelReferences(id, reachabilityQuery.data),
+    [id, reachabilityQuery.data]
+  )
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -192,7 +198,6 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             <span className={ch.enabled ? kit.tagOn : kit.tagOff}>
               {ch.enabled ? t('channels.enabled') : t('channels.disabled')}
             </span>
-            <ChannelReachabilityTag query={reachabilityQuery} />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
             <Button
@@ -303,13 +308,34 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         </div>
       </div>
 
-      <ChannelStatusSection query={reachabilityQuery} />
+      {reachabilityQuery.data ? (
+        <LinkHealthAlert
+          name={ch.name}
+          health={channelHealth.health}
+          anchorTo='#link-health-section'
+        />
+      ) : null}
 
       {updateMutation.isError ? (
         <ErrorBanner message={errorMessage(updateMutation.error)} />
       ) : null}
       {deleteMutation.isError ? (
         <ErrorBanner message={errorMessage(deleteMutation.error)} />
+      ) : null}
+
+      {reachabilityQuery.data ? (
+        <LinkHealthSection
+          title={t('linkHealth.title')}
+          health={channelHealth.health}
+          upstream={{
+            title: t('linkHealth.relatedWorkflows'),
+            items: channelHealth.workflows,
+          }}
+          downstream={{
+            title: t('linkHealth.activeSessions'),
+            items: channelHealth.sessions,
+          }}
+        />
       ) : null}
 
       <section id='channel-menu-section' className='flex flex-col gap-4'>
@@ -376,117 +402,4 @@ function formatTime(iso: string): string {
   const ms = Date.parse(iso)
   if (!Number.isFinite(ms)) return iso
   return new Date(ms).toLocaleString()
-}
-
-function ChannelReachabilityTag({
-  query,
-}: {
-  query: ReturnType<typeof useQuery<ChannelReachability, Error>>
-}) {
-  const { t } = useTranslation()
-  if (query.isPending) {
-    return (
-      <span className={kit.tagOff}>{t('channels.checkingReachability')}</span>
-    )
-  }
-  if (query.isError || !query.data) {
-    return (
-      <span className={kit.tagFail}>{t('channels.reachabilityFailed')}</span>
-    )
-  }
-  const result = query.data
-  if (result.kind === 'ok') {
-    return <span className={kit.tagOn}>{t('channels.reachabilityOK')}</span>
-  }
-  if (result.kind === 'network') {
-    return (
-      <Link
-        to='/settings'
-        search={{ tab: 'network' }}
-        className={kit.tagWarn}
-        aria-label={t('channels.reachabilityNetworkAction')}
-      >
-        {t('channels.reachabilityNetwork')}
-      </Link>
-    )
-  }
-  if (result.kind === 'auth') {
-    return <span className={kit.tagFail}>{t('channels.reachabilityAuth')}</span>
-  }
-  return (
-    <span className={kit.tagOff} title={result.message || undefined}>
-      {t('channels.reachabilityFailed')}
-    </span>
-  )
-}
-
-function ChannelStatusSection({
-  query,
-}: {
-  query: ReturnType<typeof useQuery<ChannelReachability, Error>>
-}) {
-  const { t } = useTranslation()
-  return (
-    <section className='flex flex-col gap-3 rounded-lg border border-border bg-card p-4'>
-      <SectionHead
-        title={t('channels.statusTitle')}
-        hint={t('channels.statusHint')}
-      />
-      <div className='flex flex-col gap-2 text-sm'>
-        <div className='flex items-center gap-2'>
-          <span className='w-24 shrink-0 text-muted-foreground'>
-            {t('channels.statusConnection')}
-          </span>
-          <ChannelReachabilityTag query={query} />
-        </div>
-        <div className='flex items-center gap-2'>
-          <span className='w-24 shrink-0 text-muted-foreground'>
-            {t('channels.statusLastCheck')}
-          </span>
-          <span>
-            {query.isPending
-              ? t('channels.checkingReachability')
-              : query.data?.checked_at
-                ? formatTime(query.data.checked_at)
-                : t('channels.statusNeverChecked')}
-          </span>
-        </div>
-        <div className='flex items-center gap-2'>
-          <span className='w-24 shrink-0 text-muted-foreground'>
-            {t('channels.statusAdapter')}
-          </span>
-          <AdapterStatusTag query={query} />
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function AdapterStatusTag({
-  query,
-}: {
-  query: ReturnType<typeof useQuery<ChannelReachability, Error>>
-}) {
-  const { t } = useTranslation()
-  if (query.isPending) {
-    return <span className={kit.tagOff}>{t('channels.checkingReachability')}</span>
-  }
-  const state = query.data?.adapter_state
-  if (state === 'running') {
-    return <span className={kit.tagOn}>{t('channels.adapterRunning')}</span>
-  }
-  if (state === 'error') {
-    return (
-      <span
-        className={kit.tagFail}
-        title={query.data?.adapter_error || undefined}
-      >
-        {t('channels.adapterRetrying')}
-      </span>
-    )
-  }
-  if (state === 'starting') {
-    return <span className={kit.tagOff}>{t('channels.adapterStarting')}</span>
-  }
-  return <span className={kit.tagOff}>{t('channels.adapterAbsent')}</span>
 }

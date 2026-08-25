@@ -527,23 +527,7 @@
     "deleteInFlightTasks": "{{count}} 个执行中/排队任务将继续运行，但完成后通知无法送达",
     "deleteAckImpact": "我已知悉上述影响",
     "tokenHint": "留空表示不修改；Token 只加密存储，页面仅显示掩码。",
-    "tabPreview": "渠道预览",
-    "checkingReachability": "检测中…",
-    "reachabilityOK": "连接正常",
-    "reachabilityNetwork": "无法连接 Telegram",
-    "reachabilityNetworkAction": "去设置代理",
-    "reachabilityAuth": "Token 无效",
-    "reachabilityFailed": "连接失败",
-    "statusTitle": "状态",
-    "statusHint": "进入页面时检测一次",
-    "statusConnection": "连接状态",
-    "statusLastCheck": "最近检测",
-    "statusAdapter": "后台适配器",
-    "statusNeverChecked": "未检测",
-    "adapterRunning": "运行中",
-    "adapterStarting": "启动中",
-    "adapterRetrying": "连接失败，后台重试中",
-    "adapterAbsent": "未启动"
+    "tabPreview": "渠道预览"
   },
   "topics": {
     "title": "调度通道",
@@ -702,7 +686,12 @@
     "actionBindTopic": "去订阅调度通道",
     "actionDeployNode": "去部署节点",
     "actionCheckNode": "检查节点",
+    "actionConfigureProxy": "去设置代理",
+    "actionEditChannel": "去编辑渠道",
     "guideNoMenuEntry": "在渠道菜单编辑器中添加「打开工作流」入口，选择该工作流，保存并发布。",
+    "guideChannelUnreachable": "网络受限时，在设置页「网络」tab 配置代理",
+    "guideChannelTokenInvalid": "在渠道编辑弹窗中更换 Token",
+    "guideChannelCheckFailed": "查看错误信息，或配置代理后重试",
     "guideTopicNoReadyNode": "确认该调度通道已有计算节点订阅且在线；在计算节点列表启用计算节点，或检查 agent 心跳与 Comfy 服务。",
     "guideNoCaseRoutes": "在该工作流的处理流程中添加路由规则，把条件指向该调度通道，保存后重新检查。",
     "guideNoEdgeSubscribers": "在计算节点「部署」弹窗中勾选该调度通道，复制部署命令重新运行；没有可订阅的计算节点时先新增计算节点。",
@@ -717,6 +706,9 @@
     "noTopicBinding": "该计算节点没有订阅任何调度通道",
     "noCaseReachable": "没有工作流把任务派给该节点",
     "edgeNotReady": "计算节点未就绪（停用或离线）",
+    "channelUnreachable": "无法连接 Telegram",
+    "channelTokenInvalid": "Bot Token 无效",
+    "channelCheckFailed": "连接检测失败：{{message}}",
     "topicNoReadyNode": "调度通道 {{topic}} 没有在线计算节点",
     "noEdgeSubscribers": "没有计算节点订阅该调度通道",
     "subscribersOffline": "订阅计算节点全部离线",
@@ -727,6 +719,8 @@
     "subscribedTopics": "订阅调度通道",
     "boundNodes": "绑定计算节点",
     "relatedEntries": "关联入口",
-    "routeTopics": "路由调度通道"
+    "routeTopics": "路由调度通道",
+    "relatedWorkflows": "关联工作流",
+    "activeSessions": "活跃会话"
   }
 }
