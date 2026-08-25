@@ -43,6 +43,20 @@ describe('channel layout aligned with compute nodes', () => {
     )
     expect(form).toMatch(/sticky bottom-0/)
     expect(form).toMatch(/border-t bg-card/)
+    expect(form).toMatch(/flex flex-1 flex-col gap-4/)
+    expect(form).toMatch(/mt-auto/)
+    expect(form).not.toMatch(/max-w-xl/)
+  })
+
+  it('detail panel runs a one-time reachability check and guides to proxy settings', () => {
+    const detail = readFileSync(join(here, 'channel-detail-panel.tsx'), 'utf8')
+    const api = readFileSync(join(here, '../../lib/api/channels.ts'), 'utf8')
+    expect(api).toMatch(/checkChannelReachability/)
+    expect(api).toMatch(/\/check`/)
+    expect(detail).toMatch(/checkChannelReachability\(id\)/)
+    expect(detail).toMatch(/channels\.reachabilityNetwork/)
+    expect(detail).toMatch(/to='\/settings'/)
+    expect(detail).toMatch(/search=\{\{ tab: 'network' \}\}/)
   })
 
   it('delete is available while enabled and shows impact', () => {

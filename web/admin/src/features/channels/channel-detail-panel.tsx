@@ -4,12 +4,14 @@ import { Link } from '@tanstack/react-router'
 import {
   Bot,
   CalendarDays,
+  CheckCircle2,
   Clock,
   KeyRound,
   PenLine,
   Power,
   SearchX,
   Trash2,
+  WifiOff,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -18,6 +20,8 @@ import {
   getChannel,
   setChannelEnabled,
   updateChannel,
+  checkChannelReachability,
+  type ChannelReachability,
 } from '@/lib/api/channels'
 import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
@@ -43,6 +47,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
@@ -67,6 +72,12 @@ export function ChannelDetailPanel({ id }: { id: string }) {
     queryFn: () => getChannel(id),
   })
   const ch = channelQuery.data
+
+  const reachabilityQuery = useQuery({
+    queryKey: ['channels', id, 'reachability'],
+    queryFn: () => checkChannelReachability(id),
+    enabled: Boolean(ch),
+  })
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -301,7 +312,20 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <ErrorBanner message={errorMessage(deleteMutation.error)} />
       ) : null}
 
-      <section className='flex flex-col gap-4'>
+      {reachabilityQuery.isPending ? (
+        <p className='text-xs text-muted-foreground'>
+          {t('channels.checkingReachability')}
+        </p>
+      ) : reachabilityQuery.isError ? (
+        <ErrorBanner
+          message={errorMessage(reachabilityQuery.error)}
+          onRetry={() => void reachabilityQuery.refetch()}
+        />
+      ) : reachabilityQuery.data ? (
+        <ChannelReachabilityAlert result={reachabilityQuery.data} />
+      ) : null}
+
+      <section id='channel-menu-section' className='flex flex-col gap-4'>
         <SectionHead
           title={t('channels.tabMenu')}
           hint={t('channels.tabMenuHint')}
@@ -365,4 +389,40 @@ function formatTime(iso: string): string {
   const ms = Date.parse(iso)
   if (!Number.isFinite(ms)) return iso
   return new Date(ms).toLocaleString()
+}
+
+function ChannelReachabilityAlert({ result }: { result: ChannelReachability }) {
+  const { t } = useTranslation()
+  if (result.kind === 'ok') {
+    return (
+      <Alert variant='success'>
+        <CheckCircle2 aria-hidden='true' />
+        <AlertTitle>{t('channels.reachabilityOK')}</AlertTitle>
+      </Alert>
+    )
+  }
+  if (result.kind === 'network') {
+    return (
+      <Alert variant='warn'>
+        <WifiOff aria-hidden='true' />
+        <AlertTitle>{t('channels.reachabilityNetwork')}</AlertTitle>
+        <AlertDescription>
+          <Button asChild size='sm'>
+            <Link to='/settings' search={{ tab: 'network' }}>
+              {t('channels.reachabilityNetworkAction')}
+            </Link>
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  if (result.kind === 'auth') {
+    return (
+      <Alert variant='destructive'>
+        <KeyRound aria-hidden='true' />
+        <AlertTitle>{t('channels.reachabilityAuth')}</AlertTitle>
+      </Alert>
+    )
+  }
+  return <ErrorBanner message={result.message || t('common.errorGeneric')} />
 }
