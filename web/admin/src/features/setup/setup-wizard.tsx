@@ -30,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { AuthShell } from './auth-shell'
 import {
   buildMySQLDSN,
@@ -45,14 +44,6 @@ import {
   setupStepsFor,
   type SetupStep,
 } from './setup-steps'
-
-const DB_DSN_PLACEHOLDER: Record<string, string> = {
-  sqlite: 'data/app.db',
-  mysql:
-    'user:password@tcp(127.0.0.1:3306)/pixoma?charset=utf8mb4&parseTime=True&loc=Local',
-  postgres:
-    'host=127.0.0.1 port=5432 user=pixoma password=... dbname=pixoma sslmode=disable',
-}
 
 export function SetupWizard({ status }: { status: SetupStatus }) {
   const navigate = useNavigate()
@@ -75,8 +66,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const [dbPassword, setDbPassword] = useState('')
   const [dbName, setDbName] = useState('pixoma')
   const [pgSslMode, setPgSslMode] = useState('disable')
-  const [advanced, setAdvanced] = useState(false)
-  const [rawDsn, setRawDsn] = useState('')
+  const [dbExtraParams, setDbExtraParams] = useState('')
   const [placement, setPlacement] = useState<'local' | 'remote'>('local')
   const [blobDriver, setBlobDriver] = useState('localfs')
   const [blobRoot, setBlobRoot] = useState('data/blob')
@@ -89,7 +79,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const copy = SETUP_STEP_COPY[step]
 
   const dsn = useMemo(() => {
-    if (advanced && rawDsn.trim()) return rawDsn.trim()
     if (driver === 'mysql') {
       return buildMySQLDSN({
         host: dbHost,
@@ -97,6 +86,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
         user: dbUser,
         password: dbPassword,
         database: dbName,
+        params: dbExtraParams,
       })
     }
     if (driver === 'postgres') {
@@ -107,12 +97,11 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
         password: dbPassword,
         database: dbName,
         sslmode: pgSslMode,
+        params: dbExtraParams,
       })
     }
     return buildSqliteDSN(sqlitePath)
   }, [
-    advanced,
-    rawDsn,
     driver,
     dbHost,
     dbPort,
@@ -120,6 +109,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
     dbPassword,
     dbName,
     pgSslMode,
+    dbExtraParams,
     sqlitePath,
   ])
 
@@ -274,7 +264,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                 id='db-sqlite-path'
                 value={sqlitePath}
                 onChange={(e) => setSqlitePath(e.target.value)}
-                placeholder={DB_DSN_PLACEHOLDER.sqlite}
+                placeholder='data/app.db'
               />
             </Field>
           ) : driver === 'mysql' ? (
@@ -321,6 +311,14 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   value={dbName}
                   onChange={(e) => setDbName(e.target.value)}
                   placeholder='pixoma'
+                />
+              </Field>
+              <Field label='附加参数' htmlFor='db-extra-params'>
+                <Input
+                  id='db-extra-params'
+                  value={dbExtraParams}
+                  onChange={(e) => setDbExtraParams(e.target.value)}
+                  placeholder='timeout=5s&readTimeout=10s'
                 />
               </Field>
             </>
@@ -384,31 +382,16 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   </SelectContent>
                 </Select>
               </Field>
+              <Field label='附加参数' htmlFor='db-extra-params'>
+                <Input
+                  id='db-extra-params'
+                  value={dbExtraParams}
+                  onChange={(e) => setDbExtraParams(e.target.value)}
+                  placeholder='connect_timeout=10 application_name=pixoma'
+                />
+              </Field>
             </>
           )}
-          <button
-            type='button'
-            className='text-left text-sm text-muted-foreground underline underline-offset-4'
-            onClick={() => {
-              if (!rawDsn) setRawDsn(dsn)
-              setAdvanced((v) => !v)
-            }}
-          >
-            高级：直接输入 DSN
-          </button>
-          {advanced ? (
-            <Field label='DSN' htmlFor='db-dsn-raw'>
-              <Textarea
-                id='db-dsn-raw'
-                value={rawDsn}
-                onChange={(e) => setRawDsn(e.target.value)}
-                placeholder={
-                  DB_DSN_PLACEHOLDER[driver] ?? DB_DSN_PLACEHOLDER.sqlite
-                }
-                rows={3}
-              />
-            </Field>
-          ) : null}
           <StepActions
             error={error}
             pending={pending}

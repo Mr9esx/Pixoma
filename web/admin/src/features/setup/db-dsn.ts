@@ -4,6 +4,7 @@ export type MySQLFields = {
   user: string
   password: string
   database: string
+  params?: string
 }
 
 export type PostgresFields = {
@@ -13,6 +14,7 @@ export type PostgresFields = {
   password: string
   database: string
   sslmode: string
+  params?: string
 }
 
 export function buildSqliteDSN(path: string): string {
@@ -24,7 +26,9 @@ export function buildMySQLDSN(f: MySQLFields): string {
   const port = f.port.trim() || '3306'
   const user = f.user.trim()
   const database = f.database.trim()
-  return `${user}:${f.password}@tcp(${host}:${port})/${database}?charset=utf8mb4&parseTime=True&loc=Local`
+  const base = `${user}:${f.password}@tcp(${host}:${port})/${database}?charset=utf8mb4&parseTime=True&loc=Local`
+  const params = f.params?.trim().replace(/^&+/, '')
+  return params ? `${base}&${params}` : base
 }
 
 export function buildPostgresDSN(f: PostgresFields): string {
@@ -33,5 +37,7 @@ export function buildPostgresDSN(f: PostgresFields): string {
   const user = f.user.trim()
   const database = f.database.trim()
   const sslmode = f.sslmode.trim() || 'disable'
-  return `host=${host} port=${port} user=${user} password=${f.password} dbname=${database} sslmode=${sslmode}`
+  const base = `host=${host} port=${port} user=${user} password=${f.password} dbname=${database} sslmode=${sslmode}`
+  const params = f.params?.trim()
+  return params ? `${base} ${params}` : base
 }

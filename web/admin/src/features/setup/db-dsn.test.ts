@@ -35,6 +35,32 @@ describe('buildMySQLDSN', () => {
     })
     expect(dsn.startsWith('root:@tcp(127.0.0.1:3306)/pixoma?')).toBe(true)
   })
+
+  it('appends extra params after the built-in query string', () => {
+    const dsn = buildMySQLDSN({
+      host: 'db.internal',
+      port: '3306',
+      user: 'pixoma',
+      password: '',
+      database: 'pixoma',
+      params: 'timeout=5s&readTimeout=10s',
+    })
+    expect(dsn).toBe(
+      'pixoma:@tcp(db.internal:3306)/pixoma?charset=utf8mb4&parseTime=True&loc=Local&timeout=5s&readTimeout=10s',
+    )
+  })
+
+  it('strips a leading ampersand from extra params', () => {
+    const dsn = buildMySQLDSN({
+      host: 'db.internal',
+      port: '3306',
+      user: 'pixoma',
+      password: '',
+      database: 'pixoma',
+      params: '&timeout=5s',
+    })
+    expect(dsn.endsWith('loc=Local&timeout=5s')).toBe(true)
+  })
 })
 
 describe('buildPostgresDSN', () => {
@@ -63,6 +89,21 @@ describe('buildPostgresDSN', () => {
     })
     expect(dsn).toBe(
       'host=127.0.0.1 port=5432 user=pixoma password= dbname=pixoma sslmode=disable',
+    )
+  })
+
+  it('appends extra params as key=value pairs', () => {
+    const dsn = buildPostgresDSN({
+      host: 'pg.internal',
+      port: '5432',
+      user: 'pixoma',
+      password: '',
+      database: 'pixoma',
+      sslmode: 'require',
+      params: 'connect_timeout=10 application_name=pixoma',
+    })
+    expect(dsn).toBe(
+      'host=pg.internal port=5432 user=pixoma password= dbname=pixoma sslmode=require connect_timeout=10 application_name=pixoma',
     )
   })
 })
