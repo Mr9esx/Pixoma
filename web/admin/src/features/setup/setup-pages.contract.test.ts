@@ -120,4 +120,15 @@ describe('login and setup pages', () => {
     expect(wizard).not.toMatch(/telegram_bot_token/)
     expect(wizard).not.toMatch(/tg-token/)
   })
+
+  it('offers per-driver DSN placeholders in the wizard database step', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/DB_DSN_PLACEHOLDER/)
+    expect(wizard).toMatch(/placeholder=\{[\s\S]*?DB_DSN_PLACEHOLDER\[driver\]/)
+    expect(wizard).toMatch(/mysql:/)
+    expect(wizard).toMatch(/postgres:/)
+    expect(wizard).toMatch(/SelectItem value='sqlite'/)
+    expect(wizard).toMatch(/SelectItem value='mysql'/)
+    expect(wizard).toMatch(/SelectItem value='postgres'/)
+  })
 })
