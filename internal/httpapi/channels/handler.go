@@ -25,6 +25,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Put("/{id}", h.Update)
 	r.Post("/{id}/disable", h.Disable)
 	r.Post("/{id}/enable", h.Enable)
+	r.Post("/{id}/check", h.CheckReachability)
 	r.Delete("/{id}", h.Delete)
 }
 
@@ -174,6 +175,24 @@ func (h *Handler) Enable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"enabled": true})
+}
+
+func (h *Handler) CheckReachability(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.Svc == nil {
+		writeErr(w, http.StatusInternalServerError, "channel service not configured")
+		return
+	}
+	id := chi.URLParam(r, "id")
+	res, err := h.Svc.CheckReachability(r.Context(), id)
+	if errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "channel not found")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
