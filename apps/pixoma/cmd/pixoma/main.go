@@ -43,6 +43,7 @@ import (
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
+	"github.com/mr9esx/comfyui_tgbot/internal/topicadmin"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
@@ -255,6 +256,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	}
 	chSvc.Notify = botRT.Notify
 	edgeDeleteSvc := edgeadmin.NewService(gdb, botRT.Notify)
+	topicDeleteSvc := topicadmin.NewService(gdb, botRT.Notify)
 	conditionReg := condition.NewRegistry()
 	conditionReg.Register(&condition.UserProvider{Lookup: func(ctx context.Context, userID string) (*bool, error) {
 		var row struct {
@@ -331,19 +333,9 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Channels:  &channelsapi.Handler{Svc: chSvc},
 		MenuCards: menucardsapi.NewHandler(menuRepo),
 		Topics: &topicsapi.Handler{
-			Repo:  topicRepo,
-			Tasks: taskRepo,
-			CountCaseRefs: func(ctx context.Context, key string) (int, error) {
-				var n int64
-				like := `%"topic":"` + escapeLike(key) + `"%`
-				err := gdb.WithContext(ctx).Model(&casepersist.CaseRow{}).Where("doc_json LIKE ?", like).Count(&n).Error
-				return int(n), err
-			},
-			CountEdgeRefs: func(ctx context.Context, key string) (int, error) {
-				var n int64
-				err := gdb.WithContext(ctx).Model(&instpersist.EdgeRow{}).Where("subscribe_topics_json LIKE ?", `%"`+escapeLike(key)+`"%`).Count(&n).Error
-				return int(n), err
-			},
+			Repo:              topicRepo,
+			Tasks:             taskRepo,
+			DeleteWithCleanup: topicDeleteSvc.DeleteTopic,
 		},
 		Routing:  &routingapi.Handler{Registry: conditionReg},
 		NotFound: webembed.Handler(),

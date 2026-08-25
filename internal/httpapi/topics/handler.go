@@ -15,6 +15,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/mr9esx/comfyui_tgbot/internal/topicadmin"
 )
 
 // KeyPattern is the shared topic key format.
@@ -25,10 +26,8 @@ type Handler struct {
 	Repo topic.Repository
 	// Tasks optionally enables /{key}/stats aggregation.
 	Tasks runtimedomain.TaskRepository
-	// CountCaseRefs counts Case routing rules referencing a topic key.
-	CountCaseRefs func(ctx context.Context, key string) (int, error)
-	// CountEdgeRefs counts Edge subscriptions referencing a topic key.
-	CountEdgeRefs func(ctx context.Context, key string) (int, error)
+	// DeleteWithCleanup performs the cleanup delete (see internal/topicadmin).
+	DeleteWithCleanup func(ctx context.Context, key string, ack bool) (topicadmin.DeleteSummary, error)
 }
 
 // Mount registers chi routes (caller mounts under /api/v1/topics).
@@ -171,40 +170,38 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
-	if key == topic.DefaultKey {
-		writeErr(w, http.StatusConflict, "default topic cannot be deleted")
+	var body struct {
+		AckReferences bool `json:"ack_references"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if h.DeleteWithCleanup == nil {
+		writeErr(w, http.StatusInternalServerError, "delete cleanup not configured")
 		return
 	}
-	var refs int
-	if h.CountCaseRefs != nil {
-		n, err := h.CountCaseRefs(r.Context(), key)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		refs += n
-	}
-	if h.CountEdgeRefs != nil {
-		n, err := h.CountEdgeRefs(r.Context(), key)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		refs += n
-	}
-	if refs > 0 {
-		writeErr(w, http.StatusConflict, "topic is referenced by cases or edges")
+	summary, err := h.DeleteWithCleanup(r.Context(), key, body.AckReferences)
+	if errors.Is(err, topicadmin.ErrDefaultProtected) {
+		writeErrCode(w, http.StatusConflict, "topic_default_protected", "default topic cannot be deleted")
 		return
 	}
-	if err := h.Repo.Delete(r.Context(), key); err != nil {
-		if errors.Is(err, topic.ErrTopicNotFound) {
-			writeErr(w, http.StatusNotFound, "topic not found")
-			return
-		}
+	if errors.Is(err, topicadmin.ErrNeedsAck) {
+		writeErrCode(w, http.StatusConflict, "topic_delete_needs_ack",
+			"topic is referenced by cases or edges; confirm with ack_references to remove references")
+		return
+	}
+	if errors.Is(err, topic.ErrTopicNotFound) {
+		writeErr(w, http.StatusNotFound, "topic not found")
+		return
+	}
+	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"deleted":                    true,
+		"removed_case_rules":         summary.RemovedCaseRules,
+		"removed_edge_subscriptions": summary.RemovedEdgeSubs,
+		"failed_tasks":               summary.FailedTasks,
+	})
 }
 
 type topicStatsDTO struct {
@@ -426,4 +423,10 @@ func writeErr(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+func writeErrCode(w http.ResponseWriter, code int, errCode, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg, "code": errCode})
 }

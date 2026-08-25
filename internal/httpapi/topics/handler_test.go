@@ -13,6 +13,7 @@ import (
 
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
+	"github.com/mr9esx/comfyui_tgbot/internal/topicadmin"
 )
 
 type fakeRepo struct {
@@ -62,11 +63,9 @@ func (f *fakeRepo) Delete(_ context.Context, key string) error {
 	return nil
 }
 
-func newTestRouter(repo *fakeRepo, caseRefs, edgeRefs int) http.Handler {
+func newTestRouter(repo *fakeRepo) http.Handler {
 	h := &topics.Handler{
-		Repo:          repo,
-		CountCaseRefs: func(context.Context, string) (int, error) { return caseRefs, nil },
-		CountEdgeRefs: func(context.Context, string) (int, error) { return edgeRefs, nil },
+		Repo: repo,
 	}
 	r := chi.NewRouter()
 	h.Mount(r)
@@ -89,7 +88,7 @@ func seedRepo(repo *fakeRepo) {
 
 func TestTopics_CreateAndList(t *testing.T) {
 	repo := &fakeRepo{topics: map[string]topic.Topic{}}
-	r := newTestRouter(repo, 0, 0)
+	r := newTestRouter(repo)
 
 	rec := do(t, r, http.MethodPost, "/", `{"key":"fast-gpu","name":"Fast GPU"}`)
 	if rec.Code != http.StatusCreated {
@@ -107,7 +106,7 @@ func TestTopics_CreateAndList(t *testing.T) {
 
 func TestTopics_InvalidKey(t *testing.T) {
 	repo := &fakeRepo{topics: map[string]topic.Topic{}}
-	r := newTestRouter(repo, 0, 0)
+	r := newTestRouter(repo)
 	for _, key := range []string{"Bad Key", "UPPER", "-lead", "trail-", "a_b", ""} {
 		rec := do(t, r, http.MethodPost, "/", `{"key":"`+key+`","name":"x"}`)
 		if rec.Code != http.StatusBadRequest {
@@ -118,7 +117,7 @@ func TestTopics_InvalidKey(t *testing.T) {
 
 func TestTopics_DuplicateConflict(t *testing.T) {
 	repo := &fakeRepo{topics: map[string]topic.Topic{}}
-	r := newTestRouter(repo, 0, 0)
+	r := newTestRouter(repo)
 	_ = do(t, r, http.MethodPost, "/", `{"key":"dup","name":"D"}`)
 	rec := do(t, r, http.MethodPost, "/", `{"key":"dup","name":"D2"}`)
 	if rec.Code != http.StatusConflict {
@@ -128,7 +127,7 @@ func TestTopics_DuplicateConflict(t *testing.T) {
 
 func TestTopics_Update(t *testing.T) {
 	repo := &fakeRepo{topics: map[string]topic.Topic{}}
-	r := newTestRouter(repo, 0, 0)
+	r := newTestRouter(repo)
 	_ = do(t, r, http.MethodPost, "/", `{"key":"k","name":"K"}`)
 	rec := do(t, r, http.MethodPut, "/k", `{"name":"K2","enabled":false}`)
 	if rec.Code != http.StatusOK {
@@ -143,7 +142,7 @@ func TestTopics_Update(t *testing.T) {
 func TestTopics_CannotDisableDefault(t *testing.T) {
 	repo := &fakeRepo{topics: map[string]topic.Topic{}}
 	seedRepo(repo)
-	r := newTestRouter(repo, 0, 0)
+	r := newTestRouter(repo)
 	rec := do(t, r, http.MethodPut, "/default", `{"enabled":false}`)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("disable default status = %d body=%s", rec.Code, rec.Body.String())
@@ -154,29 +153,49 @@ func TestTopics_CannotDisableDefault(t *testing.T) {
 	}
 }
 
-func TestTopics_DeleteProtections(t *testing.T) {
+func TestTopics_DeleteCleanup(t *testing.T) {
 	repo := &fakeRepo{topics: map[string]topic.Topic{}}
 	seedRepo(repo)
 	now := time.Now().UTC()
 	repo.topics["fast-gpu"] = topic.Topic{Key: "fast-gpu", Name: "F", Enabled: true, CreatedAt: now, UpdatedAt: now}
 
-	r := newTestRouter(repo, 0, 0)
+	deleteFn := func(ctx context.Context, key string, ack bool) (topicadmin.DeleteSummary, error) {
+		if key == "default" {
+			return topicadmin.DeleteSummary{}, topicadmin.ErrDefaultProtected
+		}
+		if key == "fast-gpu" && !ack {
+			return topicadmin.DeleteSummary{}, topicadmin.ErrNeedsAck
+		}
+		if key == "missing" {
+			return topicadmin.DeleteSummary{}, topic.ErrTopicNotFound
+		}
+		return topicadmin.DeleteSummary{RemovedCaseRules: 1, RemovedEdgeSubs: 2, FailedTasks: 3}, nil
+	}
+	h := &topics.Handler{Repo: repo, DeleteWithCleanup: deleteFn}
+	r := chi.NewRouter()
+	h.Mount(r)
+
 	rec := do(t, r, http.MethodDelete, "/default", "")
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("delete default status = %d", rec.Code)
 	}
-
-	ref := newTestRouter(repo, 1, 0)
-	rec = do(t, ref, http.MethodDelete, "/fast-gpu", "")
+	rec = do(t, r, http.MethodDelete, "/fast-gpu", "")
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("delete referenced status = %d", rec.Code)
 	}
-
-	rec = do(t, r, http.MethodDelete, "/fast-gpu", "")
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("delete ok status = %d", rec.Code)
+	rec = do(t, r, http.MethodDelete, "/fast-gpu", `{"ack_references":true}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete ack status = %d", rec.Code)
 	}
-	if _, err := repo.Get(context.Background(), "fast-gpu"); err != topic.ErrTopicNotFound {
-		t.Fatalf("topic still present: %v", err)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["removed_case_rules"] != float64(1) || body["failed_tasks"] != float64(3) {
+		t.Fatalf("body=%+v", body)
+	}
+	rec = do(t, r, http.MethodDelete, "/missing", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("delete missing status = %d", rec.Code)
 	}
 }
