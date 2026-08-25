@@ -130,6 +130,9 @@ func parseListQuery(r *http.Request) (domain.ListQuery, error) {
 		}
 		q.CaseID = sharedkernel.CaseID(n)
 	}
+	if v := r.URL.Query().Get("channel_id"); v != "" {
+		q.ChannelID = v
+	}
 	if v := r.URL.Query().Get("created_from"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)
 		if err != nil {

@@ -20,6 +20,7 @@ type ListQuery struct {
 	UserID      string
 	ChatID      *sharedkernel.ChatID
 	CaseID      sharedkernel.CaseID
+	ChannelID   string
 	Status      Status
 	CreatedFrom *time.Time
 	CreatedTo   *time.Time
@@ -82,6 +83,12 @@ func (r *MemoryRepository) List(_ context.Context, q ListQuery) ([]*Session, err
 		}
 		if q.CaseID != 0 && s.CaseID != q.CaseID {
 			continue
+		}
+		if q.ChannelID != "" {
+			addr, err := sharedkernel.ParseChatID(string(s.ChatID))
+			if err != nil || addr.ChannelID != q.ChannelID {
+				continue
+			}
 		}
 		if q.ChatID != nil && s.ChatID != *q.ChatID {
 			continue
