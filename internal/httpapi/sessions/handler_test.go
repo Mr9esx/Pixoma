@@ -55,6 +55,9 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 	if err := repo.Save(ctx, s2); err != nil {
 		t.Fatal(err)
 	}
+	if err := repo.Save(ctx, domain.NewCollecting("sess-c", "ig:99", 3, []string{"prompt"}, now)); err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := http.Get(srv.URL + "/api/v1/sessions?user_id=user-a")
 	if err != nil {
@@ -86,6 +89,34 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 	}
 	if len(byCase) != 1 || byCase[0]["id"] != "sess-a" {
 		t.Fatalf("filter case_id: %+v", byCase)
+	}
+
+	resChan, err := http.Get(srv.URL + "/api/v1/sessions?channel_id=tg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resChan.Body.Close()
+	if resChan.StatusCode != http.StatusOK {
+		t.Fatalf("list channel_id status=%d", resChan.StatusCode)
+	}
+	var byChannel []map[string]any
+	if err := json.NewDecoder(resChan.Body).Decode(&byChannel); err != nil {
+		t.Fatal(err)
+	}
+	if len(byChannel) != 2 {
+		t.Fatalf("filter channel_id: %+v", byChannel)
+	}
+	resChan2, err := http.Get(srv.URL + "/api/v1/sessions?channel_id=ig")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resChan2.Body.Close()
+	var byIg []map[string]any
+	if err := json.NewDecoder(resChan2.Body).Decode(&byIg); err != nil {
+		t.Fatal(err)
+	}
+	if len(byIg) != 1 || byIg[0]["id"] != "sess-c" {
+		t.Fatalf("filter channel_id=ig: %+v", byIg)
 	}
 
 	res2, err := http.Get(srv.URL + "/api/v1/sessions/sess-a")

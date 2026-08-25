@@ -93,6 +93,9 @@ func (r *SessionRepository) List(ctx context.Context, q domain.ListQuery) ([]*do
 	if q.CaseID != 0 {
 		tx = tx.Where("case_id = ?", uint64(q.CaseID))
 	}
+	if q.ChannelID != "" {
+		tx = tx.Where("channel_id = ?", q.ChannelID)
+	}
 	if q.Q != "" {
 		like := "%" + q.Q + "%"
 		tx = tx.Where("id LIKE ? OR case_id LIKE ? OR user_id LIKE ?", like, like, like)
