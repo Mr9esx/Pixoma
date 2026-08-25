@@ -42,7 +42,7 @@
 - 新增 `blob-error.ts`：常见对象存储错误（InvalidAccessKeyId、SignatureDoesNotMatch、NoSuchBucket、AccessDenied、connection refused、timeout、空配置等）映射中文友好标题 + 实际详情，复用 `setupErrorCopy` 的 Alert 形态。
 - localfs 选择仍展示目录输入；S3/TOS 展示 endpoint/region/bucket/access key/secret key。
 - bucket 不存在时：测试返回 `bucket_not_found` → 展示提示「bucket `xxx` 不存在，帮你创建？」（创建/取消），确认后带 `auto_create_bucket` 重试，创建成功显示连接正常。
-- 存储步骤文案：Title「文件存储配置」、Desc「决定了生成的图和视频存放的位置。」；选择 `localfs`（本机目录）时展示 warn Alert（`CircleAlert` 图标 + 两行文案：「这个配置只适合 ComfyUI 和后台在同一台机器上使用，」/「无法使用远程节点。」）；对象存储驱动标签 S3/TOS/localfs 用「S3 / 火山 TOS / 本机目录」。
+- 存储步骤文案：Title「文件存储配置」、Desc「决定了生成的图和视频存放的位置。」；选择 `localfs`（本机目录）时展示 warn Alert（`CircleAlert` 图标 + Title「注意！」+ Description 两行文案：「这个配置只适合 ComfyUI 和后台在同一台机器上使用，」/「无法使用远程节点。」）；对象存储驱动标签 S3/TOS/localfs 用「S3 / 火山 TOS / 本机目录」。
 
 ### D4：步骤序列与测试
 

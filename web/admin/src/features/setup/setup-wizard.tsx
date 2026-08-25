@@ -595,11 +595,12 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           {blobDriver === 'localfs' ? (
             <Alert variant='warn'>
               <CircleAlert aria-hidden='true' />
-              <AlertTitle>
+              <AlertTitle>注意！</AlertTitle>
+              <AlertDescription>
                 这个配置只适合 ComfyUI 和后台在同一台机器上使用，
                 <br />
                 无法使用远程节点。
-              </AlertTitle>
+              </AlertDescription>
             </Alert>
           ) : null}
           <StepActions
