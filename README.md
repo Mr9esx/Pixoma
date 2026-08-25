@@ -86,6 +86,10 @@ go run ./apps/edge-agent/cmd/edge-agent
 
 对象存储密钥不要提交进 git。真网 TOS 门禁：`go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip`。
 
+### 业务数据库
+
+新部署在初始化向导的「数据库配置」步骤选择 SQLite / MySQL / Postgres 并填写连接；设置页只读展示业务库驱动与 DSN。MySQL 建议 8.0+。业务库连接只在 Setup 向导配置，换库/跨引擎数据迁移不在界面内支持：需要迁移时请走数据迁移后重跑初始化向导。
+
 ## 跑通 TG 对话（默认 mock / 本机）
 
 向导里填好 Bot Token 并重启，或：
