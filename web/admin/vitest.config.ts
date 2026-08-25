@@ -29,6 +29,7 @@ export default defineConfig({
       'src/lib/api/localized-errors.test.ts',
       'src/lib/api/users.test.ts',
       'src/lib/api/sessions.test.ts',
+      'src/features/sessions/list-panel.contract.test.ts',
       'src/lib/api/query-keys.test.ts',
       'src/lib/api/topics.test.ts',
       'src/lib/api/stats.test.ts',

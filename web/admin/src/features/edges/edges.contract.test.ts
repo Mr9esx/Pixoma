@@ -10,6 +10,15 @@ function read(rel: string) {
 }
 
 describe('compute node layout and detail', () => {
+  it('renders the node task records empty state inside the table body', () => {
+    const observe = read('observation-panel.tsx')
+    expect(observe).toMatch(/<tbody/)
+    expect(observe).toMatch(/colSpan=\{5\}/)
+    expect(observe).toMatch(
+      /EmptyState[\s\S]*?className='py-6'[\s\S]*?message=\{t\('tasks\.empty'\)\}/
+    )
+  })
+
   it('puts create on the page title row and searches by name only', () => {
     const layout = read('../../routes/_app/edges/route.tsx')
     const list = read('list-panel.tsx')
