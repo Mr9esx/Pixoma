@@ -639,7 +639,9 @@ function StepActions({
         </Alert>
       ) : null}
       {testPassed ? (
-        <p className='text-sm text-emerald-600'>连接正常</p>
+        <Alert>
+          <AlertTitle>连接正常</AlertTitle>
+        </Alert>
       ) : null}
       <div className='flex gap-2'>
         {onBack ? (
