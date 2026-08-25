@@ -74,6 +74,16 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const backStep = previousSetupStep(steps, step)
   const copy = SETUP_STEP_COPY[step]
 
+  function onDriverChange(next: string) {
+    setDriver(next)
+    const example = DB_DSN_PLACEHOLDER[next]
+    if (!example) return
+    const examples = Object.values(DB_DSN_PLACEHOLDER)
+    if (!dsn || examples.includes(dsn)) {
+      setDsn(example)
+    }
+  }
+
   function draft(overrides?: Partial<SetupDraft>): SetupDraft {
     return {
       placement,
@@ -200,7 +210,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           }}
         >
           <Field label='业务库' htmlFor='db-driver'>
-            <Select value={driver} onValueChange={setDriver}>
+            <Select value={driver} onValueChange={onDriverChange}>
               <SelectTrigger id='db-driver' className='w-full'>
                 <SelectValue />
               </SelectTrigger>

@@ -27,6 +27,8 @@
 
 业务库连接只在 Setup 向导数据库步骤配置（现状已具备 driver 下拉 + DSN + 测连通，`POST /api/v1/setup/database` 校验并写引导态）；设置页 account tab 维持只读展示 `db_driver`/`db_dsn`，不新增编辑/切换入口。避免为低频、高风险的换库场景引入「设置存业务库、空库无法启动」的引导死锁处理。
 
+向导数据库步骤按 driver 提供 DSN 示例；切换驱动时若当前 DSN 为空或仍为任一驱动的示例/默认值，则同步替换为所选驱动的示例连接，已手输的自定义 DSN 保持不变。
+
 ### D2：MySQL/Postgres 启动链路兼容策略
 
 - `RenameLegacy`：legacy 重命名仅当检测到旧表/旧列时执行；全新 MySQL/Postgres 库均为 no-op，保留现状，不引入 driver 分支（降低兼容面）。

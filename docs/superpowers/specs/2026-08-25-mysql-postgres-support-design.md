@@ -60,6 +60,7 @@ Where("status = ? AND lease_until IS NOT NULL AND lease_until < ?", status, now)
   - sqlite：`data/app.db`
   - mysql：`user:password@tcp(127.0.0.1:3306)/pixoma?charset=utf8mb4&parseTime=True&loc=Local`
   - postgres：`host=127.0.0.1 port=5432 user=pixoma password=... dbname=pixoma sslmode=disable`
+- 切换驱动时（`onDriverChange`）若当前 DSN 为空或仍为任一驱动的示例/默认值，同步替换为所选驱动的示例连接，让用户直接编辑真实连接；已手输的自定义 DSN 不覆盖。
 - 错误文案可诊断：非法驱动、空 DSN、连接失败均返回具体原因（后端已具备，前端透传）。
 
 ### 3. 设置页只读展示
