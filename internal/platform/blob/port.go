@@ -15,6 +15,7 @@ type PutOptions struct {
 type Store interface {
 	Put(ctx context.Context, key string, r io.Reader, opts PutOptions) (sharedkernel.BlobRef, error)
 	Get(ctx context.Context, ref sharedkernel.BlobRef) (io.ReadCloser, error)
+	Check(ctx context.Context) error
 }
 
 // ErrBucketNotFound is returned by connectivity checks when the target bucket
