@@ -457,3 +457,25 @@ func loadSettings(t *testing.T, env *wizardEnv) settings.Settings {
 	}
 	return got
 }
+
+func TestDatabaseUnreachableDoesNotChangeAppDB(t *testing.T) {
+	env := completeWizard(t)
+	body, _ := json.Marshal(map[string]string{
+		"driver": "mysql",
+		"dsn":    "user:pass@tcp(127.0.0.1:1)/pixoma",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/database", bytes.NewReader(body))
+	env.auth(req)
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d %s", rec.Code, rec.Body.String())
+	}
+	driver, dsn, err := env.boot.AppDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if driver != "sqlite" || dsn != env.dsn {
+		t.Fatalf("app db changed: driver=%q dsn=%q", driver, dsn)
+	}
+}

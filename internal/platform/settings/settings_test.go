@@ -26,6 +26,23 @@ func TestValidate_RemoteRejectsLocalFS(t *testing.T) {
 	}
 }
 
+func TestValidate_UnknownDBDriverRejected(t *testing.T) {
+	s := settings.Settings{
+		Placement:  settings.PlacementLocal,
+		DBDriver:   "oracle",
+		DBDSN:      "host=127.0.0.1",
+		BlobDriver: botconfig.BlobDriverLocalFS,
+		BlobRoot:   "data/blob",
+	}
+	err := s.Validate()
+	if err == nil {
+		t.Fatal("expected unknown db driver to fail")
+	}
+	if !strings.Contains(err.Error(), "unknown db driver") {
+		t.Fatalf("error should mention unknown db driver, got %v", err)
+	}
+}
+
 func TestValidate_LocalAllowsLocalFS(t *testing.T) {
 	s := settings.Settings{
 		Placement:  settings.PlacementLocal,
