@@ -26,6 +26,8 @@
 
 补充（归档前重开 d7b016a，连通性语义与自动建库）：新增 `internal/platform/db.EnsureDatabase`（MySQL/Postgres 连服务器验证账号密码、目标库缺失自动创建，标识符转义；SQLite no-op）与 `DropDatabase`（集成测试清理）；`setup.Handler.openDB` 统一先 ensure 再 open；前端移除「继续」的 `submitDisabled` 门控（不要求先测连通）。单元测试 5 个、集成测试 `TestIntegration_EnsureDatabaseCreatesMissingDB`（env 门控 + 随机库名清理）。前端 59 文件 / 356 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（71 包 ok）全部通过；`go test -tags integration ./internal/platform/db/` 无 env 时 SKIP。
 
+补充（归档前重开 193b5ad，成功 Alert）：测连通通过时「连接正常」由纯文本改为默认 Alert（`<Alert><AlertTitle>连接正常</AlertTitle></Alert>`），合同测试锁定。前端 59 文件 / 356 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（71 包 ok）全部通过。
+
 ## Completeness
 
 | 检查项 | 状态 |
@@ -57,6 +59,7 @@
 | 边界场景错误映射 | `db-error.test.ts` 扩至 19 用例（DNS/锁/死锁/角色表/SSL/登录/步骤前置/远程 localfs/未授权等，归档前重开 777d823） |
 | 测连通与继续分离 | `setup-pages.contract.test.ts`（连通性测试 / 继续 / `dbTested` / `submitDisabled` 断言，归档前重开 3053cbf） |
 | 目标库不存在自动创建 | `ensure_test.go`（5 用例）+ `drivers_integration_test.go TestIntegration_EnsureDatabaseCreatesMissingDB` + `setup-pages.contract.test.ts`（无 `submitDisabled`，归档前重开 d7b016a） |
+| 连接正常以 Alert 展示 | `setup-pages.contract.test.ts`（`AlertTitle>连接正常</AlertTitle>`、无 `text-emerald-600`，归档前重开 193b5ad） |
 | 本机路径完成向导 / 远程禁止 localfs | 既有 `completeWizard` 流程测试与 `settings_test.go` 既有用例 |
 | MySQL/Postgres 完成向导 | 向导数据库步骤合同测试 + 后端 `POST /api/v1/setup/database`（三驱动白名单） |
 
