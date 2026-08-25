@@ -618,15 +618,15 @@ git commit -m "chore: complete setup-storage-flow build tasks"
 
 **Interfaces:**
 - Consumes: Task 1 的 storage 步骤。
-- Produces: 存储步骤 Title「文件存储配置」/ Desc「决定了生成的图和视频存放的位置。」；`blobDriver === 'localfs'` 时展示 warn Alert（`CircleAlert` 图标 + 两行文案 `<br />` 分隔）；驱动标签「S3 兼容」改「S3」（向导 + 设置页 i18n）。
+- Produces: 存储步骤 Title「文件存储配置」/ Desc「决定了生成的图和视频存放的位置。」；`blobDriver === 'localfs'` 时展示 warn Alert（`CircleAlert` 图标 + Title「注意！」+ Description 两行文案 `<br />` 分隔）；驱动标签「S3 兼容」改「S3」（向导 + 设置页 i18n）。
 
 - [x] **Step 1: 先写失败合同测试**
 
-断言 `title: '文件存储配置'`、`desc: '决定了生成的图和视频存放的位置。'`、wizard 含 `CircleAlert`、两行文案（`<br />`）与 `Alert variant='warn'`、`SelectItem value='s3'>S3` 且无「S3 兼容」；RED 确认。
+断言 `title: '文件存储配置'`、`desc: '决定了生成的图和视频存放的位置。'`、wizard 含 `AlertTitle>注意！`、`AlertDescription`、`CircleAlert`、两行文案（`<br />`）与 `Alert variant='warn'`、`SelectItem value='s3'>S3` 且无「S3 兼容」；RED 确认。
 
 - [x] **Step 2: 实现并全量验证**
 
-`setup-steps.ts` 更新 storage copy；`alert.tsx` 新增 `warn` 变体（amber 系）；`setup-wizard.tsx` 在 `blobDriver === 'localfs'` 时渲染 `Alert variant='warn'`（`CircleAlert` + 两行文案），S3 标签改「S3」；`zh/en.json` 的 `blobS3` 同步；`pnpm vitest run`（57 文件 / 364 测试）与 `pnpm tsc -b` 通过。
+`setup-steps.ts` 更新 storage copy；`alert.tsx` 新增 `warn` 变体（amber 系）；`setup-wizard.tsx` 在 `blobDriver === 'localfs'` 时渲染 `Alert variant='warn'`（`CircleAlert` + Title「注意！」+ Description 两行文案），S3 标签改「S3」；`zh/en.json` 的 `blobS3` 同步；`pnpm vitest run`（57 文件 / 364 测试）与 `pnpm tsc -b` 通过。
 
 - [x] **Step 3: 提交**
 
