@@ -26,7 +26,7 @@ type ReachabilityResult struct {
 	Message string           `json:"message"`
 }
 
-const reachabilityTimeout = 5 * time.Second
+const reachabilityTimeout = 3 * time.Second
 
 func classifyGetMeError(statusCode int, err error) ReachabilityResult {
 	switch {
