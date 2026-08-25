@@ -48,3 +48,5 @@
 补充（归档前重开 44e965e，横向滚动）：`AlertDescription` 加 `min-w-0`，挂载指引 `<pre>` 加 `w-full overflow-x-auto`，超宽命令横向滚动不溢出。前端 57 文件 / 367 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
 
 补充（归档前重开 3eb9f00，占位符）：挂载指引与 S3 局域网提示改用 `<server-ip>` 等占位符 + 注释说明，不使用编造的具体 IP。前端 57 文件 / 367 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
+
+补充（归档前重开 5044107，DB 注册修复）：数据库步骤「继续」也调 `POST /api/v1/setup/database` 注册业务库；后端 `draft` 在引导态为空时用请求 DB 字段兜底注册（`TestDraft_LazyConfiguresDatabase`）。前端 57 文件 / 367 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
