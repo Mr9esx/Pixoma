@@ -203,9 +203,10 @@ describe('login and setup pages', () => {
     expect(steps).toMatch(/desc: '决定了生成的图和视频存放的位置。'/)
     expect(wizard).toMatch(/AlertTitle>注意！<\/AlertTitle>/)
     expect(wizard).toMatch(/AlertDescription>/)
-    expect(wizard).toMatch(/这个配置只适合 ComfyUI 和后台在同一台机器上使用，/)
-    expect(wizard).toMatch(/无法使用远程节点。/)
-    expect(wizard).toMatch(/<br \/>/)
+    expect(wizard).toMatch(
+      /这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。/
+    )
+    expect(wizard).not.toMatch(/<br \/>/)
     expect(wizard).toMatch(/blobDriver === 'localfs'/)
     expect(wizard).toMatch(/Alert variant='warn'/)
     expect(wizard).toMatch(/CircleAlert/)
