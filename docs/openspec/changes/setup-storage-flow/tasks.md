@@ -21,6 +21,7 @@
 - [x] 3.6 `blob-error.ts` 收紧映射：裸 `404` 不再误判为 bucket 不存在（只认 `NoSuchBucket`/`NoSuchKey`），「Request failed (404)」走通用文案，含回归测试
 - [x] 3.7 选择火山 TOS 时预填默认值：endpoint `https://tos-cn-beijing.volces.com`、region `cn-beijing`、bucket `pixoma`（空值才填，不覆盖手输），合同测试锁定
 - [x] 3.8 bucket 不存在提示改用 `Alert variant="info"`（Alert 组件新增 info 变体，sky 蓝），合同测试锁定
+- [x] 3.9 bucket 创建提示的「取消」按钮改为默认实心样式（非 ghost），合同测试锁定
 
 ## 4. 文档与验证
 

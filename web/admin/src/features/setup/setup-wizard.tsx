@@ -598,7 +598,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                 </Button>
                 <Button
                   type='button'
-                  variant='ghost'
                   disabled={pending}
                   onClick={() => setBlobPromptCreate(false)}
                 >
