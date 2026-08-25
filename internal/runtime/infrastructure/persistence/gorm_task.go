@@ -147,8 +147,8 @@ func (r *TaskRepository) PrepareForClaim(ctx context.Context, id sharedkernel.Ta
 			"edge_id":        "",
 			"dispatch_topic": topicKey,
 			"job_ref_json":   string(raw),
-			"lease_until":    time.Time{},
-			"requeue_at":     time.Time{},
+			"lease_until":    gorm.Expr("NULL"),
+			"requeue_at":     gorm.Expr("NULL"),
 			"updated_at":     now,
 		})
 	if res.Error != nil {
@@ -254,11 +254,11 @@ func (r *TaskRepository) HeartbeatLease(ctx context.Context, id sharedkernel.Tas
 
 func (r *TaskRepository) RequeueExpiredLeases(ctx context.Context, now time.Time) (int, error) {
 	res := r.db.WithContext(ctx).Model(&TaskRow{}).
-		Where("status = ? AND lease_until != ? AND lease_until < ?", string(sharedkernel.TaskRunning), time.Time{}, now).
+		Where("status = ? AND lease_until IS NOT NULL AND lease_until < ?", string(sharedkernel.TaskRunning), now).
 		Updates(map[string]any{
 			"status":      string(sharedkernel.TaskQueued),
 			"edge_id":     "",
-			"lease_until": time.Time{},
+			"lease_until": gorm.Expr("NULL"),
 			"requeue_at":  now,
 			"updated_at":  now,
 		})
@@ -518,8 +518,8 @@ func MigrateLegacyTasks(ctx context.Context, gdb *gorm.DB, now time.Time) (int64
 		Where("status = ? AND edge_id != '' AND lease_until < ?", string(sharedkernel.TaskQueued), now).
 		Updates(map[string]any{
 			"edge_id":        "",
-			"lease_until":    time.Time{},
-			"requeue_at":     time.Time{},
+			"lease_until":    gorm.Expr("NULL"),
+			"requeue_at":     gorm.Expr("NULL"),
 			"dispatch_topic": "default",
 			"updated_at":     now,
 		})
