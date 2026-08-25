@@ -37,4 +37,14 @@ describe('settings page', () => {
     expect(page).not.toMatch(/RadioGroup/)
     expect(page).not.toMatch(/\/instances/)
   })
+
+  it('shows the business database driver and DSN read-only', () => {
+    const page = read('settings-page.tsx')
+    expect(page).toMatch(/initial\.db_driver/)
+    expect(page).toMatch(/initial\.db_dsn/)
+    expect(page).not.toMatch(/htmlFor=['"]db-driver['"]/)
+    expect(page).not.toMatch(/htmlFor=['"]db-dsn['"]/)
+    expect(page).not.toMatch(/testDatabase\(/)
+    expect(page).not.toMatch(/DB_DSN_PLACEHOLDER/)
+  })
 })
