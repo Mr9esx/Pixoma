@@ -639,7 +639,7 @@ function StepActions({
         </Alert>
       ) : null}
       {testPassed ? (
-        <Alert>
+        <Alert variant='success'>
           <AlertTitle>连接正常</AlertTitle>
         </Alert>
       ) : null}

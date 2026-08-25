@@ -171,6 +171,7 @@ describe('login and setup pages', () => {
     expect(wizard).not.toMatch(/测连通并继续/)
     expect(wizard).not.toMatch(/submitDisabled/)
     expect(wizard).toMatch(/setStep\('placement'\)/)
+    expect(wizard).toMatch(/Alert variant='success'/)
     expect(wizard).toMatch(/AlertTitle>连接正常<\/AlertTitle>/)
     expect(wizard).not.toMatch(/text-emerald-600/)
   })

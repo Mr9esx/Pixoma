@@ -804,21 +804,21 @@ git commit -m "feat(db): auto-create missing database and decouple continue from
 
 **Interfaces:**
 - Consumes: Task 10 的 `testPassed`。
-- Produces: 测连通通过时以默认 Alert 显示「连接正常」（AlertTitle），不再用纯文本。
+- Produces: 测连通通过时以 `Alert variant="success"` 显示「连接正常」（AlertTitle，emerald 系），不再用纯文本。
 
 - [x] **Step 1: 先写失败合同测试**
 
-断言 `AlertTitle>连接正常</AlertTitle>` 存在且无 `text-emerald-600`；RED 确认。
+断言 `Alert variant='success'` 与 `AlertTitle>连接正常</AlertTitle>` 存在且无 `text-emerald-600`；RED 确认。
 
 - [x] **Step 2: 实现并全量验证**
 
-`StepActions` 的 `testPassed` 分支改为 `<Alert><AlertTitle>连接正常</AlertTitle></Alert>`；`pnpm vitest run`（59 文件 / 356 测试）与 `pnpm tsc -b` 通过。
+`alert.tsx` 新增 `success` 变体（emerald 系），`StepActions` 的 `testPassed` 分支改为 `<Alert variant='success'><AlertTitle>连接正常</AlertTitle></Alert>`；`pnpm vitest run`（59 文件 / 356 测试）与 `pnpm tsc -b` 通过。
 
 - [x] **Step 3: 提交**
 
 ```bash
-git add web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts docs/openspec/changes/mysql-postgres-support/design.md docs/superpowers/specs/2026-08-25-mysql-postgres-support-design.md docs/openspec/changes/mysql-postgres-support/tasks.md docs/superpowers/plans/2026-08-25-mysql-postgres-support.md
-git commit -m "feat(setup): show connectivity success as an alert"
+git add web/admin/src/components/ui/alert.tsx web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts docs/openspec/changes/mysql-postgres-support/design.md docs/superpowers/specs/2026-08-25-mysql-postgres-support-design.md docs/openspec/changes/mysql-postgres-support/tasks.md docs/superpowers/plans/2026-08-25-mysql-postgres-support.md
+git commit -m "feat(ui): add success alert variant for connectivity result"
 ```
 
 ---
