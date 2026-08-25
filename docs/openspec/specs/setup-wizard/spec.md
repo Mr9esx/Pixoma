@@ -4,7 +4,7 @@
 TBD - created by archiving change pixoma-guided-deploy. Update Purpose after archive.
 ## Requirements
 ### Requirement: 初始化向导多步配置
-系统 MUST 在管理后台提供初始化向导，引导用户完成至少：业务数据库、对象存储、执行节点/Comfy 指引、渠道（含 Telegram Bot Token）等步骤；业务数据库步骤 MUST 支持 `sqlite`、`mysql`、`postgres` 三种驱动；每步 MUST 做可达性或合法性校验，失败时 MUST 给出可诊断错误；对象存储步骤 MUST 提供连通性测试。
+系统 MUST 在管理后台提供初始化向导，引导用户完成至少：业务数据库、对象存储、执行节点/Comfy 指引、渠道（含 Telegram Bot Token）等步骤；业务数据库步骤 MUST 支持 `sqlite`、`mysql`、`postgres` 三种驱动；每步 MUST 做可达性或合法性校验，失败时 MUST 给出可诊断错误；对象存储步骤 MUST 提供连通性测试，MUST 支持共享目录（SMB/NFS 挂载）选项。
 
 #### Scenario: 本机路径完成向导
 - **WHEN** 用户配置可用业务库与 localfs 目录，并完成节点与渠道必要项
@@ -48,7 +48,7 @@ TBD - created by archiving change pixoma-guided-deploy. Update Purpose after arc
 
 #### Scenario: 向导不询问部署位置
 - **WHEN** 用户完成数据库步骤后进入对象存储步骤
-- **THEN** 向导直接展示对象存储配置，不再出现「出图机器在哪」步骤；保存时 `placement` 由对象存储驱动推断（`localfs`→本机，`s3`/`tos`→远程）
+- **THEN** 向导直接展示对象存储配置，不再出现「出图机器在哪」步骤；保存时 `placement` 由对象存储驱动推断（`localfs`→本机，`s3`/`tos`/`sharedfs`→远程）
 
 #### Scenario: 对象存储连通性测试通过
 - **WHEN** 用户选择 S3 或 TOS，填写 endpoint/region/bucket/密钥并点「连通性测试」，配置正确且 bucket 可达
@@ -69,6 +69,18 @@ TBD - created by archiving change pixoma-guided-deploy. Update Purpose after arc
 #### Scenario: 远程 localfs 组合在 API 层仍被拒绝
 - **WHEN** 提交 `placement=remote` 且 `blob.driver=localfs` 的设置
 - **THEN** 设置校验失败并说明原因（向导 UI 不提供该组合，API 层保留原约束）
+
+#### Scenario: 选择共享目录（SMB/NFS）完成向导
+- **WHEN** 用户选择「共享目录（SMB / NFS）」并填写已挂载目录，点「连通性测试」通过
+- **THEN** 向导可完成初始化；`placement` 推断为远程，控制面与 Edge 挂载同一目录后按 key 互通读写
+
+#### Scenario: 共享目录挂载指引
+- **WHEN** 用户选择「共享目录（SMB / NFS）」
+- **THEN** 向导展示 info 提示：需先在所有机器上挂载同一共享目录（如 `mount -t nfs` / `mount -t cifs`），连通性测试校验目录可写
+
+#### Scenario: 局域网 S3 提示
+- **WHEN** 用户选择 S3 驱动
+- **THEN** Endpoint 输入下展示提示：局域网可用 MinIO 等 S3 兼容服务，如 `http://192.168.x.x:9000`
 
 ### Requirement: 配置落库而非用户手改 YAML
 初始化与后续平台设置的主路径 MUST 将配置写入持久化存储（业务库 settings / 引导态），MUST NOT 要求用户手改 `bot.yaml` 才能完成新部署主路径。运维紧急覆盖（环境变量）MAY 存在，但 MUST NOT 作为向导成功的前提。
