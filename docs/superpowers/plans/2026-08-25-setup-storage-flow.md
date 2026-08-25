@@ -610,6 +610,31 @@ git add README.md docs/openspec/changes/setup-storage-flow/tasks.md docs/superpo
 git commit -m "chore: complete setup-storage-flow build tasks"
 ```
 
+### Task 7: 存储步骤文案与 localfs 提示
+
+**Files:**
+- Modify: `web/admin/src/features/setup/setup-steps.ts`、`web/admin/src/features/setup/setup-wizard.tsx`、`web/admin/src/features/setup/setup-pages.contract.test.ts`
+- Docs: `design.md`、Design Doc、`tasks.md`、本计划
+
+**Interfaces:**
+- Consumes: Task 1 的 storage 步骤。
+- Produces: 存储步骤 Title「文件存储配置」/ Desc「决定了生成的图和视频存放的位置。」；`blobDriver === 'localfs'` 时展示 Alert「这个配置只适合 ComfyUI 和后台在同一台机器上使用。」。
+
+- [x] **Step 1: 先写失败合同测试**
+
+断言 `title: '文件存储配置'`、`desc: '决定了生成的图和视频存放的位置。'`、wizard 含 localfs 提示与 `blobDriver === 'localfs'` 条件；RED 确认。
+
+- [x] **Step 2: 实现并全量验证**
+
+`setup-steps.ts` 更新 storage copy；`setup-wizard.tsx` 在 `blobDriver === 'localfs'` 时渲染 Alert；`pnpm vitest run`（57 文件 / 363 测试）与 `pnpm tsc -b` 通过。
+
+- [x] **Step 3: 提交**
+
+```bash
+git add web/admin/src/features/setup/setup-steps.ts web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts docs/openspec/changes/setup-storage-flow/design.md docs/superpowers/specs/2026-08-25-setup-storage-flow-design.md docs/openspec/changes/setup-storage-flow/tasks.md docs/superpowers/plans/2026-08-25-setup-storage-flow.md
+git commit -m "feat(setup): storage step copy and localfs single-machine hint"
+```
+
 ---
 
 ## 自检记录（写完后由创建者核对）

@@ -21,8 +21,8 @@ export const SETUP_STEP_COPY: Record<
     submit: '继续',
   },
   storage: {
-    title: '文件放哪',
-    desc: '生成的图和视频存在本机目录，或对象存储。',
+    title: '文件存储配置',
+    desc: '决定了生成的图和视频存放的位置。',
     submit: '完成',
   },
 }
