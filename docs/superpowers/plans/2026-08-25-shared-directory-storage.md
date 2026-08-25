@@ -27,7 +27,7 @@
 - Consumes: 无。
 - Produces: `botconfig.BlobDriverSharedFS = "sharedfs"`；`settings.Validate` 支持 sharedfs（非空路径、remote 允许）。
 
-- [ ] **Step 1: 先写失败测试（settings_test.go）**
+- [x] **Step 1: 先写失败测试（settings_test.go）**
 
 ```go
 func TestValidate_SharedFSRequiresRoot(t *testing.T) {
@@ -57,12 +57,12 @@ func TestValidate_RemoteAllowsSharedFS(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `go test ./internal/platform/settings/`
 Expected: FAIL（常量未定义/校验拒绝）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `botconfig/config.go` 增加 `BlobDriverSharedFS = "sharedfs"`。
 
@@ -83,12 +83,12 @@ if (b == botconfig.BlobDriverLocalFS || b == botconfig.BlobDriverSharedFS) &&
 
 `PlacementRemote` 分支：`localfs` 拒绝；允许 `s3`/`tos`/`sharedfs`。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `go test ./internal/platform/settings/`
 Expected: PASS（含既有 remote+localfs 拒绝用例）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add internal/platform/botconfig/config.go internal/platform/settings/settings.go internal/platform/settings/settings_test.go
@@ -108,7 +108,7 @@ git commit -m "feat(settings): sharedfs blob driver validation"
 - Consumes: Task 1 的 `BlobDriverSharedFS`。
 - Produces: `factory.NewFromConfig`/`Check`/`EnsureBucket` 把 `sharedfs` 分发到 localfs；`blob-test` 推断 sharedfs→remote。
 
-- [ ] **Step 1: 先写失败测试**
+- [x] **Step 1: 先写失败测试**
 
 `factory/check_test.go`：
 
@@ -125,12 +125,12 @@ func TestCheck_SharedFS(t *testing.T) {
 
 `handler_test.go`：`TestBlobTest_SharedFSSuccess`（driver=sharedfs + temp dir → 200 ok）。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `go test ./internal/platform/blob/factory/ ./internal/httpapi/setup/`
 Expected: FAIL（unknown driver）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `factory.go` `NewFromConfig` 与 `check.go` `storeForCheck`/`EnsureBucket` 增加：
 
@@ -148,12 +148,12 @@ if driver == "s3" || driver == "tos" || driver == botconfig.BlobDriverSharedFS {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `go test ./internal/platform/blob/factory/ ./internal/httpapi/setup/`
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add internal/platform/blob/factory/factory.go internal/platform/blob/factory/check.go internal/platform/blob/factory/check_test.go internal/httpapi/setup/handler.go internal/httpapi/setup/handler_test.go
@@ -172,7 +172,7 @@ git commit -m "feat(blob): dispatch sharedfs to localfs in factory and blob-test
 - Consumes: Task 1/2 后端契约（`blob-test` 接受 sharedfs）。
 - Produces: 驱动下拉「共享目录（SMB / NFS）」；挂载目录输入 + info 挂载指引；S3 局域网提示；`draft()` placement 推断 sharedfs→remote。
 
-- [ ] **Step 1: 先写失败合同测试**
+- [x] **Step 1: 先写失败合同测试**
 
 ```ts
 it('offers shared directory (SMB/NFS) with mount guidance', () => {
@@ -187,12 +187,12 @@ it('offers shared directory (SMB/NFS) with mount guidance', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd web/admin && pnpm vitest run src/features/setup/`
 Expected: FAIL。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `setup-wizard.tsx`：
 
@@ -201,12 +201,12 @@ Expected: FAIL。
 - `blobDriver === 's3'` 时 Endpoint 下加 hint（MinIO 示例）。
 - `draft()`：`placement: blobDriver === 'localfs' ? 'local' : 'remote'`（sharedfs/s3/tos→remote）。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd web/admin && pnpm vitest run && pnpm tsc -b`
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts
@@ -220,16 +220,16 @@ git commit -m "feat(setup): shared directory (SMB/NFS) option with mount guidanc
 **Files:**
 - Modify: `README.md`、`docs/openspec/changes/shared-directory-storage/tasks.md`、本计划
 
-- [ ] **Step 1: README 更新**
+- [x] **Step 1: README 更新**
 
 「对象存储」段落补充 `sharedfs`：同机房多设备共享目录（SMB/NFS），先挂载再配置，NFS/CIFS 示例命令。
 
-- [ ] **Step 2: 全量验证**
+- [x] **Step 2: 全量验证**
 
 Run: `go build ./... && go test ./...`；`cd web/admin && pnpm tsc -b && pnpm vitest run`
 Expected: 全 PASS。
 
-- [ ] **Step 3: 勾选 tasks.md 全部任务并提交**
+- [x] **Step 3: 勾选 tasks.md 全部任务并提交**
 
 ```bash
 git add README.md docs/openspec/changes/shared-directory-storage/tasks.md docs/superpowers/plans/2026-08-25-shared-directory-storage.md
