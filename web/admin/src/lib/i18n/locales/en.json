@@ -474,7 +474,7 @@
     "placementRemote": "Remote",
     "fieldBlobDriver": "Object storage",
     "blobLocalfs": "Local directory",
-    "blobS3": "S3 compatible",
+    "blobS3": "S3",
     "blobTos": "Volcengine TOS",
     "fieldBlobRoot": "Directory",
     "fieldEndpoint": "Endpoint",
