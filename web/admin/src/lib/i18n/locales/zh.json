@@ -527,7 +527,12 @@
     "deleteInFlightTasks": "{{count}} 个执行中/排队任务将继续运行，但完成后通知无法送达",
     "deleteAckImpact": "我已知悉上述影响",
     "tokenHint": "留空表示不修改；Token 只加密存储，页面仅显示掩码。",
-    "tabPreview": "渠道预览"
+    "tabPreview": "渠道预览",
+    "checkingReachability": "检测中…",
+    "reachabilityOK": "Telegram 连接正常",
+    "reachabilityNetwork": "无法连接 Telegram。若网络受限，在设置中配置代理",
+    "reachabilityNetworkAction": "去设置代理",
+    "reachabilityAuth": "Bot Token 无效，检查 token"
   },
   "topics": {
     "title": "调度通道",

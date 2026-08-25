@@ -10,8 +10,21 @@ export type Channel = {
   updated_at: string
 }
 
+export type ChannelReachability = {
+  ok: boolean
+  kind: 'ok' | 'network' | 'auth' | 'other'
+  message: string
+}
+
 export function listChannels() {
   return apiFetch<Channel[]>('/api/v1/channels')
+}
+
+export function checkChannelReachability(id: string) {
+  return apiFetch<ChannelReachability>(
+    `/api/v1/channels/${encodeURIComponent(id)}/check`,
+    { method: 'POST' }
+  )
 }
 
 export function createChannel(body: {
