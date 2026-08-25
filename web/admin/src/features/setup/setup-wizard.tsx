@@ -510,7 +510,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value='localfs'>本机目录</SelectItem>
-                  <SelectItem value='s3'>S3 兼容</SelectItem>
+                  <SelectItem value='s3'>S3</SelectItem>
                   <SelectItem value='tos'>火山 TOS</SelectItem>
                 </SelectGroup>
               </SelectContent>
@@ -595,7 +595,9 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           {blobDriver === 'localfs' ? (
             <Alert variant='warn'>
               <AlertTitle>
-                这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。
+                这个配置只适合 ComfyUI 和后台在同一台机器上使用，
+                <br />
+                无法使用远程节点。
               </AlertTitle>
             </Alert>
           ) : null}

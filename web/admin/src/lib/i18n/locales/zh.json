@@ -474,7 +474,7 @@
     "placementRemote": "远程",
     "fieldBlobDriver": "对象存储",
     "blobLocalfs": "本机目录",
-    "blobS3": "S3 兼容",
+    "blobS3": "S3",
     "blobTos": "火山 TOS",
     "fieldBlobRoot": "目录",
     "fieldEndpoint": "Endpoint",
