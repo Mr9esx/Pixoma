@@ -30,7 +30,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { AuthShell } from './auth-shell'
+import {
+  buildMySQLDSN,
+  buildPostgresDSN,
+  buildSqliteDSN,
+} from './db-dsn'
 import {
   initialSetupStep,
   previousSetupStep,
@@ -62,7 +68,15 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [driver, setDriver] = useState('sqlite')
-  const [dsn, setDsn] = useState('data/app.db')
+  const [sqlitePath, setSqlitePath] = useState('data/app.db')
+  const [dbHost, setDbHost] = useState('127.0.0.1')
+  const [dbPort, setDbPort] = useState('3306')
+  const [dbUser, setDbUser] = useState('pixoma')
+  const [dbPassword, setDbPassword] = useState('')
+  const [dbName, setDbName] = useState('pixoma')
+  const [pgSslMode, setPgSslMode] = useState('disable')
+  const [advanced, setAdvanced] = useState(false)
+  const [rawDsn, setRawDsn] = useState('')
   const [placement, setPlacement] = useState<'local' | 'remote'>('local')
   const [blobDriver, setBlobDriver] = useState('localfs')
   const [blobRoot, setBlobRoot] = useState('data/blob')
@@ -74,14 +88,45 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const backStep = previousSetupStep(steps, step)
   const copy = SETUP_STEP_COPY[step]
 
-  function onDriverChange(next: string) {
-    setDriver(next)
-    const example = DB_DSN_PLACEHOLDER[next]
-    if (!example) return
-    const examples = Object.values(DB_DSN_PLACEHOLDER)
-    if (!dsn || examples.includes(dsn)) {
-      setDsn(example)
+  const dsn = useMemo(() => {
+    if (advanced && rawDsn.trim()) return rawDsn.trim()
+    if (driver === 'mysql') {
+      return buildMySQLDSN({
+        host: dbHost,
+        port: dbPort,
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+      })
     }
+    if (driver === 'postgres') {
+      return buildPostgresDSN({
+        host: dbHost,
+        port: dbPort,
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+        sslmode: pgSslMode,
+      })
+    }
+    return buildSqliteDSN(sqlitePath)
+  }, [
+    advanced,
+    rawDsn,
+    driver,
+    dbHost,
+    dbPort,
+    dbUser,
+    dbPassword,
+    dbName,
+    pgSslMode,
+    sqlitePath,
+  ])
+
+  function onDriverChange(next: string) {
+    if (next === 'mysql' && dbPort === '5432') setDbPort('3306')
+    if (next === 'postgres' && dbPort === '3306') setDbPort('5432')
+    setDriver(next)
   }
 
   function draft(overrides?: Partial<SetupDraft>): SetupDraft {
@@ -223,16 +268,147 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               </SelectContent>
             </Select>
           </Field>
-          <Field label='连接' htmlFor='db-dsn'>
-            <Input
-              id='db-dsn'
-              value={dsn}
-              onChange={(e) => setDsn(e.target.value)}
-              placeholder={
-                DB_DSN_PLACEHOLDER[driver] ?? DB_DSN_PLACEHOLDER.sqlite
-              }
-            />
-          </Field>
+          {driver === 'sqlite' ? (
+            <Field label='数据库文件' htmlFor='db-sqlite-path'>
+              <Input
+                id='db-sqlite-path'
+                value={sqlitePath}
+                onChange={(e) => setSqlitePath(e.target.value)}
+                placeholder={DB_DSN_PLACEHOLDER.sqlite}
+              />
+            </Field>
+          ) : driver === 'mysql' ? (
+            <>
+              <div className='grid grid-cols-2 gap-3'>
+                <Field label='Host' htmlFor='db-host'>
+                  <Input
+                    id='db-host'
+                    value={dbHost}
+                    onChange={(e) => setDbHost(e.target.value)}
+                    placeholder='127.0.0.1'
+                  />
+                </Field>
+                <Field label='端口' htmlFor='db-port'>
+                  <Input
+                    id='db-port'
+                    value={dbPort}
+                    onChange={(e) => setDbPort(e.target.value)}
+                    placeholder='3306'
+                  />
+                </Field>
+              </div>
+              <Field label='用户' htmlFor='db-user'>
+                <Input
+                  id='db-user'
+                  value={dbUser}
+                  onChange={(e) => setDbUser(e.target.value)}
+                  placeholder='pixoma'
+                />
+              </Field>
+              <Field label='密码' htmlFor='db-password'>
+                <Input
+                  id='db-password'
+                  type='password'
+                  value={dbPassword}
+                  onChange={(e) => setDbPassword(e.target.value)}
+                  autoComplete='off'
+                  placeholder='留空表示无密码'
+                />
+              </Field>
+              <Field label='数据库' htmlFor='db-name'>
+                <Input
+                  id='db-name'
+                  value={dbName}
+                  onChange={(e) => setDbName(e.target.value)}
+                  placeholder='pixoma'
+                />
+              </Field>
+            </>
+          ) : (
+            <>
+              <div className='grid grid-cols-2 gap-3'>
+                <Field label='Host' htmlFor='db-host'>
+                  <Input
+                    id='db-host'
+                    value={dbHost}
+                    onChange={(e) => setDbHost(e.target.value)}
+                    placeholder='127.0.0.1'
+                  />
+                </Field>
+                <Field label='端口' htmlFor='db-port'>
+                  <Input
+                    id='db-port'
+                    value={dbPort}
+                    onChange={(e) => setDbPort(e.target.value)}
+                    placeholder='5432'
+                  />
+                </Field>
+              </div>
+              <Field label='用户' htmlFor='db-user'>
+                <Input
+                  id='db-user'
+                  value={dbUser}
+                  onChange={(e) => setDbUser(e.target.value)}
+                  placeholder='pixoma'
+                />
+              </Field>
+              <Field label='密码' htmlFor='db-password'>
+                <Input
+                  id='db-password'
+                  type='password'
+                  value={dbPassword}
+                  onChange={(e) => setDbPassword(e.target.value)}
+                  autoComplete='off'
+                  placeholder='留空表示无密码'
+                />
+              </Field>
+              <Field label='数据库' htmlFor='db-name'>
+                <Input
+                  id='db-name'
+                  value={dbName}
+                  onChange={(e) => setDbName(e.target.value)}
+                  placeholder='pixoma'
+                />
+              </Field>
+              <Field label='SSL 模式' htmlFor='db-ssl-mode'>
+                <Select value={pgSslMode} onValueChange={setPgSslMode}>
+                  <SelectTrigger id='db-ssl-mode' className='w-full'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value='disable'>disable</SelectItem>
+                      <SelectItem value='require'>require</SelectItem>
+                      <SelectItem value='prefer'>prefer</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </>
+          )}
+          <button
+            type='button'
+            className='text-left text-sm text-muted-foreground underline underline-offset-4'
+            onClick={() => {
+              if (!rawDsn) setRawDsn(dsn)
+              setAdvanced((v) => !v)
+            }}
+          >
+            高级：直接输入 DSN
+          </button>
+          {advanced ? (
+            <Field label='DSN' htmlFor='db-dsn-raw'>
+              <Textarea
+                id='db-dsn-raw'
+                value={rawDsn}
+                onChange={(e) => setRawDsn(e.target.value)}
+                placeholder={
+                  DB_DSN_PLACEHOLDER[driver] ?? DB_DSN_PLACEHOLDER.sqlite
+                }
+                rows={3}
+              />
+            </Field>
+          ) : null}
           <StepActions
             error={error}
             pending={pending}

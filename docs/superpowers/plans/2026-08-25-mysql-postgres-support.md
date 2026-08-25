@@ -650,6 +650,40 @@ git commit -m "chore: complete mysql-postgres-support build tasks"
 Run: `comet guard mysql-postgres-support build --apply`
 Expected: ALL PASS，phase 推进到 verify。
 
+### Task 7: Setup 数据库步骤结构化连接表单（归档前重开）
+
+**Files:**
+- Create: `web/admin/src/features/setup/db-dsn.ts`、`web/admin/src/features/setup/db-dsn.test.ts`
+- Modify: `web/admin/src/features/setup/setup-wizard.tsx`、`web/admin/src/features/setup/setup-pages.contract.test.ts`、`web/admin/vitest.config.ts`
+- Docs: `docs/openspec/changes/mysql-postgres-support/specs/setup-wizard/spec.md`、`design.md`、Design Doc、`tasks.md`
+
+**Interfaces:**
+- Consumes: Task 2 的 `DB_DSN_PLACEHOLDER`。
+- Produces: 纯函数 `buildSqliteDSN(path)`、`buildMySQLDSN({host,port,user,password,database})`、`buildPostgresDSN({host,port,user,password,database,sslmode})`；向导数据库步骤按 driver 显示结构化字段 + 高级 raw DSN 折叠；切驱动时端口默认值联动。
+
+- [x] **Step 1: 新增 db-dsn 组装纯函数与单元测试（TDD RED→GREEN）**
+
+`db-dsn.test.ts` 5 个用例覆盖 sqlite 路径、mysql 组装与 host/port 默认、postgres 组装与 sslmode/port 默认；先跑 RED（模块不存在）再实现 `db-dsn.ts` 转 GREEN。
+
+- [x] **Step 2: 更新向导数据库步骤为结构化字段表单**
+
+SQLite 显示数据库文件路径；MySQL 显示 Host/端口/用户/密码/数据库；Postgres 增加 SSL 模式（disable/require/prefer）；密码 `type=password`；底部「高级：直接输入 DSN」折叠 textarea（`DB_DSN_PLACEHOLDER` 占位）；`dsn` 由 `useMemo` 按字段组装，高级模式下 raw DSN 优先。
+
+- [x] **Step 3: 切换驱动端口默认值联动**
+
+`onDriverChange`：切到 mysql 且端口为 5432 时改 3306；切到 postgres 且端口为 3306 时改 5432；字段值保留可编辑。
+
+- [x] **Step 4: 更新合同测试并跑全量前端测试**
+
+合同测试改为断言结构化字段（db-driver/db-sqlite-path/db-host/db-password）、端口联动、高级 DSN 折叠；`pnpm vitest run` 326+ 全 PASS，`pnpm tsc -b` 通过。
+
+- [x] **Step 5: 提交**
+
+```bash
+git add web/admin/src/features/setup/db-dsn.ts web/admin/src/features/setup/db-dsn.test.ts web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts web/admin/vitest.config.ts docs/openspec/changes/mysql-postgres-support/specs/setup-wizard/spec.md docs/openspec/changes/mysql-postgres-support/design.md docs/superpowers/specs/2026-08-25-mysql-postgres-support-design.md docs/openspec/changes/mysql-postgres-support/tasks.md docs/superpowers/plans/2026-08-25-mysql-postgres-support.md
+git commit -m "feat(setup): structured database connection form for mysql/postgres"
+```
+
 ---
 
 ## 自检记录（写完后由创建者核对）

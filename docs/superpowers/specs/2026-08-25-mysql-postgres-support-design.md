@@ -56,11 +56,12 @@ Where("status = ? AND lease_until IS NOT NULL AND lease_until < ?", status, now)
 ### 2. Setup 向导数据库步骤
 
 - 保持现有流程：driver Select（sqlite/mysql/postgres）+ DSN Input + 测连通（`POST /api/v1/setup/database`）。
-- Input 按 driver 切换 placeholder：
-  - sqlite：`data/app.db`
-  - mysql：`user:password@tcp(127.0.0.1:3306)/pixoma?charset=utf8mb4&parseTime=True&loc=Local`
-  - postgres：`host=127.0.0.1 port=5432 user=pixoma password=... dbname=pixoma sslmode=disable`
-- 切换驱动时（`onDriverChange`）若当前 DSN 为空或仍为任一驱动的示例/默认值，同步替换为所选驱动的示例连接，让用户直接编辑真实连接；已手输的自定义 DSN 不覆盖。
+- 数据库步骤改为**结构化连接表单**（不再让用户手拼一行 DSN）：
+  - SQLite：数据库文件路径（默认 `data/app.db`）。
+  - MySQL：Host / 端口（默认 3306）/ 用户 / 密码 / 数据库；组装为 `user:password@tcp(host:port)/db?charset=utf8mb4&parseTime=True&loc=Local`。
+  - Postgres：Host / 端口（默认 5432）/ 用户 / 密码 / 数据库 / SSL 模式（disable/require/prefer）；组装为 `host=... port=... user=... password=... dbname=... sslmode=...`。
+  - 密码字段 `type=password` 不回显；「高级：直接输入 DSN」折叠项（textarea，`DB_DSN_PLACEHOLDER` 按 driver 提供示例）允许覆盖组装结果。
+  - 切换驱动时端口默认值自动切换（3306↔5432），已填字段保留可编辑；组装逻辑放在纯函数模块 `db-dsn.ts`（可单测）。
 - 错误文案可诊断：非法驱动、空 DSN、连接失败均返回具体原因（后端已具备，前端透传）。
 
 ### 3. 设置页只读展示
