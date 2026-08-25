@@ -6,8 +6,10 @@ import { toast } from 'sonner'
 import { createCase, patchCase } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { CaseRecord } from '@/lib/api/types'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ErrorBanner } from '@/components/feedback/error-banner'
+import { Info } from 'lucide-react'
 import { emptyCase } from './empty-case'
 import {
   deriveBindings,
@@ -366,9 +368,10 @@ export function CaseForm(props: Props) {
             </Button>
           </>
         ) : (
-          <p className='rounded-md border border-dashed p-3 text-xs text-muted-foreground'>
-            {t('cases.emptyWorkflowLock')}
-          </p>
+          <Alert variant='info'>
+            <Info aria-hidden='true' />
+            <AlertTitle>{t('cases.emptyWorkflowLock')}</AlertTitle>
+          </Alert>
         )}
       </section>
   ) : null
@@ -422,9 +425,10 @@ export function CaseForm(props: Props) {
             </Button>
           </>
         ) : (
-          <p className='rounded-md border border-dashed p-3 text-xs text-muted-foreground'>
-            {t('cases.emptyWorkflowLock')}
-          </p>
+          <Alert variant='info'>
+            <Info aria-hidden='true' />
+            <AlertTitle>{t('cases.emptyWorkflowLock')}</AlertTitle>
+          </Alert>
         )}
       </section>
   ) : null
