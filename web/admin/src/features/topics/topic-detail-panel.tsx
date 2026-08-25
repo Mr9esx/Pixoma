@@ -1,16 +1,25 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import {
+  CalendarClock,
+  Hash,
+  PenLine,
+  Power,
+  SearchX,
+  Timer,
+  Trash2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { CalendarClock, Hash, PenLine, Timer } from 'lucide-react'
-import { deleteTopic, getTopic, updateTopic } from '@/lib/api/topics'
 import { listCases } from '@/lib/api/cases'
+import { ApiError } from '@/lib/api/client'
 import { listEdges, listPresence, patchEdge } from '@/lib/api/edges'
-import type { ComfyEdge } from '@/lib/api/types'
+import { topicDeleteErrorMessage } from '@/lib/api/localized-errors'
 import { queryKeys } from '@/lib/api/query-keys'
-import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
-import { LinkHealthSection } from '@/features/link-health/link-health-section'
-import { edgeTopics, topicReferences } from '@/features/link-health/lib/references'
+import { listTasks } from '@/lib/api/tasks'
+import { deleteTopic, getTopic, updateTopic } from '@/lib/api/topics'
+import type { ComfyEdge } from '@/lib/api/types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,44 +42,20 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { NotFoundState } from '@/components/feedback/not-found-state'
+import { MetaChip } from '@/components/meta-chip'
+import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
-import { SectionHead } from '@/features/edges/observation-panel'
-import { ConfigChain, type ChainDetail, type ChainHop } from '@/features/config-context/config-chain'
+import {
+  edgeTopics,
+  topicReferences,
+} from '@/features/link-health/lib/references'
+import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
+import { LinkHealthSection } from '@/features/link-health/link-health-section'
 import { TopicStatsPanel } from './topic-stats-panel'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
-}
-
-function MetaChip({
-  icon,
-  label,
-  value,
-  divider = false,
-}: {
-  icon: ReactNode
-  label: string
-  value: string
-  divider?: boolean
-}) {
-  return (
-    <div className={kit.metaChip}>
-      <div className='flex min-w-0 items-center gap-2 text-muted-foreground'>
-        {icon}
-        <span className='shrink-0'>{label}</span>
-        <span className='min-w-0 truncate font-medium text-foreground'>
-          {value || '—'}
-        </span>
-      </div>
-      {divider ? (
-        <div
-          data-orientation='vertical'
-          role='none'
-          className={kit.metaChipDivider}
-        />
-      ) : null}
-    </div>
-  )
 }
 
 export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
@@ -87,7 +72,9 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   const isDefault = topicKey === 'default'
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.topics.detail(topicKey) })
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.topics.detail(topicKey),
+    })
     void queryClient.invalidateQueries({ queryKey: queryKeys.topics.all })
   }
 
@@ -107,12 +94,34 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteTopic(topicKey),
-    onSuccess: () => {
+    mutationFn: () => deleteTopic(topicKey, ackImpact),
+    onSuccess: async (summary) => {
       invalidate()
-      toast.success(t('topics.deleted'))
+      toast.success(
+        summary?.removed_case_rules !== undefined
+          ? t('topics.deleteDone', {
+              rules: summary.removed_case_rules ?? 0,
+              nodes: summary.removed_edge_subscriptions ?? 0,
+              tasks: summary.failed_tasks ?? 0,
+            })
+          : t('topics.deleted')
+      )
+    },
+    onError: (err) => {
+      toast.error(
+        topicDeleteErrorMessage(err, t) ??
+          errorMessage(err) ??
+          t('topics.deletedFailed')
+      )
     },
   })
+
+  const [ackImpact, setAckImpact] = useState(false)
+  const queuedTasksQuery = useQuery({
+    queryKey: ['topics', topicKey, 'queued-tasks'] as const,
+    queryFn: () => listTasks({ dispatch_topic: topicKey, status: 'queued' }),
+  })
+  const queuedCount = queuedTasksQuery.data?.length ?? 0
 
   const edgesQuery = useQuery({
     queryKey: queryKeys.edges.all,
@@ -137,9 +146,6 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
     queryKey: queryKeys.cases.all,
     queryFn: () => listCases(),
   })
-  const relatedCases = (casesQuery.data ?? []).filter((c) =>
-    (c.routing?.rules ?? []).some((r) => r.topic === topicKey)
-  )
   const presenceQuery = useQuery({
     queryKey: queryKeys.edges.presence,
     queryFn: listPresence,
@@ -151,76 +157,59 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   }
   const topicRefs = useMemo(
     () => topicReferences(topicKey, linkInput),
-    [topicKey, linkInput],
+    [topicKey, linkInput]
   )
-  const boundEnabled = edges.filter(
-    (e) => e.enabled && edgeTopics(e).includes(topicKey)
-  )
-  const topicReady = boundEnabled.length > 0
-  const chainHops: ChainHop[] = [
-    {
-      key: 'case',
-      kind: t('configChain.workflow'),
-      label: relatedCases[0]?.name ?? t('configChain.noRelatedCase'),
-      sub: t('configChain.rules', { n: relatedCases.length }),
-      state: relatedCases.length > 0 ? 'ok' : 'warn',
-      to: relatedCases[0] ? `/cases/${relatedCases[0].id}` : '/cases',
-    },
-    {
-      key: 'topic',
-      kind: t('configChain.delivery'),
-      label: name || topicKey,
-      sub: t('configChain.onlineNodes', { n: boundEnabled.length }),
-      state: topicReady ? 'ok' : 'warn',
-      to: `/topics/${topicKey}`,
-    },
-    {
-      key: 'node',
-      kind: t('configChain.exec'),
-      label: boundEnabled.map((e) => e.name).join(' / ') || t('configChain.noOnlineNode'),
-      sub: topicReady ? t('configChain.onlineNodes', { n: boundEnabled.length }) : t('configChain.noExec'),
-      state: topicReady ? 'ok' : 'warn',
-      to: boundEnabled[0] ? `/edges/${boundEnabled[0].id}` : '/edges',
-    },
-  ]
-  const chainDetails: Record<string, ChainDetail> = {
-    case: {
-      conclusion: relatedCases.length > 0
-        ? t('configChain.topicUsedBy', { topic: name || topicKey, n: relatedCases.length })
-        : t('configChain.topicUnused', { topic: name || topicKey }),
-      rows: relatedCases.slice(0, 5).map((c) => ({
-        q: t('configChain.whoUses'),
-        a: c.name || `#${c.id}`,
-      })),
-      actionTo: relatedCases[0] ? `/cases/${relatedCases[0].id}` : '/cases',
-    },
-    topic: {
-      conclusion: topicReady
-        ? t('configChain.topicReady', { topic: name || topicKey, n: boundEnabled.length })
-        : t('configChain.topicBlocked', { topic: name || topicKey }),
-      rows: [],
-      actionTo: `/topics/${topicKey}`,
-    },
-    node: {
-      conclusion: topicReady
-        ? t('configChain.nodeReady', { n: boundEnabled.length, topic: name || topicKey })
-        : t('configChain.nodeBlocked', { topic: name || topicKey }),
-      rows: boundEnabled.map((e) => ({ q: t('configChain.execNodes'), a: e.name })),
-      actionTo: boundEnabled[0] ? `/edges/${boundEnabled[0].id}` : '/edges',
-    },
-  }
+  const caseRefCount = topicRefs.cases.length
+  const edgeRefCount = topicRefs.edges.length
+  const hasImpact = caseRefCount > 0 || edgeRefCount > 0 || queuedCount > 0
   const boundFirst = [...edges].sort((a, b) => {
     const aBound = edgeTopics(a).includes(topicKey)
     const bBound = edgeTopics(b).includes(topicKey)
     return Number(bBound) - Number(aBound)
   })
 
-  if (topicQuery.isLoading) return <LoadingSkeleton rows={8} />
-  if (topicQuery.isError || !topic) {
+  if (topicQuery.isLoading) {
     return (
-      <ErrorBanner
-        message={errorMessage(topicQuery.error) ?? t('common.errorGeneric')}
-      />
+      <div className={kit.pageSection}>
+        <LoadingSkeleton rows={8} />
+      </div>
+    )
+  }
+  if (topicQuery.isError || !topic) {
+    const notFound =
+      (topicQuery.error instanceof ApiError &&
+        topicQuery.error.status === 404) ||
+      (!topic && !topicQuery.error)
+    if (notFound) {
+      return (
+        <NotFoundState
+          icon={<SearchX />}
+          title={t('topics.notFoundTitle')}
+          description={t('topics.notFoundDesc')}
+          actions={
+            <>
+              <Button asChild className={kit.btnPrimary}>
+                <Link to='/topics'>{t('topics.backToList')}</Link>
+              </Button>
+              <Button
+                asChild
+                variant='outline'
+                className='h-8 gap-1.5 rounded-md px-3 text-xs'
+              >
+                <Link to='/topics/new'>{t('topics.new')}</Link>
+              </Button>
+            </>
+          }
+        />
+      )
+    }
+    return (
+      <div className={kit.pageSection}>
+        <ErrorBanner
+          message={errorMessage(topicQuery.error) ?? t('common.errorGeneric')}
+          onRetry={() => void topicQuery.refetch()}
+        />
+      </div>
     )
   }
 
@@ -247,6 +236,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
               disabled={isDefault || enableMutation.isPending}
               onClick={() => enableMutation.mutate(!topic.enabled)}
             >
+              <Power className='size-3.5' />
               {topic.enabled ? t('topics.disable') : t('topics.enable')}
             </Button>
             <Button
@@ -258,7 +248,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
               }}
             >
               <PenLine className='size-3.5' />
-              {t('topics.editInfo')}
+              {t('topics.edit')}
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -268,14 +258,49 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
                   className='h-8 gap-1.5 rounded-md px-3 text-xs'
                   disabled={isDefault || deleteMutation.isPending}
                 >
+                  <Trash2 className='size-3.5' />
                   {t('topics.delete')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>{t('topics.deleteConfirmTitle')}</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    {t('topics.deleteConfirmTitle')}
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
                     {t('topics.deleteConfirmBody', { name: topic.name })}
+                    {caseRefCount > 0 ? (
+                      <p className='mt-3'>
+                        {t('topics.deleteWillRemoveRules', {
+                          count: caseRefCount,
+                        })}
+                      </p>
+                    ) : null}
+                    {edgeRefCount > 0 ? (
+                      <p className='mt-1'>
+                        {t('topics.deleteWillUnbindNodes', {
+                          count: edgeRefCount,
+                        })}
+                      </p>
+                    ) : null}
+                    {queuedCount > 0 ? (
+                      <p className='mt-1'>
+                        {t('topics.deleteWillFailQueued', {
+                          count: queuedCount,
+                        })}
+                      </p>
+                    ) : null}
+                    {hasImpact ? (
+                      <label className='mt-4 flex items-start gap-2'>
+                        <input
+                          type='checkbox'
+                          checked={ackImpact}
+                          onChange={(e) => setAckImpact(e.target.checked)}
+                          data-testid='topic-delete-ack'
+                        />
+                        <span>{t('topics.deleteAckImpact')}</span>
+                      </label>
+                    ) : null}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -286,6 +311,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
                     type='button'
                     onClick={() => deleteMutation.mutate()}
                     className='bg-destructive text-white hover:bg-destructive/90'
+                    disabled={hasImpact ? !ackImpact : false}
                   >
                     {t('topics.delete')}
                   </AlertDialogAction>
@@ -327,9 +353,6 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
       {enableMutation.isError ? (
         <ErrorBanner message={errorMessage(enableMutation.error)} />
       ) : null}
-      {deleteMutation.isError ? (
-        <ErrorBanner message={errorMessage(deleteMutation.error)} />
-      ) : null}
 
       {isDefault ? (
         <p className='rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground'>
@@ -337,12 +360,12 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
         </p>
       ) : null}
 
-      <section>
+      <section className='flex flex-col gap-4'>
         <SectionHead
           title={t('topics.boundNodes')}
           hint={t('topics.boundNodesHint')}
         />
-        <div className='mt-4 overflow-hidden rounded-[8px] border bg-card shadow-sm shadow-zinc-200/40 dark:shadow-none'>
+        <div className={kit.cardWrap}>
           {edgesQuery.isError ? (
             <div className='p-4'>
               <ErrorBanner message={errorMessage(edgesQuery.error)} />
@@ -353,7 +376,9 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
               <LoadingSkeleton rows={3} />
             </div>
           ) : null}
-          {!edgesQuery.isLoading && !edgesQuery.isError && edges.length === 0 ? (
+          {!edgesQuery.isLoading &&
+          !edgesQuery.isError &&
+          edges.length === 0 ? (
             <p className='p-4 text-sm text-muted-foreground'>
               {t('topics.noNodes')}
             </p>
@@ -373,7 +398,9 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
                     <div className='flex min-w-0 items-center gap-2'>
                       <span
                         className={
-                          bound ? kit.healthDot.ok : 'size-2 shrink-0 rounded-full bg-muted-foreground/40'
+                          bound
+                            ? kit.healthDot.ok
+                            : 'size-2 shrink-0 rounded-full bg-muted-foreground/40'
                         }
                       />
                       <span className='truncate text-sm'>{edge.name}</span>
@@ -381,9 +408,15 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
                     <Button
                       type='button'
                       variant={bound ? 'outline' : 'default'}
-                      className={bound ? kit.btnGhost : 'h-8 gap-1.5 rounded-md px-3 text-xs'}
+                      className={
+                        bound
+                          ? kit.btnGhost
+                          : 'h-8 gap-1.5 rounded-md px-3 text-xs'
+                      }
                       disabled={pending}
-                      onClick={() => toggleMutation.mutate({ edge, bind: !bound })}
+                      onClick={() =>
+                        toggleMutation.mutate({ edge, bind: !bound })
+                      }
                     >
                       {bound ? t('topics.unbind') : t('topics.bind')}
                     </Button>
@@ -395,33 +428,25 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
         </div>
       </section>
 
-      <section>
+      <section className='flex flex-col gap-4'>
         <SectionHead
           title={t('topics.statsTitle')}
           hint={t('topics.statsHint')}
         />
-        <div className='mt-4'>
-          <TopicStatsPanel topicKey={topicKey} />
-        </div>
-      </section>
-
-      <section className='mt-4'>
-        <ConfigChain
-          health={
-            topicReady
-              ? { state: 'ok', text: t('configChain.healthTopicOk', { topic: name || topicKey, n: boundEnabled.length }) }
-              : { state: 'warn', text: t('configChain.healthTopicWarn', { topic: name || topicKey }) }
-          }
-          hops={chainHops}
-          details={chainDetails}
-        />
+        <TopicStatsPanel topicKey={topicKey} />
       </section>
 
       <LinkHealthSection
         title={t('linkHealth.title')}
         health={topicRefs.health}
-        upstream={{ title: t('linkHealth.usedWorkflows'), items: topicRefs.cases }}
-        downstream={{ title: t('linkHealth.boundNodes'), items: topicRefs.edges }}
+        upstream={{
+          title: t('linkHealth.usedWorkflows'),
+          items: topicRefs.cases,
+        }}
+        downstream={{
+          title: t('linkHealth.boundNodes'),
+          items: topicRefs.edges,
+        }}
       />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
