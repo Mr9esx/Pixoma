@@ -44,6 +44,14 @@ describe('workflow detail panel', () => {
     expect(source).toContain('PreviewSection')
   })
 
+  it('create form keeps actions in a sticky bottom footer', () => {
+    const source = readFileSync(CASE_FORM, 'utf8')
+    expect(source).toMatch(/sticky bottom-0/)
+    expect(source).toMatch(/border-t bg-card/)
+    expect(source).toMatch(/t\('common\.create'\)/)
+    expect(source).toMatch(/t\('common\.cancel'\)/)
+  })
+
   it('config view shows filename and graph preview', () => {
     const source = readFileSync(CONFIG_VIEW, 'utf8')
     expect(source).toContain('cases.importFile')
