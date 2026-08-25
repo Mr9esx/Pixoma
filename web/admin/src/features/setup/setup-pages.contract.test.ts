@@ -131,4 +131,12 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/SelectItem value='mysql'/)
     expect(wizard).toMatch(/SelectItem value='postgres'/)
   })
+
+  it('switches the DSN input to the selected driver example', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/onValueChange=\{onDriverChange\}/)
+    expect(wizard).toMatch(/function onDriverChange\(next: string\)/)
+    expect(wizard).toMatch(/examples\.includes\(dsn\)/)
+    expect(wizard).toMatch(/setDsn\(example\)/)
+  })
 })
