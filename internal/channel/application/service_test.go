@@ -2,11 +2,11 @@ package application
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 type memStore struct {
@@ -54,7 +54,7 @@ func (s *memStore) Delete(_ context.Context, id string) error {
 func TestService_CreateEncryptsAndGetDecrypts(t *testing.T) {
 	store := &memStore{rows: map[string]domain.Channel{}}
 	key := make([]byte, 32)
-	svc := &Service{Store: store, Key: key, HasActiveRefs: func(context.Context, string) (bool, error) { return false, nil }}
+	svc := &Service{Store: store, Key: key}
 
 	ch, err := svc.Create(context.Background(), "tg-default", domain.PlatformTelegram, "主机器人", "12345:TOKEN")
 	if err != nil {
@@ -72,32 +72,55 @@ func TestService_CreateEncryptsAndGetDecrypts(t *testing.T) {
 	}
 }
 
-func TestService_DeleteRestricted(t *testing.T) {
+type memNotify struct {
+	items []sharedkernel.UserNotify
+}
+
+func (m *memNotify) Publish(_ context.Context, n sharedkernel.UserNotify) error {
+	m.items = append(m.items, n)
+	return nil
+}
+
+func TestService_DeleteDirectWithCleanup(t *testing.T) {
 	store := &memStore{rows: map[string]domain.Channel{}}
 	key := make([]byte, 32)
-	refs := func(context.Context, string) (bool, error) { return false, nil }
-	svc := &Service{Store: store, Key: key, HasActiveRefs: refs}
+	n := &memNotify{}
+	svc := &Service{
+		Store:  store,
+		Key:    key,
+		Notify: n,
+		DeleteWithCleanup: func(_ context.Context, id string) ([]sharedkernel.ChatID, error) {
+			if err := store.Delete(context.Background(), id); err != nil {
+				return nil, err
+			}
+			return []sharedkernel.ChatID{"tg:9"}, nil
+		},
+	}
 
 	if _, err := svc.Create(context.Background(), "tg-1", domain.PlatformTelegram, "a", "t"); err != nil {
 		t.Fatal(err)
 	}
 
-	// 启用中删除被拒
-	if err := svc.Delete(context.Background(), "tg-1"); !errors.Is(err, domain.ErrDeleteRestricted) {
+	// 启用中直接删除成功，不再要求停用。
+	if err := svc.Delete(context.Background(), "tg-1"); err != nil {
 		t.Fatalf("enabled delete: %v", err)
 	}
-	// 禁用但有活跃引用被拒
-	if err := svc.Disable(context.Background(), "tg-1"); err != nil {
+	if _, err := svc.Get(context.Background(), "tg-1"); err != domain.ErrNotFound {
+		t.Fatalf("want not found, got %v", err)
+	}
+	if len(n.items) != 1 || n.items[0].Kind != "session_terminated" {
+		t.Fatalf("notifies=%+v", n.items)
+	}
+}
+
+func TestService_DeleteFallsBackToStore(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{Store: store, Key: make([]byte, 32)}
+	if _, err := svc.Create(context.Background(), "tg-1", domain.PlatformTelegram, "a", "t"); err != nil {
 		t.Fatal(err)
 	}
-	svc.HasActiveRefs = func(context.Context, string) (bool, error) { return true, nil }
-	if err := svc.Delete(context.Background(), "tg-1"); !errors.Is(err, domain.ErrDeleteRestricted) {
-		t.Fatalf("referenced delete: %v", err)
-	}
-	// 禁用且无引用可删
-	svc.HasActiveRefs = refs
 	if err := svc.Delete(context.Background(), "tg-1"); err != nil {
-		t.Fatalf("delete: %v", err)
+		t.Fatal(err)
 	}
 	if _, err := svc.Get(context.Background(), "tg-1"); err != domain.ErrNotFound {
 		t.Fatalf("want not found, got %v", err)

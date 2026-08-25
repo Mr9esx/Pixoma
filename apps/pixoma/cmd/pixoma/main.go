@@ -25,6 +25,7 @@ import (
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
+	"github.com/mr9esx/comfyui_tgbot/internal/channeladmin"
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
@@ -226,15 +227,9 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	taskRepo := taskpersist.NewTaskRepository(gdb)
 	channelStore := channelpersist.NewGormRepository(gdb)
 	chSvc := &channelapp.Service{
-		Store: channelStore,
-		Key:   encKey,
-		HasActiveRefs: func(ctx context.Context, channelID string) (bool, error) {
-			n, err := sessionRepo.CountByChannel(ctx, channelID)
-			if err != nil {
-				return false, err
-			}
-			return n > 0, nil
-		},
+		Store:             channelStore,
+		Key:               encKey,
+		DeleteWithCleanup: channeladmin.DeleteWithCleanup(gdb),
 	}
 	bus := memory.New()
 	defer func() { _ = bus.Close() }()
@@ -257,6 +252,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	if err != nil {
 		return err
 	}
+	chSvc.Notify = botRT.Notify
 	conditionReg := condition.NewRegistry()
 	conditionReg.Register(&condition.UserProvider{Lookup: func(ctx context.Context, userID string) (*bool, error) {
 		var row struct {
