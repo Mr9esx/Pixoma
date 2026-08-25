@@ -1,0 +1,15 @@
+{
+  "change": "setup-storage-flow",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "ca95f1f03418d6be10d00aa58cd6146f27d1ee6393afdd1b09366bc84a268d7d",
+  "files": [
+    { "path": "docs/openspec/changes/setup-storage-flow/proposal.md", "sha256": "1afd0e574ec629311404611392b11122acdd0b014e539ab7b0578f660acacc7d" },
+    { "path": "docs/openspec/changes/setup-storage-flow/design.md", "sha256": "93a6e273b4c50bea3174818ee3889ee2a258f7b4c79e58b758cba3bdb6552837" },
+    { "path": "docs/openspec/changes/setup-storage-flow/tasks.md", "sha256": "11d206288328c6219dc5d272576656c5c16c385016ac4172a48d800ae30dc947" },
+    { "path": "docs/openspec/changes/setup-storage-flow/specs/setup-wizard/spec.md", "sha256": "920913dfb028df21ed072f7f2f3ace26884cf77710f314faba944e858f6d26d2" },
+    { "path": "docs/openspec/changes/setup-storage-flow/specs/shared-blob-store/spec.md", "sha256": "cf8b66c120869943750665862f1c1ed648acc38b6d21d6343691dd25a36ac18c" }
+  ]
+}

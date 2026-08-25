@@ -1,0 +1,6 @@
+{
+  "schema": "comet.selection.v2",
+  "workflow": "classic",
+  "change": "setup-storage-flow",
+  "branch": "feat-init"
+}
