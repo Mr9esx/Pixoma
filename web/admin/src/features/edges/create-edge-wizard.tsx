@@ -7,7 +7,6 @@ import { queryKeys } from '@/lib/api/query-keys'
 import type { ComfyEdge } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DeployCredentials } from './deploy-credentials'
 import { EdgeForm } from './edge-form'
 import { PresenceTags } from './presence-tags'
@@ -50,9 +49,9 @@ export function CreateEdgeWizard({ onDone }: Props) {
 
   return (
     <>
-      <DialogHeader className='shrink-0'>
-        <DialogTitle>{title}</DialogTitle>
-      </DialogHeader>
+      <div className='shrink-0'>
+        <h2 className='text-lg font-semibold tracking-tight'>{title}</h2>
+      </div>
       <ol
         className='flex shrink-0 items-center justify-center gap-2 py-6'
         data-testid='create-edge-steps'
@@ -118,7 +117,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
           <p className='text-xs text-muted-foreground'>
             {t('edges.deployWaitHint')}
           </p>
-          <DialogFooter className='shrink-0'>
+          <div className='flex shrink-0 items-center justify-end gap-2'>
             <Button
               type='button'
               variant='ghost'
@@ -133,7 +132,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
             >
               {t('edges.deployContinue')}
             </Button>
-          </DialogFooter>
+          </div>
         </div>
       ) : (
         <>
@@ -149,7 +148,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
               </p>
             </div>
           </div>
-          <DialogFooter className='shrink-0'>
+          <div className='flex shrink-0 items-center justify-end gap-2'>
             <Button
               type='button'
               variant='outline'
@@ -160,7 +159,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
             <Button type='button' onClick={() => edge && onDone(edge, 'view')}>
               {t('edges.createDoneView')}
             </Button>
-          </DialogFooter>
+          </div>
         </>
       )}
     </>

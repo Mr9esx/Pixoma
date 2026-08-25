@@ -11,7 +11,6 @@ import { useTranslation } from 'react-i18next'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   Empty,
   EmptyContent,
@@ -40,7 +39,6 @@ function EdgesLayout() {
   const { edgeId } = useParams({ strict: false }) as {
     edgeId?: string
   }
-  const [createOpen, setCreateOpen] = useState(false)
   const [backToList, setBackToList] = useState(false)
 
   const listQuery = useQuery({
@@ -57,6 +55,7 @@ function EdgesLayout() {
   )
   const items = listQuery.data ?? []
   const selectedId = edgeId ?? (backToList ? undefined : items[0]?.id)
+  const create = edgeId === 'new'
 
   useEffect(() => {
     if (edgeId != null) setBackToList(false)
@@ -87,18 +86,16 @@ function EdgesLayout() {
             {t('edges.description')}
           </p>
         </div>
-        <Button
-          type='button'
-          className={kit.btnPrimary}
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus className='size-3.5' />
-          {t('edges.createNode')}
+        <Button asChild className={kit.btnPrimary}>
+          <Link to='/edges/$edgeId' params={{ edgeId: 'new' }}>
+            <Plus className='size-3.5' />
+            {t('edges.createNode')}
+          </Link>
         </Button>
       </div>
       <MasterDetailShell
         className='md:grid-cols-[280px_1fr]'
-        hasSelection={Boolean(selectedId)}
+        hasSelection={Boolean(selectedId) || edgeId === 'new'}
         onBackToList={() => {
           setBackToList(true)
           void navigate({ to: '/edges' })
@@ -115,7 +112,26 @@ function EdgesLayout() {
             onRetry={() => void listQuery.refetch()}
           />
         }
-        detail={selectedId ? <EdgeDetailPanel id={selectedId} /> : null}
+        detail={
+          create ? (
+            <div className={kit.pageSection}>
+              <CreateEdgeWizard
+                onDone={(created, action) => {
+                  if (action === 'view') {
+                    void navigate({
+                      to: '/edges/$edgeId',
+                      params: { edgeId: created.id },
+                    })
+                  } else {
+                    void navigate({ to: '/edges' })
+                  }
+                }}
+              />
+            </div>
+          ) : selectedId ? (
+            <EdgeDetailPanel id={selectedId} />
+          ) : null
+        }
         emptyDetail={
           !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
             <Empty>
@@ -131,12 +147,10 @@ function EdgesLayout() {
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
-                <Button
-                  type='button'
-                  className={kit.btnPrimary}
-                  onClick={() => setCreateOpen(true)}
-                >
+                <Button asChild className={kit.btnPrimary}>
+                  <Link to='/edges/$edgeId' params={{ edgeId: 'new' }}>
                   {t('edges.createNode')}
+                  </Link>
                 </Button>
                 <Button
                   asChild
@@ -150,21 +164,6 @@ function EdgesLayout() {
           ) : undefined
         }
       />
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-lg'>
-          <CreateEdgeWizard
-            onDone={(created, action) => {
-              setCreateOpen(false)
-              if (action === 'view') {
-                void navigate({
-                  to: '/edges/$edgeId',
-                  params: { edgeId: created.id },
-                })
-              }
-            }}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
