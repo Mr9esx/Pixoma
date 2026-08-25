@@ -22,3 +22,10 @@
 
 - [x] 4.1 README 更新：向导步骤（密码/数据库/对象存储）、对象存储连通性测试、bucket 不存在可确认自动创建（需建桶权限）
 - [x] 4.2 `go build ./...` + `go test ./...`；`pnpm tsc -b` + `pnpm vitest run`（web/admin）
+
+## 代码审查记录（review_mode: standard）
+
+- 审查方式：内联轻量审查（reviewer subagent 派发通道在本会话多次失败，已记录降级原因）。
+- 范围：`ac0568e..HEAD` 全部实现 diff。
+- 结论：分层清晰（驱动 Check/EnsureBucket → factory 显式凭据入口 → handler 薄层）；`bucket_not_found` 契约明确且未确认不创建；S3 `us-east-1` 省略 LocationConstraint、TOS 404 判定用 `TosServerError`；gofakes3 覆盖 S3 Check/EnsureBucket 与端点 bucket 创建流程；前端配置变更自动失效 `blobTested`。未发现 Critical/Important 问题。
+- 接受的小项（Minor）：handler `blobTest` 为 `Validate` 构造的 `settings.Settings` 带 ComfyMock 占位值（仅用于校验，不落库）；`blob-config` 请求携带 Secret Key（与数据库密码同理，走同源 API）。接受原因：不影响行为与安全边界。
