@@ -593,9 +593,9 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             </Alert>
           ) : null}
           {blobDriver === 'localfs' ? (
-            <Alert>
+            <Alert variant='warn'>
               <AlertTitle>
-                这个配置只适合 ComfyUI 和后台在同一台机器上使用。
+                这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。
               </AlertTitle>
             </Alert>
           ) : null}
