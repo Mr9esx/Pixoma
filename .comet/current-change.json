@@ -1,6 +1,6 @@
 {
   "schema": "comet.selection.v2",
   "workflow": "classic",
-  "change": "config-context-association",
+  "change": "mysql-postgres-support",
   "branch": "feat-init"
 }
