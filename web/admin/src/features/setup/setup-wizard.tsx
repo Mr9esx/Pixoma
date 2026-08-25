@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, CircleAlert, CircleCheck } from 'lucide-react'
+import { ArrowLeft, CircleAlert, CircleCheck, Info } from 'lucide-react'
 import {
   changeAdminPassword,
   finalizeSetup,
@@ -525,14 +525,18 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value='localfs'>本机目录</SelectItem>
+                  <SelectItem value='sharedfs'>共享目录（SMB / NFS）</SelectItem>
                   <SelectItem value='s3'>S3</SelectItem>
                   <SelectItem value='tos'>火山 TOS</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
           </Field>
-          {blobDriver === 'localfs' ? (
-            <Field label='目录' htmlFor='blob-root'>
+          {blobDriver === 'localfs' || blobDriver === 'sharedfs' ? (
+            <Field
+              label={blobDriver === 'sharedfs' ? '挂载目录' : '目录'}
+              htmlFor='blob-root'
+            >
               <Input
                 id='blob-root'
                 value={blobRoot}
@@ -548,6 +552,12 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   onChange={(e) => setBlobEndpoint(e.target.value)}
                 />
               </Field>
+              {blobDriver === 's3' ? (
+                <p className='text-sm text-muted-foreground'>
+                  局域网可用 MinIO 等 S3 兼容服务，如{' '}
+                  <code>http://192.168.x.x:9000</code>
+                </p>
+              ) : null}
               <Field label='Region' htmlFor='blob-region'>
                 <Input
                   id='blob-region'
@@ -612,6 +622,22 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <AlertTitle>注意！</AlertTitle>
               <AlertDescription>
                 这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {blobDriver === 'sharedfs' ? (
+            <Alert variant='info'>
+              <Info aria-hidden='true' />
+              <AlertTitle>注意！</AlertTitle>
+              <AlertDescription>
+                需要先在所有机器上挂载同一共享目录（SMB / NFS）。
+                <pre className='mt-2 overflow-x-auto rounded-md border bg-card p-2 text-xs leading-relaxed'>
+                  {`# Linux NFS
+mount -t nfs 192.168.1.10:/srv/pixoma /mnt/pixoma-shared
+
+# Linux / macOS CIFS (SMB)
+mount -t cifs //192.168.1.10/pixoma /mnt/pixoma-shared -o username=admin`}
+                </pre>
               </AlertDescription>
             </Alert>
           ) : null}

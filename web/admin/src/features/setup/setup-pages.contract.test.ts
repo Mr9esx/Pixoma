@@ -219,7 +219,7 @@ describe('login and setup pages', () => {
   it('labels the s3 driver plainly', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
     expect(wizard).toMatch(/SelectItem value='s3'>S3<\/SelectItem>/)
-    expect(wizard).not.toMatch(/S3 兼容/)
+    expect(wizard).not.toMatch(/SelectItem value='s3'>S3 兼容/)
   })
 
   it('prefills tos defaults when the driver is selected', () => {
@@ -228,5 +228,18 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/cn-beijing/)
     expect(wizard).toMatch(/TOS_DEFAULTS/)
     expect(wizard).toMatch(/onBlobDriverChange/)
+  })
+
+  it('offers shared directory (SMB/NFS) with mount guidance', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/共享目录（SMB \/ NFS）/)
+    expect(wizard).toMatch(/SelectItem value='sharedfs'/)
+    expect(wizard).toMatch(/mount -t nfs/)
+    expect(wizard).toMatch(/mount -t cifs/)
+    expect(wizard).toMatch(/blobDriver === 'sharedfs'/)
+    expect(wizard).toMatch(/MinIO/)
+    expect(wizard).toMatch(
+      /placement: blobDriver === 'localfs' \? 'local' : 'remote'/
+    )
   })
 })
