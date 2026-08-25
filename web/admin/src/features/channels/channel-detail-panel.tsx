@@ -384,12 +384,12 @@ function ChannelReachabilityTag({
   const { t } = useTranslation()
   if (query.isPending) {
     return (
-      <span className={kit.tagSmOff}>{t('channels.checkingReachability')}</span>
+      <span className={kit.tagOff}>{t('channels.checkingReachability')}</span>
     )
   }
   if (query.isError || !query.data) {
     return (
-      <span className={kit.tagSmFail}>{t('channels.reachabilityFailed')}</span>
+      <span className={kit.tagFail}>{t('channels.reachabilityFailed')}</span>
     )
   }
   const result = query.data
@@ -401,7 +401,7 @@ function ChannelReachabilityTag({
       <Link
         to='/settings'
         search={{ tab: 'network' }}
-        className={kit.tagSmWarn}
+        className={kit.tagWarn}
         aria-label={t('channels.reachabilityNetworkAction')}
       >
         {t('channels.reachabilityNetwork')}
@@ -409,10 +409,10 @@ function ChannelReachabilityTag({
     )
   }
   if (result.kind === 'auth') {
-    return <span className={kit.tagSmFail}>{t('channels.reachabilityAuth')}</span>
+    return <span className={kit.tagFail}>{t('channels.reachabilityAuth')}</span>
   }
   return (
-    <span className={kit.tagSmOff} title={result.message || undefined}>
+    <span className={kit.tagOff} title={result.message || undefined}>
       {t('channels.reachabilityFailed')}
     </span>
   )
