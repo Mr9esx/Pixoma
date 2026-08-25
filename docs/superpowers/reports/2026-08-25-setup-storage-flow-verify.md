@@ -59,3 +59,5 @@
 补充（归档前重开 275aa7d，warn 图标）：localfs warn Alert 增加 `CircleAlert` 图标（`aria-hidden`）。前端 57 文件 / 364 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
 
 补充（归档前重开 e8c41d0，结构修正）：localfs warn Alert 改为 Title「注意！」+ Description 两行文案（`<br />` 分隔），避免 `AlertTitle` 的 `line-clamp-1` 截断。前端 57 文件 / 364 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
+
+补充（归档前重开 5c8d47c，自然换行）：移除 `<br />` 强制断行，Description 用连续文案随容器自然换行（截断根因 `line-clamp-1` 已在结构修正时避开）。前端 57 文件 / 364 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
