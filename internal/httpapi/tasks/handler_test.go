@@ -60,6 +60,34 @@ func TestTasksHandler_ListGetCancel(t *testing.T) {
 		t.Fatalf("pending list: %+v", list)
 	}
 
+	queued := runtimedomain.NewPending("t-q", "sess-1", 1, "pfx", now)
+	queued.Status = sharedkernel.TaskQueued
+	queued.DispatchTopic = "fast-gpu"
+	if err := tasks.Create(ctx, queued); err != nil {
+		t.Fatal(err)
+	}
+	other := runtimedomain.NewPending("t-other", "sess-1", 1, "pfx", now)
+	other.Status = sharedkernel.TaskQueued
+	other.DispatchTopic = "slow-gpu"
+	if err := tasks.Create(ctx, other); err != nil {
+		t.Fatal(err)
+	}
+	resQ, err := http.Get(srv.URL + "/api/v1/tasks?dispatch_topic=fast-gpu&status=queued")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resQ.Body.Close()
+	if resQ.StatusCode != http.StatusOK {
+		t.Fatalf("dispatch filter status=%d", resQ.StatusCode)
+	}
+	var qList []map[string]any
+	if err := json.NewDecoder(resQ.Body).Decode(&qList); err != nil {
+		t.Fatal(err)
+	}
+	if len(qList) != 1 || qList[0]["id"] != "t-q" {
+		t.Fatalf("dispatch filter: %+v", qList)
+	}
+
 	cres, err := http.Post(srv.URL+"/api/v1/tasks/t-pending/cancel", "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
