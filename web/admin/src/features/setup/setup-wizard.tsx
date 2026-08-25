@@ -420,7 +420,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               })
             }}
             testPassed={dbTested}
-            submitDisabled={!dbTested}
           />
         </form>
       ) : null}
@@ -622,7 +621,6 @@ function StepActions({
   onSkip,
   onTest,
   testPassed,
-  submitDisabled,
 }: {
   error: AlertCopy | null
   pending: boolean
@@ -631,7 +629,6 @@ function StepActions({
   onSkip?: () => void
   onTest?: () => void
   testPassed?: boolean
-  submitDisabled?: boolean
 }) {
   return (
     <div className='flex flex-col gap-2'>
@@ -676,11 +673,7 @@ function StepActions({
             暂时跳过
           </Button>
         ) : null}
-        <Button
-          type='submit'
-          className='flex-1'
-          disabled={pending || submitDisabled}
-        >
+        <Button type='submit' className='flex-1' disabled={pending}>
           {pending ? '处理中…' : submit}
         </Button>
       </div>

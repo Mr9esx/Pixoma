@@ -758,6 +758,44 @@ git commit -m "feat(setup): alert-based error copy with friendly Chinese titles"
 
 `pnpm vitest run`（59 文件 / 355+ 测试）与 `pnpm tsc -b` 通过；提交 `feat(setup): split connectivity test and continue buttons`。
 
+### Task 11: 连通性语义与自动建库 + 继续不设门控
+
+**Files:**
+- Create: `internal/platform/db/ensure.go`、`internal/platform/db/ensure_test.go`
+- Modify: `internal/httpapi/setup/handler.go`、`internal/platform/db/drivers_integration_test.go`、`web/admin/src/features/setup/setup-wizard.tsx`、`web/admin/src/features/setup/setup-pages.contract.test.ts`、`go.mod`
+- Docs: `specs/setup-wizard/spec.md`、`specs/multi-database-support/spec.md`、`design.md`、Design Doc、`tasks.md`、本计划
+
+**Interfaces:**
+- Consumes: Task 10 的按钮拆分。
+- Produces: `db.EnsureDatabase(driver, dsn)`（连服务器验证账号密码、目标库缺失自动创建，SQLite no-op）、`db.DropDatabase`（集成测试清理）；`setup.Handler.openDB` 统一先 ensure 再 open；「继续」无 `submitDisabled` 门控。
+
+- [x] **Step 1: 先写失败测试（ensure 单元测试）**
+
+5 个用例：SQLite no-op、未知驱动、MySQL/Postgres 缺库名、PG 非法 DSN；RED→GREEN。
+
+- [x] **Step 2: 实现 EnsureDatabase 与 DropDatabase**
+
+MySQL 用 `mysql.ParseDSN` 去库名连服务器 → `CREATE DATABASE IF NOT EXISTS`；Postgres 用 `pgx.ParseConfig` 连维护库 `postgres`→`template1` → 查 `pg_database` 后 `CREATE DATABASE`；标识符正确转义。go-sql-driver/mysql 与 pgx/v5 提升为直接依赖。
+
+- [x] **Step 3: setup.Handler.openDB 接入 ensure**
+
+向导任何一步打开业务库前先 `EnsureDatabase`；`POST /api/v1/setup/database` 错误前缀不变（Alert 映射兼容）。
+
+- [x] **Step 4: 前端移除继续门控**
+
+`StepActions` 去掉 `submitDisabled`，「继续」始终可点；「连通性测试」保留为可选预检；合同测试断言无 `submitDisabled` 且 `setStep('placement')` 直接前进。
+
+- [x] **Step 5: 集成测试与全量验证**
+
+`TestIntegration_EnsureDatabaseCreatesMissingDB`（env 门控，随机库名 + cleanup 删除）；`go build ./...`、`go test ./...`、`go test -tags integration ./internal/platform/db/`（SKIP 路径）通过；`pnpm vitest run` 与 `pnpm tsc -b` 通过。
+
+- [x] **Step 6: 提交**
+
+```bash
+git add internal/platform/db/ensure.go internal/platform/db/ensure_test.go internal/platform/db/drivers_integration_test.go internal/httpapi/setup/handler.go web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts go.mod go.sum docs/openspec/changes/mysql-postgres-support/specs/setup-wizard/spec.md docs/openspec/changes/mysql-postgres-support/specs/multi-database-support/spec.md docs/openspec/changes/mysql-postgres-support/design.md docs/superpowers/specs/2026-08-25-mysql-postgres-support-design.md docs/openspec/changes/mysql-postgres-support/tasks.md docs/superpowers/plans/2026-08-25-mysql-postgres-support.md
+git commit -m "feat(db): auto-create missing database and decouple continue from test"
+```
+
 ---
 
 ## 自检记录（写完后由创建者核对）

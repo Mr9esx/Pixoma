@@ -435,6 +435,9 @@ func (h *Handler) requireSession(w http.ResponseWriter, r *http.Request) (string
 }
 
 func (h *Handler) openDB(driver, dsn string) (*gorm.DB, error) {
+	if err := db.EnsureDatabase(driver, dsn); err != nil {
+		return nil, err
+	}
 	if h.OpenBusiness != nil {
 		return h.OpenBusiness(driver, dsn)
 	}
