@@ -41,6 +41,8 @@ type AdminListQuery struct {
 	ChatID      sharedkernel.ChatID // "" = no filter
 	// ChannelID filters tasks whose session belongs to a channel (join sessions).
 	ChannelID   string
+	// DispatchTopic filters tasks dispatched to a topic.
+	DispatchTopic string
 	SessionID   sharedkernel.SessionID
 	CaseID      sharedkernel.CaseID
 	CreatedFrom *time.Time
@@ -348,6 +350,9 @@ func (r *MemoryTaskRepository) List(_ context.Context, q AdminListQuery) ([]*Tas
 			continue
 		}
 		if q.CaseID != 0 && t.CaseID != q.CaseID {
+			continue
+		}
+		if q.DispatchTopic != "" && t.DispatchTopic != q.DispatchTopic {
 			continue
 		}
 		if q.Q != "" {

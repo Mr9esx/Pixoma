@@ -159,6 +159,9 @@ func parseAdminListQuery(r *http.Request) (runtimedomain.AdminListQuery, error) 
 	if v := r.URL.Query().Get("chat_id"); v != "" {
 		q.ChatID = sharedkernel.ChatID(v)
 	}
+	if v := r.URL.Query().Get("dispatch_topic"); v != "" {
+		q.DispatchTopic = v
+	}
 	if v := r.URL.Query().Get("created_from"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)
 		if err != nil {

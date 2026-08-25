@@ -73,3 +73,9 @@ const (
 	TaskErrorEdgeDeleted = "edge_deleted"
 	EdgeDeletedMessage   = "节点已删除"
 )
+
+// Terminal-failure metadata used when a dispatch topic is deleted.
+const (
+	TaskErrorTopicDeleted = "topic_deleted"
+	TopicDeletedMessage   = "调度通道已删除"
+)

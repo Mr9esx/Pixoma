@@ -393,6 +393,9 @@ func (r *TaskRepository) List(ctx context.Context, q domain.AdminListQuery) ([]*
 	if q.CaseID != 0 {
 		tx = tx.Where(col("case_id")+" = ?", q.CaseID)
 	}
+	if q.DispatchTopic != "" {
+		tx = tx.Where(col("dispatch_topic")+" = ?", q.DispatchTopic)
+	}
 	if q.Q != "" {
 		like := "%" + q.Q + "%"
 		tx = tx.Where(
