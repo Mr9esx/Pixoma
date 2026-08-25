@@ -37,7 +37,7 @@ func Check(ctx context.Context, opts CheckOptions) error {
 // EnsureBucket creates the target bucket when missing (S3/TOS), then re-checks.
 func EnsureBucket(ctx context.Context, opts CheckOptions) error {
 	switch strings.TrimSpace(opts.Driver) {
-	case botconfig.BlobDriverLocalFS:
+	case botconfig.BlobDriverLocalFS, botconfig.BlobDriverSharedFS:
 		store, err := localfs.New(opts.LocalRoot)
 		if err != nil {
 			return err
@@ -75,7 +75,7 @@ func EnsureBucket(ctx context.Context, opts CheckOptions) error {
 
 func storeForCheck(opts CheckOptions) (blob.Store, error) {
 	switch strings.TrimSpace(opts.Driver) {
-	case botconfig.BlobDriverLocalFS:
+	case botconfig.BlobDriverLocalFS, botconfig.BlobDriverSharedFS:
 		return localfs.New(opts.LocalRoot)
 	case botconfig.BlobDriverS3:
 		return blobs3.New(blobs3.Options{

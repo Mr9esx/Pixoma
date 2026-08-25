@@ -277,7 +277,7 @@ func (h *Handler) blobTest(w http.ResponseWriter, r *http.Request) {
 	}
 	driver := strings.ToLower(strings.TrimSpace(body.BlobDriver))
 	placement := settings.PlacementLocal
-	if driver == "s3" || driver == "tos" {
+	if driver == "s3" || driver == "tos" || driver == "sharedfs" {
 		placement = settings.PlacementRemote
 	}
 	cfg := settings.Settings{
