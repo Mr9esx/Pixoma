@@ -144,3 +144,29 @@ func TestSettings_ProxyURLAndValidate(t *testing.T) {
 		t.Fatal("expected invalid port")
 	}
 }
+
+func TestValidate_SharedFSRequiresRoot(t *testing.T) {
+	s := settings.Settings{
+		Placement:  settings.PlacementLocal,
+		DBDriver:   settings.DriverSQLite,
+		DBDSN:      "data/app.db",
+		BlobDriver: botconfig.BlobDriverSharedFS,
+	}
+	err := s.Validate()
+	if err == nil || !strings.Contains(err.Error(), "blob root") {
+		t.Fatalf("want blob root error, got %v", err)
+	}
+}
+
+func TestValidate_RemoteAllowsSharedFS(t *testing.T) {
+	s := settings.Settings{
+		Placement:  settings.PlacementRemote,
+		DBDriver:   settings.DriverSQLite,
+		DBDSN:      "data/app.db",
+		BlobDriver: botconfig.BlobDriverSharedFS,
+		BlobRoot:   "/mnt/pixoma-shared",
+	}
+	if err := s.Validate(); err != nil {
+		t.Fatalf("remote sharedfs should pass, got %v", err)
+	}
+}
