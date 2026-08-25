@@ -167,4 +167,11 @@ describe('editor form assembly', () => {
     expect(form).not.toContain('IoFieldsSection')
   })
 
+  it('locks workflow sections behind an info alert', () => {
+    const form = readFileSync(CASE_FORM, 'utf8')
+    expect(form).toMatch(/Alert variant='info'/)
+    expect(form).toMatch(/AlertTitle>\{t\('cases\.emptyWorkflowLock'\)\}<\/AlertTitle>/)
+    expect(form).not.toMatch(/border-dashed/)
+  })
+
 })
