@@ -796,6 +796,31 @@ git add internal/platform/db/ensure.go internal/platform/db/ensure_test.go inter
 git commit -m "feat(db): auto-create missing database and decouple continue from test"
 ```
 
+### Task 12: 「连接正常」改用 Alert 展示
+
+**Files:**
+- Modify: `web/admin/src/features/setup/setup-wizard.tsx`、`web/admin/src/features/setup/setup-pages.contract.test.ts`
+- Docs: `design.md`、Design Doc、`tasks.md`、本计划
+
+**Interfaces:**
+- Consumes: Task 10 的 `testPassed`。
+- Produces: 测连通通过时以默认 Alert 显示「连接正常」（AlertTitle），不再用纯文本。
+
+- [x] **Step 1: 先写失败合同测试**
+
+断言 `AlertTitle>连接正常</AlertTitle>` 存在且无 `text-emerald-600`；RED 确认。
+
+- [x] **Step 2: 实现并全量验证**
+
+`StepActions` 的 `testPassed` 分支改为 `<Alert><AlertTitle>连接正常</AlertTitle></Alert>`；`pnpm vitest run`（59 文件 / 356 测试）与 `pnpm tsc -b` 通过。
+
+- [x] **Step 3: 提交**
+
+```bash
+git add web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts docs/openspec/changes/mysql-postgres-support/design.md docs/superpowers/specs/2026-08-25-mysql-postgres-support-design.md docs/openspec/changes/mysql-postgres-support/tasks.md docs/superpowers/plans/2026-08-25-mysql-postgres-support.md
+git commit -m "feat(setup): show connectivity success as an alert"
+```
+
 ---
 
 ## 自检记录（写完后由创建者核对）
