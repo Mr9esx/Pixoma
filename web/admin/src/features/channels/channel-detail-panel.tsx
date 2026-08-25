@@ -5,6 +5,7 @@ import {
   Bot,
   CalendarDays,
   Clock,
+  KeyRound,
   PenLine,
   Power,
   SearchX,
