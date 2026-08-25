@@ -50,6 +50,11 @@ describe('case list filters (single search, no status segment)', () => {
     expect(source).toContain('backToList')
   })
 
+  it('cases route keeps the create form visible without a selected workflow', () => {
+    const source = read(CASES_ROUTE)
+    expect(source).toMatch(/hasSelection=\{Boolean\(selectedId\) \|\| caseId === 'new'\}/)
+  })
+
   it('search placeholder does not mention menu_key', () => {
     const zh = JSON.parse(read(ZH)) as {
       cases: { filterQPlaceholder: string }

@@ -100,7 +100,7 @@ function CasesLayout() {
       </div>
       <MasterDetailShell
         className='md:grid-cols-[280px_minmax(0,1fr)]'
-        hasSelection={Boolean(selectedId)}
+        hasSelection={Boolean(selectedId) || caseId === 'new'}
         onBackToList={() => {
           void navigate({ to: '/cases', state: { backToList: true } } as never)
         }}
