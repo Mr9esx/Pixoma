@@ -19,7 +19,7 @@ export const SETUP_STEP_COPY: Record<
   database: {
     title: '数据库配置',
     desc: '',
-    submit: '测连通并继续',
+    submit: '继续',
   },
   placement: {
     title: '出图机器在哪',

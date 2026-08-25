@@ -88,6 +88,7 @@ describe('login and setup pages', () => {
     // Title is the generic config noun; the step is self-explanatory, so desc is empty
     expect(steps).toMatch(/title: '数据库配置'/)
     expect(steps).toMatch(/database: \{[\s\S]*?title: '数据库配置',\s*desc: '',/)
+    expect(steps).toMatch(/submit: '继续'/)
     // Database step uses a structured per-driver form, not a raw one-line DSN
     expect(wizard).toMatch(/htmlFor='db-driver'/)
     expect(wizard).toMatch(/htmlFor='db-sqlite-path'/)
@@ -160,5 +161,14 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/AlertDescription>/)
     expect(wizard).toMatch(/setupErrorCopy/)
     expect(wizard).not.toMatch(/<p className='text-sm text-destructive'>/)
+  })
+
+  it('splits connectivity test and continue into separate buttons', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/连通性测试/)
+    expect(wizard).toMatch(/testDatabase\(driver, dsn\)/)
+    expect(wizard).toMatch(/setDbTested\(true\)/)
+    expect(wizard).toMatch(/submitDisabled=\{!dbTested\}/)
+    expect(wizard).not.toMatch(/测连通并继续/)
   })
 })
