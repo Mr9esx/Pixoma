@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
@@ -86,6 +87,49 @@ func TestCreateGetListDisable(t *testing.T) {
 	got, _ = repo.Get(ctx, 1)
 	if got.Enabled {
 		t.Fatal("expected disabled")
+	}
+}
+
+func TestCreateAutoAssignsIDAndRoundTrips(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:autoassign_" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() {
+		if sqlDB, err := gdb.DB(); err == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	if err := db.AutoMigrate(gdb, &persistence.CaseRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := persistence.NewGormRepository(gdb)
+	ctx := context.Background()
+
+	c := sampleCase(0, "auto")
+	if err := repo.Create(ctx, c); err != nil {
+		t.Fatalf("create id=0: %v", err)
+	}
+	if c.Document.ID == 0 {
+		t.Fatal("expected auto-assigned id")
+	}
+	got, err := repo.Get(ctx, c.Document.ID)
+	if err != nil {
+		t.Fatalf("get after create: %v", err)
+	}
+	if got.Document.Name != "Demo 0" {
+		t.Fatalf("unexpected doc name: %q", got.Document.Name)
+	}
+
+	second := sampleCase(0, "auto2")
+	if err := repo.Create(ctx, second); err != nil {
+		t.Fatalf("create second id=0: %v", err)
+	}
+	if second.Document.ID == c.Document.ID {
+		t.Fatalf("ids collided: %d", second.Document.ID)
+	}
+	if _, err := repo.Get(ctx, second.Document.ID); err != nil {
+		t.Fatalf("get second: %v", err)
 	}
 }
 

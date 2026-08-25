@@ -140,7 +140,7 @@ describe('task-flow prototype contract', () => {
     expect(CANVAS).toContain('onEdgesDelete')
     expect(CANVAS).toContain('deletable: false')
     expect(RULE_EDITOR).not.toContain('onTopicChange')
-    expect(RULE_EDITOR).toContain('未连接 · 从右侧圆点拖出连线到 Topic')
+    expect(RULE_EDITOR).toContain('未连接 · 从右侧圆点拖出连线到调度通道')
     expect(RULE_EDITOR).toContain('已连接 →')
     const T = read('types.ts')
     expect(T).toContain('topic?: string')

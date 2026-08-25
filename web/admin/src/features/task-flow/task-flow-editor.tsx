@@ -42,8 +42,16 @@ export function TaskFlowEditor({
 }: TaskFlowEditorProps) {
   const effectiveReadOnly = readOnly || preview
   const validation = useMemo(
-    () => validateRouting(routing, topics, attributes),
-    [routing, topics, attributes]
+    () => {
+      const bindings = topicBindings(edges, presence)
+      const boundTopicKeys = new Set(
+        bindings
+          .filter((binding) => binding.status !== 'unbound')
+          .map((binding) => binding.topic),
+      )
+      return validateRouting(routing, topics, attributes, boundTopicKeys)
+    },
+    [routing, topics, attributes, edges, presence],
   )
   const bindingByTopic = useMemo(() => {
     const map = new Map<string, (typeof bindings)[number]>()
@@ -98,7 +106,7 @@ export function TaskFlowEditor({
         {!preview ? (
           <aside className='flex w-48 shrink-0 flex-col border-l border-border bg-muted/20'>
             <div className='flex h-14 items-center border-b border-border px-3 text-xs font-medium text-muted-foreground'>
-              Topic 池
+              调度通道
             </div>
             <div className='flex flex-1 flex-col gap-1.5 overflow-y-auto p-2'>
               {topics

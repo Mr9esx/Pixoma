@@ -15,7 +15,6 @@ const LOADING = join(srcRoot, 'components/feedback/loading-skeleton.tsx')
 const EDGES_ROUTE = join(srcRoot, 'routes/_app/edges/route.tsx')
 
 const FEEDBACK_I18N_KEYS = [
-  'common.selectItem',
   'common.backToList',
   'common.empty',
   'common.loading',
@@ -46,7 +45,7 @@ describe('Master–Detail shell + feedback primitives', () => {
     expect(source).toContain('min-h-0')
     expect(source).toContain('flex-1')
     expect(source).not.toContain('100vh-5rem')
-    expect(source).toContain("t('common.selectItem')")
+    expect(source).not.toContain("t('common.selectItem')")
     expect(source).toMatch(/t\('common\.backToList'/)
     expect(source).toContain('emptyDetail')
     expect(source).toContain('hasSelection')

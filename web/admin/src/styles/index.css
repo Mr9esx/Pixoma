@@ -28,6 +28,17 @@
     cursor: pointer;
   }
 
+  /* time input：隐藏浏览器自带时钟图标，并随明暗主题着色 */
+  input[type='time'] {
+    color-scheme: light;
+  }
+  :where(.dark *) input[type='time'] {
+    color-scheme: dark;
+  }
+  input[type='time']::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+
   /* Prevent focus zoom on mobile devices */
   @media screen and (max-width: 767px) {
     input,
@@ -86,30 +97,7 @@
   }
 }
 
-/* Quick-config CTA 按钮：流动渐变 + 光扫 + 微动效 */
-@keyframes qc-gradient-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes qc-sheen {
-  0%,
-  55% {
-    transform: translateX(-130%);
-  }
-  85%,
-  100% {
-    transform: translateX(130%);
-  }
-}
-
+/* Quick-config CTA：实色底 + hover 光扫，无渐变 / 阴影 / 位移 */
 .qc-create-btn {
   position: relative;
   overflow: hidden;
@@ -121,19 +109,7 @@
   font-size: 0.875rem;
   font-weight: 500;
   color: #fff;
-  background-image: linear-gradient(
-    120deg,
-    #f59e0b,
-    #f97316,
-    #f43f5e
-  );
-  background-size: 220% 220%;
-  animation: qc-gradient-shift 7s ease-in-out infinite;
-  box-shadow: 0 2px 10px rgb(249 115 22 / 0.3);
-  transition:
-    transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 200ms ease,
-    filter 200ms ease;
+  background-color: #f97316;
 }
 
 .qc-create-btn::before {
@@ -147,18 +123,16 @@
     transparent 60%
   );
   transform: translateX(-130%);
-  animation: qc-sheen 5s ease-in-out infinite;
+  transition: transform 0.6s ease;
   pointer-events: none;
 }
 
-.qc-create-btn:hover {
-  transform: translateY(-1px) scale(1.02);
-  box-shadow: 0 10px 28px rgb(244 63 94 / 0.4);
-  filter: saturate(1.1);
+.qc-create-btn:hover::before {
+  transform: translateX(130%);
 }
 
 .qc-create-btn:active {
-  transform: scale(0.98);
+  background-color: #ea580c;
 }
 
 .qc-create-btn:focus-visible {
@@ -167,14 +141,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .qc-create-btn,
   .qc-create-btn::before {
-    animation: none;
-  }
-  .qc-create-btn {
-    background-position: 0% 50%;
-  }
-  .qc-create-btn:hover {
-    transform: none;
+    display: none;
   }
 }

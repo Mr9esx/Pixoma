@@ -5,7 +5,6 @@ blob_root: "data/blob"
 # Examples: http://127.0.0.1:8188  or  http://192.168.31.131:8188
 # 计算节点需在后台手动新增；如需启动时按配置文件批量登记，见下方 comfy_instances。
 comfyui_base_url: "http://127.0.0.1:8188"
-case_seed_dir: "configs/cases"
 # true = in-process Mock (default for local smoke). false = real Submit/Wait/Upload via comfyui_base_url.
 comfy_mock: true
 

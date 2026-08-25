@@ -8,9 +8,18 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { Boxes, Plus } from 'lucide-react'
 import { listCases } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { CaseForm } from '@/features/cases/case-form'
 import { CaseDetailPanel } from '@/features/cases/detail-panel'
@@ -82,9 +91,10 @@ function CasesLayout() {
             {t('cases.description')}
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className={kit.btnPrimary}>
           <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
-            {t('common.create')}
+            <Plus className='size-3.5' />
+            {t('cases.createHeading')}
           </Link>
         </Button>
       </div>
@@ -94,7 +104,7 @@ function CasesLayout() {
         onBackToList={() => {
           void navigate({ to: '/cases', state: { backToList: true } } as never)
         }}
-        detailClassName='flex min-h-0 flex-col p-0'
+        detailClassName='flex min-h-0 flex-col overflow-auto p-0'
         list={
           <CaseListPanel
             items={items}
@@ -109,8 +119,8 @@ function CasesLayout() {
         }
         detail={
           caseId === 'new' ? (
-            <div className={`${kit.pageSection} min-h-0 flex-1 overflow-auto`}>
-              <h2 className='text-lg font-semibold'>
+            <div className={kit.pageSection}>
+              <h2 className={kit.title}>
                 {t('cases.createHeading')}
               </h2>
               <CaseForm mode='create' />
@@ -118,6 +128,37 @@ function CasesLayout() {
           ) : selectedId ? (
             <CaseDetailPanel id={selectedId} />
           ) : null
+        }
+        emptyDetail={
+          !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
+            <Empty>
+              <EmptyHeader className='max-w-none'>
+                <EmptyMedia variant='icon'>
+                  <Boxes />
+                </EmptyMedia>
+                <EmptyTitle className='text-sm font-medium'>
+                  {t('cases.empty')}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {t('cases.emptyDesc')}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent className='flex-row justify-center gap-2'>
+                <Button asChild className={kit.btnPrimary}>
+                  <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
+                    {t('common.create')}
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant='outline'
+                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
+                >
+                  <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
+          ) : undefined
         }
       />
     </div>

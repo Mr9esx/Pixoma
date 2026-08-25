@@ -18,9 +18,9 @@ canonical_spec: openspec
 
 | 需求 | 现状 | 位置 |
 |---|---|---|
-| Case 被哪些入口引用 | ✅ `MenuPlacementsSection` 表格 | `features/cases/sections/menu-placements.tsx` |
-| Case 处理流程（routing）编辑 | ✅ `TaskFlowEditor` | `features/task-flow/task-flow-editor.tsx` |
-| Case 整链健康结论 | ✅ `ConfigChain`（入口→工作流→投放→执行） | `features/config-context/config-chain.tsx` |
+| Case 被哪些入口引用 | ✅ 数据源 `getCaseMenuPlacements`；独立「关联入口」区块已移除，由「状态与关联」上游列表承担 | `features/config-context/case-context-section.tsx` |
+| Case 处理流程（routing）编辑 | ✅ `TaskFlowEditor`；工作流页默认预览模式（只读画布、无顶栏/Topic 池），「编辑处理流程」打开全屏编辑弹窗 | `features/task-flow/task-flow-editor.tsx`、`features/config-context/case-context-section.tsx` |
+| Case 整链健康结论 | ⚠️ 原 `ConfigChain` 已从工作流页移除（与「状态与关联」重复，且内部投放/执行判定不一致），由「状态与关联」统一承担 | `features/config-context/case-context-section.tsx` |
 | Topic 被哪些 Case 引用 / 订阅节点就绪 | ✅ 数量 + 前 5 明细 | `features/topics/topic-detail-panel.tsx` |
 | 节点订阅 Topic / 在线状态 | ✅ 列表与状态标签 | `features/edges/`（`presence-tags`、`list-health`） |
 
@@ -28,14 +28,15 @@ canonical_spec: openspec
 
 1. **节点视角**：详情页没有「是否被 Topic 绑定」的提示与「被哪些 Topic 引用」列表。
 2. **引用粒度**：Topic/Case 只有数量级摘要，没有完整引用列表。
-3. **断点缺行动**：既有 `ConfigChain` 只给结论与明细，没有「配置问题/运行问题」分类，也没有「下一步去哪修」的行动入口。
+3. **断点缺行动**：旧结论块只给结论与明细，没有「配置问题/运行问题」分类，也没有「下一步去哪修」的行动入口；「状态与关联」补齐。
 4. **空态引导**：无入口 / 无引用的实体缺少「现在该做什么」的引导。
 
 ## 3. 技术决策
 
 - **不新增后端端点**：沿用 config-context-association「前端组合」模式。`listCases` 已返回完整 `routing`，`listEdges` 已返回 `subscribe_topics`，`listPresence` 已返回在线状态，`getCaseMenuPlacements` 已返回入口挂载。
-- **新建 `features/link-health/`** 收敛新逻辑；`ConfigChain` 保留（线性健康结论），`LinkHealthAlert` 负责页面头部告警摘要，`LinkHealthSection` 负责下方健康检查明细（断点行动 + 处理指引 + 引用列表）。
+- **新建 `features/link-health/`** 收敛新逻辑；工作流页的 `ConfigChain` 已移除（与「状态与关联」重复），`LinkHealthAlert` 负责页面头部告警摘要，`LinkHealthSection` 负责下方状态与关联明细（断点行动 + 处理指引 + 引用列表）。Topic 页的 `ConfigChain` 暂保留，待评估是否同样移除。
 - **断点携带行动与处理指引**：每个 `HealthBreakpoint` 带 `fix: 'config' | 'runtime'`（配置问题 vs 运行问题）、`action: { to, key }`（去向 + i18n 文案 key）与 `guide`（人话处理步骤，i18n key）。用户看到断点即看到「下一步去哪」和「具体怎么处理」。
+- **样式遵循既有约定**：区块头用 `SectionHead`（标题 + 虚线 + 一行 hint），断点用 `rounded-md border` + `divide-y` 紧凑行，引用列表用 `rounded-md border bg-muted/20 p-3` 单元格，Header 告警几何对齐 `ErrorBanner`（琥珀色）。不自造大 padding 卡片。
 - **i18n 双语**：新命名空间 `linkHealth`，zh/en 成对，locale 合同测试强制成对。
 - **测试**：纯函数走 vitest node 单测；组件/页面走文本合同测试（与 `config-chain.contract.test.ts` 同模式）；新测试文件登记进 `vitest.config.ts` include。
 - **一期不引入 `@xyflow/react`**；全链路图在 Phase 2 独立 plan 评估（届时用确定性分层坐标 + `fitView`/`Controls`，不引入 task-flow 编辑器布局 hook）。
@@ -99,14 +100,14 @@ function LinkHealthAlert(props: {
 
 | 视角 | 断点 | fix | 行动（to / key） | 处理指引（guide key） |
 |---|---|---|---|---|
-| Case | 无菜单入口 | config | `/channels` / actionAddEntry | guideNoMenuEntry |
-| Case | Topic 无在线节点 | runtime | `/edges` / actionManageNodes | guideTopicNoReadyNode |
-| Topic | 无 Case 引用 | config | `/cases` / actionConfigureRouting | guideNoCaseRoutes |
-| Topic | 无节点订阅 | config | `/edges` / actionBindTopic | guideNoEdgeSubscribers |
-| Topic | 订阅节点全离线 | runtime | `/edges` / actionManageNodes | guideSubscribersOffline |
-| 节点 | 未订阅 Topic | config | `/edges/{id}` / actionEditNode | guideNoTopicBinding |
-| 节点 | 无可达 Case | config | `/cases` / actionConfigureRouting | guideNoCaseReachable |
-| 节点 | 未就绪 | runtime | `/edges/{id}` / actionCheckNode | guideEdgeNotReady |
+| 工作流 | 无关联入口 | config | `/channels` / actionAddEntry | guideNoMenuEntry |
+| 工作流 | Topic 无在线计算节点 | runtime | `/edges` / actionManageNodes | guideTopicNoReadyNode |
+| Topic | 无工作流引用 | config | `/cases` / actionConfigureRouting | guideNoCaseRoutes |
+| Topic | 无计算节点订阅 | config | `/edges` / actionBindTopic | guideNoEdgeSubscribers |
+| Topic | 订阅计算节点全离线 | runtime | `/edges` / actionManageNodes | guideSubscribersOffline |
+| 计算节点 | 未订阅 Topic | config | `/edges/{id}` / actionEditNode | guideNoTopicBinding |
+| 计算节点 | 无工作流派发任务 | config | `/cases` / actionConfigureRouting | guideNoCaseReachable |
+| 计算节点 | 未就绪 | runtime | `/edges/{id}` / actionCheckNode | guideEdgeNotReady |
 
 ## 7. 阶段划分
 

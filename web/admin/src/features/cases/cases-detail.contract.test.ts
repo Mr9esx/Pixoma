@@ -30,8 +30,8 @@ describe('workflow detail panel', () => {
 
   it('config view receives onSaved that syncs the detail query cache', () => {
     const source = readFileSync(DETAIL, 'utf8')
-    expect(source).toContain(
-      'onSaved={(next) => queryClient.setQueryData(queryKeys.cases.detail(id), next)}'
+    expect(source).toMatch(
+      /onSaved=\{\(next\) =>\s*queryClient\.setQueryData\(queryKeys\.cases\.detail\(id\), next\)\s*\}/
     )
     expect(source).toContain('<WorkflowConfigView')
   })
@@ -95,7 +95,8 @@ describe('workflow detail panel', () => {
     expect(source).toContain('cases.deleteWillFailTasks')
     expect(source).toContain('cases.deleteWillEndSessions')
     expect(source).toContain('cases.deleteAckRefs')
-    expect(source).toContain('getCaseMenuPlacements')
+    expect(source).toContain('useCaseReferences')
+    expect(readFileSync(join(here, '../config-context/use-case-references.ts'), 'utf8')).toContain('getCaseMenuPlacements')
     expect(source).not.toContain('disableCase(record.id)')
     expect(source).toContain('cases.deleteSuccess')
     expect(source).toContain('cases.deleteFailed')

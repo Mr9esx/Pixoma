@@ -100,7 +100,7 @@ describe('compute node layout and detail', () => {
     expect(layout).toContain("to: '/edges/$edgeId'")
     expect(layout).toContain('replace: true')
     expect(shell).toMatch(/emptyDetail \?\? /)
-    expect(zh).toMatch(/"createNode": "添加节点"/)
+    expect(zh).toMatch(/"createNode": "新建节点"/)
   })
 
   it('shows a health dot in the list and polls presence every 5s', () => {
@@ -197,8 +197,8 @@ describe('compute node layout and detail', () => {
     )
     expect(form).toMatch(/edges\.createAndContinue/)
     expect(layout).toMatch(/flex max-h-\[85vh\] flex-col sm:max-w-lg/)
-    expect(zh).toMatch(/"createNode": "添加节点"/)
-    expect(en).toMatch(/"createNode": "Add node"/)
+    expect(zh).toMatch(/"createNode": "新建节点"/)
+    expect(en).toMatch(/"createNode": "New node"/)
     expect(zh).toMatch(/"deployHeading": "部署节点"/)
     expect(en).toMatch(/"deployHeading": "Deploy node"/)
     expect(zh).toMatch(/"deploySkip": "跳过"/)

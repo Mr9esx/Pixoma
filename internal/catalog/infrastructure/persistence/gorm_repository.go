@@ -38,6 +38,15 @@ func (r *GormRepository) Create(ctx context.Context, c *domain.Case) error {
 	if c == nil {
 		return fmt.Errorf("nil case")
 	}
+	if c.Document.ID == 0 {
+		// id=0 时显式分配下一个 id，不依赖数据库自增回填：
+		// 旧 SQLite 表（TEXT 主键）会把 0 写成 NULL，导致 create 后 Get 找不到行。
+		next, err := r.nextCaseID(ctx)
+		if err != nil {
+			return err
+		}
+		c.Document.ID = sharedkernel.CaseID(next)
+	}
 	var n int64
 	if err := r.db.WithContext(ctx).Model(&CaseRow{}).Where("id = ?", c.Document.ID).Count(&n).Error; err != nil {
 		return err
@@ -68,6 +77,23 @@ func (r *GormRepository) Create(ctx context.Context, c *domain.Case) error {
 		}
 	}
 	return nil
+}
+
+// nextCaseID returns the next case id (max + 1). CAST keeps it working even on
+// legacy TEXT id columns that predate the uint64 autoincrement migration.
+func (r *GormRepository) nextCaseID(ctx context.Context) (uint64, error) {
+	var next uint64
+	err := r.db.WithContext(ctx).
+		Model(&CaseRow{}).
+		Select("COALESCE(MAX(CAST(id AS INTEGER)), 0) + 1").
+		Scan(&next).Error
+	if err != nil {
+		return 0, err
+	}
+	if next == 0 {
+		return 1, nil
+	}
+	return next, nil
 }
 
 func (r *GormRepository) Save(ctx context.Context, c *domain.Case) error {

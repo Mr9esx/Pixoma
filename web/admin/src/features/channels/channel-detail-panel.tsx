@@ -1,14 +1,25 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import {
+  Bot,
+  CalendarDays,
+  Clock,
+  KeyRound,
+  PenLine,
+  Power,
+  SearchX,
+  Trash2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Bot, CalendarDays, Clock, KeyRound, PenLine } from 'lucide-react'
 import {
   deleteChannel,
   getChannel,
   setChannelEnabled,
   updateChannel,
 } from '@/lib/api/channels'
+import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listSessions } from '@/lib/api/sessions'
 import { listTasks } from '@/lib/api/tasks'
@@ -34,6 +45,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { NotFoundState } from '@/components/feedback/not-found-state'
 import { MetaChip } from '@/components/meta-chip'
 import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
@@ -124,10 +136,38 @@ export function ChannelDetailPanel({ id }: { id: string }) {
     )
   }
   if (channelQuery.isError || !ch) {
+    const notFound =
+      (channelQuery.error instanceof ApiError &&
+        channelQuery.error.status === 404) ||
+      (!ch && !channelQuery.error)
+    if (notFound) {
+      return (
+        <NotFoundState
+          icon={<SearchX />}
+          title={t('channels.notFoundTitle')}
+          description={t('channels.notFoundDesc')}
+          actions={
+            <>
+              <Button asChild className={kit.btnPrimary}>
+                <Link to='/channels'>{t('channels.backToList')}</Link>
+              </Button>
+              <Button
+                asChild
+                variant='outline'
+                className='h-8 gap-1.5 rounded-md px-3 text-xs'
+              >
+                <Link to='/channels/new'>{t('channels.new')}</Link>
+              </Button>
+            </>
+          }
+        />
+      )
+    }
     return (
       <div className={kit.pageSection}>
         <ErrorBanner
           message={errorMessage(channelQuery.error) ?? t('common.errorGeneric')}
+          onRetry={() => void channelQuery.refetch()}
         />
       </div>
     )
@@ -159,6 +199,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
               onClick={() => enableMutation.mutate(!ch.enabled)}
               disabled={enableMutation.isPending}
             >
+              <Power className='size-3.5' />
               {ch.enabled ? t('channels.disable') : t('channels.enable')}
             </Button>
             <AlertDialog>
@@ -169,6 +210,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
                   className='h-8 gap-1.5 rounded-md px-3 text-xs'
                   disabled={deleteMutation.isPending}
                 >
+                  <Trash2 className='size-3.5' />
                   {t('channels.delete')}
                 </Button>
               </AlertDialogTrigger>

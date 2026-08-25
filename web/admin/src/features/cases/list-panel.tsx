@@ -1,9 +1,15 @@
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { Boxes } from 'lucide-react'
 import type { CaseRecord } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
-import { EmptyState } from '@/components/feedback/empty-state'
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { LongText } from '@/components/long-text'
@@ -64,7 +70,16 @@ export function CaseListPanel({
       ) : null}
 
       {!isLoading && !isError && items.length === 0 ? (
-        <EmptyState message={t('cases.empty')} />
+        <Empty>
+          <EmptyHeader className='max-w-none'>
+            <EmptyMedia variant='icon'>
+              <Boxes />
+            </EmptyMedia>
+            <EmptyTitle className='text-sm font-medium'>
+              {t('cases.empty')}
+            </EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : null}
 
       {!isLoading && !isError && items.length > 0 ? (

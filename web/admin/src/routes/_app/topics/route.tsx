@@ -9,10 +9,20 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { Plus, Tags } from 'lucide-react'
 import { listTopics } from '@/lib/api/topics'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
+import { kit } from '@/features/edges/kit-classes'
 import { TopicDetailPanel } from '@/features/topics/topic-detail-panel'
 import { TopicListPanel } from '@/features/topics/topic-list-panel'
 
@@ -69,8 +79,11 @@ function TopicsLayout() {
             {t('topics.description')}
           </p>
         </div>
-        <Button asChild>
-          <Link to='/topics/new'>{t('topics.new')}</Link>
+        <Button asChild className={kit.btnPrimary}>
+          <Link to='/topics/new'>
+            <Plus className='size-3.5' />
+            {t('topics.new')}
+          </Link>
         </Button>
       </div>
       <MasterDetailShell
@@ -94,6 +107,35 @@ function TopicsLayout() {
           />
         }
         detail={selectedKey ? <TopicDetailPanel topicKey={selectedKey} /> : null}
+        emptyDetail={
+          !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
+            <Empty>
+              <EmptyHeader className='max-w-none'>
+                <EmptyMedia variant='icon'>
+                  <Tags />
+                </EmptyMedia>
+                <EmptyTitle className='text-sm font-medium'>
+                  {t('topics.empty')}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {t('topics.emptyDesc')}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent className='flex-row justify-center gap-2'>
+                <Button asChild className={kit.btnPrimary}>
+                  <Link to='/topics/new'>{t('topics.new')}</Link>
+                </Button>
+                <Button
+                  asChild
+                  variant='outline'
+                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
+                >
+                  <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
+          ) : undefined
+        }
       />
     </div>
   )

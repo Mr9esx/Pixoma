@@ -82,14 +82,14 @@ export function ActionForm({
             {workflows.map((w) => (
               <label key={w.id} className='flex items-center gap-2 text-sm'>
                 <Checkbox
-                  checked={(action.workflow_ids ?? []).includes(w.id)}
+                  checked={(action.workflow_ids ?? []).includes(String(w.id))}
                   onCheckedChange={(v) =>
                     onChange({
                       ...action,
                       workflow_ids: v
-                        ? [...(action.workflow_ids ?? []), w.id]
+                        ? [...(action.workflow_ids ?? []), String(w.id)]
                         : (action.workflow_ids ?? []).filter(
-                            (id) => id !== w.id
+                            (id) => id !== String(w.id)
                           ),
                     })
                   }

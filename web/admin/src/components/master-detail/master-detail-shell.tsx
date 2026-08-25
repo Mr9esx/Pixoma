@@ -42,7 +42,7 @@ export function MasterDetailShell({
         className={cn(
           'min-h-0',
           detailClassName ?? 'overflow-auto p-4',
-          !hasSelection && 'hidden md:block'
+          !hasSelection && 'hidden md:flex'
         )}
       >
         {hasSelection ? (
@@ -59,11 +59,7 @@ export function MasterDetailShell({
             {detail}
           </>
         ) : (
-          (emptyDetail ?? (
-            <p className='p-4 text-muted-foreground'>
-              {t('common.selectItem')}
-            </p>
-          ))
+          emptyDetail ?? null
         )}
       </section>
     </div>

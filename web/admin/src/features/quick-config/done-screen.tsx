@@ -7,6 +7,7 @@ import { listEdges, listPresence } from '@/lib/api/edges'
 import { listTopics } from '@/lib/api/topics'
 import { getMenu, putMenu } from '@/lib/api/channel-menu'
 import { queryKeys } from '@/lib/api/query-keys'
+import { DEFAULT_TOPIC_KEY } from '@/features/task-flow/types'
 import { topicBindings } from '@/features/task-flow/lib/topic-binding'
 import { Button } from '@/components/ui/button'
 import { addWorkflowMenuEntry } from './lib/menu-payload'
@@ -50,13 +51,16 @@ export function DoneScreen({ shared, back }: Props) {
 
   const readiness = useMemo(() => {
     const rules = shared.routing?.rules ?? []
-    const usedTopics = [
-      ...new Set(
-        rules
-          .map((rule) => rule.topic)
-          .filter((topic): topic is string => Boolean(topic))
-      ),
-    ]
+    const usedTopics =
+      rules.length === 0
+        ? [DEFAULT_TOPIC_KEY]
+        : [
+            ...new Set(
+              rules
+                .map((rule) => rule.topic)
+                .filter((topic): topic is string => Boolean(topic)),
+            ),
+          ]
     const mappedEdges = (edgesQuery.data ?? []).map(
       ({ id, name, enabled, subscribe_topics, effective_topics }) => ({
         id,

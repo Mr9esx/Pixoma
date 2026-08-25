@@ -22,7 +22,7 @@ describe('addWorkflowMenuEntry', () => {
     expect(item.label).toBe('🖼 图片生成')
     expect(item.action).toEqual({
       type: 'open_workflow',
-      workflow_ids: [12],
+      workflow_ids: ['12'],
       mode: 'direct',
     })
     expect(item.id).toBeTruthy()
@@ -36,7 +36,7 @@ describe('addWorkflowMenuEntry', () => {
     })
     expect(next.items[1].action).toEqual({
       type: 'open_workflow',
-      workflow_ids: [12],
+      workflow_ids: ['12'],
       mode: 'list',
     })
   })

@@ -19,7 +19,7 @@ export function addWorkflowMenuEntry(
     label,
     action: {
       type: 'open_workflow',
-      workflow_ids: [entry.workflowId],
+      workflow_ids: [String(entry.workflowId)],
       mode: entry.mode,
     },
   }

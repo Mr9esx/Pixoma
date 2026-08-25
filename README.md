@@ -103,8 +103,6 @@ make run-mock
 4. 输入 prompt（可选字段可跳过）→ 确认生成
 5. 完成后 Bot 发回图片（mock 为示例 PNG）
 
-种子 Case：`configs/cases/*.json`。
-
 ## Mock 开关
 
 ```bash

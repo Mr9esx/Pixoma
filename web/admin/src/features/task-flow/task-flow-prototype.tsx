@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { type AttributeDescriptor, type RoutingConfig, type TopicRecord } from './types'
 import { mockAttributes, mockCases, mockEdges, mockPresence, mockTopics } from './mock-data'
 import { validateRouting } from './lib/validate'
+import { topicBindings } from './lib/topic-binding'
 import { TaskFlowEditor } from './task-flow-editor'
 
 function JsonBlock({ title, value }: { title: string; value: unknown }) {
@@ -32,8 +33,16 @@ export function TaskFlowPrototype() {
   const rules = useMemo(() => routing?.rules ?? [], [routing])
   const currentCase = mockCases.find((c) => c.id === caseId) ?? mockCases[0]
   const validation = useMemo(
-    () => validateRouting(routing, topics, attributes),
-    [routing, topics, attributes]
+    () => {
+      const bindings = topicBindings(mockEdges, mockPresence)
+      const boundTopicKeys = new Set(
+        bindings
+          .filter((binding) => binding.status !== 'unbound')
+          .map((binding) => binding.topic),
+      )
+      return validateRouting(routing, topics, attributes, boundTopicKeys)
+    },
+    [routing, topics, attributes],
   )
 
   function loadCase(id: number) {

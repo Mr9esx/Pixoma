@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyTimeToDate,
   formatBytes,
+  formatFullTime,
   formatMetricValue,
+  formatTimeInput,
   ioAxisTicks,
   parseMetrics,
   seriesStats,
@@ -62,6 +65,24 @@ describe('parseMetrics', () => {
     expect(formatBytes(500)).toBe('500 B')
     expect(formatBytes(0)).toBe('0 B')
     expect(formatBytes(12 * 1024)).toBe('12.0 KiB')
+  })
+
+  it('formats full date-time labels', () => {
+    expect(formatFullTime(new Date(2026, 7, 24, 9, 5, 3).getTime())).toBe(
+      '2026-08-24 09:05:03'
+    )
+    expect(formatFullTime(Number.NaN)).toBe('—')
+  })
+
+  it('formats time inputs and merges calendar dates with time', () => {
+    const local = new Date(2026, 7, 24, 9, 5, 3)
+    expect(formatTimeInput(local.getTime())).toBe('09:05')
+    const from = applyTimeToDate(new Date(2026, 7, 24), '09:05')
+    expect(from).not.toBeNull()
+    expect(from?.getHours()).toBe(9)
+    expect(from?.getMinutes()).toBe(5)
+    expect(applyTimeToDate(new Date(2026, 7, 24), '25:00')).toBeNull()
+    expect(applyTimeToDate(new Date(2026, 7, 24), 'oops')).toBeNull()
   })
 })
 
