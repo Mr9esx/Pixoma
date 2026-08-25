@@ -47,3 +47,13 @@ func TestPutGetRoundTrip(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestCheck_Writable(t *testing.T) {
+	store, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Check(context.Background()); err != nil {
+		t.Fatalf("check: %v", err)
+	}
+}

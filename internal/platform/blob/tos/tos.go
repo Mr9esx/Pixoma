@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"path"
 	"strings"
 
@@ -51,6 +52,35 @@ func New(opts Options) (*Store, error) {
 		return nil, fmt.Errorf("blob/tos: new client: %w", err)
 	}
 	return &Store{client: client, bucket: opts.Bucket}, nil
+}
+
+// Check verifies the bucket is reachable (HeadBucket).
+func (s *Store) Check(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	_, err := s.client.HeadBucket(ctx, &volctos.HeadBucketInput{Bucket: s.bucket})
+	if err != nil {
+		var serr *volctos.TosServerError
+		if errors.As(err, &serr) && serr.StatusCode == http.StatusNotFound {
+			return fmt.Errorf("blob/tos: %w", blob.ErrBucketNotFound)
+		}
+		return fmt.Errorf("blob/tos: check: %w", err)
+	}
+	return nil
+}
+
+// EnsureBucket creates the bucket when missing, then re-checks reachability.
+func (s *Store) EnsureBucket(ctx context.Context) error {
+	if err := s.Check(ctx); err == nil {
+		return nil
+	} else if !errors.Is(err, blob.ErrBucketNotFound) {
+		return err
+	}
+	if _, err := s.client.CreateBucketV2(ctx, &volctos.CreateBucketV2Input{Bucket: s.bucket}); err != nil {
+		return fmt.Errorf("blob/tos: create bucket: %w", err)
+	}
+	return s.Check(ctx)
 }
 
 func (s *Store) Put(ctx context.Context, key string, r io.Reader, opts blob.PutOptions) (sharedkernel.BlobRef, error) {

@@ -13,6 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -32,6 +34,7 @@ type Options struct {
 type Store struct {
 	client *s3.Client
 	bucket string
+	region string
 }
 
 // New builds an S3 Store. Endpoint may be empty for real AWS; required for MinIO/fakes.
@@ -58,7 +61,43 @@ func New(opts Options) (*Store, error) {
 		o.UsePathStyle = opts.UsePathStyle
 		o.HTTPClient = http.DefaultClient
 	})
-	return &Store{client: client, bucket: opts.Bucket}, nil
+	return &Store{client: client, bucket: opts.Bucket, region: region}, nil
+}
+
+// Check verifies the bucket is reachable (HeadBucket).
+func (s *Store) Check(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(s.bucket)})
+	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) &&
+			(apiErr.ErrorCode() == "NotFound" || apiErr.ErrorCode() == "NoSuchBucket") {
+			return fmt.Errorf("blob/s3: %w", blob.ErrBucketNotFound)
+		}
+		return fmt.Errorf("blob/s3: check: %w", err)
+	}
+	return nil
+}
+
+// EnsureBucket creates the bucket when missing, then re-checks reachability.
+func (s *Store) EnsureBucket(ctx context.Context) error {
+	if err := s.Check(ctx); err == nil {
+		return nil
+	} else if !errors.Is(err, blob.ErrBucketNotFound) {
+		return err
+	}
+	in := &s3.CreateBucketInput{Bucket: aws.String(s.bucket)}
+	if region := strings.TrimSpace(s.region); region != "" && region != "us-east-1" {
+		in.CreateBucketConfiguration = &types.CreateBucketConfiguration{
+			LocationConstraint: types.BucketLocationConstraint(region),
+		}
+	}
+	if _, err := s.client.CreateBucket(ctx, in); err != nil {
+		return fmt.Errorf("blob/s3: create bucket: %w", err)
+	}
+	return s.Check(ctx)
 }
 
 func (s *Store) Put(ctx context.Context, key string, r io.Reader, opts blob.PutOptions) (sharedkernel.BlobRef, error) {
