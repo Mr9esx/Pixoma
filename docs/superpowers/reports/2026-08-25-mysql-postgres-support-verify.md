@@ -20,6 +20,8 @@
 
 补充（归档前重开 019cb73，Alert 错误展示）：新增 `db-error.ts`（常见数据库错误 → 中文友好标题 + 实际详情，6 个单测）；向导与 StepActions 错误渲染改为 `Alert variant="destructive"`（AlertTitle=友好标题、AlertDescription=实际详情），移除旧 `text-destructive` 文本。前端 59 文件 / 342 测试通过，`pnpm tsc -b` 通过，`go build ./... && go test ./...`（71 包 ok）exit 0。
 
+补充（归档前重开 777d823，边界场景扩展）：`db-error.ts` 映射表扩至约 28 类（DNS/路由不可达、连接中断、连接数满、文件锁/磁盘、死锁、角色/表缺失、SSL/TLS、登录/密码、向导步骤前置、远程 localfs、代理、未授权等），单测扩至 19 用例。前端 59 文件 / 355 测试通过，`pnpm tsc -b` 通过，`go build ./... && go test ./...`（71 包 ok）exit 0。
+
 ## Completeness
 
 | 检查项 | 状态 |
@@ -48,6 +50,7 @@
 | 结构化字段配置 MySQL/Postgres | `db-dsn.test.ts`（组装纯函数 5 用例）+ `setup-pages.contract.test.ts`（字段/端口联动/高级折叠断言，归档前重开 0c16dd8） |
 | 附加参数直接追加 | `db-dsn.test.ts`（params 3 用例）+ `setup-pages.contract.test.ts`（`db-extra-params` 字段与示例占位、无 raw DSN 编辑入口，归档前重开 921cc56） |
 | 常见错误中文提示与详情 | `db-error.test.ts`（6 用例）+ `setup-pages.contract.test.ts`（Alert destructive/AlertTitle/AlertDescription 断言，归档前重开 019cb73） |
+| 边界场景错误映射 | `db-error.test.ts` 扩至 19 用例（DNS/锁/死锁/角色表/SSL/登录/步骤前置/远程 localfs/未授权等，归档前重开 777d823） |
 | 本机路径完成向导 / 远程禁止 localfs | 既有 `completeWizard` 流程测试与 `settings_test.go` 既有用例 |
 | MySQL/Postgres 完成向导 | 向导数据库步骤合同测试 + 后端 `POST /api/v1/setup/database`（三驱动白名单） |
 
