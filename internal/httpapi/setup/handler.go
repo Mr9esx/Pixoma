@@ -12,6 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
@@ -42,6 +44,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/password", h.password)
 	r.Post("/database", h.database)
 	r.Post("/draft", h.draft)
+	r.Post("/blob-test", h.blobTest)
 	r.Post("/finalize", h.finalize)
 	r.Get("/settings", h.getSettings)
 	r.Put("/settings", h.putSettings)
@@ -252,6 +255,75 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 		"ok":        true,
 		"placement": body.Placement,
 	})
+}
+
+func (h *Handler) blobTest(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.requireSession(w, r); !ok {
+		return
+	}
+	var body struct {
+		BlobDriver       string `json:"blob_driver"`
+		BlobRoot         string `json:"blob_root"`
+		BlobEndpoint     string `json:"blob_endpoint"`
+		BlobRegion       string `json:"blob_region"`
+		BlobBucket       string `json:"blob_bucket"`
+		BlobAccessKey    string `json:"blob_access_key"`
+		BlobSecretKey    string `json:"blob_secret_key"`
+		AutoCreateBucket bool   `json:"auto_create_bucket"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	driver := strings.ToLower(strings.TrimSpace(body.BlobDriver))
+	placement := settings.PlacementLocal
+	if driver == "s3" || driver == "tos" {
+		placement = settings.PlacementRemote
+	}
+	cfg := settings.Settings{
+		Placement:      placement,
+		DBDriver:       settings.DriverSQLite,
+		DBDSN:          "data/app.db",
+		BlobDriver:     driver,
+		BlobRoot:       body.BlobRoot,
+		BlobEndpoint:   body.BlobEndpoint,
+		BlobRegion:     body.BlobRegion,
+		BlobBucket:     body.BlobBucket,
+		BlobAccessKey:  body.BlobAccessKey,
+		BlobSecretKey:  body.BlobSecretKey,
+		ComfyMock:      true,
+		ComfyUIBaseURL: "http://127.0.0.1:8188",
+	}
+	if err := cfg.Validate(); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	opts := factory.CheckOptions{
+		Driver:    driver,
+		LocalRoot: body.BlobRoot,
+		Endpoint:  body.BlobEndpoint,
+		Region:    body.BlobRegion,
+		Bucket:    body.BlobBucket,
+		AccessKey: body.BlobAccessKey,
+		SecretKey: body.BlobSecretKey,
+	}
+	err := factory.Check(r.Context(), opts)
+	if errors.Is(err, blob.ErrBucketNotFound) && !body.AutoCreateBucket {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":     false,
+			"code":   "bucket_not_found",
+			"bucket": body.BlobBucket,
+		})
+		return
+	}
+	if errors.Is(err, blob.ErrBucketNotFound) {
+		err = factory.EnsureBucket(r.Context(), opts)
+	}
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "blob check failed: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {

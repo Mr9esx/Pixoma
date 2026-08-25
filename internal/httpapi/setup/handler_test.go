@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/johannesboyne/gofakes3"
+	"github.com/johannesboyne/gofakes3/backend/s3mem"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
@@ -477,5 +479,55 @@ func TestDatabaseUnreachableDoesNotChangeAppDB(t *testing.T) {
 	}
 	if driver != "sqlite" || dsn != env.dsn {
 		t.Fatalf("app db changed: driver=%q dsn=%q", driver, dsn)
+	}
+}
+
+func TestBlobTest_LocalFSSuccess(t *testing.T) {
+	env := completeWizard(t)
+	body, _ := json.Marshal(map[string]any{
+		"blob_driver": "localfs",
+		"blob_root":   t.TempDir(),
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/blob-test", bytes.NewReader(body))
+	env.auth(req)
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"ok":true`) {
+		t.Fatalf("local fs: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBlobTest_BucketNotFoundAndCreate(t *testing.T) {
+	backend := s3mem.New()
+	faker := gofakes3.New(backend)
+	srv := httptest.NewServer(faker.Server())
+	t.Cleanup(srv.Close)
+
+	env := completeWizard(t)
+	cfg := map[string]any{
+		"blob_driver":     "s3",
+		"blob_endpoint":   srv.URL,
+		"blob_region":     "us-east-1",
+		"blob_bucket":     "pixoma-new",
+		"blob_access_key": "AKIA_TEST",
+		"blob_secret_key": "testsecret",
+	}
+	body, _ := json.Marshal(cfg)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/blob-test", bytes.NewReader(body))
+	env.auth(req)
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	if !strings.Contains(rec.Body.String(), `"bucket_not_found"`) {
+		t.Fatalf("want bucket_not_found, got %d %s", rec.Code, rec.Body.String())
+	}
+
+	cfg["auto_create_bucket"] = true
+	body, _ = json.Marshal(cfg)
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/setup/blob-test", bytes.NewReader(body))
+	env.auth(req)
+	rec = httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"ok":true`) {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
 }
