@@ -714,6 +714,28 @@ git add web/admin/src/features/setup/db-error.ts web/admin/src/features/setup/db
 git commit -m "feat(setup): alert-based error copy with friendly Chinese titles"
 ```
 
+### Task 9: 错误映射边界场景扩展
+
+**Files:**
+- Modify: `web/admin/src/features/setup/db-error.ts`、`web/admin/src/features/setup/db-error.test.ts`
+- Docs: `design.md`、Design Doc、`tasks.md`、本计划
+
+**Interfaces:**
+- Consumes: Task 8 的 `setupErrorCopy`。
+- Produces: 映射表从 6 类扩到约 28 类（DNS/路由、连接中断、连接数满、文件锁/磁盘、死锁、角色/表缺失、SSL/TLS、登录/密码、向导步骤前置、远程 localfs、代理、未授权等），单测 19 用例。
+
+- [x] **Step 1: 先写边界场景失败测试**
+
+新增 13 个用例（DNS no such host、1040 连接数满、database is locked、deadlock 40P01、role/relation does not exist、TLS handshake、connection reset、invalid credentials、弱密码、configure database first、远程 localfs、unauthorized），RED 确认。
+
+- [x] **Step 2: 扩展映射表并保证命中顺序**
+
+按具体→通用排序：连接拒绝 → 鉴权 → 库不存在 → 角色/表缺失 → 通用 does not exist → 超时 → DNS/路由 → 连接中断 → 连接数满 → 文件锁/磁盘 → 死锁 → SSL/TLS → 未知驱动 → 缺 DSN → 登录/密码 → 步骤前置 → 存储/代理/未授权 → 回退。
+
+- [x] **Step 3: 全量验证与提交**
+
+`pnpm vitest run`（59 文件 / 355 测试）与 `pnpm tsc -b` 通过；提交 `feat(setup): extend error mapping edge cases`。
+
 ---
 
 ## 自检记录（写完后由创建者核对）
