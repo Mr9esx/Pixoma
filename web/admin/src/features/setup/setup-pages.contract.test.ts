@@ -196,6 +196,8 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/auto_create_bucket/)
     expect(wizard).toMatch(/Alert variant='info'/)
     expect(wizard).not.toMatch(/variant='ghost'[\s\S]*?取消/)
+    expect(wizard).toMatch(/variant='outline'[\s\S]*?取消/)
+    expect(wizard).not.toMatch(/variant='outline'[\s\S]*?创建/)
   })
 
   it('uses storage step copy and warns for localfs', () => {
