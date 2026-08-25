@@ -9,7 +9,7 @@ const read = (p: string) => readFileSync(join(here, p), 'utf8')
 const LIST_PANEL = read('topic-list-panel.tsx')
 const DETAIL_PANEL = read('topic-detail-panel.tsx')
 const ROUTE = read('../../routes/_app/topics/route.tsx')
-const NEW = read('../../routes/_app/topics/new.tsx')
+const NEW = read('create-topic-form.tsx')
 const STATS = read('topic-stats-panel.tsx')
 
 describe('topics admin page contract', () => {
@@ -55,13 +55,18 @@ describe('topics admin page contract', () => {
     expect(STATS).toContain("data-testid='topic-stats-panel'")
   })
 
-  it('路由：280px master-detail + 自动选中第一个 topic + 新建入口', () => {
+  it('路由：280px master-detail + 自动选中第一个 topic + 详情面板内新建', () => {
     expect(ROUTE).toContain('MasterDetailShell')
     expect(ROUTE).toContain('md:grid-cols-[280px_1fr]')
     expect(ROUTE).toContain('TopicDetailPanel')
     expect(ROUTE).toContain("items[0]?.key")
     expect(ROUTE).toContain('replace: true')
-    expect(ROUTE).toContain("to='/topics/new'")
+    expect(ROUTE).toContain("to='/topics/$key' params={{ key: 'new' }}")
+    expect(ROUTE).toContain("key === 'new'")
+    expect(ROUTE).toContain('CreateTopicForm')
+    expect(ROUTE).toMatch(
+      /hasSelection=\{Boolean\(selectedKey\) \|\| key === 'new'\}/
+    )
   })
 
   it('新建：key 模式校验 + name 必填', () => {

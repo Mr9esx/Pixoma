@@ -37,7 +37,6 @@ import { Route as AppEdgesIndexRouteImport } from './routes/_app/edges/index'
 import { Route as AppChannelsIndexRouteImport } from './routes/_app/channels/index'
 import { Route as AppCasesIndexRouteImport } from './routes/_app/cases/index'
 import { Route as AppUsersUserIdRouteImport } from './routes/_app/users/$userId'
-import { Route as AppTopicsNewRouteImport } from './routes/_app/topics/new'
 import { Route as AppTopicsKeyRouteImport } from './routes/_app/topics/$key'
 import { Route as AppTasksTaskIdRouteImport } from './routes/_app/tasks/$taskId'
 import { Route as AppSessionsSessionIdRouteImport } from './routes/_app/sessions/$sessionId'
@@ -185,11 +184,6 @@ const AppUsersUserIdRoute = AppUsersUserIdRouteImport.update({
   path: '/$userId',
   getParentRoute: () => AppUsersRouteRoute,
 } as any)
-const AppTopicsNewRoute = AppTopicsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AppTopicsRouteRoute,
-} as any)
 const AppTopicsKeyRoute = AppTopicsKeyRouteImport.update({
   id: '/$key',
   path: '/$key',
@@ -246,7 +240,6 @@ export interface FileRoutesByFullPath {
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/topics/$key': typeof AppTopicsKeyRoute
-  '/topics/new': typeof AppTopicsNewRoute
   '/users/$userId': typeof AppUsersUserIdRoute
   '/cases/': typeof AppCasesIndexRoute
   '/channels/': typeof AppChannelsIndexRoute
@@ -275,7 +268,6 @@ export interface FileRoutesByTo {
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/topics/$key': typeof AppTopicsKeyRoute
-  '/topics/new': typeof AppTopicsNewRoute
   '/users/$userId': typeof AppUsersUserIdRoute
   '/cases': typeof AppCasesIndexRoute
   '/channels': typeof AppChannelsIndexRoute
@@ -313,7 +305,6 @@ export interface FileRoutesById {
   '/_app/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/_app/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/_app/topics/$key': typeof AppTopicsKeyRoute
-  '/_app/topics/new': typeof AppTopicsNewRoute
   '/_app/users/$userId': typeof AppUsersUserIdRoute
   '/_app/cases/': typeof AppCasesIndexRoute
   '/_app/channels/': typeof AppChannelsIndexRoute
@@ -351,7 +342,6 @@ export interface FileRouteTypes {
     | '/sessions/$sessionId'
     | '/tasks/$taskId'
     | '/topics/$key'
-    | '/topics/new'
     | '/users/$userId'
     | '/cases/'
     | '/channels/'
@@ -380,7 +370,6 @@ export interface FileRouteTypes {
     | '/sessions/$sessionId'
     | '/tasks/$taskId'
     | '/topics/$key'
-    | '/topics/new'
     | '/users/$userId'
     | '/cases'
     | '/channels'
@@ -417,7 +406,6 @@ export interface FileRouteTypes {
     | '/_app/sessions/$sessionId'
     | '/_app/tasks/$taskId'
     | '/_app/topics/$key'
-    | '/_app/topics/new'
     | '/_app/users/$userId'
     | '/_app/cases/'
     | '/_app/channels/'
@@ -639,13 +627,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUsersUserIdRouteImport
       parentRoute: typeof AppUsersRouteRoute
     }
-    '/_app/topics/new': {
-      id: '/_app/topics/new'
-      path: '/new'
-      fullPath: '/topics/new'
-      preLoaderRoute: typeof AppTopicsNewRouteImport
-      parentRoute: typeof AppTopicsRouteRoute
-    }
     '/_app/topics/$key': {
       id: '/_app/topics/$key'
       path: '/$key'
@@ -761,13 +742,11 @@ const AppTasksRouteRouteWithChildren = AppTasksRouteRoute._addFileChildren(
 
 interface AppTopicsRouteRouteChildren {
   AppTopicsKeyRoute: typeof AppTopicsKeyRoute
-  AppTopicsNewRoute: typeof AppTopicsNewRoute
   AppTopicsIndexRoute: typeof AppTopicsIndexRoute
 }
 
 const AppTopicsRouteRouteChildren: AppTopicsRouteRouteChildren = {
   AppTopicsKeyRoute: AppTopicsKeyRoute,
-  AppTopicsNewRoute: AppTopicsNewRoute,
   AppTopicsIndexRoute: AppTopicsIndexRoute,
 }
 
