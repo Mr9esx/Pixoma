@@ -71,7 +71,7 @@ export function deleteEdge(id: string, ack?: boolean) {
 
 export function listEdgeTasks(
   id: string,
-  params?: { limit?: number; offset?: number }
+  params?: { status?: string; limit?: number; offset?: number }
 ) {
   return apiFetch<TaskRecord[]>(
     `/api/v1/edges/${encodeURIComponent(id)}/tasks${toQuery(params)}`

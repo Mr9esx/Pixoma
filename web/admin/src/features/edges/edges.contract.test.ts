@@ -32,7 +32,7 @@ describe('compute node layout and detail', () => {
     expect(detail).toMatch(/kit\.pageSection/)
     expect(detail).toMatch(/flex min-w-0 flex-col gap-\[6px\]/)
     expect(detail).not.toMatch(/data-orientation=['"]horizontal['"]/)
-    expect(detail).toMatch(/kit\.metaChip/)
+    expect(detail).toMatch(/<MetaChip/)
     expect(detail).toMatch(/kit\.specsWrap/)
     expect(detail).toMatch(
       /fieldCpu[\s\S]*?fieldGpu[\s\S]*?fieldCpuCores[\s\S]*?fieldMemory/
@@ -77,6 +77,16 @@ describe('compute node layout and detail', () => {
     expect(layout).toMatch(/<Dialog/)
   })
 
+  it('detail panel offers delete with running-task impact', () => {
+    const detail = read('detail-panel.tsx')
+    const form = read('edge-form.tsx')
+    expect(detail).toContain('edges.deleteWillFailRunning')
+    expect(detail).toContain('edges.deleteSubscribedTopics')
+    expect(detail).toContain('edges.deleteAckRunning')
+    expect(detail).toContain('deleteEdge(id, ackRunning)')
+    expect(form).not.toContain('deleteEdge(')
+  })
+
   it('defaults to the first node and offers create from empty detail', () => {
     const layout = read('../../routes/_app/edges/route.tsx')
     const shell = read('../../components/master-detail/master-detail-shell.tsx')
@@ -110,6 +120,16 @@ describe('compute node layout and detail', () => {
     expect(listQuery).toBeTruthy()
     expect(listQuery).not.toMatch(/refetchInterval/)
     expect(observe).not.toMatch(/PresenceTags/)
+    expect(observe).toMatch(/formatFullTime/)
+    expect(observe).toMatch(/monitorRange/)
+    expect(observe).toMatch(/onMetricsRangeChange/)
+    expect(observe).toMatch(/monitorCustom/)
+    expect(observe).toMatch(/PopoverContent/)
+    expect(observe).toMatch(/mode='range'/)
+    expect(observe).toMatch(/type='time'/)
+    expect(observe).not.toMatch(/SelectContent/)
+    expect(observe).not.toMatch(/DialogFooter/)
+    expect(observe).toMatch(/24h/)
     expect(observe).not.toMatch(/edges\.reachable/)
     expect(zh).toMatch(/"nodeOnline": "节点在线"/)
     expect(zh).toMatch(/"nodeOffline": "节点掉线"/)
@@ -127,6 +147,9 @@ describe('compute node layout and detail', () => {
     expect(deployView).toMatch(/PasswordInput/)
     expect(deployView).toMatch(/maskToken:\s*true/)
     expect(deployView).toMatch(/<pre/)
+    expect(deployView).toMatch(/public_url/)
+    expect(deployView).toMatch(/isLoopbackURL/)
+    expect(deployView).toMatch(/window\.location\.origin/)
     expect(deploy).toMatch(/CONTROL_PLANE_URL/)
     expect(deploy).toMatch(/EDGE_ID/)
     expect(deploy).not.toMatch(/INSTANCE_ID/)

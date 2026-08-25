@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { RefreshCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { createEdge, deleteEdge, getEdge, patchEdge } from '@/lib/api/edges'
+import { createEdge, getEdge, patchEdge } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { ComfyEdge, EdgeHardwareGPU } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 
 function errorMessage(err: unknown): string | undefined {
@@ -70,7 +69,6 @@ export function EdgeForm(props: Props) {
   const [gpus, setGpus] = useState<EdgeHardwareGPU[]>(
     props.mode === 'edit' ? (props.initial.hardware?.gpus ?? []) : []
   )
-  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const createMutation = useMutation({
     mutationFn: createEdge,
@@ -124,31 +122,14 @@ export function EdgeForm(props: Props) {
     },
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: () => {
-      if (props.mode !== 'edit') {
-        throw new Error('delete requires edit mode')
-      }
-      return deleteEdge(props.initial.id)
-    },
-    onSuccess: async () => {
-      setConfirmOpen(false)
-      await queryClient.invalidateQueries({ queryKey: queryKeys.edges.all })
-      toast.success(t('edges.deleteSuccess'))
-      if (props.mode === 'edit') props.onDeleted()
-    },
-  })
-
   const pending =
     createMutation.isPending ||
     updateMutation.isPending ||
-    refreshMutation.isPending ||
-    deleteMutation.isPending
+    refreshMutation.isPending
   const mutationError =
     createMutation.error ??
     updateMutation.error ??
     refreshMutation.error ??
-    deleteMutation.error ??
     undefined
 
   function onSubmit(e: FormEvent) {
@@ -340,36 +321,12 @@ export function EdgeForm(props: Props) {
       </div>
 
       <DialogFooter className='shrink-0'>
-        {props.mode === 'edit' ? (
-          <Button
-            type='button'
-            variant='destructive'
-            disabled={pending}
-            onClick={() => setConfirmOpen(true)}
-          >
-            {t('common.delete')}
-          </Button>
-        ) : null}
         <Button type='submit' form='edge-form' disabled={pending}>
           {props.mode === 'create'
             ? t('edges.createAndContinue')
             : t('common.save')}
         </Button>
       </DialogFooter>
-
-      {props.mode === 'edit' ? (
-        <ConfirmDialog
-          open={confirmOpen}
-          onOpenChange={setConfirmOpen}
-          title={t('edges.deleteConfirmTitle')}
-          desc={t('edges.deleteConfirmDesc', { id: props.initial.id })}
-          confirmText={t('common.delete')}
-          cancelBtnText={t('common.cancel')}
-          destructive
-          isLoading={deleteMutation.isPending}
-          handleConfirm={() => deleteMutation.mutate()}
-        />
-      ) : null}
     </>
   )
 }
