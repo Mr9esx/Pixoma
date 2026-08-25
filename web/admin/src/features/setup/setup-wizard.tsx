@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
   SelectContent,
@@ -74,7 +73,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const [pgSslMode, setPgSslMode] = useState('disable')
   const [dbExtraParams, setDbExtraParams] = useState('')
   const [dbTested, setDbTested] = useState(false)
-  const [placement, setPlacement] = useState<'local' | 'remote'>('local')
   const [blobDriver, setBlobDriver] = useState('localfs')
   const [blobRoot, setBlobRoot] = useState('data/blob')
   const [blobEndpoint, setBlobEndpoint] = useState('')
@@ -136,7 +134,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
 
   function draft(overrides?: Partial<SetupDraft>): SetupDraft {
     return {
-      placement,
+      placement: blobDriver === 'localfs' ? 'local' : 'remote',
       db_driver: driver,
       db_dsn: dsn,
       blob_driver: blobDriver,
@@ -256,7 +254,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           className='flex flex-col gap-4'
           onSubmit={(e) => {
             e.preventDefault()
-            void run(async () => setStep('placement'))
+            void run(async () => setStep('storage'))
           }}
         >
           <Field label='业务库' htmlFor='db-driver'>
@@ -424,49 +422,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
         </form>
       ) : null}
 
-      {step === 'placement' ? (
-        <form
-          className='flex flex-col gap-4'
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (placement === 'local') setBlobDriver('localfs')
-            else if (blobDriver === 'localfs') setBlobDriver('s3')
-            setStep('storage')
-          }}
-        >
-          <RadioGroup
-            value={placement}
-            onValueChange={(v) => setPlacement(v as 'local' | 'remote')}
-          >
-            <label className='flex items-start gap-3 text-sm'>
-              <RadioGroupItem value='local' />
-              <span>
-                <strong>本机</strong>
-                <span className='mt-1 block text-muted-foreground'>
-                  Comfy 和后台在同一台机器。文件用本地目录，不再自动拉起本机
-                  Edge，需要时手动新增节点并部署 agent。
-                </span>
-              </span>
-            </label>
-            <label className='flex items-start gap-3 text-sm'>
-              <RadioGroupItem value='remote' />
-              <span>
-                <strong>远程</strong>
-                <span className='mt-1 block text-muted-foreground'>
-                  GPU 在别的机器。必须用对象存储（S3 / TOS），不能用本机目录。
-                </span>
-              </span>
-            </label>
-          </RadioGroup>
-          <StepActions
-            error={error}
-            pending={pending}
-            submit={copy.submit}
-            onBack={backStep ? goBack : undefined}
-          />
-        </form>
-      ) : null}
-
       {step === 'storage' ? (
         <form
           className='flex flex-col gap-4'
@@ -486,9 +441,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {placement === 'local' ? (
-                    <SelectItem value='localfs'>本机目录</SelectItem>
-                  ) : null}
+                  <SelectItem value='localfs'>本机目录</SelectItem>
                   <SelectItem value='s3'>S3 兼容</SelectItem>
                   <SelectItem value='tos'>火山 TOS</SelectItem>
                 </SelectGroup>

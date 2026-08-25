@@ -1,7 +1,6 @@
 export const SETUP_STEPS = [
   'password',
   'database',
-  'placement',
   'storage',
 ] as const
 
@@ -20,11 +19,6 @@ export const SETUP_STEP_COPY: Record<
     title: '数据库配置',
     desc: '',
     submit: '继续',
-  },
-  placement: {
-    title: '出图机器在哪',
-    desc: 'Comfy 和后台是否在同一台电脑。远程 GPU 必须用对象存储。',
-    submit: '下一步',
   },
   storage: {
     title: '文件放哪',
