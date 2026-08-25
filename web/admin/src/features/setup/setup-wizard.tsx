@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import {
@@ -73,6 +73,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const [dbName, setDbName] = useState('pixoma')
   const [pgSslMode, setPgSslMode] = useState('disable')
   const [dbExtraParams, setDbExtraParams] = useState('')
+  const [dbTested, setDbTested] = useState(false)
   const [placement, setPlacement] = useState<'local' | 'remote'>('local')
   const [blobDriver, setBlobDriver] = useState('localfs')
   const [blobRoot, setBlobRoot] = useState('data/blob')
@@ -118,6 +119,14 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
     dbExtraParams,
     sqlitePath,
   ])
+
+  const lastTestedDsn = useRef(dsn)
+  useEffect(() => {
+    if (lastTestedDsn.current !== dsn) {
+      lastTestedDsn.current = dsn
+      setDbTested(false)
+    }
+  }, [dsn])
 
   function onDriverChange(next: string) {
     if (next === 'mysql' && dbPort === '5432') setDbPort('3306')
@@ -247,10 +256,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           className='flex flex-col gap-4'
           onSubmit={(e) => {
             e.preventDefault()
-            void run(async () => {
-              await testDatabase(driver, dsn)
-              setStep('placement')
-            })
+            void run(async () => setStep('placement'))
           }}
         >
           <Field label='业务库' htmlFor='db-driver'>
@@ -406,6 +412,15 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             pending={pending}
             submit={copy.submit}
             onBack={backStep ? goBack : undefined}
+            onTest={() => {
+              void run(async () => {
+                await testDatabase(driver, dsn)
+                lastTestedDsn.current = dsn
+                setDbTested(true)
+              })
+            }}
+            testPassed={dbTested}
+            submitDisabled={!dbTested}
           />
         </form>
       ) : null}
@@ -605,12 +620,18 @@ function StepActions({
   submit,
   onBack,
   onSkip,
+  onTest,
+  testPassed,
+  submitDisabled,
 }: {
   error: AlertCopy | null
   pending: boolean
   submit: string
   onBack?: () => void
   onSkip?: () => void
+  onTest?: () => void
+  testPassed?: boolean
+  submitDisabled?: boolean
 }) {
   return (
     <div className='flex flex-col gap-2'>
@@ -619,6 +640,9 @@ function StepActions({
           <AlertTitle>{error.title}</AlertTitle>
           <AlertDescription>{error.detail}</AlertDescription>
         </Alert>
+      ) : null}
+      {testPassed ? (
+        <p className='text-sm text-emerald-600'>连接正常</p>
       ) : null}
       <div className='flex gap-2'>
         {onBack ? (
@@ -632,6 +656,16 @@ function StepActions({
             上一步
           </Button>
         ) : null}
+        {onTest ? (
+          <Button
+            type='button'
+            variant='outline'
+            disabled={pending}
+            onClick={onTest}
+          >
+            连通性测试
+          </Button>
+        ) : null}
         {onSkip ? (
           <Button
             type='button'
@@ -642,7 +676,11 @@ function StepActions({
             暂时跳过
           </Button>
         ) : null}
-        <Button type='submit' className='flex-1' disabled={pending}>
+        <Button
+          type='submit'
+          className='flex-1'
+          disabled={pending || submitDisabled}
+        >
           {pending ? '处理中…' : submit}
         </Button>
       </div>

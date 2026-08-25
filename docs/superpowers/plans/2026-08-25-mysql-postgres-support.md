@@ -736,6 +736,28 @@ git commit -m "feat(setup): alert-based error copy with friendly Chinese titles"
 
 `pnpm vitest run`（59 文件 / 355 测试）与 `pnpm tsc -b` 通过；提交 `feat(setup): extend error mapping edge cases`。
 
+### Task 10: 数据库步骤拆「连通性测试」与「继续」
+
+**Files:**
+- Modify: `web/admin/src/features/setup/setup-steps.ts`、`web/admin/src/features/setup/setup-wizard.tsx`、`web/admin/src/features/setup/setup-pages.contract.test.ts`
+- Docs: `specs/setup-wizard/spec.md`、`design.md`、Design Doc、`tasks.md`、本计划
+
+**Interfaces:**
+- Consumes: Task 7 结构化表单、Task 8 Alert 错误展示。
+- Produces: `StepActions` 新增 `onTest`/`testPassed`/`submitDisabled`；数据库步骤 `dbTested` 状态（连接配置变更自动失效）。
+
+- [x] **Step 1: 先写失败测试**
+
+合同测试断言：`submit: '继续'`、存在「连通性测试」、`testDatabase(driver, dsn)` 与 `setDbTested(true)`、`submitDisabled={!dbTested}`、无「测连通并继续」；RED 确认。
+
+- [x] **Step 2: 实现拆分**
+
+`setup-steps.ts` 数据库步骤 submit 改「继续」；`setup-wizard.tsx` 数据库步骤表单提交只前进步骤，「连通性测试」按钮调 `testDatabase` 后置 `dbTested=true`（`lastTestedDsn` ref 检测 dsn 变化自动失效）；`StepActions` 增加测试按钮与「连接正常」提示，submit 在 `!dbTested` 时禁用。
+
+- [x] **Step 3: 全量验证与提交**
+
+`pnpm vitest run`（59 文件 / 355+ 测试）与 `pnpm tsc -b` 通过；提交 `feat(setup): split connectivity test and continue buttons`。
+
 ---
 
 ## 自检记录（写完后由创建者核对）
