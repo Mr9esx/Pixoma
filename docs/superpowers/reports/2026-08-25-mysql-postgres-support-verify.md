@@ -24,6 +24,8 @@
 
 补充（归档前重开 3053cbf，按钮拆分）：数据库步骤拆「连通性测试」（调 `POST /api/v1/setup/database`，通过显示「连接正常」）与「继续」（`dbTested` 为真才可用，配置变更自动失效）；`setup-steps.ts` 数据库步骤 submit 改「继续」。前端 59 文件 / 356 测试通过，`pnpm tsc -b` 通过，`go build ./... && go test ./...`（71 包 ok）exit 0。
 
+补充（归档前重开 d7b016a，连通性语义与自动建库）：新增 `internal/platform/db.EnsureDatabase`（MySQL/Postgres 连服务器验证账号密码、目标库缺失自动创建，标识符转义；SQLite no-op）与 `DropDatabase`（集成测试清理）；`setup.Handler.openDB` 统一先 ensure 再 open；前端移除「继续」的 `submitDisabled` 门控（不要求先测连通）。单元测试 5 个、集成测试 `TestIntegration_EnsureDatabaseCreatesMissingDB`（env 门控 + 随机库名清理）。前端 59 文件 / 356 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（71 包 ok）全部通过；`go test -tags integration ./internal/platform/db/` 无 env 时 SKIP。
+
 ## Completeness
 
 | 检查项 | 状态 |
@@ -54,6 +56,7 @@
 | 常见错误中文提示与详情 | `db-error.test.ts`（6 用例）+ `setup-pages.contract.test.ts`（Alert destructive/AlertTitle/AlertDescription 断言，归档前重开 019cb73） |
 | 边界场景错误映射 | `db-error.test.ts` 扩至 19 用例（DNS/锁/死锁/角色表/SSL/登录/步骤前置/远程 localfs/未授权等，归档前重开 777d823） |
 | 测连通与继续分离 | `setup-pages.contract.test.ts`（连通性测试 / 继续 / `dbTested` / `submitDisabled` 断言，归档前重开 3053cbf） |
+| 目标库不存在自动创建 | `ensure_test.go`（5 用例）+ `drivers_integration_test.go TestIntegration_EnsureDatabaseCreatesMissingDB` + `setup-pages.contract.test.ts`（无 `submitDisabled`，归档前重开 d7b016a） |
 | 本机路径完成向导 / 远程禁止 localfs | 既有 `completeWizard` 流程测试与 `settings_test.go` 既有用例 |
 | MySQL/Postgres 完成向导 | 向导数据库步骤合同测试 + 后端 `POST /api/v1/setup/database`（三驱动白名单） |
 
