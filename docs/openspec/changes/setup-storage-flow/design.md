@@ -44,6 +44,8 @@
 - bucket 不存在时：测试返回 `bucket_not_found` → 展示提示「bucket `xxx` 不存在，帮你创建？」（创建/取消），确认后带 `auto_create_bucket` 重试，创建成功显示连接正常。
 - 存储步骤文案：Title「文件存储配置」、Desc「决定了生成的图和视频存放的位置。」；选择 `localfs`（本机目录）时展示 warn Alert（`CircleAlert` 图标 + Title「注意！」+ Description 连续文案「这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。」（自然换行，不强制断行））；对象存储驱动标签 S3/TOS/localfs 用「S3 / 火山 TOS / 本机目录」。
 
+`blob-error.ts` 错误映射只认 `NoSuchBucket`/`NoSuchKey` 为 bucket 不存在；裸 `404`（如旧后端未更新返回的 `Request failed (404)`）走通用「对象存储配置失败，请重试」，避免误报。
+
 ### D4：步骤序列与测试
 
 - `setup-steps.ts`：删除 `placement` 步骤与 copy；`initialSetupStep`/`previousSetupStep`/`setupStepIndex` 相应更新。

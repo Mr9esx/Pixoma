@@ -6,7 +6,7 @@ const BLOB_ERROR_PATTERNS: Array<{ pattern: RegExp; title: string }> = [
     title: '对象存储密钥错误，请检查 Access Key / Secret Key',
   },
   {
-    pattern: /NoSuchBucket|NoSuchKey|404/i,
+    pattern: /NoSuchBucket|NoSuchKey/i,
     title: 'bucket 或对象不存在，请检查 bucket 名称',
   },
   {
