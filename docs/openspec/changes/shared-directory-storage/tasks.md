@@ -16,6 +16,7 @@
 - [x] 3.2 `go build ./...` + `go test ./...`；`pnpm tsc -b` + `pnpm vitest run`（web/admin）
 - [x] 3.3 挂载指引 `<pre>` 横向滚动：`AlertDescription` 加 `min-w-0`，`<pre>` 加 `w-full overflow-x-auto`，合同测试锁定
 - [x] 3.4 挂载指引与 S3 局域网提示改用占位符（`<server-ip>` 等）+ 注释说明，不用编造的具体 IP，合同测试锁定
+- [x] 3.5 修复「请先配置数据库」：数据库步骤「继续」也调 `POST /api/v1/setup/database` 注册业务库；后端 draft 兜底（引导态为空时用请求 DB 字段补注册），含单测
 
 ## 代码审查记录（review_mode: standard）
 

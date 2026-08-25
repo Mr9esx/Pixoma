@@ -223,8 +223,24 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(dsn) == "" {
-		writeErr(w, http.StatusBadRequest, "configure database first")
-		return
+		d := strings.ToLower(strings.TrimSpace(body.DBDriver))
+		if d == "" {
+			d = settings.DriverSQLite
+		}
+		dbDSN := strings.TrimSpace(body.DBDSN)
+		if dbDSN == "" {
+			writeErr(w, http.StatusBadRequest, "configure database first")
+			return
+		}
+		if err := db.EnsureDatabase(d, dbDSN); err != nil {
+			writeErr(w, http.StatusBadRequest, "database unreachable: "+err.Error())
+			return
+		}
+		if err := h.Boot.SetAppDB(d, dbDSN); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		driver, dsn = d, dbDSN
 	}
 	if strings.TrimSpace(body.DBDriver) == "" {
 		body.DBDriver = driver
