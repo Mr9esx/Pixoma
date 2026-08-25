@@ -56,6 +56,10 @@ func (errGetBlobStore) Get(context.Context, sharedkernel.BlobRef) (io.ReadCloser
 	return nil, errBlobGetSentinel
 }
 
+func (errGetBlobStore) Check(context.Context) error {
+	return nil
+}
+
 type memCases struct {
 	mu sync.Mutex
 	m  map[sharedkernel.CaseID]*catalogdomain.Case
