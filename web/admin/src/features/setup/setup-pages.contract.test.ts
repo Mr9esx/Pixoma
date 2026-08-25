@@ -237,6 +237,8 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/SelectItem value='sharedfs'/)
     expect(wizard).toMatch(/mount -t nfs/)
     expect(wizard).toMatch(/mount -t cifs/)
+    expect(wizard).toMatch(/<server-ip>/)
+    expect(wizard).not.toMatch(/192\.168\./)
     expect(wizard).toMatch(/blobDriver === 'sharedfs'/)
     expect(wizard).toMatch(/MinIO/)
     expect(wizard).toMatch(/overflow-x-auto/)
