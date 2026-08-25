@@ -2,6 +2,8 @@
 comet_change: mysql-postgres-support
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-25-mysql-postgres-support
+status: final
 ---
 
 # mysql-postgres-support 深度设计
