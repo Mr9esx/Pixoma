@@ -232,12 +232,15 @@ describe('login and setup pages', () => {
 
   it('offers shared directory (SMB/NFS) with mount guidance', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
+    const alert = read('src/components/ui/alert.tsx')
     expect(wizard).toMatch(/共享目录（SMB \/ NFS）/)
     expect(wizard).toMatch(/SelectItem value='sharedfs'/)
     expect(wizard).toMatch(/mount -t nfs/)
     expect(wizard).toMatch(/mount -t cifs/)
     expect(wizard).toMatch(/blobDriver === 'sharedfs'/)
     expect(wizard).toMatch(/MinIO/)
+    expect(wizard).toMatch(/overflow-x-auto/)
+    expect(alert).toMatch(/data-slot='alert-description'[\s\S]*?min-w-0/)
     expect(wizard).toMatch(
       /placement: blobDriver === 'localfs' \? 'local' : 'remote'/
     )
