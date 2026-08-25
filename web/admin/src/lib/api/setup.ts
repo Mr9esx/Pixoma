@@ -80,6 +80,25 @@ export function testDatabase(driver: string, dsn: string) {
   })
 }
 
+export function testBlob(input: {
+  blob_driver: string
+  blob_root?: string
+  blob_endpoint?: string
+  blob_region?: string
+  blob_bucket?: string
+  blob_access_key?: string
+  blob_secret_key?: string
+  auto_create_bucket?: boolean
+}) {
+  return apiFetch<{ ok: boolean; code?: string; bucket?: string }>(
+    '/api/v1/setup/blob-test',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  )
+}
+
 export function saveSetupDraft(draft: SetupDraft) {
   return apiFetch<{ ok: boolean; placement: string }>('/api/v1/setup/draft', {
     method: 'POST',
