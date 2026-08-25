@@ -143,3 +143,60 @@ func TestChannelDetailRouteNotShadowedByMenuMount(t *testing.T) {
 		t.Fatalf("menu status=%d", menuResp.StatusCode)
 	}
 }
+
+func TestChannelReachabilityRouteMounted(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:adminhost_chk_" + t.Name() + "?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, &channelpersist.ChannelRow{}); err != nil {
+		t.Fatal(err)
+	}
+
+	chSvc := &channelapp.Service{
+		Store: channelpersist.NewGormRepository(gdb),
+		Key:   make([]byte, 32),
+	}
+	chAPI := &channelsapi.Handler{Svc: chSvc}
+	h := adminhost.NewHandler(adminhost.Options{Channels: chAPI})
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+
+	raw, _ := json.Marshal(map[string]any{
+		"platform": "telegram", "name": "主机器人", "token": "1234567890",
+	})
+	createResp, err := http.Post(srv.URL+"/api/v1/channels", "application/json", bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d", createResp.StatusCode)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(createResp.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	createResp.Body.Close()
+
+	chSvc.CheckTelegram = func(_ context.Context, token string) (channelapp.ReachabilityResult, error) {
+		return channelapp.ReachabilityResult{OK: true, Kind: channelapp.ReachabilityOK}, nil
+	}
+
+	checkResp, err := http.Post(srv.URL+"/api/v1/channels/"+created.ID+"/check", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer checkResp.Body.Close()
+	if checkResp.StatusCode != http.StatusOK {
+		t.Fatalf("check status=%d, want 200", checkResp.StatusCode)
+	}
+	var out channelapp.ReachabilityResult
+	if err := json.NewDecoder(checkResp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if !out.OK || out.Kind != channelapp.ReachabilityOK {
+		t.Fatalf("out=%+v", out)
+	}
+}
