@@ -23,11 +23,83 @@ describe('login and setup pages', () => {
     expect(login).not.toMatch(/previousSetupStep/)
   })
 
+  it('routes the setup status into the login page so first-run hint can render', () => {
+    const route = read('src/routes/login.tsx')
+    const page = read('src/features/setup/login-page.tsx')
+    expect(route).toMatch(/return \{ status \}/)
+    expect(route).toMatch(/Route\.useRouteContext/)
+    expect(page).toMatch(/status: SetupStatus/)
+  })
+
+  it('shows the default-password hint only on first-run login', () => {
+    const page = read('src/features/setup/login-page.tsx')
+    expect(page).toMatch(/showFirstRunHint/)
+    expect(page).toMatch(/!status\.initialized && status\.must_change_password/)
+    expect(page).toMatch(/首次启动系统会生成默认密码/)
+    expect(page).toMatch(/在启动日志中搜索/)
+    expect(page).toMatch(/Admin password/)
+  })
+
+  it('renders the first-run hint below the login card, not inside it', () => {
+    const page = read('src/features/setup/login-page.tsx')
+    const cardEnd = page.indexOf('</Card>')
+    const alertStart = page.indexOf('<Alert')
+    expect(cardEnd).toBeGreaterThan(0)
+    expect(alertStart).toBeGreaterThan(cardEnd)
+  })
+
+  it('uses the auth-shell blockquote as a real elevator pitch, not an onboarding summary', () => {
+    const shell = read('src/features/setup/auth-shell.tsx')
+    // New pitch text: the product's core value prop
+    expect(shell).toMatch(/Pixoma 让你随时随地使用自己的 ComfyUI 进行艺术创作/)
+    // Old onboarding-summary phrases must not return
+    expect(shell).not.toMatch(/先登录后台/)
+    expect(shell).not.toMatch(/还没配过/)
+    expect(shell).not.toMatch(/选库/)
+    expect(shell).not.toMatch(/这台机器还是远程/)
+    // Fake-testimonial framing is gone
+    expect(shell).not.toMatch(/「先登录/)
+    expect(shell).not.toMatch(/<footer[^>]*>Pixoma<\/footer>/)
+  })
+
   it('uses multi-step only on the setup wizard and allows going back', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
     expect(wizard).toMatch(/上一步/)
     expect(wizard).toMatch(/previousSetupStep/)
     expect(wizard).toMatch(/steps\.length/)
+  })
+
+  it('keeps the password step description short and action-direct', () => {
+    const steps = read('src/features/setup/setup-steps.ts')
+    // New: short, single-sentence, action-direct
+    expect(steps).toMatch(/设个新的管理员密码/)
+    // Old rambling patterns must not return
+    expect(steps).not.toMatch(/登录已经验证过/)
+    expect(steps).not.toMatch(/启动密码/)
+    expect(steps).not.toMatch(/这里设一个/)
+    expect(steps).not.toMatch(/你自己记得住的/)
+    // Redundant with the form label '再输一遍' must not creep back into the desc
+    expect(steps).not.toMatch(/输两遍确认/)
+  })
+
+  it('keeps the database step copy to config, not pedagogy', () => {
+    const steps = read('src/features/setup/setup-steps.ts')
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    // Title is the generic config noun; the step is self-explanatory, so desc is empty
+    expect(steps).toMatch(/title: '数据库配置'/)
+    expect(steps).toMatch(/database: \{[\s\S]*?title: '数据库配置',\s*desc: '',/)
+    // DSN field is '连接', matching settings.db fieldDbDsn
+    expect(wizard).toMatch(/label='连接' htmlFor='db-dsn'/)
+    // Old patterns must not return: any desc for this step, empty deixis,
+    // redundant '记录', the deictic question phrasing, and the padded
+    // parenthetical on SQLite
+    expect(steps).not.toMatch(/数据库配置',[\s\S]*?选库并填连接信息/)
+    expect(steps).not.toMatch(/这些记录/)
+    expect(steps).not.toMatch(/存在哪/)
+    expect(steps).not.toMatch(/业务数据存哪/)
+    expect(steps).not.toMatch(/本机先用 SQLite/)
+    expect(steps).not.toMatch(/默认 SQLite 文件即可/)
+    expect(wizard).not.toMatch(/SQLite（本机文件，适合先跑通）/)
   })
 
   it('does not expose mock or a ComfyUI node step', () => {

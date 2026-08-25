@@ -31,6 +31,7 @@ export default defineConfig({
       'src/lib/dashboard/aggregate.test.ts',
       'src/config/menu.test.ts',
       'src/lib/i18n/locale.test.ts',
+      'src/lib/i18n/copy-quality.test.ts',
       'src/components/master-detail/master-detail.contract.test.ts',
       'src/components/layout/shell-layout.contract.test.ts',
       'src/styles/theme-neutral.contract.test.ts',

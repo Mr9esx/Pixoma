@@ -13,12 +13,12 @@ export const SETUP_STEP_COPY: Record<
 > = {
   password: {
     title: '设管理员密码',
-    desc: '登录已经验证过启动密码。这里设一个你自己记得住的，输两遍确认。',
+    desc: '设个新的管理员密码。',
     submit: '保存密码',
   },
   database: {
-    title: '业务库',
-    desc: '任务、用户这些记录存在哪。本机先用 SQLite 文件即可。',
+    title: '数据库配置',
+    desc: '',
     submit: '测连通并继续',
   },
   placement: {

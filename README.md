@@ -1,6 +1,6 @@
 # Pixoma
 
-Go monorepo：Telegram Bot + Case 目录 + 对话 Session + Task 运行时 + 多计算节点。
+Pixoma 让你随时随地使用自己的 ComfyUI 进行艺术创作。Telegram Bot + Case 目录 + 对话 Session + Task 运行时 + 多计算节点。
 
 ## 架构简述
 
@@ -138,4 +138,4 @@ make clean            # 清掉 data/，下次启动重新走引导
 curl -s localhost:8080/healthz
 ```
 
-调试请用 `make dev`（`pixoma` + Vite）。
+调试用 `make dev`（`pixoma` + Vite）。

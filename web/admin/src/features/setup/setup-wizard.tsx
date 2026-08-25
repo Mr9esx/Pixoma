@@ -198,16 +198,14 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value='sqlite'>
-                    SQLite（本机文件，适合先跑通）
-                  </SelectItem>
+                  <SelectItem value='sqlite'>SQLite</SelectItem>
                   <SelectItem value='mysql'>MySQL</SelectItem>
                   <SelectItem value='postgres'>Postgres</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
           </Field>
-          <Field label='DSN / 文件路径' htmlFor='db-dsn'>
+          <Field label='连接' htmlFor='db-dsn'>
             <Input
               id='db-dsn'
               value={dsn}
