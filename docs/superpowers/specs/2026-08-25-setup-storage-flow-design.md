@@ -2,6 +2,8 @@
 comet_change: setup-storage-flow
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-08-25-setup-storage-flow
+status: final
 ---
 
 # setup-storage-flow 深度设计
