@@ -3,6 +3,7 @@ package s3_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http/httptest"
 	"testing"
@@ -61,6 +62,35 @@ func TestPutGetRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(got, payload) {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestCheckAndEnsureBucket(t *testing.T) {
+	backend := s3mem.New()
+	faker := gofakes3.New(backend)
+	srv := httptest.NewServer(faker.Server())
+	t.Cleanup(srv.Close)
+
+	store, err := blobs3.New(blobs3.Options{
+		Endpoint:        srv.URL,
+		Region:          "us-east-1",
+		Bucket:          "pixoma-missing",
+		AccessKeyID:     "AKIA_TEST",
+		SecretAccessKey: "testsecret",
+		UsePathStyle:    true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := store.Check(ctx); !errors.Is(err, blob.ErrBucketNotFound) {
+		t.Fatalf("want ErrBucketNotFound, got %v", err)
+	}
+	if err := store.EnsureBucket(ctx); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+	if err := store.Check(ctx); err != nil {
+		t.Fatalf("check after ensure: %v", err)
 	}
 }
 

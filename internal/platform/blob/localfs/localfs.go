@@ -31,6 +31,22 @@ func New(root string) (*Store, error) {
 	return &Store{root: abs}, nil
 }
 
+// Check verifies the root directory exists and is writable with a probe file.
+func (s *Store) Check(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(s.root, 0o755); err != nil {
+		return fmt.Errorf("blob/localfs: check mkdir: %w", err)
+	}
+	probe := filepath.Join(s.root, ".pixoma-probe")
+	if err := os.WriteFile(probe, []byte("ok"), 0o600); err != nil {
+		return fmt.Errorf("blob/localfs: check write: %w", err)
+	}
+	_ = os.Remove(probe)
+	return nil
+}
+
 func (s *Store) Put(ctx context.Context, key string, r io.Reader, opts blob.PutOptions) (sharedkernel.BlobRef, error) {
 	if err := ctx.Err(); err != nil {
 		return sharedkernel.BlobRef{}, err
