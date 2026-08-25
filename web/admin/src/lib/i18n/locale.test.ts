@@ -25,6 +25,18 @@ const CASE_DELETE_I18N_KEYS = [
   'cases.deleteSuccessSummary',
 ] as const
 
+const EDGE_CHANNEL_DELETE_I18N_KEYS = [
+  'edges.deleteWillFailRunning',
+  'edges.deleteSubscribedTopics',
+  'edges.deleteAckRunning',
+  'edges.deleteNoRunning',
+  'edges.deleteDone',
+  'edges.deleteFailed',
+  'channels.deleteWillEndSessions',
+  'channels.deleteInFlightTasks',
+  'channels.deleteAckImpact',
+] as const
+
 function lookup(locale: Record<string, unknown>, dottedKey: string): unknown {
   return dottedKey.split('.').reduce<unknown>((node, part) => {
     if (node == null || typeof node !== 'object') return undefined
@@ -92,6 +104,15 @@ describe('command menu shell i18n', () => {
 describe('case delete i18n', () => {
   it('defines case-delete keys in zh and en locales', () => {
     for (const key of CASE_DELETE_I18N_KEYS) {
+      expect(lookup(zh, key), `zh missing ${key}`).toEqual(expect.any(String))
+      expect(lookup(en, key), `en missing ${key}`).toEqual(expect.any(String))
+    }
+  })
+})
+
+describe('edge/channel delete i18n', () => {
+  it('defines delete keys in zh and en locales', () => {
+    for (const key of EDGE_CHANNEL_DELETE_I18N_KEYS) {
       expect(lookup(zh, key), `zh missing ${key}`).toEqual(expect.any(String))
       expect(lookup(en, key), `en missing ${key}`).toEqual(expect.any(String))
     }
