@@ -110,7 +110,7 @@ func EnsureBucket(ctx context.Context, opts CheckOptions) error   // s3/tos 建�
 
 - 字段：localfs → 目录；s3/tos → endpoint / region / bucket / access key / secret key（密钥 `type=password`）。
 - 按钮：复用数据库步骤的「连通性测试 + 继续」；测试调 `blob-test`，通过显示 success Alert（`CircleCheck` + 连接正常），失败显示 destructive Alert。
-- 步骤文案：Title「文件存储配置」、Desc「决定了生成的图和视频存放的位置。」；`localfs` 选中时展示 warn Alert（amber 系，`Alert` 组件新增 `warn` 变体），文案两行（`<br />` 分隔：「这个配置只适合 ComfyUI 和后台在同一台机器上使用，」/「无法使用远程节点。」）；驱动标签「S3 / 火山 TOS / 本机目录」（设置页 i18n `blobS3` 同步为「S3」）。
+- 步骤文案：Title「文件存储配置」、Desc「决定了生成的图和视频存放的位置。」；`localfs` 选中时展示 warn Alert（amber 系，`Alert` 组件新增 `warn` 变体 + `CircleAlert` 图标），文案两行（`<br />` 分隔：「这个配置只适合 ComfyUI 和后台在同一台机器上使用，」/「无法使用远程节点。」）；驱动标签「S3 / 火山 TOS / 本机目录」（设置页 i18n `blobS3` 同步为「S3」）。
 - bucket 不存在：测试返回 `bucket_not_found` → 展示提示「bucket `xxx` 不存在，帮你创建？」（创建/取消）；确认后带 `auto_create_bucket:true` 重试，成功显示连接正常。
 - 新增 `blob-error.ts`：InvalidAccessKeyId、SignatureDoesNotMatch、NoSuchBucket、AccessDenied、connection refused、timeout、空配置等 → 中文友好标题 + 实际详情（复用 Alert 形态）；`setupErrorCopy` 通用回退。
 
