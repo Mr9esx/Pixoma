@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, CircleCheck } from 'lucide-react'
+import { ArrowLeft, CircleAlert, CircleCheck } from 'lucide-react'
 import {
   changeAdminPassword,
   finalizeSetup,
@@ -594,6 +594,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           ) : null}
           {blobDriver === 'localfs' ? (
             <Alert variant='warn'>
+              <CircleAlert aria-hidden='true' />
               <AlertTitle>
                 这个配置只适合 ComfyUI 和后台在同一台机器上使用，
                 <br />

@@ -206,6 +206,7 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/<br \/>/)
     expect(wizard).toMatch(/blobDriver === 'localfs'/)
     expect(wizard).toMatch(/Alert variant='warn'/)
+    expect(wizard).toMatch(/CircleAlert/)
   })
 
   it('labels the s3 driver plainly', () => {
