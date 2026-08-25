@@ -1,0 +1,15 @@
+{
+  "change": "shared-directory-storage",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "d0c0f398c149180d8c8266aa7b9481b4ccada8a091044cf9df5c7c241c511a31",
+  "files": [
+    { "path": "docs/openspec/changes/shared-directory-storage/proposal.md", "sha256": "ebbfd754c47ea506d2f61cbb81f3b9c835f68159330e242f7e3158d7ea8a9c7a" },
+    { "path": "docs/openspec/changes/shared-directory-storage/design.md", "sha256": "988bc82797916ddb8881f0cb15e2699e47ee75052ce13ff061d8dc6cbbdeb65a" },
+    { "path": "docs/openspec/changes/shared-directory-storage/tasks.md", "sha256": "c6f2e97ce4dd3e0d86761dd0a53b7f37cfe1d1698e1b0d8186e20a2176ef4110" },
+    { "path": "docs/openspec/changes/shared-directory-storage/specs/setup-wizard/spec.md", "sha256": "6f1008d4593b7504a0f2ad15eeaf23536ac0ff12244499d0e2c7a655a627ff9c" },
+    { "path": "docs/openspec/changes/shared-directory-storage/specs/shared-blob-store/spec.md", "sha256": "c4108acc56452cf7186a4193b511f58e87eb0e699a053836bf58a3cb0944ca23" }
+  ]
+}
