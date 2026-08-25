@@ -592,6 +592,13 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               </div>
             </Alert>
           ) : null}
+          {blobDriver === 'localfs' ? (
+            <Alert>
+              <AlertTitle>
+                这个配置只适合 ComfyUI 和后台在同一台机器上使用。
+              </AlertTitle>
+            </Alert>
+          ) : null}
           <StepActions
             error={error}
             pending={pending}

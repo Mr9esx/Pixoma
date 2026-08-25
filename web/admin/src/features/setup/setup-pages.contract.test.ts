@@ -195,4 +195,13 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/帮你创建/)
     expect(wizard).toMatch(/auto_create_bucket/)
   })
+
+  it('uses storage step copy and warns for localfs', () => {
+    const steps = read('src/features/setup/setup-steps.ts')
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(steps).toMatch(/title: '文件存储配置'/)
+    expect(steps).toMatch(/desc: '决定了生成的图和视频存放的位置。'/)
+    expect(wizard).toMatch(/这个配置只适合 ComfyUI 和后台在同一台机器上使用/)
+    expect(wizard).toMatch(/blobDriver === 'localfs'/)
+  })
 })
