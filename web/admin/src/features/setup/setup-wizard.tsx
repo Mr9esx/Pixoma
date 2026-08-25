@@ -587,7 +587,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <div className='flex gap-2 pt-2'>
                 <Button
                   type='button'
-                  variant='outline'
                   disabled={pending}
                   onClick={() => {
                     setBlobPromptCreate(false)
@@ -598,6 +597,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                 </Button>
                 <Button
                   type='button'
+                  variant='outline'
                   disabled={pending}
                   onClick={() => setBlobPromptCreate(false)}
                 >
