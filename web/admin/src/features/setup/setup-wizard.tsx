@@ -580,7 +580,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             </>
           )}
           {blobPromptCreate ? (
-            <Alert>
+            <Alert variant='info'>
               <AlertTitle>
                 bucket `{blobMissingBucket}` 不存在，帮你创建？
               </AlertTitle>

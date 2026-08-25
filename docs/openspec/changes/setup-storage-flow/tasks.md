@@ -20,6 +20,7 @@
 - [x] 3.5 存储步骤文案改为「文件存储配置 / 决定了生成的图和视频存放的位置。」；选择 localfs 时展示 warn Alert（`CircleAlert` 图标 + Title「注意！」+ Description 连续文案「这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。」（自然换行，不强制断行））；驱动标签「S3 兼容」改「S3」（向导 + 设置页 i18n），合同测试锁定
 - [x] 3.6 `blob-error.ts` 收紧映射：裸 `404` 不再误判为 bucket 不存在（只认 `NoSuchBucket`/`NoSuchKey`），「Request failed (404)」走通用文案，含回归测试
 - [x] 3.7 选择火山 TOS 时预填默认值：endpoint `https://tos-cn-beijing.volces.com`、region `cn-beijing`、bucket `pixoma`（空值才填，不覆盖手输），合同测试锁定
+- [x] 3.8 bucket 不存在提示改用 `Alert variant="info"`（Alert 组件新增 info 变体，sky 蓝），合同测试锁定
 
 ## 4. 文档与验证
 

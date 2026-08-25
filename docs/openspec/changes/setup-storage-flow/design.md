@@ -48,6 +48,8 @@
 
 选择火山 TOS 时预填默认值：endpoint `https://tos-cn-beijing.volces.com`、region `cn-beijing`、bucket `pixoma`（字段为空才填充，已手输保留；bucket 不存在可走「帮你创建」流程）。
 
+bucket 不存在提示使用 `Alert variant="info"`（sky 蓝，`Alert` 组件新增 `info` 变体）。
+
 ### D4：步骤序列与测试
 
 - `setup-steps.ts`：删除 `placement` 步骤与 copy；`initialSetupStep`/`previousSetupStep`/`setupStepIndex` 相应更新。

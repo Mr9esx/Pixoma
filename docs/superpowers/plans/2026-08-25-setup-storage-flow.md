@@ -660,6 +660,31 @@ git add web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/set
 git commit -m "feat(setup): prefill volcengine tos defaults"
 ```
 
+### Task 9: bucket 创建提示用 info Alert
+
+**Files:**
+- Modify: `web/admin/src/components/ui/alert.tsx`、`web/admin/src/features/setup/setup-wizard.tsx`、`web/admin/src/features/setup/setup-pages.contract.test.ts`
+- Docs: `design.md`、Design Doc、`tasks.md`、本计划
+
+**Interfaces:**
+- Consumes: Task 5 的 bucket 创建提示。
+- Produces: `Alert` 组件新增 `info` 变体（sky 蓝）；bucket 不存在提示用 `Alert variant="info"`。
+
+- [x] **Step 1: 先写失败合同测试**
+
+断言 `Alert variant='info'` 存在；RED 确认。
+
+- [x] **Step 2: 实现并全量验证**
+
+`alert.tsx` 新增 `info` 变体；`setup-wizard.tsx` bucket 提示改 `Alert variant='info'`；`pnpm vitest run`（57 文件 / 366 测试）与 `pnpm tsc -b` 通过。
+
+- [x] **Step 3: 提交**
+
+```bash
+git add web/admin/src/components/ui/alert.tsx web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-pages.contract.test.ts docs/openspec/changes/setup-storage-flow/design.md docs/superpowers/specs/2026-08-25-setup-storage-flow-design.md docs/openspec/changes/setup-storage-flow/tasks.md docs/superpowers/plans/2026-08-25-setup-storage-flow.md
+git commit -m "feat(setup): info alert for bucket creation prompt"
+```
+
 ---
 
 ## 自检记录（写完后由创建者核对）
