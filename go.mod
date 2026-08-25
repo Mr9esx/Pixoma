@@ -9,8 +9,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.107.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-chi/chi/v5 v5.3.1
+	github.com/go-sql-driver/mysql v1.8.1
 	github.com/go-telegram/bot v1.23.0
 	github.com/google/uuid v1.6.0
+	github.com/jackc/pgx/v5 v5.5.5
 	github.com/jaypipes/ghw v0.25.0
 	github.com/johannesboyne/gofakes3 v1.2.0
 	github.com/redis/go-redis/v9 v9.18.0
@@ -41,10 +43,8 @@ require (
 	github.com/ebitengine/purego v0.10.2 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.5.5 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jaypipes/pcidb v1.1.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect

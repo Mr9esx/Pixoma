@@ -33,6 +33,8 @@
 
 数据库步骤把「测连通并继续」拆成两个按钮：「连通性测试」调用 `POST /api/v1/setup/database` 并显示结果，「继续」在测试通过后才可点（`dbTested` 状态，配置变更后自动失效）；测试通过显示「连接正常」。
 
+连通性语义：MySQL/Postgres 先连服务器验证可达与账号密码，目标库不存在时自动创建（MySQL `CREATE DATABASE IF NOT EXISTS`；Postgres 查 `pg_database` 后 `CREATE DATABASE`，连接维护库 `postgres`→`template1`），再连目标库；SQLite 无操作。业务表由向导保存（`platform_settings`）与启动 AutoMigrate 自动创建。「继续」不要求先测连通，直接可点，连接问题在后续步骤以 Alert 呈现（前端移除 `submitDisabled` 门控）。
+
 ### D2：MySQL/Postgres 启动链路兼容策略
 
 - `RenameLegacy`：legacy 重命名仅当检测到旧表/旧列时执行；全新 MySQL/Postgres 库均为 no-op，保留现状，不引入 driver 分支（降低兼容面）。

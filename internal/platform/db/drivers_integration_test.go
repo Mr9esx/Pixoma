@@ -6,12 +6,15 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"gorm.io/gorm"
 
+	gomysql "github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v5"
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
@@ -48,6 +51,76 @@ func TestIntegration_FullMigrateAndRoundtrip(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_EnsureDatabaseCreatesMissingDB(t *testing.T) {
+	drivers := []struct {
+		driver string
+		env    string
+	}{
+		{db.DriverMySQL, "PIXOMA_MYSQL_DSN"},
+		{db.DriverPostgres, "PIXOMA_POSTGRES_DSN"},
+	}
+	for _, tc := range drivers {
+		t.Run(tc.driver, func(t *testing.T) {
+			base := strings.TrimSpace(os.Getenv(tc.env))
+			if base == "" {
+				t.Skipf("set %s to run", tc.env)
+			}
+			name := "pixoma_ensure_" + strconv.FormatInt(time.Now().UnixNano(), 36)
+			dsn := withDatabaseName(tc.driver, base, name)
+			t.Cleanup(func() {
+				if err := db.DropDatabase(tc.driver, dsn); err != nil {
+					t.Errorf("drop database %s: %v", name, err)
+				}
+			})
+			if err := db.EnsureDatabase(tc.driver, dsn); err != nil {
+				t.Fatalf("ensure database: %v", err)
+			}
+			gdb, err := db.Open(db.Options{Driver: tc.driver, DSN: dsn})
+			if err != nil {
+				t.Fatal(err)
+			}
+			sqlDB, err := gdb.DB()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = sqlDB.Close() }()
+			if err := sqlDB.Ping(); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.AutoMigrate(gdb, &pingRow{}); err != nil {
+				t.Fatalf("migrate after ensure: %v", err)
+			}
+		})
+	}
+}
+
+func withDatabaseName(driver, dsn, name string) string {
+	switch driver {
+	case db.DriverMySQL:
+		cfg, err := gomysql.ParseDSN(dsn)
+		if err != nil {
+			panic(err)
+		}
+		cfg.DBName = name
+		return cfg.FormatDSN()
+	case db.DriverPostgres:
+		cfg, err := pgx.ParseConfig(dsn)
+		if err != nil {
+			panic(err)
+		}
+		cfg.Database = name
+		return cfg.ConnString()
+	default:
+		return dsn
+	}
+}
+
+type pingRow struct {
+	ID string `gorm:"primaryKey;size:8"`
+}
+
+func (pingRow) TableName() string { return "pixoma_integration_ping" }
 
 func openEnvDB(t *testing.T, driver, env string) *gorm.DB {
 	t.Helper()
