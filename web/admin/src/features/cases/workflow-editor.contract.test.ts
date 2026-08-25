@@ -10,7 +10,6 @@ const IMPORT_SECTION = join(here, 'sections/workflow-import.tsx')
 const CODE_EDITOR = join(here, '../../components/code-editor.tsx')
 const FIELD_CARDS = join(here, 'sections/field-cards.tsx')
 const CASE_FORM = join(here, 'case-form.tsx')
-const ADVANCED = join(here, 'sections/advanced.tsx')
 
 const REQUIRED_KEYS = [
   'importHeading',
@@ -65,10 +64,6 @@ const REQUIRED_KEYS = [
   'addOutput',
   'singleOutputAuto',
   'nodeSearchPlaceholder',
-  'advancedLabel',
-  'advancedReadonlyHint',
-  'advancedEnterEdit',
-  'advancedOverwriteWarn',
   'previewHeading',
   'previewHint',
   'emptyWorkflowLock',
@@ -163,7 +158,7 @@ describe('editor form assembly', () => {
     expect(form).toContain('InputFieldCard')
     expect(form).toContain('OutputFieldCard')
     expect(form).not.toContain('PreviewSection')
-    expect(form).toContain('AdvancedSection')
+    expect(form).not.toContain('AdvancedSection')
     expect(form).toContain('deriveBindings(')
     expect(form).toContain('deriveInputSchema(')
     expect(form).not.toContain('WorkflowJsonSection')
@@ -172,11 +167,4 @@ describe('editor form assembly', () => {
     expect(form).not.toContain('IoFieldsSection')
   })
 
-  it('advanced section is gated behind open + confirm', () => {
-    const advanced = readFileSync(ADVANCED, 'utf8')
-    expect(advanced).toContain("data-testid='case-section-advanced'")
-    expect(advanced).toContain('editMode')
-    expect(advanced).toContain('cases.advancedEnterEdit')
-    expect(advanced).toContain('readOnly')
-  })
 })

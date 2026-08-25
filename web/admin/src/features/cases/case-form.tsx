@@ -17,7 +17,6 @@ import {
   type OutputFieldDraft,
 } from './lib/derive'
 import { parseWorkflow, type WorkflowGraph } from './lib/workflow-parse'
-import { AdvancedSection } from './sections/advanced'
 import { BasicsSection } from './sections/basics'
 import { InputFieldCard, OutputFieldCard } from './sections/field-cards'
 import { WorkflowImportSection } from './sections/workflow-import'
@@ -140,11 +139,6 @@ export function CaseForm(props: Props) {
     props.mode === 'edit' ? toOutputDrafts(props.initial) : []
   )
   const [editorError, setEditorError] = useState<string | undefined>()
-  const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [advancedEdit, setAdvancedEdit] = useState(false)
-  const [advancedText, setAdvancedText] = useState(() =>
-    stringifyObject(initial.bindings.workflow)
-  )
 
   const createMutation = useMutation({
     mutationFn: createCase,
@@ -183,7 +177,6 @@ export function CaseForm(props: Props) {
       setImportError(parsed.ok ? undefined : parsed.error)
       setInputDrafts(toInputDrafts(updated))
       setOutputDrafts(toOutputDrafts(updated))
-      setAdvancedText(text)
       toast.success(t('common.successSaved'))
       if (props.mode === 'edit') props.onSaved?.(updated)
     },
@@ -436,18 +429,6 @@ export function CaseForm(props: Props) {
       </section>
   ) : null
 
-  const advancedSection = showWorkflow ? (
-        <AdvancedSection
-          open={advancedOpen}
-          editMode={advancedEdit}
-          text={advancedText}
-          onOpen={() => setAdvancedOpen(true)}
-          onEnterEdit={() => setAdvancedEdit(true)}
-          onTextChange={setAdvancedText}
-          disabled={disabled}
-        />
-  ) : null
-
   const errorBlock = (
     <>
       {mutationError ? (
@@ -489,7 +470,6 @@ export function CaseForm(props: Props) {
           {importSection}
           {inputsSection}
           {outputsSection}
-          {advancedSection}
           {errorBlock}
         </>
       )}
