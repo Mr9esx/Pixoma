@@ -3,6 +3,8 @@ const cardWrap =
 
 export const kit = {
   pageSection: 'mx-auto flex w-full max-w-7xl flex-col gap-7 px-6 py-7 md:px-8',
+  createPage:
+    'mx-auto flex min-h-full w-full max-w-7xl flex-col gap-7 px-6 py-7 md:px-8',
   title: 'truncate text-2xl leading-tight font-semibold tracking-tight',
   tagOn:
     'inline-flex items-center border py-0.5 h-6 rounded-md border-emerald-600/20 bg-emerald-50 px-2 text-xs font-medium text-emerald-700 shadow-none dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -45,6 +47,8 @@ export const kit = {
     'inline-flex items-center border py-0.5 font-semibold h-5 rounded-md px-1.5 text-[11px] shadow-none border-zinc-300 bg-zinc-50 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300',
   tagSmFail:
     'inline-flex items-center border py-0.5 font-semibold h-5 rounded-md px-1.5 text-[11px] shadow-none border-red-600/20 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-900/30 dark:text-red-400',
+  tagSmWarn:
+    'inline-flex items-center border py-0.5 font-semibold h-5 rounded-md px-1.5 text-[11px] shadow-none border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300 dark:hover:bg-amber-400/20',
   healthDot: {
     ok: 'size-2 shrink-0 rounded-full bg-emerald-500',
     warn: 'size-2 shrink-0 rounded-full bg-amber-400',

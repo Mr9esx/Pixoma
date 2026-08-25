@@ -529,10 +529,11 @@
     "tokenHint": "留空表示不修改；Token 只加密存储，页面仅显示掩码。",
     "tabPreview": "渠道预览",
     "checkingReachability": "检测中…",
-    "reachabilityOK": "Telegram 连接正常",
-    "reachabilityNetwork": "无法连接 Telegram。若网络受限，在设置中配置代理",
+    "reachabilityOK": "连接正常",
+    "reachabilityNetwork": "无法连接 Telegram",
     "reachabilityNetworkAction": "去设置代理",
-    "reachabilityAuth": "Bot Token 无效，检查 token"
+    "reachabilityAuth": "Token 无效",
+    "reachabilityFailed": "连接失败"
   },
   "topics": {
     "title": "调度通道",
