@@ -63,6 +63,16 @@ func (s *Store) Touch(id sharedkernel.EdgeID) {
 	s.records[id] = rec
 }
 
+// Remove drops the in-memory record for an edge (admin delete cleanup).
+func (s *Store) Remove(id sharedkernel.EdgeID) {
+	if s == nil || id == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.records, id)
+}
+
 // Snapshot returns the derived online/comfy flags. Stale reports look offline
 // and Comfy-down so the UI never keeps a stale "running" tag.
 func (s *Store) Snapshot(id sharedkernel.EdgeID) Snapshot {

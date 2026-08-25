@@ -67,3 +67,9 @@ const (
 	TaskErrorCaseDeleted = "case_deleted"
 	CaseDeletedMessage   = "工作流已删除"
 )
+
+// Terminal-failure metadata used when a compute node is deleted.
+const (
+	TaskErrorEdgeDeleted = "edge_deleted"
+	EdgeDeletedMessage   = "节点已删除"
+)
