@@ -719,8 +719,6 @@
     "subscribedTopics": "订阅调度通道",
     "boundNodes": "绑定计算节点",
     "relatedEntries": "关联入口",
-    "routeTopics": "路由调度通道",
-    "relatedWorkflows": "关联工作流",
-    "activeSessions": "活跃会话"
+    "routeTopics": "路由调度通道"
   }
 }

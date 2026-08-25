@@ -64,12 +64,6 @@ export interface CaseReferencesResult {
   health: EntityHealth
 }
 
-export interface ChannelReferencesResult {
-  workflows: ReferenceItem[]
-  sessions: ReferenceItem[]
-  health: EntityHealth
-}
-
 export function caseRoutingTopics(
   routing: RoutingConfig | undefined
 ): string[] {
@@ -283,7 +277,7 @@ export function caseReferences(
 export function channelReferences(
   id: string,
   reachability: ChannelReachability | undefined
-): ChannelReferencesResult {
+): EntityHealth {
   const breakpoints: HealthBreakpoint[] = []
   if (reachability) {
     if (reachability.kind === 'network') {
@@ -316,9 +310,5 @@ export function channelReferences(
       })
     }
   }
-  return {
-    workflows: [],
-    sessions: [],
-    health: { state: breakpoints.length > 0 ? 'warn' : 'ok', breakpoints },
-  }
+  return { state: breakpoints.length > 0 ? 'warn' : 'ok', breakpoints }
 }

@@ -208,43 +208,43 @@ describe('caseReferences', () => {
 
 describe('channelReferences', () => {
   it('网络不可达 → warn、断点 runtime、行动去设置代理', () => {
-    const res = channelReferences('c1', {
+    const health = channelReferences('c1', {
       ok: false,
       kind: 'network',
       message: 'dial timeout',
     })
-    expect(res.health.state).toBe('warn')
-    expect(res.health.breakpoints[0]).toMatchObject({
+    expect(health.state).toBe('warn')
+    expect(health.breakpoints[0]).toMatchObject({
       fix: 'runtime',
       action: { to: '/settings', key: 'linkHealth.actionConfigureProxy' },
     })
   })
 
   it('Token 无效 → warn、断点 config、行动指向编辑渠道', () => {
-    const res = channelReferences('c1', {
+    const health = channelReferences('c1', {
       ok: false,
       kind: 'auth',
       message: 'unauthorized',
     })
-    expect(res.health.breakpoints[0]).toMatchObject({
+    expect(health.breakpoints[0]).toMatchObject({
       fix: 'config',
       action: { to: '/channels/c1', key: 'linkHealth.actionEditChannel' },
     })
   })
 
   it('连接正常 → ok、无断点', () => {
-    const res = channelReferences('c1', { ok: true, kind: 'ok', message: '' })
-    expect(res.health.state).toBe('ok')
-    expect(res.health.breakpoints).toEqual([])
+    const health = channelReferences('c1', { ok: true, kind: 'ok', message: '' })
+    expect(health.state).toBe('ok')
+    expect(health.breakpoints).toEqual([])
   })
 
   it('其他错误 → warn、断点带 message 参数', () => {
-    const res = channelReferences('c1', {
+    const health = channelReferences('c1', {
       ok: false,
       kind: 'other',
       message: 'boom',
     })
-    expect(res.health.breakpoints[0]).toMatchObject({
+    expect(health.breakpoints[0]).toMatchObject({
       params: { message: 'boom' },
     })
   })

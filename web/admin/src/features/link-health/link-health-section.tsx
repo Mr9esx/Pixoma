@@ -1,11 +1,16 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 import { CircleCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { requestFocus, scrollAndFlash } from '@/lib/scroll-focus'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { SectionHead } from '@/components/section-head'
-import type { EntityHealth, ReferenceItem } from './lib/references'
+import type {
+  EntityHealth,
+  HealthBreakpoint,
+  ReferenceItem,
+} from './lib/references'
 
 const stateClass: Record<string, string> = {
   ok: 'border-emerald-600/20 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -15,11 +20,23 @@ const stateClass: Record<string, string> = {
 
 const PAGE_SIZE = 10
 
+// 断点行动点击后要定位闪烁的目标元素 id。
+const FOCUS_TARGETS: Record<string, string> = {
+  'linkHealth.actionConfigureRouting': 'case-routing-section',
+  'linkHealth.actionBindTopic': 'edge-detail',
+  'linkHealth.actionManageNodes': 'edge-detail',
+  'linkHealth.actionAddEntry': 'channel-menu-section',
+  'linkHealth.actionCheckNode': 'link-health-section',
+}
+
 export type LinkHealthSectionProps = {
   title: string
   health: EntityHealth
-  upstream: { title: string; items: ReferenceItem[] }
-  downstream: { title: string; items: ReferenceItem[] }
+  /** 关联列表；不传则不渲染引用区块。 */
+  upstream?: { title: string; items: ReferenceItem[] }
+  downstream?: { title: string; items: ReferenceItem[] }
+  /** 自定义断点行动按钮；返回 null 时回退到默认 Link。 */
+  renderAction?: (breakpoint: HealthBreakpoint) => ReactNode | null
 }
 
 export function LinkHealthSection({
@@ -27,6 +44,7 @@ export function LinkHealthSection({
   health,
   upstream,
   downstream,
+  renderAction,
 }: LinkHealthSectionProps) {
   const { t } = useTranslation()
   const blocked = health.breakpoints.length > 0
@@ -66,19 +84,34 @@ export function LinkHealthSection({
                       'rounded-sm px-1.5 py-0.5 text-[11px]',
                       b.fix === 'config'
                         ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
-                        : 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+                        : 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
                     )}
                   >
                     {b.fix === 'config'
                       ? t('linkHealth.fixConfig')
                       : t('linkHealth.fixRuntime')}
                   </span>
-                  <Link
-                    to={b.action.to}
-                    className='ml-auto text-sm font-medium text-foreground underline underline-offset-2'
-                  >
-                    {t(b.action.key)} →
-                  </Link>
+                  {renderAction?.(b) ?? (
+                    <Link
+                      to={b.action.to}
+                      className='ml-auto text-sm font-medium text-foreground underline underline-offset-2'
+                      onClick={(e) => {
+                        const focus = FOCUS_TARGETS[b.action.key]
+                        if (!focus) return
+                        const samePage =
+                          b.action.to.replace(/\/$/, '') ===
+                          window.location.pathname.replace(/\/$/, '')
+                        if (samePage) {
+                          e.preventDefault()
+                          scrollAndFlash(focus)
+                        } else {
+                          requestFocus(focus)
+                        }
+                      }}
+                    >
+                      {t(b.action.key)} →
+                    </Link>
+                  )}
                 </div>
                 <p
                   className='text-sm text-muted-foreground'
@@ -91,10 +124,16 @@ export function LinkHealthSection({
           </ul>
         </div>
       ) : null}
-      <div className='grid gap-3 sm:grid-cols-2'>
-        <ReferenceList title={upstream.title} items={upstream.items} />
-        <ReferenceList title={downstream.title} items={downstream.items} />
-      </div>
+      {upstream || downstream ? (
+        <div className='grid gap-3 sm:grid-cols-2'>
+          {upstream ? (
+            <ReferenceList title={upstream.title} items={upstream.items} />
+          ) : null}
+          {downstream ? (
+            <ReferenceList title={downstream.title} items={downstream.items} />
+          ) : null}
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -136,7 +175,7 @@ function ReferenceList({
                 <Link
                   to={item.to}
                   className={cn(
-                    'min-w-0 truncate text-sm font-medium text-foreground hover:underline',
+                    'min-w-0 truncate text-sm font-medium text-foreground hover:underline'
                   )}
                 >
                   {item.name}
@@ -144,7 +183,7 @@ function ReferenceList({
                 <span
                   className={cn(
                     'ml-auto shrink-0 rounded-md border px-1.5 py-0.5 text-[11px]',
-                    stateClass[item.state],
+                    stateClass[item.state]
                   )}
                 >
                   {item.state === 'ok'
