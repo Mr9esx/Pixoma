@@ -19,6 +19,7 @@ import {
   getChannel,
   setChannelEnabled,
   updateChannel,
+  type ChannelReachability,
 } from '@/lib/api/channels'
 import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
@@ -198,6 +199,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             <span className={ch.enabled ? kit.tagOn : kit.tagOff}>
               {ch.enabled ? t('channels.enabled') : t('channels.disabled')}
             </span>
+            <ChannelReachabilityTag query={reachabilityQuery} />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
             <Button
@@ -394,4 +396,46 @@ function formatTime(iso: string): string {
   const ms = Date.parse(iso)
   if (!Number.isFinite(ms)) return iso
   return new Date(ms).toLocaleString()
+}
+
+function ChannelReachabilityTag({
+  query,
+}: {
+  query: ReturnType<typeof useQuery<ChannelReachability, Error>>
+}) {
+  const { t } = useTranslation()
+  if (query.isPending) {
+    return (
+      <span className={kit.tagOff}>{t('channels.checkingReachability')}</span>
+    )
+  }
+  if (query.isError || !query.data) {
+    return (
+      <span className={kit.tagFail}>{t('channels.reachabilityFailed')}</span>
+    )
+  }
+  const result = query.data
+  if (result.kind === 'ok') {
+    return <span className={kit.tagOn}>{t('channels.reachabilityOK')}</span>
+  }
+  if (result.kind === 'network') {
+    return (
+      <Link
+        to='/settings'
+        search={{ tab: 'network' }}
+        className={kit.tagWarn}
+        aria-label={t('channels.reachabilityNetworkAction')}
+      >
+        {t('channels.reachabilityNetwork')}
+      </Link>
+    )
+  }
+  if (result.kind === 'auth') {
+    return <span className={kit.tagFail}>{t('channels.reachabilityAuth')}</span>
+  }
+  return (
+    <span className={kit.tagOff} title={result.message || undefined}>
+      {t('channels.reachabilityFailed')}
+    </span>
+  )
 }

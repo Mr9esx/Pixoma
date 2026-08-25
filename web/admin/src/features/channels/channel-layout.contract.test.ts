@@ -63,8 +63,10 @@ describe('channel layout aligned with compute nodes', () => {
       /<section id='channel-menu-section'[\s\S]*?<LinkHealthSection/
     )
     expect(detail).not.toMatch(/upstream=\{\{/)
-    expect(detail).not.toMatch(/ChannelStatusSection/)
-    expect(detail).not.toMatch(/ChannelReachabilityTag/)
+    expect(detail).toMatch(/ChannelReachabilityTag/)
+    expect(detail).toMatch(/kit\.tagWarn/)
+    expect(detail).toMatch(/channels\.reachabilityNetwork/)
+    expect(detail).toMatch(/search=\{\{ tab: 'network' \}\}/)
   })
 
   it('delete is available while enabled and shows impact', () => {
