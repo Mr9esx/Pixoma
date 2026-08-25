@@ -719,8 +719,6 @@
     "subscribedTopics": "Subscribed dispatch channels",
     "boundNodes": "Bound compute nodes",
     "relatedEntries": "Related entries",
-    "routeTopics": "Routed dispatch channels",
-    "relatedWorkflows": "Related workflows",
-    "activeSessions": "Active sessions"
+    "routeTopics": "Routed dispatch channels"
   }
 }

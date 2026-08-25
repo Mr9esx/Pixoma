@@ -59,6 +59,10 @@ describe('channel layout aligned with compute nodes', () => {
     expect(detail).toMatch(/<LinkHealthAlert/)
     expect(detail).toMatch(/<LinkHealthSection/)
     expect(detail).toMatch(/linkHealth\.title/)
+    expect(detail).toMatch(
+      /<section id='channel-menu-section'[\s\S]*?<LinkHealthSection/
+    )
+    expect(detail).not.toMatch(/upstream=\{\{/)
     expect(detail).not.toMatch(/ChannelStatusSection/)
     expect(detail).not.toMatch(/ChannelReachabilityTag/)
   })

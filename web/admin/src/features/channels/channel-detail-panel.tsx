@@ -311,7 +311,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
       {reachabilityQuery.data ? (
         <LinkHealthAlert
           name={ch.name}
-          health={channelHealth.health}
+          health={channelHealth}
           anchorTo='#link-health-section'
         />
       ) : null}
@@ -323,21 +323,6 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <ErrorBanner message={errorMessage(deleteMutation.error)} />
       ) : null}
 
-      {reachabilityQuery.data ? (
-        <LinkHealthSection
-          title={t('linkHealth.title')}
-          health={channelHealth.health}
-          upstream={{
-            title: t('linkHealth.relatedWorkflows'),
-            items: channelHealth.workflows,
-          }}
-          downstream={{
-            title: t('linkHealth.activeSessions'),
-            items: channelHealth.sessions,
-          }}
-        />
-      ) : null}
-
       <section id='channel-menu-section' className='flex flex-col gap-4'>
         <SectionHead
           title={t('channels.tabMenu')}
@@ -347,6 +332,13 @@ export function ChannelDetailPanel({ id }: { id: string }) {
           <MenuCardEditor channelId={id} />
         </div>
       </section>
+
+      {reachabilityQuery.data ? (
+        <LinkHealthSection
+          title={t('linkHealth.title')}
+          health={channelHealth}
+        />
+      ) : null}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='sm:max-w-lg'>
