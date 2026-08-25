@@ -555,7 +555,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               {blobDriver === 's3' ? (
                 <p className='text-sm text-muted-foreground'>
                   局域网可用 MinIO 等 S3 兼容服务，如{' '}
-                  <code>http://192.168.x.x:9000</code>
+                  <code>http://&lt;server-ip&gt;:9000</code>
                 </p>
               ) : null}
               <Field label='Region' htmlFor='blob-region'>
@@ -632,11 +632,11 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <AlertDescription>
                 需要先在所有机器上挂载同一共享目录（SMB / NFS）。
                 <pre className='mt-2 w-full overflow-x-auto rounded-md border bg-card p-2 text-xs leading-relaxed'>
-                  {`# Linux NFS
-mount -t nfs 192.168.1.10:/srv/pixoma /mnt/pixoma-shared
+                  {`# Linux NFS（<server-ip> 换成共享服务器地址，<share-path> 换成导出目录）
+mount -t nfs <server-ip>:/<share-path> /mnt/pixoma-shared
 
-# Linux / macOS CIFS (SMB)
-mount -t cifs //192.168.1.10/pixoma /mnt/pixoma-shared -o username=admin`}
+# Linux / macOS CIFS (SMB)（<server-ip> / <share-name> / <mount-point> 按实际替换）
+mount -t cifs //<server-ip>/<share-name> <mount-point> -o username=<user>`}
                 </pre>
               </AlertDescription>
             </Alert>

@@ -15,6 +15,7 @@
 - [x] 3.1 README 增加 SMB/NFS 挂载指引与 `sharedfs` 说明
 - [x] 3.2 `go build ./...` + `go test ./...`；`pnpm tsc -b` + `pnpm vitest run`（web/admin）
 - [x] 3.3 挂载指引 `<pre>` 横向滚动：`AlertDescription` 加 `min-w-0`，`<pre>` 加 `w-full overflow-x-auto`，合同测试锁定
+- [x] 3.4 挂载指引与 S3 局域网提示改用占位符（`<server-ip>` 等）+ 注释说明，不用编造的具体 IP，合同测试锁定
 
 ## 代码审查记录（review_mode: standard）
 
