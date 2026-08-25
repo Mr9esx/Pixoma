@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, CircleCheck } from 'lucide-react'
 import {
   changeAdminPassword,
   finalizeSetup,
@@ -640,6 +640,7 @@ function StepActions({
       ) : null}
       {testPassed ? (
         <Alert variant='success'>
+          <CircleCheck aria-hidden='true' />
           <AlertTitle>连接正常</AlertTitle>
         </Alert>
       ) : null}

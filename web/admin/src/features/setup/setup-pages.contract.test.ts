@@ -173,6 +173,7 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/setStep\('placement'\)/)
     expect(wizard).toMatch(/Alert variant='success'/)
     expect(wizard).toMatch(/AlertTitle>连接正常<\/AlertTitle>/)
+    expect(wizard).toMatch(/CircleCheck/)
     expect(wizard).not.toMatch(/text-emerald-600/)
   })
 })

@@ -63,7 +63,7 @@ Where("status = ? AND lease_until IS NOT NULL AND lease_until < ?", status, now)
   - 密码字段 `type=password` 不回显；每个服务型驱动提供「附加参数」输入框（MySQL 示例 `timeout=5s&readTimeout=10s`，Postgres 示例 `connect_timeout=10 application_name=pixoma`），直接追加到组装结果，不提供整串 DSN 编辑入口。
   - 切换驱动时端口默认值自动切换（3306↔5432），已填字段保留可编辑；组装逻辑放在纯函数模块 `db-dsn.ts`（可单测）。
 - 错误展示用 `Alert variant="destructive"`：`db-error.ts` 把常见与边界数据库错误（拒绝连接/鉴权失败/库不存在/超时/DNS 与路由不可达/连接中断/连接数满/文件锁与磁盘/死锁/角色与表缺失/SSL-TLS/未知驱动/缺 DSN/登录与密码/向导步骤前置/远程 localfs/代理/未授权等约 28 类）映射为中文友好标题，AlertDescription 展示实际错误详情；未知错误回退「操作失败，请重试」。
-- 数据库步骤拆两个按钮：「连通性测试」调 `POST /api/v1/setup/database` 并显示结果（通过以 success Alert 显示「连接正常」，失败以 destructive Alert 显示错误），「继续」始终可点；连接配置变更后 `dbTested` 自动失效。`Alert` 组件新增 `success` 变体（emerald 系）。
+- 数据库步骤拆两个按钮：「连通性测试」调 `POST /api/v1/setup/database` 并显示结果（通过以 success Alert 显示「连接正常」并带 `CircleCheck` 图标，失败以 destructive Alert 显示错误），「继续」始终可点；连接配置变更后 `dbTested` 自动失效。`Alert` 组件新增 `success` 变体（emerald 系）。
 - 连通性与自动建库：`internal/platform/db.EnsureDatabase` 先连服务器验证可达与账号密码（MySQL 用 `mysql.ParseDSN` 去掉库名后连；Postgres 用 `pgx.ParseConfig` 连维护库 `postgres`→`template1`），目标库缺失时自动创建（标识符正确转义），再连目标库；SQLite no-op。业务表由向导保存/启动 AutoMigrate 自动创建。`setup.Handler.openDB` 统一先 ensure 再 open。「继续」不要求先测连通（无 `submitDisabled` 门控），问题在后续步骤以 Alert 报错。
 - 错误文案可诊断：非法驱动、空 DSN、连接失败均返回具体原因（后端已具备，前端透传）。
 

@@ -31,7 +31,7 @@
 
 向导错误展示使用 `Alert variant="destructive"`：常见与边界错误（拒绝连接、鉴权失败、库不存在、超时、DNS/路由不可达、连接中断、连接数满、文件锁/磁盘、死锁、角色/表缺失、SSL/TLS、未知驱动、缺 DSN、登录/密码、向导步骤前置、远程 localfs、代理、未授权等约 28 类）映射为中文友好标题，正文展示实际错误详情；映射逻辑放 `db-error.ts`（可单测，19 个用例）。
 
-数据库步骤把「测连通并继续」拆成两个按钮：「连通性测试」调用 `POST /api/v1/setup/database` 并显示结果，「继续」在测试通过后才可点（`dbTested` 状态，配置变更后自动失效）；测试通过以 success Alert（emerald 系）显示「连接正常」，失败以 destructive Alert 显示错误。
+数据库步骤把「测连通并继续」拆成两个按钮：「连通性测试」调用 `POST /api/v1/setup/database` 并显示结果，「继续」在测试通过后才可点（`dbTested` 状态，配置变更后自动失效）；测试通过以 success Alert（emerald 系 + `CircleCheck` 图标）显示「连接正常」，失败以 destructive Alert 显示错误。
 
 连通性语义：MySQL/Postgres 先连服务器验证可达与账号密码，目标库不存在时自动创建（MySQL `CREATE DATABASE IF NOT EXISTS`；Postgres 查 `pg_database` 后 `CREATE DATABASE`，连接维护库 `postgres`→`template1`），再连目标库；SQLite 无操作。业务表由向导保存（`platform_settings`）与启动 AutoMigrate 自动创建。「继续」不要求先测连通，直接可点，连接问题在后续步骤以 Alert 呈现（前端移除 `submitDisabled` 门控）。
 
