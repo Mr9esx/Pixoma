@@ -4,7 +4,7 @@
 TBD - created by archiving change workflow-engine-core. Update Purpose after archive.
 ## Requirements
 ### Requirement: Case 协议定义可执行的工作流契约
-系统 MUST 提供 Case/Workflow 协议，用于描述一个可注册、可校验、可执行的工作流 case。每个 case MUST 至少包含：稳定标识、显示名称、描述、可选 preview 资源引用、价格数值字段、一个或多个类别标签、有序的 input schema 列表、有序的 output schema 列表，以及到 ComfyUI 工作流定义的绑定信息（含节点注入映射）。
+系统 MUST 提供 Case/Workflow 协议，用于描述一个可注册、可校验、可执行的工作流 case。每个 case MUST 至少包含：稳定标识、显示名称、描述、可选 preview 资源引用、一个或多个类别标签、有序的 input schema 列表、有序的 output schema 列表，以及到 ComfyUI 工作流定义的绑定信息（含节点注入映射）。
 
 #### Scenario: 注册前协议字段齐全
 - **WHEN** 调用方提交一个完整的 text2img case 定义
@@ -63,13 +63,6 @@ TBD - created by archiving change workflow-engine-core. Update Purpose after arc
 - **WHEN** enum 字段取值不在 schema 枚举集合内
 - **THEN** 校验失败且不创建 Task
 
-### Requirement: 价格字段仅为协议数值元数据
-系统 MUST 在 case 上提供数值型价格/费用字段以供展示或后续积分系统读取。本阶段 MUST NOT 实现扣费、余额校验或支付流程。
-
-#### Scenario: 查询 case 可见价格数值
-- **WHEN** 调用方读取已注册 case
-- **THEN** 响应包含协议中的价格数值字段，且不产生任何扣费副作用
-
 ### Requirement: 场景类别可扩展而不锁死实现集合
 系统 MUST 允许 case 使用类别标签表达场景（例如 text2img、text2video、img2img、img2video、videoedit、imgedit，以及后续可能的 upscale、inpaint、remove-bg 等）。协议 MUST NOT 将可运行能力硬编码为固定枚举实现集合；具体能力由该 case 的 input/output schema 与 ComfyUI 绑定决定。
 
@@ -98,4 +91,3 @@ Case 协议 MUST 支持可选的路由投放配置（结构见 `topic-routing-co
 #### Scenario: 旧 Case 无路由配置兼容
 - **WHEN** 查询未配置路由的历史 Case
 - **THEN** 返回无路由配置的表示，调度回退默认 Topic，不报错
-

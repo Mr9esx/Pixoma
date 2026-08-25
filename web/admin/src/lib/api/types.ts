@@ -87,7 +87,6 @@ export type CaseRecord = {
   name: string
   description?: string
   preview?: string
-  price: number
   tags?: string[]
   categories?: string[]
   inputs: CaseInputField[]

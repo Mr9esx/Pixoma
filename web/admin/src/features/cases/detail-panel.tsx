@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
-  Coins,
   FolderOpen,
   PenLine,
   SearchX,
@@ -294,12 +293,6 @@ export function CaseDetailPanel({ id }: Props) {
           </LongText>
         ) : null}
         <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
-          <MetaChip
-            icon={<Coins className='size-3.5' />}
-            label={t('cases.fieldPrice')}
-            value={String(record.price)}
-            divider
-          />
           <MetaChip
             icon={<Tags className='size-3.5' />}
             label={t('cases.fieldTags')}

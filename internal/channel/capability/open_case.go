@@ -207,7 +207,7 @@ func (o OpenCase) list(ctx context.Context, params map[string]any) (protocol.Res
 			continue
 		}
 		options = append(options, protocol.Option{
-			Label: fmt.Sprintf("%s · ¥%.0f", c.Document.Name, c.Document.Price),
+			Label: c.Document.Name,
 			Value: map[string]any{"step": "preview", "case_id": id},
 		})
 	}
@@ -236,7 +236,6 @@ func (o OpenCase) preview(ctx context.Context, params map[string]any) (protocol.
 	if doc.Description != "" {
 		fmt.Fprintf(&b, "%s\n", doc.Description)
 	}
-	fmt.Fprintf(&b, "价格：%.0f\n", doc.Price)
 	b.WriteString("\n预览说明：")
 	if doc.Preview != "" {
 		b.WriteString(doc.Preview)

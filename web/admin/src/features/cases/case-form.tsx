@@ -298,7 +298,6 @@ export function CaseForm(props: Props) {
         name: draft.name,
         description: draft.description,
         preview: draft.preview,
-        price: draft.price,
         tags: draft.tags,
         categories: draft.categories,
         enabled: draft.enabled,

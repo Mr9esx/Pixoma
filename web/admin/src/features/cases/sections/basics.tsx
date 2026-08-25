@@ -10,7 +10,6 @@ export type BasicsSlice = Pick<
   | 'name'
   | 'description'
   | 'preview'
-  | 'price'
   | 'tags'
   | 'categories'
   | 'enabled'
@@ -85,19 +84,6 @@ export function BasicsSection({
             onChange={(e) => patch({ preview: e.target.value })}
             disabled={disabled}
             autoComplete='off'
-          />
-        </div>
-        <div className='space-y-2'>
-          <Label htmlFor='case-price'>{t('cases.fieldPrice')}</Label>
-          <Input
-            id='case-price'
-            type='number'
-            step='any'
-            value={Number.isFinite(value.price) ? value.price : 0}
-            onChange={(e) =>
-              patch({ price: Number.parseFloat(e.target.value) || 0 })
-            }
-            disabled={disabled}
           />
         </div>
       </div>
