@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { EdgePresence, EdgeRecord } from '@/features/task-flow/types'
 import type { MenuPlacement } from '@/lib/api/channel-menu'
 import type { CaseRecord } from '@/lib/api/types'
+import type { EdgePresence, EdgeRecord } from '@/features/task-flow/types'
 import {
   caseReferences,
   caseRoutingTopics,
+  channelReferences,
   edgeReferences,
   edgeIsReady,
   edgeTopics,
@@ -14,9 +15,15 @@ import {
 const caseA = {
   id: 1,
   name: '案例 A',
-  routing: { rules: [{ when: { field: 'x', op: 'eq', value: 1 }, topic: 't1' }] },
+  routing: {
+    rules: [{ when: { field: 'x', op: 'eq', value: 1 }, topic: 't1' }],
+  },
 } as unknown as CaseRecord
-const caseDefault = { id: 2, name: '案例 B', routing: undefined } as unknown as CaseRecord
+const caseDefault = {
+  id: 2,
+  name: '案例 B',
+  routing: undefined,
+} as unknown as CaseRecord
 const edgeT1: EdgeRecord = {
   id: 'node-1',
   name: '节点 1',
@@ -31,7 +38,9 @@ const edgeDefault: EdgeRecord = {
   subscribe_topics: ['default'],
   effective_topics: [],
 }
-const presence: EdgePresence[] = [{ id: 'node-1', edge_online: true, comfy_running: true }]
+const presence: EdgePresence[] = [
+  { id: 'node-1', edge_online: true, comfy_running: true },
+]
 const placement: MenuPlacement = {
   channel_id: 'c1',
   channel_name: '渠道 1',
@@ -51,7 +60,7 @@ describe('caseRoutingTopics', () => {
           { when: { field: 'a', op: 'eq', value: 1 }, topic: 't1' },
           { when: { field: 'b', op: 'eq', value: 2 }, topic: 't1' },
         ],
-      }),
+      })
     ).toEqual(['t1'])
   })
 })
@@ -74,7 +83,7 @@ describe('edgeTopics', () => {
         enabled: true,
         subscribe_topics: [],
         effective_topics: ['default'],
-      }),
+      })
     ).toEqual(['default'])
   })
   it('effective_topics 非空时优先于显式订阅', () => {
@@ -85,13 +94,17 @@ describe('edgeTopics', () => {
         enabled: true,
         subscribe_topics: ['a'],
         effective_topics: ['a', 'default'],
-      }),
+      })
     ).toEqual(['a', 'default'])
   })
 })
 
 describe('topicReferences', () => {
-  const input = { cases: [caseA, caseDefault], edges: [edgeT1, edgeDefault], presence }
+  const input = {
+    cases: [caseA, caseDefault],
+    edges: [edgeT1, edgeDefault],
+    presence,
+  }
   it('t1 被 Case A 引用且节点在线 → ok', () => {
     const refs = topicReferences('t1', input)
     expect(refs.cases.map((c) => c.id)).toEqual(['1'])
@@ -120,7 +133,11 @@ describe('topicReferences', () => {
 })
 
 describe('edgeReferences', () => {
-  const input = { cases: [caseA, caseDefault], edges: [edgeT1, edgeDefault], presence }
+  const input = {
+    cases: [caseA, caseDefault],
+    edges: [edgeT1, edgeDefault],
+    presence,
+  }
   it('node-1 被 t1 绑定并可到达 Case A → ok', () => {
     const refs = edgeReferences('node-1', input)
     expect(refs.topics.map((t) => t.id)).toEqual(['t1'])
@@ -130,9 +147,31 @@ describe('edgeReferences', () => {
   it('node-2 离线 → warn、断点 runtime、行动指向节点', () => {
     const refs = edgeReferences('node-2', input)
     expect(refs.health.state).toBe('warn')
-    const bp = refs.health.breakpoints.find((b) => b.key === 'linkHealth.edgeNotReady')
+    const bp = refs.health.breakpoints.find(
+      (b) => b.key === 'linkHealth.edgeNotReady'
+    )
     expect(bp?.fix).toBe('runtime')
     expect(bp?.action.to).toBe('/edges/node-2')
+  })
+  it('未绑定 Topic 的节点只提示去部署，不再引导去配置路由', () => {
+    const unbound: EdgeRecord = {
+      id: 'node-3',
+      name: '节点 3',
+      enabled: true,
+      subscribe_topics: [],
+      effective_topics: [],
+    }
+    const refs = edgeReferences('node-3', {
+      ...input,
+      edges: [edgeT1, edgeDefault, unbound],
+    })
+    const keys = refs.health.breakpoints.map((b) => b.key)
+    expect(keys).toContain('linkHealth.noTopicBinding')
+    expect(keys).not.toContain('linkHealth.noCaseReachable')
+    const bp = refs.health.breakpoints.find(
+      (b) => b.key === 'linkHealth.noTopicBinding'
+    )
+    expect(bp?.action.key).toBe('linkHealth.actionDeployNode')
   })
 })
 
@@ -147,7 +186,9 @@ describe('caseReferences', () => {
     const refs = caseReferences(1, { ...input, placements: [] })
     expect(refs.menuEntries).toEqual([])
     expect(refs.health.state).toBe('warn')
-    const bp = refs.health.breakpoints.find((b) => b.key === 'linkHealth.noMenuEntry')
+    const bp = refs.health.breakpoints.find(
+      (b) => b.key === 'linkHealth.noMenuEntry'
+    )
     expect(bp?.fix).toBe('config')
     expect(bp?.action.key).toBe('linkHealth.actionAddEntry')
     expect(bp?.guide).toBe('linkHealth.guideNoMenuEntry')
@@ -157,6 +198,54 @@ describe('caseReferences', () => {
     expect(refs.menuEntries).toHaveLength(1)
     expect(refs.topics.map((t) => t.id)).toEqual(['default'])
     expect(refs.health.state).toBe('warn')
-    expect(refs.health.breakpoints.some((b) => b.stage === 'node' && b.fix === 'runtime')).toBe(true)
+    expect(
+      refs.health.breakpoints.some(
+        (b) => b.stage === 'node' && b.fix === 'runtime'
+      )
+    ).toBe(true)
+  })
+})
+
+describe('channelReferences', () => {
+  it('网络不可达 → warn、断点 runtime、行动去设置代理', () => {
+    const res = channelReferences('c1', {
+      ok: false,
+      kind: 'network',
+      message: 'dial timeout',
+    })
+    expect(res.health.state).toBe('warn')
+    expect(res.health.breakpoints[0]).toMatchObject({
+      fix: 'runtime',
+      action: { to: '/settings', key: 'linkHealth.actionConfigureProxy' },
+    })
+  })
+
+  it('Token 无效 → warn、断点 config、行动指向编辑渠道', () => {
+    const res = channelReferences('c1', {
+      ok: false,
+      kind: 'auth',
+      message: 'unauthorized',
+    })
+    expect(res.health.breakpoints[0]).toMatchObject({
+      fix: 'config',
+      action: { to: '/channels/c1', key: 'linkHealth.actionEditChannel' },
+    })
+  })
+
+  it('连接正常 → ok、无断点', () => {
+    const res = channelReferences('c1', { ok: true, kind: 'ok', message: '' })
+    expect(res.health.state).toBe('ok')
+    expect(res.health.breakpoints).toEqual([])
+  })
+
+  it('其他错误 → warn、断点带 message 参数', () => {
+    const res = channelReferences('c1', {
+      ok: false,
+      kind: 'other',
+      message: 'boom',
+    })
+    expect(res.health.breakpoints[0]).toMatchObject({
+      params: { message: 'boom' },
+    })
   })
 })

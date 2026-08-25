@@ -527,23 +527,7 @@
     "deleteInFlightTasks": "{{count}} running/queued task(s) will continue, but completion notifications cannot be delivered",
     "deleteAckImpact": "I understand the impact above",
     "tokenHint": "Leave blank to keep unchanged; tokens are stored encrypted and shown masked.",
-    "tabPreview": "Channel Preview",
-    "checkingReachability": "Checking…",
-    "reachabilityOK": "Connected",
-    "reachabilityNetwork": "Cannot reach Telegram",
-    "reachabilityNetworkAction": "Configure proxy",
-    "reachabilityAuth": "Token invalid",
-    "reachabilityFailed": "Connection failed",
-    "statusTitle": "Status",
-    "statusHint": "Checked once when the page opens",
-    "statusConnection": "Connection",
-    "statusLastCheck": "Last check",
-    "statusAdapter": "Adapter",
-    "statusNeverChecked": "Not checked",
-    "adapterRunning": "Running",
-    "adapterStarting": "Starting",
-    "adapterRetrying": "Connection failed, retrying in background",
-    "adapterAbsent": "Not started"
+    "tabPreview": "Channel Preview"
   },
   "topics": {
     "title": "Dispatch channels",
@@ -702,7 +686,12 @@
     "actionBindTopic": "Subscribe dispatch channel",
     "actionDeployNode": "Deploy node",
     "actionCheckNode": "Check node",
+    "actionConfigureProxy": "Configure proxy",
+    "actionEditChannel": "Edit channel",
     "guideNoMenuEntry": "In the channel menu editor, add an open-workflow entry that selects this workflow, save, and publish.",
+    "guideChannelUnreachable": "If the network is restricted, configure a proxy in the Network tab of settings",
+    "guideChannelTokenInvalid": "Replace the token in the channel edit dialog",
+    "guideChannelCheckFailed": "Check the error, or configure a proxy and retry",
     "guideTopicNoReadyNode": "Make sure this dispatch channel has a subscribing compute node that is online; enable the node in the compute node list, or check agent heartbeat and the Comfy service.",
     "guideNoCaseRoutes": "Add a routing rule in this workflow's processing flow that points a condition to this dispatch channel, save, then re-check.",
     "guideNoEdgeSubscribers": "Select this dispatch channel in the compute node's Deploy dialog, copy the deploy command, and rerun it; create a compute node first if none are available.",
@@ -717,6 +706,9 @@
     "noTopicBinding": "This compute node subscribes to no dispatch channels",
     "noCaseReachable": "No workflow routes tasks to this node",
     "edgeNotReady": "Compute node is not ready (disabled or offline)",
+    "channelUnreachable": "Cannot reach Telegram",
+    "channelTokenInvalid": "Bot token invalid",
+    "channelCheckFailed": "Reachability check failed: {{message}}",
     "topicNoReadyNode": "Dispatch channel {{topic}} has no online compute node",
     "noEdgeSubscribers": "No compute node subscribes to this dispatch channel",
     "subscribersOffline": "All subscribing compute nodes are offline",
@@ -727,6 +719,8 @@
     "subscribedTopics": "Subscribed dispatch channels",
     "boundNodes": "Bound compute nodes",
     "relatedEntries": "Related entries",
-    "routeTopics": "Routed dispatch channels"
+    "routeTopics": "Routed dispatch channels",
+    "relatedWorkflows": "Related workflows",
+    "activeSessions": "Active sessions"
   }
 }

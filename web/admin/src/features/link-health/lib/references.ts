@@ -1,5 +1,6 @@
-import type { EdgePresence, RoutingConfig } from '@/features/task-flow/types'
 import type { MenuPlacement } from '@/lib/api/channel-menu'
+import type { ChannelReachability } from '@/lib/api/channels'
+import type { EdgePresence, RoutingConfig } from '@/features/task-flow/types'
 
 export type HealthState = 'ok' | 'warn' | 'bad'
 
@@ -63,7 +64,15 @@ export interface CaseReferencesResult {
   health: EntityHealth
 }
 
-export function caseRoutingTopics(routing: RoutingConfig | undefined): string[] {
+export interface ChannelReferencesResult {
+  workflows: ReferenceItem[]
+  sessions: ReferenceItem[]
+  health: EntityHealth
+}
+
+export function caseRoutingTopics(
+  routing: RoutingConfig | undefined
+): string[] {
   const keys = (routing?.rules ?? [])
     .map((r) => r.topic)
     .filter((x): x is string => Boolean(x))
@@ -84,11 +93,26 @@ export function edgeIsReady(edge: EdgeLike, presence: EdgePresence[]): boolean {
   return Boolean(row && row.edge_online && row.comfy_running)
 }
 
-const ok = (id: string, name: string, to: string): ReferenceItem => ({ id, name, state: 'ok', to })
-const warn = (id: string, name: string, to: string): ReferenceItem => ({ id, name, state: 'warn', to })
+const ok = (id: string, name: string, to: string): ReferenceItem => ({
+  id,
+  name,
+  state: 'ok',
+  to,
+})
+const warn = (id: string, name: string, to: string): ReferenceItem => ({
+  id,
+  name,
+  state: 'warn',
+  to,
+})
 
-export function topicReferences(key: string, input: HealthInput): TopicReferencesResult {
-  const cases = input.cases.filter((c) => caseRoutingTopics(c.routing).includes(key))
+export function topicReferences(
+  key: string,
+  input: HealthInput
+): TopicReferencesResult {
+  const cases = input.cases.filter((c) =>
+    caseRoutingTopics(c.routing).includes(key)
+  )
   const edges = input.edges.filter((e) => edgeTopics(e).includes(key))
   const ready = edges.filter((e) => edgeIsReady(e, input.presence))
   const breakpoints: HealthBreakpoint[] = []
@@ -121,13 +145,18 @@ export function topicReferences(key: string, input: HealthInput): TopicReference
   return {
     cases: cases.map((c) => ok(String(c.id), c.name, `/cases/${c.id}`)),
     edges: edges.map((e) =>
-      edgeIsReady(e, input.presence) ? ok(e.id, e.name, `/edges/${e.id}`) : warn(e.id, e.name, `/edges/${e.id}`),
+      edgeIsReady(e, input.presence)
+        ? ok(e.id, e.name, `/edges/${e.id}`)
+        : warn(e.id, e.name, `/edges/${e.id}`)
     ),
     health: { state: breakpoints.length > 0 ? 'warn' : 'ok', breakpoints },
   }
 }
 
-export function edgeReferences(id: string, input: HealthInput): EdgeReferencesResult {
+export function edgeReferences(
+  id: string,
+  input: HealthInput
+): EdgeReferencesResult {
   const edge = input.edges.find((e) => e.id === id)
   if (!edge) {
     return {
@@ -135,19 +164,21 @@ export function edgeReferences(id: string, input: HealthInput): EdgeReferencesRe
       cases: [],
       health: {
         state: 'bad' as HealthState,
-        breakpoints: [{
-          stage: 'node' as const,
-          fix: 'config' as const,
-          key: 'linkHealth.edgeMissing',
-          action: { to: '/edges', key: 'linkHealth.actionManageNodes' },
-          guide: 'linkHealth.guideEdgeMissing',
-        }],
+        breakpoints: [
+          {
+            stage: 'node' as const,
+            fix: 'config' as const,
+            key: 'linkHealth.edgeMissing',
+            action: { to: '/edges', key: 'linkHealth.actionManageNodes' },
+            guide: 'linkHealth.guideEdgeMissing',
+          },
+        ],
       },
     }
   }
   const topics = edgeTopics(edge)
   const cases = input.cases.filter((c) =>
-    caseRoutingTopics(c.routing).some((k) => topics.includes(k)),
+    caseRoutingTopics(c.routing).some((k) => topics.includes(k))
   )
   const breakpoints: HealthBreakpoint[] = []
   if (topics.length === 0) {
@@ -155,11 +186,11 @@ export function edgeReferences(id: string, input: HealthInput): EdgeReferencesRe
       stage: 'topic',
       fix: 'config',
       key: 'linkHealth.noTopicBinding',
-      action: { to: `/edges/${id}`, key: 'linkHealth.actionEditNode' },
+      action: { to: `/edges/${id}`, key: 'linkHealth.actionDeployNode' },
       guide: 'linkHealth.guideNoTopicBinding',
     })
   }
-  if (cases.length === 0) {
+  if (topics.length > 0 && cases.length === 0) {
     breakpoints.push({
       stage: 'workflow',
       fix: 'config',
@@ -184,7 +215,10 @@ export function edgeReferences(id: string, input: HealthInput): EdgeReferencesRe
   }
 }
 
-export function caseReferences(caseId: number, input: HealthInput): CaseReferencesResult {
+export function caseReferences(
+  caseId: number,
+  input: HealthInput
+): CaseReferencesResult {
   const record = input.cases.find((c) => c.id === caseId)
   if (!record) {
     return {
@@ -192,13 +226,15 @@ export function caseReferences(caseId: number, input: HealthInput): CaseReferenc
       topics: [],
       health: {
         state: 'bad' as HealthState,
-        breakpoints: [{
-          stage: 'workflow' as const,
-          fix: 'config' as const,
-          key: 'linkHealth.caseMissing',
-          action: { to: '/cases', key: 'linkHealth.actionConfigureRouting' },
-          guide: 'linkHealth.guideCaseMissing',
-        }],
+        breakpoints: [
+          {
+            stage: 'workflow' as const,
+            fix: 'config' as const,
+            key: 'linkHealth.caseMissing',
+            action: { to: '/cases', key: 'linkHealth.actionConfigureRouting' },
+            guide: 'linkHealth.guideCaseMissing',
+          },
+        ],
       },
     }
   }
@@ -233,9 +269,56 @@ export function caseReferences(caseId: number, input: HealthInput): CaseReferenc
   })
   return {
     menuEntries: placements.map((p) =>
-      ok(`${p.channel_id}:${p.item_id}`, p.channel_name ?? p.channel_id, `/channels/${encodeURIComponent(p.channel_id)}`),
+      ok(
+        `${p.channel_id}:${p.item_id}`,
+        p.channel_name ?? p.channel_id,
+        `/channels/${encodeURIComponent(p.channel_id)}`
+      )
     ),
     topics: topicItems,
+    health: { state: breakpoints.length > 0 ? 'warn' : 'ok', breakpoints },
+  }
+}
+
+export function channelReferences(
+  id: string,
+  reachability: ChannelReachability | undefined
+): ChannelReferencesResult {
+  const breakpoints: HealthBreakpoint[] = []
+  if (reachability) {
+    if (reachability.kind === 'network') {
+      breakpoints.push({
+        stage: 'node',
+        fix: 'runtime',
+        key: 'linkHealth.channelUnreachable',
+        action: { to: '/settings', key: 'linkHealth.actionConfigureProxy' },
+        guide: 'linkHealth.guideChannelUnreachable',
+      })
+    } else if (reachability.kind === 'auth') {
+      breakpoints.push({
+        stage: 'entry',
+        fix: 'config',
+        key: 'linkHealth.channelTokenInvalid',
+        action: {
+          to: `/channels/${encodeURIComponent(id)}`,
+          key: 'linkHealth.actionEditChannel',
+        },
+        guide: 'linkHealth.guideChannelTokenInvalid',
+      })
+    } else if (reachability.kind === 'other') {
+      breakpoints.push({
+        stage: 'node',
+        fix: 'runtime',
+        key: 'linkHealth.channelCheckFailed',
+        params: { message: reachability.message },
+        action: { to: '/settings', key: 'linkHealth.actionConfigureProxy' },
+        guide: 'linkHealth.guideChannelCheckFailed',
+      })
+    }
+  }
+  return {
+    workflows: [],
+    sessions: [],
     health: { state: breakpoints.length > 0 ? 'warn' : 'ok', breakpoints },
   }
 }
