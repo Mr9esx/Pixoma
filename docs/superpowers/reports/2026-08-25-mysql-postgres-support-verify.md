@@ -18,6 +18,8 @@
 
 补充（归档前重开 921cc56，简化交互）：移除「高级：直接输入 DSN」折叠，改为每个服务型驱动提供「附加参数」输入框（MySQL `timeout=5s&readTimeout=10s`、Postgres `connect_timeout=10 application_name=pixoma`），参数直接追加进组装结果；`db-dsn.ts` 增加 params 支持与 3 个新单测（共 8 个）。前端 58 文件 / 335 测试通过，`pnpm tsc -b` 通过，`go build ./... && go test ./...`（71 包 ok）exit 0。
 
+补充（归档前重开 019cb73，Alert 错误展示）：新增 `db-error.ts`（常见数据库错误 → 中文友好标题 + 实际详情，6 个单测）；向导与 StepActions 错误渲染改为 `Alert variant="destructive"`（AlertTitle=友好标题、AlertDescription=实际详情），移除旧 `text-destructive` 文本。前端 59 文件 / 342 测试通过，`pnpm tsc -b` 通过，`go build ./... && go test ./...`（71 包 ok）exit 0。
+
 ## Completeness
 
 | 检查项 | 状态 |
@@ -45,6 +47,7 @@
 | 切换数据库驱动后 DSN 输入更新 | `setup-pages.contract.test.ts`（归档前重开新增，修复 3e47782：`onDriverChange` 同步 DSN 示例） |
 | 结构化字段配置 MySQL/Postgres | `db-dsn.test.ts`（组装纯函数 5 用例）+ `setup-pages.contract.test.ts`（字段/端口联动/高级折叠断言，归档前重开 0c16dd8） |
 | 附加参数直接追加 | `db-dsn.test.ts`（params 3 用例）+ `setup-pages.contract.test.ts`（`db-extra-params` 字段与示例占位、无 raw DSN 编辑入口，归档前重开 921cc56） |
+| 常见错误中文提示与详情 | `db-error.test.ts`（6 用例）+ `setup-pages.contract.test.ts`（Alert destructive/AlertTitle/AlertDescription 断言，归档前重开 019cb73） |
 | 本机路径完成向导 / 远程禁止 localfs | 既有 `completeWizard` 流程测试与 `settings_test.go` 既有用例 |
 | MySQL/Postgres 完成向导 | 向导数据库步骤合同测试 + 后端 `POST /api/v1/setup/database`（三驱动白名单） |
 
