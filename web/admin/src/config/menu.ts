@@ -28,10 +28,10 @@ export type MenuGroup = {
 const ITEMS: readonly MenuItem[] = [
   { id: 'dashboard', titleKey: 'menu.dashboard', path: '/', icon: LayoutDashboard },
   { id: 'quick-config', titleKey: 'menu.quickConfig', path: '/quick-config', icon: Zap },
-  { id: 'edges', titleKey: 'menu.edges', path: '/edges', icon: Server },
   { id: 'cases', titleKey: 'menu.cases', path: '/cases', icon: Boxes },
   { id: 'channels', titleKey: 'menu.channels', path: '/channels', icon: Radio },
   { id: 'topics', titleKey: 'menu.topics', path: '/topics', icon: Tags },
+  { id: 'edges', titleKey: 'menu.edges', path: '/edges', icon: Server },
   { id: 'tasks', titleKey: 'menu.tasks', path: '/tasks', icon: ListTodo },
   { id: 'sessions', titleKey: 'menu.sessions', path: '/sessions', icon: MessagesSquare },
   { id: 'users', titleKey: 'menu.users', path: '/users', icon: Users },

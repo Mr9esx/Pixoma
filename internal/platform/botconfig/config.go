@@ -32,8 +32,7 @@ type Config struct {
 	ComfyUIBaseURL string `yaml:"comfyui_base_url"`
 	// Edges optionally seeds multiple ComfyUI instances on startup.
 	// When empty, no default instance is upserted; nodes are added manually.
-	Edges       []EdgeSeed `yaml:"edges"`
-	CaseSeedDir string     `yaml:"case_seed_dir"`
+	Edges []EdgeSeed `yaml:"edges"`
 	// ComfyMock enables the in-process ComfyUI mock (default true).
 	// Set false (or COMFY_MOCK=0) to call a real ComfyUI at ComfyUIBaseURL.
 	ComfyMock bool `yaml:"comfy_mock"`
@@ -83,7 +82,6 @@ func Default() Config {
 		HTTPAddr:            ":8082",
 		BlobRoot:            "data/blob",
 		ComfyUIBaseURL:      "http://127.0.0.1:8188",
-		CaseSeedDir:         "configs/cases",
 		ComfyMock:           true,
 		HealthProbeInterval: "30s",
 		Placement:           PlacementLocal,
@@ -202,9 +200,6 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("COMFYUI_BASE_URL"); v != "" {
 		cfg.ComfyUIBaseURL = v
-	}
-	if v := os.Getenv("CASE_SEED_DIR"); v != "" {
-		cfg.CaseSeedDir = v
 	}
 	if v := os.Getenv("COMFY_MOCK"); v != "" {
 		b, err := strconv.ParseBool(v)

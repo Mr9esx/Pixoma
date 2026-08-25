@@ -1,3 +1,6 @@
+const cardWrap =
+  'bg-card rounded-[8px] border shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none overflow-hidden'
+
 export const kit = {
   pageSection: 'mx-auto flex w-full max-w-7xl flex-col gap-7 px-6 py-7 md:px-8',
   title: 'truncate text-2xl leading-tight font-semibold tracking-tight',
@@ -21,8 +24,8 @@ export const kit = {
   metaChip:
     'flex min-w-0 items-center gap-3 border-border/70 bg-muted/25 rounded-full border px-2.5 py-1.5 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0',
   metaChipDivider: 'bg-border hidden h-4 w-px shrink-0 sm:block',
-  statsWrap:
-    'bg-card rounded-[8px] border shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none overflow-hidden',
+  cardWrap,
+  statsWrap: cardWrap,
   statsGrid: 'grid md:grid-cols-3',
   statsCell: [
     'min-w-0 border-b p-3.5 sm:p-4 md:border-b-0 md:border-r',

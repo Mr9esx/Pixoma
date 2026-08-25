@@ -34,6 +34,7 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 		Boot:         boot,
 		Sessions:     sess,
 		DataDir:      dir,
+		PublicURL:    "http://192.168.31.162:8082",
 		RestartAfter: time.Millisecond,
 		Restart:      func() { restarted <- struct{}{} },
 	}
@@ -172,6 +173,9 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"configured":true`) {
 		t.Fatalf("settings not readable: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"public_url":"http://192.168.31.162:8082"`) {
+		t.Fatalf("settings missing public_url: %s", rec.Body.String())
 	}
 }
 

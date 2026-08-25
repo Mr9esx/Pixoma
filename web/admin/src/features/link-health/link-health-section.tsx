@@ -3,8 +3,8 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { CircleCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SectionHead } from '@/features/edges/observation-panel'
 import { Button } from '@/components/ui/button'
+import { SectionHead } from '@/components/section-head'
 import type { EntityHealth, ReferenceItem } from './lib/references'
 
 const stateClass: Record<string, string> = {
@@ -34,7 +34,7 @@ export function LinkHealthSection({
     <section
       id='link-health-section'
       data-testid='link-health-section'
-      className='space-y-3'
+      className='flex flex-col gap-4'
     >
       <SectionHead title={title} hint={t('linkHealth.sectionHint')} />
       {health.state === 'ok' ? (

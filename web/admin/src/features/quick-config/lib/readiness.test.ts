@@ -47,17 +47,43 @@ describe('computeReadiness', () => {
     ).toEqual({ workflow: 'ready', processing: 'ready', placements: 'ready' })
   })
 
-  it('无任何规则时处理流程为缺口', () => {
+  it('无规则但默认 Topic 已绑定且在线时为就绪（空规则回退默认 Topic）', () => {
     expect(
       computeReadiness({
         workflow: 'ready',
         rules: [],
-        enabledTopics: ['a'],
-        boundTopics: ['a'],
-        onlineTopics: ['a'],
+        enabledTopics: ['default'],
+        boundTopics: ['default'],
+        onlineTopics: ['default'],
+        placements: [{}],
+      }).processing
+    ).toBe('ready')
+  })
+
+  it('无规则且默认 Topic 未绑定时处理流程为缺口', () => {
+    expect(
+      computeReadiness({
+        workflow: 'ready',
+        rules: [],
+        enabledTopics: ['default'],
+        boundTopics: [],
+        onlineTopics: [],
         placements: [{}],
       }).processing
     ).toBe('gap')
+  })
+
+  it('无规则且默认 Topic 已绑定但无在线节点时为警告', () => {
+    expect(
+      computeReadiness({
+        workflow: 'ready',
+        rules: [],
+        enabledTopics: ['default'],
+        boundTopics: ['default'],
+        onlineTopics: [],
+        placements: [{}],
+      }).processing
+    ).toBe('warn')
   })
 
   it('规则未连接 Topic 时处理流程为缺口', () => {

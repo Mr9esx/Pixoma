@@ -98,9 +98,11 @@ export function finalizeSetup() {
 }
 
 export function fetchPlatformSettings() {
-  return apiFetch<{ configured: boolean; settings?: SetupDraft }>(
-    '/api/v1/setup/settings'
-  )
+  return apiFetch<{
+    configured: boolean
+    settings?: SetupDraft
+    public_url?: string
+  }>('/api/v1/setup/settings')
 }
 
 export function savePlatformSettings(draft: SetupDraft) {

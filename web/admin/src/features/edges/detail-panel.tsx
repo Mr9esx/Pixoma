@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
   BadgeCheck,
   Boxes,
@@ -11,6 +11,7 @@ import {
   ListTodo,
   MemoryStick,
   PenLine,
+  SearchX,
   Tags,
   Terminal,
   Timer,
@@ -19,6 +20,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { listCases } from '@/lib/api/cases'
+import { ApiError } from '@/lib/api/client'
 import {
   deleteEdge,
   getEdge,
@@ -40,6 +42,7 @@ import {
 } from '@/components/ui/dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { NotFoundState } from '@/components/feedback/not-found-state'
 import { LongText } from '@/components/long-text'
 import { MetaChip } from '@/components/meta-chip'
 import { SectionHead } from '@/components/section-head'
@@ -179,6 +182,31 @@ export function EdgeDetailPanel({ id }: Props) {
   }, [id, detailQuery.data, casesQuery.data, presenceQuery.data])
 
   if (detailQuery.isError) {
+    const notFound =
+      detailQuery.error instanceof ApiError && detailQuery.error.status === 404
+    if (notFound) {
+      return (
+        <NotFoundState
+          icon={<SearchX />}
+          title={t('edges.notFoundTitle')}
+          description={t('edges.notFoundDesc')}
+          actions={
+            <>
+              <Button asChild className={kit.btnPrimary}>
+                <Link to='/edges'>{t('edges.backToList')}</Link>
+              </Button>
+              <Button
+                asChild
+                variant='outline'
+                className='h-8 gap-1.5 rounded-md px-3 text-xs'
+              >
+                <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
+              </Button>
+            </>
+          }
+        />
+      )
+    }
     return (
       <div className={kit.pageSection}>
         <ErrorBanner
@@ -248,8 +276,8 @@ export function EdgeDetailPanel({ id }: Props) {
             </Button>
             <Button
               type='button'
-              variant='outline'
-              className='h-8 gap-1.5 px-3 text-xs text-destructive hover:text-destructive'
+              variant='destructive'
+              className='h-8 gap-1.5 rounded-md px-3 text-xs'
               onClick={() => setDeleteOpen(true)}
             >
               <Trash2 className='size-3.5' />

@@ -11,8 +11,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import type { MetricsRange, MetricsWindow } from '@/lib/api/edges'
 import type { EdgeMetricsResponse, TaskRecord } from '@/lib/api/types'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import {
   ChartContainer,
   ChartTooltip,
@@ -27,15 +30,26 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { SectionHead } from '@/components/section-head'
 import { TaskDetailPanel } from '@/features/tasks/detail-panel'
 import { taskStatusLabelKey } from '@/features/tasks/list-panel'
 import { kit } from './kit-classes'
 import {
+  applyTimeToDate,
+  formatFullTime,
   formatBytes,
   formatMetricValue,
+  formatTimeInput,
   ioAxisTicks,
   parseMetrics,
   seriesStats,
@@ -58,7 +72,16 @@ const GPU_SERIES_COLORS = [
 type StatItem = { label: string; value: string }
 
 function timeTick(v: number): string {
-  return new Date(v).toLocaleTimeString()
+  return formatFullTime(v)
+}
+
+function tooltipLabelFormatter(
+  _value: unknown,
+  payload: readonly unknown[]
+): ReactNode {
+  const first = payload[0] as { payload?: { time?: number } } | undefined
+  if (!first?.payload?.time) return null
+  return formatFullTime(first.payload.time)
 }
 
 function chartTooltipFormatter(
@@ -123,7 +146,7 @@ function LineCardShell({
   children: ReactNode
 }) {
   return (
-    <div className='flex min-w-0 flex-1 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:shadow-none'>
+    <div className='flex min-w-0 flex-1 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none'>
       <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
         <div>
           <h2 className='text-base font-semibold'>{title}</h2>
@@ -212,6 +235,7 @@ export function CpuCard({ series }: { series: MetricsPoint[] }) {
           content={
             <ChartTooltipContent
               formatter={(v, n) => chartTooltipFormatter(v, n, config)}
+              labelFormatter={tooltipLabelFormatter}
             />
           }
         />
@@ -279,6 +303,7 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
           content={
             <ChartTooltipContent
               formatter={(v, n) => chartTooltipFormatter(v, n, config)}
+              labelFormatter={tooltipLabelFormatter}
             />
           }
         />
@@ -305,7 +330,9 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
 
 export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
-  const last = series[series.length - 1]
+  const last =
+    [...series].reverse().find((p) => p.gpus.length > 0) ??
+    series[series.length - 1]
   const gpuNames = last?.gpus.map((gpu) => gpu.name) ?? []
   if (gpuNames.length === 0) return null
   const multi = gpuNames.length > 1
@@ -380,6 +407,7 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
             content={
               <ChartTooltipContent
                 formatter={(v, n) => chartTooltipFormatter(v, n, usageConfig)}
+                labelFormatter={tooltipLabelFormatter}
               />
             }
           />
@@ -432,6 +460,7 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
             content={
               <ChartTooltipContent
                 formatter={(v, n) => chartTooltipFormatter(v, n, vramConfig)}
+                labelFormatter={tooltipLabelFormatter}
               />
             }
           />
@@ -534,6 +563,7 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
           content={
             <ChartTooltipContent
               formatter={(v, n) => chartTooltipFormatter(v, n, config)}
+              labelFormatter={tooltipLabelFormatter}
             />
           }
         />
@@ -568,15 +598,24 @@ type QueryView<T> = {
   refetch: () => void
 }
 
-export function SectionHead({ title, hint }: { title: string; hint: string }) {
+// 单个 time input（HH:MM），图标由全局 CSS 隐藏，体积比两个下拉小。
+function TimeInput({
+  value,
+  onChange,
+  className,
+}: {
+  value: string
+  onChange: (time: string) => void
+  className?: string
+}) {
   return (
-    <div className='flex flex-col gap-1'>
-      <div className='flex items-center gap-3'>
-        <h2 className={kit.sectionTitle}>{title}</h2>
-        <span className={kit.sectionDash} />
-      </div>
-      <p className='text-xs text-muted-foreground'>{hint}</p>
-    </div>
+    <Input
+      type='time'
+      step={60}
+      className={cn('h-7 w-full px-2 text-xs', className)}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
   )
 }
 
@@ -723,17 +762,184 @@ function TasksSection({
 
 function MonitoringSection({
   data,
+  metricsRange,
+  onMetricsRangeChange,
 }: {
   data: ReturnType<typeof parseMetrics>
+  metricsRange: MetricsRange
+  onMetricsRangeChange: (range: MetricsRange) => void
 }) {
   const { t } = useTranslation()
   const hasData = data.series.length > 0
+  const [customOpen, setCustomOpen] = useState(false)
+  const [draftRange, setDraftRange] = useState<{
+    from: Date
+    to: Date
+  } | null>(null)
+  const [draftFromTime, setDraftFromTime] = useState('00:00')
+  const [draftToTime, setDraftToTime] = useState('23:59')
+  const [customError, setCustomError] = useState<string | null>(null)
+
+  const openCustom = () => {
+    const active =
+      metricsRange.kind === 'custom'
+        ? {
+            from: new Date(Date.parse(metricsRange.from)),
+            to: new Date(Date.parse(metricsRange.to)),
+          }
+        : {
+            from: new Date(Date.now() - 3600_000),
+            to: new Date(),
+          }
+    setDraftRange({ from: active.from, to: active.to })
+    setDraftFromTime(formatTimeInput(active.from.getTime()))
+    setDraftToTime(formatTimeInput(active.to.getTime()))
+    setCustomError(null)
+  }
+
+  const applyCustom = () => {
+    if (!draftRange) {
+      setCustomError(t('edges.monitorCustomInvalid'))
+      return
+    }
+    const from = applyTimeToDate(draftRange.from, draftFromTime)
+    const to = applyTimeToDate(draftRange.to, draftToTime)
+    if (!from || !to || from.getTime() >= to.getTime()) {
+      setCustomError(t('edges.monitorCustomInvalid'))
+      return
+    }
+    onMetricsRangeChange({
+      kind: 'custom',
+      from: from.toISOString(),
+      to: to.toISOString(),
+    })
+    setCustomOpen(false)
+  }
+
+  const activePreset =
+    metricsRange.kind === 'preset' ? metricsRange.window : null
+  const activeCustom =
+    metricsRange.kind === 'custom'
+      ? `${formatFullTime(Date.parse(metricsRange.from))} ~ ${formatFullTime(Date.parse(metricsRange.to))}`
+      : null
   return (
     <section className='flex flex-col gap-4'>
       <SectionHead
         title={t('edges.observationSystem')}
         hint={t('edges.observationSystemHint')}
       />
+      <Popover
+        open={customOpen}
+        onOpenChange={(open) => {
+          if (open) openCustom()
+          setCustomOpen(open)
+        }}
+      >
+        <div className='flex flex-col items-end gap-1'>
+          <div
+            className='flex items-center gap-1 rounded-md border bg-muted/40 p-0.5'
+            role='group'
+            aria-label={t('edges.monitorRange')}
+          >
+            {(['1h', '6h', '24h'] as MetricsWindow[]).map((w) => (
+              <button
+                key={w}
+                type='button'
+                onClick={() =>
+                  onMetricsRangeChange({ kind: 'preset', window: w })
+                }
+                className={cn(
+                  'rounded px-2 py-1 text-xs font-medium transition-colors',
+                  activePreset === w
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {w}
+              </button>
+            ))}
+            <PopoverTrigger asChild>
+              <button
+                type='button'
+                className={cn(
+                  'rounded px-2 py-1 text-xs font-medium transition-colors',
+                  metricsRange.kind === 'custom'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t('edges.monitorCustom')}
+              </button>
+            </PopoverTrigger>
+          </div>
+          {activeCustom ? (
+            <span className='max-w-56 truncate text-[11px] text-muted-foreground'>
+              {activeCustom}
+            </span>
+          ) : null}
+        </div>
+        <PopoverContent align='end' className='w-auto p-0'>
+          <Calendar
+            mode='range'
+            defaultMonth={draftRange?.from}
+            selected={
+              draftRange
+                ? { from: draftRange.from, to: draftRange.to }
+                : undefined
+            }
+            onSelect={(sel) => {
+              if (sel?.from) {
+                setDraftRange({ from: sel.from, to: sel.to ?? sel.from })
+              }
+            }}
+            disabled={(date: Date) => date > new Date()}
+          />
+          <div className='px-3 pb-3'>
+            <div className='mt-2 flex flex-col gap-1'>
+              <div className='flex items-center gap-2'>
+                <Label className='min-w-0 flex-1 text-center text-xs'>
+                  {t('edges.monitorCustomFrom')}
+                </Label>
+                <span className='w-4 shrink-0' />
+                <Label className='min-w-0 flex-1 text-center text-xs'>
+                  {t('edges.monitorCustomTo')}
+                </Label>
+              </div>
+              <div className='flex items-center gap-2'>
+                <TimeInput
+                  className='min-w-0 flex-1'
+                  value={draftFromTime}
+                  onChange={setDraftFromTime}
+                />
+                <span className='w-4 shrink-0 text-center text-muted-foreground'>
+                  ~
+                </span>
+                <TimeInput
+                  className='min-w-0 flex-1'
+                  value={draftToTime}
+                  onChange={setDraftToTime}
+                />
+              </div>
+            </div>
+            {customError ? (
+              <p className='mt-1 text-xs text-destructive'>{customError}</p>
+            ) : null}
+            <div className='mt-5 flex justify-end gap-2'>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={() => setCustomOpen(false)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button type='button' size='sm' onClick={applyCustom}>
+                {t('edges.monitorCustomApply')}
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
       {!hasData ? (
         <Empty className='border p-3 md:p-6'>
           <EmptyHeader className='max-w-none'>
@@ -783,19 +989,27 @@ function BlockBody({
 
 type Props = {
   metricsQuery: QueryView<EdgeMetricsResponse | undefined>
+  metricsRange: MetricsRange
+  onMetricsRangeChange: (range: MetricsRange) => void
   tasksQuery: QueryView<TaskRecord[] | undefined>
   tasksPagination: TasksPagination
 }
 
 export function ObservationPanel({
   metricsQuery,
+  metricsRange,
+  onMetricsRangeChange,
   tasksQuery,
   tasksPagination,
 }: Props) {
   return (
     <div className='flex flex-col gap-7' data-testid='edge-observation'>
       <BlockBody query={metricsQuery}>
-        <MonitoringSection data={parseMetrics(metricsQuery.data)} />
+        <MonitoringSection
+          data={parseMetrics(metricsQuery.data)}
+          metricsRange={metricsRange}
+          onMetricsRangeChange={onMetricsRangeChange}
+        />
       </BlockBody>
       <BlockBody query={tasksQuery}>
         <TasksSection

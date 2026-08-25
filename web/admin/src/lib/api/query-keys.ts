@@ -6,7 +6,8 @@ export const queryKeys = {
     tasks: (id: string, offset: number) =>
       ['edges', id, 'tasks', offset] as const,
     stats: (id: string) => ['edges', id, 'stats'] as const,
-    metrics: (id: string) => ['edges', id, 'metrics'] as const,
+    metrics: (id: string, window: string) =>
+      ['edges', id, 'metrics', window] as const,
   },
   cases: {
     all: ['cases'] as const,

@@ -1,10 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { Server } from 'lucide-react'
 import type { ComfyEdge, EdgePresence } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
-import { EmptyState } from '@/components/feedback/empty-state'
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { kit } from './kit-classes'
@@ -67,7 +73,16 @@ export function EdgeListPanel({
       ) : null}
 
       {!isLoading && !isError && filtered.length === 0 ? (
-        <EmptyState message={t('edges.empty')} />
+        <Empty>
+          <EmptyHeader className='max-w-none'>
+            <EmptyMedia variant='icon'>
+              <Server />
+            </EmptyMedia>
+            <EmptyTitle className='text-sm font-medium'>
+              {t('edges.empty')}
+            </EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : null}
 
       {!isLoading && !isError && filtered.length > 0 ? (

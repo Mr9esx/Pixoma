@@ -22,6 +22,11 @@ type Handler struct {
 	Boot     *bootstrap.Store
 	Sessions *Sessions
 	DataDir  string
+	// PublicURL is the externally reachable control-plane address that edge
+	// agents should connect to (PUBLIC_URL / HTTP_ADDR). It is exposed to the
+	// admin UI so generated deploy commands never point at a frontend origin
+	// that cannot serve the agent API (e.g. Vite dev on localhost:5173).
+	PublicURL string
 	// OpenBusiness is used after a successful DB ping so settings can be saved.
 	OpenBusiness func(driver, dsn string) (*gorm.DB, error)
 	// Restart reloads pixoma after finalize. Nil skips auto-reload (tests).
@@ -255,7 +260,7 @@ func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	driver, dsn, err := h.Boot.AppDB()
 	if err != nil || strings.TrimSpace(dsn) == "" {
-		writeJSON(w, http.StatusOK, map[string]any{"configured": false})
+		writeJSON(w, http.StatusOK, map[string]any{"configured": false, "public_url": h.PublicURL})
 		return
 	}
 	st, cleanup, err := h.settingsStore(driver, dsn)
@@ -266,12 +271,16 @@ func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = cleanup() }()
 	got, err := st.Load()
 	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"configured": false})
+		writeJSON(w, http.StatusOK, map[string]any{"configured": false, "public_url": h.PublicURL})
 		return
 	}
 	got.BlobAccessKey = mask(got.BlobAccessKey)
 	got.BlobSecretKey = mask(got.BlobSecretKey)
-	writeJSON(w, http.StatusOK, map[string]any{"configured": true, "settings": got})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"configured": true,
+		"settings":   got,
+		"public_url": h.PublicURL,
+	})
 }
 
 func (h *Handler) putSettings(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,11 @@
-import type { AttributeDescriptor, Condition, RoutingConfig, RoutingRule, TopicRecord } from '../types'
+import {
+  DEFAULT_TOPIC_KEY,
+  type AttributeDescriptor,
+  type Condition,
+  type RoutingConfig,
+  type RoutingRule,
+  type TopicRecord,
+} from '../types'
 
 /**
  * 保存前校验：与后端 internal/catalog/infrastructure/validation/ValidateRouting
@@ -10,6 +17,7 @@ export type RuleIssueKind =
   | 'topic-missing'
   | 'topic-unknown'
   | 'topic-disabled'
+  | 'topic-unbound'
   | 'condition-unknown-field'
   | 'condition-bad-op'
   | 'condition-empty-group'
@@ -48,6 +56,7 @@ export function validateRule(
   index: number,
   topics: TopicRecord[],
   attributes: AttributeDescriptor[],
+  boundTopicKeys?: ReadonlySet<string>,
 ): RuleIssue | null {
   const topic = rule.topic?.trim()
   if (!topic) {
@@ -59,6 +68,9 @@ export function validateRule(
   }
   if (!record.enabled) {
     return { index, kind: 'topic-disabled', message: `规则 #${index + 1}：目标 Topic「${topicName(topics, topic)}」已禁用，请先启用或改连其他 Topic` }
+  }
+  if (boundTopicKeys && !boundTopicKeys.has(topic)) {
+    return { index, kind: 'topic-unbound', message: `规则 #${index + 1}：目标 Topic「${topicName(topics, topic)}」未绑定计算节点，请先为该 Topic 绑定启用节点` }
   }
   const condIssue = validateCondition(rule.when, attributes)
   if (condIssue) {
@@ -143,12 +155,24 @@ export function validateRouting(
   routing: RoutingConfig | undefined,
   topics: TopicRecord[],
   attributes: AttributeDescriptor[],
+  boundTopicKeys?: ReadonlySet<string>,
 ): ValidationResult {
   const rules = routing?.rules ?? []
   const issues: RuleIssue[] = []
   const invalidIndexes = new Set<number>()
+  if (rules.length === 0) {
+    // 空规则合法：全部回退默认 Topic（后端允许），只需默认 Topic 已绑定启用节点。
+    if (boundTopicKeys && !boundTopicKeys.has(DEFAULT_TOPIC_KEY)) {
+      issues.push({
+        index: 0,
+        kind: 'topic-unbound',
+        message: `默认 Topic「${DEFAULT_TOPIC_KEY}」未绑定计算节点，请先为该 Topic 绑定启用节点`,
+      })
+    }
+    return { issues, valid: issues.length === 0, invalidIndexes }
+  }
   for (let i = 0; i < rules.length; i++) {
-    const issue = validateRule(rules[i], i, topics, attributes)
+    const issue = validateRule(rules[i], i, topics, attributes, boundTopicKeys)
     if (issue) {
       issues.push(issue)
       invalidIndexes.add(i)

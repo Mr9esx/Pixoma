@@ -206,8 +206,16 @@ export function QuickConfigPage() {
           {casesQuery.isLoading ? (
             <LoadingSkeleton rows={3} />
           ) : (
-            <div className='min-h-0 flex-1 overflow-auto rounded-lg border border-border'>
-              <Table>
+            <div
+              className={`min-h-0 flex-1 overflow-auto rounded-lg border border-border ${
+                visibleCases.length === 0
+                  ? 'grid grid-rows-[minmax(0,1fr)]'
+                  : ''
+              }`}
+            >
+              <Table
+                className={visibleCases.length === 0 ? 'h-full' : undefined}
+              >
                 <TableHeader>
                   <TableRow className='bg-muted/40'>
                     <TableHead className='w-10'>
@@ -251,7 +259,7 @@ export function QuickConfigPage() {
                   {visibleCases.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={3}
+                        colSpan={4}
                         className='py-8 text-center text-muted-foreground'
                       >
                         没有匹配的工作流

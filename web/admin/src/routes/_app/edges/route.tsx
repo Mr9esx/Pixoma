@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
-import { Server } from 'lucide-react'
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useParams,
+} from '@tanstack/react-router'
+import { Plus, Server } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
@@ -9,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   Empty,
+  EmptyContent,
+  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -85,6 +92,7 @@ function EdgesLayout() {
           className={kit.btnPrimary}
           onClick={() => setCreateOpen(true)}
         >
+          <Plus className='size-3.5' />
           {t('edges.createNode')}
         </Button>
       </div>
@@ -110,25 +118,35 @@ function EdgesLayout() {
         detail={selectedId ? <EdgeDetailPanel id={selectedId} /> : null}
         emptyDetail={
           !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
-            <div className='m-auto flex flex-col items-center gap-4 p-6'>
-              <Empty className='border'>
-                <EmptyHeader className='max-w-none'>
-                  <EmptyMedia variant='icon'>
-                    <Server />
-                  </EmptyMedia>
-                  <EmptyTitle className='text-sm font-medium'>
-                    {t('edges.empty')}
-                  </EmptyTitle>
-                </EmptyHeader>
-              </Empty>
-              <Button
-                type='button'
-                className={kit.btnPrimary}
-                onClick={() => setCreateOpen(true)}
-              >
-                {t('edges.createNode')}
-              </Button>
-            </div>
+            <Empty>
+              <EmptyHeader className='max-w-none'>
+                <EmptyMedia variant='icon'>
+                  <Server />
+                </EmptyMedia>
+                <EmptyTitle className='text-sm font-medium'>
+                  {t('edges.empty')}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {t('edges.emptyDesc')}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent className='flex-row justify-center gap-2'>
+                <Button
+                  type='button'
+                  className={kit.btnPrimary}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  {t('edges.createNode')}
+                </Button>
+                <Button
+                  asChild
+                  variant='outline'
+                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
+                >
+                  <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
           ) : undefined
         }
       />

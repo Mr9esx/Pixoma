@@ -20,6 +20,7 @@ archived-with: link-health-visibility
 - 不新增后端端点；一期全部前端组合（与 config-context-association 设计一致）。
 - 每个断点必须携带 `fix: 'config' | 'runtime'` 分类、`action: { to, key }` 行动入口与 `guide` 处理步骤（i18n key）；用户看到断点时必须同时看到「下一步做什么」和「怎么处理」。
 - 所有用户可见文案走 i18n zh/en 成对（新命名空间 `linkHealth`），合同测试强制成对。
+- 组件样式遵循既有约定，不自定义大 padding 卡片：区块头用 `SectionHead`（`@/features/edges/observation-panel`，标题 + 虚线 + 一行 hint）；断点列表用 `rounded-md border` + `divide-y` 紧凑行（`px-3 py-2.5`）；引用列表用表格化列表（`rounded-md border bg-muted/20` + 表头计数 + 每页 10 条分页：上一页/下一页 + 页码，名称 + 状态标签）；Header 告警几何对齐 `ErrorBanner`（`rounded-md border px-4 py-3 text-sm`，琥珀色表示异常）。
 - 新增测试文件必须登记到 `web/admin/vitest.config.ts` 的 `include` 列表。
 - 验证命令：`pnpm tsc -b` 与 `pnpm vitest run`（或单文件 `pnpm vitest run <file>`）全绿后才可提交。
 - 工作区存在未提交的 case 删除守卫改动（`internal/…`、`web/admin/src/features/cases/detail-panel.tsx` 等）：提交时只 `git add` 本任务文件，不夹带无关改动。
@@ -485,6 +486,9 @@ describe('link health visibility', () => {
     const section = read('link-health-section.tsx')
     expect(section).toContain("data-testid='link-health-section'")
     expect(section).toContain("data-testid='link-health-breakpoints'")
+    expect(section).toContain('SectionHead')
+    expect(section).toContain('linkHealth.sectionHint')
+    expect(section).toContain('divide-y')
     expect(section).toContain('linkHealth.fixConfig')
     expect(section).toContain('linkHealth.fixRuntime')
     expect(section).toContain('b.action.to')
@@ -511,7 +515,6 @@ Expected: FAIL（文件不存在 / 断言不满足）
 - [ ] **Step 3: 实现 `link-health-alert.tsx`**
 
 ```tsx
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle } from 'lucide-react'
 import type { EntityHealth } from './lib/references'
@@ -531,14 +534,16 @@ export function LinkHealthAlert({ name, health, anchorTo }: LinkHealthAlertProps
     <div
       role='alert'
       data-testid='link-health-alert'
-      className='flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300'
+      className='flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300'
     >
-      <AlertCircle className='size-4 shrink-0' aria-hidden='true' />
-      <span className='font-medium'>{t('linkHealth.alertTitle', { name })}</span>
-      <span className='text-muted-foreground'>
-        {t('linkHealth.alertSummary', { n })}
-      </span>
-      <a href={anchorTo} className='ml-auto font-medium underline underline-offset-2'>
+      <div className='flex min-w-0 flex-wrap items-center gap-2'>
+        <AlertCircle className='size-4 shrink-0' aria-hidden='true' />
+        <span className='font-medium'>{t('linkHealth.alertTitle', { name })}</span>
+        <span className='text-amber-700/70 dark:text-amber-300/70'>
+          {t('linkHealth.alertSummary', { n })}
+        </span>
+      </div>
+      <a href={anchorTo} className='font-medium underline underline-offset-2'>
         {t('linkHealth.alertViewDetails')} ↓
       </a>
     </div>
@@ -549,17 +554,22 @@ export function LinkHealthAlert({ name, health, anchorTo }: LinkHealthAlertProps
 - [ ] **Step 4: 实现 `link-health-section.tsx`**
 
 ```tsx
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Card, CardContent } from '@/components/ui/card'
+import { CircleCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SectionHead } from '@/features/edges/observation-panel'
+import { Button } from '@/components/ui/button'
 import type { EntityHealth, ReferenceItem } from './lib/references'
 
 const stateClass: Record<string, string> = {
-  ok: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  bad: 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300',
+  ok: 'border-emerald-600/20 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400',
+  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300',
+  bad: 'border-red-600/20 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-900/30 dark:text-red-400',
 }
+
+const PAGE_SIZE = 10
 
 export type LinkHealthSectionProps = {
   title: string
@@ -577,23 +587,39 @@ export function LinkHealthSection({
   const { t } = useTranslation()
   const blocked = health.breakpoints.length > 0
   return (
-    <Card id='link-health-section' data-testid='link-health-section'>
-      <CardContent className='space-y-4 p-4'>
-        <h3 className='text-sm font-semibold'>{title}</h3>
-        {blocked ? (
-          <ul
-            className='space-y-2 text-xs'
-            data-testid='link-health-breakpoints'
-          >
+    <section
+      id='link-health-section'
+      data-testid='link-health-section'
+      className='space-y-3'
+    >
+      <SectionHead title={title} hint={t('linkHealth.sectionHint')} />
+      {health.state === 'ok' ? (
+        <div
+          data-testid='link-health-ok'
+          className='flex items-center gap-2 rounded-md border border-emerald-600/20 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400'
+        >
+          <CircleCheck className='size-4 shrink-0' aria-hidden='true' />
+          <span className='font-medium'>{t('linkHealth.stateOk')}</span>
+          <span className='text-emerald-700/70 dark:text-emerald-400/70'>
+            {t('linkHealth.stateOkDetail')}
+          </span>
+        </div>
+      ) : null}
+      {blocked ? (
+        <div
+          className='overflow-hidden rounded-md border'
+          data-testid='link-health-breakpoints'
+        >
+          <ul className='divide-y'>
             {health.breakpoints.map((b, i) => (
-              <li key={`${b.stage}-${i}`} className='space-y-1'>
+              <li key={`${b.stage}-${i}`} className='space-y-1 px-3 py-2.5'>
                 <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-amber-700 dark:text-amber-300'>
+                  <span className='text-sm text-amber-700 dark:text-amber-300'>
                     {t(b.key, b.params)}
                   </span>
                   <span
                     className={cn(
-                      'rounded-sm px-1.5 py-0.5 text-[10px]',
+                      'rounded-sm px-1.5 py-0.5 text-[11px]',
                       b.fix === 'config'
                         ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
                         : 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
@@ -605,13 +631,13 @@ export function LinkHealthSection({
                   </span>
                   <Link
                     to={b.action.to}
-                    className='font-medium text-foreground underline underline-offset-2'
+                    className='ml-auto text-sm font-medium text-foreground underline underline-offset-2'
                   >
                     {t(b.action.key)} →
                   </Link>
                 </div>
                 <p
-                  className='text-xs text-muted-foreground'
+                  className='text-sm text-muted-foreground'
                   data-testid='link-health-guide'
                 >
                   {t('linkHealth.howToHandle')}：{t(b.guide)}
@@ -619,13 +645,13 @@ export function LinkHealthSection({
               </li>
             ))}
           </ul>
-        ) : null}
-        <div className='grid gap-4 sm:grid-cols-2'>
-          <ReferenceList title={upstream.title} items={upstream.items} />
-          <ReferenceList title={downstream.title} items={downstream.items} />
         </div>
-      </CardContent>
-    </Card>
+      ) : null}
+      <div className='grid gap-3 sm:grid-cols-2'>
+        <ReferenceList title={upstream.title} items={upstream.items} />
+        <ReferenceList title={downstream.title} items={downstream.items} />
+      </div>
+    </section>
   )
 }
 
@@ -637,27 +663,83 @@ function ReferenceList({
   items: ReferenceItem[]
 }) {
   const { t } = useTranslation()
+  const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const start = (safePage - 1) * PAGE_SIZE
+  const pageItems = items.slice(start, start + PAGE_SIZE)
   return (
-    <div className='space-y-2' data-testid='link-health-reference-list'>
-      <p className='text-xs font-medium text-muted-foreground'>{title}</p>
+    <div
+      className='overflow-hidden rounded-md border bg-muted/20'
+      data-testid='link-health-reference-list'
+    >
+      <div className='flex items-center justify-between border-b px-3 py-2'>
+        <p className='text-xs font-medium text-muted-foreground'>{title}</p>
+        <span className='text-xs text-muted-foreground'>{items.length}</span>
+      </div>
       {items.length === 0 ? (
-        <p className='text-xs text-muted-foreground'>{t('linkHealth.none')}</p>
+        <p className='px-3 py-2 text-sm text-muted-foreground'>
+          {t('linkHealth.none')}
+        </p>
       ) : (
-        <ul className='flex flex-wrap gap-2'>
-          {items.map((item) => (
-            <li key={`${item.id}:${item.name}`}>
-              <Link
-                to={item.to}
-                className={cn(
-                  'rounded-sm border px-2 py-1 text-xs',
-                  stateClass[item.state],
-                )}
+        <>
+          <ul className='divide-y'>
+            {pageItems.map((item) => (
+              <li
+                key={`${item.id}:${item.name}`}
+                className='flex items-center gap-2 px-3 py-2'
               >
-                {item.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <Link
+                  to={item.to}
+                  className={cn(
+                    'min-w-0 truncate text-sm font-medium text-foreground hover:underline',
+                  )}
+                >
+                  {item.name}
+                </Link>
+                <span
+                  className={cn(
+                    'ml-auto shrink-0 rounded-md border px-1.5 py-0.5 text-[11px]',
+                    stateClass[item.state],
+                  )}
+                >
+                  {item.state === 'ok'
+                    ? t('linkHealth.stateReady')
+                    : item.state === 'warn'
+                      ? t('linkHealth.stateWarn')
+                      : t('linkHealth.stateBad')}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {totalPages > 1 ? (
+            <div className='flex items-center justify-between border-t px-3 py-2'>
+              <span className='text-xs text-muted-foreground'>
+                {t('linkHealth.page', { page: safePage, total: totalPages })}
+              </span>
+              <div className='flex gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  disabled={safePage <= 1}
+                  onClick={() => setPage(safePage - 1)}
+                >
+                  {t('linkHealth.prev')}
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage(safePage + 1)}
+                >
+                  {t('linkHealth.next')}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   )
@@ -670,7 +752,16 @@ zh.json：
 
 ```json
 "linkHealth": {
-  "title": "链路健康",
+  "title": "状态与关联",
+  "sectionHint": "检查入口、Topic 与节点的依赖是否就绪，并给出下一步处理指引",
+  "stateOk": "链路正常",
+  "stateOkDetail": "入口、Topic、节点均就绪",
+  "stateReady": "就绪",
+  "stateWarn": "异常",
+  "stateBad": "缺失",
+  "prev": "上一页",
+  "next": "下一页",
+  "page": "第 {{page}} / {{total}} 页",
   "alertTitle": "{{name}} 当前不可用",
   "alertSummary": "有 {{n}} 处问题需要处理",
   "alertViewDetails": "查看处理指引",
@@ -682,35 +773,35 @@ zh.json：
   "actionAddEntry": "去添加入口",
   "actionManageNodes": "去管理节点",
   "actionConfigureRouting": "去配置路由",
-  "actionBindTopic": "去绑定 Topic",
+  "actionBindTopic": "去订阅 Topic",
   "actionEditNode": "去编辑节点",
   "actionCheckNode": "检查节点",
-  "guideNoMenuEntry": "在渠道菜单编辑器中添加「打开工作流/Case」入口，选择该 Case，保存并发布。",
-  "guideTopicNoReadyNode": "确认该 Topic 已有节点订阅且节点在线；在节点列表启用节点，或检查 agent 心跳与 Comfy 服务。",
-  "guideNoCaseRoutes": "在 Case 的处理流程中添加路由规则，把条件指向该 Topic，保存后重新检查。",
-  "guideNoEdgeSubscribers": "在计算节点详情中勾选该 Topic 的订阅并保存；没有可订阅节点时先新增节点。",
-  "guideSubscribersOffline": "检查订阅节点的 edge-agent 是否在运行、控制面网络是否可达、Comfy 服务是否正常。",
-  "guideNoTopicBinding": "在节点编辑弹窗中勾选至少一个 Topic 订阅并保存。",
-  "guideNoCaseReachable": "在 Case 的处理流程中配置路由到该节点订阅的 Topic。",
-  "guideEdgeNotReady": "先确认节点已启用；已启用仍离线时，检查 edge-agent 进程、网络与 Comfy 服务，等待心跳恢复。",
-  "guideCaseMissing": "该 Case 已不存在，去 Case 列表重新创建或选择其他实体。",
+  "guideNoMenuEntry": "在渠道菜单编辑器中添加「打开工作流」入口，选择该工作流，保存并发布。",
+  "guideTopicNoReadyNode": "确认该 Topic 已有计算节点订阅且在线；在计算节点列表启用计算节点，或检查 agent 心跳与 Comfy 服务。",
+  "guideNoCaseRoutes": "在该工作流的处理流程中添加路由规则，把条件指向该 Topic，保存后重新检查。",
+  "guideNoEdgeSubscribers": "在计算节点详情中勾选该 Topic 的订阅并保存；没有可订阅的计算节点时先新增计算节点。",
+  "guideSubscribersOffline": "检查订阅计算节点的 edge-agent 是否在运行、控制面网络是否可达、Comfy 服务是否正常。",
+  "guideNoTopicBinding": "在计算节点编辑弹窗中勾选至少一个 Topic 订阅并保存。",
+  "guideNoCaseReachable": "在该工作流的处理流程中配置路由规则，让任务经订阅的 Topic 派给该节点。",
+  "guideEdgeNotReady": "先确认计算节点已启用；已启用仍离线时，检查 edge-agent 进程、网络与 Comfy 服务，等待心跳恢复。",
+  "guideCaseMissing": "该工作流已不存在，去工作流列表重新创建或选择其他实体。",
   "guideEdgeMissing": "该节点已不存在，去节点列表重新创建或选择其他实体。",
   "noMenuEntry": "没有渠道菜单入口，用户不可达",
-  "noCaseRoutes": "没有 Case 路由到该 Topic",
-  "noTopicBinding": "该节点没有订阅任何 Topic",
-  "noCaseReachable": "没有 Case 可经由订阅 Topic 到达该节点",
-  "edgeNotReady": "节点未就绪（停用或离线）",
-  "topicNoReadyNode": "Topic {{topic}} 没有在线节点",
-  "noEdgeSubscribers": "没有节点订阅该 Topic",
-  "subscribersOffline": "订阅节点全部离线",
-  "caseMissing": "Case 不存在",
-  "edgeMissing": "节点不存在",
-  "boundTopics": "绑定 Topic",
-  "referencingCases": "引用 Case",
-  "referencingTopics": "引用 Topic",
-  "menuEntries": "菜单入口",
-  "topics": "Topic",
-  "edges": "节点"
+  "noCaseRoutes": "没有工作流路由到该 Topic",
+  "noTopicBinding": "该计算节点没有订阅任何 Topic",
+  "noCaseReachable": "没有工作流把任务派给该节点",
+  "edgeNotReady": "计算节点未就绪（停用或离线）",
+  "topicNoReadyNode": "Topic {{topic}} 没有在线计算节点",
+  "noEdgeSubscribers": "没有计算节点订阅该 Topic",
+  "subscribersOffline": "订阅计算节点全部离线",
+  "caseMissing": "工作流不存在",
+  "edgeMissing": "计算节点不存在",
+  "executedWorkflows": "处理的工作流",
+  "usedWorkflows": "使用的工作流",
+  "subscribedTopics": "订阅 Topic",
+  "boundNodes": "绑定计算节点",
+  "relatedEntries": "关联入口",
+  "routeTopics": "路由 Topic"
 }
 ```
 
@@ -718,7 +809,16 @@ en.json：
 
 ```json
 "linkHealth": {
-  "title": "Link health",
+  "title": "Status & relations",
+  "sectionHint": "Checks whether entries, topics, and nodes are ready, with next-step guidance",
+  "stateOk": "All ready",
+  "stateOkDetail": "Entries, topics, and nodes are ready",
+  "stateReady": "Ready",
+  "stateWarn": "Needs attention",
+  "stateBad": "Missing",
+  "prev": "Previous",
+  "next": "Next",
+  "page": "Page {{page}} of {{total}}",
   "alertTitle": "{{name}} is currently unavailable",
   "alertSummary": "{{n}} issue(s) need attention",
   "alertViewDetails": "View fix guide",
@@ -730,35 +830,35 @@ en.json：
   "actionAddEntry": "Add entry",
   "actionManageNodes": "Manage nodes",
   "actionConfigureRouting": "Configure routing",
-  "actionBindTopic": "Bind topic",
+  "actionBindTopic": "Subscribe topic",
   "actionEditNode": "Edit node",
   "actionCheckNode": "Check node",
-  "guideNoMenuEntry": "In the channel menu editor, add an open-workflow/case entry that selects this case, save, and publish.",
-  "guideTopicNoReadyNode": "Make sure this topic has a subscribing node that is online; enable the node in the node list, or check agent heartbeat and the Comfy service.",
-  "guideNoCaseRoutes": "Add a routing rule in the case workflow that points a condition to this topic, save, then re-check.",
-  "guideNoEdgeSubscribers": "Select this topic in the node's subscription settings and save; create a node first if none are available.",
-  "guideSubscribersOffline": "Check that subscribing nodes' edge-agent is running, the control plane is reachable, and the Comfy service is healthy.",
-  "guideNoTopicBinding": "Select at least one topic subscription in the node edit dialog and save.",
-  "guideNoCaseReachable": "Configure routing in the case workflow to the topic this node subscribes to.",
-  "guideEdgeNotReady": "First confirm the node is enabled; if it is still offline, check the edge-agent process, network, and Comfy service, then wait for heartbeat to recover.",
-  "guideCaseMissing": "This case no longer exists — recreate it in the case list or select another entity.",
+  "guideNoMenuEntry": "In the channel menu editor, add an open-workflow entry that selects this workflow, save, and publish.",
+  "guideTopicNoReadyNode": "Make sure this topic has a subscribing compute node that is online; enable the node in the compute node list, or check agent heartbeat and the Comfy service.",
+  "guideNoCaseRoutes": "Add a routing rule in this workflow's processing flow that points a condition to this topic, save, then re-check.",
+  "guideNoEdgeSubscribers": "Select this topic in the compute node's subscription settings and save; create a compute node first if none are available.",
+  "guideSubscribersOffline": "Check that subscribing compute nodes' edge-agent is running, the control plane is reachable, and the Comfy service is healthy.",
+  "guideNoTopicBinding": "Select at least one topic subscription in the compute node edit dialog and save.",
+  "guideNoCaseReachable": "Configure routing rules in this workflow's processing flow so tasks are dispatched to this node through subscribed topics.",
+  "guideEdgeNotReady": "First confirm the compute node is enabled; if it is still offline, check the edge-agent process, network, and Comfy service, then wait for heartbeat to recover.",
+  "guideCaseMissing": "This workflow no longer exists — recreate it in the workflow list or select another entity.",
   "guideEdgeMissing": "This node no longer exists — recreate it in the node list or select another entity.",
   "noMenuEntry": "No menu entry — users cannot reach this case",
-  "noCaseRoutes": "No case routes to this topic",
-  "noTopicBinding": "This node subscribes to no topics",
-  "noCaseReachable": "No case can reach this node",
-  "edgeNotReady": "Node is not ready (disabled or offline)",
-  "topicNoReadyNode": "Topic {{topic}} has no online node",
-  "noEdgeSubscribers": "No node subscribes to this topic",
-  "subscribersOffline": "All subscribing nodes are offline",
-  "caseMissing": "Case not found",
-  "edgeMissing": "Node not found",
-  "boundTopics": "Bound topics",
-  "referencingCases": "Referencing cases",
-  "referencingTopics": "Referencing topics",
-  "menuEntries": "Menu entries",
-  "topics": "Topics",
-  "edges": "Nodes"
+  "noCaseRoutes": "No workflow routes to this topic",
+  "noTopicBinding": "This compute node subscribes to no topics",
+  "noCaseReachable": "No workflow routes tasks to this node",
+  "edgeNotReady": "Compute node is not ready (disabled or offline)",
+  "topicNoReadyNode": "Topic {{topic}} has no online compute node",
+  "noEdgeSubscribers": "No compute node subscribes to this topic",
+  "subscribersOffline": "All subscribing compute nodes are offline",
+  "caseMissing": "Workflow not found",
+  "edgeMissing": "Compute node not found",
+  "executedWorkflows": "Workflows it processes",
+  "usedWorkflows": "Workflows that use it",
+  "subscribedTopics": "Subscribed topics",
+  "boundNodes": "Bound compute nodes",
+  "relatedEntries": "Related entries",
+  "routeTopics": "Routed topics"
 }
 ```
 
@@ -856,8 +956,8 @@ import { edgeReferences } from '@/features/link-health/lib/references'
       <LinkHealthSection
         title={t('linkHealth.title')}
         health={edgeRefs.health}
-        upstream={{ title: t('linkHealth.referencingCases'), items: edgeRefs.cases }}
-        downstream={{ title: t('linkHealth.boundTopics'), items: edgeRefs.topics }}
+        upstream={{ title: t('linkHealth.executedWorkflows'), items: edgeRefs.cases }}
+        downstream={{ title: t('linkHealth.subscribedTopics'), items: edgeRefs.topics }}
       />
 ```
 
@@ -941,14 +1041,14 @@ import { topicReferences } from '@/features/link-health/lib/references'
       />
 ```
 
-在既有 `<ConfigChain … />` 之后渲染健康检查明细：
+在 `TaskFlowEditor` 之后渲染健康检查明细（工作流页 `ConfigChain` 已移除，由本区块承担）：
 
 ```tsx
       <LinkHealthSection
         title={t('linkHealth.title')}
         health={topicRefs.health}
-        upstream={{ title: t('linkHealth.referencingCases'), items: topicRefs.cases }}
-        downstream={{ title: t('linkHealth.edges'), items: topicRefs.edges }}
+        upstream={{ title: t('linkHealth.usedWorkflows'), items: topicRefs.cases }}
+        downstream={{ title: t('linkHealth.boundNodes'), items: topicRefs.edges }}
       />
 ```
 
@@ -969,7 +1069,9 @@ git commit -m "feat(link-health): topic detail references and next actions"
 ## Task 5: Case 详情接入可达性提示与行动
 
 **Files:**
-- Modify: `web/admin/src/features/config-context/case-context-section.tsx`（复用既有 `topicsQuery/edgesQuery/presenceQuery/placementsQuery`，在 `ConfigChain` 之后渲染 `LinkHealthSection`）
+- Modify: `web/admin/src/features/config-context/case-context-section.tsx`（复用既有 `topicsQuery/edgesQuery/presenceQuery/placementsQuery`；`ConfigChain` 已移除，在 `TaskFlowEditor` 之后渲染 `LinkHealthSection`）
+
+> 该文件内的 `TaskFlowEditor` 同步改为：默认 `preview`（只读画布、隐藏顶栏与 Topic 池），右上角「编辑处理流程」按钮打开全屏 `Dialog` 编辑（含保存按钮）。
 - Modify: `web/admin/src/features/link-health/link-health.contract.test.ts`（追加 Case 详情断言）
 
 **Interfaces:**
@@ -1033,14 +1135,14 @@ import { caseReferences } from '@/features/link-health/lib/references'
 
 > Case 的页面标题在 `detail-panel.tsx`，而健康数据在本组件内；为避免重复查询，Alert 放在本组件顶部（仍属第一屏）。如需严格置顶到 `detail-panel`，可抽共享 hook（Phase 2 优化）。
 
-在既有 `<ConfigChain … />` 之后渲染健康检查明细：
+在 `TaskFlowEditor` 之后渲染健康检查明细（`ConfigChain` 已移除）：
 
 ```tsx
       <LinkHealthSection
         title={t('linkHealth.title')}
         health={caseRefs.health}
-        upstream={{ title: t('linkHealth.menuEntries'), items: caseRefs.menuEntries }}
-        downstream={{ title: t('linkHealth.topics'), items: caseRefs.topics }}
+        upstream={{ title: t('linkHealth.relatedEntries'), items: caseRefs.menuEntries }}
+        downstream={{ title: t('linkHealth.routeTopics'), items: caseRefs.topics }}
       />
 ```
 

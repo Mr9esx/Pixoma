@@ -1,3 +1,5 @@
+import { DEFAULT_TOPIC_KEY } from '../../task-flow/types'
+
 export type ReadinessLevel = 'ready' | 'warn' | 'gap'
 
 type WorkflowLike = {
@@ -41,13 +43,16 @@ export type Readiness = {
  * - G3 投放：至少一个 menu placement。
  */
 export function computeReadiness(input: ProcessingInput): Readiness {
-  const usedTopics = input.rules
-    .map((rule) => rule.topic)
-    .filter((topic): topic is string => Boolean(topic))
+  const hasRules = input.rules.length > 0
+  const usedTopics = hasRules
+    ? input.rules
+        .map((rule) => rule.topic)
+        .filter((topic): topic is string => Boolean(topic))
+    : [DEFAULT_TOPIC_KEY]
 
   let processing: ReadinessLevel
   const hasUnwiredRule = input.rules.some((rule) => !rule.topic)
-  if (input.rules.length === 0 || hasUnwiredRule) {
+  if (hasUnwiredRule) {
     processing = 'gap'
   } else {
     const hasUnbound = usedTopics.some(

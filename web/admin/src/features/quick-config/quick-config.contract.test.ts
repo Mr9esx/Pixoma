@@ -60,7 +60,7 @@ describe('quick-config wizard contract', () => {
     expect(STEP2).not.toContain('patchCase')
   })
 
-  it('第二步支持行内新建 Topic 与计算节点并即时落库刷新', () => {
+  it('第二步支持行内新建调度通道与计算节点并即时落库刷新', () => {
     expect(STEP2).toContain('createTopic')
     expect(STEP2).toContain('createEdge')
     expect(STEP2).toContain('isValidTopicKey')

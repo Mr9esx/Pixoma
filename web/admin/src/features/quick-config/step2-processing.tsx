@@ -21,11 +21,12 @@ import { Label } from '@/components/ui/label'
 import { TaskFlowEditor } from '@/features/task-flow/task-flow-editor'
 import { topicBindings } from '@/features/task-flow/lib/topic-binding'
 import { validateRouting as validateEditorRouting } from '@/features/task-flow/lib/validate'
-import type {
-  AttributeDescriptor,
-  EdgePresence,
-  EdgeRecord,
-  TopicRecord,
+import {
+  DEFAULT_TOPIC_KEY,
+  type AttributeDescriptor,
+  type EdgePresence,
+  type EdgeRecord,
+  type TopicRecord,
 } from '@/features/task-flow/types'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { WizardChrome } from './wizard-chrome'
@@ -113,13 +114,17 @@ export function Step2Processing({ shared, next, back }: Props) {
   const presence: EdgePresence[] = presenceQuery.data ?? []
 
   const bindingSummary = useMemo(() => {
-    const usedTopics = [
-      ...new Set(
-        (routing?.rules ?? [])
-          .map((rule) => rule.topic)
-          .filter((topic): topic is string => Boolean(topic))
-      ),
-    ]
+    const rules = routing?.rules ?? []
+    const usedTopics =
+      rules.length === 0
+        ? [DEFAULT_TOPIC_KEY]
+        : [
+            ...new Set(
+              rules
+                .map((rule) => rule.topic)
+                .filter((topic): topic is string => Boolean(topic)),
+            ),
+          ]
     const mappedEdges: EdgeRecord[] = (edgesQuery.data ?? []).map(
       ({ id, name, enabled, subscribe_topics, effective_topics }) => ({
         id,
@@ -142,8 +147,14 @@ export function Step2Processing({ shared, next, back }: Props) {
   }, [edgesQuery.data, presenceQuery.data, routing])
 
   const validation = useMemo(
-    () => validateEditorRouting(routing, topics, attributes),
-    [routing, topics, attributes]
+    () =>
+      validateEditorRouting(
+        routing,
+        topics,
+        attributes,
+        new Set(bindingSummary.bound),
+      ),
+    [routing, topics, attributes, bindingSummary],
   )
 
   const loading =

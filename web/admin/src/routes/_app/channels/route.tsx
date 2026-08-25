@@ -9,12 +9,22 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { Plus, Radio } from 'lucide-react'
 import { listChannels } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { ChannelDetailPanel } from '@/features/channels/channel-detail-panel'
 import { ChannelListPanel } from '@/features/channels/channel-list-panel'
+import { kit } from '@/features/edges/kit-classes'
 
 export const Route = createFileRoute('/_app/channels')({
   component: ChannelsLayout,
@@ -69,8 +79,11 @@ function ChannelsLayout() {
             {t('channels.description')}
           </p>
         </div>
-        <Button asChild>
-          <Link to='/channels/new'>{t('channels.new')}</Link>
+        <Button asChild className={kit.btnPrimary}>
+          <Link to='/channels/new'>
+            <Plus className='size-3.5' />
+            {t('channels.new')}
+          </Link>
         </Button>
       </div>
       <MasterDetailShell
@@ -94,6 +107,35 @@ function ChannelsLayout() {
           />
         }
         detail={selectedId ? <ChannelDetailPanel id={selectedId} /> : null}
+        emptyDetail={
+          !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
+            <Empty>
+              <EmptyHeader className='max-w-none'>
+                <EmptyMedia variant='icon'>
+                  <Radio />
+                </EmptyMedia>
+                <EmptyTitle className='text-sm font-medium'>
+                  {t('channels.empty')}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {t('channels.emptyDesc')}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent className='flex-row justify-center gap-2'>
+                <Button asChild className={kit.btnPrimary}>
+                  <Link to='/channels/new'>{t('channels.new')}</Link>
+                </Button>
+                <Button
+                  asChild
+                  variant='outline'
+                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
+                >
+                  <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
+          ) : undefined
+        }
       />
     </div>
   )

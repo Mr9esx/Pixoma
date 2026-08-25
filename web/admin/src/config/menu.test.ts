@@ -5,7 +5,7 @@ describe('MENU_GROUPS', () => {
   it('keeps required group and item order', () => {
     expect(MENU_GROUPS.map((g) => g.items.map((m) => m.id))).toEqual([
       ['dashboard', 'quick-config'],
-      ['edges', 'cases', 'channels', 'topics'],
+      ['cases', 'channels', 'topics', 'edges'],
       ['tasks', 'sessions', 'users'],
       ['settings'],
     ])
@@ -26,10 +26,10 @@ describe('MENU_ITEMS', () => {
     expect(MENU_ITEMS.map((m) => m.id)).toEqual([
       'dashboard',
       'quick-config',
-      'edges',
       'cases',
       'channels',
       'topics',
+      'edges',
       'tasks',
       'sessions',
       'users',
@@ -38,10 +38,10 @@ describe('MENU_ITEMS', () => {
     expect(MENU_ITEMS.map((m) => m.path)).toEqual([
       '/',
       '/quick-config',
-      '/edges',
       '/cases',
       '/channels',
       '/topics',
+      '/edges',
       '/tasks',
       '/sessions',
       '/users',

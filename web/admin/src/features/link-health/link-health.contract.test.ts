@@ -82,13 +82,14 @@ describe('link health visibility', () => {
   })
 
   it('Case 详情接入可达性提示与行动', () => {
-    const section = read('../config-context/case-context-section.tsx')
-    expect(section).toContain('LinkHealthSection')
-    expect(section).toContain('LinkHealthAlert')
-    expect(section).toContain('caseReferences')
-    expect(section).toContain('linkHealth.title')
-    expect(section).toContain('linkHealth.relatedEntries')
-    expect(section).toContain('linkHealth.routeTopics')
+    const panel = read('../cases/detail-panel.tsx')
+    const hook = read('../config-context/use-case-references.ts')
+    expect(panel).toContain('LinkHealthSection')
+    expect(panel).toContain('LinkHealthAlert')
+    expect(hook).toContain('caseReferences')
+    expect(panel).toContain('linkHealth.title')
+    expect(panel).toContain('linkHealth.relatedEntries')
+    expect(panel).toContain('linkHealth.routeTopics')
   })
 
   it('Topic 详情订阅判定使用 effective topics（默认订阅节点计入）', () => {

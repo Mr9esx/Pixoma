@@ -74,6 +74,33 @@ export function formatBytes(n: number): string {
   return `${text} ${units[idx]}`
 }
 
+// 图表横轴与 tooltip 的完整时间：年-月-日 时:分:秒（本地时区）。
+export function formatFullTime(ms: number): string {
+  if (!Number.isFinite(ms)) return '—'
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+// 时间输入框的本地值（HH:mm）。
+export function formatTimeInput(ms: number): string {
+  if (!Number.isFinite(ms)) return ''
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// 把 Calendar 选的日期与时间输入（HH:mm[:ss]）合并为本地 Date；非法返回 null。
+export function applyTimeToDate(date: Date, time: string): Date | null {
+  const parts = time.split(':').map((p) => parseInt(p, 10))
+  if (parts.length < 2 || parts.some((n) => !Number.isFinite(n))) return null
+  const [h, m, s = 0] = parts
+  if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null
+  const out = new Date(date)
+  out.setHours(h, m, s, 0)
+  return out
+}
+
 // 图表 tooltip 数值格式化：字节序列走 formatBytes，其余按百分比展示。
 export function formatMetricValue(value: unknown, key: string): string {
   const n = typeof value === 'number' ? value : Number(value)

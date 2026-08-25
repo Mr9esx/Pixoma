@@ -434,9 +434,13 @@ function CanvasInner({ routing, topics, attributes, edges: edgeRecords, presence
     for (const binding of topicBindings(edgeRecords, presence)) map.set(binding.topic, binding)
     return map
   }, [edgeRecords, presence])
+  const boundTopicKeys = useMemo(
+    () => new Set(bindingByTopic.keys()),
+    [bindingByTopic],
+  )
   const validation = useMemo(
-    () => validateRouting(routing, topics, attributes),
-    [routing, topics, attributes],
+    () => validateRouting(routing, topics, attributes, boundTopicKeys),
+    [routing, topics, attributes, boundTopicKeys],
   )
   const issueByIndex = useMemo(
     () => new Map(validation.issues.map((issue) => [issue.index, issue])),

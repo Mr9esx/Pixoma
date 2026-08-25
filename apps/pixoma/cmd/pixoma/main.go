@@ -216,10 +216,8 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		return err
 	}
 	caseRepo := casepersist.NewGormRepository(gdb)
-	if n, err := app.SeedCasesDir(ctx, caseRepo, envOr("CASE_SEED_DIR", "configs/cases")); err != nil {
-		slog.Warn("seed cases", "err", err)
-	} else if n > 0 {
-		slog.Info("seed cases loaded", "count", n)
+	if err := casepersist.RepairLegacyCaseID(ctx, gdb); err != nil {
+		return err
 	}
 	userRepo := userpersist.NewUserRepository(gdb)
 	sessionRepo := sesspersist.NewSessionRepository(gdb)
@@ -301,9 +299,10 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	restartCh := make(chan struct{})
 	var restartOnce sync.Once
 	setupH := &setupapi.Handler{
-		Boot:     boot,
-		Sessions: sess,
-		DataDir:  dataDir,
+		Boot:      boot,
+		Sessions:  sess,
+		DataDir:   dataDir,
+		PublicURL: listenURL,
 		Restart: func() {
 			restartOnce.Do(func() { close(restartCh) })
 		},

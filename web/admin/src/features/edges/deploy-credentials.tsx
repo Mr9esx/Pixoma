@@ -19,6 +19,20 @@ type Props = {
   tokenActions?: ReactNode
 }
 
+function isLoopbackURL(raw: string): boolean {
+  try {
+    const { hostname } = new URL(raw)
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0'
+    )
+  } catch {
+    return false
+  }
+}
+
 export function DeployCredentials({ edge, tokenActions }: Props) {
   const { t } = useTranslation()
   const token = edge.agent_token ?? ''
@@ -28,8 +42,13 @@ export function DeployCredentials({ edge, tokenActions }: Props) {
     queryFn: fetchPlatformSettings,
   })
   const blobDriver = settingsQuery.data?.settings?.blob_driver || 'localfs'
+  const serverPublicURL = settingsQuery.data?.public_url
   const controlPlaneURL =
-    typeof window === 'undefined' ? '' : window.location.origin
+    serverPublicURL && !isLoopbackURL(serverPublicURL)
+      ? serverPublicURL
+      : typeof window === 'undefined'
+        ? ''
+        : window.location.origin
   const commandInput = {
     controlPlaneURL,
     token,

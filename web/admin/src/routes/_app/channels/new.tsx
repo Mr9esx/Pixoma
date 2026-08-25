@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { kit } from '@/features/edges/kit-classes'
 
 export const Route = createFileRoute('/_app/channels/new')({
   component: NewChannelPage,
@@ -33,10 +34,10 @@ function NewChannelPage() {
   return (
     <div
       data-layout='fixed'
-      className='flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'
+      className={`${kit.pageSection} min-h-0 flex-1 overflow-auto`}
     >
-      <div>
-        <h1 className='text-2xl font-bold tracking-tight'>
+      <div className='flex min-w-0 flex-col gap-[6px]'>
+        <h1 className={kit.title}>
           {t('channels.new')}
         </h1>
         <p className='text-sm text-muted-foreground'>

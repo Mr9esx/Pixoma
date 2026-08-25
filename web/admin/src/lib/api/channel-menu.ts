@@ -33,7 +33,7 @@ export type ActionType =
 export type Action = {
   type: ActionType
   card_id?: string
-  workflow_ids?: number[]
+  workflow_ids?: string[]
   mode?: 'list' | 'direct'
   text?: string
   media?: { kind: string; url: string; caption?: string }[]

@@ -104,13 +104,38 @@ describe('validateRule', () => {
   it('exists 操作符不需要值', () => {
     expect(validateRule(okRule({ field: 'user.is_premium', op: 'exists' }) as never, 0, topics, attributes)).toBeNull()
   })
+
+  it('传入绑定集合且 Topic 未绑定节点时报 topic-unbound', () => {
+    const bound = new Set(['batch-night'])
+    const issue = validateRule(okRule() as never, 0, topics, attributes, bound)
+    expect(issue?.kind).toBe('topic-unbound')
+    expect(issue?.message).toContain('未绑定计算节点')
+  })
+
+  it('传入绑定集合且 Topic 已绑定节点时通过', () => {
+    const bound = new Set(['fast-gpu'])
+    expect(validateRule(okRule() as never, 0, topics, attributes, bound)).toBeNull()
+  })
 })
 
 describe('validateRouting', () => {
-  it('空配置（无 rules）合法', () => {
+  it('空配置（无 rules）合法（全部回退默认 Topic）', () => {
     const result = validateRouting(undefined, topics, attributes)
     expect(result.valid).toBe(true)
     expect(result.issues).toHaveLength(0)
+  })
+
+  it('空规则且默认 Topic 已绑定时合法', () => {
+    const result = validateRouting(undefined, topics, attributes, new Set(['default']))
+    expect(result.valid).toBe(true)
+  })
+
+  it('空规则且默认 Topic 未绑定时报 topic-unbound', () => {
+    const result = validateRouting(undefined, topics, attributes, new Set(['fast-gpu']))
+    expect(result.valid).toBe(false)
+    expect(result.issues).toHaveLength(1)
+    expect(result.issues[0].kind).toBe('topic-unbound')
+    expect(result.issues[0].message).toContain('默认 Topic')
   })
 
   it('混合规则：只标记出问题的下标', () => {
@@ -136,5 +161,27 @@ describe('validateRouting', () => {
     const result = validateRouting(routing, topics, attributes)
     expect(result.issues).toHaveLength(1)
     expect(result.issues[0].kind).toBe('topic-missing')
+  })
+
+  it('未传入绑定集合时不检查绑定（保持兼容）', () => {
+    const result = validateRouting(
+      { rules: [{ when: { field: 'user.is_premium', op: 'eq', value: true }, topic: 'fast-gpu' }] },
+      topics,
+      attributes,
+    )
+    expect(result.valid).toBe(true)
+  })
+
+  it('传入绑定集合且存在未绑定 Topic 时报 topic-unbound', () => {
+    const routing: RoutingConfig = {
+      rules: [
+        { when: { field: 'user.is_premium', op: 'eq', value: true }, topic: 'fast-gpu' },
+        { when: { field: 'case.category', op: 'eq', value: 'image' }, topic: 'batch-night' },
+      ],
+    }
+    const result = validateRouting(routing, topics, attributes, new Set(['fast-gpu']))
+    expect(result.valid).toBe(false)
+    expect(result.issues.map((i) => i.index)).toEqual([1])
+    expect(result.issues[0].kind).toBe('topic-unbound')
   })
 })
