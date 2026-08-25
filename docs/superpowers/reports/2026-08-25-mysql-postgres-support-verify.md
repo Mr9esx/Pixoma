@@ -14,6 +14,8 @@
 
 补充（归档前重开修复 3e47782）：前端合同测试 57 文件 / 326 测试通过；`go build ./... && go test ./...` exit 0。
 
+补充（归档前重开 0c16dd8，结构化连接表单）：新增 `db-dsn.ts` 组装纯函数与 5 个单元测试；向导数据库步骤改为按驱动结构化字段（SQLite 路径 / MySQL Host·端口·用户·密码·数据库 / Postgres 增加 SSL 模式）+「高级：直接输入 DSN」折叠（密码不回显，端口默认值切驱动联动 3306↔5432）；合同测试同步更新。前端 58 文件 / 332 测试通过，`pnpm tsc -b` 通过，`go build ./... && go test ./...`（71 包 ok）exit 0。
+
 ## Completeness
 
 | 检查项 | 状态 |
@@ -39,6 +41,7 @@
 | 设置页查看业务库信息 | `settings-page.contract.test.ts` |
 | 不可达数据库不落盘 | `handler_test.go TestDatabaseUnreachableDoesNotChangeAppDB`（本验证轮新增） |
 | 切换数据库驱动后 DSN 输入更新 | `setup-pages.contract.test.ts`（归档前重开新增，修复 3e47782：`onDriverChange` 同步 DSN 示例） |
+| 结构化字段配置 MySQL/Postgres | `db-dsn.test.ts`（组装纯函数 5 用例）+ `setup-pages.contract.test.ts`（字段/端口联动/高级折叠断言，归档前重开 0c16dd8） |
 | 本机路径完成向导 / 远程禁止 localfs | 既有 `completeWizard` 流程测试与 `settings_test.go` 既有用例 |
 | MySQL/Postgres 完成向导 | 向导数据库步骤合同测试 + 后端 `POST /api/v1/setup/database`（三驱动白名单） |
 
