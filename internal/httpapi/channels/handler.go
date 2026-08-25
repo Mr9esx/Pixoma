@@ -182,10 +182,6 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "channel not found")
 		return
 	}
-	if errors.Is(err, domain.ErrDeleteRestricted) {
-		writeErr(w, http.StatusConflict, "channel must be disabled and free of active sessions/tasks before deletion")
-		return
-	}
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

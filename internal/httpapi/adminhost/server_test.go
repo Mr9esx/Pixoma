@@ -80,7 +80,6 @@ func TestChannelDetailRouteNotShadowedByMenuMount(t *testing.T) {
 	chSvc := &channelapp.Service{
 		Store:         channelpersist.NewGormRepository(gdb),
 		Key:           make([]byte, 32),
-		HasActiveRefs: func(context.Context, string) (bool, error) { return false, nil },
 	}
 	chAPI := &channelsapi.Handler{Svc: chSvc}
 	menuCardsAPI := menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb))

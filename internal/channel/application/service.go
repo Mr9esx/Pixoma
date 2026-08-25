@@ -3,9 +3,12 @@ package application
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 // Repository is the channel persistence port.
@@ -17,15 +20,16 @@ type Repository interface {
 	Delete(ctx context.Context, id string) error
 }
 
-// HasActiveRefsFunc reports whether a channel still has active sessions/tasks.
-type HasActiveRefsFunc func(ctx context.Context, channelID string) (bool, error)
-
 // Service orchestrates channel lifecycle and credential encryption.
 type Service struct {
-	Store         Repository
-	Key           []byte
-	HasActiveRefs HasActiveRefsFunc
-	now           func() time.Time
+	Store Repository
+	Key   []byte
+	Notify notify.Publisher
+	// DeleteWithCleanup deletes the channel row, terminates its active sessions
+	// and removes channel-scoped menu/card rows in one transaction; returns
+	// chats to notify after commit.
+	DeleteWithCleanup func(ctx context.Context, channelID string) ([]sharedkernel.ChatID, error)
+	now               func() time.Time
 }
 
 func (s *Service) nowFn() func() time.Time {
@@ -120,23 +124,32 @@ func (s *Service) Enable(ctx context.Context, id string) error {
 	return s.Store.Update(ctx, ch)
 }
 
-// Delete removes a channel only when disabled and free of active references.
+// Delete removes a channel directly. When DeleteWithCleanup is wired, active
+// sessions are terminated and menu/card rows are removed in the same
+// transaction; affected users are notified best-effort after commit.
 func (s *Service) Delete(ctx context.Context, id string) error {
-	ch, err := s.Store.Get(ctx, id)
+	if _, err := s.Store.Get(ctx, id); err != nil {
+		return err
+	}
+	if s.DeleteWithCleanup == nil {
+		return s.Store.Delete(ctx, id)
+	}
+	chats, err := s.DeleteWithCleanup(ctx, id)
 	if err != nil {
 		return err
 	}
-	if ch.Enabled {
-		return domain.ErrDeleteRestricted
-	}
-	if s.HasActiveRefs != nil {
-		active, err := s.HasActiveRefs(ctx, id)
-		if err != nil {
-			return err
+	for _, chat := range chats {
+		n := sharedkernel.UserNotify{
+			ChatID:   chat,
+			Kind:     "session_terminated",
+			ErrorMsg: "该渠道已被管理员删除，当前会话已结束。",
 		}
-		if active {
-			return domain.ErrDeleteRestricted
+		if s.Notify == nil {
+			continue
+		}
+		if err := s.Notify.Publish(ctx, n); err != nil {
+			slog.Warn("channel delete: session notify failed", "chat", chat, "err", err)
 		}
 	}
-	return s.Store.Delete(ctx, id)
+	return nil
 }

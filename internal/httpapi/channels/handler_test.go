@@ -2,7 +2,6 @@ package channels_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +27,6 @@ func openChannelsServer(t *testing.T) *httptest.Server {
 	svc := &channelapp.Service{
 		Store:         channelpersist.NewGormRepository(gdb),
 		Key:           make([]byte, 32),
-		HasActiveRefs: func(context.Context, string) (bool, error) { return false, nil },
 	}
 	h := &channelsapi.Handler{Svc: svc}
 	r := chi.NewRouter()
@@ -116,30 +114,14 @@ func TestChannelsHandler_CreateListDetailUpdateDelete(t *testing.T) {
 		t.Fatalf("update=%v", upd)
 	}
 
-	// 启用中删除 409
+	// 启用中直接删除成功（不再要求停用）。
 	delReq, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/channels/"+id, nil)
 	delRes, err := http.DefaultClient.Do(delReq)
 	if err != nil {
 		t.Fatal(err)
 	}
 	delRes.Body.Close()
-	if delRes.StatusCode != http.StatusConflict {
-		t.Fatalf("delete enabled status=%d", delRes.StatusCode)
-	}
-
-	// 禁用后删除成功
-	disRes, err := http.Post(srv.URL+"/api/v1/channels/"+id+"/disable", "application/json", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	disRes.Body.Close()
-	delReq2, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/channels/"+id, nil)
-	delRes2, err := http.DefaultClient.Do(delReq2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	delRes2.Body.Close()
-	if delRes2.StatusCode != http.StatusOK {
-		t.Fatalf("delete disabled status=%d", delRes2.StatusCode)
+	if delRes.StatusCode != http.StatusOK {
+		t.Fatalf("delete enabled status=%d want 200", delRes.StatusCode)
 	}
 }
