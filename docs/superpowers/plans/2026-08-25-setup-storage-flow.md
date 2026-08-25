@@ -31,7 +31,7 @@
 - Consumes: 无。
 - Produces: `SETUP_STEPS = ['password','database','storage']`；`draft()` 的 `placement` 由 `blob_driver` 推断；对象存储驱动下拉恒显示三驱动。
 
-- [ ] **Step 1: 先写失败测试**
+- [x] **Step 1: 先写失败测试**
 
 `setup-steps.test.ts`：`setupStepsFor(false)` 长度 3 且首步为 `database`；`previousSetupStep(withoutPassword, 'storage') === 'database'`。
 
@@ -48,12 +48,12 @@ it('removes the deployment placement step', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd web/admin && pnpm vitest run src/features/setup/`
 Expected: FAIL（现有 4 步与 placement 文案仍在）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `setup-steps.ts`：
 
@@ -69,12 +69,12 @@ export const SETUP_STEPS = ['password', 'database', 'storage'] as const
 - `draft()` 内：`placement: blobDriver === 'localfs' ? 'local' : 'remote'`。
 - 对象存储驱动下拉去掉 `{placement === 'local' ? <SelectItem value='localfs'>…</SelectItem> : null}` 条件，恒显示三驱动。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd web/admin && pnpm vitest run src/features/setup/ && pnpm tsc -b`
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add web/admin/src/features/setup/setup-steps.ts web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/setup-steps.test.ts web/admin/src/features/setup/setup-pages.contract.test.ts
@@ -96,7 +96,7 @@ git commit -m "feat(setup): remove deployment placement step"
 - Consumes: 各驱动现有 `New`/`client`/`bucket`。
 - Produces: `blob.ErrBucketNotFound`；`Store.Check(ctx) error`；`Store.EnsureBucket(ctx) error`（localfs 无 EnsureBucket）。
 
-- [ ] **Step 1: 先写失败测试**
+- [x] **Step 1: 先写失败测试**
 
 `port.go` 增加哨兵错误：
 
@@ -136,12 +136,12 @@ func TestCheck_Writable(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `go test ./internal/platform/blob/...`
 Expected: FAIL（`Check`/`EnsureBucket` 未定义、`ErrBucketNotFound` 未定义）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `s3.go`：
 
@@ -226,12 +226,12 @@ func (s *Store) Check(ctx context.Context) error {
 
 `tos_test.go` 追加构造错误断言（空 bucket/endpoint/region 已覆盖）与 404 判定辅助函数单测（若 `TosServerError` 可构造）。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `go test ./internal/platform/blob/...`
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add internal/platform/blob/port.go internal/platform/blob/localfs/localfs.go internal/platform/blob/s3/s3.go internal/platform/blob/tos/tos.go internal/platform/blob/localfs/localfs_test.go internal/platform/blob/s3/s3_test.go internal/platform/blob/tos/tos_test.go
@@ -250,7 +250,7 @@ git commit -m "feat(blob): connectivity check and bucket ensure for localfs/s3/t
 - Consumes: Task 2 的各驱动 `Check`/`EnsureBucket`。
 - Produces: `CheckOptions`、`Check(ctx, opts)`、`EnsureBucket(ctx, opts)`（显式凭据，不读环境变量）。
 
-- [ ] **Step 1: 先写失败测试**
+- [x] **Step 1: 先写失败测试**
 
 ```go
 func TestCheck_LocalFS(t *testing.T) {
@@ -267,12 +267,12 @@ func TestCheck_UnknownDriver(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `go test ./internal/platform/blob/factory/`
 Expected: FAIL（`Check` 未定义）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```go
 package factory
@@ -323,12 +323,12 @@ func storeForCheck(opts CheckOptions) (blob.Store, error) { /* 同上，s3/tos �
 
 `Check` 对 `s3`/`tos` 走对应 Store 的 `Check`；`localfs` 走 `Check`。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `go test ./internal/platform/blob/factory/`
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add internal/platform/blob/factory/check.go internal/platform/blob/factory/check_test.go
@@ -348,7 +348,7 @@ git commit -m "feat(blob): explicit-credential check entry in factory"
 - Consumes: Task 3 的 `factory.Check`/`EnsureBucket`；`settings.Validate`。
 - Produces: `POST /api/v1/setup/blob-test`（请求体见 Design Doc）；响应 `{ok:true}` / `{ok:false,code:"bucket_not_found",bucket}` / `{error}`。
 
-- [ ] **Step 1: 先写失败测试（handler_test.go）**
+- [x] **Step 1: 先写失败测试（handler_test.go）**
 
 ```go
 func TestBlobTest_LocalFSSuccess(t *testing.T) {
@@ -394,12 +394,12 @@ func TestBlobTest_BucketNotFoundAndCreate(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `go test ./internal/httpapi/setup/`
 Expected: FAIL（端点不存在）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `Mount` 增加 `r.Post("/blob-test", h.blobTest)`。handler：
 
@@ -483,12 +483,12 @@ export function testBlob(input: {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `go test ./internal/httpapi/setup/`
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add internal/httpapi/setup/handler.go internal/httpapi/setup/handler_test.go web/admin/src/lib/api/setup.ts
@@ -509,7 +509,7 @@ git commit -m "feat(setup): blob connectivity test endpoint with bucket create"
 - Consumes: Task 4 的 `testBlob`；Task 1 的 storage 步骤。
 - Produces: 对象存储步骤「连通性测试 + 继续」；bucket 不存在提示「是否帮你创建」并确认后自动创建；`blob-error.ts` 错误映射。
 
-- [ ] **Step 1: 先写失败测试**
+- [x] **Step 1: 先写失败测试**
 
 `blob-error.test.ts`：
 
@@ -542,12 +542,12 @@ it('tests blob connectivity and offers bucket creation', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd web/admin && pnpm vitest run src/features/setup/`
 Expected: FAIL。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `blob-error.ts`：
 
@@ -575,12 +575,12 @@ export function blobErrorCopy(err: unknown): AlertCopy {
 
 `vitest.config.ts` include 增加 `src/features/setup/blob-error.test.ts`。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd web/admin && pnpm vitest run && pnpm tsc -b`
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add web/admin/src/features/setup/setup-wizard.tsx web/admin/src/features/setup/blob-error.ts web/admin/src/features/setup/blob-error.test.ts web/admin/src/features/setup/setup-pages.contract.test.ts web/admin/vitest.config.ts
@@ -594,16 +594,16 @@ git commit -m "feat(setup): blob connectivity test and bucket creation prompt"
 **Files:**
 - Modify: `README.md`、`docs/openspec/changes/setup-storage-flow/tasks.md`、本计划
 
-- [ ] **Step 1: README 更新**
+- [x] **Step 1: README 更新**
 
 在「业务数据库」段落附近追加「对象存储」说明：向导步骤（密码/数据库/对象存储）、连通性测试、bucket 不存在可确认自动创建（需建桶权限）、localfs 跨机需共享目录（NFS/SMB）。
 
-- [ ] **Step 2: 全量验证**
+- [x] **Step 2: 全量验证**
 
 Run: `go build ./... && go test ./...`；`cd web/admin && pnpm tsc -b && pnpm vitest run`
 Expected: 全 PASS。
 
-- [ ] **Step 3: 勾选 tasks.md 全部任务并提交**
+- [x] **Step 3: 勾选 tasks.md 全部任务并提交**
 
 ```bash
 git add README.md docs/openspec/changes/setup-storage-flow/tasks.md docs/superpowers/plans/2026-08-25-setup-storage-flow.md
