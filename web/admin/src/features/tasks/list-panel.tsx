@@ -71,11 +71,7 @@ export function TaskListPanel({
         </div>
       ) : null}
 
-      {!isLoading && !isError && items.length === 0 ? (
-        <EmptyState message={t('tasks.empty')} />
-      ) : null}
-
-      {!isLoading && !isError && items.length > 0 ? (
+      {!isLoading && !isError ? (
         <>
           <div className='hidden overflow-x-auto pt-3 md:block'>
             <div className='relative w-full overflow-auto'>
@@ -104,93 +100,108 @@ export function TaskListPanel({
                   </tr>
                 </thead>
                 <tbody className='[&_tr:last-child]:border-0'>
-                  {items.map((item) => {
-                    const statusKey = taskStatusLabelKey(item.status)
-                    return (
-                      <tr
-                        key={item.id}
-                        className='group/row border-b transition-colors hover:bg-muted/50'
-                      >
-                        <td className='p-2 align-middle font-medium'>
-                          {item.id}
-                        </td>
-                        <td className='p-2 align-middle'>
-                          {statusKey ? t(statusKey) : item.status}
-                        </td>
-                        <td className='text-muted-foreground p-2 align-middle'>
-                          {item.case_id}
-                        </td>
-                        <td className='text-muted-foreground p-2 align-middle'>
-                          {item.session_id}
-                        </td>
-                        <td className='text-muted-foreground p-2 align-middle'>
-                          {item.edge_id || '—'}
-                        </td>
-                        <td className='text-muted-foreground p-2 align-middle'>
-                          {item.created_at}
-                        </td>
-                        <td className='p-2 align-middle'>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='sm'
-                            onClick={() => onOpenDetail(item)}
-                          >
-                            {t('common.detail')}
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {items.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className='p-0'>
+                        <EmptyState
+                          className='py-8'
+                          message={t('tasks.empty')}
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((item) => {
+                      const statusKey = taskStatusLabelKey(item.status)
+                      return (
+                        <tr
+                          key={item.id}
+                          className='group/row border-b transition-colors hover:bg-muted/50'
+                        >
+                          <td className='p-2 align-middle font-medium'>
+                            {item.id}
+                          </td>
+                          <td className='p-2 align-middle'>
+                            {statusKey ? t(statusKey) : item.status}
+                          </td>
+                          <td className='text-muted-foreground p-2 align-middle'>
+                            {item.case_id}
+                          </td>
+                          <td className='text-muted-foreground p-2 align-middle'>
+                            {item.session_id}
+                          </td>
+                          <td className='text-muted-foreground p-2 align-middle'>
+                            {item.edge_id || '—'}
+                          </td>
+                          <td className='text-muted-foreground p-2 align-middle'>
+                            {item.created_at}
+                          </td>
+                          <td className='p-2 align-middle'>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='sm'
+                              onClick={() => onOpenDetail(item)}
+                            >
+                              {t('common.detail')}
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
 
           <div className='flex flex-col gap-4 pt-3 md:hidden'>
-            {items.map((item) => {
-              const statusKey = taskStatusLabelKey(item.status)
-              return (
-                <article
-                  key={item.id}
-                  className='border-border/70 bg-card rounded-2xl border p-4'
-                >
-                  <div className='flex items-start justify-between gap-3'>
-                    <div className='min-w-0'>
-                      <p className='truncate text-base font-medium'>
-                        {item.id}
-                      </p>
-                      <p className='text-muted-foreground mt-1 text-sm'>
-                        {statusKey ? t(statusKey) : item.status}
-                      </p>
+            {items.length === 0 ? (
+              <EmptyState message={t('tasks.empty')} />
+            ) : (
+              items.map((item) => {
+                const statusKey = taskStatusLabelKey(item.status)
+                return (
+                  <article
+                    key={item.id}
+                    className='border-border/70 bg-card rounded-2xl border p-4'
+                  >
+                    <div className='flex items-start justify-between gap-3'>
+                      <div className='min-w-0'>
+                        <p className='truncate text-base font-medium'>
+                          {item.id}
+                        </p>
+                        <p className='text-muted-foreground mt-1 text-sm'>
+                          {statusKey ? t(statusKey) : item.status}
+                        </p>
+                      </div>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='sm'
+                        className='shrink-0'
+                        onClick={() => onOpenDetail(item)}
+                      >
+                        {t('common.detail')}
+                      </Button>
                     </div>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='sm'
-                      className='shrink-0'
-                      onClick={() => onOpenDetail(item)}
-                    >
-                      {t('common.detail')}
-                    </Button>
-                  </div>
-                  <div className='mt-3 grid grid-cols-2 gap-3 text-sm'>
-                    <div className='flex flex-col gap-1'>
-                      <span className='text-muted-foreground text-xs'>
-                        {t('tasks.fieldCaseId')}
-                      </span>
-                      <span>{item.case_id}</span>
+                    <div className='mt-3 grid grid-cols-2 gap-3 text-sm'>
+                      <div className='flex flex-col gap-1'>
+                        <span className='text-muted-foreground text-xs'>
+                          {t('tasks.fieldCaseId')}
+                        </span>
+                        <span>{item.case_id}</span>
+                      </div>
+                      <div className='flex flex-col gap-1'>
+                        <span className='text-muted-foreground text-xs'>
+                          {t('tasks.fieldCreatedAt')}
+                        </span>
+                        <span>{item.created_at}</span>
+                      </div>
                     </div>
-                    <div className='flex flex-col gap-1'>
-                      <span className='text-muted-foreground text-xs'>
-                        {t('tasks.fieldCreatedAt')}
-                      </span>
-                      <span>{item.created_at}</span>
-                    </div>
-                  </div>
-                </article>
-              )
-            })}
+                  </article>
+                )
+              })
+            )}
           </div>
         </>
       ) : null}
