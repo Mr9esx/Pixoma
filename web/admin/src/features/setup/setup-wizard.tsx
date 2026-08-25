@@ -52,6 +52,12 @@ import {
   type SetupStep,
 } from './setup-steps'
 
+const TOS_DEFAULTS = {
+  endpoint: 'https://tos-cn-beijing.volces.com',
+  region: 'cn-beijing',
+  bucket: 'pixoma',
+}
+
 export function SetupWizard({ status }: { status: SetupStatus }) {
   const navigate = useNavigate()
   const steps = useMemo(
@@ -198,6 +204,15 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
     if (next === 'mysql' && dbPort === '5432') setDbPort('3306')
     if (next === 'postgres' && dbPort === '3306') setDbPort('5432')
     setDriver(next)
+  }
+
+  function onBlobDriverChange(next: string) {
+    setBlobDriver(next)
+    if (next === 'tos') {
+      if (!blobEndpoint) setBlobEndpoint(TOS_DEFAULTS.endpoint)
+      if (!blobRegion) setBlobRegion(TOS_DEFAULTS.region)
+      if (!blobBucket) setBlobBucket(TOS_DEFAULTS.bucket)
+    }
   }
 
   function draft(overrides?: Partial<SetupDraft>): SetupDraft {
@@ -503,7 +518,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           }}
         >
           <Field label='对象存储' htmlFor='blob-driver'>
-            <Select value={blobDriver} onValueChange={setBlobDriver}>
+            <Select value={blobDriver} onValueChange={onBlobDriverChange}>
               <SelectTrigger id='blob-driver' className='w-full'>
                 <SelectValue />
               </SelectTrigger>
