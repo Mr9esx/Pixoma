@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -10,6 +10,8 @@ import {
   updateChannel,
 } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
+import { listSessions } from '@/lib/api/sessions'
+import { listTasks } from '@/lib/api/tasks'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,54 +34,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { MetaChip } from '@/components/meta-chip'
+import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
 import { MenuCardEditor } from '@/features/menu/menu-card-editor'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
-}
-
-function SectionHead({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className='flex flex-col gap-1'>
-      <div className='flex items-center gap-3'>
-        <h2 className={kit.sectionTitle}>{title}</h2>
-        <span className={kit.sectionDash} />
-      </div>
-      <p className='text-xs text-muted-foreground'>{hint}</p>
-    </div>
-  )
-}
-
-function MetaChip({
-  icon,
-  label,
-  value,
-  divider = false,
-}: {
-  icon: ReactNode
-  label: string
-  value: string
-  divider?: boolean
-}) {
-  return (
-    <div className={kit.metaChip}>
-      <div className='flex min-w-0 items-center gap-2 text-muted-foreground'>
-        {icon}
-        <span className='shrink-0'>{label}</span>
-        <span className='min-w-0 truncate font-medium text-foreground'>
-          {value || '—'}
-        </span>
-      </div>
-      {divider ? (
-        <div
-          data-orientation='vertical'
-          role='none'
-          className={kit.metaChipDivider}
-        />
-      ) : null}
-    </div>
-  )
 }
 
 export function ChannelDetailPanel({ id }: { id: string }) {
@@ -130,125 +91,181 @@ export function ChannelDetailPanel({ id }: { id: string }) {
     },
   })
 
-  if (channelQuery.isLoading) return <LoadingSkeleton rows={8} />
+  const [ackImpact, setAckImpact] = useState(false)
+  const sessionsQuery = useQuery({
+    queryKey: ['channels', id, 'active-sessions'] as const,
+    queryFn: async () => {
+      const [collecting, confirming] = await Promise.all([
+        listSessions({ channel_id: id, status: 'collecting' }),
+        listSessions({ channel_id: id, status: 'confirming' }),
+      ])
+      return collecting.length + confirming.length
+    },
+  })
+  const inFlightTasksQuery = useQuery({
+    queryKey: ['channels', id, 'in-flight-tasks'] as const,
+    queryFn: async () => {
+      const [pending, queued, running] = await Promise.all([
+        listTasks({ channel_id: id, status: 'pending' }),
+        listTasks({ channel_id: id, status: 'queued' }),
+        listTasks({ channel_id: id, status: 'running' }),
+      ])
+      return pending.length + queued.length + running.length
+    },
+  })
+  const hasImpact =
+    (sessionsQuery.data ?? 0) > 0 || (inFlightTasksQuery.data ?? 0) > 0
+
+  if (channelQuery.isLoading) {
+    return (
+      <div className={kit.pageSection}>
+        <LoadingSkeleton rows={8} />
+      </div>
+    )
+  }
   if (channelQuery.isError || !ch) {
     return (
-      <ErrorBanner
-        message={errorMessage(channelQuery.error) ?? t('common.errorGeneric')}
-      />
+      <div className={kit.pageSection}>
+        <ErrorBanner
+          message={errorMessage(channelQuery.error) ?? t('common.errorGeneric')}
+        />
+      </div>
     )
   }
 
   return (
-    <div
-      className='flex min-h-0 flex-1 flex-col'
-      data-testid='channel-detail-panel'
-    >
-      <div className={`${kit.pageSection} min-h-0 flex-1 overflow-auto`}>
-        <div className='flex min-w-0 flex-col gap-[6px]'>
-          <div className='flex flex-wrap items-center justify-between gap-3'>
-            <div className='flex min-w-0 flex-wrap items-center gap-2'>
-              <h2 className={kit.title}>{ch.name}</h2>
-              <span className={ch.enabled ? kit.tagOn : kit.tagOff}>
-                {ch.enabled ? t('channels.enabled') : t('channels.disabled')}
-              </span>
-            </div>
-            <div className='flex shrink-0 flex-wrap gap-2'>
-              <Button
-                type='button'
-                className={kit.btnPrimary}
-                onClick={() => setEditOpen(true)}
-              >
-                <PenLine className='size-3.5' />
-                {t('channels.editInfo')}
-              </Button>
-              <Button
-                type='button'
-                variant='outline'
-                className={kit.btnGhost}
-                onClick={() => enableMutation.mutate(!ch.enabled)}
-                disabled={enableMutation.isPending}
-              >
-                {ch.enabled ? t('channels.disable') : t('channels.enable')}
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
+    <section className={kit.pageSection} data-testid='channel-detail-panel'>
+      <div className='flex min-w-0 flex-col gap-[6px]'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <div className='flex min-w-0 flex-wrap items-center gap-2'>
+            <h2 className={kit.title}>{ch.name}</h2>
+            <span className={ch.enabled ? kit.tagOn : kit.tagOff}>
+              {ch.enabled ? t('channels.enabled') : t('channels.disabled')}
+            </span>
+          </div>
+          <div className='flex shrink-0 flex-wrap gap-2'>
+            <Button
+              type='button'
+              className={kit.btnPrimary}
+              onClick={() => setEditOpen(true)}
+            >
+              <PenLine className='size-3.5' />
+              {t('channels.edit')}
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              className={kit.btnGhost}
+              onClick={() => enableMutation.mutate(!ch.enabled)}
+              disabled={enableMutation.isPending}
+            >
+              {ch.enabled ? t('channels.disable') : t('channels.enable')}
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type='button'
+                  variant='destructive'
+                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
+                  disabled={deleteMutation.isPending}
+                >
+                  {t('channels.delete')}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t('channels.deleteConfirmTitle')}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('channels.deleteConfirmBody', { name: ch.name })}
+                    {(sessionsQuery.data ?? 0) > 0 ? (
+                      <p className='mt-3'>
+                        {t('channels.deleteWillEndSessions', {
+                          count: sessionsQuery.data ?? 0,
+                        })}
+                      </p>
+                    ) : null}
+                    {(inFlightTasksQuery.data ?? 0) > 0 ? (
+                      <p className='mt-1'>
+                        {t('channels.deleteInFlightTasks', {
+                          count: inFlightTasksQuery.data ?? 0,
+                        })}
+                      </p>
+                    ) : null}
+                    {hasImpact ? (
+                      <label className='mt-4 flex items-start gap-2'>
+                        <input
+                          type='checkbox'
+                          checked={ackImpact}
+                          onChange={(e) => setAckImpact(e.target.checked)}
+                          data-testid='channel-delete-ack'
+                        />
+                        <span>{t('channels.deleteAckImpact')}</span>
+                      </label>
+                    ) : null}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel type='button'>
+                    {t('common.cancel')}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
                     type='button'
-                    variant='destructive'
-                    className='h-8 gap-1.5 rounded-md px-3 text-xs'
-                    disabled={ch.enabled || deleteMutation.isPending}
+                    onClick={() => deleteMutation.mutate()}
+                    className='bg-destructive text-white hover:bg-destructive/90'
+                    disabled={hasImpact ? !ackImpact : false}
                   >
                     {t('channels.delete')}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      {t('channels.deleteConfirmTitle')}
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {t('channels.deleteConfirmBody', { name: ch.name })}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel type='button'>
-                      {t('common.cancel')}
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      type='button'
-                      onClick={() => deleteMutation.mutate()}
-                      className='bg-destructive text-white hover:bg-destructive/90'
-                    >
-                      {t('channels.delete')}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
-          <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
-            <MetaChip
-              icon={<Bot className='size-3.5' />}
-              label={t('channels.platform')}
-              value={ch.platform}
-              divider
-            />
-            <MetaChip
-              icon={<KeyRound className='size-3.5' />}
-              label={t('channels.token')}
-              value={ch.token_masked}
-              divider
-            />
-            <MetaChip
-              icon={<CalendarDays className='size-3.5' />}
-              label={t('channels.fieldCreatedAt')}
-              value={formatTime(ch.created_at)}
-              divider
-            />
-            <MetaChip
-              icon={<Clock className='size-3.5' />}
-              label={t('channels.fieldUpdatedAt')}
-              value={formatTime(ch.updated_at)}
-            />
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
+        <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
+          <MetaChip
+            icon={<Bot className='size-3.5' />}
+            label={t('channels.platform')}
+            value={ch.platform}
+            divider
+          />
+          <MetaChip
+            icon={<KeyRound className='size-3.5' />}
+            label={t('channels.token')}
+            value={ch.token_masked}
+            divider
+          />
+          <MetaChip
+            icon={<CalendarDays className='size-3.5' />}
+            label={t('channels.fieldCreatedAt')}
+            value={formatTime(ch.created_at)}
+            divider
+          />
+          <MetaChip
+            icon={<Clock className='size-3.5' />}
+            label={t('channels.fieldUpdatedAt')}
+            value={formatTime(ch.updated_at)}
+          />
+        </div>
+      </div>
 
-        {updateMutation.isError ? (
-          <ErrorBanner message={errorMessage(updateMutation.error)} />
-        ) : null}
-        {deleteMutation.isError ? (
-          <ErrorBanner message={errorMessage(deleteMutation.error)} />
-        ) : null}
+      {updateMutation.isError ? (
+        <ErrorBanner message={errorMessage(updateMutation.error)} />
+      ) : null}
+      {deleteMutation.isError ? (
+        <ErrorBanner message={errorMessage(deleteMutation.error)} />
+      ) : null}
 
+      <section className='flex flex-col gap-4'>
         <SectionHead
           title={t('channels.tabMenu')}
           hint={t('channels.tabMenuHint')}
         />
-        <div className='min-h-[480px] rounded-md border p-4'>
+        <div className={`min-h-[480px] ${kit.cardWrap} p-4`}>
           <MenuCardEditor channelId={id} />
         </div>
-      </div>
+      </section>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='sm:max-w-lg'>
@@ -296,7 +313,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </section>
   )
 }
 
