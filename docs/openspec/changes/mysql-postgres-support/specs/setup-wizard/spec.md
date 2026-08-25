@@ -29,4 +29,4 @@
 
 #### Scenario: 结构化字段配置 MySQL/Postgres
 - **WHEN** 用户选择 MySQL 或 Postgres，并填写 Host、端口、用户、密码、数据库等字段
-- **THEN** 向导按字段组装连接字符串用于测连通；密码字段不回显明文；用户还可展开「高级」直接输入完整 DSN 覆盖组装结果
+- **THEN** 向导按字段组装连接字符串用于测连通；密码字段不回显明文；用户可在「附加参数」输入框直接追加任意 key=value 参数（MySQL 为 `&a=b`，Postgres 为空格分隔的 `key=value`），无需手拼完整 DSN

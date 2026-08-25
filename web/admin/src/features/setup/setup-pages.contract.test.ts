@@ -124,15 +124,14 @@ describe('login and setup pages', () => {
     expect(wizard).not.toMatch(/tg-token/)
   })
 
-  it('offers per-driver DSN placeholders in the wizard database step', () => {
+  it('offers per-driver connection fields and extra-param examples', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
-    expect(wizard).toMatch(/DB_DSN_PLACEHOLDER/)
-    expect(wizard).toMatch(/placeholder=\{[\s\S]*?DB_DSN_PLACEHOLDER\[driver\]/)
-    expect(wizard).toMatch(/mysql:/)
-    expect(wizard).toMatch(/postgres:/)
     expect(wizard).toMatch(/SelectItem value='sqlite'/)
     expect(wizard).toMatch(/SelectItem value='mysql'/)
     expect(wizard).toMatch(/SelectItem value='postgres'/)
+    expect(wizard).toMatch(/placeholder='data\/app\.db'/)
+    expect(wizard).toMatch(/placeholder='timeout=5s&readTimeout=10s'/)
+    expect(wizard).toMatch(/placeholder='connect_timeout=10 application_name=pixoma'/)
   })
 
   it('switches structured fields and port defaults when driver changes', () => {
@@ -145,10 +144,12 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/buildPostgresDSN/)
   })
 
-  it('offers an advanced raw DSN editor that can override the form', () => {
+  it('lets users append extra connection parameters without a raw DSN editor', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
-    expect(wizard).toMatch(/高级：直接输入 DSN/)
-    expect(wizard).toMatch(/htmlFor='db-dsn-raw'/)
-    expect(wizard).toMatch(/setRawDsn\(dsn\)/)
+    expect(wizard).toMatch(/label='附加参数' htmlFor='db-extra-params'/)
+    expect(wizard).toMatch(/setDbExtraParams/)
+    expect(wizard).toMatch(/params: dbExtraParams/)
+    expect(wizard).not.toMatch(/高级：直接输入 DSN/)
+    expect(wizard).not.toMatch(/db-dsn-raw/)
   })
 })

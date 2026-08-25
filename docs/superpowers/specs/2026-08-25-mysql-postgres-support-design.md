@@ -60,7 +60,7 @@ Where("status = ? AND lease_until IS NOT NULL AND lease_until < ?", status, now)
   - SQLite：数据库文件路径（默认 `data/app.db`）。
   - MySQL：Host / 端口（默认 3306）/ 用户 / 密码 / 数据库；组装为 `user:password@tcp(host:port)/db?charset=utf8mb4&parseTime=True&loc=Local`。
   - Postgres：Host / 端口（默认 5432）/ 用户 / 密码 / 数据库 / SSL 模式（disable/require/prefer）；组装为 `host=... port=... user=... password=... dbname=... sslmode=...`。
-  - 密码字段 `type=password` 不回显；「高级：直接输入 DSN」折叠项（textarea，`DB_DSN_PLACEHOLDER` 按 driver 提供示例）允许覆盖组装结果。
+  - 密码字段 `type=password` 不回显；每个服务型驱动提供「附加参数」输入框（MySQL 示例 `timeout=5s&readTimeout=10s`，Postgres 示例 `connect_timeout=10 application_name=pixoma`），直接追加到组装结果，不提供整串 DSN 编辑入口。
   - 切换驱动时端口默认值自动切换（3306↔5432），已填字段保留可编辑；组装逻辑放在纯函数模块 `db-dsn.ts`（可单测）。
 - 错误文案可诊断：非法驱动、空 DSN、连接失败均返回具体原因（后端已具备，前端透传）。
 

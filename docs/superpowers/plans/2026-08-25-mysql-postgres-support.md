@@ -659,7 +659,7 @@ Expected: ALL PASS，phase 推进到 verify。
 
 **Interfaces:**
 - Consumes: Task 2 的 `DB_DSN_PLACEHOLDER`。
-- Produces: 纯函数 `buildSqliteDSN(path)`、`buildMySQLDSN({host,port,user,password,database})`、`buildPostgresDSN({host,port,user,password,database,sslmode})`；向导数据库步骤按 driver 显示结构化字段 + 高级 raw DSN 折叠；切驱动时端口默认值联动。
+- Produces: 纯函数 `buildSqliteDSN(path)`、`buildMySQLDSN({host,port,user,password,database,params?})`、`buildPostgresDSN({host,port,user,password,database,sslmode,params?})`；向导数据库步骤按 driver 显示结构化字段 + 「附加参数」输入框（MySQL `&a=b`、Postgres 空格分隔 `key=value`）；切驱动时端口默认值联动。
 
 - [x] **Step 1: 新增 db-dsn 组装纯函数与单元测试（TDD RED→GREEN）**
 
@@ -667,7 +667,7 @@ Expected: ALL PASS，phase 推进到 verify。
 
 - [x] **Step 2: 更新向导数据库步骤为结构化字段表单**
 
-SQLite 显示数据库文件路径；MySQL 显示 Host/端口/用户/密码/数据库；Postgres 增加 SSL 模式（disable/require/prefer）；密码 `type=password`；底部「高级：直接输入 DSN」折叠 textarea（`DB_DSN_PLACEHOLDER` 占位）；`dsn` 由 `useMemo` 按字段组装，高级模式下 raw DSN 优先。
+SQLite 显示数据库文件路径；MySQL 显示 Host/端口/用户/密码/数据库；Postgres 增加 SSL 模式（disable/require/prefer）；密码 `type=password`；每个服务型驱动显示「附加参数」输入框（`db-extra-params`），参数直接追加进组装结果，不提供整串 DSN 编辑入口；`dsn` 由 `useMemo` 按字段组装。
 
 - [x] **Step 3: 切换驱动端口默认值联动**
 
@@ -675,7 +675,7 @@ SQLite 显示数据库文件路径；MySQL 显示 Host/端口/用户/密码/数�
 
 - [x] **Step 4: 更新合同测试并跑全量前端测试**
 
-合同测试改为断言结构化字段（db-driver/db-sqlite-path/db-host/db-password）、端口联动、高级 DSN 折叠；`pnpm vitest run` 326+ 全 PASS，`pnpm tsc -b` 通过。
+合同测试改为断言结构化字段（db-driver/db-sqlite-path/db-host/db-password）、端口联动、附加参数输入框（`db-extra-params`，含 MySQL/Postgres 示例占位），并断言不存在高级 raw DSN 编辑入口；`pnpm vitest run` 全 PASS，`pnpm tsc -b` 通过。
 
 - [x] **Step 5: 提交**
 
