@@ -42,7 +42,7 @@ func TestRepairLegacyCaseIDRebuildsTextPrimaryKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	docJSON, err := json.Marshal(map[string]any{
-		"id": 1, "name": "Legacy Workflow", "price": 0,
+		"id": 1, "name": "Legacy Workflow",
 		"inputs": []any{}, "outputs": []any{},
 		"bindings": map[string]any{"workflow": map[string]any{}},
 		"input_schema": map[string]any{"type": "object"},

@@ -12,7 +12,6 @@ type CaseDocument struct {
 	Name             string              `json:"name"`
 	Description      string              `json:"description,omitempty"`
 	Preview          string              `json:"preview,omitempty"`
-	Price            float64             `json:"price"`
 	Tags             []string            `json:"tags,omitempty"`
 	Categories       []string            `json:"categories,omitempty"`
 	Routing          *RoutingConfig      `json:"routing,omitempty"`

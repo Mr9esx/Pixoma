@@ -25,7 +25,7 @@ func (fakeCaseService) GetCase(_ context.Context, id sharedkernel.CaseID) (*cata
 	return &catalogdomain.Case{
 		Enabled: true,
 		Document: catalogdomain.CaseDocument{
-			ID: id, Name: "图片 B", Price: 15,
+			ID: id, Name: "图片 B",
 			Description: "示例模板", Preview: "返回一张示例图",
 		},
 	}, nil
