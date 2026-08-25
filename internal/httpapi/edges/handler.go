@@ -1,6 +1,7 @@
 package edges
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/mr9esx/comfyui_tgbot/internal/edgeadmin"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
@@ -27,6 +29,8 @@ type Handler struct {
 	EncKey   []byte
 	Presence *presence.Store
 	Topics   topic.Repository
+	// DeleteWithCleanup performs the cleanup delete (see internal/edgeadmin).
+	DeleteWithCleanup func(ctx context.Context, id sharedkernel.EdgeID, ack bool) (edgeadmin.DeleteSummary, error)
 }
 
 // Mount registers chi routes on r (caller should mount under /api/v1/edges).
@@ -375,18 +379,39 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	id := sharedkernel.EdgeID(chi.URLParam(r, "id"))
-	if err := h.Repo.Delete(r.Context(), id); errors.Is(err, edge.ErrNotFound) {
+	var body struct {
+		AckReferences bool `json:"ack_references"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if h.DeleteWithCleanup == nil {
+		writeErr(w, http.StatusInternalServerError, "delete cleanup not configured")
+		return
+	}
+	summary, err := h.DeleteWithCleanup(r.Context(), id, body.AckReferences)
+	if errors.Is(err, edgeadmin.ErrNeedsAck) {
+		writeErrCode(w, http.StatusConflict, "edge_delete_needs_ack",
+			"edge has running tasks; confirm with ack_references to mark them failed")
+		return
+	}
+	if errors.Is(err, edge.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "instance not found")
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if h.Presence != nil {
+		h.Presence.Remove(id)
 	}
 	if err := h.refreshPool(r); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"deleted":      true,
+		"failed_tasks": summary.FailedTasks,
+	})
 }
 
 func (h *Handler) listTasks(w http.ResponseWriter, r *http.Request) {
@@ -517,13 +542,12 @@ func (h *Handler) metrics(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	window, err := parseMetricsWindow(r.URL.Query().Get("window"))
+	since, until, err := parseMetricsRange(r)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	since := time.Now().UTC().Add(-window)
-	series, err := h.Metrics.ListSince(r.Context(), id, since, 720)
+	series, err := h.Metrics.ListSince(r.Context(), id, since, 100000)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -533,7 +557,46 @@ func (h *Handler) metrics(w http.ResponseWriter, r *http.Request) {
 		cp := series[len(series)-1]
 		latest = &cp
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"latest": latest, "series": series})
+	filled := fillMetricsGaps(series, since, until, metricsBucketSize(until.Sub(since)))
+	if filled == nil {
+		filled = []edge.Metrics{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"latest": latest, "series": filled})
+}
+
+const maxMetricsRange = 90 * 24 * time.Hour
+
+// parseMetricsRange resolves the requested window. Presets (window=1h/6h/24h)
+// are relative to now; a custom range is expressed as explicit RFC3339 from/to.
+func parseMetricsRange(r *http.Request) (time.Time, time.Time, error) {
+	fromRaw := strings.TrimSpace(r.URL.Query().Get("from"))
+	toRaw := strings.TrimSpace(r.URL.Query().Get("to"))
+	now := time.Now().UTC()
+	if fromRaw == "" && toRaw == "" {
+		window, err := parseMetricsWindow(r.URL.Query().Get("window"))
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		return now.Add(-window), now, nil
+	}
+	from, err := time.Parse(time.RFC3339, fromRaw)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid from %q", fromRaw)
+	}
+	to, err := time.Parse(time.RFC3339, toRaw)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid to %q", toRaw)
+	}
+	if !from.Before(to) {
+		return time.Time{}, time.Time{}, errors.New("from must be before to")
+	}
+	if to.After(now.Add(time.Minute)) {
+		return time.Time{}, time.Time{}, errors.New("to cannot be in the future")
+	}
+	if to.Sub(from) > maxMetricsRange {
+		return time.Time{}, time.Time{}, fmt.Errorf("range exceeds %s", maxMetricsRange)
+	}
+	return from, to, nil
 }
 
 func parseMetricsWindow(raw string) (time.Duration, error) {
@@ -549,6 +612,68 @@ func parseMetricsWindow(raw string) (time.Duration, error) {
 	}
 }
 
+// metricsBucketSize picks a fixed bucket so the returned series stays small
+// enough for charts while keeping the whole window covered.
+func metricsBucketSize(window time.Duration) time.Duration {
+	switch {
+	case window <= time.Hour:
+		return 30 * time.Second
+	case window <= 6*time.Hour:
+		return time.Minute
+	case window <= 24*time.Hour:
+		return 5 * time.Minute
+	case window <= 7*24*time.Hour:
+		return 30 * time.Minute
+	case window <= 30*24*time.Hour:
+		return 2 * time.Hour
+	default:
+		return 6 * time.Hour
+	}
+}
+
+var zeroDiskRate = 0.0
+
+func zeroMetrics(at time.Time) edge.Metrics {
+	return edge.Metrics{
+		CollectedAt:          at,
+		DiskReadBytesPerSec:  &zeroDiskRate,
+		DiskWriteBytesPerSec: &zeroDiskRate,
+	}
+}
+
+// fillMetricsGaps buckets the window into fixed intervals and zero-fills
+// buckets without samples, so charts render the full timeline instead of
+// connecting the last pre-downtime sample straight to the first post-boot one.
+func fillMetricsGaps(series []edge.Metrics, since, until time.Time, bucket time.Duration) []edge.Metrics {
+	if len(series) == 0 {
+		return nil
+	}
+	buckets := int(until.Sub(since) / bucket)
+	if buckets <= 0 {
+		return series
+	}
+	out := make([]edge.Metrics, 0, buckets)
+	idx := 0
+	for i := 0; i < buckets; i++ {
+		start := since.Add(time.Duration(i) * bucket)
+		end := start.Add(bucket)
+		var sample *edge.Metrics
+		for idx < len(series) && series[idx].CollectedAt.Before(end) {
+			if !series[idx].CollectedAt.Before(start) {
+				cp := series[idx]
+				sample = &cp
+			}
+			idx++
+		}
+		if sample == nil {
+			out = append(out, zeroMetrics(start.Add(bucket/2)))
+			continue
+		}
+		out = append(out, *sample)
+	}
+	return out
+}
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -557,4 +682,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+func writeErrCode(w http.ResponseWriter, status int, code, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg, "code": code})
 }

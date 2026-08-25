@@ -29,6 +29,7 @@ import (
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/edgeadmin"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
@@ -253,6 +254,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		return err
 	}
 	chSvc.Notify = botRT.Notify
+	edgeDeleteSvc := edgeadmin.NewService(gdb, botRT.Notify)
 	conditionReg := condition.NewRegistry()
 	conditionReg.Register(&condition.UserProvider{Lookup: func(ctx context.Context, userID string) (*bool, error) {
 		var row struct {
@@ -315,7 +317,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	caseDeleteSvc := caseadmin.NewService(gdb, botRT.Notify)
 	adminH := adminhost.NewHandler(adminhost.Options{
 		CORSOrigins: corsOrigins(),
-		Instances:   &edges.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Metrics: metricsRepo, EncKey: encKey, Presence: pres, Topics: topicRepo},
+		Instances:   &edges.Handler{Repo: instRepo, Pool: pool, Tasks: taskRepo, Metrics: metricsRepo, EncKey: encKey, Presence: pres, Topics: topicRepo, DeleteWithCleanup: edgeDeleteSvc.DeleteEdge},
 		Cases: &casesapi.Handler{Repo: caseRepo, Validate: func(doc catalogdomain.CaseDocument) error {
 			if err := validator.ValidateDocument(doc); err != nil {
 				return err

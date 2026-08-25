@@ -7,12 +7,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/mr9esx/comfyui_tgbot/internal/edgeadmin"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
@@ -623,8 +625,8 @@ func TestHandler_MetricsEndpoint(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 2; i++ {
-		m := edge.Metrics{CPUUsagePercent: float64(i), CollectedAt: now.Add(time.Duration(i) * time.Minute)}
+	for i, offset := range []time.Duration{-30 * time.Minute, -10 * time.Minute} {
+		m := edge.Metrics{CPUUsagePercent: float64(i+1) * 10, CollectedAt: now.Add(offset)}
 		if err := metricsRepo.Append(ctx, "gpu-1", m); err != nil {
 			t.Fatal(err)
 		}
@@ -654,8 +656,20 @@ func TestHandler_MetricsEndpoint(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.Series) != 2 || out.Latest == nil || out.Latest.CPUUsagePercent != 1 {
+	if len(out.Series) != 120 || out.Latest == nil || out.Latest.CPUUsagePercent != 20 {
 		t.Fatalf("series=%+v latest=%+v", out.Series, out.Latest)
+	}
+	real := 0
+	for _, p := range out.Series {
+		if p.CPUUsagePercent > 0 {
+			real++
+		}
+	}
+	if real != 2 {
+		t.Fatalf("want 2 real points among zero-filled buckets, got %d", real)
+	}
+	if out.Series[0].CPUUsagePercent != 0 {
+		t.Fatalf("first bucket must be zero-filled, got %+v", out.Series[0])
 	}
 
 	missing, err := http.Get(srv.URL + "/api/v1/edges/nope/metrics")
@@ -719,6 +733,111 @@ func TestHandler_MetricsEmptySeries(t *testing.T) {
 	}
 }
 
+func TestHandler_MetricsCustomRange(t *testing.T) {
+	dsn := "file:edges_metrics_custom_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}, &instpersist.MetricsRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	metricsRepo := instpersist.NewMetricsRepository(gdb, 24*time.Hour)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	if err := repo.Upsert(ctx, &edge.Record{
+		ID: "gpu-custom", Name: "gpu-custom", Enabled: true, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for i, offset := range []time.Duration{-25 * time.Minute, -5 * time.Minute} {
+		m := edge.Metrics{CPUUsagePercent: float64(i+1) * 10, CollectedAt: now.Add(offset)}
+		if err := metricsRepo.Append(ctx, "gpu-custom", m); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	h := &edges.Handler{Repo: repo, Metrics: metricsRepo, EncKey: testEncKey()}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", func(r chi.Router) { h.Mount(r) })
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	from := now.Add(-30 * time.Minute).Format(time.RFC3339)
+	to := now.Format(time.RFC3339)
+	res, err := http.Get(srv.URL + "/api/v1/edges/gpu-custom/metrics?from=" + url.QueryEscape(from) + "&to=" + url.QueryEscape(to))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(res.Body)
+		t.Fatalf("status=%d body=%s", res.StatusCode, raw)
+	}
+	var out struct {
+		Latest *edge.Metrics  `json:"latest"`
+		Series []edge.Metrics `json:"series"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Series) != 60 {
+		t.Fatalf("custom 30m window must produce 60 buckets, got %d", len(out.Series))
+	}
+	real := 0
+	for _, p := range out.Series {
+		if p.CPUUsagePercent > 0 {
+			real++
+		}
+	}
+	if real != 2 || out.Latest == nil || out.Latest.CPUUsagePercent != 20 {
+		t.Fatalf("real=%d latest=%+v", real, out.Latest)
+	}
+}
+
+func TestHandler_MetricsCustomRangeInvalid(t *testing.T) {
+	dsn := "file:edges_metrics_custom_invalid_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}, &instpersist.MetricsRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := instpersist.NewEdgeRepository(gdb)
+	metricsRepo := instpersist.NewMetricsRepository(gdb, 24*time.Hour)
+	now := time.Now().UTC().Truncate(time.Second)
+	if err := repo.Upsert(context.Background(), &edge.Record{
+		ID: "gpu-bad", Name: "gpu-bad", Enabled: true, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	h := &edges.Handler{Repo: repo, Metrics: metricsRepo, EncKey: testEncKey()}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", func(r chi.Router) { h.Mount(r) })
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	iso := func(tm time.Time) string { return url.QueryEscape(tm.Format(time.RFC3339)) }
+	cases := []string{
+		"from=" + iso(now) + "&to=" + iso(now),                                // from == to
+		"from=" + iso(now) + "&to=" + iso(now.Add(-time.Hour)),                // from after to
+		"from=" + iso(now.Add(-time.Hour)) + "&to=" + iso(now.Add(time.Hour)), // future to
+		"from=not-a-time&to=" + iso(now),                                      // bad format
+	}
+	for _, q := range cases {
+		res, err := http.Get(srv.URL + "/api/v1/edges/gpu-bad/metrics?" + q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != http.StatusBadRequest {
+			t.Fatalf("query %q status=%d want 400", q, res.StatusCode)
+		}
+	}
+}
+
 func TestEdge_GetIncludesStartedAtAndComfyVersion(t *testing.T) {
 	dsn := "file:comfy_httpapi_presence_info_" + t.Name() + "?mode=memory&cache=shared"
 	gdb, err := db.Open(db.Options{DSN: dsn})
@@ -773,5 +892,65 @@ func TestEdge_GetIncludesStartedAtAndComfyVersion(t *testing.T) {
 	}
 	if got, ok := out["started_at"].(string); !ok || got != "2026-08-18T12:00:00Z" {
 		t.Fatalf("started_at=%v", out["started_at"])
+	}
+}
+
+func TestHandler_DeleteCleanup(t *testing.T) {
+	h := &edges.Handler{
+		DeleteWithCleanup: func(ctx context.Context, id sharedkernel.EdgeID, ack bool) (edgeadmin.DeleteSummary, error) {
+			if id == "gpu-x" && !ack {
+				return edgeadmin.DeleteSummary{}, edgeadmin.ErrNeedsAck
+			}
+			if id == "missing" {
+				return edgeadmin.DeleteSummary{}, edge.ErrNotFound
+			}
+			return edgeadmin.DeleteSummary{FailedTasks: 1}, nil
+		},
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", func(r chi.Router) { h.Mount(r) })
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+
+	do := func(id string, body string) *http.Response {
+		t.Helper()
+		var rdr io.Reader
+		if body != "" {
+			rdr = bytes.NewBufferString(body)
+		}
+		req, err := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/edges/"+id, rdr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+
+	res := do("missing", "")
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("missing status=%d want 404", res.StatusCode)
+	}
+	res.Body.Close()
+
+	res = do("gpu-x", "")
+	if res.StatusCode != http.StatusConflict {
+		t.Fatalf("no-ack status=%d want 409", res.StatusCode)
+	}
+	res.Body.Close()
+
+	res = do("gpu-x", `{"ack_references":true}`)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("ack status=%d", res.StatusCode)
+	}
+	var body map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if body["deleted"] != true || body["failed_tasks"] != float64(1) {
+		t.Fatalf("body=%+v", body)
 	}
 }
