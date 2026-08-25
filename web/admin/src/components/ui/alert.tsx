@@ -13,6 +13,7 @@ const alertVariants = cva(
         success:
           'border-emerald-600/20 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400 [&>svg]:text-current *:data-[slot=alert-description]:text-emerald-700/90 dark:*:data-[slot=alert-description]:text-emerald-400/90',
         warn: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300 [&>svg]:text-current *:data-[slot=alert-description]:text-amber-700/90 dark:*:data-[slot=alert-description]:text-amber-300/90',
+        info: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-300 [&>svg]:text-current *:data-[slot=alert-description]:text-sky-700/90 dark:*:data-[slot=alert-description]:text-sky-300/90',
       },
     },
     defaultVariants: {

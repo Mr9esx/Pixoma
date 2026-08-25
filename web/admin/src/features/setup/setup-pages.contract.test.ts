@@ -194,6 +194,7 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/bucket_not_found/)
     expect(wizard).toMatch(/帮你创建/)
     expect(wizard).toMatch(/auto_create_bucket/)
+    expect(wizard).toMatch(/Alert variant='info'/)
   })
 
   it('uses storage step copy and warns for localfs', () => {
