@@ -42,6 +42,7 @@ describe('compute node layout and detail', () => {
     expect(detail).toMatch(/flex min-w-0 flex-col gap-\[6px\]/)
     expect(detail).not.toMatch(/data-orientation=['"]horizontal['"]/)
     expect(detail).toMatch(/<MetaChip/)
+    expect(detail).toMatch(/noConsume/)
     expect(detail).toMatch(/kit\.specsWrap/)
     expect(detail).toMatch(
       /fieldCpu[\s\S]*?fieldGpu[\s\S]*?fieldCpuCores[\s\S]*?fieldMemory/
@@ -60,7 +61,7 @@ describe('compute node layout and detail', () => {
     expect(tags).not.toMatch(/from '@\/components\/ui\/badge'/)
   })
 
-  it('opens create edit and deploy in dialogs', () => {
+  it('opens create in the detail pane and edit in dialogs', () => {
     const detail = read('detail-panel.tsx')
     const form = read('edge-form.tsx')
     const dialog = read('../../components/ui/dialog.tsx')
@@ -82,8 +83,8 @@ describe('compute node layout and detail', () => {
     expect(form).not.toMatch(/htmlFor=['"]edge-host['"]/)
     expect(form).not.toMatch(/htmlFor=['"]edge-port['"]/)
     expect(form).not.toMatch(/htmlFor=['"]instance-id['"]/)
-    expect(layout).not.toMatch(/edgeId === 'new'/)
-    expect(layout).toMatch(/<Dialog/)
+    expect(layout).toMatch(/edgeId === 'new'/)
+    expect(layout).not.toMatch(/<Dialog/)
   })
 
   it('detail panel offers delete with running-task impact', () => {
@@ -105,7 +106,7 @@ describe('compute node layout and detail', () => {
     )
     expect(layout).toMatch(/emptyDetail=/)
     expect(layout).toMatch(/EmptyHeader/)
-    expect(layout).toMatch(/setCreateOpen\(true\)/)
+    expect(layout).toMatch(/to='\/edges\/\$edgeId' params=\{\{ edgeId: 'new' \}\}/)
     expect(layout).toContain("to: '/edges/$edgeId'")
     expect(layout).toContain('replace: true')
     expect(shell).toMatch(/emptyDetail \?\? /)
@@ -164,6 +165,11 @@ describe('compute node layout and detail', () => {
     expect(deploy).not.toMatch(/INSTANCE_ID/)
     expect(deploy).toMatch(/AGENT_TOKEN/)
     expect(deploy).toMatch(/COMFYUI_BASE_URL=\$\{comfyURL\}/)
+    expect(deploy).toMatch(/EDGE_SUBSCRIBE_TOPICS/)
+    expect(deployView).toMatch(/listTopics/)
+    expect(deployView).toMatch(/deployTopics/)
+    expect(deployView).toMatch(/Popover/)
+    expect(deployView).toMatch(/CommandItem/)
     expect(deploy).toMatch(/127\.0\.0\.1:8188/)
     expect(creds).not.toMatch(/showCommand/)
   })
@@ -186,12 +192,11 @@ describe('compute node layout and detail', () => {
     expect(wizard).toMatch(/edges\.stepDeploy/)
     expect(wizard).toMatch(/edges\.stepDone/)
     expect(wizard).toMatch(
-      /<DialogTitle>\{title\}<\/DialogTitle>[\s\S]*?data-testid='create-edge-steps'/
+      /<h2 className='text-lg font-semibold tracking-tight'>\{title\}<\/h2>[\s\S]*?data-testid='create-edge-steps'/
     )
     expect(wizard).toMatch(
       /ol\s+className='flex shrink-0 items-center justify-center gap-2 py-6'\s+data-testid='create-edge-steps'/
     )
-    expect(wizard).toMatch(/<DialogHeader className='shrink-0'>/)
     expect(wizard).toMatch(/min-h-0 flex-1[\s\S]*?overflow-y-auto/)
     expect(wizard).toMatch(/overflow-y-auto px-1/)
     expect(wizard).toMatch(/refetchInterval:\s*3000/)
@@ -199,13 +204,13 @@ describe('compute node layout and detail', () => {
     expect(wizard).toMatch(/edges\.deployContinue/)
     expect(wizard).toMatch(/disabled=\{!ready\}/)
     expect(wizard).toMatch(
-      /<DialogFooter[^>]*>[\s\S]*edges\.deploySkip[\s\S]*edges\.deployContinue/
+      /<div className='flex shrink-0 items-center justify-end gap-2'>[\s\S]*edges\.deploySkip[\s\S]*edges\.deployContinue/
     )
     expect(wizard).toMatch(
-      /<DialogFooter[^>]*>[\s\S]*edges\.createDoneClose[\s\S]*edges\.createDoneView/
+      /<div className='flex shrink-0 items-center justify-end gap-2'>[\s\S]*edges\.createDoneClose[\s\S]*edges\.createDoneView/
     )
     expect(form).toMatch(/edges\.createAndContinue/)
-    expect(layout).toMatch(/flex max-h-\[85vh\] flex-col sm:max-w-lg/)
+    expect(layout).not.toMatch(/flex max-h-\[85vh\] flex-col sm:max-w-lg/)
     expect(zh).toMatch(/"createNode": "新建节点"/)
     expect(en).toMatch(/"createNode": "New node"/)
     expect(zh).toMatch(/"deployHeading": "部署节点"/)

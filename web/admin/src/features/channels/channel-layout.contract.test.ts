@@ -15,14 +15,18 @@ describe('channel layout aligned with compute nodes', () => {
     expect(source).not.toContain('<h2')
   })
 
-  it('route uses 280px master detail with top-right create button', () => {
+  it('route uses 280px master detail with create form in the detail pane', () => {
     const source = readFileSync(ROUTE, 'utf8')
     expect(source).toContain('MasterDetailShell')
     expect(source).toContain('md:grid-cols-[280px_1fr]')
     expect(source).toContain('ChannelDetailPanel')
-    expect(source).toContain('CreateChannelDialog')
-    expect(source).toContain('setCreateOpen(true)')
-    expect(source).not.toContain('/channels/new')
+    expect(source).toContain('CreateChannelForm')
+    expect(source).toContain("id === 'new'")
+    expect(source).toContain("to='/channels/$id' params={{ id: 'new' }}")
+    expect(source).toMatch(
+      /hasSelection=\{Boolean\(selectedId\) \|\| id === 'new'\}/
+    )
+    expect(source).not.toContain('setCreateOpen')
   })
 
   it('auto-selects the first channel and navigates the url', () => {
