@@ -6,6 +6,7 @@ import {
   finalizeSetup,
   saveSetupDraft,
   testDatabase,
+  testBlob,
   waitForSetupReady,
   type SetupDraft,
   type SetupStatus,
@@ -41,6 +42,7 @@ import {
   buildSqliteDSN,
 } from './db-dsn'
 import { setupErrorCopy, type AlertCopy } from './db-error'
+import { blobErrorCopy } from './blob-error'
 import {
   initialSetupStep,
   previousSetupStep,
@@ -73,6 +75,9 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   const [pgSslMode, setPgSslMode] = useState('disable')
   const [dbExtraParams, setDbExtraParams] = useState('')
   const [dbTested, setDbTested] = useState(false)
+  const [blobTested, setBlobTested] = useState(false)
+  const [blobPromptCreate, setBlobPromptCreate] = useState(false)
+  const [blobMissingBucket, setBlobMissingBucket] = useState('')
   const [blobDriver, setBlobDriver] = useState('localfs')
   const [blobRoot, setBlobRoot] = useState('data/blob')
   const [blobEndpoint, setBlobEndpoint] = useState('')
@@ -125,6 +130,69 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
       setDbTested(false)
     }
   }, [dsn])
+
+  const blobKey = useMemo(
+    () =>
+      JSON.stringify({
+        driver: blobDriver,
+        root: blobRoot,
+        endpoint: blobEndpoint,
+        region: blobRegion,
+        bucket: blobBucket,
+        ak: blobAccessKey,
+        sk: blobSecretKey,
+      }),
+    [
+      blobDriver,
+      blobRoot,
+      blobEndpoint,
+      blobRegion,
+      blobBucket,
+      blobAccessKey,
+      blobSecretKey,
+    ]
+  )
+  const lastTestedBlob = useRef(blobKey)
+  useEffect(() => {
+    if (lastTestedBlob.current !== blobKey) {
+      lastTestedBlob.current = blobKey
+      setBlobTested(false)
+      setBlobPromptCreate(false)
+    }
+  }, [blobKey])
+
+  function blobConfig() {
+    return {
+      blob_driver: blobDriver,
+      blob_root: blobRoot,
+      blob_endpoint: blobEndpoint,
+      blob_region: blobRegion,
+      blob_bucket: blobBucket,
+      blob_access_key: blobAccessKey,
+      blob_secret_key: blobSecretKey,
+    }
+  }
+
+  async function runBlobTest(autoCreateBucket: boolean) {
+    setPending(true)
+    setError(null)
+    try {
+      const res = await testBlob({ ...blobConfig(), auto_create_bucket: autoCreateBucket })
+      if (!res.ok && res.code === 'bucket_not_found' && !autoCreateBucket) {
+        setBlobMissingBucket(res.bucket ?? blobBucket)
+        setBlobPromptCreate(true)
+        setBlobTested(false)
+        return
+      }
+      setBlobPromptCreate(false)
+      lastTestedBlob.current = blobKey
+      setBlobTested(true)
+    } catch (err) {
+      setError(blobErrorCopy(err))
+    } finally {
+      setPending(false)
+    }
+  }
 
   function onDriverChange(next: string) {
     if (next === 'mysql' && dbPort === '5432') setDbPort('3306')
@@ -496,11 +564,41 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               </Field>
             </>
           )}
+          {blobPromptCreate ? (
+            <Alert>
+              <AlertTitle>
+                bucket `{blobMissingBucket}` 不存在，帮你创建？
+              </AlertTitle>
+              <div className='flex gap-2 pt-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  disabled={pending}
+                  onClick={() => {
+                    setBlobPromptCreate(false)
+                    void runBlobTest(true)
+                  }}
+                >
+                  创建
+                </Button>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  disabled={pending}
+                  onClick={() => setBlobPromptCreate(false)}
+                >
+                  取消
+                </Button>
+              </div>
+            </Alert>
+          ) : null}
           <StepActions
             error={error}
             pending={pending}
             submit={copy.submit}
             onBack={backStep ? goBack : undefined}
+            onTest={() => void runBlobTest(false)}
+            testPassed={blobTested}
           />
         </form>
       ) : null}

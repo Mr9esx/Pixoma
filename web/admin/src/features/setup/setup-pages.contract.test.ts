@@ -187,4 +187,12 @@ describe('login and setup pages', () => {
       /placement: blobDriver === 'localfs' \? 'local' : 'remote'/
     )
   })
+
+  it('tests blob connectivity and offers bucket creation', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/testBlob\(/)
+    expect(wizard).toMatch(/bucket_not_found/)
+    expect(wizard).toMatch(/帮你创建/)
+    expect(wizard).toMatch(/auto_create_bucket/)
+  })
 })
