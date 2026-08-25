@@ -153,6 +153,9 @@ func parseAdminListQuery(r *http.Request) (runtimedomain.AdminListQuery, error) 
 			q.CaseID = parsed
 		}
 	}
+	if v := r.URL.Query().Get("channel_id"); v != "" {
+		q.ChannelID = v
+	}
 	if v := r.URL.Query().Get("chat_id"); v != "" {
 		q.ChatID = sharedkernel.ChatID(v)
 	}
