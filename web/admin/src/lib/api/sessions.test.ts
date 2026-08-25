@@ -42,6 +42,24 @@ describe('sessions API', () => {
     )
   })
 
+  it('listSessions filters by channel_id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ id: 's1' }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const data = await listSessions({ channel_id: 'tg', status: 'collecting' })
+
+    expect(data[0].id).toBe('s1')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8081/api/v1/sessions?channel_id=tg&status=collecting',
+      expect.anything(),
+    )
+  })
+
   it('getSession GETs /api/v1/sessions/{id}', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 's1', status: 'active' }), {

@@ -4,6 +4,7 @@ import type { TaskRecord } from './types'
 export function listTasks(params?: {
   status?: string
   case_id?: number
+  channel_id?: string
   q?: string
   limit?: number
   offset?: number

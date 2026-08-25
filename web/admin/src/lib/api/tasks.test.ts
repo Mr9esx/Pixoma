@@ -42,6 +42,24 @@ describe('tasks API', () => {
     )
   })
 
+  it('listTasks filters by channel_id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ id: 't1', status: 'running' }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const data = await listTasks({ channel_id: 'tg', status: 'running' })
+
+    expect(data[0].id).toBe('t1')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8081/api/v1/tasks?channel_id=tg&status=running',
+      expect.anything(),
+    )
+  })
+
   it('cancelTask POSTs /api/v1/tasks/{id}/cancel', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 't1', status: 'cancelled' }), {
