@@ -40,6 +40,14 @@ import {
   type SetupStep,
 } from './setup-steps'
 
+const DB_DSN_PLACEHOLDER: Record<string, string> = {
+  sqlite: 'data/app.db',
+  mysql:
+    'user:password@tcp(127.0.0.1:3306)/pixoma?charset=utf8mb4&parseTime=True&loc=Local',
+  postgres:
+    'host=127.0.0.1 port=5432 user=pixoma password=... dbname=pixoma sslmode=disable',
+}
+
 export function SetupWizard({ status }: { status: SetupStatus }) {
   const navigate = useNavigate()
   const steps = useMemo(
@@ -210,6 +218,9 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               id='db-dsn'
               value={dsn}
               onChange={(e) => setDsn(e.target.value)}
+              placeholder={
+                DB_DSN_PLACEHOLDER[driver] ?? DB_DSN_PLACEHOLDER.sqlite
+              }
             />
           </Field>
           <StepActions
