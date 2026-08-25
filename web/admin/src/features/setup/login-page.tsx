@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { KeyRound } from 'lucide-react'
 import { ApiError } from '@/lib/api/client'
-import { loginAdmin } from '@/lib/api/setup'
+import { loginAdmin, type SetupStatus } from '@/lib/api/setup'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -15,13 +17,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthShell } from './auth-shell'
 
-export function LoginPage() {
+export function LoginPage({ status }: { status: SetupStatus }) {
   const navigate = useNavigate()
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const showFirstRunHint = !status.initialized && status.must_change_password
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -71,7 +74,7 @@ export function LoginPage() {
                 autoComplete='current-password'
               />
             </div>
-            <label className='flex items-center gap-2 text-sm text-muted-foreground cursor-pointer'>
+            <label className='flex cursor-pointer items-center gap-2 text-sm text-muted-foreground'>
               <Checkbox
                 checked={remember}
                 onCheckedChange={(v) => setRemember(v === true)}
@@ -85,6 +88,14 @@ export function LoginPage() {
           </form>
         </CardContent>
       </Card>
+      {showFirstRunHint ? (
+        <Alert className='w-full max-w-sm border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400'>
+          <KeyRound />
+          <AlertDescription>
+            首次启动系统会生成默认密码，在启动日志中搜索 "Admin password" 即可。
+          </AlertDescription>
+        </Alert>
+      ) : null}
     </AuthShell>
   )
 }

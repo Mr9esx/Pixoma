@@ -12,10 +12,8 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         <Logo className='relative m-auto size-96 rounded-2xl' />
         <blockquote className='relative z-20 mt-auto flex flex-col gap-2'>
           <p className='text-lg'>
-            「先登录后台。还没配过的话，接着改密码、选库、选这台机器还是远程
-            GPU。」
+            Pixoma 让你随时随地使用自己的 ComfyUI 进行艺术创作。
           </p>
-          <footer className='text-sm'>Pixoma</footer>
         </blockquote>
       </div>
       <div className='h-full overflow-y-auto lg:p-8'>

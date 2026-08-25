@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { LoginPage } from '@/features/setup/login-page'
 import { fetchSetupStatus } from '@/lib/api/setup'
 import { nextAdminPath } from '@/lib/setup-guard'
+import { LoginPage } from '@/features/setup/login-page'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: async () => {
@@ -10,6 +10,12 @@ export const Route = createFileRoute('/login')({
     if (next) {
       throw redirect({ to: next })
     }
+    return { status }
   },
-  component: LoginPage,
+  component: LoginRouteComponent,
 })
+
+function LoginRouteComponent() {
+  const { status } = Route.useRouteContext()
+  return <LoginPage status={status} />
+}

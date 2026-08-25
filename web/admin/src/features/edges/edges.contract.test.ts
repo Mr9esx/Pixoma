@@ -299,7 +299,7 @@ describe('compute node layout and detail', () => {
     expect(en).toMatch(/"monitorIoWriteCurrent": "Current write"/)
     expect(en).toMatch(/"monitorIoWriteMax": "Highest write"/)
     expect(en).toMatch(/"monitorIoWriteAvg": "Average write"/)
-    expect(zh).toMatch(/"monitorEmptyHint": "请检查节点状态/)
+    expect(zh).toMatch(/"monitorEmptyHint": "检查节点状态/)
     expect(en).toMatch(/"monitorEmptyHint": "Check the node/)
     expect(zh).toMatch(/"monitorCurrent": "当前"/)
     expect(en).toMatch(/"monitorCurrent": "Current"/)
