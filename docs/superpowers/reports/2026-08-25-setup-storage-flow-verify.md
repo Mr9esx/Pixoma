@@ -65,3 +65,5 @@
 补充（归档前重开 e283067，404 误报修复）：`blob-error.ts` 移除裸 `/404/` 映射（只认 `NoSuchBucket`/`NoSuchKey`），「Request failed (404)」走通用文案，含回归测试（RED→GREEN 已验证）。前端 57 文件 / 365 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
 
 补充（归档前重开 587c21d，TOS 默认值）：选择火山 TOS 预填 endpoint `https://tos-cn-beijing.volces.com`、region `cn-beijing`、bucket `pixoma`（空值才填，不覆盖手输）。前端 57 文件 / 366 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
+
+补充（归档前重开 cef3a03，info 变体）：`alert.tsx` 新增 `info` 变体（sky 蓝）；bucket 创建提示改用 `Alert variant="info"`。前端 57 文件 / 366 测试、`pnpm tsc -b`、`go build ./... && go test ./...`（70 包 ok）全部通过。
