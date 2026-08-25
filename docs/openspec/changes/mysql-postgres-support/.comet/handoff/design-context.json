@@ -1,0 +1,16 @@
+{
+  "change": "mysql-postgres-support",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "80f0977c1a93a5029abd14104751cce0c2070a4fd3766df0fabe4fdd8636c545",
+  "files": [
+    { "path": "docs/openspec/changes/mysql-postgres-support/proposal.md", "sha256": "57b2a2e094c8b45de5376ad357f475eb29fba14ef2d7760244f31d368180b591" },
+    { "path": "docs/openspec/changes/mysql-postgres-support/design.md", "sha256": "06497557cf31b3c54ce5a01ba71e4830a3a78dcb2b53e8474cd269ae614e32c3" },
+    { "path": "docs/openspec/changes/mysql-postgres-support/tasks.md", "sha256": "4c703e39b13de3d3a2fcbf4663c26153fb42b26d6e2f434b8ded2b97e5792a33" },
+    { "path": "docs/openspec/changes/mysql-postgres-support/specs/multi-database-support/spec.md", "sha256": "a87d8b590ffe07cca608391cc23ba51f7c09517bcf45a9de410fd7e20e0ce8c8" },
+    { "path": "docs/openspec/changes/mysql-postgres-support/specs/platform-bootstrap/spec.md", "sha256": "a902ee4935008491ad57eb08028d0f6388e9ff97b8a6a26a79a1b531cd1a8225" },
+    { "path": "docs/openspec/changes/mysql-postgres-support/specs/setup-wizard/spec.md", "sha256": "643ea95b370b03d246d8bce4a29ac0fd170547e1f86482d42c2626d8209ba64e" }
+  ]
+}
