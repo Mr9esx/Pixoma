@@ -57,9 +57,15 @@ export function rotateEdgeToken(id: string) {
   )
 }
 
-export function deleteEdge(id: string) {
-  return apiFetch<void>(`/api/v1/edges/${encodeURIComponent(id)}`, {
+export type DeleteEdgeResult = {
+  deleted: boolean
+  failed_tasks?: number
+}
+
+export function deleteEdge(id: string, ack?: boolean) {
+  return apiFetch<DeleteEdgeResult>(`/api/v1/edges/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    ...(ack ? { body: JSON.stringify({ ack_references: true }) } : {}),
   })
 }
 
@@ -76,8 +82,22 @@ export function getEdgeStats(id: string) {
   return apiFetch<EdgeStats>(`/api/v1/edges/${encodeURIComponent(id)}/stats`)
 }
 
-export function getEdgeMetrics(id: string, window: '1h' | '6h' | '24h' = '1h') {
+export type MetricsWindow = '1h' | '6h' | '24h'
+
+export type MetricsRange =
+  | { kind: 'preset'; window: MetricsWindow }
+  | { kind: 'custom'; from: string; to: string }
+
+export function getEdgeMetrics(
+  id: string,
+  window: MetricsWindow | 'custom' = '1h',
+  range?: { from: string; to: string }
+) {
+  const params =
+    window === 'custom' && range
+      ? `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
+      : `?window=${window}`
   return apiFetch<EdgeMetricsResponse>(
-    `/api/v1/edges/${encodeURIComponent(id)}/metrics?window=${window}`
+    `/api/v1/edges/${encodeURIComponent(id)}/metrics${params}`
   )
 }

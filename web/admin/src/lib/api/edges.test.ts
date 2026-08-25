@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { listEdges, createEdge, listPresence } from './edges'
+import { listEdges, createEdge, deleteEdge, listPresence } from './edges'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -26,6 +26,27 @@ describe('edges API', () => {
     )
     const init = fetchMock.mock.calls[0][1] as RequestInit | undefined
     expect(init?.method).toBeUndefined()
+  })
+
+  it('deleteEdge sends ack_references body when ack is true', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ deleted: true, failed_tasks: 1 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const data = await deleteEdge('gpu-1', true)
+
+    expect(data.failed_tasks).toBe(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8081/api/v1/edges/gpu-1',
+      expect.objectContaining({
+        method: 'DELETE',
+        body: JSON.stringify({ ack_references: true }),
+      }),
+    )
   })
 
   it('listPresence GETs /api/v1/edges/presence', async () => {
