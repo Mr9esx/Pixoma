@@ -55,6 +55,7 @@ func (s *CaseSnapshot) WorkflowForTask(ctx context.Context, taskID sharedkernel.
 	if err != nil {
 		return nil, fmt.Errorf("actuator: copy workflow: %w", err)
 	}
+	graph = stripAnnotationNodes(graph)
 
 	// Prefer per-dispatch uploader; fall back to struct field. Never mutate s.Uploader.
 	upload := uploader
@@ -135,6 +136,7 @@ func (s *CaseSnapshot) BuildJobPackage(ctx context.Context, taskID sharedkernel.
 	if err != nil {
 		return JobPackage{}, fmt.Errorf("actuator: copy workflow: %w", err)
 	}
+	graph = stripAnnotationNodes(graph)
 
 	var images []JobImage
 	bindings := indexBindings(c.Document.Bindings.Inputs)

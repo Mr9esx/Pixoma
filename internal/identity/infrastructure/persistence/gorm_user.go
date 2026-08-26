@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,6 +60,17 @@ func (r *UserRepository) UpsertByChannelExternal(ctx context.Context, in domain.
 	if in.ChannelID == "" || in.ExternalUserID == "" {
 		return nil, fmt.Errorf("identity: channel_id and external_user_id required")
 	}
+	for attempt := 0; attempt < 3; attempt++ {
+		got, err := r.upsertOnce(ctx, in)
+		if err == nil || !isUniqueViolation(err) {
+			return got, err
+		}
+		// 并发创建同一条 (channel, external_user_id) 时输掉竞态：重读胜出行后走更新路径。
+	}
+	return nil, fmt.Errorf("identity: concurrent upsert retries exhausted (%s, %s)", in.ChannelID, in.ExternalUserID)
+}
+
+func (r *UserRepository) upsertOnce(ctx context.Context, in domain.UpsertFrom) (*domain.User, error) {
 	now := in.LastSeenAt
 	if now.IsZero() {
 		now = r.now()
@@ -112,6 +124,18 @@ func (r *UserRepository) UpsertByChannelExternal(ctx context.Context, in domain.
 		}
 		return tx.Save(&identity).Error
 	})
+}
+
+// isUniqueViolation reports whether err is a unique-index conflict across
+// SQLite / MySQL / PostgreSQL drivers.
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unique constraint") || // sqlite
+		strings.Contains(msg, "duplicate entry") || // mysql
+		strings.Contains(msg, "duplicate key") // postgres
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {

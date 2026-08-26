@@ -112,7 +112,7 @@ func (c *Client) ReportPresence(
 	hw *edge.Hardware,
 	m *edge.Metrics,
 	topics []string,
-) (bool, error) {
+) (refresh bool, consuming bool, err error) {
 	payload := map[string]any{
 		"edge_id":       c.EdgeID,
 		"comfy_running": comfyRunning,
@@ -134,36 +134,37 @@ func (c *Client) ReportPresence(
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return false, fmt.Errorf("pull: encode presence: %w", err)
+		return false, false, fmt.Errorf("pull: encode presence: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/agent/v1/presence", bytes.NewReader(body))
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	c.auth(req)
 	req.Header.Set("Content-Type", "application/json")
 	res, err := c.HTTP.Do(req)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusUnauthorized {
-		return false, fmt.Errorf("pull: unauthorized")
+		return false, false, fmt.Errorf("pull: unauthorized")
 	}
 	if res.StatusCode == http.StatusNoContent {
-		return false, nil
+		return false, false, nil
 	}
 	if res.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
-		return false, fmt.Errorf("pull: presence status %d: %s", res.StatusCode, raw)
+		return false, false, fmt.Errorf("pull: presence status %d: %s", res.StatusCode, raw)
 	}
 	var out struct {
 		RefreshHardware bool `json:"refresh_hardware"`
+		Consuming       bool `json:"consuming"`
 	}
 	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&out); err != nil && !errors.Is(err, io.EOF) {
-		return false, fmt.Errorf("pull: decode presence: %w", err)
+		return false, false, fmt.Errorf("pull: decode presence: %w", err)
 	}
-	return out.RefreshHardware, nil
+	return out.RefreshHardware, out.Consuming, nil
 }
 
 func (c *Client) ReportStatus(ctx context.Context, ev sharedkernel.TaskStatusEvent) error {

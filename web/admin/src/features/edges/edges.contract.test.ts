@@ -74,9 +74,7 @@ describe('compute node layout and detail', () => {
     expect(dialog).toMatch(/rounded-b-xl[\s\S]*?border-t[\s\S]*?bg-muted\/50/)
     expect(dialog).toMatch(/top-2\.5 flex size-7 items-center justify-center/)
     expect(form).toMatch(/refresh_hardware/)
-    expect(form).toMatch(
-      /min-h-0 flex-1 overflow-y-auto[\s\S]*?<form\s+id='edge-form'/
-    )
+    expect(form).toMatch(/<form\s+id='edge-form'/)
     expect(form).toMatch(/min-h-0 flex-1 overflow-y-auto px-1/)
     expect(form).toMatch(/<form\s+id='edge-form'/)
     expect(form).toMatch(/<DialogFooter/)
@@ -196,7 +194,7 @@ describe('compute node layout and detail', () => {
     expect(wizard).toMatch(/edges\.stepDeploy/)
     expect(wizard).toMatch(/edges\.stepDone/)
     expect(wizard).toMatch(
-      /<h2 className='text-lg font-semibold tracking-tight'>\{title\}<\/h2>[\s\S]*?data-testid='create-edge-steps'/
+      /<h2 className=\{kit\.title\}>\{title\}<\/h2>[\s\S]*?data-testid='create-edge-steps'/
     )
     expect(wizard).toMatch(
       /ol\s+className='flex shrink-0 items-center justify-center gap-2 py-6'\s+data-testid='create-edge-steps'/
@@ -212,6 +210,10 @@ describe('compute node layout and detail', () => {
     )
     expect(wizard).toMatch(
       /sticky bottom-0[\s\S]*?edges\.createDoneClose[\s\S]*?edges\.createDoneView/
+    )
+    expect(wizard).toMatch(/layout='page'/)
+    expect(form).toMatch(
+      /sticky bottom-0[\s\S]*?border-t bg-card[\s\S]*?edges\.createAndContinue/
     )
     expect(form).toMatch(/edges\.createAndContinue/)
     expect(layout).not.toMatch(/flex max-h-\[85vh\] flex-col sm:max-w-lg/)

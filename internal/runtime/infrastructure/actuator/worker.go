@@ -58,6 +58,7 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 		return w.fail(ctx, ev, "workflow", err.Error(), now)
 	}
 
+	graph = stripAnnotationNodes(graph)
 	promptID, err := cli.Submit(ctx, graph)
 	if err != nil {
 		return w.fail(ctx, ev, "comfy_submit", err.Error(), now)
@@ -82,6 +83,45 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 		TaskID: ev.TaskID, EdgeID: ev.EdgeID, Status: sharedkernel.TaskSucceeded,
 		PromptID: promptID, Outputs: outs, At: w.now(),
 	})
+}
+
+// annotationClassTypes 是不参与执行的纯批注/备注节点，ComfyUI 通常未安装
+// 对应自定义节点，提交前剔除，避免整条工作流被 400 拒掉。
+var annotationClassTypes = map[string]bool{
+	"MarkdownNote": true,
+	"Note":         true,
+	"note":         true,
+}
+
+// stripAnnotationNodes 删除未被其它节点引用的批注节点，保留被引用的情况以免破坏图。
+func stripAnnotationNodes(graph comfyui.Graph) comfyui.Graph {
+	referenced := map[string]bool{}
+	for _, raw := range graph {
+		node, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		inputs, _ := node["inputs"].(map[string]any)
+		for _, v := range inputs {
+			arr, ok := v.([]any)
+			if ok && len(arr) > 0 {
+				if s, ok := arr[0].(string); ok {
+					referenced[s] = true
+				}
+			}
+		}
+	}
+	for id, raw := range graph {
+		node, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		ct, _ := node["class_type"].(string)
+		if annotationClassTypes[ct] && !referenced[id] {
+			delete(graph, id)
+		}
+	}
+	return graph
 }
 
 func (w *Worker) resolveJob(ctx context.Context, ev sharedkernel.DispatchCommand, cli comfyui.Client) (comfyui.Graph, []catalogdomain.OutputBinding, error) {

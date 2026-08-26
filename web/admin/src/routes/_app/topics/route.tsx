@@ -105,7 +105,7 @@ function TopicsLayout() {
         }
         detail={
           create ? (
-            <div className={kit.pageSection}>
+            <div className={kit.createPage}>
               <h2 className={kit.title}>{t('topics.new')}</h2>
               <CreateTopicForm
                 onDone={(topic) => {

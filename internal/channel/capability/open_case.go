@@ -3,6 +3,7 @@ package capability
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -51,6 +52,47 @@ func (OpenCase) Render(channelID string, override map[string]any) (protocol.Rend
 		Entry:  "root",
 		Config: map[string]any{"columns": 2},
 	}, override), nil
+}
+
+// stringOf 把参数值统一成字符串：invoke 可能是内存直传（[]string / uint64），
+// 也可能经过 JSON 反序列化（[]any / float64），两种形态都要兼容。
+func stringOf(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case json.Number:
+		return t.String()
+	case uint64:
+		return strconv.FormatUint(t, 10)
+	case int64:
+		return strconv.FormatInt(t, 10)
+	case int:
+		return strconv.Itoa(t)
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case nil:
+		return ""
+	default:
+		return ""
+	}
+}
+
+// stringSlice 把参数值统一成字符串列表，兼容内存直传和 JSON 反序列化两种形态。
+func stringSlice(v any) []string {
+	switch t := v.(type) {
+	case []string:
+		return append([]string(nil), t...)
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, item := range t {
+			if s := stringOf(item); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav protocol.Nav, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
@@ -185,17 +227,16 @@ func (o OpenCase) list(ctx context.Context, params map[string]any) (protocol.Res
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
-	ids := params["case_ids"].([]any)
-	if raw, ok := params["workflow_ids"].([]any); ok && len(raw) > 0 {
+	ids := stringSlice(params["case_ids"])
+	if raw := stringSlice(params["workflow_ids"]); len(raw) > 0 {
 		ids = raw
 	}
 	if len(ids) == 0 {
 		return protocol.Result{Text: "暂无可用工作流"}, nil
 	}
 	var options []protocol.Option
-	for _, raw := range ids {
-		id, ok := raw.(string)
-		if !ok || id == "" {
+	for _, id := range ids {
+		if id == "" {
 			continue
 		}
 		parsed, perr := sharedkernel.ParseCaseID(id)
@@ -218,7 +259,7 @@ func (o OpenCase) preview(ctx context.Context, params map[string]any) (protocol.
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
-	rawCaseID, _ := params["case_id"].(string)
+	rawCaseID := stringOf(params["case_id"])
 	if rawCaseID == "" {
 		return protocol.Result{}, fmt.Errorf("open_case: case_id required for preview")
 	}
@@ -245,17 +286,28 @@ func (o OpenCase) preview(ctx context.Context, params map[string]any) (protocol.
 	return protocol.Result{
 		Text: b.String(),
 		Options: []protocol.Option{
-			{Label: "▶ 开始 Case", Value: map[string]any{"step": "start", "case_id": caseID}},
-			{Label: "« 返回列表", Value: map[string]any{"step": "list", "case_ids": params["case_ids"]}},
+			{Label: "▶ 开始 Case", Value: map[string]any{"step": "start", "case_id": strconv.FormatUint(uint64(caseID), 10)}},
+			{Label: "« 返回列表", Value: map[string]any{"step": "list", "case_ids": backCaseIDs(params, rawCaseID)}},
 		},
 	}, nil
+}
+
+// backCaseIDs 返回「返回列表」要携带的 case_ids：沿用原参数，缺失时退化为当前单个工作流。
+func backCaseIDs(params map[string]any, rawCaseID string) any {
+	if ids := params["case_ids"]; ids != nil {
+		return ids
+	}
+	if ids := params["workflow_ids"]; ids != nil {
+		return ids
+	}
+	return []string{rawCaseID}
 }
 
 func (o OpenCase) start(ctx context.Context, acct protocol.AccountCtx, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
-	rawCaseID, _ := params["case_id"].(string)
+	rawCaseID := stringOf(params["case_id"])
 	if rawCaseID == "" {
 		return protocol.Result{}, fmt.Errorf("open_case: case_id required for start")
 	}
@@ -267,6 +319,14 @@ func (o OpenCase) start(ctx context.Context, acct protocol.AccountCtx, chatID sh
 		ChatID: chatID, UserID: acct.InternalUserID, CaseID: caseID,
 	})
 	if err != nil {
+		if errors.Is(err, convdomain.ErrSessionLocked) {
+			return protocol.Result{
+				Text: "你有一个未完成的工作流，先退出再重新开始。",
+				Options: []protocol.Option{
+					{Label: "✕ 退出", Value: map[string]any{"step": "exit"}},
+				},
+			}, nil
+		}
 		return protocol.Result{}, err
 	}
 	return renderSession(o, view)

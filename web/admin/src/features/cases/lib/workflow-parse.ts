@@ -20,8 +20,6 @@ export type WorkflowParseResult =
   | { ok: true; graph: WorkflowGraph }
   | { ok: false; error: string }
 
-type UiLink = [number, number, number, number, number, string]
-
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
@@ -40,57 +38,17 @@ function isApiGraph(value: unknown): value is Record<string, unknown> {
   return entries.length > 0 && entries.every(isApiNode)
 }
 
-function convertUiToApi(
-  value: Record<string, unknown>
-): { ok: true; api: Record<string, unknown> } | { ok: false; error: string } {
-  const nodes = value['nodes']
-  if (!Array.isArray(nodes) || nodes.length === 0) {
-    return { ok: false, error: 'nodes array is missing or empty' }
-  }
-  const linksRaw = Array.isArray(value['links']) ? value['links'] : []
-  const links = new Map<number, UiLink>()
-  for (const link of linksRaw) {
-    if (Array.isArray(link) && typeof link[0] === 'number') {
-      links.set(link[0], link as UiLink)
+// hasWidgetKeys 检测图中是否残留 widget_N 占位输入——标准 API 导出不会有这种键。
+function hasWidgetKeys(api: Record<string, unknown>): boolean {
+  for (const raw of Object.values(api)) {
+    const node = raw as Record<string, unknown>
+    if (!isRecord(node)) continue
+    const inputs = isRecord(node['inputs']) ? node['inputs'] : {}
+    if (Object.keys(inputs).some((k) => /^widget_\d+$/.test(k))) {
+      return true
     }
   }
-  const api: Record<string, unknown> = {}
-  for (const [index, node] of nodes.entries()) {
-    if (!isRecord(node)) {
-      return { ok: false, error: `第 ${index + 1} 个节点格式不正确` }
-    }
-    const id = String(node['id'])
-    const classType = node['type']
-    if (!id || typeof classType !== 'string') {
-      return {
-        ok: false,
-        error: `第 ${index + 1} 个节点缺少类型信息，无法识别`,
-      }
-    }
-    const rawInputs = Array.isArray(node['inputs']) ? node['inputs'] : []
-    const widgets = Array.isArray(node['widgets_values'])
-      ? node['widgets_values']
-      : []
-    let widgetIndex = 0
-    const inputs: Record<string, unknown> = {}
-    for (const input of rawInputs) {
-      if (!isRecord(input) || typeof input['name'] !== 'string') continue
-      const name = input['name']
-      const linkId = input['link']
-      if (typeof linkId === 'number' && links.has(linkId)) {
-        const link = links.get(linkId)!
-        inputs[name] = [String(link[1]), link[2]]
-      } else if (linkId === null && widgetIndex < widgets.length) {
-        inputs[name] = widgets[widgetIndex]
-        widgetIndex += 1
-      }
-    }
-    for (; widgetIndex < widgets.length; widgetIndex += 1) {
-      inputs[`widget_${widgetIndex}`] = widgets[widgetIndex]
-    }
-    api[id] = { class_type: classType, inputs }
-  }
-  return { ok: true, api }
+  return false
 }
 
 export function parseWorkflow(raw: string): WorkflowParseResult {
@@ -102,16 +60,21 @@ export function parseWorkflow(raw: string): WorkflowParseResult {
   }
   if (!isRecord(parsed)) return { ok: false, error: 'JSON 顶层必须是对象' }
 
-  let api: Record<string, unknown>
-  if (isApiGraph(parsed)) {
-    api = parsed
-  } else if (Array.isArray(parsed['nodes'])) {
-    const converted = convertUiToApi(parsed)
-    if (!converted.ok) return { ok: false, error: converted.error }
-    api = converted.api
-  } else {
-    return { ok: false, error: '不是 ComfyUI 导出的工作流' }
+  if (!isApiGraph(parsed)) {
+    return {
+      ok: false,
+      error:
+        '仅支持 ComfyUI「保存(API 格式)」导出的 JSON（顶层为节点 id → {class_type, inputs}）；UI 导出（nodes/widgets_values）不支持',
+    }
   }
+  if (hasWidgetKeys(parsed)) {
+    return {
+      ok: false,
+      error:
+        '该 JSON 含 widget_N 占位输入，不是标准 API 格式；请用 ComfyUI「保存(API 格式)」重新导出',
+    }
+  }
+  const api = parsed
 
   const nodes: WorkflowNode[] = Object.entries(api).map(([id, rawNode]) => {
     const node = rawNode as Record<string, unknown>

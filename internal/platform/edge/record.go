@@ -24,7 +24,8 @@ type Record struct {
 	UpdatedAt                time.Time
 }
 
-// EffectiveTopics returns the normalized subscription set (empty = default).
+// EffectiveTopics returns the normalized subscription set; an empty result
+// means the edge has no topic binding and consumes no tasks.
 func (r *Record) EffectiveTopics() []string {
 	return topic.NormalizeTopics(r.SubscribeTopics)
 }

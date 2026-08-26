@@ -32,6 +32,7 @@ import {
 } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { ComfyEdge } from '@/lib/api/types'
+import { scrollAndFlash } from '@/lib/scroll-focus'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -237,7 +238,11 @@ export function EdgeDetailPanel({ id }: Props) {
   const stats = statsQuery.data
 
   return (
-    <section className={kit.pageSection} data-testid='edge-detail'>
+    <section
+      id='edge-detail'
+      className={kit.pageSection}
+      data-testid='edge-detail'
+    >
       <div className='flex min-w-0 flex-col gap-[6px]'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
@@ -550,6 +555,20 @@ export function EdgeDetailPanel({ id }: Props) {
           title: t('linkHealth.subscribedTopics'),
           items: edgeRefs.topics,
         }}
+        renderAction={(b) =>
+          b.key === 'linkHealth.noTopicBinding' ? (
+            <button
+              type='button'
+              className='ml-auto text-sm font-medium text-foreground underline underline-offset-2'
+              onClick={() => {
+                setDeployOpen(true)
+                scrollAndFlash('edge-deploy-topics', 200)
+              }}
+            >
+              {t('linkHealth.actionDeployNode')} →
+            </button>
+          ) : null
+        }
       />
     </section>
   )

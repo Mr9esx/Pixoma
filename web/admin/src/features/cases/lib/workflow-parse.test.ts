@@ -31,8 +31,15 @@ const UI_JSON = JSON.stringify({
   links: [],
 })
 
+const WIDGET_API_JSON = JSON.stringify({
+  '10': {
+    class_type: 'LoadImage',
+    inputs: { widget_0: 'ref.png', widget_1: 'image' },
+  },
+})
+
 describe('parseWorkflow', () => {
-  it('parses ComfyUI API format', () => {
+  it('parses ComfyUI API format as-is', () => {
     const result = parseWorkflow(API_JSON)
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -51,44 +58,35 @@ describe('parseWorkflow', () => {
     expect(result.graph.nodes[0].links).toEqual([])
   })
 
-  it('converts ComfyUI UI format to API format', () => {
-    const result = parseWorkflow(UI_JSON)
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
-    expect(result.graph.api['1']).toEqual({
-      class_type: 'LoadImage',
-      inputs: { image: 'ref.png' },
-    })
-  })
-
   it('keeps connected inputs as node links in API format', () => {
     const raw = JSON.stringify({
-      nodes: [
-        {
-          id: 1,
-          type: 'LoadImage',
-          inputs: [{ name: 'image', link: 10 }],
-          widgets_values: [],
-        },
-        {
-          id: 2,
-          type: 'SaveImage',
-          inputs: [{ name: 'images', link: 11 }],
-          widgets_values: [],
-        },
-      ],
-      links: [
-        [10, 1, 0, 2, 0, 'IMAGE'],
-        [11, 1, 0, 2, 0, 'IMAGE'],
-      ],
+      '1': { class_type: 'LoadImage', inputs: { image: 'ref.png' } },
+      '2': {
+        class_type: 'SaveImage',
+        inputs: { images: ['1', 0], filename_prefix: 'out' },
+      },
     })
     const result = parseWorkflow(raw)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.graph.api['2']).toEqual({
       class_type: 'SaveImage',
-      inputs: { images: ['1', 0] },
+      inputs: { images: ['1', 0], filename_prefix: 'out' },
     })
+  })
+
+  it('rejects ComfyUI UI format with a clear error', () => {
+    const result = parseWorkflow(UI_JSON)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error).toContain('保存(API 格式)')
+  })
+
+  it('rejects API-format JSON that still carries widget_N keys', () => {
+    const result = parseWorkflow(WIDGET_API_JSON)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error).toContain('widget_N')
   })
 
   it('returns readable errors for invalid input', () => {

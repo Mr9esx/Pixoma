@@ -61,7 +61,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	bus := memory.New()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	n := &memNotify{}
-	reg := static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"})
+	reg := static.New(edge.Instance{ID: "local", SubscribeTopics: []string{"default"}})
 	orch := orchestrator.New(tasks, reg, bus, n)
 	orch.Now = func() time.Time { return now }
 
@@ -176,7 +176,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 	bus := memory.New()
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	n := &memNotify{}
-	reg := static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"})
+	reg := static.New(edge.Instance{ID: "local", SubscribeTopics: []string{"default"}})
 	orch := orchestrator.New(tasks, reg, bus, n)
 	orch.Now = func() time.Time { return now }
 

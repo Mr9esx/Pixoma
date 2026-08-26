@@ -312,7 +312,7 @@
     "entriesColChannel": "Channel",
     "importHeading": "Import workflow",
     "jsonTitle": "Workflow JSON",
-    "importHint": "From a JSON file exported by ComfyUI",
+    "importHint": "Only ComfyUI's Save (API Format) JSON is supported — input names are kept as-is. UI exports (Save) are rejected.",
     "importFile": "Imported file",
     "importDropHint": "Drop a JSON file here, or choose file / paste JSON",
     "importValid": "Valid",

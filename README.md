@@ -51,7 +51,7 @@ GPU 机器只需出站访问控制面，不要用本机目录当对象存储。�
 export CONTROL_PLANE_URL=http://控制面地址:8080
 export AGENT_TOKEN=...          # 该节点在后台显示的 token
 export EDGE_ID=...              # 该节点 ID（创建时自动生成）
-export EDGE_SUBSCRIBE_TOPICS=   # 可选：逗号分隔的 Topic 列表；不设 = 默认 Topic
+export EDGE_SUBSCRIBE_TOPICS=   # 可选：逗号分隔的 Topic 列表；不设 = 不消费（需绑定调度通道才能接任务）
 export BLOB_DRIVER=s3           # 或 tos，禁止 localfs
 export COMFY_MOCK=1             # 真机改 0
 go run ./apps/edge-agent/cmd/edge-agent
@@ -73,7 +73,7 @@ go run ./apps/edge-agent/cmd/edge-agent
 | `COMFY_MOCK` | pixoma / Edge | `1`/`true` = Mock；`0`/`false` = 真 Comfy |
 | `COMFYUI_BASE_URL` | pixoma / Edge | 真机 Comfy HTTP 根 |
 | `EDGE_ID` | Edge | 领取身份，须与计算节点 id 一致 |
-| `EDGE_SUBSCRIBE_TOPICS` | Edge | 订阅 Topic（逗号分隔）；未配置默认订阅 `default`，presence 首报写入，管理端可覆盖 |
+| `EDGE_SUBSCRIBE_TOPICS` | Edge | 订阅 Topic（逗号分隔）；未配置则不消费任何 Topic（节点需绑定调度通道才能接收任务），presence 首报写入，管理端可覆盖 |
 | `CONTROL_PLANE_URL` / `PIXOMA_URL` | Edge | 控制面地址 |
 | `AGENT_TOKEN` | Edge | 该节点自己的 Agent Token（后台可见） |
 | `BLOB_DRIVER` | Edge / 紧急覆盖 | `localfs` / `s3` / `tos` |

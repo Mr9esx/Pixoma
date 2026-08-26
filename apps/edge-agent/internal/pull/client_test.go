@@ -148,7 +148,7 @@ func TestClient_ReportPresence(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := pull.NewClient(srv.URL, "tok", "gpu-1")
-	refresh, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, nil, nil)
+	refresh, _, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestClient_ReportPresence_SendsHardwareAndReadsRefresh(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := pull.NewClient(srv.URL, "tok", "gpu-1")
 	hw := edge.Hardware{CPUModel: "Intel"}
-	refresh, err := c.ReportPresence(context.Background(), false, time.Time{}, "", &hw, nil, nil)
+	refresh, _, err := c.ReportPresence(context.Background(), false, time.Time{}, "", &hw, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestClient_ReportPresence_SendsMetrics(t *testing.T) {
 		CPUUsagePercent: usage,
 		CollectedAt:     time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC),
 	}
-	if _, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, &m, nil); err != nil {
+	if _, _, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, &m, nil); err != nil {
 		t.Fatal(err)
 	}
 	raw, ok := got["metrics"].(map[string]any)
@@ -219,7 +219,7 @@ func TestClient_ReportPresence_SendsStartedAtAndComfyVersion(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := pull.NewClient(srv.URL, "tok", "gpu-1")
 	startedAt := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
-	if _, err := c.ReportPresence(
+	if _, _, err := c.ReportPresence(
 		context.Background(),
 		true,
 		startedAt,
@@ -239,5 +239,23 @@ func TestClient_ReportPresence_SendsStartedAtAndComfyVersion(t *testing.T) {
 	}
 	if _, ok := got["hardware"]; ok {
 		t.Fatalf("nil hardware must omit key: %v", got)
+	}
+}
+
+func TestClient_ReportPresence_ReadsConsuming(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"refresh_hardware": true,
+			"consuming":        false,
+		})
+	}))
+	t.Cleanup(srv.Close)
+	c := pull.NewClient(srv.URL, "tok", "gpu-1")
+	refresh, consuming, err := c.ReportPresence(context.Background(), true, time.Time{}, "", nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !refresh || consuming {
+		t.Fatalf("refresh=%v consuming=%v, want refresh=true consuming=false", refresh, consuming)
 	}
 }

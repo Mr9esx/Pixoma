@@ -97,7 +97,7 @@ func TestEdges_PatchSubscribeTopics(t *testing.T) {
 	}
 	got, _ := repo.Get(context.Background(), sharedkernel.EdgeID("gpu-1"))
 	eff := got.EffectiveTopics()
-	if len(eff) != 1 || eff[0] != "default" {
-		t.Fatalf("empty subscribe should normalize to default, got %v", eff)
+	if len(eff) != 0 {
+		t.Fatalf("empty subscribe should clear the binding, got %v", eff)
 	}
 }

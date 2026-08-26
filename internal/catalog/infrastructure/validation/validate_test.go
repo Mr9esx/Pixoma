@@ -163,13 +163,8 @@ func mixedEditDoc() domain.CaseDocument {
 			"required":             []any{"reference", "prompt"},
 			"properties": map[string]any{
 				"reference": map[string]any{
-					"type":     "object",
-					"required": []any{"key"},
-					"properties": map[string]any{
-						"key":  map[string]any{"type": "string", "minLength": 1},
-						"mime": map[string]any{"type": "string"},
-						"size": map[string]any{"type": "number"},
-					},
+					"type":      "string",
+					"minLength": 1,
 				},
 				"prompt": map[string]any{"type": "string", "minLength": 1, "maxLength": 2000},
 			},
@@ -223,7 +218,7 @@ func TestValidateInputsAcceptsImageBlob(t *testing.T) {
 	doc.InputSchema = map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"source": map[string]any{"type": "object"},
+			"source": map[string]any{"type": "string", "minLength": 1},
 		},
 		"required": []any{"source"},
 	}

@@ -211,11 +211,9 @@ func valuesToObject(doc domain.CaseDocument, byKey map[string]domain.InputValue)
 		case val.Bool != nil:
 			obj[in.Key] = *val.Bool
 		case val.Blob != nil:
-			obj[in.Key] = map[string]any{
-				"key":  val.Blob.Key,
-				"mime": val.Blob.MIME,
-				"size": val.Blob.Size,
-			}
+			// 媒体字段在 values 里就是文件路径字符串（Blob 引用 key），
+			// 与前端 schema（image/video → string）保持一致。
+			obj[in.Key] = val.Blob.Key
 		}
 	}
 	return obj

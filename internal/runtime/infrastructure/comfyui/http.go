@@ -241,7 +241,7 @@ func (h *HTTP) pollHistory(ctx context.Context, promptID string) (*Result, bool,
 	if entry.Status.StatusStr == "error" {
 		return nil, false, fmt.Errorf("comfyui wait: prompt %s failed", promptID)
 	}
-	var nodeOutputs HistoryResult
+	nodeOutputs := HistoryResult{}
 	for nodeID, node := range hist {
 		out := NodeOutput{}
 		for _, img := range node.Images {

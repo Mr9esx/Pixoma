@@ -21,7 +21,7 @@ func TestDispatchSkippedWhenOnlineFilterRejects(t *testing.T) {
 	}
 	bus := &captureBus{}
 	n := &memNotify{}
-	reg := static.New(edge.Instance{ID: "gpu-1", DispatchTopic: "dispatch.gpu-1"})
+	reg := static.New(edge.Instance{ID: "gpu-1", SubscribeTopics: []string{"default"}})
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
@@ -51,7 +51,7 @@ func TestDispatchSetsJobRefWhenPrepSet(t *testing.T) {
 	}
 	bus := &captureBus{}
 	n := &memNotify{}
-	reg := static.New(edge.Instance{ID: "gpu-1", DispatchTopic: "dispatch.gpu-1"})
+	reg := static.New(edge.Instance{ID: "gpu-1", SubscribeTopics: []string{"default"}})
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = jobPrepStub{ref: sharedkernel.BlobRef{Key: "jobs/t-prep/job.json"}}
@@ -87,7 +87,7 @@ func TestDispatchClaimableUsesEnabledWithoutOnline(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := &memNotify{}
-	reg := &enabledOnlyRegistry{items: []edge.Instance{{ID: "edge-1", DispatchTopic: "dispatch.edge-1"}}}
+	reg := &enabledOnlyRegistry{items: []edge.Instance{{ID: "edge-1", SubscribeTopics: []string{"default"}}}}
 	svc := orchestrator.New(tasks, reg, nil, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
@@ -113,7 +113,7 @@ func TestDispatchUsesOnlineEvenWhenInstanceMarkedUnhealthy(t *testing.T) {
 	}
 	bus := &captureBus{}
 	n := &memNotify{}
-	reg := &enabledOnlyRegistry{items: []edge.Instance{{ID: "edge-1", DispatchTopic: "dispatch.edge-1"}}}
+	reg := &enabledOnlyRegistry{items: []edge.Instance{{ID: "edge-1", SubscribeTopics: []string{"default"}}}}
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}

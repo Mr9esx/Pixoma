@@ -79,5 +79,8 @@ describe('topics admin page contract', () => {
   it('新建表单：按钮在 sticky footer', () => {
     expect(NEW).toMatch(/sticky bottom-0/)
     expect(NEW).toMatch(/border-t bg-card/)
+    expect(NEW).toMatch(/flex flex-1 flex-col gap-4/)
+    expect(NEW).toMatch(/mt-auto/)
+    expect(NEW).not.toMatch(/max-w-xl/)
   })
 })

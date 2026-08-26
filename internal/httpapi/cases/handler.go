@@ -44,6 +44,79 @@ type writeBody struct {
 	Enabled *bool `json:"enabled"`
 }
 
+// mergeDocument 按 PATCH 语义合并：请求里显式提供的字段覆盖现有值，
+// 省略的字段（name / description / input_schema 等）保留原文档，避免
+// 工作流区块只保存 inputs/outputs/bindings 时把其它字段冲掉。
+func mergeDocument(existing, patch domain.CaseDocument) domain.CaseDocument {
+	doc := existing
+	if patch.Name != "" {
+		doc.Name = patch.Name
+	}
+	if patch.Description != "" {
+		doc.Description = patch.Description
+	}
+	if patch.Preview != "" {
+		doc.Preview = patch.Preview
+	}
+	if patch.Tags != nil {
+		doc.Tags = patch.Tags
+	}
+	if patch.Categories != nil {
+		doc.Categories = patch.Categories
+	}
+	if patch.Routing != nil {
+		doc.Routing = patch.Routing
+	}
+	if patch.Inputs != nil {
+		doc.Inputs = patch.Inputs
+	}
+	if patch.Outputs != nil {
+		doc.Outputs = patch.Outputs
+	}
+	if patch.Bindings.WorkflowJSON != nil {
+		doc.Bindings.WorkflowJSON = patch.Bindings.WorkflowJSON
+	}
+	if patch.Bindings.Inputs != nil {
+		doc.Bindings.Inputs = patch.Bindings.Inputs
+	}
+	if patch.Bindings.Outputs != nil {
+		doc.Bindings.Outputs = patch.Bindings.Outputs
+	}
+	if patch.InputSchema != nil {
+		doc.InputSchema = patch.InputSchema
+	}
+	if patch.WorkflowFilename != "" {
+		doc.WorkflowFilename = patch.WorkflowFilename
+	}
+	return doc
+}
+
+// schemaFromInputs 由输入字段生成 JSON Schema（与前端 case-form 同构）。
+func schemaFromInputs(inputs []domain.InputField) map[string]any {
+	props := make(map[string]any, len(inputs))
+	for _, in := range inputs {
+		props[in.Key] = map[string]any{"type": inputSchemaType(in.Type)}
+	}
+	return map[string]any{
+		"type":       "object",
+		"properties": props,
+		"required":   []any{},
+	}
+}
+
+// inputSchemaType 把业务输入类型映射成合法 JSON Schema 类型：
+// 图片/视频等媒体字段在 values 里存的是 Blob 引用字符串，schema 用 string。
+func inputSchemaType(t string) string {
+	switch t {
+	case "number":
+		return "number"
+	case "boolean":
+		return "boolean"
+	default:
+		return "string"
+	}
+}
+
 func toDTO(c *domain.Case) caseDTO {
 	return caseDTO{CaseDocument: c.Document, Enabled: c.Enabled}
 }
@@ -185,7 +258,10 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	doc := body.CaseDocument
+	doc := mergeDocument(existing.Document, body.CaseDocument)
+	if body.Inputs != nil && body.InputSchema == nil {
+		doc.InputSchema = schemaFromInputs(body.Inputs)
+	}
 	doc.ID = id
 	if err := h.validate(doc); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
