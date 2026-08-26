@@ -34,6 +34,10 @@ async function copyText(text: string) {
 type Props = {
   edge: ComfyEdge
   tokenActions?: ReactNode
+  /** 预选订阅的调度通道（默认取 edge.subscribe_topics）。 */
+  initialSelectedTopics?: string[]
+  /** 订阅通道变化时回调（用于向导把 Topic→节点 绑定落库）。 */
+  onSubscribeTopicsChange?: (topics: string[]) => void
 }
 
 function isLoopbackURL(raw: string): boolean {
@@ -50,11 +54,16 @@ function isLoopbackURL(raw: string): boolean {
   }
 }
 
-export function DeployCredentials({ edge, tokenActions }: Props) {
+export function DeployCredentials({
+  edge,
+  tokenActions,
+  initialSelectedTopics,
+  onSubscribeTopicsChange,
+}: Props) {
   const { t } = useTranslation()
   const token = edge.agent_token ?? ''
   const [selectedTopics, setSelectedTopics] = useState<string[]>(
-    edge.subscribe_topics ?? []
+    initialSelectedTopics ?? edge.subscribe_topics ?? []
   )
 
   const settingsQuery = useQuery({
@@ -94,9 +103,15 @@ export function DeployCredentials({ edge, tokenActions }: Props) {
     maskToken: true,
   })
   function toggleTopic(key: string) {
-    setSelectedTopics((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    commitTopics(
+      selectedTopics.includes(key)
+        ? selectedTopics.filter((k) => k !== key)
+        : [...selectedTopics, key]
     )
+  }
+  function commitTopics(next: string[]) {
+    setSelectedTopics(next)
+    onSubscribeTopicsChange?.(next)
   }
 
   return (
@@ -162,7 +177,7 @@ export function DeployCredentials({ edge, tokenActions }: Props) {
                     <CommandSeparator />
                     <CommandGroup>
                       <CommandItem
-                        onSelect={() => setSelectedTopics([])}
+                        onSelect={() => commitTopics([])}
                         className='justify-center text-center'
                       >
                         {t('edges.deployTopicsClear')}

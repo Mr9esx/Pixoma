@@ -63,6 +63,11 @@ describe('quick-config wizard contract', () => {
   it('第二步支持行内新建调度通道与计算节点并即时落库刷新', () => {
     expect(STEP2).toContain('createTopic')
     expect(STEP2).toContain('createEdge')
+    expect(STEP2).toContain('DeployCredentials')
+    expect(STEP2).toContain('nodeDeployHint')
+    expect(STEP2).toContain('patchEdge')
+    expect(STEP2).toContain('nodeTopicBindHint')
+    expect(STEP2).toContain('onChangeEdgeSubscription')
     expect(STEP2).toContain('isValidTopicKey')
     expect(STEP2).toContain('invalidateQueries')
   })
@@ -81,6 +86,14 @@ describe('quick-config wizard contract', () => {
       'unboundRule',
       'newTopic',
       'newNode',
+      'newChannel',
+      'channelToken',
+      'noChannelsHint',
+      'nodeDeployHint',
+      'nodeDeployTitle',
+      'nodeTopicBindHint',
+      'channelCreated',
+      'saveOnlyGapHint',
       'finishChecklist',
       'publish',
     ]
@@ -90,9 +103,11 @@ describe('quick-config wizard contract', () => {
     }
   })
 
-  it('第三步入队待提交菜单，不直接写渠道', () => {
+  it('第三步入队待提交菜单，并支持空态就地新建渠道引用', () => {
     expect(STEP3).toContain('updatePendingEntries')
     expect(STEP3).toContain('getCaseMenuPlacements')
+    expect(STEP3).toContain('createChannel')
+    expect(STEP3).toContain('noChannelsHint')
     expect(STEP3).not.toContain('putMenu')
   })
 

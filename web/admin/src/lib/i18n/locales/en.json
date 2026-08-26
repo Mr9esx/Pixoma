@@ -643,7 +643,17 @@
     "saveOnly": "Save only",
     "resave": "Saved (re-save)",
     "saveFailed": "Save failed",
-    "saveAllPublish": "Save all and publish"
+    "saveAllPublish": "Save all and publish",
+    "newChannel": "New channel",
+    "channelToken": "Channel token",
+    "noChannelsHint": "No channels yet. Create a Telegram channel to place entries here.",
+    "containerHint": "Once created you can add an entry to this channel right away.",
+    "nodeDeployHint": "Node created. Run the command below on the target machine to deploy the agent before it can process tasks.",
+    "nodeDeployDone": "Done",
+    "nodeDeployTitle": "Node created: {{name}}",
+    "nodeTopicBindHint": "Choose which dispatch topics this node will consume — checking one saves the Topic→node binding and clears validation. The deploy command auto-includes EDGE_SUBSCRIBE_TOPICS.",
+    "channelCreated": "Channel “{{name}}” created; add an entry to it right away.",
+    "saveOnlyGapHint": "Gaps remain: you can still “Save only” to keep a draft, then publish after adding channels/nodes."
   },
   "configContext": {
     "title": "Context",
