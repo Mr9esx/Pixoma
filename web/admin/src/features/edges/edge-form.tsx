@@ -30,6 +30,8 @@ type CreateProps = {
   initial?: undefined
   onSaved: (edge: ComfyEdge) => void
   onDeleted?: undefined
+  /** 页面级（新建向导）与对话框级（编辑）使用不同的页脚布局。 */
+  layout?: 'page' | 'dialog'
 }
 
 type EditProps = {
@@ -37,6 +39,8 @@ type EditProps = {
   initial: ComfyEdge
   onSaved: (edge: ComfyEdge) => void
   onDeleted: () => void
+  /** 页面级（新建向导）与对话框级（编辑）使用不同的页脚布局。 */
+  layout?: 'page' | 'dialog'
 }
 
 type Props = CreateProps | EditProps
@@ -161,165 +165,181 @@ export function EdgeForm(props: Props) {
     })
   }
 
-  return (
-    <>
-      <div className='min-h-0 flex-1 overflow-y-auto px-1'>
-        <form
-          id='edge-form'
-          onSubmit={onSubmit}
-          className='flex flex-col gap-4'
-          data-testid='edge-form'
-        >
+  const formFields = (
+    <form
+      id='edge-form'
+      onSubmit={onSubmit}
+      className='flex flex-col gap-4'
+      data-testid='edge-form'
+    >
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor='edge-name'>{t('edges.fieldName')}</Label>
+        <Input
+          id='edge-name'
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={pending}
+          required
+          autoComplete='off'
+        />
+      </div>
+
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor='edge-description'>
+          {t('edges.fieldDescription')}
+        </Label>
+        <Textarea
+          id='edge-description'
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          disabled={pending}
+        />
+      </div>
+
+      <div className='flex items-center justify-between gap-3'>
+        <Label htmlFor='edge-enabled'>{t('edges.fieldEnabled')}</Label>
+        <Switch
+          id='edge-enabled'
+          checked={enabled}
+          onCheckedChange={setEnabled}
+          disabled={pending}
+        />
+      </div>
+
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor='edge-capabilities'>
+          {t('edges.fieldCapabilities')}
+        </Label>
+        <Input
+          id='edge-capabilities'
+          value={capabilitiesRaw}
+          onChange={(e) => setCapabilitiesRaw(e.target.value)}
+          disabled={pending}
+          autoComplete='off'
+        />
+      </div>
+
+      {props.mode === 'edit' ? (
+        <>
+          <Button
+            type='button'
+            variant='outline'
+            disabled={refreshMutation.isPending}
+            onClick={() => refreshMutation.mutate()}
+          >
+            <RefreshCcw className='size-3.5' />
+            {t('edges.refreshHardware')}
+          </Button>
           <div className='flex flex-col gap-2'>
-            <Label htmlFor='edge-name'>{t('edges.fieldName')}</Label>
+            <Label htmlFor='edge-cpu'>{t('edges.fieldCpu')}</Label>
             <Input
-              id='edge-name'
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              id='edge-cpu'
+              value={cpuModel}
+              onChange={(e) => setCpuModel(e.target.value)}
               disabled={pending}
-              required
               autoComplete='off'
             />
           </div>
-
           <div className='flex flex-col gap-2'>
-            <Label htmlFor='edge-description'>
-              {t('edges.fieldDescription')}
-            </Label>
-            <Textarea
-              id='edge-description'
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={pending}
-            />
-          </div>
-
-          <div className='flex items-center justify-between gap-3'>
-            <Label htmlFor='edge-enabled'>{t('edges.fieldEnabled')}</Label>
-            <Switch
-              id='edge-enabled'
-              checked={enabled}
-              onCheckedChange={setEnabled}
-              disabled={pending}
-            />
-          </div>
-
-          <div className='flex flex-col gap-2'>
-            <Label htmlFor='edge-capabilities'>
-              {t('edges.fieldCapabilities')}
+            <Label htmlFor='edge-cpu-cores'>
+              {t('edges.fieldCpuCores')}
             </Label>
             <Input
-              id='edge-capabilities'
-              value={capabilitiesRaw}
-              onChange={(e) => setCapabilitiesRaw(e.target.value)}
+              id='edge-cpu-cores'
+              value={cpuCores}
+              onChange={(e) => setCpuCores(e.target.value)}
               disabled={pending}
               autoComplete='off'
             />
           </div>
-
-          {props.mode === 'edit' ? (
-            <>
-              <Button
-                type='button'
-                variant='outline'
-                disabled={refreshMutation.isPending}
-                onClick={() => refreshMutation.mutate()}
-              >
-                <RefreshCcw className='size-3.5' />
-                {t('edges.refreshHardware')}
-              </Button>
-              <div className='flex flex-col gap-2'>
-                <Label htmlFor='edge-cpu'>{t('edges.fieldCpu')}</Label>
+          <div className='flex flex-col gap-2'>
+            <Label htmlFor='edge-ram-bytes'>
+              {t('edges.fieldRamBytes')}
+            </Label>
+            <Input
+              id='edge-ram-bytes'
+              value={ramBytes}
+              onChange={(e) => setRamBytes(e.target.value)}
+              disabled={pending}
+              autoComplete='off'
+            />
+          </div>
+          <div className='flex flex-col gap-2'>
+            <Label>{t('edges.fieldGpu')}</Label>
+            {gpus.map((gpu, index) => (
+              <div key={index} className='flex gap-2'>
                 <Input
-                  id='edge-cpu'
-                  value={cpuModel}
-                  onChange={(e) => setCpuModel(e.target.value)}
+                  value={gpu.name}
+                  onChange={(e) => {
+                    const next = [...gpus]
+                    next[index] = { ...gpu, name: e.target.value }
+                    setGpus(next)
+                  }}
                   disabled={pending}
                   autoComplete='off'
                 />
-              </div>
-              <div className='flex flex-col gap-2'>
-                <Label htmlFor='edge-cpu-cores'>
-                  {t('edges.fieldCpuCores')}
-                </Label>
                 <Input
-                  id='edge-cpu-cores'
-                  value={cpuCores}
-                  onChange={(e) => setCpuCores(e.target.value)}
+                  value={gpu.vram_bytes ? String(gpu.vram_bytes) : ''}
+                  onChange={(e) => {
+                    const next = [...gpus]
+                    const n = Number.parseInt(e.target.value, 10)
+                    next[index] = {
+                      ...gpu,
+                      vram_bytes: Number.isFinite(n) ? n : undefined,
+                    }
+                    setGpus(next)
+                  }}
                   disabled={pending}
                   autoComplete='off'
                 />
-              </div>
-              <div className='flex flex-col gap-2'>
-                <Label htmlFor='edge-ram-bytes'>
-                  {t('edges.fieldRamBytes')}
-                </Label>
-                <Input
-                  id='edge-ram-bytes'
-                  value={ramBytes}
-                  onChange={(e) => setRamBytes(e.target.value)}
-                  disabled={pending}
-                  autoComplete='off'
-                />
-              </div>
-              <div className='flex flex-col gap-2'>
-                <Label>{t('edges.fieldGpu')}</Label>
-                {gpus.map((gpu, index) => (
-                  <div key={index} className='flex gap-2'>
-                    <Input
-                      value={gpu.name}
-                      onChange={(e) => {
-                        const next = [...gpus]
-                        next[index] = { ...gpu, name: e.target.value }
-                        setGpus(next)
-                      }}
-                      disabled={pending}
-                      autoComplete='off'
-                    />
-                    <Input
-                      value={gpu.vram_bytes ? String(gpu.vram_bytes) : ''}
-                      onChange={(e) => {
-                        const next = [...gpus]
-                        const n = Number.parseInt(e.target.value, 10)
-                        next[index] = {
-                          ...gpu,
-                          vram_bytes: Number.isFinite(n) ? n : undefined,
-                        }
-                        setGpus(next)
-                      }}
-                      disabled={pending}
-                      autoComplete='off'
-                    />
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='sm'
-                      onClick={() =>
-                        setGpus(gpus.filter((_, i) => i !== index))
-                      }
-                    >
-                      {t('common.delete')}
-                    </Button>
-                  </div>
-                ))}
                 <Button
                   type='button'
                   variant='outline'
                   size='sm'
-                  onClick={() => setGpus([...gpus, { name: '' }])}
+                  onClick={() =>
+                    setGpus(gpus.filter((_, i) => i !== index))
+                  }
                 >
-                  {t('edges.addGpu')}
+                  {t('common.delete')}
                 </Button>
               </div>
-            </>
-          ) : null}
+            ))}
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => setGpus([...gpus, { name: '' }])}
+            >
+              {t('edges.addGpu')}
+            </Button>
+          </div>
+        </>
+      ) : null}
 
-          {mutationError ? (
-            <ErrorBanner message={errorMessage(mutationError)} />
-          ) : null}
-        </form>
+      {mutationError ? (
+        <ErrorBanner message={errorMessage(mutationError)} />
+      ) : null}
+    </form>
+  )
+
+  if (props.layout === 'page') {
+    return (
+      <div className='flex flex-1 flex-col'>
+        {formFields}
+        <div className='sticky bottom-0 z-10 -mx-6 -mb-7 mt-auto flex flex-wrap gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
+          <Button type='submit' form='edge-form' disabled={pending}>
+            {props.mode === 'create'
+              ? t('edges.createAndContinue')
+              : t('common.save')}
+          </Button>
+        </div>
       </div>
+    )
+  }
 
+  return (
+    <>
+      <div className='min-h-0 flex-1 overflow-y-auto px-1'>{formFields}</div>
       <DialogFooter className='shrink-0'>
         <Button type='submit' form='edge-form' disabled={pending}>
           {props.mode === 'create'

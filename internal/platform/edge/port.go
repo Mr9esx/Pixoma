@@ -14,7 +14,8 @@ type Instance struct {
 	SubscribeTopics []string
 }
 
-// EffectiveTopics returns the normalized subscription set (empty = default).
+// EffectiveTopics returns the normalized subscription set; an empty result
+// means the instance has no topic binding and consumes no tasks.
 func (i *Instance) EffectiveTopics() []string {
 	return topic.NormalizeTopics(i.SubscribeTopics)
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useScrollFocus } from '@/lib/scroll-focus'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -22,6 +23,7 @@ export function MasterDetailShell({
   detailClassName,
 }: Props) {
   const { t } = useTranslation()
+  useScrollFocus()
   return (
     <div
       className={cn(
@@ -59,7 +61,7 @@ export function MasterDetailShell({
             {detail}
           </>
         ) : (
-          emptyDetail ?? null
+          (emptyDetail ?? null)
         )}
       </section>
     </div>

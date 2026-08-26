@@ -362,8 +362,6 @@ func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"configured": false, "public_url": h.PublicURL})
 		return
 	}
-	got.BlobAccessKey = mask(got.BlobAccessKey)
-	got.BlobSecretKey = mask(got.BlobSecretKey)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"configured": true,
 		"settings":   got,
@@ -559,13 +557,6 @@ func (h *Handler) settingsStore(driver, dsn string) (*settings.Store, func() err
 }
 
 const maskedSecret = "********"
-
-func mask(s string) string {
-	if s == "" {
-		return ""
-	}
-	return maskedSecret
-}
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

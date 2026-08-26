@@ -200,7 +200,13 @@ func (svc *Service) StartCase(ctx context.Context, chatID sharedkernel.ChatID, u
 		return nil, ErrEmptyUserID
 	}
 	if cur, err := svc.repo.GetActiveByChat(ctx, chatID); err == nil && cur.Status.IsActive() {
-		return nil, ErrSessionLocked
+		// 用户重新开启新会话时，旧会话自动退出，避免被锁住报错。
+		if err := cur.Exit(svc.now()); err != nil {
+			return nil, err
+		}
+		if err := svc.repo.Save(ctx, cur); err != nil {
+			return nil, err
+		}
 	} else if err != nil && err != ErrNoActiveSession {
 		return nil, err
 	}

@@ -114,7 +114,7 @@ function EdgesLayout() {
         }
         detail={
           create ? (
-            <div className={kit.pageSection}>
+            <div className={kit.createPage}>
               <CreateEdgeWizard
                 onDone={(created, action) => {
                   if (action === 'view') {

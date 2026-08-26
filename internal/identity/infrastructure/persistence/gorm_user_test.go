@@ -2,6 +2,8 @@ package persistence_test
 
 import (
 	"context"
+	"strings"
+	"sync"
 	"testing"
 
 	"gorm.io/gorm"
@@ -13,7 +15,8 @@ import (
 
 func openTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	gdb, err := db.Open(db.Options{DSN: "file:identity_user_test?mode=memory&cache=shared"})
+	name := "identity_user_" + strings.ReplaceAll(t.Name(), "/", "_")
+	gdb, err := db.Open(db.Options{DSN: "file:" + name + "?mode=memory&cache=shared"})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -47,6 +50,54 @@ func TestUpsertByChannelExternal_IdempotentAndRefresh(t *testing.T) {
 	}
 	if u2.Username != "alice2" {
 		t.Fatalf("username not refreshed: %q", u2.Username)
+	}
+}
+
+func TestUpsert_ConcurrentSameIdentityNoUniqueError(t *testing.T) {
+	gdb, err := db.Open(db.Options{
+		DSN: "file:identity_user_concurrent_" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared&_pragma=busy_timeout(5000)",
+	})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &persistence.UserRow{}, &persistence.UserExternalIdentityRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := persistence.NewUserRepository(gdb)
+	ctx := context.Background()
+
+	const n = 8
+	var wg sync.WaitGroup
+	ids := make(chan string, n)
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			u, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+				ChannelID: "tg-default", ExternalUserID: "42", Username: "alice",
+			})
+			if err != nil {
+				errs <- err
+				return
+			}
+			ids <- u.ID
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	close(ids)
+	for err := range errs {
+		t.Fatalf("concurrent upsert: %v", err)
+	}
+	first := ""
+	for id := range ids {
+		if first == "" {
+			first = id
+		}
+		if id != first {
+			t.Fatalf("concurrent upsert produced distinct users: %s vs %s", first, id)
+		}
 	}
 }
 

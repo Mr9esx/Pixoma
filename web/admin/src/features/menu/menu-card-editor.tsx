@@ -83,7 +83,15 @@ export function MenuCardEditor({ channelId }: { channelId: string }) {
   })
 
   const menu = menuDraft ?? menuQuery.data ?? emptyMenu(channelId)
-  const cards = cardsDraft ?? cardsQuery.data ?? []
+  const cards = useMemo(
+    () =>
+      (cardsDraft ?? cardsQuery.data ?? []).map((c) => ({
+        ...c,
+        media: c.media ?? [],
+        buttons: c.buttons ?? [],
+      })),
+    [cardsDraft, cardsQuery.data]
+  )
   const selectedItem = menu.items.find((it) => it.id === selectedItemId)
   const currentCardId = path[path.length - 1]
   const currentCard = currentCardId

@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { DeployCredentials } from './deploy-credentials'
 import { EdgeForm } from './edge-form'
+import { kit } from './kit-classes'
 import { PresenceTags } from './presence-tags'
 
 type Step = 'form' | 'deploy' | 'done'
@@ -50,7 +51,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
   return (
     <>
       <div className='shrink-0'>
-        <h2 className='text-lg font-semibold tracking-tight'>{title}</h2>
+        <h2 className={kit.title}>{title}</h2>
       </div>
       <ol
         className='flex shrink-0 items-center justify-center gap-2 py-6'
@@ -97,6 +98,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
       {step === 'form' ? (
         <EdgeForm
           mode='create'
+          layout='page'
           onSaved={(created) => {
             setEdge(created)
             setStep('deploy')

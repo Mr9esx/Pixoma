@@ -11,9 +11,9 @@ func TestNormalizeTopics(t *testing.T) {
 		in   []string
 		want []string
 	}{
-		{"nil becomes default", nil, []string{DefaultKey}},
-		{"empty becomes default", []string{}, []string{DefaultKey}},
-		{"empty strings become default", []string{"", " "}, []string{DefaultKey}},
+		{"nil becomes none", nil, []string{}},
+		{"empty becomes none", []string{}, []string{}},
+		{"empty strings are dropped", []string{"", " "}, []string{}},
 		{"dedupe preserves order", []string{"a", "b", "a"}, []string{"a", "b"}},
 		{"keeps default with others", []string{DefaultKey, "x"}, []string{DefaultKey, "x"}},
 	}

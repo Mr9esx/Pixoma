@@ -20,7 +20,7 @@ func newSvc() *domain.Service {
 	}, func() time.Time { return time.Unix(1_700_000_000, 0).UTC() })
 }
 
-func TestStartCaseLocksAndRejectsSecond(t *testing.T) {
+func TestStartCaseReplacesActiveSession(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
 	s, err := svc.StartCase(ctx, "tg:42", "user-1", 1, []string{"prompt", "seed"})
@@ -30,9 +30,20 @@ func TestStartCaseLocksAndRejectsSecond(t *testing.T) {
 	if s.Status != domain.StatusCollecting {
 		t.Fatalf("status=%s", s.Status)
 	}
-	_, err = svc.StartCase(ctx, "tg:42", "user-1", 2, []string{"a"})
-	if !errors.Is(err, domain.ErrSessionLocked) {
-		t.Fatalf("want locked, got %v", err)
+	// 重新开启新会话：旧会话自动退出，新会话正常开始。
+	next, err := svc.StartCase(ctx, "tg:42", "user-1", 2, []string{"a"})
+	if err != nil {
+		t.Fatalf("second start must auto-exit old session: %v", err)
+	}
+	if next.CaseID != 2 || next.Status != domain.StatusCollecting {
+		t.Fatalf("new session=%+v", next)
+	}
+	cur, err := svc.Get(ctx, "tg:42")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cur.ID != next.ID || cur.CaseID != 2 {
+		t.Fatalf("active session must be the new one, got %+v", cur)
 	}
 }
 

@@ -223,11 +223,39 @@ func TestAgent_ClaimReturnsJob(t *testing.T) {
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	now := time.Unix(1000, 0).UTC()
 	task := runtimedomain.NewPending("t1", "s1", 1, "in", now)
-	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "jobs/t1/job.json"}, now)
+	_ = task.PrepareForTopic("default", sharedkernel.BlobRef{Key: "jobs/t1/job.json"}, now)
 	if err := tasks.Create(ctx, task); err != nil {
 		t.Fatal(err)
 	}
-	srv := mountAgent(t, "secret-token", tasks, &statusSpy{})
+	dsn := "file:agent_claim_default_test_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
+		t.Fatal(err)
+	}
+	edgeRepo := instpersist.NewEdgeRepository(gdb)
+	_ = edgeRepo.Upsert(ctx, &edge.Record{
+		ID:              sharedkernel.EdgeID("gpu-1"),
+		Name:            "gpu-1",
+		Enabled:         true,
+		SubscribeTopics: []string{"default"},
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	})
+	h := &agent.Handler{
+		Token:  "secret-token",
+		Tasks:  tasks,
+		Edges:  edgeRepo,
+		Status: &statusSpy{},
+		Lease:  90 * time.Second,
+		Now:    func() time.Time { return now },
+	}
+	r := chi.NewRouter()
+	r.Route("/agent/v1", h.Mount)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
 
 	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/agent/v1/jobs/claim?edge_id=gpu-1&wait=0s", nil)
 	req.Header.Set("Authorization", "Bearer secret-token")

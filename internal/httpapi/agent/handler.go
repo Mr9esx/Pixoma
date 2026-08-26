@@ -93,7 +93,7 @@ func (h *Handler) claim(w http.ResponseWriter, r *http.Request) {
 	}
 	wait := parseWait(r.URL.Query().Get("wait"))
 	deadline := h.now().Add(wait)
-	topics := []string{topic.DefaultKey}
+	var topics []string
 	if h.Edges != nil {
 		if rec, err := h.Edges.Get(r.Context(), edgeID); err == nil && rec != nil {
 			topics = rec.EffectiveTopics()
@@ -195,6 +195,7 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	refresh := false
+	consuming := false
 	if h.Edges != nil {
 		rec, err := h.Edges.Get(r.Context(), edgeID)
 		if err != nil && !errors.Is(err, edge.ErrNotFound) {
@@ -227,10 +228,14 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 			}
 			if latest, err := h.Edges.Get(r.Context(), edgeID); err == nil && latest != nil {
 				refresh = latest.HardwareRefreshRequested
+				consuming = len(latest.EffectiveTopics()) > 0
 			}
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"refresh_hardware": refresh})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"refresh_hardware": refresh,
+		"consuming":        consuming,
+	})
 }
 
 func (h *Handler) touch(id sharedkernel.EdgeID) {

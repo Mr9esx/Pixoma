@@ -85,3 +85,55 @@ func TestAgent_ConcurrentClaimTopicSingleTask(t *testing.T) {
 		t.Fatalf("claim results = %v, want exactly one 200 and one 204", got)
 	}
 }
+
+func TestAgent_ClaimWithoutTopicBindingDoesNotConsume(t *testing.T) {
+	dsn := "file:agent_claim_unbound_test_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
+		t.Fatal(err)
+	}
+	edgeRepo := instpersist.NewEdgeRepository(gdb)
+	now := time.Now().UTC()
+	_ = edgeRepo.Upsert(context.Background(), &edge.Record{
+		ID:        sharedkernel.EdgeID("gpu-1"),
+		Name:      "gpu-1",
+		Enabled:   true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	})
+
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	t0 := time.Unix(1000, 0).UTC()
+	task := runtimedomain.NewPending("t-default", "s1", sharedkernel.CaseID(1), "in", t0)
+	_ = task.PrepareForTopic("default", sharedkernel.BlobRef{Key: "jobs/t-default/job.json"}, t0)
+	_ = tasks.Create(context.Background(), task)
+
+	h := &agent.Handler{
+		Token:    "tok",
+		Tasks:    tasks,
+		Presence: presence.NewStore(),
+		Edges:    edgeRepo,
+		Lease:    90 * time.Second,
+		Now:      func() time.Time { return t0 },
+	}
+	r := chi.NewRouter()
+	r.Route("/agent/v1", h.Mount)
+
+	req := httptest.NewRequest(http.MethodGet, "/agent/v1/jobs/claim?edge_id=gpu-1&wait=0s", nil)
+	req.Header.Set("Authorization", "Bearer tok")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("unbound edge must not consume: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	got, err := tasks.Get(context.Background(), "t-default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != sharedkernel.TaskQueued || got.EdgeID != "" {
+		t.Fatalf("task must stay queued for an unbound edge, got %+v", got)
+	}
+}

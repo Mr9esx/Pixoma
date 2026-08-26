@@ -57,7 +57,7 @@ func TestOnTaskCreatedMakesClaimable(t *testing.T) {
 
 	bus := &captureBus{}
 	n := &memNotify{}
-	reg := static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"})
+	reg := static.New(edge.Instance{ID: "local", SubscribeTopics: []string{"default"}})
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
@@ -320,7 +320,7 @@ func TestDispatch_PrepFailKeepsPending(t *testing.T) {
 	now := time.Unix(50, 0).UTC()
 	_ = tasks.Create(ctx, runtimedomain.NewPending("t1", "s1", sharedkernel.CaseID(1), "inputs/t1", now))
 
-	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local"}), &captureBus{}, &memNotify{})
+	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local", SubscribeTopics: []string{"default"}}), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }
 	svc.Prep = failPrep{err: errors.New("blob down")}
 
@@ -363,8 +363,8 @@ func TestDispatch_ConcurrentPrepareOnlyOneClaimable(t *testing.T) {
 
 	bus := &countingBus{}
 	reg := static.New(
-		edge.Instance{ID: "gpu-a", DispatchTopic: "dispatch.gpu-a"},
-		edge.Instance{ID: "gpu-b", DispatchTopic: "dispatch.gpu-b"},
+		edge.Instance{ID: "gpu-a", SubscribeTopics: []string{"default"}},
+		edge.Instance{ID: "gpu-b", SubscribeTopics: []string{"default"}},
 	)
 	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
 	svc.Now = func() time.Time { return now }
@@ -417,8 +417,8 @@ func TestOrchestrator_TopicClaimableWithoutRoundRobin(t *testing.T) {
 
 	bus := &captureBus{}
 	reg := static.New(
-		edge.Instance{ID: "gpu-a", DispatchTopic: "dispatch.gpu-a"},
-		edge.Instance{ID: "gpu-b", DispatchTopic: "dispatch.gpu-b"},
+		edge.Instance{ID: "gpu-a", SubscribeTopics: []string{"default"}},
+		edge.Instance{ID: "gpu-b", SubscribeTopics: []string{"default"}},
 	)
 	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
 	svc.Now = func() time.Time { return now }

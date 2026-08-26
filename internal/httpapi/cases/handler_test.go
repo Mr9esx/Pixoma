@@ -250,6 +250,71 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 	}
 }
 
+func TestCasesHandler_PatchPartialKeepsOtherFields(t *testing.T) {
+	_, repo, srv := openCasesHandler(t)
+	ctx := context.Background()
+
+	body, _ := json.Marshal(validCaseBody(1, "Alpha Workflow"))
+	res, err := http.Post(srv.URL+"/api/v1/cases", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+
+	// 工作流区块的保存只带 inputs/outputs/bindings，PATCH 必须保留 name / input_schema。
+	partial := map[string]any{
+		"inputs": []map[string]any{
+			{"key": "ref", "type": "image", "required": true},
+		},
+		"outputs": []map[string]any{
+			{"key": "image", "type": "image"},
+		},
+		"bindings": map[string]any{
+			"workflow": map[string]any{
+				"1": map[string]any{"class_type": "LoadImage", "inputs": map[string]any{"image": "ref.png"}},
+			},
+			"inputs": []map[string]any{
+				{"key": "ref", "node_id": "1", "field_path": "image"},
+			},
+			"outputs": []map[string]any{},
+		},
+	}
+	raw, _ := json.Marshal(partial)
+	req, err := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/cases/1", bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	patchRes, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer patchRes.Body.Close()
+	if patchRes.StatusCode != http.StatusOK {
+		rawBody, _ := io.ReadAll(patchRes.Body)
+		t.Fatalf("partial patch status=%d body=%s", patchRes.StatusCode, rawBody)
+	}
+
+	got, err := repo.Get(ctx, sharedkernel.CaseID(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Document.Name != "Alpha Workflow" {
+		t.Fatalf("name must be preserved, got %q", got.Document.Name)
+	}
+	if got.Document.InputSchema == nil {
+		t.Fatal("input_schema must be present after partial patch")
+	}
+	props, _ := got.Document.InputSchema["properties"].(map[string]any)
+	refSchema, _ := props["ref"].(map[string]any)
+	if refSchema["type"] != "string" {
+		t.Fatalf("input_schema must follow replaced inputs, got %+v", got.Document.InputSchema)
+	}
+	if len(got.Document.Inputs) != 1 || got.Document.Inputs[0].Type != "image" {
+		t.Fatalf("inputs must be replaced, got %+v", got.Document.Inputs)
+	}
+}
+
 func TestCasesHandler_CreateDuplicateReturns409(t *testing.T) {
 	_, _, srv := openCasesHandler(t)
 	body, _ := json.Marshal(validCaseBody(2, "Dup"))

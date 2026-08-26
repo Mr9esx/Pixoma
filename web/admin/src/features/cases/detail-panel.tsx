@@ -328,7 +328,7 @@ export function CaseDetailPanel({ id }: Props) {
         />
       </section>
 
-      <section className='flex flex-col gap-4'>
+      <section id='case-routing-section' className='flex flex-col gap-4'>
         <SectionHead
           title={t('cases.sectionProcessing')}
           hint={t('cases.sectionProcessingHint')}

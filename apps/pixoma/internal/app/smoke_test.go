@@ -171,7 +171,7 @@ func TestSubscribeTaskCreated_MakesClaimable(t *testing.T) {
 	if err := tasks.Create(ctx, runtimedomain.NewPending("t-bus", "s", sharedkernel.CaseID(1), "in", now)); err != nil {
 		t.Fatal(err)
 	}
-	reg := static.New(edge.Instance{ID: "local", DispatchTopic: "dispatch.local"})
+	reg := static.New(edge.Instance{ID: "local", SubscribeTopics: []string{"default"}})
 	orch := orchestrator.New(tasks, reg, nil, notify.Nop{})
 	orch.Now = func() time.Time { return now }
 	orch.Prep = jobPrep{ref: sharedkernel.BlobRef{Key: "jobs/t-bus/job.json"}}

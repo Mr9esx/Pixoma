@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 import { Server } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ComfyEdge, EdgePresence } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
 import {
   Empty,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { kit } from './kit-classes'
@@ -48,6 +48,7 @@ export function EdgeListPanel({
 
   return (
     <div
+      id='edge-list'
       className='flex h-full min-h-0 flex-col'
       data-testid='edges-list-panel'
     >

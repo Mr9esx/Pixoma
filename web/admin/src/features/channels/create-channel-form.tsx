@@ -29,7 +29,7 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
   })
 
   return (
-    <div className='max-w-xl space-y-4'>
+    <div className='flex flex-1 flex-col gap-4'>
       <div className='space-y-1.5'>
         <Label>{t('channels.platform')}</Label>
         <Input value='Telegram' disabled />
@@ -53,7 +53,7 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
           autoComplete='off'
         />
       </div>
-      <div className='sticky bottom-0 z-10 -mx-6 -mb-7 flex flex-wrap gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
+      <div className='sticky bottom-0 z-10 -mx-6 -mb-7 mt-auto flex flex-wrap gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
         <Button
           disabled={
             !name.trim() || !token.trim() || createMutation.isPending

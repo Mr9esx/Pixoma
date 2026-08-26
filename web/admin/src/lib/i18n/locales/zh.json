@@ -312,7 +312,7 @@
     "entriesColChannel": "渠道",
     "importHeading": "导入工作流",
     "jsonTitle": "工作流 JSON",
-    "importHint": "从 ComfyUI 导出的 JSON 文件或文本",
+    "importHint": "仅支持 ComfyUI「保存(API 格式)」导出的 JSON，输入名齐全、原样提交；UI 导出（Save）不支持",
     "importFile": "导入文件",
     "importDropHint": "拖拽 JSON 文件到这里，或选择文件 / 粘贴 JSON",
     "importValid": "校验通过",

@@ -29,6 +29,7 @@ type Reporter struct {
 	refreshNext     bool
 	lastMetrics     time.Time
 	startedAt       time.Time
+	lastConsuming   *bool
 }
 
 func (r *Reporter) interval() time.Duration {
@@ -75,10 +76,17 @@ func (r *Reporter) ProbeAndReport(ctx context.Context) error {
 		r.lastMetrics = now
 		m = &collected
 	}
-	refresh, err := r.Client.ReportPresence(ctx, running, r.startedAt, comfyVersion, hw, m, r.SubscribeTopics)
+	refresh, consuming, err := r.Client.ReportPresence(ctx, running, r.startedAt, comfyVersion, hw, m, r.SubscribeTopics)
 	if err != nil {
 		return err
 	}
+	if !consuming && (r.lastConsuming == nil || *r.lastConsuming) {
+		slog.Warn("edge has no dispatch topic binding; it will not receive tasks",
+			"edge_id", r.Client.EdgeID,
+			"hint", "set EDGE_SUBSCRIBE_TOPICS or bind a topic in the admin",
+		)
+	}
+	r.lastConsuming = &consuming
 	r.SendHardware = false
 	r.refreshNext = refresh
 	return nil
