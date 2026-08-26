@@ -93,7 +93,9 @@ describe('task-flow prototype contract', () => {
     expect(EDITOR).toContain('application/pixoma-topic')
     expect(EDITOR).toContain('onDragStart')
     expect(EDITOR).toContain('bindingByTopic')
-    expect(EDITOR).toContain('flex h-14 items-center border-b border-border px-3')
+    expect(EDITOR).toContain(
+      'flex h-14 items-center border-b border-border px-3'
+    )
     expect(PROTOTYPE).not.toContain('拖入画布放置为孤立 Topic')
     const MOCK = read('mock-data.ts')
     expect(MOCK).toContain('mockCases')
@@ -110,24 +112,30 @@ describe('task-flow prototype contract', () => {
     // 孤立前的画布位置沿用（从 getNodes 取当前坐标），节点不跳位。
     expect(CANVAS).toContain('current.find((n) => n.id === `topic-${t}`)')
     // handleConnect/handleEdgesDelete 均走 handleRoutingChange，三个路径全覆盖。
-    expect(CANVAS).toContain('handleRoutingChange({ rules: rules.map((r, i) => (i === index ? { ...r, topic } : r)) })')
-    expect(CANVAS).toContain('handleRoutingChange({ rules: rules.map((r, i) => (indices.has(i) ? { ...r, topic: undefined } : r)) })')
+    expect(CANVAS).toContain(
+      'rules.map((r, i) => (i === index ? { ...r, topic } : r))'
+    )
+    expect(CANVAS).toContain('indices.has(i) ? { ...r, topic: undefined } : r')
     // buildNodes 的 onChange 也走 handleRoutingChange（删规则分支同样保留 Topic）。
-    expect(CANVAS).toContain('handleAddBranch, handleRoutingChange,')
+    expect(CANVAS).toContain('handleAddBranch,\n        handleRoutingChange,')
   })
 
   it('孤立 Topic 保留在画布：用户临时调整/稍后连线，不随 rules 消失；规则连用/删线自动切换孤立态', () => {
     const GRAPH = read('lib/graph.ts')
     // 图模型支持 isolatedTopics：孤立 Topic 节点加入图，无边。
     expect(GRAPH).toContain('isolatedTopics')
-    expect(GRAPH).toContain('孤立 Topic：未被规则引用、但用户拖入画布的 Topic，作为独立节点保留')
+    expect(GRAPH).toContain(
+      '孤立 Topic：未被规则引用、但用户拖入画布的 Topic，作为独立节点保留'
+    )
     // 画布维护 isolatedTopics 状态；拖入时记录位置；有效孤立集合 = 拖入集合 - 已被规则引用。
     expect(CANVAS).toContain('isolatedTopics')
     expect(CANVAS).toContain('setIsolatedTopics')
     expect(CANVAS).toContain('screenToFlowPosition')
     expect(CANVAS).toContain('application/pixoma-topic')
     expect(CANVAS).toContain('effectiveIsolated')
-    expect(CANVAS).toContain('isolatedTopics.filter((key) => !rules.some((r) => r.topic === key))')
+    expect(CANVAS).toContain(
+      'isolatedTopics.filter((key) => !rules.some((r) => r.topic === key))'
+    )
     // 孤立 Topic 样式：虚线边框（isolated=true）。
     expect(CANVAS).toContain('isolated')
     expect(CANVAS).toContain('border-dashed')
@@ -161,7 +169,7 @@ describe('task-flow prototype contract', () => {
     expect(PROTOTYPE).toContain('presence={mockPresence}')
     const MOCK = read('mock-data.ts')
     expect(MOCK).toContain('mockPresence')
-    expect(MOCK).toContain("edge_online: false")
+    expect(MOCK).toContain('edge_online: false')
   })
 
   it('计算节点是独立 Node，通过连线与 Topic 建立绑定', () => {
@@ -206,6 +214,23 @@ describe('task-flow prototype contract', () => {
     expect(CANVAS).toContain('onPaneClick={handlePaneClick}')
   })
 
+  it('规则→Topic→节点整条链路可连线：Topic→节点连线触发订阅落库，删绑定边解绑', () => {
+    expect(CANVAS).toContain('onChangeEdgeSubscription')
+    expect(CANVAS).toContain('isEdgeTarget')
+    expect(CANVAS).toContain(
+      'onChangeEdgeSubscription?.(edgeId, topicKey, true)'
+    )
+    expect(CANVAS).toContain(
+      'onChangeEdgeSubscription?.(edgeId, topicKey, false)'
+    )
+    expect(CANVAS).toContain("conn.source?.startsWith('topic-')")
+    // 绑定边可在画布删除（即解绑），由后台 effective_topics 重建。
+    expect(CANVAS).toContain(
+      '// 绑定关系由后台 effective_topics 决定；画布上可删（删除即解绑）'
+    )
+    expect(CANVAS).toContain('deletable: true')
+  })
+
   it('Case→规则连线为固定语义连线：隐藏端口圆点、不可交互；拖动自由摆放，ELK 仅手动触发', () => {
     // 问题 1：Case/规则左侧端口挂载 fixed-handle（isConnectable=false），CSS 隐藏圆点、禁止交互；
     // 仅规则右侧源端口可拖线到 Topic。
@@ -226,7 +251,9 @@ describe('task-flow prototype contract', () => {
     // 可拖动的线（规则→Topic 连线 + 拖线过程线 + 可交互圆点）统一为 lab 主题色。
     expect(CANVAS).toContain('CONNECTABLE_EDGE_COLOR')
     expect(CANVAS).toContain('lab(75.0771% -60.7313 19.4147)')
-    expect(CANVAS).toContain('--xy-connectionline-stroke: lab(75.0771% -60.7313 19.4147)')
+    expect(CANVAS).toContain(
+      '--xy-connectionline-stroke: lab(75.0771% -60.7313 19.4147)'
+    )
     expect(CANVAS).toContain('link-handle')
     expect(CANVAS).toContain('.link-handle::after')
     // 画布顶部无说明文案（只保留校验错误条）。

@@ -1,31 +1,32 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { createCase, enableCase, patchCase } from '@/lib/api/cases'
-import { listEdges, listPresence } from '@/lib/api/edges'
-import { listTopics } from '@/lib/api/topics'
 import { getMenu, putMenu } from '@/lib/api/channel-menu'
+import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
-import { DEFAULT_TOPIC_KEY } from '@/features/task-flow/types'
-import { topicBindings } from '@/features/task-flow/lib/topic-binding'
+import { listTopics } from '@/lib/api/topics'
 import { Button } from '@/components/ui/button'
+import { topicBindings } from '@/features/task-flow/lib/topic-binding'
+import { DEFAULT_TOPIC_KEY } from '@/features/task-flow/types'
 import { addWorkflowMenuEntry } from './lib/menu-payload'
 import {
   computeReadiness,
   workflowStatus,
   type ReadinessLevel,
 } from './lib/readiness'
-import { WizardChrome } from './wizard-chrome'
 import type { StepActions, WizardShared } from './types'
+import { WizardChrome } from './wizard-chrome'
 
 type Props = StepActions & { shared: WizardShared }
 
-const READINESS_COPY: Record<ReadinessLevel, { icon: string; label: string }> = {
-  ready: { icon: '✓', label: 'quickConfig.ready' },
-  warn: { icon: '!', label: 'quickConfig.warnPublishable' },
-  gap: { icon: '✕', label: 'quickConfig.gap' },
-}
+const READINESS_COPY: Record<ReadinessLevel, { icon: string; label: string }> =
+  {
+    ready: { icon: '✓', label: 'quickConfig.ready' },
+    warn: { icon: '!', label: 'quickConfig.warnPublishable' },
+    gap: { icon: '✕', label: 'quickConfig.gap' },
+  }
 
 /**
  * 完成页：就绪清单 + 统一提交（Case → routing → 菜单），再发布（启用 Case）。
@@ -58,7 +59,7 @@ export function DoneScreen({ shared, back }: Props) {
             ...new Set(
               rules
                 .map((rule) => rule.topic)
-                .filter((topic): topic is string => Boolean(topic)),
+                .filter((topic): topic is string => Boolean(topic))
             ),
           ]
     const mappedEdges = (edgesQuery.data ?? []).map(
@@ -99,9 +100,7 @@ export function DoneScreen({ shared, back }: Props) {
     presenceQuery.data,
   ])
 
-  const canPublish = Object.values(readiness).every(
-    (level) => level !== 'gap'
-  )
+  const canPublish = Object.values(readiness).every((level) => level !== 'gap')
 
   const commitMutation = useMutation({
     mutationFn: async ({ publish }: { publish: boolean }) => {
@@ -134,7 +133,11 @@ export function DoneScreen({ shared, back }: Props) {
       shared.updateCase(saved)
       setCommittedId(saved.id)
       setPublished(saved.enabled)
-      toast.success(saved.enabled ? t('quickConfig.savedAndPublished') : t('quickConfig.saved'))
+      toast.success(
+        saved.enabled
+          ? t('quickConfig.savedAndPublished')
+          : t('quickConfig.saved')
+      )
     },
   })
 
@@ -148,10 +151,7 @@ export function DoneScreen({ shared, back }: Props) {
   ]
 
   return (
-    <WizardChrome
-      step={4}
-      onBack={() => back({})}
-    >
+    <WizardChrome step={4} onBack={() => back({})}>
       <div className='space-y-2'>
         {rows.map((row) => {
           const level = readiness[row.key]
@@ -185,6 +185,11 @@ export function DoneScreen({ shared, back }: Props) {
       </div>
 
       <div className='mt-4 flex flex-wrap items-center justify-end gap-2'>
+        {!canPublish && shared.caseRecord ? (
+          <span className='mr-auto text-xs text-muted-foreground'>
+            {t('quickConfig.saveOnlyGapHint')}
+          </span>
+        ) : null}
         {commitMutation.error ? (
           <span className='text-sm text-destructive'>
             {commitMutation.error instanceof Error
@@ -198,7 +203,9 @@ export function DoneScreen({ shared, back }: Props) {
           disabled={!shared.caseRecord || commitMutation.isPending}
           onClick={() => commitMutation.mutate({ publish: false })}
         >
-          {committedId != null ? t('quickConfig.resave') : t('quickConfig.saveOnly')}
+          {committedId != null
+            ? t('quickConfig.resave')
+            : t('quickConfig.saveOnly')}
         </Button>
         <Button
           type='button'

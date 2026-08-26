@@ -1,10 +1,17 @@
 import { useMemo, type ReactNode } from 'react'
 import { CircleAlert, CircleCheck, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { DEFAULT_TOPIC_KEY, type AttributeDescriptor, type EdgePresence, type EdgeRecord, type RoutingConfig, type TopicRecord } from './types'
 import { topicBindings } from './lib/topic-binding'
 import { validateRouting } from './lib/validate'
 import { TaskFlowCanvas } from './task-flow-canvas'
+import {
+  DEFAULT_TOPIC_KEY,
+  type AttributeDescriptor,
+  type EdgePresence,
+  type EdgeRecord,
+  type RoutingConfig,
+  type TopicRecord,
+} from './types'
 
 export type TaskFlowEditorProps = {
   routing: RoutingConfig | undefined
@@ -14,6 +21,12 @@ export type TaskFlowEditorProps = {
   presence: EdgePresence[]
   caseName: string
   onChange: (next: RoutingConfig) => void
+  /** 新增/移除「Topic→计算节点」绑定（add=true 绑定，false 解绑），由调用方持久化节点订阅。 */
+  onChangeEdgeSubscription?: (
+    edgeId: string,
+    topicKey: string,
+    add: boolean
+  ) => void
   readOnly?: boolean
   /** 预览模式：只读画布，隐藏顶栏与右侧 Topic 池。 */
   preview?: boolean
@@ -34,6 +47,7 @@ export function TaskFlowEditor({
   presence,
   caseName,
   onChange,
+  onChangeEdgeSubscription,
   readOnly = false,
   preview = false,
   title = '任务分流编辑器',
@@ -41,18 +55,15 @@ export function TaskFlowEditor({
   className,
 }: TaskFlowEditorProps) {
   const effectiveReadOnly = readOnly || preview
-  const validation = useMemo(
-    () => {
-      const bindings = topicBindings(edges, presence)
-      const boundTopicKeys = new Set(
-        bindings
-          .filter((binding) => binding.status !== 'unbound')
-          .map((binding) => binding.topic),
-      )
-      return validateRouting(routing, topics, attributes, boundTopicKeys)
-    },
-    [routing, topics, attributes, edges, presence],
-  )
+  const validation = useMemo(() => {
+    const bindings = topicBindings(edges, presence)
+    const boundTopicKeys = new Set(
+      bindings
+        .filter((binding) => binding.status !== 'unbound')
+        .map((binding) => binding.topic)
+    )
+    return validateRouting(routing, topics, attributes, boundTopicKeys)
+  }, [routing, topics, attributes, edges, presence])
   const bindingByTopic = useMemo(() => {
     const map = new Map<string, (typeof bindings)[number]>()
     const bindings = topicBindings(edges, presence)
@@ -61,13 +72,20 @@ export function TaskFlowEditor({
   }, [edges, presence])
 
   return (
-    <div className={cn('overflow-hidden rounded-xl border border-border bg-background shadow-sm', className)}>
+    <div
+      className={cn(
+        'overflow-hidden rounded-xl border border-border bg-background shadow-sm',
+        className
+      )}
+    >
       <div className='flex'>
         <div className='flex min-w-0 flex-1 flex-col'>
           {!preview ? (
             <div className='flex h-14 items-center justify-between gap-3 border-b border-border px-4'>
               <div className='flex min-w-0 items-center gap-3'>
-                <h1 className='truncate text-lg leading-tight font-semibold tracking-tight'>{title}</h1>
+                <h1 className='truncate text-lg leading-tight font-semibold tracking-tight'>
+                  {title}
+                </h1>
               </div>
               <div className='flex shrink-0 items-center gap-2'>
                 <div
@@ -79,16 +97,27 @@ export function TaskFlowEditor({
                       : 'border-destructive/50 bg-destructive/10 text-destructive'
                   )}
                 >
-                  {validation.valid ? <CircleCheck className='size-3.5' /> : <CircleAlert className='size-3.5' />}
+                  {validation.valid ? (
+                    <CircleCheck className='size-3.5' />
+                  ) : (
+                    <CircleAlert className='size-3.5' />
+                  )}
                   <span>
-                    {validation.valid ? '校验通过，可保存' : `${validation.issues.length} 条规则未通过校验`}
+                    {validation.valid
+                      ? '校验通过，可保存'
+                      : `${validation.issues.length} 条规则未通过校验`}
                   </span>
                 </div>
                 {headerActions}
               </div>
             </div>
           ) : null}
-          <div className={cn('bg-muted/10', preview ? 'min-h-[420px]' : 'min-h-[520px]')}>
+          <div
+            className={cn(
+              'bg-muted/10',
+              preview ? 'min-h-[420px]' : 'min-h-[520px]'
+            )}
+          >
             <TaskFlowCanvas
               routing={routing}
               topics={topics}
@@ -98,6 +127,7 @@ export function TaskFlowEditor({
               defaultTopicKey={DEFAULT_TOPIC_KEY}
               readOnly={effectiveReadOnly}
               onChange={onChange}
+              onChangeEdgeSubscription={onChangeEdgeSubscription}
               caseName={caseName}
             />
           </div>
@@ -119,12 +149,17 @@ export function TaskFlowEditor({
                       data-topic-pool-item={topic.key}
                       draggable={!effectiveReadOnly}
                       onDragStart={(e) => {
-                        e.dataTransfer.setData('application/pixoma-topic', topic.key)
+                        e.dataTransfer.setData(
+                          'application/pixoma-topic',
+                          topic.key
+                        )
                         e.dataTransfer.effectAllowed = 'move'
                       }}
                       className={cn(
                         'flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-2 text-xs transition-colors',
-                        effectiveReadOnly ? 'cursor-default opacity-60' : 'cursor-grab hover:border-primary/50 hover:bg-muted/40'
+                        effectiveReadOnly
+                          ? 'cursor-default opacity-60'
+                          : 'cursor-grab hover:border-primary/50 hover:bg-muted/40'
                       )}
                       title='拖入画布'
                     >

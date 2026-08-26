@@ -1,11 +1,22 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { listChannels } from '@/lib/api/channels'
-import { getCaseMenuPlacements, type MenuPlacement } from '@/lib/api/channel-menu'
+import { toast } from 'sonner'
+import {
+  getCaseMenuPlacements,
+  type MenuPlacement,
+} from '@/lib/api/channel-menu'
+import { createChannel, listChannels } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -17,8 +28,8 @@ import {
 } from '@/components/ui/select'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import type { WorkflowMenuMode } from './lib/menu-payload'
-import { WizardChrome } from './wizard-chrome'
 import type { StepActions, WizardShared } from './types'
+import { WizardChrome } from './wizard-chrome'
 
 type Props = StepActions & { shared: WizardShared }
 
@@ -26,9 +37,29 @@ type Props = StepActions & { shared: WizardShared }
 export function Step3Channels({ shared, next, back }: Props) {
   const caseId = shared.caseId
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [channelOpen, setChannelOpen] = useState(false)
+  const [channelName, setChannelName] = useState('')
+  const [channelToken, setChannelToken] = useState('')
   const [drafts, setDrafts] = useState<
     Record<string, { label: string; mode: WorkflowMenuMode }>
   >({})
+
+  const createChannelMutation = useMutation({
+    mutationFn: () =>
+      createChannel({
+        platform: 'telegram',
+        name: channelName.trim(),
+        token: channelToken.trim(),
+      }),
+    onSuccess: (ch) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
+      setChannelOpen(false)
+      setChannelName('')
+      setChannelToken('')
+      toast.success(t('quickConfig.channelCreated', { name: ch.name }))
+    },
+  })
 
   const placementsQuery = useQuery({
     queryKey: queryKeys.cases.menuPlacements(caseId ?? -1),
@@ -42,12 +73,19 @@ export function Step3Channels({ shared, next, back }: Props) {
 
   const placements: MenuPlacement[] = placementsQuery.data ?? []
 
-  function queueEntry(channelId: string, label: string, mode: WorkflowMenuMode) {
+  function queueEntry(
+    channelId: string,
+    label: string,
+    mode: WorkflowMenuMode
+  ) {
     shared.updatePendingEntries([
       ...shared.pendingEntries,
       { channelId, label: label.trim(), mode },
     ])
-    setDrafts((prev) => ({ ...prev, [channelId]: { label: '', mode: 'direct' } }))
+    setDrafts((prev) => ({
+      ...prev,
+      [channelId]: { label: '', mode: 'direct' },
+    }))
     toast.success('已加入待提交列表，完成页统一保存')
   }
 
@@ -65,7 +103,9 @@ export function Step3Channels({ shared, next, back }: Props) {
     >
       <div className='space-y-4'>
         <section>
-          <h3 className='text-sm font-semibold'>{t('quickConfig.currentPlacements')}</h3>
+          <h3 className='text-sm font-semibold'>
+            {t('quickConfig.currentPlacements')}
+          </h3>
           {placementsQuery.isLoading ? (
             <LoadingSkeleton rows={2} />
           ) : placements.length === 0 ? (
@@ -92,10 +132,27 @@ export function Step3Channels({ shared, next, back }: Props) {
         </section>
 
         <section>
-          <h3 className='text-sm font-semibold'>{t('quickConfig.addChannelEntry')}</h3>
+          <div className='flex items-center justify-between gap-2'>
+            <h3 className='text-sm font-semibold'>
+              {t('quickConfig.addChannelEntry')}
+            </h3>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => setChannelOpen(true)}
+            >
+              <Plus className='size-4' />
+              {t('quickConfig.newChannel')}
+            </Button>
+          </div>
           <div className='mt-2 space-y-2'>
             {channelsQuery.isLoading ? (
               <LoadingSkeleton rows={2} />
+            ) : (channelsQuery.data ?? []).length === 0 ? (
+              <p className='mt-1 text-xs text-muted-foreground'>
+                {t('quickConfig.noChannelsHint')}
+              </p>
             ) : (
               (channelsQuery.data ?? []).map((channel) => {
                 const draft = drafts[channel.id] ?? {
@@ -115,7 +172,9 @@ export function Step3Channels({ shared, next, back }: Props) {
                       </span>
                       <span className='text-xs text-muted-foreground'>
                         {channel.platform} ·{' '}
-                        {channel.enabled ? t('quickConfig.enabled') : t('quickConfig.disabled')}
+                        {channel.enabled
+                          ? t('quickConfig.enabled')
+                          : t('quickConfig.disabled')}
                       </span>
                     </div>
                     {channel.enabled ? (
@@ -176,11 +235,7 @@ export function Step3Channels({ shared, next, back }: Props) {
                               )
                             }
                             onClick={() =>
-                              queueEntry(
-                                channel.id,
-                                draft.label,
-                                draft.mode
-                              )
+                              queueEntry(channel.id, draft.label, draft.mode)
                             }
                           >
                             添加按钮
@@ -199,6 +254,53 @@ export function Step3Channels({ shared, next, back }: Props) {
           </div>
         </section>
       </div>
+
+      <Dialog open={channelOpen} onOpenChange={setChannelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('quickConfig.newChannel')}</DialogTitle>
+          </DialogHeader>
+          <div className='space-y-3'>
+            <div className='space-y-1'>
+              <Label htmlFor='channel-name'>{t('quickConfig.name')}</Label>
+              <Input
+                id='channel-name'
+                value={channelName}
+                onChange={(e) => setChannelName(e.target.value)}
+                autoComplete='off'
+              />
+            </div>
+            <div className='space-y-1'>
+              <Label htmlFor='channel-token'>
+                {t('quickConfig.channelToken')}
+              </Label>
+              <Input
+                id='channel-token'
+                value={channelToken}
+                onChange={(e) => setChannelToken(e.target.value)}
+                placeholder='123456:ABC…'
+                autoComplete='off'
+              />
+            </div>
+            <p className='text-xs text-muted-foreground'>
+              {t('quickConfig.containerHint')}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              type='button'
+              disabled={
+                !channelName.trim() ||
+                !channelToken.trim() ||
+                createChannelMutation.isPending
+              }
+              onClick={() => createChannelMutation.mutate()}
+            >
+              {t('quickConfig.create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </WizardChrome>
   )
 }

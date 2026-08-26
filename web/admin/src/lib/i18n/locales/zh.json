@@ -643,7 +643,17 @@
     "saveOnly": "仅保存",
     "resave": "已保存（重新保存）",
     "saveFailed": "保存失败",
-    "saveAllPublish": "保存全部配置并发布"
+    "saveAllPublish": "保存全部配置并发布",
+    "newChannel": "新建渠道",
+    "channelToken": "渠道 Token",
+    "noChannelsHint": "尚无渠道。先新建一个 Telegram 渠道，即可直接在此投放。",
+    "containerHint": "创建后即可直接为该渠道添加入口。",
+    "nodeDeployHint": "节点已创建。需在目标机器运行下方命令部署 agent，节点才会上线并开始处理任务。",
+    "nodeDeployDone": "完成",
+    "nodeDeployTitle": "节点已创建：{{name}}",
+    "nodeTopicBindHint": "下方列出该节点将订阅的调度通道——勾选即保存「Topic→节点」绑定并清除校验。部署命令会自动带上 EDGE_SUBSCRIBE_TOPICS。",
+    "channelCreated": "渠道「{{name}}」已创建，可直接为其添加入口。",
+    "saveOnlyGapHint": "存在缺口：仍可先「仅保存」留草稿，补齐渠道或节点后再发布。"
   },
   "configContext": {
     "title": "关联上下文",
