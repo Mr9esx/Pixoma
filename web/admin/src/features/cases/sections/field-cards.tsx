@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronRight, ChevronsUpDown, Search, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,11 +17,18 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -72,242 +79,257 @@ function safeAutoType(classType: string, fieldPath: string): string {
   return kind === 'unknown' ? 'string' : kind
 }
 
-// ===== 绑定弹层：图上点选（复用详情页流程图视觉）=====
+// ===== 轻量绑定浮层（锚定当前行，点选即绑定，不放大弹窗）=====
 
-type BindNodeDialogProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+type BindNodePopoverProps = {
   nodes: WorkflowNode[]
   /** input = 绑字面量参数；output = 绑节点输出槽位。 */
   mode?: 'input' | 'output'
+  /** 当前已绑定的节点（用于触发器展示）。 */
+  node: WorkflowNode | undefined
+  /** 已绑定的参数/索引描述。 */
+  boundLabel?: string
   onPick: (nodeId: string, pick: string) => void
+  disabled?: boolean
+  compact?: boolean
 }
 
-export function BindNodeDialog({
-  open,
-  onOpenChange,
+export function BindNodePopover({
   nodes,
   mode = 'input',
+  node,
+  boundLabel,
   onPick,
-}: BindNodeDialogProps) {
+  disabled,
+  compact,
+}: BindNodePopoverProps) {
   const { t } = useTranslation()
-  const [nodeId, setNodeId] = useState<string | null>(null)
-  const [param, setParam] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement | null>(null)
+  const bound = !!node
 
-  // 拓扑排序（依赖 links），与详情页 process 分层一致。
-  const ordered = useMemo(() => {
-    const depth = new Map<string, number>(nodes.map((n) => [n.id, 0]))
-    for (let pass = 0; pass < nodes.length; pass += 1) {
-      let changed = false
-      for (const n of nodes) {
-        for (const link of n.links) {
-          if (!depth.has(link.src)) continue
-          const next = (depth.get(link.src) ?? 0) + 1
-          if (next > (depth.get(n.id) ?? 0)) {
-            depth.set(n.id, next)
-            changed = true
-          }
-        }
-      }
-      if (!changed) break
+  // 打开时聚焦搜索框；关闭时清空 query
+  useEffect(() => {
+    if (open) {
+      const id = window.requestAnimationFrame(() => searchRef.current?.focus())
+      return () => window.cancelAnimationFrame(id)
     }
-    return [...nodes].sort(
-      (a, b) =>
-        (depth.get(a.id) ?? 0) - (depth.get(b.id) ?? 0) ||
-        a.id.localeCompare(b.id)
-    )
-  }, [nodes])
+    setSearch('')
+    return undefined
+  }, [open])
 
-  const selected = nodes.find((n) => n.id === nodeId) ?? null
-  // 只暴露字面量参数：引用（节点间连线）不是用户能提供的输入。
-  const bindable = selected?.inputs.filter((input) => !input.ref) ?? []
-  const literalMap = new Map(selected?.literals ?? [])
+  const query = search.trim().toLowerCase()
+  const nodeMatches = (n: WorkflowNode) =>
+    !query ||
+    nodeLabel(n.class_type).toLowerCase().includes(query) ||
+    String(n.id).toLowerCase().includes(query)
 
-  function close() {
-    setNodeId(null)
-    setParam(null)
-    onOpenChange(false)
-  }
+  // 输入：只暴露字面量参数（引用/节点间连线不是用户能提供的输入）。
+  const inputGroups = useMemo(
+    () =>
+      nodes
+        .map((n) => ({
+          node: n,
+          params: n.inputs
+            .filter((i) => !i.ref)
+            .filter(
+              (i) => !query || i.name.toLowerCase().includes(query)
+            ),
+        }))
+        .filter((g) => g.params.length > 0 && nodeMatches(g.node)),
+    // nodeMatches 依赖 query（已在 deps）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes, query]
+  )
+  // 输出：暴露各节点输出槽位。
+  const outputGroups = useMemo(
+    () => nodes.filter((n) => n.outputCount > 0 && nodeMatches(n)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes, query]
+  )
 
-  function confirm() {
-    if (!selected || !param) return
-    onPick(selected.id, param)
-    close()
+  function pick(nodeId: string, pick: string) {
+    onPick(nodeId, pick)
+    setOpen(false)
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => (v ? undefined : close())}>
-      <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-3xl'>
-        <DialogHeader className='border-b px-5 py-4'>
-          <DialogTitle>{t('cases.bindDialogTitle')}</DialogTitle>
-        </DialogHeader>
-        <p className='border-b px-5 py-2 text-xs text-muted-foreground'>
-          {t(mode === 'output' ? 'cases.bindFlowHintOutput' : 'cases.bindFlowHint')}
-        </p>
-        <div className='overflow-x-auto border-b bg-muted/20 px-4 py-3'>
-          <div className='flex min-w-max items-stretch gap-1.5'>
-            {ordered.map((n, i) => {
-              const { Icon, className } = nodeVisualFor(n.class_type)
-              const active = n.id === nodeId
-              return (
-                <div key={n.id} className='flex items-center'>
-                  <button
-                    type='button'
-                    onClick={() => {
-                      setNodeId(n.id)
-                      setParam(null)
-                    }}
-                    className={`flex w-40 shrink-0 flex-col rounded-md border bg-background p-2.5 text-left transition-colors ${
-                      active
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-foreground/40'
-                    }`}
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type='button'
+          variant='outline'
+          disabled={disabled || nodes.length === 0}
+          className={
+            compact
+              ? 'flex h-8 w-full items-center justify-between gap-1.5 border border-input bg-transparent px-2 text-left text-xs hover:bg-accent/50'
+              : 'flex h-auto w-full items-center justify-between gap-2 border border-input bg-transparent px-3 py-2 text-left hover:bg-accent/50'
+          }
+        >
+          {bound ? (
+            <span className='flex min-w-0 items-center gap-1.5'>
+              {(() => {
+                const { Icon, className } = nodeVisualFor(node.class_type)
+                return (
+                  <span
+                    className={`grid size-5 shrink-0 place-items-center rounded-md ${className}`}
                   >
-                    <span className='flex items-center gap-2'>
-                      <span
-                        className={`grid size-6 shrink-0 place-items-center rounded-md ${className}`}
-                      >
-                        <Icon className='size-3.5' />
-                      </span>
-                      <span className='truncate font-mono text-[10px] text-muted-foreground'>
-                        #{n.id}
-                      </span>
-                    </span>
-                    <span className='mt-1 truncate text-xs font-semibold leading-tight'>
-                      {nodeLabel(n.class_type)}
-                    </span>
-                    <span className='truncate font-mono text-[10px] text-muted-foreground'>
-                      {n.class_type}
-                    </span>
-                  </button>
-                  {i < ordered.length - 1 ? (
-                    <ChevronRight className='mx-1 size-4 shrink-0 text-muted-foreground/40' />
-                  ) : null}
-                </div>
-              )
-            })}
+                    <Icon className='size-3' />
+                  </span>
+                )
+              })()}
+              <span className='truncate text-xs'>
+                <span className='font-medium'>
+                  {nodeLabel(node.class_type)}
+                </span>{' '}
+                {boundLabel ? (
+                  <span className='font-mono text-muted-foreground'>
+                    · {boundLabel}
+                  </span>
+                ) : null}
+              </span>
+            </span>
+          ) : (
+            <span className='truncate text-muted-foreground'>
+              {nodes.length === 0
+                ? t('cases.emptyWorkflowLock')
+                : t('cases.bindPickPlaceholder')}
+            </span>
+          )}
+          <ChevronsUpDown className='size-3.5 shrink-0 text-muted-foreground' />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align='start'
+        side='bottom'
+        className='w-80 p-0'
+      >
+        <div className='border-b p-2'>
+          <div className='relative'>
+            <Search className='pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground' />
+            <Input
+              ref={searchRef}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('cases.bindSearchPlaceholder')}
+              className='h-8 pl-7 text-xs'
+              autoComplete='off'
+            />
           </div>
         </div>
-        <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
-          {!selected ? (
-            <p className='py-8 text-center text-xs text-muted-foreground'>
-              {t('cases.bindPickNodeFirst')}
-            </p>
-          ) : mode === 'output' ? (
-            <>
-              <h4 className='mb-2 text-sm font-medium text-foreground'>
-                {nodeLabel(selected.class_type)} #{selected.id} —{' '}
-                {t('cases.bindPickParam')}
-              </h4>
-              <div className='flex flex-col gap-1.5'>
-                {Array.from({ length: selected.outputCount }, (_, i) => {
-                  const active = param === String(i)
-                  const kind = outputKindFor(selected.class_type)
-                  return (
-                    <button
-                      key={i}
-                      type='button'
-                      onClick={() => setParam(String(i))}
-                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
-                        active
-                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
-                          : 'border-border hover:border-foreground/40'
-                      }`}
-                    >
-                      <span className='font-mono font-semibold'>[{i}]</span>
-                      <span className='rounded-sm border bg-muted px-1.5 py-px font-mono text-[10px] text-muted-foreground'>
-                        {t(TYPE_LABEL_KEYS[kind] ?? 'cases.typeImage')}
+        <div className='max-h-72 overflow-auto p-1'>
+          {mode === 'output' ? (
+            outputGroups.length === 0 ? (
+              <p className='px-2 py-4 text-center text-xs text-muted-foreground'>
+                {query ? t('cases.bindNoResults') : t('cases.bindNoParams')}
+              </p>
+            ) : (
+              outputGroups.map((n) => {
+                const { Icon, className } = nodeVisualFor(n.class_type)
+                return (
+                  <div key={n.id} className='mb-2'>
+                    <div className='flex items-center gap-1.5 px-2 py-1.5'>
+                      <span
+                        className={`grid size-5 shrink-0 place-items-center rounded-md ${className}`}
+                      >
+                        <Icon className='size-3' />
                       </span>
-                      {selected.outputCount === 1 ? (
-                        <span className='text-[11px] text-emerald-600 dark:text-emerald-400'>
+                      <span className='truncate text-xs font-semibold'>
+                        {nodeLabel(n.class_type)}
+                      </span>
+                      <span className='font-mono text-[10px] text-muted-foreground'>
+                        #{n.id}
+                      </span>
+                      {n.outputCount === 1 ? (
+                        <span className='ml-auto text-[10px] text-muted-foreground'>
                           {t('cases.singleOutputAuto')}
                         </span>
                       ) : null}
-                    </button>
-                  )
-                })}
-              </div>
-            </>
-          ) : bindable.length === 0 ? (
-            <p className='py-8 text-center text-xs text-muted-foreground'>
-              {t('cases.bindNoParams')}
+                    </div>
+                    <div className='space-y-0.5'>
+                      {Array.from({ length: n.outputCount }, (_, i) => (
+                        <button
+                          key={i}
+                          type='button'
+                          onClick={() => pick(n.id, String(i))}
+                          className='flex w-full items-center gap-2 rounded-md py-1.5 pr-2 pl-6 text-left font-mono text-xs text-foreground/90 transition-colors hover:bg-accent'
+                        >
+                          <ChevronRight className='size-3 shrink-0 text-muted-foreground' />
+                          <span>[{i}]</span>
+                          <span className='ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground'>
+                            {t(TYPE_LABEL_KEYS[outputKindFor(n.class_type)])}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })
+            )
+          ) : inputGroups.length === 0 ? (
+            <p className='px-2 py-4 text-center text-xs text-muted-foreground'>
+              {query ? t('cases.bindNoResults') : t('cases.bindNoParams')}
             </p>
           ) : (
-            <>
-              <h4 className='mb-2 text-sm font-medium text-foreground'>
-                {nodeLabel(selected.class_type)} #{selected.id} —{' '}
-                {t('cases.bindPickParam')}
-              </h4>
-              <div className='flex flex-col gap-1.5'>
-                {bindable.map((input) => {
-                  const active = param === input.name
-                  const literal = literalMap.get(input.name)
-                  return (
-                    <button
-                      key={input.name}
-                      type='button'
-                      onClick={() => setParam(input.name)}
-                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
-                        active
-                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
-                          : 'border-border hover:border-foreground/40'
-                      }`}
+            inputGroups.map(({ node: n, params }) => {
+              const { Icon, className } = nodeVisualFor(n.class_type)
+              return (
+                <div key={n.id} className='mb-2'>
+                  <div className='flex items-center gap-1.5 px-2 py-1.5'>
+                    <span
+                      className={`grid size-5 shrink-0 place-items-center rounded-md ${className}`}
                     >
-                      <span className='font-mono font-semibold'>{input.name}</span>
-                      <span className='rounded-sm border bg-muted px-1.5 py-px font-mono text-[10px] text-muted-foreground'>
-                        {t(TYPE_LABEL_KEYS[input.kind] ?? 'cases.typeString')}
-                      </span>
-                      {literal !== undefined ? (
-                        <span className='ml-auto max-w-[45%] truncate font-mono text-[10px] text-muted-foreground'>
-                          {literal}
+                      <Icon className='size-3' />
+                    </span>
+                    <span className='truncate text-xs font-semibold'>
+                      {nodeLabel(n.class_type)}
+                    </span>
+                    <span className='font-mono text-[10px] text-muted-foreground'>
+                      #{n.id}
+                    </span>
+                  </div>
+                  <div className='space-y-0.5'>
+                    {params.map((p) => (
+                      <button
+                        key={p.name}
+                        type='button'
+                        onClick={() => pick(n.id, p.name)}
+                        className='flex w-full items-center gap-2 rounded-md py-1.5 pr-2 pl-6 text-left text-xs text-foreground/90 transition-colors hover:bg-accent'
+                      >
+                        <ChevronRight className='size-3 shrink-0 text-muted-foreground' />
+                        <span className='truncate font-mono'>{p.name}</span>
+                        <span className='ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground'>
+                          {t(TYPE_LABEL_KEYS[p.kind] ?? 'cases.typeString')}
                         </span>
-                      ) : null}
-                    </button>
-                  )
-                })}
-              </div>
-            </>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
           )}
         </div>
-        <div className='flex items-center justify-between gap-3 border-t px-5 py-3'>
-          <span className='min-w-0 text-xs text-muted-foreground'>
-            {selected && param ? (
-              <>
-                {t('cases.bindWillBind')}：
-                <b className='text-foreground'>
-                  {nodeLabel(selected.class_type)} #{selected.id} ·{' '}
-                  {mode === 'output' ? `[${param}]` : param}
-                </b>
-              </>
-            ) : (
-              t('cases.bindPickNodeFirst')
-            )}
-          </span>
-          <div className='flex shrink-0 gap-2'>
-            <Button type='button' variant='outline' onClick={close}>
-              {t('common.cancel')}
-            </Button>
-            <Button type='button' disabled={!selected || !param} onClick={confirm}>
-              {t('cases.bindConfirm')}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </PopoverContent>
+    </Popover>
   )
 }
 
-// ===== 删除按钮（红色 + 二次确认，独占一行）=====
+// ===== 删除按钮（带确认弹层）=====
 
-function RemoveFieldButton({
-  fieldKey,
-  disabled,
-  onRemove,
-}: {
+type RemoveFieldButtonProps = {
   fieldKey: string
   disabled?: boolean
   onRemove: () => void
-}) {
+  compact?: boolean
+}
+
+export function RemoveFieldButton({
+  fieldKey,
+  disabled,
+  onRemove,
+  compact,
+}: RemoveFieldButtonProps) {
   const { t } = useTranslation()
   return (
     <AlertDialog>
@@ -315,11 +337,17 @@ function RemoveFieldButton({
         <Button
           type='button'
           variant='ghost'
-          size='sm'
-          className='text-destructive hover:bg-destructive/10 hover:text-destructive'
+          size={compact ? 'sm' : 'icon'}
           disabled={disabled}
+          aria-label={t('cases.removeRow')}
+          className={
+            compact
+              ? 'h-7 w-7 text-muted-foreground hover:text-destructive'
+              : 'text-muted-foreground hover:text-destructive'
+          }
         >
-          {t('cases.removeRow')}
+          <Trash2 className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+          <span className='sr-only'>{t('cases.removeRow')}</span>
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -346,7 +374,7 @@ function RemoveFieldButton({
   )
 }
 
-// ===== 输入字段卡片 =====
+// ===== 输入字段卡片（窄屏降级）=====
 
 type InputCardProps = {
   nodes: WorkflowNode[]
@@ -364,10 +392,10 @@ export function InputFieldCard({
   disabled,
 }: InputCardProps) {
   const { t } = useTranslation()
-  const [bindOpen, setBindOpen] = useState(false)
   const node = nodes.find((n) => n.id === value.node_id)
   const bound = !!(value.node_id && value.field_path)
-  const autoType = bound && node ? safeAutoType(node.class_type, value.field_path) : ''
+  const autoType =
+    bound && node ? safeAutoType(node.class_type, value.field_path) : ''
   const isCustom = bound && value.type !== autoType
 
   return (
@@ -375,11 +403,8 @@ export function InputFieldCard({
       data-testid='input-field-card'
       className='space-y-2 rounded-md border p-3'
     >
-      {/* 字段名 + 必填 */}
       <div className='flex flex-wrap items-center gap-2'>
-        <span className='text-sm text-foreground'>
-          {t('cases.fieldKey')}
-        </span>
+        <span className='text-sm text-foreground'>{t('cases.fieldKey')}</span>
         <Input
           className='h-8 w-36'
           value={value.key}
@@ -389,7 +414,6 @@ export function InputFieldCard({
         />
       </div>
 
-      {/* 描述（字段名下方） */}
       <div className='flex items-center gap-2'>
         <span className='shrink-0 text-sm text-foreground'>
           {t('cases.fieldDescription')}
@@ -403,55 +427,30 @@ export function InputFieldCard({
         />
       </div>
 
-      {/* 绑定位置（图上点选） */}
       <div>
-        <span className='text-sm text-foreground'>
-          {t('cases.fieldBind')}
-        </span>
-        <Button
-          type='button'
-          variant='outline'
-          disabled={disabled || nodes.length === 0}
-          onClick={() => setBindOpen(true)}
-          className='mt-1 flex h-auto w-full items-center justify-between gap-2 border border-dashed border-foreground/30 px-3 py-2.5 text-left hover:border-foreground/50 hover:bg-muted/40'
-        >
-          {bound && node ? (
-            <span className='flex min-w-0 items-center gap-2'>
-              {(() => {
-                const { Icon, className } = nodeVisualFor(node.class_type)
-                return (
-                  <span
-                    className={`grid size-6 shrink-0 place-items-center rounded-md ${className}`}
-                  >
-                    <Icon className='size-3.5' />
-                  </span>
-                )
-              })()}
-              <span className='min-w-0 truncate'>
-                <span className='text-sm font-medium'>
-                  {nodeLabel(node.class_type)}
-                </span>{' '}
-                <span className='font-mono text-xs text-muted-foreground'>
-                  #{node.id} · {value.field_path}
-                </span>
-              </span>
-            </span>
-          ) : (
-            <span className='text-sm text-muted-foreground'>
-              {nodes.length === 0
-                ? t('cases.emptyWorkflowLock')
-                : t('cases.bindPickPlaceholder')}
-            </span>
-          )}
-          <ChevronRight className='size-4 shrink-0 text-muted-foreground' />
-        </Button>
+        <span className='text-sm text-foreground'>{t('cases.fieldBind')}</span>
+        <BindNodePopover
+          mode='input'
+          nodes={nodes}
+          node={bound ? node : undefined}
+          boundLabel={value.field_path}
+          disabled={disabled}
+          onPick={(nodeId, fieldPath) => {
+            const picked = nodes.find((n) => n.id === nodeId)
+            onChange({
+              ...value,
+              node_id: nodeId,
+              field_path: fieldPath,
+              type: picked
+                ? safeAutoType(picked.class_type, fieldPath)
+                : value.type,
+            })
+          }}
+        />
       </div>
 
-      {/* 类型（自动为主，可覆盖） */}
       <div className='flex flex-wrap items-center gap-2'>
-        <span className='text-sm text-foreground'>
-          {t('cases.fieldType')}
-        </span>
+        <span className='text-sm text-foreground'>{t('cases.fieldType')}</span>
         <Select
           value={value.type}
           onValueChange={(type) =>
@@ -473,7 +472,10 @@ export function InputFieldCard({
         {bound ? (
           isCustom ? (
             <>
-              <Badge variant='secondary' className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'>
+              <Badge
+                variant='secondary'
+                className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'
+              >
                 {t('cases.typeCustom')}
               </Badge>
               <button
@@ -487,7 +489,10 @@ export function InputFieldCard({
             </>
           ) : (
             <>
-              <Badge variant='secondary' className='border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-400'>
+              <Badge
+                variant='secondary'
+                className='border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-400'
+              >
                 {t('cases.typeAuto')}
               </Badge>
               <span className='text-xs text-muted-foreground'>
@@ -524,7 +529,6 @@ export function InputFieldCard({
         </div>
       ) : null}
 
-      {/* 删除（独占一行） */}
       <div className='flex items-center justify-between border-t pt-2'>
         <label className='flex items-center gap-1.5 text-sm'>
           <Checkbox
@@ -542,28 +546,11 @@ export function InputFieldCard({
           onRemove={onRemove}
         />
       </div>
-
-      <BindNodeDialog
-        open={bindOpen}
-        onOpenChange={setBindOpen}
-        nodes={nodes}
-        onPick={(nodeId, fieldPath) => {
-          const picked = nodes.find((n) => n.id === nodeId)
-          onChange({
-            ...value,
-            node_id: nodeId,
-            field_path: fieldPath,
-            type: picked
-              ? safeAutoType(picked.class_type, fieldPath)
-              : value.type,
-          })
-        }}
-      />
     </li>
   )
 }
 
-// ===== 输出字段卡片 =====
+// ===== 输出字段卡片（窄屏降级）=====
 
 type OutputCardProps = {
   nodes: WorkflowNode[]
@@ -581,7 +568,6 @@ export function OutputFieldCard({
   disabled,
 }: OutputCardProps) {
   const { t } = useTranslation()
-  const [bindOpen, setBindOpen] = useState(false)
   const node = nodes.find((n) => n.id === value.node_id)
   const bound = !!value.node_id
   const autoType = bound && node ? outputKindFor(node.class_type) : ''
@@ -592,11 +578,8 @@ export function OutputFieldCard({
       data-testid='output-field-card'
       className='space-y-2 rounded-md border p-3'
     >
-      {/* 字段名 + 类型（自动为主，可覆盖） */}
       <div className='flex flex-wrap items-center gap-2'>
-        <span className='text-sm text-foreground'>
-          {t('cases.fieldKey')}
-        </span>
+        <span className='text-sm text-foreground'>{t('cases.fieldKey')}</span>
         <Input
           className='h-8 w-36'
           value={value.key}
@@ -604,9 +587,7 @@ export function OutputFieldCard({
           disabled={disabled}
           autoComplete='off'
         />
-        <span className='text-sm text-foreground'>
-          {t('cases.fieldType')}
-        </span>
+        <span className='text-sm text-foreground'>{t('cases.fieldType')}</span>
         <Select
           value={value.type}
           onValueChange={(type) =>
@@ -628,7 +609,10 @@ export function OutputFieldCard({
         {bound ? (
           isCustom ? (
             <>
-              <Badge variant='secondary' className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'>
+              <Badge
+                variant='secondary'
+                className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'
+              >
                 {t('cases.typeCustom')}
               </Badge>
               <button
@@ -642,7 +626,10 @@ export function OutputFieldCard({
             </>
           ) : (
             <>
-              <Badge variant='secondary' className='border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-400'>
+              <Badge
+                variant='secondary'
+                className='border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-400'
+              >
                 {t('cases.typeAuto')}
               </Badge>
               <span className='text-xs text-muted-foreground'>
@@ -655,7 +642,6 @@ export function OutputFieldCard({
         ) : null}
       </div>
 
-      {/* 描述（字段名下方） */}
       <div className='flex items-center gap-2'>
         <span className='shrink-0 text-sm text-foreground'>
           {t('cases.fieldDescription')}
@@ -669,51 +655,26 @@ export function OutputFieldCard({
         />
       </div>
 
-      {/* 绑定位置（图上点选输出槽位） */}
       <div>
-        <span className='text-sm text-foreground'>
-          {t('cases.fieldBind')}
-        </span>
-        <Button
-          type='button'
-          variant='outline'
-          disabled={disabled || nodes.length === 0}
-          onClick={() => setBindOpen(true)}
-          className='mt-1 flex h-auto w-full items-center justify-between gap-2 border border-dashed border-foreground/30 px-3 py-2.5 text-left hover:border-foreground/50 hover:bg-muted/40'
-        >
-          {bound && node ? (
-            <span className='flex min-w-0 items-center gap-2'>
-              {(() => {
-                const { Icon, className } = nodeVisualFor(node.class_type)
-                return (
-                  <span
-                    className={`grid size-6 shrink-0 place-items-center rounded-md ${className}`}
-                  >
-                    <Icon className='size-3.5' />
-                  </span>
-                )
-              })()}
-              <span className='min-w-0 truncate'>
-                <span className='text-sm font-medium'>
-                  {nodeLabel(node.class_type)}
-                </span>{' '}
-                <span className='font-mono text-xs text-muted-foreground'>
-                  #{node.id} · [{value.index ?? 0}]
-                </span>
-              </span>
-            </span>
-          ) : (
-            <span className='text-sm text-muted-foreground'>
-              {nodes.length === 0
-                ? t('cases.emptyWorkflowLock')
-                : t('cases.bindPickPlaceholder')}
-            </span>
-          )}
-          <ChevronRight className='size-4 shrink-0 text-muted-foreground' />
-        </Button>
+        <span className='text-sm text-foreground'>{t('cases.fieldBind')}</span>
+        <BindNodePopover
+          mode='output'
+          nodes={nodes}
+          node={bound ? node : undefined}
+          boundLabel={`[${value.index ?? 0}]`}
+          disabled={disabled}
+          onPick={(nodeId, pick) => {
+            const picked = nodes.find((n) => n.id === nodeId)
+            onChange({
+              ...value,
+              node_id: nodeId,
+              index: Number.parseInt(pick, 10) || 0,
+              type: picked ? outputKindFor(picked.class_type) : value.type,
+            })
+          }}
+        />
       </div>
 
-      {/* 删除（独占一行） */}
       <div className='flex justify-end border-t pt-2'>
         <RemoveFieldButton
           fieldKey={value.key}
@@ -721,22 +682,366 @@ export function OutputFieldCard({
           onRemove={onRemove}
         />
       </div>
-
-      <BindNodeDialog
-        mode='output'
-        open={bindOpen}
-        onOpenChange={setBindOpen}
-        nodes={nodes}
-        onPick={(nodeId, pick) => {
-          const picked = nodes.find((n) => n.id === nodeId)
-          onChange({
-            ...value,
-            node_id: nodeId,
-            index: Number.parseInt(pick, 10) || 0,
-            type: picked ? outputKindFor(picked.class_type) : value.type,
-          })
-        }}
-      />
     </li>
   )
 }
+
+// ===== 宽屏表格化批量编辑 =====
+
+type InputTableProps = {
+  nodes: WorkflowNode[]
+  fields: InputFieldDraft[]
+  onChange: (index: number, next: InputFieldDraft) => void
+  onRemove: (index: number) => void
+  disabled?: boolean
+}
+
+export function InputFieldsTable({
+  nodes,
+  fields,
+  onChange,
+  onRemove,
+  disabled,
+}: InputTableProps) {
+  const { t } = useTranslation()
+  return (
+    <div className='overflow-hidden rounded-md border'>
+      <div className='max-h-[200px] overflow-auto'>
+        <Table data-testid='input-fields-table' className='table-fixed'>
+        <TableHeader className='sticky top-0 z-10 bg-background [&_th]:bg-background'>
+          <TableRow>
+            <TableHead className='w-40'>
+              {t('cases.fieldKey')}
+            </TableHead>
+            <TableHead className='w-32'>
+              {t('cases.fieldType')}
+            </TableHead>
+            <TableHead className='w-48'>
+              {t('cases.fieldBind')}
+            </TableHead>
+            <TableHead className='w-14 text-center'>
+              {t('cases.fieldRequired')}
+            </TableHead>
+            <TableHead className='min-w-0'>
+              {t('cases.fieldDescription')}
+            </TableHead>
+            <TableHead className='w-14' />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {fields.map((value, index) => {
+            const node = nodes.find((n) => n.id === value.node_id)
+            const bound = !!(value.node_id && value.field_path)
+            return (
+              <TableRow key={`input-${index}`} data-testid='input-table-row'>
+                <TableCell>
+                  <div className='flex items-center gap-1'>
+                    <Input
+                      className='h-8 min-w-0 flex-1'
+                      value={value.key}
+                      onChange={(e) =>
+                        onChange(index, { ...value, key: e.target.value })
+                      }
+                      disabled={disabled}
+                      autoComplete='off'
+                    />
+                    {value.required ? (
+                      <span
+                        className='shrink-0 text-destructive'
+                        aria-label={t('cases.fieldRequired')}
+                        title={t('cases.fieldRequired')}
+                      >
+                        *
+                      </span>
+                    ) : null}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={value.type}
+                    onValueChange={(type) =>
+                      onChange(index, {
+                        ...value,
+                        type: type as InputFieldDraft['type'],
+                      })
+                    }
+                    disabled={disabled}
+                  >
+                    <SelectTrigger size='sm' className='w-28'>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INPUT_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {t(type.labelKey)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {bound &&
+                  value.type !==
+                    (node
+                      ? safeAutoType(node.class_type, value.field_path)
+                      : '') ? (
+                    <div className='mt-1 flex items-center gap-1.5'>
+                      <Badge
+                        variant='secondary'
+                        className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'
+                      >
+                        {t('cases.typeCustom')}
+                      </Badge>
+                      <button
+                        type='button'
+                        disabled={disabled}
+                        onClick={() =>
+                          onChange(index, {
+                            ...value,
+                            type: node
+                              ? safeAutoType(node.class_type, value.field_path)
+                              : value.type,
+                          })
+                        }
+                        className='text-xs text-sky-600 underline disabled:opacity-50 dark:text-sky-400'
+                      >
+                        {t('cases.typeRestoreAuto')}
+                      </button>
+                    </div>
+                  ) : null}
+                </TableCell>
+                <TableCell>
+                  <div className='flex items-center gap-2'>
+                    <BindNodePopover
+                      compact
+                      mode='input'
+                      nodes={nodes}
+                      node={bound ? node : undefined}
+                      boundLabel={value.field_path}
+                      disabled={disabled}
+                      onPick={(nodeId, fieldPath) => {
+                        const picked = nodes.find((n) => n.id === nodeId)
+                        onChange(index, {
+                          ...value,
+                          node_id: nodeId,
+                          field_path: fieldPath,
+                          type: picked
+                            ? safeAutoType(picked.class_type, fieldPath)
+                            : value.type,
+                        })
+                      }}
+                    />
+                  </div>
+                </TableCell>
+                <TableCell className='text-center'>
+                  <Checkbox
+                    checked={value.required}
+                    onCheckedChange={(v) =>
+                      onChange(index, { ...value, required: v === true })
+                    }
+                    disabled={disabled}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    className='h-8'
+                    value={value.description ?? ''}
+                    onChange={(e) =>
+                      onChange(index, {
+                        ...value,
+                        description: e.target.value,
+                      })
+                    }
+                    disabled={disabled}
+                    autoComplete='off'
+                  />
+                </TableCell>
+                <TableCell>
+                  <RemoveFieldButton
+                    compact
+                    fieldKey={value.key}
+                    disabled={disabled}
+                    onRemove={() => onRemove(index)}
+                  />
+                </TableCell>
+              </TableRow>
+            )
+          })}
+          {fields.length === 0 ? (
+            <TableRow data-testid='input-table-empty'>
+              <TableCell colSpan={6} className='py-6 text-center text-sm text-muted-foreground'>
+                {t('cases.noRows')}
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+      </div>
+    </div>
+  )
+}
+
+type OutputTableProps = {
+  nodes: WorkflowNode[]
+  fields: OutputFieldDraft[]
+  onChange: (index: number, next: OutputFieldDraft) => void
+  onRemove: (index: number) => void
+  disabled?: boolean
+}
+
+export function OutputFieldsTable({
+  nodes,
+  fields,
+  onChange,
+  onRemove,
+  disabled,
+}: OutputTableProps) {
+  const { t } = useTranslation()
+  return (
+    <div className='overflow-hidden rounded-md border'>
+      <div className='max-h-[200px] overflow-auto'>
+        <Table data-testid='output-fields-table' className='table-fixed'>
+        <TableHeader className='sticky top-0 z-10 bg-background [&_th]:bg-background'>
+          <TableRow>
+            <TableHead className='w-40'>
+              {t('cases.fieldKey')}
+            </TableHead>
+            <TableHead className='w-32'>
+              {t('cases.fieldType')}
+            </TableHead>
+            <TableHead className='w-48'>
+              {t('cases.fieldBind')}
+            </TableHead>
+            <TableHead className='min-w-0'>
+              {t('cases.fieldDescription')}
+            </TableHead>
+            <TableHead className='w-14' />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {fields.map((value, index) => {
+            const node = nodes.find((n) => n.id === value.node_id)
+            const bound = !!value.node_id
+            return (
+              <TableRow key={`output-${index}`} data-testid='output-table-row'>
+                <TableCell>
+                  <Input
+                    className='h-8'
+                    value={value.key}
+                    onChange={(e) =>
+                      onChange(index, { ...value, key: e.target.value })
+                    }
+                    disabled={disabled}
+                    autoComplete='off'
+                  />
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={value.type}
+                    onValueChange={(type) =>
+                      onChange(index, {
+                        ...value,
+                        type: type as OutputFieldDraft['type'],
+                      })
+                    }
+                    disabled={disabled}
+                  >
+                    <SelectTrigger size='sm' className='w-28'>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OUTPUT_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {t(type.labelKey)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {bound &&
+                  node &&
+                  value.type !== outputKindFor(node.class_type) ? (
+                    <div className='mt-1 flex items-center gap-1.5'>
+                      <Badge
+                        variant='secondary'
+                        className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'
+                      >
+                        {t('cases.typeCustom')}
+                      </Badge>
+                      <button
+                        type='button'
+                        disabled={disabled}
+                        onClick={() =>
+                          onChange(index, {
+                            ...value,
+                            type: outputKindFor(node.class_type),
+                          })
+                        }
+                        className='text-xs text-sky-600 underline disabled:opacity-50 dark:text-sky-400'
+                      >
+                        {t('cases.typeRestoreAuto')}
+                      </button>
+                    </div>
+                  ) : null}
+                </TableCell>
+                <TableCell>
+                  <div className='flex items-center gap-2'>
+                    <BindNodePopover
+                      compact
+                      mode='output'
+                      nodes={nodes}
+                      node={bound ? node : undefined}
+                      boundLabel={`[${value.index ?? 0}]`}
+                      disabled={disabled}
+                      onPick={(nodeId, pick) => {
+                        const picked = nodes.find((n) => n.id === nodeId)
+                        onChange(index, {
+                          ...value,
+                          node_id: nodeId,
+                          index: Number.parseInt(pick, 10) || 0,
+                          type: picked
+                            ? outputKindFor(picked.class_type)
+                            : value.type,
+                        })
+                      }}
+                    />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Input
+                    className='h-8'
+                    value={value.description ?? ''}
+                    onChange={(e) =>
+                      onChange(index, {
+                        ...value,
+                        description: e.target.value,
+                      })
+                    }
+                    disabled={disabled}
+                    autoComplete='off'
+                  />
+                </TableCell>
+                <TableCell>
+                  <RemoveFieldButton
+                    compact
+                    fieldKey={value.key}
+                    disabled={disabled}
+                    onRemove={() => onRemove(index)}
+                  />
+                </TableCell>
+              </TableRow>
+            )
+          })}
+          {fields.length === 0 ? (
+            <TableRow data-testid='output-table-empty'>
+              <TableCell colSpan={5} className='py-6 text-center text-sm text-muted-foreground'>
+                {t('cases.noRows')}
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+      </div>
+    </div>
+  )
+}
+
+
+

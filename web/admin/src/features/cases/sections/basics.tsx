@@ -3,16 +3,12 @@ import type { CaseRecord } from '@/lib/api/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
+import { MarkdownTextField } from './markdown-text-field'
+import { MediaPreviewField } from './media-preview-field'
 
 export type BasicsSlice = Pick<
   CaseRecord,
-  | 'name'
-  | 'description'
-  | 'preview'
-  | 'tags'
-  | 'categories'
-  | 'enabled'
+  'name' | 'description' | 'preview' | 'tags' | 'categories' | 'enabled'
 >
 
 type Props = {
@@ -48,59 +44,39 @@ export function BasicsSection({
 
   return (
     <section className='space-y-4' data-testid='case-section-basics'>
-      <h3 className='text-sm font-semibold'>{t('cases.sectionBasics')}</h3>
+      <h3 className='text-base font-semibold'>{t('cases.sectionBasics')}</h3>
 
-      <div className='grid gap-4 sm:grid-cols-2'>
-        <div className='space-y-2'>
-          <Label htmlFor='case-name'>{t('cases.fieldName')}</Label>
-          <Input
-            id='case-name'
-            value={value.name}
-            onChange={(e) => patch({ name: e.target.value })}
-            disabled={disabled}
-            required
-            autoComplete='off'
-          />
-        </div>
+      <div className='space-y-2'>
+        <Label htmlFor='case-name'>{t('cases.fieldName')}</Label>
+        <Input
+          id='case-name'
+          value={value.name}
+          onChange={(e) => patch({ name: e.target.value })}
+          disabled={disabled}
+          required
+          autoComplete='off'
+        />
       </div>
 
       <div className='space-y-2'>
         <Label htmlFor='case-description'>{t('cases.fieldDescription')}</Label>
-        <Textarea
+        <MarkdownTextField
           id='case-description'
           value={value.description ?? ''}
-          onChange={(e) => patch({ description: e.target.value })}
+          onChange={(next) => patch({ description: next })}
           disabled={disabled}
-          rows={3}
         />
       </div>
 
-      <div className='grid gap-4 sm:grid-cols-2'>
-        <div className='space-y-2'>
-          <Label htmlFor='case-preview'>{t('cases.fieldPreview')}</Label>
-          <Input
-            id='case-preview'
-            value={value.preview ?? ''}
-            onChange={(e) => patch({ preview: e.target.value })}
-            disabled={disabled}
-            autoComplete='off'
-          />
-        </div>
+      <div className='space-y-2'>
+        <Label htmlFor='case-preview'>{t('cases.fieldPreview')}</Label>
+        <MediaPreviewField
+          value={value.preview}
+          onChange={(next) => patch({ preview: next })}
+          disabled={disabled}
+        />
       </div>
 
-      <div className='grid gap-4 sm:grid-cols-2'>
-        {showEnabled ? (
-          <div className='flex items-center justify-between gap-3 self-end rounded-md border px-3 py-2'>
-            <Label htmlFor='case-enabled'>{t('cases.fieldEnabled')}</Label>
-            <Switch
-              id='case-enabled'
-              checked={value.enabled}
-              onCheckedChange={(enabled) => patch({ enabled })}
-              disabled={disabled}
-            />
-          </div>
-        ) : null}
-      </div>
 
       <div className='grid gap-4 sm:grid-cols-2'>
         <div className='space-y-2'>
@@ -126,6 +102,17 @@ export function BasicsSection({
           />
         </div>
       </div>
+      {showEnabled ? (
+        <div className='flex items-center justify-between gap-3'>
+          <Label htmlFor='case-enabled'>{t('cases.fieldEnabled')}</Label>
+          <Switch
+            id='case-enabled'
+            checked={value.enabled}
+            onCheckedChange={(enabled) => patch({ enabled })}
+            disabled={disabled}
+          />
+        </div>
+      ) : null}
     </section>
   )
 }

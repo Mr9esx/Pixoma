@@ -9,6 +9,7 @@ import (
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
 	channelapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/media"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	routingapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
@@ -32,6 +33,7 @@ type Options struct {
 	MenuCards *menucardsapi.Handler
 	Topics    *topicsapi.Handler
 	Routing   *routingapi.Handler
+	Media     *media.Handler
 	// NotFound handles unmatched paths (SPA embed).
 	NotFound http.Handler
 }
@@ -105,6 +107,11 @@ func NewHandler(opts Options) http.Handler {
 	r.Route("/api/v1/routing", func(r chi.Router) {
 		if opts.Routing != nil {
 			opts.Routing.Mount(r)
+		}
+	})
+	r.Route("/api/v1/media", func(r chi.Router) {
+		if opts.Media != nil {
+			opts.Media.Mount(r)
 		}
 	})
 

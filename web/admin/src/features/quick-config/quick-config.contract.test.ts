@@ -18,7 +18,7 @@ const STEP3 = read('step3-channels.tsx')
 const DONE = read('done-screen.tsx')
 const READINESS = read('lib/readiness.ts')
 const MENU = read('../../config/menu.ts')
-const CASE_FORM = read('../../features/cases/case-form.tsx')
+const WORKFLOW_EDITOR = read('../../features/cases/workflow-editor.tsx')
 const ZH = JSON.parse(read('../../lib/i18n/locales/zh.json')) as {
   menu: { quickConfig: string }
   quickConfig: Record<string, string>
@@ -38,8 +38,8 @@ describe('quick-config wizard contract', () => {
     expect(FLOW).toContain('return:')
   })
 
-  it('第一步复用 CaseForm 且新建不跳转、可强制导入', () => {
-    expect(STEP1).toContain('CaseForm')
+  it('第一步复用统一 WorkflowEditor 且新建不跳转、可强制导入', () => {
+    expect(STEP1).toContain('WorkflowEditor')
     expect(STEP1).toContain('redirectAfterSave={false}')
     expect(STEP1).toContain('requestSubmit')
   })
@@ -47,8 +47,8 @@ describe('quick-config wizard contract', () => {
   it('Step 1 左右分栏（左滚动配置/右固定基础信息），Header 仅保留步骤点', () => {
     expect(STEP1).toContain('splitPane')
     expect(STEP1).toContain('leftIntro')
-    expect(CASE_FORM).toContain('sticky top-0 w-80')
-    expect(CASE_FORM).toContain('bg-card')
+    expect(WORKFLOW_EDITOR).toContain('sticky top-0 w-80')
+    expect(WORKFLOW_EDITOR).toContain('bg-card')
     expect(CHROME).toContain('STEP_LABELS')
     expect(CHROME).not.toContain('text-lg font-semibold')
     expect(CHROME).not.toContain('ruleCount')

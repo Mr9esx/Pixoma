@@ -25,8 +25,8 @@ import (
 	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
-	"github.com/mr9esx/comfyui_tgbot/internal/channeladmin"
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/channeladmin"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/edgeadmin"
@@ -35,6 +35,7 @@ import (
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
 	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/media"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	routingapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
@@ -43,7 +44,6 @@ import (
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
-	"github.com/mr9esx/comfyui_tgbot/internal/topicadmin"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
@@ -63,6 +63,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/mr9esx/comfyui_tgbot/internal/topicadmin"
 )
 
 var errRestart = errors.New("setup restart requested")
@@ -340,6 +341,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			DeleteWithCleanup: topicDeleteSvc.DeleteTopic,
 		},
 		Routing:  &routingapi.Handler{Registry: conditionReg},
+		Media:    &media.Handler{Blob: blobStore, MaxBytes: media.DefaultMaxBytes},
 		NotFound: webembed.Handler(),
 	})
 

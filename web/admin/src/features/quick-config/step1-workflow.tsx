@@ -1,12 +1,12 @@
-import { CaseForm } from '@/features/cases/case-form'
 import { useTranslation } from 'react-i18next'
 import type { CaseRecord } from '@/lib/api/types'
-import { WizardChrome } from './wizard-chrome'
+import { WorkflowEditor } from '@/features/cases/workflow-editor'
 import type { StepActions, WizardShared } from './types'
+import { WizardChrome } from './wizard-chrome'
 
 type Props = StepActions & { shared: WizardShared }
 
-/** Step 1 工作流配置：新建（强制导入，复用 CaseForm）或调整已有（已加载可编辑）。 */
+/** Step 1 工作流配置：与独立编辑页共用统一 WorkflowEditor。 */
 export function Step1Workflow({ shared, next, back }: Props) {
   const { mode, caseRecord } = shared
   const { t } = useTranslation()
@@ -30,7 +30,7 @@ export function Step1Workflow({ shared, next, back }: Props) {
       }
     >
       {mode === 'create' ? (
-        <CaseForm
+        <WorkflowEditor
           mode='create'
           initialName={t('quickConfig.unnamedWorkflow')}
           collectOnly
@@ -46,7 +46,7 @@ export function Step1Workflow({ shared, next, back }: Props) {
           formId='quick-config-step1-form'
         />
       ) : caseRecord ? (
-        <CaseForm
+        <WorkflowEditor
           mode='edit'
           initial={caseRecord}
           collectOnly
