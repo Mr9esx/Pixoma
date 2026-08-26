@@ -8,7 +8,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Boxes, Plus } from 'lucide-react'
+import { ArrowLeft, Boxes, Plus } from 'lucide-react'
 import { listCases } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
@@ -98,69 +98,103 @@ function CasesLayout() {
           </Link>
         </Button>
       </div>
-      <MasterDetailShell
-        className='md:grid-cols-[280px_minmax(0,1fr)]'
-        hasSelection={Boolean(selectedId) || caseId === 'new'}
-        onBackToList={() => {
-          void navigate({ to: '/cases', state: { backToList: true } } as never)
-        }}
-        detailClassName='flex min-h-0 flex-col overflow-auto p-0'
-        list={
-          <CaseListPanel
-            items={items}
-            selectedId={selectedId}
-            filters={filters}
-            onFiltersChange={setFilters}
-            isLoading={listQuery.isLoading}
-            isError={listQuery.isError}
-            errorMessage={errorMessage(listQuery.error)}
-            onRetry={() => void listQuery.refetch()}
-          />
-        }
-        detail={
-          caseId === 'new' ? (
-            <div className={kit.pageSection}>
-              <h2 className={kit.title}>
-                {t('cases.createHeading')}
-              </h2>
-              <CaseForm mode='create' />
-            </div>
-          ) : selectedId ? (
-            <CaseDetailPanel id={selectedId} />
-          ) : null
-        }
-        emptyDetail={
-          !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
-            <Empty>
-              <EmptyHeader className='max-w-none'>
-                <EmptyMedia variant='icon'>
-                  <Boxes />
-                </EmptyMedia>
-                <EmptyTitle className='text-sm font-medium'>
-                  {t('cases.empty')}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {t('cases.emptyDesc')}
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent className='flex-row justify-center gap-2'>
-                <Button asChild className={kit.btnPrimary}>
-                  <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
-                    {t('common.create')}
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant='outline'
-                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
-                >
-                  <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
-                </Button>
-              </EmptyContent>
-            </Empty>
-          ) : undefined
-        }
-      />
+      {caseId === 'new' ? (
+        <div
+          data-layout='fixed'
+          data-testid='cases-create-page'
+          className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border'
+        >
+          <div className='flex shrink-0 items-center gap-2 border-b px-5 py-4'>
+            <button
+              type='button'
+              onClick={() => void navigate({ to: '/cases' })}
+              title={t('common.backToList')}
+              aria-label={t('common.backToList')}
+              className='-ml-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground'
+            >
+              <ArrowLeft className='size-4' />
+            </button>
+            <h2 className='text-lg font-semibold'>{t('cases.createHeading')}</h2>
+          </div>
+          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
+            <CaseForm
+              mode='create'
+              splitPane
+              hideActions
+              formId='create-case-form'
+            />
+          </div>
+          <footer className='flex shrink-0 flex-wrap items-center gap-2 border-t bg-card px-5 py-3'>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => void navigate({ to: '/cases' })}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button type='submit' form='create-case-form'>
+              {t('common.create')}
+            </Button>
+          </footer>
+        </div>
+      ) : (
+        <MasterDetailShell
+          className='md:grid-cols-[280px_minmax(0,1fr)]'
+          hasSelection={Boolean(selectedId)}
+          onBackToList={() => {
+            void navigate({ to: '/cases', state: { backToList: true } } as never)
+          }}
+          detailClassName='flex min-h-0 flex-col overflow-auto p-0'
+          list={
+            <CaseListPanel
+              items={items}
+              selectedId={selectedId}
+              filters={filters}
+              onFiltersChange={setFilters}
+              isLoading={listQuery.isLoading}
+              isError={listQuery.isError}
+              errorMessage={errorMessage(listQuery.error)}
+              onRetry={() => void listQuery.refetch()}
+            />
+          }
+          detail={
+            selectedId ? (
+              <CaseDetailPanel id={selectedId} />
+            ) : null
+          }
+          emptyDetail={
+            !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
+              <Empty>
+                <EmptyHeader className='max-w-none'>
+                  <EmptyMedia variant='icon'>
+                    <Boxes />
+                  </EmptyMedia>
+                  <EmptyTitle className='text-sm font-medium'>
+                    {t('cases.empty')}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {t('cases.emptyDesc')}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent className='flex-row justify-center gap-2'>
+                  <Button asChild className={kit.btnPrimary}>
+                    <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
+                      {t('common.create')}
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant='outline'
+                    className='h-8 gap-1.5 rounded-md px-3 text-xs'
+                  >
+                    <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
+                  </Button>
+                </EmptyContent>
+              </Empty>
+            ) : undefined
+          }
+        />
+      )}
     </div>
   )
 }

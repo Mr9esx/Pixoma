@@ -9,7 +9,9 @@ const EN = join(here, '../../lib/i18n/locales/en.json')
 const IMPORT_SECTION = join(here, 'sections/workflow-import.tsx')
 const CODE_EDITOR = join(here, '../../components/code-editor.tsx')
 const FIELD_CARDS = join(here, 'sections/field-cards.tsx')
+const WORKFLOW_EDITOR = join(here, 'workflow-editor.tsx')
 const CASE_FORM = join(here, 'case-form.tsx')
+const STEP1 = join(here, '../quick-config/step1-workflow.tsx')
 
 const REQUIRED_KEYS = [
   'importHeading',
@@ -19,6 +21,8 @@ const REQUIRED_KEYS = [
   'importValid',
   'importNodesCount',
   'importReimport',
+  'viewDiagram',
+  'viewSource',
   'importFailed',
   'importReasonNotComfy',
   'importReasonOldExport',
@@ -30,7 +34,6 @@ const REQUIRED_KEYS = [
   'fieldFromNode',
   'fieldEnumOptions',
   'typeAutoSourceOutput',
-  'bindFlowHintOutput',
   'typeString',
   'typeImage',
   'typeAudio',
@@ -49,13 +52,8 @@ const REQUIRED_KEYS = [
   'deleteFailed',
   'fieldBind',
   'bindPickPlaceholder',
-  'bindDialogTitle',
-  'bindFlowHint',
-  'bindPickNodeFirst',
-  'bindPickParam',
   'bindNoParams',
-  'bindWillBind',
-  'bindConfirm',
+  'bindSearchPlaceholder',
   'typeAuto',
   'typeCustom',
   'typeRestoreAuto',
@@ -63,26 +61,25 @@ const REQUIRED_KEYS = [
   'addInput',
   'addOutput',
   'singleOutputAuto',
-  'nodeSearchPlaceholder',
-  'previewHeading',
-  'previewHint',
   'emptyWorkflowLock',
-  'saveWorkflow',
-  'errDuplicateKey',
-  'errInputNotBound',
-  'errNoOutput',
+  'autoGenerateInputs',
+  'autoGenerateOutputs',
 ] as const
 
-function read(path: string) {
+function readJson(path: string) {
   return JSON.parse(readFileSync(path, 'utf8')) as {
     cases: Record<string, string>
   }
 }
 
+function read(path: string) {
+  return readFileSync(path, 'utf8')
+}
+
 describe('workflow editor i18n', () => {
   it('zh and en define every editor key', () => {
-    const zh = read(ZH)
-    const en = read(EN)
+    const zh = readJson(ZH)
+    const en = readJson(EN)
     for (const key of REQUIRED_KEYS) {
       expect(zh.cases[key], `zh missing cases.${key}`).toBeTruthy()
       expect(en.cases[key], `en missing cases.${key}`).toBeTruthy()
@@ -92,10 +89,11 @@ describe('workflow editor i18n', () => {
 
 describe('workflow import section', () => {
   it('renders import UI and uses parseWorkflow', () => {
-    const source = readFileSync(IMPORT_SECTION, 'utf8')
+    const source = read(IMPORT_SECTION)
     expect(source).toContain("data-testid='case-section-workflow-import'")
     expect(source).toContain("'../lib/workflow-parse'")
-    expect(source).toContain("<Upload className='size-3' />")
+    expect(source).toContain("rounded-full bg-primary text-xs font-semibold text-primary-foreground'")
+    expect(source).toMatch(/text-primary-foreground'[\s\S]{0,40}\n\s*1\n/)
     expect(source).toContain('cases.importHeading')
     expect(source).toContain('cases.importNodesCount')
     expect(source).toContain('cases.importValid')
@@ -107,11 +105,24 @@ describe('workflow import section', () => {
     expect(source).toContain('cases.jsonTitle')
     expect(source).toContain('maxHeight={250}')
   })
+
+  it('defaults to diagram view and toggles source via a header segmented control', () => {
+    const source = read(IMPORT_SECTION)
+    expect(source).toContain('cases.viewDiagram')
+    expect(source).toContain('cases.viewSource')
+    expect(source).toContain("data-testid='workflow-import-diagram'")
+    expect(source).toContain("aria-pressed={view === 'diagram'}")
+    expect(source).toContain("rounded-md border bg-muted/40 p-0.5")
+    expect(source).toContain("useState<ViewMode>('diagram')")
+    expect(source).toContain('function NodeDiagram')
+    expect(source).toContain('nodeLabel(')
+    expect(source).not.toContain('TabsTrigger')
+  })
 })
 
 describe('code editor component', () => {
   it('renders an IDE-style dark container with an in-border header', () => {
-    const source = readFileSync(CODE_EDITOR, 'utf8')
+    const source = read(CODE_EDITOR)
     expect(source).toContain('export function CodeEditor')
     expect(source).toContain('title')
     expect(source).toContain('border-b border-[#30363d]')
@@ -124,54 +135,72 @@ describe('code editor component', () => {
   })
 })
 
-describe('field cards', () => {
-  it('input card binds via flow dialog, filters refs, shows auto/custom type', () => {
-    const source = readFileSync(FIELD_CARDS, 'utf8')
+describe('field cards (table + anchored bind popover)', () => {
+  it('input card binds via lightweight popover, filters refs, shows auto/custom type', () => {
+    const source = read(FIELD_CARDS)
     expect(source).toContain("data-testid='input-field-card'")
-    expect(source).toContain('BindNodeDialog')
+    expect(source).toContain('BindNodePopover')
     expect(source).toContain('cases.bindPickPlaceholder')
-    expect(source).toContain('cases.bindConfirm')
-    expect(source).toContain('!input.ref')
+    expect(source).toContain('cases.bindSearchPlaceholder')
+    expect(source).toContain('!i.ref')
     expect(source).toContain('cases.typeAutoSource')
     expect(source).toContain('cases.typeRestoreAuto')
     expect(source).toContain('cases.typeCustom')
     expect(source).toContain('nodeVisualFor(')
     expect(source).toContain('inputKindFor(')
+    expect(source).not.toContain('BindNodeDialog')
     expect(source).not.toContain('autoBoundHint')
   })
 
-  it('output card binds via flow dialog slots with single-output auto note', () => {
-    const source = readFileSync(FIELD_CARDS, 'utf8')
+  it('output card binds via popover slots with single-output auto note', () => {
+    const source = read(FIELD_CARDS)
     expect(source).toContain("data-testid='output-field-card'")
     expect(source).toContain("mode='output'")
     expect(source).toContain('outputKindFor(')
-    expect(source).toContain('selected.outputCount')
     expect(source).toContain('cases.singleOutputAuto')
-    expect(source).toContain('cases.bindFlowHintOutput')
+    expect(source).toContain("data-testid='output-fields-table'")
+    expect(source).toContain("data-testid='input-fields-table'")
   })
 })
 
-describe('editor form assembly', () => {
-  it('form renders step sections and no raw workflow textarea by default', () => {
-    const form = readFileSync(CASE_FORM, 'utf8')
-    expect(form).toContain('WorkflowImportSection')
-    expect(form).toContain('InputFieldCard')
-    expect(form).toContain('OutputFieldCard')
-    expect(form).not.toContain('PreviewSection')
-    expect(form).not.toContain('AdvancedSection')
-    expect(form).toContain('deriveBindings(')
-    expect(form).toContain('deriveInputSchema(')
-    expect(form).not.toContain('WorkflowJsonSection')
-    expect(form).not.toContain('InputSchemaSection')
-    expect(form).not.toContain('BindingsSection')
-    expect(form).not.toContain('IoFieldsSection')
+describe('unified workflow editor assembly', () => {
+  it('workflow-editor renders step sections and locks behind an info alert', () => {
+    const source = read(WORKFLOW_EDITOR)
+    expect(source).toContain('WorkflowImportSection')
+    expect(source).toContain('InputFieldCard')
+    expect(source).toContain('OutputFieldCard')
+    expect(source).toContain('InputFieldsTable')
+    expect(source).toContain('OutputFieldsTable')
+    expect(source).toContain('cases.inputsHeading')
+    expect(source).toContain('cases.outputsHeading')
+    expect(source).toContain('deriveBindings(')
+    expect(source).toContain('deriveInputSchema(')
+    expect(source).toContain('autoGenerateInputs')
+    expect(source).toContain('autoGenerateOutputs')
+    expect(source).not.toContain('PreviewSection')
+    expect(source).not.toContain('AdvancedSection')
   })
 
   it('locks workflow sections behind an info alert', () => {
-    const form = readFileSync(CASE_FORM, 'utf8')
-    expect(form).toMatch(/Alert variant='info'/)
-    expect(form).toMatch(/AlertTitle>\{t\('cases\.emptyWorkflowLock'\)\}<\/AlertTitle>/)
-    expect(form).not.toMatch(/border-dashed/)
+    const source = read(WORKFLOW_EDITOR)
+    expect(source).toMatch(/Alert variant='info'/)
+    expect(source).toMatch(
+      /AlertTitle>\{t\('cases\.emptyWorkflowLock'\)\}<\/AlertTitle>/
+    )
   })
 
+  it('case-form reuses the unified editor (thin wrapper, no duplicated sections)', () => {
+    const source = read(CASE_FORM)
+    expect(source).toContain('WorkflowEditor')
+    expect(source).not.toContain('WorkflowImportSection')
+    expect(source).not.toContain('InputFieldCard')
+    expect(source).not.toContain('WorkflowJsonSection')
+    expect(source).not.toContain('InputSchemaSection')
+  })
+
+  it('quick-config step1 reuses the unified editor', () => {
+    const source = read(STEP1)
+    expect(source).toContain('WorkflowEditor')
+    expect(source).not.toContain("from './case-form'")
+  })
 })

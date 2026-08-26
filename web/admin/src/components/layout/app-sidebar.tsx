@@ -1,4 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
+import { Menu, X } from 'lucide-react'
 import { MENU_GROUPS } from '@/config/menu'
 import { useTranslation } from 'react-i18next'
 import { useLayout } from '@/context/layout-provider'
@@ -23,15 +24,36 @@ import { LanguageSwitcher } from './language-switcher'
 export function AppSidebar() {
   const { t } = useTranslation()
   const { collapsible, variant } = useLayout()
-  const { setOpenMobile } = useSidebar()
+  const { setOpenMobile, state, toggleSidebar, isMobile } = useSidebar()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isCollapsed = state === 'collapsed'
 
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
       <SidebarHeader>
         <AppTitle />
       </SidebarHeader>
+      <div
+        className='px-2'
+        role='separator'
+        aria-orientation='horizontal'
+      >
+        <div className='h-px bg-sidebar-border' />
+      </div>
       <SidebarContent className='gap-1'>
+        {isCollapsed ? (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={toggleSidebar}
+                tooltip={t('common.toggleSidebar')}
+              >
+                {isMobile ? <X /> : <Menu />}
+                <span className='sr-only'>Toggle Sidebar</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        ) : null}
         {MENU_GROUPS.map((group) => (
           <SidebarGroup key={group.id} className='px-2 py-1'>
             {group.titleKey ? (

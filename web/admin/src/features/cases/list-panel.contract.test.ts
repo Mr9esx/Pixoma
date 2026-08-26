@@ -50,9 +50,17 @@ describe('case list filters (single search, no status segment)', () => {
     expect(source).toContain('backToList')
   })
 
-  it('cases route keeps the create form visible without a selected workflow', () => {
+  it('create page is an app-shell: splitPane content scrolls, footer is pinned below', () => {
     const source = read(CASES_ROUTE)
-    expect(source).toMatch(/hasSelection=\{Boolean\(selectedId\) \|\| caseId === 'new'\}/)
+    expect(source).toMatch(/data-testid='cases-create-page'/)
+    expect(source).toMatch(
+      /<CaseForm\s+mode=\'create\'\s+splitPane\s+hideActions\s+formId=\'create-case-form'\s*\/>/
+    )
+    expect(source).toContain("type='submit' form='create-case-form'")
+    expect(source).toContain('min-h-0 flex-1 overflow-auto')
+    expect(source).not.toMatch(
+      /hasSelection=\{Boolean\(selectedId\) \|\| caseId === 'new'\}/
+    )
   })
 
   it('search placeholder does not mention menu_key', () => {

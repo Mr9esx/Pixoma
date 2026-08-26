@@ -277,19 +277,51 @@ func (o OpenCase) preview(ctx context.Context, params map[string]any) (protocol.
 	if doc.Description != "" {
 		fmt.Fprintf(&b, "%s\n", doc.Description)
 	}
-	b.WriteString("\n预览说明：")
-	if doc.Preview != "" {
-		b.WriteString(doc.Preview)
+	text := strings.TrimSuffix(b.String(), "\n")
+	// 预览效果图为媒体（blob key）时作为媒体随结果发送；否则回退为文本提示。
+	var media []protocol.MediaRef
+	if key, mime, ok := previewMediaRef(doc.Preview); ok {
+		media = []protocol.MediaRef{{Key: key, MIME: mime}}
 	} else {
-		b.WriteString("（mock）确认后将返回一张示例图")
+		text += "\n预览说明："
+		if doc.Preview != "" {
+			text += doc.Preview
+		} else {
+			text += "（mock）确认后将返回一张示例图"
+		}
 	}
 	return protocol.Result{
-		Text: b.String(),
+		Text:  text,
+		Media: media,
 		Options: []protocol.Option{
 			{Label: "▶ 开始 Case", Value: map[string]any{"step": "start", "case_id": strconv.FormatUint(uint64(caseID), 10)}},
 			{Label: "« 返回列表", Value: map[string]any{"step": "list", "case_ids": backCaseIDs(params, rawCaseID)}},
 		},
 	}, nil
+}
+
+// previewExtMIME maps preview media extensions to content types (admin allow-list).
+var previewExtMIME = map[string]string{
+	".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+	".webp": "image/webp", ".gif": "image/gif", ".mp4": "video/mp4", ".webm": "video/webm",
+}
+
+// previewMediaRef 把 Case.preview 解析为可投递的 blob 媒体引用（仅 previews/ 前缀），
+// 非媒体（旧文本）返回 ok=false，调用方回退文本提示。
+func previewMediaRef(preview string) (key string, mime string, ok bool) {
+	p := strings.TrimSpace(preview)
+	if !strings.HasPrefix(p, "previews/") {
+		return "", "", false
+	}
+	ext := ""
+	if i := strings.LastIndex(p, "."); i >= 0 {
+		ext = p[i:]
+	}
+	m := previewExtMIME[strings.ToLower(ext)]
+	if m == "" {
+		return "", "", false
+	}
+	return p, m, true
 }
 
 // backCaseIDs 返回「返回列表」要携带的 case_ids：沿用原参数，缺失时退化为当前单个工作流。

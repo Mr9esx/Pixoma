@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 const here = dirname(fileURLToPath(import.meta.url))
 const DETAIL = join(here, 'detail-panel.tsx')
 const CASE_FORM = join(here, 'case-form.tsx')
+const WORKFLOW_EDITOR = join(here, 'workflow-editor.tsx')
 const CONFIG_VIEW = join(here, 'sections/workflow-config-view.tsx')
 const GRAPH = join(here, 'sections/workflow-graph-preview.tsx')
 
@@ -36,8 +37,8 @@ describe('workflow detail panel', () => {
     expect(source).toContain('<WorkflowConfigView')
   })
 
-  it('case form can hide basics while keeping config sections', () => {
-    const source = readFileSync(CASE_FORM, 'utf8')
+  it('workflow editor can hide basics while keeping config sections', () => {
+    const source = readFileSync(WORKFLOW_EDITOR, 'utf8')
     expect(source).toContain('showBasics')
     expect(source).toContain('BasicsSection')
     expect(source).toContain('WorkflowImportSection')
@@ -105,7 +106,12 @@ describe('workflow detail panel', () => {
     expect(source).toContain('cases.deleteWillEndSessions')
     expect(source).toContain('cases.deleteAckRefs')
     expect(source).toContain('useCaseReferences')
-    expect(readFileSync(join(here, '../config-context/use-case-references.ts'), 'utf8')).toContain('getCaseMenuPlacements')
+    expect(
+      readFileSync(
+        join(here, '../config-context/use-case-references.ts'),
+        'utf8'
+      )
+    ).toContain('getCaseMenuPlacements')
     expect(source).not.toContain('disableCase(record.id)')
     expect(source).toContain('cases.deleteSuccess')
     expect(source).toContain('cases.deleteFailed')

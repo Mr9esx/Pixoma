@@ -63,7 +63,8 @@
     "commandPlaceholder": "Type a command or search...",
     "commandEmpty": "No results found.",
     "commandNavigation": "Navigation",
-    "commandTheme": "Theme"
+    "commandTheme": "Theme",
+    "toggleSidebar": "Toggle sidebar"
   },
   "theme": {
     "light": "Light",
@@ -376,7 +377,12 @@
     "saveSuccess": "Saved",
     "saveFailed": "Save failed",
     "sectionProcessing": "Processing",
-    "sectionProcessingHint": "Configure routing rules (conditions → dispatch channel); saved immediately"
+    "sectionProcessingHint": "Configure routing rules (conditions → dispatch channel); saved immediately",
+    "viewDiagram": "Diagram",
+    "viewSource": "Source",
+    "bindSearchPlaceholder": "Search node parameters",
+    "autoGenerateInputs": "Auto-generate inputs",
+    "autoGenerateOutputs": "Auto-generate outputs"
   },
   "tasks": {
     "title": "Tasks",

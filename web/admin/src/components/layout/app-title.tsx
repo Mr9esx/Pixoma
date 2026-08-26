@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Menu, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Logo } from '@/assets/logo'
 import { cn } from '@/lib/utils'
 import {
@@ -11,7 +12,27 @@ import {
 import { Button } from '../ui/button'
 
 export function AppTitle() {
-  const { setOpenMobile } = useSidebar()
+  const { state, setOpenMobile } = useSidebar()
+  const { t } = useTranslation()
+
+  if (state === 'collapsed') {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            tooltip={t('menu.dashboard')}
+            className='justify-center'
+          >
+            <Link to='/' onClick={() => setOpenMobile(false)}>
+              <Logo className='size-5 rounded-md' />
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>

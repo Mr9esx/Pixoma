@@ -9,7 +9,7 @@ export class ApiError extends Error {
   }
 }
 
-function baseURL(): string {
+export function baseURL(): string {
   const raw = import.meta.env.VITE_ADMIN_API_BASE as string | undefined
   if (!raw) {
     return ''
@@ -17,7 +17,7 @@ function baseURL(): string {
   return raw.replace(/\/$/, '')
 }
 
-function sessionToken(): string {
+export function sessionToken(): string {
   try {
     return sessionStorage.getItem('pixoma_admin_token') || ''
   } catch {
@@ -34,7 +34,10 @@ export function setSessionToken(token: string | null): void {
   }
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
   const url = `${baseURL()}${path.startsWith('/') ? path : `/${path}`}`
   const token = sessionToken()
   let res: Response
@@ -50,10 +53,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       },
     })
   } catch {
-    throw new ApiError(
-      0,
-      '无法连接后台。请确认服务状态。',
-    )
+    throw new ApiError(0, '无法连接后台。请确认服务状态。')
   }
 
   const text = await res.text()
@@ -88,7 +88,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 }
 
 export function toQuery(
-  params?: Record<string, string | number | boolean | undefined | null>,
+  params?: Record<string, string | number | boolean | undefined | null>
 ): string {
   if (!params) return ''
   const sp = new URLSearchParams()

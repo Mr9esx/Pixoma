@@ -29,6 +29,9 @@ function stripPlaceholders(s: string) {
   return s.replace(/\{\{[^}]+\}\}/g, '')
 }
 
+// 用户明确指定的原文，按 voice profile「用户原文优先」豁免；改文案前先跟用户确认。
+const PLEASE_EXEMPT = new Set(['cases.emptyWorkflowLock'])
+
 describe('zh.json copy quality (pixoma-voice)', () => {
   it('does not use "请" as a softener at sentence start', () => {
     const offenders: Array<[string, string]> = []
@@ -36,7 +39,7 @@ describe('zh.json copy quality (pixoma-voice)', () => {
       const s = stripPlaceholders(v)
       // "请" at start of string, or after 。！？， — but not inside 请求/请柬/etc
       if (/^请(?=[一-鿿])/.test(s) || /[。！？，]请(?=[一-鿿])/.test(s)) {
-        if (!s.includes('请求')) {
+        if (!s.includes('请求') && !PLEASE_EXEMPT.has(k)) {
           offenders.push([k, v])
         }
       }

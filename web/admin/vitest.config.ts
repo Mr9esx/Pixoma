@@ -46,6 +46,8 @@ export default defineConfig({
       'src/features/cases/lib/node-catalog.test.ts',
       'src/features/cases/lib/workflow-parse.test.ts',
       'src/features/cases/lib/derive.test.ts',
+      'src/lib/api/media.test.ts',
+      'src/features/cases/sections/media-preview-field.contract.test.ts',
       'src/features/menu/lib/menu-flow.test.ts',
       'src/features/menu/menu-editor.contract.test.ts',
       'src/features/channels/channel-layout.contract.test.ts',

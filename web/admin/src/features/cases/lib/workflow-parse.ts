@@ -64,14 +64,14 @@ export function parseWorkflow(raw: string): WorkflowParseResult {
     return {
       ok: false,
       error:
-        '仅支持 ComfyUI「保存(API 格式)」导出的 JSON（顶层为节点 id → {class_type, inputs}）；UI 导出（nodes/widgets_values）不支持',
+        '不是 ComfyUI「保存(API 格式)」导出的 JSON',
     }
   }
   if (hasWidgetKeys(parsed)) {
     return {
       ok: false,
       error:
-        '该 JSON 含 widget_N 占位输入，不是标准 API 格式；请用 ComfyUI「保存(API 格式)」重新导出',
+        '含 `widget_N` 占位输入，用「保存(API 格式)」重新导出',
     }
   }
   const api = parsed
