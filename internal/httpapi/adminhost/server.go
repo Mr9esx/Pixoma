@@ -15,6 +15,7 @@ import (
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	statsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/stats"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	adminusersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminusers"
 	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 )
@@ -25,6 +26,7 @@ type Options struct {
 	// Instances, when non-nil, is mounted at /api/v1/edges.
 	Instances *edges.Handler
 	Cases     *casesapi.Handler
+	AdminUsers *adminusersapi.Handler
 	Users     *usersapi.Handler
 	Sessions  *sessionsapi.Handler
 	Tasks     *tasksapi.Handler
@@ -65,6 +67,12 @@ func NewHandler(opts Options) http.Handler {
 	r.Route("/api/v1/users", func(r chi.Router) {
 		if opts.Users != nil {
 			opts.Users.Mount(r)
+		}
+	})
+	r.Route("/api/v1/adminusers", func(r chi.Router) {
+		if opts.AdminUsers != nil {
+			r.Use(RequirePermission(PermAccountManage))
+			opts.AdminUsers.Mount(r)
 		}
 	})
 	r.Route("/api/v1/sessions", func(r chi.Router) {
