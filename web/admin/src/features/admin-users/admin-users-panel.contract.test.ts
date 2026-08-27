@@ -35,6 +35,6 @@ describe('admin users panel', () => {
   it('keeps password hashes out of the frontend model', () => {
     const api = read('../../lib/api/admin-users.ts')
     expect(api).not.toMatch(/password_hash/i)
-    expect(api).not.toMatch(/must_change_password/i)
+    expect(api).not.toMatch(/passwordHash/i)
   })
 })

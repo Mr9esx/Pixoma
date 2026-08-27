@@ -4,6 +4,7 @@ import { ArrowLeft, CircleAlert, CircleCheck, Info } from 'lucide-react'
 import {
   changeAdminPassword,
   finalizeSetup,
+  saveAdminProfile,
   saveSetupDraft,
   testDatabase,
   testBlob,
@@ -71,6 +72,9 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
 
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [nickname, setNickname] = useState('')
+  const [email, setEmail] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [driver, setDriver] = useState('sqlite')
   const [sqlitePath, setSqlitePath] = useState('data/app.db')
   const [dbHost, setDbHost] = useState('127.0.0.1')
@@ -306,7 +310,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                 throw new Error('两次输入不一致')
               }
               await changeAdminPassword({ newPassword })
-              setStep('database')
+              setStep('profile')
             })
           }}
         >
@@ -329,6 +333,58 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             />
           </Field>
           <StepActions error={error} pending={pending} submit={copy.submit} />
+        </form>
+      ) : null}
+
+      {step === 'profile' ? (
+        <form
+          className='flex flex-col gap-4'
+          onSubmit={(e) => {
+            e.preventDefault()
+            void run(async () => {
+              await saveAdminProfile({
+                nickname: nickname.trim(),
+                email: email.trim(),
+                avatarUrl: avatarUrl.trim(),
+              })
+              setStep('database')
+            })
+          }}
+        >
+          <Field label='昵称（怎么称呼你）' htmlFor='profile-nickname'>
+            <Input
+              id='profile-nickname'
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              autoComplete='off'
+              placeholder='例如：小 P'
+            />
+          </Field>
+          <Field label='邮箱' htmlFor='profile-email'>
+            <Input
+              id='profile-email'
+              type='email'
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete='off'
+              placeholder='admin@example.com'
+            />
+          </Field>
+          <Field label='头像地址（可选）' htmlFor='profile-avatar'>
+            <Input
+              id='profile-avatar'
+              value={avatarUrl}
+              onChange={(e) => setAvatarUrl(e.target.value)}
+              autoComplete='off'
+              placeholder='https://…'
+            />
+          </Field>
+          <StepActions
+            error={error}
+            pending={pending}
+            submit={copy.submit}
+            onBack={backStep ? goBack : undefined}
+          />
         </form>
       ) : null}
 
