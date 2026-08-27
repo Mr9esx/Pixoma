@@ -30,6 +30,7 @@ import (
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/edgeadmin"
+	adminusersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminusers"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
@@ -337,6 +338,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			}
 			return validation.ValidateRouting(context.Background(), doc.Routing, topicRepo, conditionReg)
 		}, DeleteWithCleanup: caseDeleteSvc.DeleteCase},
+		AdminUsers: &adminusersapi.Handler{Repo: consoleRepo},
 		Users:     &usersapi.Handler{Repo: userRepo},
 		Sessions:  &sessionsapi.Handler{Repo: sessionRepo},
 		Tasks:     &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
