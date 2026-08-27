@@ -34,6 +34,7 @@ type row struct {
 	ProxyKind        string `gorm:"column:proxy_kind;size:16"`
 	ProxyHost        string `gorm:"column:proxy_host;type:text"`
 	ProxyPort        int    `gorm:"column:proxy_port"`
+	AllowSelfReg     bool   `gorm:"column:allow_self_registration;not null"`
 }
 
 func (row) TableName() string { return "platform_settings" }
@@ -94,6 +95,7 @@ func (s *Store) Save(in Settings) error {
 		ProxyKind:        in.ProxyKind,
 		ProxyHost:        in.ProxyHost,
 		ProxyPort:        in.ProxyPort,
+		AllowSelfReg:     in.AllowSelfRegistration,
 	}
 	return s.db.Save(&r).Error
 }
@@ -133,5 +135,6 @@ func (s *Store) Load() (Settings, error) {
 		ProxyKind:      r.ProxyKind,
 		ProxyHost:      r.ProxyHost,
 		ProxyPort:      r.ProxyPort,
+		AllowSelfRegistration: r.AllowSelfReg,
 	}, nil
 }

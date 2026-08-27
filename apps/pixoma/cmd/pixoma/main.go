@@ -371,6 +371,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	r.Use(adminhost.CORS(corsOrigins()))
 	r.Use(gate.Middleware)
 	r.Route("/api/v1/setup", setupH.Mount)
+	r.Route("/api/v1/auth", setupH.MountAuth)
 	r.Mount("/", adminH)
 	r.Route("/agent/v1", agentH.Mount)
 

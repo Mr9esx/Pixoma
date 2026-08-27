@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/mail"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +42,11 @@ type Handler struct {
 	// ConsoleUsers authenticates login/change-password against system accounts
 	// once the platform is initialized. Nil falls back to bootstrap auth.
 	ConsoleUsers consoledomain.Repository
+}
+
+// MountAuth serves console self-registration under /api/v1/auth.
+func (h *Handler) MountAuth(r chi.Router) {
+	r.Post("/register", h.register)
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -439,6 +445,7 @@ func (h *Handler) putSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	merged := mergePlatformSettings(existing, body)
+	merged.AllowSelfRegistration = body.AllowSelfRegistration
 	merged.DBDriver = driver
 	merged.DBDSN = dsn
 	if err := merged.Validate(); err != nil {
@@ -622,6 +629,103 @@ func (h *Handler) setConsolePassword(ctx context.Context, username, oldPassword,
 	u.PasswordHash = string(hash)
 	u.MustChangePassword = false
 	return h.ConsoleUsers.Update(ctx, u)
+}
+
+
+// register creates a console account (role Viewer) when self-registration is
+// enabled, then signs in the new account.
+func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
+	if !h.selfRegistrationEnabled() {
+		writeErr(w, http.StatusConflict, "registration disabled")
+		return
+	}
+	var body struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Nickname string `json:"nickname"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	body.Username = strings.TrimSpace(body.Username)
+	body.Email = strings.TrimSpace(body.Email)
+	if body.Username == "" {
+		writeErr(w, http.StatusBadRequest, "账号名不能为空")
+		return
+	}
+	if len(body.Password) < 8 {
+		writeErr(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+	if body.Email != "" && !validEmail(body.Email) {
+		writeErr(w, http.StatusBadRequest, "invalid email")
+		return
+	}
+	var newUser *consoledomain.ConsoleUser
+	if h.ConsoleUsers != nil {
+		hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "failed to hash password")
+			return
+		}
+		newUser = &consoledomain.ConsoleUser{
+			Username:     body.Username,
+			Email:        body.Email,
+			Nickname:     body.Nickname,
+			Role:         consoledomain.RoleViewer,
+			Enabled:      true,
+			PasswordHash: string(hash),
+		}
+		if err := h.ConsoleUsers.Create(r.Context(), newUser); err != nil {
+			if errors.Is(err, consoledomain.ErrDuplicate) {
+				writeErr(w, http.StatusConflict, "username or email already taken")
+				return
+			}
+			writeErr(w, http.StatusInternalServerError, "create failed")
+			return
+		}
+	} else {
+		writeErr(w, http.StatusInternalServerError, "unavailable")
+		return
+	}
+	tok, err := h.Sessions.IssueAccount(newUser.Username, newUser.ID, newUser.Role, false)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	SetCookie(w, tok, false)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "token": tok, "username": newUser.Username, "role": newUser.Role,
+	})
+}
+
+// selfRegistrationEnabled reports whether the "open registration" setting is on.
+func (h *Handler) selfRegistrationEnabled() bool {
+	if h == nil || h.Boot == nil || !h.Boot.Initialized() {
+		return false
+	}
+	driver, dsn, err := h.Boot.AppDB()
+	if err != nil || strings.TrimSpace(dsn) == "" {
+		return false
+	}
+	st, cleanup, err := h.settingsStore(driver, dsn)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = cleanup() }()
+	cfg, err := st.Load()
+	if err != nil {
+		return false
+	}
+	return cfg.AllowSelfRegistration
+}
+
+
+func validEmail(email string) bool {
+	_, err := mail.ParseAddress(email)
+	return err == nil
 }
 
 const maskedSecret = "********"

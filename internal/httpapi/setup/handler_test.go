@@ -705,3 +705,104 @@ func TestLogin_DisabledAccount(t *testing.T) {
 		t.Fatalf("expected 403 for disabled account, got %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+func setupRegisteredBoot(t *testing.T, dir, dsn string, allowed bool) *bootstrap.Store {
+	t.Helper()
+	boot, creds, err := bootstrap.Open(filepath.Join(dir, "bootstrap.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { boot.Close() })
+	if err := boot.SetPassword(creds.Username, "secret456"); err != nil {
+		t.Fatal(err)
+	}
+	if err := boot.SetAppDB("sqlite", dsn); err != nil {
+		t.Fatal(err)
+	}
+	if err := boot.MarkInitialized(); err != nil {
+		t.Fatal(err)
+	}
+	key, err := boot.EncKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gdb, err := db.Open(db.Options{Driver: "sqlite", DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gdb.DB()
+	st, err := settings.NewStore(gdb, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Save(settings.Settings{
+		Placement: "local", DBDriver: "sqlite", DBDSN: dsn,
+		BlobDriver: "localfs", BlobRoot: dir,
+		AllowSelfRegistration: allowed,
+	}); err != nil {
+		t.Fatalf("save settings: %v", err)
+	}
+	return boot
+}
+
+func consoleGDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	gdb, err := db.Open(db.Options{DSN: "file:reg_console?" + "mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, &consolepersist.ConsoleUserRow{}); err != nil {
+		t.Fatal(err)
+	}
+	return gdb
+}
+
+func registerRequest(h *setup.Handler, username, password string) *httptest.ResponseRecorder {
+	r := chi.NewRouter()
+	r.Route("/api/v1/auth", h.MountAuth)
+	body, _ := json.Marshal(map[string]string{"username": username, "password": password})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewReader(body)))
+	return rec
+}
+
+func TestRegister_DisabledByDefault(t *testing.T) {
+	dir := t.TempDir()
+	boot := setupRegisteredBoot(t, dir, filepath.Join(dir, "app.db"), false)
+	repo := consolepersist.NewConsoleUserRepository(consoleGDB(t))
+	h := &setup.Handler{Boot: boot, Sessions: setup.NewSessions(""), ConsoleUsers: repo}
+	rec := registerRequest(h, "reg", "secret123")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409 when registration disabled, got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestRegister_EnabledCreatesViewerAndSignsIn(t *testing.T) {
+	dir := t.TempDir()
+	boot := setupRegisteredBoot(t, dir, filepath.Join(dir, "app.db"), true)
+	repo := consolepersist.NewConsoleUserRepository(consoleGDB(t))
+	h := &setup.Handler{Boot: boot, Sessions: setup.NewSessions(""), ConsoleUsers: repo}
+	rec := registerRequest(h, "newuser", "secret123")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("register: %d %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Token    string `json:"token"`
+		Username string `json:"username"`
+		Role     string `json:"role"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Username != "newuser" || resp.Role != "viewer" || resp.Token == "" {
+		t.Fatalf("resp: %+v", resp)
+	}
+	u, err := repo.GetByUsername(context.Background(), "newuser")
+	if err != nil || u.Role != "viewer" || !u.Enabled {
+		t.Fatalf("created user wrong: %+v err=%v", u, err)
+	}
+	// Duplicate registration → 409.
+	if rec := registerRequest(h, "newuser", "secret123"); rec.Code != http.StatusConflict {
+		t.Fatalf("duplicate register: %d %s", rec.Code, rec.Body.String())
+	}
+}

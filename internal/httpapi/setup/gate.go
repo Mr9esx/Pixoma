@@ -46,6 +46,12 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Self-registration is intentionally public; the handler enforces the
+		// "open registration" setting and rejects disabled registration.
+		if path == "/api/v1/auth/register" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if strings.HasPrefix(path, "/api/v1/setup/") {
 			if g.Sessions == nil {
 				writeErr(w, http.StatusUnauthorized, "unauthorized")

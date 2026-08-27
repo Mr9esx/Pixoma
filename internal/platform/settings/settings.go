@@ -39,6 +39,8 @@ type Settings struct {
 	ProxyKind      string `json:"proxy_kind,omitempty"`
 	ProxyHost      string `json:"proxy_host,omitempty"`
 	ProxyPort      int    `json:"proxy_port,omitempty"`
+	// AllowSelfRegistration toggles public console-account registration.
+	AllowSelfRegistration bool `json:"allow_self_registration"`
 }
 
 // Validate checks local/remote vs blob legality.
