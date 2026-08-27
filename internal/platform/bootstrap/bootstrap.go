@@ -158,6 +158,18 @@ func (s *Store) MustChangePassword() bool {
 	return row.MustChangePassword
 }
 
+// AdminAccount returns the bootstrap admin credentials needed to seed the
+// console-users table. passwordHash is empty when no admin has been written.
+func (s *Store) AdminAccount() (username, passwordHash string, mustChangePassword bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, err := s.load()
+	if err != nil {
+		return "", "", true
+	}
+	return row.AdminUsername, row.AdminPasswordHash, row.MustChangePassword
+}
+
 func (s *Store) EnsureReadyForBusiness() error {
 	if !s.Initialized() {
 		return ErrNotInitialized
