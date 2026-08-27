@@ -67,7 +67,8 @@
     "toggleSidebar": "Toggle sidebar",
     "expandMenu": "Expand menu",
     "untitled": "Untitled",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "moreActions": "More actions"
   },
   "theme": {
     "light": "Light",

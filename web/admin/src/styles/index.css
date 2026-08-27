@@ -4,6 +4,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* 折叠态头像 hover 菜单：使用专属类名，避免与 shadcn sidebar 自带的 group/peer 冲突 */
+.nav-user-collapsed-trigger:hover + .nav-user-menu,
+.nav-user-collapsed-trigger:focus-visible + .nav-user-menu,
+.nav-user-menu:hover {
+  visibility: visible;
+}
+.nav-user-menu {
+  visibility: hidden;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
