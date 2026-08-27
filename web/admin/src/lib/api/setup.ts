@@ -32,6 +32,34 @@ export function fetchSetupStatus() {
   return apiFetch<SetupStatus>('/api/v1/setup/status')
 }
 
+export function fetchRegistrationStatus() {
+  return apiFetch<{ enabled: boolean }>('/api/v1/auth/registration')
+}
+
+export async function registerAccount(input: {
+  username: string
+  email?: string
+  nickname?: string
+  password: string
+}) {
+  const res = await apiFetch<{
+    ok: boolean
+    token: string
+    username: string
+    role: string
+  }>('/api/v1/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      username: input.username,
+      email: input.email ?? '',
+      nickname: input.nickname ?? '',
+      password: input.password,
+    }),
+  })
+  setSessionToken(res.token)
+  return res
+}
+
 export async function loginAdmin(
   username: string,
   password: string,
