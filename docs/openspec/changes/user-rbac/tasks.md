@@ -33,5 +33,5 @@
 
 ## 6. 文档与归档
 
-- [ ] 6.1 归档本 change delta specs 到 `docs/openspec/specs/`（新增 console-user-accounts/user-rbac/admin-user-management/self-registration，修改 setup-wizard/platform-bootstrap/admin-api-host）
-- [ ] 6.2 升级/迁移说明：既有部署如何迁移 bootstrap admin、为何需重新登录
+- [x] 6.1 归档本 change delta specs 到 `docs/openspec/specs/`（新增 console-user-accounts/user-rbac/admin-user-management/self-registration，修改 setup-wizard/platform-bootstrap/admin-api-host）
+- [x] 6.2 升级/迁移说明：既有部署如何迁移 bootstrap admin、为何需重新登录

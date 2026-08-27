@@ -71,3 +71,24 @@
 均已在本轮评审中收敛：
 - 自助注册默认角色：**`Viewer`（只读）**，注册即可登录但仅只读，不自动授运维/管理权限。
 - 自助改密与个人资料管理：**本 change 不包含**，改密仅由管理员重置；如需自助改密/资料编辑作为后续 change。
+
+## 升级与迁移说明
+
+### 渠道用户表更名
+- `users` → `channel_users`、`user_external_identities` → `channel_user_external_identities`。
+- 由 `db.RenameLegacy` 幂等执行：仅当旧表存在且新表不存在时才重建并保留数据；冷启动/新库自动跳过。无需人工 DDL。
+
+### bootstrap admin 迁移为控制台账号
+- 应用启动时 `MigrateBootstrapAdmin` 幂等：当 `console_users` 尚无该账号时，用 bootstrap 首启凭据创建 `role=admin` 的账号（用户名、bcrypt 密码哈希、`must_change_password` 状态原样保留）。
+- 首启向导「如何称呼您」填写的昵称/邮箱/头像先落在 bootstrap，最终在迁移时写入 `console_users`。
+- 已有部署升级后：原 bootstrap 管理员可继续用用户名+旧密码登录；若密码在旧流程已被改过，仍需改密标记保持一致。
+
+### 为什么需要重新登录
+- 会话升级为「账号 id + 角色」驱动，旧会话令牌结构不包含 `account_id`/`role`，RBAC 授权无法识别。
+- 升级后已登录的管理员应退出并重新登录一次，否则会被要求再次认证；这是有意为之的安全边界。
+- 系统设置改动仍需重启（`restart_required`）才会加载新配置；升级包应提示重启一次。
+
+### 权限与角色
+- 角色：`Admin` / `Operator` / `Viewer`；默认自助注册账号为 `Viewer`（只读）。
+- 账号管理/删除/角色调整仅在 `Admin` 权限下可用；`Viewer` 调用返回 403。
+- 「是否开放注册」默认关闭；关闭时 `/api/v1/auth/register` 返回 409，前端注册页不可访问。
