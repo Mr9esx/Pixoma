@@ -1,6 +1,4 @@
-import { Link } from '@tanstack/react-router'
 import { Menu, X } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
 import { Logo } from '@/assets/logo'
 import { cn } from '@/lib/utils'
 import {
@@ -12,8 +10,7 @@ import {
 import { Button } from '../ui/button'
 
 export function AppTitle() {
-  const { state, setOpenMobile } = useSidebar()
-  const { t } = useTranslation()
+  const { state } = useSidebar()
 
   if (state === 'collapsed') {
     return (
@@ -21,12 +18,12 @@ export function AppTitle() {
         <SidebarMenuItem>
           <SidebarMenuButton
             asChild
-            tooltip={t('menu.dashboard')}
-            className='justify-center'
+            tooltip='Pixoma'
+            className='justify-center group-data-[collapsible=icon]:p-0!'
           >
-            <Link to='/' onClick={() => setOpenMobile(false)}>
+            <span>
               <Logo className='size-5 rounded-md' />
-            </Link>
+            </span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -42,16 +39,12 @@ export function AppTitle() {
           asChild
         >
           <div>
-            <Link
-              to='/'
-              onClick={() => setOpenMobile(false)}
-              className='grid flex-1 text-start text-sm leading-tight'
-            >
+            <span className='grid flex-1 text-start text-sm leading-tight'>
               <span className='flex min-w-0 items-center gap-1.5 font-bold'>
                 <Logo className='size-5 rounded-md' />
                 <span className='truncate'>Pixoma</span>
               </span>
-            </Link>
+            </span>
             <ToggleSidebar />
           </div>
         </SidebarMenuButton>

@@ -1,13 +1,11 @@
 import { chromium } from 'playwright'
-const exe = '/Users/mr9esx/Library/Caches/ms-playwright/chromium-1228/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'
-const browser = await chromium.launch({ executablePath: exe, headless: true })
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-const errs = []
-page.on('pageerror', e => errs.push('PAGEERR: ' + e.message))
-page.on('console', m => { if (m.type()==='error') errs.push('CONSOLE: ' + m.text()) })
-const url = process.argv[2] || 'http://127.0.0.1:5174/cases/new'
-await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 }).catch(()=>{})
-await page.waitForTimeout(2500)
-await page.screenshot({ path: '/tmp/table1.png', fullPage: false })
-console.log('JS errors:', errs.slice(0,10).join('\n'))
-await browser.close()
+const b = await chromium.launch()
+const p = await b.newPage({ viewport: { width: 1440, height: 900 } })
+await p.goto('http://127.0.0.1:5179/login', { waitUntil: 'networkidle', timeout: 30000 }).catch(e => console.log('ERR', e.message))
+await p.waitForTimeout(2000)
+await p.screenshot({ path: '/tmp/login-full.png' })
+// 放大关键区域（右侧点阵 + mask 聚光区域）
+await p.locator('svg,img,canvas').first().screenshot({ path: '/tmp/x.png' }).catch(()=>{})
+const body = await p.evaluate(() => document.body.innerHTML.length)
+console.log('body chars', body)
+await b.close()

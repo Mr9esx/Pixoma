@@ -1,0 +1,48 @@
+/*
+ * Pixoma UI Kit — button.css
+ * 源形状：web/admin/src/components/ui/button.tsx（shadcn/ui new-york 六变体）
+ * 规则：默认高 36px、圆角 md；hover 背景在 OKLch L 通道移动，前景不变浅；
+ *       disabled 是唯一允许降低对比的状态；每个可聚焦元素有可见 focus-visible 环。
+ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--button-h);
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--foreground);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.btn-primary:hover { background: color-mix(in oklch, var(--primary) 90%, black); border-color: color-mix(in oklch, var(--primary) 90%, black); }
+
+.btn-secondary { background: transparent; color: var(--foreground); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--foreground); background: color-mix(in oklch, var(--foreground) 6%, transparent); }
+
+.btn-outline { background: transparent; color: var(--foreground); border-color: var(--border); }
+.btn-outline:hover { border-color: var(--foreground); }
+
+.btn-ghost { background: transparent; color: var(--foreground); border-color: transparent; padding-inline: 10px; }
+.btn-ghost:hover { background: color-mix(in oklch, var(--foreground) 6%, transparent); }
+
+.btn-link { background: transparent; color: var(--accent-text); border-color: transparent; padding: 0; height: auto; }
+.btn-link:hover { text-decoration: underline; }
+
+.btn-destructive { background: var(--destructive); color: var(--destructive-foreground); border-color: var(--destructive); }
+.btn-destructive:hover { background: color-mix(in oklch, var(--destructive) 88%, black); }
+
+.btn-sm { height: var(--button-h-sm); padding: 0 12px; font-size: 13px; }
+.btn-lg { height: var(--button-h-lg); padding: 0 20px; }

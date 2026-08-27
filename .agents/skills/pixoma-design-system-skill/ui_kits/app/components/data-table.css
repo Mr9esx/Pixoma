@@ -1,0 +1,35 @@
+/*
+ * Pixoma UI Kit — data-table.css
+ * 源形状：web/admin/src/components/data-table/*（TanStack Table 形态）
+ * 规则：hairline 分隔；行 hover 用 fg-soft（前景 4–6% 混合）；数字列等宽右对齐；
+ *       列头排序与分页控件统一；空态 / 错误态 / 骨架由页面组合。
+ */
+.ds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.ds-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.ds-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.ds-table tbody tr:last-child td { border-bottom: 0; }
+.ds-table tbody tr:hover td { background: color-mix(in oklch, var(--foreground) 4%, transparent); }
+.ds-table td.num-col, .ds-table th.num-col {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.ds-table .sortable { cursor: pointer; user-select: none; }
+.ds-table .sortable:hover { color: var(--foreground); }
+.table-scroll { overflow-x: auto; }

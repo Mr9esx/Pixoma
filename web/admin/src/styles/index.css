@@ -146,17 +146,17 @@
   }
 }
 
-/* 引导高亮：点击「去 xx」后滚动定位并闪烁 3s（500ms 明暗切换） */
+/* 引导高亮：点击「去 xx」后滚动定位并闪烁 1.5s（250ms 间隔） */
 @keyframes flash-highlight {
   0%,
   100% {
     background-color: transparent;
   }
   50% {
-    background-color: rgb(249 115 22 / 0.3);
+    background-color: rgb(249 115 22 / 0.05);
   }
 }
 
 .flash-highlight {
-  animation: flash-highlight 1s linear 3;
+  animation: flash-highlight 0.5s linear 2;
 }

@@ -63,7 +63,7 @@ describe('compute node layout and detail', () => {
     expect(tags).not.toMatch(/from '@\/components\/ui\/badge'/)
   })
 
-  it('opens create in the detail pane and edit in dialogs', () => {
+  it('opens create in a dialog and edit in dialogs', () => {
     const detail = read('detail-panel.tsx')
     const form = read('edge-form.tsx')
     const dialog = read('../../components/ui/dialog.tsx')
@@ -83,8 +83,9 @@ describe('compute node layout and detail', () => {
     expect(form).not.toMatch(/htmlFor=['"]edge-host['"]/)
     expect(form).not.toMatch(/htmlFor=['"]edge-port['"]/)
     expect(form).not.toMatch(/htmlFor=['"]instance-id['"]/)
-    expect(layout).toMatch(/edgeId === 'new'/)
-    expect(layout).not.toMatch(/<Dialog/)
+    expect(layout).toMatch(/<Dialog open=\{createOpen\}/)
+    expect(layout).toMatch(/setCreateOpen\(true\)/)
+    expect(layout).not.toContain("edgeId === 'new'")
   })
 
   it('detail panel offers delete with running-task impact', () => {
@@ -101,14 +102,10 @@ describe('compute node layout and detail', () => {
     const layout = read('../../routes/_app/edges/route.tsx')
     const shell = read('../../components/master-detail/master-detail-shell.tsx')
     const zh = read('../../lib/i18n/locales/zh.json')
-    expect(layout).toMatch(
-      /edgeId \?\? \(backToList \? undefined : items\[0\]\?\.id\)/
-    )
+    expect(layout).toMatch(/edgeId && edgeId !== 'new'/)
     expect(layout).toMatch(/emptyDetail=/)
     expect(layout).toMatch(/EmptyHeader/)
-    expect(layout).toMatch(
-      /to='\/edges\/\$edgeId' params=\{\{ edgeId: 'new' \}\}/
-    )
+    expect(layout).toMatch(/setCreateOpen\(true\)/)
     expect(layout).toContain("to: '/edges/$edgeId'")
     expect(layout).toContain('replace: true')
     expect(shell).toMatch(/emptyDetail \?\? /)
@@ -193,9 +190,7 @@ describe('compute node layout and detail', () => {
     expect(wizard).toMatch(/edges\.stepInfo/)
     expect(wizard).toMatch(/edges\.stepDeploy/)
     expect(wizard).toMatch(/edges\.stepDone/)
-    expect(wizard).toMatch(
-      /<h2 className=\{kit\.title\}>\{title\}<\/h2>[\s\S]*?data-testid='create-edge-steps'/
-    )
+    expect(wizard).not.toMatch(/<h2 className=\{kit\.title\}>/)
     expect(wizard).toMatch(
       /ol\s+className='flex shrink-0 items-center justify-center gap-2 py-6'\s+data-testid='create-edge-steps'/
     )
@@ -211,7 +206,7 @@ describe('compute node layout and detail', () => {
     expect(wizard).toMatch(
       /sticky bottom-0[\s\S]*?edges\.createDoneClose[\s\S]*?edges\.createDoneView/
     )
-    expect(wizard).toMatch(/layout='page'/)
+    expect(wizard).toMatch(/layout='dialog'/)
     expect(form).toMatch(
       /sticky bottom-0[\s\S]*?border-t bg-card[\s\S]*?edges\.createAndContinue/
     )

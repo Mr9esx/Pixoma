@@ -47,7 +47,7 @@ describe('quick-config wizard contract', () => {
   it('Step 1 左右分栏（左滚动配置/右固定基础信息），Header 仅保留步骤点', () => {
     expect(STEP1).toContain('splitPane')
     expect(STEP1).toContain('leftIntro')
-    expect(WORKFLOW_EDITOR).toContain('sticky top-0 w-80')
+    expect(WORKFLOW_EDITOR).toContain('lg:w-80')
     expect(WORKFLOW_EDITOR).toContain('bg-card')
     expect(CHROME).toContain('STEP_LABELS')
     expect(CHROME).not.toContain('text-lg font-semibold')

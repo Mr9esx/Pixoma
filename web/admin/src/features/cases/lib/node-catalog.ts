@@ -105,18 +105,18 @@ export function nodeVisualFor(classType: string): {
 } {
   const c = classType.toLowerCase()
   if (c.includes('video') || c.includes('createvideo'))
-    return { Icon: Video, className: 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400' }
+    return { Icon: Video, className: 'bg-muted text-muted-foreground' }
   if (c.includes('audio') || c.includes('music'))
-    return { Icon: Music, className: 'bg-orange-50 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400' }
+    return { Icon: Music, className: 'bg-muted text-muted-foreground' }
   if (c.includes('sample') || c.includes('noise') || c.includes('scheduler'))
-    return { Icon: SlidersHorizontal, className: 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400' }
+    return { Icon: SlidersHorizontal, className: 'bg-muted text-muted-foreground' }
   if (c.includes('loader') || c.includes('lora') || c.includes('patch'))
-    return { Icon: Package, className: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400' }
+    return { Icon: Package, className: 'bg-muted text-muted-foreground' }
   if (c.includes('text') || c.includes('clip') || c.includes('encode'))
-    return { Icon: FileText, className: 'bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400' }
+    return { Icon: FileText, className: 'bg-muted text-muted-foreground' }
   if (c.includes('image') || c.includes('vae') || c.includes('decode'))
-    return { Icon: Image, className: 'bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400' }
+    return { Icon: Image, className: 'bg-muted text-muted-foreground' }
   if (c.includes('math') || c.includes('primitive') || c.includes('size'))
-    return { Icon: Cpu, className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300' }
-  return { Icon: Wand2, className: 'bg-primary/10 text-primary' }
+    return { Icon: Cpu, className: 'bg-muted text-muted-foreground' }
+  return { Icon: Wand2, className: 'bg-muted text-muted-foreground' }
 }

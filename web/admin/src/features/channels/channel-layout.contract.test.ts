@@ -15,18 +15,16 @@ describe('channel layout aligned with compute nodes', () => {
     expect(source).not.toContain('<h2')
   })
 
-  it('route uses 280px master detail with create form in the detail pane', () => {
+  it('route uses 280px master detail with create in a dialog', () => {
     const source = readFileSync(ROUTE, 'utf8')
     expect(source).toContain('MasterDetailShell')
     expect(source).toContain('md:grid-cols-[280px_1fr]')
     expect(source).toContain('ChannelDetailPanel')
     expect(source).toContain('CreateChannelForm')
-    expect(source).toContain("id === 'new'")
-    expect(source).toContain("to='/channels/$id' params={{ id: 'new' }}")
-    expect(source).toMatch(
-      /hasSelection=\{Boolean\(selectedId\) \|\| id === 'new'\}/
-    )
-    expect(source).not.toContain('setCreateOpen')
+    expect(source).toContain('<Dialog open={createOpen}')
+    expect(source).toContain('onOpenChange={setCreateOpen}')
+    expect(source).toMatch(/hasSelection=\{Boolean\(selectedId\)\}/)
+    expect(source).not.toContain("id === 'new'")
   })
 
   it('auto-selects the first channel and navigates the url', () => {
@@ -37,10 +35,7 @@ describe('channel layout aligned with compute nodes', () => {
   })
 
   it('create form keeps actions in a sticky bottom footer', () => {
-    const form = readFileSync(
-      join(here, 'create-channel-form.tsx'),
-      'utf8'
-    )
+    const form = readFileSync(join(here, 'create-channel-form.tsx'), 'utf8')
     expect(form).toMatch(/sticky bottom-0/)
     expect(form).toMatch(/border-t bg-card/)
     expect(form).toMatch(/flex flex-1 flex-col gap-4/)

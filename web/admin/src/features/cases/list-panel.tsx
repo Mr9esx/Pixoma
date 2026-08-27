@@ -1,14 +1,8 @@
 import { Link } from '@tanstack/react-router'
-import { Boxes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { CaseRecord } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
@@ -72,14 +66,7 @@ export function CaseListPanel({
 
       {!isLoading && !isError && items.length === 0 ? (
         <Empty>
-          <EmptyHeader className='max-w-none'>
-            <EmptyMedia variant='icon'>
-              <Boxes />
-            </EmptyMedia>
-            <EmptyTitle className='text-sm font-medium'>
-              {t('cases.empty')}
-            </EmptyTitle>
-          </EmptyHeader>
+          <EmptyDescription>{t('cases.noData')}</EmptyDescription>
         </Empty>
       ) : null}
 
@@ -93,8 +80,8 @@ export function CaseListPanel({
                   to='/cases/$caseId'
                   params={{ caseId: String(item.id) }}
                   className={cn(
-                    'block w-full px-4 py-3 text-left text-sm hover:bg-accent',
-                    selected && 'bg-accent'
+                    'block w-full border-l-2 border-l-transparent px-4 py-3 text-left text-sm hover:bg-accent',
+                    selected && 'border-l-foreground bg-accent'
                   )}
                 >
                   <span className='block truncate font-medium'>

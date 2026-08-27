@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>应用表面 — Pixoma UI Kit</title>
+  <link rel="icon" href="../../assets/favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../colors_and_type.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--background); color: var(--foreground); }
+    .wrap { max-width: 1240px; margin: 0 auto; padding: 40px 28px 80px; }
+    .kit-nav { display: flex; gap: 10px; margin-bottom: 36px; flex-wrap: wrap; }
+    .kit-link { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--foreground); font-size: 13.5px; font-weight: 500; text-decoration: none; }
+    .kit-link:hover { border-color: var(--foreground); }
+    .kit-link.active { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 12px; }
+    h1 { font-size: clamp(30px, 3.6vw, 40px); line-height: 1.3; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.02em; }
+    .lead { font-size: 16px; line-height: 1.7; color: var(--muted-foreground); max-width: 62ch; margin: 0 0 36px; }
+    .surface-label { font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; margin: 48px 0 14px; }
+    .surface-label::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── 壳 ─────────────────────────────────────────── */
+    .shell { display: grid; grid-template-columns: 240px 1fr; border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; background: var(--card); }
+    .sidebar { background: var(--secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 14px 12px; gap: 2px; }
+    .sidebar .brand { display: flex; align-items: center; gap: 9px; font-size: 14.5px; font-weight: 700; padding: 0 8px 14px; letter-spacing: -0.01em; }
+    .brand-mark { width: 25px; height: 25px; border-radius: 8px; background: var(--foreground); color: var(--background); display: grid; place-items: center; font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; }
+    .nav-group-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); padding: 10px 8px 6px; }
+    .nav-item { display: flex; align-items: center; height: 33px; padding: 0 8px; border-radius: var(--radius-md); font-size: 13px; color: var(--muted-foreground); }
+    .nav-item:hover { background: color-mix(in oklch, var(--foreground) 6%, transparent); color: var(--foreground); }
+    .nav-item.active { background: var(--card); color: var(--foreground); }
+    .sidebar-foot { margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+    .mini-btn { height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: transparent; color: var(--foreground); font-size: 12px; cursor: pointer; }
+    .mini-btn:hover { border-color: var(--foreground); }
+    .main { min-width: 0; background: var(--background); }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 22px 24px 18px; flex-wrap: wrap; }
+    .page-head h2 { font-size: 21px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+    .page-head .sub { font-size: 13px; color: var(--muted-foreground); margin: 0; }
+
+    /* ── Dashboard ───────────────────────────────────── */
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 0 24px 18px; }
+    .stat-card { padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .stat-label { font-size: 12px; color: var(--muted-foreground); margin: 0 0 9px; }
+    .stat-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 700; line-height: 1; }
+    .stat-delta { font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); margin-top: 8px; }
+    .chart-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; padding: 0 24px 24px; }
+    .panel { padding: 18px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .panel h3 { font-size: 14px; font-weight: 600; margin: 0 0 14px; }
+    .panel .hint { font-size: 11.5px; color: var(--muted-foreground); margin: 0 0 14px; }
+    .bars { display: flex; align-items: flex-end; gap: 12px; height: 150px; padding-top: 8px; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; height: 100%; justify-content: flex-end; }
+    .bar { width: 100%; max-width: 42px; border-radius: 4px 4px 0 0; }
+    .bar-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); }
+    .legend { display: flex; gap: 14px; margin-top: 12px; font-size: 12px; color: var(--muted-foreground); flex-wrap: wrap; }
+    .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
+    .task-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .task-table th { text-align: left; font-size: 11px; font-weight: 600; color: var(--muted-foreground); padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    .task-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+    .task-table tr:last-child td { border-bottom: 0; }
+    .task-table td.num-col, .task-table th.num-col { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    .badge { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--radius-md); font-size: 11px; border: 1px solid var(--border); }
+    .badge.ok { border-color: color-mix(in oklch, var(--chart-2) 45%, transparent); background: color-mix(in oklch, var(--chart-2) 10%, transparent); }
+
+    /* ── Master–Detail ──────────────────────────────── */
+    .md { display: grid; grid-template-columns: 300px 1fr; border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; background: var(--card); }
+    .list-panel { border-right: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--card); }
+    .list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .list-head h3 { font-size: 15px; font-weight: 600; margin: 0; }
+    .btn-sm { height: 32px; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid transparent; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--primary); color: var(--primary-foreground); }
+    .btn-sm:hover { background: color-mix(in oklch, var(--primary) 90%, black); }
+    .search { height: 36px; padding: 0 12px; border: 1px solid var(--input); border-radius: var(--radius-md); background: var(--background); color: var(--foreground); font-size: 13.5px; width: 100%; }
+    .search:focus { outline: 2px solid var(--ring); outline-offset: 1px; }
+    .search::placeholder { color: var(--muted-foreground); }
+    .segment { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--secondary); }
+    .segment-btn { height: 30px; border: 0; border-radius: calc(var(--radius-md) - 2px); background: transparent; color: var(--muted-foreground); font-size: 12.5px; font-weight: 500; cursor: pointer; }
+    .segment-btn:hover { color: var(--foreground); }
+    .segment-btn[aria-pressed="true"] { background: var(--card); color: var(--foreground); }
+    .list { display: flex; flex-direction: column; gap: 4px; }
+    .list-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: var(--radius-md); border: 1px solid transparent; cursor: pointer; }
+    .list-item:hover { background: color-mix(in oklch, var(--foreground) 5%, transparent); }
+    .list-item.active { background: var(--secondary); border-color: var(--border); }
+    .list-item .name { font-size: 13.5px; font-weight: 500; }
+    .list-item .meta { font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); }
+    .detail { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+    .detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .detail-head h3 { font-size: 18px; font-weight: 600; margin: 0 0 6px; }
+    .detail-head .meta { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); margin: 0; }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .kv { display: flex; flex-direction: column; gap: 4px; }
+    .kv .k { font-size: 12px; color: var(--muted-foreground); }
+    .kv .v { font-size: 13.5px; }
+    .code-block { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: var(--secondary); border: 1px solid var(--border); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 12px; }
+    .code-block code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border-radius: var(--radius-md); border: 1px solid transparent; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 120ms, border-color 120ms; }
+    .btn-primary { background: var(--primary); color: var(--primary-foreground); }
+    .btn-primary:hover { background: color-mix(in oklch, var(--primary) 90%, black); }
+    .btn-outline { background: transparent; color: var(--foreground); border-color: var(--border); }
+    .btn-outline:hover { border-color: var(--foreground); }
+    .btn-cta { background: var(--accent-brand); color: var(--accent-brand-foreground); }
+    .btn-cta:hover { background: var(--accent-brand-hover); }
+
+    /* ── 向导 ───────────────────────────────────────── */
+    .wizard { border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); padding: 22px 24px; }
+    .steps { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .step { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground); }
+    .step .dot { width: 22px; height: 22px; border-radius: 999px; border: 1px solid var(--border); display: grid; place-items: center; font-family: var(--font-mono); font-size: 11px; }
+    .step.current { color: var(--foreground); font-weight: 600; }
+    .step.current .dot { background: var(--foreground); color: var(--background); border-color: var(--foreground); }
+    .step-line { flex: 1; height: 1px; background: var(--border); }
+    .wizard-body { display: flex; flex-direction: column; gap: 14px; }
+    .wizard-body h3 { font-size: 17px; font-weight: 600; margin: 0; }
+    .wizard-actions { display: flex; gap: 12px; }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .stat-grid { grid-template-columns: 1fr; }
+      .chart-grid { grid-template-columns: 1fr; }
+      .md { grid-template-columns: 1fr; }
+      .list-panel { border-right: 0; border-bottom: 1px solid var(--border); }
+      .field-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <nav class="kit-nav" aria-label="套件页面">
+      <a class="kit-link" href="index.html" data-od-id="kit-index">套件索引</a>
+      <a class="kit-link" href="components.html" data-od-id="kit-components">组件库</a>
+      <a class="kit-link active" href="surfaces.html" data-od-id="kit-surfaces">应用表面</a>
+      <a class="kit-link" href="../../pixoma-design-system.html" data-od-id="kit-spec">规范总览</a>
+    </nav>
+
+    <p class="eyebrow">Applied Surfaces · From web/admin</p>
+    <h1>应用表面</h1>
+    <p class="lead">三个真实页面表面：Dashboard（统计 + 图表 + 任务表）、Master–Detail 紧凑筛选、三步向导。图表用 chart 语义色填充编码。</p>
+
+    <div class="surface-label" data-od-id="surface-dashboard">应用表面 · Dashboard</div>
+    <div class="shell" data-od-id="page-dashboard">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-mark">Px</span>Pixoma</div>
+        <div class="nav-group-label">01 · 总览</div>
+        <span class="nav-item active">仪表盘</span>
+        <span class="nav-item">快速配置</span>
+        <div class="nav-group-label">02 · 配置管理</div>
+        <span class="nav-item">工作流</span>
+        <span class="nav-item">渠道</span>
+        <span class="nav-item">调度通道</span>
+        <span class="nav-item">计算节点</span>
+        <div class="nav-group-label">03 · 运营管理</div>
+        <span class="nav-item">任务</span>
+        <span class="nav-item">会话</span>
+        <span class="nav-item">用户</span>
+        <div class="nav-group-label">04 · 系统管理</div>
+        <span class="nav-item">设置</span>
+        <div class="sidebar-foot">
+          <button class="mini-btn" type="button">中文</button>
+          <button class="mini-btn" type="button">主题</button>
+        </div>
+      </aside>
+      <div class="main">
+        <div class="page-head">
+          <div>
+            <h2>仪表盘</h2>
+            <p class="sub">实时区不随范围变化；效能与业务区跟随时间范围统一刷新。</p>
+          </div>
+          <button class="mini-btn" type="button">近 7 天</button>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card" data-od-id="stat-nodes">
+            <p class="stat-label">在线节点</p>
+            <div class="stat-num num">2 / 3</div>
+            <p class="stat-delta num">1 个离线 · 本地 Mock + 远程 GPU</p>
+          </div>
+          <div class="stat-card" data-od-id="stat-tasks">
+            <p class="stat-label">任务成功率</p>
+            <div class="stat-num num">98.6%</div>
+            <p class="stat-delta num">1,152 个任务 · 近 7 天</p>
+          </div>
+          <div class="stat-card" data-od-id="stat-p99">
+            <p class="stat-label">P99 耗时</p>
+            <div class="stat-num num">0.42 s</div>
+            <p class="stat-delta num">较上周 -12%</p>
+          </div>
+        </div>
+        <div class="chart-grid">
+          <div class="panel" data-od-id="panel-tasks-chart">
+            <h3>任务趋势 · 近 7 天</h3>
+            <div class="bars" role="img" aria-label="近 7 天任务量柱状图，最高 160">
+              <div class="bar-col"><div class="bar" style="height: 42%; background: var(--chart-1);"></div><span class="bar-label">一</span></div>
+              <div class="bar-col"><div class="bar" style="height: 58%; background: var(--chart-1);"></div><span class="bar-label">二</span></div>
+              <div class="bar-col"><div class="bar" style="height: 50%; background: var(--chart-1);"></div><span class="bar-label">三</span></div>
+              <div class="bar-col"><div class="bar" style="height: 74%; background: var(--chart-2);"></div><span class="bar-label">四</span></div>
+              <div class="bar-col"><div class="bar" style="height: 68%; background: var(--chart-2);"></div><span class="bar-label">五</span></div>
+              <div class="bar-col"><div class="bar" style="height: 96%; background: var(--chart-3);"></div><span class="bar-label">六</span></div>
+              <div class="bar-col"><div class="bar" style="height: 82%; background: var(--chart-3);"></div><span class="bar-label">日</span></div>
+            </div>
+            <div class="legend">
+              <span><span class="dot" style="background: var(--chart-1);"></span>待领取</span>
+              <span><span class="dot" style="background: var(--chart-2);"></span>运行中</span>
+              <span><span class="dot" style="background: var(--chart-3);"></span>已完成</span>
+            </div>
+          </div>
+          <div class="panel" data-od-id="panel-recent-tasks">
+            <h3>最近任务</h3>
+            <div style="overflow-x: auto;">
+              <table class="task-table">
+                <thead>
+                  <tr><th>任务</th><th>节点</th><th class="num-col">耗时</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>workflow-a-2210</td><td>本地 Mock</td><td class="num-col">0.42 s</td></tr>
+                  <tr><td>workflow-b-2209</td><td>远程 A100</td><td class="num-col">1.16 s</td></tr>
+                  <tr><td>workflow-a-2208</td><td>本地 Mock</td><td class="num-col">0.39 s</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="legend" style="margin-top: 12px;">
+              <span><span class="badge ok">运行中</span> 2 · <span class="badge">已完成</span> 1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="surface-label" data-od-id="surface-master-detail">应用表面 · Master–Detail</div>
+    <div class="md" data-od-id="page-master-detail">
+      <div class="list-panel">
+        <div class="list-head">
+          <h3>计算节点</h3>
+          <button class="btn-sm" type="button">新建节点</button>
+        </div>
+        <input class="search" type="search" placeholder="搜索节点 id / 名称" aria-label="搜索节点">
+        <div class="segment" role="group" aria-label="节点状态筛选">
+          <button class="segment-btn" type="button" aria-pressed="true">全部</button>
+          <button class="segment-btn" type="button" aria-pressed="false">运行中</button>
+          <button class="segment-btn" type="button" aria-pressed="false">离线</button>
+          <button class="segment-btn" type="button" aria-pressed="false">错误</button>
+        </div>
+        <div class="list">
+          <div class="list-item active" data-od-id="node-local">
+            <div><div class="name">本地 Mock 节点</div><div class="meta num">node-local-01</div></div>
+            <span class="badge ok">运行中</span>
+          </div>
+          <div class="list-item" data-od-id="node-remote">
+            <div><div class="name">远程 GPU · A100</div><div class="meta num">node-a100-02</div></div>
+            <span class="badge ok">运行中</span>
+          </div>
+          <div class="list-item" data-od-id="node-idle">
+            <div><div class="name">备用节点 · T4</div><div class="meta num">node-t4-03</div></div>
+            <span class="badge">离线</span>
+          </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="detail-head">
+          <div>
+            <h3>本地 Mock 节点</h3>
+            <p class="meta num">node-local-01 · 创建于 Apr 12, 2026</p>
+          </div>
+          <button class="btn btn-outline" type="button">编辑节点</button>
+        </div>
+        <div class="field-grid">
+          <div class="kv"><span class="k">模式</span><span class="v">Mock（无真 Comfy）</span></div>
+          <div class="kv"><span class="k">存储</span><span class="v">本机目录 <code class="num">data/blob</code></span></div>
+          <div class="kv"><span class="k">任务数</span><span class="v num">128</span></div>
+          <div class="kv"><span class="k">成功率</span><span class="v num">99.2%</span></div>
+        </div>
+        <div>
+          <p style="font-size: 13px; font-weight: 600; margin: 0 0 8px;">部署命令</p>
+          <div class="code-block">
+            <code class="num">AGENT_TOKEN=… ./pixoma-edge-agent --server http://127.0.0.1:8080</code>
+            <button class="btn btn-cta" type="button" data-od-id="copy-command">复制命令</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="surface-label" data-od-id="surface-wizard">应用表面 · 三步向导</div>
+    <div class="wizard" data-od-id="page-wizard">
+      <div class="steps" aria-label="初始化向导步骤">
+        <span class="step current"><span class="dot">1</span>密码</span>
+        <span class="step-line"></span>
+        <span class="step"><span class="dot">2</span>数据库</span>
+        <span class="step-line"></span>
+        <span class="step"><span class="dot">3</span>对象存储</span>
+      </div>
+      <div class="wizard-body">
+        <h3>设置管理员密码</h3>
+        <p style="margin: 0; font-size: 13.5px; color: var(--muted-foreground);">仅首次显示默认账密，改密后启动日志不再打印明文密码。新密码至少 8 位。</p>
+        <div class="field-grid" style="max-width: 560px;">
+          <div class="kv"><span class="k">新密码</span><input class="search" type="password" placeholder="至少 8 位" aria-label="新密码"></div>
+          <div class="kv"><span class="k">再输一遍</span><input class="search" type="password" placeholder="输两次确认" aria-label="再输一遍"></div>
+        </div>
+        <div class="wizard-actions">
+          <button class="btn btn-primary" type="button">保存密码</button>
+          <button class="btn btn-outline" type="button">上一步</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    ;(function () {
+      var items = document.querySelectorAll('.list-item')
+      items.forEach(function (item) {
+        item.addEventListener('click', function () {
+          items.forEach(function (i) { i.classList.remove('active') })
+          item.classList.add('active')
+        })
+      })
+      var copyBtn = document.querySelector('[data-od-id="copy-command"]')
+      if (copyBtn) copyBtn.addEventListener('click', function () { copyBtn.textContent = '已复制' })
+    })()
+  </script>
+</body>
+</html>

@@ -7,10 +7,10 @@ import {
   useParams,
   useRouterState,
 } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 import { Plus, Tags } from 'lucide-react'
-import { listTopics } from '@/lib/api/topics'
+import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
+import { listTopics } from '@/lib/api/topics'
 import { Button } from '@/components/ui/button'
 import {
   Empty,
@@ -50,6 +50,8 @@ function TopicsLayout() {
   const backToList = locationState?.backToList === true
   const selectedKey = key ?? (backToList ? undefined : items[0]?.key)
   const create = key === 'new'
+  const isEmpty =
+    !listQuery.isLoading && !listQuery.isError && items.length === 0
 
   useEffect(() => {
     if (key == null && !backToList && items.length > 0) {
@@ -76,12 +78,14 @@ function TopicsLayout() {
             {t('topics.description')}
           </p>
         </div>
-        <Button asChild className={kit.btnPrimary}>
-          <Link to='/topics/$key' params={{ key: 'new' }}>
-            <Plus className='size-3.5' />
-            {t('topics.new')}
-          </Link>
-        </Button>
+        {!isEmpty ? (
+          <Button asChild className={kit.btnPrimary}>
+            <Link to='/topics/$key' params={{ key: 'new' }}>
+              <Plus className='size-3.5' />
+              {t('topics.new')}
+            </Link>
+          </Button>
+        ) : null}
       </div>
       <MasterDetailShell
         className='md:grid-cols-[280px_1fr]'
@@ -131,22 +135,13 @@ function TopicsLayout() {
                 <EmptyTitle className='text-sm font-medium'>
                   {t('topics.empty')}
                 </EmptyTitle>
-                <EmptyDescription>
-                  {t('topics.emptyDesc')}
-                </EmptyDescription>
+                <EmptyDescription>{t('topics.emptyDesc')}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
                 <Button asChild className={kit.btnPrimary}>
                   <Link to='/topics/$key' params={{ key: 'new' }}>
                     {t('topics.new')}
                   </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant='outline'
-                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
-                >
-                  <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
                 </Button>
               </EmptyContent>
             </Empty>

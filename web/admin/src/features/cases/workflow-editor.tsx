@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Info, Plus, Sparkles } from 'lucide-react'
+import { Info, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { createCase, patchCase } from '@/lib/api/cases'
@@ -26,11 +26,10 @@ import {
 } from './lib/workflow-parse'
 import { BasicsSection } from './sections/basics'
 import {
-  InputFieldCard,
-  OutputFieldCard,
-  InputFieldsTable,
-  OutputFieldsTable,
+  EditableInputFields,
+  EditableOutputFields,
 } from './sections/field-cards'
+import { useIsWide } from './sections/use-is-wide'
 import { WorkflowImportSection } from './sections/workflow-import'
 
 function errorMessage(err: unknown): string | undefined {
@@ -62,23 +61,6 @@ function toOutputDrafts(record: CaseRecord): OutputFieldDraft[] {
     index: byKey.get(field.key)?.index ?? 0,
     description: field.description,
   }))
-}
-
-/** 宽屏（≥768px，Tailwind md）用表格，窄屏退回卡片布局。 */
-function useIsWide(): boolean {
-  const [wide, setWide] = useState(() =>
-    typeof window === 'undefined'
-      ? false
-      : window.matchMedia('(min-width: 768px)').matches
-  )
-  useEffect(() => {
-    const m = window.matchMedia('(min-width: 768px)')
-    const onChange = () => setWide(m.matches)
-    onChange()
-    m.addEventListener('change', onChange)
-    return () => m.removeEventListener('change', onChange)
-  }, [])
-  return wide
 }
 
 /** 一键生成：图中全部字面量参数 → 输入草稿。 */
@@ -127,6 +109,25 @@ function generateOutputCandidates(nodes: WorkflowNode[]): OutputFieldDraft[] {
   return out
 }
 
+/** 定位需要行级红色标注的输入行：重复 key 的冲突行 / 未绑定节点与参数的字段。 */
+function inputFieldErrors(
+  inputs: InputFieldDraft[]
+): Record<number, boolean> {
+  const errors: Record<number, boolean> = {}
+  const seen = new Map<string, number>()
+  inputs.forEach((field, index) => {
+    const key = field.key.trim()
+    if (!key) return
+    if (seen.has(key)) {
+      errors[index] = true
+    } else {
+      seen.set(key, index)
+    }
+    if (!field.node_id || !field.field_path) errors[index] = true
+  })
+  return errors
+}
+
 type CreateProps = {
   mode: 'create'
   initial?: undefined
@@ -144,6 +145,10 @@ type CreateProps = {
   leftIntro?: React.ReactNode
   /** 创建成功回调。 */
   onSaved?: (next: CaseRecord) => void
+  /** 提交中状态变化回调。 */
+  onPendingChange?: (pending: boolean) => void
+  /** 是否有未保存修改。 */
+  onDirtyChange?: (dirty: boolean) => void
   /** collectOnly 时回调校验后的载荷。 */
   onCollect?: (payload: CaseRecord) => void
   /** 表单 id。 */
@@ -160,6 +165,8 @@ type EditProps = {
   showWorkflow?: boolean
   onSaved?: (next: CaseRecord) => void
   onCancel?: () => void
+  onPendingChange?: (pending: boolean) => void
+  onDirtyChange?: (dirty: boolean) => void
   collectOnly?: boolean
   splitPane?: boolean
   leftIntro?: React.ReactNode
@@ -217,6 +224,26 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     props.mode === 'edit' ? toOutputDrafts(props.initial) : []
   )
   const [editorError, setEditorError] = useState<string | undefined>()
+  const [nameError, setNameError] = useState<string | undefined>()
+  const [showFieldErrors, setShowFieldErrors] = useState(false)
+  const nameRef = useRef<HTMLInputElement | null>(null)
+
+  const pristineRef = useRef<{
+    draft: string
+    workflowText: string
+    workflowFilename: string
+    inputs: string
+    outputs: string
+  } | null>(null)
+  if (pristineRef.current === null) {
+    pristineRef.current = {
+      draft: JSON.stringify(draft),
+      workflowText,
+      workflowFilename,
+      inputs: JSON.stringify(inputDrafts),
+      outputs: JSON.stringify(outputDrafts),
+    }
+  }
 
   const createMutation = useMutation({
     mutationFn: createCase,
@@ -266,6 +293,29 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     createMutation.error ?? updateMutation.error ?? undefined
   const disabled = pending || readOnly
 
+  useEffect(() => {
+    props.onPendingChange?.(pending)
+  }, [pending, props.onPendingChange])
+
+  useEffect(() => {
+    const p = pristineRef.current
+    if (!p) return
+    const dirty =
+      JSON.stringify(draft) !== p.draft ||
+      workflowText !== p.workflowText ||
+      workflowFilename !== p.workflowFilename ||
+      JSON.stringify(inputDrafts) !== p.inputs ||
+      JSON.stringify(outputDrafts) !== p.outputs
+    props.onDirtyChange?.(dirty)
+  }, [
+    draft,
+    workflowText,
+    workflowFilename,
+    inputDrafts,
+    outputDrafts,
+    props.onDirtyChange,
+  ])
+
   function onWorkflowTextChange(next: string) {
     setWorkflowText(next)
     setImportError(undefined)
@@ -284,28 +334,30 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
 
   function generateInputs() {
     if (!graph) return
-    setInputDrafts((prev) => {
-      const existing = new Set(
-        prev.map((f) => `${f.node_id}\u0000${f.field_path}`)
-      )
-      const add = generateInputCandidates(graph.nodes).filter(
-        (c) => !existing.has(`${c.node_id}\u0000${c.field_path}`)
-      )
-      return add.length ? [...prev, ...add] : prev
-    })
+    const existing = new Set(
+      inputDrafts.map((f) => `${f.node_id}\u0000${f.field_path}`)
+    )
+    const add = generateInputCandidates(graph.nodes).filter(
+      (c) => !existing.has(`${c.node_id}\u0000${c.field_path}`)
+    )
+    if (add.length) {
+      setInputDrafts((prev) => [...prev, ...add])
+      toast.success(t('cases.autoGeneratedInputs', { count: add.length }))
+    }
   }
 
   function generateOutputs() {
     if (!graph) return
-    setOutputDrafts((prev) => {
-      const existing = new Set(
-        prev.map((f) => `${f.node_id}\u0000${f.index ?? 0}`)
-      )
-      const add = generateOutputCandidates(graph.nodes).filter(
-        (c) => !existing.has(`${c.node_id}\u0000${c.index ?? 0}`)
-      )
-      return add.length ? [...prev, ...add] : prev
-    })
+    const existing = new Set(
+      outputDrafts.map((f) => `${f.node_id}\u0000${f.index ?? 0}`)
+    )
+    const add = generateOutputCandidates(graph.nodes).filter(
+      (c) => !existing.has(`${c.node_id}\u0000${c.index ?? 0}`)
+    )
+    if (add.length) {
+      setOutputDrafts((prev) => [...prev, ...add])
+      toast.success(t('cases.autoGeneratedOutputs', { count: add.length }))
+    }
   }
 
   function buildPayload(): CaseRecord | null {
@@ -338,9 +390,11 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             ? t('cases.errInputNotBound')
             : t('cases.errNoOutput')
       )
+      setShowFieldErrors(true)
       return null
     }
     setEditorError(undefined)
+    setShowFieldErrors(false)
     const bindings = deriveBindings(inputDrafts, outputDrafts)
     const inputSchema = deriveInputSchema(inputDrafts)
     return {
@@ -373,6 +427,11 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (props.mode === 'create' && !draft.name.trim()) {
+      setNameError(t('cases.errNameRequired'))
+      nameRef.current?.focus()
+      return
+    }
     const payload = buildPayload()
     if (!payload) return
 
@@ -382,7 +441,6 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     }
 
     if (props.mode === 'create') {
-      if (!payload.name) return
       createMutation.mutate(payload)
       return
     }
@@ -399,9 +457,14 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         categories: draft.categories,
         enabled: draft.enabled,
       }}
-      onChange={(basics) => setDraft((prev) => ({ ...prev, ...basics }))}
+      onChange={(basics) => {
+        if (basics.name !== undefined) setNameError(undefined)
+        setDraft((prev) => ({ ...prev, ...basics }))
+      }}
       showEnabled={props.mode === 'create'}
       disabled={disabled}
+      nameError={nameError}
+      nameRef={nameRef}
     />
   ) : null
 
@@ -436,7 +499,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             variant='ghost'
             disabled={disabled}
             onClick={generateInputs}
-            className='shrink-0 h-7 gap-1 text-xs'
+            className='shrink-0 h-8 gap-1 text-xs'
           >
             <Sparkles className='size-3.5' />
             {t('cases.autoGenerateInputs')}
@@ -444,53 +507,18 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         ) : null}
       </div>
       {graph ? (
-        isWide ? (
-          <InputFieldsTable
-            nodes={graph.nodes}
-            fields={inputDrafts}
-            onChange={(index, next) =>
-              setInputDrafts((prev) =>
-                prev.map((row, i) => (i === index ? next : row))
-              )
-            }
-            onRemove={(index) =>
-              setInputDrafts((prev) => prev.filter((_, i) => i !== index))
-            }
-            disabled={disabled}
-          />
-        ) : (
-          <ul className='space-y-3'>
-            {inputDrafts.map((field, index) => (
-              <InputFieldCard
-                key={`input-${index}`}
-                nodes={graph.nodes}
-                value={field}
-                onChange={(next) =>
-                  setInputDrafts((prev) =>
-                    prev.map((row, i) => (i === index ? next : row))
-                  )
-                }
-                onRemove={() =>
-                  setInputDrafts((prev) => prev.filter((_, i) => i !== index))
-                }
-                disabled={disabled}
-              />
-            ))}
-          </ul>
-        )
-      ) : (
-        <Alert variant='info'>
-          <Info aria-hidden='true' />
-          <AlertTitle>{t('cases.emptyWorkflowLock')}</AlertTitle>
-        </Alert>
-      )}
-      {graph ? (
-        <Button
-          type='button'
-          size='sm'
-          variant='outline'
-          disabled={disabled}
-          onClick={() =>
+        <EditableInputFields
+          nodes={graph.nodes}
+          fields={inputDrafts}
+          onChange={(index, next) =>
+            setInputDrafts((prev) =>
+              prev.map((row, i) => (i === index ? next : row))
+            )
+          }
+          onRemove={(index) =>
+            setInputDrafts((prev) => prev.filter((_, i) => i !== index))
+          }
+          onAdd={() =>
             setInputDrafts((prev) => [
               ...prev,
               {
@@ -502,11 +530,16 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
               },
             ])
           }
-        >
-          <Plus className='size-3.5' />
-          {t('cases.addInput')}
-        </Button>
-      ) : null}
+          wide={isWide}
+          disabled={disabled}
+          fieldErrors={showFieldErrors ? inputFieldErrors(inputDrafts) : undefined}
+        />
+      ) : (
+        <Alert variant='info'>
+          <Info aria-hidden='true' />
+          <AlertTitle>{t('cases.emptyWorkflowLock')}</AlertTitle>
+        </Alert>
+      )}
     </section>
   ) : null
 
@@ -529,7 +562,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             variant='ghost'
             disabled={disabled}
             onClick={generateOutputs}
-            className='shrink-0 h-7 gap-1 text-xs'
+            className='shrink-0 h-8 gap-1 text-xs'
           >
             <Sparkles className='size-3.5' />
             {t('cases.autoGenerateOutputs')}
@@ -537,63 +570,32 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         ) : null}
       </div>
       {graph ? (
-        isWide ? (
-          <OutputFieldsTable
-            nodes={graph.nodes}
-            fields={outputDrafts}
-            onChange={(index, next) =>
-              setOutputDrafts((prev) =>
-                prev.map((row, i) => (i === index ? next : row))
-              )
-            }
-            onRemove={(index) =>
-              setOutputDrafts((prev) => prev.filter((_, i) => i !== index))
-            }
-            disabled={disabled}
-          />
-        ) : (
-          <ul className='space-y-3'>
-            {outputDrafts.map((field, index) => (
-              <OutputFieldCard
-                key={`output-${index}`}
-                nodes={graph.nodes}
-                value={field}
-                onChange={(next) =>
-                  setOutputDrafts((prev) =>
-                    prev.map((row, i) => (i === index ? next : row))
-                  )
-                }
-                onRemove={() =>
-                  setOutputDrafts((prev) => prev.filter((_, i) => i !== index))
-                }
-                disabled={disabled}
-              />
-            ))}
-          </ul>
-        )
+        <EditableOutputFields
+          nodes={graph.nodes}
+          fields={outputDrafts}
+          onChange={(index, next) =>
+            setOutputDrafts((prev) =>
+              prev.map((row, i) => (i === index ? next : row))
+            )
+          }
+          onRemove={(index) =>
+            setOutputDrafts((prev) => prev.filter((_, i) => i !== index))
+          }
+          onAdd={() =>
+            setOutputDrafts((prev) => [
+              ...prev,
+              { key: t('common.untitled'), type: 'image', node_id: '', index: 0 },
+            ])
+          }
+          wide={isWide}
+          disabled={disabled}
+        />
       ) : (
         <Alert variant='info'>
           <Info aria-hidden='true' />
           <AlertTitle>{t('cases.emptyWorkflowLock')}</AlertTitle>
         </Alert>
       )}
-      {graph ? (
-        <Button
-          type='button'
-          size='sm'
-          variant='outline'
-          disabled={disabled}
-          onClick={() =>
-            setOutputDrafts((prev) => [
-              ...prev,
-              { key: t('common.untitled'), type: 'image', node_id: '', index: 0 },
-            ])
-          }
-        >
-          <Plus className='size-3.5' />
-          {t('cases.addOutput')}
-        </Button>
-      ) : null}
     </section>
   ) : null
 
@@ -620,7 +622,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
       data-testid='case-form'
     >
       {props.splitPane ? (
-        <div className='flex items-start gap-6'>
+        <div className='flex flex-col gap-6 lg:flex-row lg:items-start'>
           <div className='min-w-0 flex-1 space-y-6'>
             {props.leftIntro}
             {importSection}
@@ -628,7 +630,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             {outputsSection}
             {errorBlock}
           </div>
-          <div className='sticky top-0 w-80 shrink-0 lg:w-[25rem] 2xl:w-[30rem]'>
+          <div className='w-full shrink-0 lg:w-80 xl:w-[25rem]'>
             <div className='rounded-xl border border-border bg-card p-5'>
               {basicsSection}
             </div>

@@ -1,17 +1,22 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   createFileRoute,
-  Link,
   useNavigate,
   useParams,
   useRouterState,
 } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 import { Plus, Radio } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { listChannels } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Empty,
   EmptyContent,
@@ -48,8 +53,11 @@ function ChannelsLayout() {
   })
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
   const backToList = locationState?.backToList === true
-  const selectedId = id ?? (backToList ? undefined : items[0]?.id)
-  const create = id === 'new'
+  const selectedId =
+    id && id !== 'new' ? id : backToList ? undefined : items[0]?.id
+  const [createOpen, setCreateOpen] = useState(false)
+  const isEmpty =
+    !listQuery.isLoading && !listQuery.isError && items.length === 0
 
   useEffect(() => {
     if (id == null && !backToList && items.length > 0) {
@@ -76,16 +84,19 @@ function ChannelsLayout() {
             {t('channels.description')}
           </p>
         </div>
-        <Button asChild className={kit.btnPrimary}>
-          <Link to='/channels/$id' params={{ id: 'new' }}>
+        {!isEmpty ? (
+          <Button
+            className={kit.btnPrimary}
+            onClick={() => setCreateOpen(true)}
+          >
             <Plus className='size-3.5' />
             {t('channels.new')}
-          </Link>
-        </Button>
+          </Button>
+        ) : null}
       </div>
       <MasterDetailShell
         className='md:grid-cols-[280px_1fr]'
-        hasSelection={Boolean(selectedId) || id === 'new'}
+        hasSelection={Boolean(selectedId)}
         onBackToList={() => {
           void navigate({
             to: '/channels',
@@ -103,24 +114,7 @@ function ChannelsLayout() {
             onRetry={() => void listQuery.refetch()}
           />
         }
-        detail={
-          create ? (
-            <div className={kit.createPage}>
-              <h2 className={kit.title}>{t('channels.new')}</h2>
-              <CreateChannelForm
-                onDone={(ch) => {
-                  void navigate({
-                    to: '/channels/$id',
-                    params: { id: ch.id },
-                  })
-                }}
-                onCancel={() => void navigate({ to: '/channels' })}
-              />
-            </div>
-          ) : selectedId ? (
-            <ChannelDetailPanel id={selectedId} />
-          ) : null
-        }
+        detail={selectedId ? <ChannelDetailPanel id={selectedId} /> : null}
         emptyDetail={
           !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
             <Empty>
@@ -131,28 +125,37 @@ function ChannelsLayout() {
                 <EmptyTitle className='text-sm font-medium'>
                   {t('channels.empty')}
                 </EmptyTitle>
-                <EmptyDescription>
-                  {t('channels.emptyDesc')}
-                </EmptyDescription>
+                <EmptyDescription>{t('channels.emptyDesc')}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
-                <Button asChild className={kit.btnPrimary}>
-                  <Link to='/channels/$id' params={{ id: 'new' }}>
-                  {t('channels.new')}
-                  </Link>
-                </Button>
                 <Button
-                  asChild
-                  variant='outline'
-                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
+                  className={kit.btnPrimary}
+                  onClick={() => setCreateOpen(true)}
                 >
-                  <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
+                  {t('channels.new')}
                 </Button>
               </EmptyContent>
             </Empty>
           ) : undefined
         }
       />
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('channels.new')}</DialogTitle>
+          </DialogHeader>
+          <CreateChannelForm
+            onDone={(ch) => {
+              setCreateOpen(false)
+              void navigate({
+                to: '/channels/$id',
+                params: { id: ch.id },
+              })
+            }}
+            onCancel={() => setCreateOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

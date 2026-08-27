@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixoma 设计系统 · 审查预览</title>
+  <link rel="icon" href="../assets/favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../colors_and_type.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--background); color: var(--foreground); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 72px; }
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 16px; }
+    h1 { font-size: clamp(36px, 4.5vw, 48px); line-height: 1.3; font-weight: 700; margin: 0 0 16px; letter-spacing: -0.02em; }
+    .lead { font-size: 17px; line-height: 1.75; color: var(--muted-foreground); max-width: 58ch; margin: 0 0 40px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .card { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); text-decoration: none; color: var(--foreground); }
+    .card:hover { border-color: var(--foreground); }
+    .card .preview { min-height: 132px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--secondary); border: 1px solid var(--border); padding: 18px; }
+    .card h2 { font-size: 20px; font-weight: 600; margin: 0; }
+    .card p { margin: 0; font-size: 13.5px; color: var(--muted-foreground); }
+    .card .go { font-size: 13px; font-weight: 600; color: var(--accent-text); }
+    .chip { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground); }
+    .swatch-row { display: flex; gap: 8px; }
+    .swatch-dot { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); }
+    .type-sample { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+    .spacing-sample { display: flex; gap: 8px; align-items: flex-end; height: 96px; }
+    .spacing-bar { width: 18px; background: var(--foreground); border-radius: 3px; }
+    .shadow-sample { width: 104px; height: 64px; border-radius: var(--radius-lg); background: var(--card); border: 1px solid var(--border); }
+    .shadow-sample.float { box-shadow: var(--shadow-float-md); }
+    .component-sample { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border-radius: var(--radius-md); border: 1px solid transparent; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none; }
+    .btn-primary { background: var(--primary); color: var(--primary-foreground); }
+    .btn-secondary { background: transparent; color: var(--foreground); border-color: var(--border); }
+    .brand-img { max-width: 100%; max-height: 96px; object-fit: contain; }
+    .logo-row { display: flex; gap: 18px; align-items: center; }
+    @media (max-width: 920px) { .grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <p class="eyebrow">Review Previews · 2026-08</p>
+    <h1>Pixoma 设计系统 · 审查预览</h1>
+    <p class="lead">七个聚焦卡片，逐项审查颜色、排版、间距、圆角与阴影、组件、品牌资产与应用界面。卡片引用 <code class="num">colors_and_type.css</code> 与 <code class="num">assets/</code> 的真实文件。</p>
+
+    <div class="grid">
+      <a class="card" href="colors-tokens.html" data-od-id="card-colors">
+        <div class="preview">
+          <div class="swatch-row">
+            <div class="swatch-dot" style="background: var(--background);"></div>
+            <div class="swatch-dot" style="background: var(--card);"></div>
+            <div class="swatch-dot" style="background: var(--foreground);"></div>
+            <div class="swatch-dot" style="background: var(--muted-foreground);"></div>
+            <div class="swatch-dot" style="background: var(--border);"></div>
+            <div class="swatch-dot" style="background: var(--accent-brand);"></div>
+          </div>
+        </div>
+        <h2>颜色</h2>
+        <p>语义令牌亮暗对照、accent 使用预算与图表色。只取 theme.css 语义色，禁止裸 hex。</p>
+        <span class="go">打开卡片 →</span>
+      </a>
+
+      <a class="card" href="typography-specimens.html" data-od-id="card-typography">
+        <div class="preview">
+          <span class="type-sample">后台 123 Abc</span>
+        </div>
+        <h2>排版</h2>
+        <p>Inter 同族分层、等宽数字与 Mono 栈；字号阶梯 H1 → Meta。</p>
+        <span class="go">打开卡片 →</span>
+      </a>
+
+      <a class="card" href="spacing-tokens.html" data-od-id="card-spacing">
+        <div class="preview">
+          <div class="spacing-sample">
+            <div class="spacing-bar" style="height: 8px;"></div>
+            <div class="spacing-bar" style="height: 16px;"></div>
+            <div class="spacing-bar" style="height: 32px;"></div>
+            <div class="spacing-bar" style="height: 56px;"></div>
+            <div class="spacing-bar" style="height: 88px;"></div>
+          </div>
+        </div>
+        <h2>间距</h2>
+        <p>4px 基准刻度 4→64、区块节奏、侧栏与控件尺寸、44px 命中区。</p>
+        <span class="go">打开卡片 →</span>
+      </a>
+
+      <a class="card" href="radius-shadows.html" data-od-id="card-radius-shadows">
+        <div class="preview">
+          <div style="display: flex; gap: 16px; align-items: flex-end;">
+            <div class="shadow-sample"></div>
+            <div class="shadow-sample float"></div>
+          </div>
+        </div>
+        <h2>圆角与阴影</h2>
+        <p>圆角刻度 sm→xl；表面无投影 vs 浮层保留 shadow 的对照。</p>
+        <span class="go">打开卡片 →</span>
+      </a>
+
+      <a class="card" href="components-library.html" data-od-id="card-components">
+        <div class="preview">
+          <div class="component-sample">
+            <button class="btn btn-primary" type="button">保存</button>
+            <button class="btn btn-secondary" type="button">下一步</button>
+          </div>
+        </div>
+        <h2>组件</h2>
+        <p>按钮、徽章、表单、FilterSegment、数据表与空态 / 错误态 / 骨架。</p>
+        <span class="go">打开卡片 →</span>
+      </a>
+
+      <a class="card" href="brand-assets.html" data-od-id="card-brand-assets">
+        <div class="preview">
+          <div class="logo-row">
+            <img class="brand-img" src="../assets/logo-admin.png" alt="Pixoma 后台 logo">
+            <img class="brand-img" src="../assets/favicon.png" alt="Pixoma favicon">
+          </div>
+        </div>
+        <h2>品牌资产</h2>
+        <p>真实源文件：logo、后台 logo、favicon 与运行时图标清单。</p>
+        <span class="go">打开卡片 →</span>
+      </a>
+
+      <a class="card" href="ui-surfaces.html" data-od-id="card-ui-surfaces">
+        <div class="preview" style="align-items: stretch;">
+          <div style="width: 100%; display: grid; grid-template-columns: 72px 1fr; gap: 0; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; min-height: 116px; background: var(--card);">
+            <div style="background: var(--secondary); border-right: 1px solid var(--border);"></div>
+            <div style="padding: 12px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="height: 8px; width: 58%; background: var(--border); border-radius: 3px;"></div>
+              <div style="height: 8px; width: 82%; background: var(--border); border-radius: 3px;"></div>
+              <div style="height: 8px; width: 46%; background: var(--border); border-radius: 3px;"></div>
+            </div>
+          </div>
+        </div>
+        <h2>应用界面</h2>
+        <p>应用壳、Master–Detail 列表 + 紧凑筛选、Dashboard 分区与向导实样。</p>
+        <span class="go">打开卡片 →</span>
+      </a>
+    </div>
+  </main>
+</body>
+</html>

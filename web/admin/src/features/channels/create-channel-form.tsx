@@ -53,11 +53,9 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
           autoComplete='off'
         />
       </div>
-      <div className='sticky bottom-0 z-10 -mx-6 -mb-7 mt-auto flex flex-wrap gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
+      <div className='sticky bottom-0 z-10 mt-auto flex flex-wrap gap-2 border-t bg-card px-6 py-3'>
         <Button
-          disabled={
-            !name.trim() || !token.trim() || createMutation.isPending
-          }
+          disabled={!name.trim() || !token.trim() || createMutation.isPending}
           onClick={() => createMutation.mutate()}
         >
           {t('channels.create')}

@@ -7,10 +7,20 @@ import {
   useParams,
   useRouterState,
 } from '@tanstack/react-router'
+import { ArrowLeft, Boxes, Loader2, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Boxes, Plus } from 'lucide-react'
 import { listCases } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Empty,
@@ -48,6 +58,11 @@ function CasesLayout() {
   const [filters, setFilters] = useState<CaseListFilters>({
     q: '',
   })
+  const [createPending, setCreatePending] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [leaveTarget, setLeaveTarget] = useState<'back' | 'cancel' | null>(
+    null
+  )
   const listParams = {
     q: filters.q.trim() || undefined,
   }
@@ -65,6 +80,16 @@ function CasesLayout() {
     const n = Number(caseId)
     return Number.isNaN(n) ? undefined : n
   }, [caseId, backToList, items])
+  const isEmpty =
+    !listQuery.isLoading && !listQuery.isError && items.length === 0
+
+  function requestLeave(target: 'back' | 'cancel') {
+    if (dirty) {
+      setLeaveTarget(target)
+      return
+    }
+    void navigate({ to: '/cases' })
+  }
 
   useEffect(() => {
     if (caseId == null && !backToList && items.length > 0) {
@@ -84,19 +109,36 @@ function CasesLayout() {
     >
       <div className='flex shrink-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
         <div className='flex min-w-0 flex-col gap-[6px]'>
-          <h1 className='truncate text-2xl leading-tight font-semibold tracking-tight'>
-            {t('cases.title')}
-          </h1>
-          <p className='text-sm text-muted-foreground'>
-            {t('cases.description')}
-          </p>
+          <div className='flex min-w-0 items-center gap-2'>
+            {caseId === 'new' ? (
+              <button
+                type='button'
+                onClick={() => requestLeave('back')}
+                title={t('common.backToList')}
+                aria-label={t('common.backToList')}
+                className='-ml-1.5 inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground'
+              >
+                <ArrowLeft className='size-4' />
+              </button>
+            ) : null}
+            <h1 className='truncate text-2xl leading-tight font-semibold tracking-tight'>
+              {caseId === 'new' ? t('cases.createHeading') : t('cases.title')}
+            </h1>
+          </div>
+          {caseId === 'new' ? null : (
+            <p className='text-sm text-muted-foreground'>
+              {t('cases.description')}
+            </p>
+          )}
         </div>
-        <Button asChild className={kit.btnPrimary}>
-          <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
-            <Plus className='size-3.5' />
-            {t('cases.createHeading')}
-          </Link>
-        </Button>
+        {caseId !== 'new' && !isEmpty ? (
+          <Button asChild className={kit.btnPrimary}>
+            <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
+              <Plus className='size-3.5' />
+              {t('cases.createHeading')}
+            </Link>
+          </Button>
+        ) : null}
       </div>
       {caseId === 'new' ? (
         <div
@@ -104,23 +146,13 @@ function CasesLayout() {
           data-testid='cases-create-page'
           className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border'
         >
-          <div className='flex shrink-0 items-center gap-2 border-b px-5 py-4'>
-            <button
-              type='button'
-              onClick={() => void navigate({ to: '/cases' })}
-              title={t('common.backToList')}
-              aria-label={t('common.backToList')}
-              className='-ml-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground'
-            >
-              <ArrowLeft className='size-4' />
-            </button>
-            <h2 className='text-lg font-semibold'>{t('cases.createHeading')}</h2>
-          </div>
           <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
             <CaseForm
               mode='create'
               splitPane
               hideActions
+              onPendingChange={setCreatePending}
+              onDirtyChange={setDirty}
               formId='create-case-form'
             />
           </div>
@@ -128,21 +160,57 @@ function CasesLayout() {
             <Button
               type='button'
               variant='outline'
-              onClick={() => void navigate({ to: '/cases' })}
+              disabled={createPending}
+              onClick={() => requestLeave('cancel')}
             >
               {t('common.cancel')}
             </Button>
-            <Button type='submit' form='create-case-form'>
+            <Button type='submit' form='create-case-form' disabled={createPending}>
+              {createPending ? <Loader2 className='size-4 animate-spin' /> : null}
               {t('common.create')}
             </Button>
           </footer>
+          <AlertDialog
+            open={leaveTarget !== null}
+            onOpenChange={(open) => {
+              if (!open) setLeaveTarget(null)
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t('cases.unsavedTitle')}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t('cases.unsavedBody')}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  type='button'
+                  onClick={() => setLeaveTarget(null)}
+                >
+                  {t('cases.unsavedKeepEditing')}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  type='button'
+                  onClick={() => void navigate({ to: '/cases' })}
+                >
+                  {t('cases.unsavedDiscard')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       ) : (
         <MasterDetailShell
           className='md:grid-cols-[280px_minmax(0,1fr)]'
           hasSelection={Boolean(selectedId)}
           onBackToList={() => {
-            void navigate({ to: '/cases', state: { backToList: true } } as never)
+            void navigate({
+              to: '/cases',
+              state: { backToList: true },
+            } as never)
           }}
           detailClassName='flex min-h-0 flex-col overflow-auto p-0'
           list={
@@ -157,11 +225,7 @@ function CasesLayout() {
               onRetry={() => void listQuery.refetch()}
             />
           }
-          detail={
-            selectedId ? (
-              <CaseDetailPanel id={selectedId} />
-            ) : null
-          }
+          detail={selectedId ? <CaseDetailPanel id={selectedId} /> : null}
           emptyDetail={
             !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
               <Empty>
@@ -172,14 +236,12 @@ function CasesLayout() {
                   <EmptyTitle className='text-sm font-medium'>
                     {t('cases.empty')}
                   </EmptyTitle>
-                  <EmptyDescription>
-                    {t('cases.emptyDesc')}
-                  </EmptyDescription>
+                  <EmptyDescription>{t('cases.emptyDesc')}</EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent className='flex-row justify-center gap-2'>
                   <Button asChild className={kit.btnPrimary}>
                     <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
-                      {t('common.create')}
+                      {t('cases.createHeading')}
                     </Link>
                   </Button>
                   <Button

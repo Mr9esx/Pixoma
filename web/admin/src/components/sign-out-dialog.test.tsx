@@ -8,25 +8,48 @@ describe('SignOutDialog', () => {
     vi.clearAllMocks()
   })
 
-  it('closes without navigating to sign-in', async () => {
+  it('calls onSignOut then closes on confirm', async () => {
+    const onOpenChange = vi.fn()
+    const onSignOut = vi.fn()
+    const { getByRole } = await render(
+      <SignOutDialog
+        open
+        onOpenChange={onOpenChange}
+        onSignOut={onSignOut}
+      />
+    )
+
+    await userEvent.click(getByRole('button', { name: /^退出登录$/ }))
+
+    expect(onSignOut).toHaveBeenCalledOnce()
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('closes on confirm when no onSignOut handler is provided', async () => {
     const onOpenChange = vi.fn()
     const { getByRole } = await render(
       <SignOutDialog open onOpenChange={onOpenChange} />
     )
 
-    await userEvent.click(getByRole('button', { name: /^Close$/i }))
+    await userEvent.click(getByRole('button', { name: /^退出登录$/ }))
 
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('does not call onOpenChange(false) when Cancel is clicked', async () => {
+  it('does not close when Cancel is clicked', async () => {
     const onOpenChange = vi.fn()
+    const onSignOut = vi.fn()
     const { getByRole } = await render(
-      <SignOutDialog open onOpenChange={onOpenChange} />
+      <SignOutDialog
+        open
+        onOpenChange={onOpenChange}
+        onSignOut={onSignOut}
+      />
     )
 
-    await userEvent.click(getByRole('button', { name: /^Cancel$/i }))
+    await userEvent.click(getByRole('button', { name: /^取消$/ }))
 
+    expect(onSignOut).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
 })

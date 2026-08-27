@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>卡片 · 颜色 — Pixoma 设计系统</title>
+  <link rel="icon" href="../assets/favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../colors_and_type.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--background); color: var(--foreground); }
+    .chrome { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 28px; background: color-mix(in oklch, var(--background) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+    .chrome a { font-size: 13px; color: var(--muted-foreground); text-decoration: none; }
+    .chrome a:hover { color: var(--foreground); }
+    .chrome-title { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); }
+    .toggle { height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: transparent; color: var(--foreground); font-size: 13px; cursor: pointer; }
+    .toggle:hover { border-color: var(--foreground); background: color-mix(in oklch, var(--foreground) 6%, transparent); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 48px 28px 80px; }
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 14px; }
+    h1 { font-size: clamp(36px, 4.5vw, 48px); line-height: 1.3; font-weight: 700; margin: 0 0 14px; letter-spacing: -0.02em; }
+    .lead { font-size: 17px; line-height: 1.75; color: var(--muted-foreground); max-width: 62ch; margin: 0 0 44px; }
+    .section-title { font-size: 20px; font-weight: 600; margin: 0 0 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .swatch { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .swatch-chip { height: 52px; border-radius: var(--radius-md); border: 1px solid var(--border); }
+    .swatch-name { font-size: 13px; font-weight: 600; }
+    .swatch-val { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground); line-height: 1.5; word-break: break-all; }
+    .rule { margin-top: 40px; padding: 20px 24px; background: var(--secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .rule p { margin: 0; font-size: 14px; color: var(--muted-foreground); }
+    .rule code { font-family: var(--font-mono); font-size: 12px; }
+    @media (max-width: 920px) { .grid-3 { grid-template-columns: 1fr 1fr; } .grid-5 { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 640px) { .grid-3, .grid-5 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="chrome">
+    <a href="index.html">← 全部卡片</a>
+    <span class="chrome-title">PREVIEW · COLORS</span>
+    <button class="toggle" id="theme-toggle" type="button" aria-pressed="false">深色</button>
+  </header>
+
+  <main class="wrap">
+    <p class="eyebrow">Tokens · Neutral + Terracotta</p>
+    <h1>颜色</h1>
+    <p class="lead">唯一取色入口是 <code class="num">colors_and_type.css</code> 的语义令牌。纯灰 neutral 基色，亮暗同源；陶土橙只作点缀，每屏至多两次。</p>
+
+    <h2 class="section-title" data-od-id="colors-semantic">语义令牌</h2>
+    <div class="grid-3">
+      <div class="swatch" data-od-id="swatch-bg">
+        <div class="swatch-chip" style="background: var(--background);"></div>
+        <span class="swatch-name">background</span>
+        <span class="swatch-val num">亮 oklch(1 0 0)<br>暗 oklch(0.145 0 0)</span>
+      </div>
+      <div class="swatch" data-od-id="swatch-surface">
+        <div class="swatch-chip" style="background: var(--card);"></div>
+        <span class="swatch-name">card / popover</span>
+        <span class="swatch-val num">亮 oklch(1 0 0)<br>暗 oklch(0.205 0 0)</span>
+      </div>
+      <div class="swatch" data-od-id="swatch-fg">
+        <div class="swatch-chip" style="background: var(--foreground);"></div>
+        <span class="swatch-name">foreground</span>
+        <span class="swatch-val num">亮 oklch(0.145 0 0)<br>暗 oklch(0.985 0 0)</span>
+      </div>
+      <div class="swatch" data-od-id="swatch-muted">
+        <div class="swatch-chip" style="background: var(--muted-foreground);"></div>
+        <span class="swatch-name">muted-foreground</span>
+        <span class="swatch-val num">亮 oklch(0.556 0 0)<br>暗 oklch(0.708 0 0)</span>
+      </div>
+      <div class="swatch" data-od-id="swatch-border">
+        <div class="swatch-chip" style="background: var(--border);"></div>
+        <span class="swatch-name">border / input</span>
+        <span class="swatch-val num">亮 oklch(0.922 0 0)<br>暗 oklch(1 0 0 / 10%)</span>
+      </div>
+      <div class="swatch" data-od-id="swatch-primary">
+        <div class="swatch-chip" style="background: var(--primary);"></div>
+        <span class="swatch-name">primary（主按钮）</span>
+        <span class="swatch-val num">亮 oklch(0.205 0 0)<br>暗 oklch(0.922 0 0)</span>
+      </div>
+      <div class="swatch" data-od-id="swatch-accent">
+        <div class="swatch-chip" style="background: var(--accent-brand);"></div>
+        <span class="swatch-name">accent-brand · 陶土橙</span>
+        <span class="swatch-val num">oklch(0.646 0.222 41.116)<br>亮暗一致 · 每屏 ≤ 2 次</span>
+      </div>
+      <div class="swatch" data-od-id="swatch-destructive">
+        <div class="swatch-chip" style="background: var(--destructive);"></div>
+        <span class="swatch-name">destructive</span>
+        <span class="swatch-val num">亮 oklch(0.577 0.245 27.325)<br>暗 oklch(0.704 0.191 22.216)</span>
+      </div>
+      <div class="swatch" data-od-id="swatch-ring">
+        <div class="swatch-chip" style="background: var(--ring);"></div>
+        <span class="swatch-name">ring · 聚焦环</span>
+        <span class="swatch-val num">亮 oklch(0.708 0 0)<br>暗 oklch(0.556 0 0)</span>
+      </div>
+    </div>
+
+    <h2 class="section-title" style="margin-top: 48px;" data-od-id="colors-chart">图表语义色（仅用于图表）</h2>
+    <div class="grid-5">
+      <div class="swatch"><div class="swatch-chip" style="height: 34px; background: var(--chart-1);"></div><span class="swatch-val num">chart-1</span></div>
+      <div class="swatch"><div class="swatch-chip" style="height: 34px; background: var(--chart-2);"></div><span class="swatch-val num">chart-2</span></div>
+      <div class="swatch"><div class="swatch-chip" style="height: 34px; background: var(--chart-3);"></div><span class="swatch-val num">chart-3</span></div>
+      <div class="swatch"><div class="swatch-chip" style="height: 34px; background: var(--chart-4);"></div><span class="swatch-val num">chart-4</span></div>
+      <div class="swatch"><div class="swatch-chip" style="height: 34px; background: var(--chart-5);"></div><span class="swatch-val num">chart-5</span></div>
+    </div>
+
+    <div class="rule" data-od-id="colors-rule">
+      <p>取色规则：只用语义令牌与 <code class="num">color-mix(in oklch, …)</code> 派生色，不新增裸 hex；亮暗成对出现。accent 作小号文字与点缀时改用深档 <code class="num">--accent-text</code>，保证 4.5:1。暗色背景固定 <code class="num">oklch(0.145 0 0)</code>，禁止 slate 冷蓝。</p>
+    </div>
+  </main>
+
+  <script>
+    ;(function () {
+      var root = document.documentElement
+      var btn = document.getElementById('theme-toggle')
+      function apply(dark) {
+        root.classList.toggle('dark', dark)
+        if (btn) { btn.textContent = dark ? '浅色' : '深色'; btn.setAttribute('aria-pressed', dark ? 'true' : 'false') }
+      }
+      try { if (window.localStorage.getItem('pixoma-ds-theme') === 'dark') apply(true) } catch (e) {}
+      if (btn) btn.addEventListener('click', function () {
+        var dark = !root.classList.contains('dark')
+        apply(dark)
+        try { window.localStorage.setItem('pixoma-ds-theme', dark ? 'dark' : 'light') } catch (e) {}
+      })
+    })()
+  </script>
+</body>
+</html>

@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { DeployCredentials } from './deploy-credentials'
 import { EdgeForm } from './edge-form'
-import { kit } from './kit-classes'
 import { PresenceTags } from './presence-tags'
 
 type Step = 'form' | 'deploy' | 'done'
@@ -41,18 +40,8 @@ export function CreateEdgeWizard({ onDone }: Props) {
     { label: t('edges.stepDeploy') },
     { label: t('edges.stepDone') },
   ]
-  const title =
-    step === 'form'
-      ? t('edges.createNode')
-      : step === 'deploy'
-        ? t('edges.deployHeading')
-        : t('edges.createDoneHeading')
-
   return (
     <>
-      <div className='shrink-0'>
-        <h2 className={kit.title}>{title}</h2>
-      </div>
       <ol
         className='flex shrink-0 items-center justify-center gap-2 py-6'
         data-testid='create-edge-steps'
@@ -98,7 +87,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
       {step === 'form' ? (
         <EdgeForm
           mode='create'
-          layout='page'
+          layout='dialog'
           onSaved={(created) => {
             setEdge(created)
             setStep('deploy')
@@ -119,7 +108,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
           <p className='text-xs text-muted-foreground'>
             {t('edges.deployWaitHint')}
           </p>
-          <div className='sticky bottom-0 z-10 -mx-6 -mb-7 flex shrink-0 items-center justify-end gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
+          <div className='sticky bottom-0 z-10 mt-auto flex shrink-0 items-center justify-end gap-2 border-t bg-card px-6 py-3'>
             <Button
               type='button'
               variant='ghost'
@@ -150,7 +139,7 @@ export function CreateEdgeWizard({ onDone }: Props) {
               </p>
             </div>
           </div>
-          <div className='sticky bottom-0 z-10 -mx-6 -mb-7 flex shrink-0 items-center justify-end gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
+          <div className='sticky bottom-0 z-10 mt-auto flex shrink-0 items-center justify-end gap-2 border-t bg-card px-6 py-3'>
             <Button
               type='button'
               variant='outline'

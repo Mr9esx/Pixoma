@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "preview/colors-tokens.html",
+  "entry": "preview/colors-tokens.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-08-26T15:34:29.902Z",
+  "updatedAt": "2026-08-26T15:34:29.902Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}
