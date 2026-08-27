@@ -58,8 +58,32 @@ func TestMigrateBootstrapAdmin_SeedsAdmin(t *testing.T) {
 	if err := bootstrap.MigrateBootstrapAdmin(ctx, gdb, st); err != nil {
 		t.Fatalf("second migrate: %v", err)
 	}
+
 	n, err := repo.CountAdmins(ctx)
 	if err != nil || n != 1 {
 		t.Fatalf("expected exactly 1 admin after idempotent migrate, got %d err=%v", n, err)
 	}
 }
+func TestMigrateBootstrapAdmin_CarriesAdminProfile(t *testing.T) {
+	st, creds, err := bootstrap.Open(filepath.Join(t.TempDir(), "bootstrap.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.SetAdminProfile("小P", "admin@example.com", "http://x/avatar.png"); err != nil {
+		t.Fatalf("set profile: %v", err)
+	}
+	gdb := openConsoleGDB(t)
+	repo := consolepersist.NewConsoleUserRepository(gdb)
+	if err := bootstrap.MigrateBootstrapAdmin(context.Background(), gdb, st); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	admin, err := repo.GetByUsername(context.Background(), creds.Username)
+	if err != nil {
+		t.Fatalf("get migrated admin: %v", err)
+	}
+	if admin.Nickname != "小P" || admin.Email != "admin@example.com" || admin.AvatarURL != "http://x/avatar.png" {
+		t.Fatalf("profile not carried: %+v", admin)
+	}
+}
+

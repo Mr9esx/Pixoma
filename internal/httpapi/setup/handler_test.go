@@ -806,3 +806,65 @@ func TestRegister_EnabledCreatesViewerAndSignsIn(t *testing.T) {
 		t.Fatalf("duplicate register: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestProfile_SavesAdminProfileUninitialized(t *testing.T) {
+	dir := t.TempDir()
+	boot, creds, err := bootstrap.Open(filepath.Join(dir, "bootstrap.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer boot.Close()
+	sess := setup.NewSessions("")
+	h := &setup.Handler{Boot: boot, Sessions: sess, DataDir: dir, PublicURL: "http://127.0.0.1:8082"}
+	r := chi.NewRouter()
+	r.Use((&setup.Gate{Boot: boot, Sessions: sess}).Middleware)
+	r.Route("/api/v1/setup", h.Mount)
+
+	loginBody, _ := json.Marshal(map[string]string{"username": creds.Username, "password": creds.Password})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/login", bytes.NewReader(loginBody)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login: %d %s", rec.Code, rec.Body.String())
+	}
+	var loginResp struct {
+		Token string `json:"token"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &loginResp)
+
+	// Invalid email rejected.
+	bad, _ := json.Marshal(map[string]string{"nickname": "小P", "email": "not-an-email"})
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/profile", bytes.NewReader(bad))
+	req.Header.Set("Authorization", "Bearer "+loginResp.Token)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid email: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Valid profile saved + advances wizard to database.
+	ok, _ := json.Marshal(map[string]string{
+		"nickname": "小P", "email": "admin@example.com", "avatar_url": "http://x/a.png",
+	})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/setup/profile", bytes.NewReader(ok))
+	req.Header.Set("Authorization", "Bearer "+loginResp.Token)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("profile: %d %s", rec.Code, rec.Body.String())
+	}
+	nick, email, avatar := boot.AdminProfile()
+	if nick != "小P" || email != "admin@example.com" || avatar != "http://x/a.png" {
+		t.Fatalf("profile not saved: %q %q %q", nick, email, avatar)
+	}
+	if boot.WizardStep() != "database" {
+		t.Fatalf("wizard step after profile = %q, want database", boot.WizardStep())
+	}
+
+	// Unauthenticated rejected.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/setup/profile", bytes.NewReader(ok))
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated profile: %d", rec.Code)
+	}
+}

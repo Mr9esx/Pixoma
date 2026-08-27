@@ -54,6 +54,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/login", h.login)
 	r.Post("/logout", h.logout)
 	r.Post("/password", h.password)
+	r.Post("/profile", h.profile)
 	r.Post("/database", h.database)
 	r.Post("/draft", h.draft)
 	r.Post("/blob-test", h.blobTest)
@@ -193,7 +194,7 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !initialized {
-		_ = h.Boot.SetWizardStep("database")
+		_ = h.Boot.SetWizardStep("profile")
 	}
 	// 改密成功后清除落盘的初始明文密码，旧默认密码不再可恢复。
 	if err := bootstrap.RemoveStoredPassword(filepath.Join(h.DataDir, "bootstrap.db")); err != nil {
@@ -634,6 +635,46 @@ func (h *Handler) setConsolePassword(ctx context.Context, username, oldPassword,
 
 // register creates a console account (role Viewer) when self-registration is
 // enabled, then signs in the new account.
+// profile stores the first-run admin「如何称呼您」profile (nickname/email/avatar).
+// It persists in the bootstrap store and, when the console account already
+// exists, mirrors onto the migrated console_users row.
+func (h *Handler) profile(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.requireSession(w, r); !ok {
+		return
+	}
+	var body struct {
+		Nickname  string `json:"nickname"`
+		Email     string `json:"email"`
+		AvatarURL string `json:"avatar_url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	body.Email = strings.TrimSpace(body.Email)
+	if body.Email != "" && !validEmail(body.Email) {
+		writeErr(w, http.StatusBadRequest, "invalid email")
+		return
+	}
+	if err := h.Boot.SetAdminProfile(body.Nickname, body.Email, body.AvatarURL); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if h.ConsoleUsers != nil {
+		username, _, _ := h.Boot.AdminAccount()
+		if u, err := h.ConsoleUsers.GetByUsername(r.Context(), username); err == nil {
+			u.Nickname = body.Nickname
+			u.Email = body.Email
+			u.AvatarURL = body.AvatarURL
+			_ = h.ConsoleUsers.Update(r.Context(), u)
+		}
+	}
+	if !h.Boot.Initialized() {
+		_ = h.Boot.SetWizardStep("database")
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 	if !h.selfRegistrationEnabled() {
 		writeErr(w, http.StatusConflict, "registration disabled")
