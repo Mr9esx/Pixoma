@@ -1,11 +1,25 @@
 package setup
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
 )
+
+type accountCtxKey struct{}
+
+// WithAccount attaches the authenticated AccountSession to the request context.
+func WithAccount(ctx context.Context, acct AccountSession) context.Context {
+	return context.WithValue(ctx, accountCtxKey{}, acct)
+}
+
+// AccountFromContext returns the authenticated AccountSession, if any.
+func AccountFromContext(ctx context.Context) (AccountSession, bool) {
+	acct, ok := ctx.Value(accountCtxKey{}).(AccountSession)
+	return acct, ok
+}
 
 // Gate rejects business admin APIs until initialized + authenticated.
 type Gate struct {
@@ -61,10 +75,11 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			writeErr(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
-		if _, ok := g.Sessions.Lookup(TokenFromRequest(r)); !ok {
+		acct, ok := g.Sessions.LookupAccount(TokenFromRequest(r))
+		if !ok {
 			writeErr(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(WithAccount(r.Context(), acct)))
 	})
 }
