@@ -41,9 +41,18 @@ type Sessions struct {
 }
 
 type session struct {
-	Username string    `json:"username"`
-	Expires  time.Time `json:"expires"`
-	Remember bool      `json:"remember"`
+	Username  string    `json:"username"`
+	AccountID string    `json:"account_id,omitempty"`
+	Role      string    `json:"role,omitempty"`
+	Expires   time.Time `json:"expires"`
+	Remember  bool      `json:"remember"`
+}
+
+// AccountSession is the account-scoped identity bound to a validated token.
+type AccountSession struct {
+	AccountID string
+	Username  string
+	Role      string
 }
 
 // SessionStoreFile returns the basename of the on-disk remember-me session
@@ -88,6 +97,61 @@ func (s *Sessions) Issue(username string, remember bool) (plain string, err erro
 		}
 	}
 	return plain, nil
+}
+
+// IssueAccount issues a session bound to a console account id and role.
+func (s *Sessions) IssueAccount(username, accountID, role string, remember bool) (string, error) {
+	var b [24]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	plain := base64.RawURLEncoding.EncodeToString(b[:])
+	ttl := sessionTTL
+	if remember {
+		ttl = rememberTTL
+	}
+	s.mu.Lock()
+	s.byID[hashToken(plain)] = session{
+		Username:  username,
+		AccountID: accountID,
+		Role:      role,
+		Expires:   time.Now().Add(ttl),
+		Remember:  remember,
+	}
+	persist := remember && s.storePath != ""
+	s.mu.Unlock()
+	if persist {
+		if err := s.save(); err != nil {
+			return "", err
+		}
+	}
+	return plain, nil
+}
+
+// LookupAccount resolves a token to its account identity. Tokens issued without
+// an account id (e.g. legacy persisted sessions) return an empty AccountID/Role.
+func (s *Sessions) LookupAccount(plain string) (acct AccountSession, ok bool) {
+	if plain == "" {
+		return AccountSession{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := hashToken(plain)
+	row, exists := s.byID[key]
+	if !exists || time.Now().After(row.Expires) {
+		if exists {
+			delete(s.byID, key)
+			if row.Remember && s.storePath != "" {
+				_ = s.save()
+			}
+		}
+		return AccountSession{}, false
+	}
+	return AccountSession{
+		AccountID: row.AccountID,
+		Username:  row.Username,
+		Role:      row.Role,
+	}, true
 }
 
 func (s *Sessions) Lookup(plain string) (username string, ok bool) {
