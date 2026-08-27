@@ -39,7 +39,7 @@ const ideTheme = EditorView.theme({
   },
   '.cm-gutters': {
     backgroundColor: 'var(--card)',
-    borderRight: '1px solid var(--border)',
+    borderRight: '1px solid var(--color-border)',
     color: 'var(--muted-foreground)',
   },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
