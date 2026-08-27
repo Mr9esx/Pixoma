@@ -46,6 +46,7 @@ type Handler struct {
 
 // MountAuth serves console self-registration under /api/v1/auth.
 func (h *Handler) MountAuth(r chi.Router) {
+	r.Get("/registration", h.registrationStatus)
 	r.Post("/register", h.register)
 }
 
@@ -673,6 +674,11 @@ func (h *Handler) profile(w http.ResponseWriter, r *http.Request) {
 		_ = h.Boot.SetWizardStep("database")
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// registrationStatus reports whether public self-registration is currently on.
+func (h *Handler) registrationStatus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]bool{"enabled": h.selfRegistrationEnabled()})
 }
 
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {

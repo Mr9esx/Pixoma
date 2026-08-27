@@ -868,3 +868,32 @@ func TestProfile_SavesAdminProfileUninitialized(t *testing.T) {
 		t.Fatalf("unauthenticated profile: %d", rec.Code)
 	}
 }
+
+func TestRegistrationStatus_ExposesSetting(t *testing.T) {
+	dir := t.TempDir()
+	bootOn := setupRegisteredBoot(t, filepath.Join(dir, "on"), filepath.Join(dir, "on.db"), true)
+	hOn := &setup.Handler{Boot: bootOn, Sessions: setup.NewSessions("")}
+	rec := httptest.NewRecorder()
+	r := chi.NewRouter()
+	r.Route("/api/v1/auth", hOn.MountAuth)
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/auth/registration", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("registration on status: %d %s", rec.Code, rec.Body.String())
+	}
+	var got map[string]bool
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if !got["enabled"] {
+		t.Fatalf("expected enabled=true, got %s", rec.Body.String())
+	}
+
+	bootOff := setupRegisteredBoot(t, filepath.Join(dir, "off"), filepath.Join(dir, "off.db"), false)
+	hOff := &setup.Handler{Boot: bootOff, Sessions: setup.NewSessions("")}
+	rec = httptest.NewRecorder()
+	r = chi.NewRouter()
+	r.Route("/api/v1/auth", hOff.MountAuth)
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/auth/registration", nil))
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got["enabled"] {
+		t.Fatalf("expected enabled=false, got %s", rec.Body.String())
+	}
+}
