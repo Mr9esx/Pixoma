@@ -25,6 +25,7 @@ export type SetupDraft = {
   proxy_kind?: string
   proxy_host?: string
   proxy_port?: number
+  allow_self_registration?: boolean
 }
 
 export function fetchSetupStatus() {
