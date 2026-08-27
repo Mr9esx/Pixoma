@@ -1,0 +1,20 @@
+{
+  "change": "user-rbac",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "fed72a357e10603ed77fc5909ad287f5787c9308b9bd3054faeb68a2e61e0d5f",
+  "files": [
+    { "path": "docs/openspec/changes/user-rbac/proposal.md", "sha256": "5ad080093340c2daa4a24c6abf63b8e7e4de3ad62b469e7d4c7244d34c17f4bf" },
+    { "path": "docs/openspec/changes/user-rbac/design.md", "sha256": "86764f6cdee911400a17ac50a8bf7124a29e64768a05e1c3e4e849684318bf39" },
+    { "path": "docs/openspec/changes/user-rbac/tasks.md", "sha256": "e6abdf8e128a4c8cc6c814bdf2435c2598715eeba37a60d5dccd4f894024e556" },
+    { "path": "docs/openspec/changes/user-rbac/specs/admin-api-host/spec.md", "sha256": "8a8f805de9e05d3ccaff5f707c2278d883c0ab31d85712a93515c6d55fbde690" },
+    { "path": "docs/openspec/changes/user-rbac/specs/admin-user-management/spec.md", "sha256": "b04ab536cd1dd446692aff1b22d27a84f6f9bf507cbe2d5582d03aefbe77e10a" },
+    { "path": "docs/openspec/changes/user-rbac/specs/console-user-accounts/spec.md", "sha256": "9674b5d6e202054dcf25abde434309946d190b1911efb8ec9163550a691d8b64" },
+    { "path": "docs/openspec/changes/user-rbac/specs/platform-bootstrap/spec.md", "sha256": "548d9b9db01a8ac42c7f834dfe4f56dd14a7d7a362bbead4fdc04b25801368bd" },
+    { "path": "docs/openspec/changes/user-rbac/specs/self-registration/spec.md", "sha256": "2d3e5139b2671ecb76cd19d259b54bf015ff654e7562e9fb8901ef4f1fff3cf3" },
+    { "path": "docs/openspec/changes/user-rbac/specs/setup-wizard/spec.md", "sha256": "ba6d9a022140db0283f3e7e8025cbb88e11fe6046d37ab7a72685bdc29f1cba4" },
+    { "path": "docs/openspec/changes/user-rbac/specs/user-rbac/spec.md", "sha256": "1d93e7269ac769960a563037cfb3a50c705535e59600d7ea8421546e23923cf1" }
+  ]
+}
