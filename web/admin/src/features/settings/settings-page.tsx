@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
+import { AdminUsersPanel } from '@/features/admin-users/admin-users-panel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
@@ -47,7 +49,9 @@ export function SettingsPage({ initialTab }: { initialTab?: string }) {
     queryFn: fetchPlatformSettings,
   })
   const tab =
-    initialTab === 'storage' || initialTab === 'network' ? initialTab : 'account'
+    initialTab === 'storage' || initialTab === 'network' || initialTab === 'users'
+      ? initialTab
+      : 'account'
 
   return (
     <div
@@ -107,6 +111,9 @@ function SettingsEditor({
       ? String(initial.proxy_port)
       : ''
   )
+  const [allowSelfRegistration, setAllowSelfRegistration] = useState(
+    Boolean(initial.allow_self_registration)
+  )
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [reloading, setReloading] = useState(false)
@@ -119,7 +126,7 @@ function SettingsEditor({
     }
   }
 
-  async function savePlatform() {
+  async function savePlatform(overrides?: { allowSelfRegistration?: boolean }) {
     setPending(true)
     setError(null)
     try {
@@ -139,6 +146,8 @@ function SettingsEditor({
         proxy_kind: proxyKind,
         proxy_host: proxyHost,
         proxy_port: Number(proxyPort) || 0,
+        allow_self_registration:
+          overrides?.allowSelfRegistration ?? allowSelfRegistration,
       })
       setReloading(true)
       await waitForSetupReady()
@@ -166,6 +175,7 @@ function SettingsEditor({
         <TabsTrigger value='account'>{t('settings.tabAccount')}</TabsTrigger>
         <TabsTrigger value='storage'>{t('settings.tabStorage')}</TabsTrigger>
         <TabsTrigger value='network'>{t('settings.tabNetwork')}</TabsTrigger>
+        <TabsTrigger value='users'>{t('settings.tabUsers')}</TabsTrigger>
       </TabsList>
 
       <TabsContent value='account' className='flex flex-col gap-6'>
@@ -378,6 +388,34 @@ function SettingsEditor({
             </Button>
           </div>
         </form>
+      </TabsContent>
+      <TabsContent value='users' className='flex flex-col gap-6'>
+        <section className='flex flex-col gap-2'>
+          <div className='flex items-center justify-between gap-4'>
+            <div className='flex flex-col gap-0.5'>
+              <h2 className='text-sm font-medium'>
+                {t('settings.registrationTitle')}
+              </h2>
+              <p className='text-xs text-muted-foreground'>
+                {t('settings.registrationHint')}
+              </p>
+            </div>
+            <Switch
+              data-testid='allow-self-registration'
+              aria-label={t('settings.registrationTitle')}
+              checked={allowSelfRegistration}
+              onCheckedChange={(v) => {
+                setAllowSelfRegistration(Boolean(v))
+                void savePlatform({ allowSelfRegistration: Boolean(v) })
+              }}
+            />
+          </div>
+          <p className='text-xs text-muted-foreground'>
+            {t('settings.registrationNote')}
+          </p>
+        </section>
+        <Separator />
+        <AdminUsersPanel />
       </TabsContent>
     </Tabs>
   )

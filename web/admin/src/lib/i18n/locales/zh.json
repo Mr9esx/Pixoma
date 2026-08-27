@@ -521,7 +521,11 @@
     "fieldProxyPort": "端口",
     "databaseTitle": "业务库",
     "fieldDbDriver": "类型",
-    "fieldDbDsn": "连接"
+    "fieldDbDsn": "连接",
+    "tabUsers": "用户管理",
+    "registrationTitle": "是否开放注册",
+    "registrationHint": "开启后，任何人都能通过注册页创建账号（默认只读）。",
+    "registrationNote": "关闭时注册页不可访问。"
   },
   "channels": {
     "title": "渠道",

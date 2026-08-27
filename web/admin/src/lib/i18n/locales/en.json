@@ -521,7 +521,11 @@
     "fieldProxyPort": "Port",
     "databaseTitle": "Database",
     "fieldDbDriver": "Driver",
-    "fieldDbDsn": "DSN"
+    "fieldDbDsn": "DSN",
+    "tabUsers": "Users",
+    "registrationTitle": "Open registration",
+    "registrationHint": "Anyone can create an account via the sign-up page (read-only by default).",
+    "registrationNote": "The sign-up page is hidden while this is off."
   },
   "channels": {
     "title": "Channels",
