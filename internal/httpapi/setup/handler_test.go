@@ -2,6 +2,7 @@ package setup_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,7 +14,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
+	consoledomain "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
+	consolepersist "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
@@ -619,5 +624,84 @@ func TestDraft_LazyConfiguresDatabase(t *testing.T) {
 	driver, gotDSN, err := env.boot.AppDB()
 	if err != nil || driver != "sqlite" || gotDSN != dsn {
 		t.Fatalf("app db not configured: driver=%q dsn=%q err=%v", driver, gotDSN, err)
+	}
+}
+
+func newConsoleAuthHandler(t *testing.T, gdb *gorm.DB) (*setup.Handler, *consolepersist.ConsoleUserRepository, *bootstrap.Store) {
+	t.Helper()
+	dir := t.TempDir()
+	boot, _, err := bootstrap.Open(filepath.Join(dir, "bootstrap.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { boot.Close() })
+	repo := consolepersist.NewConsoleUserRepository(gdb)
+	h := &setup.Handler{
+		Boot:         boot,
+		Sessions:     setup.NewSessions(""),
+		DataDir:      dir,
+		ConsoleUsers: repo,
+	}
+	return h, repo, boot
+}
+
+func TestLogin_ConsoleAccount(t *testing.T) {
+	gdb, _ := db.Open(db.Options{DSN: "file:console_login?" + "mode=memory&cache=shared"})
+	if err := db.AutoMigrate(gdb, &consolepersist.ConsoleUserRow{}); err != nil {
+		t.Fatal(err)
+	}
+	h, repo, boot := newConsoleAuthHandler(t, gdb)
+	hash, _ := bcrypt.GenerateFromPassword([]byte("secret123"), bcrypt.DefaultCost)
+	if err := repo.Create(context.Background(), &consoledomain.ConsoleUser{
+		ID: "acct-1", Username: "alice", Role: consoledomain.RoleAdmin, Enabled: true, PasswordHash: string(hash),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := boot.MarkInitialized(); err != nil {
+		t.Fatal(err)
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/setup", h.Mount)
+
+	body, _ := json.Marshal(map[string]string{"username": "alice", "password": "secret123"})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/login", bytes.NewReader(body)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login: %d %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || resp.Token == "" {
+		t.Fatalf("resp: %v body=%s", err, rec.Body.String())
+	}
+	acct, ok := h.Sessions.LookupAccount(resp.Token)
+	if !ok || acct.AccountID != "acct-1" || acct.Role != "admin" {
+		t.Fatalf("account session: %+v ok=%v", acct, ok)
+	}
+}
+
+func TestLogin_DisabledAccount(t *testing.T) {
+	gdb, _ := db.Open(db.Options{DSN: "file:console_disabled?" + "mode=memory&cache=shared"})
+	if err := db.AutoMigrate(gdb, &consolepersist.ConsoleUserRow{}); err != nil {
+		t.Fatal(err)
+	}
+	h, repo, boot := newConsoleAuthHandler(t, gdb)
+	hash, _ := bcrypt.GenerateFromPassword([]byte("secret123"), bcrypt.DefaultCost)
+	if err := repo.Create(context.Background(), &consoledomain.ConsoleUser{
+		ID: "a", Username: "op", Role: consoledomain.RoleOperator, Enabled: false, PasswordHash: string(hash),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := boot.MarkInitialized(); err != nil {
+		t.Fatal(err)
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/setup", h.Mount)
+	body, _ := json.Marshal(map[string]string{"username": "op", "password": "secret123"})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/login", bytes.NewReader(body)))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for disabled account, got %d %s", rec.Code, rec.Body.String())
 	}
 }

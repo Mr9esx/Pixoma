@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,8 +11,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
+	consoledomain "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
@@ -35,6 +38,9 @@ type Handler struct {
 	Restart func()
 	// RestartAfter delays Restart so the HTTP response can flush. Zero means 400ms.
 	RestartAfter time.Duration
+	// ConsoleUsers authenticates login/change-password against system accounts
+	// once the platform is initialized. Nil falls back to bootstrap auth.
+	ConsoleUsers consoledomain.Repository
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -81,27 +87,58 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	ok, err := h.Boot.VerifyPassword(body.Username, body.Password)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if !ok {
-		writeErr(w, http.StatusUnauthorized, "invalid credentials")
-		return
-	}
-	tok, err := h.Sessions.Issue(body.Username, body.Remember)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
+	initialized := h.Boot.Initialized()
+	var tok string
+	var mustChange bool
+	if initialized && h.ConsoleUsers != nil {
+		u, err := h.ConsoleUsers.GetByUsername(r.Context(), body.Username)
+		if err != nil {
+			writeErr(w, http.StatusUnauthorized, "invalid credentials")
+			return
+		}
+		if !u.Enabled {
+			writeErr(w, http.StatusForbidden, "account disabled")
+			return
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(body.Password)); err != nil {
+			writeErr(w, http.StatusUnauthorized, "invalid credentials")
+			return
+		}
+		mustChange = u.MustChangePassword
+		if !mustChange {
+			u.LastLoginAt = time.Now().UTC()
+			_ = h.ConsoleUsers.Update(r.Context(), u)
+		}
+		tok, err = h.Sessions.IssueAccount(u.Username, u.ID, u.Role, body.Remember)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		body.Username = u.Username
+	} else {
+		ok, err := h.Boot.VerifyPassword(body.Username, body.Password)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !ok {
+			writeErr(w, http.StatusUnauthorized, "invalid credentials")
+			return
+		}
+		tok, err = h.Sessions.Issue(body.Username, body.Remember)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		mustChange = h.Boot.MustChangePassword()
 	}
 	SetCookie(w, tok, body.Remember)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                   true,
 		"token":                tok,
 		"username":             body.Username,
-		"must_change_password": h.Boot.MustChangePassword(),
-		"initialized":          h.Boot.Initialized(),
+		"must_change_password": mustChange,
+		"initialized":          initialized,
 	})
 }
 
@@ -124,8 +161,11 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	initialized := h.Boot.Initialized()
 	var err error
-	if h.Boot.MustChangePassword() {
+	if initialized && h.ConsoleUsers != nil {
+		err = h.setConsolePassword(r.Context(), user, body.OldPassword, body.NewPassword)
+	} else if h.Boot.MustChangePassword() {
 		err = h.Boot.SetPassword(user, body.NewPassword)
 	} else {
 		err = h.Boot.ChangePassword(user, body.OldPassword, body.NewPassword)
@@ -146,7 +186,7 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if !h.Boot.Initialized() {
+	if !initialized {
 		_ = h.Boot.SetWizardStep("database")
 	}
 	// 改密成功后清除落盘的初始明文密码，旧默认密码不再可恢复。
@@ -554,6 +594,34 @@ func (h *Handler) settingsStore(driver, dsn string) (*settings.Store, func() err
 		return sqlDB.Close()
 	}
 	return st, cleanup, nil
+}
+
+
+// setConsolePassword changes a console account password. When the account still
+// must change password (e.g. admin reset), the old password is not required.
+func (h *Handler) setConsolePassword(ctx context.Context, username, oldPassword, newPassword string) error {
+	if len(newPassword) < 8 {
+		return bootstrap.ErrWeakPassword
+	}
+	u, err := h.ConsoleUsers.GetByUsername(ctx, username)
+	if err != nil {
+		if errors.Is(err, consoledomain.ErrNotFound) {
+			return bootstrap.ErrInvalidCredentials
+		}
+		return err
+	}
+	if !u.MustChangePassword {
+		if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(oldPassword)); err != nil {
+			return bootstrap.ErrInvalidCredentials
+		}
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	u.PasswordHash = string(hash)
+	u.MustChangePassword = false
+	return h.ConsoleUsers.Update(ctx, u)
 }
 
 const maskedSecret = "********"

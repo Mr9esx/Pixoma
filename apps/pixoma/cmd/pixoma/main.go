@@ -227,6 +227,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		return err
 	}
 	userRepo := userpersist.NewUserRepository(gdb)
+	consoleRepo := consolepersist.NewConsoleUserRepository(gdb)
 	sessionRepo := sesspersist.NewSessionRepository(gdb)
 	sessSvc := convdomain.NewService(sessionRepo, func() sharedkernel.SessionID {
 		return sharedkernel.SessionID(uuid.NewString())
@@ -309,10 +310,11 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	restartCh := make(chan struct{})
 	var restartOnce sync.Once
 	setupH := &setupapi.Handler{
-		Boot:      boot,
-		Sessions:  sess,
-		DataDir:   dataDir,
-		PublicURL: listenURL,
+		Boot:         boot,
+		Sessions:     sess,
+		DataDir:      dataDir,
+		PublicURL:    listenURL,
+		ConsoleUsers: consoleRepo,
 		Restart: func() {
 			restartOnce.Do(func() { close(restartCh) })
 		},
