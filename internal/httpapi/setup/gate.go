@@ -48,7 +48,7 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 		}
 		// Self-registration is intentionally public; the handler enforces the
 		// "open registration" setting and rejects disabled registration.
-		if path == "/api/v1/auth/register" {
+		if path == "/api/v1/auth/register" || path == "/api/v1/auth/registration" {
 			next.ServeHTTP(w, r)
 			return
 		}
