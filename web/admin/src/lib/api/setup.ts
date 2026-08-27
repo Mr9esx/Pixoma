@@ -59,6 +59,21 @@ export async function logoutAdmin() {
   }
 }
 
+export function saveAdminProfile(input: {
+  nickname: string
+  email?: string
+  avatarUrl?: string
+}) {
+  return apiFetch<{ ok: boolean }>('/api/v1/setup/profile', {
+    method: 'POST',
+    body: JSON.stringify({
+      nickname: input.nickname,
+      email: input.email ?? '',
+      avatar_url: input.avatarUrl ?? '',
+    }),
+  })
+}
+
 export function changeAdminPassword(input: {
   newPassword: string
   oldPassword?: string

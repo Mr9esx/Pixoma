@@ -1,5 +1,6 @@
 export const SETUP_STEPS = [
   'password',
+  'profile',
   'database',
   'storage',
 ] as const
@@ -14,6 +15,11 @@ export const SETUP_STEP_COPY: Record<
     title: '设管理员密码',
     desc: '设个新的管理员密码。',
     submit: '保存密码',
+  },
+  profile: {
+    title: '如何称呼您',
+    desc: '给管理员起个称呼，方便后台展示（可跳过）。',
+    submit: '继续',
   },
   database: {
     title: '数据库配置',
