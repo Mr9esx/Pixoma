@@ -28,6 +28,16 @@ func RenameLegacy(gdb *gorm.DB) error {
 			return fmt.Errorf("db: add edges.hardware_refresh_requested: %w", err)
 		}
 	}
+	if m.HasTable("users") && !m.HasTable("channel_users") {
+		if err := m.RenameTable("users", "channel_users"); err != nil {
+			return fmt.Errorf("db: rename users: %w", err)
+		}
+	}
+	if m.HasTable("user_external_identities") && !m.HasTable("channel_user_external_identities") {
+		if err := m.RenameTable("user_external_identities", "channel_user_external_identities"); err != nil {
+			return fmt.Errorf("db: rename user_external_identities: %w", err)
+		}
+	}
 	if m.HasTable("edges") && m.HasColumn("edges", "base_url") {
 		if err := gdb.Exec(`ALTER TABLE edges DROP COLUMN base_url`).Error; err != nil {
 			return fmt.Errorf("db: drop edges.base_url: %w", err)

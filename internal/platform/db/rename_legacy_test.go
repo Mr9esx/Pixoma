@@ -118,3 +118,39 @@ func openRenameTestDB(t *testing.T) *gorm.DB {
 	}
 	return gdb
 }
+
+func TestRenameLegacy_ChannelUsers(t *testing.T) {
+	gdb := openRenameTestDB(t)
+	if err := gdb.Exec(`CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT, first_name TEXT)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.Exec(`INSERT INTO users (id, username, first_name) VALUES ('u1', 'alice', 'A')`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.Exec(`CREATE TABLE user_external_identities (id TEXT PRIMARY KEY, user_id TEXT, channel_id TEXT, external_user_id TEXT)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := RenameLegacy(gdb); err != nil {
+		t.Fatal(err)
+	}
+	if gdb.Migrator().HasTable("users") {
+		t.Fatal("old users table still exists")
+	}
+	if !gdb.Migrator().HasTable("channel_users") {
+		t.Fatal("channel_users missing")
+	}
+	if gdb.Migrator().HasTable("user_external_identities") {
+		t.Fatal("old user_external_identities table still exists")
+	}
+	if !gdb.Migrator().HasTable("channel_user_external_identities") {
+		t.Fatal("channel_user_external_identities missing")
+	}
+	var username string
+	if err := gdb.Raw(`SELECT username FROM channel_users WHERE id = ?`, "u1").Scan(&username).Error; err != nil || username != "alice" {
+		t.Fatalf("data lost: username=%q err=%v", username, err)
+	}
+	// Fresh-schema idempotency: channel_users already present → no-op.
+	if err := RenameLegacy(gdb); err != nil {
+		t.Fatalf("second rename: %v", err)
+	}
+}
