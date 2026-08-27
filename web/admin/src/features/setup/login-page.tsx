@@ -3,7 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { KeyRound } from 'lucide-react'
 import { ApiError } from '@/lib/api/client'
 import { loginAdmin, type SetupStatus } from '@/lib/api/setup'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -24,6 +24,9 @@ export function LoginPage({
   registrationOpen?: boolean
 }) {
   const navigate = useNavigate()
+  const expired =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('expired') === '1'
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(true)
@@ -51,6 +54,16 @@ export function LoginPage({
 
   return (
     <AuthShell>
+      {expired ? (
+        <Alert
+          variant='destructive'
+          className='w-full max-w-sm'
+          data-testid='session-expired'
+        >
+          <AlertTitle>登录已失效</AlertTitle>
+          <AlertDescription>重新登录后继续使用后台。</AlertDescription>
+        </Alert>
+      ) : null}
       <Card className='w-full max-w-sm'>
         <CardHeader>
           <CardTitle>登录</CardTitle>

@@ -897,3 +897,75 @@ func TestRegistrationStatus_ExposesSetting(t *testing.T) {
 		t.Fatalf("expected enabled=false, got %s", rec.Body.String())
 	}
 }
+
+func TestMe_ReturnsBootstrapAdminProfile(t *testing.T) {
+	dir := t.TempDir()
+	boot := setupRegisteredBoot(t, dir, filepath.Join(dir, "app.db"), false)
+	sess := setup.NewSessions("")
+	h := &setup.Handler{Boot: boot, Sessions: sess, DataDir: dir}
+	r := chi.NewRouter()
+	r.Use((&setup.Gate{Boot: boot, Sessions: sess}).Middleware)
+	r.Route("/api/v1/setup", h.Mount)
+
+	username, _, _ := boot.AdminAccount()
+	loginBody, _ := json.Marshal(map[string]string{
+		"username": username,
+		"password": "secret456",
+	})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/login", bytes.NewReader(loginBody)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login: %d %s", rec.Code, rec.Body.String())
+	}
+	var loginResp struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
+		t.Fatal(err)
+	}
+	auth := func(req *http.Request) {
+		req.Header.Set("Authorization", "Bearer "+loginResp.Token)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/setup/me", nil)
+	auth(req)
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("me: %d %s", rec.Code, rec.Body.String())
+	}
+	var me struct {
+		Username string `json:"username"`
+		Nickname string `json:"nickname"`
+		Role     string `json:"role"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
+		t.Fatal(err)
+	}
+	if me.Username != username || me.Nickname != username || me.Role != "admin" {
+		t.Fatalf("unexpected me %+v body %s", me, rec.Body.String())
+	}
+
+	prof, _ := json.Marshal(map[string]string{
+		"nickname":   "小黑",
+		"email":      "",
+		"avatar_url": "",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/setup/profile", bytes.NewReader(prof))
+	auth(req)
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("profile: %d %s", rec.Code, rec.Body.String())
+	}
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/setup/me", nil)
+	auth(req)
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
+		t.Fatal(err)
+	}
+	if me.Nickname != "小黑" {
+		t.Fatalf("nickname after profile = %q, want 小黑", me.Nickname)
+	}
+}

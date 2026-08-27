@@ -33,6 +33,24 @@ describe('setup wizard admin profile step', () => {
     expect(wizard).toMatch(/saveAdminProfile/)
   })
 
+  it('uploads the avatar via AvatarUpload instead of a plain url input', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/AvatarUpload/)
+    expect(wizard).toContain("from '@/components/avatar-upload'")
+    expect(wizard).not.toMatch(/头像地址（可选）/)
+  })
+
+  it('stretches the avatar column to match the nickname + email height', () => {
+    const wizard = read('src/features/setup/setup-wizard.tsx')
+    expect(wizard).toMatch(/grid-cols-\[auto_minmax\(0,1fr\)\] items-stretch/)
+    const avatarIdx = wizard.indexOf("htmlFor='profile-avatar'")
+    const nicknameIdx = wizard.indexOf("htmlFor='profile-nickname'")
+    const emailIdx = wizard.indexOf("htmlFor='profile-email'")
+    expect(avatarIdx).toBeGreaterThan(-1)
+    expect(nicknameIdx).toBeGreaterThan(avatarIdx)
+    expect(emailIdx).toBeGreaterThan(nicknameIdx)
+  })
+
   it('sends the profile to the setup backend', () => {
     const api = read('src/lib/api/setup.ts')
     expect(api).toMatch(/saveAdminProfile/)

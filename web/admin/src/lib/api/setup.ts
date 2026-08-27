@@ -1,5 +1,17 @@
 import { apiFetch, setSessionToken } from './client'
 
+export type CurrentUser = {
+  username: string
+  nickname: string
+  role: 'admin' | 'operator' | 'viewer'
+  email?: string
+  avatar_url?: string
+}
+
+export function fetchCurrentUser() {
+  return apiFetch<CurrentUser>('/api/v1/setup/me')
+}
+
 export type SetupStatus = {
   initialized: boolean
   authenticated: boolean

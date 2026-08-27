@@ -34,6 +34,22 @@ export function setSessionToken(token: string | null): void {
   }
 }
 
+// 这些接口由 Gate 放行、本身承担「未认证/密码错误」语义，401 不应触发全局登出。
+const PUBLIC_AUTH_PATHS = [
+  '/api/v1/setup/login',
+  '/api/v1/setup/status',
+  '/api/v1/auth/register',
+  '/api/v1/auth/registration',
+]
+
+function redirectToLogin() {
+  if (typeof window === 'undefined') return
+  setSessionToken(null)
+  const url = new URL('/login', window.location.origin)
+  url.searchParams.set('expired', '1')
+  window.location.assign(url.toString())
+}
+
 export async function apiFetch<T>(
   path: string,
   init?: RequestInit
@@ -67,6 +83,10 @@ export async function apiFetch<T>(
   }
 
   if (!res.ok) {
+    if (res.status === 401 && !PUBLIC_AUTH_PATHS.includes(path)) {
+      redirectToLogin()
+      throw new ApiError(res.status, '登录已失效，请重新登录')
+    }
     const msg =
       typeof body === 'object' &&
       body !== null &&

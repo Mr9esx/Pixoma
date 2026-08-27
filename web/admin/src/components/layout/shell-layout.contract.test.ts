@@ -11,6 +11,7 @@ const APP_SIDEBAR = join(here, 'app-sidebar.tsx')
 const APP_TITLE = join(here, 'app-title.tsx')
 const LOGO = join(srcRoot, 'assets/logo.tsx')
 const LANG_SWITCHER = join(here, 'language-switcher.tsx')
+const NAV_USER = join(here, 'nav-user.tsx')
 
 function read(path: string) {
   return readFileSync(path, 'utf8')
@@ -30,6 +31,23 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
     expect(source).toContain('SidebarFooter')
     expect(source).toContain('LanguageSwitcher')
     expect(source).toContain('ThemeSwitch')
+    expect(source).toContain('NavUser')
+    expect(source).toMatch(/<SidebarFooter>\s*<NavUser/)
+  })
+
+  it('NavUser renders an expanded user card and collapsed dropdown', () => {
+    const source = read(NAV_USER)
+    expect(source).toContain('fetchCurrentUser')
+    expect(source).toContain("queryKey: ['current-user']")
+    expect(source).toContain('queryFn: fetchCurrentUser')
+    expect(source).toContain('getDisplayNameInitials')
+    expect(source).toContain('size-6')
+    expect(source).toContain('h-12')
+    expect(source).toContain('ArrowRightFromLine')
+    expect(source).toContain('DropdownMenuTrigger')
+    expect(source).toContain('DropdownMenuContent')
+    expect(source).toContain('nav-user-sign-out')
+    expect(source).toContain('common.signOut')
   })
 
   it('AppTitle shows Pixoma without template subtitle', () => {

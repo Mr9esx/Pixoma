@@ -43,9 +43,17 @@ describe('login and setup pages', () => {
   it('renders the first-run hint below the login card, not inside it', () => {
     const page = read('src/features/setup/login-page.tsx')
     const cardEnd = page.indexOf('</Card>')
-    const alertStart = page.indexOf('<Alert')
+    const hintAlert = page.indexOf('border-amber-500/40') // 仅 first-run 提示
     expect(cardEnd).toBeGreaterThan(0)
-    expect(alertStart).toBeGreaterThan(cardEnd)
+    expect(hintAlert).toBeGreaterThan(cardEnd)
+  })
+
+  it('shows the session-expired alert above the login card', () => {
+    const page = read('src/features/setup/login-page.tsx')
+    const expiredAlert = page.indexOf("data-testid='session-expired'")
+    const cardStart = page.indexOf('<Card')
+    expect(expiredAlert).toBeGreaterThan(-1)
+    expect(cardStart).toBeGreaterThan(expiredAlert)
   })
 
   it('uses the auth-shell blockquote as a real elevator pitch, not an onboarding summary', () => {

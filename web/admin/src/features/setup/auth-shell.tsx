@@ -3,18 +3,18 @@ import { Logo } from '@/assets/logo'
 
 const DOT_PATTERN = {
   backgroundImage:
-    'radial-gradient(circle, color-mix(in oklch, var(--muted-foreground) 20%, transparent) 1px, transparent 1px)',
-  backgroundSize: '20px 20px',
+    'radial-gradient(circle, color-mix(in oklch, var(--muted-foreground) 25%, transparent) 1px, transparent 1px)',
+  backgroundSize: '16px 16px',
 }
 
 const DOT_MASK_GRADIENT = {
   ...DOT_PATTERN,
   backgroundImage:
-    'radial-gradient(circle, var(--muted-foreground) 1px, transparent 1px)',
+    'radial-gradient(circle, color-mix(in oklch, var(--foreground) 100%, transparent) 1px, transparent 1px)',
   maskImage:
-    'radial-gradient(60px circle at 0px 0px, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%)',
+    'radial-gradient(80px circle at 0px 0px, black 0%, transparent 100%)',
   WebkitMaskImage:
-    'radial-gradient(60px circle at 0px 0px, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%)',
+    'radial-gradient(80px circle at 0px 0px, black 0%, transparent 100%)',
 }
 
 export function AuthShell({ children }: { children: React.ReactNode }) {
@@ -25,7 +25,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     if (spotRef.current) {
-      const gradient = `radial-gradient(60px circle at ${x}px ${y}px, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%)`
+      const gradient = `radial-gradient(80px circle at ${x}px ${y}px, black 0%, transparent 100%)`
       spotRef.current.style.maskImage = gradient
       spotRef.current.style.webkitMaskImage = gradient
     }
