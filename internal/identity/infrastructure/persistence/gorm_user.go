@@ -13,7 +13,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 )
 
-// UserRow is the GORM model for the users table (internal identity).
+// UserRow is the GORM model for the channel_users table (internal identity).
 type UserRow struct {
 	ID           string `gorm:"primaryKey;size:36"`
 	Username     string `gorm:"size:256"`
@@ -25,7 +25,7 @@ type UserRow struct {
 	UpdatedAt    time.Time
 }
 
-func (UserRow) TableName() string { return "users" }
+func (UserRow) TableName() string { return "channel_users" }
 
 // UserExternalIdentityRow maps an internal user to a channel-scoped external id.
 type UserExternalIdentityRow struct {
@@ -39,7 +39,7 @@ type UserExternalIdentityRow struct {
 	UpdatedAt      time.Time
 }
 
-func (UserExternalIdentityRow) TableName() string { return "user_external_identities" }
+func (UserExternalIdentityRow) TableName() string { return "channel_user_external_identities" }
 
 // UserRepository is a GORM-backed identity.Repository.
 type UserRepository struct {
