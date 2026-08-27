@@ -31,3 +31,14 @@ TBD - created by archiving change pixoma-guided-deploy. Update Purpose after arc
 - **WHEN** 业务库中无任何 Topic 记录且控制面启动
 - **THEN** 创建 `default` Topic；再次启动不重复创建
 
+### Requirement: 系统账号是登录主体
+平台初始化完成后，管理后台登录、改密、会话与授权 MUST 以系统账号（`console_users`）为准；引导态 bootstrap 仅承担未初始化阶段的门闩与向导时序，MUST NOT 承担初始化后的登录认证主体。
+
+#### Scenario: 初始化后登录走系统账号
+- **WHEN** 平台已完成初始化，管理员登录后台
+- **THEN** 认证校验系统账号表，成功则签发标识系统账号 id 与角色的会话
+
+#### Scenario: 引导态仍可引导登录
+- **WHEN** 平台尚未初始化或处于向导阶段
+- **THEN** 仍走引导态登录与向导接口，完成初始化后再以系统账号登录
+
