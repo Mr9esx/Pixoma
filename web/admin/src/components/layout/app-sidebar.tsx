@@ -36,7 +36,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className='gap-1'>
         {isCollapsed ? (
-          <SidebarMenu>
+          <SidebarMenu className='px-2'>
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={toggleSidebar}
@@ -88,10 +88,6 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
-        <div className='flex items-center gap-2 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center'>
-          <LanguageSwitcher />
-          <ThemeSwitch />
-        </div>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

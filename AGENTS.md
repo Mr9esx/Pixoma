@@ -25,3 +25,10 @@
 - 页面引入 `colors_and_type.css`，只用其中语义令牌；禁止新增裸 hex。
 - 组件形状照 `ui_kits/app/components.html` 与 `ui_kits/app/components/*.css`，布局照 `ui_kits/app/surfaces.html`；组件本身仍优先复用 shadcn/ui。
 - 文案照 `build/source-examples/voice-profile.md`；交付前过一遍 `DESIGN.md` 第 11 节 10 条验收。
+
+## 与模型协作约定（用户偏好，永久生效）
+
+不要尝试用截图/浏览器脚本把页面视觉发给模型：模型只支持文本与问题输入。需要核对布局或视觉时，用文字、类名与结构描述代替截图：
+
+- 禁止新增截图类测试脚手架（如 `_tmp-*.test.tsx`、`_shot*.mjs`、`vitest.*.browser/config`、`*.png` 快照等）来"发给模型看"。
+- 需要确认 UI 现状时，直接读组件代码或用文字描述，不要依赖截图。

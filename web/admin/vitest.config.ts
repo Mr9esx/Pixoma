@@ -7,6 +7,7 @@ export default defineConfig({
       VITE_ADMIN_API_BASE: 'http://127.0.0.1:8081',
     },
     include: [
+      'src/components/layout/hover-close.test.tsx',
       'src/scaffold.contract.test.ts',
       'src/auth-gates.contract.test.ts',
       'src/lib/setup-guard.test.ts',

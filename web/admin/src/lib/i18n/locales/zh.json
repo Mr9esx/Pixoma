@@ -67,7 +67,8 @@
     "toggleSidebar": "切换侧边栏",
     "expandMenu": "展开菜单",
     "untitled": "未命名",
-    "signOut": "退出登录"
+    "signOut": "退出登录",
+    "moreActions": "更多操作"
   },
   "theme": {
     "light": "浅色",
