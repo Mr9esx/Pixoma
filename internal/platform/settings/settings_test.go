@@ -170,3 +170,62 @@ func TestValidate_RemoteAllowsSharedFS(t *testing.T) {
 		t.Fatalf("remote sharedfs should pass, got %v", err)
 	}
 }
+
+// legacySettingsRow mirrors the pre-upgrade platform_settings schema (all
+// current columns EXCEPT the newly added allow_self_registration), so the
+// migration test targets exactly the ALTER ADD that happens on real upgrades.
+type legacySettingsRow struct {
+	ID               string `gorm:"primaryKey;size:32"`
+	Placement        string `gorm:"size:32;not null"`
+	DBDriver         string `gorm:"column:db_driver;size:32;not null"`
+	DBDSN            string `gorm:"column:db_dsn;type:text;not null"`
+	BlobDriver       string `gorm:"column:blob_driver;size:32;not null"`
+	BlobRoot         string `gorm:"column:blob_root;type:text"`
+	BlobEndpoint     string `gorm:"column:blob_endpoint;type:text"`
+	BlobRegion       string `gorm:"column:blob_region;size:64"`
+	BlobBucket       string `gorm:"column:blob_bucket;size:256"`
+	BlobAccessCipher string `gorm:"column:blob_access_cipher;type:text"`
+	BlobSecretCipher string `gorm:"column:blob_secret_cipher;type:text"`
+	ComfyMock        bool   `gorm:"column:comfy_mock;not null"`
+	ComfyUIBaseURL   string `gorm:"column:comfyui_base_url;type:text"`
+	ClaimWaitMS      int    `gorm:"column:claim_wait_ms"`
+	LeaseSeconds     int    `gorm:"column:lease_seconds"`
+	ProxyKind        string `gorm:"column:proxy_kind;size:16"`
+	ProxyHost        string `gorm:"column:proxy_host;type:text"`
+	ProxyPort        int    `gorm:"column:proxy_port"`
+}
+
+func (legacySettingsRow) TableName() string { return "platform_settings" }
+
+func TestMigrate_ExistingTableAddsAllowSelfRegistration(t *testing.T) {
+	// Reproduce upgrading a deployment whose platform_settings table already
+	// exists and has a row: AutoMigrate must add the new allow_self_registration
+	// column without failing on SQLite (NOT NULL column needs a default).
+	gdb, err := db.Open(db.Options{DSN: "file:mig_settings?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gdb.DB()
+
+	if err := gdb.AutoMigrate(&legacySettingsRow{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.Create(&legacySettingsRow{
+		ID: "singleton", Placement: "local", DBDriver: "sqlite", DBDSN: "data/app.db",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	key := make([]byte, 32)
+	st, err := settings.NewStore(gdb, key)
+	if err != nil {
+		t.Fatalf("migrate existing table: %v", err)
+	}
+	got, err := st.Load()
+	if err != nil {
+		t.Fatalf("load after migrate: %v", err)
+	}
+	if got.AllowSelfRegistration {
+		t.Fatal("expected AllowSelfRegistration to default to false")
+	}
+}

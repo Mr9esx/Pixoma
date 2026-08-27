@@ -34,7 +34,7 @@ type row struct {
 	ProxyKind        string `gorm:"column:proxy_kind;size:16"`
 	ProxyHost        string `gorm:"column:proxy_host;type:text"`
 	ProxyPort        int    `gorm:"column:proxy_port"`
-	AllowSelfReg     bool   `gorm:"column:allow_self_registration;not null"`
+	AllowSelfReg     bool   `gorm:"column:allow_self_registration;not null;default:false"`
 }
 
 func (row) TableName() string { return "platform_settings" }
