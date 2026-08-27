@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { KeyRound } from 'lucide-react'
 import { ApiError } from '@/lib/api/client'
 import { loginAdmin, type SetupStatus } from '@/lib/api/setup'
@@ -16,7 +16,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthShell } from './auth-shell'
 
-export function LoginPage({ status }: { status: SetupStatus }) {
+export function LoginPage({
+  status,
+  registrationOpen = false,
+}: {
+  status: SetupStatus
+  registrationOpen?: boolean
+}) {
   const navigate = useNavigate()
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
@@ -81,6 +87,14 @@ export function LoginPage({ status }: { status: SetupStatus }) {
             <Button type='submit' className='w-full' disabled={pending}>
               {pending ? '登录中…' : '登录'}
             </Button>
+            {registrationOpen ? (
+              <p className='text-center text-sm text-muted-foreground'>
+                还没有账号？{' '}
+                <Link to='/register' className='text-primary hover:underline'>
+                  创建账号
+                </Link>
+              </p>
+            ) : null}
           </form>
         </CardContent>
       </Card>

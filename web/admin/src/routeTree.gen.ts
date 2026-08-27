@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SplatRouteImport } from './routes/$'
@@ -47,6 +48,11 @@ import { Route as AppCasesCaseIdRouteImport } from './routes/_app/cases/$caseId'
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -219,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/cases': typeof AppCasesRouteRouteWithChildren
   '/channels': typeof AppChannelsRouteRouteWithChildren
@@ -253,6 +260,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/task-flow-prototype': typeof AppTaskFlowPrototypeRouteRoute
   '/401': typeof errors401Route
@@ -283,6 +291,7 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/_app/cases': typeof AppCasesRouteRouteWithChildren
   '/_app/channels': typeof AppChannelsRouteRouteWithChildren
@@ -321,6 +330,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/'
     | '/login'
+    | '/register'
     | '/setup'
     | '/cases'
     | '/channels'
@@ -355,6 +365,7 @@ export interface FileRouteTypes {
   to:
     | '/$'
     | '/login'
+    | '/register'
     | '/setup'
     | '/task-flow-prototype'
     | '/401'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/_app'
     | '/login'
+    | '/register'
     | '/setup'
     | '/_app/cases'
     | '/_app/channels'
@@ -421,6 +433,7 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  RegisterRoute: typeof RegisterRoute
   SetupRoute: typeof SetupRoute
   errors401Route: typeof errors401Route
   errors403Route: typeof errors403Route
@@ -436,6 +449,13 @@ declare module '@tanstack/react-router' {
       path: '/setup'
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -802,6 +822,7 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  RegisterRoute: RegisterRoute,
   SetupRoute: SetupRoute,
   errors401Route: errors401Route,
   errors403Route: errors403Route,

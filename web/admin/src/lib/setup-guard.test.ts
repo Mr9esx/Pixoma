@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextAdminPath } from './setup-guard'
+import { nextAdminPath, nextRegistrationPath } from './setup-guard'
 
 describe('nextAdminPath', () => {
   it('sends uninitialized guests to login first', () => {
@@ -72,5 +72,48 @@ describe('nextAdminPath', () => {
         '/setup'
       )
     ).toBeNull()
+  })
+})
+
+
+describe('nextRegistrationPath', () => {
+  it('allows registration when the platform is initialized and open', () => {
+    expect(
+      nextRegistrationPath(
+        { initialized: true, authenticated: false, must_change_password: false },
+        true,
+        '/register'
+      )
+    ).toBeNull()
+  })
+
+  it('redirects to login when registration is closed', () => {
+    expect(
+      nextRegistrationPath(
+        { initialized: true, authenticated: false, must_change_password: false },
+        false,
+        '/register'
+      )
+    ).toBe('/login')
+  })
+
+  it('sends uninitialized guests away from registration', () => {
+    expect(
+      nextRegistrationPath(
+        { initialized: false, authenticated: false, must_change_password: true },
+        true,
+        '/register'
+      )
+    ).toBe('/login')
+  })
+
+  it('sends authenticated users into the shell', () => {
+    expect(
+      nextRegistrationPath(
+        { initialized: true, authenticated: true, must_change_password: false },
+        true,
+        '/register'
+      )
+    ).toBe('/')
   })
 })

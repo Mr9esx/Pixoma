@@ -16,6 +16,7 @@ export default defineConfig({
       'src/features/setup/blob-error.test.ts',
       'src/features/setup/setup-pages.contract.test.ts',
       'src/features/setup/setup-profile.contract.test.ts',
+      'src/features/auth/register.contract.test.ts',
       'src/features/settings/settings-page.contract.test.ts',
       'src/lib/api/setup-settings.test.ts',
       'src/lib/api/client.test.ts',

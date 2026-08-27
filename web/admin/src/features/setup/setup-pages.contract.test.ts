@@ -26,7 +26,7 @@ describe('login and setup pages', () => {
   it('routes the setup status into the login page so first-run hint can render', () => {
     const route = read('src/routes/login.tsx')
     const page = read('src/features/setup/login-page.tsx')
-    expect(route).toMatch(/return \{ status \}/)
+    expect(route).toMatch(/return \{ status/)
     expect(route).toMatch(/Route\.useRouteContext/)
     expect(page).toMatch(/status: SetupStatus/)
   })
