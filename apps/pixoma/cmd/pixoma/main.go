@@ -44,6 +44,7 @@ import (
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
+	consolepersist "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/persistence"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
@@ -153,6 +154,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			&casepersist.CaseRow{},
 			&userpersist.UserRow{},
 			&userpersist.UserExternalIdentityRow{},
+			&consolepersist.ConsoleUserRow{},
 			&sesspersist.SessionRow{},
 			&taskpersist.TaskRow{},
 			&taskstatspersist.DailyStatsRow{},
@@ -177,6 +179,10 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		return err
 	}
 	defer func() { _ = cleanup() }()
+
+	if err := bootstrap.MigrateBootstrapAdmin(ctx, gdb, boot); err != nil {
+		return err
+	}
 
 	app.ApplyBlobEnv(cfg)
 	app.ApplyHTTPProxy(cfg)
