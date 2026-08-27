@@ -46,6 +46,9 @@ type metaRow struct {
 	AdminUsername      string `gorm:"column:admin_username;size:128;not null"`
 	AdminPasswordHash  string `gorm:"column:admin_password_hash;type:text;not null"`
 	MustChangePassword bool   `gorm:"column:must_change_password;not null"`
+	AdminNickname      string `gorm:"column:admin_nickname;size:256"`
+	AdminEmail         string `gorm:"column:admin_email;size:256"`
+	AdminAvatarURL     string `gorm:"column:admin_avatar_url;size:512"`
 	AgentTokenHash     string `gorm:"column:agent_token_hash;type:text"`
 	AppDBDriver        string `gorm:"column:app_db_driver;size:32"`
 	AppDBDSN           string `gorm:"column:app_db_dsn;type:text"`
@@ -168,6 +171,30 @@ func (s *Store) AdminAccount() (username, passwordHash string, mustChangePasswor
 		return "", "", true
 	}
 	return row.AdminUsername, row.AdminPasswordHash, row.MustChangePassword
+}
+
+// AdminProfile returns the admin's display profile captured during first-run
+// setup (「如何称呼您」); passed onto the migrated console account.
+func (s *Store) AdminProfile() (nickname, email, avatarURL string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, err := s.load()
+	if err != nil {
+		return "", "", ""
+	}
+	return row.AdminNickname, row.AdminEmail, row.AdminAvatarURL
+}
+
+// SetAdminProfile persists the admin's display profile (nickname/email/avatar)
+// collected during the first-run wizard. Any field may be empty to skip it.
+func (s *Store) SetAdminProfile(nickname, email, avatarURL string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.db.Model(&metaRow{}).Where("id = ?", metaKey).Updates(map[string]any{
+		"admin_nickname":   strings.TrimSpace(nickname),
+		"admin_email":      strings.TrimSpace(email),
+		"admin_avatar_url": strings.TrimSpace(avatarURL),
+	}).Error
 }
 
 func (s *Store) EnsureReadyForBusiness() error {

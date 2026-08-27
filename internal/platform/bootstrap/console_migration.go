@@ -22,6 +22,7 @@ func MigrateBootstrapAdmin(ctx context.Context, gdb *gorm.DB, st *Store) error {
 	if username == "" || hash == "" {
 		return nil
 	}
+	nickname, email, avatarURL := st.AdminProfile()
 	repo := consolepersist.NewConsoleUserRepository(gdb)
 	if _, err := repo.GetByUsername(ctx, username); err == nil {
 		return nil // already migrated
@@ -31,6 +32,9 @@ func MigrateBootstrapAdmin(ctx context.Context, gdb *gorm.DB, st *Store) error {
 	return repo.Create(ctx, &consoledomain.ConsoleUser{
 		ID:                 uuid.NewString(),
 		Username:           username,
+		Nickname:           nickname,
+		Email:              email,
+		AvatarURL:          avatarURL,
 		Role:               consoledomain.RoleAdmin,
 		Enabled:            true,
 		MustChangePassword: mustChange,

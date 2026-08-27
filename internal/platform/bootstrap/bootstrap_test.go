@@ -158,3 +158,20 @@ func TestSetPassword(t *testing.T) {
 		t.Fatalf("second set: %v", err)
 	}
 }
+
+func TestSetAdminProfile_RoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bootstrap.db")
+	st, _, err := bootstrap.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if err := st.SetAdminProfile(" 小P ", " a@b.com ", " http://x/a.png "); err != nil {
+		t.Fatalf("set profile: %v", err)
+	}
+	nick, email, avatar := st.AdminProfile()
+	if nick != "小P" || email != "a@b.com" || avatar != "http://x/a.png" {
+		t.Fatalf("profile trimmed round-trip wrong: %q %q %q", nick, email, avatar)
+	}
+}
