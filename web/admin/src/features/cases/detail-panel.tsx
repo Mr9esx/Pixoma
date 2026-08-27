@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
+  Film,
   FolderOpen,
   PenLine,
   SearchX,
@@ -14,6 +15,7 @@ import { toast } from 'sonner'
 import { deleteCase, getCase } from '@/lib/api/cases'
 import { ApiError } from '@/lib/api/client'
 import { caseDeleteErrorMessage } from '@/lib/api/localized-errors'
+import { fetchMediaBlob, resolveMediaKey } from '@/lib/api/media'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listSessions } from '@/lib/api/sessions'
 import { listTasks } from '@/lib/api/tasks'
@@ -58,6 +60,34 @@ type Props = {
   id: number
 }
 
+/** 拉取案例预览图/视频到可预览的 blob URL。 */
+function useMediaPreviewUrl(preview?: string): string | undefined {
+  const key = resolveMediaKey(preview)
+  const [url, setUrl] = useState<string | undefined>()
+  useEffect(() => {
+    if (!key) {
+      setUrl(undefined)
+      return
+    }
+    let cancelled = false
+    let objectUrl: string | undefined
+    fetchMediaBlob(key)
+      .then((blob) => {
+        if (cancelled) return
+        objectUrl = URL.createObjectURL(blob)
+        setUrl(objectUrl)
+      })
+      .catch(() => {
+        if (!cancelled) setUrl(undefined)
+      })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [key])
+  return url
+}
+
 export function CaseDetailPanel({ id }: Props) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -70,6 +100,9 @@ export function CaseDetailPanel({ id }: Props) {
     queryFn: () => getCase(id),
   })
   const record = detailQuery.data
+  const previewKey = resolveMediaKey(record?.preview)
+  const previewUrl = useMediaPreviewUrl(record?.preview)
+  const isVideoPreview = !!previewKey && /\.(mp4|webm)$/i.test(previewKey)
   const { topics, attributes, edges, presence, placements, caseRefs } =
     useCaseReferences(record)
   const pendingTasksQuery = useQuery({

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Bold, Code, Italic, Link2, List, ListOrdered, SquareCode } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
 type Props = {
@@ -66,17 +67,18 @@ export function MarkdownTextField({
     >
       <div className='flex items-center gap-0.5 border-b bg-muted/40 px-1.5 py-1'>
         {tools.map((tool) => (
-          <button
+          <Button
             key={tool.title}
             type='button'
+            variant='ghost'
+            size='icon-sm'
             title={tool.title}
             aria-label={tool.title}
             disabled={disabled}
             onClick={tool.run}
-            className='inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50'
           >
             <tool.icon className='size-3.5' />
-          </button>
+          </Button>
         ))}
       </div>
       <Textarea

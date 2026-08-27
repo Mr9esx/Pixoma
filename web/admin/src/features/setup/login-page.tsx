@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -49,9 +48,6 @@ export function LoginPage({ status }: { status: SetupStatus }) {
       <Card className='w-full max-w-sm'>
         <CardHeader>
           <CardTitle>登录</CardTitle>
-          <CardDescription>
-            用启动日志里的管理员账号。用户名一般是 admin。
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className='flex flex-col gap-4' onSubmit={onSubmit}>

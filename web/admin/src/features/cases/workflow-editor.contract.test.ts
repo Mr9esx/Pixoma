@@ -57,6 +57,7 @@ const REQUIRED_KEYS = [
   'typeAuto',
   'typeCustom',
   'typeRestoreAuto',
+  'restoreSuggestedType',
   'typeAutoSource',
   'addInput',
   'addOutput',
@@ -92,45 +93,53 @@ describe('workflow import section', () => {
     const source = read(IMPORT_SECTION)
     expect(source).toContain("data-testid='case-section-workflow-import'")
     expect(source).toContain("'../lib/workflow-parse'")
-    expect(source).toContain("rounded-full bg-primary text-xs font-semibold text-primary-foreground'")
+    expect(source).toContain(
+      "rounded-full bg-primary text-xs font-semibold text-primary-foreground'"
+    )
     expect(source).toMatch(/text-primary-foreground'[\s\S]{0,40}\n\s*1\n/)
     expect(source).toContain('cases.importHeading')
     expect(source).toContain('cases.importNodesCount')
     expect(source).toContain('cases.importValid')
     expect(source).toContain('cases.importFailed')
     expect(source).toContain('fileRef.current?.click()')
-    expect(source).toContain("role='button'")
+    expect(source).toContain("from '@/components/ui/attachment'")
+    expect(source).toContain('<Attachment')
+    expect(source).toContain('AttachmentTrigger')
     expect(source).toContain("accept='.json,application/json'")
     expect(source).toContain('CodeEditor')
     expect(source).toContain('cases.jsonTitle')
-    expect(source).toContain('maxHeight={250}')
+    expect(source).toContain('maxHeight={180}')
   })
 
-  it('defaults to diagram view and toggles source via a header segmented control', () => {
+  it('defaults to diagram view and toggles source via a shadcn Tabs segmented control', () => {
     const source = read(IMPORT_SECTION)
     expect(source).toContain('cases.viewDiagram')
     expect(source).toContain('cases.viewSource')
     expect(source).toContain("data-testid='workflow-import-diagram'")
-    expect(source).toContain("aria-pressed={view === 'diagram'}")
-    expect(source).toContain("rounded-md border bg-muted/40 p-0.5")
     expect(source).toContain("useState<ViewMode>('diagram')")
     expect(source).toContain('function NodeDiagram')
     expect(source).toContain('nodeLabel(')
-    expect(source).not.toContain('TabsTrigger')
+    expect(source).toContain("from '@/components/ui/tabs'")
+    expect(source).toContain('<Tabs')
+    expect(source).toContain('<TabsList')
+    expect(source).toContain('<TabsTrigger')
+    expect(source).toContain("onValueChange={(next) => onChange(next as ViewMode)}")
+    expect(source).not.toContain('aria-pressed')
   })
 })
 
 describe('code editor component', () => {
-  it('renders an IDE-style dark container with an in-border header', () => {
+  it('renders a theme-consistent container with an in-border header', () => {
     const source = read(CODE_EDITOR)
     expect(source).toContain('export function CodeEditor')
     expect(source).toContain('title')
-    expect(source).toContain('border-b border-[#30363d]')
-    expect(source).toContain("backgroundColor: '#0d1117'")
+    expect(source).toContain('border-b border-border')
+    expect(source).toContain('var(--card)')
+    expect(source).toContain('var(--muted-foreground)')
     expect(source).toContain('maxHeight = 250')
-    expect(source).toContain("color: '#7ee787'")
-    expect(source).toContain("theme='none'")
-    expect(source).toContain('lab(75.0771%')
+    expect(source).toContain('theme=\'none\'')
+    expect(source).not.toContain('#0d1117')
+    expect(source).not.toContain('#30363d')
     expect(source).not.toContain('focus-within')
   })
 })
@@ -142,10 +151,17 @@ describe('field cards (table + anchored bind popover)', () => {
     expect(source).toContain('BindNodePopover')
     expect(source).toContain('cases.bindPickPlaceholder')
     expect(source).toContain('cases.bindSearchPlaceholder')
+    expect(source).toContain('<CommandInput')
+    expect(source).toContain('<CommandSeparator')
+    expect(source).toContain('<CommandGroup')
+    expect(source).toContain('ChevronsUpDown')
     expect(source).toContain('!i.ref')
     expect(source).toContain('cases.typeAutoSource')
-    expect(source).toContain('cases.typeRestoreAuto')
-    expect(source).toContain('cases.typeCustom')
+    expect(source).toContain('cases.typeAuto')
+    expect(source).toContain('RestoreTypeButton')
+    expect(source).toContain('cases.restoreSuggestedType')
+    expect(source).toContain('<Tooltip')
+    expect(source).toContain('RefreshCw')
     expect(source).toContain('nodeVisualFor(')
     expect(source).toContain('inputKindFor(')
     expect(source).not.toContain('BindNodeDialog')
@@ -167,10 +183,9 @@ describe('unified workflow editor assembly', () => {
   it('workflow-editor renders step sections and locks behind an info alert', () => {
     const source = read(WORKFLOW_EDITOR)
     expect(source).toContain('WorkflowImportSection')
-    expect(source).toContain('InputFieldCard')
-    expect(source).toContain('OutputFieldCard')
-    expect(source).toContain('InputFieldsTable')
-    expect(source).toContain('OutputFieldsTable')
+    expect(source).toContain('EditableInputFields')
+    expect(source).toContain('EditableOutputFields')
+    expect(source).toContain('useIsWide')
     expect(source).toContain('cases.inputsHeading')
     expect(source).toContain('cases.outputsHeading')
     expect(source).toContain('deriveBindings(')

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ImagePlus, Loader2 } from 'lucide-react'
+import { Film, ImagePlus, Loader2, Trash2, ZoomIn } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   fetchMediaBlob,
@@ -8,6 +8,15 @@ import {
   resolveMediaKey,
   uploadMedia,
 } from '@/lib/api/media'
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentMedia,
+  AttachmentTitle,
+  AttachmentTrigger,
+} from '@/components/ui/attachment'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 
 type Props = {
@@ -52,6 +61,7 @@ export function MediaPreviewField({ value, onChange, disabled }: Props) {
   const mediaUrl = useMediaObjectUrl(value)
   const key = resolveMediaKey(value)
   const isVideo = /\.(mp4|webm)$/i.test(key ?? '')
+  const mediaName = key ? key.split('/').pop() : undefined
 
   async function onFile(file: File | undefined) {
     if (!file) return
@@ -76,88 +86,67 @@ export function MediaPreviewField({ value, onChange, disabled }: Props) {
   }
 
   return (
-    <div data-testid='media-preview-field' className='space-y-2'>
-      {mediaUrl && key ? (
-        <div className='relative overflow-hidden rounded-md border border-border bg-muted/20'>
-          <button
-            type='button'
-            aria-label={t('media.zoom')}
-            className='block w-full cursor-zoom-in'
-            onClick={() => setLightboxOpen(true)}
-          >
-            {isVideo ? (
-              <video
-                src={mediaUrl}
-                muted
-                playsInline
-                className='pointer-events-none max-h-64 w-full object-contain'
-              />
-            ) : (
-              <img
-                src={mediaUrl}
-                alt='preview'
-                className='max-h-64 w-full object-contain'
-              />
-            )}
-          </button>
-          {!disabled ? (
-            <div className='absolute inset-x-0 bottom-0 flex items-center justify-end gap-1.5 bg-gradient-to-t from-black/55 to-transparent p-2'>
-              <button
-                type='button'
-                disabled={uploading}
-                onClick={() => {
-                  if (!uploading) fileRef.current?.click()
-                }}
-                className='rounded-md bg-white/20 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm hover:bg-white/35 disabled:opacity-50'
+    <div
+      data-testid='media-preview-field'
+      className='flex flex-col items-start gap-2'
+      onDragOver={(e) => {
+        if (!disabled) e.preventDefault()
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        if (!disabled && !uploading) void onFile(e.dataTransfer.files?.[0])
+      }}
+    >
+      <Attachment
+        state={error ? 'error' : uploading ? 'uploading' : 'done'}
+        className='w-full'
+      >
+        <AttachmentMedia variant={key && !isVideo ? 'image' : 'icon'}>
+          {uploading ? (
+            <Loader2 className='animate-spin' />
+          ) : isVideo ? (
+            <Film />
+          ) : key && mediaUrl ? (
+            <img src={mediaUrl} alt='preview' />
+          ) : (
+            <ImagePlus />
+          )}
+        </AttachmentMedia>
+        <AttachmentContent>
+          <AttachmentTitle>
+            {uploading
+              ? t('media.uploading')
+              : key
+                ? (mediaName ?? t('media.pick'))
+                : t('media.pick')}
+          </AttachmentTitle>
+        </AttachmentContent>
+        <AttachmentActions>
+          {key ? (
+            <>
+              <AttachmentAction
+                aria-label={t('media.zoom')}
+                title={t('media.zoom')}
+                onClick={() => setLightboxOpen(true)}
               >
-                {t('media.replace')}
-              </button>
-              <button
-                type='button'
-                onClick={() => onChange(undefined)}
-                className='rounded-md bg-white/20 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm hover:bg-white/35'
-              >
-                {t('media.clear')}
-              </button>
-            </div>
+                <ZoomIn />
+              </AttachmentAction>
+              {!disabled ? (
+                <AttachmentAction
+                  aria-label={t('media.clear')}
+                  title={t('media.clear')}
+                  onClick={() => onChange(undefined)}
+                >
+                  <Trash2 />
+                </AttachmentAction>
+              ) : null}
+            </>
           ) : null}
-        </div>
-      ) : (
-        <div
-          role='button'
-          tabIndex={0}
-          aria-label={t('media.pick')}
-          className='cursor-pointer rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-50'
-          onClick={() => {
-            if (!disabled && !uploading) fileRef.current?.click()
-          }}
-          onKeyDown={(e) => {
-            if (disabled || uploading) return
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              fileRef.current?.click()
-            }
-          }}
-          onDragOver={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-          }}
-          onDrop={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            if (!disabled && !uploading) void onFile(e.dataTransfer.files?.[0])
-          }}
-        >
-          <span className='inline-flex items-center gap-1.5'>
-            {uploading ? (
-              <Loader2 className='size-4 animate-spin' />
-            ) : (
-              <ImagePlus className='size-4' />
-            )}
-            {uploading ? t('media.uploading') : t('media.pick')}
-          </span>
-        </div>
-      )}
+        </AttachmentActions>
+        {!disabled ? (
+          <AttachmentTrigger onClick={() => fileRef.current?.click()} />
+        ) : null}
+      </Attachment>
 
       <input
         ref={fileRef}

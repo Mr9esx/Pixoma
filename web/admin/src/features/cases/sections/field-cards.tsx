@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight, ChevronsUpDown, Search, Trash2 } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronsUpDown, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
@@ -30,12 +30,26 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@/components/ui/command'
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { InputFieldDraft, OutputFieldDraft } from '../lib/derive'
 import {
   inputKindFor,
@@ -104,212 +118,206 @@ export function BindNodePopover({
   compact,
 }: BindNodePopoverProps) {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const searchRef = useRef<HTMLInputElement | null>(null)
   const bound = !!node
-
-  // 打开时聚焦搜索框；关闭时清空 query
-  useEffect(() => {
-    if (open) {
-      const id = window.requestAnimationFrame(() => searchRef.current?.focus())
-      return () => window.cancelAnimationFrame(id)
+  const typeLabel = (() => {
+    if (!node) return undefined
+    if (mode === 'input') {
+      const p = node.inputs.find((i) => i.name === boundLabel && !i.ref)
+      return p
+        ? t(TYPE_LABEL_KEYS[p.kind] ?? 'cases.typeString')
+        : undefined
     }
-    setSearch('')
-    return undefined
-  }, [open])
+    return t(
+      TYPE_LABEL_KEYS[outputKindFor(node.class_type)] ?? 'cases.typeImage'
+    )
+  })()
+  const triggerText =
+    bound && node
+      ? [nodeLabel(node.class_type), boundLabel, typeLabel]
+          .filter(Boolean)
+          .join(' · ')
+      : undefined
 
   const query = search.trim().toLowerCase()
-  const nodeMatches = (n: WorkflowNode) =>
-    !query ||
-    nodeLabel(n.class_type).toLowerCase().includes(query) ||
-    String(n.id).toLowerCase().includes(query)
 
-  // 输入：只暴露字面量参数（引用/节点间连线不是用户能提供的输入）。
+  // 输入：只暴露字面量参数（引用/节点间连线不是用户能提供的输入）。过滤交给 cmdk。
   const inputGroups = useMemo(
     () =>
       nodes
-        .map((n) => ({
-          node: n,
-          params: n.inputs
-            .filter((i) => !i.ref)
-            .filter(
-              (i) => !query || i.name.toLowerCase().includes(query)
-            ),
-        }))
-        .filter((g) => g.params.length > 0 && nodeMatches(g.node)),
-    // nodeMatches 依赖 query（已在 deps）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [nodes, query]
+        .map((n) => ({ node: n, params: n.inputs.filter((i) => !i.ref) }))
+        .filter((g) => g.params.length > 0),
+    [nodes]
   )
-  // 输出：暴露各节点输出槽位。
   const outputGroups = useMemo(
-    () => nodes.filter((n) => n.outputCount > 0 && nodeMatches(n)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [nodes, query]
+    () => nodes.filter((n) => n.outputCount > 0),
+    [nodes]
   )
 
   function pick(nodeId: string, pick: string) {
     onPick(nodeId, pick)
-    setOpen(false)
+    setSearch('')
+  }
+
+  // cmdk 按 value 过滤，因此在 value 里带上节点名/编号和字段名以便搜索。
+  function itemValue(n: WorkflowNode, field: string) {
+    return `${nodeLabel(n.class_type)} ${n.id} ${field}`
+  }
+
+  function nodeHead(n: WorkflowNode, note?: string) {
+    const { Icon, className } = nodeVisualFor(n.class_type)
+    return (
+      <span className='flex items-center gap-1.5'>
+        <span
+          className={`grid size-5 shrink-0 place-items-center rounded-md ${className}`}
+        >
+          <Icon className='size-3' />
+        </span>
+        <span className='truncate font-semibold'>{nodeLabel(n.class_type)}</span>
+        <span className='font-mono text-[10px] font-normal text-muted-foreground'>
+          #{n.id}
+        </span>
+        {note ? (
+          <span className='ml-auto font-normal text-[10px] text-muted-foreground'>
+            {note}
+          </span>
+        ) : null}
+      </span>
+    )
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type='button'
-          variant='outline'
-          disabled={disabled || nodes.length === 0}
-          className={
-            compact
-              ? 'flex h-8 w-full items-center justify-between gap-1.5 border border-input bg-transparent px-2 text-left text-xs hover:bg-accent/50'
-              : 'flex h-auto w-full items-center justify-between gap-2 border border-input bg-transparent px-3 py-2 text-left hover:bg-accent/50'
-          }
-        >
-          {bound ? (
-            <span className='flex min-w-0 items-center gap-1.5'>
-              {(() => {
-                const { Icon, className } = nodeVisualFor(node.class_type)
-                return (
-                  <span
-                    className={`grid size-5 shrink-0 place-items-center rounded-md ${className}`}
-                  >
-                    <Icon className='size-3' />
-                  </span>
-                )
-              })()}
-              <span className='truncate text-xs'>
-                <span className='font-medium'>
-                  {nodeLabel(node.class_type)}
-                </span>{' '}
-                {boundLabel ? (
-                  <span className='font-mono text-muted-foreground'>
-                    · {boundLabel}
-                  </span>
-                ) : null}
-              </span>
-            </span>
-          ) : (
-            <span className='truncate text-muted-foreground'>
-              {nodes.length === 0
-                ? t('cases.emptyWorkflowLock')
-                : t('cases.bindPickPlaceholder')}
-            </span>
-          )}
-          <ChevronsUpDown className='size-3.5 shrink-0 text-muted-foreground' />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align='start'
-        side='bottom'
-        className='w-80 p-0'
-      >
-        <div className='border-b p-2'>
-          <div className='relative'>
-            <Search className='pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground' />
-            <Input
-              ref={searchRef}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('cases.bindSearchPlaceholder')}
-              className='h-8 pl-7 text-xs'
-              autoComplete='off'
-            />
-          </div>
-        </div>
-        <div className='max-h-72 overflow-auto p-1'>
-          {mode === 'output' ? (
-            outputGroups.length === 0 ? (
-              <p className='px-2 py-4 text-center text-xs text-muted-foreground'>
-                {query ? t('cases.bindNoResults') : t('cases.bindNoParams')}
-              </p>
-            ) : (
-              outputGroups.map((n) => {
-                const { Icon, className } = nodeVisualFor(n.class_type)
-                return (
-                  <div key={n.id} className='mb-2'>
-                    <div className='flex items-center gap-1.5 px-2 py-1.5'>
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              type='button'
+              variant='outline'
+              disabled={disabled || nodes.length === 0}
+              aria-label={t('cases.fieldBind')}
+              className={
+                compact
+                  ? 'flex h-8 w-full items-center justify-between gap-1.5 px-2 text-left text-sm hover:bg-accent/50'
+                  : 'flex h-auto w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent/50'
+              }
+            >
+              {bound ? (
+                <span className='flex min-w-0 items-center gap-1.5'>
+                  {(() => {
+                    const { Icon, className } = nodeVisualFor(node.class_type)
+                    return (
                       <span
                         className={`grid size-5 shrink-0 place-items-center rounded-md ${className}`}
                       >
                         <Icon className='size-3' />
                       </span>
-                      <span className='truncate text-xs font-semibold'>
-                        {nodeLabel(n.class_type)}
+                    )
+                  })()}
+                  <span className='min-w-0 truncate'>
+                    <span className='font-normal'>
+                      {nodeLabel(node.class_type)}
+                    </span>
+                    {boundLabel ? (
+                      <span className='font-mono text-muted-foreground'>
+                        {' '}
+                        · {boundLabel}
                       </span>
-                      <span className='font-mono text-[10px] text-muted-foreground'>
-                        #{n.id}
-                      </span>
-                      {n.outputCount === 1 ? (
-                        <span className='ml-auto text-[10px] text-muted-foreground'>
-                          {t('cases.singleOutputAuto')}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className='space-y-0.5'>
-                      {Array.from({ length: n.outputCount }, (_, i) => (
-                        <button
-                          key={i}
-                          type='button'
-                          onClick={() => pick(n.id, String(i))}
-                          className='flex w-full items-center gap-2 rounded-md py-1.5 pr-2 pl-6 text-left font-mono text-xs text-foreground/90 transition-colors hover:bg-accent'
-                        >
-                          <ChevronRight className='size-3 shrink-0 text-muted-foreground' />
-                          <span>[{i}]</span>
-                          <span className='ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground'>
-                            {t(TYPE_LABEL_KEYS[outputKindFor(n.class_type)])}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })
-            )
-          ) : inputGroups.length === 0 ? (
-            <p className='px-2 py-4 text-center text-xs text-muted-foreground'>
+                    ) : null}
+                  </span>
+                </span>
+              ) : (
+                <span className='min-w-0 truncate text-sm font-normal text-muted-foreground'>
+                  {nodes.length === 0
+                    ? t('cases.emptyWorkflowLock')
+                    : t('cases.bindPickPlaceholder')}
+                </span>
+              )}
+              <ChevronsUpDown className='size-3.5 shrink-0 text-muted-foreground' />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        {bound && triggerText ? (
+          <TooltipContent sideOffset={6}>{triggerText}</TooltipContent>
+        ) : null}
+      </Tooltip>
+      <PopoverContent align='start' side='bottom' className='w-80 p-0'>
+        <Command>
+          <CommandInput
+            autoFocus
+            value={search}
+            onValueChange={setSearch}
+            placeholder={t('cases.bindSearchPlaceholder')}
+            autoComplete='off'
+          />
+          <CommandList>
+            <CommandEmpty className='py-4 text-center text-sm'>
               {query ? t('cases.bindNoResults') : t('cases.bindNoParams')}
-            </p>
-          ) : (
-            inputGroups.map(({ node: n, params }) => {
-              const { Icon, className } = nodeVisualFor(n.class_type)
-              return (
-                <div key={n.id} className='mb-2'>
-                  <div className='flex items-center gap-1.5 px-2 py-1.5'>
-                    <span
-                      className={`grid size-5 shrink-0 place-items-center rounded-md ${className}`}
-                    >
-                      <Icon className='size-3' />
-                    </span>
-                    <span className='truncate text-xs font-semibold'>
-                      {nodeLabel(n.class_type)}
-                    </span>
-                    <span className='font-mono text-[10px] text-muted-foreground'>
-                      #{n.id}
-                    </span>
-                  </div>
-                  <div className='space-y-0.5'>
+            </CommandEmpty>
+            {mode === 'output' ? (
+              outputGroups.map((n, gi) => (
+                <Fragment key={n.id}>
+                  {gi > 0 ? <CommandSeparator /> : null}
+                  <CommandGroup
+                    heading={nodeHead(
+                      n,
+                      n.outputCount === 1 ? t('cases.singleOutputAuto') : undefined
+                    )}
+                  >
+                    {n.outputCount > 1
+                      ? Array.from({ length: n.outputCount }, (_, i) => (
+                          <CommandItem
+                            key={i}
+                            value={itemValue(n, String(i))}
+                            onSelect={() => pick(n.id, String(i))}
+                            className='text-sm'
+                          >
+                            <span className='font-mono'>{i}</span>
+                            <span className='ms-auto shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground'>
+                              {t(TYPE_LABEL_KEYS[outputKindFor(n.class_type)])}
+                            </span>
+                          </CommandItem>
+                        ))
+                      : (
+                          <CommandItem
+                            value={itemValue(n, '0')}
+                            onSelect={() => pick(n.id, '0')}
+                            className='text-sm'
+                          >
+                            <span className='truncate'>
+                              {t(TYPE_LABEL_KEYS[outputKindFor(n.class_type)])}
+                            </span>
+                          </CommandItem>
+                        )}
+                  </CommandGroup>
+                </Fragment>
+              ))
+            ) : (
+              inputGroups.map(({ node: n, params }, gi) => (
+                <Fragment key={n.id}>
+                  {gi > 0 ? <CommandSeparator /> : null}
+                  <CommandGroup heading={nodeHead(n)}>
                     {params.map((p) => (
-                      <button
+                      <CommandItem
                         key={p.name}
-                        type='button'
-                        onClick={() => pick(n.id, p.name)}
-                        className='flex w-full items-center gap-2 rounded-md py-1.5 pr-2 pl-6 text-left text-xs text-foreground/90 transition-colors hover:bg-accent'
+                        value={itemValue(n, p.name)}
+                        onSelect={() => pick(n.id, p.name)}
+                        className='text-sm'
                       >
-                        <ChevronRight className='size-3 shrink-0 text-muted-foreground' />
-                        <span className='truncate font-mono'>{p.name}</span>
-                        <span className='ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground'>
+                        <span className='min-w-0 flex-1 truncate font-mono'>
+                          {p.name}
+                        </span>
+                        <span className='ms-auto shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground'>
                           {t(TYPE_LABEL_KEYS[p.kind] ?? 'cases.typeString')}
                         </span>
-                      </button>
+                      </CommandItem>
                     ))}
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
+                  </CommandGroup>
+                </Fragment>
+              ))
+            )}
+          </CommandList>
+        </Command>
       </PopoverContent>
     </Popover>
   )
@@ -342,7 +350,7 @@ export function RemoveFieldButton({
           aria-label={t('cases.removeRow')}
           className={
             compact
-              ? 'h-7 w-7 text-muted-foreground hover:text-destructive'
+              ? 'size-9 text-muted-foreground hover:text-destructive'
               : 'text-muted-foreground hover:text-destructive'
           }
         >
@@ -374,6 +382,36 @@ export function RemoveFieldButton({
   )
 }
 
+type RestoreTypeButtonProps = {
+  onClick: () => void
+  disabled?: boolean
+}
+
+/** 手动改过类型后，下拉右侧的「恢复建议类型」按钮（hover 提示）。 */
+function RestoreTypeButton({ onClick, disabled }: RestoreTypeButtonProps) {
+  const { t } = useTranslation()
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon'
+          onClick={onClick}
+          disabled={disabled}
+          aria-label={t('cases.restoreSuggestedType')}
+          className='h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground'
+        >
+          <RefreshCw className='size-3.5' />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent sideOffset={6}>
+        {t('cases.restoreSuggestedType')}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 // ===== 输入字段卡片（窄屏降级）=====
 
 type InputCardProps = {
@@ -382,6 +420,7 @@ type InputCardProps = {
   onChange: (next: InputFieldDraft) => void
   onRemove: () => void
   disabled?: boolean
+  hasError?: boolean
 }
 
 export function InputFieldCard({
@@ -390,6 +429,7 @@ export function InputFieldCard({
   onChange,
   onRemove,
   disabled,
+  hasError,
 }: InputCardProps) {
   const { t } = useTranslation()
   const node = nodes.find((n) => n.id === value.node_id)
@@ -406,11 +446,13 @@ export function InputFieldCard({
       <div className='flex flex-wrap items-center gap-2'>
         <span className='text-sm text-foreground'>{t('cases.fieldKey')}</span>
         <Input
-          className='h-8 w-36'
+          className={`h-8 w-36 ${hasError ? 'border-destructive focus-visible:ring-destructive/30' : ''}`}
           value={value.key}
           onChange={(e) => onChange({ ...value, key: e.target.value })}
           disabled={disabled}
           autoComplete='off'
+          aria-label={t('cases.fieldKey')}
+          aria-invalid={hasError || undefined}
         />
       </div>
 
@@ -424,6 +466,7 @@ export function InputFieldCard({
           onChange={(e) => onChange({ ...value, description: e.target.value })}
           disabled={disabled}
           autoComplete='off'
+          aria-label={t('cases.fieldDescription')}
         />
       </div>
 
@@ -457,6 +500,7 @@ export function InputFieldCard({
             onChange({ ...value, type: type as InputFieldDraft['type'] })
           }
           disabled={disabled}
+          aria-label={t('cases.fieldType')}
         >
           <SelectTrigger size='sm' className='w-28'>
             <SelectValue />
@@ -469,40 +513,27 @@ export function InputFieldCard({
             ))}
           </SelectContent>
         </Select>
-        {bound ? (
-          isCustom ? (
-            <>
-              <Badge
-                variant='secondary'
-                className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'
-              >
-                {t('cases.typeCustom')}
-              </Badge>
-              <button
-                type='button'
-                disabled={disabled}
-                onClick={() => onChange({ ...value, type: autoType })}
-                className='text-xs text-sky-600 underline disabled:opacity-50 dark:text-sky-400'
-              >
-                {t('cases.typeRestoreAuto')}
-              </button>
-            </>
-          ) : (
-            <>
-              <Badge
-                variant='secondary'
-                className='border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-400'
-              >
-                {t('cases.typeAuto')}
-              </Badge>
-              <span className='text-xs text-muted-foreground'>
-                {t('cases.typeAutoSource', {
-                  node: nodeLabel(node?.class_type ?? ''),
-                  param: value.field_path,
-                })}
-              </span>
-            </>
-          )
+        {bound && isCustom ? (
+          <RestoreTypeButton
+            disabled={disabled}
+            onClick={() => onChange({ ...value, type: autoType })}
+          />
+        ) : null}
+        {bound && !isCustom ? (
+          <>
+            <Badge
+              variant='secondary'
+              className='border-info/30 bg-info/10 text-info'
+            >
+              {t('cases.typeAuto')}
+            </Badge>
+            <span className='text-xs text-muted-foreground'>
+              {t('cases.typeAutoSource', {
+                node: nodeLabel(node?.class_type ?? ''),
+                param: value.field_path,
+              })}
+            </span>
+          </>
         ) : null}
       </div>
 
@@ -525,6 +556,7 @@ export function InputFieldCard({
             }
             disabled={disabled}
             autoComplete='off'
+            aria-label={t('cases.fieldEnumOptions')}
           />
         </div>
       ) : null}
@@ -586,6 +618,7 @@ export function OutputFieldCard({
           onChange={(e) => onChange({ ...value, key: e.target.value })}
           disabled={disabled}
           autoComplete='off'
+          aria-label={t('cases.fieldKey')}
         />
         <span className='text-sm text-foreground'>{t('cases.fieldType')}</span>
         <Select
@@ -594,6 +627,7 @@ export function OutputFieldCard({
             onChange({ ...value, type: type as OutputFieldDraft['type'] })
           }
           disabled={disabled}
+          aria-label={t('cases.fieldType')}
         >
           <SelectTrigger size='sm' className='w-28'>
             <SelectValue />
@@ -606,39 +640,26 @@ export function OutputFieldCard({
             ))}
           </SelectContent>
         </Select>
-        {bound ? (
-          isCustom ? (
-            <>
-              <Badge
-                variant='secondary'
-                className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'
-              >
-                {t('cases.typeCustom')}
-              </Badge>
-              <button
-                type='button'
-                disabled={disabled}
-                onClick={() => onChange({ ...value, type: autoType })}
-                className='text-xs text-sky-600 underline disabled:opacity-50 dark:text-sky-400'
-              >
-                {t('cases.typeRestoreAuto')}
-              </button>
-            </>
-          ) : (
-            <>
-              <Badge
-                variant='secondary'
-                className='border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-400'
-              >
-                {t('cases.typeAuto')}
-              </Badge>
-              <span className='text-xs text-muted-foreground'>
-                {t('cases.typeAutoSourceOutput', {
-                  node: nodeLabel(node?.class_type ?? ''),
-                })}
-              </span>
-            </>
-          )
+        {bound && isCustom ? (
+          <RestoreTypeButton
+            disabled={disabled}
+            onClick={() => onChange({ ...value, type: autoType })}
+          />
+        ) : null}
+        {bound && !isCustom ? (
+          <>
+            <Badge
+              variant='secondary'
+              className='border-info/30 bg-info/10 text-info'
+            >
+              {t('cases.typeAuto')}
+            </Badge>
+            <span className='text-xs text-muted-foreground'>
+              {t('cases.typeAutoSourceOutput', {
+                node: nodeLabel(node?.class_type ?? ''),
+              })}
+            </span>
+          </>
         ) : null}
       </div>
 
@@ -652,6 +673,7 @@ export function OutputFieldCard({
           onChange={(e) => onChange({ ...value, description: e.target.value })}
           disabled={disabled}
           autoComplete='off'
+          aria-label={t('cases.fieldDescription')}
         />
       </div>
 
@@ -661,7 +683,9 @@ export function OutputFieldCard({
           mode='output'
           nodes={nodes}
           node={bound ? node : undefined}
-          boundLabel={`[${value.index ?? 0}]`}
+          boundLabel={
+            node && node.outputCount > 1 ? `[${value.index ?? 0}]` : undefined
+          }
           disabled={disabled}
           onPick={(nodeId, pick) => {
             const picked = nodes.find((n) => n.id === nodeId)
@@ -694,6 +718,30 @@ type InputTableProps = {
   onChange: (index: number, next: InputFieldDraft) => void
   onRemove: (index: number) => void
   disabled?: boolean
+  fieldErrors?: Record<number, boolean>
+}
+
+/** 新增一行时自动滚到底部，并高亮新行 1.5s（使用全局 flash-highlight 闪烁色）。 */
+function useNewRowFlash(count: number) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const prevCount = useRef(count)
+  const [flashIndex, setFlashIndex] = useState(-1)
+
+  useEffect(() => {
+    const prev = prevCount.current
+    prevCount.current = count
+    if (count > prev && count > 0) {
+      const idx = count - 1
+      setFlashIndex(idx)
+      const scroller = scrollRef.current
+      if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' })
+      const timer = window.setTimeout(() => setFlashIndex(-1), 1600)
+      return () => window.clearTimeout(timer)
+    }
+    return undefined
+  }, [count])
+
+  return { scrollRef, flashIndex }
 }
 
 export function InputFieldsTable({
@@ -702,12 +750,18 @@ export function InputFieldsTable({
   onChange,
   onRemove,
   disabled,
+  fieldErrors,
 }: InputTableProps) {
   const { t } = useTranslation()
+  const { scrollRef, flashIndex } = useNewRowFlash(fields.length)
   return (
     <div className='overflow-hidden rounded-md border'>
-      <div className='max-h-[200px] overflow-auto'>
-        <Table data-testid='input-fields-table' className='table-fixed'>
+      <Table
+        data-testid='input-fields-table'
+        className='table-fixed w-full'
+        wrapperClassName='max-h-[300px] overflow-y-auto'
+        wrapperRef={scrollRef}
+      >
         <TableHeader className='sticky top-0 z-10 bg-background [&_th]:bg-background'>
           <TableRow>
             <TableHead className='w-40'>
@@ -716,34 +770,41 @@ export function InputFieldsTable({
             <TableHead className='w-32'>
               {t('cases.fieldType')}
             </TableHead>
-            <TableHead className='w-48'>
+            <TableHead className='w-56'>
               {t('cases.fieldBind')}
             </TableHead>
-            <TableHead className='w-14 text-center'>
+            <TableHead className='w-12 text-center'>
               {t('cases.fieldRequired')}
             </TableHead>
             <TableHead className='min-w-0'>
               {t('cases.fieldDescription')}
             </TableHead>
-            <TableHead className='w-14' />
+            <TableHead className='w-11' />
           </TableRow>
         </TableHeader>
         <TableBody>
           {fields.map((value, index) => {
             const node = nodes.find((n) => n.id === value.node_id)
             const bound = !!(value.node_id && value.field_path)
+            const hasError = Boolean(fieldErrors?.[index])
             return (
-              <TableRow key={`input-${index}`} data-testid='input-table-row'>
+              <TableRow
+            key={`input-${index}`}
+            data-testid='input-table-row'
+            className={flashIndex === index ? 'flash-highlight' : undefined}
+          >
                 <TableCell>
                   <div className='flex items-center gap-1'>
                     <Input
-                      className='h-8 min-w-0 flex-1'
+                      className={`h-8 min-w-0 flex-1 ${hasError ? 'border-destructive focus-visible:ring-destructive/30' : ''}`}
                       value={value.key}
                       onChange={(e) =>
                         onChange(index, { ...value, key: e.target.value })
                       }
                       disabled={disabled}
                       autoComplete='off'
+                      aria-label={t('cases.fieldKey')}
+                      aria-invalid={hasError || undefined}
                     />
                     {value.required ? (
                       <span
@@ -757,41 +818,35 @@ export function InputFieldsTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Select
-                    value={value.type}
-                    onValueChange={(type) =>
-                      onChange(index, {
-                        ...value,
-                        type: type as InputFieldDraft['type'],
-                      })
-                    }
-                    disabled={disabled}
-                  >
-                    <SelectTrigger size='sm' className='w-28'>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INPUT_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {t(type.labelKey)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {bound &&
-                  value.type !==
-                    (node
-                      ? safeAutoType(node.class_type, value.field_path)
-                      : '') ? (
-                    <div className='mt-1 flex items-center gap-1.5'>
-                      <Badge
-                        variant='secondary'
-                        className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'
-                      >
-                        {t('cases.typeCustom')}
-                      </Badge>
-                      <button
-                        type='button'
+                  <div className='flex items-center gap-1.5'>
+                    <Select
+                      value={value.type}
+                      onValueChange={(type) =>
+                        onChange(index, {
+                          ...value,
+                          type: type as InputFieldDraft['type'],
+                        })
+                      }
+                      disabled={disabled}
+                      aria-label={t('cases.fieldType')}
+                    >
+                      <SelectTrigger size='sm' className='w-28'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INPUT_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {t(type.labelKey)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {bound &&
+                    value.type !==
+                      (node
+                        ? safeAutoType(node.class_type, value.field_path)
+                        : '') ? (
+                      <RestoreTypeButton
                         disabled={disabled}
                         onClick={() =>
                           onChange(index, {
@@ -801,12 +856,9 @@ export function InputFieldsTable({
                               : value.type,
                           })
                         }
-                        className='text-xs text-sky-600 underline disabled:opacity-50 dark:text-sky-400'
-                      >
-                        {t('cases.typeRestoreAuto')}
-                      </button>
-                    </div>
-                  ) : null}
+                      />
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className='flex items-center gap-2'>
@@ -843,6 +895,7 @@ export function InputFieldsTable({
                 <TableCell>
                   <Input
                     className='h-8'
+                    aria-label={t('cases.fieldDescription')}
                     value={value.description ?? ''}
                     onChange={(e) =>
                       onChange(index, {
@@ -854,7 +907,7 @@ export function InputFieldsTable({
                     autoComplete='off'
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell className='text-right'>
                   <RemoveFieldButton
                     compact
                     fieldKey={value.key}
@@ -874,7 +927,6 @@ export function InputFieldsTable({
           ) : null}
         </TableBody>
       </Table>
-      </div>
     </div>
   )
 }
@@ -895,10 +947,15 @@ export function OutputFieldsTable({
   disabled,
 }: OutputTableProps) {
   const { t } = useTranslation()
+  const { scrollRef, flashIndex } = useNewRowFlash(fields.length)
   return (
     <div className='overflow-hidden rounded-md border'>
-      <div className='max-h-[200px] overflow-auto'>
-        <Table data-testid='output-fields-table' className='table-fixed'>
+      <Table
+        data-testid='output-fields-table'
+        className='table-fixed w-full'
+        wrapperClassName='max-h-[300px] overflow-y-auto'
+        wrapperRef={scrollRef}
+      >
         <TableHeader className='sticky top-0 z-10 bg-background [&_th]:bg-background'>
           <TableRow>
             <TableHead className='w-40'>
@@ -907,13 +964,13 @@ export function OutputFieldsTable({
             <TableHead className='w-32'>
               {t('cases.fieldType')}
             </TableHead>
-            <TableHead className='w-48'>
+            <TableHead className='w-56'>
               {t('cases.fieldBind')}
             </TableHead>
             <TableHead className='min-w-0'>
               {t('cases.fieldDescription')}
             </TableHead>
-            <TableHead className='w-14' />
+            <TableHead className='w-11' />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -921,10 +978,15 @@ export function OutputFieldsTable({
             const node = nodes.find((n) => n.id === value.node_id)
             const bound = !!value.node_id
             return (
-              <TableRow key={`output-${index}`} data-testid='output-table-row'>
+              <TableRow
+            key={`output-${index}`}
+            data-testid='output-table-row'
+            className={flashIndex === index ? 'flash-highlight' : undefined}
+          >
                 <TableCell>
                   <Input
                     className='h-8'
+                    aria-label={t('cases.fieldKey')}
                     value={value.key}
                     onChange={(e) =>
                       onChange(index, { ...value, key: e.target.value })
@@ -934,39 +996,33 @@ export function OutputFieldsTable({
                   />
                 </TableCell>
                 <TableCell>
-                  <Select
-                    value={value.type}
-                    onValueChange={(type) =>
-                      onChange(index, {
-                        ...value,
-                        type: type as OutputFieldDraft['type'],
-                      })
-                    }
-                    disabled={disabled}
-                  >
-                    <SelectTrigger size='sm' className='w-28'>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OUTPUT_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {t(type.labelKey)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {bound &&
-                  node &&
-                  value.type !== outputKindFor(node.class_type) ? (
-                    <div className='mt-1 flex items-center gap-1.5'>
-                      <Badge
-                        variant='secondary'
-                        className='border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400'
-                      >
-                        {t('cases.typeCustom')}
-                      </Badge>
-                      <button
-                        type='button'
+                  <div className='flex items-center gap-1.5'>
+                    <Select
+                      value={value.type}
+                      onValueChange={(type) =>
+                        onChange(index, {
+                          ...value,
+                          type: type as OutputFieldDraft['type'],
+                        })
+                      }
+                      disabled={disabled}
+                      aria-label={t('cases.fieldType')}
+                    >
+                      <SelectTrigger size='sm' className='w-28'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OUTPUT_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {t(type.labelKey)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {bound &&
+                    node &&
+                    value.type !== outputKindFor(node.class_type) ? (
+                      <RestoreTypeButton
                         disabled={disabled}
                         onClick={() =>
                           onChange(index, {
@@ -974,12 +1030,9 @@ export function OutputFieldsTable({
                             type: outputKindFor(node.class_type),
                           })
                         }
-                        className='text-xs text-sky-600 underline disabled:opacity-50 dark:text-sky-400'
-                      >
-                        {t('cases.typeRestoreAuto')}
-                      </button>
-                    </div>
-                  ) : null}
+                      />
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className='flex items-center gap-2'>
@@ -988,7 +1041,11 @@ export function OutputFieldsTable({
                       mode='output'
                       nodes={nodes}
                       node={bound ? node : undefined}
-                      boundLabel={`[${value.index ?? 0}]`}
+                      boundLabel={
+                        node && node.outputCount > 1
+                          ? `[${value.index ?? 0}]`
+                          : undefined
+                      }
                       disabled={disabled}
                       onPick={(nodeId, pick) => {
                         const picked = nodes.find((n) => n.id === nodeId)
@@ -1007,6 +1064,7 @@ export function OutputFieldsTable({
                 <TableCell>
                   <Input
                     className='h-8'
+                    aria-label={t('cases.fieldDescription')}
                     value={value.description ?? ''}
                     onChange={(e) =>
                       onChange(index, {
@@ -1018,7 +1076,7 @@ export function OutputFieldsTable({
                     autoComplete='off'
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell className='text-right'>
                   <RemoveFieldButton
                     compact
                     fieldKey={value.key}
@@ -1038,10 +1096,135 @@ export function OutputFieldsTable({
           ) : null}
         </TableBody>
       </Table>
-      </div>
     </div>
   )
 }
 
 
 
+
+// ===== 宽窄屏切换 + 增行按钮（编辑工作流与详情页 modal 共用）=====
+
+type EditableInputFieldsProps = {
+  nodes: WorkflowNode[]
+  fields: InputFieldDraft[]
+  onChange: (index: number, next: InputFieldDraft) => void
+  onRemove: (index: number) => void
+  onAdd: () => void
+  wide: boolean
+  disabled?: boolean
+  fieldErrors?: Record<number, boolean>
+}
+
+/** 输入字段可编辑列表：宽屏表格 / 窄屏卡片 + 底部增行按钮。 */
+export function EditableInputFields({
+  nodes,
+  fields,
+  onChange,
+  onRemove,
+  onAdd,
+  wide,
+  disabled,
+  fieldErrors,
+}: EditableInputFieldsProps) {
+  const { t } = useTranslation()
+  return (
+    <div className='space-y-3'>
+      {wide ? (
+        <InputFieldsTable
+          nodes={nodes}
+          fields={fields}
+          onChange={onChange}
+          onRemove={onRemove}
+          disabled={disabled}
+          fieldErrors={fieldErrors}
+        />
+      ) : (
+        <ul className='space-y-3'>
+          {fields.map((field, index) => (
+            <InputFieldCard
+              key={`input-${index}`}
+              nodes={nodes}
+              value={field}
+              onChange={(next) => onChange(index, next)}
+              onRemove={() => onRemove(index)}
+              disabled={disabled}
+              hasError={Boolean(fieldErrors?.[index])}
+            />
+          ))}
+        </ul>
+      )}
+      <Button
+        type='button'
+        size='sm'
+        variant='outline'
+        disabled={disabled}
+        onClick={onAdd}
+        className='gap-1.5'
+      >
+        <Plus className='size-3.5' />
+        {t('cases.addInput')}
+      </Button>
+    </div>
+  )
+}
+
+type EditableOutputFieldsProps = {
+  nodes: WorkflowNode[]
+  fields: OutputFieldDraft[]
+  onChange: (index: number, next: OutputFieldDraft) => void
+  onRemove: (index: number) => void
+  onAdd: () => void
+  wide: boolean
+  disabled?: boolean
+}
+
+/** 输出字段可编辑列表：宽屏表格 / 窄屏卡片 + 底部增行按钮。 */
+export function EditableOutputFields({
+  nodes,
+  fields,
+  onChange,
+  onRemove,
+  onAdd,
+  wide,
+  disabled,
+}: EditableOutputFieldsProps) {
+  const { t } = useTranslation()
+  return (
+    <div className='space-y-3'>
+      {wide ? (
+        <OutputFieldsTable
+          nodes={nodes}
+          fields={fields}
+          onChange={onChange}
+          onRemove={onRemove}
+          disabled={disabled}
+        />
+      ) : (
+        <ul className='space-y-3'>
+          {fields.map((field, index) => (
+            <OutputFieldCard
+              key={`output-${index}`}
+              nodes={nodes}
+              value={field}
+              onChange={(next) => onChange(index, next)}
+              onRemove={() => onRemove(index)}
+              disabled={disabled}
+            />
+          ))}
+        </ul>
+      )}
+      <Button
+        type='button'
+        size='sm'
+        variant='outline'
+        disabled={disabled}
+        onClick={onAdd}
+        className='gap-1.5'
+      >
+        <Plus className='size-3.5' />
+        {t('cases.addOutput')}
+      </Button>
+    </div>
+  )
+}

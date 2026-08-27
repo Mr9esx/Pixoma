@@ -1,8 +1,11 @@
-import { Link, useRouterState } from '@tanstack/react-router'
-import { Menu, X } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { MENU_GROUPS } from '@/config/menu'
+import { LogOut, Menu, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useLayout } from '@/context/layout-provider'
+import { logoutAdmin } from '@/lib/api/setup'
+import { SignOutDialog } from '@/components/sign-out-dialog'
 import {
   Sidebar,
   SidebarContent,
@@ -23,30 +26,30 @@ import { LanguageSwitcher } from './language-switcher'
 
 export function AppSidebar() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { collapsible, variant } = useLayout()
   const { setOpenMobile, state, toggleSidebar, isMobile } = useSidebar()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const isCollapsed = state === 'collapsed'
+  const [signOutOpen, setSignOutOpen] = useState(false)
+
+  async function handleSignOut() {
+    await logoutAdmin()
+    await navigate({ to: '/login' })
+  }
 
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
       <SidebarHeader>
         <AppTitle />
       </SidebarHeader>
-      <div
-        className='px-2'
-        role='separator'
-        aria-orientation='horizontal'
-      >
-        <div className='h-px bg-sidebar-border' />
-      </div>
       <SidebarContent className='gap-1'>
         {isCollapsed ? (
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={toggleSidebar}
-                tooltip={t('common.toggleSidebar')}
+                tooltip={t('common.expandMenu')}
               >
                 {isMobile ? <X /> : <Menu />}
                 <span className='sr-only'>Toggle Sidebar</span>
@@ -76,7 +79,10 @@ export function AppSidebar() {
                         isActive={isActive}
                         tooltip={label}
                       >
-                        <Link to={item.path} onClick={() => setOpenMobile(false)}>
+                        <Link
+                          to={item.path}
+                          onClick={() => setOpenMobile(false)}
+                        >
                           <item.icon />
                           <span>{label}</span>
                         </Link>
@@ -90,11 +96,27 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
       <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => setSignOutOpen(true)}
+              tooltip={t('common.signOut')}
+            >
+              <LogOut />
+              <span>{t('common.signOut')}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <div className='flex items-center gap-2 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center'>
           <LanguageSwitcher />
           <ThemeSwitch />
         </div>
       </SidebarFooter>
+      <SignOutDialog
+        open={signOutOpen}
+        onOpenChange={setSignOutOpen}
+        onSignOut={handleSignOut}
+      />
       <SidebarRail />
     </Sidebar>
   )

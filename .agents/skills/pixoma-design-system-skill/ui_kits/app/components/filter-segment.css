@@ -1,0 +1,61 @@
+/*
+ * Pixoma UI Kit — filter-segment.css
+ * 源形状：web/admin/src/components/filters/filter-segment.tsx（P0 组件）
+ * 规则：少于 5 项均分整行；≥5 项在边框内横向滚动，尽头箭头淡出；
+ *       无可见 Label，用 aria-label / role="group" 声明。
+ */
+.segment {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+}
+.segment.filled { display: grid; grid-template-columns: repeat(4, 1fr); }
+
+.segment-btn {
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 120ms, background 120ms;
+}
+.segment-btn:hover { color: var(--foreground); }
+.segment-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.segment-btn[aria-pressed="true"] { background: var(--card); color: var(--foreground); }
+
+.segment-scroll-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  padding: 3px;
+}
+.segment-scroll { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.segment-scroll::-webkit-scrollbar { display: none; }
+
+.segment-chevron {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.segment-chevron:hover { color: var(--foreground); background: color-mix(in oklch, var(--foreground) 6%, transparent); }
+.segment-chevron[hidden] { visibility: hidden; }

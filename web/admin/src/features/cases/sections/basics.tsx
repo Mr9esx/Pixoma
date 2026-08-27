@@ -1,9 +1,11 @@
+import { type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { CaseRecord } from '@/lib/api/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { MarkdownTextField } from './markdown-text-field'
+import { MultiSelect } from '@/components/ui/multi-select'
 import { MediaPreviewField } from './media-preview-field'
 
 export type BasicsSlice = Pick<
@@ -17,17 +19,10 @@ type Props = {
   /** Create-only: edit mode uses topbar Enable/Disable API instead. */
   showEnabled?: boolean
   disabled?: boolean
-}
-
-function joinList(v?: string[]): string {
-  return (v ?? []).join(', ')
-}
-
-function splitList(raw: string): string[] {
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
+  /** 创建模式下的名称校验错误文案。 */
+  nameError?: string
+  /** 名称输入框的 ref，供提交失败时聚焦。 */
+  nameRef?: RefObject<HTMLInputElement | null>
 }
 
 export function BasicsSection({
@@ -35,6 +30,8 @@ export function BasicsSection({
   onChange,
   showEnabled = false,
   disabled,
+  nameError,
+  nameRef,
 }: Props) {
   const { t } = useTranslation()
 
@@ -50,12 +47,20 @@ export function BasicsSection({
         <Label htmlFor='case-name'>{t('cases.fieldName')}</Label>
         <Input
           id='case-name'
+          ref={nameRef}
           value={value.name}
           onChange={(e) => patch({ name: e.target.value })}
           disabled={disabled}
           required
           autoComplete='off'
+          aria-invalid={Boolean(nameError) || undefined}
+          aria-describedby={nameError ? 'case-name-error' : undefined}
         />
+        {nameError ? (
+          <p id='case-name-error' role='alert' className='text-sm text-destructive'>
+            {nameError}
+          </p>
+        ) : null}
       </div>
 
       <div className='space-y-2'>
@@ -80,25 +85,27 @@ export function BasicsSection({
 
       <div className='grid gap-4 sm:grid-cols-2'>
         <div className='space-y-2'>
-          <Label htmlFor='case-tags'>{t('cases.fieldTags')}</Label>
-          <Input
-            id='case-tags'
-            value={joinList(value.tags)}
-            onChange={(e) => patch({ tags: splitList(e.target.value) })}
+          <Label>{t('cases.fieldTags')}</Label>
+          <MultiSelect
+            value={value.tags ?? []}
+            onValueChange={(tags) => patch({ tags })}
             disabled={disabled}
             placeholder={t('cases.listPlaceholder')}
-            autoComplete='off'
+            inputPlaceholder={t('cases.listInputPlaceholder')}
+            createLabel={t('cases.listAdd')}
+            emptyText={t('cases.listEmpty')}
           />
         </div>
         <div className='space-y-2'>
-          <Label htmlFor='case-categories'>{t('cases.fieldCategories')}</Label>
-          <Input
-            id='case-categories'
-            value={joinList(value.categories)}
-            onChange={(e) => patch({ categories: splitList(e.target.value) })}
+          <Label>{t('cases.fieldCategories')}</Label>
+          <MultiSelect
+            value={value.categories ?? []}
+            onValueChange={(categories) => patch({ categories })}
             disabled={disabled}
             placeholder={t('cases.listPlaceholder')}
-            autoComplete='off'
+            inputPlaceholder={t('cases.listInputPlaceholder')}
+            createLabel={t('cases.listAdd')}
+            emptyText={t('cases.listEmpty')}
           />
         </div>
       </div>

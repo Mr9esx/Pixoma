@@ -1,16 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Tags } from 'lucide-react'
 import type { Topic } from '@/lib/api/topics'
 import { cn } from '@/lib/utils'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 
@@ -71,14 +65,7 @@ export function TopicListPanel({
 
       {!isLoading && !isError && filtered.length === 0 ? (
         <Empty>
-          <EmptyHeader className='max-w-none'>
-            <EmptyMedia variant='icon'>
-              <Tags />
-            </EmptyMedia>
-            <EmptyTitle className='text-sm font-medium'>
-              {t('topics.empty')}
-            </EmptyTitle>
-          </EmptyHeader>
+          <EmptyDescription>{t('topics.noData')}</EmptyDescription>
         </Empty>
       ) : null}
 
@@ -113,7 +100,9 @@ export function TopicListPanel({
                   </div>
                   <div className='mt-0.5 truncate text-xs text-muted-foreground'>
                     {topic.key}
-                    {topic.key === 'default' ? ` · ${t('topics.defaultBadge')}` : ''}
+                    {topic.key === 'default'
+                      ? ` · ${t('topics.defaultBadge')}`
+                      : ''}
                   </div>
                 </Link>
               </li>

@@ -54,36 +54,48 @@ describe('workflow detail panel', () => {
     expect(source).toMatch(/t\('common\.cancel'\)/)
   })
 
-  it('config view shows filename and graph preview', () => {
+  it('config view shows the graph preview without a filename line', () => {
     const source = readFileSync(CONFIG_VIEW, 'utf8')
-    expect(source).toContain('cases.importFile')
     expect(source).toContain('WorkflowGraphPreview')
+    expect(source).not.toContain('cases.importFile')
   })
 
-  it('graph preview: io cards on top, horizontal process flow below', () => {
+  it('graph preview: io aligned with editor, no process overview or vertical scroll trap', () => {
     const source = readFileSync(GRAPH, 'utf8')
-    expect(source).toContain('cases.sectionInputs')
-    expect(source).toContain('cases.sectionOutputs')
-    expect(source).toContain('cases.sectionProcess')
+    // 标题/文案对齐编辑工作流。
+    expect(source).toContain('cases.inputsHeading')
+    expect(source).toContain('cases.inputsHint')
+    expect(source).toContain('cases.outputsHeading')
+    expect(source).toContain('cases.outputsHint')
     expect(source).toContain('cases.editInputs')
     expect(source).toContain('cases.editOutputs')
+    // 展示层复用编辑工作流的表格（只读）。
+    expect(source).toContain('InputFieldsTable')
+    expect(source).toContain('OutputFieldsTable')
+    expect(source).toContain('onChange={noop}')
+    expect(source).toContain('disabled')
+    // 工作流配置复用编辑工作流的图示 / JSON 查看器。
+    expect(source).toContain('WorkflowGraphViewer')
+    expect(source).toContain('readOnly')
     expect(source).toContain('bindings.inputs')
     expect(source).toContain('bindings.outputs')
-    expect(source).toContain('overflow-x-auto')
-    expect(source).toContain('bg-muted/30')
-    expect(source).toContain('border-b border-border px-3 py-2')
-    expect(source).toContain("className='flex flex-col gap-2 px-3 py-2.5'")
-    expect(source).toContain('TooltipContent')
-    expect(source).toContain('font-mono text-sm')
-    expect(source).toContain('w-56')
+    // 不再包一层带标题/边框的容器（避免 border 套 border）。
+    expect(source).not.toContain('cases.jsonTitle')
+    expect(source).not.toContain('overflow-hidden rounded-lg border')
+    // 已移除处理概览与其横向滚动容器（修复滚轮陷阱）。
+    expect(source).not.toContain('cases.sectionProcess')
+    expect(source).not.toContain('overflow-x-auto')
+    expect(source).not.toContain('w-56')
+    expect(source).not.toContain('TooltipContent')
     expect(source).not.toContain('expandedNodes')
     expect(source).not.toContain('cases.nodeExpand')
   })
 
-  it('graph preview modals edit fields and save via patchCase + onSaved', () => {
+  it('graph preview modals reuse editor field lists and save via patchCase + onSaved', () => {
     const source = readFileSync(GRAPH, 'utf8')
-    expect(source).toContain('InputFieldCard')
-    expect(source).toContain('OutputFieldCard')
+    expect(source).toContain('EditableInputFields')
+    expect(source).toContain('EditableOutputFields')
+    expect(source).toContain('useIsWide')
     expect(source).toContain('deriveBindings(inputDrafts, outputDrafts)')
     expect(source).toContain('patchCase(record.id, body)')
     expect(source).toContain(

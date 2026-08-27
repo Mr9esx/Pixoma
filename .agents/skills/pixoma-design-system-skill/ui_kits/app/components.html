@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>组件库 — Pixoma UI Kit</title>
+  <link rel="icon" href="../../assets/favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../colors_and_type.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--background); color: var(--foreground); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    .kit-nav { display: flex; gap: 10px; margin-bottom: 36px; flex-wrap: wrap; }
+    .kit-link { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--foreground); font-size: 13.5px; font-weight: 500; text-decoration: none; }
+    .kit-link:hover { border-color: var(--foreground); }
+    .kit-link.active { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 12px; }
+    h1 { font-size: clamp(30px, 3.6vw, 40px); line-height: 1.3; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.02em; }
+    .lead { font-size: 16px; line-height: 1.7; color: var(--muted-foreground); max-width: 62ch; margin: 0 0 36px; }
+    .section { margin-top: 44px; }
+    .section-title { display: flex; align-items: baseline; gap: 12px; margin: 0 0 18px; }
+    .section-title h2 { font-size: 20px; font-weight: 600; margin: 0; }
+    .section-title .tag { font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); }
+    .card { padding: 24px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .stack { display: flex; flex-direction: column; gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border-radius: var(--radius-md); border: 1px solid transparent; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 120ms, border-color 120ms; }
+    .btn-primary { background: var(--primary); color: var(--primary-foreground); }
+    .btn-primary:hover { background: color-mix(in oklch, var(--primary) 90%, black); }
+    .btn-primary:disabled { background: color-mix(in oklch, var(--primary) 45%, transparent); color: color-mix(in oklch, var(--primary-foreground) 55%, transparent); cursor: not-allowed; }
+    .btn-secondary { background: transparent; color: var(--foreground); border-color: var(--border); }
+    .btn-secondary:hover { border-color: var(--foreground); background: color-mix(in oklch, var(--foreground) 6%, transparent); }
+    .btn-outline { background: transparent; color: var(--foreground); border-color: var(--border); }
+    .btn-outline:hover { border-color: var(--foreground); }
+    .btn-ghost { background: transparent; color: var(--foreground); border-color: transparent; }
+    .btn-ghost:hover { background: color-mix(in oklch, var(--foreground) 6%, transparent); }
+    .btn-link { background: transparent; color: var(--accent-text); border-color: transparent; padding: 0; height: auto; }
+    .btn-link:hover { text-decoration: underline; }
+    .btn-destructive { background: var(--destructive); color: var(--destructive-foreground); }
+    .btn-destructive:hover { background: color-mix(in oklch, var(--destructive) 88%, black); }
+    .btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+    .badge { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: var(--radius-md); font-size: 12px; font-weight: 500; border: 1px solid transparent; }
+    .badge-default { background: var(--foreground); color: var(--background); }
+    .badge-secondary { background: var(--secondary); color: var(--secondary-foreground); }
+    .badge-outline { background: transparent; color: var(--foreground); border-color: var(--border); }
+    .badge-destructive { background: var(--destructive); color: var(--destructive-foreground); }
+    .field { display: flex; flex-direction: column; gap: 7px; }
+    .field label { font-size: 13px; font-weight: 500; }
+    .input { height: 36px; padding: 0 12px; border: 1px solid var(--input); border-radius: var(--radius-md); background: var(--card); color: var(--foreground); font-size: 14px; transition: border-color 120ms; }
+    .input:focus { outline: 2px solid var(--ring); outline-offset: 1px; border-color: var(--ring); }
+    .input:disabled { background: var(--secondary); color: var(--muted-foreground); cursor: not-allowed; }
+    .input-error { border-color: var(--destructive); }
+    .helper { font-size: 12.5px; color: var(--muted-foreground); }
+    .error-text { font-size: 12.5px; color: var(--destructive); }
+    .segment { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--secondary); }
+    .segment.filled { display: grid; grid-template-columns: repeat(4, 1fr); }
+    .segment-btn { height: 30px; padding: 0 12px; border: 0; border-radius: calc(var(--radius-md) - 2px); background: transparent; color: var(--muted-foreground); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+    .segment-btn:hover { color: var(--foreground); }
+    .segment-btn[aria-pressed="true"] { background: var(--card); color: var(--foreground); }
+    .segment-scroll-wrap { position: relative; display: flex; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--secondary); padding: 3px; }
+    .segment-scroll { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+    .segment-scroll::-webkit-scrollbar { display: none; }
+    .chevron { flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); cursor: pointer; display: grid; place-items: center; }
+    .chevron:hover { color: var(--foreground); background: color-mix(in oklch, var(--foreground) 6%, transparent); }
+    .chevron[hidden] { visibility: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted-foreground); padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    td { padding: 11px 12px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    tr:hover td { background: color-mix(in oklch, var(--foreground) 4%, transparent); }
+    td.num-col, th.num-col { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    .skeleton-line { height: 10px; border-radius: 4px; background: color-mix(in oklch, var(--foreground) 7%, transparent); animation: sk-pulse 1.6s ease-in-out infinite; }
+    @keyframes sk-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+    .error-banner { display: flex; align-items: flex-start; gap: 10px; border: 1px solid color-mix(in oklch, var(--destructive) 35%, transparent); background: color-mix(in oklch, var(--destructive) 6%, transparent); border-radius: var(--radius-md); padding: 12px 14px; font-size: 13.5px; }
+    .err-dot { margin-top: 6px; width: 8px; height: 8px; border-radius: 999px; background: var(--destructive); flex-shrink: 0; }
+    .empty-glyph { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; border: 1px solid var(--border); color: var(--muted-foreground); margin-bottom: 14px; }
+    .dialog-trigger-row { display: flex; gap: 12px; }
+    .overlay { position: fixed; inset: 0; z-index: 40; background: color-mix(in oklch, black 45%, transparent); display: none; align-items: center; justify-content: center; padding: 24px; }
+    .overlay.open { display: flex; }
+    .dialog { width: 100%; max-width: 440px; padding: 24px; background: var(--popover); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-float-lg); }
+    .dialog h3 { font-size: 17px; font-weight: 600; margin: 0 0 8px; }
+    .dialog p { font-size: 13.5px; color: var(--muted-foreground); margin: 0 0 20px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    @media (max-width: 920px) { .grid-2 { grid-template-columns: 1fr; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <nav class="kit-nav" aria-label="套件页面">
+      <a class="kit-link" href="index.html" data-od-id="kit-index">套件索引</a>
+      <a class="kit-link active" href="components.html" data-od-id="kit-components">组件库</a>
+      <a class="kit-link" href="surfaces.html" data-od-id="kit-surfaces">应用表面</a>
+      <a class="kit-link" href="../../pixoma-design-system.html" data-od-id="kit-spec">规范总览</a>
+    </nav>
+
+    <p class="eyebrow">Component Library · shadcn/ui</p>
+    <h1>组件库</h1>
+    <p class="lead">复用 `components/ui` 注册表，不重复造轮子。表面无投影；dialog 等浮层保留阴影；所有状态成对检查对比度。</p>
+
+    <section class="section" data-od-id="lib-buttons">
+      <div class="section-title"><h2>按钮</h2><span class="tag">P0 · 六变体</span></div>
+      <div class="card stack">
+        <div class="row">
+          <button class="btn btn-primary" type="button">保存</button>
+          <button class="btn btn-secondary" type="button">下一步</button>
+          <button class="btn btn-outline" type="button">取消</button>
+          <button class="btn btn-ghost" type="button">重试</button>
+          <button class="btn btn-link" type="button">查看部署命令</button>
+          <button class="btn btn-destructive" type="button">删除</button>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" type="button" disabled>已禁用</button>
+          <button class="btn btn-secondary" type="button" aria-pressed="false">aria-pressed</button>
+        </div>
+        <span class="helper">默认高 36px、圆角 md；hover 背景在 OKLch L 通道移动，前景不变浅；disabled 才允许降对比。</span>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="lib-badges">
+      <div class="section-title"><h2>徽章</h2><span class="tag">P1</span></div>
+      <div class="card row">
+        <span class="badge badge-default">default</span>
+        <span class="badge badge-secondary">secondary</span>
+        <span class="badge badge-outline">outline</span>
+        <span class="badge badge-destructive">destructive</span>
+        <span class="badge badge-outline">运行中</span>
+        <span class="badge badge-secondary">3 个节点</span>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="lib-form">
+      <div class="section-title"><h2>表单控件</h2><span class="tag">P0</span></div>
+      <div class="grid-2">
+        <div class="card stack">
+          <div class="field">
+            <label for="f-default">节点名称</label>
+            <input class="input" id="f-default" type="text" placeholder="例如：本地 Mock 节点">
+            <span class="helper">desc 与 label 去重，只补充新信息。</span>
+          </div>
+          <div class="field">
+            <label for="f-focus">聚焦态</label>
+            <input class="input" id="f-focus" type="text" value="ring 聚焦环可见">
+          </div>
+          <div class="field">
+            <label for="f-disabled">禁用态</label>
+            <input class="input" id="f-disabled" type="text" value="只读字段" disabled>
+          </div>
+        </div>
+        <div class="card stack">
+          <div class="field">
+            <label for="f-error">AGENT_TOKEN</label>
+            <input class="input input-error" id="f-error" type="text" value="" placeholder="部署命令中的 token" aria-invalid="true">
+            <span class="error-text">token 不能为空</span>
+          </div>
+          <div class="field">
+            <label for="f-select">存储模式</label>
+            <input class="input" id="f-select" type="text" value="本机目录 data/blob" readonly>
+            <span class="helper">本机 / 远程二分，远程必须用对象存储。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="lib-filter">
+      <div class="section-title"><h2>FilterSegment</h2><span class="tag">P0 · 枚举筛选</span></div>
+      <div class="grid-2">
+        <div class="card stack">
+          <span class="helper">少于 5 项 · 均分整行</span>
+          <div class="segment filled" role="group" aria-label="状态筛选">
+            <button class="segment-btn" type="button" aria-pressed="true">全部</button>
+            <button class="segment-btn" type="button" aria-pressed="false">待领取</button>
+            <button class="segment-btn" type="button" aria-pressed="false">运行中</button>
+            <button class="segment-btn" type="button" aria-pressed="false">已完成</button>
+          </div>
+        </div>
+        <div class="card stack">
+          <span class="helper">5 项及以上 · 边框内滚动，箭头淡出</span>
+          <div class="segment-scroll-wrap" role="group" aria-label="任务状态筛选">
+            <button class="chevron" id="seg-left" type="button" aria-label="向左滚动">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="segment-scroll" id="seg-scroll">
+              <button class="segment-btn" type="button" aria-pressed="true">全部</button>
+              <button class="segment-btn" type="button">待领取</button>
+              <button class="segment-btn" type="button">运行中</button>
+              <button class="segment-btn" type="button">排队中</button>
+              <button class="segment-btn" type="button">已完成</button>
+              <button class="segment-btn" type="button">失败</button>
+              <button class="segment-btn" type="button">已取消</button>
+            </div>
+            <button class="chevron" id="seg-right" type="button" aria-label="向右滚动">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="lib-table">
+      <div class="section-title"><h2>数据表</h2><span class="tag">P1 · TanStack Table</span></div>
+      <div class="card">
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr><th>节点</th><th>状态</th><th class="num-col">任务数</th><th class="num-col">成功率</th><th class="num-col">P99 耗时</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>本地 Mock 节点</td><td><span class="badge badge-outline">运行中</span></td><td class="num-col">128</td><td class="num-col">99.2%</td><td class="num-col">0.42 s</td></tr>
+              <tr><td>远程 GPU · A100</td><td><span class="badge badge-outline">运行中</span></td><td class="num-col">1,024</td><td class="num-col">97.8%</td><td class="num-col">1.16 s</td></tr>
+              <tr><td>备用节点 · T4</td><td><span class="badge badge-secondary">离线</span></td><td class="num-col">0</td><td class="num-col">—</td><td class="num-col">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <span class="helper" style="display: block; margin-top: 12px;">hairline 分隔、行 hover 用 fg-soft；数字列等宽右对齐。</span>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="lib-feedback">
+      <div class="section-title"><h2>空态 · 错误态 · 骨架</h2><span class="tag">P0</span></div>
+      <div class="grid-2">
+        <div class="card stack">
+          <div class="skeleton-line" style="width: 72%;"></div>
+          <div class="skeleton-line" style="width: 100%;"></div>
+          <div class="skeleton-line" style="width: 88%;"></div>
+        </div>
+        <div class="card stack">
+          <div class="empty-glyph">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M9 5v14"/></svg>
+          </div>
+          <span style="font-size: 14px; font-weight: 600;">暂无计算节点</span>
+          <span class="helper">部署节点并订阅调度通道后，即可领取并执行任务。</span>
+          <div class="error-banner">
+            <span class="err-dot" aria-hidden="true"></span>
+            <span>请求失败，任务状态可能已过期。重试后仍失败，检查节点在线状态。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="lib-dialog">
+      <div class="section-title"><h2>浮层 · Dialog</h2><span class="tag">P0 · 保留阴影</span></div>
+      <div class="card">
+        <button class="btn btn-primary" id="dialog-open" type="button">删除节点</button>
+        <span class="helper" style="margin-left: 12px;">浮层保留 shadow-lg；对话框是唯一允许投影的层。</span>
+      </div>
+    </section>
+  </main>
+
+  <div class="overlay" id="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+    <div class="dialog">
+      <h3 id="dialog-title">删除节点？</h3>
+      <p>删除后节点下的任务记录会一并清理。此操作不可撤销。</p>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" id="dialog-cancel" type="button">取消</button>
+        <button class="btn btn-destructive" id="dialog-confirm" type="button">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    ;(function () {
+      var overlay = document.getElementById('dialog-overlay')
+      var openBtn = document.getElementById('dialog-open')
+      var cancelBtn = document.getElementById('dialog-cancel')
+      function openDialog() { overlay.classList.add('open'); cancelBtn.focus() }
+      function closeDialog() { overlay.classList.remove('open'); openBtn.focus() }
+      if (openBtn) openBtn.addEventListener('click', openDialog)
+      if (cancelBtn) cancelBtn.addEventListener('click', closeDialog)
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && overlay.classList.contains('open')) closeDialog() })
+
+      var scroller = document.getElementById('seg-scroll')
+      var leftBtn = document.getElementById('seg-left')
+      var rightBtn = document.getElementById('seg-right')
+      if (scroller && leftBtn && rightBtn) {
+        function sync() {
+          var max = Math.max(0, scroller.scrollWidth - scroller.clientWidth)
+          leftBtn.hidden = scroller.scrollLeft <= 2
+          rightBtn.hidden = scroller.scrollLeft >= max - 2
+        }
+        leftBtn.addEventListener('click', function () { scroller.scrollBy({ left: -80 }) })
+        rightBtn.addEventListener('click', function () { scroller.scrollBy({ left: 80 }) })
+        scroller.addEventListener('scroll', sync)
+        sync()
+      }
+    })()
+  </script>
+</body>
+</html>

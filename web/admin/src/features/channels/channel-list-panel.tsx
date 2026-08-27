@@ -1,15 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Radio } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Channel } from '@/lib/api/channels'
 import { cn } from '@/lib/utils'
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
@@ -72,14 +66,7 @@ export function ChannelListPanel({
 
       {!isLoading && !isError && filtered.length === 0 ? (
         <Empty>
-          <EmptyHeader className='max-w-none'>
-            <EmptyMedia variant='icon'>
-              <Radio />
-            </EmptyMedia>
-            <EmptyTitle className='text-sm font-medium'>
-              {t('channels.empty')}
-            </EmptyTitle>
-          </EmptyHeader>
+          <EmptyDescription>{t('channels.noData')}</EmptyDescription>
         </Empty>
       ) : null}
 

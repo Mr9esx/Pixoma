@@ -1,5 +1,5 @@
 const cardWrap =
-  'bg-card rounded-[8px] border shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none overflow-hidden'
+  'overflow-hidden rounded-[8px] border border-border bg-card'
 
 export const kit = {
   pageSection: 'mx-auto flex w-full max-w-7xl flex-col gap-7 px-6 py-7 md:px-8',
@@ -7,18 +7,18 @@ export const kit = {
     'mx-auto flex min-h-full w-full max-w-7xl flex-col gap-7 px-6 py-7 md:px-8',
   title: 'truncate text-2xl leading-tight font-semibold tracking-tight',
   tagOn:
-    'inline-flex items-center border py-0.5 h-6 rounded-md border-emerald-600/20 bg-emerald-50 px-2 text-xs font-medium text-emerald-700 shadow-none dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400',
+    'inline-flex items-center border border-success/25 bg-success/10 py-0.5 h-6 rounded-md px-2 text-xs font-medium text-success',
   tagOff:
-    'inline-flex items-center border py-0.5 h-6 rounded-md border-zinc-300 bg-zinc-50 px-2 text-xs font-medium text-zinc-700 shadow-none dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300',
+    'inline-flex items-center border border-border bg-muted py-0.5 h-6 rounded-md px-2 text-xs font-medium text-muted-foreground',
   tagFail:
-    'inline-flex items-center border py-0.5 h-6 rounded-md border-red-600/20 bg-red-50 px-2 text-xs font-medium text-red-700 shadow-none dark:border-red-400/20 dark:bg-red-900/30 dark:text-red-400',
+    'inline-flex items-center border border-destructive/25 bg-destructive/10 py-0.5 h-6 rounded-md px-2 text-xs font-medium text-destructive',
   tagWarn:
-    'inline-flex items-center border py-0.5 h-6 rounded-md border-amber-500/40 bg-amber-500/10 px-2 text-xs font-medium text-amber-700 shadow-none dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300',
+    'inline-flex items-center border border-warning/30 bg-warning/10 py-0.5 h-6 rounded-md px-2 text-xs font-medium text-warning',
   desc: 'text-muted-foreground flex max-w-full flex-wrap items-center gap-x-4 gap-y-2 text-sm',
   btnGhost:
-    'border border-input bg-background shadow-xs hover:bg-accent rounded-md text-xs h-8 gap-1.5 px-3',
+    'border border-input bg-background hover:bg-accent rounded-md text-xs h-8 gap-1.5 px-3',
   btnPrimary:
-    'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 rounded-md text-xs h-8 gap-1.5 px-3',
+    'bg-primary text-primary-foreground hover:bg-primary/90 rounded-md text-xs h-8 gap-1.5 px-3',
   specsWrap:
     'border-border bg-muted/20 grid grid-cols-2 overflow-hidden border-y xl:grid-cols-[3fr_3fr_1fr_1fr] xl:border-x-0',
   specsCell:
@@ -46,14 +46,14 @@ export const kit = {
   tableWrap: 'overflow-hidden rounded-md border',
   th: 'text-muted-foreground h-10 text-left font-medium',
   tagSmOn:
-    'inline-flex items-center border py-0.5 font-semibold h-5 rounded-md px-1.5 text-[11px] shadow-none border-emerald-600/20 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400',
+    'inline-flex items-center border border-success/25 bg-success/10 py-0.5 font-semibold h-5 rounded-md px-1.5 text-[11px] text-success',
   tagSmOff:
-    'inline-flex items-center border py-0.5 font-semibold h-5 rounded-md px-1.5 text-[11px] shadow-none border-zinc-300 bg-zinc-50 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300',
+    'inline-flex items-center border border-border bg-muted py-0.5 font-semibold h-5 rounded-md px-1.5 text-[11px] text-muted-foreground',
   tagSmFail:
-    'inline-flex items-center border py-0.5 font-semibold h-5 rounded-md px-1.5 text-[11px] shadow-none border-red-600/20 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-900/30 dark:text-red-400',
+    'inline-flex items-center border border-destructive/25 bg-destructive/10 py-0.5 font-semibold h-5 rounded-md px-1.5 text-[11px] text-destructive',
   healthDot: {
-    ok: 'size-2 shrink-0 rounded-full bg-emerald-500',
-    warn: 'size-2 shrink-0 rounded-full bg-amber-400',
-    bad: 'size-2 shrink-0 rounded-full bg-red-500',
+    ok: 'size-2 shrink-0 rounded-full bg-success',
+    warn: 'size-2 shrink-0 rounded-full bg-warning',
+    bad: 'size-2 shrink-0 rounded-full bg-destructive',
   },
 } as const

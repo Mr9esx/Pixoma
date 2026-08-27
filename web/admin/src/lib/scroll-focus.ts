@@ -23,7 +23,7 @@ export function scrollAndFlash(id: string, delay = 0) {
     el.classList.remove('flash-highlight')
     void el.offsetWidth
     el.classList.add('flash-highlight')
-    window.setTimeout(() => el.classList.remove('flash-highlight'), 3300)
+    window.setTimeout(() => el.classList.remove('flash-highlight'), 1600)
   }
   window.setTimeout(() => start(0), delay)
 }

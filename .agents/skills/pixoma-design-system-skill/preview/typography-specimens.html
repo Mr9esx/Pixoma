@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>卡片 · 排版 — Pixoma 设计系统</title>
+  <link rel="icon" href="../assets/favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../colors_and_type.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--background); color: var(--foreground); }
+    .chrome { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 28px; background: color-mix(in oklch, var(--background) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+    .chrome a { font-size: 13px; color: var(--muted-foreground); text-decoration: none; }
+    .chrome a:hover { color: var(--foreground); }
+    .chrome-title { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); }
+    .toggle { height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: transparent; color: var(--foreground); font-size: 13px; cursor: pointer; }
+    .toggle:hover { border-color: var(--foreground); background: color-mix(in oklch, var(--foreground) 6%, transparent); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 48px 28px 80px; }
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 14px; }
+    h1 { font-size: clamp(36px, 4.5vw, 48px); line-height: 1.3; font-weight: 700; margin: 0 0 14px; letter-spacing: -0.02em; }
+    .lead { font-size: 17px; line-height: 1.75; color: var(--muted-foreground); max-width: 62ch; margin: 0 0 44px; }
+    .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 40px; align-items: start; }
+    .specimen { padding: 18px 0; border-top: 1px solid var(--border); }
+    .meta { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); display: block; margin-bottom: 10px; }
+    .font-card { padding: 18px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .font-card p { margin: 0 0 8px; font-size: 22px; }
+    .font-spec { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground); }
+    .rule { margin-top: 32px; padding: 18px 20px; background: var(--secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .rule p { margin: 0; font-size: 13.5px; color: var(--muted-foreground); }
+    @media (max-width: 920px) { .grid-2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="chrome">
+    <a href="index.html">← 全部卡片</a>
+    <span class="chrome-title">PREVIEW · TYPOGRAPHY</span>
+    <button class="toggle" id="theme-toggle" type="button" aria-pressed="false">深色</button>
+  </header>
+
+  <main class="wrap">
+    <p class="eyebrow">Type · Inter Same-Family</p>
+    <h1>排版</h1>
+    <p class="lead">标题与正文共用 Inter，靠 700 字重、负字距与字号拉开层级；数字、代码、eyebrow 走等宽 Mono。</p>
+
+    <div class="grid-2">
+      <div>
+        <div class="specimen" data-od-id="spec-h1">
+          <span class="meta">H1 · Inter 700 · clamp(36, 4.5vw, 48)</span>
+          <div style="font-size: var(--fs-h1); font-weight: 700; line-height: 1.3; letter-spacing: -0.02em;">仪表盘</div>
+        </div>
+        <div class="specimen" data-od-id="spec-h2">
+          <span class="meta">H2 · Inter 700 · clamp(26, 3vw, 32)</span>
+          <div style="font-size: var(--fs-h2); font-weight: 700; line-height: 1.32;">任务效能</div>
+        </div>
+        <div class="specimen" data-od-id="spec-h3">
+          <span class="meta">H3 · Inter 600 · 20</span>
+          <div style="font-size: var(--fs-h3); font-weight: 600; line-height: 1.4;">计算节点</div>
+        </div>
+        <div class="specimen" data-od-id="spec-lead">
+          <span class="meta">Lead · Inter 400 · 17 · muted</span>
+          <p style="margin: 0; font-size: var(--fs-lead); line-height: 1.75; color: var(--muted-foreground); max-width: 58ch;">部署节点并订阅调度通道后，即可领取并执行任务。</p>
+        </div>
+        <div class="specimen" data-od-id="spec-body">
+          <span class="meta">Body · Inter 400 · 15</span>
+          <p style="margin: 0; font-size: var(--fs-body); max-width: 58ch;">任务、用户这些记录存在哪。本机先用 SQLite 文件即可，远程 GPU 必须用对象存储。</p>
+        </div>
+        <div class="specimen" data-od-id="spec-meta">
+          <span class="meta">Mono · ui-monospace · 12 · tabular</span>
+          <p style="margin: 0;"><span class="num" style="color: var(--foreground);">Apr 27, 2026</span> · <span class="num">#case-9f2a</span> · <span class="meta">0.04 s</span></p>
+        </div>
+      </div>
+
+      <div>
+        <div class="font-card" data-od-id="font-inter">
+          <p style="font-family: 'Inter', sans-serif;">后台 123 Abc</p>
+          <span class="font-spec">Inter · 默认正文与标题 · Google Fonts</span>
+        </div>
+        <div class="font-card" style="margin-top: 16px;" data-od-id="font-manrope">
+          <p style="font-family: 'Manrope', sans-serif;">后台 123 Abc</p>
+          <span class="font-spec">Manrope · 可选展示面 · 字体开关可切</span>
+        </div>
+        <div class="font-card" style="margin-top: 16px;" data-od-id="font-mono">
+          <p style="font-family: var(--font-mono); font-size: 18px;">0123456789 · 0.04 s</p>
+          <span class="font-spec">Mono · ui-monospace · 数字 tabular</span>
+        </div>
+        <div class="rule" data-od-id="type-rule">
+          <p>标题禁止换字体族；<code class="num">--font-heading</code> 映射为系统无衬线栈，对话框标题用它。数字一律 <code class="num">tabular-nums</code>；表格数字列等宽右对齐。</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    ;(function () {
+      var root = document.documentElement
+      var btn = document.getElementById('theme-toggle')
+      function apply(dark) {
+        root.classList.toggle('dark', dark)
+        if (btn) { btn.textContent = dark ? '浅色' : '深色'; btn.setAttribute('aria-pressed', dark ? 'true' : 'false') }
+      }
+      try { if (window.localStorage.getItem('pixoma-ds-theme') === 'dark') apply(true) } catch (e) {}
+      if (btn) btn.addEventListener('click', function () {
+        var dark = !root.classList.contains('dark')
+        apply(dark)
+        try { window.localStorage.setItem('pixoma-ds-theme', dark ? 'dark' : 'light') } catch (e) {}
+      })
+    })()
+  </script>
+</body>
+</html>
