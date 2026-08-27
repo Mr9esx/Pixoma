@@ -14,12 +14,11 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { listCases } from '@/lib/api/cases'
 import { ApiError } from '@/lib/api/client'
-import { listEdges, listPresence, patchEdge } from '@/lib/api/edges'
+import { listEdges, listPresence } from '@/lib/api/edges'
 import { topicDeleteErrorMessage } from '@/lib/api/localized-errors'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTasks } from '@/lib/api/tasks'
 import { deleteTopic, getTopic, updateTopic } from '@/lib/api/topics'
-import type { ComfyEdge } from '@/lib/api/types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,10 +45,7 @@ import { NotFoundState } from '@/components/feedback/not-found-state'
 import { MetaChip } from '@/components/meta-chip'
 import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
-import {
-  edgeTopics,
-  topicReferences,
-} from '@/features/link-health/lib/references'
+import { topicReferences } from '@/features/link-health/lib/references'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
 import { TopicStatsPanel } from './topic-stats-panel'
@@ -128,19 +124,6 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
     queryFn: listEdges,
   })
 
-  const toggleMutation = useMutation({
-    mutationFn: ({ edge, bind }: { edge: ComfyEdge; bind: boolean }) => {
-      const current = edge.subscribe_topics ?? []
-      const next = bind
-        ? [...new Set([...current, topicKey])]
-        : current.filter((k) => k !== topicKey)
-      return patchEdge(edge.id, { subscribe_topics: next })
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.edges.all })
-    },
-  })
-
   const edges = edgesQuery.data ?? []
   const casesQuery = useQuery({
     queryKey: queryKeys.cases.all,
@@ -162,11 +145,6 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   const caseRefCount = topicRefs.cases.length
   const edgeRefCount = topicRefs.edges.length
   const hasImpact = caseRefCount > 0 || edgeRefCount > 0 || queuedCount > 0
-  const boundFirst = [...edges].sort((a, b) => {
-    const aBound = edgeTopics(a).includes(topicKey)
-    const bBound = edgeTopics(b).includes(topicKey)
-    return Number(bBound) - Number(aBound)
-  })
 
   if (topicQuery.isLoading) {
     return (
@@ -361,74 +339,6 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           {t('topics.defaultHint')}
         </p>
       ) : null}
-
-      <section className='flex flex-col gap-4'>
-        <SectionHead
-          title={t('topics.boundNodes')}
-          hint={t('topics.boundNodesHint')}
-        />
-        <div className={kit.cardWrap}>
-          {edgesQuery.isError ? (
-            <div className='p-4'>
-              <ErrorBanner message={errorMessage(edgesQuery.error)} />
-            </div>
-          ) : null}
-          {edgesQuery.isLoading ? (
-            <div className='p-4'>
-              <LoadingSkeleton rows={3} />
-            </div>
-          ) : null}
-          {!edgesQuery.isLoading &&
-          !edgesQuery.isError &&
-          edges.length === 0 ? (
-            <p className='p-4 text-sm text-muted-foreground'>
-              {t('topics.noNodes')}
-            </p>
-          ) : null}
-          {!edgesQuery.isLoading && !edgesQuery.isError && edges.length > 0 ? (
-            <ul className='divide-y'>
-              {boundFirst.map((edge) => {
-                const bound = edgeTopics(edge).includes(topicKey)
-                const pending =
-                  toggleMutation.isPending &&
-                  toggleMutation.variables?.edge.id === edge.id
-                return (
-                  <li
-                    key={edge.id}
-                    className='flex items-center justify-between gap-2 px-4 py-2.5'
-                  >
-                    <div className='flex min-w-0 items-center gap-2'>
-                      <span
-                        className={
-                          bound
-                            ? kit.healthDot.ok
-                            : 'size-2 shrink-0 rounded-full bg-muted-foreground/40'
-                        }
-                      />
-                      <span className='truncate text-sm'>{edge.name}</span>
-                    </div>
-                    <Button
-                      type='button'
-                      variant={bound ? 'outline' : 'default'}
-                      className={
-                        bound
-                          ? kit.btnGhost
-                          : 'h-8 gap-1.5 rounded-md px-3 text-xs'
-                      }
-                      disabled={pending}
-                      onClick={() =>
-                        toggleMutation.mutate({ edge, bind: !bound })
-                      }
-                    >
-                      {bound ? t('topics.unbind') : t('topics.bind')}
-                    </Button>
-                  </li>
-                )
-              })}
-            </ul>
-          ) : null}
-        </div>
-      </section>
 
       <section className='flex flex-col gap-4'>
         <SectionHead

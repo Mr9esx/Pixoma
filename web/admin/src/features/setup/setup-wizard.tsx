@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AvatarUpload } from '@/components/avatar-upload'
 import {
   Select,
   SelectContent,
@@ -351,34 +352,40 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             })
           }}
         >
-          <Field label='昵称（怎么称呼你）' htmlFor='profile-nickname'>
-            <Input
-              id='profile-nickname'
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              autoComplete='off'
-              placeholder='例如：小 P'
-            />
-          </Field>
-          <Field label='邮箱' htmlFor='profile-email'>
-            <Input
-              id='profile-email'
-              type='email'
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete='off'
-              placeholder='admin@example.com'
-            />
-          </Field>
-          <Field label='头像地址（可选）' htmlFor='profile-avatar'>
-            <Input
-              id='profile-avatar'
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              autoComplete='off'
-              placeholder='https://…'
-            />
-          </Field>
+          <div className='grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-3'>
+            <div className='flex h-full items-center justify-center'>
+              <Label className='sr-only' htmlFor='profile-avatar'>
+                头像
+              </Label>
+              <AvatarUpload
+                id='profile-avatar'
+                value={avatarUrl}
+                onChange={(next) => setAvatarUrl(next ?? '')}
+                disabled={pending}
+              />
+            </div>
+            <div className='flex min-w-0 flex-col gap-4'>
+              <Field label='昵称' htmlFor='profile-nickname'>
+                <Input
+                  id='profile-nickname'
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  autoComplete='off'
+                  placeholder='例如：小 P'
+                />
+              </Field>
+              <Field label='邮箱' htmlFor='profile-email'>
+                <Input
+                  id='profile-email'
+                  type='email'
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete='off'
+                  placeholder='admin@example.com'
+                />
+              </Field>
+            </div>
+          </div>
           <StepActions
             error={error}
             pending={pending}

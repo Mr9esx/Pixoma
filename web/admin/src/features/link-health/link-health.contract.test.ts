@@ -96,8 +96,4 @@ describe('link health visibility', () => {
     expect(panel).toContain('linkHealth.routeTopics')
   })
 
-  it('Topic 详情订阅判定使用 effective topics（默认订阅节点计入）', () => {
-    const panel = read('../topics/topic-detail-panel.tsx')
-    expect(panel).toContain('edgeTopics')
-  })
 })

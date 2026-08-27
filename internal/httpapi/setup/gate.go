@@ -64,6 +64,21 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Media upload/preview stays reachable during first-run setup so the
+		// admin can attach an avatar before the platform is initialized. Once
+		// initialized, requests fall through to the account auth below.
+		if strings.HasPrefix(path, "/api/v1/media/") && !g.Boot.Initialized() {
+			if g.Sessions == nil {
+				writeErr(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			if _, ok := g.Sessions.Lookup(TokenFromRequest(r)); !ok {
+				writeErr(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
 		if !g.Boot.Initialized() || g.Boot.RestartRequired() {
 			code := "not_initialized"
 			msg := "platform not initialized"

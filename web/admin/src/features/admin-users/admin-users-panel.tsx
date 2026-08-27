@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { MoreHorizontal } from 'lucide-react'
 import {
   createAdminUser,
   deleteAdminUser,
@@ -11,6 +12,7 @@ import {
 import { queryKeys } from '@/lib/api/query-keys'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -32,6 +34,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -40,13 +49,27 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
+}
+
+const ROLE_FILTERS: { value: AdminUser['role'] | 'all'; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'admin', label: '管理员' },
+  { value: 'operator', label: '操作员' },
+  { value: 'viewer', label: '只读' },
+]
+
+function roleBadge(
+  role: AdminUser['role']
+): 'default' | 'secondary' | 'outline' {
+  if (role === 'admin') return 'default'
+  if (role === 'operator') return 'secondary'
+  return 'outline'
 }
 
 function roleLabel(role: AdminUser['role']): string {
@@ -58,11 +81,22 @@ function roleLabel(role: AdminUser['role']): string {
 export function AdminUsersPanel() {
   const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState<AdminUser['role'] | 'all'>('all')
+  const [resetTarget, setResetTarget] = useState<AdminUser | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
 
   const q = useQuery({
-    queryKey: queryKeys.adminUsers.all,
+    queryKey: [...queryKeys.adminUsers.all, query.trim()],
     queryFn: () => listAdminUsers({ q: query.trim() || undefined }),
   })
+
+  const users = useMemo(
+    () =>
+      (q.data ?? []).filter(
+        (u) => roleFilter === 'all' || u.role === roleFilter
+      ),
+    [q.data, roleFilter]
+  )
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all })
@@ -80,13 +114,12 @@ export function AdminUsersPanel() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteAdminUser(id),
     onSuccess: () => {
+      setDeleteTarget(null)
       void invalidate()
       toast.success('已删除账号')
     },
     onError: (err) => toast.error(errorMessage(err) ?? '删除失败'),
   })
-
-  const users = q.data ?? []
 
   return (
     <section className='flex flex-col gap-4' data-testid='admin-users-panel'>
@@ -99,85 +132,139 @@ export function AdminUsersPanel() {
           className='max-w-xs'
           aria-label='搜索用户'
         />
-        <CreateUserDialog onCreated={() => void invalidate()} />
+        <div
+          role='group'
+          aria-label='按角色筛选'
+          className='inline-flex items-center rounded-lg bg-muted p-0.5'
+        >
+          {ROLE_FILTERS.map(({ value, label }) => (
+            <Button
+              key={value}
+              type='button'
+              size='sm'
+              variant={roleFilter === value ? 'secondary' : 'ghost'}
+              aria-pressed={roleFilter === value}
+              className='min-h-8'
+              onClick={() => setRoleFilter(value)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+        <div className='ms-auto'>
+          <CreateUserDialog onCreated={() => void invalidate()} />
+        </div>
       </div>
 
       {q.isLoading ? <LoadingSkeleton rows={4} /> : null}
       {q.isError ? <ErrorBanner message={errorMessage(q.error)} /> : null}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>账号</TableHead>
-            <TableHead>昵称</TableHead>
-            <TableHead>邮箱</TableHead>
-            <TableHead>角色</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead className='text-right'>操作</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {users.map((u) => (
-            <TableRow key={u.id}>
-              <TableCell className='font-medium'>{u.username}</TableCell>
-              <TableCell>{u.nickname || '—'}</TableCell>
-              <TableCell>{u.email || '—'}</TableCell>
-              <TableCell>{roleLabel(u.role)}</TableCell>
-              <TableCell>
-                <Badge variant={u.enabled ? 'default' : 'outline'}>
-                  {u.enabled ? '启用' : '禁用'}
-                </Badge>
-              </TableCell>
-              <TableCell className='text-right'>
-                <div className='flex flex-wrap justify-end gap-1'>
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    onClick={() => enableMutation.mutate(u)}
-                    data-testid={`toggle-${u.username}`}
-                  >
-                    {u.enabled ? '禁用' : '启用'}
-                  </Button>
-                  <ResetPasswordDialog user={u} onDone={() => void invalidate()} />
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        size='sm'
-                        variant='destructive'
-                        data-testid={`delete-${u.username}`}
-                      >
-                        删除
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>删除账号 {u.username}？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          删除后不可恢复。若这是唯一的管理员，后端会拒绝删除。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>取消</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => deleteMutation.mutate(u.id)}
+
+      <Card className='overflow-hidden'>
+        <CardContent className='p-0'>
+          <Table data-testid='admin-users-table'>
+            <TableHeader>
+              <TableRow>
+                <TableHead>账号</TableHead>
+                <TableHead>昵称</TableHead>
+                <TableHead>邮箱</TableHead>
+                <TableHead>角色</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead className='text-right'>操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell className='font-medium'>{u.username}</TableCell>
+                  <TableCell>{u.nickname || '—'}</TableCell>
+                  <TableCell>{u.email || '—'}</TableCell>
+                  <TableCell>
+                    <Badge variant={roleBadge(u.role)}>{roleLabel(u.role)}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={u.enabled ? 'outline' : 'secondary'}>
+                      {u.enabled ? '启用' : '禁用'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className='text-right'>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size='sm'
+                          variant='ghost'
+                          className='size-9'
+                          aria-label={`${u.username} 操作`}
                         >
-                          确认删除
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-          {!q.isLoading && !q.isError && users.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className='text-center text-muted-foreground'>
-                暂无用户
-              </TableCell>
-            </TableRow>
-          ) : null}
-        </TableBody>
-      </Table>
+                          <MoreHorizontal className='size-4' />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align='end' className='w-40'>
+                        <DropdownMenuItem
+                          onSelect={() => enableMutation.mutate(u)}
+                        >
+                          {u.enabled ? '禁用' : '启用'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setResetTarget(u)}>
+                          重置密码
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className='text-destructive focus:text-destructive'
+                          onSelect={() => setDeleteTarget(u)}
+                        >
+                          删除
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!q.isLoading && !q.isError && users.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className='text-center text-muted-foreground'
+                  >
+                    {roleFilter === 'all' ? '暂无用户' : '该角色暂无用户'}
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <ResetPasswordDialog
+        user={resetTarget}
+        onClose={() => setResetTarget(null)}
+        onDone={() => void invalidate()}
+      />
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除账号 {deleteTarget?.username}？</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后不可恢复。若这是唯一的管理员，后端会拒绝删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
+              }}
+            >
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   )
 }
@@ -283,39 +370,34 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
 
 function ResetPasswordDialog({
   user,
+  onClose,
   onDone,
 }: {
-  user: AdminUser
+  user: AdminUser | null
+  onClose: () => void
   onDone: () => void
 }) {
-  const [open, setOpen] = useState(false)
   const [password, setPassword] = useState('')
 
   const reset = useMutation({
-    mutationFn: () => updateAdminUser(user.id, { password }),
+    mutationFn: () =>
+      user
+        ? updateAdminUser(user.id, { password })
+        : Promise.reject(new Error('missing user')),
     onSuccess: () => {
       toast.success('已重置密码并强制该用户下次改密')
-      setOpen(false)
       setPassword('')
+      onClose()
       onDone()
     },
     onError: (err) => toast.error(errorMessage(err) ?? '重置失败'),
   })
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          size='sm'
-          variant='outline'
-          data-testid={`reset-${user.username}`}
-        >
-          重置密码
-        </Button>
-      </DialogTrigger>
+    <Dialog open={user !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className='sm:max-w-sm'>
         <DialogHeader>
-          <DialogTitle>重置 {user.username} 的密码</DialogTitle>
+          <DialogTitle>重置 {user?.username} 的密码</DialogTitle>
           <DialogDescription>
             设置新密码后，该用户下次登录将被要求改密。
           </DialogDescription>

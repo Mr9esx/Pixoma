@@ -18,7 +18,7 @@ export const SETUP_STEP_COPY: Record<
   },
   profile: {
     title: '如何称呼您',
-    desc: '给管理员起个称呼，方便后台展示（可跳过）。',
+    desc: '',
     submit: '继续',
   },
   database: {

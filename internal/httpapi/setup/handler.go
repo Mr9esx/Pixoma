@@ -52,6 +52,7 @@ func (h *Handler) MountAuth(r chi.Router) {
 
 func (h *Handler) Mount(r chi.Router) {
 	r.Get("/status", h.status)
+	r.Get("/me", h.me)
 	r.Post("/login", h.login)
 	r.Post("/logout", h.logout)
 	r.Post("/password", h.password)
@@ -71,6 +72,45 @@ type statusDTO struct {
 	Username           string `json:"username,omitempty"`
 	WizardStep         string `json:"wizard_step,omitempty"`
 	RestartRequired    bool   `json:"restart_required,omitempty"`
+}
+
+// me returns the authenticated console user's display profile so the admin UI
+// can render the sidebar user card. Falls back to bootstrap admin profile when
+// the platform has not been migrated to console accounts yet.
+func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
+	acct, ok := h.Sessions.LookupAccount(TokenFromRequest(r))
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	nickname := acct.Username
+	role := acct.Role
+	if role == "" {
+		role = consoledomain.RoleAdmin
+	}
+	email, avatarURL := "", ""
+	if h.ConsoleUsers != nil {
+		if u, err := h.ConsoleUsers.GetByUsername(r.Context(), acct.Username); err == nil {
+			if u.Nickname != "" {
+				nickname = u.Nickname
+			}
+			if u.Role != "" {
+				role = u.Role
+			}
+			email, avatarURL = u.Email, u.AvatarURL
+		}
+	} else {
+		if pn, pe, pa := h.Boot.AdminProfile(); pn != "" || pa != "" {
+			nickname, email, avatarURL = pn, pe, pa
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"username":   acct.Username,
+		"nickname":   nickname,
+		"role":       role,
+		"email":      email,
+		"avatar_url": avatarURL,
+	})
 }
 
 func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
@@ -605,7 +645,6 @@ func (h *Handler) settingsStore(driver, dsn string) (*settings.Store, func() err
 	return st, cleanup, nil
 }
 
-
 // setConsolePassword changes a console account password. When the account still
 // must change password (e.g. admin reset), the old password is not required.
 func (h *Handler) setConsolePassword(ctx context.Context, username, oldPassword, newPassword string) error {
@@ -632,7 +671,6 @@ func (h *Handler) setConsolePassword(ctx context.Context, username, oldPassword,
 	u.MustChangePassword = false
 	return h.ConsoleUsers.Update(ctx, u)
 }
-
 
 // register creates a console account (role Viewer) when self-registration is
 // enabled, then signs in the new account.
@@ -768,7 +806,6 @@ func (h *Handler) selfRegistrationEnabled() bool {
 	}
 	return cfg.AllowSelfRegistration
 }
-
 
 func validEmail(email string) bool {
 	_, err := mail.ParseAddress(email)
