@@ -74,12 +74,13 @@ describe('dashboard workbench contract', () => {
     expect(charts).toContain('dashboard.workbench.errorTopTitle')
   })
 
-  it('keeps the heatmap on a full 365 days and overview cards live', () => {
+  it('keeps the heatmap on the current year and overview cards live', () => {
     const contribution = read('workbench-contribution.tsx')
     const overview = read('workbench-overview-cards.tsx')
-    expect(contribution).toContain('getDate() - 364')
+    expect(contribution).toContain('-01-01')
     expect(contribution).not.toContain('range.from')
     expect(contribution).toContain('MonitorCard')
+    expect(contribution).not.toContain('ContributionGraphTotalCount')
     expect(overview).not.toContain('range.from')
   })
   it('uses admin-api query helpers and semantic chart colors', () => {

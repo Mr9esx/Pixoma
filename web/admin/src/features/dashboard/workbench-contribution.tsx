@@ -7,10 +7,9 @@ import {
   ContributionGraphCalendar,
   ContributionGraphLegend,
   ContributionGraphBlock,
-  ContributionGraphTotalCount,
   type Activity,
 } from '@/components/kibo-ui/contribution-graph'
-import { MonitorCard, type MonitorStat } from '@/components/monitor-card'
+import { MonitorCard } from '@/components/monitor-card'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { dailyToActivity } from './daily-to-activity'
@@ -24,27 +23,19 @@ function errorMessage(err: unknown): string | undefined {
 export function WorkbenchContribution() {
   const { t } = useTranslation()
   const today = new Date()
-  const yearAgo = new Date(today)
-  yearAgo.setDate(yearAgo.getDate() - 364)
-  const from = formatDate(yearAgo)
+  const from = `${today.getFullYear()}-01-01`
   const to = formatDate(today)
   const daily = useQuery({
     queryKey: queryKeys.stats.tasksDaily(from, to),
     queryFn: () => listTaskDailyStats({ from, to }),
   })
   const acts = dailyToActivity(pickDays(daily.data))
-  const total = acts.reduce((s, a) => s + a.count, 0)
-  const stats: MonitorStat[] = [
-    { label: t('dashboard.workbench.taskCount'), value: String(total) },
-  ]
 
   return (
     <MonitorCard
       title={t('dashboard.workbench.taskHeatTitle')}
-      config={{
-        tasks: { label: t('dashboard.workbench.taskHeatTitle'), color: 'var(--primary)' },
-      }}
-      stats={stats}
+      config={{}}
+      stats={[]}
       plain
       data-testid='workbench-contribution'
     >
@@ -71,7 +62,6 @@ export function WorkbenchContribution() {
               {(props) => <ContributionGraphBlock {...props} />}
             </ContributionGraphCalendar>
             <ContributionGraphLegend />
-            <ContributionGraphTotalCount />
           </ContributionGraph>
         </div>
       ) : (
