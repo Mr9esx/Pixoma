@@ -342,7 +342,7 @@ export default function MouseEffectCard({
     >
       <CardContent
         aria-label={ariaLabel ?? (title ? `${title}${subtitle ? ` — ${subtitle}` : ""}` : undefined)}
-        className="relative min-h-[140px] w-full overflow-hidden p-0"
+        className="relative h-full min-h-[140px] w-full overflow-hidden p-0"
         onBlur={handleBlur}
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
@@ -366,7 +366,7 @@ export default function MouseEffectCard({
 
         <div
           className={cn(
-            "relative z-10 flex min-h-[140px] flex-col px-6 py-4",
+            "relative z-10 flex h-full min-h-[140px] flex-col px-6 py-4",
             align === "start"
               ? "items-start justify-center text-left"
               : "items-center justify-center"
