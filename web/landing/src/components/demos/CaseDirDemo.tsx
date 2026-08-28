@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { motion } from 'motion/react'
-import { cases } from '@/data/cases'
-import { cn } from '@/lib/utils'
+import { useState } from "react";
+import { motion } from "motion/react";
+import { cases } from "@/data/cases";
+import { cn } from "@/lib/utils";
 
 export function CaseDirDemo() {
-  const [active, setActive] = useState(cases[0].id)
-  const selected = cases.find((c) => c.id === active) ?? cases[0]
+  const [active, setActive] = useState(cases[0].id);
+  const selected = cases.find((c) => c.id === active) ?? cases[0];
 
   return (
     <div className="flex h-full w-full">
@@ -16,10 +16,10 @@ export function CaseDirDemo() {
             type="button"
             onClick={() => setActive(c.id)}
             className={cn(
-              'rounded-md px-3 py-2 text-left text-sm transition-colors',
+              "rounded-md px-3 py-2 text-left text-sm transition-colors",
               c.id === active
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             {c.title}
@@ -35,10 +35,12 @@ export function CaseDirDemo() {
           transition={{ duration: 0.2 }}
           className="text-center"
         >
-          <div className="text-lg font-medium text-foreground">{selected.title}</div>
+          <div className="text-lg font-medium text-foreground">
+            {selected.title}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">{selected.desc}</p>
         </motion.div>
       </div>
     </div>
-  )
+  );
 }
