@@ -14,10 +14,10 @@ export function WorkbenchDataBoard({
     <div data-testid='workbench-data-board' className='min-w-0 space-y-4'>
       <WorkbenchContribution />
       <WorkbenchOverviewCards />
-      <WorkbenchChartPairs range={range} />
-      <div className='flex items-center justify-end'>
+      <div className='flex items-center justify-start'>
         <TaskRangePicker range={range} onChange={onChangeRange} />
       </div>
+      <WorkbenchChartPairs range={range} />
     </div>
   )
 }
