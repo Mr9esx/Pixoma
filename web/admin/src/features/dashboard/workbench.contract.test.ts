@@ -92,6 +92,8 @@ describe('dashboard workbench contract', () => {
     expect(heatmap).toContain('activity.date')
     expect(heatmap).toContain('activity.count')
     expect(heatmap).toContain("dashboard.workbench.taskCount")
+    expect(heatmap).toContain('getMonthLabels')
+    expect(heatmap).toContain("dashboard.workbench.months")
   })
   it('uses admin-api query helpers and semantic chart colors', () => {
     const board = read('workbench-data-board.tsx')

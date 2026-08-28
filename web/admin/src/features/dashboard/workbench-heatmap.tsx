@@ -21,42 +21,60 @@ const LEVEL_CLASS = [
 export function WorkbenchHeatmap({ data }: { data: Activity[] }) {
   const { t } = useTranslation()
   const weeks = useMemo(() => groupByWeeks(data), [data])
+  const monthLabels = useMemo(
+    () => getMonthLabels(weeks, t('dashboard.workbench.months', { returnObjects: true }) as string[]),
+    [weeks, t]
+  )
 
   if (data.length === 0) return null
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className='flex w-full flex-col gap-2'>
-        <div className='flex w-full gap-2'>
-          <div className='grid flex-1 grid-flow-col grid-rows-7 gap-1'>
-            {weeks.map((week, weekIndex) =>
-              week.map((activity, dayIndex) => {
-                if (!activity) {
-                  return <div key={`${weekIndex}-${dayIndex}`} />
-                }
-                return (
-                  <Tooltip key={`${weekIndex}-${dayIndex}`}>
-                    <TooltipTrigger asChild>
-                      <div
-                        className={cn(
-                          'aspect-square w-full rounded-[2px]',
-                          LEVEL_CLASS[activity.level] ?? LEVEL_CLASS[0]
-                        )}
-                        data-date={activity.date}
-                        data-count={activity.count}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent side='top' align='center'>
-                      <p className='text-xs font-medium'>{activity.date}</p>
-                      <p className='text-xs text-muted-foreground'>
-                        {activity.count} {t('dashboard.workbench.taskCount')}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                )
-              })
-            )}
-          </div>
+      <div className='flex w-full flex-col gap-1'>
+        <div
+          className='grid w-full'
+          style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
+        >
+          {weeks.map((_, weekIndex) => {
+            const label = monthLabels.find((m) => m.weekIndex === weekIndex)?.label
+            return (
+              <div key={`m-${weekIndex}`} className='text-[11px] text-muted-foreground'>
+                {label ?? ''}
+              </div>
+            )
+          })}
+        </div>
+        <div
+          className='grid w-full grid-flow-col grid-rows-7 gap-1'
+          style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
+        >
+          {weeks.map((week, weekIndex) =>
+            week.map((activity, dayIndex) => {
+              if (!activity) {
+                return <div key={`${weekIndex}-${dayIndex}`} />
+              }
+              return (
+                <Tooltip key={`${weekIndex}-${dayIndex}`}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={cn(
+                        'aspect-square w-full rounded-[2px]',
+                        LEVEL_CLASS[activity.level] ?? LEVEL_CLASS[0]
+                      )}
+                      data-date={activity.date}
+                      data-count={activity.count}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side='top' align='center'>
+                    <p className='text-xs font-medium'>{activity.date}</p>
+                    <p className='text-xs text-muted-foreground'>
+                      {activity.count} {t('dashboard.workbench.taskCount')}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })
+          )}
         </div>
       </div>
     </TooltipProvider>
@@ -93,4 +111,23 @@ function groupByWeeks(activities: Activity[]): Week[] {
     weeks.push(padded.slice(i, i + 7))
   }
   return weeks
+}
+
+function getMonthLabels(
+  weeks: Week[],
+  monthNames: string[]
+): { weekIndex: number; label: string }[] {
+  const labels: { weekIndex: number; label: string }[] = []
+  let prev = ''
+  weeks.forEach((week, weekIndex) => {
+    const first = week.find((a) => a !== undefined)
+    if (!first) return
+    const month = parseISO(first.date).getMonth()
+    const label = monthNames[month]
+    if (label && label !== prev) {
+      labels.push({ weekIndex, label })
+      prev = label
+    }
+  })
+  return labels
 }
