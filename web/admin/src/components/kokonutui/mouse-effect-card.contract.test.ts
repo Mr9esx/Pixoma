@@ -63,5 +63,6 @@ describe('kokonutui mouse-effect card workbench adaptation', () => {
     expect(card).toContain('h-[480px]')
     expect(card).toContain('justify-center')
     expect(card).toContain('text-center')
+    expect(card).toContain('border-0')
   })
 })
