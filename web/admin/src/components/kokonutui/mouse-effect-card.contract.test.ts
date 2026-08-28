@@ -50,4 +50,18 @@ describe('kokonutui mouse-effect card workbench adaptation', () => {
     expect(source).toMatch(/justify-center/)
     expect(source).toMatch(/items-start justify-center text-left/)
   })
+
+  it('allows the card height to drive a full-height centered content area', () => {
+    const source = read('mouse-effect-card.tsx')
+    expect(source).toContain('className="relative h-full min-h-[140px] w-full overflow-hidden p-0"')
+    expect(source).toContain('h-full min-h-[140px] flex-col')
+    expect(source).toContain('items-center justify-center')
+  })
+
+  it('renders the welcome card at a fixed 300px height', () => {
+    const card = read('../../features/dashboard/workbench-welcome-card.tsx')
+    expect(card).toContain('h-[300px]')
+    expect(card).toContain('justify-center')
+    expect(card).toContain('text-center')
+  })
 })
