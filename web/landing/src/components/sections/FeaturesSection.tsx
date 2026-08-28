@@ -1,32 +1,28 @@
 import { useTranslation } from 'react-i18next'
-import { AdminDemo } from '@/components/demos/AdminDemo'
-import { BotChatDemo } from '@/components/demos/BotChatDemo'
-import { CaseDirDemo } from '@/components/demos/CaseDirDemo'
-import { Reveal } from '@/components/motion/Reveal'
+import { useInView } from 'motion/react'
+import { useRef } from 'react'
+import { LazyAdmin, LazyBotChat, LazyCaseDir } from '@/components/demos/LazyDemos'
+import { SectionShell } from '@/components/SectionShell'
 import { FeatureBlock } from './FeatureBlock'
 
 export function FeaturesSection() {
   const { t } = useTranslation()
+  const gridRef = useRef<HTMLDivElement>(null)
+  const gridInView = useInView(gridRef, { once: true, margin: '0px 0px -10% 0px' })
 
   return (
-    <section id="features" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-      <Reveal>
-        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          {t('nav.features')}
-        </h2>
-      </Reveal>
-
-      <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+    <SectionShell id="features" title={t('nav.features')}>
+      <div ref={gridRef} className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         <FeatureBlock title={t('features.bot.title')} desc={t('features.bot.desc')}>
-          <BotChatDemo />
+          {gridInView ? <LazyBotChat /> : <div className="aspect-[4/3] bg-muted" />}
         </FeatureBlock>
         <FeatureBlock title={t('features.case.title')} desc={t('features.case.desc')}>
-          <CaseDirDemo />
+          {gridInView ? <LazyCaseDir /> : <div className="aspect-[4/3] bg-muted" />}
         </FeatureBlock>
         <FeatureBlock title={t('features.admin.title')} desc={t('features.admin.desc')}>
-          <AdminDemo />
+          {gridInView ? <LazyAdmin /> : <div className="aspect-[4/3] bg-muted" />}
         </FeatureBlock>
       </div>
-    </section>
+    </SectionShell>
   )
 }
