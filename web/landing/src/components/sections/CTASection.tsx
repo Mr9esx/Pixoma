@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { site } from "@/constants/site";
 import { Reveal } from "@/components/motion/Reveal";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/reui/Button";
 
 export function CTASection() {
   const { t } = useTranslation();

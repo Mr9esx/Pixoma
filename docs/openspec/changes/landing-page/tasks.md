@@ -4,7 +4,7 @@
 - [x] 1.2 配置 `vite.config.ts`（`@vitejs/plugin-react` + `@tailwindcss/vite`）与 `tsconfig*.json`、`index.html`、`src/main.tsx`
 - [x] 1.3 建立 Tailwind v4 基线：`src/index.css` 引入 Tailwind，并定义基础字体/颜色语义令牌（遵循 reui/shadcn 风格，不写裸 hex）
 - [x] 1.4 安装依赖：`react-router-dom`、`motion`、`i18next`、`react-i18next`、`tailwindcss`，以及所需 devDeps（`typescript`、`@types/react*`、`eslint`、`prettier` 等）
-- [ ] 1.5 按需 vendor reui 组件到 `src/components/reui/`（标注来源），不重复造轮子
+- [x] 1.5 按需 vendor reui 组件到 `src/components/reui/`（标注来源），不重复造轮子
 
 ## 2. 路由与多语言
 
@@ -43,5 +43,5 @@
 ## 8. 构建与验证
 
 - [x] 8.1 `pnpm build`（`tsc -b` + `vite build`）通过且无 TS 错误，产物为静态可托管文件
-- [ ] 8.2 `pnpm dev` 或 preview 验证各 section 渲染与动效，覆盖桌面/平板/移动端响应式
+- [x] 8.2 `pnpm dev` 或 preview 验证各 section 渲染与动效，覆盖桌面/平板/移动端响应式
 - [x] 8.3 运行 `lint`/`format:check` 与仓库约定对齐，确认无截图类测试脚手架
