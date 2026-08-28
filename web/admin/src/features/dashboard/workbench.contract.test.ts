@@ -54,6 +54,13 @@ describe('dashboard workbench contract', () => {
     expect(board).not.toContain('justify-end')
   })
 
+  it('renders the shared range control with a custom button', () => {
+    const center = read('../../components/time-range-control.tsx')
+    expect(center).toContain("dashboard.workbench.custom")
+    expect(center).toContain('isCustom')
+    expect(center).toContain('Calendar')
+  })
+
   it('renders the overview cards and chart pairs regions', () => {
     const overview = read('workbench-overview-cards.tsx')
     const charts = read('workbench-chart-pairs.tsx')
