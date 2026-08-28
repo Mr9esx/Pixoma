@@ -181,7 +181,10 @@
       "attentionPlaceholder": "Right-side content coming soon",
       "taskCount": "tasks",
       "range": "Time range",
-      "custom": "Custom"
+      "custom": "Custom",
+      "workflowCountTitle": "Workflows",
+      "taskTotalTitle": "Tasks",
+      "successRateTitle": "Avg success"
     }
   },
   "edges": {

@@ -181,7 +181,10 @@
       "attentionPlaceholder": "右侧内容待补充",
       "taskCount": "任务",
       "range": "时间范围",
-      "custom": "自定义"
+      "custom": "自定义",
+      "workflowCountTitle": "工作流数量",
+      "taskTotalTitle": "任务总数",
+      "successRateTitle": "任务平均成功率"
     }
   },
   "edges": {
