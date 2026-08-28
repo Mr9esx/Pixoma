@@ -46,15 +46,15 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
   const { t } = useTranslation()
   const cases = useQuery({
     queryKey: queryKeys.stats.casesTop(range.from, range.to),
-    queryFn: () => listTaskCaseTopStats({ ...range, limit: 10 }),
+    queryFn: () => listTaskCaseTopStats({ from: range.from, to: range.to, limit: 10 }),
   })
   const daily = useQuery({
     queryKey: queryKeys.stats.tasksDaily(range.from, range.to),
-    queryFn: () => listTaskDailyStats(range),
+    queryFn: () => listTaskDailyStats({ from: range.from, to: range.to }),
   })
   const errors = useQuery({
     queryKey: queryKeys.stats.tasksErrors(range.from, range.to),
-    queryFn: () => listTaskErrorStats({ ...range, limit: 5 }),
+    queryFn: () => listTaskErrorStats({ from: range.from, to: range.to, limit: 5 }),
   })
 
   const items = pickCaseItems(cases.data)

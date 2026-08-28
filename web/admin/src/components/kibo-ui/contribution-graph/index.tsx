@@ -118,7 +118,7 @@ const fillHoles = (activities: Activity[]): Activity[] => {
   );
 
   const firstActivity = sortedActivities[0] as Activity;
-  const lastActivity = sortedActivities.at(-1);
+  const lastActivity = sortedActivities[sortedActivities.length - 1];
 
   if (!lastActivity) {
     return [];
@@ -199,7 +199,7 @@ const getMonthLabels = (
         );
       }
 
-      const prevLabel = labels.at(-1);
+      const prevLabel = labels[labels.length - 1];
 
       if (weekIndex === 0 || !prevLabel || prevLabel.label !== month) {
         return labels.concat({ weekIndex, label: month });

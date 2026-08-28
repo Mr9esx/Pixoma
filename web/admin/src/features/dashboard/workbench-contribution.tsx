@@ -31,7 +31,7 @@ export function WorkbenchContribution({ range }: { range: StatsRange }) {
   const { t } = useTranslation()
   const daily = useQuery({
     queryKey: queryKeys.stats.tasksDaily(range.from, range.to),
-    queryFn: () => listTaskDailyStats(range),
+    queryFn: () => listTaskDailyStats({ from: range.from, to: range.to }),
   })
   const acts = dailyToActivity(pickDays(daily.data))
 
