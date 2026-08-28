@@ -82,6 +82,7 @@ describe('dashboard workbench contract', () => {
     expect(contribution).not.toContain('range.from')
     expect(contribution).toContain('MonitorCard')
     expect(contribution).not.toContain('ContributionGraphTotalCount')
+    expect(contribution).not.toContain('ContributionGraphLegend')
     expect(overview).not.toContain('range.from')
   })
   it('uses admin-api query helpers and semantic chart colors', () => {

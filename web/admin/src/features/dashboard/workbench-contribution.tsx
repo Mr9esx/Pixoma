@@ -5,7 +5,6 @@ import { queryKeys } from '@/lib/api/query-keys'
 import {
   ContributionGraph,
   ContributionGraphCalendar,
-  ContributionGraphLegend,
   ContributionGraphBlock,
   type Activity,
 } from '@/components/kibo-ui/contribution-graph'
@@ -49,10 +48,6 @@ export function WorkbenchContribution() {
             labels={{
               months: t('dashboard.workbench.months', { returnObjects: true }) as string[],
               totalCount: t('dashboard.workbench.dailyTotal'),
-              legend: {
-                less: t('dashboard.workbench.legendLess'),
-                more: t('dashboard.workbench.legendMore'),
-              },
             }}
             blockSize={14}
             blockMargin={4}
@@ -60,7 +55,6 @@ export function WorkbenchContribution() {
             <ContributionGraphCalendar>
               {(props) => <ContributionGraphBlock {...props} />}
             </ContributionGraphCalendar>
-            <ContributionGraphLegend />
           </ContributionGraph>
         </div>
       ) : (
