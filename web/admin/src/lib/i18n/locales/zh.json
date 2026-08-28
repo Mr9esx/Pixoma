@@ -179,7 +179,8 @@
       "legendMore": "较多",
       "fullYearHint": "本年任务量热力",
       "attentionPlaceholder": "右侧内容待补充",
-      "taskCount": "任务"
+      "taskCount": "任务",
+      "range": "时间范围"
     }
   },
   "edges": {

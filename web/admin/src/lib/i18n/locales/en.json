@@ -179,7 +179,8 @@
       "legendMore": "More",
       "fullYearHint": "Task heatmap for the current year",
       "attentionPlaceholder": "Right-side content coming soon",
-      "taskCount": "tasks"
+      "taskCount": "tasks",
+      "range": "Time range"
     }
   },
   "edges": {
