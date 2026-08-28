@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import {
-  Bar,
+  Area,
+  AreaChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
   Pie,
   PieChart,
   XAxis,
@@ -13,7 +13,6 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -72,6 +71,10 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
   ].filter((s) => s.value > 0)
   const errorItems = pickErrorItems(errors.data)
   const errorData = errorItems.map((e, i) => ({ name: e.error_code, value: e.count, index: i }))
+  const totalCases = items.reduce((s, c) => s + c.count, 0)
+  const totalErrors = errorItems.reduce((s, e) => s + e.count, 0)
+  const totalProcessed = daily.data?.summary.processed ?? 0
+  const successRate = daily.data?.summary.success_rate
 
   const durationConfig: ChartConfig = {
     queue: { label: t('dashboard.queueWait'), color: 'var(--chart-4)' },
@@ -87,9 +90,15 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
       <div className='grid gap-4 lg:grid-cols-2'>
         <Card data-testid='workbench-workflow-top'>
           <CardHeader className='pb-2'>
-            <CardTitle className='text-base font-semibold'>
+            <CardTitle className='text-sm font-medium'>
               {t('dashboard.workbench.workflowTopTitle')}
             </CardTitle>
+            <div className='flex items-baseline gap-2'>
+              <span className='text-2xl font-bold tabular-nums'>{totalCases}</span>
+              <span className='text-xs text-muted-foreground'>
+                {t('dashboard.workbench.taskCount')}
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
             {cases.isLoading ? (
@@ -126,10 +135,17 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
 
         <Card data-testid='workbench-task-duration'>
           <CardHeader className='pb-2'>
-            <CardTitle className='text-base font-semibold'>
+            <CardTitle className='text-sm font-medium'>
               {t('dashboard.workbench.taskDurationTitle')}
             </CardTitle>
-            <CardDescription>{t('dashboard.queueExecHint')}</CardDescription>
+            <div className='flex items-baseline gap-2'>
+              <span className='text-2xl font-bold tabular-nums'>
+                {averageDuration(durationData) == null ? '—' : `${Math.round(averageDuration(durationData)!)}s`}
+              </span>
+              <span className='text-xs text-muted-foreground'>
+                {t('dashboard.queueExecHint')}
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
             {daily.isLoading ? (
@@ -138,14 +154,24 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
               <ErrorBanner message={errorMessage(daily.error)} onRetry={() => void daily.refetch()} />
             ) : (
               <ChartContainer config={durationConfig} className='h-[200px] w-full min-w-0 sm:h-[240px]'>
-                <ComposedChart data={durationData} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
+                <AreaChart data={durationData} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
+                  <defs>
+                    <linearGradient id='fillQueue' x1='0' y1='0' x2='0' y2='1'>
+                      <stop offset='5%' stopColor='var(--color-queue)' stopOpacity={0.8} />
+                      <stop offset='95%' stopColor='var(--color-queue)' stopOpacity={0.1} />
+                    </linearGradient>
+                    <linearGradient id='fillExec' x1='0' y1='0' x2='0' y2='1'>
+                      <stop offset='5%' stopColor='var(--color-exec)' stopOpacity={0.7} />
+                      <stop offset='95%' stopColor='var(--color-exec)' stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid vertical={false} />
                   <XAxis dataKey='date' tickLine={false} axisLine={false} tickMargin={4} />
                   <YAxis tickLine={false} axisLine={false} width={36} unit='s' />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey='queue' stackId='a' fill='var(--color-queue)' radius={[0, 0, 2, 2]} />
-                  <Bar dataKey='exec' stackId='a' fill='var(--color-exec)' radius={[2, 2, 0, 0]} />
-                </ComposedChart>
+                  <Area type='monotone' dataKey='exec' stroke='var(--color-exec)' fill='url(#fillExec)' strokeWidth={2} />
+                  <Area type='monotone' dataKey='queue' stroke='var(--color-queue)' fill='url(#fillQueue)' strokeWidth={2} />
+                </AreaChart>
               </ChartContainer>
             )}
           </CardContent>
@@ -155,9 +181,15 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
       <div className='grid gap-4 lg:grid-cols-2'>
         <Card data-testid='workbench-status-distribution'>
           <CardHeader className='pb-2'>
-            <CardTitle className='text-base font-semibold'>
+            <CardTitle className='text-sm font-medium'>
               {t('dashboard.workbench.statusDistributionTitle')}
             </CardTitle>
+            <div className='flex items-baseline gap-2'>
+              <span className='text-2xl font-bold tabular-nums'>{totalProcessed}</span>
+              <span className='text-xs text-muted-foreground'>
+                {successRate == null ? t('dashboard.workbench.taskCount') : `${(successRate * 100).toFixed(0)}% ${t('dashboard.statsSuccessRate')}`}
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
             {daily.isLoading ? (
@@ -184,9 +216,15 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
 
         <Card data-testid='workbench-error-top'>
           <CardHeader className='pb-2'>
-            <CardTitle className='text-base font-semibold'>
+            <CardTitle className='text-sm font-medium'>
               {t('dashboard.workbench.errorTopTitle')}
             </CardTitle>
+            <div className='flex items-baseline gap-2'>
+              <span className='text-2xl font-bold tabular-nums'>{totalErrors}</span>
+              <span className='text-xs text-muted-foreground'>
+                {t('dashboard.workbench.taskCount')}
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
             {errors.isLoading ? (
@@ -210,4 +248,10 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
       </div>
     </div>
   )
+}
+
+function averageDuration(data: { queue: number; exec: number }[]): number | null {
+  if (data.length === 0) return null
+  const total = data.reduce((s, d) => s + d.exec + d.queue, 0)
+  return total / data.length
 }

@@ -17,6 +17,7 @@ export function WorkbenchWelcomeCard() {
     <MouseEffectCard
       data-testid='workbench-welcome'
       className='w-full'
+      align='start'
       title={t('dashboard.workbench.welcomeTitle', { name })}
       subtitle={t('dashboard.workbench.welcomeSubtitle')}
     >

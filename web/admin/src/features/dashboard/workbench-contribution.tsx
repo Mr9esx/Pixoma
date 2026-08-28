@@ -21,17 +21,20 @@ import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { dailyToActivity } from './daily-to-activity'
 import { pickDays } from './task-stats-parse'
-import type { StatsRange } from './task-range-picker'
+import { formatDate } from './date-range'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
 
-export function WorkbenchContribution({ range }: { range: StatsRange }) {
+export function WorkbenchContribution() {
   const { t } = useTranslation()
+  const today = new Date()
+  const yearStart = `${today.getFullYear()}-01-01`
+  const todayStr = formatDate(today)
   const daily = useQuery({
-    queryKey: queryKeys.stats.tasksDaily(range.from, range.to),
-    queryFn: () => listTaskDailyStats({ from: range.from, to: range.to }),
+    queryKey: queryKeys.stats.tasksDaily(yearStart, todayStr),
+    queryFn: () => listTaskDailyStats({ from: yearStart, to: todayStr }),
   })
   const acts = dailyToActivity(pickDays(daily.data))
 
@@ -42,7 +45,7 @@ export function WorkbenchContribution({ range }: { range: StatsRange }) {
           {t('dashboard.workbench.taskHeatTitle')}
         </CardTitle>
         <CardDescription>
-          {t('dashboard.taskDailyDescription', { from: range.from, to: range.to })}
+          {t('dashboard.workbench.fullYearHint')}
         </CardDescription>
       </CardHeader>
       <CardContent>
