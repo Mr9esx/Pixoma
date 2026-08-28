@@ -78,6 +78,7 @@ describe('dashboard workbench contract', () => {
     const contribution = read('workbench-contribution.tsx')
     const overview = read('workbench-overview-cards.tsx')
     expect(contribution).toContain('-01-01')
+    expect(contribution).toContain('-12-31')
     expect(contribution).not.toContain('range.from')
     expect(contribution).toContain('MonitorCard')
     expect(contribution).not.toContain('ContributionGraphTotalCount')
