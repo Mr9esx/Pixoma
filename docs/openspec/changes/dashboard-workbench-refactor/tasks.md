@@ -7,8 +7,8 @@
 
 ## 2. 欢迎卡与根布局
 
-- [ ] 2.1 重构 `web/admin/src/routes/_app/index.tsx` / `dashboard-page.tsx`：移除顶部 `title`/`desc` 区块，改为全宽欢迎卡 + 主数据区 + 右侧占位卡。
-- [ ] 2.2 欢迎卡接入 `/setup/me`（`fetchCurrentUser`），展示 `nickname || username`（左对齐、垂直居中）；提供「新建工作流」「添加/管理节点」两个快捷入口并正确跳转。
+- [ ] 2.1 重构 `web/admin/src/routes/_app/index.tsx` / `dashboard-page.tsx`：移除顶部 `title`/`desc` 区块，改为主数据区 + 右侧欢迎卡（无顶部全宽欢迎卡）。
+- [ ] 2.2 欢迎卡接入 `/setup/me`（`fetchCurrentUser`），展示 `nickname || username`（左对齐、垂直居中，无多余副标题）；提供「新建工作流」「添加/管理节点」两个快捷入口并正确跳转。
 - [ ] 2.3 将时间范围 state（复用 `TaskRangePicker`）上提到工作台根，控件渲染在数据大盘底部，仅驱动区间图表。
 
 ## 3. 数据大盘左栏
@@ -21,10 +21,10 @@
 - [ ] 3.6 新增「任务状态分布 + 错误 Top5」左右布局（`daily.summary` / `listTaskErrorStats` limit 5）。
 - [ ] 3.7 每个区块保持独立 `useQuery` 与 `LoadingSkeleton`/`ErrorBanner` 失败隔离。
 
-## 4. 右栏占位卡
+## 4. 右栏欢迎卡
 
-- [ ] 4.1 新增右栏占位卡：展示「待补充」提示文案，不接入真实数据（`dashboard.workbench.attentionPlaceholder`）。
-- [ ] 4.2 移除原 `workbench-attention` 组件及相关数据接入，避免残留引用。
+- [ ] 4.1 右栏渲染欢迎卡（代替占位卡）：欢迎语 + 两个快捷入口，左对齐、垂直居中，无多余描述文案。
+- [ ] 4.2 移除原 `workbench-attention` 组件及占位卡逻辑，避免残留引用；不再接入关注信息数据。
 
 ## 5. 旧区块清理与样式
 
