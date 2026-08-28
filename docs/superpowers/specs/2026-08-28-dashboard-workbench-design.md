@@ -16,7 +16,7 @@ canonical_spec: openspec
 - 移除页面顶部独立 `title` / `desc` 区块。
 - 全宽欢迎卡（kokonutui mouse-effect-card 点阵动效），欢迎语取当前登录用户昵称，含两个快捷入口。
 - 左栏数据大盘：全宽贡献图 + 三张概览卡 + 两组双列图表。
-- 右栏「需要关注的信息」分区列表：节点异常 / 未启用工作流 / 失败任务 Top。
+- 右栏欢迎卡：欢迎语 + 新建工作流 / 添加节点快捷入口（左对齐、垂直居中）。
 - 全局时间范围控件驱动区间型区块；实时/节点状态不随时间变化。
 - 复用现有 admin-api，保持全量口径，所有区块失败隔离。
 
@@ -31,9 +31,6 @@ canonical_spec: openspec
 ```
 / 工作台页
 └── div @container/content flex-1
-    ├── WorkbenchWelcomeCard（全宽，mouse-effect-card 点阵动效）
-    │     ├── 左对齐、垂直居中：欢迎回来，{nickname || username}
-    │     └── 快捷入口 [新建工作流] [添加/管理节点]
     └── div grid lg:grid-cols-[minmax(0,1fr)_360px] gap-4
         ├── 主机栏 space-y-4
         │   ├── WorkbenchContribution（kibo-ui 贡献图，全宽，全年）
@@ -44,11 +41,11 @@ canonical_spec: openspec
         │   ├── grid lg:grid-cols-2（工作流使用热度 Top | 任务耗时）
         │   ├── grid lg:grid-cols-2（任务状态分布 | 错误 Top5）
         │   └── TaskRangePicker（数据大盘底部，仅驱动区间图表）
-        └── 右栏 PlaceholderCard（占位，待补充）
+        └── 右栏 WorkbenchWelcomeCard（mouse-effect-card 点阵动效，左对齐、垂直居中）
 ```
 
 - 根容器复用现有 `contentRegionClassName`（`@container/content`），保证窄屏降级单列。
-- 双栏用 CSS grid：`lg:grid-cols-[minmax(0,1fr)_360px]`；右栏固定 360px，窄屏回退为单列（右栏落到底部）。右栏为占位卡。
+- 双栏用 CSS grid：`lg:grid-cols-[minmax(0,1fr)_360px]`；右栏固定 360px，窄屏回退为单列（右栏落到底部）。右栏为欢迎卡。
 - 所有区块独立 `useQuery`，统一 `LoadingSkeleton` / `ErrorBanner` 失败隔离。
 
 ## 数据流与联动
@@ -64,7 +61,7 @@ canonical_spec: openspec
 | 任务耗时 | `/stats/tasks/daily`（avg_queue/exec/duration） | 是 |
 | 任务状态分布 | `/stats/tasks/daily`（summary） | 是 |
 | 错误 Top5 | `/stats/tasks/errors`（limit 5） | 是 |
-| 右栏占位卡 | 无（占位提示） | 否 |
+| 右栏欢迎卡 | `/setup/me`（昵称/用户名） | 否（实时） |
 
 - 全局 `range` state 复用 `TaskRangePicker`（近 7/30/90 天 + 自定义），由工作台根持有，传给 `WorkbenchDataBoard`，控件渲染在数据大盘底部。
 - 仅区间型图表（工作流热度、任务耗时、状态分布、错误 Top5）用 `queryKeys.stats.*` 派生缓存键并随 `range` 刷新；贡献图与节点概览卡使用固定/全年 queryKey，不受范围影响。
@@ -74,9 +71,9 @@ canonical_spec: openspec
 
 ### 1. WorkbenchWelcomeCard
 - 基于落文件的 `kokonutui/mouse-effect-card.tsx`，覆盖：
-  - 外层 `card`：去掉内置 `max-w-md`、`h-[400px]`、`bg-white` 光晕、默认品牌文案（Acme / Case Study / Get Started 等）；用 `border` 分层 + `shadow-none`（设计体系无投影）。
-  - 点阵动效保留（`motion`），作为背景层，`dots` 颜色改用语义令牌（`muted-foreground` / `foreground` / `color-mix`）。
-  - 内容：左侧欢迎语 "欢迎回来，{nickname || username}"，右侧 `Button` 快捷入口（新建工作流 → case 新建页；添加/管理节点 → edges 页）。
+  - 外层 `card`：去掉内置 `max-w-md`、`h-[400px]`、`bg-white` 光晕、默认品牌文案与促销 CTA；用 `border` 分层 + `shadow-none`（设计体系无投影）。
+  - 点阵动效保留（`motion`），作为背景层，`dots` 颜色改用语义令牌（`muted-foreground` / `color-mix`）。
+  - 内容（作为 `children` 自定义）：标题 "欢迎回来，{nickname || username}"（无多余副标题），下方 `Button` 快捷入口（新建工作流 → case 新建页；添加/管理节点 → edges 页）；整体左对齐、垂直居中。
   - 保持 `ariaLabel`、键盘可达（`onKeyDown` 方向键移动点阵焦点）。
 
 ### 2. WorkbenchContribution
@@ -95,11 +92,9 @@ canonical_spec: openspec
 - 任务状态分布（`Pie` donut，summary） | 错误 Top5（分级列表或 donut，`listTaskErrorStats` limit 5）。
 - 一律用 chart-1…5 语义色；数据必须填充编码，单卡片失败隔离。
 
-### 5. WorkbenchAttention（右栏）
-- 分区列表，每节标题 + 紧凑列表 + 状态点/徽标 + 空态（"全部健康" / "已全部启用" / "暂无失败"）。
-- 节点异常：`listEdges` + `listPresence` 交叉，`edge_online=false` 或 `comfy_running=false` 计入；条目可点击跳 edges 详情。
-- 未启用工作流：`listCases({ enabled: false })`；条目可点击跳 cases 列表。
-- 失败任务 Top：复用 `listTaskErrorStats`，展示错误码 + 数量；可点击跳 tasks 列表（带状态过滤）。
+### 5. 右侧欢迎卡（右栏）
+- 右栏渲染 `WorkbenchWelcomeCard`：欢迎语（`/setup/me` 的 `nickname || username`）+ 两个快捷入口（新建工作流 → `/cases`、添加/管理节点 → `/edges`）。
+- 暂不接入关注信息数据；后续若需补充关注信息，再扩展右栏卡片内容。
 
 ## 失败隔离与空态
 
@@ -109,7 +104,7 @@ canonical_spec: openspec
 
 ## i18n 与文案
 
-- 新增 key 全部写入 `zh.json` / `en.json`（默认中文）。涉及：欢迎卡标题、快捷入口、数据大盘卡片标题、右栏分区标题与空态、窄屏说明。
+- 新增 key 全部写入 `zh.json` / `en.json`（默认中文）。涉及：欢迎卡标题、快捷入口、数据大盘卡片标题、贡献图全年说明、任务量单位。
 - 语气遵循 `voice-profile.md`：action-first、无禁用词（请/烦请/前往/进行/完成/实施/温馨提示）、无感叹号、无 emoji。
 
 ## 样式与设计体系约束
@@ -129,7 +124,7 @@ canonical_spec: openspec
 - 组件/契约测试：
   - 工作台根渲染欢迎卡 + 双栏。
   - 贡献图映射与联动刷新。
-  - 右栏分区列表与空态。
+  - 右栏欢迎卡（标题 + 快捷入口，无多余副标题）。
   - 失败隔离（单区块 API 失败不影响其它）。
 - 全量校验：`pnpm lint`、`pnpm build`、`pnpm test` 通过；`pixoma-design-system` DESIGN.md 第 11 节 10 条验收。
 - 不使用截图类测试脚手架（遵循项目"模型不支持截图"约定）。
@@ -138,7 +133,7 @@ canonical_spec: openspec
 
 - [kokonutui 组件硬编码样式冲突] → 落文件后覆盖为语义令牌、无投影、全宽、内容自适应；保留动效但弱化背景色对比。
 - [贡献图 `level` 需手动分档，与 daily 返回值无直接映射] → 纯函数四分位分档 + 单测。
-- [右栏失败任务与左栏错误 Top5 数据源重叠] → 共用 query/queryKey。
+- [欢迎卡右侧窄列下标题/按钮可能换行] → children 用 `flex flex-wrap` 自适应，标题左对齐、内容垂直居中。
 - [贡献图窄屏横向溢出] → 外层 `@container` + `overflow-x-auto`。
 - [去掉旧集群负载图] → 由"平均负载 + 负载 Top5"覆盖负载维度（已与用户确认）。
 
@@ -148,4 +143,4 @@ canonical_spec: openspec
 
 ## Open Questions
 
-- 无。三个设计决策（贡献图跟随全局范围、欢迎卡保留点阵动效改全宽横幅、右栏分区列表）已与用户确认。
+- 无。三个设计决策（贡献图全年、欢迎卡保留点阵动效、右侧欢迎卡替代占位卡）已与用户确认。
