@@ -29,6 +29,7 @@ export function TimeRangeControl({
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const [isCustom, setIsCustom] = useState(false)
   const span = betweenDays(from, to)
   const activePreset = presets.find((p) => p.days === span)
 
@@ -44,6 +45,7 @@ export function TimeRangeControl({
           const start = new Date(now)
           start.setDate(start.getDate() - (preset.days - 1))
           onChange({ from: formatDate(start), to: formatDate(end) })
+          setIsCustom(false)
         }}
       >
         <TabsList className='h-7 w-fit' aria-label={t('dashboard.workbench.range')}>
@@ -65,14 +67,19 @@ export function TimeRangeControl({
               aria-label={t('dashboard.workbench.range')}
               className={cn(
                 'inline-flex h-full items-center gap-1.5 rounded-md border border-transparent px-2.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50',
-                !activePreset
+                isCustom
                   ? 'border-input bg-background text-foreground shadow-sm dark:border-white/10 dark:bg-input/30 dark:text-foreground'
                   : 'text-muted-foreground hover:text-foreground dark:text-muted-foreground'
               )}
             >
-              <span className='tabular-nums'>
-                {from} ~ {to}
-              </span>
+              {t('dashboard.workbench.custom')}
+              {isCustom ? (
+                <span className='font-normal text-muted-foreground'>
+                  <span className='tabular-nums'>
+                    {from} ~ {to}
+                  </span>
+                </span>
+              ) : null}
             </button>
           </PopoverTrigger>
         </div>
@@ -90,6 +97,7 @@ export function TimeRangeControl({
                   from: formatDate(sel.from),
                   to: formatDate(sel.to),
                 })
+                setIsCustom(true)
                 setOpen(false)
               }
             }}
