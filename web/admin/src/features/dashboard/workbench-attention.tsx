@@ -33,7 +33,7 @@ export function WorkbenchAttention({ range }: { range: StatsRange }) {
   })
   const errors = useQuery({
     queryKey: queryKeys.stats.tasksErrors(range.from, range.to),
-    queryFn: () => listTaskErrorStats({ ...range, limit: 5 }),
+    queryFn: () => listTaskErrorStats({ from: range.from, to: range.to, limit: 5 }),
   })
 
   const edgeList = edges.data ?? []

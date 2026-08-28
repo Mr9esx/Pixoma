@@ -30,6 +30,7 @@ const PROXIMITY_OPACITY_BOOST = 0.8;
 
 export interface MouseEffectCardProps {
   className?: string;
+  "data-testid"?: string;
   children?: React.ReactNode;
   dotSize?: number;
   dotSpacing?: number;
@@ -239,6 +240,7 @@ function DotComponent({
 
 export default function MouseEffectCard({
   className,
+  "data-testid": dataTestId,
   children,
   dotSize = 2,
   dotSpacing = 16,
@@ -345,6 +347,7 @@ export default function MouseEffectCard({
 
   return (
     <Card
+      data-testid={dataTestId}
       className={cn(
         "relative w-full overflow-hidden rounded-xl border bg-card text-card-foreground p-0 shadow-none",
         className
