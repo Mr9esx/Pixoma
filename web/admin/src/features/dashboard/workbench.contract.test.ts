@@ -81,9 +81,17 @@ describe('dashboard workbench contract', () => {
     expect(contribution).toContain('-12-31')
     expect(contribution).not.toContain('range.from')
     expect(contribution).toContain('MonitorCard')
-    expect(contribution).not.toContain('ContributionGraphTotalCount')
-    expect(contribution).not.toContain('ContributionGraphLegend')
+    expect(contribution).toContain('WorkbenchHeatmap')
     expect(overview).not.toContain('range.from')
+  })
+
+  it('renders a hover tooltip with date and task count per cell', () => {
+    const heatmap = read('workbench-heatmap.tsx')
+    expect(heatmap).toContain('TooltipTrigger')
+    expect(heatmap).toContain('TooltipContent')
+    expect(heatmap).toContain('activity.date')
+    expect(heatmap).toContain('activity.count')
+    expect(heatmap).toContain("dashboard.workbench.taskCount")
   })
   it('uses admin-api query helpers and semantic chart colors', () => {
     const board = read('workbench-data-board.tsx')

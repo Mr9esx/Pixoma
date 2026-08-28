@@ -2,12 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { listTaskDailyStats } from '@/lib/api/stats'
 import { queryKeys } from '@/lib/api/query-keys'
-import {
-  ContributionGraph,
-  ContributionGraphCalendar,
-  ContributionGraphBlock,
-  type Activity,
-} from '@/components/kibo-ui/contribution-graph'
+import { WorkbenchHeatmap } from './workbench-heatmap'
 import { MonitorCard } from '@/components/monitor-card'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
@@ -43,19 +38,7 @@ export function WorkbenchContribution() {
         <ErrorBanner message={errorMessage(daily.error)} onRetry={() => void daily.refetch()} />
       ) : acts.length ? (
         <div className='w-full'>
-          <ContributionGraph
-            data={acts as Activity[]}
-            labels={{
-              months: t('dashboard.workbench.months', { returnObjects: true }) as string[],
-              totalCount: t('dashboard.workbench.dailyTotal'),
-            }}
-            blockSize={14}
-            blockMargin={4}
-          >
-            <ContributionGraphCalendar>
-              {(props) => <ContributionGraphBlock {...props} />}
-            </ContributionGraphCalendar>
-          </ContributionGraph>
+          <WorkbenchHeatmap data={acts} />
         </div>
       ) : (
         <p className='text-sm text-muted-foreground'>{t('common.empty')}</p>
