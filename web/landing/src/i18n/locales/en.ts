@@ -17,6 +17,7 @@ export default {
   'features.case.desc': 'Workflows, models and outputs in one place.',
   'features.admin.title': 'Admin',
   'features.admin.desc': 'Nodes, tasks and resources at a glance.',
+  'demo.next': 'Next',
   'scenarios.title': 'Use your compute for the art you want.',
   'cta.title': 'Get your first workflow running.',
   'cta.subtitle': 'Inspiration won’t wait.',

@@ -17,6 +17,7 @@ export default {
   'features.case.desc': '工作流、模型与历史输出，都在一个目录里。',
   'features.admin.title': '管理后台',
   'features.admin.desc': '算力节点、任务与资源，一处看清。',
+  'demo.next': '前进',
   'scenarios.title': '用你的算力，做想做的创作。',
   'cta.title': '先跑通第一条工作流。',
   'cta.subtitle': '灵感不会一直等你。',
