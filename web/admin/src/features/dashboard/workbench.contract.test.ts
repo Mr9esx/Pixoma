@@ -38,14 +38,14 @@ describe('dashboard workbench contract', () => {
     expect(board).toContain('WorkbenchContribution')
     expect(board).toContain('WorkbenchOverviewCards')
     expect(board).toContain('WorkbenchChartPairs')
-    expect(board).toContain('TaskRangePicker')
+    expect(board).toContain('TimeRangeControl')
     expect(board).toContain("data-testid='workbench-data-board'")
   })
 
   it('places the range picker below the overview cards and left aligned', () => {
     const board = read('workbench-data-board.tsx')
     const overview = board.indexOf('<WorkbenchOverviewCards />')
-    const range = board.indexOf('<TaskRangePicker')
+    const range = board.indexOf('<TimeRangeControl')
     const charts = board.indexOf('<WorkbenchChartPairs')
     expect(overview).toBeGreaterThan(-1)
     expect(range).toBeGreaterThan(overview)
