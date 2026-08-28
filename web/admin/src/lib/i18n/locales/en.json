@@ -180,7 +180,8 @@
       "fullYearHint": "Task heatmap for the current year",
       "attentionPlaceholder": "Right-side content coming soon",
       "taskCount": "tasks",
-      "range": "Time range"
+      "range": "Time range",
+      "custom": "Custom"
     }
   },
   "edges": {
