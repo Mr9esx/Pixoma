@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { BotChatDemo } from '@/components/demos/BotChatDemo'
+import { CaseDirDemo } from '@/components/demos/CaseDirDemo'
 import { Reveal } from '@/components/motion/Reveal'
 import { FeatureBlock } from './FeatureBlock'
 
@@ -19,9 +20,7 @@ export function FeaturesSection() {
           <BotChatDemo />
         </FeatureBlock>
         <FeatureBlock title={t('features.case.title')} desc={t('features.case.desc')}>
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Case
-          </div>
+          <CaseDirDemo />
         </FeatureBlock>
         <FeatureBlock title={t('features.admin.title')} desc={t('features.admin.desc')}>
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
