@@ -1,7 +1,7 @@
 "use client";
 
-import type { Day as WeekDay } from "date-fns";
 import {
+  type Day as WeekDay,
   differenceInCalendarDays,
   eachDayOfInterval,
   formatISO,
@@ -295,7 +295,7 @@ export const ContributionGraph = ({
       }}
     >
       <div
-        className={cn("flex w-max max-w-full flex-col gap-2", className)}
+        className={cn("flex w-full max-w-full flex-col gap-2", className)}
         style={{ fontSize, ...style }}
         {...props}
       />
@@ -378,14 +378,12 @@ export const ContributionGraphCalendar = ({
 
   return (
     <div
-      className={cn("max-w-full overflow-x-auto overflow-y-hidden", className)}
+      className={cn("w-full overflow-hidden", className)}
       {...props}
     >
       <svg
-        className="block overflow-visible"
-        height={height}
+        className="block h-auto w-full overflow-visible"
         viewBox={`0 0 ${width} ${height}`}
-        width={width}
       >
         <title>Contribution Graph</title>
         {!hideMonthLabels && (
