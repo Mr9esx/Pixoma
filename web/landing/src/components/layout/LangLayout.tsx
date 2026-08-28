@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { Navigate, Outlet, useParams } from 'react-router-dom'
 import i18n from '@/i18n'
 import { isLangSegment, langSegmentToLocale } from '@/router/segments'
+import { Header } from './Header'
+import { Footer } from './Footer'
 
 export function LangLayout() {
   const { lang } = useParams()
@@ -18,5 +20,13 @@ export function LangLayout() {
     return <Navigate to="/cn" replace />
   }
 
-  return <Outlet />
+  return (
+    <div className="flex min-h-svh flex-col bg-background text-foreground">
+      <Header />
+      <main className="flex-1">
+        <Outlet />
+      </main>
+      <Footer />
+    </div>
+  )
 }
