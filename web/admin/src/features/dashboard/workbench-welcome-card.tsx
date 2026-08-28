@@ -19,9 +19,11 @@ export function WorkbenchWelcomeCard() {
       className='w-full'
       align='start'
       title={t('dashboard.workbench.welcomeTitle', { name })}
-      subtitle={t('dashboard.workbench.welcomeSubtitle')}
     >
-      <div className='flex items-center gap-3'>
+      <p className='text-sm text-muted-foreground'>
+        {t('dashboard.workbench.welcomeSubtitle')}
+      </p>
+      <div className='flex flex-wrap items-center gap-3'>
         <Button data-testid='workbench-quick-create-case' asChild>
           <Link to='/cases'>{t('dashboard.workbench.quickCreateCase')}</Link>
         </Button>
