@@ -67,4 +67,14 @@ describe('dashboard workbench contract', () => {
     expect(board).not.toMatch(/fetch\(["']?\/api\/v1/)
     expect(charts).toContain('var(--color-')
   })
+
+  it('renders Sales-Overview style chart cards with legend and menu action', () => {
+    const charts = read('workbench-chart-pairs.tsx')
+    expect(charts).toContain('CardAction')
+    expect(charts).toContain('LegendDot')
+    expect(charts).toContain('DropdownMenu')
+    expect(charts).toContain('ComposedChart')
+    expect(charts).toContain('linearGradient')
+    expect(charts).toContain('MoreHorizontal')
+  })
 })
