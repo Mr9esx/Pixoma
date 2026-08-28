@@ -73,7 +73,7 @@ export default defineConfig({
       'src/features/quick-config/quick-config.contract.test.ts',
       'src/features/dashboard/date-range.test.ts',
       'src/features/dashboard/daily-to-activity.test.ts',
-      'src/features/dashboard/task-stats.contract.test.ts',
+      'src/features/dashboard/workbench.contract.test.ts',
       'src/features/dashboard/task-stats-parse.test.ts',
       'src/features/dashboard/hardware-summary.test.ts',
       'src/features/config-context/config-chain.contract.test.ts',
