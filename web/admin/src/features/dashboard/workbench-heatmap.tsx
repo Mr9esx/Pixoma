@@ -31,18 +31,16 @@ export function WorkbenchHeatmap({ data }: { data: Activity[] }) {
   return (
     <TooltipProvider delayDuration={0}>
       <div className='flex w-full flex-col gap-1'>
-        <div
-          className='grid w-full'
-          style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
-        >
-          {weeks.map((_, weekIndex) => {
-            const label = monthLabels.find((m) => m.weekIndex === weekIndex)?.label
-            return (
-              <div key={`m-${weekIndex}`} className='text-[11px] text-muted-foreground'>
-                {label ?? ''}
-              </div>
-            )
-          })}
+        <div className='relative h-4 w-full'>
+          {monthLabels.map((m) => (
+            <span
+              key={m.weekIndex}
+              className='absolute top-0 text-[11px] whitespace-nowrap text-muted-foreground'
+              style={{ left: `${(m.weekIndex / weeks.length) * 100}%` }}
+            >
+              {m.label}
+            </span>
+          ))}
         </div>
         <div
           className='grid w-full grid-flow-col grid-rows-7 gap-1'
