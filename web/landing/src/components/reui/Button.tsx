@@ -1,3 +1,5 @@
+// reui-style copy-paste primitive (source: https://github.com/keenthemes/reui)
+// 语义类名 + variants，与 shadcn / reui 约定一致。
 import { type ComponentPropsWithoutRef } from "react";
 import { cn } from "@/lib/utils";
 

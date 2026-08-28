@@ -3,7 +3,7 @@ import { site } from "@/constants/site";
 import { Reveal } from "@/components/motion/Reveal";
 import { GradientBackground } from "@/components/reactbits/GradientBackground";
 import { ShinyText } from "@/components/reactbits/ShinyText";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/reui/Button";
 
 export function HeroSection() {
   const { t } = useTranslation();
