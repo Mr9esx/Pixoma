@@ -125,8 +125,8 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
   return (
     <div className='space-y-4'>
       <div className='grid gap-4 lg:grid-cols-2'>
-        <Card data-testid='workbench-task-duration'>
-          <CardHeader className='pb-3'>
+        <Card data-testid='workbench-task-duration' className='gap-4 py-0'>
+          <CardHeader className='px-2.5 pt-4'>
             <CardTitle className='text-sm font-medium'>
               {t('dashboard.workbench.taskDurationTitle')}
             </CardTitle>
@@ -138,7 +138,7 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
               <CardMenu />
             </CardAction>
           </CardHeader>
-          <CardContent className='px-2.5'>
+          <CardContent className='px-2.5 pb-4'>
             {daily.isLoading ? (
               <LoadingSkeleton rows={4} />
             ) : daily.isError ? (
@@ -169,8 +169,8 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
           </CardContent>
         </Card>
 
-        <Card data-testid='workbench-workflow-top'>
-          <CardHeader className='pb-3'>
+        <Card data-testid='workbench-workflow-top' className='gap-4 py-0'>
+          <CardHeader className='px-2.5 pt-4'>
             <CardTitle className='text-sm font-medium'>
               {t('dashboard.workbench.workflowTopTitle')}
             </CardTitle>
@@ -178,7 +178,7 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
               <CardMenu />
             </CardAction>
           </CardHeader>
-          <CardContent className='px-2.5'>
+          <CardContent className='px-2.5 pb-4'>
             {cases.isLoading ? (
               <LoadingSkeleton rows={5} />
             ) : cases.isError ? (
@@ -213,8 +213,8 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
       </div>
 
       <div className='grid gap-4 lg:grid-cols-2'>
-        <Card data-testid='workbench-status-distribution'>
-          <CardHeader className='pb-3'>
+        <Card data-testid='workbench-status-distribution' className='gap-4 py-0'>
+          <CardHeader className='px-2.5 pt-4'>
             <CardTitle className='text-sm font-medium'>
               {t('dashboard.workbench.statusDistributionTitle')}
             </CardTitle>
@@ -227,7 +227,7 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
               <CardMenu />
             </CardAction>
           </CardHeader>
-          <CardContent className='px-2.5'>
+          <CardContent className='px-2.5 pb-4'>
             {daily.isLoading ? (
               <LoadingSkeleton rows={4} />
             ) : daily.isError ? (
@@ -247,8 +247,8 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
           </CardContent>
         </Card>
 
-        <Card data-testid='workbench-error-top'>
-          <CardHeader className='pb-3'>
+        <Card data-testid='workbench-error-top' className='gap-4 py-0'>
+          <CardHeader className='px-2.5 pt-4'>
             <CardTitle className='text-sm font-medium'>
               {t('dashboard.workbench.errorTopTitle')}
             </CardTitle>
@@ -256,7 +256,7 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
               <CardMenu />
             </CardAction>
           </CardHeader>
-          <CardContent className='px-2.5'>
+          <CardContent className='px-2.5 pb-4'>
             {errors.isLoading ? (
               <LoadingSkeleton rows={4} />
             ) : errors.isError ? (

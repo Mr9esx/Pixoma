@@ -77,4 +77,11 @@ describe('dashboard workbench contract', () => {
     expect(charts).toContain('linearGradient')
     expect(charts).toContain('MoreHorizontal')
   })
+
+  it('uses compact Sales-Overview card layout and padding', () => {
+    const charts = read('workbench-chart-pairs.tsx')
+    expect(charts).toContain("className='gap-4 py-0'")
+    expect(charts.match(/px-2\.5 pt-4/g)?.length ?? 0).toBeGreaterThanOrEqual(4)
+    expect(charts.match(/px-2\.5 pb-4/g)?.length ?? 0).toBeGreaterThanOrEqual(4)
+  })
 })
