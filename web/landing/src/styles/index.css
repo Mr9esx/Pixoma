@@ -38,3 +38,17 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+.animate-shiny {
+  background-size: 200% 100%;
+  animation: shiny 3s linear infinite;
+}
+
+@keyframes shiny {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
