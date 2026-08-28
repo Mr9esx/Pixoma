@@ -25,19 +25,12 @@ describe('dashboard workbench contract', () => {
     expect(card).toContain('fetchCurrentUser')
   })
 
-  it('organizes into a left data board and right attention panel', () => {
+  it('organizes into a data board and a placeholder right card', () => {
     const page = read('dashboard-page.tsx')
     expect(page).toMatch(/grid/)
     expect(page).toContain('WorkbenchDataBoard')
-    expect(page).toContain('WorkbenchAttention')
+    expect(page).toContain("data-testid='workbench-placeholder'")
     expect(page).toMatch(/data-testid='workbench-grid'/)
-  })
-
-  it('keeps a global range picker driving interval stats', () => {
-    const page = read('dashboard-page.tsx')
-    expect(page).toContain('TaskRangePicker')
-    expect(page).toContain('range')
-    expect(page).toContain('daysAgo(29)')
   })
 
   it('renders the left data board blocks', () => {
@@ -45,6 +38,7 @@ describe('dashboard workbench contract', () => {
     expect(board).toContain('WorkbenchContribution')
     expect(board).toContain('WorkbenchOverviewCards')
     expect(board).toContain('WorkbenchChartPairs')
+    expect(board).toContain('TaskRangePicker')
     expect(board).toContain("data-testid='workbench-data-board'")
   })
 
@@ -60,16 +54,13 @@ describe('dashboard workbench contract', () => {
     expect(charts).toContain("data-testid='workbench-error-top'")
   })
 
-  it('renders the right attention panel sections', () => {
-    const attention = read('workbench-attention.tsx')
-    expect(attention).toContain("data-testid='workbench-attention'")
-    expect(attention).toContain("data-testid='workbench-node-abnormal'")
-    expect(attention).toContain("data-testid='workbench-disabled-workflow'")
-    expect(attention).toContain("data-testid='workbench-failed-task'")
-    expect(attention).toContain('listPresence')
-    expect(attention).toContain('listCases')
+  it('keeps the heatmap on the full year and overview cards live', () => {
+    const contribution = read('workbench-contribution.tsx')
+    const overview = read('workbench-overview-cards.tsx')
+    expect(contribution).toContain('yearStart')
+    expect(contribution).not.toContain('range.from')
+    expect(overview).not.toContain('range.from')
   })
-
   it('uses admin-api query helpers and semantic chart colors', () => {
     const board = read('workbench-data-board.tsx')
     const charts = read('workbench-chart-pairs.tsx')

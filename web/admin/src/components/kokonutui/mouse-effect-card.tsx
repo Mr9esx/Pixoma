@@ -46,6 +46,7 @@ export interface MouseEffectCardProps {
   secondaryCtaUrl?: string;
   footerText?: string;
   ariaLabel?: string;
+  align?: "start" | "center";
 }
 
 interface Dot {
@@ -256,6 +257,7 @@ export default function MouseEffectCard({
   secondaryCtaUrl = "#",
   footerText,
   ariaLabel,
+  align = "center",
 }: MouseEffectCardProps) {
   const innerContainerRef = useRef<HTMLDivElement>(null);
   const mouseX = useMotionValue(Number.POSITIVE_INFINITY);
@@ -395,23 +397,50 @@ export default function MouseEffectCard({
           </div>
         )}
 
-        <div className="relative z-10 flex h-full flex-col items-center justify-center px-2">
-          <div className="flex flex-col items-center gap-6">
+        <div
+          className={cn(
+            "relative z-10 flex h-full flex-col px-2",
+            align === "start"
+              ? "items-start justify-center text-left"
+              : "items-center justify-center"
+          )}
+        >
+          <div
+            className={cn(
+              "flex flex-col gap-6",
+              align === "start" ? "items-start" : "items-center"
+            )}
+          >
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-foreground/5 blur-2xl" />
-              <h2 className="relative text-center font-bold text-3xl text-foreground tracking-tight">
+              <h2
+                className={cn(
+                  "relative font-bold text-3xl text-foreground tracking-tight",
+                  align === "start" ? "text-left" : "text-center"
+                )}
+              >
                 {title}
               </h2>
             </div>
             {(subtitle || children) && (
               <div className="relative">
                 <div className="absolute inset-0 rounded-lg bg-foreground/5 blur-xl" />
-                <p className="relative max-w-sm text-center font-medium text-base text-muted-foreground leading-relaxed">
+                <p
+                  className={cn(
+                    "relative max-w-sm font-medium text-base text-muted-foreground leading-relaxed",
+                    align === "start" ? "text-left" : "text-center"
+                  )}
+                >
                   {children || subtitle}
                 </p>
               </div>
             )}
-            <div className="mt-2 flex items-center gap-3">
+            <div
+              className={cn(
+                "mt-2 flex items-center gap-3",
+                align === "start" ? "justify-start" : "justify-center"
+              )}
+            >
               {primaryCtaText ? (
                 <Button asChild className="rounded-full" size="lg">
                   <a
