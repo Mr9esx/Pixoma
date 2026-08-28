@@ -44,4 +44,12 @@ describe('kokonutui mouse-effect card workbench adaptation', () => {
     expect(source).toContain('onKeyDown')
     expect(source).toContain('handleMouseMove')
   })
+
+  it('renders children as an independent block and vertically centers content', () => {
+    const source = read('mouse-effect-card.tsx')
+    expect(source.match(/\{children \|\| subtitle\}/)).toBeNull()
+    expect(source).toMatch(/\{children\s*&&/)
+    expect(source).toMatch(/justify-center/)
+    expect(source).toMatch(/items-start justify-center text-left/)
+  })
 })

@@ -357,7 +357,7 @@ export default function MouseEffectCard({
     >
       <CardContent
         aria-label={ariaLabel ?? (title ? `${title}${subtitle ? ` — ${subtitle}` : ""}` : undefined)}
-        className="relative h-full min-h-[140px] w-full overflow-hidden p-0"
+        className="relative min-h-[140px] w-full overflow-hidden p-0"
         onBlur={handleBlur}
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
@@ -399,7 +399,7 @@ export default function MouseEffectCard({
 
         <div
           className={cn(
-            "relative z-10 flex h-full flex-col px-2",
+            "relative z-10 flex min-h-[140px] flex-col px-2",
             align === "start"
               ? "items-start justify-center text-left"
               : "items-center justify-center"
@@ -422,7 +422,7 @@ export default function MouseEffectCard({
                 {title}
               </h2>
             </div>
-            {(subtitle || children) && (
+            {subtitle && (
               <div className="relative">
                 <div className="absolute inset-0 rounded-lg bg-foreground/5 blur-xl" />
                 <p
@@ -431,8 +431,21 @@ export default function MouseEffectCard({
                     align === "start" ? "text-left" : "text-center"
                   )}
                 >
-                  {children || subtitle}
+                  {subtitle}
                 </p>
+              </div>
+            )}
+            {children && (
+              <div className="relative">
+                <div className="absolute inset-0 rounded-lg bg-foreground/5 blur-xl" />
+                <div
+                  className={cn(
+                    "relative flex flex-col gap-3",
+                    align === "start" ? "items-start" : "items-center"
+                  )}
+                >
+                  {children}
+                </div>
               </div>
             )}
             <div
