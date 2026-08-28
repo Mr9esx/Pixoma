@@ -1,11 +1,13 @@
-import { motion } from 'motion/react'
-import { adminTasks } from '@/data/admin'
+import { motion } from "motion/react";
+import { adminTasks } from "@/data/admin";
 
 export function AdminDemo() {
   return (
     <div className="flex h-full w-full flex-col p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-foreground">Pixoma · 管理后台</span>
+        <span className="text-sm font-medium text-foreground">
+          Pixoma · 管理后台
+        </span>
         <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
           2 节点
         </span>
@@ -34,5 +36,5 @@ export function AdminDemo() {
         ))}
       </motion.div>
     </div>
-  )
+  );
 }

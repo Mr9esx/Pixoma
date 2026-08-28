@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom/vitest'
+import "@testing-library/jest-dom/vitest";
 
 class MockIntersectionObserver {
   observe() {}
@@ -7,4 +7,4 @@ class MockIntersectionObserver {
 }
 
 globalThis.IntersectionObserver =
-  MockIntersectionObserver as unknown as typeof IntersectionObserver
+  MockIntersectionObserver as unknown as typeof IntersectionObserver;

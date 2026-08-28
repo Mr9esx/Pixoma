@@ -42,6 +42,6 @@
 
 ## 8. 构建与验证
 
-- [ ] 8.1 `pnpm build`（`tsc -b` + `vite build`）通过且无 TS 错误，产物为静态可托管文件
+- [x] 8.1 `pnpm build`（`tsc -b` + `vite build`）通过且无 TS 错误，产物为静态可托管文件
 - [ ] 8.2 `pnpm dev` 或 preview 验证各 section 渲染与动效，覆盖桌面/平板/移动端响应式
-- [ ] 8.3 运行 `lint`/`format:check` 与仓库约定对齐，确认无截图类测试脚手架
+- [x] 8.3 运行 `lint`/`format:check` 与仓库约定对齐，确认无截图类测试脚手架
