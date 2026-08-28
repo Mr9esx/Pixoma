@@ -8,9 +8,9 @@
 
 ## 2. 路由与多语言
 
-- [ ] 2.1 建立 `react-router-dom` 路由：`/:lang/*`，`lang` 限定 `zh-CN` / `en`，未指定或非法回退 `zh-CN`
-- [ ] 2.2 初始化 `i18next` + `react-i18next`，提供 `zh-CN` / `en` 的 key-based 词条 resources
-- [ ] 2.3 实现导航/页头的语言切换，切换时导航到对应 `/cn`、`/en` 路径，且无需整页 reload
+- [x] 2.1 建立 `react-router-dom` 路由：`/:lang/*`，`lang` 限定 `zh-CN` / `en`，未指定或非法回退 `zh-CN`
+- [x] 2.2 初始化 `i18next` + `react-i18next`，提供 `zh-CN` / `en` 的 key-based 词条 resources
+- [x] 2.3 实现导航/页头的语言切换，切换时导航到对应 `/cn`、`/en` 路径，且无需整页 reload
 
 ## 3. 全局布局与动效基座
 
