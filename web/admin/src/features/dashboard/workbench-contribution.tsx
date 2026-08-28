@@ -43,7 +43,7 @@ export function WorkbenchContribution() {
       ) : daily.isError ? (
         <ErrorBanner message={errorMessage(daily.error)} onRetry={() => void daily.refetch()} />
       ) : acts.length ? (
-        <div className='overflow-x-auto'>
+        <div className='w-full'>
           <ContributionGraph
             data={acts as Activity[]}
             labels={{
