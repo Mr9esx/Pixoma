@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Boxes, Gauge, ListChecks, PercentCircle, Server } from 'lucide-react'
 import { listCases } from '@/lib/api/cases'
 import { listEdges } from '@/lib/api/edges'
 import { listFleetStats, listTaskDailyStats } from '@/lib/api/stats'
@@ -68,7 +67,6 @@ export function WorkbenchOverviewCards() {
         <div className='grid grid-cols-2 md:grid-cols-5'>
           <div className={CELL} data-testid='workbench-node-overview'>
             <p className={kit.statsLabel}>
-              <Server className='size-4' />
               {t('dashboard.workbench.nodeOverviewTitle')}
             </p>
             <p className={kit.statsValue}>{enabled} / {edgeList.length}</p>
@@ -76,7 +74,6 @@ export function WorkbenchOverviewCards() {
 
           <div className={CELL} data-testid='workbench-avg-load'>
             <p className={kit.statsLabel}>
-              <Gauge className='size-4' />
               {t('dashboard.workbench.avgLoadTitle')}
             </p>
             <p className={kit.statsValue}>
@@ -86,7 +83,6 @@ export function WorkbenchOverviewCards() {
 
           <div className={CELL} data-testid='workbench-workflow-count'>
             <p className={kit.statsLabel}>
-              <Boxes className='size-4' />
               {t('dashboard.workbench.workflowCountTitle')}
             </p>
             <p className={kit.statsValue}>{workflowCount}</p>
@@ -94,7 +90,6 @@ export function WorkbenchOverviewCards() {
 
           <div className={CELL} data-testid='workbench-task-total'>
             <p className={kit.statsLabel}>
-              <ListChecks className='size-4' />
               {t('dashboard.workbench.taskTotalTitle')}
             </p>
             <p className={kit.statsValue}>{processed}</p>
@@ -102,7 +97,6 @@ export function WorkbenchOverviewCards() {
 
           <div className={CELL} data-testid='workbench-success-rate'>
             <p className={kit.statsLabel}>
-              <PercentCircle className='size-4' />
               {t('dashboard.workbench.successRateTitle')}
             </p>
             <p className={kit.statsValue}>
