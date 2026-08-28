@@ -1,7 +1,10 @@
+import { BrowserRouter } from 'react-router-dom'
+import { AppRoutes } from '@/router'
+
 export function App() {
   return (
-    <main className="min-h-svh bg-background text-foreground">
-      <p>Pixoma</p>
-    </main>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   )
 }
