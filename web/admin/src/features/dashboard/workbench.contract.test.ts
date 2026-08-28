@@ -48,10 +48,11 @@ describe('dashboard workbench contract', () => {
     expect(overview).toContain("data-testid='workbench-node-overview'")
     expect(overview).toContain("data-testid='workbench-avg-load'")
     expect(overview).toContain("data-testid='workbench-top-load'")
-    expect(charts).toContain("data-testid='workbench-workflow-top'")
-    expect(charts).toContain("data-testid='workbench-task-duration'")
-    expect(charts).toContain("data-testid='workbench-status-distribution'")
-    expect(charts).toContain("data-testid='workbench-error-top'")
+    expect(charts).toContain('MonitorCard')
+    expect(charts).toContain('dashboard.workbench.taskDurationTitle')
+    expect(charts).toContain('dashboard.workbench.workflowTopTitle')
+    expect(charts).toContain('dashboard.workbench.statusDistributionTitle')
+    expect(charts).toContain('dashboard.workbench.errorTopTitle')
   })
 
   it('keeps the heatmap on the full year and overview cards live', () => {
@@ -68,20 +69,9 @@ describe('dashboard workbench contract', () => {
     expect(charts).toContain('var(--color-')
   })
 
-  it('renders Sales-Overview style chart cards with legend and menu action', () => {
+  it('reuses the node monitoring card shell', () => {
     const charts = read('workbench-chart-pairs.tsx')
-    expect(charts).toContain('CardAction')
-    expect(charts).toContain('LegendDot')
-    expect(charts).toContain('DropdownMenu')
-    expect(charts).toContain('ComposedChart')
-    expect(charts).toContain('linearGradient')
-    expect(charts).toContain('MoreHorizontal')
-  })
-
-  it('uses compact Sales-Overview card layout and padding', () => {
-    const charts = read('workbench-chart-pairs.tsx')
-    expect(charts).toContain("className='gap-4 py-0'")
-    expect(charts.match(/px-2\.5 pt-4/g)?.length ?? 0).toBeGreaterThanOrEqual(4)
-    expect(charts.match(/px-2\.5 pb-4/g)?.length ?? 0).toBeGreaterThanOrEqual(4)
+    expect(charts).toContain("from '@/components/monitor-card'")
+    expect(charts).toContain('MonitorStat')
   })
 })
