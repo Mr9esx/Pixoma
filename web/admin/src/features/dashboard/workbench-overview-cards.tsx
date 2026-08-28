@@ -52,14 +52,7 @@ export function WorkbenchOverviewCards() {
               {t('dashboard.workbench.nodeOverviewTitle')}
             </p>
             <p className={kit.statsValue}>
-              {enabled}
-              <span className='font-normal text-muted-foreground'>
-                {' '}
-                / {edgeList.length}
-              </span>
-            </p>
-            <p className='mt-1 text-xs text-muted-foreground'>
-              {t('dashboard.workbench.nodeEnabled')}
+              {enabled} / {edgeList.length}
             </p>
           </div>
 
@@ -70,11 +63,6 @@ export function WorkbenchOverviewCards() {
             </p>
             <p className={kit.statsValue}>
               {fleetData?.avg_cpu_usage_percent.toFixed(0) ?? '—'}%
-              <span className='text-xs font-normal text-muted-foreground'>
-                {' '}
-                · {fleetData?.avg_mem_usage_percent.toFixed(0) ?? '—'}%{' '}
-                {t('dashboard.avgMem')}
-              </span>
             </p>
           </div>
 
