@@ -10,13 +10,17 @@ export function MonitorCard({
   stats,
   compact = false,
   className,
+  "data-testid": dataTestId,
   children,
+  plain = false,
 }: {
   title: string
   config: ChartConfig
   stats: MonitorStat[]
   compact?: boolean
   className?: string
+  "data-testid"?: string
+  plain?: boolean
   children: ReactNode
 }) {
   return (
@@ -25,6 +29,7 @@ export function MonitorCard({
         'flex min-w-0 flex-1 flex-col rounded-xl border bg-card p-4 text-card-foreground shadow-none',
         className
       )}
+      data-testid={dataTestId}
     >
       <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
         <div>
@@ -51,9 +56,13 @@ export function MonitorCard({
         )}
       >
         <div className='h-full min-h-[120px] w-full min-w-0'>
-          <ChartContainer config={config} className='aspect-auto h-full w-full'>
-            {children}
-          </ChartContainer>
+          {plain ? (
+            <div className='h-full w-full'>{children}</div>
+          ) : (
+            <ChartContainer config={config} className='aspect-auto h-full w-full'>
+              {children}
+            </ChartContainer>
+          )}
         </div>
         <div
           className={cn(
