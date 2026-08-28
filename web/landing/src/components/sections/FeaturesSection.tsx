@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { AdminDemo } from '@/components/demos/AdminDemo'
 import { BotChatDemo } from '@/components/demos/BotChatDemo'
 import { CaseDirDemo } from '@/components/demos/CaseDirDemo'
 import { Reveal } from '@/components/motion/Reveal'
@@ -23,9 +24,7 @@ export function FeaturesSection() {
           <CaseDirDemo />
         </FeatureBlock>
         <FeatureBlock title={t('features.admin.title')} desc={t('features.admin.desc')}>
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Admin
-          </div>
+          <AdminDemo />
         </FeatureBlock>
       </div>
     </section>
