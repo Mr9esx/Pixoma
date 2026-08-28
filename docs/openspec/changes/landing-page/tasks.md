@@ -14,9 +14,9 @@
 
 ## 3. 全局布局与动效基座
 
-- [ ] 3.1 实现顶层布局（导航、主内容、页脚）与响应式容器/断点
-- [ ] 3.2 封装基于 `motion`（Framer Motion）的 `useInView` scroll-reveal 入场组件，并处理 `prefers-reduced-motion` 降级
-- [ ] 3.3 在页头/页脚提供语言切换入口，并接入主题/色彩语义关系
+- [x] 3.1 实现顶层布局（导航、主内容、页脚）与响应式容器/断点
+- [x] 3.2 封装基于 `motion`（Framer Motion）的 `useInView` scroll-reveal 入场组件，并处理 `prefers-reduced-motion` 降级
+- [x] 3.3 在页头/页脚提供语言切换入口，并接入主题/色彩语义关系
 
 ## 4. Hero 区
 
