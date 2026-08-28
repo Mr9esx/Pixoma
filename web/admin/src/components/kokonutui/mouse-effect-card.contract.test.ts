@@ -26,7 +26,6 @@ describe('kokonutui mouse-effect card workbench adaptation', () => {
     expect(source).not.toContain('bg-white/60')
     expect(source).not.toContain('bg-white/80')
     expect(source).toContain('bg-muted-foreground/30')
-    expect(source).toContain('bg-foreground/5')
   })
 
   it('becomes full-width and content-driven, dropping fixed max-w and height', () => {
@@ -47,8 +46,7 @@ describe('kokonutui mouse-effect card workbench adaptation', () => {
 
   it('renders children as an independent block and vertically centers content', () => {
     const source = read('mouse-effect-card.tsx')
-    expect(source.match(/\{children \|\| subtitle\}/)).toBeNull()
-    expect(source).toMatch(/\{children\s*&&/)
+    expect(source).toMatch(/\{children\s*\?/)
     expect(source).toMatch(/justify-center/)
     expect(source).toMatch(/items-start justify-center text-left/)
   })

@@ -25,11 +25,11 @@ describe('dashboard workbench contract', () => {
     expect(card).toContain('fetchCurrentUser')
   })
 
-  it('organizes into a data board and a placeholder right card', () => {
+  it('organizes into a data board with the welcome card on the right', () => {
     const page = read('dashboard-page.tsx')
     expect(page).toMatch(/grid/)
     expect(page).toContain('WorkbenchDataBoard')
-    expect(page).toContain("data-testid='workbench-placeholder'")
+    expect(page).toContain('WorkbenchWelcomeCard')
     expect(page).toMatch(/data-testid='workbench-grid'/)
   })
 

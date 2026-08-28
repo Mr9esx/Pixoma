@@ -12,7 +12,6 @@
 
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -38,13 +37,6 @@ export interface MouseEffectCardProps {
   repulsionStrength?: number;
   title?: string;
   subtitle?: string;
-  topText?: string;
-  topSubtext?: string;
-  primaryCtaText?: string;
-  primaryCtaUrl?: string;
-  secondaryCtaText?: string;
-  secondaryCtaUrl?: string;
-  footerText?: string;
   ariaLabel?: string;
   align?: "start" | "center";
 }
@@ -249,13 +241,6 @@ export default function MouseEffectCard({
   repulsionStrength = 20,
   title,
   subtitle,
-  topText,
-  topSubtext,
-  primaryCtaText,
-  primaryCtaUrl = "#",
-  secondaryCtaText,
-  secondaryCtaUrl = "#",
-  footerText,
   ariaLabel,
   align = "center",
 }: MouseEffectCardProps) {
@@ -379,128 +364,46 @@ export default function MouseEffectCard({
           />
         ))}
 
-        {topText && (
-          <div className="absolute top-6 left-6 z-10">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-lg bg-foreground/5 blur-lg" />
-              <div className="relative flex flex-col gap-1">
-                <p className="font-bold text-sm text-foreground">
-                  {topText}
-                </p>
-                {topSubtext && (
-                  <p className="font-medium text-xs text-muted-foreground opacity-70">
-                    {topSubtext}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         <div
           className={cn(
-            "relative z-10 flex min-h-[140px] flex-col px-2",
+            "relative z-10 flex min-h-[140px] flex-col px-6 py-4",
             align === "start"
               ? "items-start justify-center text-left"
               : "items-center justify-center"
           )}
         >
-          <div
-            className={cn(
-              "flex flex-col gap-6",
-              align === "start" ? "items-start" : "items-center"
-            )}
-          >
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-foreground/5 blur-2xl" />
-              <h2
-                className={cn(
-                  "relative font-bold text-3xl text-foreground tracking-tight",
-                  align === "start" ? "text-left" : "text-center"
-                )}
-              >
-                {title}
-              </h2>
-            </div>
-            {subtitle && (
-              <div className="relative">
-                <div className="absolute inset-0 rounded-lg bg-foreground/5 blur-xl" />
-                <p
-                  className={cn(
-                    "relative max-w-sm font-medium text-base text-muted-foreground leading-relaxed",
-                    align === "start" ? "text-left" : "text-center"
-                  )}
-                >
-                  {subtitle}
-                </p>
-              </div>
-            )}
-            {children && (
-              <div className="relative">
-                <div className="absolute inset-0 rounded-lg bg-foreground/5 blur-xl" />
-                <div
-                  className={cn(
-                    "relative flex flex-col gap-3",
-                    align === "start" ? "items-start" : "items-center"
-                  )}
-                >
-                  {children}
-                </div>
-              </div>
-            )}
-            <div
+          {title ? (
+            <h2
               className={cn(
-                "mt-2 flex items-center gap-3",
-                align === "start" ? "justify-start" : "justify-center"
+                "text-2xl font-bold tracking-tight text-foreground",
+                align === "start" ? "text-left" : "text-center"
               )}
             >
-              {primaryCtaText ? (
-                <Button asChild className="rounded-full" size="lg">
-                  <a
-                    href={primaryCtaUrl}
-                    onClick={(e) => {
-                      if (primaryCtaUrl === "#") {
-                        e.preventDefault();
-                      }
-                    }}
-                  >
-                  {primaryCtaText}
-                  </a>
-                </Button>
-              ) : null}
-              {secondaryCtaText && (
-                <Button
-                  asChild
-                  className="rounded-full"
-                  size="lg"
-                  variant="outline"
-                >
-                  <a
-                    href={secondaryCtaUrl}
-                    onClick={(e) => {
-                      if (secondaryCtaUrl === "#") {
-                        e.preventDefault();
-                      }
-                    }}
-                  >
-                    {secondaryCtaText}
-                  </a>
-                </Button>
+              {title}
+            </h2>
+          ) : null}
+          {subtitle ? (
+            <p
+              className={cn(
+                "mt-1 text-sm text-muted-foreground",
+                align === "start" ? "text-left" : "text-center"
               )}
-            </div>
-          </div>
+            >
+              {subtitle}
+            </p>
+          ) : null}
+          {children ? (
+              <div
+                className={cn(
+                  "mt-4 flex w-full flex-col gap-3",
+                  align === "start" ? "items-start" : "items-center"
+                )}
+              >
+                {children}
+              </div>
+            ) : null}
         </div>
 
-        {footerText && (
-          <div className="absolute right-0 bottom-6 left-0 z-10 flex justify-center">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-foreground/5 blur-lg" />
-              <p className="relative px-4 py-1 font-medium text-xs text-muted-foreground">
-                {footerText}
-              </p>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
