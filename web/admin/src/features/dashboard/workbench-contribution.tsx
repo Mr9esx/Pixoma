@@ -14,7 +14,6 @@ import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { dailyToActivity } from './daily-to-activity'
 import { pickDays } from './task-stats-parse'
-import { formatDate } from './date-range'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -24,7 +23,7 @@ export function WorkbenchContribution() {
   const { t } = useTranslation()
   const today = new Date()
   const from = `${today.getFullYear()}-01-01`
-  const to = formatDate(today)
+  const to = `${today.getFullYear()}-12-31`
   const daily = useQuery({
     queryKey: queryKeys.stats.tasksDaily(from, to),
     queryFn: () => listTaskDailyStats({ from, to }),
