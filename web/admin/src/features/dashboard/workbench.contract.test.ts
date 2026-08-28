@@ -42,6 +42,18 @@ describe('dashboard workbench contract', () => {
     expect(board).toContain("data-testid='workbench-data-board'")
   })
 
+  it('places the range picker below the overview cards and left aligned', () => {
+    const board = read('workbench-data-board.tsx')
+    const overview = board.indexOf('<WorkbenchOverviewCards />')
+    const range = board.indexOf('<TaskRangePicker')
+    const charts = board.indexOf('<WorkbenchChartPairs')
+    expect(overview).toBeGreaterThan(-1)
+    expect(range).toBeGreaterThan(overview)
+    expect(charts).toBeGreaterThan(range)
+    expect(board).toContain('justify-start')
+    expect(board).not.toContain('justify-end')
+  })
+
   it('renders the overview cards and chart pairs regions', () => {
     const overview = read('workbench-overview-cards.tsx')
     const charts = read('workbench-chart-pairs.tsx')
