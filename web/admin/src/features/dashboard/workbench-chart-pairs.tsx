@@ -69,19 +69,22 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
   const errorItems = pickErrorItems(errors.data)
 
   const durationConfig: ChartConfig = {
-    queue: { label: t('dashboard.queueWait'), color: 'var(--chart-4)' },
-    exec: { label: t('dashboard.execTime'), color: 'var(--chart-1)' },
+    queue: {
+      label: t('dashboard.queueWait'),
+      color: 'color-mix(in oklch, var(--primary) 55%, var(--background))',
+    },
+    exec: { label: t('dashboard.execTime'), color: 'var(--primary)' },
   }
   const statusConfig: ChartConfig = {
-    succeeded: { label: t('dashboard.succeeded'), color: 'var(--chart-1)' },
-    failed: { label: t('dashboard.failed'), color: 'var(--chart-5)' },
+    succeeded: { label: t('dashboard.succeeded'), color: 'var(--primary)' },
+    failed: { label: t('dashboard.failed'), color: 'var(--destructive)' },
     cancelled: { label: t('dashboard.cancelled'), color: 'var(--muted-foreground)' },
   }
   const errorConfig: ChartConfig = {
-    errors: { label: t('dashboard.workbench.errorTopTitle'), color: 'var(--chart-1)' },
+    errors: { label: t('dashboard.workbench.errorTopTitle'), color: 'var(--destructive)' },
   }
   const workflowConfig: ChartConfig = {
-    cases: { label: t('dashboard.workbench.workflowTopTitle'), color: 'var(--chart-1)' },
+    cases: { label: t('dashboard.workbench.workflowTopTitle'), color: 'var(--primary)' },
   }
 
   const durationStats: MonitorStat[] = [
