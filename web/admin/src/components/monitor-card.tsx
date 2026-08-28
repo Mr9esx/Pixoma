@@ -50,9 +50,11 @@ export function MonitorCard({
       <div
         className={cn(
           'grid min-h-0 flex-1 gap-1.5',
-          compact
-            ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_122px]'
-            : 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_72px]'
+          stats.length === 0
+            ? 'grid-cols-1'
+            : compact
+              ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_122px]'
+              : 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_72px]'
         )}
       >
         <div className='h-full min-h-[120px] w-full min-w-0'>
@@ -64,28 +66,30 @@ export function MonitorCard({
             </ChartContainer>
           )}
         </div>
-        <div
-          className={cn(
-            'grid content-center gap-2 text-center',
-            compact
-              ? 'grid-cols-2 gap-1.5 lg:text-right'
-              : 'grid-cols-3 lg:grid-cols-1 lg:text-right'
-          )}
-        >
-          {stats.map((stat) => (
-            <div key={stat.label}>
-              <p
-                className={cn(
-                  'font-semibold',
-                  compact ? 'text-xs leading-5' : 'text-lg leading-6'
-                )}
-              >
-                {stat.value}
-              </p>
-              <p className='text-[11px] text-muted-foreground'>{stat.label}</p>
-            </div>
-          ))}
-        </div>
+        {stats.length > 0 ? (
+          <div
+            className={cn(
+              'grid content-center gap-2 text-center',
+              compact
+                ? 'grid-cols-2 gap-1.5 lg:text-right'
+                : 'grid-cols-3 lg:grid-cols-1 lg:text-right'
+            )}
+          >
+            {stats.map((stat) => (
+              <div key={stat.label}>
+                <p
+                  className={cn(
+                    'font-semibold',
+                    compact ? 'text-xs leading-5' : 'text-lg leading-6'
+                  )}
+                >
+                  {stat.value}
+                </p>
+                <p className='text-[11px] text-muted-foreground'>{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   )
