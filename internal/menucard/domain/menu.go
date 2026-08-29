@@ -82,6 +82,7 @@ func ValidateAction(a Action) error {
 				return ErrValidation
 			}
 		}
+	case "send_text", "copy_text":
 	default:
 		return ErrValidation
 	}

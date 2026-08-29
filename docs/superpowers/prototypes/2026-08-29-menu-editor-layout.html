@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>改菜单 · 点了格子在哪改</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --radius-md: 8px;
+      --radius-lg: 10px;
+      --background: oklch(1 0 0);
+      --foreground: oklch(0.145 0 0);
+      --card: oklch(1 0 0);
+      --muted: oklch(0.97 0 0);
+      --muted-foreground: oklch(0.556 0 0);
+      --border: oklch(0.922 0 0);
+      --ring: oklch(0.708 0 0);
+      --font-body: "Inter", system-ui, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: oklch(0.145 0 0);
+        --foreground: oklch(0.985 0 0);
+        --card: oklch(0.205 0 0);
+        --muted: oklch(0.269 0 0);
+        --muted-foreground: oklch(0.708 0 0);
+        --border: oklch(1 0 0 / 10%);
+        --ring: oklch(0.556 0 0);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.55;
+      background: var(--background);
+      color: var(--foreground);
+      padding: 28px 24px 64px;
+    }
+    h1 { font-size: 22px; font-weight: 650; margin: 0 0 6px; }
+    .lead { margin: 0 0 22px; color: var(--muted-foreground); max-width: 52rem; }
+    .options { display: flex; flex-direction: column; gap: 14px; max-width: 720px; }
+    .option {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      text-align: left;
+      width: 100%;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--card);
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+    }
+    .option:hover { border-color: var(--foreground); }
+    .option[aria-pressed="true"] {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+      background: var(--muted);
+    }
+    .letter {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      background: var(--muted);
+      display: grid; place-items: center;
+      font-weight: 650; font-size: 13px;
+    }
+    .option[aria-pressed="true"] .letter {
+      background: var(--foreground);
+      color: var(--background);
+    }
+    .content { flex: 1; min-width: 0; }
+    .content h2 { font-size: 15px; margin: 2px 0 4px; font-weight: 650; }
+    .content p { margin: 0 0 10px; font-size: 13px; color: var(--muted-foreground); }
+    .pick {
+      margin: 18px 0 0;
+      font-size: 13px;
+      color: var(--muted-foreground);
+    }
+    .pick b { color: var(--foreground); font-weight: 600; }
+
+    .dlg {
+      font-size: 11px;
+      line-height: 1.35;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--background);
+      color: var(--foreground);
+    }
+    .dlg-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 650;
+    }
+    .dlg-bar .muted { font-weight: 400; color: var(--muted-foreground); }
+    .dlg-save {
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--foreground);
+      color: var(--background);
+      font-size: 10px;
+      font-weight: 650;
+    }
+    .dlg-split { display: grid; grid-template-columns: 1fr 1.15fr; min-height: 168px; }
+    .dlg-col { padding: 8px 10px; }
+    .dlg-col + .dlg-col { border-left: 1px solid var(--border); }
+    .dlg-lbl {
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+      margin: 0 0 6px;
+    }
+    .kb { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .k {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 6px 5px;
+      background: var(--card);
+      min-height: 36px;
+    }
+    .k.on { border-color: var(--foreground); background: var(--muted); }
+    .k .n { font-weight: 650; display: block; }
+    .k .s { color: var(--muted-foreground); font-size: 9px; }
+    .k-add {
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      min-height: 36px;
+      display: grid;
+      place-items: center;
+      color: var(--muted-foreground);
+    }
+    .crumb { color: var(--muted-foreground); font-size: 10px; margin: 0 0 6px; }
+    .field { margin: 0 0 6px; }
+    .field b { display: block; font-size: 9px; color: var(--muted-foreground); font-weight: 500; }
+    .box {
+      margin-top: 2px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 4px 6px;
+      background: var(--card);
+    }
+    .msg {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--card);
+    }
+    .thumbs { display: grid; grid-template-columns: 1fr 1fr; height: 28px; background: var(--muted); }
+    .thumbs span { display: grid; place-items: center; font-size: 9px; color: var(--muted-foreground); }
+    .msg p { margin: 0; padding: 6px 8px; }
+    .btns { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 8px; }
+    .chip {
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 3px 6px;
+      font-size: 10px;
+      background: var(--background);
+    }
+    .chip.on { border-color: var(--foreground); }
+    .chip.add { border-style: dashed; color: var(--muted-foreground); }
+    .orph {
+      border-top: 1px solid var(--border);
+      padding: 6px 10px;
+      color: var(--muted-foreground);
+      font-size: 10px;
+    }
+    .orph b { color: var(--foreground); font-weight: 500; }
+    .stack { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; }
+    :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <h1>点了格子，在哪改？</h1>
+  <p class="lead">弹层还是外面那张能力地图：左主键盘、右点下去、底未挂上。没有大纲树、没有第二套按钮编辑、没有再摆一台手机。三种只差「编辑长在哪」。点一张，再回到对话里说选了哪个。</p>
+
+  <div class="options" id="options">
+    <button type="button" class="option" data-choice="a" aria-pressed="false">
+      <span class="letter">A</span>
+      <span class="content">
+        <h2>点格子，右边填表</h2>
+        <p>左栏还是主键盘。点一键，右栏「点下去」变成这一键的表单：键名、动作、卡片正文和按钮只在这里改一遍。</p>
+        <div class="dlg">
+          <div class="dlg-bar">
+            <span>改菜单 <span class="muted">· 列 2</span></span>
+            <span class="dlg-save">保存</span>
+          </div>
+          <div class="dlg-split">
+            <div class="dlg-col">
+              <p class="dlg-lbl">主键盘</p>
+              <div class="kb">
+                <div class="k on"><span class="n">图片生成</span><span class="s">打开「风格选择」</span></div>
+                <div class="k"><span class="n">帮助</span><span class="s">发这段话</span></div>
+                <div class="k"><span class="n">作品集</span><span class="s">发图</span></div>
+                <div class="k-add">+ 加键</div>
+              </div>
+            </div>
+            <div class="dlg-col">
+              <p class="dlg-lbl">点下去</p>
+              <p class="crumb">主键盘 / 图片生成</p>
+              <div class="field"><b>键名</b><div class="box">图片生成</div></div>
+              <div class="field"><b>动作</b><div class="box">打开卡片 ▾</div></div>
+              <div class="field"><b>卡片</b><div class="box">风格选择 ▾</div></div>
+              <div class="field"><b>正文</b><div class="box">选一个风格，再开始生成。</div></div>
+              <div class="btns" style="padding:0">
+                <span class="chip">写实</span><span class="chip">动漫</span><span class="chip add">+ 按钮</span>
+              </div>
+            </div>
+          </div>
+          <div class="orph">未挂上 · <b>欢迎卡</b></div>
+        </div>
+      </span>
+    </button>
+
+    <button type="button" class="option" data-choice="b" aria-pressed="false">
+      <span class="letter">B</span>
+      <span class="content">
+        <h2>格子和消息上直接改</h2>
+        <p>键名写在格子里。打开卡片时，右栏仍是那条消息：图、正文、按钮都在框上改。点按钮继续往下走，不另开一张按钮表。</p>
+        <div class="dlg">
+          <div class="dlg-bar">
+            <span>改菜单 <span class="muted">· 列 2</span></span>
+            <span class="dlg-save">保存</span>
+          </div>
+          <div class="dlg-split">
+            <div class="dlg-col">
+              <p class="dlg-lbl">主键盘</p>
+              <div class="kb">
+                <div class="k on"><span class="n" style="border-bottom:1px dashed var(--border)">图片生成</span><span class="s">打开「风格选择」</span></div>
+                <div class="k"><span class="n">帮助</span><span class="s">发这段话</span></div>
+                <div class="k"><span class="n">作品集</span><span class="s">发图</span></div>
+                <div class="k-add">+ 加键</div>
+              </div>
+            </div>
+            <div class="dlg-col">
+              <p class="dlg-lbl">点下去</p>
+              <p class="crumb">主键盘 / 图片生成</p>
+              <p style="margin:0 0 4px;color:var(--muted-foreground);font-size:10px">风格选择</p>
+              <div class="msg">
+                <div class="thumbs"><span>图</span><span>图</span></div>
+                <p>选一个风格，再开始生成。</p>
+                <div class="btns">
+                  <span class="chip on">写实</span>
+                  <span class="chip">动漫</span>
+                  <span class="chip">风格说明</span>
+                  <span class="chip add">+</span>
+                </div>
+              </div>
+              <div class="field" style="margin-top:6px"><b>写实 · 动作</b><div class="box">开始工作流 · 写实人像 ▾</div></div>
+            </div>
+          </div>
+          <div class="orph">未挂上 · <b>欢迎卡</b></div>
+        </div>
+      </span>
+    </button>
+
+    <button type="button" class="option" data-choice="c" aria-pressed="false">
+      <span class="letter">C</span>
+      <span class="content">
+        <h2>顺着点下去往下摊</h2>
+        <p>不要左右两栏。上面是主键盘，点一键就在下面摊开结果并就地改。更像对方在 Telegram 里往下看，但跟外面那张左右地图不一致。</p>
+        <div class="dlg">
+          <div class="dlg-bar">
+            <span>改菜单 <span class="muted">· 列 2</span></span>
+            <span class="dlg-save">保存</span>
+          </div>
+          <div class="stack">
+            <p class="dlg-lbl">主键盘</p>
+            <div class="kb">
+              <div class="k on"><span class="n">图片生成</span><span class="s">打开「风格选择」</span></div>
+              <div class="k"><span class="n">帮助</span><span class="s">发这段话</span></div>
+              <div class="k"><span class="n">作品集</span><span class="s">发图</span></div>
+              <div class="k-add">+ 加键</div>
+            </div>
+            <p class="crumb">主键盘 / 图片生成</p>
+            <div class="msg">
+              <div class="thumbs"><span>图</span><span>图</span></div>
+              <p>选一个风格，再开始生成。</p>
+              <div class="btns">
+                <span class="chip">写实</span>
+                <span class="chip">动漫</span>
+                <span class="chip add">+</span>
+              </div>
+            </div>
+          </div>
+          <div class="orph">未挂上 · <b>欢迎卡</b></div>
+        </div>
+      </span>
+    </button>
+  </div>
+  <p class="pick" id="pick">还没选。</p>
+  <script>
+    const pick = document.getElementById('pick')
+    document.querySelectorAll('.option').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.option').forEach((b) => b.setAttribute('aria-pressed', 'false'))
+        btn.setAttribute('aria-pressed', 'true')
+        const names = { a: 'A 右边填表', b: 'B 格子和消息上直接改', c: 'C 往下摊' }
+        pick.innerHTML = '当前选了 <b>' + names[btn.dataset.choice] + '</b>。回到对话里说一声即可。'
+      })
+    })
+  </script>
+</body>
+</html>

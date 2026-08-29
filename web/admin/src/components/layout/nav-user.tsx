@@ -1,13 +1,7 @@
 import { useEffect, useReducer, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import {
-  ArrowRightFromLine,
-  Check,
-  Globe,
-  Moon,
-  Sun,
-} from 'lucide-react'
+import { ArrowRightFromLine, Check, Globe, Moon, Sun } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchMediaBlob, resolveMediaKey } from '@/lib/api/media'
 import {
@@ -19,7 +13,6 @@ import { setStoredLocale, type AppLocale } from '@/lib/i18n'
 import { cn, getDisplayNameInitials } from '@/lib/utils'
 import { useTheme } from '@/context/theme-provider'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ThemeSwitcher } from '@/components/kibo-ui/theme-switcher'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,10 +21,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  useSidebar,
-} from '@/components/ui/sidebar'
+import { useSidebar } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ThemeSwitcher } from '@/components/kibo-ui/theme-switcher'
 import { SignOutDialog } from '@/components/sign-out-dialog'
 
 /** 头像存的是带鉴权的媒体 key，需拉 Blob 转 object URL 后才可作 <img> 源。 */
@@ -128,7 +120,7 @@ export function NavUser() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { state, isMobile } = useSidebar()
-  const { theme, resolvedTheme, setTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
   const isCollapsed = state === 'collapsed' && !isMobile
   const [signOutOpen, setSignOutOpen] = useState(false)
   const { data: user, isLoading } = useQuery({
@@ -278,7 +270,7 @@ export function NavUser() {
               className='flex-1'
             />
             <ThemeSwitcher
-              value={resolvedTheme}
+              value={theme}
               onChange={setTheme}
               className='my-0.5 shrink-0'
             />

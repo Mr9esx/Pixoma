@@ -36,7 +36,7 @@ export function CardListPanel({ cards, onSelect, onDelete }: Props) {
               className='min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left hover:bg-muted'
             >
               {card.name || card.id}
-              <span className='ml-2 text-xs text-muted-foreground'>
+              <span className='ml-2 text-sm text-muted-foreground'>
                 {card.id}
               </span>
             </button>

@@ -134,7 +134,6 @@ export function DoneScreen({ shared, back }: Props) {
           entry.channelId,
           addWorkflowMenuEntry(menu, {
             label: entry.label,
-            mode: entry.mode,
             workflowId: saved.id,
           })
         )

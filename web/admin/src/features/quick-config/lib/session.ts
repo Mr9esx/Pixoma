@@ -4,7 +4,6 @@ export const SESSION_SCHEMA_VERSION = 2
 export type PendingMenuEntry = {
   channelId: string
   label: string
-  mode: 'direct' | 'list'
 }
 
 export type QuickConfigSession = {

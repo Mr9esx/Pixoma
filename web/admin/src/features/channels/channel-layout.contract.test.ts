@@ -71,4 +71,19 @@ describe('channel layout aligned with compute nodes', () => {
     expect(source).toContain('channels.deleteInFlightTasks')
     expect(source).toContain('channels.deleteAckImpact')
   })
+
+  it('menu section keeps section title and hint', () => {
+    const detail = readFileSync(join(here, 'channel-detail-panel.tsx'), 'utf8')
+    const zh = JSON.parse(
+      readFileSync(join(here, '../../lib/i18n/locales/zh.json'), 'utf8')
+    ) as { channels: Record<string, string> }
+    expect(zh.channels.tabMenu).toBe('菜单配置')
+    expect(zh.channels.tabMenuHint).toBe('配置主菜单与卡片，保存后对用户生效。')
+    expect(detail).toMatch(/tabMenuHint/)
+    expect(detail).toMatch(/<section id='channel-menu-section'[\s\S]*?<MenuCardEditor/)
+    const menuChunk = detail.split("id='channel-menu-section'")[1].split("id='channel-text-section'")[0]
+    expect(menuChunk).toMatch(/SectionHead/)
+    expect(menuChunk).toMatch(/channels\.tabMenu/)
+    expect(menuChunk).not.toMatch(/kit\.cardWrap/)
+  })
 })

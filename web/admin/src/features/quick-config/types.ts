@@ -8,7 +8,6 @@ export type RulesMode = 'default' | 'editor'
 export type PendingMenuEntry = {
   channelId: string
   label: string
-  mode: 'direct' | 'list'
 }
 
 export type WizardShared = {

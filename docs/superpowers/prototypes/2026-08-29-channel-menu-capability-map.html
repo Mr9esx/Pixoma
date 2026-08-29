@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>菜单能力地图 · demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --radius: 0.625rem;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 10px;
+      --radius-xl: 14px;
+      --background: oklch(1 0 0);
+      --foreground: oklch(0.145 0 0);
+      --card: oklch(1 0 0);
+      --primary: oklch(0.205 0 0);
+      --primary-foreground: oklch(0.985 0 0);
+      --secondary: oklch(0.97 0 0);
+      --muted: oklch(0.97 0 0);
+      --muted-foreground: oklch(0.556 0 0);
+      --destructive: oklch(0.577 0.245 27.325);
+      --destructive-foreground: oklch(0.985 0 0);
+      --border: oklch(0.922 0 0);
+      --input: oklch(0.922 0 0);
+      --ring: oklch(0.708 0 0);
+      --accent-text: oklch(0.55 0.2 40.5);
+      --font-body: "Inter", system-ui, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    .dark {
+      --background: oklch(0.145 0 0);
+      --foreground: oklch(0.985 0 0);
+      --card: oklch(0.205 0 0);
+      --primary: oklch(0.922 0 0);
+      --primary-foreground: oklch(0.205 0 0);
+      --secondary: oklch(0.269 0 0);
+      --muted: oklch(0.269 0 0);
+      --muted-foreground: oklch(0.708 0 0);
+      --destructive: oklch(0.704 0.191 22.216);
+      --border: oklch(1 0 0 / 10%);
+      --input: oklch(1 0 0 / 15%);
+      --ring: oklch(0.556 0 0);
+      --accent-text: oklch(0.78 0.16 40);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.6;
+      background: var(--background);
+      color: var(--foreground);
+      -webkit-font-smoothing: antialiased;
+    }
+    button { font-family: inherit; }
+    :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+    .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+    /* demo chrome */
+    .chrome {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+    }
+    .chrome-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-text);
+      margin: 0;
+    }
+    .chrome-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip-btn {
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: var(--foreground);
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .chip-btn:hover { border-color: var(--foreground); }
+    .chip-btn[aria-pressed="true"] {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: var(--primary);
+    }
+
+    .page { max-width: 1120px; margin: 0 auto; padding: 28px 28px 72px; }
+    .channel-head h1 {
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin: 0 0 8px;
+    }
+    .meta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin: 0 0 28px;
+    }
+    .meta b { color: var(--foreground); font-weight: 500; }
+
+    .menu-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      background: var(--card);
+      overflow: hidden;
+    }
+    .menu-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .menu-head h2 { font-size: 15px; font-weight: 600; margin: 0; }
+    .counts {
+      display: flex;
+      gap: 14px;
+      margin-left: 12px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+    .counts b { color: var(--foreground); font-weight: 600; }
+    .head-left { display: flex; align-items: center; min-width: 0; flex-wrap: wrap; }
+    .btn-primary {
+      height: 36px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: var(--radius-md);
+      background: var(--primary);
+      color: var(--primary-foreground);
+      font-size: 13.5px;
+      font-weight: 500;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .btn-primary:hover { background: color-mix(in oklch, var(--primary) 88%, black); }
+    .dark .btn-primary:hover { background: color-mix(in oklch, var(--primary) 88%, white); }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr);
+      min-height: 420px;
+    }
+    .pane { min-width: 0; padding: 16px; }
+    .pane-left { border-right: 1px solid var(--border); }
+    .pane-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+      margin: 0 0 12px;
+    }
+    .kb {
+      display: grid;
+      gap: 8px;
+    }
+    .kb-key {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 2px;
+      min-height: 44px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--background);
+      color: var(--foreground);
+      text-align: left;
+      cursor: pointer;
+    }
+    .kb-key:hover { border-color: color-mix(in oklch, var(--foreground) 35%, var(--border)); }
+    .kb-key[aria-pressed="true"] {
+      border-color: var(--foreground);
+      background: var(--muted);
+    }
+    .kb-key.is-broken { border-color: color-mix(in oklch, var(--destructive) 45%, var(--border)); }
+    .kb-key .label { font-size: 14px; font-weight: 600; line-height: 1.3; }
+    .kb-key .outcome {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .kb-key.is-broken .outcome { color: var(--destructive); }
+
+    .crumb {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+      margin: 0 0 14px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+    .crumb button {
+      border: 0;
+      background: none;
+      padding: 0;
+      color: var(--muted-foreground);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .crumb button:hover { color: var(--foreground); }
+    .crumb .here { color: var(--foreground); font-weight: 500; }
+    .crumb .sep { opacity: 0.5; }
+
+    .path-empty { min-height: 200px; }
+    .message {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--background);
+      overflow: hidden;
+    }
+    .media-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); }
+    .media-row.one { grid-template-columns: 1fr; }
+    .thumb {
+      aspect-ratio: 16 / 10;
+      background: var(--muted);
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+    .msg-body { padding: 12px 14px 14px; }
+    .msg-text { margin: 0 0 12px; font-size: 14px; line-height: 1.55; }
+    .msg-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    .msg-btn {
+      min-height: 36px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--card);
+      color: var(--foreground);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .msg-btn:hover { border-color: var(--foreground); }
+    .msg-btn[aria-pressed="true"] {
+      border-color: var(--foreground);
+      background: var(--muted);
+    }
+    .payload { display: flex; flex-direction: column; gap: 8px; }
+    .payload-k {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+    }
+    .payload-v { font-size: 15px; font-weight: 600; margin: 0; }
+    .payload-text {
+      margin: 0;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--background);
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+    .url {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      word-break: break-all;
+    }
+    .broken {
+      padding: 12px 14px;
+      border: 1px solid color-mix(in oklch, var(--destructive) 40%, var(--border));
+      border-radius: var(--radius-md);
+      color: var(--destructive);
+      font-size: 14px;
+    }
+
+    .orphans {
+      border-top: 1px solid var(--border);
+      padding: 12px 16px 16px;
+    }
+    .orphan-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .orphan-chip {
+      min-height: 36px;
+      padding: 6px 12px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: var(--foreground);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .orphan-chip:hover { border-color: var(--foreground); border-style: solid; }
+    .orphan-chip[aria-pressed="true"] {
+      border-style: solid;
+      border-color: var(--foreground);
+      background: var(--muted);
+    }
+    .admin-name {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin: 0 0 8px;
+    }
+
+    dialog {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--card);
+      color: var(--foreground);
+      padding: 20px;
+      box-shadow: 0 12px 32px color-mix(in oklch, var(--foreground) 14%, transparent);
+      max-width: 360px;
+    }
+    dialog::backdrop { background: color-mix(in oklch, var(--foreground) 35%, transparent); }
+    dialog p { margin: 0 0 16px; font-size: 14px; color: var(--muted-foreground); }
+    dialog h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+
+    @media (max-width: 920px) {
+      .page { padding: 20px 16px 56px; }
+      .split { grid-template-columns: 1fr; }
+      .pane-left { border-right: 0; border-bottom: 1px solid var(--border); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="chrome">
+    <p class="chrome-title">能力地图 demo</p>
+    <div class="chrome-actions">
+      <button type="button" class="chip-btn" id="themeBtn" aria-pressed="false">暗色</button>
+      <button type="button" class="chip-btn" id="emptyBtn" aria-pressed="false">空菜单</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <header class="channel-head">
+      <h1>图片助手</h1>
+      <div class="meta">
+        <span>Telegram · <b>@pixoma_demo_bot</b></span>
+        <span>连通 <b>正常</b></span>
+      </div>
+    </header>
+
+    <section class="menu-card" aria-labelledby="menuTitle">
+      <div class="menu-head">
+        <div class="head-left">
+          <h2 id="menuTitle">菜单</h2>
+          <div class="counts" id="counts"></div>
+        </div>
+        <button type="button" class="btn-primary" id="editBtn">改菜单</button>
+      </div>
+      <div class="split">
+        <div class="pane pane-left">
+          <p class="pane-label">主键盘</p>
+          <div class="kb" id="kb"></div>
+        </div>
+        <div class="pane" id="pathPane"></div>
+      </div>
+      <div class="orphans" id="orphansWrap" hidden>
+        <p class="pane-label" id="orphanLabel">未挂上</p>
+        <div class="orphan-row" id="orphans"></div>
+      </div>
+    </section>
+  </div>
+
+  <dialog id="editDlg">
+    <h3>改菜单</h3>
+    <p>demo 停在这里。正式页会打开编辑器。</p>
+    <button type="button" class="btn-primary" id="editClose">关闭</button>
+  </dialog>
+
+  <script>
+    const COLUMNS = 2;
+    const WORKFLOWS = {
+      w1: { name: "写实人像" },
+      w2: { name: "动漫风" },
+    };
+    const CARDS = {
+      style: {
+        id: "style",
+        name: "风格选择",
+        media: [{ kind: "image" }, { kind: "image" }],
+        text: "选一个风格，再开始生成。",
+        buttons: [
+          { id: "b1", label: "写实", action: { type: "open_workflow", workflow_id: "w1" } },
+          { id: "b2", label: "动漫", action: { type: "open_workflow", workflow_id: "w2" } },
+          { id: "b3", label: "风格说明", action: { type: "open_card", card_id: "guide" } },
+          { id: "b4", label: "邀请码", action: { type: "copy_text", text: "PIXOMA-INVITE" } },
+        ],
+      },
+      guide: {
+        id: "guide",
+        name: "风格说明",
+        media: [],
+        text: "写实偏人像。动漫偏二次元线稿。",
+        buttons: [
+          { id: "g1", label: "开始写实", action: { type: "open_workflow", workflow_id: "w1" } },
+        ],
+      },
+      welcome: {
+        id: "welcome",
+        name: "欢迎卡",
+        media: [{ kind: "image" }],
+        text: "还没挂到键盘。",
+        buttons: [
+          { id: "w1", label: "去生成", action: { type: "open_card", card_id: "style" } },
+        ],
+      },
+    };
+    const ITEMS = [
+      { id: "i1", label: "图片生成", action: { type: "open_card", card_id: "style" } },
+      { id: "i2", label: "帮助", action: { type: "send_text", text: "生成走「图片生成」。发图后按提示补参数。" } },
+      { id: "i3", label: "作品集", action: { type: "send_media", media: [{ kind: "image" }, { kind: "image" }] } },
+      { id: "i4", label: "定价", action: { type: "open_url", url: "https://pixoma.example/pricing" } },
+      { id: "i5", label: "会员", action: { type: "open_workflow", workflow_id: "gone" } },
+    ];
+
+    let empty = false;
+    let trail = [];
+
+    function referencedCardIds(items, cards) {
+      const ids = new Set();
+      const walk = (action) => {
+        if (action.type === "open_card" && action.card_id) {
+          if (ids.has(action.card_id)) return;
+          ids.add(action.card_id);
+          const c = cards[action.card_id];
+          if (c) c.buttons.forEach((b) => walk(b.action));
+        }
+      };
+      items.forEach((it) => walk(it.action));
+      return ids;
+    }
+
+    function outcomeLine(action) {
+      if (action.type === "open_card") {
+        const c = CARDS[action.card_id];
+        return c ? `打开「${c.name}」` : "卡片不存在";
+      }
+      if (action.type === "open_workflow") {
+        const w = WORKFLOWS[action.workflow_id];
+        return w ? `开始「${w.name}」` : "工作流不存在";
+      }
+      if (action.type === "send_text") return "发这段话";
+      if (action.type === "send_media") return "发图";
+      if (action.type === "open_url") return "打开链接";
+      if (action.type === "copy_text") return "复制这段字";
+      return action.type;
+    }
+
+    function isBroken(action) {
+      if (action.type === "open_card") return !CARDS[action.card_id];
+      if (action.type === "open_workflow") return !WORKFLOWS[action.workflow_id];
+      return false;
+    }
+
+    function currentItems() {
+      return empty ? [] : ITEMS;
+    }
+
+    function currentCards() {
+      return empty ? {} : CARDS;
+    }
+
+    function counts() {
+      const items = currentItems();
+      const cards = currentCards();
+      const cardN = Object.keys(cards).length;
+      let wf = 0;
+      const seen = new Set();
+      const walk = (a) => {
+        if (a.type === "open_workflow" && a.workflow_id && !seen.has(a.workflow_id)) {
+          seen.add(a.workflow_id);
+          wf += 1;
+        }
+        if (a.type === "open_card" && cards[a.card_id]) {
+          cards[a.card_id].buttons.forEach((b) => walk(b.action));
+        }
+      };
+      items.forEach((it) => walk(it.action));
+      Object.values(cards).forEach((c) => c.buttons.forEach((b) => walk(b.action)));
+      return { keys: items.length, cards: cardN, wf };
+    }
+
+    function orphans() {
+      const items = currentItems();
+      const cards = currentCards();
+      const ref = referencedCardIds(items, cards);
+      return Object.values(cards).filter((c) => !ref.has(c.id));
+    }
+
+    function renderCounts() {
+      const c = counts();
+      document.getElementById("counts").innerHTML =
+        `<span class="num"><b>${c.keys}</b> 键</span>` +
+        `<span class="num"><b>${c.cards}</b> 卡片</span>` +
+        `<span class="num"><b>${c.wf}</b> 工作流入口</span>`;
+    }
+
+    function renderKb() {
+      const items = currentItems();
+      const kb = document.getElementById("kb");
+      kb.style.gridTemplateColumns = `repeat(${COLUMNS}, minmax(0, 1fr))`;
+      kb.innerHTML = "";
+      if (items.length === 0) {
+        kb.innerHTML = `<p style="margin:0;color:var(--muted-foreground);font-size:14px;">还没有键</p>`;
+        return;
+      }
+      const selectedId = trail[0] && trail[0].kind === "item" ? trail[0].id : null;
+      items.forEach((it) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "kb-key" + (isBroken(it.action) ? " is-broken" : "");
+        btn.setAttribute("aria-pressed", String(it.id === selectedId));
+        btn.innerHTML = `<span class="label"></span><span class="outcome"></span>`;
+        btn.querySelector(".label").textContent = it.label;
+        btn.querySelector(".outcome").textContent = outcomeLine(it.action);
+        btn.addEventListener("click", () => {
+          trail = [{ kind: "item", id: it.id, label: it.label, action: it.action }];
+          render();
+        });
+        kb.appendChild(btn);
+      });
+    }
+
+    function renderOrphans() {
+      const list = orphans();
+      const wrap = document.getElementById("orphansWrap");
+      const row = document.getElementById("orphans");
+      document.getElementById("orphanLabel").textContent = `未挂上 · ${list.length}`;
+      wrap.hidden = list.length === 0;
+      row.innerHTML = "";
+      const selectedId = trail[0] && trail[0].kind === "orphan" ? trail[0].id : null;
+      list.forEach((c) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "orphan-chip";
+        btn.setAttribute("aria-pressed", String(c.id === selectedId));
+        btn.textContent = c.name;
+        btn.addEventListener("click", () => {
+          trail = [{
+            kind: "orphan",
+            id: c.id,
+            label: c.name,
+            action: { type: "open_card", card_id: c.id },
+          }];
+          render();
+        });
+        row.appendChild(btn);
+      });
+    }
+
+    function mediaBlock(media) {
+      if (!media || media.length === 0) return "";
+      const cls = media.length === 1 ? "media-row one" : "media-row";
+      return `<div class="${cls}">${media.map((m) =>
+        `<div class="thumb">${m.kind === "video" ? "视频" : "图"}</div>`
+      ).join("")}</div>`;
+    }
+
+    function cardMessage(card, activeBtnId) {
+      const btns = card.buttons.map((b) => {
+        const pressed = b.id === activeBtnId;
+        return `<button type="button" class="msg-btn" data-btn="${b.id}" aria-pressed="${pressed}">${escapeHtml(b.label)}</button>`;
+      }).join("");
+      return `
+        <p class="admin-name">${escapeHtml(card.name)}</p>
+        <div class="message">
+          ${mediaBlock(card.media)}
+          <div class="msg-body">
+            ${card.text ? `<p class="msg-text">${escapeHtml(card.text)}</p>` : ""}
+            ${btns ? `<div class="msg-btns">${btns}</div>` : ""}
+          </div>
+        </div>`;
+    }
+
+    function payloadView(action) {
+      if (isBroken(action)) {
+        if (action.type === "open_card") return `<div class="broken">卡片不存在</div>`;
+        if (action.type === "open_workflow") return `<div class="broken">工作流不存在</div>`;
+      }
+      if (action.type === "open_card") {
+        return cardMessage(CARDS[action.card_id], trail.length > 1 ? trail[trail.length - 1].btnId : null);
+      }
+      if (action.type === "open_workflow") {
+        const w = WORKFLOWS[action.workflow_id];
+        return `<div class="payload"><span class="payload-k">开始工作流</span><p class="payload-v">${escapeHtml(w.name)}</p></div>`;
+      }
+      if (action.type === "send_text") {
+        return `<div class="payload"><span class="payload-k">发这段话</span><p class="payload-text">${escapeHtml(action.text)}</p></div>`;
+      }
+      if (action.type === "copy_text") {
+        return `<div class="payload"><span class="payload-k">复制这段字</span><p class="payload-text">${escapeHtml(action.text)}</p></div>`;
+      }
+      if (action.type === "send_media") {
+        return `<div class="payload"><span class="payload-k">发图</span>${mediaBlock(action.media)}</div>`;
+      }
+      if (action.type === "open_url") {
+        return `<div class="payload"><span class="payload-k">打开链接</span><p class="payload-v url">${escapeHtml(action.url)}</p></div>`;
+      }
+      return "";
+    }
+
+    function renderPath() {
+      const pane = document.getElementById("pathPane");
+      if (trail.length === 0) {
+        pane.innerHTML = `<p class="pane-label">点下去</p><div class="path-empty"></div>`;
+        return;
+      }
+      const crumbs = trail.map((step, i) => {
+        if (i === trail.length - 1) {
+          return `<span class="here">${escapeHtml(step.label)}</span>`;
+        }
+        return `<button type="button" data-crumb="${i}">${escapeHtml(step.label)}</button><span class="sep">/</span>`;
+      });
+      const root = trail[0].kind === "orphan" ? "未挂上" : "主键盘";
+      const action = trail[trail.length - 1].action;
+      pane.innerHTML = `
+        <p class="pane-label">点下去</p>
+        <div class="crumb"><span>${root}</span><span class="sep">/</span>${crumbs.join("")}</div>
+        ${payloadView(action)}
+      `;
+      pane.querySelectorAll("[data-crumb]").forEach((el) => {
+        el.addEventListener("click", () => {
+          trail = trail.slice(0, Number(el.getAttribute("data-crumb")) + 1);
+          render();
+        });
+      });
+      pane.querySelectorAll("[data-btn]").forEach((el) => {
+        el.addEventListener("click", () => {
+          const last = trail[trail.length - 1];
+          const card = last.action.type === "open_card" ? CARDS[last.action.card_id] : null;
+          if (!card) return;
+          const b = card.buttons.find((x) => x.id === el.getAttribute("data-btn"));
+          if (!b) return;
+          trail = trail.concat([{
+            kind: "btn",
+            id: b.id,
+            btnId: b.id,
+            label: b.label,
+            action: b.action,
+          }]);
+          render();
+        });
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function render() {
+      renderCounts();
+      renderKb();
+      renderPath();
+      renderOrphans();
+    }
+
+    document.getElementById("themeBtn").addEventListener("click", (e) => {
+      const on = document.documentElement.classList.toggle("dark");
+      e.currentTarget.setAttribute("aria-pressed", String(on));
+      e.currentTarget.textContent = on ? "亮色" : "暗色";
+    });
+    document.getElementById("emptyBtn").addEventListener("click", (e) => {
+      empty = !empty;
+      trail = [];
+      e.currentTarget.setAttribute("aria-pressed", String(empty));
+      render();
+    });
+    document.getElementById("editBtn").addEventListener("click", () => {
+      document.getElementById("editDlg").showModal();
+    });
+    document.getElementById("editClose").addEventListener("click", () => {
+      document.getElementById("editDlg").close();
+    });
+
+    render();
+  </script>
+</body>
+</html>

@@ -3,8 +3,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { getStoredLocale, setStoredLocale, LOCALE_STORAGE_KEY } from './index'
-import zh from './locales/zh.json'
 import en from './locales/en.json'
+import zh from './locales/zh.json'
 
 const COMMAND_MENU_I18N_KEYS = [
   'common.commandPlaceholder',
@@ -13,7 +13,6 @@ const COMMAND_MENU_I18N_KEYS = [
   'common.commandTheme',
   'theme.light',
   'theme.dark',
-  'theme.system',
 ] as const
 
 const CASE_DELETE_I18N_KEYS = [
