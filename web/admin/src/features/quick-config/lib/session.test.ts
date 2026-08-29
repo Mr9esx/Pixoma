@@ -27,7 +27,7 @@ const session: QuickConfigSession = {
   step: 1,
   caseDraft: { id: 12, name: '动漫图像生成' },
   routing: { rules: [{ when: { field: 'user.is_premium', op: 'eq', value: true }, topic: 'fast-gpu' }] },
-  pendingEntries: [{ channelId: 'ch-a', label: '开始生成', mode: 'direct' }],
+  pendingEntries: [{ channelId: 'ch-a', label: '开始生成' }],
   schemaVersion: 2,
   updatedAt: '2026-08-21T10:00:00.000Z',
 }

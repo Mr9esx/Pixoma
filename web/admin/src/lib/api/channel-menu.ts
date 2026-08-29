@@ -28,13 +28,11 @@ export type ActionType =
   | 'send_media'
   | 'open_url'
   | 'copy_text'
-  | 'placeholder'
 
 export type Action = {
   type: ActionType
   card_id?: string
-  workflow_ids?: string[]
-  mode?: 'list' | 'direct'
+  workflow_id?: string
   text?: string
   media?: { kind: string; url: string; caption?: string }[]
   url?: string

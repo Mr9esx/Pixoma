@@ -1,17 +1,31 @@
 import { useTranslation } from 'react-i18next'
 import type { Action, ActionType, Card } from '@/lib/api/channel-menu'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { ACTION_TYPES } from './action-templates'
 import { CardPicker } from './card-picker'
+import { type WorkflowRef } from './node-view'
+import { WorkflowInfoCard } from './workflow-info-card'
+
+type Props = {
+  action: Action
+  cards: Card[]
+  workflows: WorkflowRef[]
+  onChange: (next: Action) => void
+  onCreateNewCard?: () => void
+  disabled?: boolean
+  compact?: boolean
+}
 
 const ACTION_KEYS: Record<ActionType, string> = {
   open_card: 'menu.actionOpenCard',
@@ -20,17 +34,16 @@ const ACTION_KEYS: Record<ActionType, string> = {
   send_media: 'menu.actionSendMedia',
   open_url: 'menu.actionOpenUrl',
   copy_text: 'menu.actionCopyText',
-  placeholder: 'menu.actionPlaceholder',
 }
 
-type Props = {
-  action: Action
-  cards: Card[]
-  workflows: { id: number; name: string }[]
-  onChange: (next: Action) => void
-  onCreateNewCard?: () => void
-  disabled?: boolean
-}
+// v2 分类：工作流能力（进入工作流流程）/ TG 平台能力（平台层固定能力）
+const WORKFLOW_CAPABILITIES: ActionType[] = ['open_workflow', 'open_card']
+const TG_PLATFORM_CAPABILITIES: ActionType[] = [
+  'send_text',
+  'send_media',
+  'open_url',
+  'copy_text',
+]
 
 export function ActionForm({
   action,
@@ -39,28 +52,64 @@ export function ActionForm({
   onChange,
   onCreateNewCard,
   disabled,
+  compact,
 }: Props) {
   const { t } = useTranslation()
-  const types = Object.keys(ACTION_KEYS) as ActionType[]
+
+  function switchType(type: ActionType) {
+    switch (type) {
+      case 'open_workflow':
+        onChange({ type, workflow_id: '' })
+        return
+      case 'open_card':
+        onChange({ type, card_id: '' })
+        return
+      case 'send_text':
+      case 'copy_text':
+        onChange({ type, text: '' })
+        return
+      case 'send_media':
+        onChange({ type, media: [] })
+        return
+      case 'open_url':
+        onChange({ type, url: '' })
+        return
+    }
+  }
 
   return (
-    <div data-testid='action-form' className='space-y-3'>
-      <div className='space-y-1.5'>
-        <Label>{t('menu.buttonAction')}</Label>
+    <div data-testid='action-form' className='flex flex-col gap-3'>
+      <div className='flex flex-col gap-1.5'>
+        {compact ? null : <Label>{t('menu.buttonAction')}</Label>}
         <Select
           value={action.type}
-          onValueChange={(type) => onChange({ type: type as ActionType })}
+          onValueChange={(type) => switchType(type as ActionType)}
           disabled={disabled}
         >
-          <SelectTrigger>
+          <SelectTrigger data-testid='action-type-select'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {types.map((type) => (
-              <SelectItem key={type} value={type}>
-                {t(ACTION_KEYS[type])}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              <SelectLabel>{t('menu.actionGroupWorkflow')}</SelectLabel>
+              {ACTION_TYPES.filter((t) =>
+                WORKFLOW_CAPABILITIES.includes(t)
+              ).map((type) => (
+                <SelectItem key={type} value={type} data-capability='workflow'>
+                  {t(ACTION_KEYS[type])}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+            <SelectGroup>
+              <SelectLabel>{t('menu.actionGroupTg')}</SelectLabel>
+              {ACTION_TYPES.filter((t) =>
+                TG_PLATFORM_CAPABILITIES.includes(t)
+              ).map((type) => (
+                <SelectItem key={type} value={type} data-capability='tg'>
+                  {t(ACTION_KEYS[type])}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
       </div>
@@ -72,39 +121,46 @@ export function ActionForm({
           onPick={(cardId) => onChange({ ...action, card_id: cardId })}
           onCreateNew={onCreateNewCard}
           disabled={disabled}
+          compact={compact}
         />
       ) : null}
 
       {action.type === 'open_workflow' ? (
-        <div className='space-y-1.5'>
-          <Label>{t('menu.workflowList')}</Label>
-          <div className='max-h-44 space-y-1.5 overflow-auto rounded-md border p-2'>
-            {workflows.map((w) => (
-              <label key={w.id} className='flex items-center gap-2 text-sm'>
-                <Checkbox
-                  checked={(action.workflow_ids ?? []).includes(String(w.id))}
-                  onCheckedChange={(v) =>
-                    onChange({
-                      ...action,
-                      workflow_ids: v
-                        ? [...(action.workflow_ids ?? []), String(w.id)]
-                        : (action.workflow_ids ?? []).filter(
-                            (id) => id !== String(w.id)
-                          ),
-                    })
-                  }
-                  disabled={disabled}
-                />
-                <span>{w.name}</span>
-              </label>
-            ))}
-          </div>
+        <div className='flex flex-col gap-1.5'>
+          {compact ? null : <Label>{t('menu.workflowList')}</Label>}
+          <Select
+            value={action.workflow_id ?? ''}
+            onValueChange={(v) => onChange({ ...action, workflow_id: v })}
+            disabled={disabled}
+          >
+            <SelectTrigger data-testid='workflow-select'>
+              <SelectValue placeholder={t('menu.workflowList')} />
+            </SelectTrigger>
+            <SelectContent>
+              {workflows.map((w) => (
+                <SelectItem key={w.id} value={String(w.id)}>
+                  {w.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       ) : null}
 
+      {action.type === 'open_workflow' && action.workflow_id ? (
+        <WorkflowInfoCard
+          workflow={
+            workflows.find((w) => String(w.id) === action.workflow_id) ?? {
+              id: Number(action.workflow_id),
+              name: t('menu.mapWorkflowMissing'),
+            }
+          }
+        />
+      ) : null}
+
       {action.type === 'send_text' || action.type === 'copy_text' ? (
-        <div className='space-y-1.5'>
-          <Label>{t('menu.cardText')}</Label>
+        <div className='flex flex-col gap-1.5'>
+          {compact ? null : <Label>{t('menu.cardText')}</Label>}
           <Textarea
             value={action.text ?? ''}
             onChange={(e) => onChange({ ...action, text: e.target.value })}
@@ -115,8 +171,8 @@ export function ActionForm({
       ) : null}
 
       {action.type === 'send_media' ? (
-        <div className='space-y-1.5'>
-          <Label>{t('menu.cardMedia')}</Label>
+        <div className='flex flex-col gap-1.5'>
+          {compact ? null : <Label>{t('menu.cardMedia')}</Label>}
           <Textarea
             value={(action.media ?? []).map((m) => m.url).join('\n')}
             onChange={(e) =>
@@ -136,8 +192,8 @@ export function ActionForm({
       ) : null}
 
       {action.type === 'open_url' ? (
-        <div className='space-y-1.5'>
-          <Label>{t('menu.actionOpenUrl')}</Label>
+        <div className='flex flex-col gap-1.5'>
+          {compact ? null : <Label>{t('menu.actionOpenUrl')}</Label>}
           <Input
             value={action.url ?? ''}
             onChange={(e) => onChange({ ...action, url: e.target.value })}

@@ -349,9 +349,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
           title={t('channels.tabMenu')}
           hint={t('channels.tabMenuHint')}
         />
-        <div className={`min-h-[480px] ${kit.cardWrap} p-4`}>
-          <MenuCardEditor channelId={id} />
-        </div>
+        <MenuCardEditor channelId={id} />
       </section>
 
       <section id='channel-text-section' className='flex flex-col gap-4'>

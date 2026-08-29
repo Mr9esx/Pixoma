@@ -1,14 +1,13 @@
 import type { Menu, MenuItem } from '@/lib/api/channel-menu'
 
-export type WorkflowMenuMode = 'direct' | 'list'
-
 /**
  * 在消息平台菜单末尾追加一个「打开指定工作流」的主菜单按钮。
- * 保持原菜单不变（不可变更新），动作类型锁定 open_workflow。
+ * 保持原菜单不变（不可变更新），动作类型锁定 open_workflow，
+ * 关联单个工作流 id（v2 schema：`workflow_id` 单数字段，无 mode）。
  */
 export function addWorkflowMenuEntry(
   menu: Menu,
-  entry: { label: string; mode: WorkflowMenuMode; workflowId: number }
+  entry: { label: string; workflowId: number }
 ): Menu {
   const label = entry.label.trim()
   if (!label) {
@@ -19,8 +18,7 @@ export function addWorkflowMenuEntry(
     label,
     action: {
       type: 'open_workflow',
-      workflow_ids: [String(entry.workflowId)],
-      mode: entry.mode,
+      workflow_id: String(entry.workflowId),
     },
   }
   return { ...menu, items: [...menu.items, item] }

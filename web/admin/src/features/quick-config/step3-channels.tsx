@@ -20,15 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import type { WorkflowMenuMode } from './lib/menu-payload'
 import type { StepActions, WizardShared } from './types'
 import { WizardChrome } from './wizard-chrome'
 
@@ -43,7 +35,7 @@ export function Step3Channels({ shared, next, back }: Props) {
   const [channelName, setChannelName] = useState('')
   const [channelToken, setChannelToken] = useState('')
   const [drafts, setDrafts] = useState<
-    Record<string, { label: string; mode: WorkflowMenuMode }>
+    Record<string, { label: string }>
   >({})
 
   const createChannelMutation = useMutation({
@@ -74,18 +66,14 @@ export function Step3Channels({ shared, next, back }: Props) {
 
   const placements: MenuPlacement[] = placementsQuery.data ?? []
 
-  function queueEntry(
-    channelId: string,
-    label: string,
-    mode: WorkflowMenuMode
-  ) {
+  function queueEntry(channelId: string, label: string) {
     shared.updatePendingEntries([
       ...shared.pendingEntries,
-      { channelId, label: label.trim(), mode },
+      { channelId, label: label.trim() },
     ])
     setDrafts((prev) => ({
       ...prev,
-      [channelId]: { label: '', mode: 'direct' },
+      [channelId]: { label: '' },
     }))
     toast.success('已加入待提交列表，完成页统一保存')
   }
@@ -158,7 +146,6 @@ export function Step3Channels({ shared, next, back }: Props) {
               (channelsQuery.data ?? []).map((channel) => {
                 const draft = drafts[channel.id] ?? {
                   label: '',
-                  mode: 'direct' as const,
                 }
                 return (
                   <div
@@ -179,8 +166,8 @@ export function Step3Channels({ shared, next, back }: Props) {
                       </span>
                     </div>
                     {channel.enabled ? (
-                      <div className='grid grid-cols-[1fr_180px_auto] gap-2'>
-                        <div>
+                      <div className='flex items-end gap-2'>
+                        <div className='flex-1'>
                           <Label className='text-xs'>按钮标签</Label>
                           <Input
                             value={draft.label}
@@ -196,52 +183,21 @@ export function Step3Channels({ shared, next, back }: Props) {
                             }
                           />
                         </div>
-                        <div>
-                          <Label className='text-xs'>打开方式</Label>
-                          <Select
-                            value={draft.mode}
-                            onValueChange={(mode) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [channel.id]: {
-                                  ...draft,
-                                  mode: mode as WorkflowMenuMode,
-                                },
-                              }))
-                            }
-                          >
-                            <SelectTrigger className='w-full'>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value='direct'>
-                                direct · 直接打开
-                              </SelectItem>
-                              <SelectItem value='list'>
-                                list · 列出工作流
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className='flex items-end'>
-                          <Button
-                            type='button'
-                            size='sm'
-                            disabled={
-                              !draft.label.trim() ||
-                              shared.pendingEntries.some(
-                                (entry) =>
-                                  entry.channelId === channel.id &&
-                                  entry.label === draft.label.trim()
-                              )
-                            }
-                            onClick={() =>
-                              queueEntry(channel.id, draft.label, draft.mode)
-                            }
-                          >
-                            添加按钮
-                          </Button>
-                        </div>
+                        <Button
+                          type='button'
+                          size='sm'
+                          disabled={
+                            !draft.label.trim() ||
+                            shared.pendingEntries.some(
+                              (entry) =>
+                                entry.channelId === channel.id &&
+                                entry.label === draft.label.trim()
+                            )
+                          }
+                          onClick={() => queueEntry(channel.id, draft.label)}
+                        >
+                          添加按钮
+                        </Button>
                       </div>
                     ) : (
                       <p className='text-xs text-muted-foreground'>

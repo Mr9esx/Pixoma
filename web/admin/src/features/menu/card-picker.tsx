@@ -16,6 +16,7 @@ type Props = {
   onPick: (cardId: string) => void
   onCreateNew?: () => void
   disabled?: boolean
+  compact?: boolean
 }
 
 export function CardPicker({
@@ -24,13 +25,17 @@ export function CardPicker({
   onPick,
   onCreateNew,
   disabled,
+  compact,
 }: Props) {
   const { t } = useTranslation()
   return (
-    <div data-testid='card-picker' className='space-y-1.5'>
-      <Label>{t('menu.targetCard')}</Label>
+    <div
+      data-testid='card-picker'
+      className={compact ? 'flex items-center gap-2' : 'flex flex-col gap-1.5'}
+    >
+      {compact ? null : <Label>{t('menu.targetCard')}</Label>}
       <Select value={value ?? ''} onValueChange={onPick} disabled={disabled}>
-        <SelectTrigger>
+        <SelectTrigger className={compact ? 'min-h-11 flex-1' : undefined}>
           <SelectValue placeholder={t('menu.pickExistingCard')} />
         </SelectTrigger>
         <SelectContent>

@@ -12,6 +12,7 @@ dist/
 web/admin/node_modules/
 web/admin/dist/
 .worktrees/
+.superpowers/
 .DS_Store
 comfyui-bot
 
@@ -24,3 +25,4 @@ comfyui-bot
 configs/*.local.yaml
 configs/*.local.env
 .env.tos.local
+node_modules/

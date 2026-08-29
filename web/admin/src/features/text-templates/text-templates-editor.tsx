@@ -10,12 +10,12 @@ import {
 import { Loader2, Pencil, RotateCcw, Save } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { queryKeys } from '@/lib/api/query-keys'
 import {
   listTextTemplates,
   saveTextTemplates,
   type TextTemplate,
 } from '@/lib/api/text-templates'
-import { queryKeys } from '@/lib/api/query-keys'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,13 +31,17 @@ import { Textarea } from '@/components/ui/textarea'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import { DataTable } from '@/components/data-table/data-table'
 import { DataTableToolbar } from '@/components/data-table/toolbar'
-import { LongText } from '@/components/long-text'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { LongText } from '@/components/long-text'
 
 // Edits the Telegram copy templates for a scope. channelId "" edits the
 // platform default (Settings → 默认文案); any other id edits that channel's copy.
-export function TextTemplatesEditor({ channelId = '' }: { channelId?: string }) {
+export function TextTemplatesEditor({
+  channelId = '',
+}: {
+  channelId?: string
+}) {
   const { t } = useTranslation()
   const q = useQuery({
     queryKey: queryKeys.textTemplates.channel(channelId),
@@ -136,6 +140,8 @@ export function TextTemplatesEditor({ channelId = '' }: { channelId?: string }) 
       }),
       columnHelper.display({
         id: 'actions',
+        size: 110,
+        enablePinning: true,
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -163,13 +169,20 @@ export function TextTemplatesEditor({ channelId = '' }: { channelId?: string }) 
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    enableColumnPinning: true,
+    initialState: {
+      columnPinning: { right: ['actions'] },
+    },
   })
 
   return (
     <div className='flex min-h-0 flex-col gap-3'>
       {q.isLoading ? <LoadingSkeleton rows={3} /> : null}
       {q.isError ? (
-        <ErrorBanner message={errorMessage(q.error)} onRetry={() => void q.refetch()} />
+        <ErrorBanner
+          message={errorMessage(q.error)}
+          onRetry={() => void q.refetch()}
+        />
       ) : null}
       {!q.isLoading && !q.isError ? (
         <>
@@ -244,7 +257,11 @@ function EditTemplateDialog({
               </Label>
               <div className='flex flex-wrap gap-1'>
                 {variables.map((v) => (
-                  <Badge key={v} variant='outline' className='font-mono text-xs'>
+                  <Badge
+                    key={v}
+                    variant='outline'
+                    className='font-mono text-xs'
+                  >
                     {`{{ ${v} }}`}
                   </Badge>
                 ))}
@@ -255,7 +272,7 @@ function EditTemplateDialog({
             <Label className='text-xs text-muted-foreground'>
               {t('textTemplates.defaultLabel')}
             </Label>
-            <p className='whitespace-pre-wrap rounded-md bg-muted/50 p-3 font-mono text-sm text-muted-foreground'>
+            <p className='rounded-md bg-muted/50 p-3 font-mono text-sm whitespace-pre-wrap text-muted-foreground'>
               {template.default}
             </p>
           </div>

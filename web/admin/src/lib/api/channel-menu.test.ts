@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { deleteCard, getCaseMenuPlacements, getMenu } from './channel-menu'
+import {
+  type Action,
+  deleteCard,
+  getCaseMenuPlacements,
+  getMenu,
+  putMenu,
+  type Menu,
+} from './channel-menu'
 import { listCapabilities } from './channels'
 
 afterEach(() => {
@@ -100,5 +107,54 @@ describe('channel-menu API', () => {
       'http://127.0.0.1:8081/api/v1/channels/ch1/cards/c1',
       expect.objectContaining({ method: 'DELETE' })
     )
+  })
+})
+
+
+describe('Action schema (v2: workflow_id single, no mode)', () => {
+  it('Action serializes workflow_id (single), drops workflow_ids/mode', () => {
+    // 编译期：Action 接受 workflow_id 字段
+    const action: Action = { type: 'open_workflow', workflow_id: '10' }
+    const json = JSON.stringify(action)
+    expect(json).toBe('{"type":"open_workflow","workflow_id":"10"}')
+    expect(json).not.toContain('workflow_ids')
+    expect(json).not.toContain('mode')
+  })
+
+  it('serializes open_workflow with workflow_id (single) and drops mode/workflow_ids', () => {
+    const action: Action = { type: 'open_workflow', workflow_id: '10' }
+    const json = JSON.stringify(action)
+    expect(json).toBe('{"type":"open_workflow","workflow_id":"10"}')
+    expect(json).not.toContain('workflow_ids')
+    expect(json).not.toContain('mode')
+  })
+
+  it('Menu with open_workflow action PUTs workflow_id (not workflow_ids, no mode)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'm', name: '主', columns: 2, items: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const menu: Menu = {
+      id: 'm',
+      name: '主',
+      columns: 2,
+      items: [
+        {
+          id: 'mi-1',
+          label: '图片生成',
+          action: { type: 'open_workflow', workflow_id: '10' },
+        },
+      ],
+    }
+    await putMenu('ch1', menu)
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+    expect(body.items[0].action.workflow_id).toBe('10')
+    expect(body.items[0].action).not.toHaveProperty('workflow_ids')
+    expect(body.items[0].action).not.toHaveProperty('mode')
   })
 })
