@@ -25,7 +25,7 @@ describe('kokonutui mouse-effect card workbench adaptation', () => {
     expect(source).not.toContain('bg-zinc-600')
     expect(source).not.toContain('bg-white/60')
     expect(source).not.toContain('bg-white/80')
-    expect(source).toContain('bg-muted-foreground/30')
+    expect(source).toContain('bg-muted-foreground/60')
   })
 
   it('becomes full-width and content-driven, dropping fixed max-w and height', () => {

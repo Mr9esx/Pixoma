@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { createCase, enableCase, patchCase } from '@/lib/api/cases'
 import { getMenu, putMenu } from '@/lib/api/channel-menu'
-import { listEdges, listPresence } from '@/lib/api/edges'
+import { listEdges, listPresence, patchEdge } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTopics } from '@/lib/api/topics'
 import { Button } from '@/components/ui/button'
@@ -89,6 +89,8 @@ export function DoneScreen({ shared, back }: Props) {
         .filter((b) => b.status === 'ready')
         .map((b) => b.topic),
       placements: [...shared.placements, ...shared.pendingEntries],
+      selectedNodeSelected: shared.selectedEdgeId != null,
+      hasDefaultRoute: shared.rulesMode === 'default',
     })
   }, [
     shared.caseRecord,
@@ -98,6 +100,8 @@ export function DoneScreen({ shared, back }: Props) {
     topicsQuery.data,
     edgesQuery.data,
     presenceQuery.data,
+    shared.selectedEdgeId,
+    shared.rulesMode,
   ])
 
   const canPublish = Object.values(readiness).every((level) => level !== 'gap')
@@ -112,6 +116,17 @@ export function DoneScreen({ shared, back }: Props) {
           : await createCase(draft)
       if (shared.routing && shared.routing.rules.length > 0) {
         saved = await patchCase(saved.id, { ...saved, routing: shared.routing })
+      }
+      if (shared.rulesMode === 'default' && shared.selectedEdgeId) {
+        const edge = edgesQuery.data?.find(
+          (e) => e.id === shared.selectedEdgeId
+        )
+        const subscribed = (edge?.subscribe_topics ?? []).filter(Boolean)
+        if (!subscribed.includes(DEFAULT_TOPIC_KEY)) {
+          await patchEdge(shared.selectedEdgeId, {
+            subscribe_topics: [...subscribed, DEFAULT_TOPIC_KEY],
+          })
+        }
       }
       for (const entry of shared.pendingEntries) {
         const menu = await getMenu(entry.channelId)
@@ -142,16 +157,17 @@ export function DoneScreen({ shared, back }: Props) {
   })
 
   const rows: {
-    key: 'workflow' | 'processing' | 'placements'
+    key: 'workflow' | 'processing' | 'placements' | 'node'
     title: string
   }[] = [
     { key: 'workflow', title: 'quickConfig.workflowImported' },
+    { key: 'node', title: 'quickConfig.nodeSelected' },
     { key: 'processing', title: 'quickConfig.processingConfigured' },
     { key: 'placements', title: 'quickConfig.placementsTitle' },
   ]
 
   return (
-    <WizardChrome step={4} onBack={() => back({})}>
+    <WizardChrome step={5} onBack={() => back({})}>
       <div className='space-y-2'>
         {rows.map((row) => {
           const level = readiness[row.key]

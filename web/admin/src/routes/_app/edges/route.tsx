@@ -119,7 +119,9 @@ function EdgesLayout() {
             onRetry={() => void listQuery.refetch()}
           />
         }
-        detail={selectedId ? <EdgeDetailPanel id={selectedId} /> : null}
+        detail={
+          selectedId ? <EdgeDetailPanel key={selectedId} id={selectedId} /> : null
+        }
         emptyDetail={
           !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
             <Empty>
@@ -145,11 +147,12 @@ function EdgesLayout() {
         }
       />
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className='sm:max-w-[504px]'>
           <DialogHeader>
             <DialogTitle>{t('edges.createNode')}</DialogTitle>
           </DialogHeader>
           <CreateEdgeWizard
+            onCancel={() => setCreateOpen(false)}
             onDone={(created, action) => {
               setCreateOpen(false)
               if (action === 'view') {

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Check, Plus } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -11,8 +11,12 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Pill } from '@/components/kibo-ui/pill'
 
 type MultiSelectProps = {
   value: string[]
@@ -59,10 +63,13 @@ export function MultiSelect({
   }
 
   return (
-    <Popover open={open} onOpenChange={(o) => {
-      setOpen(o)
-      if (!o) setQuery('')
-    }}>
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o)
+        if (!o) setQuery('')
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           type='button'
@@ -72,14 +79,14 @@ export function MultiSelect({
         >
           {values.length ? (
             values.map((v) => (
-              <Badge
+              <Pill
                 key={v}
                 variant='secondary'
                 className='rounded-sm px-2 py-0 font-normal'
                 data-testid='multi-select-badge'
               >
                 {v}
-              </Badge>
+              </Pill>
             ))
           ) : (
             <span className='text-muted-foreground'>{placeholder}</span>

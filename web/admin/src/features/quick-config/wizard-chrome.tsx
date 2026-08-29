@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 type Props = {
-  step: 1 | 2 | 3 | 4
+  step: 1 | 2 | 3 | 4 | 5
   onBack?: () => void
   onNext?: () => void
   nextLabel?: string
@@ -25,7 +25,8 @@ export function WizardChrome({
   const { t } = useTranslation()
   const STEP_LABELS = [
     t('quickConfig.workflowConfig'),
-    t('quickConfig.processing'),
+    t('quickConfig.nodeSelection'),
+    t('quickConfig.rulesBranch'),
     t('quickConfig.channelPlacement'),
     t('quickConfig.done'),
   ]
@@ -36,36 +37,44 @@ export function WizardChrome({
     >
       <div className='flex shrink-0 items-center justify-center rounded-xl border border-border bg-background px-4 py-3'>
         <div className='flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-2'>
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className='flex items-center gap-1.5'>
-              <span
-                className={cn(
-                  'grid size-5 place-items-center rounded-full border text-[11px] font-semibold',
-                  i < step
-                    ? 'border-emerald-600/50 text-emerald-600'
-                    : i === step
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'border-border text-muted-foreground'
-                )}
-              >
-                {i === 4 ? '✓' : i}
-              </span>
-              <span
-                className={cn(
-                  'text-xs',
-                  i === step
-                    ? 'font-semibold text-foreground'
-                    : i < step
-                      ? 'text-muted-foreground'
-                      : 'text-muted-foreground/60'
-                )}
-              >
-                {STEP_LABELS[i - 1]}
-              </span>
-              {i < 4 ? (
-                <span className='mx-1 h-px w-4 bg-border' aria-hidden='true' />
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Fragment key={i}>
+              <div className='flex items-center gap-1.5'>
+                <span
+                  className={cn(
+                    'grid size-5 place-items-center rounded-full border text-[11px] font-semibold',
+                    i < step
+                      ? 'border-emerald-600/50 text-emerald-600'
+                      : i === step
+                        ? 'border-foreground bg-foreground text-background'
+                        : 'border-border text-muted-foreground'
+                  )}
+                >
+                  {i === 5 ? '✓' : i}
+                </span>
+                <span
+                  className={cn(
+                    'text-xs',
+                    i === step
+                      ? 'font-semibold text-foreground'
+                      : i < step
+                        ? 'text-muted-foreground'
+                        : 'text-muted-foreground/60'
+                  )}
+                >
+                  {STEP_LABELS[i - 1]}
+                </span>
+              </div>
+              {i < 5 ? (
+                <span
+                  aria-hidden='true'
+                  className={cn(
+                    'h-px min-w-4 flex-1',
+                    i < step ? 'bg-emerald-600/50' : 'bg-border'
+                  )}
+                />
               ) : null}
-            </div>
+            </Fragment>
           ))}
         </div>
       </div>

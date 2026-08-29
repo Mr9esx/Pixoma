@@ -203,7 +203,7 @@ function DotComponent({
       animate={{
         opacity: [baseMinOpacity, baseMaxOpacity, baseMinOpacity],
       }}
-      className="absolute rounded-full bg-muted-foreground/30 will-change-transform"
+      className="absolute rounded-full bg-muted-foreground/60 will-change-transform"
       initial={{ opacity: baseMinOpacity }}
       style={{
         width: dotSize,

@@ -1,8 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   createFileRoute,
-  Link,
   useNavigate,
   useParams,
   useRouterState,
@@ -12,6 +11,12 @@ import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTopics } from '@/lib/api/topics'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Empty,
   EmptyContent,
@@ -46,6 +51,7 @@ function TopicsLayout() {
     queryKey: queryKeys.topics.all,
     queryFn: () => listTopics(),
   })
+  const [createOpen, setCreateOpen] = useState(false)
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
   const backToList = locationState?.backToList === true
   const selectedKey = key ?? (backToList ? undefined : items[0]?.key)
@@ -62,6 +68,15 @@ function TopicsLayout() {
       })
     }
   }, [key, backToList, items, navigate])
+  useEffect(() => {
+    if (create) {
+      setCreateOpen(true)
+      void navigate({
+        to: '/topics',
+        state: { backToList: true },
+      } as never)
+    }
+  }, [create, navigate])
 
   return (
     <div
@@ -79,11 +94,12 @@ function TopicsLayout() {
           </p>
         </div>
         {!isEmpty ? (
-          <Button asChild className={kit.btnPrimary}>
-            <Link to='/topics/$key' params={{ key: 'new' }}>
-              <Plus className='size-3.5' />
-              {t('topics.new')}
-            </Link>
+          <Button
+            className={kit.btnPrimary}
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className='size-3.5' />
+            {t('topics.new')}
           </Button>
         ) : null}
       </div>
@@ -108,21 +124,8 @@ function TopicsLayout() {
           />
         }
         detail={
-          create ? (
-            <div className={kit.createPage}>
-              <h2 className={kit.title}>{t('topics.new')}</h2>
-              <CreateTopicForm
-                onDone={(topic) => {
-                  void navigate({
-                    to: '/topics/$key',
-                    params: { key: topic.key },
-                  })
-                }}
-                onCancel={() => void navigate({ to: '/topics' })}
-              />
-            </div>
-          ) : selectedKey ? (
-            <TopicDetailPanel topicKey={selectedKey} />
+          selectedKey ? (
+            <TopicDetailPanel key={selectedKey} topicKey={selectedKey} />
           ) : null
         }
         emptyDetail={
@@ -138,16 +141,34 @@ function TopicsLayout() {
                 <EmptyDescription>{t('topics.emptyDesc')}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
-                <Button asChild className={kit.btnPrimary}>
-                  <Link to='/topics/$key' params={{ key: 'new' }}>
-                    {t('topics.new')}
-                  </Link>
+                <Button
+                  className={kit.btnPrimary}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  {t('topics.new')}
                 </Button>
               </EmptyContent>
             </Empty>
           ) : undefined
         }
       />
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('topics.new')}</DialogTitle>
+          </DialogHeader>
+          <CreateTopicForm
+            onDone={(topic) => {
+              setCreateOpen(false)
+              void navigate({
+                to: '/topics/$key',
+                params: { key: topic.key },
+              })
+            }}
+            onCancel={() => setCreateOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

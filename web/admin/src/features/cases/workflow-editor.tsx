@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Info, Sparkles } from 'lucide-react'
@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { createCase, patchCase } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { CaseRecord } from '@/lib/api/types'
+import { cn } from '@/lib/utils'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ErrorBanner } from '@/components/feedback/error-banner'
@@ -110,9 +111,7 @@ function generateOutputCandidates(nodes: WorkflowNode[]): OutputFieldDraft[] {
 }
 
 /** 定位需要行级红色标注的输入行：重复 key 的冲突行 / 未绑定节点与参数的字段。 */
-function inputFieldErrors(
-  inputs: InputFieldDraft[]
-): Record<number, boolean> {
+function inputFieldErrors(inputs: InputFieldDraft[]): Record<number, boolean> {
   const errors: Record<number, boolean> = {}
   const seen = new Map<string, number>()
   inputs.forEach((field, index) => {
@@ -143,6 +142,8 @@ type CreateProps = {
   splitPane?: boolean
   /** splitPane 时渲染在左栏顶部的提示。 */
   leftIntro?: React.ReactNode
+  /** 新建时把三个步骤标题（导入/输入/输出）用左侧时间线竖线串起来。 */
+  stepRail?: boolean
   /** 创建成功回调。 */
   onSaved?: (next: CaseRecord) => void
   /** 提交中状态变化回调。 */
@@ -170,6 +171,7 @@ type EditProps = {
   collectOnly?: boolean
   splitPane?: boolean
   leftIntro?: React.ReactNode
+  stepRail?: boolean
   onCollect?: (payload: CaseRecord) => void
   formId?: string
   footer?: React.ReactNode
@@ -191,6 +193,39 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   const readOnly = props.mode === 'edit' && props.readOnly === true
   const showBasics = props.mode !== 'edit' || props.showBasics !== false
   const showWorkflow = props.mode !== 'edit' || props.showWorkflow !== false
+  const railRef = useRef<HTMLDivElement>(null)
+  const [rail, setRail] = useState<{ top: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    if (!props.stepRail) {
+      setRail(null)
+      return
+    }
+    const root = railRef.current
+    if (!root) return
+    const update = () => {
+      const pick = (sel: string) => root.querySelector<HTMLElement>(sel)
+      const imp = pick(
+        '[data-testid="case-section-workflow-import"] [class*="rounded-full"]'
+      )
+      const out = pick(
+        '[data-testid="case-section-outputs"] [class*="rounded-full"]'
+      )
+      if (!imp || !out) {
+        setRail(null)
+        return
+      }
+      const base = root.getBoundingClientRect().top
+      const center = (el: HTMLElement) =>
+        el.getBoundingClientRect().top - base + el.offsetHeight / 2
+      const top = center(imp)
+      const height = center(out) - top
+      setRail(top >= 0 && height > 0 ? { top, height } : null)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(root)
+    return () => ro.disconnect()
+  }, [props.stepRail])
   const [draft, setDraft] = useState<CaseRecord>(() => ({
     ...structuredClone(initial),
     ...(props.mode === 'create' && props.initialName
@@ -477,13 +512,22 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
       onChange={onWorkflowTextChange}
       onFileName={setWorkflowFilename}
       disabled={disabled}
+      stepRail={props.stepRail}
     />
   ) : null
 
   const inputsSection = showWorkflow ? (
-    <section className='space-y-3' data-testid='case-section-inputs'>
+    <section
+      className={cn('relative space-y-3', props.stepRail && 'pl-7')}
+      data-testid='case-section-inputs'
+    >
       <div className='flex items-center gap-2'>
-        <span className='flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground'>
+        <span
+          className={cn(
+            'flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground',
+            props.stepRail && 'absolute top-0.5 left-0'
+          )}
+        >
           2
         </span>
         <div className='min-w-0 flex-1'>
@@ -499,7 +543,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             variant='ghost'
             disabled={disabled}
             onClick={generateInputs}
-            className='shrink-0 h-8 gap-1 text-xs'
+            className='h-8 shrink-0 gap-1 text-xs'
           >
             <Sparkles className='size-3.5' />
             {t('cases.autoGenerateInputs')}
@@ -518,6 +562,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           onRemove={(index) =>
             setInputDrafts((prev) => prev.filter((_, i) => i !== index))
           }
+          onReorder={(next) => setInputDrafts(next)}
           onAdd={() =>
             setInputDrafts((prev) => [
               ...prev,
@@ -532,7 +577,9 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           }
           wide={isWide}
           disabled={disabled}
-          fieldErrors={showFieldErrors ? inputFieldErrors(inputDrafts) : undefined}
+          fieldErrors={
+            showFieldErrors ? inputFieldErrors(inputDrafts) : undefined
+          }
         />
       ) : (
         <Alert variant='info'>
@@ -544,9 +591,17 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   ) : null
 
   const outputsSection = showWorkflow ? (
-    <section className='space-y-3' data-testid='case-section-outputs'>
+    <section
+      className={cn('relative space-y-3', props.stepRail && 'pl-7')}
+      data-testid='case-section-outputs'
+    >
       <div className='flex items-center gap-2'>
-        <span className='flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground'>
+        <span
+          className={cn(
+            'flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground',
+            props.stepRail && 'absolute top-0.5 left-0'
+          )}
+        >
           3
         </span>
         <div className='min-w-0 flex-1'>
@@ -562,7 +617,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             variant='ghost'
             disabled={disabled}
             onClick={generateOutputs}
-            className='shrink-0 h-8 gap-1 text-xs'
+            className='h-8 shrink-0 gap-1 text-xs'
           >
             <Sparkles className='size-3.5' />
             {t('cases.autoGenerateOutputs')}
@@ -584,7 +639,12 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           onAdd={() =>
             setOutputDrafts((prev) => [
               ...prev,
-              { key: t('common.untitled'), type: 'image', node_id: '', index: 0 },
+              {
+                key: t('common.untitled'),
+                type: 'image',
+                node_id: '',
+                index: 0,
+              },
             ])
           }
           wide={isWide}
@@ -623,7 +683,14 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     >
       {props.splitPane ? (
         <div className='flex flex-col gap-6 lg:flex-row lg:items-start'>
-          <div className='min-w-0 flex-1 space-y-6'>
+          <div ref={railRef} className='relative min-w-0 flex-1 space-y-6'>
+            {props.stepRail && rail ? (
+              <div
+                aria-hidden='true'
+                className='pointer-events-none absolute w-px bg-border'
+                style={{ left: '9.5px', top: rail.top, height: rail.height }}
+              />
+            ) : null}
             {props.leftIntro}
             {importSection}
             {inputsSection}

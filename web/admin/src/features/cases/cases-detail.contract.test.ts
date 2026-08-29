@@ -74,7 +74,7 @@ describe('workflow detail panel', () => {
     expect(source).toContain('OutputFieldsTable')
     expect(source).toContain('onChange={noop}')
     expect(source).toContain('disabled')
-    // 工作流配置复用编辑工作流的图示 / JSON 查看器。
+    // 工作流配置复用编辑工作流的节点图 / JSON 查看器。
     expect(source).toContain('WorkflowGraphViewer')
     expect(source).toContain('readOnly')
     expect(source).toContain('bindings.inputs')

@@ -14,6 +14,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
+	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
@@ -30,15 +31,18 @@ type Adapter struct {
 	Registry  *capability.Registry
 	Blob      blob.Store
 	ChannelID string
-	back      *backStack
-	mu        sync.Mutex
-	notified  map[string]struct{}
-	store     *invokeStore
+	// Texts resolves configurable copy templates; nil falls back to built-ins.
+	Texts    texttpl.Renderer
+	back     *backStack
+	mu       sync.Mutex
+	notified map[string]struct{}
+	store    *invokeStore
 }
 
 func New(out ports.Outbound) *Adapter {
 	return &Adapter{
 		Out:      out,
+		Texts:    texttpl.StaticRenderer{},
 		notified: map[string]struct{}{},
 		store:    newInvokeStore(),
 		back:     newBackStack(),
@@ -129,7 +133,7 @@ func (a *Adapter) HandleText(ctx context.Context, chatID sharedkernel.ChatID, te
 	case "/start", "/menu":
 		return a.sendMainMenu(ctx, addr)
 	case "/help":
-		return a.Out.SendMenu(ctx, addr, "帮助：点下方按钮选功能。菜单更新后发 /menu 刷新。", nil)
+		return a.Out.SendMenu(ctx, addr, a.renderText(ctx, texttpl.KeyHelp, nil), nil)
 	case "/skip":
 		return a.openCaseStep(ctx, chatID, "skip", nil)
 	case "/exit":
@@ -137,7 +141,7 @@ func (a *Adapter) HandleText(ctx context.Context, chatID sharedkernel.ChatID, te
 	case "/confirm":
 		return a.openCaseStep(ctx, chatID, "confirm", nil)
 	case "🎬 视频脱衣", "🔥 热门模版", "🤝 邀请赚钱", "👤 我的", "🔞 图片", "🔞 视频":
-		return a.Out.SendMenu(ctx, addr, "菜单已更新，请使用下方新按钮。", nil)
+		return a.Out.SendMenu(ctx, addr, a.renderText(ctx, texttpl.KeyMenuUpdated, nil), nil)
 	default:
 		doc := a.loadMenu(ctx)
 		if item, ok := FindEnabledItemByLabel(doc, text); ok {
@@ -183,6 +187,15 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID
 	}
 }
 
+// renderText resolves a configurable copy template (with defaults) and
+// interpolates the supplied variables.
+func (a *Adapter) renderText(ctx context.Context, key string, vars map[string]string) string {
+	if a.Texts == nil {
+		return texttpl.Render(texttpl.Default(key), vars)
+	}
+	return a.Texts.Render(ctx, a.ChannelID, key, vars)
+}
+
 func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotify) error {
 	key := string(n.TaskID) + ":" + n.Kind
 	a.mu.Lock()
@@ -197,35 +210,41 @@ func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotif
 	if err != nil {
 		return err
 	}
-	if n.Kind == "task_succeeded" && len(n.Outputs) > 0 {
-		for i, ref := range n.Outputs {
-			caption := ""
-			if i == 0 {
-				caption = fmt.Sprintf("✅ 工作流完成\ntask=%s", n.TaskID)
-			}
-			if strings.HasPrefix(ref.MIME, "text/") {
-				if a.Blob == nil {
+	if n.Kind == "task_succeeded" {
+		if len(n.Outputs) > 0 {
+			for i, ref := range n.Outputs {
+				caption := ""
+				if i == 0 {
+					caption = a.renderText(ctx, texttpl.KeyWorkflowDone, map[string]string{"task_id": string(n.TaskID)})
+				}
+				if strings.HasPrefix(ref.MIME, "text/") {
+					if a.Blob == nil {
+						continue
+					}
+					rc, err := a.Blob.Get(ctx, ref)
+					if err != nil {
+						return err
+					}
+					raw, readErr := io.ReadAll(rc)
+					rc.Close()
+					if readErr != nil {
+						return readErr
+					}
+					if err := a.Out.SendText(ctx, addr, string(raw)); err != nil {
+						return err
+					}
 					continue
 				}
-				rc, err := a.Blob.Get(ctx, ref)
-				if err != nil {
+				if err := a.Out.SendMedia(ctx, addr, ref, caption); err != nil {
 					return err
 				}
-				raw, readErr := io.ReadAll(rc)
-				rc.Close()
-				if readErr != nil {
-					return readErr
-				}
-				if err := a.Out.SendText(ctx, addr, string(raw)); err != nil {
-					return err
-				}
-				continue
 			}
-			if err := a.Out.SendMedia(ctx, addr, ref, caption); err != nil {
+		} else {
+			if err := a.Out.SendText(ctx, addr, a.renderText(ctx, texttpl.KeyWorkflowDone, map[string]string{"task_id": string(n.TaskID)})); err != nil {
 				return err
 			}
 		}
-		return a.Out.SendMenu(ctx, addr, "还要继续？点菜单再选一个工作流。", nil)
+		return a.Out.SendMenu(ctx, addr, a.renderText(ctx, texttpl.KeyWorkflowDoneFollowp, nil), nil)
 	}
 	if n.Kind == "session_terminated" {
 		msg := n.ErrorMsg
@@ -233,6 +252,18 @@ func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotif
 			msg = "该工作流已被管理员删除，当前会话已结束。"
 		}
 		return a.Out.SendText(ctx, addr, msg)
+	}
+	if n.Kind == "task_failed" || n.Kind == "task_cancelled" {
+		key := texttpl.KeyTaskFailed
+		if n.Kind == "task_cancelled" {
+			key = texttpl.KeyTaskCancelled
+		}
+		vars := map[string]string{
+			"task_id":   string(n.TaskID),
+			"status":    strings.TrimPrefix(n.Kind, "task_"),
+			"error_msg": n.ErrorMsg,
+		}
+		return a.Out.SendText(ctx, addr, a.renderText(ctx, key, vars))
 	}
 	msg := fmt.Sprintf("任务 %s: %s", n.TaskID, n.Kind)
 	if n.ErrorMsg != "" {
@@ -277,7 +308,7 @@ func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID
 			return err
 		}
 		inv.CapabilityID = "open_case"
-		inv.Params = map[string]any{"step": "list", "workflow_ids": action.WorkflowIDs}
+		inv.Params = map[string]any{"step": "start", "case_id": action.WorkflowID}
 		inv.Nav = protocol.Nav{Back: backCtx}
 		return a.dispatchInvoke(ctx, chatID, inv)
 	case "send_text", "copy_text":
@@ -295,7 +326,7 @@ func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID
 	case "open_url":
 		return a.Out.SendText(ctx, addr, action.URL)
 	case "placeholder":
-		return a.Out.SendText(ctx, addr, "暂未开放")
+		return a.Out.SendText(ctx, addr, a.renderText(ctx, texttpl.KeyMenuActionPlaceholder, nil))
 	default:
 		return a.Out.SendText(ctx, addr, "菜单配置无效")
 	}
@@ -412,7 +443,7 @@ func (a *Adapter) sendMainMenu(ctx context.Context, addr sharedkernel.ChannelAdd
 	for _, it := range menu.Items {
 		items = append(items, ports.MenuEntry{ID: it.ID, Label: it.Label})
 	}
-	return a.Out.SendMenu(ctx, addr, "欢迎使用 ComfyUI Bot\n请选择功能：", items)
+	return a.Out.SendMenu(ctx, addr, a.renderText(ctx, texttpl.KeyWelcome, nil), items)
 }
 
 func (a *Adapter) appSessionExists(ctx context.Context, chatID sharedkernel.ChatID) (bool, error) {

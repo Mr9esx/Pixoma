@@ -102,8 +102,8 @@ export function EdgeListPanel({
                   to='/edges/$edgeId'
                   params={{ edgeId: item.id }}
                   className={cn(
-                    'block w-full px-4 py-3 text-left text-sm hover:bg-accent',
-                    selected && 'bg-accent'
+                    'block w-full border-l-2 border-l-transparent px-4 py-3 text-left text-sm hover:bg-accent',
+                    selected && 'border-l-foreground bg-accent'
                   )}
                 >
                   <div className='flex items-center justify-between gap-2'>

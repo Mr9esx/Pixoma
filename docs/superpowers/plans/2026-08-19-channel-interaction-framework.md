@@ -5,11 +5,11 @@ base-ref: 2c32050a52105d30761ace6cd5ef4416b713fb50
 archived-with: 2026-08-22-channel-interaction-framework
 ---
 
-# 渠道交互框架 Implementation Plan
+# 消息平台交互框架 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 搭建渠道交互框架：能力注册表 + 统一交互协议（事件→能力→结果）+ 菜单改为能力入口树 + TG 适配器按协议渲染（主键盘显式≤6、一层分组、消息按钮流程）+ 管理端能力编辑器与同源预览；用户文案禁用内部术语。
+**Goal:** 搭建消息平台交互框架：能力注册表 + 统一交互协议（事件→能力→结果）+ 菜单改为能力入口树 + TG 适配器按协议渲染（主键盘显式≤6、一层分组、消息按钮流程）+ 管理端能力编辑器与同源预览；用户文案禁用内部术语。
 
 **Architecture:** `internal/channel/capability`（Capability/Registry/JSON Schema/open_case）→ `internal/channel/protocol`（CapabilityInvoke/Result/Nav/AccountCtx）→ `internal/menu`（MenuNode 能力入口）→ `internal/channel/tg`（按协议渲染 + 预览 DTO 同源）→ 管理台（能力选择 + schema 表单 + 预览）。
 
@@ -22,7 +22,7 @@ archived-with: 2026-08-22-channel-interaction-framework
 - 主键盘直达入口 ≤6（管理员显式配置，平台不自动塞满）；分组最多一层（消息按钮内无嵌套）
 - 菜单中立核心无平台专有字段；`params` 用 JSON Schema 校验；`render_override` 按 key 合并能力默认渲染声明
 - 面向用户文案禁用 inline/callback/extras/capability 等内部术语
-- 按渠道账户（channel + external_user_id），不做跨渠道合并
+- 按消息平台账户（channel + external_user_id），不做跨消息平台合并
 - open_case 行为等价保留（预览/填表/确认/出图）
 - 每个任务结束提交；commit message 用 conventional 风格
 

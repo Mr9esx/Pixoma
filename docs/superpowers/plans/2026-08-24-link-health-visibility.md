@@ -93,7 +93,7 @@ const edgeDefault: EdgeRecord = {
 const presence: EdgePresence[] = [{ id: 'node-1', edge_online: true, comfy_running: true }]
 const placement: MenuPlacement = {
   channel_id: 'c1',
-  channel_name: '渠道 1',
+  channel_name: '消息平台 1',
   item_id: 'm1',
   kind: 'open_case',
   path: [{ id: 'm1', label: '入口' }],
@@ -776,7 +776,7 @@ zh.json：
   "actionBindTopic": "去订阅 Topic",
   "actionEditNode": "去编辑节点",
   "actionCheckNode": "检查节点",
-  "guideNoMenuEntry": "在渠道菜单编辑器中添加「打开工作流」入口，选择该工作流，保存并发布。",
+  "guideNoMenuEntry": "在消息平台菜单编辑器中添加「打开工作流」入口，选择该工作流，保存并发布。",
   "guideTopicNoReadyNode": "确认该 Topic 已有计算节点订阅且在线；在计算节点列表启用计算节点，或检查 agent 心跳与 Comfy 服务。",
   "guideNoCaseRoutes": "在该工作流的处理流程中添加路由规则，把条件指向该 Topic，保存后重新检查。",
   "guideNoEdgeSubscribers": "在计算节点详情中勾选该 Topic 的订阅并保存；没有可订阅的计算节点时先新增计算节点。",
@@ -786,7 +786,7 @@ zh.json：
   "guideEdgeNotReady": "先确认计算节点已启用；已启用仍离线时，检查 edge-agent 进程、网络与 Comfy 服务，等待心跳恢复。",
   "guideCaseMissing": "该工作流已不存在，去工作流列表重新创建或选择其他实体。",
   "guideEdgeMissing": "该节点已不存在，去节点列表重新创建或选择其他实体。",
-  "noMenuEntry": "没有渠道菜单入口，用户不可达",
+  "noMenuEntry": "没有消息平台菜单入口，用户不可达",
   "noCaseRoutes": "没有工作流路由到该 Topic",
   "noTopicBinding": "该计算节点没有订阅任何 Topic",
   "noCaseReachable": "没有工作流把任务派给该节点",

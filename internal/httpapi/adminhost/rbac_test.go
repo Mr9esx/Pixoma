@@ -39,6 +39,17 @@ func TestRequirePermission_ViewerForbidden(t *testing.T) {
 	}
 }
 
+func TestRequirePermission_AuthenticatedNoAccountForbidden(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(setup.WithAccount(req.Context(), setup.AccountSession{AccountID: "", Role: ""}))
+	rec := httptest.NewRecorder()
+	RequirePermission(PermAccountManage)(next).ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", rec.Code)
+	}
+}
+
 func TestRequirePermission_AdminAllowed(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

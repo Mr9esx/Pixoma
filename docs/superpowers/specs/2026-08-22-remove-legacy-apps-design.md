@@ -12,7 +12,7 @@ status: final
 
 删除旧部署入口 `apps/bot`（旧拆分 bot）与 `apps/admin-api`（过渡期独立管理 HTTP）及其专属配置与 `internal/platform/adminconfig`；Makefile 只构建 `pixoma` / `pixoma-edge-agent`；backfill 运维命令迁移到 `apps/pixoma/cmd/backfill-task-stats`；同步文档。新部署只保留控制面 `pixoma` + 执行面 `pixoma-edge-agent`。
 
-非目标：不动 `internal/httpapi/adminhost`（pixoma 使用）、`internal/packaging/botapp`（领域门面，被 pixoma 与渠道 capability 使用）、pixoma 管理 API 行为、`web/admin` 前端、历史归档文档与旧 verify 报告。
+非目标：不动 `internal/httpapi/adminhost`（pixoma 使用）、`internal/packaging/botapp`（领域门面，被 pixoma 与消息平台 capability 使用）、pixoma 管理 API 行为、`web/admin` 前端、历史归档文档与旧 verify 报告。
 
 ## 2. 影响面审计（无功能影响）
 

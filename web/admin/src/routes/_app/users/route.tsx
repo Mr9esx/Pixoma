@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
+import type { UserRecord } from '@/lib/api/types'
 import { listUsers } from '@/lib/api/users'
-import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
-import { UserDetailPanel } from '@/features/users/detail-panel'
 import {
-  UserListPanel,
-  type UserListFilters,
-} from '@/features/users/list-panel'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { UserDetailPanel } from '@/features/users/detail-panel'
+import { UserListPanel } from '@/features/users/list-panel'
 
 export const Route = createFileRoute('/_app/users')({
   component: UsersLayout,
@@ -21,53 +24,52 @@ function errorMessage(err: unknown): string | undefined {
 
 function UsersLayout() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const { userId } = useParams({ strict: false }) as { userId?: string }
-
-  const [filters, setFilters] = useState<UserListFilters>({
-    q: '',
-  })
-
-  const listParams = {
-    q: filters.q.trim() || undefined,
-  }
+  const [detail, setDetail] = useState<UserRecord | null>(null)
 
   const listQuery = useQuery({
-    queryKey: [...queryKeys.users.all, listParams] as const,
-    queryFn: () => listUsers(listParams),
+    queryKey: queryKeys.users.all,
+    queryFn: () => listUsers({}),
   })
+  const items = listQuery.data ?? []
 
   return (
     <div
-      data-layout='fixed'
-      className='flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'
+      className='flex min-h-0 flex-1 flex-col gap-3'
       data-testid='users-page'
     >
-      <div className='shrink-0'>
-        <h1 className='text-2xl font-bold tracking-tight'>
+      <div className='flex shrink-0 flex-col gap-1'>
+        <h1 className='truncate text-2xl leading-tight font-semibold tracking-tight'>
           {t('users.title')}
         </h1>
         <p className='text-sm text-muted-foreground'>
           {t('users.description')}
         </p>
       </div>
-      <MasterDetailShell
-        hasSelection={Boolean(userId)}
-        onBackToList={() => void navigate({ to: '/users' })}
-        list={
-          <UserListPanel
-            items={listQuery.data ?? []}
-            selectedId={userId}
-            filters={filters}
-            onFiltersChange={setFilters}
-            isLoading={listQuery.isLoading}
-            isError={listQuery.isError}
-            errorMessage={errorMessage(listQuery.error)}
-            onRetry={() => void listQuery.refetch()}
-          />
-        }
-        detail={userId ? <UserDetailPanel id={userId} /> : null}
+
+      <UserListPanel
+        items={items}
+        onOpenDetail={setDetail}
+        isLoading={listQuery.isLoading}
+        isError={listQuery.isError}
+        errorMessage={errorMessage(listQuery.error)}
+        onRetry={() => void listQuery.refetch()}
       />
+
+      <Dialog
+        open={detail !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetail(null)
+        }}
+      >
+        <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-3xl'>
+          <DialogHeader>
+            <DialogTitle>{t('users.detailHeading')}</DialogTitle>
+          </DialogHeader>
+          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
+            {detail ? <UserDetailPanel id={detail.id} /> : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

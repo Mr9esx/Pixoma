@@ -114,7 +114,11 @@ function ChannelsLayout() {
             onRetry={() => void listQuery.refetch()}
           />
         }
-        detail={selectedId ? <ChannelDetailPanel id={selectedId} /> : null}
+        detail={
+          selectedId ? (
+            <ChannelDetailPanel key={selectedId} id={selectedId} />
+          ) : null
+        }
         emptyDetail={
           !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
             <Empty>

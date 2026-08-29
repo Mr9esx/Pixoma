@@ -4,14 +4,14 @@ role: technical-design
 canonical_spec: openspec
 ---
 
-# 调度通道（Topic）删除：确认制清理式删除 深度技术设计
+# 任务队列（Topic）删除：确认制清理式删除 深度技术设计
 
 ## 1. 目标
 
-把 Topic 删除从「被引用就 409 拒绝 + 英文内联提示」对齐为与工作流/节点/渠道一致的「**先展示真实引用与影响，二次确认，确认后自动清理**」：
+把 Topic 删除从「被引用就 409 拒绝 + 英文内联提示」对齐为与工作流/节点/消息平台一致的「**先展示真实引用与影响，二次确认，确认后自动清理**」：
 
 - 删除弹窗实时展示：N 个工作流规则指向它、M 个计算节点订阅它、K 个排队任务将标记失败。
-- 确认后在同一事务内：整条删除指向该 Topic 的工作流路由规则、从节点 `subscribe_topics` 移除该 Topic、把排队（queued）任务终态标记失败（`topic_deleted`，原因「调度通道已删除」）并通知发起用户、删除 Topic 行。
+- 确认后在同一事务内：整条删除指向该 Topic 的工作流路由规则、从节点 `subscribe_topics` 移除该 Topic、把排队（queued）任务终态标记失败（`topic_deleted`，原因「任务队列已删除」）并通知发起用户、删除 Topic 行。
 - 错误提示改走 toast + 后端 `code` 映射成中文，不再出现英文 header 提示。
 
 ## 2. 现状与问题
@@ -57,7 +57,7 @@ func DeleteTopic(ctx context.Context, key string, ack bool) (DeleteSummary, erro
 4. 清理：
    - **case 规则整条删除**（用户已确认 A）：对每个受影响 case，`routing.rules` 过滤掉 `topic == key` 的规则，保存 doc_json。
    - **节点订阅**：对每个受影响节点，`subscribe_topics` 移除 key（复用 `EdgeRepository.UpdateSubscribeTopics` 或直接改写 doc_json）。
-   - **排队任务**：`taskRepo.ListByTopic(ctx, key, ListByTopicQuery{Status: queued})`，逐个 `MarkFailed(topic_deleted, "调度通道已删除", now)` + Update（跳过已终态），收集通知。
+   - **排队任务**：`taskRepo.ListByTopic(ctx, key, ListByTopicQuery{Status: queued})`，逐个 `MarkFailed(topic_deleted, "任务队列已删除", now)` + Update（跳过已终态），收集通知。
 5. `topicRepo.Delete`。
 
 commit 后 best-effort：对失败任务发布 `task_failed` 通知（ChatID 为空时经 session 回查）。
@@ -69,7 +69,7 @@ running 任务不受影响（已被节点领取，节点仍能上报）；pendin
 - `topics.Handler` 删除 `CountCaseRefs` / `CountEdgeRefs` 字段，新增 `DeleteWithCleanup func(ctx, key string, ack bool) (topicadmin.DeleteSummary, error)`。
 - `delete` 方法：`ErrDefaultProtected` → 409（code `topic_default_protected`）→ `ErrNeedsAck` → 409（code `topic_delete_needs_ack`）→ `ErrTopicNotFound` → 404 → 成功返回摘要。
 - main.go：`topicDeleteSvc := topicadmin.NewService(gdb, botRT.Notify)`，`DeleteWithCleanup: topicDeleteSvc.DeleteTopic`。
-- `sharedkernel` 新增：`TaskErrorTopicDeleted = "topic_deleted"`、`TopicDeletedMessage = "调度通道已删除"`。
+- `sharedkernel` 新增：`TaskErrorTopicDeleted = "topic_deleted"`、`TopicDeletedMessage = "任务队列已删除"`。
 
 ### 3.3 tasks 管理 API 支持 dispatch_topic 过滤
 
@@ -92,8 +92,8 @@ running 任务不受影响（已被节点领取，节点仍能上报）；pendin
 - `topics.deleteWillUnbindNodes`：M 个计算节点的订阅将被移除
 - `topics.deleteWillFailQueued`：K 个排队任务将标记为失败并通知用户
 - `topics.deleteAckImpact`：我已知悉上述影响
-- `topics.deleteNeedsAck`：该调度通道仍被工作流或节点引用，确认后将自动清理
-- `topics.deleteDone`：调度通道已删除（移除 N 条规则、解除 M 个订阅、失败 K 个任务）
+- `topics.deleteNeedsAck`：该任务队列仍被工作流或节点引用，确认后将自动清理
+- `topics.deleteDone`：任务队列已删除（移除 N 条规则、解除 M 个订阅、失败 K 个任务）
 
 ## 4. 数据流
 

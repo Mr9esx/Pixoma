@@ -4,6 +4,7 @@ import { CircleCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { requestFocus, scrollAndFlash } from '@/lib/scroll-focus'
 import { cn } from '@/lib/utils'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { SectionHead } from '@/components/section-head'
 import type {
@@ -56,16 +57,19 @@ export function LinkHealthSection({
     >
       <SectionHead title={title} hint={t('linkHealth.sectionHint')} />
       {health.state === 'ok' ? (
-        <div
+        <Alert
+          variant='success'
           data-testid='link-health-ok'
-          className='flex items-center gap-2 rounded-md border border-emerald-600/20 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400'
+          className='flex flex-wrap items-center gap-2'
         >
           <CircleCheck className='size-4 shrink-0' aria-hidden='true' />
-          <span className='font-medium'>{t('linkHealth.stateOk')}</span>
-          <span className='text-emerald-700/70 dark:text-emerald-400/70'>
+          <AlertTitle className='text-sm font-medium'>
+            {t('linkHealth.stateOk')}
+          </AlertTitle>
+          <AlertDescription className='text-sm'>
             {t('linkHealth.stateOkDetail')}
-          </span>
-        </div>
+          </AlertDescription>
+        </Alert>
       ) : null}
       {blocked ? (
         <div

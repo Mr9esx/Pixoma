@@ -69,7 +69,7 @@ func TestDeleteCase_AckRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := menuRepo.PutMenu(ctx, "ch1", mcdomain.Menu{ID: "m", Name: "主", Columns: 2, Items: []mcdomain.MenuItem{
-		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"10"}}},
+		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "10"}},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestDeleteCase_CleanupAndDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := menuRepo.PutMenu(ctx, "ch1", mcdomain.Menu{ID: "m", Name: "主", Columns: 2, Items: []mcdomain.MenuItem{
-		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"10"}}},
+		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "10"}},
 	}}); err != nil {
 		t.Fatal(err)
 	}

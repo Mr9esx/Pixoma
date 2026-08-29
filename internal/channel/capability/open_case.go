@@ -10,6 +10,7 @@ import (
 
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
+	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -29,6 +30,17 @@ type CaseService interface {
 // OpenCase is the built-in capability wrapping the existing Case workflow.
 type OpenCase struct {
 	App CaseService
+	// Texts resolves configurable copy templates; nil falls back to built-ins.
+	Texts texttpl.Renderer
+}
+
+// renderText resolves a configurable copy template for a channel (with
+// defaults) and interpolates the supplied variables.
+func (o OpenCase) renderText(ctx context.Context, channelID, key string, vars map[string]string) string {
+	if o.Texts == nil {
+		return texttpl.Render(texttpl.Default(key), vars)
+	}
+	return o.Texts.Render(ctx, channelID, key, vars)
 }
 
 func (OpenCase) ID() string          { return "open_case" }
@@ -38,9 +50,8 @@ func (OpenCase) ParamsSchema() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
 		"properties": {
-			"case_ids": { "type": "array", "items": { "type": "string" } },
 			"case_id":  { "type": "string" },
-			"step":     { "type": "string", "enum": ["list", "preview", "start", "confirm", "exit", "skip", "text", "media", "check"] },
+			"step":     { "type": "string", "enum": ["preview", "start", "confirm", "exit", "skip", "text", "media", "check"] },
 			"text":     { "type": "string" },
 			"blob":     { "type": "object", "properties": { "key": { "type": "string" }, "mime": { "type": "string" } } }
 		}
@@ -77,29 +88,12 @@ func stringOf(v any) string {
 	}
 }
 
-// stringSlice 把参数值统一成字符串列表，兼容内存直传和 JSON 反序列化两种形态。
-func stringSlice(v any) []string {
-	switch t := v.(type) {
-	case []string:
-		return append([]string(nil), t...)
-	case []any:
-		out := make([]string, 0, len(t))
-		for _, item := range t {
-			if s := stringOf(item); s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
-}
-
 func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav protocol.Nav, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
 	step, _ := params["step"].(string)
 	if step == "" {
-		step = "list"
+		step = "preview"
 	}
+	channelID := acct.ChannelID
 	switch step {
 	case "check":
 		if o.App == nil {
@@ -109,20 +103,18 @@ func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav prot
 			return protocol.Result{Text: "none"}, nil
 		}
 		return protocol.Result{Text: "active"}, nil
-	case "list":
-		return o.list(ctx, params)
 	case "preview":
-		return o.preview(ctx, params)
+		return o.preview(ctx, channelID, params)
 	case "start":
-		return o.start(ctx, acct, chatID, params)
+		return o.start(ctx, channelID, acct, chatID, params)
 	case "skip":
-		return o.skip(ctx, chatID)
+		return o.skip(ctx, channelID, chatID)
 	case "text":
-		return o.submitText(ctx, chatID, params)
+		return o.submitText(ctx, channelID, chatID, params)
 	case "media":
-		return o.submitMedia(ctx, chatID, params)
+		return o.submitMedia(ctx, channelID, chatID, params)
 	case "confirm":
-		return o.confirm(ctx, chatID)
+		return o.confirm(ctx, channelID, chatID)
 	case "exit":
 		if o.App == nil {
 			return protocol.Result{}, fmt.Errorf("open_case: app not configured")
@@ -130,13 +122,13 @@ func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav prot
 		if err := o.App.ExitSession(ctx, chatID); err != nil {
 			return protocol.Result{}, err
 		}
-		return protocol.Result{Text: "已退出当前 Case，可以重新选择。"}, nil
+		return protocol.Result{Text: o.renderText(ctx, channelID, texttpl.KeyExitDone, nil)}, nil
 	default:
 		return protocol.Result{}, fmt.Errorf("open_case: unknown step %q", step)
 	}
 }
 
-func (o OpenCase) submitText(ctx context.Context, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
+func (o OpenCase) submitText(ctx context.Context, channelID string, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
@@ -168,10 +160,10 @@ func (o OpenCase) submitText(ctx context.Context, chatID sharedkernel.ChatID, pa
 	if err != nil {
 		return protocol.Result{}, err
 	}
-	return renderSession(o, view)
+	return renderSession(ctx, channelID, o, view)
 }
 
-func (o OpenCase) submitMedia(ctx context.Context, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
+func (o OpenCase) submitMedia(ctx context.Context, channelID string, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
@@ -193,7 +185,7 @@ func (o OpenCase) submitMedia(ctx context.Context, chatID sharedkernel.ChatID, p
 	if err != nil {
 		return protocol.Result{}, err
 	}
-	return renderSession(o, view)
+	return renderSession(ctx, channelID, o, view)
 }
 
 func (o OpenCase) currentFieldType(ctx context.Context, chatID sharedkernel.ChatID) (string, error) {
@@ -223,39 +215,7 @@ func (o OpenCase) currentFieldType(ctx context.Context, chatID sharedkernel.Chat
 	return "", fmt.Errorf("open_case: unknown field %q", key)
 }
 
-func (o OpenCase) list(ctx context.Context, params map[string]any) (protocol.Result, error) {
-	if o.App == nil {
-		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
-	}
-	ids := stringSlice(params["case_ids"])
-	if raw := stringSlice(params["workflow_ids"]); len(raw) > 0 {
-		ids = raw
-	}
-	if len(ids) == 0 {
-		return protocol.Result{Text: "暂无可用工作流"}, nil
-	}
-	var options []protocol.Option
-	for _, id := range ids {
-		if id == "" {
-			continue
-		}
-		parsed, perr := sharedkernel.ParseCaseID(id)
-		if perr != nil {
-			continue
-		}
-		c, err := o.App.GetCase(ctx, parsed)
-		if err != nil {
-			continue
-		}
-		options = append(options, protocol.Option{
-			Label: c.Document.Name,
-			Value: map[string]any{"step": "preview", "case_id": id},
-		})
-	}
-	return protocol.Result{Text: "请选择模板：", Options: options}, nil
-}
-
-func (o OpenCase) preview(ctx context.Context, params map[string]any) (protocol.Result, error) {
+func (o OpenCase) preview(ctx context.Context, channelID string, params map[string]any) (protocol.Result, error) {
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
@@ -295,7 +255,6 @@ func (o OpenCase) preview(ctx context.Context, params map[string]any) (protocol.
 		Media: media,
 		Options: []protocol.Option{
 			{Label: "▶ 开始 Case", Value: map[string]any{"step": "start", "case_id": strconv.FormatUint(uint64(caseID), 10)}},
-			{Label: "« 返回列表", Value: map[string]any{"step": "list", "case_ids": backCaseIDs(params, rawCaseID)}},
 		},
 	}, nil
 }
@@ -324,18 +283,7 @@ func previewMediaRef(preview string) (key string, mime string, ok bool) {
 	return p, m, true
 }
 
-// backCaseIDs 返回「返回列表」要携带的 case_ids：沿用原参数，缺失时退化为当前单个工作流。
-func backCaseIDs(params map[string]any, rawCaseID string) any {
-	if ids := params["case_ids"]; ids != nil {
-		return ids
-	}
-	if ids := params["workflow_ids"]; ids != nil {
-		return ids
-	}
-	return []string{rawCaseID}
-}
-
-func (o OpenCase) start(ctx context.Context, acct protocol.AccountCtx, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
+func (o OpenCase) start(ctx context.Context, channelID string, acct protocol.AccountCtx, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
@@ -353,7 +301,7 @@ func (o OpenCase) start(ctx context.Context, acct protocol.AccountCtx, chatID sh
 	if err != nil {
 		if errors.Is(err, convdomain.ErrSessionLocked) {
 			return protocol.Result{
-				Text: "你有一个未完成的工作流，先退出再重新开始。",
+				Text: o.renderText(ctx, channelID, texttpl.KeyUnfinishedSession, nil),
 				Options: []protocol.Option{
 					{Label: "✕ 退出", Value: map[string]any{"step": "exit"}},
 				},
@@ -361,10 +309,10 @@ func (o OpenCase) start(ctx context.Context, acct protocol.AccountCtx, chatID sh
 		}
 		return protocol.Result{}, err
 	}
-	return renderSession(o, view)
+	return renderSession(ctx, channelID, o, view)
 }
 
-func (o OpenCase) skip(ctx context.Context, chatID sharedkernel.ChatID) (protocol.Result, error) {
+func (o OpenCase) skip(ctx context.Context, channelID string, chatID sharedkernel.ChatID) (protocol.Result, error) {
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
@@ -372,10 +320,10 @@ func (o OpenCase) skip(ctx context.Context, chatID sharedkernel.ChatID) (protoco
 	if err != nil {
 		return protocol.Result{}, err
 	}
-	return renderSession(o, view)
+	return renderSession(ctx, channelID, o, view)
 }
 
-func (o OpenCase) confirm(ctx context.Context, chatID sharedkernel.ChatID) (protocol.Result, error) {
+func (o OpenCase) confirm(ctx context.Context, channelID string, chatID sharedkernel.ChatID) (protocol.Result, error) {
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
@@ -383,13 +331,13 @@ func (o OpenCase) confirm(ctx context.Context, chatID sharedkernel.ChatID) (prot
 	if err != nil {
 		return protocol.Result{}, err
 	}
-	return protocol.Result{Text: fmt.Sprintf("已提交，正在生成… task=%s", res.TaskID)}, nil
+	return protocol.Result{Text: o.renderText(ctx, channelID, texttpl.KeySubmitStarted, map[string]string{"task_id": string(res.TaskID)})}, nil
 }
 
-func renderSession(o OpenCase, view *botapp.SessionView) (protocol.Result, error) {
+func renderSession(ctx context.Context, channelID string, o OpenCase, view *botapp.SessionView) (protocol.Result, error) {
 	if view.Status == convdomain.StatusConfirming {
 		return protocol.Result{
-			Text: "输入完成，确认执行？",
+			Text: o.renderText(ctx, channelID, texttpl.KeyConfirmRun, nil),
 			Options: []protocol.Option{
 				{Label: "✅ 确认生成", Value: map[string]any{"step": "confirm"}},
 				{Label: "✕ 退出", Value: map[string]any{"step": "exit"}},
@@ -400,7 +348,16 @@ func renderSession(o OpenCase, view *botapp.SessionView) (protocol.Result, error
 	if view.Index >= 0 && view.Index < len(view.Keys) {
 		key = view.Keys[view.Index]
 	}
+	vars := map[string]string{"key": key}
+	if view.CaseID != 0 {
+		if c, err := o.App.GetCase(ctx, view.CaseID); err == nil && c != nil {
+			vars["case_name"] = c.Document.Name
+		}
+	}
+	if view.Index >= 0 && len(view.Keys) > 0 {
+		vars["progress"] = fmt.Sprintf("%d/%d", view.Index+1, len(view.Keys))
+	}
 	options := []protocol.Option{{Label: "✕ 退出", Value: map[string]any{"step": "exit"}}}
 	options = append([]protocol.Option{{Label: "跳过", Value: map[string]any{"step": "skip"}}}, options...)
-	return protocol.Result{Text: fmt.Sprintf("请输入「%s」", key), Options: options}, nil
+	return protocol.Result{Text: o.renderText(ctx, channelID, texttpl.KeyInputPrompt, vars), Options: options}, nil
 }

@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils"
 const THEMES = { light: "", dark: ".dark" } as const
 
 const INITIAL_DIMENSION = { width: 320, height: 200 } as const
+// 匹配侧边栏宽度过渡时长（sidebar.tsx duration-200），
+// 节流 ResponsiveContainer 的 resize，避免折叠动画期间每帧全量重绘图表。
+const CHART_RESIZE_DEBOUNCE = 200 as const
 type TooltipNameType = number | string
 
 export type ChartConfig = Record<
@@ -45,12 +48,14 @@ function ChartContainer({
   children,
   config,
   initialDimension = INITIAL_DIMENSION,
+  debounce = CHART_RESIZE_DEBOUNCE,
   ...props
 }: React.ComponentProps<"div"> & {
   config: ChartConfig
   children: React.ComponentProps<
     typeof RechartsPrimitive.ResponsiveContainer
   >["children"]
+  debounce?: number
   initialDimension?: {
     width: number
     height: number
@@ -73,6 +78,7 @@ function ChartContainer({
         <ChartStyle id={chartId} config={config} />
         <RechartsPrimitive.ResponsiveContainer
           initialDimension={initialDimension}
+          debounce={debounce}
         >
           {children}
         </RechartsPrimitive.ResponsiveContainer>

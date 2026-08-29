@@ -26,7 +26,7 @@
 | 渲染 DTO 与真实渲染同源 | `protocol.BuildKeyboardLayout` 与 `tg.BuildReplyKeyboard` 共用 |
 | 管理端能力编辑器 + 预览 | `web/admin` channel-menu-editor + menu-preview |
 | 文案术语约束 | i18n 无 inline/callback/extras/capability 等内部术语 |
-| 按渠道账户 | `protocol.AccountCtx`（渠道 + 外部用户 id，不做合并） |
+| 按消息平台账户 | `protocol.AccountCtx`（消息平台 + 外部用户 id，不做合并） |
 
 ### 2.3 实现符合 Design Doc（深度技术设计）— PASS
 
@@ -38,7 +38,7 @@ Design Doc `docs/superpowers/specs/2026-08-19-channel-interaction-framework-desi
 
 ### 2.5 proposal.md 目标已满足 — PASS
 
-能力注册表 + 菜单=能力入口树 + 统一交互协议 + 渠道账户上下文 + TG 交互落地（显式主键盘/一层分组/消息按钮流程）+ 管理端能力编辑器与同源预览 + 文案术语约束均已实现。
+能力注册表 + 菜单=能力入口树 + 统一交互协议 + 消息平台账户上下文 + TG 交互落地（显式主键盘/一层分组/消息按钮流程）+ 管理端能力编辑器与同源预览 + 文案术语约束均已实现。
 
 ### 2.6 delta spec 与 design doc 无矛盾 — PASS
 

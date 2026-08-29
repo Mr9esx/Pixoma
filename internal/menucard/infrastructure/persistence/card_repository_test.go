@@ -30,7 +30,7 @@ func TestCardRepositoryMenuAndCardsRoundTrip(t *testing.T) {
 	}
 
 	card := mcdomain.Card{ID: "c1", Name: "开始生成", Text: "hi", Buttons: []mcdomain.CardButton{
-		{ID: "b", Label: "B", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "b", Label: "B", Action: mcdomain.Action{Type: "send_text", Text: "ok"}},
 	}}
 	if err := repo.CreateCard(ctx, "ch1", card); err != nil {
 		t.Fatal(err)
@@ -65,17 +65,17 @@ func TestRemoveWorkflowReferences(t *testing.T) {
 	ctx := context.Background()
 
 	menu := mcdomain.Menu{ID: "m", Name: "主", Columns: 2, Items: []mcdomain.MenuItem{
-		{ID: "mi-keep", Label: "保留", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"1", "2"}}},
-		{ID: "mi-drop", Label: "删除", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"1"}}},
-		{ID: "mi-other", Label: "无关", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "mi-keep", Label: "保留", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "2"}},
+		{ID: "mi-drop", Label: "删除", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "1"}},
+		{ID: "mi-other", Label: "无关", Action: mcdomain.Action{Type: "send_text", Text: "ok"}},
 	}}
 	if err := repo.PutMenu(ctx, "ch1", menu); err != nil {
 		t.Fatal(err)
 	}
 	card := mcdomain.Card{ID: "c1", Name: "卡", Text: "hi", Buttons: []mcdomain.CardButton{
-		{ID: "b1", Label: "B", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"1", "3"}}},
-		{ID: "b2", Label: "B2", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"2"}}},
-		{ID: "b3", Label: "B3", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"1"}}},
+		{ID: "b1", Label: "B", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "1"}},
+		{ID: "b2", Label: "B2", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "2"}},
+		{ID: "b3", Label: "B3", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "1"}},
 	}}
 	if err := repo.CreateCard(ctx, "ch1", card); err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestRemoveWorkflowReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(removed) != 4 {
+	if len(removed) != 3 {
 		t.Fatalf("removed=%+v", removed)
 	}
 
@@ -96,24 +96,21 @@ func TestRemoveWorkflowReferences(t *testing.T) {
 	if len(gotMenu.Items) != 2 {
 		t.Fatalf("menu items=%+v", gotMenu.Items)
 	}
-	if len(gotMenu.Items[0].Action.WorkflowIDs) != 1 || gotMenu.Items[0].Action.WorkflowIDs[0] != "2" {
-		t.Fatalf("mi-keep workflow_ids=%v", gotMenu.Items[0].Action.WorkflowIDs)
+	if gotMenu.Items[0].ID != "mi-keep" || gotMenu.Items[0].Action.WorkflowID != "2" {
+		t.Fatalf("mi-keep must survive, got=%+v", gotMenu.Items[0])
 	}
 	if gotMenu.Items[1].ID != "mi-other" {
-		t.Fatalf("second item=%+v", gotMenu.Items[1])
+		t.Fatalf("second item must be mi-other, got=%+v", gotMenu.Items[1])
 	}
 
 	cards, err := repo.ListCards(ctx, "ch1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cards) != 1 || len(cards[0].Buttons) != 2 {
+	if len(cards) != 1 || len(cards[0].Buttons) != 1 {
 		t.Fatalf("cards=%+v", cards)
 	}
-	if len(cards[0].Buttons[0].Action.WorkflowIDs) != 1 || cards[0].Buttons[0].Action.WorkflowIDs[0] != "3" {
-		t.Fatalf("b1 workflow_ids=%v", cards[0].Buttons[0].Action.WorkflowIDs)
-	}
-	if cards[0].Buttons[1].ID != "b2" {
-		t.Fatalf("second button=%+v", cards[0].Buttons[1])
+	if cards[0].Buttons[0].ID != "b2" || cards[0].Buttons[0].Action.WorkflowID != "2" {
+		t.Fatalf("b2 must survive, got=%+v", cards[0].Buttons[0])
 	}
 }

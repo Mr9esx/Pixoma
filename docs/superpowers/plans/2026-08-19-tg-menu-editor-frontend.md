@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把渠道菜单编辑器改成所见即所得：左侧 TG 手机模拟（实时、可点击），右侧按能力参数 schema 渲染配置表单，保存前校验并显示未保存提示。
+**Goal:** 把消息平台菜单编辑器改成所见即所得：左侧 TG 手机模拟（实时、可点击），右侧按能力参数 schema 渲染配置表单，保存前校验并显示未保存提示。
 
 **Architecture:** 纯函数层（`menu-simulation.ts` 复刻后端布局逻辑、`menu-validate.ts` 保存校验）与组件层分离；编辑器状态仍持有 `MenuNode[]` 树，PUT 全量保存不变。能力参数表单由 `params_schema`（含 `x-admin.widget` 提示）驱动，open_case 不再特判。
 

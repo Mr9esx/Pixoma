@@ -57,5 +57,5 @@ archived-with: 2026-08-22-quick-config-wizard
 **Files:**
 - 验证为主（`web/admin` dev + pixoma/admin-api 后端）
 
-- [x] 8.4.1 本地起 pixoma（或 admin-api）+ Vite，Mock 数据下走通：导入工作流建 Case → Step2 画布配置规则/Topic/节点 → 投放渠道 → 完成页全绿 → 发布 → 回读一致
+- [x] 8.4.1 本地起 pixoma（或 admin-api）+ Vite，Mock 数据下走通：导入工作流建 Case → Step2 画布配置规则/Topic/节点 → 投放消息平台 → 完成页全绿 → 发布 → 回读一致
 - [x] 8.4.2 记录冒烟证据到验证报告

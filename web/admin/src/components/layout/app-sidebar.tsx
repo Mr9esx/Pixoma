@@ -14,12 +14,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar'
-import { ThemeSwitch } from '@/components/theme-switch'
 import { AppTitle } from './app-title'
-import { LanguageSwitcher } from './language-switcher'
 import { NavUser } from './nav-user'
 
 export function AppSidebar() {
@@ -89,7 +86,6 @@ export function AppSidebar() {
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   )
 }

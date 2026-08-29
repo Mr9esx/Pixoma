@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pixoma 菜单编辑器重构 · 大纲+卡片库+动作分类（Demo v8）</title>
+<style>
+  :root {
+    --bg:#f6f5f2; --card:#ffffff; --ink:#1a1a1a; --muted:#6b7280;
+    --line:#e5e3de; --line-soft:#efedea;
+    --primary:#1a1a1a; --primary-soft:#f3f1ec;
+    --workflow:#047857; --workflow-soft:#ecfdf5; --workflow-line:#a7f3d0;
+    --tg:#1d4ed8; --tg-soft:#eff6ff; --tg-line:#bfdbfe;
+    --amber:#d97706; --amber-soft:#fffbeb;
+    --danger:#b91c1c;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink); padding-bottom:60px; }
+  .container { max-width:1320px; margin:0 auto; padding:0 24px; }
+  .hero { padding:36px 24px 8px; }
+  .hero .tag { display:inline-flex; font-size:12px; color:var(--amber); font-weight:600; letter-spacing:.06em; border:1px solid rgba(217,119,6,.25); background:var(--amber-soft); padding:4px 10px; border-radius:999px; margin-bottom:12px; }
+  .hero h1 { font-size:24px; font-weight:700; letter-spacing:-.02em; }
+  .hero p { color:var(--muted); margin-top:6px; font-size:14px; line-height:1.7; max-width:1080px; }
+  .hero .note { margin-top:14px; font-size:12.5px; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; padding:10px 14px; border-radius:10px; line-height:1.85; max-width:1080px; }
+  .hero .note b { color:#0f172a; }
+  .hero .note code { font-family:ui-monospace,monospace; background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:11.5px; }
+  .hero .note ul { margin:6px 0 0 18px; }
+
+  .stage { margin:18px auto 0; }
+  .stage-grid { display:grid; grid-template-columns: 300px 1fr 320px; gap:16px; align-items:stretch; }
+  .pane { background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; min-height:740px; }
+  .pane-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; border-bottom:1px solid var(--line-soft); font-size:13px; font-weight:600; }
+  .pane-head .pane-sub { font-size:11.5px; color:var(--muted); font-weight:400; }
+  .pane-body { padding:14px; flex:1; overflow:auto; }
+
+  /* 顶部 tab 切换：大纲 / 卡片库 */
+  .top-tabs { display:flex; gap:2px; padding:0 14px; border-bottom:1px solid var(--line-soft); background:#faf9f5; }
+  .top-tab { padding:9px 12px; font-size:12.5px; color:var(--muted); cursor:pointer; font-weight:500; border-bottom:2px solid transparent; display:flex; align-items:center; gap:6px; }
+  .top-tab.sel { color:var(--ink); border-bottom-color:var(--ink); font-weight:600; }
+  .top-tab .cnt { font-size:10.5px; background:#f1efea; color:#4b5563; border-radius:999px; padding:1px 6px; font-weight:600; }
+  .top-tab.sel .cnt { background:var(--ink); color:#fff; }
+  .top-actions { margin-left:auto; padding:6px 12px 0; }
+
+  /* 大纲样式 */
+  .outline-tools { display:flex; gap:8px; padding:10px 14px; border-bottom:1px solid var(--line-soft); }
+  .outline-search { flex:1; display:flex; align-items:center; gap:6px; background:#fafaf7; border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12px; color:var(--muted); }
+  .outline-search input { flex:1; border:none; outline:none; background:transparent; color:var(--ink); font-size:12px; }
+  .outline-list { padding:8px; }
+  .outline-item { display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; cursor:pointer; font-size:12.5px; }
+  .outline-item:hover { background:#faf9f5; }
+  .outline-item.sel { background:var(--primary-soft); outline:1px solid #d6d3cb; }
+  .outline-item .label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .outline-item .ico { width:18px; height:18px; border-radius:5px; display:grid; place-items:center; font-size:10px; color:#fff; flex-shrink:0; }
+  .outline-item .ico.wf { background:var(--workflow); }
+  .outline-item .ico.tg { background:var(--tg); }
+  .outline-item .ico.cd { background:#475569; }
+  .outline-item .badge { font-size:10px; padding:2px 7px; border-radius:999px; font-weight:600; letter-spacing:.02em; flex-shrink:0; }
+  .outline-item .badge.wf { color:var(--workflow); background:var(--workflow-soft); border:1px solid var(--workflow-line); }
+  .outline-item .badge.tg { color:var(--tg); background:var(--tg-soft); border:1px solid var(--tg-line); }
+  .outline-item .badge.cd { color:#475569; background:#f1f5f9; border:1px solid #cbd5e1; }
+  .outline-item .x { font-size:11px; color:var(--muted); padding:2px 6px; border-radius:5px; opacity:.4; }
+  .outline-item:hover .x { opacity:1; }
+  .outline-item .x:hover { background:#fef2f2; color:var(--danger); }
+  .outline-children { padding-left:18px; margin:2px 0 4px; border-left:1px dashed #e1ddd4; }
+  .outline-children .outline-item { padding:6px 9px; font-size:12px; }
+  .outline-empty { padding:30px 18px; text-align:center; color:var(--muted); font-size:12.5px; }
+  .outline-empty .e-cta { margin-top:10px; display:inline-flex; padding:6px 12px; background:var(--ink); color:#fff; border-radius:8px; font-size:12.5px; cursor:pointer; }
+
+  /* 卡片库样式 */
+  .library-tools { display:flex; gap:8px; padding:10px 14px; border-bottom:1px solid var(--line-soft); }
+  .library-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px; }
+  .library-card { border:1px solid var(--line); border-radius:10px; padding:10px; background:#fff; cursor:pointer; transition:all .12s; }
+  .library-card:hover { border-color:#cbd5e1; box-shadow:0 4px 12px -6px rgba(15,23,42,.12); }
+  .library-card.sel { border-color:var(--ink); background:var(--primary-soft); }
+  .library-card .lc-head { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+  .library-card .lc-head .ico { width:18px; height:18px; border-radius:5px; background:#475569; color:#fff; display:grid; place-items:center; font-size:10px; }
+  .library-card .lc-head .nm { font-size:12.5px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .library-card .lc-head .pin { font-size:10px; color:var(--muted); }
+  .library-card .lc-text { font-size:11.5px; color:#475569; line-height:1.5; height:36px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .library-card .lc-foot { display:flex; align-items:center; justify-content:space-between; margin-top:8px; font-size:10.5px; color:var(--muted); }
+  .library-card .lc-foot .btns-cnt { display:inline-flex; align-items:center; gap:3px; }
+
+  /* 编辑器 */
+  .editor-section { padding:14px 18px; border-bottom:1px solid var(--line-soft); background:#faf9f5; }
+  .editor-section h4 { font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px; font-weight:600; }
+  .action-type { display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line-soft); background:#faf9f5; }
+  .action-type .lbl { width:96px; font-size:12.5px; color:#475569; flex-shrink:0; }
+  .action-type .sel { flex:1; position:relative; }
+  .action-type .sel select { width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 36px 8px 32px; font-size:13px; font-family:inherit; background:#fff; color:var(--ink); outline:none; appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>"); background-repeat:no-repeat; background-position:right 10px center; }
+  .action-type .sel .src-dot { position:absolute; left:10px; top:50%; transform:translateY(-50%); width:9px; height:9px; border-radius:50%; pointer-events:none; }
+  .action-type .sel .src-dot.wf { background:var(--workflow); }
+  .action-type .sel .src-dot.tg { background:var(--tg); }
+  .action-type .sel .src-dot.cd { background:#475569; }
+  .action-type .src-tag { font-size:10.5px; padding:3px 9px; border-radius:999px; font-weight:600; letter-spacing:.03em; flex-shrink:0; }
+  .action-type .src-tag.wf { color:var(--workflow); background:var(--workflow-soft); border:1px solid var(--workflow-line); }
+  .action-type .src-tag.tg { color:var(--tg); background:var(--tg-soft); border:1px solid var(--tg-line); }
+  .action-type .src-tag.cd { color:#475569; background:#f1f5f9; border:1px solid #cbd5e1; }
+
+  .action-card { border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:0 18px 16px; background:#fff; }
+  .action-card .ac-head { display:flex; align-items:center; gap:10px; padding:10px 12px; background:#faf9f5; border-bottom:1px solid var(--line-soft); }
+  .action-card .ac-head .src { display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:999px; letter-spacing:.03em; }
+  .action-card .ac-head .src.wf { color:var(--workflow); background:var(--workflow-soft); border:1px solid var(--workflow-line); }
+  .action-card .ac-head .src.tg { color:var(--tg); background:var(--tg-soft); border:1px solid var(--tg-line); }
+  .action-card .ac-head .src.cd { color:#475569; background:#f1f5f9; border:1px solid #cbd5e1; }
+  .action-card .ac-head .name { font-size:12.5px; font-weight:600; }
+  .action-card .ac-body { padding:12px; }
+
+  .field-row { display:flex; align-items:center; gap:10px; padding:10px 0; }
+  .field-row + .field-row { border-top:1px dashed var(--line-soft); }
+  .field-row .lbl { width:96px; font-size:12.5px; color:#475569; flex-shrink:0; }
+  .field-row .ctrl { flex:1; }
+  .field-row .ctrl input, .field-row .ctrl textarea, .field-row .ctrl select { width:100%; border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:inherit; background:#fff; color:var(--ink); outline:none; }
+  .field-row .ctrl input:focus, .field-row .ctrl textarea:focus, .field-row .ctrl select:focus { border-color:#94a3b8; box-shadow:0 0 0 3px rgba(148,163,184,.12); }
+  .field-row .ctrl textarea { min-height:60px; resize:vertical; line-height:1.55; }
+  .field-row .ctrl .hint { font-size:11px; color:var(--muted); margin-top:5px; }
+  .field-row.stack .lbl { align-items:flex-start; padding-top:8px; }
+
+  .button-list { display:flex; flex-direction:column; gap:6px; }
+  .button-list-item { display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; cursor:pointer; background:#fff; }
+  .button-list-item:hover { background:#faf9f5; }
+  .button-list-item.sel { background:var(--primary-soft); outline:1px solid #d6d3cb; }
+  .button-list-item .ico { width:18px; height:18px; border-radius:5px; display:grid; place-items:center; font-size:10px; color:#fff; flex-shrink:0; }
+  .button-list-item .ico.wf { background:var(--workflow); }
+  .button-list-item .ico.tg { background:var(--tg); }
+  .button-list-item .lbl { flex:1; font-size:12.5px; }
+  .button-list-item .badge { font-size:10px; padding:2px 7px; border-radius:999px; font-weight:600; flex-shrink:0; }
+  .button-list-item .badge.wf { color:var(--workflow); background:var(--workflow-soft); border:1px solid var(--workflow-line); }
+  .button-list-item .badge.tg { color:var(--tg); background:var(--tg-soft); border:1px solid var(--tg-line); }
+  .button-list-item .x { font-size:11px; color:var(--muted); padding:2px 6px; border-radius:5px; cursor:pointer; }
+  .button-list-item .x:hover { background:#fef2f2; color:var(--danger); }
+
+  .editor-foot { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-top:1px solid var(--line-soft); background:#faf9f5; }
+  .editor-foot .dirty { font-size:11.5px; color:var(--amber); display:flex; align-items:center; gap:5px; }
+  .editor-foot .actions { display:flex; gap:8px; }
+  .btn { padding:7px 14px; border-radius:8px; font-size:12.5px; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--ink); font-family:inherit; }
+  .btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .btn.ghost { background:transparent; }
+  .btn.small { padding:5px 10px; font-size:11.5px; }
+  .btn.danger { color:var(--danger); border-color:#fecaca; }
+  .btn.danger:hover { background:#fef2f2; }
+
+  .phone { display:flex; flex-direction:column; align-items:center; padding:18px 12px 16px; }
+  .phone-frame { width:280px; background:#0f172a; border-radius:28px; padding:14px 12px 16px; box-shadow:0 14px 30px -12px rgba(15,23,42,.25); }
+  .phone-screen { background:#fff; border-radius:18px; overflow:hidden; }
+  .phone-header { background:#1e293b; color:#cbd5e1; font-size:10.5px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; }
+  .phone-header .pname { color:#fff; font-weight:600; font-size:12px; }
+  .phone-body { padding:14px; }
+  .phone-greeting { font-size:12.5px; color:#0f172a; line-height:1.6; margin-bottom:12px; }
+  .phone-greeting .preview { margin-top:8px; border:1px solid #e2e8f0; border-radius:10px; padding:8px; background:#f8fafc; }
+  .phone-greeting .preview .pname { font-size:11.5px; font-weight:600; margin-bottom:2px; }
+  .phone-greeting .preview .pdesc { font-size:10.5px; color:#64748b; }
+  .phone-keyboard { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:8px 10px 12px; border-top:1px solid #e2e8f0; background:#f8fafc; }
+  .phone-key { padding:9px 8px; border-radius:8px; background:#fff; border:1px solid #e2e8f0; text-align:center; font-size:11.5px; color:#0f172a; cursor:pointer; }
+  .phone-key.hl { background:#1a1a1a; color:#fff; border-color:#1a1a1a; box-shadow:0 0 0 3px rgba(26,26,26,.12); }
+  .phone-key .src-tag { display:block; font-size:9px; margin-top:3px; opacity:.75; }
+  .phone-key.hl .src-tag { opacity:.85; }
+  .phone-foot { text-align:center; font-size:10.5px; color:#94a3b8; margin-top:10px; }
+  .phone-card-view { padding:8px 12px 12px; background:#f1f5f9; }
+  .phone-card-view .ct { font-size:11.5px; font-weight:600; color:#0f172a; margin-bottom:6px; }
+  .phone-card-view .ctx { font-size:10.5px; color:#475569; line-height:1.5; margin-bottom:8px; }
+  .phone-card-view .btns { display:flex; flex-direction:column; gap:4px; }
+  .phone-card-view .bk { padding:6px 8px; border-radius:6px; background:#fff; border:1px solid #cbd5e1; text-align:center; font-size:11px; color:#0f172a; }
+  .phone-card-view .bk.hl { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
+
+  .modal-bg { position:fixed; inset:0; background:rgba(15,23,42,.4); display:none; align-items:center; justify-content:center; z-index:50; }
+  .modal-bg.open { display:flex; }
+  .modal { background:#fff; border-radius:14px; padding:20px; width:420px; box-shadow:0 30px 60px -20px rgba(0,0,0,.4); }
+  .modal h3 { font-size:15px; font-weight:700; margin-bottom:14px; }
+  .modal .field { margin-bottom:12px; }
+  .modal .field label { display:block; font-size:12px; color:#475569; margin-bottom:4px; }
+  .modal .field input, .modal .field textarea { width:100%; border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:inherit; background:#fff; color:var(--ink); outline:none; }
+  .modal .field input:focus, .modal .field textarea:focus { border-color:#94a3b8; box-shadow:0 0 0 3px rgba(148,163,184,.12); }
+  .modal .modal-foot { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
+
+  .footnote { margin:28px auto 0; font-size:12px; color:var(--muted); line-height:1.85; }
+  .footnote b { color:#334155; }
+  .footnote ul { padding-left:18px; margin-top:6px; }
+  .footnote li { margin-top:2px; }
+  .footnote code { font-family:ui-monospace,monospace; background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:11.5px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+<div class="hero">
+  <span class="tag">菜单编辑器重构 · Demo v8（大纲 / 卡片库 分视图）</span>
+  <h1>大纲 = 树形结构（菜单项 → 卡片 → 按钮）· 卡片库 = 平行视图</h1>
+  <p>左侧顶部 tab 切换两个视图：<b>「大纲」</b>只看被引用的树形结构（菜单项 → 卡片 → 按钮），<b>「卡片库」</b>管理所有卡片（含未挂载）。两个视图职责分明，大纲不再混入孤儿卡片。</p>
+  <div class="note">
+    <b>v8 调整</b>：
+    <ul>
+      <li><b>顶部 tab 切换</b>：左侧 pane 顶部两个 tab「大纲」「卡片库」，默认在大纲。</li>
+      <li><b>大纲纯净</b>：只显示被引用的树形结构（菜单项 → 卡片 → 按钮），不混"未挂载"分组。</li>
+      <li><b>卡片库平铺</b>：所有卡片（含未挂载）以卡片网格展示，每张卡显示「name / 正文摘要 / 按钮数 / 是否被引用」，可新建/编辑/删除。</li>
+      <li><b>新建卡片入口</b>：从「卡片库」顶部按钮，或「open_card」动作参数面板的二次入口「+ 新建卡片」跳转。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="stage-grid">
+
+    <!-- 左侧：tab + 大纲 / 卡片库 -->
+    <div class="pane">
+      <div class="pane-head"><span id="left-pane-title">大纲</span><span class="pane-sub" id="left-pane-sub">3 项菜单 · 1 张卡片 · 4 个按钮</span></div>
+      <div class="top-tabs">
+        <div class="top-tab sel" data-tab="outline">大纲 <span class="cnt" id="cnt-outline">3</span></div>
+        <div class="top-tab" data-tab="library">卡片库 <span class="cnt" id="cnt-library">2</span></div>
+        <div class="top-actions"><button class="btn small" id="btn-new-card-top" style="padding:4px 9px;">+ 新建卡片</button></div>
+      </div>
+
+      <!-- 大纲视图 -->
+      <div id="view-outline">
+        <div class="outline-tools">
+          <div class="outline-search"><span>🔍</span><input placeholder="搜索菜单项 / 卡片 / 按钮…" /></div>
+          <button class="btn small" id="btn-new-item">+ 新建菜单项</button>
+        </div>
+        <div class="outline-list" id="outline-list"></div>
+      </div>
+
+      <!-- 卡片库视图 -->
+      <div id="view-library" style="display:none;">
+        <div class="library-tools">
+          <div class="outline-search"><span>🔍</span><input placeholder="搜索卡片名 / 正文…" /></div>
+          <button class="btn small" id="btn-new-card-lib">+ 新建卡片</button>
+        </div>
+        <div class="library-grid" id="library-grid"></div>
+      </div>
+    </div>
+
+    <!-- 中间：编辑器 -->
+    <div class="pane">
+      <div class="pane-head">
+        <span id="editor-title">编辑 · 菜单项「开始生成（换脸）」</span>
+        <span class="pane-sub" id="editor-sub">点了就进入 face-swap 流程</span>
+      </div>
+
+      <!-- 卡片编辑视图 -->
+      <div class="editor-section" id="card-editor-head" style="display:none;">
+        <h4>卡片内容</h4>
+        <div class="field-row"><div class="lbl">卡片名</div><div class="ctrl"><input id="card-name" /></div></div>
+        <div class="field-row stack"><div class="lbl">卡片正文</div><div class="ctrl"><textarea id="card-text"></textarea></div></div>
+        <div class="field-row stack"><div class="lbl">媒体 URL</div><div class="ctrl">
+          <textarea id="card-media" placeholder="每行一个 URL（可选）"></textarea>
+          <div class="hint">给卡片配图/视频。空着也行。</div>
+        </div></div>
+      </div>
+
+      <div class="editor-section" id="card-buttons" style="display:none;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <h4 style="margin:0;">按钮列表 <span style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0;" id="btn-count">(0)</span></h4>
+          <button class="btn small" id="btn-add-btn">+ 添加按钮</button>
+        </div>
+        <div class="button-list" id="btn-list"></div>
+        <div style="margin-top:10px; display:flex; justify-content:space-between;">
+          <span style="font-size:11px; color:var(--muted);" id="card-pin-info">未挂载到任何菜单项</span>
+          <button class="btn small danger" id="btn-delete-card">删除该卡片</button>
+        </div>
+      </div>
+
+      <!-- 按钮编辑视图 -->
+      <div id="btn-editor" style="display:none;">
+        <div class="editor-section">
+          <h4>按钮</h4>
+          <div class="field-row"><div class="lbl">按钮标签</div><div class="ctrl"><input id="btn-label" /></div></div>
+        </div>
+        <div class="action-type">
+          <div class="lbl">动作类型</div>
+          <div class="sel">
+            <span class="src-dot" id="btn-src-dot"></span>
+            <select id="btn-action">
+              <optgroup label="工作流能力">
+                <option value="open_workflow">open_workflow · 打开工作流</option>
+              </optgroup>
+              <optgroup label="TG 平台能力">
+                <option value="open_card">open_card · 打开 TG 卡片</option>
+                <option value="send_text">send_text · 发文字</option>
+                <option value="send_media">send_media · 发媒体</option>
+                <option value="open_url">open_url · 打开链接</option>
+                <option value="copy_text">copy_text · 复制文字</option>
+              </optgroup>
+            </select>
+          </div>
+          <span class="src-tag" id="btn-src-tag">工作流能力</span>
+        </div>
+        <div class="pane-body" style="padding:14px 0;">
+          <div class="action-card">
+            <div class="ac-head">
+              <span class="src" id="btn-ac-src">工作流能力</span>
+              <span class="name" id="btn-ac-name">open_workflow · 打开工作流</span>
+            </div>
+            <div class="ac-body" id="btn-ac-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 菜单项编辑视图 -->
+      <div id="item-editor">
+        <div class="action-type">
+          <div class="lbl">动作类型</div>
+          <div class="sel">
+            <span class="src-dot" id="src-dot"></span>
+            <select id="action-type">
+              <optgroup label="工作流能力">
+                <option value="open_workflow">open_workflow · 打开工作流</option>
+              </optgroup>
+              <optgroup label="TG 平台能力">
+                <option value="open_card">open_card · 打开 TG 卡片</option>
+                <option value="send_text">send_text · 发文字</option>
+                <option value="send_media">send_media · 发媒体</option>
+                <option value="open_url">open_url · 打开链接</option>
+                <option value="copy_text">copy_text · 复制文字</option>
+              </optgroup>
+            </select>
+          </div>
+          <span class="src-tag" id="src-tag">工作流能力</span>
+        </div>
+        <div class="pane-body" style="padding:14px 0;">
+          <div class="action-card">
+            <div class="ac-head">
+              <span class="src" id="ac-src">工作流能力</span>
+              <span class="name" id="ac-name">open_workflow · 打开工作流</span>
+            </div>
+            <div class="ac-body" id="ac-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="editor-foot">
+        <div class="dirty">● 1 处未保存改动</div>
+        <div class="actions">
+          <button class="btn ghost">放弃</button>
+          <button class="btn">保存草稿</button>
+          <button class="btn primary">保存到消息平台</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧：模拟键盘 -->
+    <div class="pane">
+      <div class="pane-head"><span>实时预览</span><span class="pane-sub">@pixoma_demo_bot</span></div>
+      <div class="phone">
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <div class="phone-header"><span>9:41</span><span class="pname" id="phone-pname">Pixoma Bot</span><span>●</span></div>
+            <div class="phone-body" id="phone-body"></div>
+            <div id="phone-bottom"></div>
+          </div>
+          <div class="phone-foot" id="phone-foot">点「开始生成（换脸）」→ start case face-swap</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 动作参数面板模板（菜单项 / 按钮共用） -->
+<template id="tpl-open_workflow">
+  <div class="field-row"><div class="lbl">菜单项标签</div><div class="ctrl"><input value="开始生成（换脸）" /></div></div>
+  <div class="field-row"><div class="lbl">工作流</div><div class="ctrl">
+    <select>
+      <option>— 请选择 1 个工作流 —</option>
+      <option selected>face-swap · 换脸</option>
+      <option>img-edit · 图片编辑</option>
+      <option>style-transfer · 风格迁移</option>
+      <option>upscale · 放大</option>
+    </select>
+    <div class="hint">单选 1 个 case。点了菜单项直接进入该工作流流程。</div>
+  </div></div>
+</template>
+<template id="tpl-open_card">
+  <div class="field-row"><div class="lbl">菜单项标签</div><div class="ctrl"><input value="文生图" /></div></div>
+  <div class="field-row"><div class="lbl">目标卡片</div><div class="ctrl">
+    <select id="card-picker"></select>
+    <div class="hint">选了之后点击菜单项在 TG 里渲染该卡片。</div>
+  </div></div>
+  <div class="field-row"><div class="lbl">没合适的？</div><div class="ctrl"><button class="btn small" id="inline-new-card">+ 新建卡片</button></div></div>
+</template>
+<template id="tpl-send_text">
+  <div class="field-row"><div class="lbl">菜单项标签</div><div class="ctrl"><input value="联系客服" /></div></div>
+  <div class="field-row stack"><div class="lbl">文字内容</div><div class="ctrl"><textarea>请描述你遇到的问题，我们会在工作日内回复你。</textarea></div></div>
+</template>
+<template id="tpl-send_media">
+  <div class="field-row"><div class="lbl">菜单项标签</div><div class="ctrl"><input value="查看示例图" /></div></div>
+  <div class="field-row stack"><div class="lbl">媒体 URL</div><div class="ctrl">
+    <textarea>https://cdn.pixoma.dev/examples/01.png
+https://cdn.pixoma.dev/examples/02.png</textarea>
+    <div class="hint">每行一个 URL。</div>
+  </div></div>
+</template>
+<template id="tpl-open_url">
+  <div class="field-row"><div class="lbl">菜单项标签</div><div class="ctrl"><input value="访问官网" /></div></div>
+  <div class="field-row"><div class="lbl">URL</div><div class="ctrl"><input value="https://pixoma.dev" placeholder="https://…" /></div></div>
+</template>
+<template id="tpl-copy_text">
+  <div class="field-row"><div class="lbl">菜单项标签</div><div class="ctrl"><input value="复制优惠码" /></div></div>
+  <div class="field-row stack"><div class="lbl">文字内容</div><div class="ctrl"><textarea>PIXO-WELCOME-2026</textarea></div></div>
+</template>
+
+<!-- 新建卡片对话框 -->
+<div class="modal-bg" id="modal-new-card">
+  <div class="modal">
+    <h3>新建卡片</h3>
+    <div class="field"><label>卡片名（内部 id）</label><input id="new-card-name" placeholder="例如：txt2img-card" /></div>
+    <div class="field"><label>卡片正文（用户看到的文字）</label>
+      <textarea id="new-card-text" placeholder="选一个你想要的风格 ↓" rows="3" style="border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:inherit;"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="modal-cancel">取消</button>
+      <button class="btn primary" id="modal-confirm">创建</button>
+    </div>
+  </div>
+</div>
+
+<div class="footnote">
+  <b>关键设计点</b>
+  <ul>
+    <li><b>大纲 vs 卡片库职责分明</b>：大纲 = 树形结构（只显示被引用的菜单项 → 卡片 → 按钮），卡片库 = 平铺所有卡片（含未挂载）。两个视图职责不混。</li>
+    <li><b>大纲 3 层</b>：菜单项 / 卡片 / 按钮全部可点，编辑器随选中态切换；PhoneSimulation 同步（主键盘 / 卡片视图 / 按钮高亮）。</li>
+    <li><b>卡片库</b>：2 列网格，每张卡片显示「name / 正文摘要 / 按钮数 / 引用状态」；可新建/编辑/删除；从顶部入口或 open_card 动作参数面板里的「+ 新建卡片」入口都能进入。</li>
+    <li><b>open_workflow 永远 1 case</b>：list 模式 / <code>workflow_ids[]</code> / <code>mode</code> 字段是死代码，本次一并清理。</li>
+    <li><b>既有契约保留</b>：<code>validateMenuConfig</code> 与 <code>menu-editor.contract.test.ts</code> 关键断言继续通过。</li>
+  </ul>
+</div>
+
+</div>
+
+<script>
+(function(){
+  const ACTIONS = {
+    open_workflow: { src: 'wf', srcLabel: '工作流能力', name: 'open_workflow · 打开工作流', short: '工作流' },
+    open_card:     { src: 'tg', srcLabel: 'TG 平台能力', name: 'open_card · 打开 TG 卡片', short: 'TG 卡片' },
+    send_text:     { src: 'tg', srcLabel: 'TG 平台能力', name: 'send_text · 发文字', short: 'TG 文字' },
+    send_media:    { src: 'tg', srcLabel: 'TG 平台能力', name: 'send_media · 发媒体', short: 'TG 媒体' },
+    open_url:      { src: 'tg', srcLabel: 'TG 平台能力', name: 'open_url · 打开链接', short: 'TG 链接' },
+    copy_text:     { src: 'tg', srcLabel: 'TG 平台能力', name: 'copy_text · 复制文字', short: 'TG 复制' }
+  };
+
+  // 内存数据
+  let nextId = 1;
+  const cards = {}; // id -> {id, name, text, media:[], buttons:[], _refs: []}  _refs 记录哪些菜单项引用
+  const items = {}; // id -> {id, label, action, cardId?}
+  const cardRefs = {}; // cardId -> Set(itemId)
+
+  function newCardId(){ return 'cd' + (nextId++); }
+  function newItemId(){ return 'mi' + (nextId++); }
+  function newBtnId(cardId){ return cardId + '-b' + (cards[cardId].buttons.length + 1); }
+
+  // 初始化数据
+  (function init(){
+    const c1 = { id: 'cd1', name: 'txt2img-card', text: '选一个你想要的风格 ↓', media: [], buttons: [] };
+    const c2 = { id: 'cd2', name: 'welcome-card', text: '欢迎使用 Pixoma 🎨', media: [], buttons: [] };
+    cards.cd1 = c1; cards.cd2 = c2;
+    c1.buttons = [
+      { id: 'cd1-b1', label: '写实风格', action: 'open_workflow' },
+      { id: 'cd1-b2', label: '动漫风格', action: 'open_workflow' },
+      { id: 'cd1-b3', label: '插画风格', action: 'open_workflow' },
+      { id: 'cd1-b4', label: '油画风格', action: 'open_workflow' }
+    ];
+    items.mi1 = { id: 'mi1', label: '开始生成（换脸）', action: 'open_workflow' };
+    items.mi2 = { id: 'mi2', label: '文生图', action: 'open_card', cardId: 'cd1' };
+    items.mi3 = { id: 'mi3', label: '联系客服', action: 'send_text' };
+    items.mi4 = { id: 'mi4', label: '查看示例图', action: 'send_media' };
+    items.mi5 = { id: 'mi5', label: '访问官网', action: 'open_url' };
+    items.mi6 = { id: 'mi6', label: '复制优惠码', action: 'copy_text' };
+    // 引用关系
+    cardRefs.cd1 = new Set(['mi2']);
+    cardRefs.cd2 = new Set();
+    nextId = 100;
+  })();
+
+  function getCardRefsList(cardId){
+    const set = cardRefs[cardId] || new Set();
+    return Array.from(set).map(function(id){ return items[id]; }).filter(Boolean);
+  }
+
+  // ============ 渲染 ============
+  function renderOutline(){
+    const list = document.getElementById('outline-list');
+    list.innerHTML = '';
+    const order = ['mi1', 'mi2', 'mi3', 'mi4', 'mi5', 'mi6'];
+    let totalBtns = 0;
+    order.forEach(function(itemId){
+      const it = items[itemId];
+      if (!it) return;
+      const meta = ACTIONS[it.action];
+      const div = document.createElement('div');
+      div.className = 'outline-item';
+      div.setAttribute('data-kind', 'item');
+      div.setAttribute('data-id', it.id);
+      div.setAttribute('data-action', it.action);
+      div.innerHTML =
+        '<span class="ico ' + meta.src + '">▶</span>' +
+        '<span class="label">' + it.label + '</span>' +
+        '<span class="badge ' + meta.src + '">' + meta.short + '</span>';
+      div.addEventListener('click', function(){ selectItem(it.id); });
+      list.appendChild(div);
+
+      // 如果引用了卡片：递归渲染卡片 + 按钮
+      if (it.action === 'open_card' && it.cardId && cards[it.cardId]) {
+        const card = cards[it.cardId];
+        const childWrap = document.createElement('div');
+        childWrap.className = 'outline-children';
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'outline-item';
+        cardDiv.setAttribute('data-kind', 'card');
+        cardDiv.setAttribute('data-id', card.id);
+        cardDiv.innerHTML =
+          '<span class="ico cd">◆</span>' +
+          '<span class="label">' + card.name + '</span>' +
+          '<span class="badge cd">卡片</span>';
+        cardDiv.addEventListener('click', function(e){ e.stopPropagation(); selectCard(card.id); });
+        childWrap.appendChild(cardDiv);
+        // 按钮
+        if (card.buttons.length > 0) {
+          const btnWrap = document.createElement('div');
+          btnWrap.className = 'outline-children';
+          card.buttons.forEach(function(b){
+            const bMeta = ACTIONS[b.action];
+            const bDiv = document.createElement('div');
+            bDiv.className = 'outline-item';
+            bDiv.setAttribute('data-kind', 'btn');
+            bDiv.setAttribute('data-id', b.id);
+            bDiv.setAttribute('data-action', b.action);
+            bDiv.innerHTML =
+              '<span class="ico ' + bMeta.src + '">▶</span>' +
+              '<span class="label">' + b.label + '</span>' +
+              '<span class="badge ' + bMeta.src + '">' + bMeta.short + '</span>';
+            bDiv.addEventListener('click', function(e){ e.stopPropagation(); selectBtn(b.id, card.id); });
+            btnWrap.appendChild(bDiv);
+            totalBtns++;
+          });
+          childWrap.appendChild(btnWrap);
+        }
+        list.appendChild(childWrap);
+      }
+    });
+    if (order.length === 0) {
+      list.innerHTML = '<div class="outline-empty">还没有菜单项<div class="e-cta" id="empty-new-item">+ 新建菜单项</div></div>';
+      const btn = document.getElementById('empty-new-item');
+      if (btn) btn.addEventListener('click', function(){ alert('demo: 新建菜单项'); });
+    }
+    document.getElementById('cnt-outline').textContent = order.length;
+    document.getElementById('left-pane-sub').textContent =
+      order.length + ' 项菜单 · ' + Object.keys(cards).filter(function(id){ return cardRefs[id] && cardRefs[id].size > 0; }).length + ' 张卡片 · ' + totalBtns + ' 个按钮';
+  }
+
+  function renderLibrary(){
+    const grid = document.getElementById('library-grid');
+    grid.innerHTML = '';
+    Object.values(cards).forEach(function(card){
+      const refs = getCardRefsList(card.id);
+      const isPinned = refs.length > 0;
+      const div = document.createElement('div');
+      div.className = 'library-card';
+      div.setAttribute('data-id', card.id);
+      div.innerHTML =
+        '<div class="lc-head">' +
+          '<span class="ico">◆</span>' +
+          '<span class="nm">' + card.name + '</span>' +
+          (isPinned ? '<span class="pin" style="color:#047857;">● 已引用</span>' : '<span class="pin">○ 未挂载</span>') +
+        '</div>' +
+        '<div class="lc-text">' + (card.text || '（空）') + '</div>' +
+        '<div class="lc-foot">' +
+          '<span class="btns-cnt">◉ ' + card.buttons.length + ' 个按钮</span>' +
+          (isPinned ? '<span style="color:#475569;">被「' + refs[0].label + '」引用</span>' : '<span>—</span>') +
+        '</div>';
+      div.addEventListener('click', function(){ selectCard(card.id); setSelOutline('.library-card', div); });
+      grid.appendChild(div);
+    });
+    if (Object.keys(cards).length === 0) {
+      grid.innerHTML = '<div style="grid-column:1/-1; padding:30px 18px; text-align:center; color:var(--muted); font-size:12.5px;">还没有任何卡片<div class="e-cta" id="empty-new-card">+ 新建卡片</div></div>';
+    }
+    document.getElementById('cnt-library').textContent = Object.keys(cards).length;
+  }
+
+  function setSelOutline(scope, el){
+    document.querySelectorAll('.outline-item, .button-list-item, .library-card').forEach(function(o){ o.classList.remove('sel'); });
+    if (el) el.classList.add('sel');
+  }
+
+  // ============ 视图切换 ============
+  function showView(kind){
+    document.getElementById('item-editor').style.display = kind === 'item' ? 'block' : 'none';
+    document.getElementById('card-editor-head').style.display = kind === 'card' ? 'block' : 'none';
+    document.getElementById('card-buttons').style.display = kind === 'card' ? 'block' : 'none';
+    document.getElementById('btn-editor').style.display = kind === 'btn' ? 'block' : 'none';
+  }
+
+  function showLeftTab(tab){
+    document.querySelectorAll('.top-tab').forEach(function(t){ t.classList.toggle('sel', t.getAttribute('data-tab') === tab); });
+    document.getElementById('view-outline').style.display = tab === 'outline' ? 'block' : 'none';
+    document.getElementById('view-library').style.display = tab === 'library' ? 'block' : 'none';
+    document.getElementById('left-pane-title').textContent = tab === 'outline' ? '大纲' : '卡片库';
+    if (tab === 'library') {
+      document.getElementById('left-pane-sub').textContent = Object.keys(cards).length + ' 张卡片';
+    } else {
+      const order = Object.keys(items);
+      const totalBtns = Object.values(cards).reduce(function(s, c){ return s + c.buttons.length; }, 0);
+      const usedCardCount = Object.keys(cards).filter(function(id){ return cardRefs[id] && cardRefs[id].size > 0; }).length;
+      document.getElementById('left-pane-sub').textContent = order.length + ' 项菜单 · ' + usedCardCount + ' 张卡片 · ' + totalBtns + ' 个按钮';
+    }
+  }
+
+  // ============ 编辑器 ============
+  function paintAction(scope, type){
+    const meta = ACTIONS[type] || { src: 'wf', srcLabel: '工作流能力', name: type, short: '工作流' };
+    const prefix = scope === 'btn' ? 'btn-' : '';
+    const $ = function(id){ return document.getElementById(prefix + id); };
+    const dot = $('src-dot'); if (dot) dot.className = 'src-dot ' + meta.src;
+    const tag = $('src-tag'); if (tag) { tag.className = 'src-tag ' + meta.src; tag.textContent = meta.srcLabel; }
+    const src = $('ac-src'); if (src) { src.className = 'src ' + meta.src; src.textContent = meta.srcLabel; }
+    const nm = $('ac-name'); if (nm) nm.textContent = meta.name;
+    const body = $('ac-body');
+    if (body) {
+      body.innerHTML = '';
+      const tpl = document.getElementById('tpl-' + type);
+      if (tpl) body.appendChild(tpl.content.cloneNode(true));
+      if (type === 'open_card') {
+        // 填充卡片下拉
+        const picker = body.querySelector('#card-picker');
+        if (picker) {
+          picker.innerHTML = '<option>— 请选择 1 张卡片 —</option>' +
+            Object.values(cards).map(function(c){ return '<option value="' + c.id + '">' + c.name + '</option>'; }).join('');
+        }
+        const btn = body.querySelector('#inline-new-card');
+        if (btn) btn.addEventListener('click', function(){ openModal(); });
+      }
+    }
+  }
+
+  function selectItem(itemId){
+    const it = items[itemId];
+    if (!it) return;
+    showView('item');
+    document.getElementById('action-type').value = it.action;
+    paintAction('item', it.action);
+    document.getElementById('editor-title').textContent = '编辑 · 菜单项「' + it.label + '」';
+    const subMap = { open_workflow: '点了就进入对应工作流流程', open_card: '点了在 TG 里渲染目标卡片', send_text: '点了发文字给用户', send_media: '点了批量发媒体', open_url: '点了在 TG 内嵌浏览器打开', copy_text: '点了发文字给用户' };
+    document.getElementById('editor-sub').textContent = subMap[it.action] || '';
+    // 高亮大纲项
+    setSelOutline();
+    const el = document.querySelector('#outline-list .outline-item[data-id="' + itemId + '"]');
+    if (el) el.classList.add('sel');
+    paintPhoneMain();
+  }
+
+  function selectCard(cardId){
+    const card = cards[cardId];
+    if (!card) return;
+    showView('card');
+    document.getElementById('card-name').value = card.name;
+    document.getElementById('card-text').value = card.text;
+    document.getElementById('card-media').value = (card.media || []).map(function(m){return m.url;}).join('\n');
+    renderButtonList(cardId);
+    const refs = getCardRefsList(cardId);
+    document.getElementById('card-pin-info').textContent = refs.length > 0
+      ? '被「' + refs[0].label + '」菜单项引用'
+      : '未挂载到任何菜单项';
+    document.getElementById('editor-title').textContent = '编辑 · 卡片「' + card.name + '」';
+    document.getElementById('editor-sub').textContent = refs.length > 0
+      ? ('被「' + refs[0].label + '」菜单项打开（' + card.buttons.length + ' 个按钮）')
+      : '未挂载的卡片，可从菜单项 open_card 中引用';
+    setSelOutline();
+    const elOutline = document.querySelector('#outline-list .outline-item[data-kind="card"][data-id="' + cardId + '"]');
+    if (elOutline) elOutline.classList.add('sel');
+    const elLib = document.querySelector('.library-card[data-id="' + cardId + '"]');
+    if (elLib) elLib.classList.add('sel');
+    paintPhoneCardView(card, null);
+  }
+
+  function selectBtn(btnId, cardId){
+    const card = cards[cardId];
+    if (!card) return;
+    const btn = card.buttons.find(function(b){ return b.id === btnId; });
+    if (!btn) return;
+    showView('btn');
+    document.getElementById('btn-label').value = btn.label;
+    document.getElementById('btn-action').value = btn.action;
+    paintAction('btn', btn.action);
+    document.getElementById('editor-title').textContent = '编辑 · 按钮「' + (btn.label || '未命名') + '」';
+    document.getElementById('editor-sub').textContent = '在卡片「' + card.name + '」下';
+    setSelOutline();
+    const el = document.querySelector('#outline-list .outline-item[data-kind="btn"][data-id="' + btnId + '"]');
+    if (el) el.classList.add('sel');
+    const bli = document.querySelector('.button-list-item[data-btn-id="' + btnId + '"]');
+    if (bli) bli.classList.add('sel');
+    paintPhoneCardView(card, btnId);
+  }
+
+  function renderButtonList(cardId){
+    const list = document.getElementById('btn-list');
+    list.innerHTML = '';
+    const card = cards[cardId];
+    if (!card) return;
+    document.getElementById('btn-count').textContent = '(' + card.buttons.length + ')';
+    card.buttons.forEach(function(b){
+      const meta = ACTIONS[b.action];
+      const div = document.createElement('div');
+      div.className = 'button-list-item';
+      div.setAttribute('data-btn-id', b.id);
+      div.innerHTML =
+        '<span class="ico ' + meta.src + '">▶</span>' +
+        '<span class="lbl">' + (b.label || '未命名') + '</span>' +
+        '<span class="badge ' + meta.src + '">' + meta.short + '</span>' +
+        '<span class="x" data-x="' + b.id + '">删除</span>';
+      div.addEventListener('click', function(e){
+        if (e.target.classList.contains('x')) return;
+        setSelOutline('.button-list-item', div);
+        selectBtn(b.id, cardId);
+      });
+      div.querySelector('.x').addEventListener('click', function(e){
+        e.stopPropagation();
+        card.buttons = card.buttons.filter(function(x){ return x.id !== b.id; });
+        renderButtonList(cardId);
+        renderOutline();
+      });
+      list.appendChild(div);
+    });
+  }
+
+  // ============ PhoneSimulation ============
+  function paintPhoneMain(){
+    document.getElementById('phone-pname').textContent = 'Pixoma Bot';
+    const keys = Object.values(items).map(function(it){
+      const meta = ACTIONS[it.action];
+      return '<div class="phone-key" data-hl="' + it.label + '">' + it.label + '<span class="src-tag">' + meta.short + '</span></div>';
+    }).join('');
+    document.getElementById('phone-body').innerHTML = '<div class="phone-greeting">你好，从下面选一个开始 👇</div>';
+    document.getElementById('phone-bottom').innerHTML = '<div class="phone-keyboard">' + keys + '</div>';
+    document.getElementById('phone-foot').textContent = '点菜单项 → 触发对应动作';
+  }
+
+  function paintPhoneCardView(card, hlBtnId){
+    const btnsHtml = card.buttons.map(function(b){
+      const hl = (b.id === hlBtnId) ? ' hl' : '';
+      return '<div class="bk' + hl + '">' + (b.label || '未命名') + '</div>';
+    }).join('');
+    document.getElementById('phone-pname').textContent = 'Pixoma Bot';
+    document.getElementById('phone-body').innerHTML =
+      '<div class="phone-greeting">' +
+        '<div class="preview">' +
+          '<div class="pname">' + card.name + '</div>' +
+          '<div class="pdesc">' + (card.text || '（空）') + '</div>' +
+        '</div>' +
+      '</div>';
+    document.getElementById('phone-bottom').innerHTML =
+      '<div class="phone-card-view">' +
+        '<div class="ct">卡片正文</div>' +
+        '<div class="ctx">' + (card.text || '（空）') + '</div>' +
+        '<div class="btns">' + (btnsHtml || '<div style="font-size:10.5px;color:#94a3b8;text-align:center;padding:8px;">（暂无按钮）</div>') + '</div>' +
+      '</div>';
+    document.getElementById('phone-foot').textContent = hlBtnId ? '点击卡片按钮' : '在 TG 里渲染该卡片';
+  }
+
+  // ============ 新建卡片 ============
+  function openModal(){
+    document.getElementById('new-card-name').value = '';
+    document.getElementById('new-card-text').value = '';
+    document.getElementById('modal-new-card').classList.add('open');
+    setTimeout(function(){ document.getElementById('new-card-name').focus(); }, 50);
+  }
+  function closeModal(){ document.getElementById('modal-new-card').classList.remove('open'); }
+  function confirmNewCard(){
+    const name = document.getElementById('new-card-name').value.trim();
+    const text = document.getElementById('new-card-text').value.trim();
+    if (!name) { alert('请输入卡片名'); return; }
+    const id = newCardId();
+    cards[id] = { id: id, name: name, text: text || '', media: [], buttons: [] };
+    cardRefs[id] = new Set();
+    renderOutline();
+    renderLibrary();
+    closeModal();
+    // 切到卡片库并选中新卡
+    showLeftTab('library');
+    selectCard(id);
+  }
+
+  // ============ 事件绑定 ============
+  document.querySelectorAll('.top-tab').forEach(function(t){
+    t.addEventListener('click', function(){ showLeftTab(t.getAttribute('data-tab')); });
+  });
+  document.getElementById('btn-new-card-top').addEventListener('click', openModal);
+  document.getElementById('btn-new-card-lib').addEventListener('click', openModal);
+  document.getElementById('btn-new-item').addEventListener('click', function(){ alert('demo: 新建菜单项（未实现）'); });
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-confirm').addEventListener('click', confirmNewCard);
+  document.getElementById('modal-new-card').addEventListener('click', function(e){
+    if (e.target.id === 'modal-new-card') closeModal();
+  });
+  document.getElementById('action-type').addEventListener('change', function(e){ paintAction('item', e.target.value); });
+  document.getElementById('btn-action').addEventListener('change', function(e){ paintAction('btn', e.target.value); });
+  document.getElementById('btn-add-btn').addEventListener('click', function(){
+    const selCard = document.querySelector('#outline-list .outline-item.sel[data-kind="card"]');
+    let cardId = selCard ? selCard.getAttribute('data-id') : null;
+    if (!cardId) {
+      const selLibCard = document.querySelector('.library-card.sel');
+      if (selLibCard) cardId = selLibCard.getAttribute('data-id');
+    }
+    if (!cardId) { alert('请先选中一张卡片'); return; }
+    const card = cards[cardId];
+    const btnId = newBtnId(cardId);
+    card.buttons.push({ id: btnId, label: '新按钮', action: 'send_text' });
+    renderButtonList(cardId);
+    renderOutline();
+    setTimeout(function(){
+      const bli = document.querySelector('.button-list-item[data-btn-id="' + btnId + '"]');
+      if (bli) { bli.click(); }
+    }, 0);
+  });
+  document.getElementById('btn-delete-card').addEventListener('click', function(){
+    const selCard = document.querySelector('#outline-list .outline-item.sel[data-kind="card"]');
+    let cardId = selCard ? selCard.getAttribute('data-id') : null;
+    if (!cardId) {
+      const selLibCard = document.querySelector('.library-card.sel');
+      if (selLibCard) cardId = selLibCard.getAttribute('data-id');
+    }
+    if (!cardId || !cards[cardId]) return;
+    if (!confirm('确定删除卡片「' + cards[cardId].name + '」？')) return;
+    // 取消引用
+    Object.values(items).forEach(function(it){
+      if (it.cardId === cardId) it.action = 'send_text';
+    });
+    delete cards[cardId];
+    delete cardRefs[cardId];
+    renderOutline();
+    renderLibrary();
+  });
+
+  // 初始化
+  renderOutline();
+  renderLibrary();
+  paintPhoneMain();
+  paintAction('item', 'open_workflow');
+  selectItem('mi1');
+  setSelOutline();
+  const first = document.querySelector('#outline-list .outline-item[data-id="mi1"]');
+  if (first) first.classList.add('sel');
+})();
+</script>
+
+</body>
+</html>

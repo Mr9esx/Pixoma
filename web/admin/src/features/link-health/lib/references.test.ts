@@ -43,7 +43,7 @@ const presence: EdgePresence[] = [
 ]
 const placement: MenuPlacement = {
   channel_id: 'c1',
-  channel_name: '渠道 1',
+  channel_name: '消息平台 1',
   item_id: 'm1',
   kind: 'open_case',
   path: [{ id: 'm1', label: '入口' }],
@@ -220,7 +220,7 @@ describe('channelReferences', () => {
     })
   })
 
-  it('Token 无效 → warn、断点 config、行动指向编辑渠道', () => {
+  it('Token 无效 → warn、断点 config、行动指向编辑消息平台', () => {
     const health = channelReferences('c1', {
       ok: false,
       kind: 'auth',

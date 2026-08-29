@@ -5,7 +5,6 @@ export function edgeDeployCommand(input: {
   blobDriver: string
   comfyURL?: string
   maskToken?: boolean
-  subscribeTopics?: string[]
   blobRoot?: string
   blobEndpoint?: string
   blobRegion?: string
@@ -17,17 +16,15 @@ export function edgeDeployCommand(input: {
   // Comfy runs on the same machine as the agent; the operator edits this line
   // only when Comfy is not on the default localhost:8188.
   const comfyURL = input.comfyURL ?? 'http://127.0.0.1:8188'
+  // Topic bindings live on the control plane and are PATCHed via the admin
+  // node form. The agent no longer reads a topic env var at startup;
+  // it just reports presence and claims jobs filtered by what the admin set.
   const lines = [
     `export CONTROL_PLANE_URL=${input.controlPlaneURL}`,
     `export AGENT_TOKEN=${token}`,
     `export EDGE_ID=${input.edgeId}`,
     `export BLOB_DRIVER=${input.blobDriver}`,
   ]
-  if (input.subscribeTopics && input.subscribeTopics.length > 0) {
-    lines.push(
-      `export EDGE_SUBSCRIBE_TOPICS=${input.subscribeTopics.join(',')}`
-    )
-  }
   if (input.blobDriver === 'localfs' || input.blobDriver === 'sharedfs') {
     if (input.blobRoot) {
       lines.push(`export BLOB_LOCAL_ROOT=${input.blobRoot}`)

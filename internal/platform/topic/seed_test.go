@@ -3,6 +3,7 @@ package topic
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 type fakeRepo struct {
@@ -62,5 +63,24 @@ func TestEnsureDefaultTopic_CreatesOnce(t *testing.T) {
 	}
 	if len(repo.topics) != 1 {
 		t.Fatalf("ensure created duplicates: %d topics", len(repo.topics))
+	}
+}
+
+func TestEnsureDefaultTopic_RenamesLegacyEnglishName(t *testing.T) {
+	now := time.Now().UTC()
+	repo := &fakeRepo{topics: map[string]Topic{
+		DefaultKey: {Key: DefaultKey, Name: "Default", Enabled: true, CreatedAt: now, UpdatedAt: now},
+	}}
+	ctx := context.Background()
+
+	if err := EnsureDefaultTopic(ctx, repo); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+	got, err := repo.Get(ctx, DefaultKey)
+	if err != nil {
+		t.Fatalf("default topic missing: %v", err)
+	}
+	if got.Name != DefaultName {
+		t.Fatalf("default name not renamed: got %q, want %q", got.Name, DefaultName)
 	}
 }

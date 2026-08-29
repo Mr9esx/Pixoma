@@ -7,7 +7,7 @@ import {
   MessagesSquare,
   Radio,
   Settings,
-  Tags,
+  Waypoints,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
@@ -26,16 +26,36 @@ export type MenuGroup = {
 }
 
 const ITEMS: readonly MenuItem[] = [
-  { id: 'dashboard', titleKey: 'menu.dashboard', path: '/', icon: LayoutDashboard },
-  { id: 'quick-config', titleKey: 'menu.quickConfig', path: '/quick-config', icon: Zap },
+  {
+    id: 'dashboard',
+    titleKey: 'menu.dashboard',
+    path: '/',
+    icon: LayoutDashboard,
+  },
+  {
+    id: 'quick-config',
+    titleKey: 'menu.quickConfig',
+    path: '/quick-config',
+    icon: Zap,
+  },
   { id: 'cases', titleKey: 'menu.cases', path: '/cases', icon: Boxes },
   { id: 'channels', titleKey: 'menu.channels', path: '/channels', icon: Radio },
-  { id: 'topics', titleKey: 'menu.topics', path: '/topics', icon: Tags },
+  { id: 'topics', titleKey: 'menu.topics', path: '/topics', icon: Waypoints },
   { id: 'edges', titleKey: 'menu.edges', path: '/edges', icon: Server },
   { id: 'tasks', titleKey: 'menu.tasks', path: '/tasks', icon: ListTodo },
-  { id: 'sessions', titleKey: 'menu.sessions', path: '/sessions', icon: MessagesSquare },
+  {
+    id: 'sessions',
+    titleKey: 'menu.sessions',
+    path: '/sessions',
+    icon: MessagesSquare,
+  },
   { id: 'users', titleKey: 'menu.users', path: '/users', icon: Users },
-  { id: 'settings', titleKey: 'menu.settings', path: '/settings', icon: Settings },
+  {
+    id: 'settings',
+    titleKey: 'menu.settings',
+    path: '/settings',
+    icon: Settings,
+  },
 ] as const
 
 export const MENU_GROUPS: readonly MenuGroup[] = [

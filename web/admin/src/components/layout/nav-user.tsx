@@ -1,13 +1,11 @@
-import { useEffect, useReducer, useState, type ReactNode } from 'react'
+import { useEffect, useReducer, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowRightFromLine,
   Check,
   Globe,
-  Monitor,
   Moon,
-  MoreHorizontal,
   Sun,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -21,7 +19,7 @@ import { setStoredLocale, type AppLocale } from '@/lib/i18n'
 import { cn, getDisplayNameInitials } from '@/lib/utils'
 import { useTheme } from '@/context/theme-provider'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
+import { ThemeSwitcher } from '@/components/kibo-ui/theme-switcher'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,35 +112,6 @@ function UserIdentity({
   )
 }
 
-function MenuButton({
-  onClick,
-  active = false,
-  destructive = false,
-  testId,
-  children,
-}: {
-  onClick: () => void
-  active?: boolean
-  destructive?: boolean
-  testId?: string
-  children: ReactNode
-}) {
-  return (
-    <button
-      type='button'
-      data-testid={testId}
-      onClick={onClick}
-      className={cn(
-        'relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-start text-sm outline-none hover:bg-accent hover:text-accent-foreground',
-        destructive && 'text-destructive hover:text-destructive'
-      )}
-    >
-      {children}
-      {active ? <Check size={14} className='ms-auto' /> : null}
-    </button>
-  )
-}
-
 function UserAvatar({ user }: { user?: CurrentUser }) {
   const displayName = user?.nickname || user?.username || ''
   const initials = user ? getDisplayNameInitials(user.username) : '?'
@@ -159,7 +128,7 @@ export function NavUser() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { state, isMobile } = useSidebar()
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const isCollapsed = state === 'collapsed' && !isMobile
   const [signOutOpen, setSignOutOpen] = useState(false)
   const { data: user, isLoading } = useQuery({
@@ -188,18 +157,13 @@ export function NavUser() {
 
   const menuContent = (
     <>
-      {isCollapsed ? (
-        <>
-          <DropdownMenuLabel className='p-0 font-normal'>
-            <div className='flex items-center gap-2 px-1 py-3'>
-              <UserAvatar user={user} />
-              <UserIdentity user={user} isLoading={isLoading} />
-            </div>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-        </>
-      ) : null}
-
+      <DropdownMenuLabel className='p-0 font-normal'>
+        <div className='flex items-center gap-2 px-1 py-3'>
+          <UserAvatar user={user} />
+          <UserIdentity user={user} isLoading={isLoading} />
+        </div>
+      </DropdownMenuLabel>
+      <DropdownMenuSeparator />
       <DropdownMenuLabel className='px-2 text-xs font-medium text-muted-foreground'>
         {t('lang.switch')}
       </DropdownMenuLabel>
@@ -227,51 +191,39 @@ export function NavUser() {
           className={cn('ms-auto', currentLocale !== 'en' && 'hidden')}
         />
       </DropdownMenuItem>
-
-      <DropdownMenuSeparator />
-
-      <DropdownMenuLabel className='px-2 text-xs font-medium text-muted-foreground'>
-        {t('common.commandTheme')}
-      </DropdownMenuLabel>
-      <DropdownMenuItem
-        onClick={() => setTheme('light')}
-        className='gap-2'
-        data-testid='nav-user-theme-light'
-      >
-        <Sun className='size-4' />
-        <span>{t('theme.light')}</span>
-        <Check
-          size={14}
-          className={cn('ms-auto', theme !== 'light' && 'hidden')}
-        />
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        onClick={() => setTheme('dark')}
-        className='gap-2'
-        data-testid='nav-user-theme-dark'
-      >
-        <Moon className='size-4' />
-        <span>{t('theme.dark')}</span>
-        <Check
-          size={14}
-          className={cn('ms-auto', theme !== 'dark' && 'hidden')}
-        />
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        onClick={() => setTheme('system')}
-        className='gap-2'
-        data-testid='nav-user-theme-system'
-      >
-        <Monitor className='size-4' />
-        <span>{t('theme.system')}</span>
-        <Check
-          size={14}
-          className={cn('ms-auto', theme !== 'system' && 'hidden')}
-        />
-      </DropdownMenuItem>
-
-      <DropdownMenuSeparator />
-
+      {isCollapsed ? (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className='px-2 text-xs font-medium text-muted-foreground'>
+            {t('common.commandTheme')}
+          </DropdownMenuLabel>
+          <DropdownMenuItem
+            onClick={() => setTheme('light')}
+            className='gap-2'
+            data-testid='nav-user-theme-light'
+          >
+            <Sun className='size-4' />
+            <span>{t('theme.light')}</span>
+            <Check
+              size={14}
+              className={cn('ms-auto', theme !== 'light' && 'hidden')}
+            />
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => setTheme('dark')}
+            className='gap-2'
+            data-testid='nav-user-theme-dark'
+          >
+            <Moon className='size-4' />
+            <span>{t('theme.dark')}</span>
+            <Check
+              size={14}
+              className={cn('ms-auto', theme !== 'dark' && 'hidden')}
+            />
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </>
+      ) : null}
       <DropdownMenuItem
         onClick={() => setSignOutOpen(true)}
         className='gap-2 text-destructive focus:text-destructive'
@@ -283,132 +235,56 @@ export function NavUser() {
     </>
   )
 
-  // 折叠态菜单：纯 CSS hover 弹出（group + group-hover），不依赖任何 JS 开关状态
-  const collapsedMenuContent = (
-    <div className='w-64 p-1' data-testid='nav-user-collapsed-menu'>
-      <div className='flex items-center gap-2 px-1 py-3'>
-        <UserAvatar user={user} />
-        <UserIdentity user={user} isLoading={isLoading} />
-      </div>
-      <div className='-mx-1 my-1 h-px bg-border' />
-
-      <div className='px-2 py-1.5 text-xs font-medium text-muted-foreground'>
-        {t('lang.switch')}
-      </div>
-      <MenuButton
-        onClick={() => switchLocale('zh')}
-        active={currentLocale === 'zh'}
-        testId='nav-user-lang-zh'
-      >
-        <Globe className='size-4' />
-        <span>{t('lang.zh')}</span>
-      </MenuButton>
-      <MenuButton
-        onClick={() => switchLocale('en')}
-        active={currentLocale === 'en'}
-        testId='nav-user-lang-en'
-      >
-        <Globe className='size-4' />
-        <span>{t('lang.en')}</span>
-      </MenuButton>
-
-      <div className='-mx-1 my-1 h-px bg-border' />
-      <div className='px-2 py-1.5 text-xs font-medium text-muted-foreground'>
-        {t('common.commandTheme')}
-      </div>
-      <MenuButton
-        onClick={() => setTheme('light')}
-        active={theme === 'light'}
-        testId='nav-user-theme-light'
-      >
-        <Sun className='size-4' />
-        <span>{t('theme.light')}</span>
-      </MenuButton>
-      <MenuButton
-        onClick={() => setTheme('dark')}
-        active={theme === 'dark'}
-        testId='nav-user-theme-dark'
-      >
-        <Moon className='size-4' />
-        <span>{t('theme.dark')}</span>
-      </MenuButton>
-      <MenuButton
-        onClick={() => setTheme('system')}
-        active={theme === 'system'}
-        testId='nav-user-theme-system'
-      >
-        <Monitor className='size-4' />
-        <span>{t('theme.system')}</span>
-      </MenuButton>
-
-      <div className='-mx-1 my-1 h-px bg-border' />
-      <MenuButton
-        onClick={() => setSignOutOpen(true)}
-        destructive
-        testId='nav-user-sign-out-item'
-      >
-        <ArrowRightFromLine className='size-4' />
-        <span>{t('common.signOut')}</span>
-      </MenuButton>
-    </div>
-  )
-
   return (
     <>
-      {isCollapsed ? (
-        <div
-          className='flex h-12 items-center justify-center'
-          data-testid='nav-user-collapsed'
-        >
-          <div className='relative w-fit'>
+      <div
+        className='flex h-12 w-full items-center gap-2 ps-2 pe-0'
+        data-testid='nav-user'
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
               type='button'
-              aria-label='user menu'
-              className='nav-user-collapsed-trigger flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md outline-none hover:bg-sidebar-accent'
-              data-testid='nav-user-collapsed-trigger'
+              aria-label={t('common.moreActions')}
+              className='flex shrink-0 cursor-pointer items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+              data-testid='nav-user-menu-trigger'
             >
               <UserAvatar user={user} />
             </button>
-            <div className='nav-user-menu absolute left-full bottom-0 z-50 max-h-[calc(100dvh-5rem)] min-w-64 overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-md'>
-              {collapsedMenuContent}
-            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className='min-w-48 rounded-lg'
+            align='start'
+            side={isCollapsed ? 'right' : 'top'}
+            sideOffset={4}
+            onCloseAutoFocus={(event) => event.preventDefault()}
+          >
+            {menuContent}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div
+          className={cn(
+            'grid min-w-0 flex-1 transition-[grid-template-columns,opacity] duration-300 ease-in-out',
+            isCollapsed
+              ? 'grid-cols-[0fr] opacity-0'
+              : 'grid-cols-[1fr] opacity-100'
+          )}
+        >
+          <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+            <UserIdentity
+              user={user}
+              isLoading={isLoading}
+              className='flex-1'
+            />
+            <ThemeSwitcher
+              value={resolvedTheme}
+              onChange={setTheme}
+              className='my-0.5 shrink-0'
+            />
           </div>
         </div>
-      ) : (
-        <div
-          className='flex h-12 items-center gap-2 px-2'
-          data-testid='nav-user'
-        >
-          <UserAvatar user={user} />
-          <UserIdentity
-            user={user}
-            isLoading={isLoading}
-            className='flex-1'
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='shrink-0 text-muted-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
-                aria-label={t('common.moreActions')}
-                data-testid='nav-user-menu-trigger'
-              >
-                <MoreHorizontal className='size-4' />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className='min-w-48 rounded-lg'
-              align='end'
-              side='top'
-              sideOffset={4}
-              onCloseAutoFocus={(event) => event.preventDefault()}
-            >
-              {menuContent}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
+      </div>
 
       <SignOutDialog
         open={signOutOpen}

@@ -1,0 +1,15 @@
+{
+  "change": "quick-config-node-flow-refactor",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "688052d738871fbc0a71da92b51ecb7bf1adfab2af3d9dea821fceab1b466916",
+  "files": [
+    { "path": "docs/openspec/changes/quick-config-node-flow-refactor/proposal.md", "sha256": "7f7e2d7a923d6850acb69c5cb708b53cbe3897b3ddb4318bdad122c7c5ac059a" },
+    { "path": "docs/openspec/changes/quick-config-node-flow-refactor/design.md", "sha256": "e43c2a1314a30f444e8c3f78fe3dfe08502506c016fad0236b8c39af2b344438" },
+    { "path": "docs/openspec/changes/quick-config-node-flow-refactor/tasks.md", "sha256": "92b229d3b922f13674e200391889b36f3ad55437c8cecedfc9ba3edb5fc9e756" },
+    { "path": "docs/openspec/changes/quick-config-node-flow-refactor/specs/quick-config-node-assignment/spec.md", "sha256": "d8a0e210249dd63f2f30d77de7c6a40334914c3c585d07e4961510dee0a029c7" },
+    { "path": "docs/openspec/changes/quick-config-node-flow-refactor/specs/quick-config-wizard/spec.md", "sha256": "4dfd3fb1c66c7535ad245b86c51f003170c2a1e56346b5cc9733af9c1078a54c" }
+  ]
+}

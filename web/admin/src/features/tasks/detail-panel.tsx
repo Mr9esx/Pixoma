@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { Button } from '@/components/ui/button'
+import { Reveal } from '@/components/ui/reveal'
 import { cancelTask, getTask } from '@/lib/api/tasks'
 import { queryKeys } from '@/lib/api/query-keys'
 import { taskActionErrorMessage } from '@/lib/api/task-errors'
@@ -95,7 +96,7 @@ export function TaskDetailPanel({ id }: Props) {
   if (!task) return null
 
   return (
-    <div className='space-y-4' data-testid='task-detail-panel'>
+    <Reveal className='space-y-4' data-testid='task-detail-panel'>
       <div className='flex flex-wrap items-start justify-between gap-3'>
         <div>
           <h2 className='text-lg font-semibold'>{task.id}</h2>
@@ -114,6 +115,6 @@ export function TaskDetailPanel({ id }: Props) {
         </Button>
       </div>
       <TaskFields task={task} t={t} />
-    </div>
+    </Reveal>
   )
 }

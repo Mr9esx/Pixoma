@@ -1,0 +1,8 @@
+{
+  "openspec_proposal": "docs/openspec/changes/landing-page/proposal.md",
+  "openspec_design": "docs/openspec/changes/landing-page/design.md",
+  "openspec_tasks": "docs/openspec/changes/landing-page/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/landing-page/specs/landing-i18n/spec.md",
+  "handoff_context": "docs/openspec/changes/landing-page/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/landing-page/.comet/handoff/design-context.md"
+}

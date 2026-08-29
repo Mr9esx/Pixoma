@@ -10,7 +10,7 @@
 
 - `pixoma` 零配置可起：日志打印后台 URL + 默认管理员账号密码；未初始化仅放行登录与向导
 - 引导态（bootstrap）解决「配置进库 vs 库未就绪」；业务 settings 进业务库
-- 向导：库 → 本机/远程 → 存储 → 节点/Comfy 指引 → 渠道（含 TG Token）；远程禁 localfs
+- 向导：库 → 本机/远程 → 存储 → 节点/Comfy 指引 → 消息平台（含 TG Token）；远程禁 localfs
 - Edge 经 HTTP 长轮询 claim/lease/heartbeat/status；任务可调度态在 DB
 - 同机 localfs 共用目录可跑通主路径；远程 OSS（s3|tos）
 - 本机可自动拉起 Edge；文档亦支持手起

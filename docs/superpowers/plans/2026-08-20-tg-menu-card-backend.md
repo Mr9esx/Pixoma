@@ -13,7 +13,7 @@
 - 测试命令：仓库根 `go test ./...`；构建 `go build ./...`；格式 `gofmt -w`。
 - 完全重构：不兼容旧 `MenuNode` / `MenuTree` / `capability_id` 菜单字段；旧类型在运行时计划中删除，本计划只新增不动旧代码（除路由挂载）。
 - 校验只在保存时；`open_card` 必须指向存在的卡片；`open_workflow` 至少一个 `workflow_ids`；`open_url` 必须 http/https；媒体 URL 非空。
-- 卡片按渠道隔离（`channel_id` 归属），可被本渠道多个入口引用；删除被引用卡片必须拒绝。
+- 卡片按消息平台隔离（`channel_id` 归属），可被本消息平台多个入口引用；删除被引用卡片必须拒绝。
 
 ---
 
@@ -294,7 +294,7 @@ type CardRow struct {
 func (CardRow) TableName() string { return "channel_cards" }
 ```
 
-`CardReferences`：遍历本渠道所有卡片 doc，统计 `open_card.CardID == id` 的引用来源（返回引用来源描述，如 `menu:mi-1` / `card:c2:cb-1`）。
+`CardReferences`：遍历本消息平台所有卡片 doc，统计 `open_card.CardID == id` 的引用来源（返回引用来源描述，如 `menu:mi-1` / `card:c2:cb-1`）。
 
 - [ ] **Step 4: 运行确认通过 + 提交**
 

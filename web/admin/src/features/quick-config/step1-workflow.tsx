@@ -35,6 +35,7 @@ export function Step1Workflow({ shared, next, back }: Props) {
           initialName={t('quickConfig.unnamedWorkflow')}
           collectOnly
           splitPane
+          stepRail
           leftIntro={
             <p className='text-sm text-destructive' role='note'>
               {t('quickConfig.requireValidJson')}
@@ -51,6 +52,7 @@ export function Step1Workflow({ shared, next, back }: Props) {
           initial={caseRecord}
           collectOnly
           splitPane
+          stepRail
           onCollect={handleCollect}
           formId='quick-config-step1-form'
         />

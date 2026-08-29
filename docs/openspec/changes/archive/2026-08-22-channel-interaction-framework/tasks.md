@@ -3,7 +3,7 @@
 - [x] 1.1 新增 `internal/channel/capability`：Capability 接口（ID/DisplayName/ParamsSchema(JSON Schema)/Invoke/Render）、Registry 与 `Register`
 - [x] 1.2 参数校验：按能力 JSON Schema 校验能力调用参数，非法返回可理解错误
 - [x] 1.3 内置 `open_case` 能力：包装现有 `botapp.Facade`（预览/开始/填表/确认/结果），params 支持 case 选择与 back 引用
-- [x] 1.4 能力清单查询：注册表支持按渠道筛选渲染声明，供管理台与适配器读取
+- [x] 1.4 能力清单查询：注册表支持按消息平台筛选渲染声明，供管理台与适配器读取
 
 ## 2. 菜单模型改为能力入口
 
@@ -15,9 +15,9 @@
 
 ## 3. 统一交互协议
 
-- [x] 3.1 端口 `Action` 泛化为 `CapabilityInvoke{CapabilityID, Params, Account, Nav}`；`Result{Text/Options/Media/Error}` 渠道无关结果结构
+- [x] 3.1 端口 `Action` 泛化为 `CapabilityInvoke{CapabilityID, Params, Account, Nav}`；`Result{Text/Options/Media/Error}` 消息平台无关结果结构
 - [x] 3.2 `AccountCtx{ChannelID, ExternalUserID, InternalUserID}`：适配器经身份解析填充，能力执行携带
-- [x] 3.3 适配器契约：UI 事件 → CapabilityInvoke → registry 执行 → Result → 渠道渲染；适配器不写业务分支
+- [x] 3.3 适配器契约：UI 事件 → CapabilityInvoke → registry 执行 → Result → 消息平台渲染；适配器不写业务分支
 
 ## 4. TG 适配器按协议渲染
 
@@ -28,7 +28,7 @@
 
 ## 5. 管理台改版
 
-- [x] 5.1 菜单编辑器：入口类型改为「选择能力（来自 registry）→ 按 ParamsSchema 渲染参数表单 → 渠道展示微调」；移除 kind 选择
+- [x] 5.1 菜单编辑器：入口类型改为「选择能力（来自 registry）→ 按 ParamsSchema 渲染参数表单 → 消息平台展示微调」；移除 kind 选择
 - [x] 5.2 移除 extras 独立编辑入口（旧数据已迁移为渲染声明）
 - [x] 5.3 用户文案术语约束：管理台与 bot 文案禁用 inline/callback/extras/capability 等内部术语，统一「按钮/选项/功能」
 

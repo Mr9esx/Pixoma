@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { createTopic, type Topic } from '@/lib/api/topics'
 import { queryKeys } from '@/lib/api/query-keys'
+import { createTopic, type Topic } from '@/lib/api/topics'
 import { Button } from '@/components/ui/button'
+import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -44,9 +45,7 @@ export function CreateTopicForm({ onDone, onCancel }: Props) {
           placeholder='fast-gpu'
           autoComplete='off'
         />
-        <p className='text-xs text-muted-foreground'>
-          {t('topics.keyHint')}
-        </p>
+        <p className='text-xs text-muted-foreground'>{t('topics.keyHint')}</p>
       </div>
       <div className='space-y-1.5'>
         <Label htmlFor='topic-name'>{t('topics.fieldName')}</Label>
@@ -65,17 +64,17 @@ export function CreateTopicForm({ onDone, onCancel }: Props) {
             : t('common.errorGeneric')}
         </p>
       ) : null}
-      <div className='sticky bottom-0 z-10 -mx-6 -mb-7 mt-auto flex flex-wrap gap-2 border-t bg-card px-6 py-3 md:-mx-8 md:px-8'>
+      <DialogFooter className='shrink-0'>
+        <Button type='button' variant='outline' onClick={onCancel}>
+          {t('common.cancel')}
+        </Button>
         <Button
           disabled={!canCreate || createMutation.isPending}
           onClick={() => createMutation.mutate()}
         >
           {t('topics.create')}
         </Button>
-        <Button type='button' variant='outline' onClick={onCancel}>
-          {t('common.cancel')}
-        </Button>
-      </div>
+      </DialogFooter>
     </div>
   )
 }

@@ -6,8 +6,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	adminusersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminusers"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
 	channelapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
+	channeltext "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channeltext"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/media"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
@@ -15,7 +17,6 @@ import (
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
 	statsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/stats"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
-	adminusersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminusers"
 	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 )
@@ -24,18 +25,19 @@ import (
 type Options struct {
 	CORSOrigins []string
 	// Instances, when non-nil, is mounted at /api/v1/edges.
-	Instances *edges.Handler
-	Cases     *casesapi.Handler
-	AdminUsers *adminusersapi.Handler
-	Users     *usersapi.Handler
-	Sessions  *sessionsapi.Handler
-	Tasks     *tasksapi.Handler
-	Stats     *statsapi.Handler
-	Channels  *channelapi.Handler
-	MenuCards *menucardsapi.Handler
-	Topics    *topicsapi.Handler
-	Routing   *routingapi.Handler
-	Media     *media.Handler
+	Instances   *edges.Handler
+	Cases       *casesapi.Handler
+	AdminUsers  *adminusersapi.Handler
+	Users       *usersapi.Handler
+	Sessions    *sessionsapi.Handler
+	Tasks       *tasksapi.Handler
+	Stats       *statsapi.Handler
+	Channels    *channelapi.Handler
+	MenuCards   *menucardsapi.Handler
+	Topics      *topicsapi.Handler
+	Routing     *routingapi.Handler
+	Media       *media.Handler
+	ChannelText *channeltext.Handler
 	// NotFound handles unmatched paths (SPA embed).
 	NotFound http.Handler
 }
@@ -104,6 +106,9 @@ func NewHandler(opts Options) http.Handler {
 				if opts.MenuCards != nil {
 					opts.MenuCards.Mount(r)
 				}
+				if opts.ChannelText != nil {
+					opts.ChannelText.MountChannel(r)
+				}
 			})
 		}
 	})
@@ -120,6 +125,11 @@ func NewHandler(opts Options) http.Handler {
 	r.Route("/api/v1/media", func(r chi.Router) {
 		if opts.Media != nil {
 			opts.Media.Mount(r)
+		}
+	})
+	r.Route("/api/v1/text-templates", func(r chi.Router) {
+		if opts.ChannelText != nil {
+			opts.ChannelText.Mount(r)
 		}
 	})
 

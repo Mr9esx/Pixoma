@@ -182,7 +182,7 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
         />
       </section>
 
-      {/* ===== 工作流图示 / JSON（复用编辑工作流的查看器）===== */}
+      {/* ===== 工作流节点图 / JSON（复用编辑工作流的查看器）===== */}
       {wfGraph && wfGraph.nodes.length > 0 ? (
         <WorkflowGraphViewer
           value={wfText}

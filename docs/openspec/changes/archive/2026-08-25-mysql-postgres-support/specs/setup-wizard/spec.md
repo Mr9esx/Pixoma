@@ -1,10 +1,10 @@
 ## MODIFIED Requirements
 
 ### Requirement: 初始化向导多步配置
-系统 MUST 在管理后台提供初始化向导，引导用户完成至少：业务数据库、部署位置（本机或远程）、对象存储、执行节点/Comfy 指引、渠道（含 Telegram Bot Token）等步骤；业务数据库步骤 MUST 支持 `sqlite`、`mysql`、`postgres` 三种驱动；每步 MUST 做可达性或合法性校验，失败时 MUST 给出可诊断错误。
+系统 MUST 在管理后台提供初始化向导，引导用户完成至少：业务数据库、部署位置（本机或远程）、对象存储、执行节点/Comfy 指引、消息平台（含 Telegram Bot Token）等步骤；业务数据库步骤 MUST 支持 `sqlite`、`mysql`、`postgres` 三种驱动；每步 MUST 做可达性或合法性校验，失败时 MUST 给出可诊断错误。
 
 #### Scenario: 本机路径完成向导
-- **WHEN** 用户选择本机部署、配置可用业务库与 localfs 目录，并完成节点与渠道必要项
+- **WHEN** 用户选择本机部署、配置可用业务库与 localfs 目录，并完成节点与消息平台必要项
 - **THEN** 向导可标记初始化完成，设置持久化到业务库（或引导态约定位置）
 
 #### Scenario: 远程禁止 localfs

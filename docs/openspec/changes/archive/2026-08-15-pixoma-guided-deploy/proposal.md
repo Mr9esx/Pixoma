@@ -7,7 +7,7 @@
 ## What Changes
 
 - 引入控制面一体入口（`pixoma`）：零配置可启动；日志输出后台地址与默认账号密码；未初始化仅开放登录与向导。
-- 配置从「YAML 为主」转为「引导态 + 业务库 settings」；向导完成库、本机/远程、存储、节点/Comfy、渠道等步骤。
+- 配置从「YAML 为主」转为「引导态 + 业务库 settings」；向导完成库、本机/远程、存储、节点/Comfy、消息平台等步骤。
 - **BREAKING（默认路径）**：取消用户必选的 `runtime_mode` / `queue.driver`；默认派发不再依赖 Redis Streams / 进程内 memory 跨进程总线。
 - Edge 统一为 `pixoma-edge-agent`：主动连接控制面，长轮询/领取任务（claim + lease），回报状态；同机可用 localfs，远程用对象存储。
 - 本机可自动拉起 Edge（推荐）或文档手起；远程仅提供安装说明与节点登记。

@@ -140,8 +140,14 @@ func TestSettings_ProxyURLAndValidate(t *testing.T) {
 	}
 	ok.ProxyKind = settings.ProxyHTTP
 	ok.ProxyPort = 0
-	if err := ok.Validate(); err == nil {
-		t.Fatal("expected invalid port")
+	if err := ok.Validate(); err != nil {
+		t.Fatalf("zero port should default to 7897, got %v", err)
+	}
+	if got := ok.ProxyURL(); got != "http://127.0.0.1:7897" {
+		t.Fatalf("ProxyURL with default port=%q, want http://127.0.0.1:7897", got)
+	}
+	if got := ok.EffectiveProxyPort(); got != settings.DefaultProxyPort {
+		t.Fatalf("EffectiveProxyPort=%d, want %d", got, settings.DefaultProxyPort)
 	}
 }
 

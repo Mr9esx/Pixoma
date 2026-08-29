@@ -17,7 +17,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from '@/components/ui/sidebar'
-import { Badge } from '../ui/badge'
+import { Pill } from '../kibo-ui/pill'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,7 +59,11 @@ export function NavGroup({ title, items }: NavGroupProps) {
 }
 
 function NavBadge({ children }: { children: ReactNode }) {
-  return <Badge className='rounded-full px-1 py-0 text-xs'>{children}</Badge>
+  return (
+    <Pill variant='default' className='rounded-full px-1 py-0 text-xs'>
+      {children}
+    </Pill>
+  )
 }
 
 function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {

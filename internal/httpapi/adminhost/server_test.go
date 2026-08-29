@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -78,8 +79,11 @@ func TestChannelDetailRouteNotShadowedByMenuMount(t *testing.T) {
 	}
 
 	chSvc := &channelapp.Service{
-		Store:         channelpersist.NewGormRepository(gdb),
-		Key:           make([]byte, 32),
+		Store: channelpersist.NewGormRepository(gdb),
+		Key:   make([]byte, 32),
+		FetchTelegram: func(context.Context, string) (json.RawMessage, error) {
+			return nil, errors.New("offline")
+		},
 	}
 	chAPI := &channelsapi.Handler{Svc: chSvc}
 	menuCardsAPI := menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb))
@@ -156,6 +160,9 @@ func TestChannelReachabilityRouteMounted(t *testing.T) {
 	chSvc := &channelapp.Service{
 		Store: channelpersist.NewGormRepository(gdb),
 		Key:   make([]byte, 32),
+		FetchTelegram: func(context.Context, string) (json.RawMessage, error) {
+			return nil, errors.New("offline")
+		},
 	}
 	chAPI := &channelsapi.Handler{Svc: chSvc}
 	h := adminhost.NewHandler(adminhost.Options{Channels: chAPI})

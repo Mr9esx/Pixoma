@@ -27,8 +27,12 @@ describe('topics admin page contract', () => {
     expect(DETAIL_PANEL).toContain('updateTopic')
     expect(DETAIL_PANEL).toContain('deleteTopic')
     expect(DETAIL_PANEL).toContain('isDefault')
-    expect(DETAIL_PANEL).toContain('disabled={isDefault || enableMutation.isPending}')
-    expect(DETAIL_PANEL).toContain('disabled={isDefault || deleteMutation.isPending}')
+    expect(DETAIL_PANEL).toContain(
+      'disabled={isDefault || enableMutation.isPending}'
+    )
+    expect(DETAIL_PANEL).toContain(
+      'disabled={isDefault || deleteMutation.isPending}'
+    )
     expect(DETAIL_PANEL).toContain('topics.defaultHint')
     expect(DETAIL_PANEL).toContain('listEdges')
     expect(DETAIL_PANEL).toContain('topics.deleteWillRemoveRules')
@@ -50,15 +54,15 @@ describe('topics admin page contract', () => {
     expect(STATS).toContain("data-testid='topic-stats-panel'")
   })
 
-  it('路由：280px master-detail + 自动选中第一个 topic + 详情面板内新建', () => {
+  it('路由：280px master-detail + 自动选中第一个 topic + 新建为 modal', () => {
     expect(ROUTE).toContain('MasterDetailShell')
     expect(ROUTE).toContain('md:grid-cols-[280px_1fr]')
     expect(ROUTE).toContain('TopicDetailPanel')
-    expect(ROUTE).toContain("items[0]?.key")
+    expect(ROUTE).toContain('items[0]?.key')
     expect(ROUTE).toContain('replace: true')
-    expect(ROUTE).toContain("to='/topics/$key' params={{ key: 'new' }}")
     expect(ROUTE).toContain("key === 'new'")
     expect(ROUTE).toContain('CreateTopicForm')
+    expect(ROUTE).toContain('<Dialog')
     expect(ROUTE).toMatch(
       /hasSelection=\{Boolean\(selectedKey\) \|\| key === 'new'\}/
     )
@@ -71,11 +75,9 @@ describe('topics admin page contract', () => {
     expect(NEW).toContain('canCreate')
   })
 
-  it('新建表单：按钮在 sticky footer', () => {
-    expect(NEW).toMatch(/sticky bottom-0/)
-    expect(NEW).toMatch(/border-t bg-card/)
+  it('新建表单：按钮在 DialogFooter', () => {
+    expect(NEW).toMatch(/DialogFooter/)
     expect(NEW).toMatch(/flex flex-1 flex-col gap-4/)
-    expect(NEW).toMatch(/mt-auto/)
     expect(NEW).not.toMatch(/max-w-xl/)
   })
 })

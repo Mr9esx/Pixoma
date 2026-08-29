@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,8 +27,11 @@ func openChannelsServer(t *testing.T) (*httptest.Server, *channelapp.Service) {
 		t.Fatal(err)
 	}
 	svc := &channelapp.Service{
-		Store:         channelpersist.NewGormRepository(gdb),
-		Key:           make([]byte, 32),
+		Store: channelpersist.NewGormRepository(gdb),
+		Key:   make([]byte, 32),
+		FetchTelegram: func(context.Context, string) (json.RawMessage, error) {
+			return nil, errors.New("offline")
+		},
 	}
 	h := &channelsapi.Handler{Svc: svc}
 	r := chi.NewRouter()
@@ -152,11 +156,11 @@ func TestChannelsHandler_CheckReachability(t *testing.T) {
 	}
 	defer checkRes.Body.Close()
 	var out struct {
-		OK           bool                       `json:"ok"`
+		OK           bool                        `json:"ok"`
 		Kind         channelapp.ReachabilityKind `json:"kind"`
-		CheckedAt    string                     `json:"checked_at"`
-		AdapterState string                     `json:"adapter_state"`
-		AdapterError string                     `json:"adapter_error"`
+		CheckedAt    string                      `json:"checked_at"`
+		AdapterState string                      `json:"adapter_state"`
+		AdapterError string                      `json:"adapter_error"`
 	}
 	_ = json.NewDecoder(checkRes.Body).Decode(&out)
 	if checkRes.StatusCode != http.StatusOK {
@@ -179,5 +183,25 @@ func TestChannelsHandler_CheckReachability(t *testing.T) {
 	notFoundRes.Body.Close()
 	if notFoundRes.StatusCode != http.StatusNotFound {
 		t.Fatalf("not found status=%d", notFoundRes.StatusCode)
+	}
+}
+
+func TestChannelsHandler_CreateStoresExtraInfo(t *testing.T) {
+	srv, _ := openChannelsServer(t)
+	res, m := post(t, srv.URL+"/api/v1/channels", map[string]any{
+		"platform":   "telegram",
+		"name":       "Demo",
+		"token":      "t",
+		"extra_info": `{"username":"demo_bot"}`,
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d body=%v", res.StatusCode, m)
+	}
+	extra, ok := m["extra_info"].(map[string]any)
+	if !ok {
+		t.Fatalf("extra_info=%v", m["extra_info"])
+	}
+	if extra["username"] != "demo_bot" {
+		t.Fatalf("username=%v", extra["username"])
 	}
 }

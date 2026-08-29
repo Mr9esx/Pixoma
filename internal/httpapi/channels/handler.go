@@ -1,8 +1,10 @@
 package channels
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -16,6 +18,10 @@ import (
 // Handler serves channel management endpoints under /api/v1/channels.
 type Handler struct {
 	Svc *application.Service
+	// OnCreated, when set, is invoked after a channel is created so channel-
+	// scoped data (e.g. an initial copy of the platform default templates) can
+	// be seeded. Failures are logged but do not fail channel creation.
+	OnCreated func(ctx context.Context, id string) error
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -30,13 +36,14 @@ func (h *Handler) Mount(r chi.Router) {
 }
 
 type channelDTO struct {
-	ID          string    `json:"id"`
-	Platform    string    `json:"platform"`
-	Name        string    `json:"name"`
-	TokenMasked string    `json:"token_masked"`
-	Enabled     bool      `json:"enabled"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string          `json:"id"`
+	Platform    string          `json:"platform"`
+	Name        string          `json:"name"`
+	ExtraInfo   json.RawMessage `json:"extra_info"`
+	TokenMasked string          `json:"token_masked"`
+	Enabled     bool            `json:"enabled"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
 func (h *Handler) toDTO(ctx *http.Request, ch domain.Channel) (channelDTO, error) {
@@ -44,18 +51,24 @@ func (h *Handler) toDTO(ctx *http.Request, ch domain.Channel) (channelDTO, error
 	if err != nil {
 		return channelDTO{}, err
 	}
+	var extra json.RawMessage
+	if ch.ExtraInfo != "" {
+		extra = json.RawMessage(ch.ExtraInfo)
+	}
 	return channelDTO{
 		ID: ch.ID, Platform: ch.Platform, Name: ch.Name,
+		ExtraInfo:   extra,
 		TokenMasked: masked, Enabled: ch.Enabled,
 		CreatedAt: ch.CreatedAt, UpdatedAt: ch.UpdatedAt,
 	}, nil
 }
 
 type createBody struct {
-	ID       string `json:"id"`
-	Platform string `json:"platform"`
-	Name     string `json:"name"`
-	Token    string `json:"token"`
+	ID        string `json:"id"`
+	Platform  string `json:"platform"`
+	Name      string `json:"name"`
+	Token     string `json:"token"`
+	ExtraInfo string `json:"extra_info"`
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -72,10 +85,15 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if id == "" {
 		id = uuid.NewString()
 	}
-	ch, err := h.Svc.Create(r.Context(), id, domain.Platform(body.Platform), body.Name, body.Token)
+	ch, err := h.Svc.Create(r.Context(), id, domain.Platform(body.Platform), body.Name, body.Token, body.ExtraInfo)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
+	}
+	if h.OnCreated != nil {
+		if serr := h.OnCreated(r.Context(), id); serr != nil {
+			slog.Error("seed channel text templates", "err", serr, "channel_id", id)
+		}
 	}
 	dto, err := h.toDTO(r, ch)
 	if err != nil {

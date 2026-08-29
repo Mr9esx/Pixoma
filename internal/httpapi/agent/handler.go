@@ -14,7 +14,6 @@ import (
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -172,7 +171,6 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 		ComfyVersion    string         `json:"comfy_version"`
 		Hardware        *edge.Hardware `json:"hardware"`
 		Metrics         *edge.Metrics  `json:"metrics"`
-		SubscribeTopics []string       `json:"subscribe_topics"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json")
@@ -203,12 +201,6 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if rec != nil {
-			if body.SubscribeTopics != nil && len(rec.SubscribeTopics) == 0 {
-				if err := h.Edges.UpdateSubscribeTopics(r.Context(), edgeID, topic.NormalizeTopics(body.SubscribeTopics)); err != nil {
-					writeErr(w, http.StatusInternalServerError, err.Error())
-					return
-				}
-			}
 			if body.Hardware != nil && edge.ShouldWriteHardware(rec.Hardware, rec.HardwareRefreshRequested) {
 				if err := h.Edges.UpdateHardware(r.Context(), edgeID, *body.Hardware); err != nil {
 					writeErr(w, http.StatusInternalServerError, err.Error())

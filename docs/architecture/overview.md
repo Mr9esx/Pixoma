@@ -145,3 +145,17 @@ platform/* → sharedkernel（Pool 例外：持有 comfyui.Client）
 - OpenSpec 主规格：`docs/openspec/specs/`
 - 设计原文：`docs/superpowers/specs/2026-08-08-comfy-multi-instance-design.md`
 - 运维命令：仓库根 [README.md](../../README.md)
+
+---
+
+## 9. 快速配置向导（管理端）
+
+「快速配置」为四步引导 + 完成页：**工作流编辑 → 运行节点 → 特殊规则 → 投放 → 完成页发布**。
+
+- 运行节点：选择已有 Edge 或新建，仅作向导草稿；默认路由分支在完成页提交时对选中节点 `PATCH /edges/{id}` 追加 `default` 订阅（幂等，首个使用）。
+- 特殊规则：不需要 → 默认路由（任务回退 default，由订阅 default 的节点竞争消费）；需要 → 先把工作流落库并跳转既有独立规则编辑页，向导结束。
+- 投放与完成页就绪/发布门禁保留；四个就绪项：工作流已导入、运行节点已选、处理流程就绪、至少一个投放。
+- 会话：载荷含 `schemaVersion: 2`，旧版会话打开即清空（BREAKING）。
+- 本期不在向导内接入 Flow 编辑器；后端零改动（复用 `patchEdge` 与既有调度）。
+
+设计文档：[2026-08-28-quick-config-node-flow-refactor-design.md](../superpowers/specs/2026-08-28-quick-config-node-flow-refactor-design.md)。

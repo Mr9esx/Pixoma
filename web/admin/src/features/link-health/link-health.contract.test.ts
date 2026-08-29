@@ -13,7 +13,7 @@ describe('link health visibility', () => {
   it('LinkHealthAlert 在 Header 展示告警摘要（仅异常时）', () => {
     const alert = read('link-health-alert.tsx')
     expect(alert).toContain("data-testid='link-health-alert'")
-    expect(alert).toContain("role='alert'")
+    expect(alert).toContain("@/components/ui/alert")
     expect(alert).toContain('linkHealth.alertTitle')
     expect(alert).toContain('linkHealth.alertSummary')
     expect(alert).toContain('linkHealth.alertViewDetails')

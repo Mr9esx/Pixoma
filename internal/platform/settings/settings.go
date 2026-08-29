@@ -18,6 +18,9 @@ const (
 	ProxyOff   = ""
 	ProxyHTTP  = "http"
 	ProxySOCKS = "socks5"
+
+	// DefaultProxyPort is the proxy port used when no explicit port is set.
+	DefaultProxyPort = 7897
 )
 
 // Settings is the persisted platform configuration (no queue.driver / runtime_mode).
@@ -102,24 +105,39 @@ func validateProxy(s Settings) error {
 	if strings.TrimSpace(s.ProxyHost) == "" {
 		return fmt.Errorf("settings: proxy host required")
 	}
-	if s.ProxyPort < 1 || s.ProxyPort > 65535 {
+	if port := s.effectiveProxyPort(); port < 1 || port > 65535 {
 		return fmt.Errorf("settings: invalid proxy port")
 	}
 	return nil
+}
+
+// effectiveProxyPort is the proxy port in use, falling back to the default
+// 7897 when no explicit port is configured.
+func (s Settings) effectiveProxyPort() int {
+	if s.ProxyPort < 1 {
+		return DefaultProxyPort
+	}
+	return s.ProxyPort
+}
+
+// EffectiveProxyPort returns the proxy port that will actually be used.
+func (s Settings) EffectiveProxyPort() int {
+	return s.effectiveProxyPort()
 }
 
 // ProxyURL is the process proxy URL, or empty when proxy is off.
 func (s Settings) ProxyURL() string {
 	kind := strings.ToLower(strings.TrimSpace(s.ProxyKind))
 	host := strings.TrimSpace(s.ProxyHost)
-	if host == "" || s.ProxyPort < 1 {
+	if host == "" {
 		return ""
 	}
+	port := s.effectiveProxyPort()
 	switch kind {
 	case ProxyHTTP:
-		return fmt.Sprintf("http://%s:%d", host, s.ProxyPort)
+		return fmt.Sprintf("http://%s:%d", host, port)
 	case ProxySOCKS, "socks":
-		return fmt.Sprintf("socks5://%s:%d", host, s.ProxyPort)
+		return fmt.Sprintf("socks5://%s:%d", host, port)
 	default:
 		return ""
 	}

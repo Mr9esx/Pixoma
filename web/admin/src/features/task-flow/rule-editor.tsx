@@ -68,7 +68,7 @@ export function RuleEditor({
             已连接 → <span className='font-medium text-foreground'>{target.name}（{rule.topic}）</span>
           </span>
         ) : (
-          <span className='text-xs text-muted-foreground'>未连接 · 从右侧圆点拖出连线到调度通道</span>
+          <span className='text-xs text-muted-foreground'>未连接 · 从右侧圆点拖出连线到任务队列</span>
         )}
       </div>
     </div>

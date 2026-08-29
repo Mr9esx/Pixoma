@@ -6,7 +6,7 @@ archived-with: 2026-08-19-channel-platform-refactor
 status: final
 ---
 
-# 渠道层完整重构：深度技术设计（channel-platform-refactor）
+# 消息平台层完整重构：深度技术设计（channel-platform-refactor）
 
 > 上游事实源：OpenSpec change `channel-platform-refactor` 的 proposal.md / design.md / specs/**。本文是对 open 阶段 design.md 高层框架的深化，聚焦实现细节、边界条件与测试策略。
 
@@ -28,7 +28,7 @@ web/admin/src/features/channels/ + 迁移后的菜单编辑器
 
 边界约束：
 - `internal/menu` 与 `internal/channel` MUST NOT import `internal/channel/tg`
-- `botapp.Facade` 保持渠道无关；适配器只做翻译与渲染
+- `botapp.Facade` 保持消息平台无关；适配器只做翻译与渲染
 - `runtime` 依赖 ports 与适配器工厂（registry: platform → adapter factory），不依赖具体平台 SDK
 
 ## 2. 端口契约
@@ -94,15 +94,15 @@ TG MediaBridge 用 file_id → blob；出图走 blob → photo。本期 Upload �
 
 ## 3. 运行时装配器（热生效）
 
-- 启动：扫描 `channels WHERE enabled=1` 且 platform 已知 → 逐渠道 `factory.Create(platform, credential)` → `Start(ctx)`
-- watch：每 5s（可配置）拉取渠道快照（id/platform/credential_hash/enabled/updated_at），与内存期望状态 diff：
+- 启动：扫描 `channels WHERE enabled=1` 且 platform 已知 → 逐消息平台 `factory.Create(platform, credential)` → `Start(ctx)`
+- watch：每 5s（可配置）拉取消息平台快照（id/platform/credential_hash/enabled/updated_at），与内存期望状态 diff：
   - 新增/启用 → start
   - 停用 → stop
   - 凭证变化（credential_hash 不同）→ stop → start（重建）
   - 删除 → stop
 - 状态机：absent → starting → running → stopping → absent；error 状态带退避重试（5s / 30s / 5min 封顶）
 - 事件路由：适配器 `Receive(ctx)` 产出 InboundEvent → 统一 handler（panic recover + 日志）→ 翻译动作 → Facade
-- 并发：单装配器串行 diff，渠道 goroutine 独立；退出用 context cancel + WaitGroup
+- 并发：单装配器串行 diff，消息平台 goroutine 独立；退出用 context cancel + WaitGroup
 - 竞态：watch 周期内连续变更以最新快照为准（每轮全量 diff，不做增量队列）
 
 测试注入：`AdapterFactory` 接口可注入 fake；watch 周期可缩短（注入 ticker）。
@@ -138,20 +138,20 @@ TG MediaBridge 用 file_id → blob；出图走 blob → photo。本期 Upload �
 | DELETE | /api/v1/channels/{id} | 受限删除（409 带原因） |
 | GET/PUT | /api/v1/channels/{id}/menu | 中立菜单树 |
 | GET/PUT | /api/v1/channels/{id}/menu/extras | extras 读写 |
-| GET | /api/v1/cases/{id}/menu-placements | 含渠道标识 |
+| GET | /api/v1/cases/{id}/menu-placements | 含消息平台标识 |
 
-错误码：404 渠道不存在；400 校验失败（非法平台/空凭证/非法菜单树）；409 删除受限；422 凭证无效（创建时可用 getMe 预检）。
+错误码：404 消息平台不存在；400 校验失败（非法平台/空凭证/非法菜单树）；409 删除受限；422 凭证无效（创建时可用 getMe 预检）。
 
 ## 7. 管理台
 
 - 路由：`/channels`（列表）、`/channels/new`（向导）、`/channels/:id`（详情 tabs：基本信息 / 菜单 / extras）
-- 侧栏「渠道」替代「主键盘」；顺序 Dashboard/实例/Case/渠道/Task/User/Session
+- 侧栏「消息平台」替代「主键盘」；顺序 Dashboard/实例/Case/消息平台/Task/User/Session
 - 菜单编辑器：中立字段（名称、排序、类型、Case 挂载、启停）通用；extras 面板按平台 schema 注册渲染（TG 根层网格布局表单、其他键值 JSON 编辑器）
 - 热生效提示：保存后 toast「已生效」或「将在数秒内生效」
 
 ## 8. 错误处理与边界条件
 
-- Bot 启动失败（token 无效/网络）：适配器进入 error 状态，退避重试；渠道详情展示状态与最后错误；创建时可用 getMe 预检提示
+- Bot 启动失败（token 无效/网络）：适配器进入 error 状态，退避重试；消息平台详情展示状态与最后错误；创建时可用 getMe 预检提示
 - 凭证为空：禁用不启动
 - extras 无效：适配器忽略；管理台保存时按平台 schema 校验并提示
 - 删除受限：409 + 具体原因（未禁用/有会话/有任务）
@@ -173,7 +173,7 @@ TG MediaBridge 用 file_id → blob；出图走 blob → photo。本期 Upload �
 2. channels 领域 + 持久化 + 凭证（tasks 1）
 3. 端口 + TG 适配器重构（tasks 5）
 4. 装配器热生效（tasks 6）
-5. 身份渠道化（tasks 4）
+5. 身份消息平台化（tasks 4）
 6. API + 管理台（tasks 7/8）
 7. 测试与回归（tasks 9）
 

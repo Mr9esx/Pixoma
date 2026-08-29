@@ -1,0 +1,16 @@
+{
+  "change": "landing-page",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "fc106fb758e30dddb11329d31e6b64564a67948d6087cedabffd5e1545517dd1",
+  "files": [
+    { "path": "docs/openspec/changes/landing-page/proposal.md", "sha256": "87060714caf30b78dcf0a4972484a21f14d34e72968029950b1e5c9a342705f0" },
+    { "path": "docs/openspec/changes/landing-page/design.md", "sha256": "f71ec563d2184e19a2e3d8667fb372f4fb864302aca11d399c585134ae37c0f3" },
+    { "path": "docs/openspec/changes/landing-page/tasks.md", "sha256": "1a2e8929215df0d3ae150061ccc52863b9716d87240003f97ca5e50ca3b1b454" },
+    { "path": "docs/openspec/changes/landing-page/specs/landing-i18n/spec.md", "sha256": "64ebc31bff4475b6876995c334af572fdf98657fc1763831c5a3e9dabfd8dd46" },
+    { "path": "docs/openspec/changes/landing-page/specs/landing-interactive-demos/spec.md", "sha256": "6e08772e1ce6a5e5b624b2a407da76c2db59c9c1c7de9c4976ba86dca1732b83" },
+    { "path": "docs/openspec/changes/landing-page/specs/landing-page/spec.md", "sha256": "002194c4ef16c11f68c9781015459369bb917d411a8e4bff766df7f630fab256" }
+  ]
+}

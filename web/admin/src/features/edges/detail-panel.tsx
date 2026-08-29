@@ -4,7 +4,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import {
   BadgeCheck,
   Boxes,
-  CalendarClock,
+  CalendarCheck,
   Cpu,
   Gpu,
   Hash,
@@ -41,6 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Reveal } from '@/components/ui/reveal'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
@@ -58,6 +59,15 @@ import { ObservationPanel } from './observation-panel'
 import { StatusTag } from './presence-tags'
 
 const TASKS_PAGE_SIZE = 10
+
+// 终端本地时间可能晚于服务端 now（跨时区/晚于当前秒），把 to 钳到 now，
+// 避免后端 `to cannot be in the future` 400。to 已 ≤ now 时原样返回。
+function clampToNow(iso: string): string {
+  const ms = Date.parse(iso)
+  if (!Number.isFinite(ms)) return iso
+  const now = Date.now()
+  return new Date(Math.min(ms, now)).toISOString()
+}
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -126,7 +136,7 @@ export function EdgeDetailPanel({ id }: Props) {
         ? getEdgeMetrics(id, metricsRange.window)
         : getEdgeMetrics(id, 'custom', {
             from: metricsRange.from,
-            to: metricsRange.to,
+            to: clampToNow(metricsRange.to),
           }),
     refetchInterval: 15000,
   })
@@ -238,7 +248,8 @@ export function EdgeDetailPanel({ id }: Props) {
   const stats = statsQuery.data
 
   return (
-    <section
+    <Reveal
+      as='section'
       id='edge-detail'
       className={kit.pageSection}
       data-testid='edge-detail'
@@ -268,7 +279,7 @@ export function EdgeDetailPanel({ id }: Props) {
               className={kit.btnGhost}
               onClick={() => setDeployOpen(true)}
             >
-              <Terminal className='size-3.5' />
+              <Terminal className='size-3.5' strokeWidth={2} />
               {t('edges.deployCommand')}
             </Button>
             <Button
@@ -276,7 +287,7 @@ export function EdgeDetailPanel({ id }: Props) {
               className={kit.btnPrimary}
               onClick={() => setEditOpen(true)}
             >
-              <PenLine className='size-3.5' />
+              <PenLine className='size-3.5' strokeWidth={2} />
               {t('edges.edit')}
             </Button>
             <Button
@@ -285,7 +296,7 @@ export function EdgeDetailPanel({ id }: Props) {
               className='h-8 gap-1.5 rounded-md px-3 text-xs'
               onClick={() => setDeleteOpen(true)}
             >
-              <Trash2 className='size-3.5' />
+              <Trash2 className='size-3.5' strokeWidth={2} />
               {t('common.delete')}
             </Button>
           </div>
@@ -295,21 +306,21 @@ export function EdgeDetailPanel({ id }: Props) {
             {edge.description}
           </LongText>
         ) : null}
-        <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
+        <div className='mt-1 flex max-w-full flex-wrap items-center gap-2 text-xs'>
           <MetaChip
-            icon={<Hash className='size-3.5' />}
+            icon={<Hash className='size-3.5' strokeWidth={2} />}
             label={t('edges.fieldNodeId')}
             value={edge.id}
             divider
           />
           <MetaChip
-            icon={<CalendarClock className='size-3.5' />}
+            icon={<CalendarCheck className='size-3.5' strokeWidth={2} />}
             label={t('edges.fieldCreatedAt')}
             value={formatTime(edge.created_at)}
             divider
           />
           <MetaChip
-            icon={<Timer className='size-3.5' />}
+            icon={<Timer className='size-3.5' strokeWidth={2} />}
             label={t('edges.fieldStartedAt')}
             value={
               edge.enabled && presence?.edge_online && edge.started_at
@@ -319,13 +330,13 @@ export function EdgeDetailPanel({ id }: Props) {
             divider
           />
           <MetaChip
-            icon={<Boxes className='size-3.5' />}
+            icon={<Boxes className='size-3.5' strokeWidth={2} />}
             label={t('edges.fieldComfyVersion')}
             value={edge.comfy_version}
             divider
           />
           <MetaChip
-            icon={<Tags className='size-3.5' />}
+            icon={<Tags className='size-3.5' strokeWidth={2} />}
             label={t('edges.fieldCapabilities')}
             value={edge.capabilities.join(', ')}
           />
@@ -341,7 +352,7 @@ export function EdgeDetailPanel({ id }: Props) {
       <section className={kit.specsWrap}>
         <div className={kit.specsCell}>
           <div className={kit.specsLabel}>
-            <Cpu className='size-3.5 shrink-0' />
+            <Cpu className='size-3.5 shrink-0' strokeWidth={2} />
             {t('edges.fieldCpu')}
           </div>
           <div className='mt-2 flex min-w-0 flex-col gap-1 xl:flex-row xl:items-end xl:justify-between xl:gap-3'>
@@ -350,7 +361,7 @@ export function EdgeDetailPanel({ id }: Props) {
         </div>
         <div className={kit.specsCell}>
           <div className={kit.specsLabel}>
-            <Gpu className='size-3.5 shrink-0' />
+            <Gpu className='size-3.5 shrink-0' strokeWidth={2} />
             {t('edges.fieldGpu')}
           </div>
           {gpus.length > 0 ? (
@@ -377,7 +388,7 @@ export function EdgeDetailPanel({ id }: Props) {
         </div>
         <div className={kit.specsCell}>
           <div className={kit.specsLabel}>
-            <Cpu className='size-3.5 shrink-0' />
+            <Cpu className='size-3.5 shrink-0' strokeWidth={2} />
             {t('edges.fieldCpuCores')}
           </div>
           <div className='mt-2 flex min-w-0 flex-col gap-1 xl:flex-row xl:items-end xl:justify-between xl:gap-3'>
@@ -390,7 +401,7 @@ export function EdgeDetailPanel({ id }: Props) {
         </div>
         <div className={kit.specsCell}>
           <div className={kit.specsLabel}>
-            <MemoryStick className='size-3.5 shrink-0' />
+            <MemoryStick className='size-3.5 shrink-0' strokeWidth={2} />
             {t('edges.fieldMemory')}
           </div>
           <div className='mt-2 flex min-w-0 flex-col gap-1 xl:flex-row xl:items-end xl:justify-between xl:gap-3'>
@@ -570,6 +581,6 @@ export function EdgeDetailPanel({ id }: Props) {
           ) : null
         }
       />
-    </section>
+    </Reveal>
   )
 }

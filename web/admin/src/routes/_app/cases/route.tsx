@@ -151,6 +151,12 @@ function CasesLayout() {
               mode='create'
               splitPane
               hideActions
+              stepRail
+              leftIntro={
+                <p className='text-sm text-destructive' role='note'>
+                  {t('quickConfig.requireValidJson')}
+                </p>
+              }
               onPendingChange={setCreatePending}
               onDirtyChange={setDirty}
               formId='create-case-form'
@@ -225,7 +231,11 @@ function CasesLayout() {
               onRetry={() => void listQuery.refetch()}
             />
           }
-          detail={selectedId ? <CaseDetailPanel id={selectedId} /> : null}
+          detail={
+            selectedId ? (
+              <CaseDetailPanel key={selectedId} id={selectedId} />
+            ) : null
+          }
           emptyDetail={
             !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (
               <Empty>

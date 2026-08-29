@@ -10,7 +10,6 @@ const APP_LAYOUT = join(srcRoot, 'routes/_app.tsx')
 const APP_SIDEBAR = join(here, 'app-sidebar.tsx')
 const APP_TITLE = join(here, 'app-title.tsx')
 const LOGO = join(srcRoot, 'assets/logo.tsx')
-const LANG_SWITCHER = join(here, 'language-switcher.tsx')
 const NAV_USER = join(here, 'nav-user.tsx')
 
 function read(path: string) {
@@ -26,12 +25,12 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
     expect(source).not.toContain('import { ThemeSwitch }')
   })
 
-  it('AppSidebar mounts tools in SidebarFooter', () => {
+  it('AppSidebar mounts only the integrated NavUser in SidebarFooter', () => {
     const source = read(APP_SIDEBAR)
     expect(source).toContain('SidebarFooter')
-    expect(source).toContain('LanguageSwitcher')
-    expect(source).toContain('ThemeSwitch')
     expect(source).toContain('NavUser')
+    expect(source).not.toContain('import { ThemeSwitch }')
+    expect(source).not.toContain('import { LanguageSwitcher }')
     expect(source).toMatch(/<SidebarFooter>\s*<NavUser/)
   })
 
@@ -78,13 +77,13 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
     expect(pkg).not.toContain('shadcn-admin')
   })
 
-  it('LanguageSwitcher uses dropdown trigger (not dual text buttons)', () => {
-    const source = read(LANG_SWITCHER)
+  it('NavUser integrates language + theme switching in its dropdown', () => {
+    const source = read(NAV_USER)
     expect(source).toContain('DropdownMenu')
-    expect(source).toContain("data-testid='language-switcher'")
-    expect(source).not.toMatch(
-      /size='sm'[\s\S]*lang\.zh[\s\S]*size='sm'[\s\S]*lang\.en/
-    )
+    expect(source).toContain("data-testid='nav-user-lang-zh'")
+    expect(source).toContain("data-testid='nav-user-lang-en'")
+    expect(source).toContain("data-testid='nav-user-theme-light'")
+    expect(source).toContain("data-testid='nav-user-theme-dark'")
   })
 
   it('content region switches to fixed layout when a child opts in', () => {
@@ -92,7 +91,7 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
     expect(source).toContain('contentRegionClassName')
     const region = read(join(here, 'content-region.ts'))
     expect(region).toContain(
-      'min-h-0 flex-1 overflow-auto has-[>[data-layout=fixed]]:flex has-[>[data-layout=fixed]]:overflow-hidden'
+      'mx-auto w-full max-w-[1440px] has-[>[data-layout=fixed]]:flex has-[>[data-layout=fixed]]:overflow-hidden'
     )
   })
 })

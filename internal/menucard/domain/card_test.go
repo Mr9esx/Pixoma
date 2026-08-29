@@ -12,7 +12,7 @@ func TestCardJSONRoundTrip(t *testing.T) {
 		ID: "card-1", Name: "开始生成", Text: "选一种风格：",
 		Media: []domain.Media{{Kind: "image", URL: "https://a/img.png"}},
 		Buttons: []domain.CardButton{
-			{ID: "cb-1", Label: "写实风格", Action: domain.Action{Type: "open_workflow", WorkflowIDs: []string{"w1"}}},
+			{ID: "cb-1", Label: "写实风格", Action: domain.Action{Type: "open_workflow", WorkflowID: "w1"}},
 		},
 	}
 	raw, err := json.Marshal(c)
@@ -23,7 +23,7 @@ func TestCardJSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(raw, &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Media[0].URL != "https://a/img.png" || got.Buttons[0].Action.WorkflowIDs[0] != "w1" {
+	if got.Media[0].URL != "https://a/img.png" || got.Buttons[0].Action.WorkflowID != "w1" {
 		t.Fatalf("got=%+v", got)
 	}
 }
@@ -33,7 +33,7 @@ func TestValidateCardRequiresContent(t *testing.T) {
 		t.Fatal("empty card must fail")
 	}
 	ok := domain.Card{ID: "c", Name: "x", Text: "hi", Buttons: []domain.CardButton{
-		{ID: "b", Label: "B", Action: domain.Action{Type: "placeholder"}},
+		{ID: "b", Label: "B", Action: domain.Action{Type: "send_text", Text: "ok"}},
 	}}
 	if err := domain.ValidateCard(ok); err != nil {
 		t.Fatalf("unexpected: %v", err)

@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Film, ImagePlus, Loader2, Trash2, ZoomIn } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
-  fetchMediaBlob,
   isAllowedMedia,
   MEDIA_MAX_BYTES,
   resolveMediaKey,
@@ -17,38 +16,13 @@ import {
   AttachmentTitle,
   AttachmentTrigger,
 } from '@/components/ui/attachment'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { useMediaObjectUrl } from '../lib/use-media-object-url'
+import { MediaLightbox } from '../components/media-lightbox'
 
 type Props = {
   value?: string
   onChange: (next?: string) => void
   disabled?: boolean
-}
-
-function useMediaObjectUrl(value?: string): string | undefined {
-  const key = resolveMediaKey(value)
-  const [loaded, setLoaded] = useState<
-    { key: string; url: string } | undefined
-  >(undefined)
-  useEffect(() => {
-    if (!key) return
-    let cancelled = false
-    let objectUrl: string | undefined
-    fetchMediaBlob(key)
-      .then((blob) => {
-        if (cancelled) return
-        objectUrl = URL.createObjectURL(blob)
-        setLoaded({ key, url: objectUrl })
-      })
-      .catch(() => {
-        // ignore: render without a preview
-      })
-    return () => {
-      cancelled = true
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [key])
-  return loaded && loaded.key === key ? loaded.url : undefined
 }
 
 /** 基础信息「预览效果图」字段：上传图片/视频并内嵌预览（管理端鉴权）。 */
@@ -101,13 +75,28 @@ export function MediaPreviewField({ value, onChange, disabled }: Props) {
         state={error ? 'error' : uploading ? 'uploading' : 'done'}
         className='w-full'
       >
-        <AttachmentMedia variant={key && !isVideo ? 'image' : 'icon'}>
+        <AttachmentMedia variant={key && mediaUrl ? 'image' : 'icon'}>
           {uploading ? (
             <Loader2 className='animate-spin' />
           ) : isVideo ? (
-            <Film />
+            mediaUrl ? (
+              <video
+                src={`${mediaUrl}#t=0.1`}
+                muted
+                playsInline
+                preload='metadata'
+                disablePictureInPicture
+                className='h-full w-full object-contain'
+              />
+            ) : (
+              <Film />
+            )
           ) : key && mediaUrl ? (
-            <img src={mediaUrl} alt='preview' />
+            <img
+              src={mediaUrl}
+              alt='preview'
+              className='h-full w-full object-contain'
+            />
           ) : (
             <ImagePlus />
           )}
@@ -166,24 +155,12 @@ export function MediaPreviewField({ value, onChange, disabled }: Props) {
         </p>
       ) : null}
 
-      <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
-        <DialogContent className="max-w-[min(92vw,1100px)] border-0 bg-foreground/95 p-2 sm:max-w-[min(92vw,1100px)] [&_[data-slot='dialog-close']]:size-8 [&_[data-slot='dialog-close']]:bg-black/40 [&_[data-slot='dialog-close']]:text-white [&_[data-slot='dialog-close']]:opacity-100 [&_[data-slot='dialog-close']]:hover:bg-black/60">
-          {isVideo ? (
-            <video
-              src={mediaUrl}
-              controls
-              autoPlay
-              className='max-h-[85vh] w-full object-contain'
-            />
-          ) : (
-            <img
-              src={mediaUrl}
-              alt='preview'
-              className='max-h-[85vh] w-full object-contain'
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <MediaLightbox
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        src={mediaUrl}
+        isVideo={isVideo}
+      />
     </div>
   )
 }

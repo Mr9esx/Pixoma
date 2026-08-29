@@ -43,7 +43,7 @@ describe('login and setup pages', () => {
   it('renders the first-run hint below the login card, not inside it', () => {
     const page = read('src/features/setup/login-page.tsx')
     const cardEnd = page.indexOf('</Card>')
-    const hintAlert = page.indexOf('border-amber-500/40') // 仅 first-run 提示
+    const hintAlert = page.indexOf("data-testid='first-run-hint'")
     expect(cardEnd).toBeGreaterThan(0)
     expect(hintAlert).toBeGreaterThan(cardEnd)
   })

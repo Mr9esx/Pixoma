@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/mail"
 	"os"
@@ -91,6 +92,11 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	email, avatarURL := "", ""
 	if h.ConsoleUsers != nil {
 		if u, err := h.ConsoleUsers.GetByUsername(r.Context(), acct.Username); err == nil {
+			// 平滑升级：把尚未绑定账号身份的会话（如初始化向导签发）就地补绑，
+			// 避免前端仍需重新登录才能获得完整角色权限。
+			if acct.AccountID == "" {
+				_ = h.Sessions.BindAccount(TokenFromRequest(r), u.ID, u.Role)
+			}
 			if u.Nickname != "" {
 				nickname = u.Nickname
 			}
@@ -211,12 +217,15 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 	}
 	initialized := h.Boot.Initialized()
 	var err error
+	var consolePasswordChanged bool
 	if initialized && h.ConsoleUsers != nil {
 		err = h.setConsolePassword(r.Context(), user, body.OldPassword, body.NewPassword)
 	} else if h.Boot.MustChangePassword() {
 		err = h.Boot.SetPassword(user, body.NewPassword)
+		consolePasswordChanged = true
 	} else {
 		err = h.Boot.ChangePassword(user, body.OldPassword, body.NewPassword)
+		consolePasswordChanged = true
 	}
 	if err != nil {
 		if errors.Is(err, bootstrap.ErrInvalidCredentials) {
@@ -233,6 +242,13 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 		}
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	// 未走 console 分支（如初始化向导改密）时，bootstrap 是唯一密码源，
+	// 需把新密码同步到 console_users，否则初始化完成后登录会按旧值校验而失败。
+	if consolePasswordChanged {
+		if err := h.syncConsolePassword(r.Context(), user, body.NewPassword); err != nil {
+			slog.Error("sync console password failed", "error", err)
+		}
 	}
 	if !initialized {
 		_ = h.Boot.SetWizardStep("profile")
@@ -664,6 +680,29 @@ func (h *Handler) setConsolePassword(ctx context.Context, username, oldPassword,
 		}
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	u.PasswordHash = string(hash)
+	u.MustChangePassword = false
+	return h.ConsoleUsers.Update(ctx, u)
+}
+
+// syncConsolePassword mirrors a bootstrap-side password change onto the console
+// account row (if one exists), so login — which validates against console_users
+// once the platform is initialized — accepts the new secret.
+func (h *Handler) syncConsolePassword(ctx context.Context, username, plain string) error {
+	if h.ConsoleUsers == nil {
+		return nil
+	}
+	u, err := h.ConsoleUsers.GetByUsername(ctx, username)
+	if err != nil {
+		if errors.Is(err, consoledomain.ErrNotFound) {
+			return nil
+		}
+		return err
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}

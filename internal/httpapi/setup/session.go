@@ -191,6 +191,33 @@ func (s *Sessions) Revoke(plain string) {
 	}
 }
 
+// BindAccount attaches a console account identity (accountID/role) to an
+// existing session, so bootstrap-era sessions issued during first-run setup can
+// be upgraded in place without forcing a re-login. Returns false when the
+// session is unknown or expired.
+func (s *Sessions) BindAccount(plain, accountID, role string) bool {
+	if plain == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := hashToken(plain)
+	row, exists := s.byID[key]
+	if !exists || time.Now().After(row.Expires) {
+		return false
+	}
+	if row.AccountID != "" && row.AccountID == accountID {
+		return true
+	}
+	row.AccountID = accountID
+	row.Role = role
+	s.byID[key] = row
+	if row.Remember && s.storePath != "" {
+		_ = s.save()
+	}
+	return true
+}
+
 func TokenFromRequest(r *http.Request) string {
 	if c, err := r.Cookie(CookieName); err == nil {
 		if v := c.Value; v != "" {

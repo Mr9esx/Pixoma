@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
-import { ArrowRight, FileJson } from 'lucide-react'
+import { ArrowRight, ChevronDownIcon, FileJson } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/utils'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   Attachment,
   AttachmentContent,
@@ -9,6 +11,14 @@ import {
   AttachmentTitle,
   AttachmentTrigger,
 } from '@/components/ui/attachment'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CodeEditor } from '@/components/code-editor'
 import { nodeLabel } from '../lib/node-catalog'
@@ -22,6 +32,7 @@ type Props = {
   onChange: (next: string) => void
   onFileName?: (name: string) => void
   disabled?: boolean
+  stepRail?: boolean
 }
 
 type ViewMode = 'diagram' | 'source'
@@ -31,22 +42,12 @@ function NodeDiagram({ nodes }: { nodes: WorkflowNode[] }) {
   return (
     <div
       data-testid='workflow-import-diagram'
-      className='overflow-auto max-h-[180px] bg-muted/20 p-3'
+      className='max-h-[340px] overflow-auto bg-muted/20 px-3 pt-3 pb-7'
     >
       <ol className='flex min-w-max items-center gap-2'>
         {nodes.map((node, i) => (
           <li key={node.id} className='flex flex-none items-center gap-2'>
-            <div className='w-40 rounded-md border border-border bg-card p-2.5'>
-              <div className='truncate font-mono text-[11px] text-muted-foreground'>
-                {node.id}
-              </div>
-              <div className='mt-0.5 truncate text-sm font-semibold'>
-                {nodeLabel(node.class_type)}
-              </div>
-              <div className='mt-0.5 font-mono text-[11px] break-all text-muted-foreground'>
-                {node.class_type}
-              </div>
-            </div>
+            <NodeCard node={node} />
             {i < nodes.length - 1 ? (
               <ArrowRight className='size-4 flex-none text-muted-foreground' />
             ) : null}
@@ -54,6 +55,79 @@ function NodeDiagram({ nodes }: { nodes: WorkflowNode[] }) {
         ))}
       </ol>
     </div>
+  )
+}
+
+/** 节点的可展示信息都放进 c-card-13 折叠卡：标题、ID、输出数、已连输入/总输入、类名、输入项。 */
+function NodeCard({ node }: { node: WorkflowNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const title = nodeLabel(node.class_type)
+
+  return (
+    <Card className='relative w-52 !gap-2 overflow-visible !px-0 !pt-2 !pb-0'>
+      <CardHeader className='flex items-center justify-between gap-2 !px-3 !py-0'>
+        <CardTitle className='truncate text-xs font-semibold'>
+          {title}
+        </CardTitle>
+        <CardAction>
+          <span className='font-mono text-[11px] text-muted-foreground'>
+            {node.id}
+          </span>
+        </CardAction>
+      </CardHeader>
+      <CardContent
+        className={cn(
+          'relative space-y-2 overflow-hidden !px-3 !py-0 !pb-3 transition-all duration-500 ease-in-out',
+          isOpen ? 'max-h-[300px]' : 'h-24'
+        )}
+      >
+        <div className='flex justify-between rounded-lg bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground'>
+          <span>输出 · {node.outputCount}</span>
+          <span>输入 · {node.inputs.length}</span>
+        </div>
+        {node.class_type !== title ? (
+          <div className='truncate font-mono text-[11px] text-muted-foreground'>
+            {node.class_type}
+          </div>
+        ) : null}
+        {node.inputs.length ? (
+          <ul className='space-y-1.5'>
+            {node.inputs.map((input) => (
+              <li key={input.name} className='truncate text-[11px]'>
+                <span className='text-muted-foreground'>
+                  {input.ref ? '↳ ' : ''}
+                  {input.name}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-x-0 bottom-0 h-12 rounded-b-lg bg-linear-to-t from-background to-transparent transition-opacity duration-300',
+            isOpen ? 'opacity-0' : 'opacity-100'
+          )}
+        />
+      </CardContent>
+      <div className='absolute -bottom-4 left-1/2 -translate-x-1/2'>
+        <Button
+          type='button'
+          variant='outline'
+          size='icon-sm'
+          className='rounded-full bg-background shadow-sm hover:bg-background'
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <ChevronDownIcon
+            aria-hidden='true'
+            className={cn(
+              'transition-transform duration-300',
+              isOpen && 'rotate-180'
+            )}
+          />
+          <span className='sr-only'>展开/折叠</span>
+        </Button>
+      </div>
+    </Card>
   )
 }
 
@@ -84,7 +158,7 @@ function ViewToggle({
   )
 }
 
-/** 图示 / 源码统一查看器：右上角切换。未导入时渲染为空。 */
+/** 节点图 / 源码统一查看器：右上角切换。未导入时渲染为空。 */
 export function WorkflowGraphViewer({
   value,
   graph,
@@ -135,6 +209,7 @@ export function WorkflowImportSection({
   onChange,
   onFileName,
   disabled,
+  stepRail,
 }: Props) {
   const { t } = useTranslation()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -146,9 +221,17 @@ export function WorkflowImportSection({
   }
 
   return (
-    <section className='space-y-3' data-testid='case-section-workflow-import'>
+    <section
+      className={cn('relative space-y-3', stepRail && 'pl-7')}
+      data-testid='case-section-workflow-import'
+    >
       <div className='flex items-center gap-2'>
-        <span className='flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground'>
+        <span
+          className={cn(
+            'flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground',
+            stepRail && 'absolute top-0.5 left-0'
+          )}
+        >
           1
         </span>
         <div className='min-w-0 flex-1'>
@@ -222,13 +305,12 @@ export function WorkflowImportSection({
         readOnly={disabled}
       />
       {error ? (
-        <div
-          data-testid='workflow-import-error'
-          className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
-        >
-          <p className='font-medium'>{t('cases.importFailed')}</p>
-          <p>{error}</p>
-        </div>
+        <Alert variant='destructive' data-testid='workflow-import-error'>
+          <AlertTitle className='text-sm font-medium'>
+            {t('cases.importFailed')}
+          </AlertTitle>
+          <AlertDescription className='text-sm'>{error}</AlertDescription>
+        </Alert>
       ) : null}
     </section>
   )

@@ -1,0 +1,8 @@
+{
+  "openspec_proposal": "docs/openspec/changes/dashboard-workbench-refactor/proposal.md",
+  "openspec_design": "docs/openspec/changes/dashboard-workbench-refactor/design.md",
+  "openspec_tasks": "docs/openspec/changes/dashboard-workbench-refactor/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/dashboard-workbench-refactor/specs/admin-dashboard-workbench/spec.md",
+  "handoff_context": "docs/openspec/changes/dashboard-workbench-refactor/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/dashboard-workbench-refactor/.comet/handoff/design-context.md"
+}

@@ -36,10 +36,8 @@ describe('channel layout aligned with compute nodes', () => {
 
   it('create form keeps actions in a sticky bottom footer', () => {
     const form = readFileSync(join(here, 'create-channel-form.tsx'), 'utf8')
-    expect(form).toMatch(/sticky bottom-0/)
-    expect(form).toMatch(/border-t bg-card/)
+    expect(form).toMatch(/DialogFooter/)
     expect(form).toMatch(/flex flex-1 flex-col gap-4/)
-    expect(form).toMatch(/mt-auto/)
     expect(form).not.toMatch(/max-w-xl/)
   })
 
@@ -59,7 +57,8 @@ describe('channel layout aligned with compute nodes', () => {
     )
     expect(detail).not.toMatch(/upstream=\{\{/)
     expect(detail).toMatch(/ChannelReachabilityTag/)
-    expect(detail).toMatch(/kit\.tagWarn/)
+    expect(detail).toMatch(/from '@\/components\/kibo-ui\/pill'/)
+    expect(detail).not.toMatch(/kit\.tag/)
     expect(detail).toMatch(/channels\.reachabilityNetwork/)
     expect(detail).not.toMatch(/to='\/settings'/)
   })

@@ -112,13 +112,19 @@ export function LoginPage({
         </CardContent>
       </Card>
       {showFirstRunHint ? (
-        <Alert className='w-full max-w-sm border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400'>
+        <Alert
+          variant='warn'
+          className='w-full max-w-sm'
+          style={{ marginTop: '16px' }}
+          data-testid='first-run-hint'
+        >
           <KeyRound />
           <AlertDescription>
             首次启动系统会生成默认密码，在启动日志中搜索 "Admin password" 即可。
           </AlertDescription>
         </Alert>
       ) : null}
+      
     </AuthShell>
   )
 }

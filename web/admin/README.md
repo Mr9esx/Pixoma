@@ -42,4 +42,4 @@ Dashboard 数字基于 list 拉取样本，受 `limit` 限制，不是全库精�
 
 ## 非目标
 
-无前端 mock。侧栏「渠道」页管理平台接入（`/api/v1/channels`），渠道详情内配置菜单（`/api/v1/channels/{id}/menu`）。
+无前端 mock。侧栏「消息平台」页管理平台接入（`/api/v1/channels`），消息平台详情内配置菜单（`/api/v1/channels/{id}/menu`）。

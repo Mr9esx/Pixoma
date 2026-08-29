@@ -32,7 +32,7 @@ type TopicID = sharedkernel.TopicKey
 // NormalizeTopics maps a raw subscription list to the effective topic set:
 // empty or missing entries are dropped, duplicates are removed, and order is
 // preserved. An empty result means the edge has no topic binding and consumes
-// no tasks (it must be bound to a dispatch channel to receive work).
+// no tasks (it must be bound to a task queue to receive work).
 func NormalizeTopics(raw []string) []string {
 	seen := map[string]bool{}
 	out := make([]string, 0, len(raw))
