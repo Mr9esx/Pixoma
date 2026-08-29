@@ -12,13 +12,13 @@ import (
 
 func TestBuildReplyKeyboardFreeColumns(t *testing.T) {
 	menu := mcdomain.Menu{ID: "m", Name: "主", Columns: 3, Items: []mcdomain.MenuItem{
-		{ID: "a", Label: "A", Action: mcdomain.Action{Type: "placeholder"}},
-		{ID: "b", Label: "B", Action: mcdomain.Action{Type: "placeholder"}},
-		{ID: "c", Label: "C", Action: mcdomain.Action{Type: "placeholder"}},
-		{ID: "d", Label: "D", Action: mcdomain.Action{Type: "placeholder"}},
-		{ID: "e", Label: "E", Action: mcdomain.Action{Type: "placeholder"}},
-		{ID: "f", Label: "F", Action: mcdomain.Action{Type: "placeholder"}},
-		{ID: "g", Label: "G", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "a", Label: "A", Action: mcdomain.Action{Type: "send_text", Text: "-"}},
+		{ID: "b", Label: "B", Action: mcdomain.Action{Type: "send_text", Text: "-"}},
+		{ID: "c", Label: "C", Action: mcdomain.Action{Type: "send_text", Text: "-"}},
+		{ID: "d", Label: "D", Action: mcdomain.Action{Type: "send_text", Text: "-"}},
+		{ID: "e", Label: "E", Action: mcdomain.Action{Type: "send_text", Text: "-"}},
+		{ID: "f", Label: "F", Action: mcdomain.Action{Type: "send_text", Text: "-"}},
+		{ID: "g", Label: "G", Action: mcdomain.Action{Type: "send_text", Text: "-"}},
 	}}
 	kb := BuildReplyKeyboard(menu)
 	if len(kb.Keyboard) != 3 { // 3+3+1，7 个按钮不设上限
@@ -176,7 +176,7 @@ func TestActionDispatchOpenCardSendsCard(t *testing.T) {
 	ad.Cards = cardProviderStub{card: mcdomain.Card{
 		ID: "c1", Name: "x", Text: "选一种风格：",
 		Buttons: []mcdomain.CardButton{
-			{ID: "b", Label: "写实", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"w1"}}},
+			{ID: "b", Label: "写实", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "w1"}},
 		},
 	}}
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}

@@ -10,12 +10,11 @@ function read(rel: string) {
 }
 
 describe('session list panel', () => {
-  it('renders the empty state inside the table body', () => {
+  it('renders a tablecn data table with empty state by i18n key', () => {
     const source = read('list-panel.tsx')
-    expect(source).toMatch(/<tbody/)
-    expect(source).toMatch(/colSpan=\{7\}/)
+    expect(source).toMatch(/data-table\/data-table'/)
     expect(source).toMatch(
-      /EmptyState[\s\S]*?className='py-8'[\s\S]*?message=\{t\('sessions\.empty'\)\}/
+      /<EmptyState className='py-8' message=\{t\('sessions\.empty'\)\} \/>/
     )
   })
 })

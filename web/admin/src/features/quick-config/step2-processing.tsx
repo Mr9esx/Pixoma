@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { DeployCredentials } from '@/features/edges/deploy-credentials'
+import { NodeTopicPicker } from '@/features/edges/node-topic-picker'
 import { PresenceTags } from '@/features/edges/presence-tags'
 import { topicBindings } from '@/features/task-flow/lib/topic-binding'
 import { validateRouting as validateEditorRouting } from '@/features/task-flow/lib/validate'
@@ -98,7 +99,7 @@ export function Step2Processing({ shared, next, back }: Props) {
           .filter(Boolean),
       }),
     onSuccess: async (edge) => {
-      // 自动把新建节点绑定到当前路由用到的已启用调度通道，让 Topic→节点 绑定立刻成立。
+      // 自动把新建节点绑定到当前路由用到的已启用任务队列，让 Topic→节点 绑定立刻成立。
       if (routingTopics.length > 0) {
         try {
           await patchEdge(edge.id, { subscribe_topics: routingTopics })
@@ -122,9 +123,12 @@ export function Step2Processing({ shared, next, back }: Props) {
       edgeId: string
       topicKeys: string[]
     }) => patchEdge(edgeId, { subscribe_topics: topicKeys }),
-    onSuccess: () => {
+    onSuccess: (updated) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.edges.all })
       void queryClient.invalidateQueries({ queryKey: queryKeys.edges.presence })
+      if (createdEdge && updated.id === createdEdge.id) {
+        setCreatedEdge(updated)
+      }
     },
   })
 
@@ -165,7 +169,7 @@ export function Step2Processing({ shared, next, back }: Props) {
   const enabledTopicKeys = new Set(
     topics.filter((t) => t.enabled).map((t) => t.key)
   )
-  /** 当前路由用到的调度通道（无规则时回退默认 Topic），仅保留已启用项，用于新建节点的自动绑定。 */
+  /** 当前路由用到的任务队列（无规则时回退默认 Topic），仅保留已启用项，用于新建节点的自动绑定。 */
   const routingTopics = (() => {
     const keys = (routing?.rules ?? [])
       .map((rule) => rule.topic)
@@ -371,16 +375,16 @@ export function Step2Processing({ shared, next, back }: Props) {
               <p className='text-xs text-muted-foreground'>
                 {t('quickConfig.nodeTopicBindHint')}
               </p>
-              <DeployCredentials
-                edge={createdEdge}
-                initialSelectedTopics={routingTopics}
-                onSubscribeTopicsChange={(topicKeys) =>
+              <NodeTopicPicker
+                value={createdEdge.subscribe_topics ?? []}
+                onChange={(topicKeys) =>
                   bindEdgeTopicsMutation.mutate({
                     edgeId: createdEdge.id,
                     topicKeys,
                   })
                 }
               />
+              <DeployCredentials edge={createdEdge} showToken={false} />
             </div>
             <DialogFooter>
               <Button type='button' onClick={closeNodeDialog}>
@@ -392,6 +396,9 @@ export function Step2Processing({ shared, next, back }: Props) {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t('quickConfig.newNode')}</DialogTitle>
+              <DialogDescription>
+                {t('quickConfig.newNodeHint')}
+              </DialogDescription>
             </DialogHeader>
             <div className='space-y-3'>
               <div className='space-y-1'>

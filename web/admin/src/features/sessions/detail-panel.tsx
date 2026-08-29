@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { Reveal } from '@/components/ui/reveal'
 import { getSession } from '@/lib/api/sessions'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { SessionRecord } from '@/lib/api/types'
@@ -108,7 +109,7 @@ export function SessionDetailPanel({ id }: Props) {
   if (!session) return null
 
   return (
-    <div className='space-y-4' data-testid='session-detail-panel'>
+    <Reveal className='space-y-4' data-testid='session-detail-panel'>
       <div>
         <h2 className='text-lg font-semibold'>{session.id}</h2>
         <p className='text-muted-foreground text-sm'>
@@ -116,6 +117,6 @@ export function SessionDetailPanel({ id }: Props) {
         </p>
       </div>
       <SessionFields session={session} t={t} />
-    </div>
+    </Reveal>
   )
 }

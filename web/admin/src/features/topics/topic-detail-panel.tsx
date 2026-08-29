@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
-  CalendarClock,
+  CalendarCheck,
   Hash,
   PenLine,
   Power,
@@ -19,6 +19,7 @@ import { topicDeleteErrorMessage } from '@/lib/api/localized-errors'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTasks } from '@/lib/api/tasks'
 import { deleteTopic, getTopic, updateTopic } from '@/lib/api/topics'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,9 +40,11 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Reveal } from '@/components/ui/reveal'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
+import { Pill } from '@/components/kibo-ui/pill'
 import { MetaChip } from '@/components/meta-chip'
 import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
@@ -194,18 +197,29 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   }
 
   return (
-    <section className={kit.pageSection} data-testid='topic-detail-panel'>
+    <Reveal
+      as='section'
+      className={kit.pageSection}
+      data-testid='topic-detail-panel'
+    >
       <div className='flex min-w-0 flex-col gap-[6px]'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{topic.name}</h2>
-            <span className={topic.enabled ? kit.tagOn : kit.tagOff}>
+            <Pill
+              dot={topic.enabled ? 'success' : 'neutral'}
+              className={
+                topic.enabled
+                  ? 'border-success/25 bg-success/10 text-success'
+                  : 'border-border bg-muted text-muted-foreground'
+              }
+            >
               {topic.enabled ? t('topics.enabled') : t('topics.disabled')}
-            </span>
+            </Pill>
             {isDefault ? (
-              <span className='inline-flex h-6 items-center rounded-md border border-primary/20 bg-primary/10 px-2 text-xs font-medium text-primary'>
+              <Pill className='border-primary/20 bg-primary/10 text-primary'>
                 {t('topics.defaultBadge')}
-              </span>
+              </Pill>
             ) : null}
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
@@ -216,7 +230,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
               disabled={isDefault || enableMutation.isPending}
               onClick={() => enableMutation.mutate(!topic.enabled)}
             >
-              <Power className='size-3.5' />
+              <Power className='size-3.5' strokeWidth={2} />
               {topic.enabled ? t('topics.disable') : t('topics.enable')}
             </Button>
             <Button
@@ -227,7 +241,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
                 setEditOpen(true)
               }}
             >
-              <PenLine className='size-3.5' />
+              <PenLine className='size-3.5' strokeWidth={2} />
               {t('topics.edit')}
             </Button>
             <AlertDialog>
@@ -238,7 +252,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
                   className='h-8 gap-1.5 rounded-md px-3 text-xs'
                   disabled={isDefault || deleteMutation.isPending}
                 >
-                  <Trash2 className='size-3.5' />
+                  <Trash2 className='size-3.5' strokeWidth={2} />
                   {t('topics.delete')}
                 </Button>
               </AlertDialogTrigger>
@@ -300,45 +314,47 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
             </AlertDialog>
           </div>
         </div>
-        <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
+        <div className='mt-1 flex max-w-full flex-wrap items-center gap-2 text-xs'>
           <MetaChip
-            icon={<Hash className='size-3.5' />}
+            icon={<Hash className='size-3.5' strokeWidth={2} />}
             label={t('topics.fieldKey')}
             value={topic.key}
             divider
           />
           <MetaChip
-            icon={<CalendarClock className='size-3.5' />}
+            icon={<CalendarCheck className='size-3.5' strokeWidth={2} />}
             label={t('topics.fieldCreatedAt')}
             value={formatTime(topic.created_at)}
             divider
           />
           <MetaChip
-            icon={<Timer className='size-3.5' />}
+            icon={<Timer className='size-3.5' strokeWidth={2} />}
             label={t('topics.fieldUpdatedAt')}
             value={formatTime(topic.updated_at)}
           />
         </div>
       </div>
 
-      <LinkHealthAlert
-        name={name || topicKey}
-        health={topicRefs.health}
-        anchorTo='#link-health-section'
-      />
+      <div className='flex flex-col gap-2'>
+        <LinkHealthAlert
+          name={name || topicKey}
+          health={topicRefs.health}
+          anchorTo='#link-health-section'
+        />
 
-      {updateMutation.isError ? (
-        <ErrorBanner message={errorMessage(updateMutation.error)} />
-      ) : null}
-      {enableMutation.isError ? (
-        <ErrorBanner message={errorMessage(enableMutation.error)} />
-      ) : null}
+        {updateMutation.isError ? (
+          <ErrorBanner message={errorMessage(updateMutation.error)} />
+        ) : null}
+        {enableMutation.isError ? (
+          <ErrorBanner message={errorMessage(enableMutation.error)} />
+        ) : null}
 
-      {isDefault ? (
-        <p className='rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground'>
-          {t('topics.defaultHint')}
-        </p>
-      ) : null}
+        {isDefault ? (
+          <Alert variant='default'>
+            <AlertDescription>{t('topics.defaultHint')}</AlertDescription>
+          </Alert>
+        ) : null}
+      </div>
 
       <section className='flex flex-col gap-4'>
         <SectionHead
@@ -393,7 +409,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           </div>
         </DialogContent>
       </Dialog>
-    </section>
+    </Reveal>
   )
 }
 

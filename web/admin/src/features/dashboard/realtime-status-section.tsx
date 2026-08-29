@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/chart'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { CountUp } from '@/components/ui/count-up'
 import { pickFleetStats } from './task-stats-parse'
 import { formatBytes, summarizeHardware } from './hardware-summary'
 
@@ -81,7 +82,7 @@ export function RealtimeStatusSection() {
             ) : (
               <>
                 <div className='text-2xl font-bold'>
-                  {enabled}
+                  <CountUp value={enabled} />
                   <span className='text-base font-normal text-muted-foreground'>
                     {' '}/ {edgeList.length}
                   </span>
@@ -115,13 +116,14 @@ export function RealtimeStatusSection() {
             ) : (
               <>
                 <div className='text-2xl font-bold'>
-                  {online}
+                  <CountUp value={online} />
                   <span className='text-base font-normal text-muted-foreground'>
                     {' '}/ {edgeList.length} 在线
                   </span>
                 </div>
                 <p className='text-sm text-muted-foreground'>
-                  {t('dashboard.comfyRunning')}: {comfyRunning}
+                  {t('dashboard.comfyRunning')}:{' '}
+                  <CountUp value={comfyRunning} />
                 </p>
               </>
             )}
@@ -142,7 +144,7 @@ export function RealtimeStatusSection() {
             ) : (
               <>
                 <div className='text-2xl font-bold'>
-                  {hw.gpuCount}
+                  <CountUp value={hw.gpuCount} />
                   <span className='text-base font-normal text-muted-foreground'>
                     {' '}GPU · {formatBytes(hw.vramBytes)}
                   </span>
@@ -171,14 +173,24 @@ export function RealtimeStatusSection() {
               <>
                 <div className='flex justify-between text-sm'>
                   <span>{t('dashboard.avgCpu')}</span>
-                  <b className='tabular-nums'>{fleetData.avg_cpu_usage_percent.toFixed(0)}%</b>
+                  <b className='tabular-nums'>
+                    <CountUp
+                      value={fleetData.avg_cpu_usage_percent}
+                      format={(v) => `${Math.round(v)}%`}
+                    />
+                  </b>
                 </div>
                 <div className='flex justify-between text-sm'>
                   <span>{t('dashboard.avgGpu')}</span>
                   <b className='tabular-nums'>
                     {fleetData.avg_gpu_usage_percent == null
                       ? '—'
-                      : `${fleetData.avg_gpu_usage_percent.toFixed(0)}%`}
+                      : (
+                          <CountUp
+                            value={fleetData.avg_gpu_usage_percent}
+                            format={(v) => `${Math.round(v)}%`}
+                          />
+                        )}
                   </b>
                 </div>
                 <div className='flex justify-between text-sm'>

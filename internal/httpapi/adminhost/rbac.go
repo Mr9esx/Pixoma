@@ -33,11 +33,13 @@ func RequirePermission(p Permission) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			acct, ok := setup.AccountFromContext(r.Context())
-			if !ok || acct.AccountID == "" {
+			if !ok {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
-			if !PermissionsForRole(acct.Role)[p] {
+			// 已认证但缺少账号身份（旧 bootstrap 会话）或角色未授予权限时，
+			// 返回 403 而不是 401，避免被前端当作“登录失效”而触发登出跳转。
+			if acct.AccountID == "" || !PermissionsForRole(acct.Role)[p] {
 				http.Error(w, "forbidden", http.StatusForbidden)
 				return
 			}

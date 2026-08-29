@@ -1,6 +1,6 @@
 ## Purpose
 
-将 Telegram 用户身份持久化到数据库，作为 Session/Task 归属的稳定主体；支持多渠道扩展的内部用户主键。
+将 Telegram 用户身份持久化到数据库，作为 Session/Task 归属的稳定主体；支持多消息平台扩展的内部用户主键。
 
 ## ADDED Requirements
 

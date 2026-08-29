@@ -61,12 +61,8 @@ func (m *memCardRepo) CardReferences(ctx context.Context, channelID, id string) 
 func (m *memCardRepo) WorkflowPlacements(_ context.Context, workflowID string) ([]persistence.WorkflowPlacement, error) {
 	var out []persistence.WorkflowPlacement
 	for _, it := range m.menu.Items {
-		if it.Action.Type == "open_workflow" {
-			for _, id := range it.Action.WorkflowIDs {
-				if id == workflowID {
-					out = append(out, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
-				}
-			}
+		if it.Action.Type == "open_workflow" && it.Action.WorkflowID == workflowID {
+			out = append(out, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
 		}
 	}
 	return out, nil
@@ -76,49 +72,21 @@ func (m *memCardRepo) RemoveWorkflowReferences(_ context.Context, workflowID str
 	var removed []persistence.WorkflowPlacement
 	items := m.menu.Items[:0]
 	for _, it := range m.menu.Items {
-		if it.Action.Type != "open_workflow" {
-			items = append(items, it)
-			continue
-		}
-		var kept []string
-		for _, id := range it.Action.WorkflowIDs {
-			if id != workflowID {
-				kept = append(kept, id)
-			}
-		}
-		if len(kept) == len(it.Action.WorkflowIDs) {
+		if it.Action.Type != "open_workflow" || it.Action.WorkflowID != workflowID {
 			items = append(items, it)
 			continue
 		}
 		removed = append(removed, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
-		if len(kept) > 0 {
-			it.Action.WorkflowIDs = kept
-			items = append(items, it)
-		}
 	}
 	m.menu.Items = items
 	for id, card := range m.cards {
 		buttons := card.Buttons[:0]
 		for _, b := range card.Buttons {
-			if b.Action.Type != "open_workflow" {
-				buttons = append(buttons, b)
-				continue
-			}
-			var kept []string
-			for _, wid := range b.Action.WorkflowIDs {
-				if wid != workflowID {
-					kept = append(kept, wid)
-				}
-			}
-			if len(kept) == len(b.Action.WorkflowIDs) {
+			if b.Action.Type != "open_workflow" || b.Action.WorkflowID != workflowID {
 				buttons = append(buttons, b)
 				continue
 			}
 			removed = append(removed, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: b.ID, Label: b.Label, Kind: "card_button"})
-			if len(kept) > 0 {
-				b.Action.WorkflowIDs = kept
-				buttons = append(buttons, b)
-			}
 		}
 		card.Buttons = buttons
 		m.cards[id] = card
@@ -172,7 +140,7 @@ func TestMenuCardsHandlerCRUD(t *testing.T) {
 	resp.Body.Close()
 
 	cardBody, _ := json.Marshal(mcdomain.Card{ID: "c1", Name: "x", Text: "hi", Buttons: []mcdomain.CardButton{
-		{ID: "b", Label: "B", Action: mcdomain.Action{Type: "placeholder"}},
+		{ID: "b", Label: "B", Action: mcdomain.Action{Type: "send_text", Text: "ok"}},
 	}})
 	cardResp, err := http.DefaultClient.Do(mustReq(t, http.MethodPost, srv.URL+"/api/v1/channels/ch1/cards", cardBody))
 	if err != nil || cardResp.StatusCode != http.StatusCreated {
@@ -204,7 +172,7 @@ func TestMenuCardsHandlerCRUD(t *testing.T) {
 
 	// workflow placements reverse lookup
 	wfMenu, _ := json.Marshal(mcdomain.Menu{ID: "m", Name: "主", Columns: 2, Items: []mcdomain.MenuItem{
-		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowIDs: []string{"w1"}}},
+		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "w1"}},
 	}})
 	_, _ = http.DefaultClient.Do(mustReq(t, http.MethodPut, srv.URL+"/api/v1/channels/ch1/menu", wfMenu))
 	wfResp, err := http.DefaultClient.Do(mustReq(t, http.MethodGet, srv.URL+"/api/v1/cases/w1/menu-placements", nil))

@@ -1,10 +1,10 @@
 ## MODIFIED Requirements
 
 ### Requirement: 主菜单来自 Menu 配置
-Telegram 适配器展示的主 ReplyKeyboard MUST 由**渠道作用域**菜单的**能力入口**根项生成（含默认种子），根项数量 MUST 不超过 6 个直达入口；MUST NOT 再以源码常量作为唯一长期配置源；菜单读取以渠道 id 为作用域。
+Telegram 适配器展示的主 ReplyKeyboard MUST 由**消息平台作用域**菜单的**能力入口**根项生成（含默认种子），根项数量 MUST 不超过 6 个直达入口；MUST NOT 再以源码常量作为唯一长期配置源；菜单读取以消息平台 id 为作用域。
 
 #### Scenario: /start 展示配置中的主键盘
-- **WHEN** 用户发送 `/start` 或打开主菜单，且该渠道菜单配置可用
+- **WHEN** 用户发送 `/start` 或打开主菜单，且该消息平台菜单配置可用
 - **THEN** 用户收到与配置能力入口顺序/文案一致的 ReplyKeyboard（直达入口 ≤6）
 
 ### Requirement: 文件夹下钻浏览 Case
@@ -25,7 +25,7 @@ Telegram 适配器展示的主 ReplyKeyboard MUST 由**渠道作用域**菜单�
 ## ADDED Requirements
 
 ### Requirement: 能力入口与流程渲染
-TG 适配器 MUST 按能力的渠道渲染声明渲染入口与流程（消息按钮、返回、结果），MUST NOT 为具体业务编写分支；新注册能力加入菜单后，适配器无需改动即可完成事件翻译与结果渲染。
+TG 适配器 MUST 按能力的消息平台渲染声明渲染入口与流程（消息按钮、返回、结果），MUST NOT 为具体业务编写分支；新注册能力加入菜单后，适配器无需改动即可完成事件翻译与结果渲染。
 
 #### Scenario: 新能力入口直接可用
 - **WHEN** 管理台把新注册能力加入 TG 菜单并保存

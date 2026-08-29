@@ -12,11 +12,12 @@ import (
 
 // ChannelRow is the GORM model for the channels table.
 type ChannelRow struct {
-	ID                   string `gorm:"primaryKey;size:128"`
-	Platform             string `gorm:"size:32;not null"`
-	Name                 string `gorm:"size:256;not null"`
-	CredentialCiphertext string `gorm:"type:text;not null"`
-	Enabled              bool   `gorm:"not null;default:true"`
+	ID                   string    `gorm:"primaryKey;size:128"`
+	Platform             string    `gorm:"size:32;not null"`
+	Name                 string    `gorm:"size:256;not null"`
+	ExtraInfo            string    `gorm:"type:text"`
+	CredentialCiphertext string    `gorm:"type:text;not null"`
+	Enabled              bool      `gorm:"not null;default:true"`
 	CreatedAt            time.Time `gorm:"not null"`
 	UpdatedAt            time.Time `gorm:"not null"`
 }
@@ -74,6 +75,7 @@ func rowFromDomain(ch domain.Channel) ChannelRow {
 		ID:                   ch.ID,
 		Platform:             ch.Platform,
 		Name:                 ch.Name,
+		ExtraInfo:            ch.ExtraInfo,
 		CredentialCiphertext: ch.CredentialCiphertext,
 		Enabled:              ch.Enabled,
 		CreatedAt:            ch.CreatedAt,
@@ -86,6 +88,7 @@ func (r ChannelRow) toDomain() domain.Channel {
 		ID:                   r.ID,
 		Platform:             r.Platform,
 		Name:                 r.Name,
+		ExtraInfo:            r.ExtraInfo,
 		CredentialCiphertext: r.CredentialCiphertext,
 		Enabled:              r.Enabled,
 		CreatedAt:            r.CreatedAt,

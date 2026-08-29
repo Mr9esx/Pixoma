@@ -8,6 +8,7 @@ import {
   Settings2,
   Tags,
   Trash2,
+  ZoomIn,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -36,6 +37,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Reveal } from '@/components/ui/reveal'
+import { MediaLightbox } from './components/media-lightbox'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
@@ -47,7 +50,9 @@ import { useCaseReferences } from '@/features/config-context/use-case-references
 import { kit } from '@/features/edges/kit-classes'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
+import { resolveMediaKey } from '@/lib/api/media'
 import { CaseForm } from './case-form'
+import { useMediaObjectUrl } from './lib/use-media-object-url'
 import { WorkflowConfigView } from './sections/workflow-config-view'
 
 function errorMessage(err: unknown): string | undefined {
@@ -64,12 +69,16 @@ export function CaseDetailPanel({ id }: Props) {
   const navigate = useNavigate()
   const [editDialog, setEditDialog] = useState<'info' | 'workflow' | null>(null)
   const [ackRefs, setAckRefs] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   const detailQuery = useQuery({
     queryKey: queryKeys.cases.detail(id),
     queryFn: () => getCase(id),
   })
   const record = detailQuery.data
+  const previewUrl = useMediaObjectUrl(record?.preview)
+  const previewKey = resolveMediaKey(record?.preview)
+  const previewIsVideo = /\.(mp4|webm)$/i.test(previewKey ?? '')
   const { topics, attributes, edges, presence, placements, caseRefs } =
     useCaseReferences(record)
   const pendingTasksQuery = useQuery({
@@ -176,19 +185,54 @@ export function CaseDetailPanel({ id }: Props) {
   if (!record) return null
 
   return (
-    <section className={kit.pageSection} data-testid='case-detail-panel'>
-      <div className='flex min-w-0 flex-col gap-[6px]'>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div className='flex min-w-0 flex-wrap items-center gap-2'>
-            <h2 className={kit.title}>{record.name || record.id}</h2>
-          </div>
+    <Reveal
+      as='section'
+      className={kit.pageSection}
+      data-testid='case-detail-panel'
+    >
+      <div className='flex min-w-0 items-stretch gap-4'>
+        {previewKey ? (
+          <button
+            type='button'
+            onClick={() => setPreviewOpen(true)}
+            aria-label={t('media.zoom')}
+            className='group relative h-[84px] w-[84px] shrink-0 overflow-hidden rounded-lg border bg-muted'
+          >
+            {previewIsVideo ? (
+              <video
+                src={previewUrl ? `${previewUrl}#t=0.1` : undefined}
+                muted
+                playsInline
+                preload='metadata'
+                disablePictureInPicture
+                className='h-full w-full object-contain'
+              />
+            ) : (
+              <img
+                src={previewUrl}
+                alt={String(record.name ?? record.id)}
+                className='h-full w-full object-contain'
+              />
+            )}
+            <span className='absolute bottom-1.5 right-1.5 flex size-7 items-center justify-center rounded-md bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100'>
+              <ZoomIn className='size-4' />
+            </span>
+          </button>
+        ) : null}
+        <div className='flex min-w-0 flex-1 flex-col gap-[6px]'>
+          <div className='flex min-w-0 items-center justify-between gap-3'>
+            <div className='flex min-w-0 flex-wrap items-center gap-2'>
+              <h2 className={`${kit.title} min-w-0 truncate`}>
+                {record.name || record.id}
+              </h2>
+            </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
             <Button
               type='button'
               className={kit.btnPrimary}
               onClick={() => setEditDialog('info')}
             >
-              <PenLine className='size-3.5' />
+              <PenLine className='size-3.5' strokeWidth={2} />
               {t('cases.edit')}
             </Button>
             <Button
@@ -197,7 +241,7 @@ export function CaseDetailPanel({ id }: Props) {
               className={kit.btnGhost}
               onClick={() => setEditDialog('workflow')}
             >
-              <Settings2 className='size-3.5' />
+              <Settings2 className='size-3.5' strokeWidth={2} />
               {t('cases.editWorkflow')}
             </Button>
             <AlertDialog>
@@ -208,7 +252,7 @@ export function CaseDetailPanel({ id }: Props) {
                   className='h-8 gap-1.5 rounded-md px-3 text-xs'
                   disabled={deleteMutation.isPending}
                 >
-                  <Trash2 className='size-3.5' />
+                  <Trash2 className='size-3.5' strokeWidth={2} />
                   {t('cases.deleteWorkflow')}
                 </Button>
               </AlertDialogTrigger>
@@ -292,18 +336,19 @@ export function CaseDetailPanel({ id }: Props) {
             {record.description}
           </LongText>
         ) : null}
-        <div className='mt-4 flex max-w-full flex-wrap items-center gap-2 text-xs'>
+        <div className='mt-1 flex max-w-full flex-wrap items-center gap-2 text-xs'>
           <MetaChip
-            icon={<Tags className='size-3.5' />}
+            icon={<Tags className='size-3.5' strokeWidth={2} />}
             label={t('cases.fieldTags')}
             value={record.tags?.join(', ')}
             divider
           />
           <MetaChip
-            icon={<FolderOpen className='size-3.5' />}
+            icon={<FolderOpen className='size-3.5' strokeWidth={2} />}
             label={t('cases.fieldCategories')}
             value={record.categories?.join(', ')}
           />
+        </div>
         </div>
       </div>
 
@@ -410,6 +455,14 @@ export function CaseDetailPanel({ id }: Props) {
           </div>
         </DialogContent>
       </Dialog>
-    </section>
+
+      <MediaLightbox
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        src={previewUrl}
+        isVideo={previewIsVideo}
+        alt={record ? String(record.name ?? record.id) : ''}
+      />
+    </Reveal>
   )
 }

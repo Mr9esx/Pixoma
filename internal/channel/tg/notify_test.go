@@ -107,3 +107,44 @@ func TestHandleUserNotifySessionTerminated(t *testing.T) {
 		t.Fatalf("texts=%+v", out.texts)
 	}
 }
+
+func TestHandleUserNotifyFailedRendersTemplate(t *testing.T) {
+	out := &recordingOutbound{}
+	a := tg.New(out)
+	a.ChannelID = "tg"
+	if err := a.HandleUserNotify(context.Background(), sharedkernel.UserNotify{
+		ChatID:   sharedkernel.ChatID("tg:123"),
+		TaskID:   "T42",
+		Kind:     "task_failed",
+		ErrorMsg: "comfy timeout",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.texts) != 1 {
+		t.Fatalf("texts=%+v", out.texts)
+	}
+	want := "❌ 任务执行失败\ntask=T42\n状态：failed\ncomfy timeout"
+	if out.texts[0] != want {
+		t.Fatalf("got %q want %q", out.texts[0], want)
+	}
+}
+
+func TestHandleUserNotifySuccessWithoutOutputsSendsDone(t *testing.T) {
+	out := &recordingOutbound{}
+	a := tg.New(out)
+	a.ChannelID = "tg"
+	if err := a.HandleUserNotify(context.Background(), sharedkernel.UserNotify{
+		ChatID: sharedkernel.ChatID("tg:123"),
+		TaskID: "T7",
+		Kind:   "task_succeeded",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.texts) != 1 {
+		t.Fatalf("texts=%+v", out.texts)
+	}
+	want := "✅ 工作流完成\ntask=T7"
+	if out.texts[0] != want {
+		t.Fatalf("got %q want %q", out.texts[0], want)
+	}
+}

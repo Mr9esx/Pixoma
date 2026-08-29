@@ -1,10 +1,10 @@
-# 渠道 Telegram 可达性检测 Implementation Plan
+# 消息平台 Telegram 可达性检测 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 进入渠道详情页时对 Telegram 做一次 getMe 连通检测，用一个连通状态元素展示结果，网络不可达时引导到 `/settings?tab=network` 配置代理。
+**Goal:** 进入消息平台详情页时对 Telegram 做一次 getMe 连通检测，用一个连通状态元素展示结果，网络不可达时引导到 `/settings?tab=network` 配置代理。
 
-**Architecture:** 后端在 `channelapp.Service` 增加 `CheckReachability`（解密 token → getMe，5s 超时，默认 transport 继承进程 `HTTPS_PROXY`），错误分类为 `ok/network/auth/other`；新增 `POST /api/v1/channels/{id}/check`。前端渠道详情页挂载时调用一次，按 `kind` 渲染单个状态元素（检测中 / 正常 / 被墙引导 / Token 无效 / 其他错误）；设置页支持 `?tab=network` 深链。
+**Architecture:** 后端在 `channelapp.Service` 增加 `CheckReachability`（解密 token → getMe，5s 超时，默认 transport 继承进程 `HTTPS_PROXY`），错误分类为 `ok/network/auth/other`；新增 `POST /api/v1/channels/{id}/check`。前端消息平台详情页挂载时调用一次，按 `kind` 渲染单个状态元素（检测中 / 正常 / 被墙引导 / Token 无效 / 其他错误）；设置页支持 `?tab=network` 深链。
 
 **Tech Stack:** Go 1.x (chi, gorm, go-telegram/bot), React 19 + TanStack Router/Query, Tailwind v4, vitest。
 
@@ -337,7 +337,7 @@ git commit -m "feat: channel Telegram reachability check API"
 
 ---
 
-### Task 2: 前端渠道详情页连通状态
+### Task 2: 前端消息平台详情页连通状态
 
 **Files:**
 - Modify: `web/admin/src/lib/api/channels.ts`

@@ -96,7 +96,7 @@ describe('workflow import section', () => {
     expect(source).toContain(
       "rounded-full bg-primary text-xs font-semibold text-primary-foreground'"
     )
-    expect(source).toMatch(/text-primary-foreground'[\s\S]{0,40}\n\s*1\n/)
+    expect(source).toMatch(/text-primary-foreground'[\s\S]*?\n\s*1\n/)
     expect(source).toContain('cases.importHeading')
     expect(source).toContain('cases.importNodesCount')
     expect(source).toContain('cases.importValid')

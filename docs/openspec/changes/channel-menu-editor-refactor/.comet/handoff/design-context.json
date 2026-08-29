@@ -1,0 +1,14 @@
+{
+  "change": "channel-menu-editor-refactor",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "2d36b12aa71a9914485f50f147ed9bb181fdf8ee1eafb762d3d78c7bc7f25b0b",
+  "files": [
+    { "path": "docs/openspec/changes/channel-menu-editor-refactor/proposal.md", "sha256": "0c91bbca3736d07609621a46af89d7d59f6b8526be34af40f58f92b7f2fc8129" },
+    { "path": "docs/openspec/changes/channel-menu-editor-refactor/design.md", "sha256": "d6bca3dc71bf7b60b77c3d092041c4177aa625cd3b46f45bba033d4e663712d1" },
+    { "path": "docs/openspec/changes/channel-menu-editor-refactor/tasks.md", "sha256": "7e022cc93bc93ea8b7000cbb1cf5fb2a5512563d709f0b1d92bba95e9745554b" },
+    { "path": "docs/openspec/changes/channel-menu-editor-refactor/specs/channel-menu-editor/spec.md", "sha256": "143fb956b66488804f818387f2291daf40f7b95c5020ab74b1ec05198dca69aa" }
+  ]
+}

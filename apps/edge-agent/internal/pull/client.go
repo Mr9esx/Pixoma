@@ -111,14 +111,10 @@ func (c *Client) ReportPresence(
 	comfyVersion string,
 	hw *edge.Hardware,
 	m *edge.Metrics,
-	topics []string,
 ) (refresh bool, consuming bool, err error) {
 	payload := map[string]any{
 		"edge_id":       c.EdgeID,
 		"comfy_running": comfyRunning,
-	}
-	if topics != nil {
-		payload["subscribe_topics"] = topics
 	}
 	if !startedAt.IsZero() {
 		payload["started_at"] = startedAt

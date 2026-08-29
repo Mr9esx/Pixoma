@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { MoreHorizontal } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   createAdminUser,
   deleteAdminUser,
@@ -10,19 +10,18 @@ import {
   type AdminUser,
 } from '@/lib/api/admin-users'
 import { queryKeys } from '@/lib/api/query-keys'
-import { Badge } from '@/components/ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   Dialog,
   DialogClose,
@@ -40,18 +39,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { ErrorBanner } from '@/components/feedback/error-banner'
+import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { Pill } from '@/components/kibo-ui/pill'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -179,12 +179,12 @@ export function AdminUsersPanel() {
                   <TableCell>{u.nickname || '—'}</TableCell>
                   <TableCell>{u.email || '—'}</TableCell>
                   <TableCell>
-                    <Badge variant={roleBadge(u.role)}>{roleLabel(u.role)}</Badge>
+                    <Pill variant={roleBadge(u.role)}>{roleLabel(u.role)}</Pill>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={u.enabled ? 'outline' : 'secondary'}>
+                    <Pill variant={u.enabled ? 'outline' : 'secondary'}>
                       {u.enabled ? '启用' : '禁用'}
-                    </Badge>
+                    </Pill>
                   </TableCell>
                   <TableCell className='text-right'>
                     <DropdownMenu>
@@ -248,7 +248,9 @@ export function AdminUsersPanel() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除账号 {deleteTarget?.username}？</AlertDialogTitle>
+            <AlertDialogTitle>
+              删除账号 {deleteTarget?.username}？
+            </AlertDialogTitle>
             <AlertDialogDescription>
               删除后不可恢复。若这是唯一的管理员，后端会拒绝删除。
             </AlertDialogDescription>

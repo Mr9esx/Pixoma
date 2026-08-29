@@ -1,7 +1,7 @@
 ## 1. 系统账号数据模型与后端基础
 
 - [x] 1.1 新建 `ConsoleUser` Domain 与业务库 `console_users` 表（账号/邮箱/昵称/头像/启用/角色/bcrypt 密码哈希/时间戳），AutoMigrate 注册
-- [x] 1.2 渠道终端用户表更名迁移：`users`→`channel_users`、`user_external_identities`→`channel_user_external_identities`（改 `TableName()` + `db.RenameLegacy` 幂等迁移保留数据，含测试）
+- [x] 1.2 消息平台终端用户表更名迁移：`users`→`channel_users`、`user_external_identities`→`channel_user_external_identities`（改 `TableName()` + `db.RenameLegacy` 幂等迁移保留数据，含测试）
 - [x] 1.3 定义角色与权限常量（`Admin`/`Operator`/`Viewer` 及权限点集合、`Admin` 独占权限点）
 - [x] 1.4 实现 bootstrap 初始 `admin` 幂等迁移为系统账号（保留用户名与凭据）
 - [x] 1.5 `settings` 新增 `allow_self_registration` 开关（默认 false）及其读写接口

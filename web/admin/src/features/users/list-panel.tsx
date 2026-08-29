@@ -1,21 +1,29 @@
-import { Link } from '@tanstack/react-router'
+import { useMemo, useState } from 'react'
+import {
+  createColumnHelper,
+  getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
+import { Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { UserRecord } from '@/lib/api/types'
+import { Button } from '@/components/ui/button'
+import { DataTableColumnHeader } from '@/components/data-table/column-header'
+import { DataTable } from '@/components/data-table/data-table'
+import { DataTableToolbar } from '@/components/data-table/toolbar'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { Input } from '@/components/ui/input'
-import type { UserRecord } from '@/lib/api/types'
-import { cn } from '@/lib/utils'
-
-export type UserListFilters = {
-  q: string
-}
+import { Reveal } from '@/components/ui/reveal'
 
 type Props = {
   items: UserRecord[]
-  selectedId?: string
-  filters: UserListFilters
-  onFiltersChange: (next: UserListFilters) => void
+  onOpenDetail: (item: UserRecord) => void
   isLoading?: boolean
   isError?: boolean
   errorMessage?: string
@@ -24,9 +32,7 @@ type Props = {
 
 export function UserListPanel({
   items,
-  selectedId,
-  filters,
-  onFiltersChange,
+  onOpenDetail,
   isLoading,
   isError,
   errorMessage,
@@ -34,67 +40,149 @@ export function UserListPanel({
 }: Props) {
   const { t } = useTranslation()
 
+  const columnHelper = useMemo(() => createColumnHelper<UserRecord>(), [])
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor('id', {
+        id: 'id',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('users.fieldId')} />
+        ),
+        cell: ({ getValue }) => (
+          <span className='font-mono text-xs'>{getValue()}</span>
+        ),
+        enableHiding: false,
+      }),
+      columnHelper.accessor('tg_user_id', {
+        id: 'tg_user_id',
+        meta: { label: t('users.fieldTgUserId') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('users.fieldTgUserId')}
+          />
+        ),
+        cell: ({ getValue }) => (
+          <span className='font-mono text-xs tabular-nums'>{getValue()}</span>
+        ),
+      }),
+      columnHelper.accessor('username', {
+        id: 'username',
+        meta: { label: t('users.fieldUsername') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('users.fieldUsername')}
+          />
+        ),
+        cell: ({ getValue }) => getValue() || '—',
+      }),
+      columnHelper.accessor('created_at', {
+        id: 'created_at',
+        meta: { label: t('users.fieldCreatedAt') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('users.fieldCreatedAt')}
+          />
+        ),
+        cell: ({ getValue }) => (
+          <span className='whitespace-nowrap text-muted-foreground'>
+            {getValue()}
+          </span>
+        ),
+      }),
+      columnHelper.accessor('last_seen_at', {
+        id: 'last_seen_at',
+        meta: { label: t('users.fieldLastSeenAt') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('users.fieldLastSeenAt')}
+          />
+        ),
+        cell: ({ getValue }) => (
+          <span className='whitespace-nowrap text-muted-foreground'>
+            {getValue() || '—'}
+          </span>
+        ),
+      }),
+      columnHelper.display({
+        id: 'actions',
+        header: () => <span className='sr-only'>{t('common.detail')}</span>,
+        cell: ({ row }) => (
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            onClick={() => onOpenDetail(row.original)}
+          >
+            <Eye className='size-4' />
+            {t('common.detail')}
+          </Button>
+        ),
+        enableHiding: false,
+      }),
+    ],
+    [columnHelper, t, onOpenDetail]
+  )
+
+  const [sorting, setSorting] = useState([{ id: 'created_at', desc: true }])
+  const [columnVisibility, setColumnVisibility] = useState({})
+  const [globalFilter, setGlobalFilter] = useState('')
+
+  const table = useReactTable({
+    data: items,
+    columns,
+    state: { sorting, columnVisibility, globalFilter },
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const q = String(filterValue ?? '')
+        .trim()
+        .toLowerCase()
+      if (!q) return true
+      const { id, tg_user_id, username } = row.original
+      return [id, String(tg_user_id), username].some((value) =>
+        String(value).toLowerCase().includes(q)
+      )
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageIndex: 0, pageSize: 10 } },
+  })
+
   return (
-    <div className='flex h-full min-h-0 flex-col' data-testid='users-list-panel'>
-      <div className='border-b px-4 py-3'>
-        <h2 className='text-sm font-semibold'>{t('users.title')}</h2>
-      </div>
-
-      <div className='space-y-2 border-b px-4 py-3'>
-        <Input
-          id='users-filter-q'
-          value={filters.q}
-          onChange={(e) => onFiltersChange({ ...filters, q: e.target.value })}
-          placeholder={t('users.filterQPlaceholder')}
-          autoComplete='off'
-          aria-label={t('users.filterQ')}
-        />
-      </div>
-
+    <div
+      className='flex min-h-0 flex-1 flex-col gap-3'
+      data-testid='users-list-panel'
+    >
       {isError ? (
-        <div className='p-4'>
-          <ErrorBanner message={errorMessage} onRetry={onRetry} />
-        </div>
+        <ErrorBanner message={errorMessage} onRetry={onRetry} />
       ) : null}
 
-      {isLoading ? (
-        <div className='p-4'>
-          <LoadingSkeleton rows={5} />
-        </div>
-      ) : null}
+      {isLoading ? <LoadingSkeleton rows={5} /> : null}
 
-      {!isLoading && !isError && items.length === 0 ? (
-        <EmptyState message={t('users.empty')} />
-      ) : null}
-
-      {!isLoading && !isError && items.length > 0 ? (
-        <ul className='min-h-0 flex-1 divide-y overflow-auto'>
-          {items.map((item) => {
-            const selected = selectedId === item.id
-            return (
-              <li key={item.id}>
-                <Link
-                  to='/users/$userId'
-                  params={{ userId: item.id }}
-                  className={cn(
-                    'block w-full px-4 py-3 text-left text-sm hover:bg-accent',
-                    selected && 'bg-accent',
-                  )}
-                >
-                  <div className='flex items-center justify-between gap-2'>
-                    <span className='font-medium'>{item.id}</span>
-                    <span className='text-muted-foreground shrink-0 text-xs'>
-                      {item.tg_user_id}
-                    </span>
-                  </div>
-                  <div className='text-muted-foreground mt-0.5 truncate text-xs'>
-                    {item.username || '—'}
-                  </div>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+      {!isLoading && !isError ? (
+        <Reveal>
+          <DataTable
+            table={table}
+            emptyState={
+              <EmptyState className='py-8' message={t('users.empty')} />
+            }
+          >
+            <DataTableToolbar
+              table={table}
+              searchPlaceholder={t('users.filterQPlaceholder')}
+            />
+          </DataTable>
+        </Reveal>
       ) : null}
     </div>
   )

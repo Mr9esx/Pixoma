@@ -4,15 +4,15 @@ role: technical-design
 canonical_spec: openspec
 ---
 
-# 渠道 Telegram 可达性检测 设计
+# 消息平台 Telegram 可达性检测 设计
 
 ## 1. 目标
 
-进入渠道详情页时，对 Telegram 做一次连通检测（getMe）。用一个「连通状态」元素承载结果，网络不可达时引导到设置页「网络」tab 配置代理，错误不再只进日志。
+进入消息平台详情页时，对 Telegram 做一次连通检测（getMe）。用一个「连通状态」元素承载结果，网络不可达时引导到设置页「网络」tab 配置代理，错误不再只进日志。
 
 ## 2. 现状与问题
 
-- 创建渠道只落库，不做 getMe 校验。后台 assembler 每 5s 调 `bot.New` → getMe，被墙时报 `context deadline exceeded`，只写日志。
+- 创建消息平台只落库，不做 getMe 校验。后台 assembler 每 5s 调 `bot.New` → getMe，被墙时报 `context deadline exceeded`，只写日志。
 - 前端没有任何连接状态展示，也没有到代理配置的入口。
 - 设置页有「网络」tab（`proxy_kind` / `proxy_host` / `proxy_port`），但 Tabs 默认在 account，无法深链。
 
@@ -30,7 +30,7 @@ canonical_spec: openspec
   - HTTP 401 / 403 → `auth`
   - 网络错误（`url.Error`：context deadline exceeded / connection refused / EOF / TLS handshake / no such host / i/o timeout / network unreachable / proxyconnect）→ `network`
   - 其他 → `other`
-- 新端点 `POST /api/v1/channels/{id}/check`，返回 `{ ok, kind, message }`；渠道不存在返回 404。
+- 新端点 `POST /api/v1/channels/{id}/check`，返回 `{ ok, kind, message }`；消息平台不存在返回 404。
 - 不缓存，每次进详情页触发一次。
 
 ### 3.2 前端：title 旁的连通状态 tag（不新增独立 Alert）
@@ -43,7 +43,7 @@ canonical_spec: openspec
   - `auth` → 红色 tag「Token 无效」
   - `other` → 灰色 tag「连接失败」，`title` 展示后端 message
 
-### 3.2.1 渠道详情页「状态」区（不做关联）
+### 3.2.1 消息平台详情页「状态」区（不做关联）
 
 - meta 区下方新增「状态」卡片：连接状态（复用 3.2 tag）+ 最近检测时间 + 后台适配器状态。
 - `/check` 响应补 `checked_at`（服务器 UTC 时间）与 `adapter_state` / `adapter_error`（来自 assembler 每 5s 的适配器状态，通过 `BotRuntime.ChannelStatus` → `chSvc.AdapterStatus` 注入）。

@@ -40,7 +40,7 @@ func TestNotifyRouter_RoutesByChannel(t *testing.T) {
 		t.Fatalf("calls=%+v", tgHandler.calls)
 	}
 
-	// 未知渠道不崩溃
+	// 未知消息平台不崩溃
 	n.ChatID = "feishu-1:999"
 	if err := router.Publish(context.Background(), n); err != nil {
 		t.Fatal(err)

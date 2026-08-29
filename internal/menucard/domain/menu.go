@@ -25,22 +25,23 @@ func DefaultMenu() Menu {
 	return Menu{
 		ID: "default", Name: "主菜单", Columns: 2,
 		Items: []MenuItem{
-			{ID: "mi-image", Label: "🖼 图片生成", Action: Action{Type: "open_workflow", Mode: "list"}},
-			{ID: "mi-help", Label: "🆘 帮助", Action: Action{Type: "placeholder"}},
+			{ID: "mi-image", Label: "🖼 图片生成", Action: Action{Type: "open_workflow", WorkflowID: "default-image"}},
+			{ID: "mi-help", Label: "🆘 帮助", Action: Action{Type: "send_text", Text: "请使用主菜单中的功能。"}},
 		},
 	}
 }
 
 // Action describes what happens when a button is clicked.
+//
+// v2 schema:
+//   - workflow_id: 绑定的 case id（单数，替代旧的 workflow_ids[] + mode + direct_id）
 type Action struct {
-	Type        string   `json:"type"` // open_card | open_workflow | send_text | send_media | open_url | copy_text | placeholder
-	CardID      string   `json:"card_id,omitempty"`
-	WorkflowIDs []string `json:"workflow_ids,omitempty"`
-	Mode        string   `json:"mode,omitempty"` // list | direct
-	DirectID    string   `json:"direct_id,omitempty"`
-	Text        string   `json:"text,omitempty"`
-	Media       []Media  `json:"media,omitempty"`
-	URL         string   `json:"url,omitempty"`
+	Type       string  `json:"type"` // open_card | open_workflow | send_text | send_media | open_url | copy_text
+	CardID     string  `json:"card_id,omitempty"`
+	WorkflowID string  `json:"workflow_id,omitempty"`
+	Text       string  `json:"text,omitempty"`
+	Media      []Media `json:"media,omitempty"`
+	URL        string  `json:"url,omitempty"`
 }
 
 func ValidateMenu(m Menu) error {
@@ -65,7 +66,7 @@ func ValidateAction(a Action) error {
 			return ErrValidation
 		}
 	case "open_workflow":
-		if len(a.WorkflowIDs) == 0 {
+		if a.WorkflowID == "" {
 			return ErrValidation
 		}
 	case "open_url":
@@ -81,7 +82,6 @@ func ValidateAction(a Action) error {
 				return ErrValidation
 			}
 		}
-	case "send_text", "copy_text", "placeholder":
 	default:
 		return ErrValidation
 	}

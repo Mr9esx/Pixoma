@@ -37,9 +37,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { Pill, type PillTone } from '@/components/kibo-ui/pill'
 import { SectionHead } from '@/components/section-head'
 import { TaskDetailPanel } from '@/features/tasks/detail-panel'
 import { taskStatusLabelKey } from '@/features/tasks/list-panel'
@@ -626,9 +629,19 @@ function formatTime(iso: string): string {
 }
 
 function statusTagClass(status: string): string {
-  if (status === 'succeeded') return kit.tagSmOn
-  if (status === 'failed') return kit.tagSmFail
-  return kit.tagSmOff
+  if (status === 'succeeded') {
+    return 'border-success/25 bg-success/10 text-success'
+  }
+  if (status === 'failed') {
+    return 'border-destructive/25 bg-destructive/10 text-destructive'
+  }
+  return 'border-border bg-muted text-muted-foreground'
+}
+
+function statusTagDot(status: string): PillTone {
+  if (status === 'succeeded') return 'success'
+  if (status === 'failed') return 'error'
+  return 'neutral'
 }
 
 export type TasksPagination = {
@@ -670,10 +683,7 @@ function TasksSection({
             {tasks.length === 0 ? (
               <tr>
                 <td colSpan={5} className='p-0'>
-                  <EmptyState
-                    className='py-6'
-                    message={t('tasks.empty')}
-                  />
+                  <EmptyState className='py-6' message={t('tasks.empty')} />
                 </td>
               </tr>
             ) : (
@@ -682,9 +692,12 @@ function TasksSection({
                 return (
                   <tr key={task.id} className='border-b last:border-0'>
                     <td className='px-4 py-3'>
-                      <span className={statusTagClass(task.status)}>
+                      <Pill
+                        dot={statusTagDot(task.status)}
+                        className={statusTagClass(task.status)}
+                      >
                         {statusKey ? t(statusKey) : task.status}
-                      </span>
+                      </Pill>
                     </td>
                     <td className='max-w-32 truncate py-3'>{task.case_id}</td>
                     <td className='max-w-40 truncate py-3 font-mono text-xs'>
@@ -766,16 +779,26 @@ function TasksSection({
 }
 
 function MonitoringSection({
-  data,
+  metricsQuery,
   metricsRange,
   onMetricsRangeChange,
 }: {
-  data: ReturnType<typeof parseMetrics>
+  metricsQuery: QueryView<EdgeMetricsResponse | undefined>
   metricsRange: MetricsRange
   onMetricsRangeChange: (range: MetricsRange) => void
 }) {
   const { t } = useTranslation()
+  const data = parseMetrics(metricsQuery.data)
   const hasData = data.series.length > 0
+  // 1h/6h/24h 由 Tabs 独立管理；自定义拆到单独的按钮组件里，
+  // 两者互不干扰（点自定义不动 Tabs 的选中态）。
+  const [presetTab, setPresetTab] = useState<MetricsWindow>(
+    metricsRange.kind === 'preset' ? metricsRange.window : '1h'
+  )
+  const customTime =
+    metricsRange.kind === 'custom'
+      ? `${formatFullTime(Date.parse(metricsRange.from))} ~ ${formatFullTime(Date.parse(metricsRange.to))}`
+      : undefined
   const [customOpen, setCustomOpen] = useState(false)
   const [draftRange, setDraftRange] = useState<{
     from: Date
@@ -821,131 +844,135 @@ function MonitoringSection({
     setCustomOpen(false)
   }
 
-  const activePreset =
-    metricsRange.kind === 'preset' ? metricsRange.window : null
-  const activeCustom =
-    metricsRange.kind === 'custom'
-      ? `${formatFullTime(Date.parse(metricsRange.from))} ~ ${formatFullTime(Date.parse(metricsRange.to))}`
-      : null
   return (
     <section className='flex flex-col gap-4'>
       <SectionHead
         title={t('edges.observationSystem')}
         hint={t('edges.observationSystemHint')}
       />
-      <Popover
-        open={customOpen}
-        onOpenChange={(open) => {
-          if (open) openCustom()
-          setCustomOpen(open)
-        }}
-      >
-        <div className='flex flex-col items-end gap-1'>
-          <div
-            className='flex items-center gap-1 rounded-md border bg-muted/40 p-0.5'
-            role='group'
-            aria-label={t('edges.monitorRange')}
-          >
-            {(['1h', '6h', '24h'] as MetricsWindow[]).map((w) => (
-              <button
-                key={w}
-                type='button'
-                onClick={() =>
-                  onMetricsRangeChange({ kind: 'preset', window: w })
-                }
-                className={cn(
-                  'rounded px-2 py-1 text-xs font-medium transition-colors',
-                  activePreset === w
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {w}
-              </button>
-            ))}
+      <div className='flex flex-wrap items-center gap-2'>
+        <Tabs
+          value={presetTab}
+          onValueChange={(v) => {
+            setPresetTab(v as MetricsWindow)
+            onMetricsRangeChange({ kind: 'preset', window: v as MetricsWindow })
+          }}
+        >
+          <TabsList className='h-7 w-fit' aria-label={t('edges.monitorRange')}>
+            <TabsTrigger value='1h' className='h-full px-2.5 text-xs'>
+              1h
+            </TabsTrigger>
+            <TabsTrigger value='6h' className='h-full px-2.5 text-xs'>
+              6h
+            </TabsTrigger>
+            <TabsTrigger value='24h' className='h-full px-2.5 text-xs'>
+              24h
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Popover
+          open={customOpen}
+          onOpenChange={(open) => {
+            if (open) {
+              openCustom()
+              setCustomOpen(true)
+            } else {
+              setCustomOpen(false)
+            }
+          }}
+        >
+          <div className='inline-flex h-7 items-center rounded-lg bg-muted p-0.75 text-muted-foreground'>
             <PopoverTrigger asChild>
               <button
                 type='button'
+                aria-label={t('edges.monitorRange')}
                 className={cn(
-                  'rounded px-2 py-1 text-xs font-medium transition-colors',
+                  'inline-flex h-full items-center gap-1.5 rounded-md border border-transparent px-2.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50',
                   metricsRange.kind === 'custom'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'border-input bg-background text-foreground shadow-sm dark:border-white/10 dark:bg-input/30 dark:text-foreground'
+                    : 'text-muted-foreground hover:text-foreground dark:text-muted-foreground'
                 )}
               >
                 {t('edges.monitorCustom')}
+                {customTime ? (
+                  <span className='font-normal text-muted-foreground'>
+                    {customTime}
+                  </span>
+                ) : null}
               </button>
             </PopoverTrigger>
           </div>
-          {activeCustom ? (
-            <span className='max-w-56 truncate text-[11px] text-muted-foreground'>
-              {activeCustom}
-            </span>
-          ) : null}
-        </div>
-        <PopoverContent align='end' className='w-auto p-0'>
-          <Calendar
-            mode='range'
-            defaultMonth={draftRange?.from}
-            selected={
-              draftRange
-                ? { from: draftRange.from, to: draftRange.to }
-                : undefined
-            }
-            onSelect={(sel) => {
-              if (sel?.from) {
-                setDraftRange({ from: sel.from, to: sel.to ?? sel.from })
+          <PopoverContent align='end' className='w-auto p-0'>
+            <Calendar
+              mode='range'
+              defaultMonth={draftRange?.from}
+              selected={
+                draftRange
+                  ? { from: draftRange.from, to: draftRange.to }
+                  : undefined
               }
-            }}
-            disabled={(date: Date) => date > new Date()}
-          />
-          <div className='px-3 pb-3'>
-            <div className='mt-2 flex flex-col gap-1'>
-              <div className='flex items-center gap-2'>
-                <Label className='min-w-0 flex-1 text-center text-xs'>
-                  {t('edges.monitorCustomFrom')}
-                </Label>
-                <span className='w-4 shrink-0' />
-                <Label className='min-w-0 flex-1 text-center text-xs'>
-                  {t('edges.monitorCustomTo')}
-                </Label>
+              onSelect={(sel) => {
+                if (sel?.from) {
+                  setDraftRange({ from: sel.from, to: sel.to ?? sel.from })
+                }
+              }}
+              disabled={(date: Date) => date > new Date()}
+            />
+            <div className='px-3 pb-3'>
+              <div className='mt-2 flex flex-col gap-1'>
+                <div className='flex items-center gap-2'>
+                  <Label className='min-w-0 flex-1 text-center text-xs'>
+                    {t('edges.monitorCustomFrom')}
+                  </Label>
+                  <span className='w-4 shrink-0' />
+                  <Label className='min-w-0 flex-1 text-center text-xs'>
+                    {t('edges.monitorCustomTo')}
+                  </Label>
+                </div>
+                <div className='flex items-center gap-2'>
+                  <TimeInput
+                    className='min-w-0 flex-1'
+                    value={draftFromTime}
+                    onChange={setDraftFromTime}
+                  />
+                  <span className='w-4 shrink-0 text-center text-muted-foreground'>
+                    ~
+                  </span>
+                  <TimeInput
+                    className='min-w-0 flex-1'
+                    value={draftToTime}
+                    onChange={setDraftToTime}
+                  />
+                </div>
               </div>
-              <div className='flex items-center gap-2'>
-                <TimeInput
-                  className='min-w-0 flex-1'
-                  value={draftFromTime}
-                  onChange={setDraftFromTime}
-                />
-                <span className='w-4 shrink-0 text-center text-muted-foreground'>
-                  ~
-                </span>
-                <TimeInput
-                  className='min-w-0 flex-1'
-                  value={draftToTime}
-                  onChange={setDraftToTime}
-                />
+              {customError ? (
+                <p className='mt-1 text-xs text-destructive'>{customError}</p>
+              ) : null}
+              <div className='mt-5 flex justify-end gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setCustomOpen(false)}
+                >
+                  {t('common.cancel')}
+                </Button>
+                <Button type='button' size='sm' onClick={applyCustom}>
+                  {t('edges.monitorCustomApply')}
+                </Button>
               </div>
             </div>
-            {customError ? (
-              <p className='mt-1 text-xs text-destructive'>{customError}</p>
-            ) : null}
-            <div className='mt-5 flex justify-end gap-2'>
-              <Button
-                type='button'
-                variant='outline'
-                size='sm'
-                onClick={() => setCustomOpen(false)}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button type='button' size='sm' onClick={applyCustom}>
-                {t('edges.monitorCustomApply')}
-              </Button>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-      {!hasData ? (
+          </PopoverContent>
+        </Popover>
+      </div>
+      {metricsQuery.isError ? (
+        <ErrorBanner
+          message={errorMessage(metricsQuery.error)}
+          onRetry={() => void metricsQuery.refetch()}
+        />
+      ) : metricsQuery.isLoading ? (
+        <MonitoringSkeleton />
+      ) : !hasData ? (
         <Empty className='border p-3 md:p-6'>
           <EmptyHeader className='max-w-none'>
             <EmptyMedia variant='icon'>
@@ -970,6 +997,69 @@ function MonitoringSection({
         </>
       )}
     </section>
+  )
+}
+
+// 切换时间范围时只让图表区显示骨架，顶部 1h/6h/24h/自定义 控件保持不动。
+function MonitoringSkeleton() {
+  return (
+    <div className='flex flex-col gap-4' role='status' aria-label='loading'>
+      <div className='flex flex-col gap-4 xl:flex-row'>
+        <ChartSkeleton />
+        <ChartSkeleton />
+      </div>
+      <div className='flex flex-col gap-4 xl:flex-row'>
+        <ChartSkeleton />
+        <ChartSkeleton />
+      </div>
+      <ChartSkeleton compact />
+    </div>
+  )
+}
+
+// 复用 LineCardShell 的卡壳、头部两行与右列统计占位，保证骨架高度与真实图表一致。
+function ChartSkeleton({ compact = false }: { compact?: boolean }) {
+  const statsCells = compact ? 4 : 3
+  return (
+    <div className='flex min-w-0 flex-1 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none'>
+      <div className='mb-3'>
+        <Skeleton className='h-4 w-28' />
+        <Skeleton className='mt-3 h-3 w-44' />
+      </div>
+      <div
+        className={cn(
+          'grid min-h-0 flex-1 gap-1.5',
+          compact
+            ? 'lg:grid-cols-[minmax(0,1fr)_122px]'
+            : 'lg:grid-cols-[minmax(0,1fr)_72px]'
+        )}
+      >
+        <div className='h-full min-h-[150px] w-full min-w-0'>
+          <Skeleton className='h-full w-full' />
+        </div>
+        <div
+          className={cn(
+            'grid content-center gap-2',
+            compact
+              ? 'grid-cols-2 gap-1.5'
+              : 'grid-cols-3 lg:grid-cols-1 lg:text-right'
+          )}
+        >
+          {Array.from({ length: statsCells }, (_, i) => (
+            <div
+              key={i}
+              className={cn(
+                'flex flex-col items-center gap-1',
+                !compact && 'lg:items-end'
+              )}
+            >
+              <Skeleton className='h-4 w-12' />
+              <Skeleton className='h-2.5 w-10' />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1009,13 +1099,11 @@ export function ObservationPanel({
 }: Props) {
   return (
     <div className='flex flex-col gap-7' data-testid='edge-observation'>
-      <BlockBody query={metricsQuery}>
-        <MonitoringSection
-          data={parseMetrics(metricsQuery.data)}
-          metricsRange={metricsRange}
-          onMetricsRangeChange={onMetricsRangeChange}
-        />
-      </BlockBody>
+      <MonitoringSection
+        metricsQuery={metricsQuery}
+        metricsRange={metricsRange}
+        onMetricsRangeChange={onMetricsRangeChange}
+      />
       <BlockBody query={tasksQuery}>
         <TasksSection
           tasks={tasksQuery.data ?? []}

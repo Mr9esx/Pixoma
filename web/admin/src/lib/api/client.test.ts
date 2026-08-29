@@ -91,4 +91,37 @@ describe('apiFetch', () => {
       message: '无法连接后台。请确认服务状态。',
     } satisfies Partial<ApiError>)
   })
+
+  it('clears the server session and redirects on a protected 401', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('window', {
+      location: { origin: 'http://x', assign },
+    })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValue(new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiFetch('/api/v1/adminusers')).rejects.toMatchObject({
+      status: 401,
+    })
+
+    const logoutCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith('/api/v1/setup/logout')
+    )
+    expect(logoutCall).toBeDefined()
+    expect(logoutCall?.[1]).toMatchObject({
+      method: 'POST',
+      credentials: 'include',
+    })
+    await vi.waitFor(() =>
+      expect(assign).toHaveBeenCalledWith('http://x/login?expired=1')
+    )
+  })
 })

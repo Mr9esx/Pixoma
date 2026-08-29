@@ -32,7 +32,7 @@ canonical_spec: openspec
       ▼
 ┌──────────────┬───────────────────────────────────────────────┐
 │ bootstrap.db │ 业务库 AutoMigrate                             │
-│ 引导态门闩    │  console_users(系统账号)  channel_users(渠道用户) │
+│ 引导态门闩    │  console_users(系统账号)  channel_users(消息平台用户) │
 │  向导进度     │  channel_user_external_identities               │
 └──────────────┴───────────────────────────────────────────────┘
 ```
@@ -56,7 +56,7 @@ canonical_spec: openspec
 - GORM `ConsoleUser` Domain + `internal/identity`（或新 `internal/consoleuser`）持久化；AutoMigrate 注册。
 - 约束：账号名唯一；邮箱唯一可空；密码 ≥8 位 bcrypt；列表接口不返回 `password_hash`。
 
-### 3.2 渠道终端用户表更名（数据保留）
+### 3.2 消息平台终端用户表更名（数据保留）
 - `users` → `channel_users`；`user_external_identities` → `channel_user_external_identities`。
 - 仅改 GORM `TableName()`（代码无裸 SQL 依赖）；在 `internal/platform/db/rename_legacy.go` 追加幂等迁移：`if mig.HasTable(old) && !mig.HasTable(new) { mig.RenameTable(...) }`，于 AutoMigrate 前执行。
 
@@ -110,6 +110,6 @@ canonical_spec: openspec
 
 ## 11. Out of Scope
 
-- 渠道终端用户目录页/API 行为不变。
+- 消息平台终端用户目录页/API 行为不变。
 - 用户自助改密与个人资料自助管理（本 change 不含，仅管理员重置）。
 - 密码找回、二次验证、登录失败锁定、细粒度自定义角色。

@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Menu 树管理 HTTP 接口
-admin-api MUST 暴露渠道菜单管理接口（路径约定 `/api/v1/channels/{id}/menu`）：支持按渠道获取完整树形配置，以及整棵树写回。菜单载荷使用能力入口结构（capability_id + params + 展示字段）；未知 capability_id MUST 被拒绝。接口鉴权策略与现有 admin-api 一致（仅内网约定）。
+admin-api MUST 暴露消息平台菜单管理接口（路径约定 `/api/v1/channels/{id}/menu`）：支持按消息平台获取完整树形配置，以及整棵树写回。菜单载荷使用能力入口结构（capability_id + params + 展示字段）；未知 capability_id MUST 被拒绝。接口鉴权策略与现有 admin-api 一致（仅内网约定）。
 
 #### Scenario: 获取 Menu 树
 - **WHEN** 客户端 GET `/api/v1/channels/{id}/menu` 且服务可用

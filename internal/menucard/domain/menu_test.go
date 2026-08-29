@@ -32,13 +32,13 @@ func TestValidateActionRules(t *testing.T) {
 	if err := domain.ValidateAction(domain.Action{Type: "open_card"}); err == nil {
 		t.Fatal("open_card without card_id must fail")
 	}
-	if err := domain.ValidateAction(domain.Action{Type: "open_workflow", WorkflowIDs: nil}); err == nil {
+	if err := domain.ValidateAction(domain.Action{Type: "open_workflow", WorkflowID: ""}); err == nil {
 		t.Fatal("open_workflow without workflows must fail")
 	}
 	if err := domain.ValidateAction(domain.Action{Type: "open_url", URL: "ftp://x"}); err == nil {
 		t.Fatal("non-http url must fail")
 	}
-	if err := domain.ValidateAction(domain.Action{Type: "placeholder"}); err != nil {
+	if err := domain.ValidateAction(domain.Action{Type: "send_text", Text: "hi"}); err != nil {
 		t.Fatalf("placeholder must pass: %v", err)
 	}
 }

@@ -1,8 +1,8 @@
 import * as React from 'react'
 import { CheckIcon, PlusCircledIcon } from '@radix-ui/react-icons'
 import { type Column } from '@tanstack/react-table'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -19,6 +19,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
+import { Pill } from '@/components/kibo-ui/pill'
 
 type DataTableFacetedFilterProps<TData, TValue> = {
   column?: Column<TData, TValue>
@@ -35,6 +36,7 @@ export function DataTableFacetedFilter<TData, TValue>({
   title,
   options,
 }: DataTableFacetedFilterProps<TData, TValue>) {
+  const { t } = useTranslation()
   const facets = column?.getFacetedUniqueValues()
   const selectedValues = new Set(column?.getFilterValue() as string[])
 
@@ -47,31 +49,31 @@ export function DataTableFacetedFilter<TData, TValue>({
           {selectedValues?.size > 0 && (
             <>
               <Separator orientation='vertical' className='mx-2 h-4' />
-              <Badge
+              <Pill
                 variant='secondary'
                 className='rounded-sm px-1 font-normal lg:hidden'
               >
                 {selectedValues.size}
-              </Badge>
+              </Pill>
               <div className='hidden space-x-1 lg:flex'>
                 {selectedValues.size > 2 ? (
-                  <Badge
+                  <Pill
                     variant='secondary'
                     className='rounded-sm px-1 font-normal'
                   >
                     {selectedValues.size} selected
-                  </Badge>
+                  </Pill>
                 ) : (
                   options
                     .filter((option) => selectedValues.has(option.value))
                     .map((option) => (
-                      <Badge
+                      <Pill
                         variant='secondary'
                         key={option.value}
                         className='rounded-sm px-1 font-normal'
                       >
                         {option.label}
-                      </Badge>
+                      </Pill>
                     ))
                 )}
               </div>
@@ -83,7 +85,7 @@ export function DataTableFacetedFilter<TData, TValue>({
         <Command>
           <CommandInput placeholder={title} />
           <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandEmpty>{t('dataTable.noResults')}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => {
                 const isSelected = selectedValues.has(option.value)
@@ -133,7 +135,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                     onSelect={() => column?.setFilterValue(undefined)}
                     className='justify-center text-center'
                   >
-                    Clear filters
+                    {t('dataTable.clearFilters')}
                   </CommandItem>
                 </CommandGroup>
               </>

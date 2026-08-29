@@ -1,10 +1,10 @@
-# 计算节点与渠道清理式删除 Implementation Plan
+# 计算节点与消息平台清理式删除 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 计算节点与渠道删除改为「确认制清理式删除」：节点删除时 running 任务终态失败（`edge_deleted`）并通知用户、清理 presence；渠道删除不再要求先停用，事务内删渠道行 + 终止活跃会话（exited）并通知会话用户 + 清理菜单/卡片。两者确认弹窗都先实时展示任务/会话状态，有影响时要求二次确认。
+**Goal:** 计算节点与消息平台删除改为「确认制清理式删除」：节点删除时 running 任务终态失败（`edge_deleted`）并通知用户、清理 presence；消息平台删除不再要求先停用，事务内删消息平台行 + 终止活跃会话（exited）并通知会话用户 + 清理菜单/卡片。两者确认弹窗都先实时展示任务/会话状态，有影响时要求二次确认。
 
-**Architecture:** 新增 `internal/edgeadmin`（仿 caseadmin，gdb 事务 + notify）负责节点清理；新增 `internal/channeladmin` 提供渠道删除清理闭包（删渠道行 + 会话 exited + 菜单/卡片清理），`channelapp.Service` 去掉 Enabled/HasActiveRefs 改为注入 `DeleteWithCleanup` + `Notify`。前端在节点/渠道详情页增加带影响面与勾选确认的删除弹窗。
+**Architecture:** 新增 `internal/edgeadmin`（仿 caseadmin，gdb 事务 + notify）负责节点清理；新增 `internal/channeladmin` 提供消息平台删除清理闭包（删消息平台行 + 会话 exited + 菜单/卡片清理），`channelapp.Service` 去掉 Enabled/HasActiveRefs 改为注入 `DeleteWithCleanup` + `Notify`。前端在节点/消息平台详情页增加带影响面与勾选确认的删除弹窗。
 
 **Tech Stack:** Go 1.x + GORM（SQLite 测试）、chi、React 18 + TanStack Query + react-i18next + sonner、Vitest（node 合同测试）、pnpm。
 
@@ -14,7 +14,7 @@
 - 后端 API 错误 `error` 字段保持英文兜底；用户可见文案走前端 i18n 或 TG adapter 固定中文。
 - 新增 i18n key 必须 zh/en 成对，并在 `web/admin/src/lib/i18n/locale.test.ts` 的成对列表登记。
 - 节点删除只处理 running 任务；queued/pending 不处理；metrics 历史保留。
-- 渠道删除不中断执行中/排队任务。
+- 消息平台删除不中断执行中/排队任务。
 - 不停止远程 agent 进程（只提示）。
 - 前端 node 测试文件必须已在 `vitest.config.ts` include（本计划只修改现有测试文件，不新增）。
 - 每个任务以独立可测试交付物结束并单独 commit；涉及 `apps/pixoma/cmd/pixoma/main.go` 时用 `git add -p` 只暂存本任务 hunk（该文件可能有并发未提交改动）。
@@ -313,7 +313,7 @@ git commit -m "feat(tasks): filter admin list by channel via session join"
 
 ---
 
-### Task 4: channeladmin 渠道删除清理闭包
+### Task 4: channeladmin 消息平台删除清理闭包
 
 **Files:**
 - Create: `internal/channeladmin/delete.go`
@@ -497,7 +497,7 @@ git commit -m "feat(channeladmin): transactional channel delete cleanup"
 
 ---
 
-### Task 5: 渠道直接删除（channelapp.Service + handler + main.go）
+### Task 5: 消息平台直接删除（channelapp.Service + handler + main.go）
 
 **Files:**
 - Modify: `internal/channel/application/service.go`
@@ -631,7 +631,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 		n := sharedkernel.UserNotify{
 			ChatID:   chat,
 			Kind:     "session_terminated",
-			ErrorMsg: "该渠道已被管理员删除，当前会话已结束。",
+			ErrorMsg: "该消息平台已被管理员删除，当前会话已结束。",
 		}
 		if s.Notify == nil {
 			continue
@@ -1291,7 +1291,7 @@ Expected: FAIL（keys 缺失）。
 `channels.deleteConfirmBody` 改为：
 
 ```json
-    "deleteConfirmBody": "确定删除渠道「{{name}}」？该操作不可恢复。进行中会话将被终止，菜单/卡片将一并移除。"
+    "deleteConfirmBody": "确定删除消息平台「{{name}}」？该操作不可恢复。进行中会话将被终止，菜单/卡片将一并移除。"
 ```
 
 `en.json` 对应英文：
@@ -1488,7 +1488,7 @@ git commit -m "feat(admin): edge detail delete dialog with running-task impact"
 
 ---
 
-### Task 11: 渠道详情页删除弹窗
+### Task 11: 消息平台详情页删除弹窗
 
 **Files:**
 - Modify: `web/admin/src/features/channels/channel-detail-panel.tsx`
@@ -1496,7 +1496,7 @@ git commit -m "feat(admin): edge detail delete dialog with running-task impact"
 
 **Interfaces:**
 - Consumes: `listSessions({channel_id})`、`listTasks({channel_id})`（Task 8）、i18n keys（Task 9）
-- Produces: 渠道删除影响弹窗
+- Produces: 消息平台删除影响弹窗
 
 - [ ] **Step 1: 先改 contract 测试（失败）**
 
@@ -1630,7 +1630,7 @@ Expected: PASS。
 - [ ] **Step 3: 手工冒烟（可选）**
 
 - 删除一个在线且有 running 任务的节点：弹窗显示任务数，勾选后删除成功，任务变 failed（`edge_deleted`），用户收到失败通知。
-- 启用中的渠道直接删除：弹窗显示会话/任务数，勾选后删除成功，会话用户收到「该渠道已被管理员删除」。
+- 启用中的消息平台直接删除：弹窗显示会话/任务数，勾选后删除成功，会话用户收到「该消息平台已被管理员删除」。
 
 - [ ] **Step 4: 收尾**
 

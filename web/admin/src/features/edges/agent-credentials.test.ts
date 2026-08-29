@@ -83,17 +83,11 @@ describe('edgeDeployCommand', () => {
     expect(command).toContain('export BLOB_LOCAL_ROOT=/mnt/pixoma-shared')
   })
 
-  it('adds EDGE_SUBSCRIBE_TOPICS when topics are selected', () => {
-    const command = edgeDeployCommand({
-      ...input,
-      subscribeTopics: ['default', 'fast-gpu'],
-    })
-    expect(command).toContain('export EDGE_SUBSCRIBE_TOPICS=default,fast-gpu')
-  })
-
-  it('omits EDGE_SUBSCRIBE_TOPICS when no topics are selected', () => {
+  it('omits EDGE_SUBSCRIBE_TOPICS from the deploy command', () => {
+    // Topic bindings live on the control plane; the agent no longer reads an
+    // env var at startup.
     expect(edgeDeployCommand(input)).not.toContain('EDGE_SUBSCRIBE_TOPICS')
-    expect(edgeDeployCommand({ ...input, subscribeTopics: [] })).not.toContain(
+    expect(edgeDeployCommand({ ...input, subscribeTopics: ['default'] })).not.toContain(
       'EDGE_SUBSCRIBE_TOPICS'
     )
   })

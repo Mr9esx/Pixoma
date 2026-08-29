@@ -2,12 +2,18 @@ package application
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
+
+func offlineFetch(_ context.Context, _ string) (json.RawMessage, error) {
+	return nil, errors.New("offline")
+}
 
 type memStore struct {
 	mu   sync.Mutex
@@ -54,9 +60,9 @@ func (s *memStore) Delete(_ context.Context, id string) error {
 func TestService_CreateEncryptsAndGetDecrypts(t *testing.T) {
 	store := &memStore{rows: map[string]domain.Channel{}}
 	key := make([]byte, 32)
-	svc := &Service{Store: store, Key: key}
+	svc := &Service{Store: store, Key: key, FetchTelegram: offlineFetch}
 
-	ch, err := svc.Create(context.Background(), "tg-default", domain.PlatformTelegram, "主机器人", "12345:TOKEN")
+	ch, err := svc.Create(context.Background(), "tg-default", domain.PlatformTelegram, "主机器人", "12345:TOKEN", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,9 +92,10 @@ func TestService_DeleteDirectWithCleanup(t *testing.T) {
 	key := make([]byte, 32)
 	n := &memNotify{}
 	svc := &Service{
-		Store:  store,
-		Key:    key,
-		Notify: n,
+		Store:         store,
+		Key:           key,
+		Notify:        n,
+		FetchTelegram: offlineFetch,
 		DeleteWithCleanup: func(_ context.Context, id string) ([]sharedkernel.ChatID, error) {
 			if err := store.Delete(context.Background(), id); err != nil {
 				return nil, err
@@ -97,7 +104,7 @@ func TestService_DeleteDirectWithCleanup(t *testing.T) {
 		},
 	}
 
-	if _, err := svc.Create(context.Background(), "tg-1", domain.PlatformTelegram, "a", "t"); err != nil {
+	if _, err := svc.Create(context.Background(), "tg-1", domain.PlatformTelegram, "a", "t", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -115,8 +122,8 @@ func TestService_DeleteDirectWithCleanup(t *testing.T) {
 
 func TestService_DeleteFallsBackToStore(t *testing.T) {
 	store := &memStore{rows: map[string]domain.Channel{}}
-	svc := &Service{Store: store, Key: make([]byte, 32)}
-	if _, err := svc.Create(context.Background(), "tg-1", domain.PlatformTelegram, "a", "t"); err != nil {
+	svc := &Service{Store: store, Key: make([]byte, 32), FetchTelegram: offlineFetch}
+	if _, err := svc.Create(context.Background(), "tg-1", domain.PlatformTelegram, "a", "t", ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := svc.Delete(context.Background(), "tg-1"); err != nil {
@@ -124,5 +131,64 @@ func TestService_DeleteFallsBackToStore(t *testing.T) {
 	}
 	if _, err := svc.Get(context.Background(), "tg-1"); err != domain.ErrNotFound {
 		t.Fatalf("want not found, got %v", err)
+	}
+}
+
+func TestService_CreateStoresExtraInfo(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{Store: store, Key: make([]byte, 32), FetchTelegram: offlineFetch}
+	const extra = `{"id":1,"username":"demo_bot","first_name":"Demo"}`
+	ch, err := svc.Create(context.Background(), "tg-x", domain.PlatformTelegram, "Demo", "t", extra)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ch.ExtraInfo != extra {
+		t.Fatalf("extra_info=%q", ch.ExtraInfo)
+	}
+	got, err := svc.Get(context.Background(), "tg-x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ExtraInfo != extra {
+		t.Fatalf("persisted extra_info=%q", got.ExtraInfo)
+	}
+}
+
+func TestService_CreateAutoFetchesTelegramInfo(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{Store: store, Key: make([]byte, 32), FetchTelegram: func(context.Context, string) (json.RawMessage, error) {
+		return json.RawMessage(`{"id":1,"username":"auto"}`), nil
+	}}
+	ch, err := svc.Create(context.Background(), "tg-z", domain.PlatformTelegram, "", "t", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ch.Name != "auto" {
+		t.Fatalf("backfilled name=%q", ch.Name)
+	}
+	if ch.ExtraInfo != `{"id":1,"username":"auto"}` {
+		t.Fatalf("auto extra_info=%q", ch.ExtraInfo)
+	}
+}
+
+func TestService_CreatePrefersFirstNameForUnnamedChannel(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{Store: store, Key: make([]byte, 32), FetchTelegram: func(context.Context, string) (json.RawMessage, error) {
+		return json.RawMessage(`{"id":1,"first_name":"Demo","username":"auto"}`), nil
+	}}
+	ch, err := svc.Create(context.Background(), "tg-f", domain.PlatformTelegram, "", "t", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ch.Name != "Demo" {
+		t.Fatalf("backfilled name=%q", ch.Name)
+	}
+}
+
+func TestService_CreateRejectsInvalidExtraInfo(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{Store: store, Key: make([]byte, 32), FetchTelegram: offlineFetch}
+	if _, err := svc.Create(context.Background(), "tg-y", domain.PlatformTelegram, "a", "t", "{bad"); err == nil {
+		t.Fatal("want error for invalid extra_info")
 	}
 }

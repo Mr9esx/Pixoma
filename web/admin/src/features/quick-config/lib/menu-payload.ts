@@ -3,7 +3,7 @@ import type { Menu, MenuItem } from '@/lib/api/channel-menu'
 export type WorkflowMenuMode = 'direct' | 'list'
 
 /**
- * 在渠道菜单末尾追加一个「打开指定工作流」的主菜单按钮。
+ * 在消息平台菜单末尾追加一个「打开指定工作流」的主菜单按钮。
  * 保持原菜单不变（不可变更新），动作类型锁定 open_workflow。
  */
 export function addWorkflowMenuEntry(

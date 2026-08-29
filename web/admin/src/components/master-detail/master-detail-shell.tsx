@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react'
+import { isValidElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useScrollFocus } from '@/lib/scroll-focus'
 import { cn } from '@/lib/utils'
+import { Reveal } from '@/components/ui/reveal'
 
 type Props = {
   list: ReactNode
@@ -24,6 +25,12 @@ export function MasterDetailShell({
 }: Props) {
   const { t } = useTranslation()
   useScrollFocus()
+  const detailKey = isValidElement(detail)
+    ? typeof detail.key === 'string'
+      ? detail.key
+      : 'detail'
+    : 'detail'
+
   return (
     <div
       className={cn(
@@ -58,10 +65,14 @@ export function MasterDetailShell({
                 {t('common.backToList', { defaultValue: '返回列表' })}
               </button>
             ) : null}
-            {detail}
+            <Reveal key={detailKey} className='flex min-h-0 flex-1 flex-col'>
+              {detail}
+            </Reveal>
           </>
         ) : (
-          (emptyDetail ?? null)
+          <Reveal className='flex min-h-0 flex-1 flex-col'>
+            {emptyDetail ?? null}
+          </Reveal>
         )}
       </section>
     </div>

@@ -72,8 +72,8 @@
 ### D5. Step 3 投放页
 
 - 「当前已投放」复用 `MenuPlacementsSection`（`GET /cases/{id}/menu-placements`），支持移除。
-- 渠道卡片复用 `action-form` 语义并锁定 `type=open_workflow`、`workflow_ids=[caseId]`、direct/list 模式；保存 = 读 `GET /channels/{id}/menu` → 追加/更新按钮 → `PUT` 全量写回。
-- 未启用渠道置灰；允许零投放进入完成页（由完成页就绪清单提示缺口，而不是在向导中强制）。
+- 消息平台卡片复用 `action-form` 语义并锁定 `type=open_workflow`、`workflow_ids=[caseId]`、direct/list 模式；保存 = 读 `GET /channels/{id}/menu` → 追加/更新按钮 → `PUT` 全量写回。
+- 未启用消息平台置灰；允许零投放进入完成页（由完成页就绪清单提示缺口，而不是在向导中强制）。
 
 ### D6. 完成页：就绪清单与发布门禁
 
@@ -83,7 +83,7 @@
 │ 就绪清单：                                            │
 │   [✓] 工作流已导入（12 节点 · 2 输入 · 1 输出）        │
 │   [✕] 处理流程有缺口：Topic B 未绑定节点   → 回 Step 2 │
-│   [✓] 已投放 2 个渠道位置                             │
+│   [✓] 已投放 2 个消息平台位置                             │
 │                                [发布]（缺口时禁用）    │
 └──────────────────────────────────────────────────────┘
 ```

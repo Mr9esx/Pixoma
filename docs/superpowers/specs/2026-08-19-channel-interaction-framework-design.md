@@ -6,7 +6,7 @@ archived-with: 2026-08-22-channel-interaction-framework
 status: final
 ---
 
-# 渠道交互框架：深度技术设计（channel-interaction-framework）
+# 消息平台交互框架：深度技术设计（channel-interaction-framework）
 
 > 上游事实源：OpenSpec change `channel-interaction-framework` 的 proposal.md / design.md / specs/**。本文是设计阶段的深度技术细化，重点覆盖能力注册表、交互协议、菜单模型与 TG 交互落地。
 
@@ -15,11 +15,11 @@ status: final
 ```
 internal/channel/capability/
   capability.go        Capability 接口、ParamSpec 包装、Result、AccountCtx、NavContext
-  registry.go          Registry：注册/查询/按渠道筛选渲染声明
+  registry.go          Registry：注册/查询/按消息平台筛选渲染声明
   open_case.go         内置 open_case 能力（包装 botapp.Facade）
 internal/channel/protocol/
   invoke.go            CapabilityInvoke / Result / Nav 类型
-  render.go            渠道渲染 DTO（主键盘/消息按钮）与预览入口
+  render.go            消息平台渲染 DTO（主键盘/消息按钮）与预览入口
 internal/menu/         菜单模型改能力入口（MenuNode.CapabilityID + Params）
 internal/channel/tg/   适配器：事件 → CapabilityInvoke；Result → 消息按钮；Nav 统一返回/退出
 internal/httpapi/channelmenu/  菜单 API（capability_id 载荷）+ 预览 DTO API
@@ -51,7 +51,7 @@ type AccountCtx struct {
 
 - Registry：`Register(cap)` + `Get(id)` + `List()` + `ForChannel(channelID)`；重复注册报错
 - 参数校验：`github.com/santhosh-tekuri/jsonschema/v6`（或等价库）编译能力 schema，调用前校验 params；错误映射为可读参数错误
-- 渲染声明：能力定义内按渠道提供默认值，菜单项可通过 `render_override` 覆盖（合并语义：override 只替换指定 key）
+- 渲染声明：能力定义内按消息平台提供默认值，菜单项可通过 `render_override` 覆盖（合并语义：override 只替换指定 key）
 - open_case：包装现有 Facade；params schema：`{case_ids: [string] 或 case_ref，列表锚点}`；Invoke 按流程状态分发（列表→预览→开始→填表→确认），back 由 Nav 承担
 
 ## 3. 交互协议
@@ -79,9 +79,9 @@ type Option struct {
 }
 ```
 
-- 适配器翻译：UI 事件（按钮/文本/媒体）→ `CapabilityInvoke` → `Registry.Invoke` → `Result` → 渠道渲染
+- 适配器翻译：UI 事件（按钮/文本/媒体）→ `CapabilityInvoke` → `Registry.Invoke` → `Result` → 消息平台渲染
 - 导航：返回/退出按钮由适配器在渲染层统一生成（Nav.Back = root / 分组 id）；能力不感知导航栈
-- 执行上下文：适配器经 `IdentityResolver` 填充 `AccountCtx`（渠道账户，无跨渠道合并）
+- 执行上下文：适配器经 `IdentityResolver` 填充 `AccountCtx`（消息平台账户，无跨消息平台合并）
 
 ## 4. 菜单模型与持久化
 
@@ -113,7 +113,7 @@ type MenuNode struct {
 
 ## 6. 管理端
 
-- 编辑器：入口类型 = 能力下拉（来自 registry 清单）+ JSON Schema 表单（自动生成）+ 渠道展示微调（render override）
+- 编辑器：入口类型 = 能力下拉（来自 registry 清单）+ JSON Schema 表单（自动生成）+ 消息平台展示微调（render override）
 - 预览：`GET /api/v1/channels/{id}/menu/preview` 返回结构化预览（主键盘行列 + 各分组消息按钮）；前端绘制；文案直白
 - 移除 kind 选择与 extras 独立入口；i18n 文案术语约束
 

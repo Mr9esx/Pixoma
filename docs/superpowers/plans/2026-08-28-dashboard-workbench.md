@@ -189,7 +189,7 @@ git commit -m "feat: add kokonutui mouse-effect card with semantic tokens"
 Run: `cd web/admin && node -e "const z=require('./src/lib/i18n/locales/zh.json').dashboard, e=require('./src/lib/i18n/locales/en.json').dashboard; const zk=Object.keys(z).filter(k=>/^workbench|welcome|quick|taskHeat|nodeOverview|avgLoad|topLoad|workflowTop|taskDuration|statusDistribution|errorTop|attention|nodeAbnormal|disabledWorkflow|failedTaskTop|allHealthy|allEnabled|noFailedTasks/.test(k)); const miss=zk.filter(k=>!(k in e)); console.log('missing en keys:', miss)"`
 Expected: `missing en keys: []`。
 
-- [ ] **Step 4: 提交（注：i18n 文件含用户既有未提交改动，提交边界在 Task 9 统一处理，暂不 commit）**
+- [x] **Step 4: 提交（注：i18n 文件含用户既有未提交改动，提交边界在 Task 9 统一处理，暂不 commit）**
 
 ```bash
 git add web/admin/src/lib/i18n/locales/zh.json web/admin/src/lib/i18n/locales/en.json

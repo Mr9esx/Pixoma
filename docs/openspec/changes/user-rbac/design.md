@@ -1,6 +1,6 @@
 ## Context
 
-现有后台只有 bootstrap 单管理员：`bootstrap.db` 存一个 `admin` 账号的 bcrypt 哈希与 `must_change_password`，`setup.Sessions` 按用户名签发会话，`adminhost.Gate` 统一门禁只区分「已登录/未登录」。首次向导步骤为 `password → database → storage`，`WizardStep` 记录进度。渠道终端用户目录（`internal/httpapi/users`）是只读的 TG 用户视图，与登录后台的系统账号无关。系统设置持久化在业务库 `settings.Store`。
+现有后台只有 bootstrap 单管理员：`bootstrap.db` 存一个 `admin` 账号的 bcrypt 哈希与 `must_change_password`，`setup.Sessions` 按用户名签发会话，`adminhost.Gate` 统一门禁只区分「已登录/未登录」。首次向导步骤为 `password → database → storage`，`WizardStep` 记录进度。消息平台终端用户目录（`internal/httpapi/users`）是只读的 TG 用户视图，与登录后台的系统账号无关。系统设置持久化在业务库 `settings.Store`。
 
 目标是引入控制台多用户账号体系 + RBAC：首启向导改密后采集初始 admin 资料（昵称/邮箱/头像），系统设置提供用户管理（新增/禁用/删除/改密）与「是否开放注册」开关。约束：不新增第三方依赖；复用既有 blob、settings、统一鉴权 gate；除非必要不改业务接口路径。
 
@@ -14,15 +14,15 @@
 - 首启向导改密后新增「如何称呼您」步骤，写初始 admin 资料。
 
 **Non-Goals:**
-- 不改造渠道终端用户目录（`users` 资源页）及其 API。
+- 不改造消息平台终端用户目录（`users` 资源页）及其 API。
 - 不做角色自定义/细粒度自定义权限组合（以权限点驱动、角色为预置组合）。
 - 不做公开公网用户体系；注册对象为后台控制台账号。
 - 不新增密码找回、二次验证、登录失败锁等账号安全旁路能力（可作为后续 change）。
 
 ## Decisions
 
-### 1. 系统账号独立于渠道终端用户
-新建 `console_users` 表（Domain `ConsoleUser`）承载控制台账号，不复用 `internal/identity` 的渠道用户聚合。现有 `users` 资源页语义（渠道终端用户）保持不变。为避免语义混淆，渠道终端用户的内部表由 `users` 更名为 `channel_users`（配套外身份映射表 `user_external_identities` → `channel_user_external_identities`）。
+### 1. 系统账号独立于消息平台终端用户
+新建 `console_users` 表（Domain `ConsoleUser`）承载控制台账号，不复用 `internal/identity` 的消息平台用户聚合。现有 `users` 资源页语义（消息平台终端用户）保持不变。为避免语义混淆，消息平台终端用户的内部表由 `users` 更名为 `channel_users`（配套外身份映射表 `user_external_identities` → `channel_user_external_identities`）。
 **备选**（放弃）：扩展 identity.User —— 会混淆「后台登录账号」与「TG 终端用户」两个完全不同的身份域。
 
 ### 2. 账号持久化到业务库
@@ -46,10 +46,10 @@
 **备选**（放弃）：不做注册仅靠管理员开账号 —— 无法满足「开放注册」需求。
 
 ### 7. 授权门禁落地位置
-在 `adminhost.Gate` 认证通过后叠加 RBAC：账号管理/角色/注册相关接口要求 `Admin`（或对应权限点）；`setup` 登录与向导步骤按现状放行引导态。用户管理 API 在 `internal/httpapi/users` 之外新增 `internal/httpapi/accountauth`（或 `adminusers`）路由，避免与渠道 `users` 汉语语义混淆。
+在 `adminhost.Gate` 认证通过后叠加 RBAC：账号管理/角色/注册相关接口要求 `Admin`（或对应权限点）；`setup` 登录与向导步骤按现状放行引导态。用户管理 API 在 `internal/httpapi/users` 之外新增 `internal/httpapi/accountauth`（或 `adminusers`）路由，避免与消息平台 `users` 汉语语义混淆。
 
-### 8. 渠道终端用户表更名迁移
-渠道终端用户内部表 `users`/`user_external_identities` 更名为 `channel_users`/`channel_user_external_identities`，仅改 GORM `TableName()`（无裸 SQL 依赖）。在 `db.RenameLegacy` 中追加幂等重命名（`HasTable(old) && !HasTable(new)` 时 `RenameTable`），于 AutoMigrate 前执行，保留既有数据；新装库幂等跳过。
+### 8. 消息平台终端用户表更名迁移
+消息平台终端用户内部表 `users`/`user_external_identities` 更名为 `channel_users`/`channel_user_external_identities`，仅改 GORM `TableName()`（无裸 SQL 依赖）。在 `db.RenameLegacy` 中追加幂等重命名（`HasTable(old) && !HasTable(new)` 时 `RenameTable`），于 AutoMigrate 前执行，保留既有数据；新装库幂等跳过。
 **备选**（放弃）：继续沿用 `users` —— 与新增的 `console_users` 并存时语义易混淆。
 
 ## Risks / Trade-offs
@@ -74,7 +74,7 @@
 
 ## 升级与迁移说明
 
-### 渠道用户表更名
+### 消息平台用户表更名
 - `users` → `channel_users`、`user_external_identities` → `channel_user_external_identities`。
 - 由 `db.RenameLegacy` 幂等执行：仅当旧表存在且新表不存在时才重建并保留数据；冷启动/新库自动跳过。无需人工 DDL。
 

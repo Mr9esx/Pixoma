@@ -1,6 +1,6 @@
 {
   "schema": "comet.selection.v2",
   "workflow": "classic",
-  "change": "user-rbac",
+  "change": "channel-menu-editor-refactor",
   "branch": "feat-init"
 }

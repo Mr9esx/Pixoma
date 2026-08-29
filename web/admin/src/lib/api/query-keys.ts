@@ -54,4 +54,8 @@ export const queryKeys = {
   settings: {
     all: ['settings'] as const,
   },
+  textTemplates: {
+    all: ['text-templates'] as const,
+    channel: (channelId: string) => ['text-templates', channelId] as const,
+  },
 }

@@ -13,7 +13,6 @@ const FLOW = read('quick-config-flow.tsx')
 const CHROME = read('wizard-chrome.tsx')
 const PAGE = read('quick-config-page.tsx')
 const STEP1 = read('step1-workflow.tsx')
-const STEP2 = read('step2-processing.tsx')
 const STEP3 = read('step3-channels.tsx')
 const DONE = read('done-screen.tsx')
 const READINESS = read('lib/readiness.ts')
@@ -32,10 +31,17 @@ describe('quick-config wizard contract', () => {
   it('flow 由 Formity 定义四个步骤屏幕与 return', () => {
     expect(FLOW).toContain('useFormity<WizardSchema>')
     expect(FLOW).toContain('Step1Workflow')
-    expect(FLOW).toContain('Step2Processing')
+    expect(FLOW).toContain('Step2Node')
+    expect(FLOW).toContain('Step3Rules')
     expect(FLOW).toContain('Step3Channels')
     expect(FLOW).toContain('DoneScreen')
     expect(FLOW).toContain('return:')
+  })
+
+  it('向导内不再内嵌处理流程画布（TaskFlowEditor 本期不接入）', () => {
+    expect(FLOW).not.toContain('Step2Processing')
+    expect(FLOW).not.toContain('TaskFlowEditor')
+    expect(FLOW).not.toContain('TaskFlowCanvas')
   })
 
   it('第一步复用统一 WorkflowEditor 且新建不跳转、可强制导入', () => {
@@ -54,22 +60,25 @@ describe('quick-config wizard contract', () => {
     expect(CHROME).not.toContain('ruleCount')
   })
 
-  it('第二步内嵌 TaskFlowCanvas 且只收集 routing 不落库', () => {
-    expect(STEP2).toContain('TaskFlowCanvas')
-    expect(STEP2).toContain('updateRouting')
-    expect(STEP2).not.toContain('patchCase')
+  it('运行节点步骤选择/新建节点且不产生订阅或写请求', () => {
+    const STEP2 = read('step2-node.tsx')
+    expect(STEP2).toContain('listEdges')
+    expect(STEP2).toContain('listPresence')
+    expect(STEP2).toContain('CreateEdgeWizard')
+    expect(STEP2).toContain('updateSelectedEdge')
+    expect(STEP2).not.toContain('patchEdge')
+    expect(STEP2).not.toContain('createEdge')
+    expect(STEP2).not.toContain('subscribe_topics')
   })
 
-  it('第二步支持行内新建调度通道与计算节点并即时落库刷新', () => {
-    expect(STEP2).toContain('createTopic')
-    expect(STEP2).toContain('createEdge')
-    expect(STEP2).toContain('DeployCredentials')
-    expect(STEP2).toContain('nodeDeployHint')
-    expect(STEP2).toContain('patchEdge')
-    expect(STEP2).toContain('nodeTopicBindHint')
-    expect(STEP2).toContain('onChangeEdgeSubscription')
-    expect(STEP2).toContain('isValidTopicKey')
-    expect(STEP2).toContain('invalidateQueries')
+  it('特殊规则分支默认路由与跳独立页两路并存，向导内不重建编辑器', () => {
+    const RULES = read('step3-rules.tsx')
+    expect(RULES).toContain('updateRulesMode')
+    expect(RULES).toContain("'default'")
+    expect(RULES).toContain('updateRuleHandover')
+    expect(RULES).toContain('patchCase')
+    expect(RULES).not.toContain('TaskFlowEditor')
+    expect(RULES).not.toContain('TaskFlowCanvas')
   })
 
   it('会话保存当前步骤且向导文案 i18n 成对', () => {
@@ -79,23 +88,26 @@ describe('quick-config wizard contract', () => {
       'nextSave',
       'back',
       'workflowConfig',
-      'processing',
+      'nodeSelection',
+      'rulesBranch',
       'channelPlacement',
       'done',
-      'requireRule',
-      'unboundRule',
-      'newTopic',
       'newNode',
       'newChannel',
       'channelToken',
       'noChannelsHint',
-      'nodeDeployHint',
-      'nodeDeployTitle',
-      'nodeTopicBindHint',
       'channelCreated',
       'saveOnlyGapHint',
       'finishChecklist',
       'publish',
+      'rulesQuestion',
+      'noRules',
+      'noRulesHint',
+      'useRulesEditor',
+      'useRulesEditorHint',
+      'nodeOnline',
+      'nodeOffline',
+      'nodeSelected',
     ]
     for (const k of keys) {
       expect(ZH.quickConfig[k]).toBeTruthy()
@@ -103,7 +115,7 @@ describe('quick-config wizard contract', () => {
     }
   })
 
-  it('第三步入队待提交菜单，并支持空态就地新建渠道引用', () => {
+  it('第三步入队待提交菜单，并支持空态就地新建消息平台引用', () => {
     expect(STEP3).toContain('updatePendingEntries')
     expect(STEP3).toContain('getCaseMenuPlacements')
     expect(STEP3).toContain('createChannel')
@@ -118,6 +130,9 @@ describe('quick-config wizard contract', () => {
     expect(DONE).toContain('addWorkflowMenuEntry')
     expect(DONE).toContain('getMenu')
     expect(DONE).toContain('putMenu')
+    expect(DONE).toContain('patchEdge')
+    expect(DONE).toContain('selectedEdgeId')
+    expect(DONE).toContain('node')
     expect(DONE).toContain('enableCase')
     expect(DONE).toContain('canPublish')
   })

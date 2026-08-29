@@ -4,11 +4,13 @@ import type { CaseRecord, RoutingConfig } from '@/lib/api/types'
 import type { MenuPlacement } from '@/lib/api/channel-menu'
 import { saveQuickConfigSession } from './lib/session'
 import { Step1Workflow } from './step1-workflow'
-import { Step2Processing } from './step2-processing'
+import { Step2Node } from './step2-node'
+import { Step3Rules } from './step3-rules'
 import { Step3Channels } from './step3-channels'
 import { DoneScreen } from './done-screen'
 import type {
   PendingMenuEntry,
+  RulesMode,
   WizardMode,
   WizardShared,
   WizardSummary,
@@ -17,6 +19,7 @@ import type {
 type WizardSchema = {
   render: React.ReactNode
   struct: [
+    s.Form<Record<string, never>>,
     s.Form<Record<string, never>>,
     s.Form<Record<string, never>>,
     s.Form<Record<string, never>>,
@@ -43,7 +46,7 @@ const flow: Flow<WizardSchema> = [
       fields: () => ({}),
       render: ({ params, next, back, jump }) => (
         <StepBridge n={2} onStepChange={params.onStepChange}>
-          <Step2Processing shared={params} next={next} back={back} jump={jump} />
+          <Step2Node shared={params} next={next} back={back} jump={jump} />
         </StepBridge>
       ),
     },
@@ -53,7 +56,7 @@ const flow: Flow<WizardSchema> = [
       fields: () => ({}),
       render: ({ params, next, back, jump }) => (
         <StepBridge n={3} onStepChange={params.onStepChange}>
-          <Step3Channels shared={params} next={next} back={back} jump={jump} />
+          <Step3Rules shared={params} next={next} back={back} jump={jump} />
         </StepBridge>
       ),
     },
@@ -63,6 +66,16 @@ const flow: Flow<WizardSchema> = [
       fields: () => ({}),
       render: ({ params, next, back, jump }) => (
         <StepBridge n={4} onStepChange={params.onStepChange}>
+          <Step3Channels shared={params} next={next} back={back} jump={jump} />
+        </StepBridge>
+      ),
+    },
+  },
+  {
+    form: {
+      fields: () => ({}),
+      render: ({ params, next, back, jump }) => (
+        <StepBridge n={5} onStepChange={params.onStepChange}>
           <DoneScreen shared={params} next={next} back={back} jump={jump} />
         </StepBridge>
       ),
@@ -115,6 +128,9 @@ export function QuickConfigFlow({
   const [pendingEntries, setPendingEntries] = useState<PendingMenuEntry[]>(
     initialPendingEntries ?? []
   )
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+  const [rulesMode, setRulesMode] = useState<RulesMode>('default')
+  const [ruleHandover, setRuleHandover] = useState(false)
   const [step, setStep] = useState(1)
 
   const updateCase = useCallback((next: CaseRecord) => {
@@ -134,6 +150,18 @@ export function QuickConfigFlow({
     (next: PendingMenuEntry[]) => setPendingEntries(next),
     []
   )
+  const updateSelectedEdge = useCallback(
+    (id: string | null) => setSelectedEdgeId(id),
+    []
+  )
+  const updateRulesMode = useCallback(
+    (mode: RulesMode) => setRulesMode(mode),
+    []
+  )
+  const updateRuleHandover = useCallback(
+    (value: boolean) => setRuleHandover(value),
+    []
+  )
   const onStepChange = useCallback((n: number) => setStep(n), [])
 
   const shared: WizardShared = {
@@ -143,11 +171,17 @@ export function QuickConfigFlow({
     routing,
     placements,
     pendingEntries,
+    selectedEdgeId,
+    rulesMode,
+    ruleHandover,
     onStepChange,
     updateCase,
     updateRouting,
     updatePlacements,
     updatePendingEntries,
+    updateSelectedEdge,
+    updateRulesMode,
+    updateRuleHandover,
     onExit,
   }
 
@@ -163,7 +197,7 @@ export function QuickConfigFlow({
       pendingEntries,
       updatedAt: new Date().toISOString(),
     })
-  }, [caseId, mode, caseRecord, routing, pendingEntries])
+  }, [caseId, mode, caseRecord, routing, pendingEntries, step])
 
   const rendered = useFormity<WizardSchema>({ flow, params: shared })
   return <>{rendered}</>

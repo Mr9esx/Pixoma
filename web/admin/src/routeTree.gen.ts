@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppVisualConfigRouteImport } from './routes/_app/visual-config'
 import { Route as AppQuickConfigRouteImport } from './routes/_app/quick-config'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
@@ -72,6 +73,11 @@ const SplatRoute = SplatRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVisualConfigRoute = AppVisualConfigRouteImport.update({
+  id: '/visual-config',
+  path: '/visual-config',
   getParentRoute: () => AppRoute,
 } as any)
 const AppQuickConfigRoute = AppQuickConfigRouteImport.update({
@@ -241,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/quick-config': typeof AppQuickConfigRoute
+  '/visual-config': typeof AppVisualConfigRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/channels/$id': typeof AppChannelsIdRoute
   '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/quick-config': typeof AppQuickConfigRoute
+  '/visual-config': typeof AppVisualConfigRoute
   '/': typeof AppIndexRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/channels/$id': typeof AppChannelsIdRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_app/quick-config': typeof AppQuickConfigRoute
+  '/_app/visual-config': typeof AppVisualConfigRoute
   '/_app/': typeof AppIndexRoute
   '/_app/cases/$caseId': typeof AppCasesCaseIdRoute
   '/_app/channels/$id': typeof AppChannelsIdRoute
@@ -346,6 +355,7 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/quick-config'
+    | '/visual-config'
     | '/cases/$caseId'
     | '/channels/$id'
     | '/edges/$edgeId'
@@ -374,6 +384,7 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/quick-config'
+    | '/visual-config'
     | '/'
     | '/cases/$caseId'
     | '/channels/$id'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/(errors)/500'
     | '/(errors)/503'
     | '/_app/quick-config'
+    | '/_app/visual-config'
     | '/_app/'
     | '/_app/cases/$caseId'
     | '/_app/channels/$id'
@@ -484,6 +496,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/visual-config': {
+      id: '/_app/visual-config'
+      path: '/visual-config'
+      fullPath: '/visual-config'
+      preLoaderRoute: typeof AppVisualConfigRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/quick-config': {
@@ -798,6 +817,7 @@ interface AppRouteChildren {
   AppTopicsRouteRoute: typeof AppTopicsRouteRouteWithChildren
   AppUsersRouteRoute: typeof AppUsersRouteRouteWithChildren
   AppQuickConfigRoute: typeof AppQuickConfigRoute
+  AppVisualConfigRoute: typeof AppVisualConfigRoute
   AppIndexRoute: typeof AppIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
@@ -812,6 +832,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTopicsRouteRoute: AppTopicsRouteRouteWithChildren,
   AppUsersRouteRoute: AppUsersRouteRouteWithChildren,
   AppQuickConfigRoute: AppQuickConfigRoute,
+  AppVisualConfigRoute: AppVisualConfigRoute,
   AppIndexRoute: AppIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }

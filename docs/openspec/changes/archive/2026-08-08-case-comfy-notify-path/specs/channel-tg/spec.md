@@ -21,7 +21,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: TG 适配器将应用 DTO 渲染为 Bot API 消息
-系统 MUST 提供 Telegram 适配器：接收 Bot Update，调用渠道无关的应用用例，并将菜单/Case 列表/会话提示/错误/结果渲染为 Telegram 支持的消息形态（文本、Photo、InlineKeyboard 等）。应用层 MUST NOT 依赖 Telegram SDK 类型。发送 Photo 时文件名 MUST 为无路径分隔符的安全基名，避免因 blob key 含 `/` 导致投递失败。
+系统 MUST 提供 Telegram 适配器：接收 Bot Update，调用消息平台无关的应用用例，并将菜单/Case 列表/会话提示/错误/结果渲染为 Telegram 支持的消息形态（文本、Photo、InlineKeyboard 等）。应用层 MUST NOT 依赖 Telegram SDK 类型。发送 Photo 时文件名 MUST 为无路径分隔符的安全基名，避免因 blob key 含 `/` 导致投递失败。
 
 #### Scenario: Case 列表以按钮呈现
 - **WHEN** 用户进入某分类的 Case 列表

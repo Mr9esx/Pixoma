@@ -26,15 +26,18 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
 	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
 	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	"github.com/mr9esx/comfyui_tgbot/internal/channeladmin"
+	consolepersist "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/persistence"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/edgeadmin"
-	adminusersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminusers"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
+	adminusersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminusers"
 	agentapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
 	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
 	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
+	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/channeltext"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/media"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
@@ -45,7 +48,6 @@ import (
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
-	consolepersist "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/persistence"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
@@ -187,6 +189,11 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 
 	app.ApplyBlobEnv(cfg)
 	app.ApplyHTTPProxy(cfg)
+	textStore, err := text.NewStore(gdb)
+	if err != nil {
+		return err
+	}
+
 	blobStore, err := factory.NewFromConfig(botconfig.Config{
 		Blob: botconfig.BlobConfig{
 			Driver: cfg.BlobDriver,
@@ -257,6 +264,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		MenuCards:    mencardpersist.NewGormCardRepository(gdb),
 		Blob:         blobStore,
 		Bus:          bus,
+		Texts:        textStore,
 	})
 	if err != nil {
 		return err
@@ -339,20 +347,26 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			return validation.ValidateRouting(context.Background(), doc.Routing, topicRepo, conditionReg)
 		}, DeleteWithCleanup: caseDeleteSvc.DeleteCase},
 		AdminUsers: &adminusersapi.Handler{Repo: consoleRepo},
-		Users:     &usersapi.Handler{Repo: userRepo},
-		Sessions:  &sessionsapi.Handler{Repo: sessionRepo},
-		Tasks:     &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
-		Stats:     &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
-		Channels:  &channelsapi.Handler{Svc: chSvc},
+		Users:      &usersapi.Handler{Repo: userRepo},
+		Sessions:   &sessionsapi.Handler{Repo: sessionRepo},
+		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
+		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
+		Channels: &channelsapi.Handler{
+			Svc: chSvc,
+			OnCreated: func(ctx context.Context, id string) error {
+				return textStore.Seed(ctx, id)
+			},
+		},
 		MenuCards: menucardsapi.NewHandler(menuRepo),
 		Topics: &topicsapi.Handler{
 			Repo:              topicRepo,
 			Tasks:             taskRepo,
 			DeleteWithCleanup: topicDeleteSvc.DeleteTopic,
 		},
-		Routing:  &routingapi.Handler{Registry: conditionReg},
-		Media:    &media.Handler{Blob: blobStore, MaxBytes: media.DefaultMaxBytes},
-		NotFound: webembed.Handler(),
+		Routing:     &routingapi.Handler{Registry: conditionReg},
+		Media:       &media.Handler{Blob: blobStore, MaxBytes: media.DefaultMaxBytes},
+		ChannelText: &channeltext.Handler{Store: textStore},
+		NotFound:    webembed.Handler(),
 	})
 
 	agentH := &agentapi.Handler{

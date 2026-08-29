@@ -1,4 +1,4 @@
-# 调度通道（Topic）清理式删除 Implementation Plan
+# 任务队列（Topic）清理式删除 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -41,7 +41,7 @@
 // Terminal-failure metadata used when a dispatch topic is deleted.
 const (
 	TaskErrorTopicDeleted = "topic_deleted"
-	TopicDeletedMessage   = "调度通道已删除"
+	TopicDeletedMessage   = "任务队列已删除"
 )
 ```
 
@@ -796,9 +796,9 @@ Expected: FAIL。
     "deleteWillUnbindNodes": "{{count}} 个计算节点的订阅将被移除",
     "deleteWillFailQueued": "{{count}} 个排队任务将标记为失败并通知用户",
     "deleteAckImpact": "我已知悉上述影响",
-    "deleteNeedsAck": "该调度通道仍被工作流或计算节点引用，确认后将自动清理",
-    "deleteDefaultProtected": "默认调度通道不允许删除",
-    "deleteDone": "调度通道已删除（移除 {{rules}} 条规则、解除 {{nodes}} 个订阅、失败 {{tasks}} 个任务）",
+    "deleteNeedsAck": "该任务队列仍被工作流或计算节点引用，确认后将自动清理",
+    "deleteDefaultProtected": "默认任务队列不允许删除",
+    "deleteDone": "任务队列已删除（移除 {{rules}} 条规则、解除 {{nodes}} 个订阅、失败 {{tasks}} 个任务）",
     "deletedFailed": "删除失败"
 ```
 
@@ -809,9 +809,9 @@ Expected: FAIL。
     "deleteWillUnbindNodes": "{{count}} compute node subscription(s) will be removed",
     "deleteWillFailQueued": "{{count}} queued task(s) will be marked failed and the users notified",
     "deleteAckImpact": "I understand the impact above",
-    "deleteNeedsAck": "This dispatch channel is still referenced by workflows or compute nodes; confirm to clean up automatically",
-    "deleteDefaultProtected": "The default dispatch channel cannot be deleted",
-    "deleteDone": "Dispatch channel deleted ({{rules}} rules removed, {{nodes}} subscriptions removed, {{tasks}} tasks failed)",
+    "deleteNeedsAck": "This task queue is still referenced by workflows or compute nodes; confirm to clean up automatically",
+    "deleteDefaultProtected": "The default task queue cannot be deleted",
+    "deleteDone": "Task queue deleted ({{rules}} rules removed, {{nodes}} subscriptions removed, {{tasks}} tasks failed)",
     "deletedFailed": "Delete failed"
 ```
 

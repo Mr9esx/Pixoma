@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 const here = dirname(fileURLToPath(import.meta.url))
 const FIELD = join(here, 'media-preview-field.tsx')
 const BASICS = join(here, 'basics.tsx')
+const MEDIA_URL_HOOK = join(here, '../lib/use-media-object-url.ts')
 
 describe('media preview field', () => {
   it('uploads via admin media api, validates whitelist and previews', () => {
@@ -13,10 +14,14 @@ describe('media preview field', () => {
     expect(source).toContain("data-testid='media-preview-field'")
     expect(source).toContain('uploadMedia')
     expect(source).toContain('MEDIA_MAX_BYTES')
-    expect(source).toContain('fetchMediaBlob')
+    expect(source).toContain('useMediaObjectUrl')
     expect(source).toContain('ImagePlus')
     expect(source).toContain('accept=')
     expect(source).toContain('onDrop')
+
+    const hookSource = readFileSync(MEDIA_URL_HOOK, 'utf8')
+    expect(hookSource).toContain('fetchMediaBlob')
+    expect(hookSource).toContain('resolveMediaKey')
   })
 
   it('basics uses the media field instead of a plain text input', () => {

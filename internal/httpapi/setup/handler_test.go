@@ -969,3 +969,116 @@ func TestMe_ReturnsBootstrapAdminProfile(t *testing.T) {
 		t.Fatalf("nickname after profile = %q, want 小黑", me.Nickname)
 	}
 }
+
+func TestPassword_Uninitialized_SyncsConsoleAccount(t *testing.T) {
+	gdb, _ := db.Open(db.Options{DSN: "file:console_sync?" + "mode=memory&cache=shared"})
+	if err := db.AutoMigrate(gdb, &consolepersist.ConsoleUserRow{}); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	boot, creds, err := bootstrap.Open(filepath.Join(dir, "bootstrap.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { boot.Close() })
+	sess := setup.NewSessions("")
+	repo := consolepersist.NewConsoleUserRepository(gdb)
+	// 首次启动时 MigrateBootstrapAdmin 用默认密码建号；模拟该行已存在。
+	hash, _ := bcrypt.GenerateFromPassword([]byte(creds.Password), bcrypt.DefaultCost)
+	if err := repo.Create(context.Background(), &consoledomain.ConsoleUser{
+		ID:                 "admin-1",
+		Username:           creds.Username,
+		Role:               consoledomain.RoleAdmin,
+		Enabled:            true,
+		MustChangePassword: true,
+		PasswordHash:       string(hash),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	h := &setup.Handler{Boot: boot, Sessions: sess, DataDir: dir, ConsoleUsers: repo}
+	r := chi.NewRouter()
+	r.Use((&setup.Gate{Boot: boot, Sessions: sess}).Middleware)
+	r.Route("/api/v1/setup", h.Mount)
+
+	loginBody, _ := json.Marshal(map[string]string{
+		"username": creds.Username,
+		"password": creds.Password,
+	})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/login", bytes.NewReader(loginBody)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login: %d %s", rec.Code, rec.Body.String())
+	}
+	var loginResp struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
+		t.Fatal(err)
+	}
+	auth := func(req *http.Request) {
+		req.Header.Set("Authorization", "Bearer "+loginResp.Token)
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	pw, _ := json.Marshal(map[string]string{"new_password": "sync-secret-8"})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/password", bytes.NewReader(pw))
+	auth(req)
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("password: %d %s", rec.Code, rec.Body.String())
+	}
+
+	u, err := repo.GetByUsername(context.Background(), creds.Username)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.MustChangePassword {
+		t.Fatal("console account must no longer require a password change")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte("sync-secret-8")); err != nil {
+		t.Fatalf("console account not updated with new password: %v", err)
+	}
+}
+
+func TestMe_UpgradesBootstrapSession(t *testing.T) {
+	gdb, _ := db.Open(db.Options{DSN: "file:me_upgrade?" + "mode=memory&cache=shared"})
+	if err := db.AutoMigrate(gdb, &consolepersist.ConsoleUserRow{}); err != nil {
+		t.Fatal(err)
+	}
+	h, repo, _ := newConsoleAuthHandler(t, gdb)
+	if err := repo.Create(context.Background(), &consoledomain.ConsoleUser{
+		ID: "admin-1", Username: "admin", Role: consoledomain.RoleAdmin, Enabled: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	tok, err := h.Sessions.Issue("admin", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/setup", h.Mount)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/setup/me", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("me: %d %s", rec.Code, rec.Body.String())
+	}
+	var me struct {
+		Role string `json:"role"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
+		t.Fatal(err)
+	}
+	if me.Role != "admin" {
+		t.Fatalf("me role = %q, want admin", me.Role)
+	}
+	acct, ok := h.Sessions.LookupAccount(tok)
+	if !ok || acct.AccountID != "admin-1" || acct.Role != "admin" {
+		t.Fatalf("session not upgraded after me: %+v ok=%v", acct, ok)
+	}
+}

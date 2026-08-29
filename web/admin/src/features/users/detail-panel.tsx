@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { Reveal } from '@/components/ui/reveal'
 import { getUser } from '@/lib/api/users'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { UserRecord } from '@/lib/api/types'
@@ -77,7 +78,7 @@ export function UserDetailPanel({ id }: Props) {
   if (!user) return null
 
   return (
-    <div className='space-y-4' data-testid='user-detail-panel'>
+    <Reveal className='space-y-4' data-testid='user-detail-panel'>
       <div>
         <h2 className='text-lg font-semibold'>{user.id}</h2>
         <p className='text-muted-foreground text-sm'>
@@ -85,6 +86,6 @@ export function UserDetailPanel({ id }: Props) {
         </p>
       </div>
       <UserFields user={user} t={t} />
-    </div>
+    </Reveal>
   )
 }

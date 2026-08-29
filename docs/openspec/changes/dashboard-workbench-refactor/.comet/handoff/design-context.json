@@ -1,0 +1,15 @@
+{
+  "change": "dashboard-workbench-refactor",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "1b31f3bb975c4594a414181a150ff96992bfd2b8b346703c75822220fa0c0814",
+  "files": [
+    { "path": "docs/openspec/changes/dashboard-workbench-refactor/proposal.md", "sha256": "b87a4078432a0fb3d71dceb3c35d4b121eb8928148692a8859e58e824e6f0ad2" },
+    { "path": "docs/openspec/changes/dashboard-workbench-refactor/design.md", "sha256": "7e71da763dec2a000a7b77625e9493c7a31e84c1dff49077bce03f8b0c59f1b0" },
+    { "path": "docs/openspec/changes/dashboard-workbench-refactor/tasks.md", "sha256": "88e0f861b6bf8198b3467de8b67f31f89977954f032e2c284fb8f47fc099959e" },
+    { "path": "docs/openspec/changes/dashboard-workbench-refactor/specs/admin-dashboard-workbench/spec.md", "sha256": "4228ccba7516af0b23402932b6353c2a425eaa4c2691f712f586ee169a1952e5" },
+    { "path": "docs/openspec/changes/dashboard-workbench-refactor/specs/admin-resource-pages/spec.md", "sha256": "cb645f79c2cff2f97d54ea2447c98c8e055bc228d075a425afbcecd8901ad925" }
+  ]
+}

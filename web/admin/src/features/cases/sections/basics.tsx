@@ -44,7 +44,10 @@ export function BasicsSection({
       <h3 className='text-base font-semibold'>{t('cases.sectionBasics')}</h3>
 
       <div className='space-y-2'>
-        <Label htmlFor='case-name'>{t('cases.fieldName')}</Label>
+        <Label htmlFor='case-name'>
+          {t('cases.fieldName')}
+          <span className='text-destructive' aria-hidden='true'>*</span>
+        </Label>
         <Input
           id='case-name'
           ref={nameRef}

@@ -28,6 +28,7 @@ const session: QuickConfigSession = {
   caseDraft: { id: 12, name: '动漫图像生成' },
   routing: { rules: [{ when: { field: 'user.is_premium', op: 'eq', value: true }, topic: 'fast-gpu' }] },
   pendingEntries: [{ channelId: 'ch-a', label: '开始生成', mode: 'direct' }],
+  schemaVersion: 2,
   updatedAt: '2026-08-21T10:00:00.000Z',
 }
 
@@ -47,6 +48,7 @@ describe('saveQuickConfigSession / loadQuickConfigSession', () => {
         caseId: 7,
         mode: 'create',
         step: 0,
+        schemaVersion: 2,
         updatedAt: '2026-08-21T09:00:00.000Z',
       })
     )
@@ -57,6 +59,7 @@ describe('saveQuickConfigSession / loadQuickConfigSession', () => {
       caseDraft: null,
       routing: undefined,
       pendingEntries: [],
+      schemaVersion: 2,
       updatedAt: '2026-08-21T09:00:00.000Z',
     })
   })
@@ -70,6 +73,7 @@ describe('saveQuickConfigSession / loadQuickConfigSession', () => {
       caseDraft: { id: 0, name: '未命名工作流' },
       routing: undefined,
       pendingEntries: [],
+      schemaVersion: 2,
       updatedAt: '2026-08-21T11:00:00.000Z',
     }
     saveQuickConfigSession(storage, draftSession)
@@ -90,6 +94,27 @@ describe('saveQuickConfigSession / loadQuickConfigSession', () => {
     const storage = fakeStorage()
     storage.setItem(SESSION_KEY, JSON.stringify({ caseId: 'x' }))
     expect(loadQuickConfigSession(storage)).toBeNull()
+  })
+
+  it('无 schemaVersion 的旧版会话被清空并返回 null', () => {
+    const storage = fakeStorage()
+    storage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        caseId: 7,
+        mode: 'create',
+        step: 1,
+        updatedAt: '2026-08-21T09:00:00.000Z',
+      })
+    )
+    expect(loadQuickConfigSession(storage)).toBeNull()
+    expect(storage.getItem(SESSION_KEY)).toBeNull()
+  })
+
+  it('保存的会话带有 schemaVersion 2 并可读回', () => {
+    const storage = fakeStorage()
+    saveQuickConfigSession(storage, session)
+    expect(loadQuickConfigSession(storage)).toEqual(session)
   })
 })
 

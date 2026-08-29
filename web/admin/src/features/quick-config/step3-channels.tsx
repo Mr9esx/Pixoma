@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -33,7 +34,7 @@ import { WizardChrome } from './wizard-chrome'
 
 type Props = StepActions & { shared: WizardShared }
 
-/** Step 3 投放：展示已有投放，为已启用渠道添加 open_workflow 菜单入口。 */
+/** Step 3 投放：展示已有投放，为已启用消息平台添加 open_workflow 菜单入口。 */
 export function Step3Channels({ shared, next, back }: Props) {
   const caseId = shared.caseId
   const { t } = useTranslation()
@@ -96,7 +97,7 @@ export function Step3Channels({ shared, next, back }: Props) {
 
   return (
     <WizardChrome
-      step={3}
+      step={4}
       onBack={() => back({})}
       onNext={handleNext}
       nextLabel={t('quickConfig.finishChecklist')}
@@ -259,6 +260,9 @@ export function Step3Channels({ shared, next, back }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('quickConfig.newChannel')}</DialogTitle>
+            <DialogDescription>
+              {t('quickConfig.newChannelHint')}
+            </DialogDescription>
           </DialogHeader>
           <div className='space-y-3'>
             <div className='space-y-1'>
@@ -282,18 +286,11 @@ export function Step3Channels({ shared, next, back }: Props) {
                 autoComplete='off'
               />
             </div>
-            <p className='text-xs text-muted-foreground'>
-              {t('quickConfig.containerHint')}
-            </p>
           </div>
           <DialogFooter>
             <Button
               type='button'
-              disabled={
-                !channelName.trim() ||
-                !channelToken.trim() ||
-                createChannelMutation.isPending
-              }
+              disabled={!channelToken.trim() || createChannelMutation.isPending}
               onClick={() => createChannelMutation.mutate()}
             >
               {t('quickConfig.create')}

@@ -77,5 +77,5 @@ const (
 // Terminal-failure metadata used when a dispatch topic is deleted.
 const (
 	TaskErrorTopicDeleted = "topic_deleted"
-	TopicDeletedMessage   = "调度通道已删除"
+	TopicDeletedMessage   = "任务队列已删除"
 )

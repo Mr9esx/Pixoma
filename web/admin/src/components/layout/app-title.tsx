@@ -35,15 +35,13 @@ export function AppTitle() {
       <SidebarMenuItem>
         <SidebarMenuButton
           size='lg'
-          className='gap-0 py-0 hover:bg-transparent active:bg-transparent'
+          className='gap-0 py-0 pe-0 hover:bg-transparent active:bg-transparent'
           asChild
         >
-          <div>
-            <span className='grid flex-1 text-start text-sm leading-tight'>
-              <span className='flex min-w-0 items-center gap-1.5 font-bold'>
-                <Logo className='size-5 rounded-md' />
-                <span className='truncate'>Pixoma</span>
-              </span>
+          <div className='flex items-center justify-between gap-2'>
+            <span className='flex min-w-0 items-center gap-1.5 font-bold'>
+              <Logo className='size-5 shrink-0 rounded-md' />
+              <span className='truncate'>Pixoma</span>
             </span>
             <ToggleSidebar />
           </div>

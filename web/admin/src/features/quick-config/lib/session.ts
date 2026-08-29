@@ -1,4 +1,5 @@
 export const SESSION_KEY = 'pixoma:quick-config'
+export const SESSION_SCHEMA_VERSION = 2
 
 export type PendingMenuEntry = {
   channelId: string
@@ -14,6 +15,7 @@ export type QuickConfigSession = {
   caseDraft: unknown
   routing: unknown
   pendingEntries: PendingMenuEntry[]
+  schemaVersion: typeof SESSION_SCHEMA_VERSION
   updatedAt: string
 }
 
@@ -21,9 +23,12 @@ type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
 export function saveQuickConfigSession(
   storage: StorageLike,
-  session: QuickConfigSession
+  session: Omit<QuickConfigSession, 'schemaVersion'>
 ): void {
-  storage.setItem(SESSION_KEY, JSON.stringify(session))
+  storage.setItem(
+    SESSION_KEY,
+    JSON.stringify({ ...session, schemaVersion: SESSION_SCHEMA_VERSION })
+  )
 }
 
 export function loadQuickConfigSession(
@@ -35,6 +40,10 @@ export function loadQuickConfigSession(
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return null
     const candidate = parsed as Partial<QuickConfigSession>
+    if (candidate.schemaVersion !== SESSION_SCHEMA_VERSION) {
+      storage.removeItem(SESSION_KEY)
+      return null
+    }
     if (
       (candidate.caseId !== null &&
         typeof candidate.caseId !== 'number') ||
@@ -53,6 +62,7 @@ export function loadQuickConfigSession(
       pendingEntries: Array.isArray(candidate.pendingEntries)
         ? (candidate.pendingEntries as PendingMenuEntry[])
         : [],
+      schemaVersion: candidate.schemaVersion,
       updatedAt: candidate.updatedAt,
     }
   } catch {

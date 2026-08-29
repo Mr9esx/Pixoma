@@ -855,10 +855,14 @@ function CanvasInner({
       // 默认即平移/选取（无需切手型按钮）：左键空白处拖动画布，左键节点上拖动节点。
       // nodesDraggable 常开，由 React Flow 自身区分"按下点在节点上 vs 空白处"。
       nodesDraggable={!readOnly}
-      panOnDrag
+      elementsSelectable={!readOnly}
+      panOnDrag={!readOnly}
+      panOnScroll={false}
       zoomOnScroll
-      zoomOnPinch
-      zoomOnDoubleClick
+      // 只读时禁止 wheel 缩放，但通过 preventScrolling={false} 让滚轮事件穿过画布、回到页面滚动。
+      preventScrolling={!readOnly}
+      zoomOnPinch={!readOnly}
+      zoomOnDoubleClick={!readOnly}
       connectionRadius={24}
       edgesReconnectable={false}
       isValidConnection={isValidConnection}
@@ -948,45 +952,47 @@ function CanvasInner({
         }
       `}</style>
       <Background gap={20} size={1} />
-      <div className='absolute bottom-4 left-4 z-10 flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border bg-background shadow-sm'>
-        <button
-          type='button'
-          className={controlBtn}
-          aria-label='放大'
-          onClick={() => void zoomIn({ duration: 200 })}
-        >
-          <ZoomIn className='size-3.5' />
-        </button>
-        <button
-          type='button'
-          className={controlBtn}
-          aria-label='缩小'
-          onClick={() => void zoomOut({ duration: 200 })}
-        >
-          <ZoomOut className='size-3.5' />
-        </button>
-        <button
-          type='button'
-          className={controlBtn}
-          aria-label='适应视图'
-          onClick={handleFitView}
-        >
-          <Maximize className='size-3.5' />
-        </button>
-        <button
-          type='button'
-          className={controlBtn}
-          aria-label='自动整理'
-          title='自动整理布局（ELK）：按规则顺序重排所有节点'
-          onClick={() => {
-            setFreePos({})
-            fitAfterNextLayout()
-            bump()
-          }}
-        >
-          <Wand2 className='size-3.5' />
-        </button>
-      </div>
+      {!readOnly && (
+        <div className='absolute bottom-4 left-4 z-10 flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border bg-background shadow-sm'>
+          <button
+            type='button'
+            className={controlBtn}
+            aria-label='放大'
+            onClick={() => void zoomIn({ duration: 200 })}
+          >
+            <ZoomIn className='size-3.5' />
+          </button>
+          <button
+            type='button'
+            className={controlBtn}
+            aria-label='缩小'
+            onClick={() => void zoomOut({ duration: 200 })}
+          >
+            <ZoomOut className='size-3.5' />
+          </button>
+          <button
+            type='button'
+            className={controlBtn}
+            aria-label='适应视图'
+            onClick={handleFitView}
+          >
+            <Maximize className='size-3.5' />
+          </button>
+          <button
+            type='button'
+            className={controlBtn}
+            aria-label='自动整理'
+            title='自动整理布局（ELK）：按规则顺序重排所有节点'
+            onClick={() => {
+              setFreePos({})
+              fitAfterNextLayout()
+              bump()
+            }}
+          >
+            <Wand2 className='size-3.5' />
+          </button>
+        </div>
+      )}
       {validation.issues.length > 0 && (
         <div
           data-validation-banner

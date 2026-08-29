@@ -18,6 +18,7 @@ import {
   type MenuItem,
 } from '@/lib/api/channel-menu'
 import { queryKeys } from '@/lib/api/query-keys'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -278,14 +279,13 @@ export function MenuCardEditor({ channelId }: { channelId: string }) {
       </div>
 
       {saveErrors && saveErrors.length > 0 ? (
-        <div
-          role='alert'
-          className='rounded-md border border-red-600/30 bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400'
-        >
-          {saveErrors
-            .map((e) => t(ERROR_KEYS[e] ?? 'menu.saveValidation'))
-            .join(' · ')}
-        </div>
+        <Alert variant='destructive'>
+          <AlertDescription>
+            {saveErrors
+              .map((e) => t(ERROR_KEYS[e] ?? 'menu.saveValidation'))
+              .join(' · ')}
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       <div className='grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_440px]'>

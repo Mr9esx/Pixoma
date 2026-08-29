@@ -5,13 +5,13 @@ base-ref: 9b95701d047b591711b76658722c8937013982bb
 archived-with: 2026-08-19-channel-platform-refactor
 ---
 
-# 渠道层完整重构 Implementation Plan
+# 消息平台层完整重构 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 以「渠道」为一级实体重构渠道层：渠道管理（平台+凭证+启停）、菜单收进渠道并平台中立化、渠道运行时端口化 + 热生效装配，为飞书/企微/钉钉铺路。
+**Goal:** 以「消息平台」为一级实体重构消息平台层：消息平台管理（平台+凭证+启停）、菜单收进消息平台并平台中立化、消息平台运行时端口化 + 热生效装配，为飞书/企微/钉钉铺路。
 
-**Architecture:** 中立领域（`internal/menu` 菜单意图、`internal/channel` 渠道与端口契约）+ 平台适配器（`internal/channel/tg` 实现端口）+ 热生效装配器（`internal/channel/runtime` 监听渠道表动态启停）。应用内核 `botapp.Facade` 保持渠道无关。差异数据走 `channel_menu_item_extras`，不抹平 TG 特色能力。
+**Architecture:** 中立领域（`internal/menu` 菜单意图、`internal/channel` 消息平台与端口契约）+ 平台适配器（`internal/channel/tg` 实现端口）+ 热生效装配器（`internal/channel/runtime` 监听消息平台表动态启停）。应用内核 `botapp.Facade` 保持消息平台无关。差异数据走 `channel_menu_item_extras`，不抹平 TG 特色能力。
 
 **Tech Stack:** Go 1.24 / GORM / SQLite；React 18 + TanStack Router + shadcn-admin（pnpm）；go-telegram/bot（long polling）。
 
@@ -22,7 +22,7 @@ archived-with: 2026-08-19-channel-platform-refactor
 - `internal/menu` 与 `internal/channel` MUST NOT import `internal/channel/tg`
 - 应用层/共享内核 MUST NOT 依赖任何平台 SDK 类型
 - 凭证 AES-GCM 加密存储（复用 bootstrap enc key），API 只回显 masked token（`前4 + "****" + 后4`）
-- 删除渠道受限：仅 enabled=false 且无活跃 session/task 引用可删（否则 409）
+- 删除消息平台受限：仅 enabled=false 且无活跃 session/task 引用可删（否则 409）
 - 菜单中立核心字段无 row/col、无 TG 长度约束、无 `list_cases_by_tag`；TG 网格布局存 extras
 - 会话地址：`sharedkernel.ChatID` 为 `tg:<chat_id>` 字符串；`sessions` 表存 `channel_id` + `chat_external_id`
 - 测试命令：`go test ./...`；管理台：`cd web/admin && pnpm test && pnpm build`
@@ -34,7 +34,7 @@ archived-with: 2026-08-19-channel-platform-refactor
 - 字段：`users.tg_user_id`、`sessions.chat_id`、`platform_settings.telegram_token_cipher`
 - 领域：`internal/tgmenu` 整包（重命名为 `internal/menu` 并中立化）、`list_cases_by_tag` kind、`tag` 字段、`row/col`
 - 代码：`internal/httpapi/tgmenu` 整包、`/api/v1/tg-menu` 路由、`internal/channel/tg/notifybridge` 旧 publisher（被 Task 11 泛化替换）
-- 前端：`web/admin` 中 `tg-menu` 路由/页面/API 客户端、`menu.tgMenu` 与「主键盘」文案（Task 13 替换为渠道体系）
+- 前端：`web/admin` 中 `tg-menu` 路由/页面/API 客户端、`menu.tgMenu` 与「主键盘」文案（Task 13 替换为消息平台体系）
 - 配置读取：env `telegram_bot_token` 与 settings 的 token 读取路径（Token 仅存 `channels.credential_ciphertext`）
 
 删除后 `rg -n "tg_menu|tg-menu|tgMenu|TgUserID|telegram_token_cipher|list_cases_by_tag" internal apps web/admin/src --hidden` 除本计划与文档外应无命中。
@@ -58,7 +58,7 @@ internal/channel/
 internal/menu/                 // 原 internal/tgmenu 重命名 + 中立化
   domain/document.go           // MenuTree/MenuNode/Kind（folder/open_case/placeholder/reply_media）
   domain/validate.go           // 去 row/col、去 tag；extras 白名单钩子
-  domain/seed.go               // 按渠道种子
+  domain/seed.go               // 按消息平台种子
   domain/repository.go         // GetTree(ctx, channelID)/ReplaceTree/ListPlacementsByCase/ListExtras/SaveExtras
   infrastructure/persistence/gorm_repository.go   // channel_menu_* 表
 internal/channel/tg/           // TG 适配器（端口实现）
@@ -70,14 +70,14 @@ internal/httpapi/channels/handler.go
 internal/httpapi/channelmenu/handler.go
 internal/identity/infrastructure/persistence/gorm_user.go   // 去 tg_user_id + user_external_identities
 internal/sharedkernel/ids.go   // ChatID string + ChannelAddr + ParseChatID/FormatChatID
-web/admin/src/config/menu.ts   // 侧栏「渠道」替代「主键盘」
-web/admin/src/features/channels/*        // 渠道列表/新建/详情 + extras 编辑
+web/admin/src/config/menu.ts   // 侧栏「消息平台」替代「主键盘」
+web/admin/src/features/channels/*        // 消息平台列表/新建/详情 + extras 编辑
 web/admin/src/routes/_app/channels/*
 ```
 
 ---
 
-### Task 1: sharedkernel 渠道地址类型
+### Task 1: sharedkernel 消息平台地址类型
 
 **Files:**
 - Modify: `internal/sharedkernel/ids.go`
@@ -172,7 +172,7 @@ func TestParseChatIDInvalid(t *testing.T) {
 
 ---
 
-### Task 4: 菜单持久化渠道化（channel_menu_* 表 + extras）
+### Task 4: 菜单持久化消息平台化（channel_menu_* 表 + extras）
 
 **Files:**
 - Modify: `internal/menu/infrastructure/persistence/gorm_repository.go`
@@ -183,7 +183,7 @@ func TestParseChatIDInvalid(t *testing.T) {
 - Produces: `type Extra struct { ChannelID, MenuItemID, ExtraType, ExtraJSON string; UpdatedAt time.Time }`
 - Produces: `Repository` 追加 `ListExtras(ctx, channelID string) (map[string][]Extra, error)`、`SaveExtras(ctx, channelID string, extras map[string][]Extra) error`（按 menu_item 全量替换）
 
-- [x] **Step 1: 写失败测试** — 更新 `gorm_repository_test.go`：AutoMigrate 换成 `channel_menus/channel_menu_items/channel_menu_item_cases/channel_menu_item_extras`；`GetTree(ctx, "tg-default")` 读取树含 Order；`SaveExtras` 后 `ListExtras` 按 item 返回且跨渠道隔离；UNIQUE(channel_id, parent_id, label/order) 冲突报错
+- [x] **Step 1: 写失败测试** — 更新 `gorm_repository_test.go`：AutoMigrate 换成 `channel_menus/channel_menu_items/channel_menu_item_cases/channel_menu_item_extras`；`GetTree(ctx, "tg-default")` 读取树含 Order；`SaveExtras` 后 `ListExtras` 按 item 返回且跨消息平台隔离；UNIQUE(channel_id, parent_id, label/order) 冲突报错
 - [x] **Step 2: 运行确认失败** — `go test ./internal/menu/...`，预期旧表模型编译失败/测试失败
 - [x] **Step 3: 实现**
   - 表模型：`ChannelMenuRow{ChannelID PK}`、`ChannelMenuItemRow{ID PK, ChannelID, ParentID *string, Label, Order, Enabled, Kind, PlaceholderText, IntroText, ReplyJSON}`、`ChannelMenuItemCaseRow{MenuItemID, CaseID PK, Sort}`、`ChannelMenuExtraRow{ChannelID, MenuItemID, ExtraType PK, ExtraJSON, UpdatedAt}`
@@ -195,7 +195,7 @@ func TestParseChatIDInvalid(t *testing.T) {
 
 ---
 
-### Task 5: 渠道与菜单管理 API（channels CRUD + menu + extras + placements）
+### Task 5: 消息平台与菜单管理 API（channels CRUD + menu + extras + placements）
 
 **Files:**
 - Create: `internal/httpapi/channels/handler.go`、`handler_test.go`
@@ -207,18 +207,18 @@ func TestParseChatIDInvalid(t *testing.T) {
 - Consumes: Task 3 Service、Task 4 Repository
 - Produces: `GET/POST /api/v1/channels`、`GET/PUT/DELETE /api/v1/channels/{id}`、`POST /api/v1/channels/{id}/disable|enable`、`GET/PUT /api/v1/channels/{id}/menu`、`GET/PUT /api/v1/channels/{id}/menu/extras`、`GET /api/v1/cases/{id}/menu-placements`
 
-- [x] **Step 1: 写失败测试** — `handler_test.go`（sqlite + AutoMigrate channels/menu 表）：POST 创建返回 masked token；非法 platform 400；GET 列表；PUT 更新 token 留空不变；DELETE 启用中 409；disable 后无引用可删；GET/PUT menu 校验非法树 400；GET/PUT extras 按渠道隔离；placements 含渠道
+- [x] **Step 1: 写失败测试** — `handler_test.go`（sqlite + AutoMigrate channels/menu 表）：POST 创建返回 masked token；非法 platform 400；GET 列表；PUT 更新 token 留空不变；DELETE 启用中 409；disable 后无引用可删；GET/PUT menu 校验非法树 400；GET/PUT extras 按消息平台隔离；placements 含消息平台
 - [x] **Step 2: 运行确认失败** — `go test ./internal/httpapi/channels/... ./internal/httpapi/channelmenu/...`
 - [x] **Step 3: 实现**
   - channels handler：DTO `{id, platform, name, token_masked, enabled, created_at, updated_at}`；写入时校验 `platform` 与凭证；删除检查 `HasActiveRefs`（注入查询 `sessions/tasks` 是否存在该 channel 引用）
-  - channelmenu handler：`GET/PUT /api/v1/channels/{id}/menu`（校验存在渠道，404）；`/menu/extras` 读写（extra_type 白名单由适配器注册，未知类型忽略）；placements 从旧 tgmenu handler 迁移
+  - channelmenu handler：`GET/PUT /api/v1/channels/{id}/menu`（校验存在消息平台，404）；`/menu/extras` 读写（extra_type 白名单由适配器注册，未知类型忽略）；placements 从旧 tgmenu handler 迁移
   - adminhost：挂载 `/api/v1/channels`；移除 `/api/v1/tg-menu` 路由；`Options.TGMenu` 删除
 - [x] **Step 4: 运行通过** — 上述测试全绿；`go build ./...`
 - [x] **Step 5: 提交** — `git commit -m "feat(httpapi): channel and channel menu management APIs"`
 
 ---
 
-### Task 6: 身份渠道化（user_external_identities）
+### Task 6: 身份消息平台化（user_external_identities）
 
 **Files:**
 - Modify: `internal/identity/domain/user.go`、`repository.go`
@@ -230,7 +230,7 @@ func TestParseChatIDInvalid(t *testing.T) {
 - Produces: `Repository.UpsertByChannelExternal(ctx, in UpsertFrom) (*User, error)`；`GetByID`、`List(ctx, ListQuery{ChannelID, ExternalUserID, Q, ...})`
 - Removes: `UpsertByTgUserID`、`TgUserID` 字段
 
-- [x] **Step 1: 写失败测试** — `UserRow` 无 `TgUserID` 编译失败；AutoMigrate `users + user_external_identities`；同 (channel, external_id) 两次 upsert 返回同一内部 id；不同渠道外部 id 并存；`List` 按 ChannelID 过滤
+- [x] **Step 1: 写失败测试** — `UserRow` 无 `TgUserID` 编译失败；AutoMigrate `users + user_external_identities`；同 (channel, external_id) 两次 upsert 返回同一内部 id；不同消息平台外部 id 并存；`List` 按 ChannelID 过滤
 - [x] **Step 2: 运行确认失败** — `go test ./internal/identity/...`
 - [x] **Step 3: 实现**
   - `user_external_identities(id PK, user_id, channel_id, external_user_id, profile_json, last_seen_at)`，UNIQUE(channel_id, external_user_id)
@@ -241,7 +241,7 @@ func TestParseChatIDInvalid(t *testing.T) {
 
 ---
 
-### Task 7: 会话寻址渠道化（sessions 拆列 + 事件载荷）
+### Task 7: 会话寻址消息平台化（sessions 拆列 + 事件载荷）
 
 **Files:**
 - Modify: `internal/conversation/infrastructure/persistence/gorm_session.go`
@@ -264,7 +264,7 @@ func TestParseChatIDInvalid(t *testing.T) {
 
 ---
 
-### Task 8: 渠道端口契约（ports）
+### Task 8: 消息平台端口契约（ports）
 
 **Files:**
 - Create: `internal/channel/ports/ports.go`
@@ -386,7 +386,7 @@ type Assembler struct {
 func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 diff
 ```
 
-- [x] **Step 1: 写失败测试（fake）** — fake factory 记录 Create/Start/Stop 调用：空库→无启动；新增 enabled 渠道→start；禁用→stop；credential 变化→stop+start（重建）；删除→stop；Start 失败→退避重试（Interval 注入可缩短）；ctx cancel→全部停止
+- [x] **Step 1: 写失败测试（fake）** — fake factory 记录 Create/Start/Stop 调用：空库→无启动；新增 enabled 消息平台→start；禁用→stop；credential 变化→stop+start（重建）；删除→stop；Start 失败→退避重试（Interval 注入可缩短）；ctx cancel→全部停止
 - [x] **Step 2: 运行确认失败** — `go test ./internal/channel/runtime/...`
 - [x] **Step 3: 实现**
   - `adapter.go`：`Adapter`/`AdapterFactory` 接口；`credential_hash` 由凭证密文 sha256 计算
@@ -397,7 +397,7 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 
 ---
 
-### Task 11: notify 按渠道投递
+### Task 11: notify 按消息平台投递
 
 **Files:**
 - Modify: `internal/channel/tg/notifybridge/publisher.go`
@@ -406,7 +406,7 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 **Interfaces:**
 - Produces: `type NotifyRouter struct { OutByChannel func(channelID string) (ports.Outbound, bool) }`；`func (r *NotifyRouter) Publish(ctx, n sharedkernel.UserNotify) error`（`ParseChatID(n.ChatID)` → 找 Outbound → `SendMedia/SendText`）
 
-- [x] **Step 1: 写失败测试** — `UserNotify{ChatID:"tg:123", Kind:"task_succeeded", Outputs:[blob]}` → 对应 channel 的 fake Outbound 收到 SendMedia；未知渠道→记录并返回 nil（不崩溃）；重复终态通知去重（沿用 adapter 内 `notified` map，按 channel 隔离）
+- [x] **Step 1: 写失败测试** — `UserNotify{ChatID:"tg:123", Kind:"task_succeeded", Outputs:[blob]}` → 对应 channel 的 fake Outbound 收到 SendMedia；未知消息平台→记录并返回 nil（不崩溃）；重复终态通知去重（沿用 adapter 内 `notified` map，按 channel 隔离）
 - [x] **Step 2: 运行确认失败** — `go test ./internal/channel/runtime/... -run Notify`
 - [x] **Step 3: 实现** — `notify.go` 按地址路由；`notifybridge` 包废弃删除，装配器在 Start 时把 router 注入 orchestrator 的 notify.Publisher
 - [x] **Step 4: 运行通过** — 测试全绿；`go build ./...`
@@ -432,7 +432,7 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 
 ---
 
-### Task 13: 管理台改版（渠道 + 菜单 + extras）
+### Task 13: 管理台改版（消息平台 + 菜单 + extras）
 
 **Files:**
 - Modify: `web/admin/src/config/menu.ts`、`menu.test.ts`
@@ -443,7 +443,7 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 
 **Interfaces:**
 - Consumes: Task 5 API
-- Produces: 侧栏顺序 Dashboard/实例/Case/渠道/Task/User/Session；渠道详情 tabs（基本信息/菜单/extras）
+- Produces: 侧栏顺序 Dashboard/实例/Case/消息平台/Task/User/Session；消息平台详情 tabs（基本信息/菜单/extras）
 
 - [x] **Step 1: 写契约测试** — `features/channels/channels.contract.test.ts`：创建向导 POST 载荷 `{platform:"telegram", name, token}`；详情 PUT token 留空不发 token；菜单 PUT 载荷无 row/col/tag；extras PUT 载荷 `{extra_type, extra_json}`
 - [x] **Step 2: 运行确认失败** — `cd web/admin && pnpm test`
@@ -464,7 +464,7 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 
 - [x] **Step 1: 后端全量** — `go test ./...` 全绿；`go vet ./...` 无新告警
 - [x] **Step 2: 前端全量** — `cd web/admin && pnpm test && pnpm build` 全绿
-- [x] **Step 3: 手工回归（TG 行为等价）** — 创建 TG 渠道填 token → 5s 内 bot 启动；六键主键盘（根层两列/按 extras 网格）；文件夹下钻 + 返回；Case 预览/开始/填表/确认/出图通知；停用渠道 → bot 停止；改 token → 重建（旧连接停止）；删除启用渠道被拒（注：真实 Token 手工回归待上线前执行；装配/适配器由单测覆盖）
+- [x] **Step 3: 手工回归（TG 行为等价）** — 创建 TG 消息平台填 token → 5s 内 bot 启动；六键主键盘（根层两列/按 extras 网格）；文件夹下钻 + 返回；Case 预览/开始/填表/确认/出图通知；停用消息平台 → bot 停止；改 token → 重建（旧连接停止）；删除启用消息平台被拒（注：真实 Token 手工回归待上线前执行；装配/适配器由单测覆盖）
 - [x] **Step 4: 无残留检查** — `rg -n "tg_menu|tg-menu|tgMenu|TgUserID|telegram_token_cipher|list_cases_by_tag|row|col" internal apps web/admin/src --hidden` 仅剩允许的迁移注释/文档
 - [x] **Step 5: 提交收尾** — 勾选 tasks.md 全部任务；`git commit -m "test(channel): full regression for channel platform refactor"`
 
@@ -473,12 +473,12 @@ func (a *Assembler) Run(ctx context.Context) error // 每 Interval 拉快照 dif
 ## Self-Review（writing-plans 要求）
 
 **Spec 覆盖检查：**
-- `channel-management`（渠道实体/CRUD/热生效/删除受限/运行时装配）→ Task 3/5/10/12
-- `channel-menu-config`（渠道作用域/中立模型/extras/Case 挂载/默认种子）→ Task 2/4/5/13
-- `channel-runtime-ports`（端口契约/身份渠道化/通知投递/专有隔离）→ Task 8/9/11/6
-- `channel-tg`（端口实现/主菜单来源/渠道装配）→ Task 9/12
+- `channel-management`（消息平台实体/CRUD/热生效/删除受限/运行时装配）→ Task 3/5/10/12
+- `channel-menu-config`（消息平台作用域/中立模型/extras/Case 挂载/默认种子）→ Task 2/4/5/13
+- `channel-runtime-ports`（端口契约/身份消息平台化/通知投递/专有隔离）→ Task 8/9/11/6
+- `channel-tg`（端口实现/主菜单来源/消息平台装配）→ Task 9/12
 - `tg-menu` / `tg-menu-admin-api`（中立模型/API 路径/placements）→ Task 2/4/5
-- `user-directory`（渠道化外部身份）→ Task 6
-- `admin-web-shell`（侧栏渠道替代主键盘）→ Task 13
+- `user-directory`（消息平台化外部身份）→ Task 6
+- `admin-web-shell`（侧栏消息平台替代主键盘）→ Task 13
 
 **类型一致性：** `ports.Action` 在 Task 8 定义、Task 9 生产、Task 13 前端仅消费 JSON；`ChannelAddr`/`ChatID` 在 Task 1 定义、Task 7/9 消费；`channel_menu_item_extras` 在 Task 4 建表、Task 5 API、Task 9 消费、Task 13 编辑。

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { type Table } from '@tanstack/react-table'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -10,6 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Pill } from '@/components/kibo-ui/pill'
 
 type DataTableBulkActionsProps<TData> = {
   table: Table<TData>
@@ -185,13 +185,13 @@ export function DataTableBulkActions<TData>({
             className='flex items-center gap-x-1 text-sm'
             id='bulk-actions-description'
           >
-            <Badge
+            <Pill
               variant='default'
               className='min-w-8 rounded-lg'
               aria-label={`${selectedCount} selected`}
             >
               {selectedCount}
-            </Badge>{' '}
+            </Pill>{' '}
             <span className='hidden sm:inline'>
               {entityName}
               {selectedCount > 1 ? 's' : ''}

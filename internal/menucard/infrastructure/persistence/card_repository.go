@@ -236,22 +236,7 @@ func actionContainsWorkflow(a mcdomain.Action, workflowID string) bool {
 	if a.Type != "open_workflow" {
 		return false
 	}
-	for _, id := range a.WorkflowIDs {
-		if id == workflowID {
-			return true
-		}
-	}
-	return false
-}
-
-func removeWorkflowID(ids []string, workflowID string) []string {
-	var out []string
-	for _, id := range ids {
-		if id != workflowID {
-			out = append(out, id)
-		}
-	}
-	return out
+	return a.WorkflowID == workflowID
 }
 
 func (r *GormCardRepository) RemoveWorkflowReferences(ctx context.Context, workflowID string) ([]WorkflowPlacement, error) {
@@ -268,21 +253,12 @@ func (r *GormCardRepository) RemoveWorkflowReferences(ctx context.Context, workf
 		items := menu.Items[:0]
 		changed := false
 		for _, it := range menu.Items {
-			if it.Action.Type != "open_workflow" {
-				items = append(items, it)
-				continue
-			}
-			kept := removeWorkflowID(it.Action.WorkflowIDs, workflowID)
-			if len(kept) == len(it.Action.WorkflowIDs) {
+			if it.Action.Type != "open_workflow" || it.Action.WorkflowID != workflowID {
 				items = append(items, it)
 				continue
 			}
 			changed = true
 			removed = append(removed, WorkflowPlacement{ChannelID: row.ChannelID, ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
-			if len(kept) > 0 {
-				it.Action.WorkflowIDs = kept
-				items = append(items, it)
-			}
 		}
 		if !changed {
 			continue
@@ -309,21 +285,12 @@ func (r *GormCardRepository) RemoveWorkflowReferences(ctx context.Context, workf
 		buttons := card.Buttons[:0]
 		changed := false
 		for _, b := range card.Buttons {
-			if b.Action.Type != "open_workflow" {
-				buttons = append(buttons, b)
-				continue
-			}
-			kept := removeWorkflowID(b.Action.WorkflowIDs, workflowID)
-			if len(kept) == len(b.Action.WorkflowIDs) {
+			if b.Action.Type != "open_workflow" || b.Action.WorkflowID != workflowID {
 				buttons = append(buttons, b)
 				continue
 			}
 			changed = true
 			removed = append(removed, WorkflowPlacement{ChannelID: row.ChannelID, ItemID: b.ID, Label: b.Label, Kind: "card_button"})
-			if len(kept) > 0 {
-				b.Action.WorkflowIDs = kept
-				buttons = append(buttons, b)
-			}
 		}
 		if !changed {
 			continue

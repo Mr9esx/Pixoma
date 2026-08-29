@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { createChannel, type Channel } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
+import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -53,17 +54,17 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
           autoComplete='off'
         />
       </div>
-      <div className='sticky bottom-0 z-10 mt-auto flex flex-wrap gap-2 border-t bg-card px-6 py-3'>
+      <DialogFooter className='shrink-0'>
+        <Button type='button' variant='outline' onClick={onCancel}>
+          {t('common.cancel')}
+        </Button>
         <Button
-          disabled={!name.trim() || !token.trim() || createMutation.isPending}
+          disabled={!token.trim() || createMutation.isPending}
           onClick={() => createMutation.mutate()}
         >
           {t('channels.create')}
         </Button>
-        <Button type='button' variant='outline' onClick={onCancel}>
-          {t('common.cancel')}
-        </Button>
-      </div>
+      </DialogFooter>
     </div>
   )
 }

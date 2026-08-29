@@ -15,6 +15,18 @@ const TYPES = read('types.ts')
 const BINDING = read('lib/topic-binding.ts')
 
 describe('task-flow prototype contract', () => {
+  it('只读详情关闭滚轮缩放并让 wheel 穿透页面（不拦截页面滚动）', () => {
+    expect(CANVAS).toContain('preventScrolling={!readOnly}')
+    expect(CANVAS).toContain('zoomOnPinch={!readOnly}')
+  })
+
+  it('只读详情直接冻结画布（不拦截滚动、不弹交互），左下角缩放控制一并隐藏', () => {
+    expect(CANVAS).toContain('panOnDrag={!readOnly}')
+    expect(CANVAS).toContain('zoomOnPinch={!readOnly}')
+    expect(CANVAS).toContain('zoomOnDoubleClick={!readOnly}')
+    expect(CANVAS).toMatch(/\{!readOnly\s*&&\s*\([\s\S]{0,600}aria-label='放大'/)
+  })
+
   it('画布使用 React Flow 且拓扑语义完整（起始/分支/目标/默认回退）', () => {
     expect(CANVAS).toContain('@xyflow/react')
     expect(CANVAS).toContain('case-start')
@@ -148,7 +160,7 @@ describe('task-flow prototype contract', () => {
     expect(CANVAS).toContain('onEdgesDelete')
     expect(CANVAS).toContain('deletable: false')
     expect(RULE_EDITOR).not.toContain('onTopicChange')
-    expect(RULE_EDITOR).toContain('未连接 · 从右侧圆点拖出连线到调度通道')
+    expect(RULE_EDITOR).toContain('未连接 · 从右侧圆点拖出连线到任务队列')
     expect(RULE_EDITOR).toContain('已连接 →')
     const T = read('types.ts')
     expect(T).toContain('topic?: string')

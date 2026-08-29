@@ -47,7 +47,18 @@ function redirectToLogin() {
   setSessionToken(null)
   const url = new URL('/login', window.location.origin)
   url.searchParams.set('expired', '1')
-  window.location.assign(url.toString())
+  // 尽力清除服务端会话 cookie，避免 /api/v1/setup/status 仍判定已认证，
+  // 导致登录页守卫把已登录用户重新弹回首页。
+  fetch(`${baseURL()}/api/v1/setup/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+    .catch(() => {
+      // 登出失败也继续跳转登录页
+    })
+    .finally(() => {
+      window.location.assign(url.toString())
+    })
 }
 
 export async function apiFetch<T>(

@@ -1,6 +1,6 @@
 ## Why
 
-项目要做成可部署的 ComfyUI Telegram Bot 服务。本期落地可组装的工作流核心：Case 协议与注册、私聊 Dialog Session、异步 Task，以及 Bot（渠道）/ Orchestrator（控制面）/ Actuator（执行面）模块；Queue/Blob 端口化，便于同进程组装或后续拆分。
+项目要做成可部署的 ComfyUI Telegram Bot 服务。本期落地可组装的工作流核心：Case 协议与注册、私聊 Dialog Session、异步 Task，以及 Bot（消息平台）/ Orchestrator（控制面）/ Actuator（执行面）模块；Queue/Blob 端口化，便于同进程组装或后续拆分。
 
 ## What Changes
 
@@ -20,7 +20,7 @@
 - `dialog-session`: 私聊填表会话与锁。
 - `task-orchestrator`: Task 生命周期、调度、对账、notify 驱动、风暴防护。
 - `comfyui-executor`: Actuator 执行面（注入、ComfyUI、status、本地 ledger、Query）。
-- `channel-tg`: Telegram 渠道适配与通知投递。
+- `channel-tg`: Telegram 消息平台适配与通知投递。
 
 ### Modified Capabilities
 

@@ -46,9 +46,9 @@ Orchestrator MUST 对调度、对账、重派、实例探测与通知实施限�
 - **WHEN** 某实例连续调度/探测失败超过阈值
 - **THEN** 系统在熔断期内停止向该实例投递新任务，并记录可观测状态
 
-### Requirement: 通过 notify 驱动渠道回用户
-Task 到达终态（及可选进度）时，Orchestrator MUST 发布与渠道无关的 notify 意图；MUST NOT 在 Orchestrator 内直接调用 Telegram API。
+### Requirement: 通过 notify 驱动消息平台回用户
+Task 到达终态（及可选进度）时，Orchestrator MUST 发布与消息平台无关的 notify 意图；MUST NOT 在 Orchestrator 内直接调用 Telegram API。
 
 #### Scenario: 成功后发出通知意图
 - **WHEN** Task 变为 succeeded
-- **THEN** 系统发布含 chat_id、task_id、输出引用的 notify，供渠道模块投递
+- **THEN** 系统发布含 chat_id、task_id、输出引用的 notify，供消息平台模块投递

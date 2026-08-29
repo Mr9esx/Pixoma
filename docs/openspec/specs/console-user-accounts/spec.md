@@ -4,7 +4,7 @@
 TBD - created by archiving change user-rbac. Update Purpose after archive.
 ## Requirements
 ### Requirement: 控制台系统账号模型
-系统 MUST 提供面向后台控制台登录的系统账号模型，与渠道终端用户目录相区分；每个系统账号 MUST 包含：账号名（唯一）、邮箱（可选唯一）、昵称、头像、启用状态、角色；密码 MUST 以 bcrypt 哈希存储，不得明文或可逆明文落库。
+系统 MUST 提供面向后台控制台登录的系统账号模型，与消息平台终端用户目录相区分；每个系统账号 MUST 包含：账号名（唯一）、邮箱（可选唯一）、昵称、头像、启用状态、角色；密码 MUST 以 bcrypt 哈希存储，不得明文或可逆明文落库。
 
 #### Scenario: 新建系统账号
 - **WHEN** 管理员通过用户管理新建一个系统账号并填写账号名、邮箱、昵称、密码
@@ -25,19 +25,19 @@ TBD - created by archiving change user-rbac. Update Purpose after archive.
 - **WHEN** 已迁移过初始 admin 后再次启动迁移过程
 - **THEN** 不重复创建账号，迁移幂等
 
-### Requirement: 系统账号与渠道终端用户隔离
-系统账号 MUST NOT 出现在渠道终端用户目录（`users` 资源页）中，二者数据与语义分离。
+### Requirement: 系统账号与消息平台终端用户隔离
+系统账号 MUST NOT 出现在消息平台终端用户目录（`users` 资源页）中，二者数据与语义分离。
 
 #### Scenario: 目录互不包含
-- **WHEN** 管理员查看渠道终端用户目录或系统账号列表
+- **WHEN** 管理员查看消息平台终端用户目录或系统账号列表
 - **THEN** 两类账号互不混淆，各按其来源与语义展示
 
-### Requirement: 渠道终端用户表更名保留数据
-渠道终端用户内部表 MUST 由 `users`/`user_external_identities` 更名为 `channel_users`/`channel_user_external_identities`，更名 MUST 幂等且保留既有数据；系统账号表 MUST 为 `console_users`，三表语义不混。
+### Requirement: 消息平台终端用户表更名保留数据
+消息平台终端用户内部表 MUST 由 `users`/`user_external_identities` 更名为 `channel_users`/`channel_user_external_identities`，更名 MUST 幂等且保留既有数据；系统账号表 MUST 为 `console_users`，三表语义不混。
 
 #### Scenario: 既有库更名保留数据
-- **WHEN** 含既有渠道用户数据的 `users` 表被迁移至 `channel_users`
-- **THEN** 旧表被重命名（非清空/重建），既有渠道用户记录完整保留
+- **WHEN** 含既有消息平台用户数据的 `users` 表被迁移至 `channel_users`
+- **THEN** 旧表被重命名（非清空/重建），既有消息平台用户记录完整保留
 
 #### Scenario: 新装库幂等
 - **WHEN** 在全新数据库上执行初始化/迁移

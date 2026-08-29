@@ -4,6 +4,7 @@ export type Channel = {
   id: string
   platform: string
   name: string
+  extra_info?: Record<string, unknown>
   token_masked: string
   enabled: boolean
   created_at: string

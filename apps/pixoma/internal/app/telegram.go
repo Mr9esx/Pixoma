@@ -17,6 +17,7 @@ import (
 	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
 	channelruntime "github.com/mr9esx/comfyui_tgbot/internal/channel/runtime"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
@@ -55,6 +56,8 @@ type BotDeps struct {
 	MenuCards    mencardpersist.CardRepository
 	Blob         blob.Store
 	Bus          queue.Publisher
+	// Texts resolves configurable copy templates; nil falls back to built-ins.
+	Texts text.Renderer
 }
 
 // StartBotRuntime builds the facade, channel assembler, and notify router.
@@ -81,7 +84,7 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 		deps:     deps,
 		registry: registry,
 	}
-	caps := newCapabilityRegistry(facade)
+	caps := newCapabilityRegistry(facade, deps.Texts)
 	factory.caps = caps
 	assembler := &channelruntime.Assembler{
 		Store:    &channelSnapshotStore{svc: deps.Channels},
@@ -175,9 +178,9 @@ type tgChannelFactory struct {
 	caps     *capability.Registry
 }
 
-func newCapabilityRegistry(facade *botapp.Facade) *capability.Registry {
+func newCapabilityRegistry(facade *botapp.Facade, texts text.Renderer) *capability.Registry {
 	r := capability.NewRegistry()
-	_ = r.Register(capability.OpenCase{App: facade})
+	_ = r.Register(capability.OpenCase{App: facade, Texts: texts})
 	return r
 }
 
@@ -194,6 +197,7 @@ func (f *tgChannelFactory) Create(snap channelruntime.ChannelSnapshot) (channelr
 	}
 	adapter := tg.New(messenger)
 	adapter.Registry = f.caps
+	adapter.Texts = f.deps.Texts
 	adapter.Blob = f.deps.Blob
 	adapter.Media = tg.NewMediaBridge(botInst)
 	adapter.Users = identityResolver{users: f.deps.Users}
