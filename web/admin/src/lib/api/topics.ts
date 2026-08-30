@@ -8,11 +8,15 @@ export type Topic = {
   updated_at: string
 }
 
-export type TopicErrorCodeCount = { code: string; count: number }
-export type TopicRuntimeStats = { sum_ms: number; avg_ms: number | null; count: number }
-export type TopicThroughputPoint = { ts: string; count: number }
+type TopicErrorCodeCount = { code: string; count: number }
+type TopicRuntimeStats = {
+  sum_ms: number
+  avg_ms: number | null
+  count: number
+}
+type TopicThroughputPoint = { ts: string; count: number }
 
-export type TopicStats = {
+type TopicStats = {
   task_count: number
   status: Record<string, number>
   success_rate: number | null
@@ -40,7 +44,7 @@ export function getTopic(key: string) {
 
 export function updateTopic(
   key: string,
-  body: { name?: string; enabled?: boolean },
+  body: { name?: string; enabled?: boolean }
 ) {
   return apiFetch<Topic>(`/api/v1/topics/${encodeURIComponent(key)}`, {
     method: 'PUT',
@@ -48,7 +52,7 @@ export function updateTopic(
   })
 }
 
-export type DeleteTopicResult = {
+type DeleteTopicResult = {
   deleted: boolean
   removed_case_rules?: number
   removed_edge_subscriptions?: number
@@ -56,10 +60,13 @@ export type DeleteTopicResult = {
 }
 
 export function deleteTopic(key: string, ack?: boolean) {
-  return apiFetch<DeleteTopicResult>(`/api/v1/topics/${encodeURIComponent(key)}`, {
-    method: 'DELETE',
-    ...(ack ? { body: JSON.stringify({ ack_references: true }) } : {}),
-  })
+  return apiFetch<DeleteTopicResult>(
+    `/api/v1/topics/${encodeURIComponent(key)}`,
+    {
+      method: 'DELETE',
+      ...(ack ? { body: JSON.stringify({ ack_references: true }) } : {}),
+    }
+  )
 }
 
 export function getTopicStats(key: string) {

@@ -19,6 +19,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
@@ -79,6 +80,8 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	cases := &memCases{}
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: mock}
 	orch.Prep = snap
+	orch.Cases = caseDocReader{cases: cases}
+	orch.Condition = condition.NewRegistry()
 	worker := &actuator.Worker{
 		EdgeID:    "local",
 		Comfy:     mock,
@@ -117,6 +120,9 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 
 	doc := domain.CaseDocument{
 		ID: 4, Name: "Demo",
+		Routing: &domain.RoutingConfig{Rules: []domain.RoutingRule{
+			{When: json.RawMessage(`{"always":true}`), Topic: "default"},
+		}},
 		Inputs:  []domain.InputField{{Key: "prompt", Type: "string", Required: true}},
 		Outputs: []domain.OutputField{{Key: "image", Type: "image"}},
 		Bindings: domain.ComfyBindings{
@@ -153,10 +159,10 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.Status != sharedkernel.TaskSucceeded {
-		t.Fatalf("want succeeded, got %s", got.Status)
+		t.Fatalf("want succeeded, got %s code=%q message=%q", got.Status, got.ErrorCode, got.ErrorMessage)
 	}
 	if got.DispatchTopic != "default" {
-		t.Fatalf("dispatch_topic = %q, want default (no routing)", got.DispatchTopic)
+		t.Fatalf("dispatch_topic = %q, want explicit default routing", got.DispatchTopic)
 	}
 	if n.last == nil || n.last.Kind != "task_succeeded" {
 		t.Fatalf("notify=%+v", n.last)
@@ -209,6 +215,8 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 	cases := &memCases{}
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: mock}
 	orch.Prep = snap
+	orch.Cases = caseDocReader{cases: cases}
+	orch.Condition = condition.NewRegistry()
 	worker := &actuator.Worker{
 		EdgeID:    "local",
 		Comfy:     mock,
@@ -247,6 +255,9 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 
 	doc := domain.CaseDocument{
 		ID: 5, Name: "Edit smoke",
+		Routing: &domain.RoutingConfig{Rules: []domain.RoutingRule{
+			{When: json.RawMessage(`{"always":true}`), Topic: "default"},
+		}},
 		Inputs: []domain.InputField{
 			{Key: "reference", Type: "image", Required: true},
 			{Key: "prompt", Type: "string", Required: true},
@@ -310,7 +321,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.Status != sharedkernel.TaskSucceeded {
-		t.Fatalf("want succeeded, got %s", got.Status)
+		t.Fatalf("want succeeded, got %s code=%q message=%q", got.Status, got.ErrorCode, got.ErrorMessage)
 	}
 	if n.last == nil || n.last.Kind != "task_succeeded" {
 		t.Fatalf("notify=%+v", n.last)

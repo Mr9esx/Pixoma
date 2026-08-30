@@ -222,20 +222,33 @@ func (r *GormStatsRepository) ListEdges(ctx context.Context, from, to string) ([
 func (r *GormStatsRepository) ListCases(ctx context.Context, from, to string, limit int) ([]taskstats.CaseRow, error) {
 	type item struct {
 		CaseID          uint64
+		CaseName        string
 		Total           int
 		TotalDurationMS int64
 	}
 	var items []item
 	if err := r.db.WithContext(ctx).Model(&CaseDailyStatsRow{}).
-		Select("case_id", "SUM(count) AS total", "SUM(total_duration_ms) AS total_duration_ms").
+		Select(
+			"task_case_daily_stats.case_id",
+			"COALESCE(cc.name, '') AS case_name",
+			"SUM(count) AS total",
+			"SUM(total_duration_ms) AS total_duration_ms",
+		).
+		Joins("LEFT JOIN catalog_cases AS cc ON cc.id = task_case_daily_stats.case_id").
 		Where("stat_date BETWEEN ? AND ?", from, to).
-		Group("case_id").Order("total DESC").Limit(limit).
+		Group("task_case_daily_stats.case_id, cc.name").
+		Order("total DESC").Limit(limit).
 		Scan(&items).Error; err != nil {
 		return nil, err
 	}
 	out := make([]taskstats.CaseRow, 0, len(items))
 	for _, it := range items {
-		out = append(out, taskstats.CaseRow{CaseID: it.CaseID, Count: it.Total, TotalDurationMS: it.TotalDurationMS})
+		out = append(out, taskstats.CaseRow{
+			CaseID:          it.CaseID,
+			CaseName:        it.CaseName,
+			Count:           it.Total,
+			TotalDurationMS: it.TotalDurationMS,
+		})
 	}
 	return out, nil
 }

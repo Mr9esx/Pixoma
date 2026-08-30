@@ -9,11 +9,12 @@ import (
 // Rule is a declarative condition: a leaf {field, op, value} or an and/or
 // combination. The field references a registered attribute provider key.
 type Rule struct {
-	Field string
-	Op    string
-	Value any
-	And   []Rule
-	Or    []Rule
+	Field  string
+	Op     string
+	Value  any
+	And    []Rule
+	Or     []Rule
+	Always bool
 }
 
 // BuiltinOps is the fixed operator set supported by the engine. New
@@ -25,11 +26,12 @@ var BuiltinOps = map[string]bool{
 }
 
 type rawRule struct {
-	Field *string           `json:"field"`
-	Op    *string           `json:"op"`
-	Value json.RawMessage   `json:"value"`
-	And   []json.RawMessage `json:"and"`
-	Or    []json.RawMessage `json:"or"`
+	Always *bool             `json:"always"`
+	Field  *string           `json:"field"`
+	Op     *string           `json:"op"`
+	Value  json.RawMessage   `json:"value"`
+	And    []json.RawMessage `json:"and"`
+	Or     []json.RawMessage `json:"or"`
 }
 
 // ParseRule parses a JSON rule into a Rule.
@@ -41,6 +43,12 @@ func ParseRule(raw json.RawMessage) (Rule, error) {
 	hasLeaf := r.Field != nil || r.Op != nil || len(r.Value) > 0 && string(r.Value) != "null"
 	hasAnd := len(r.And) > 0
 	hasOr := len(r.Or) > 0
+	if r.Always != nil {
+		if !*r.Always || hasLeaf || hasAnd || hasOr {
+			return Rule{}, errors.New("condition: always must be true and cannot mix with other rules")
+		}
+		return Rule{Always: true}, nil
+	}
 	if hasLeaf && (hasAnd || hasOr) {
 		return Rule{}, errors.New("condition: rule cannot mix leaf fields with and/or")
 	}

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>快速新建 · 交互示意</title>
+  <style>
+    :root {
+      --background: oklch(1 0 0);
+      --foreground: oklch(0.145 0 0);
+      --card: oklch(1 0 0);
+      --muted: oklch(0.97 0 0);
+      --muted-foreground: oklch(0.556 0 0);
+      --border: oklch(0.922 0 0);
+      --primary: oklch(0.205 0 0);
+      --primary-foreground: oklch(0.985 0 0);
+      --accent-brand: oklch(0.646 0.222 41.116);
+      --accent-text: oklch(0.55 0.2 40.5);
+      --warn: oklch(0.75 0.15 70);
+      --radius: 12px;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--foreground);
+      background: var(--background);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: oklch(0.145 0 0);
+        --foreground: oklch(0.985 0 0);
+        --card: oklch(0.205 0 0);
+        --muted: oklch(0.269 0 0);
+        --muted-foreground: oklch(0.708 0 0);
+        --border: oklch(1 0 0 / 10%);
+        --primary: oklch(0.922 0 0);
+        --primary-foreground: oklch(0.205 0 0);
+        --accent-text: oklch(0.78 0.16 40);
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    .app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+    aside {
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      background: var(--card);
+    }
+    aside .brand { font-weight: 700; margin-bottom: 24px; }
+    .nav { display: flex; flex-direction: column; gap: 4px; }
+    .nav button {
+      text-align: left; border: 0; background: transparent;
+      color: var(--muted-foreground); padding: 8px 10px; border-radius: 8px; cursor: pointer;
+    }
+    .nav button.active { background: var(--muted); color: var(--foreground); font-weight: 600; }
+    main { padding: 28px 32px 48px; max-width: 820px; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    .meta { color: var(--muted-foreground); font-size: 13px; margin-bottom: 20px; }
+    .toolbar {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+      padding: 10px 12px; border: 1px dashed var(--border); border-radius: var(--radius);
+      font-size: 12px; color: var(--muted-foreground);
+    }
+    .toolbar label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .chrome {
+      display: flex; flex-direction: column; gap: 16px; min-height: 520px;
+    }
+    .steps {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px;
+    }
+    .step-dot {
+      display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted-foreground);
+    }
+    .step-dot .n {
+      width: 20px; height: 20px; border-radius: 999px; border: 1px solid var(--border);
+      display: grid; place-items: center; font-size: 11px; font-weight: 700;
+    }
+    .step-dot.on .n { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
+    .step-dot.done .n { color: oklch(0.5 0.12 155); border-color: oklch(0.5 0.12 155 / 50%); }
+    .line { height: 1px; flex: 1; min-width: 16px; background: var(--border); }
+    .panel {
+      flex: 1; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;
+      background: var(--card);
+    }
+    .foot {
+      display: flex; justify-content: space-between;
+      border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px;
+    }
+    button.btn {
+      border: 1px solid var(--border); background: var(--card); color: var(--foreground);
+      padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    }
+    button.btn.primary { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
+    button.btn.brand { background: var(--accent-brand); color: white; border-color: transparent; }
+    button.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .choice {
+      width: 100%; text-align: left; border: 1px solid var(--border); background: transparent;
+      padding: 12px 14px; border-radius: 8px; cursor: pointer; margin-bottom: 8px;
+    }
+    .choice.sel { border-color: var(--primary); background: var(--muted); }
+    .choice b { display: block; font-size: 13px; }
+    .choice span { color: var(--muted-foreground); font-size: 12px; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .muted { color: var(--muted-foreground); font-size: 13px; }
+    .field { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; width: 100%; background: var(--background); color: var(--foreground); }
+    .warn {
+      border: 1px solid color-mix(in oklch, var(--warn) 40%, var(--border));
+      background: color-mix(in oklch, var(--warn) 12%, transparent);
+      border-radius: 8px; padding: 10px 12px; font-size: 13px; margin: 12px 0;
+    }
+    .fake-editor { display: grid; gap: 10px; }
+    .block { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .n-badge {
+      display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 999px;
+      background: var(--primary); color: var(--primary-foreground); font-size: 11px; font-weight: 700; margin-right: 6px;
+    }
+    dialog { border: 1px solid var(--border); border-radius: 12px; padding: 0; background: var(--card); color: var(--foreground); max-width: 420px; width: calc(100% - 32px); }
+    dialog::backdrop { background: oklch(0 0 0 / 40%); }
+    .dlg { padding: 16px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">Pixoma</div>
+      <div class="nav">
+        <button type="button">工作台</button>
+        <button type="button" class="active" id="nav-qc">快速新建</button>
+        <button type="button" id="nav-cases">工作流</button>
+        <button type="button" id="nav-ch">消息平台</button>
+        <button type="button">任务队列</button>
+        <button type="button">节点</button>
+      </div>
+    </aside>
+    <main>
+      <div class="toolbar">
+        示意开关（不是产品 UI）
+        <label><input type="checkbox" id="hasWorkers" /> 默认队列上已有节点</label>
+        <label><input type="checkbox" id="nodeOnline" /> 选中节点已通</label>
+      </div>
+
+      <div id="landing">
+        <h1>快速新建</h1>
+        <p class="meta">从空白配出一条能跑的工作流。</p>
+        <button class="btn brand" id="start">创建工作流</button>
+      </div>
+
+      <div id="wizard" class="chrome hidden">
+        <div class="steps" id="stepper"></div>
+        <div class="panel" id="panel"></div>
+        <div class="foot">
+          <button class="btn" id="back">上一步</button>
+          <button class="btn primary" id="next">下一步</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="deploy">
+    <div class="dlg">
+      <b>部署节点</b>
+      <p class="muted">本机跑 agent。通了再点完成，也可以跳过。</p>
+      <pre class="field" style="white-space:pre-wrap;font-size:11px;">pixoma-agent --edge demo-1</pre>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="skipDeploy">跳过</button>
+        <button class="btn primary" id="finishDeploy">完成</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    const LABELS = ['工作流', '队列', '节点', '还差一步']
+    const state = {
+      step: 0,
+      imported: false,
+      topic: null,
+      newTopic: '',
+      edge: null,
+      createdEdge: false,
+      enabled: false,
+    }
+
+    const $ = (id) => document.getElementById(id)
+    const hasWorkers = () => $('hasWorkers').checked
+    const nodeOnline = () => $('nodeOnline').checked
+
+    function queueHasWorker() {
+      return state.topic === 'default' && hasWorkers()
+    }
+
+    function renderStepper() {
+      $('stepper').innerHTML = LABELS.map((label, i) => {
+        const n = i + 1
+        const cls = i < state.step ? 'done' : i === state.step ? 'on' : ''
+        const line = i < 3 ? '<span class="line"></span>' : ''
+        return `<span class="step-dot ${cls}"><span class="n">${n === 4 ? '✓' : n}</span>${label}</span>${line}`
+      }).join('')
+    }
+
+    function render() {
+      const onLanding = !document.getElementById('landing').classList.contains('hidden') === false
+    }
+
+    function panelHTML() {
+      if (state.step === 0) {
+        return `
+          <div class="fake-editor">
+            <div class="block"><span class="n-badge">1</span>导入工作流 JSON
+              <div style="margin-top:8px">
+                <button class="btn" id="import">${state.imported ? '已导入 demo.json' : '导入 JSON'}</button>
+              </div>
+            </div>
+            <div class="block"><span class="n-badge">2</span>输入字段
+              <p class="muted">${state.imported ? 'prompt · seed' : '导入后开放'}</p>
+            </div>
+            <div class="block"><span class="n-badge">3</span>输出字段
+              <p class="muted">${state.imported ? 'image' : '导入后开放'}</p>
+            </div>
+            <p class="muted">处理流程表不在这一步。选队列在下一步。</p>
+            <label class="muted">名称</label>
+            <input class="field" value="未命名工作流" />
+          </div>`
+      }
+      if (state.step === 1) {
+        const extra = `<button class="choice ${state.topic === 'fast' ? 'sel' : ''}" data-t="fast"><b>fast-gpu</b><span>已有 1 台在拉</span></button>`
+        return `
+          <h3 style="margin:0 0 12px;font-size:14px">任务队列</h3>
+          <button class="choice ${state.topic === 'default' ? 'sel' : ''}" data-t="default">
+            <b>默认</b>
+            <span>${hasWorkers() ? '已有 2 台在拉' : '还没人订'}</span>
+          </button>
+          ${hasWorkers() ? extra : ''}
+          <div class="row" style="margin-top:8px">
+            <input class="field" id="newKey" placeholder="新建队列 key，如 portrait" value="${state.newTopic}" />
+            <button class="btn" id="makeTopic">新建</button>
+          </div>
+          ${state.topic && state.topic !== 'default' && state.topic !== 'fast' ? `<p class="muted">已选新建队列 ${state.topic}</p>` : ''}`
+      }
+      if (state.step === 2) {
+        const canSkip = queueHasWorker()
+        return `
+          <div class="row">
+            <h3 style="margin:0;font-size:14px">节点</h3>
+            <button class="btn" id="newEdge">新建计算节点</button>
+          </div>
+          ${canSkip ? '<p class="muted" style="margin-top:8px">这条队已有人在拉，可不选。</p>' : '<p class="muted" style="margin-top:8px">这条队还没人订，选一台或新建。</p>'}
+          ${hasWorkers() && state.topic === 'default' ? `
+            <button class="choice ${state.edge === 'a' ? 'sel' : ''}" data-e="a"><b>机房 A</b><span>已订 · 在线</span></button>
+            <button class="choice ${state.edge === 'b' ? 'sel' : ''}" data-e="b"><b>机房 B</b><span>已订 · 离线</span></button>` : ''}
+          ${state.createdEdge ? `<button class="choice ${state.edge === 'new' ? 'sel' : ''}" data-e="new"><b>demo-1</b><span>${nodeOnline() ? '在线' : '离线 · 已订'}</span></button>` : ''}
+          ${!hasWorkers() && !state.createdEdge ? '<p class="muted">还没有节点。</p>' : ''}`
+      }
+      const offline = (state.edge && !nodeOnline()) || (!state.edge && !queueHasWorker())
+      return `
+        <h3 style="margin:0 0 8px;font-size:14px">还差一步</h3>
+        <p class="muted">工作流已启用，任务进队列「${state.topic}」。</p>
+        ${offline ? '<div class="warn">节点还没通。本机跑完 agent 之后才会拉活。</div>' : ''}
+        <p style="font-size:13px;line-height:1.5;max-width:36em">
+          消息平台加上打开这条工作流的菜单，Telegram 里才能点到它。
+        </p>
+        <button class="btn primary" id="toChannels">去消息平台</button>`
+    }
+
+    function paint() {
+      const landing = $('landing')
+      const wizard = $('wizard')
+      if (state.step < 0) {
+        landing.classList.remove('hidden')
+        wizard.classList.add('hidden')
+        return
+      }
+      landing.classList.add('hidden')
+      wizard.classList.remove('hidden')
+      renderStepper()
+      $('panel').innerHTML = panelHTML()
+      $('back').textContent = state.step === 0 ? '返回' : '上一步'
+      $('next').classList.toggle('hidden', state.step === 3)
+      $('next').disabled = !canNext()
+      bindPanel()
+    }
+
+    function canNext() {
+      if (state.step === 0) return state.imported
+      if (state.step === 1) return Boolean(state.topic)
+      if (state.step === 2) return Boolean(state.edge) || queueHasWorker()
+      return true
+    }
+
+    function bindPanel() {
+      $('import')?.addEventListener('click', () => { state.imported = true; paint() })
+      document.querySelectorAll('[data-t]').forEach((el) => {
+        el.addEventListener('click', () => { state.topic = el.dataset.t; state.edge = null; paint() })
+      })
+      $('makeTopic')?.addEventListener('click', () => {
+        const key = ($('newKey').value || '').trim()
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)) return
+        state.topic = key
+        state.newTopic = key
+        state.edge = null
+        paint()
+      })
+      document.querySelectorAll('[data-e]').forEach((el) => {
+        el.addEventListener('click', () => { state.edge = el.dataset.e; paint() })
+      })
+      $('newEdge')?.addEventListener('click', () => $('deploy').showModal())
+      $('toChannels')?.addEventListener('click', () => {
+        $('nav-qc').classList.remove('active')
+        $('nav-ch').classList.add('active')
+        $('panel').innerHTML = '<h3 style="margin:0 0 8px;font-size:14px">消息平台</h3><p class="muted">这里接真实消息平台页。示意停在入口。</p>'
+        $('next').classList.add('hidden')
+        $('back').textContent = '回快速新建'
+      })
+    }
+
+    $('start').onclick = () => { state.step = 0; paint() }
+    $('back').onclick = () => {
+      if (state.step === 3 && $('nav-ch').classList.contains('active')) {
+        $('nav-ch').classList.remove('active')
+        $('nav-qc').classList.add('active')
+        paint()
+        return
+      }
+      if (state.step === 0) {
+        state.step = -1
+        $('landing').classList.remove('hidden')
+        $('wizard').classList.add('hidden')
+        return
+      }
+      if (state.step === 3) return
+      state.step -= 1
+      paint()
+    }
+    $('next').onclick = () => {
+      if (!canNext()) return
+      if (state.step === 2) state.enabled = true
+      state.step += 1
+      paint()
+    }
+    $('skipDeploy').onclick = () => {
+      state.createdEdge = true
+      state.edge = 'new'
+      $('nodeOnline').checked = false
+      $('deploy').close()
+      paint()
+    }
+    $('finishDeploy').onclick = () => {
+      state.createdEdge = true
+      state.edge = 'new'
+      $('nodeOnline').checked = true
+      $('deploy').close()
+      paint()
+    }
+    $('hasWorkers').onchange = () => paint()
+    $('nodeOnline').onchange = () => paint()
+    $('nav-qc').onclick = () => {
+      $('nav-ch').classList.remove('active')
+      $('nav-cases').classList.remove('active')
+      $('nav-qc').classList.add('active')
+      state.step = -1
+      $('landing').classList.remove('hidden')
+      $('wizard').classList.add('hidden')
+    }
+  </script>
+</body>
+</html>

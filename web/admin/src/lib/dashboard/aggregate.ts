@@ -1,10 +1,10 @@
-export type AggregateInput = {
+type AggregateInput = {
   instances: { id: string; enabled: boolean }[]
   cases: { id: number; enabled: boolean }[]
   tasks: { id: string; status: string }[]
 }
 
-export type DashboardStats = {
+type DashboardStats = {
   instanceTotal: number
   instanceEnabled: number
   caseEnabled: number

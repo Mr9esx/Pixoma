@@ -32,11 +32,7 @@ export function enableCase(id: number) {
   return apiFetch<CaseRecord>(`/api/v1/cases/${id}/enable`, { method: 'POST' })
 }
 
-export function disableCase(id: number) {
-  return apiFetch<CaseRecord>(`/api/v1/cases/${id}/disable`, { method: 'POST' })
-}
-
-export type DeleteCaseResult = {
+type DeleteCaseResult = {
   deleted: boolean
   removed_placements?: {
     channel_id: string

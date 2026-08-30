@@ -1,6 +1,6 @@
 import type { Card } from '@/lib/api/channel-menu'
 
-export type NewCardDraftInput = { name: string; text: string }
+type NewCardDraftInput = { name: string; text: string }
 
 export function validateNewCardDraft(input: NewCardDraftInput): {
   ok: boolean

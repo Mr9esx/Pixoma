@@ -617,7 +617,7 @@ func parseMetricsWindow(raw string) (time.Duration, error) {
 func metricsBucketSize(window time.Duration) time.Duration {
 	switch {
 	case window <= time.Hour:
-		return 30 * time.Second
+		return time.Minute
 	case window <= 6*time.Hour:
 		return time.Minute
 	case window <= 24*time.Hour:

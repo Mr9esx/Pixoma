@@ -11,6 +11,9 @@ import (
 // A missing attribute evaluates to false (except for the exists operator);
 // provider errors are propagated, never swallowed.
 func Evaluate(ctx context.Context, rule Rule, reg *Registry) (bool, error) {
+	if rule.Always {
+		return true, nil
+	}
 	if len(rule.And) > 0 {
 		for _, sub := range rule.And {
 			ok, err := Evaluate(ctx, sub, reg)

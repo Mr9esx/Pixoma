@@ -219,12 +219,13 @@ func (h *Handler) casesTop(w http.ResponseWriter, r *http.Request) {
 	}
 	type item struct {
 		CaseID        uint64 `json:"case_id"`
+		CaseName      string `json:"case_name"`
 		Count         int    `json:"count"`
 		AvgDurationMS *int64 `json:"avg_duration_ms"`
 	}
 	items := make([]item, 0, len(rows))
 	for _, row := range rows {
-		it := item{CaseID: row.CaseID, Count: row.Count}
+		it := item{CaseID: row.CaseID, CaseName: row.CaseName, Count: row.Count}
 		if row.Count > 0 {
 			avg := row.TotalDurationMS / int64(row.Count)
 			it.AvgDurationMS = &avg

@@ -1,27 +1,27 @@
-"use client";
+'use client'
 
-import { Moon, Sun } from "lucide-react";
-import { motion } from "motion/react";
-import { cn } from "@/lib/utils";
+import { Moon, Sun } from 'lucide-react'
+import { motion } from 'motion/react'
+import { cn } from '@/lib/utils'
 
 const themes = [
   {
-    key: "light",
+    key: 'light',
     icon: Sun,
-    label: "Light theme",
+    label: 'Light theme',
   },
   {
-    key: "dark",
+    key: 'dark',
     icon: Moon,
-    label: "Dark theme",
+    label: 'Dark theme',
   },
-];
+]
 
-export type ThemeSwitcherProps = {
-  value?: "light" | "dark";
-  onChange?: (theme: "light" | "dark") => void;
-  className?: string;
-};
+type ThemeSwitcherProps = {
+  value?: 'light' | 'dark'
+  onChange?: (theme: 'light' | 'dark') => void
+  className?: string
+}
 
 export const ThemeSwitcher = ({
   value,
@@ -31,37 +31,37 @@ export const ThemeSwitcher = ({
   return (
     <div
       className={cn(
-        "relative isolate flex h-6 rounded-full bg-background p-0.5 ring-1 ring-inset ring-border",
+        'relative isolate flex h-6 rounded-full bg-background p-0.5 ring-1 ring-border ring-inset',
         className
       )}
     >
       {themes.map(({ key, icon: Icon, label }) => {
-        const isActive = value === key;
+        const isActive = value === key
 
         return (
           <button
             aria-label={label}
-            className="relative h-5 w-5 rounded-full"
+            className='relative h-5 w-5 rounded-full'
             key={key}
-            onClick={() => onChange?.(key as "light" | "dark")}
-            type="button"
+            onClick={() => onChange?.(key as 'light' | 'dark')}
+            type='button'
           >
             {isActive && (
               <motion.div
-                className="absolute inset-0 rounded-full bg-secondary"
-                layoutId="activeTheme"
-                transition={{ type: "spring", duration: 0.5 }}
+                className='absolute inset-0 rounded-full bg-secondary'
+                layoutId='activeTheme'
+                transition={{ type: 'spring', duration: 0.5 }}
               />
             )}
             <Icon
               className={cn(
-                "relative z-10 m-auto size-3.5",
-                isActive ? "text-foreground" : "text-muted-foreground"
+                'relative z-10 m-auto size-3.5',
+                isActive ? 'text-foreground' : 'text-muted-foreground'
               )}
             />
           </button>
-        );
+        )
       })}
     </div>
-  );
-};
+  )
+}

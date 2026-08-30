@@ -1,9 +1,15 @@
 import { Plus, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { cn } from '@/lib/utils'
 import type { AttributeDescriptor, Condition, ConditionOp } from './types'
 
 type Props = {
@@ -69,12 +75,17 @@ function LeafRow({
         onValueChange={(field) =>
           patch({
             field,
-            op: OPS_BY_TYPE[attrFor(attributes, field)?.schema.type ?? 'string'][0],
+            op: OPS_BY_TYPE[
+              attrFor(attributes, field)?.schema.type ?? 'string'
+            ][0],
             value: undefined,
           })
         }
       >
-        <SelectTrigger size='sm' className='h-7 w-full border-0 bg-white text-xs shadow-none'>
+        <SelectTrigger
+          size='sm'
+          className='h-7 w-full border-0 bg-white text-xs shadow-none'
+        >
           <SelectValue placeholder='选择字段' />
         </SelectTrigger>
         <SelectContent>
@@ -85,8 +96,14 @@ function LeafRow({
           ))}
         </SelectContent>
       </Select>
-      <Select value={value.op} onValueChange={(op) => patch({ op: op as ConditionOp })}>
-        <SelectTrigger size='sm' className='h-7 w-full border-0 bg-white text-xs shadow-none'>
+      <Select
+        value={value.op}
+        onValueChange={(op) => patch({ op: op as ConditionOp })}
+      >
+        <SelectTrigger
+          size='sm'
+          className='h-7 w-full border-0 bg-white text-xs shadow-none'
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -97,9 +114,20 @@ function LeafRow({
           ))}
         </SelectContent>
       </Select>
-      <ValueControl attr={attr} op={value.op} value={value.value} onChange={(v) => patch({ value: v })} />
+      <ValueControl
+        attr={attr}
+        op={value.op}
+        value={value.value}
+        onChange={(v) => patch({ value: v })}
+      />
       {onRemove ? (
-        <Button variant='ghost' size='icon' className='size-6 text-muted-foreground hover:text-destructive' onClick={onRemove} aria-label='删除条件'>
+        <Button
+          variant='ghost'
+          size='icon'
+          className='size-6 text-muted-foreground hover:text-destructive'
+          onClick={onRemove}
+          aria-label='删除条件'
+        >
           <X className='size-3' />
         </Button>
       ) : (
@@ -120,19 +148,31 @@ function ValueControl({
   value: unknown
   onChange: (v: unknown) => void
 }) {
-  if (op === 'exists') return <span className='self-center text-xs text-muted-foreground'>(仅判断是否有值)</span>
+  if (op === 'exists')
+    return (
+      <span className='self-center text-xs text-muted-foreground'>
+        (仅判断是否有值)
+      </span>
+    )
   const type = attr?.schema.type ?? 'string'
   if (type === 'boolean') {
     return (
       <div className='flex h-7 items-center'>
-        <Switch checked={Boolean(value)} onCheckedChange={onChange} aria-label='布尔值' />
+        <Switch
+          checked={Boolean(value)}
+          onCheckedChange={onChange}
+          aria-label='布尔值'
+        />
       </div>
     )
   }
   if (type === 'string' && attr?.schema.enum?.length) {
     return (
       <Select value={String(value ?? '')} onValueChange={onChange}>
-        <SelectTrigger size='sm' className='h-7 w-full border-0 bg-white text-xs shadow-none'>
+        <SelectTrigger
+          size='sm'
+          className='h-7 w-full border-0 bg-white text-xs shadow-none'
+        >
           <SelectValue placeholder='选择值' />
         </SelectTrigger>
         <SelectContent>
@@ -157,7 +197,7 @@ function ValueControl({
             e.target.value
               .split(',')
               .map((s) => s.trim())
-              .filter(Boolean),
+              .filter(Boolean)
           )
         }
       />
@@ -169,17 +209,29 @@ function ValueControl({
         className='h-7 w-full border-0 bg-white text-xs shadow-none'
         type='number'
         value={String(value ?? '')}
-        onChange={(e) => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+        onChange={(e) =>
+          onChange(e.target.value === '' ? undefined : Number(e.target.value))
+        }
       />
     )
   }
   return (
-    <Input className='h-7 w-full border-0 bg-white text-xs shadow-none' value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
+    <Input
+      className='h-7 w-full border-0 bg-white text-xs shadow-none'
+      value={String(value ?? '')}
+      onChange={(e) => onChange(e.target.value)}
+    />
   )
 }
 
 /** 连接柱上的「且/或」切换（对齐蜂巢 .k-filter-builder-condition-select：AND 淡紫、OR 淡黄胶囊）。 */
-function GroupConditionSelect({ kind, onChange }: { kind: 'and' | 'or'; onChange: (next: 'and' | 'or') => void }) {
+function GroupConditionSelect({
+  kind,
+  onChange,
+}: {
+  kind: 'and' | 'or'
+  onChange: (next: 'and' | 'or') => void
+}) {
   return (
     <Select value={kind} onValueChange={(v) => onChange(v as 'and' | 'or')}>
       <SelectTrigger
@@ -188,7 +240,7 @@ function GroupConditionSelect({ kind, onChange }: { kind: 'and' | 'or'; onChange
           'h-5 w-12 shrink-0 justify-center rounded-full border px-0 text-[11px] shadow-none [&>svg]:hidden',
           kind === 'and'
             ? 'border-[#d8c9f0] bg-[#f9f6fe] text-violet-700'
-            : 'border-[#fed58b] bg-[#feefd5] text-amber-800',
+            : 'border-[#fed58b] bg-[#feefd5] text-amber-800'
         )}
       >
         <SelectValue />
@@ -209,7 +261,9 @@ function GroupConditionSelect({ kind, onChange }: { kind: 'and' | 'or'; onChange
  * - 无顶部「条件组合」下拉：加第二条自动成组，删到一条自动回单条件。
  */
 export function ConditionForm({ value, attributes, onChange }: Props) {
-  const groupKind: 'and' | 'or' | null = 'and' in value ? 'and' : 'or' in value ? 'or' : null
+  const isAlways = 'always' in value
+  const groupKind: 'and' | 'or' | null =
+    'and' in value ? 'and' : 'or' in value ? 'or' : null
   const leaves: Condition[] | null = groupKind
     ? groupKind === 'and'
       ? (value as { and: Condition[] }).and
@@ -246,7 +300,13 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
       onChange(items[0])
       return
     }
-    onChange(items.length === 0 ? { and: [] } : groupKind === 'and' ? { and: items } : { or: items })
+    onChange(
+      items.length === 0
+        ? { and: [] }
+        : groupKind === 'and'
+          ? { and: items }
+          : { or: items }
+    )
   }
 
   function setGroupKind(next: 'and' | 'or') {
@@ -258,67 +318,101 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
   const showConnector = Boolean(leaves && leaves.length > 1)
 
   return (
-    // .k-filter-group：细边框、圆角 4、padding 12
-    <div className='rounded-[4px] border border-[#ecedef] p-3' data-filter-group>
-      <div className='flex'>
-        {showConnector && (
-          // .k-filter-builder-condition-group-range：40px 连接柱，只包住条件行（不含底部按钮）。
-          <div className='flex w-10 shrink-0 flex-col'>
-            <div className='flex flex-1 items-stretch'>
-              <div className='w-[calc(40%-2px)]' aria-hidden />
-              <div
-                className='w-[calc(60%+2px)] rounded-tl'
-                style={{ borderTop: `2px solid ${lineColor}`, borderLeft: `2px solid ${lineColor}` }}
-                aria-hidden
-              />
-            </div>
-            <div className='flex items-center py-0.5'>
-              <GroupConditionSelect kind={groupKind ?? 'and'} onChange={setGroupKind} />
-            </div>
-            <div className='flex flex-1 items-stretch'>
-              <div className='w-[calc(40%-2px)]' aria-hidden />
-              <div
-                className='w-[calc(60%+2px)] rounded-bl'
-                style={{ borderBottom: `2px solid ${lineColor}`, borderLeft: `2px solid ${lineColor}` }}
-                aria-hidden
-              />
+    <div className='rounded-[4px] border border-border p-3' data-filter-group>
+      <div className='mb-3 flex items-center gap-2'>
+        <Switch
+          data-condition-unconditional
+          checked={isAlways}
+          onCheckedChange={(checked) =>
+            onChange(checked ? { always: true } : newLeaf())
+          }
+          aria-label='无条件'
+        />
+        <span className='text-xs font-medium'>无条件</span>
+      </div>
+      {isAlways ? (
+        <p className='mb-3 text-xs text-muted-foreground'>
+          所有任务命中该规则。
+        </p>
+      ) : (
+        <>
+          <div className='flex'>
+            {showConnector && (
+              // .k-filter-builder-condition-group-range：40px 连接柱，只包住条件行（不含底部按钮）。
+              <div className='flex w-10 shrink-0 flex-col'>
+                <div className='flex flex-1 items-stretch'>
+                  <div className='w-[calc(40%-2px)]' aria-hidden />
+                  <div
+                    className='w-[calc(60%+2px)] rounded-tl'
+                    style={{
+                      borderTop: `2px solid ${lineColor}`,
+                      borderLeft: `2px solid ${lineColor}`,
+                    }}
+                    aria-hidden
+                  />
+                </div>
+                <div className='flex items-center py-0.5'>
+                  <GroupConditionSelect
+                    kind={groupKind ?? 'and'}
+                    onChange={setGroupKind}
+                  />
+                </div>
+                <div className='flex flex-1 items-stretch'>
+                  <div className='w-[calc(40%-2px)]' aria-hidden />
+                  <div
+                    className='w-[calc(60%+2px)] rounded-bl'
+                    style={{
+                      borderBottom: `2px solid ${lineColor}`,
+                      borderLeft: `2px solid ${lineColor}`,
+                    }}
+                    aria-hidden
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 条件行列表 */}
+            <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
+              {leaves ? (
+                leaves.map((leaf, i) => (
+                  <LeafRow
+                    key={i}
+                    value={leaf as Leaf}
+                    attributes={attributes}
+                    onChange={(next) => patchLeaf(i, next)}
+                    onRemove={() => removeLeaf(i)}
+                  />
+                ))
+              ) : (
+                <LeafRow
+                  value={value as Leaf}
+                  attributes={attributes}
+                  onChange={onChange}
+                />
+              )}
+              {leaves && leaves.length === 0 && (
+                <div className='rounded-[3px] bg-[#f8f8f8] px-3 py-2.5 text-xs text-muted-foreground'>
+                  暂无规则，请点击下方「新增规则」添加
+                </div>
+              )}
             </div>
           </div>
-        )}
 
-        {/* 条件行列表 */}
-        <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
-          {leaves ? (
-            leaves.map((leaf, i) => (
-              <LeafRow
-                key={i}
-                value={leaf as Leaf}
-                attributes={attributes}
-                onChange={(next) => patchLeaf(i, next)}
-                onRemove={() => removeLeaf(i)}
-              />
-            ))
-          ) : (
-            <LeafRow value={value as Leaf} attributes={attributes} onChange={onChange} />
-          )}
-          {leaves && leaves.length === 0 && (
-            <div className='rounded-[3px] bg-[#f8f8f8] px-3 py-2.5 text-xs text-muted-foreground'>
-              暂无规则，请点击下方「新增规则」添加
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 新增规则：胶囊按钮，在连接柱线之外（对齐蜂巢底部按钮区）。 */}
-      <Button
-        variant='outline'
-        size='sm'
-        className={cn('mt-2 h-7 gap-1 rounded-full border-[#ecedef] text-xs', showConnector && 'ml-10')}
-        onClick={appendLeaf}
-      >
-        <Plus className='size-3' />
-        新增规则
-      </Button>
+          {/* 新增规则：胶囊按钮，在连接柱线之外（对齐蜂巢底部按钮区）。 */}
+          <Button
+            variant='outline'
+            size='sm'
+            className={cn(
+              'mt-2 h-7 gap-1 rounded-full border-[#ecedef] text-xs',
+              showConnector && 'ml-10'
+            )}
+            onClick={appendLeaf}
+          >
+            <Plus className='size-3' />
+            新增规则
+          </Button>
+        </>
+      )}
     </div>
   )
 }

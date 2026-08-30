@@ -49,6 +49,7 @@ describe('topics admin page contract', () => {
     expect(STATS).toContain('getTopicStats')
     expect(STATS).toContain('AreaChart')
     expect(STATS).toContain('throughput')
+    expect(STATS).toMatch(/formatThroughputLabel\(payload\)/)
     expect(STATS).toContain('stats.status')
     expect(STATS).toContain('error_codes')
     expect(STATS).toContain('runtime_ms')

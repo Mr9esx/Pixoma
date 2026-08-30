@@ -1,20 +1,20 @@
-import { useTranslation } from 'react-i18next'
 import { AlertCircle } from 'lucide-react'
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from '@/components/ui/alert'
+import { useTranslation } from 'react-i18next'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import type { EntityHealth } from './lib/references'
 
-export type LinkHealthAlertProps = {
+type LinkHealthAlertProps = {
   name: string
   health: EntityHealth
   /** 页面内锚点，指向下方健康区块，例如 '#link-health-section'。 */
   anchorTo: string
 }
 
-export function LinkHealthAlert({ name, health, anchorTo }: LinkHealthAlertProps) {
+export function LinkHealthAlert({
+  name,
+  health,
+  anchorTo,
+}: LinkHealthAlertProps) {
   const { t } = useTranslation()
   if (health.state === 'ok') return null
   const n = health.breakpoints.length

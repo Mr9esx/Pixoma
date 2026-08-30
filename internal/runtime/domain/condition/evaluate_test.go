@@ -70,6 +70,16 @@ func TestEvaluate_ProviderErrorPropagates(t *testing.T) {
 	}
 }
 
+func TestEvaluate_Always(t *testing.T) {
+	got, err := Evaluate(context.Background(), Rule{Always: true}, NewRegistry())
+	if err != nil {
+		t.Fatalf("evaluate always: %v", err)
+	}
+	if !got {
+		t.Fatal("always must evaluate true")
+	}
+}
+
 func TestEvaluate_Comparisons(t *testing.T) {
 	cases := []struct {
 		rule Rule

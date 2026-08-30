@@ -13,8 +13,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/static"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -115,6 +115,89 @@ func TestDispatch_EvalErrorKeepsPending(t *testing.T) {
 	}
 	if !strings.Contains(got.ErrorMessage, "routing:") {
 		t.Fatalf("error_message = %q", got.ErrorMessage)
+	}
+}
+
+func TestDispatch_EmptyRulesFailsWithoutFallback(t *testing.T) {
+	ctx := context.Background()
+	reg := static.New(edge.Instance{ID: "gpu-1", SubscribeTopics: []string{"default"}})
+	cases := &caseReaderStub{docs: map[sharedkernel.CaseID]*domain.CaseDocument{
+		1: {ID: 1, Routing: &domain.RoutingConfig{}},
+	}}
+	svc, tasks := buildTopicSvc(t, reg, cases, condition.NewRegistry())
+
+	now := time.Unix(50, 0).UTC()
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t-empty", "s1", sharedkernel.CaseID(1), "inputs/t-empty", now))
+	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-empty"}); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+
+	got, _ := tasks.Get(ctx, "t-empty")
+	if got.Status != sharedkernel.TaskFailed {
+		t.Fatalf("status = %s, want failed", got.Status)
+	}
+	if got.ErrorCode != sharedkernel.TaskErrorRoutingNoMatch {
+		t.Fatalf("error_code = %q, want %q", got.ErrorCode, sharedkernel.TaskErrorRoutingNoMatch)
+	}
+	if got.ErrorMessage != sharedkernel.TaskErrorMessageRoutingNoMatch {
+		t.Fatalf("error_message = %q", got.ErrorMessage)
+	}
+}
+
+func TestDispatch_UnmatchedRulesFailsWithoutFallback(t *testing.T) {
+	ctx := context.Background()
+	reg := static.New(edge.Instance{ID: "gpu-1", SubscribeTopics: []string{"default"}})
+	cases := &caseReaderStub{docs: map[sharedkernel.CaseID]*domain.CaseDocument{
+		1: {
+			ID: 1,
+			Routing: &domain.RoutingConfig{Rules: []domain.RoutingRule{
+				{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
+			}},
+		},
+	}}
+	cond := condition.NewRegistry()
+	cond.Register(&condition.UserProvider{Lookup: func(context.Context, string) (*bool, error) {
+		return nil, nil
+	}})
+	svc, tasks := buildTopicSvc(t, reg, cases, cond)
+
+	now := time.Unix(50, 0).UTC()
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t-unmatched", "s1", sharedkernel.CaseID(1), "inputs/t-unmatched", now))
+	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-unmatched"}); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+
+	got, _ := tasks.Get(ctx, "t-unmatched")
+	if got.Status != sharedkernel.TaskFailed {
+		t.Fatalf("status = %s, want failed", got.Status)
+	}
+	if got.ErrorCode != sharedkernel.TaskErrorRoutingNoMatch {
+		t.Fatalf("error_code = %q, want %q", got.ErrorCode, sharedkernel.TaskErrorRoutingNoMatch)
+	}
+	if got.ErrorMessage != sharedkernel.TaskErrorMessageRoutingNoMatch {
+		t.Fatalf("error_message = %q", got.ErrorMessage)
+	}
+}
+
+func TestDispatch_MissingRoutingDependenciesDoesNotFallback(t *testing.T) {
+	ctx := context.Background()
+	reg := static.New(edge.Instance{ID: "gpu-1", SubscribeTopics: []string{"default"}})
+	svc, tasks := buildTopicSvc(t, reg, &caseReaderStub{}, condition.NewRegistry())
+	svc.Cases = nil
+	svc.Condition = nil
+
+	now := time.Unix(50, 0).UTC()
+	_ = tasks.Create(ctx, runtimedomain.NewPending("t-no-router", "s1", sharedkernel.CaseID(1), "inputs/t-no-router", now))
+	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-no-router"}); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+
+	got, _ := tasks.Get(ctx, "t-no-router")
+	if got.Status != sharedkernel.TaskFailed {
+		t.Fatalf("status = %s, want failed", got.Status)
+	}
+	if got.ErrorCode != sharedkernel.TaskErrorRoutingNoMatch {
+		t.Fatalf("error_code = %q, want %q", got.ErrorCode, sharedkernel.TaskErrorRoutingNoMatch)
 	}
 }
 

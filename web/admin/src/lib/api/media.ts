@@ -1,6 +1,6 @@
 import { ApiError, baseURL, sessionToken } from './client'
 
-export type UploadedMedia = {
+type UploadedMedia = {
   key: string
   url: string
   mime: string
@@ -8,7 +8,7 @@ export type UploadedMedia = {
 }
 
 /** 图片 / 视频白名单（与服务端一致）。 */
-export const MEDIA_MIME_WHITELIST: Record<string, string> = {
+const MEDIA_MIME_WHITELIST: Record<string, string> = {
   'image/png': '.png',
   'image/jpeg': '.jpg',
   'image/webp': '.webp',

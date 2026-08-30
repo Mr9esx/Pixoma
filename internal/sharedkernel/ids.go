@@ -68,6 +68,12 @@ const (
 	CaseDeletedMessage   = "工作流已删除"
 )
 
+// Terminal-failure metadata used when no routing rule matches.
+const (
+	TaskErrorRoutingNoMatch        = "routing_no_match"
+	TaskErrorMessageRoutingNoMatch = "未命中路由规则"
+)
+
 // Terminal-failure metadata used when a compute node is deleted.
 const (
 	TaskErrorEdgeDeleted = "edge_deleted"

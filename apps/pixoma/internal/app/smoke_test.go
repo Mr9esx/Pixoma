@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/app"
+	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
@@ -23,6 +24,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -175,6 +177,8 @@ func TestSubscribeTaskCreated_MakesClaimable(t *testing.T) {
 	orch := orchestrator.New(tasks, reg, nil, notify.Nop{})
 	orch.Now = func() time.Time { return now }
 	orch.Prep = jobPrep{ref: sharedkernel.BlobRef{Key: "jobs/t-bus/job.json"}}
+	orch.Cases = explicitDefaultCaseReader{}
+	orch.Condition = condition.NewRegistry()
 	bus := memory.New()
 	if err := app.SubscribeTaskCreated(ctx, bus, orch); err != nil {
 		t.Fatal(err)
@@ -201,6 +205,16 @@ type jobPrep struct {
 
 func (j jobPrep) PrepareJob(context.Context, sharedkernel.TaskID) (sharedkernel.BlobRef, error) {
 	return j.ref, nil
+}
+
+type explicitDefaultCaseReader struct{}
+
+func (explicitDefaultCaseReader) GetCase(context.Context, sharedkernel.CaseID) (*catalogdomain.CaseDocument, error) {
+	return &catalogdomain.CaseDocument{
+		Routing: &catalogdomain.RoutingConfig{Rules: []catalogdomain.RoutingRule{
+			{When: []byte(`{"always":true}`), Topic: "default"},
+		}},
+	}, nil
 }
 
 func TestBootstrapBannerContract_FirstOpen(t *testing.T) {

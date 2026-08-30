@@ -205,7 +205,7 @@ function LineCardShell({
   )
 }
 
-export function CpuCard({ series }: { series: MetricsPoint[] }) {
+function CpuCard({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
   const data = series.map((p) => ({ time: p.time, cpu: p.cpu }))
   const config: ChartConfig = {
@@ -244,7 +244,7 @@ export function CpuCard({ series }: { series: MetricsPoint[] }) {
         />
         <Line
           dataKey='cpu'
-          type='natural'
+          type='monotone'
           stroke='var(--color-cpu)'
           strokeWidth={2}
           dot={false}
@@ -254,7 +254,7 @@ export function CpuCard({ series }: { series: MetricsPoint[] }) {
   )
 }
 
-export function MemRateCard({ series }: { series: MetricsPoint[] }) {
+function MemRateCard({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
   const data = series.map((p) => ({
     time: p.time,
@@ -313,7 +313,7 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
         <Line
           yAxisId='rate'
           dataKey='rate'
-          type='natural'
+          type='monotone'
           stroke='var(--color-rate)'
           strokeWidth={2}
           dot={false}
@@ -321,7 +321,7 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
         <Line
           yAxisId='used'
           dataKey='used'
-          type='natural'
+          type='monotone'
           stroke='var(--color-used)'
           strokeWidth={2}
           dot={false}
@@ -331,7 +331,7 @@ export function MemRateCard({ series }: { series: MetricsPoint[] }) {
   )
 }
 
-export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
+function GpuLineCards({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
   const last =
     [...series].reverse().find((p) => p.gpus.length > 0) ??
@@ -418,7 +418,7 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
             <Line
               key={gi}
               dataKey={`gpu${gi}`}
-              type='natural'
+              type='monotone'
               stroke={`var(--color-gpu${gi})`}
               strokeWidth={2}
               dot={false}
@@ -472,7 +472,7 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
               <Line
                 yAxisId='rate'
                 dataKey={`gpu${gi}Rate`}
-                type='natural'
+                type='monotone'
                 stroke={`var(--color-gpu${gi}Rate)`}
                 strokeWidth={2}
                 dot={false}
@@ -480,7 +480,7 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
               <Line
                 yAxisId='used'
                 dataKey={`gpu${gi}Used`}
-                type='natural'
+                type='monotone'
                 stroke={`var(--color-gpu${gi}Used)`}
                 strokeWidth={2}
                 dot={false}
@@ -493,7 +493,7 @@ export function GpuLineCards({ series }: { series: MetricsPoint[] }) {
   )
 }
 
-export function IOCard({ series }: { series: MetricsPoint[] }) {
+function IOCard({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
   const data = series.map((p) => ({
     time: p.time,
@@ -572,14 +572,14 @@ export function IOCard({ series }: { series: MetricsPoint[] }) {
         />
         <Area
           dataKey='read'
-          type='natural'
+          type='monotone'
           fill='url(#readGradient)'
           stroke='var(--color-read)'
           strokeWidth={2}
         />
         <Area
           dataKey='write'
-          type='natural'
+          type='monotone'
           fill='url(#writeGradient)'
           stroke='var(--color-write)'
           strokeWidth={2}
@@ -644,7 +644,7 @@ function statusTagDot(status: string): PillTone {
   return 'neutral'
 }
 
-export type TasksPagination = {
+type TasksPagination = {
   offset: number
   pageSize: number
   onOffsetChange: (offset: number) => void

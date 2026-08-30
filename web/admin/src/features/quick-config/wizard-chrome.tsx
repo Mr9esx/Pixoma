@@ -5,30 +5,32 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 type Props = {
-  step: 1 | 2 | 3 | 4 | 5
+  step: 1 | 2 | 3 | 4
   onBack?: () => void
   onNext?: () => void
   nextLabel?: string
   nextDisabled?: boolean
+  backLabel?: string
+  hideFooter?: boolean
   children: ReactNode
 }
 
-/** 向导步骤外壳：进度「Step X of 3」+ 摘要 chips + 底部上一步/下一步。 */
 export function WizardChrome({
   step,
   onBack,
   onNext,
   nextLabel,
   nextDisabled,
+  backLabel,
+  hideFooter,
   children,
 }: Props) {
   const { t } = useTranslation()
   const STEP_LABELS = [
     t('quickConfig.workflowConfig'),
+    t('quickConfig.queueStep'),
     t('quickConfig.nodeSelection'),
-    t('quickConfig.rulesBranch'),
-    t('quickConfig.channelPlacement'),
-    t('quickConfig.done'),
+    t('quickConfig.leftoverTitle'),
   ]
   return (
     <div
@@ -37,7 +39,7 @@ export function WizardChrome({
     >
       <div className='flex shrink-0 items-center justify-center rounded-xl border border-border bg-background px-4 py-3'>
         <div className='flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-2'>
-          {[1, 2, 3, 4, 5].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <Fragment key={i}>
               <div className='flex items-center gap-1.5'>
                 <span
@@ -50,22 +52,20 @@ export function WizardChrome({
                         : 'border-border text-muted-foreground'
                   )}
                 >
-                  {i === 5 ? '✓' : i}
+                  {i === 4 ? '✓' : i}
                 </span>
                 <span
                   className={cn(
                     'text-xs',
                     i === step
                       ? 'font-semibold text-foreground'
-                      : i < step
-                        ? 'text-muted-foreground'
-                        : 'text-muted-foreground/60'
+                      : 'text-muted-foreground'
                   )}
                 >
                   {STEP_LABELS[i - 1]}
                 </span>
               </div>
-              {i < 5 ? (
+              {i < 4 ? (
                 <span
                   aria-hidden='true'
                   className={cn(
@@ -83,23 +83,25 @@ export function WizardChrome({
         {children}
       </div>
 
-      <div className='flex shrink-0 items-center justify-between rounded-xl border border-border bg-background px-4 py-3'>
-        <Button
-          type='button'
-          variant='outline'
-          onClick={onBack}
-          disabled={!onBack}
-        >
-          <ArrowLeft className='size-4' />
-          {t('quickConfig.back')}
-        </Button>
-        {onNext ? (
-          <Button type='button' onClick={onNext} disabled={nextDisabled}>
-            {nextLabel ?? t('quickConfig.nextSave')}
-            <ArrowRight className='size-4' />
+      {hideFooter ? null : (
+        <div className='flex shrink-0 items-center justify-between rounded-xl border border-border bg-background px-4 py-3'>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={onBack}
+            disabled={!onBack}
+          >
+            <ArrowLeft className='size-4' />
+            {backLabel ?? t('quickConfig.back')}
           </Button>
-        ) : null}
-      </div>
+          {onNext ? (
+            <Button type='button' onClick={onNext} disabled={nextDisabled}>
+              {nextLabel ?? t('quickConfig.nextSave')}
+              <ArrowRight className='size-4' />
+            </Button>
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }

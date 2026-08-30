@@ -34,7 +34,6 @@ describe('workflowStatus', () => {
 })
 
 const withRules = {
-  hasDefaultRoute: false,
   selectedNodeSelected: true,
 } as const
 
@@ -44,9 +43,9 @@ describe('computeReadiness', () => {
       computeReadiness({
         workflow: 'ready',
         rules: [{ topic: 'a' }, { topic: 'b' }],
-        enabledTopics: ['a', 'b'],
-        boundTopics: ['a', 'b'],
-        onlineTopics: ['a', 'b'],
+        enabledTopics: ['default', 'a', 'b'],
+        boundTopics: ['default', 'a', 'b'],
+        onlineTopics: ['default', 'a', 'b'],
         placements: [{}],
         ...withRules,
       })
@@ -58,7 +57,7 @@ describe('computeReadiness', () => {
     })
   })
 
-  it('默认路由（无规则）默认 Topic 已绑定且在线时为就绪', () => {
+  it('空规则是处理流程缺口', () => {
     expect(
       computeReadiness({
         workflow: 'ready',
@@ -67,55 +66,37 @@ describe('computeReadiness', () => {
         boundTopics: ['default'],
         onlineTopics: ['default'],
         placements: [{}],
-        hasDefaultRoute: true,
         selectedNodeSelected: true,
       }).processing
-    ).toBe('ready')
+    ).toBe('gap')
   })
 
-  it('默认路由（无规则）默认 Topic 未绑定时处理流程为缺口', () => {
+  it('显式 default 规则计入使用中 Topic', () => {
     expect(
       computeReadiness({
         workflow: 'ready',
-        rules: [],
+        rules: [{ topic: 'default' }],
         enabledTopics: ['default'],
         boundTopics: [],
         onlineTopics: [],
         placements: [{}],
-        hasDefaultRoute: true,
         selectedNodeSelected: true,
       }).processing
     ).toBe('gap')
   })
 
-  it('默认路由（无规则）默认 Topic 绑定但无在线节点时为警告', () => {
+  it('默认 Topic 未被规则引用时不计入就绪', () => {
     expect(
       computeReadiness({
         workflow: 'ready',
-        rules: [],
-        enabledTopics: ['default'],
-        boundTopics: ['default'],
-        onlineTopics: [],
+        rules: [{ topic: 'a' }],
+        enabledTopics: ['a'],
+        boundTopics: ['a'],
+        onlineTopics: ['a'],
         placements: [{}],
-        hasDefaultRoute: true,
         selectedNodeSelected: true,
       }).processing
-    ).toBe('warn')
-  })
-
-  it('无规则且非默认路由时处理流程为缺口', () => {
-    expect(
-      computeReadiness({
-        workflow: 'ready',
-        rules: [],
-        enabledTopics: ['default'],
-        boundTopics: ['default'],
-        onlineTopics: ['default'],
-        placements: [{}],
-        hasDefaultRoute: false,
-        selectedNodeSelected: true,
-      }).processing
-    ).toBe('gap')
+    ).toBe('ready')
   })
 
   it('规则未连接 Topic 时处理流程为缺口', () => {
@@ -151,8 +132,8 @@ describe('computeReadiness', () => {
       computeReadiness({
         workflow: 'ready',
         rules: [{ topic: 'a' }],
-        enabledTopics: ['a'],
-        boundTopics: ['a'],
+        enabledTopics: ['default', 'a'],
+        boundTopics: ['default', 'a'],
         onlineTopics: [],
         placements: [{}],
         ...withRules,
@@ -183,7 +164,6 @@ describe('computeReadiness', () => {
         boundTopics: ['default'],
         onlineTopics: ['default'],
         placements: [{}],
-        hasDefaultRoute: true,
         selectedNodeSelected: false,
       }).node
     ).toBe('gap')
@@ -198,7 +178,6 @@ describe('computeReadiness', () => {
         boundTopics: ['default'],
         onlineTopics: [],
         placements: [{}],
-        hasDefaultRoute: true,
         selectedNodeSelected: true,
       }).node
     ).toBe('ready')

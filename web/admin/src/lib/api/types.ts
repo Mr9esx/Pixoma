@@ -114,6 +114,7 @@ export type ConditionOp =
   | 'exists'
 
 export type RoutingCondition =
+  | { always: true }
   | { field: string; op: ConditionOp; value?: unknown }
   | { and: RoutingCondition[] }
   | { or: RoutingCondition[] }
@@ -125,10 +126,6 @@ export type RoutingRule = {
 
 export type RoutingConfig = {
   rules: RoutingRule[]
-}
-
-export type CaseWithRouting = CaseRecord & {
-  routing?: RoutingConfig
 }
 
 export type TaskRecord = {
@@ -182,6 +179,7 @@ export type TaskEdgeStat = {
 
 export type TaskCaseStat = {
   case_id: number
+  case_name?: string
   count: number
   avg_duration_ms: number | null
 }
@@ -240,13 +238,4 @@ export type SessionRecord = {
   draft: Record<string, SessionDraft>
   created_at: string
   updated_at: string
-}
-
-export type ListParams = {
-  q?: string
-  limit?: number
-  offset?: number
-  created_from?: string
-  created_to?: string
-  [key: string]: string | number | boolean | undefined
 }

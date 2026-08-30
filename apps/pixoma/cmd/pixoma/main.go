@@ -572,14 +572,6 @@ func parsePremium(profileJSON string) *bool {
 	return profile.IsPremium
 }
 
-// escapeLike neutralizes LIKE wildcards in user-supplied keys.
-func escapeLike(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `%`, `\%`)
-	s = strings.ReplaceAll(s, `_`, `\_`)
-	return s
-}
-
 // caseDocReader adapts the catalog repository to the orchestrator CaseReader
 // port (routing evaluation only needs the protocol document).
 type caseDocReader struct {

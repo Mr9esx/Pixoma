@@ -25,7 +25,7 @@ export interface EntityHealth {
   breakpoints: HealthBreakpoint[]
 }
 
-export interface EdgeLike {
+interface EdgeLike {
   id: string
   name: string
   enabled: boolean
@@ -33,26 +33,26 @@ export interface EdgeLike {
   effective_topics?: string[]
 }
 
-export interface CaseLike {
+interface CaseLike {
   id: number
   name: string
   routing?: RoutingConfig
 }
 
-export interface HealthInput {
+interface HealthInput {
   cases: CaseLike[]
   edges: EdgeLike[]
   presence: EdgePresence[]
   placements?: MenuPlacement[]
 }
 
-export interface TopicReferencesResult {
+interface TopicReferencesResult {
   cases: ReferenceItem[]
   edges: ReferenceItem[]
   health: EntityHealth
 }
 
-export interface EdgeReferencesResult {
+interface EdgeReferencesResult {
   topics: ReferenceItem[]
   cases: ReferenceItem[]
   health: EntityHealth
@@ -70,7 +70,7 @@ export function caseRoutingTopics(
   const keys = (routing?.rules ?? [])
     .map((r) => r.topic)
     .filter((x): x is string => Boolean(x))
-  return keys.length > 0 ? Array.from(new Set(keys)) : ['default']
+  return Array.from(new Set(keys))
 }
 
 export function edgeTopics(edge: EdgeLike): string[] {

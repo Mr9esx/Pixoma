@@ -1,7 +1,7 @@
 {
   "menu": {
     "dashboard": "Dashboard",
-    "quickConfig": "Quick Config",
+    "quickConfig": "Quick create",
     "visualConfig": "Visual Config",
     "edges": "Compute nodes",
     "cases": "Workflows",
@@ -138,6 +138,21 @@
     "issue": "Has issues",
     "unavailable": "Unavailable"
   },
+  "auth": {
+    "quote": "Use your own ComfyUI for creative work, anywhere.",
+    "title": "Sign in",
+    "username": "Username",
+    "password": "Password",
+    "remember": "Remember me for 30 days",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "loginFailed": "Sign-in failed",
+    "sessionExpiredTitle": "Session expired",
+    "sessionExpiredDescription": "Sign in again to continue using the admin.",
+    "registrationPrompt": "Don't have an account?",
+    "createAccount": "Create account",
+    "firstRunHint": "The first startup generates a default password. Search \"Admin password\" in the startup logs."
+  },
   "theme": {
     "light": "Light",
     "dark": "Dark"
@@ -145,6 +160,7 @@
   "lang": {
     "zh": "中文",
     "en": "English",
+    "label": "Language",
     "switch": "Switch language"
   },
   "dashboard": {
@@ -457,6 +473,9 @@
     "inputsHint": "Asked in order during the run",
     "outputsHeading": "What the user gets back",
     "outputsHint": "Delivered when the run finishes",
+    "processingPill": "Routing",
+    "processingHeading": "Processing flow",
+    "processingHint": "First matching rule wins; unmatched tasks fail",
     "fieldFromNode": "From node",
     "fieldParam": "Parameter",
     "fieldOutput": "Output",
@@ -480,6 +499,7 @@
     "errDuplicateKey": "Field keys must be unique",
     "errInputNotBound": "All inputs must be bound to a node and parameter",
     "errNoOutput": "At least one output is required",
+    "errRoutingInvalid": "Some processing rules failed validation",
     "errNameRequired": "Enter a workflow name before submitting",
     "sectionProcess": "ComfyUI workflow overview",
     "editInfo": "Edit info",
@@ -710,7 +730,7 @@
   },
   "topics": {
     "title": "Task queues",
-    "description": "Manage task queues: workflows route tasks to a channel by rule, and subscribed compute nodes pick them up. Unmatched tasks fall back to default.",
+    "description": "Manage task queues: workflows route tasks to a channel by rule, and subscribed compute nodes pick them up. Unmatched tasks fail.",
     "listSearch": "Search task queues…",
     "new": "New task queue",
     "newDescription": "Key is immutable after creation; lowercase letters, digits and hyphens only.",
@@ -727,7 +747,7 @@
     "deleted": "Task queue deleted",
     "created": "Task queue created",
     "defaultBadge": "Default",
-    "defaultHint": "The default task queue cannot be disabled or deleted; unhandled tasks fall back to it.",
+    "defaultHint": "The default task queue cannot be disabled or deleted; only explicit rules route to it.",
     "boundNodes": "Bound compute nodes",
     "boundNodesHint": "Compute nodes subscribed to this task queue; bind/unbind writes to the node's subscribe_topics.",
     "noNodes": "No compute nodes yet. Add one under Compute nodes.",
@@ -790,7 +810,8 @@
     "next": "Next",
     "step1Hint": "Workflow config: create (import required) or adjust an existing workflow.",
     "unnamedWorkflow": "Untitled workflow",
-    "requireValidJson": "Import a valid workflow JSON before continuing.",
+    "workflowImportTitle": "Import a workflow first",
+    "workflowImportDescription": "Import the workflow JSON exported from ComfyUI. Field settings unlock after validation.",
     "requireRule": "At least one routing rule is required",
     "unboundRule": "A rule is not connected to a task queue. Connect it first.",
     "boundNodes": "Bound nodes: {{nodes}}",
@@ -844,14 +865,25 @@
     "nodeSelection": "Which machine runs this workflow?",
     "rulesBranch": "Special rules",
     "rulesQuestion": "Does this workflow need special rules?",
-    "noRules": "No — use Default Topic",
-    "noRulesHint": "Tasks fall back to the default topic and are consumed by the running node.",
+    "noRules": "No — use default rule",
+    "noRulesHint": "The default rule points to default and is consumed by the running node.",
     "useRulesEditor": "Yes — open the rule editor",
     "useRulesEditorHint": "Jump to the standalone editor for rules and topic subscriptions.",
     "nodeOnline": "Online",
     "nodeOffline": "Offline",
     "nodeSelected": "Running node selected",
-    "noEdgesHint": "No nodes yet. Create one first."
+    "noEdgesHint": "No nodes yet. Create one first.",
+    "queueStep": "Task queue",
+    "leftoverTitle": "One more step",
+    "leftoverHint": "Workflow enabled. Jobs go to queue {{topic}}.",
+    "leftoverTutorial": "Add a menu that opens this workflow so Telegram can reach it.",
+    "goChannels": "Open message platforms",
+    "nodeNotReady": "Node is not up. Jobs wait until the agent is running.",
+    "leave": "Leave",
+    "pageTitle": "Quick create",
+    "createWorkflow": "Create workflow",
+    "discardDraft": "Discard",
+    "continueDraft": "Continue"
   },
   "configContext": {
     "title": "Context",

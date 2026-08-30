@@ -3,8 +3,7 @@ import { initReactI18next } from "react-i18next";
 import zhCN from "./locales/zh-CN";
 import en from "./locales/en";
 
-export const supportedLocales = ["zh-CN", "en"] as const;
-export type SupportedLocale = (typeof supportedLocales)[number];
+export type SupportedLocale = "zh-CN" | "en";
 
 const resources = {
   "zh-CN": { translation: zhCN },

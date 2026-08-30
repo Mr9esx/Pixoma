@@ -192,7 +192,7 @@ export function savePlatformSettings(draft: SetupDraft) {
   })
 }
 
-export function isSetupReady(status: SetupStatus): boolean {
+function isSetupReady(status: SetupStatus): boolean {
   return Boolean(status.initialized && !status.restart_required)
 }
 

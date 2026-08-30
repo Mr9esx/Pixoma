@@ -56,6 +56,7 @@ type EdgeRow struct {
 // CaseRow is the aggregated processed count and duration of one case.
 type CaseRow struct {
 	CaseID          uint64
+	CaseName        string
 	Count           int
 	TotalDurationMS int64
 }

@@ -14,7 +14,7 @@ import (
 // reference an existing enabled topic and a condition valid per the protocol.
 func ValidateRouting(ctx context.Context, r *domain.RoutingConfig, topics topic.Repository, reg *condition.Registry) error {
 	if r == nil || len(r.Rules) == 0 {
-		return nil
+		return fmt.Errorf("routing: at least one rule is required")
 	}
 	if topics == nil || reg == nil {
 		return fmt.Errorf("routing: topics registry or condition registry not configured")

@@ -1,4 +1,5 @@
 import type { CaseRecord } from '@/lib/api/types'
+import { DEFAULT_TOPIC_KEY } from '../task-flow/types'
 
 export function emptyCase(): CaseRecord {
   return {
@@ -10,5 +11,8 @@ export function emptyCase(): CaseRecord {
     input_schema: {},
     workflow_filename: '',
     enabled: true,
+    routing: {
+      rules: [{ when: { always: true }, topic: DEFAULT_TOPIC_KEY }],
+    },
   }
 }

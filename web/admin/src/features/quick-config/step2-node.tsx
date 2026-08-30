@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,16 +15,18 @@ import {
 } from '@/components/ui/dialog'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { CreateEdgeWizard } from '@/features/edges/create-edge-wizard'
-import { cn } from '@/lib/utils'
+import { commitQuickCreate } from './lib/commit'
+import { nodeStepCanAdvance, queueHasSubscribers } from './lib/queue-binding'
+import { clearQuickConfigSession } from './lib/session'
 import type { StepActions, WizardShared } from './types'
 import { WizardChrome } from './wizard-chrome'
 
 type Props = StepActions & { shared: WizardShared }
 
-/** Step 2 运行节点：选择已有 Edge 或新建；仅记录 selectedEdgeId，无任何写请求。 */
 export function Step2Node({ shared, next, back }: Props) {
   const { t } = useTranslation()
   const [createOpen, setCreateOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   const edgesQuery = useQuery({
     queryKey: queryKeys.edges.all,
@@ -35,14 +39,43 @@ export function Step2Node({ shared, next, back }: Props) {
 
   const edges = edgesQuery.data ?? []
   const presence = presenceQuery.data ?? []
+  const hasSubscribers = shared.topicKey
+    ? queueHasSubscribers(edges, shared.topicKey)
+    : false
+  const canAdvance = nodeStepCanAdvance(hasSubscribers, shared.selectedEdgeId)
+
+  async function handleNext() {
+    if (!canAdvance || !shared.caseRecord || !shared.topicKey) return
+    setBusy(true)
+    try {
+      const edge = edges.find((row) => row.id === shared.selectedEdgeId)
+      const saved = await commitQuickCreate({
+        draft: shared.caseRecord,
+        topicKey: shared.topicKey,
+        topicDraft: shared.topicDraft,
+        selectedEdgeId: shared.selectedEdgeId,
+        subscribedTopics: edge?.subscribe_topics ?? [],
+      })
+      shared.updateCase(saved)
+      shared.markCommitted()
+      clearQuickConfigSession(window.localStorage)
+      next({})
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : t('quickConfig.saveFailed')
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <WizardChrome
-      step={2}
+      step={3}
       onBack={() => back({})}
-      onNext={() => next({})}
+      onNext={() => void handleNext()}
       nextLabel={t('quickConfig.next')}
-      nextDisabled={!shared.selectedEdgeId}
+      nextDisabled={!canAdvance || busy || !shared.caseRecord}
     >
       <div className='space-y-3'>
         <div className='flex items-center justify-between gap-2'>
@@ -70,7 +103,8 @@ export function Step2Node({ shared, next, back }: Props) {
           <ul className='space-y-1'>
             {edges.map((edge) => {
               const online = presence.find(
-                (row) => row.id === edge.id && row.edge_online && row.comfy_running
+                (row) =>
+                  row.id === edge.id && row.edge_online && row.comfy_running
               )
               return (
                 <li key={edge.id}>

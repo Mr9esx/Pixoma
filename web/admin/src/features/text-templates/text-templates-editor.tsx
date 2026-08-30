@@ -181,10 +181,7 @@ export function TextTemplatesEditor({
                 <h2 className='text-base font-semibold'>
                   {t(`textTemplates.groups.${group}`)}
                 </h2>
-                <TemplateGroupTable
-                  data={groupData}
-                  columns={columns}
-                />
+                <TemplateGroupTable data={groupData} columns={columns} />
               </section>
             )
           })}
@@ -205,7 +202,6 @@ export function TextTemplatesEditor({
 function TemplateGroupTable({
   data,
   columns,
-  search,
 }: {
   data: TextTemplate[]
   columns: ColumnDef<TextTemplate, unknown>[]

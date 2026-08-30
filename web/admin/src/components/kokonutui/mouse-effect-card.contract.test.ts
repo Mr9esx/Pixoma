@@ -53,8 +53,8 @@ describe('kokonutui mouse-effect card workbench adaptation', () => {
 
   it('allows the card height to drive a full-height centered content area', () => {
     const source = read('mouse-effect-card.tsx')
-    expect(source).toContain(
-      'className="relative h-full min-h-[140px] w-full overflow-hidden p-0"'
+    expect(source).toMatch(
+      /className=["']relative h-full min-h-\[140px\] w-full overflow-hidden p-0["']/
     )
     expect(source).toContain('h-full min-h-[140px] flex-col')
     expect(source).toContain('items-center justify-center')

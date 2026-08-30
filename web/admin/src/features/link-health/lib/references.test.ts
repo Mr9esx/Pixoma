@@ -22,7 +22,9 @@ const caseA = {
 const caseDefault = {
   id: 2,
   name: '案例 B',
-  routing: undefined,
+  routing: {
+    rules: [{ when: { always: true }, topic: 'default' }],
+  },
 } as unknown as CaseRecord
 const edgeT1: EdgeRecord = {
   id: 'node-1',
@@ -50,8 +52,8 @@ const placement: MenuPlacement = {
 }
 
 describe('caseRoutingTopics', () => {
-  it('无 routing 时回退默认 Topic', () => {
-    expect(caseRoutingTopics(undefined)).toEqual(['default'])
+  it('无 routing 时不推断默认 Topic', () => {
+    expect(caseRoutingTopics(undefined)).toEqual([])
   })
   it('返回去重后的规则 Topic 列表', () => {
     expect(

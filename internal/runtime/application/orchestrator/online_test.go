@@ -25,6 +25,7 @@ func TestDispatchSkippedWhenOnlineFilterRejects(t *testing.T) {
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
+	setExplicitDefaultRouting(svc)
 	svc.Online = func(context.Context, sharedkernel.EdgeID) bool { return false }
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-online"}); err != nil {
@@ -55,6 +56,7 @@ func TestDispatchSetsJobRefWhenPrepSet(t *testing.T) {
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = jobPrepStub{ref: sharedkernel.BlobRef{Key: "jobs/t-prep/job.json"}}
+	setExplicitDefaultRouting(svc)
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-prep"}); err != nil {
 		t.Fatal(err)
@@ -91,6 +93,7 @@ func TestDispatchClaimableUsesEnabledWithoutOnline(t *testing.T) {
 	svc := orchestrator.New(tasks, reg, nil, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
+	setExplicitDefaultRouting(svc)
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-claim-enabled"}); err != nil {
 		t.Fatal(err)
@@ -117,6 +120,7 @@ func TestDispatchUsesOnlineEvenWhenInstanceMarkedUnhealthy(t *testing.T) {
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
+	setExplicitDefaultRouting(svc)
 	svc.Online = func(context.Context, sharedkernel.EdgeID) bool { return true }
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t-edge-health"}); err != nil {

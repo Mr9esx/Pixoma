@@ -44,6 +44,8 @@ const STATUS_LABEL_KEY: Record<string, string> = {
 const CHART_MARGIN = { top: 8, right: 4, bottom: 0, left: 4 } as const
 const TICK_PROPS = { tickLine: false, axisLine: false, tickMargin: 6 } as const
 
+type ThroughputChartPoint = { ts: number; count: number }
+
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
@@ -64,6 +66,12 @@ function formatRate(rate: number | null | undefined): string {
 
 function timeTick(v: number): string {
   return new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatThroughputLabel(payload: readonly unknown[]): string {
+  const first = payload[0] as { payload?: ThroughputChartPoint } | undefined
+  if (!first?.payload || !Number.isFinite(first.payload.ts)) return ''
+  return new Date(first.payload.ts).toLocaleString()
 }
 
 export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
@@ -153,13 +161,15 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    labelFormatter={(v) => new Date(Number(v)).toLocaleString()}
+                    labelFormatter={(_, payload) =>
+                      formatThroughputLabel(payload)
+                    }
                   />
                 }
               />
               <Area
                 dataKey='count'
-                type='natural'
+                type='monotone'
                 stroke='var(--primary)'
                 fill='var(--primary)'
                 fillOpacity={0.15}

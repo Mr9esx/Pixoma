@@ -1,25 +1,17 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useFormity, type Flow, type s } from '@formity/react'
-import type { CaseRecord, RoutingConfig } from '@/lib/api/types'
-import type { MenuPlacement } from '@/lib/api/channel-menu'
+import type { CaseRecord } from '@/lib/api/types'
 import { saveQuickConfigSession } from './lib/session'
+import type { TopicDraft } from './lib/session'
 import { Step1Workflow } from './step1-workflow'
+import { Step2Queue } from './step2-queue'
 import { Step2Node } from './step2-node'
-import { Step3Rules } from './step3-rules'
-import { Step3Channels } from './step3-channels'
-import { DoneScreen } from './done-screen'
-import type {
-  PendingMenuEntry,
-  RulesMode,
-  WizardMode,
-  WizardShared,
-  WizardSummary,
-} from './types'
+import { Step4Next } from './step4-next'
+import type { WizardShared, WizardSummary } from './types'
 
 type WizardSchema = {
   render: React.ReactNode
   struct: [
-    s.Form<Record<string, never>>,
     s.Form<Record<string, never>>,
     s.Form<Record<string, never>>,
     s.Form<Record<string, never>>,
@@ -46,7 +38,7 @@ const flow: Flow<WizardSchema> = [
       fields: () => ({}),
       render: ({ params, next, back, jump }) => (
         <StepBridge n={2} onStepChange={params.onStepChange}>
-          <Step2Node shared={params} next={next} back={back} jump={jump} />
+          <Step2Queue shared={params} next={next} back={back} jump={jump} />
         </StepBridge>
       ),
     },
@@ -56,7 +48,7 @@ const flow: Flow<WizardSchema> = [
       fields: () => ({}),
       render: ({ params, next, back, jump }) => (
         <StepBridge n={3} onStepChange={params.onStepChange}>
-          <Step3Rules shared={params} next={next} back={back} jump={jump} />
+          <Step2Node shared={params} next={next} back={back} jump={jump} />
         </StepBridge>
       ),
     },
@@ -66,27 +58,16 @@ const flow: Flow<WizardSchema> = [
       fields: () => ({}),
       render: ({ params, next, back, jump }) => (
         <StepBridge n={4} onStepChange={params.onStepChange}>
-          <Step3Channels shared={params} next={next} back={back} jump={jump} />
+          <Step4Next shared={params} next={next} back={back} jump={jump} />
         </StepBridge>
       ),
     },
   },
   {
-    form: {
-      fields: () => ({}),
-      render: ({ params, next, back, jump }) => (
-        <StepBridge n={5} onStepChange={params.onStepChange}>
-          <DoneScreen shared={params} next={next} back={back} jump={jump} />
-        </StepBridge>
-      ),
-    },
-  },
-  {
-    return: () => ({ caseId: 0, ruleCount: 0, placementCount: 0 }),
+    return: () => ({ caseId: 0 }),
   },
 ]
 
-/** 通知外层当前步骤，供会话持久化与恢复使用。 */
 function StepBridge({
   n,
   onStepChange,
@@ -103,101 +84,78 @@ function StepBridge({
 }
 
 export function QuickConfigFlow({
-  mode,
   initialCase,
-  initialRouting,
-  initialPendingEntries,
+  initialTopicKey,
+  initialSelectedEdgeId,
   onExit,
 }: {
-  mode: WizardMode
   initialCase?: CaseRecord
-  initialRouting?: RoutingConfig
-  initialPendingEntries?: PendingMenuEntry[]
+  initialTopicKey?: string | null
+  initialSelectedEdgeId?: string | null
   onExit: () => void
 }) {
   const [caseId, setCaseId] = useState<number | null>(
-    initialCase?.id ?? null
+    initialCase && initialCase.id > 0 ? initialCase.id : null
   )
   const [caseRecord, setCaseRecord] = useState<CaseRecord | null>(
     initialCase ?? null
   )
-  const [routing, setRouting] = useState<RoutingConfig | undefined>(
-    initialRouting ?? initialCase?.routing
+  const [topicKey, setTopicKey] = useState<string | null>(
+    initialTopicKey ?? null
   )
-  const [placements, setPlacements] = useState<MenuPlacement[]>([])
-  const [pendingEntries, setPendingEntries] = useState<PendingMenuEntry[]>(
-    initialPendingEntries ?? []
+  const [topicDraft, setTopicDraft] = useState<TopicDraft | null>(null)
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(
+    initialSelectedEdgeId ?? null
   )
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
-  const [rulesMode, setRulesMode] = useState<RulesMode>('default')
-  const [ruleHandover, setRuleHandover] = useState(false)
+  const [committed, setCommitted] = useState(false)
   const [step, setStep] = useState(1)
 
   const updateCase = useCallback((next: CaseRecord) => {
     setCaseId(next.id > 0 ? next.id : null)
     setCaseRecord(next)
-    setRouting((prev) => prev ?? next.routing)
   }, [])
-  const updateRouting = useCallback(
-    (next: RoutingConfig) => setRouting(next),
-    []
-  )
-  const updatePlacements = useCallback(
-    (next: MenuPlacement[]) => setPlacements(next),
-    []
-  )
-  const updatePendingEntries = useCallback(
-    (next: PendingMenuEntry[]) => setPendingEntries(next),
+  const updateTopic = useCallback(
+    (key: string | null, draft: TopicDraft | null = null) => {
+      setTopicKey(key)
+      setTopicDraft(draft)
+    },
     []
   )
   const updateSelectedEdge = useCallback(
     (id: string | null) => setSelectedEdgeId(id),
     []
   )
-  const updateRulesMode = useCallback(
-    (mode: RulesMode) => setRulesMode(mode),
-    []
-  )
-  const updateRuleHandover = useCallback(
-    (value: boolean) => setRuleHandover(value),
-    []
-  )
+  const markCommitted = useCallback(() => setCommitted(true), [])
   const onStepChange = useCallback((n: number) => setStep(n), [])
 
   const shared: WizardShared = {
-    mode,
     caseId,
     caseRecord,
-    routing,
-    placements,
-    pendingEntries,
+    topicKey,
+    topicDraft,
     selectedEdgeId,
-    rulesMode,
-    ruleHandover,
+    committed,
     onStepChange,
     updateCase,
-    updateRouting,
-    updatePlacements,
-    updatePendingEntries,
+    updateTopic,
     updateSelectedEdge,
-    updateRulesMode,
-    updateRuleHandover,
+    markCommitted,
     onExit,
   }
 
   useEffect(() => {
-    // 只有收集到草稿或已有 Case 时才保存会话，避免空会话导致「Case #null」。
     if (caseRecord == null && caseId == null) return
+    if (committed) return
     saveQuickConfigSession(window.localStorage, {
       caseId,
-      mode,
       step,
       caseDraft: caseRecord,
-      routing,
-      pendingEntries,
+      topicKey,
+      topicDraft,
+      selectedEdgeId,
       updatedAt: new Date().toISOString(),
     })
-  }, [caseId, mode, caseRecord, routing, pendingEntries, step])
+  }, [caseId, caseRecord, topicKey, topicDraft, selectedEdgeId, step, committed])
 
   const rendered = useFormity<WizardSchema>({ flow, params: shared })
   return <>{rendered}</>

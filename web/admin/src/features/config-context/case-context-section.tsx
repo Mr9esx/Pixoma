@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { PenLine } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { PenLine } from 'lucide-react'
 import { patchCase } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { CaseRecord, RoutingConfig } from '@/lib/api/types'
@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { TaskFlowEditor } from '@/features/task-flow/task-flow-editor'
+import { TaskFlowTable } from '@/features/task-flow/task-flow-table'
 import type { CaseContextData } from './use-case-references'
 
 function errorMessage(err: unknown): string | undefined {
@@ -26,14 +26,13 @@ export function CaseContextSection({
   data,
 }: {
   record: CaseRecord
-  data: Pick<
-    CaseContextData,
-    'topics' | 'attributes' | 'edges' | 'presence'
-  >
+  data: Pick<CaseContextData, 'topics' | 'attributes' | 'edges' | 'presence'>
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [routing, setRouting] = useState<RoutingConfig | undefined>(record.routing)
+  const [routing, setRouting] = useState<RoutingConfig | undefined>(
+    record.routing
+  )
   const [editOpen, setEditOpen] = useState(false)
   const { topics, attributes, edges, presence } = data
 
@@ -49,42 +48,43 @@ export function CaseContextSection({
 
   return (
     <>
-      <div className='relative'>
-        <TaskFlowEditor
-          preview
-          routing={routing}
-          topics={topics}
-          attributes={attributes}
-          edges={edges}
-          presence={presence}
-          caseName={record.name}
-          onChange={setRouting}
-        />
-        <Button
-          type='button'
-          size='sm'
-          className='absolute right-3 top-3'
-          onClick={() => setEditOpen(true)}
-          data-edit-routing
-        >
-          <PenLine className='size-3.5' />
-          {t('configContext.editFlow')}
-        </Button>
-      </div>
+      <TaskFlowTable
+        preview
+        hideActions
+        routing={routing}
+        topics={topics}
+        attributes={attributes}
+        edges={edges}
+        presence={presence}
+        onChange={setRouting}
+        headerActions={
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            className='h-7 gap-1.5 px-2.5 text-xs'
+            onClick={() => setEditOpen(true)}
+            data-edit-routing
+          >
+            <PenLine className='size-3.5' />
+            {t('configContext.editFlow')}
+          </Button>
+        }
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className='left-0 top-0 h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none p-0 sm:max-w-none'>
+        <DialogContent className='top-0 left-0 h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none p-0 sm:max-w-none'>
           <DialogHeader className='sr-only'>
             <DialogTitle>{t('configContext.editFlow')}</DialogTitle>
           </DialogHeader>
-          <TaskFlowEditor
+          <TaskFlowTable
             routing={routing}
             topics={topics}
             attributes={attributes}
             edges={edges}
             presence={presence}
-            caseName={record.name}
             onChange={setRouting}
+            title={record.name}
             className='h-full rounded-none border-0 shadow-none'
             headerActions={
               <Button

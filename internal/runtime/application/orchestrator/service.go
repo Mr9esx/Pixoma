@@ -14,7 +14,6 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/routing"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
@@ -62,9 +61,6 @@ type Service struct {
 	Online func(ctx context.Context, id sharedkernel.EdgeID) bool
 	Storm  *StormGuard
 	Now    func() time.Time
-
-	// rrIndex advances round-robin selection across healthy+allowed instances.
-	rrIndex uint64
 
 	// notifyDedupe tracks terminal notifies already sent.
 	notifiedMu sync.Mutex
@@ -124,6 +120,14 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 			}
 			return nil
 		}
+		if errors.Is(err, routing.ErrNoMatch) {
+			now := s.Now()
+			if merr := t.MarkFailed(sharedkernel.TaskErrorRoutingNoMatch, sharedkernel.TaskErrorMessageRoutingNoMatch, now); merr == nil {
+				_ = s.Tasks.Update(ctx, t)
+				_ = s.publishNotify(ctx, t)
+			}
+			return nil
+		}
 		// Evaluation failure: keep pending with a recorded reason; the next
 		// SchedulePending cycle retries (transient provider errors self-heal).
 		t.ErrorMessage = "routing: " + err.Error()
@@ -160,7 +164,7 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 
 func (s *Service) resolveTopic(ctx context.Context, t *runtimedomain.Task) (string, error) {
 	if s.Cases == nil || s.Condition == nil {
-		return topic.DefaultKey, nil
+		return "", routing.ErrNoMatch
 	}
 	caseDoc, err := s.Cases.GetCase(ctx, t.CaseID)
 	if err != nil {
@@ -194,45 +198,6 @@ func (s *Service) topicHasOnlineConsumer(ctx context.Context, topicKey string) b
 		}
 	}
 	return false
-}
-
-func (s *Service) listCandidates(ctx context.Context) ([]edge.Instance, error) {
-	filter := edge.CapabilityFilter{}
-	// Claimable dispatch (Dispatch==nil) and Online filters use Edge presence, not cloud Comfy probes.
-	if s.Online != nil || s.Dispatch == nil {
-		return s.Instances.ListEnabled(ctx, filter)
-	}
-	return s.Instances.ListHealthy(ctx, filter)
-}
-
-// rollbackClaim best-effort returns a claimable task to pending so SchedulePending can retry.
-func (s *Service) rollbackClaim(ctx context.Context, taskID sharedkernel.TaskID, now time.Time) {
-	t, err := s.Tasks.Get(ctx, taskID)
-	if err != nil {
-		return
-	}
-	if t.Status != sharedkernel.TaskQueued {
-		return
-	}
-	t.Status = sharedkernel.TaskPending
-	t.EdgeID = ""
-	t.JobRef = sharedkernel.BlobRef{}
-	t.LeaseUntil = time.Time{}
-	t.UpdatedAt = now
-	_ = s.Tasks.Update(ctx, t)
-}
-
-func filterAllowed(insts []edge.Instance, breaker *CircuitBreaker) []edge.Instance {
-	if len(insts) == 0 {
-		return nil
-	}
-	out := make([]edge.Instance, 0, len(insts))
-	for _, inst := range insts {
-		if breaker == nil || breaker.Allow(inst.ID) {
-			out = append(out, inst)
-		}
-	}
-	return out
 }
 
 func (s *Service) OnStatus(ctx context.Context, ev sharedkernel.TaskStatusEvent) error {
