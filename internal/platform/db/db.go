@@ -42,12 +42,44 @@ func Open(opts Options) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("db: open: %w", err)
 	}
+	if isSQLite(opts.Driver) {
+		if path, ok := sqliteFilePath(opts.DSN); ok {
+			if err := os.Chmod(path, 0o600); err != nil {
+				_ = closeDB(gdb)
+				return nil, fmt.Errorf("db: secure sqlite file: %w", err)
+			}
+		}
+	}
 	if sqlDB, err := gdb.DB(); err == nil {
 		sqlDB.SetConnMaxLifetime(time.Hour)
 		sqlDB.SetMaxIdleConns(4)
 		sqlDB.SetMaxOpenConns(16)
 	}
 	return gdb, nil
+}
+
+func isSQLite(driver string) bool {
+	return strings.EqualFold(strings.TrimSpace(driver), "") || strings.EqualFold(strings.TrimSpace(driver), DriverSQLite)
+}
+
+func sqliteFilePath(dsn string) (string, bool) {
+	raw := strings.TrimSpace(dsn)
+	if raw == "" || strings.Contains(raw, ":memory:") {
+		return "", false
+	}
+	query := ""
+	path := raw
+	if before, after, found := strings.Cut(raw, "?"); found {
+		path, query = before, after
+	}
+	path = strings.TrimPrefix(path, "file:")
+	if strings.Contains(query, "mode=memory") {
+		return "", false
+	}
+	if path == "" {
+		return "", false
+	}
+	return path, true
 }
 
 func newGormLogger(debug bool, w io.Writer) logger.Interface {
@@ -61,6 +93,14 @@ func newGormLogger(debug bool, w io.Writer) logger.Interface {
 		IgnoreRecordNotFoundError: true,
 		Colorful:                  false,
 	})
+}
+
+func closeDB(gdb *gorm.DB) error {
+	sqlDB, err := gdb.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
 }
 
 func dialector(driver, dsn string) (gorm.Dialector, error) {

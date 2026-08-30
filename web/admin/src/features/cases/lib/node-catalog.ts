@@ -2,12 +2,12 @@ import {
   Image,
   FileText,
   SlidersHorizontal,
-  Box,
   Video,
   Music,
   Wand2,
   Package,
   Cpu,
+  type Box,
 } from 'lucide-react'
 
 export type InputKind =
@@ -81,7 +81,6 @@ export function inputKindFor(classType: string, field: string): InputKind {
   return kind as InputKind
 }
 
-
 /** 节点输出类型（供输出字段绑定自动带出）。 */
 const NODE_OUTPUT_KINDS: Record<string, 'image' | 'text' | 'file'> = {
   LoadImage: 'image',
@@ -109,7 +108,10 @@ export function nodeVisualFor(classType: string): {
   if (c.includes('audio') || c.includes('music'))
     return { Icon: Music, className: 'bg-muted text-muted-foreground' }
   if (c.includes('sample') || c.includes('noise') || c.includes('scheduler'))
-    return { Icon: SlidersHorizontal, className: 'bg-muted text-muted-foreground' }
+    return {
+      Icon: SlidersHorizontal,
+      className: 'bg-muted text-muted-foreground',
+    }
   if (c.includes('loader') || c.includes('lora') || c.includes('patch'))
     return { Icon: Package, className: 'bg-muted text-muted-foreground' }
   if (c.includes('text') || c.includes('clip') || c.includes('encode'))

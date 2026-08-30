@@ -3,8 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CheckIcon, ChevronsUpDown, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
-import { listTopics } from '@/lib/api/topics'
-import type { Topic } from '@/lib/api/topics'
+import { listTopics, type Topic } from '@/lib/api/topics'
 import { cn } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -74,9 +73,7 @@ export function NodeTopicPicker({
 
   function toggle(key: string) {
     onChange(
-      value.includes(key)
-        ? value.filter((k) => k !== key)
-        : [...value, key]
+      value.includes(key) ? value.filter((k) => k !== key) : [...value, key]
     )
   }
   function clear() {

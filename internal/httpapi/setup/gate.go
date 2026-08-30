@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	consoledomain "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
 )
 
@@ -23,8 +24,9 @@ func AccountFromContext(ctx context.Context) (AccountSession, bool) {
 
 // Gate rejects business admin APIs until initialized + authenticated.
 type Gate struct {
-	Boot     *bootstrap.Store
-	Sessions *Sessions
+	Boot         *bootstrap.Store
+	Sessions     *Sessions
+	ConsoleUsers consoledomain.Repository
 }
 
 func (g *Gate) Middleware(next http.Handler) http.Handler {
@@ -52,7 +54,7 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if strings.HasPrefix(path, "/api/v1/setup/") {
+		if strings.HasPrefix(path, "/api/v1/setup/") && !g.Boot.Initialized() {
 			if g.Sessions == nil {
 				writeErr(w, http.StatusUnauthorized, "unauthorized")
 				return
@@ -79,16 +81,19 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if !g.Boot.Initialized() || g.Boot.RestartRequired() {
+		if !g.Boot.Initialized() {
 			code := "not_initialized"
 			msg := "platform not initialized"
-			if g.Boot.Initialized() {
-				code = "restart_required"
-				msg = "settings saved; restart pixoma for them to take effect"
-			}
 			writeJSON(w, http.StatusForbidden, map[string]string{
 				"error": msg,
 				"code":  code,
+			})
+			return
+		}
+		if g.Boot.RestartRequired() && !strings.HasPrefix(path, "/api/v1/setup/") {
+			writeJSON(w, http.StatusForbidden, map[string]string{
+				"error": "settings saved; restart pixoma for them to take effect",
+				"code":  "restart_required",
 			})
 			return
 		}
@@ -101,6 +106,54 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			writeErr(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
+		if g.ConsoleUsers != nil {
+			refreshed, ok := g.currentAccount(r.Context(), acct)
+			if !ok {
+				writeErr(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			acct = refreshed
+		} else if acct.AccountID == "" {
+			acct.Role = consoledomain.RoleAdmin
+		}
+		if isSetupAdministration(path) && acct.Role != consoledomain.RoleAdmin {
+			writeErr(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		if !isSetupSelfService(path) && isWriteMethod(r.Method) &&
+			acct.Role != consoledomain.RoleAdmin && acct.Role != consoledomain.RoleOperator {
+			writeErr(w, http.StatusForbidden, "forbidden")
+			return
+		}
 		next.ServeHTTP(w, r.WithContext(WithAccount(r.Context(), acct)))
 	})
+}
+
+func (g *Gate) currentAccount(ctx context.Context, acct AccountSession) (AccountSession, bool) {
+	user, err := g.ConsoleUsers.GetByID(ctx, acct.AccountID)
+	if err != nil || user == nil || !user.Enabled {
+		return AccountSession{}, false
+	}
+	return AccountSession{
+		AccountID: user.ID,
+		Username:  user.Username,
+		Role:      user.Role,
+	}, true
+}
+
+func isWriteMethod(method string) bool {
+	return method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions
+}
+
+func isSetupSelfService(path string) bool {
+	switch path {
+	case "/api/v1/setup/logout", "/api/v1/setup/me", "/api/v1/setup/password", "/api/v1/setup/profile":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSetupAdministration(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/setup/") && !isSetupSelfService(path)
 }

@@ -54,7 +54,7 @@ describe('case list filters (single search, no status segment)', () => {
     const source = read(CASES_ROUTE)
     expect(source).toMatch(/data-testid='cases-create-page'/)
     expect(source).toMatch(
-      /<CaseForm\s+mode=\'create\'\s+splitPane\s+hideActions[\s\S]*?formId=\'create-case-form'\s*\/>/
+      /<CaseForm\s+mode='create'\s+splitPane\s+hideActions[\s\S]*?formId='create-case-form'\s*\/>/
     )
     expect(source).toContain("type='submit' form='create-case-form'")
     expect(source).toContain('min-h-0 flex-1 overflow-auto')

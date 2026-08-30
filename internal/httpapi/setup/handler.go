@@ -43,6 +43,10 @@ type Handler struct {
 	// ConsoleUsers authenticates login/change-password against system accounts
 	// once the platform is initialized. Nil falls back to bootstrap auth.
 	ConsoleUsers consoledomain.Repository
+	// LoginAttempts and RegistrationAttempts are lazily initialized in-process
+	// fixed-window limiters. They are safe for the single-process default.
+	LoginAttempts        *AttemptLimiter
+	RegistrationAttempts *AttemptLimiter
 }
 
 // MountAuth serves console self-registration under /api/v1/auth.
@@ -141,23 +145,33 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	limiter := h.loginLimiter()
+	loginKey := clientKey(r, strings.TrimSpace(body.Username))
+	if !limiter.Allowed(loginKey) {
+		writeErr(w, http.StatusTooManyRequests, "too many login attempts")
+		return
+	}
 	initialized := h.Boot.Initialized()
 	var tok string
 	var mustChange bool
 	if initialized && h.ConsoleUsers != nil {
 		u, err := h.ConsoleUsers.GetByUsername(r.Context(), body.Username)
 		if err != nil {
+			limiter.Record(loginKey)
 			writeErr(w, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
 		if !u.Enabled {
+			limiter.Record(loginKey)
 			writeErr(w, http.StatusForbidden, "account disabled")
 			return
 		}
 		if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(body.Password)); err != nil {
+			limiter.Record(loginKey)
 			writeErr(w, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
+		limiter.Reset(loginKey)
 		mustChange = u.MustChangePassword
 		if !mustChange {
 			u.LastLoginAt = time.Now().UTC()
@@ -176,9 +190,11 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !ok {
+			limiter.Record(loginKey)
 			writeErr(w, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
+		limiter.Reset(loginKey)
 		tok, err = h.Sessions.Issue(body.Username, body.Remember)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -186,7 +202,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		}
 		mustChange = h.Boot.MustChangePassword()
 	}
-	SetCookie(w, tok, body.Remember)
+	SetCookie(w, r, tok, body.Remember)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                   true,
 		"token":                tok,
@@ -198,7 +214,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	h.Sessions.Revoke(TokenFromRequest(r))
-	ClearCookie(w)
+	ClearCookie(w, r)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -773,6 +789,13 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	limiter := h.registrationLimiter()
+	registrationKey := clientKey(r, "")
+	if !limiter.Allowed(registrationKey) {
+		writeErr(w, http.StatusTooManyRequests, "too many registrations")
+		return
+	}
+	limiter.Record(registrationKey)
 	body.Username = strings.TrimSpace(body.Username)
 	body.Email = strings.TrimSpace(body.Email)
 	if body.Username == "" {
@@ -819,10 +842,24 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	SetCookie(w, tok, false)
+	SetCookie(w, r, tok, false)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok": true, "token": tok, "username": newUser.Username, "role": newUser.Role,
 	})
+}
+
+func (h *Handler) loginLimiter() *AttemptLimiter {
+	if h.LoginAttempts == nil {
+		h.LoginAttempts = NewAttemptLimiter(5, time.Minute)
+	}
+	return h.LoginAttempts
+}
+
+func (h *Handler) registrationLimiter() *AttemptLimiter {
+	if h.RegistrationAttempts == nil {
+		h.RegistrationAttempts = NewAttemptLimiter(10, time.Minute)
+	}
+	return h.RegistrationAttempts
 }
 
 // selfRegistrationEnabled reports whether the "open registration" setting is on.

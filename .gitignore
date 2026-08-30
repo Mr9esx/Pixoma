@@ -15,10 +15,18 @@ web/admin/dist/
 .superpowers/
 .DS_Store
 comfyui-bot
+.agents/
+.cursor/
+.comet/
+.codegraph/
+.design-prototype/
 
 # Local build artifacts at repo root
 /admin-api
 /comfyui-bot
+/pixoma
+/edge-agent
+/backfill-task-stats
 
 
 # local secrets (never commit)

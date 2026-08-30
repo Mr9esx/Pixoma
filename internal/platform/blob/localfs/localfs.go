@@ -21,7 +21,7 @@ func New(root string) (*Store, error) {
 	if root == "" {
 		return nil, errors.New("blob/localfs: empty root")
 	}
-	if err := os.MkdirAll(root, 0o755); err != nil {
+	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, fmt.Errorf("blob/localfs: mkdir root: %w", err)
 	}
 	abs, err := filepath.Abs(root)
@@ -36,7 +36,7 @@ func (s *Store) Check(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(s.root, 0o755); err != nil {
+	if err := os.MkdirAll(s.root, 0o700); err != nil {
 		return fmt.Errorf("blob/localfs: check mkdir: %w", err)
 	}
 	probe := filepath.Join(s.root, ".pixoma-probe")
@@ -56,11 +56,15 @@ func (s *Store) Put(ctx context.Context, key string, r io.Reader, opts blob.PutO
 		return sharedkernel.BlobRef{}, err
 	}
 	full := filepath.Join(s.root, filepath.FromSlash(rel))
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
 		return sharedkernel.BlobRef{}, err
 	}
-	f, err := os.Create(full)
+	f, err := os.OpenFile(full, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
+		return sharedkernel.BlobRef{}, err
+	}
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
 		return sharedkernel.BlobRef{}, err
 	}
 	defer f.Close()

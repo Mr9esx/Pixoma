@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -232,7 +233,7 @@ func TokenFromRequest(r *http.Request) string {
 	return ""
 }
 
-func SetCookie(w http.ResponseWriter, token string, remember bool) {
+func SetCookie(w http.ResponseWriter, r *http.Request, token string, remember bool) {
 	maxAge := int(sessionTTL.Seconds())
 	if remember {
 		maxAge = int(rememberTTL.Seconds())
@@ -243,18 +244,24 @@ func SetCookie(w http.ResponseWriter, token string, remember bool) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   requestIsHTTPS(r),
 		MaxAge:   maxAge,
 	})
 }
 
-func ClearCookie(w http.ResponseWriter) {
+func ClearCookie(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   requestIsHTTPS(r),
 		MaxAge:   -1,
 	})
+}
+
+func requestIsHTTPS(r *http.Request) bool {
+	return r != nil && (r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https"))
 }
 
 // save writes only remember-me sessions to disk (token hashes only), atomically

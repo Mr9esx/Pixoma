@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  useNavigate,
+  useParams,
+  useRouterState,
+} from '@tanstack/react-router'
 import { Plus, Server } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listEdges, listPresence } from '@/lib/api/edges'
@@ -40,7 +45,10 @@ function EdgesLayout() {
   const { edgeId } = useParams({ strict: false }) as {
     edgeId?: string
   }
-  const [backToList, setBackToList] = useState(false)
+  const locationState = useRouterState({
+    select: (state) => state.location.state,
+  }) as { backToList?: boolean } | undefined
+  const backToList = locationState?.backToList === true
 
   const listQuery = useQuery({
     queryKey: queryKeys.edges.all,
@@ -60,10 +68,6 @@ function EdgesLayout() {
   const [createOpen, setCreateOpen] = useState(false)
   const isEmpty =
     !listQuery.isLoading && !listQuery.isError && items.length === 0
-
-  useEffect(() => {
-    if (edgeId != null) setBackToList(false)
-  }, [edgeId])
 
   useEffect(() => {
     if (edgeId == null && !backToList && items.length > 0) {
@@ -104,8 +108,10 @@ function EdgesLayout() {
         className='md:grid-cols-[280px_1fr]'
         hasSelection={Boolean(selectedId)}
         onBackToList={() => {
-          setBackToList(true)
-          void navigate({ to: '/edges' })
+          void navigate({
+            to: '/edges',
+            state: { backToList: true },
+          } as never)
         }}
         detailClassName='flex min-h-0 flex-col overflow-auto p-0'
         list={
@@ -120,7 +126,9 @@ function EdgesLayout() {
           />
         }
         detail={
-          selectedId ? <EdgeDetailPanel key={selectedId} id={selectedId} /> : null
+          selectedId ? (
+            <EdgeDetailPanel key={selectedId} id={selectedId} />
+          ) : null
         }
         emptyDetail={
           !listQuery.isLoading && !listQuery.isError && items.length === 0 ? (

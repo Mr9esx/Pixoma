@@ -377,6 +377,41 @@ func TestAgent_StatusRejectsWrongInstance(t *testing.T) {
 	}
 }
 
+func TestAgent_StatusRejectsUnclaimedTask(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Unix(1000, 0).UTC()
+	task := runtimedomain.NewPending("t-unclaimed", "s1", 1, "in", now)
+	if err := tasks.Create(ctx, task); err != nil {
+		t.Fatal(err)
+	}
+	spy := &statusSpy{}
+	srv := mountAgent(t, "tok", tasks, spy)
+
+	payload, _ := json.Marshal(map[string]any{
+		"edge_id": "gpu-1",
+		"status":  "succeeded",
+	})
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/agent/v1/jobs/t-unclaimed/status", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer tok")
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(res.Body)
+		t.Fatalf("status=%d body=%s", res.StatusCode, body)
+	}
+	if len(spy.events) != 0 {
+		t.Fatalf("unclaimed status must not apply: %+v", spy.events)
+	}
+}
+
 func TestAgent_RejectsTokenBoundToAnotherInstance(t *testing.T) {
 	tasks := runtimedomain.NewMemoryTaskRepository()
 	h := &agent.Handler{
