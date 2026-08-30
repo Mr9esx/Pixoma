@@ -39,6 +39,7 @@ import {
   CaseListPanel,
   type CaseListFilters,
 } from '@/features/cases/list-panel'
+import { WorkflowImportRequirement } from '@/features/cases/workflow-import-requirement'
 import { kit } from '@/features/edges/kit-classes'
 import { caseReferences } from '@/features/link-health/lib/references'
 
@@ -201,11 +202,7 @@ function CasesLayout() {
               splitPane
               hideActions
               stepRail
-              leftIntro={
-                <p className='text-sm text-destructive' role='note'>
-                  {t('quickConfig.requireValidJson')}
-                </p>
-              }
+              leftIntro={<WorkflowImportRequirement />}
               onPendingChange={setCreatePending}
               onDirtyChange={setDirty}
               formId='create-case-form'

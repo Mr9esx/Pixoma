@@ -70,7 +70,7 @@ export function deleteChannel(id: string) {
   )
 }
 
-export type CapabilityBrief = {
+type CapabilityBrief = {
   id: string
   display_name: string
   params_schema: Record<string, unknown>

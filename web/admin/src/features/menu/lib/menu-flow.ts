@@ -1,6 +1,5 @@
 import type {
   Action,
-  ActionType,
   Card,
   CardButton,
   Menu,
@@ -8,7 +7,7 @@ import type {
 } from '@/lib/api/channel-menu'
 import type { WorkflowRef } from '../node-view'
 
-export type { Action, ActionType, Card, CardButton, Menu, MenuItem }
+export type { Action, Card, CardButton, Menu, MenuItem }
 
 export function buildTgFlow(menu: Menu, cards: Card[]) {
   const cols = menu.columns >= 1 && menu.columns <= 8 ? menu.columns : 2
@@ -70,7 +69,7 @@ function validateAction(
   }
 }
 
-export type MapOutcomeKey =
+type MapOutcomeKey =
   | 'mapOpenCard'
   | 'mapStartWorkflow'
   | 'mapSendText'
@@ -80,7 +79,7 @@ export type MapOutcomeKey =
   | 'mapCardMissing'
   | 'mapWorkflowMissing'
 
-export type MapOutcome = { key: MapOutcomeKey; name?: string }
+type MapOutcome = { key: MapOutcomeKey; name?: string }
 
 function cardById(cards: Card[], id: string | undefined): Card | undefined {
   return id ? cards.find((c) => c.id === id) : undefined

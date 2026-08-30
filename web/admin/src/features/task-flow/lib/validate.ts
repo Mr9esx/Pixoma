@@ -1,5 +1,4 @@
 import {
-  DEFAULT_TOPIC_KEY,
   type AttributeDescriptor,
   type Condition,
   type RoutingConfig,
@@ -14,6 +13,7 @@ import {
  */
 
 export type RuleIssueKind =
+  | 'routing-empty'
   | 'topic-missing'
   | 'topic-unknown'
   | 'topic-disabled'
@@ -30,7 +30,7 @@ export interface RuleIssue {
   message: string
 }
 
-export interface ValidationResult {
+interface ValidationResult {
   issues: RuleIssue[]
   /** 是否允许保存（无任何问题）。 */
   valid: boolean
@@ -56,33 +56,61 @@ export function validateRule(
   index: number,
   topics: TopicRecord[],
   attributes: AttributeDescriptor[],
-  boundTopicKeys?: ReadonlySet<string>,
+  boundTopicKeys?: ReadonlySet<string>
 ): RuleIssue | null {
   const topic = rule.topic?.trim()
   if (!topic) {
-    return { index, kind: 'topic-missing', message: `规则 #${index + 1}：未连接目标 Topic（从右侧圆点拖线到 Topic）` }
+    return {
+      index,
+      kind: 'topic-missing',
+      message: `规则 #${index + 1}：未连接目标 Topic（从右侧圆点拖线到 Topic）`,
+    }
   }
   const record = topics.find((t) => t.key === topic)
   if (!record) {
-    return { index, kind: 'topic-unknown', message: `规则 #${index + 1}：目标 Topic「${topic}」不存在（引用已删除的 Topic）` }
+    return {
+      index,
+      kind: 'topic-unknown',
+      message: `规则 #${index + 1}：目标 Topic「${topic}」不存在（引用已删除的 Topic）`,
+    }
   }
   if (!record.enabled) {
-    return { index, kind: 'topic-disabled', message: `规则 #${index + 1}：目标 Topic「${topicName(topics, topic)}」已禁用，请先启用或改连其他 Topic` }
+    return {
+      index,
+      kind: 'topic-disabled',
+      message: `规则 #${index + 1}：目标 Topic「${topicName(topics, topic)}」已禁用，请先启用或改连其他 Topic`,
+    }
   }
   if (boundTopicKeys && !boundTopicKeys.has(topic)) {
-    return { index, kind: 'topic-unbound', message: `规则 #${index + 1}：目标 Topic「${topicName(topics, topic)}」未绑定计算节点，请先为该 Topic 绑定启用节点` }
+    return {
+      index,
+      kind: 'topic-unbound',
+      message: `规则 #${index + 1}：目标 Topic「${topicName(topics, topic)}」未绑定计算节点，请先为该 Topic 绑定启用节点`,
+    }
   }
+  if ('always' in rule.when) return null
   const condIssue = validateCondition(rule.when, attributes)
   if (condIssue) {
-    return { index, kind: condIssue.kind, message: `规则 #${index + 1}：${condIssue.message}` }
+    return {
+      index,
+      kind: condIssue.kind,
+      message: `规则 #${index + 1}：${condIssue.message}`,
+    }
   }
   return null
 }
 
-function validateCondition(c: Condition, attributes: AttributeDescriptor[]): Omit<RuleIssue, 'index'> | null {
+function validateCondition(
+  c: Condition,
+  attributes: AttributeDescriptor[]
+): Omit<RuleIssue, 'index'> | null {
+  if ('always' in c) return null
   if ('and' in c) {
     if (c.and.length === 0) {
-      return { kind: 'condition-empty-group', message: 'AND 组合为空，请添加至少一个子条件' }
+      return {
+        kind: 'condition-empty-group',
+        message: 'AND 组合为空，请添加至少一个子条件',
+      }
     }
     for (const sub of c.and) {
       const issue = validateCondition(sub, attributes)
@@ -92,7 +120,10 @@ function validateCondition(c: Condition, attributes: AttributeDescriptor[]): Omi
   }
   if ('or' in c) {
     if (c.or.length === 0) {
-      return { kind: 'condition-empty-group', message: 'OR 组合为空，请添加至少一个子条件' }
+      return {
+        kind: 'condition-empty-group',
+        message: 'OR 组合为空，请添加至少一个子条件',
+      }
     }
     for (const sub of c.or) {
       const issue = validateCondition(sub, attributes)
@@ -101,23 +132,37 @@ function validateCondition(c: Condition, attributes: AttributeDescriptor[]): Omi
     return null
   }
 
-  const attr = attributes.find((a) => a.key === c.field)
+  const leaf = c as Extract<Condition, { field: string }>
+  const attr = attributes.find((a) => a.key === leaf.field)
   if (!attr) {
-    return { kind: 'condition-unknown-field', message: `条件字段「${c.field}」未在属性目录注册，请重新选择字段` }
+    return {
+      kind: 'condition-unknown-field',
+      message: `条件字段「${leaf.field}」未在属性目录注册，请重新选择字段`,
+    }
   }
   const type = attr.schema.type ?? 'string'
   const allowed = OPS_BY_TYPE[type] ?? OPS_BY_TYPE.string
-  if (!allowed.includes(c.op)) {
-    return { kind: 'condition-bad-op', message: `字段「${attr.label}」不支持操作符「${c.op}」（可用：${allowed.join('、')}）` }
+  if (!allowed.includes(leaf.op)) {
+    return {
+      kind: 'condition-bad-op',
+      message: `字段「${attr.label}」不支持操作符「${leaf.op}」（可用：${allowed.join('、')}）`,
+    }
   }
-  if (c.op === 'exists') return null
-  if (!validateValue(c.value, attr, c.op)) {
-    return { kind: 'condition-bad-value', message: `字段「${attr.label}」的值类型不正确` }
+  if (leaf.op === 'exists') return null
+  if (!validateValue(leaf.value, attr, leaf.op)) {
+    return {
+      kind: 'condition-bad-value',
+      message: `字段「${attr.label}」的值类型不正确`,
+    }
   }
   return null
 }
 
-function validateValue(value: unknown, attr: AttributeDescriptor, op: string): boolean {
+function validateValue(
+  value: unknown,
+  attr: AttributeDescriptor,
+  op: string
+): boolean {
   const type = attr.schema.type ?? 'string'
   const schema = attr.schema
   // in 操作符：value 必须是数组，元素按 itemSchema 校验（对齐后端 validateValueType）。
@@ -135,7 +180,9 @@ function validateValue(value: unknown, attr: AttributeDescriptor, op: string): b
   if (type === 'array') {
     if (!Array.isArray(value)) return false
     const itemType = schema.items?.type
-    return value.every((v) => (itemType ? validateValueByType(v, itemType) : true))
+    return value.every((v) =>
+      itemType ? validateValueByType(v, itemType) : true
+    )
   }
   // string
   if (typeof value !== 'string') return false
@@ -155,21 +202,19 @@ export function validateRouting(
   routing: RoutingConfig | undefined,
   topics: TopicRecord[],
   attributes: AttributeDescriptor[],
-  boundTopicKeys?: ReadonlySet<string>,
+  boundTopicKeys?: ReadonlySet<string>
 ): ValidationResult {
   const rules = routing?.rules ?? []
   const issues: RuleIssue[] = []
   const invalidIndexes = new Set<number>()
   if (rules.length === 0) {
-    // 空规则合法：全部回退默认 Topic（后端允许），只需默认 Topic 已绑定启用节点。
-    if (boundTopicKeys && !boundTopicKeys.has(DEFAULT_TOPIC_KEY)) {
-      issues.push({
-        index: 0,
-        kind: 'topic-unbound',
-        message: `默认 Topic「${DEFAULT_TOPIC_KEY}」未绑定计算节点，请先为该 Topic 绑定启用节点`,
-      })
+    return {
+      issues: [
+        { index: -1, kind: 'routing-empty', message: '至少需要一条路由规则' },
+      ],
+      valid: false,
+      invalidIndexes,
     }
-    return { issues, valid: issues.length === 0, invalidIndexes }
   }
   for (let i = 0; i < rules.length; i++) {
     const issue = validateRule(rules[i], i, topics, attributes, boundTopicKeys)

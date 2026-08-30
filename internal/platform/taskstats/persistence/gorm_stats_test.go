@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	catalogpersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats/persistence"
@@ -21,7 +22,15 @@ func TestGormStatsRepository_AddTerminalAndList(t *testing.T) {
 		&persistence.EdgeDailyStatsRow{},
 		&persistence.ErrorDailyStatsRow{},
 		&persistence.CaseDailyStatsRow{},
+		&catalogpersist.CaseRow{},
 	); err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.Create(&catalogpersist.CaseRow{
+		ID:      1,
+		Name:    "Portrait",
+		DocJSON: "{}",
+	}).Error; err != nil {
 		t.Fatal(err)
 	}
 	loc := time.FixedZone("CST", 8*3600)
@@ -64,7 +73,8 @@ func TestGormStatsRepository_AddTerminalAndList(t *testing.T) {
 		t.Fatalf("edges success/fail: %+v", edges[0])
 	}
 	cases, err := repo.ListCases(ctx, "2026-08-20", "2026-08-21", 10)
-	if err != nil || len(cases) != 1 || cases[0].CaseID != 1 || cases[0].Count != 1 || cases[0].TotalDurationMS != 120000 {
+	if err != nil || len(cases) != 1 || cases[0].CaseID != 1 || cases[0].CaseName != "Portrait" ||
+		cases[0].Count != 1 || cases[0].TotalDurationMS != 120000 {
 		t.Fatalf("cases: %+v %v", cases, err)
 	}
 }
@@ -105,7 +115,8 @@ func TestGormStatsRepository_SkipEmptyDimensions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.DailyStatsRow{}, &persistence.EdgeDailyStatsRow{}, &persistence.ErrorDailyStatsRow{}, &persistence.CaseDailyStatsRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.DailyStatsRow{}, &persistence.EdgeDailyStatsRow{},
+		&persistence.ErrorDailyStatsRow{}, &persistence.CaseDailyStatsRow{}, &catalogpersist.CaseRow{}); err != nil {
 		t.Fatal(err)
 	}
 	repo := persistence.NewGormStatsRepository(gdb, 365*24*time.Hour, time.UTC)
@@ -132,6 +143,9 @@ func TestGormStatsRepository_SkipEmptyDimensions(t *testing.T) {
 	cases, err := repo.ListCases(ctx, taskstats.DateOf(now, time.UTC), taskstats.DateOf(now, time.UTC), 10)
 	if err != nil || len(cases) != 1 || cases[0].CaseID != 2 || cases[0].Count != 2 {
 		t.Fatalf("cases should count cancelled without edge: %+v %v", cases, err)
+	}
+	if cases[0].CaseName != "" {
+		t.Fatalf("missing case should have empty name: %+v", cases[0])
 	}
 }
 

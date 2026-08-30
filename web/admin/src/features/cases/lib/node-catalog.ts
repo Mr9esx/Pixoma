@@ -21,7 +21,7 @@ export type InputKind =
   | 'ref'
   | 'unknown'
 
-export const NODE_LABELS: Record<string, string> = {
+const NODE_LABELS: Record<string, string> = {
   LoadImage: '加载图片',
   CLIPTextEncode: '写提示词',
   KSampler: '采样',
@@ -41,7 +41,7 @@ export function nodeLabel(classType: string): string {
   return NODE_LABELS[classType] ?? classType
 }
 
-export const NODE_OUTPUT_COUNTS: Record<string, number> = {
+const NODE_OUTPUT_COUNTS: Record<string, number> = {
   LoadImage: 1,
   SaveImage: 1,
   KSampler: 1,
@@ -56,7 +56,7 @@ export function outputCountFor(classType: string): number {
   return NODE_OUTPUT_COUNTS[classType] ?? 1
 }
 
-export const NODE_INPUT_KINDS: Record<string, Record<string, string>> = {
+const NODE_INPUT_KINDS: Record<string, Record<string, string>> = {
   LoadImage: { image: 'image' },
   CLIPTextEncode: { text: 'string' },
   KSampler: {

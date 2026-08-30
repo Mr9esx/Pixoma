@@ -25,7 +25,7 @@ export function toWorkflowRef(c: WorkflowRef): WorkflowRef {
 }
 
 /** 结构化展示用的动作视图 */
-export type ActionView = {
+type ActionView = {
   type: ActionType
   /** 动作大类：workflow / card / text / media / url / copy */
   kind: 'workflow' | 'card' | 'text' | 'media' | 'url' | 'copy'
@@ -44,7 +44,7 @@ const ACTION_TYPE_LABEL: Record<ActionType, string> = {
   copy_text: '复制文本',
 }
 
-export function actionKind(type: ActionType): ActionView['kind'] {
+function actionKind(type: ActionType): ActionView['kind'] {
   switch (type) {
     case 'open_workflow':
       return 'workflow'

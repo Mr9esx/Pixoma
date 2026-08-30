@@ -7,6 +7,9 @@ import (
 // ValidateRule checks the rule against the registry: fields must be registered,
 // operators must be built-in, and values must match the attribute schema.
 func ValidateRule(r Rule, reg *Registry) error {
+	if r.Always {
+		return nil
+	}
 	if reg == nil {
 		return fmt.Errorf("condition: nil registry")
 	}

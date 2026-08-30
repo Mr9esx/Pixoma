@@ -29,6 +29,7 @@ export interface AttributesCatalogResponse {
 }
 
 export type Condition =
+  | { always: true }
   | { field: string; op: ConditionOp; value?: unknown }
   | { and: Condition[] }
   | { or: Condition[] }

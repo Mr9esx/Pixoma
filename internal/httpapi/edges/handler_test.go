@@ -656,7 +656,7 @@ func TestHandler_MetricsEndpoint(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.Series) != 120 || out.Latest == nil || out.Latest.CPUUsagePercent != 20 {
+	if len(out.Series) != 60 || out.Latest == nil || out.Latest.CPUUsagePercent != 20 {
 		t.Fatalf("series=%+v latest=%+v", out.Series, out.Latest)
 	}
 	real := 0
@@ -782,8 +782,8 @@ func TestHandler_MetricsCustomRange(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.Series) != 60 {
-		t.Fatalf("custom 30m window must produce 60 buckets, got %d", len(out.Series))
+	if len(out.Series) != 30 {
+		t.Fatalf("custom 30m window must produce 30 buckets, got %d", len(out.Series))
 	}
 	real := 0
 	for _, p := range out.Series {

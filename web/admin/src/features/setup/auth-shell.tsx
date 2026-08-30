@@ -1,6 +1,15 @@
 import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Logo } from '@/assets/logo'
+import Dither from '@/components/Dither'
 import FaultyTerminal from '@/components/FaultyTerminal'
+
+export type AuthAmbient = 'terminal' | 'dither'
+
+type AuthShellProps = {
+  children: React.ReactNode
+  ambient?: AuthAmbient
+}
 
 const DOT_PATTERN = {
   backgroundImage:
@@ -20,7 +29,8 @@ const DOT_MASK_GRADIENT = {
 
 const TERMINAL_GRID_MUL: [number, number] = [2, 1]
 
-export function AuthShell({ children }: { children: React.ReactNode }) {
+export function AuthShell({ children, ambient = 'terminal' }: AuthShellProps) {
+  const { t } = useTranslation()
   const spotRef = useRef<HTMLDivElement>(null)
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
@@ -52,84 +62,53 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       />
       <div className='relative hidden h-full flex-col p-3 lg:flex'>
         <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl'>
-          <FaultyTerminal
-            style={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-            }}
-            scale={1.5}
-            gridMul={TERMINAL_GRID_MUL}
-            digitSize={1.2}
-            timeScale={0.5}
-            pause={false}
-            scanlineIntensity={0.5}
-            glitchAmount={1}
-            flickerAmount={1}
-            noiseAmp={1}
-            chromaticAberration={0}
-            dither={0}
-            curvature={0.1}
-            tint='#A7EF9E'
-            mouseReact
-            mouseStrength={0.5}
-            pageLoadAnimation
-            brightness={0.6}
-          />
+          {ambient === 'dither' ? (
+            <div aria-hidden className='absolute inset-0'>
+              <Dither
+                waveColor={[0.5, 0.5, 0.5]}
+                colorNum={4}
+                pixelSize={2}
+                waveAmplitude={0.3}
+                waveFrequency={3}
+                waveSpeed={0.05}
+                disableAnimation={false}
+                enableMouseInteraction
+                mouseRadius={0.3}
+              />
+            </div>
+          ) : (
+            <FaultyTerminal
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+              }}
+              scale={1.5}
+              gridMul={TERMINAL_GRID_MUL}
+              digitSize={1.2}
+              timeScale={0.5}
+              pause={false}
+              scanlineIntensity={0.5}
+              glitchAmount={1}
+              flickerAmount={1}
+              noiseAmp={1}
+              chromaticAberration={0}
+              dither={0}
+              curvature={0.1}
+              tint='#A7EF9E'
+              mouseReact
+              mouseStrength={0.5}
+              pageLoadAnimation
+              brightness={0.6}
+            />
+          )}
           <div className='relative z-20 flex min-h-0 flex-1 flex-col p-10 text-white'>
             <div className='relative z-20 flex items-center gap-2 text-lg font-medium'>
               <Logo className='me-1 size-6 rounded-full bg-white object-contain' />
               Pixoma
             </div>
-            <div className='relative z-20 m-auto flex w-full max-w-xl flex-col justify-center gap-10'>
-              <div className='flex flex-col gap-6'>
-                <h2 className='text-4xl leading-tight font-semibold tracking-tight md:text-5xl'>
-                  开始使用 Pixoma
-                </h2>
-                <p className='text-lg leading-7 text-white/80'>
-                  几步配置完，登录后就能接上自己的 ComfyUI。
-                </p>
-              </div>
-              <div className='flex gap-2 overflow-x-auto pb-1'>
-                {[
-                  { n: '1', label: '设管理员密码' },
-                  { n: '2', label: '配置数据库与存储' },
-                  { n: '3', label: '连接 ComfyUI' },
-                ].map((step, index) => (
-                  <div
-                    key={step.n}
-                    className={
-                      index === 0
-                        ? 'flex min-w-[150px] flex-col justify-center gap-4 rounded-xl bg-white p-5'
-                        : 'flex min-w-[150px] flex-col justify-center gap-4 rounded-xl bg-white/12 p-5 backdrop-blur-md'
-                    }
-                  >
-                    <div
-                      className={
-                        index === 0
-                          ? 'flex size-6 items-center justify-center rounded-full bg-black text-sm font-medium text-white'
-                          : 'flex size-6 items-center justify-center rounded-full bg-white/16 text-sm font-medium text-white'
-                      }
-                    >
-                      {step.n}
-                    </div>
-                    <p
-                      className={
-                        index === 0
-                          ? 'text-base font-medium text-black'
-                          : 'text-base text-white/80'
-                      }
-                    >
-                      {step.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
             <blockquote className='relative z-20 mt-auto flex flex-col gap-2'>
-              <p className='text-lg'>
-                Pixoma 让你随时随地使用自己的 ComfyUI 进行艺术创作。
-              </p>
+              <p className='text-lg'>{t('auth.quote')}</p>
             </blockquote>
           </div>
         </div>

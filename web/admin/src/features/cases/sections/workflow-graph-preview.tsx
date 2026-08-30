@@ -165,6 +165,7 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
           onChange={noop}
           onRemove={noop}
           disabled
+          hideActions
         />
       </section>
 
@@ -207,6 +208,7 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
           onChange={noop}
           onRemove={noop}
           disabled
+          hideActions
         />
       </section>
 

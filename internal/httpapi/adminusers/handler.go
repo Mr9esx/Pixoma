@@ -18,14 +18,6 @@ import (
 // All routes require PermAccountManage (admin only); enforced by the caller.
 type Handler struct {
 	Repo consoledomain.Repository
-	Now  func() time.Time
-}
-
-func (h *Handler) now() time.Time {
-	if h.Now != nil {
-		return h.Now()
-	}
-	return time.Now().UTC()
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -138,11 +130,11 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 type patchRequest struct {
-	Email        *string `json:"email"`
-	Nickname     *string `json:"nickname"`
-	Role         *string `json:"role"`
-	Enabled      *bool   `json:"enabled"`
-	Password     *string `json:"password"`
+	Email      *string `json:"email"`
+	Nickname   *string `json:"nickname"`
+	Role       *string `json:"role"`
+	Enabled    *bool   `json:"enabled"`
+	Password   *string `json:"password"`
 	Reactivate *bool   `json:"reactivate"`
 }
 

@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { daysAgo } from './date-range'
-import type { StatsRange } from './task-range-picker'
-import { WorkbenchWelcomeCard } from './workbench-welcome-card'
+import { daysAgo, type StatsRange } from './date-range'
 import { WorkbenchDataBoard } from './workbench-data-board'
+import { WorkbenchWelcomeCard } from './workbench-welcome-card'
 
 export function DashboardPage() {
   const [range, setRange] = useState<StatsRange>({

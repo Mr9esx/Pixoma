@@ -1,4 +1,4 @@
-export type MySQLFields = {
+type MySQLFields = {
   host: string
   port: string
   user: string
@@ -7,7 +7,7 @@ export type MySQLFields = {
   params?: string
 }
 
-export type PostgresFields = {
+type PostgresFields = {
   host: string
   port: string
   user: string

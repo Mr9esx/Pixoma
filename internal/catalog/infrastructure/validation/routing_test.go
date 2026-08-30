@@ -42,8 +42,24 @@ func TestValidateRouting(t *testing.T) {
 		t.Fatalf("valid routing rejected: %v", err)
 	}
 
-	if err := validation.ValidateRouting(context.Background(), nil, topics, reg); err != nil {
-		t.Fatalf("nil routing rejected: %v", err)
+	always := &domain.RoutingConfig{Rules: []domain.RoutingRule{
+		{When: json.RawMessage(`{"always":true}`), Topic: "fast-gpu"},
+	}}
+	if err := validation.ValidateRouting(context.Background(), always, topics, reg); err != nil {
+		t.Fatalf("always routing rejected: %v", err)
+	}
+
+	empty := []struct {
+		name string
+		cfg  *domain.RoutingConfig
+	}{
+		{"nil routing", nil},
+		{"empty routing", &domain.RoutingConfig{}},
+	}
+	for _, tc := range empty {
+		if err := validation.ValidateRouting(context.Background(), tc.cfg, topics, reg); err == nil {
+			t.Fatalf("%s: expected validation error", tc.name)
+		}
 	}
 
 	bad := []struct {

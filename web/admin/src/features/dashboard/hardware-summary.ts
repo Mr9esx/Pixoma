@@ -1,6 +1,6 @@
 import type { ComfyEdge } from '@/lib/api/types'
 
-export type HardwareSummary = {
+type HardwareSummary = {
   gpuCount: number
   vramBytes: number
   cpuCores: number
@@ -13,8 +13,10 @@ export function summarizeHardware(edges: ComfyEdge[]): HardwareSummary {
   let cpuCores = 0
   let ramBytes = 0
   for (const e of edges) {
-    if (typeof e.hardware?.cpu_cores === 'number') cpuCores += e.hardware.cpu_cores
-    if (typeof e.hardware?.ram_bytes === 'number') ramBytes += e.hardware.ram_bytes
+    if (typeof e.hardware?.cpu_cores === 'number')
+      cpuCores += e.hardware.cpu_cores
+    if (typeof e.hardware?.ram_bytes === 'number')
+      ramBytes += e.hardware.ram_bytes
     for (const g of e.hardware?.gpus ?? []) {
       gpuCount++
       if (typeof g.vram_bytes === 'number') vramBytes += g.vram_bytes

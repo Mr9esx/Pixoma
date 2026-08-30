@@ -31,6 +31,9 @@ const REQUIRED_KEYS = [
   'inputsHint',
   'outputsHeading',
   'outputsHint',
+  'processingPill',
+  'processingHeading',
+  'processingHint',
   'fieldFromNode',
   'fieldEnumOptions',
   'typeAutoSourceOutput',
@@ -123,7 +126,9 @@ describe('workflow import section', () => {
     expect(source).toContain('<Tabs')
     expect(source).toContain('<TabsList')
     expect(source).toContain('<TabsTrigger')
-    expect(source).toContain("onValueChange={(next) => onChange(next as ViewMode)}")
+    expect(source).toContain(
+      'onValueChange={(next) => onChange(next as ViewMode)}'
+    )
     expect(source).not.toContain('aria-pressed')
   })
 })
@@ -137,7 +142,7 @@ describe('code editor component', () => {
     expect(source).toContain('var(--card)')
     expect(source).toContain('var(--muted-foreground)')
     expect(source).toContain('maxHeight = 250')
-    expect(source).toContain('theme=\'none\'')
+    expect(source).toContain("theme='none'")
     expect(source).not.toContain('#0d1117')
     expect(source).not.toContain('#30363d')
     expect(source).not.toContain('focus-within')
@@ -185,6 +190,10 @@ describe('unified workflow editor assembly', () => {
     expect(source).toContain('WorkflowImportSection')
     expect(source).toContain('EditableInputFields')
     expect(source).toContain('EditableOutputFields')
+    expect(source).toContain('TaskFlowTable')
+    expect(source).toContain('validateRouting(')
+    expect(source).toContain('cases.processingHeading')
+    expect(source).toContain('case-section-processing')
     expect(source).toContain('useIsWide')
     expect(source).toContain('cases.inputsHeading')
     expect(source).toContain('cases.outputsHeading')
@@ -194,6 +203,18 @@ describe('unified workflow editor assembly', () => {
     expect(source).toContain('autoGenerateOutputs')
     expect(source).not.toContain('PreviewSection')
     expect(source).not.toContain('AdvancedSection')
+  })
+
+  it('keeps the processing table de-duplicated and gated until workflow import', () => {
+    const source = read(WORKFLOW_EDITOR)
+    expect(source).toContain('showHeader={false}')
+    expect(source).not.toContain("title={t('cases.processingHeading')}")
+    expect(source).not.toContain("className='rounded-lg border-border/70'")
+    expect(
+      source.match(
+        /AlertTitle>\{t\('cases\.emptyWorkflowLock'\)\}<\/AlertTitle>/g
+      )
+    ).toHaveLength(3)
   })
 
   it('locks workflow sections behind an info alert', () => {
@@ -216,6 +237,12 @@ describe('unified workflow editor assembly', () => {
   it('quick-config step1 reuses the unified editor', () => {
     const source = read(STEP1)
     expect(source).toContain('WorkflowEditor')
+    expect(source).toContain('hideProcessing')
     expect(source).not.toContain("from './case-form'")
+  })
+
+  it('hideProcessing skips the processing section marker when set', () => {
+    const source = read(WORKFLOW_EDITOR)
+    expect(source).toContain('showWorkflow && !hideProcessing')
   })
 })

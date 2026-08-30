@@ -9,8 +9,24 @@ const CASE_FORM = join(here, 'case-form.tsx')
 const WORKFLOW_EDITOR = join(here, 'workflow-editor.tsx')
 const CONFIG_VIEW = join(here, 'sections/workflow-config-view.tsx')
 const GRAPH = join(here, 'sections/workflow-graph-preview.tsx')
+const LIGHTBOX = join(here, 'components/media-lightbox.tsx')
 
 describe('workflow detail panel', () => {
+  it('media lightbox has an opaque themed surface and visible close icon', () => {
+    const source = readFileSync(LIGHTBOX, 'utf8')
+    expect(source).toContain('bg-foreground')
+    expect(source).not.toContain('bg-foreground/95')
+    expect(source).toContain("[&_[data-slot='dialog-close']]:text-background")
+    expect(source).toContain(
+      "[&_[data-slot='dialog-close']]:hover:bg-background/60"
+    )
+    expect(source).not.toContain("[&_[data-slot='dialog-close']]:bg-background")
+    expect(source).not.toContain(
+      "[&_[data-slot='dialog-close']]:text-foreground"
+    )
+    expect(source).not.toContain('&apos;')
+  })
+
   it('is view-only with config section and edit modal; entries moved into status & relations', () => {
     const source = readFileSync(DETAIL, 'utf8')
     expect(source).toContain('SectionHead')
@@ -74,6 +90,7 @@ describe('workflow detail panel', () => {
     expect(source).toContain('OutputFieldsTable')
     expect(source).toContain('onChange={noop}')
     expect(source).toContain('disabled')
+    expect(source.match(/hideActions/g)).toHaveLength(2)
     // 工作流配置复用编辑工作流的节点图 / JSON 查看器。
     expect(source).toContain('WorkflowGraphViewer')
     expect(source).toContain('readOnly')

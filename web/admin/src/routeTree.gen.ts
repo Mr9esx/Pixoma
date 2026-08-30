@@ -25,7 +25,6 @@ import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as AppUsersRouteRouteImport } from './routes/_app/users/route'
 import { Route as AppTopicsRouteRouteImport } from './routes/_app/topics/route'
 import { Route as AppTasksRouteRouteImport } from './routes/_app/tasks/route'
-import { Route as AppTaskFlowPrototypeRouteRouteImport } from './routes/_app/task-flow-prototype/route'
 import { Route as AppSessionsRouteRouteImport } from './routes/_app/sessions/route'
 import { Route as AppEdgesRouteRouteImport } from './routes/_app/edges/route'
 import { Route as AppChannelsRouteRouteImport } from './routes/_app/channels/route'
@@ -125,12 +124,6 @@ const AppTasksRouteRoute = AppTasksRouteRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AppRoute,
 } as any)
-const AppTaskFlowPrototypeRouteRoute =
-  AppTaskFlowPrototypeRouteRouteImport.update({
-    id: '/task-flow-prototype',
-    path: '/task-flow-prototype',
-    getParentRoute: () => AppRoute,
-  } as any)
 const AppSessionsRouteRoute = AppSessionsRouteRouteImport.update({
   id: '/sessions',
   path: '/sessions',
@@ -237,7 +230,6 @@ export interface FileRoutesByFullPath {
   '/channels': typeof AppChannelsRouteRouteWithChildren
   '/edges': typeof AppEdgesRouteRouteWithChildren
   '/sessions': typeof AppSessionsRouteRouteWithChildren
-  '/task-flow-prototype': typeof AppTaskFlowPrototypeRouteRoute
   '/tasks': typeof AppTasksRouteRouteWithChildren
   '/topics': typeof AppTopicsRouteRouteWithChildren
   '/users': typeof AppUsersRouteRouteWithChildren
@@ -269,7 +261,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
-  '/task-flow-prototype': typeof AppTaskFlowPrototypeRouteRoute
   '/401': typeof errors401Route
   '/403': typeof errors403Route
   '/404': typeof errors404Route
@@ -305,7 +296,6 @@ export interface FileRoutesById {
   '/_app/channels': typeof AppChannelsRouteRouteWithChildren
   '/_app/edges': typeof AppEdgesRouteRouteWithChildren
   '/_app/sessions': typeof AppSessionsRouteRouteWithChildren
-  '/_app/task-flow-prototype': typeof AppTaskFlowPrototypeRouteRoute
   '/_app/tasks': typeof AppTasksRouteRouteWithChildren
   '/_app/topics': typeof AppTopicsRouteRouteWithChildren
   '/_app/users': typeof AppUsersRouteRouteWithChildren
@@ -345,7 +335,6 @@ export interface FileRouteTypes {
     | '/channels'
     | '/edges'
     | '/sessions'
-    | '/task-flow-prototype'
     | '/tasks'
     | '/topics'
     | '/users'
@@ -377,7 +366,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/setup'
-    | '/task-flow-prototype'
     | '/401'
     | '/403'
     | '/404'
@@ -412,7 +400,6 @@ export interface FileRouteTypes {
     | '/_app/channels'
     | '/_app/edges'
     | '/_app/sessions'
-    | '/_app/task-flow-prototype'
     | '/_app/tasks'
     | '/_app/topics'
     | '/_app/users'
@@ -566,13 +553,6 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof AppTasksRouteRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/task-flow-prototype': {
-      id: '/_app/task-flow-prototype'
-      path: '/task-flow-prototype'
-      fullPath: '/task-flow-prototype'
-      preLoaderRoute: typeof AppTaskFlowPrototypeRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/sessions': {
@@ -812,7 +792,6 @@ interface AppRouteChildren {
   AppChannelsRouteRoute: typeof AppChannelsRouteRouteWithChildren
   AppEdgesRouteRoute: typeof AppEdgesRouteRouteWithChildren
   AppSessionsRouteRoute: typeof AppSessionsRouteRouteWithChildren
-  AppTaskFlowPrototypeRouteRoute: typeof AppTaskFlowPrototypeRouteRoute
   AppTasksRouteRoute: typeof AppTasksRouteRouteWithChildren
   AppTopicsRouteRoute: typeof AppTopicsRouteRouteWithChildren
   AppUsersRouteRoute: typeof AppUsersRouteRouteWithChildren
@@ -827,7 +806,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppChannelsRouteRoute: AppChannelsRouteRouteWithChildren,
   AppEdgesRouteRoute: AppEdgesRouteRouteWithChildren,
   AppSessionsRouteRoute: AppSessionsRouteRouteWithChildren,
-  AppTaskFlowPrototypeRouteRoute: AppTaskFlowPrototypeRouteRoute,
   AppTasksRouteRoute: AppTasksRouteRouteWithChildren,
   AppTopicsRouteRoute: AppTopicsRouteRouteWithChildren,
   AppUsersRouteRoute: AppUsersRouteRouteWithChildren,

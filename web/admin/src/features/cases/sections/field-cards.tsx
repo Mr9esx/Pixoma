@@ -101,7 +101,7 @@ const OUTPUT_TYPES: Array<{ value: string; labelKey: string }> = [
 ]
 
 /** 类型 value → i18n key；用于列表徽标等处显示中文类型名。 */
-export const TYPE_LABEL_KEYS: Record<string, string> = {
+const TYPE_LABEL_KEYS: Record<string, string> = {
   string: 'cases.typeString',
   image: 'cases.typeImage',
   audio: 'cases.typeAudio',
@@ -134,7 +134,7 @@ type BindNodePopoverProps = {
   compact?: boolean
 }
 
-export function BindNodePopover({
+function BindNodePopover({
   nodes,
   mode = 'input',
   node,
@@ -269,11 +269,7 @@ export function BindNodePopover({
           <TooltipContent sideOffset={6}>{triggerText}</TooltipContent>
         ) : null}
       </Tooltip>
-      <PopoverContent
-        align='start'
-        side='bottom'
-        className='w-80 p-0'
-      >
+      <PopoverContent align='start' side='bottom' className='w-80 p-0'>
         <Command>
           <CommandInput
             autoFocus
@@ -372,7 +368,7 @@ type RemoveFieldButtonProps = {
   compact?: boolean
 }
 
-export function RemoveFieldButton({
+function RemoveFieldButton({
   fieldKey,
   disabled,
   onRemove,
@@ -472,7 +468,7 @@ type InputCardProps = {
   onHintOpenChange?: (open: boolean) => void
 }
 
-export function InputFieldCard({
+function InputFieldCard({
   nodes,
   value,
   onChange,
@@ -691,7 +687,7 @@ type OutputCardProps = {
   disabled?: boolean
 }
 
-export function OutputFieldCard({
+function OutputFieldCard({
   nodes,
   value,
   onChange,
@@ -876,6 +872,7 @@ function SortableInputTableRow({
   flash,
   hintOpen,
   onHintOpenChange,
+  hideActions,
 }: {
   id: number
   nodes: WorkflowNode[]
@@ -888,6 +885,7 @@ function SortableInputTableRow({
   flash?: boolean
   hintOpen?: boolean
   onHintOpenChange?: (open: boolean) => void
+  hideActions?: boolean
 }) {
   const { t } = useTranslation()
   const {
@@ -908,42 +906,44 @@ function SortableInputTableRow({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(flash && 'flash-highlight', isDragging && 'opacity-50')}
     >
-      <TableCell className='w-12'>
-        {index === 0 ? (
-          <Tooltip open={hintOpen} onOpenChange={onHintOpenChange}>
-            <TooltipTrigger asChild>
-              <Button
-                ref={setActivatorNodeRef}
-                type='button'
-                size='icon'
-                variant='ghost'
-                disabled={disabled}
-                className='h-8 w-8 cursor-grab touch-none text-muted-foreground hover:bg-transparent'
-                {...attributes}
-                {...listeners}
-              >
-                <GripVertical className='size-4' />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side='top' sideOffset={8}>
-              {t('cases.dragReorderHint')}
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <Button
-            ref={setActivatorNodeRef}
-            type='button'
-            size='icon'
-            variant='ghost'
-            disabled={disabled}
-            className='h-8 w-8 cursor-grab touch-none text-muted-foreground hover:bg-transparent'
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className='size-4' />
-          </Button>
-        )}
-      </TableCell>
+      {!hideActions ? (
+        <TableCell className='w-12'>
+          {index === 0 ? (
+            <Tooltip open={hintOpen} onOpenChange={onHintOpenChange}>
+              <TooltipTrigger asChild>
+                <Button
+                  ref={setActivatorNodeRef}
+                  type='button'
+                  size='icon'
+                  variant='ghost'
+                  disabled={disabled}
+                  className='h-8 w-8 cursor-grab touch-none text-muted-foreground hover:bg-transparent'
+                  {...attributes}
+                  {...listeners}
+                >
+                  <GripVertical className='size-4' />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side='top' sideOffset={8}>
+                {t('cases.dragReorderHint')}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              ref={setActivatorNodeRef}
+              type='button'
+              size='icon'
+              variant='ghost'
+              disabled={disabled}
+              className='h-8 w-8 cursor-grab touch-none text-muted-foreground hover:bg-transparent'
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className='size-4' />
+            </Button>
+          )}
+        </TableCell>
+      ) : null}
       <TableCell>
         <div className='flex items-center gap-1'>
           <Input
@@ -1054,14 +1054,16 @@ function SortableInputTableRow({
           autoComplete='off'
         />
       </TableCell>
-      <TableCell className='text-right'>
-        <RemoveFieldButton
-          compact
-          fieldKey={value.key}
-          disabled={disabled}
-          onRemove={() => onRemove(index)}
-        />
-      </TableCell>
+      {!hideActions ? (
+        <TableCell className='text-right'>
+          <RemoveFieldButton
+            compact
+            fieldKey={value.key}
+            disabled={disabled}
+            onRemove={() => onRemove(index)}
+          />
+        </TableCell>
+      ) : null}
     </TableRow>
   )
 }
@@ -1075,6 +1077,7 @@ type InputTableProps = {
   fieldErrors?: Record<number, boolean>
   hintOpen?: boolean
   onHintOpenChange?: (open: boolean) => void
+  hideActions?: boolean
 }
 
 /** 新增一行时自动滚到底部，并高亮新行 1.5s（使用全局 flash-highlight 闪烁色）。 */
@@ -1110,6 +1113,7 @@ export function InputFieldsTable({
   fieldErrors,
   hintOpen,
   onHintOpenChange,
+  hideActions,
 }: InputTableProps) {
   const { t } = useTranslation()
   const { scrollRef, flashIndex } = useNewRowFlash(fields.length)
@@ -1123,7 +1127,7 @@ export function InputFieldsTable({
       >
         <TableHeader className='sticky top-0 z-10 bg-background [&_th]:bg-background'>
           <TableRow>
-            <TableHead className='w-12' />
+            {!hideActions ? <TableHead className='w-12' /> : null}
             <TableHead className='w-40'>{t('cases.fieldKey')}</TableHead>
             <TableHead className='w-32'>{t('cases.fieldType')}</TableHead>
             <TableHead className='w-56'>{t('cases.fieldBind')}</TableHead>
@@ -1133,7 +1137,7 @@ export function InputFieldsTable({
             <TableHead className='min-w-0'>
               {t('cases.fieldDescription')}
             </TableHead>
-            <TableHead className='w-11' />
+            {!hideActions ? <TableHead className='w-11' /> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -1151,12 +1155,13 @@ export function InputFieldsTable({
               flash={flashIndex === index}
               hintOpen={index === 0 ? hintOpen : undefined}
               onHintOpenChange={index === 0 ? onHintOpenChange : undefined}
+              hideActions={hideActions}
             />
           ))}
           {fields.length === 0 ? (
             <TableRow data-testid='input-table-empty'>
               <TableCell
-                colSpan={7}
+                colSpan={hideActions ? 5 : 7}
                 className='py-6 text-center text-sm text-muted-foreground'
               >
                 {t('cases.noRows')}
@@ -1175,6 +1180,7 @@ type OutputTableProps = {
   onChange: (index: number, next: OutputFieldDraft) => void
   onRemove: (index: number) => void
   disabled?: boolean
+  hideActions?: boolean
 }
 
 export function OutputFieldsTable({
@@ -1183,6 +1189,7 @@ export function OutputFieldsTable({
   onChange,
   onRemove,
   disabled,
+  hideActions,
 }: OutputTableProps) {
   const { t } = useTranslation()
   const { scrollRef, flashIndex } = useNewRowFlash(fields.length)
@@ -1202,7 +1209,7 @@ export function OutputFieldsTable({
             <TableHead className='min-w-0'>
               {t('cases.fieldDescription')}
             </TableHead>
-            <TableHead className='w-11' />
+            {!hideActions ? <TableHead className='w-11' /> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -1308,21 +1315,23 @@ export function OutputFieldsTable({
                     autoComplete='off'
                   />
                 </TableCell>
-                <TableCell className='text-right'>
-                  <RemoveFieldButton
-                    compact
-                    fieldKey={value.key}
-                    disabled={disabled}
-                    onRemove={() => onRemove(index)}
-                  />
-                </TableCell>
+                {!hideActions ? (
+                  <TableCell className='text-right'>
+                    <RemoveFieldButton
+                      compact
+                      fieldKey={value.key}
+                      disabled={disabled}
+                      onRemove={() => onRemove(index)}
+                    />
+                  </TableCell>
+                ) : null}
               </TableRow>
             )
           })}
           {fields.length === 0 ? (
             <TableRow data-testid='output-table-empty'>
               <TableCell
-                colSpan={5}
+                colSpan={hideActions ? 4 : 5}
                 className='py-6 text-center text-sm text-muted-foreground'
               >
                 {t('cases.noRows')}

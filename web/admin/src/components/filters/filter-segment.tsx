@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export type FilterSegmentOption<T extends string> = {
@@ -18,7 +18,7 @@ type Props<T extends string> = {
 
 const SCROLL_EDGE = 2
 const PAGE_MIN = 80
-/** Fewer than this many options → equal-width fill; otherwise horizontal scroll. */
+/** Fewer than this many options -> equal-width fill; otherwise horizontal scroll. */
 const FILL_BELOW = 5
 
 function measure(el: HTMLElement) {
@@ -75,7 +75,7 @@ export function FilterSegment<T extends string>({
     }
   }, [syncChevrons, options.length, fill])
 
-  // Only when the selected value changes — never while the user is paging.
+  // Only when the selected value changes - never while the user is paging.
   useEffect(() => {
     if (fill) return
     const scroller = scrollerRef.current
@@ -102,7 +102,7 @@ export function FilterSegment<T extends string>({
       data-testid={testId}
       className={cn(
         'relative flex items-center overflow-hidden rounded-md border',
-        className,
+        className
       )}
     >
       {!fill ? (
@@ -113,10 +113,8 @@ export function FilterSegment<T extends string>({
           tabIndex={canScrollLeft ? 0 : -1}
           data-testid={testId ? `${testId}-prev` : undefined}
           className={cn(
-            'bg-background/90 text-muted-foreground hover:text-foreground absolute top-1/2 left-1.5 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-full border backdrop-blur-sm transition-opacity duration-300',
-            canScrollLeft
-              ? 'opacity-100'
-              : 'pointer-events-none opacity-0',
+            'absolute top-1/2 left-1.5 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-full border bg-background/90 text-muted-foreground backdrop-blur-sm transition-opacity duration-300 hover:text-foreground',
+            canScrollLeft ? 'opacity-100' : 'pointer-events-none opacity-0'
           )}
           onClick={() => scrollPage(-1)}
         >
@@ -130,7 +128,7 @@ export function FilterSegment<T extends string>({
           'flex min-w-0 flex-1 gap-1 p-0.5',
           fill ? 'w-full' : 'overflow-x-auto',
           !fill &&
-            '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+            '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
         )}
       >
         {options.map((opt) => {
@@ -145,8 +143,8 @@ export function FilterSegment<T extends string>({
                 'rounded-sm px-2 py-1 text-xs whitespace-nowrap transition-colors',
                 fill ? 'min-w-0 flex-1 text-center' : 'shrink-0',
                 active
-                  ? 'bg-accent text-accent-foreground font-medium'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-accent font-medium text-accent-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
               onClick={() => onValueChange(opt.value)}
             >
@@ -164,10 +162,8 @@ export function FilterSegment<T extends string>({
           tabIndex={canScrollRight ? 0 : -1}
           data-testid={testId ? `${testId}-next` : undefined}
           className={cn(
-            'bg-background/90 text-muted-foreground hover:text-foreground absolute top-1/2 right-1.5 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-full border backdrop-blur-sm transition-opacity duration-300',
-            canScrollRight
-              ? 'opacity-100'
-              : 'pointer-events-none opacity-0',
+            'absolute top-1/2 right-1.5 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-full border bg-background/90 text-muted-foreground backdrop-blur-sm transition-opacity duration-300 hover:text-foreground',
+            canScrollRight ? 'opacity-100' : 'pointer-events-none opacity-0'
           )}
           onClick={() => scrollPage(1)}
         >

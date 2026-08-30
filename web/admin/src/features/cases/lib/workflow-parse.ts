@@ -16,7 +16,7 @@ export type WorkflowGraph = {
   nodes: WorkflowNode[]
   api: Record<string, unknown>
 }
-export type WorkflowParseResult =
+type WorkflowParseResult =
   | { ok: true; graph: WorkflowGraph }
   | { ok: false; error: string }
 

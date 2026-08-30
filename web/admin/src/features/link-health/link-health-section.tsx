@@ -30,7 +30,7 @@ const FOCUS_TARGETS: Record<string, string> = {
   'linkHealth.actionCheckNode': 'link-health-section',
 }
 
-export type LinkHealthSectionProps = {
+type LinkHealthSectionProps = {
   title: string
   health: EntityHealth
   /** 关联列表；不传则不渲染引用区块。 */

@@ -1,9 +1,12 @@
+import { useTranslation } from 'react-i18next'
+import {
+  TimeRangeControl,
+  type RangePreset,
+} from '@/components/time-range-control'
+import type { StatsRange } from './date-range'
+import { WorkbenchChartPairs } from './workbench-chart-pairs'
 import { WorkbenchContribution } from './workbench-contribution'
 import { WorkbenchOverviewCards } from './workbench-overview-cards'
-import { WorkbenchChartPairs } from './workbench-chart-pairs'
-import { TimeRangeControl, type RangePreset } from '@/components/time-range-control'
-import { useTranslation } from 'react-i18next'
-import type { StatsRange } from './task-range-picker'
 
 export function WorkbenchDataBoard({
   range,

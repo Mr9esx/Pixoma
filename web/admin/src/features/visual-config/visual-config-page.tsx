@@ -14,15 +14,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useCaseReferences } from '@/features/config-context/use-case-references'
-import { TaskFlowEditor } from '@/features/task-flow/task-flow-editor'
+import { TaskFlowTable } from '@/features/task-flow/task-flow-table'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
 
 /**
- * 可视化配置页：选择工作流后，用可视化画布编辑其路由规则并保存。
- * 复用 TaskFlowEditor（校验顶栏 + 画布 + Topic 池），数据取自真实 API。
+ * 可视化配置页：选择工作流后，用规则表编辑其路由规则并保存。
  */
 export function VisualConfigPage() {
   const queryClient = useQueryClient()
@@ -67,7 +66,7 @@ export function VisualConfigPage() {
             可视化配置
           </h1>
           <p className='hidden text-sm text-muted-foreground md:inline'>
-            选择工作流，用画布可视化编辑路由规则
+            选择工作流，用规则表编辑路由规则
           </p>
         </div>
         <Select
@@ -89,16 +88,15 @@ export function VisualConfigPage() {
 
       {record ? (
         <div className='min-h-0 flex-1'>
-          <TaskFlowEditor
+          <TaskFlowTable
             routing={routing}
             topics={topics}
             attributes={attributes}
             edges={edges}
             presence={presence}
-            caseName={record.name}
             onChange={setRouting}
             title={record.name}
-            className='h-full border-0'
+            className='min-h-0 flex-1 border-0'
             headerActions={
               <Button
                 type='button'
@@ -123,7 +121,7 @@ export function VisualConfigPage() {
             <Workflow className='size-10 text-muted-foreground/60' />
             <p className='text-sm font-medium'>还没有选择工作流</p>
             <p className='text-sm text-muted-foreground'>
-              从右上角选择一个工作流，即可在画布中可视化编辑它的路由规则。
+              从右上角选择一个工作流，即可用规则表编辑它的路由规则。
             </p>
           </div>
         </div>

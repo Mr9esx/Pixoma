@@ -1,7 +1,7 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import zh from './locales/zh.json'
 import en from './locales/en.json'
+import zh from './locales/zh.json'
 
 export const LOCALE_STORAGE_KEY = 'admin-locale:v1'
 export type AppLocale = 'zh' | 'en'
@@ -28,5 +28,3 @@ export async function initI18n() {
   })
   return i18n
 }
-
-export { i18n }

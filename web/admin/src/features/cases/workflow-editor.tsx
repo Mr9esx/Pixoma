@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Info, Sparkles } from 'lucide-react'
@@ -12,6 +12,9 @@ import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { Pill } from '@/components/kibo-ui/pill'
+import { useCaseReferences } from '@/features/config-context/use-case-references'
+import { validateRouting } from '@/features/task-flow/lib/validate'
+import { TaskFlowTable } from '@/features/task-flow/task-flow-table'
 import { emptyCase } from './empty-case'
 import {
   deriveBindings,
@@ -143,8 +146,10 @@ type CreateProps = {
   splitPane?: boolean
   /** splitPane 时渲染在左栏顶部的提示。 */
   leftIntro?: React.ReactNode
-  /** 新建时把三个步骤标题（导入/输入/输出）用左侧时间线竖线串起来。 */
+  /** 新建时把步骤标题用左侧时间线竖线串起来。 */
   stepRail?: boolean
+  /** 向导内隐藏处理流程表。 */
+  hideProcessing?: boolean
   /** 创建成功回调。 */
   onSaved?: (next: CaseRecord) => void
   /** 提交中状态变化回调。 */
@@ -173,6 +178,7 @@ type EditProps = {
   splitPane?: boolean
   leftIntro?: React.ReactNode
   stepRail?: boolean
+  hideProcessing?: boolean
   onCollect?: (payload: CaseRecord) => void
   formId?: string
   footer?: React.ReactNode
@@ -194,6 +200,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   const readOnly = props.mode === 'edit' && props.readOnly === true
   const showBasics = props.mode !== 'edit' || props.showBasics !== false
   const showWorkflow = props.mode !== 'edit' || props.showWorkflow !== false
+  const hideProcessing = props.hideProcessing === true
   const railRef = useRef<HTMLDivElement>(null)
   const [rail, setRail] = useState<{ top: number; height: number } | null>(null)
   useLayoutEffect(() => {
@@ -208,7 +215,9 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         '[data-testid="case-section-workflow-import"] [class*="rounded-full"]'
       )
       const out = pick(
-        '[data-testid="case-section-outputs"] [class*="rounded-full"]'
+        hideProcessing
+          ? '[data-testid="case-section-outputs"] [class*="rounded-full"]'
+          : '[data-testid="case-section-processing"] [class*="rounded-full"]'
       )
       if (!imp || !out) {
         setRail(null)
@@ -225,7 +234,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     const ro = new ResizeObserver(update)
     ro.observe(root)
     return () => ro.disconnect()
-  }, [props.stepRail])
+  }, [props.stepRail, hideProcessing])
   const [draft, setDraft] = useState<CaseRecord>(() => ({
     ...structuredClone(initial),
     ...(props.mode === 'create' && props.initialName
@@ -262,6 +271,13 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   const [nameError, setNameError] = useState<string | undefined>()
   const [showFieldErrors, setShowFieldErrors] = useState(false)
   const nameRef = useRef<HTMLInputElement | null>(null)
+  const { topics, attributes, edges, presence } = useCaseReferences(
+    props.mode === 'edit' ? props.initial : undefined
+  )
+  const routingValidation = useMemo(
+    () => validateRouting(draft.routing, topics, attributes),
+    [draft.routing, topics, attributes]
+  )
 
   const pristineRef = useRef<{
     draft: string
@@ -410,6 +426,10 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     }
     if (!graph) {
       setEditorError(t('cases.emptyWorkflowLock'))
+      return null
+    }
+    if (!hideProcessing && !routingValidation.valid) {
+      setEditorError(t('cases.errRoutingInvalid'))
       return null
     }
     const validation = validateEditor(inputDrafts, outputDrafts)
@@ -679,6 +699,60 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     </section>
   ) : null
 
+  const processingSection =
+    showWorkflow && !hideProcessing ? (
+      <section
+        className={cn('relative space-y-3', props.stepRail && 'pl-7')}
+        data-testid='case-section-processing'
+      >
+        <div className='flex items-center gap-2'>
+          <span
+            className={cn(
+              'flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground',
+              props.stepRail && 'absolute top-0.5 left-0'
+            )}
+          >
+            4
+          </span>
+          <div className='min-w-0 flex-1'>
+            <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+              <Pill
+                variant='default'
+                className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
+              >
+                {t('cases.processingPill')}
+              </Pill>
+              <h3 className='text-sm font-semibold'>
+                {t('cases.processingHeading')}
+              </h3>
+            </div>
+            <p className='text-xs text-muted-foreground'>
+              {t('cases.processingHint')}
+            </p>
+          </div>
+        </div>
+        {graph ? (
+          <TaskFlowTable
+            routing={draft.routing}
+            topics={topics}
+            attributes={attributes}
+            edges={edges}
+            presence={presence}
+            onChange={(next) =>
+              setDraft((prev) => ({ ...prev, routing: next }))
+            }
+            showHeader={false}
+            readOnly={disabled}
+          />
+        ) : (
+          <Alert variant='info'>
+            <Info aria-hidden='true' />
+            <AlertTitle>{t('cases.emptyWorkflowLock')}</AlertTitle>
+          </Alert>
+        )}
+      </section>
+    ) : null
+
   const errorBlock = (
     <>
       {mutationError ? (
@@ -715,6 +789,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             {importSection}
             {inputsSection}
             {outputsSection}
+            {processingSection}
             {errorBlock}
           </div>
           <div className='w-full shrink-0 lg:w-80 xl:w-[25rem]'>
@@ -729,6 +804,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           {importSection}
           {inputsSection}
           {outputsSection}
+          {processingSection}
           {errorBlock}
         </>
       )}

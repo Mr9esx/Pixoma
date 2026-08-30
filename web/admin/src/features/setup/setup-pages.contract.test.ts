@@ -16,11 +16,45 @@ describe('login and setup pages', () => {
     expect(read('src/features/setup/auth-shell.tsx')).toMatch(/lg:grid-cols-2/)
   })
 
+  it('randomly picks terminal or Dither ambience on login refresh', () => {
+    const login = read('src/features/setup/login-page.tsx')
+    const shell = read('src/features/setup/auth-shell.tsx')
+
+    expect(login).toMatch(/useState<AuthAmbient>\(\(\) =>/)
+    expect(login).toMatch(/Math\.random\(\) < 0\.5 \? 'dither' : 'terminal'/)
+    expect(login).toContain('ambient={ambient}')
+    expect(shell).toContain("import Dither from '@/components/Dither'")
+    expect(shell).toContain("ambient === 'dither' ?")
+    expect(shell).toMatch(/<Dither/)
+  })
+
   it('keeps login as a single form without step back', () => {
     const login = read('src/features/setup/login-page.tsx')
     expect(login).not.toMatch(/上一步/)
     expect(login).not.toMatch(/setupStepsFor/)
     expect(login).not.toMatch(/previousSetupStep/)
+  })
+
+  it('shows the reusable theme switcher at the page bottom right', () => {
+    const login = read('src/features/setup/login-page.tsx')
+    expect(login).toContain('@/components/kibo-ui/theme-switcher')
+    expect(login).toContain('@/context/theme-provider')
+    expect(login).toContain('<ThemeSwitcher')
+    expect(login).toContain('value={theme}')
+    expect(login).toContain('onChange={setTheme}')
+    expect(login).toMatch(/fixed right-4 bottom-4/)
+  })
+
+  it('supports switching login copy between zh and en', () => {
+    const page = read('src/features/setup/login-page.tsx')
+    const shell = read('src/features/setup/auth-shell.tsx')
+    expect(page).toContain('useTranslation')
+    expect(page).toContain('LocaleSwitcher')
+    expect(shell).toContain('useTranslation')
+    expect(shell).toContain("t('auth.quote')")
+    expect(read('src/features/setup/locale-switcher.tsx')).toContain(
+      'i18n.changeLanguage(locale)'
+    )
   })
 
   it('routes the setup status into the login page so first-run hint can render', () => {
@@ -35,9 +69,7 @@ describe('login and setup pages', () => {
     const page = read('src/features/setup/login-page.tsx')
     expect(page).toMatch(/showFirstRunHint/)
     expect(page).toMatch(/!status\.initialized && status\.must_change_password/)
-    expect(page).toMatch(/首次启动系统会生成默认密码/)
-    expect(page).toMatch(/在启动日志中搜索/)
-    expect(page).toMatch(/Admin password/)
+    expect(page).toMatch(/t\('auth\.firstRunHint'\)/)
   })
 
   it('renders the first-run hint below the login card, not inside it', () => {
@@ -59,7 +91,7 @@ describe('login and setup pages', () => {
   it('uses the auth-shell blockquote as a real elevator pitch, not an onboarding summary', () => {
     const shell = read('src/features/setup/auth-shell.tsx')
     // New pitch text: the product's core value prop
-    expect(shell).toMatch(/Pixoma 让你随时随地使用自己的 ComfyUI 进行艺术创作/)
+    expect(shell).toMatch(/t\('auth\.quote'\)/)
     // Old onboarding-summary phrases must not return
     expect(shell).not.toMatch(/先登录后台/)
     expect(shell).not.toMatch(/还没配过/)
@@ -95,7 +127,9 @@ describe('login and setup pages', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
     // Title is the generic config noun; the step is self-explanatory, so desc is empty
     expect(steps).toMatch(/title: '数据库配置'/)
-    expect(steps).toMatch(/database: \{[\s\S]*?title: '数据库配置',\s*desc: '',/)
+    expect(steps).toMatch(
+      /database: \{[\s\S]*?title: '数据库配置',\s*desc: '',/
+    )
     expect(steps).toMatch(/submit: '继续'/)
     // Database step uses a structured per-driver form, not a raw one-line DSN
     expect(wizard).toMatch(/htmlFor='db-driver'/)
@@ -140,7 +174,9 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/SelectItem value='postgres'/)
     expect(wizard).toMatch(/placeholder='data\/app\.db'/)
     expect(wizard).toMatch(/placeholder='timeout=5s&readTimeout=10s'/)
-    expect(wizard).toMatch(/placeholder='connect_timeout=10 application_name=pixoma'/)
+    expect(wizard).toMatch(
+      /placeholder='connect_timeout=10 application_name=pixoma'/
+    )
   })
 
   it('switches structured fields and port defaults when driver changes', () => {

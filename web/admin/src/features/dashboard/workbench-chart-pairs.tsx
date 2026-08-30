@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
   Area,
@@ -10,8 +11,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useQuery } from '@tanstack/react-query'
-import { MonitorCard, type MonitorStat } from '@/components/monitor-card'
+import { queryKeys } from '@/lib/api/query-keys'
+import {
+  listTaskCaseTopStats,
+  listTaskDailyStats,
+  listTaskErrorStats,
+} from '@/lib/api/stats'
 import {
   ChartTooltip,
   ChartTooltipContent,
@@ -19,14 +24,9 @@ import {
 } from '@/components/ui/chart'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { queryKeys } from '@/lib/api/query-keys'
-import {
-  listTaskCaseTopStats,
-  listTaskDailyStats,
-  listTaskErrorStats,
-} from '@/lib/api/stats'
+import { MonitorCard, type MonitorStat } from '@/components/monitor-card'
+import type { StatsRange } from './date-range'
 import { pickCaseItems, pickDays, pickErrorItems } from './task-stats-parse'
-import type { StatsRange } from './task-range-picker'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -39,7 +39,8 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
   const { t } = useTranslation()
   const cases = useQuery({
     queryKey: queryKeys.stats.casesTop(range.from, range.to),
-    queryFn: () => listTaskCaseTopStats({ from: range.from, to: range.to, limit: 10 }),
+    queryFn: () =>
+      listTaskCaseTopStats({ from: range.from, to: range.to, limit: 10 }),
   })
   const daily = useQuery({
     queryKey: queryKeys.stats.tasksDaily(range.from, range.to),
@@ -47,7 +48,8 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
   })
   const errors = useQuery({
     queryKey: queryKeys.stats.tasksErrors(range.from, range.to),
-    queryFn: () => listTaskErrorStats({ from: range.from, to: range.to, limit: 5 }),
+    queryFn: () =>
+      listTaskErrorStats({ from: range.from, to: range.to, limit: 5 }),
   })
 
   const items = pickCaseItems(cases.data)
@@ -78,23 +80,47 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
   const statusConfig: ChartConfig = {
     succeeded: { label: t('dashboard.succeeded'), color: 'var(--primary)' },
     failed: { label: t('dashboard.failed'), color: 'var(--destructive)' },
-    cancelled: { label: t('dashboard.cancelled'), color: 'var(--muted-foreground)' },
+    cancelled: {
+      label: t('dashboard.cancelled'),
+      color: 'var(--muted-foreground)',
+    },
   }
   const errorConfig: ChartConfig = {
-    errors: { label: t('dashboard.workbench.errorTopTitle'), color: 'var(--destructive)' },
+    errors: {
+      label: t('dashboard.workbench.errorTopTitle'),
+      color: 'var(--destructive)',
+    },
   }
   const workflowConfig: ChartConfig = {
-    cases: { label: t('dashboard.workbench.workflowTopTitle'), color: 'var(--primary)' },
+    cases: {
+      label: t('dashboard.workbench.workflowTopTitle'),
+      color: 'var(--primary)',
+    },
   }
 
   const durationStats: MonitorStat[] = [
-    { label: t('dashboard.queueWait'), value: `${Math.round(avgOf(durationData, 'queue'))}s` },
-    { label: t('dashboard.execTime'), value: `${Math.round(avgOf(durationData, 'exec'))}s` },
-    { label: t('dashboard.workbench.taskDurationTitle'), value: `${Math.round(avgOf(durationData, 'queue') + avgOf(durationData, 'exec'))}s` },
+    {
+      label: t('dashboard.queueWait'),
+      value: `${Math.round(avgOf(durationData, 'queue'))}s`,
+    },
+    {
+      label: t('dashboard.execTime'),
+      value: `${Math.round(avgOf(durationData, 'exec'))}s`,
+    },
+    {
+      label: t('dashboard.workbench.taskDurationTitle'),
+      value: `${Math.round(avgOf(durationData, 'queue') + avgOf(durationData, 'exec'))}s`,
+    },
   ]
   const workflowStats: MonitorStat[] = [
-    { label: t('dashboard.workbench.taskCount'), value: `${items.reduce((s, c) => s + c.count, 0)}` },
-    { label: t('dashboard.workbench.workflowTopTitle'), value: `${items.length}` },
+    {
+      label: t('dashboard.workbench.taskCount'),
+      value: `${items.reduce((s, c) => s + c.count, 0)}`,
+    },
+    {
+      label: t('dashboard.workbench.workflowTopTitle'),
+      value: `${items.length}`,
+    },
   ]
   const statusStats: MonitorStat[] = [
     { label: t('dashboard.succeeded'), value: `${statusData.succeeded}` },
@@ -102,7 +128,10 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
     { label: t('dashboard.cancelled'), value: `${statusData.cancelled}` },
   ]
   const errorStats: MonitorStat[] = [
-    { label: t('dashboard.workbench.errorTopTitle'), value: `${errorItems.reduce((s, e) => s + e.count, 0)}` },
+    {
+      label: t('dashboard.workbench.errorTopTitle'),
+      value: `${errorItems.reduce((s, e) => s + e.count, 0)}`,
+    },
   ]
 
   const anyLoading = cases.isLoading || daily.isLoading || errors.isLoading
@@ -141,16 +170,36 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
           <AreaChart data={durationData} margin={MARGIN}>
             <defs>
               <linearGradient id='fillExec' x1='0' y1='0' x2='0' y2='1'>
-                <stop offset='0%' stopColor='var(--color-exec)' stopOpacity={0.3} />
-                <stop offset='100%' stopColor='var(--color-exec)' stopOpacity={0.02} />
+                <stop
+                  offset='0%'
+                  stopColor='var(--color-exec)'
+                  stopOpacity={0.3}
+                />
+                <stop
+                  offset='100%'
+                  stopColor='var(--color-exec)'
+                  stopOpacity={0.02}
+                />
               </linearGradient>
             </defs>
             <CartesianGrid vertical={false} />
             <XAxis dataKey='date' {...TICK} height={20} />
             <YAxis width={40} unit='s' {...TICK} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Area type='natural' dataKey='exec' stroke='var(--color-exec)' fill='url(#fillExec)' strokeWidth={2} />
-            <Line type='natural' dataKey='queue' stroke='var(--color-queue)' strokeWidth={2} dot={false} />
+            <Area
+              type='monotone'
+              dataKey='exec'
+              stroke='var(--color-exec)'
+              fill='url(#fillExec)'
+              strokeWidth={2}
+            />
+            <Line
+              type='monotone'
+              dataKey='queue'
+              stroke='var(--color-queue)'
+              strokeWidth={2}
+              dot={false}
+            />
           </AreaChart>
         </MonitorCard>
 
@@ -159,12 +208,22 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
           config={workflowConfig}
           stats={workflowStats}
         >
-          <BarChart data={items.map((c) => ({ name: `Case #${c.case_id}`, count: c.count }))} margin={MARGIN}>
+          <BarChart
+            data={items.map((c) => ({
+              name: c.case_name?.trim() || `Case #${c.case_id}`,
+              count: c.count,
+            }))}
+            margin={MARGIN}
+          >
             <CartesianGrid vertical={false} />
             <XAxis dataKey='name' {...TICK} height={20} />
             <YAxis width={40} allowDecimals={false} {...TICK} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey='count' fill='var(--color-cases)' radius={[2, 2, 0, 0]} />
+            <Bar
+              dataKey='count'
+              fill='var(--color-cases)'
+              radius={[2, 2, 0, 0]}
+            />
           </BarChart>
         </MonitorCard>
       </div>
@@ -177,9 +236,21 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
         >
           <BarChart
             data={[
-              { name: t('dashboard.succeeded'), value: statusData.succeeded, fill: 'var(--color-succeeded)' },
-              { name: t('dashboard.failed'), value: statusData.failed, fill: 'var(--color-failed)' },
-              { name: t('dashboard.cancelled'), value: statusData.cancelled, fill: 'var(--color-cancelled)' },
+              {
+                name: t('dashboard.succeeded'),
+                value: statusData.succeeded,
+                fill: 'var(--color-succeeded)',
+              },
+              {
+                name: t('dashboard.failed'),
+                value: statusData.failed,
+                fill: 'var(--color-failed)',
+              },
+              {
+                name: t('dashboard.cancelled'),
+                value: statusData.cancelled,
+                fill: 'var(--color-cancelled)',
+              },
             ]}
             margin={MARGIN}
           >
@@ -189,9 +260,15 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
             <ChartTooltip content={<ChartTooltipContent />} />
             <Bar dataKey='value' radius={[2, 2, 0, 0]}>
               {[
-                { name: t('dashboard.succeeded'), fill: 'var(--color-succeeded)' },
+                {
+                  name: t('dashboard.succeeded'),
+                  fill: 'var(--color-succeeded)',
+                },
                 { name: t('dashboard.failed'), fill: 'var(--color-failed)' },
-                { name: t('dashboard.cancelled'), fill: 'var(--color-cancelled)' },
+                {
+                  name: t('dashboard.cancelled'),
+                  fill: 'var(--color-cancelled)',
+                },
               ].map((entry) => (
                 <Cell key={entry.name} fill={entry.fill} />
               ))}
@@ -204,12 +281,22 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
           config={errorConfig}
           stats={errorStats}
         >
-          <BarChart data={errorItems.map((e) => ({ name: e.error_code, count: e.count }))} margin={MARGIN}>
+          <BarChart
+            data={errorItems.map((e) => ({
+              name: e.error_code,
+              count: e.count,
+            }))}
+            margin={MARGIN}
+          >
             <CartesianGrid vertical={false} />
             <XAxis dataKey='name' {...TICK} height={20} />
             <YAxis width={40} allowDecimals={false} {...TICK} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey='count' fill='var(--color-errors)' radius={[2, 2, 0, 0]} />
+            <Bar
+              dataKey='count'
+              fill='var(--color-errors)'
+              radius={[2, 2, 0, 0]}
+            />
           </BarChart>
         </MonitorCard>
       </div>
@@ -217,7 +304,10 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
   )
 }
 
-function avgOf(data: { queue: number; exec: number }[], key: 'queue' | 'exec'): number {
+function avgOf(
+  data: { queue: number; exec: number }[],
+  key: 'queue' | 'exec'
+): number {
   if (data.length === 0) return 0
   return data.reduce((s, d) => s + d[key], 0) / data.length
 }

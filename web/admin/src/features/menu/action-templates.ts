@@ -9,13 +9,7 @@ import type { ActionType } from '@/lib/api/channel-menu'
  * - `url`: 单 URL Input
  * - `none`: 不需要额外字段（占位 / 未来扩展）
  */
-export type ActionFieldKind =
-  | 'workflow'
-  | 'card'
-  | 'text'
-  | 'media'
-  | 'url'
-  | 'none'
+type ActionFieldKind = 'workflow' | 'card' | 'text' | 'media' | 'url' | 'none'
 
 export const ACTION_FIELD_KIND: Record<ActionType, ActionFieldKind> = {
   open_workflow: 'workflow',
@@ -49,17 +43,4 @@ export const ACTION_TYPES: readonly ActionType[] = [
 
 export function listActionTypes(): ActionType[] {
   return [...ACTION_TYPES]
-}
-
-/**
- * 6 个 template 字段提示文案（i18n key 前缀）。
- * ActionForm 用它生成 placeholder / helper text。
- */
-export const ACTION_FIELD_LABEL_KEY: Record<ActionFieldKind, string> = {
-  workflow: 'menu.workflowList',
-  card: 'menu.actionOpenCard',
-  text: 'menu.cardText',
-  media: 'menu.cardMedia',
-  url: 'menu.actionOpenUrl',
-  none: '',
 }

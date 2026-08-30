@@ -34,6 +34,9 @@ func TestParseRule_Errors(t *testing.T) {
 		`{"op":"eq","value":1}`,
 		`{"and":[]}`,
 		`{"or":[]}`,
+		`{"always":false}`,
+		`{"always":true,"field":"x","op":"exists"}`,
+		`{"always":true,"or":[{"field":"x","op":"exists"}]}`,
 		`{"and":[{}],"field":"x"}`,
 		`{"field":"x","op":"eq","value":1,"and":[{"field":"y","op":"eq","value":2}]}`,
 		`"not-an-object"`,
@@ -42,6 +45,16 @@ func TestParseRule_Errors(t *testing.T) {
 		if _, err := ParseRule(json.RawMessage(c)); err == nil {
 			t.Fatalf("expected error for %s", c)
 		}
+	}
+}
+
+func TestParseRule_Always(t *testing.T) {
+	r, err := ParseRule(json.RawMessage(`{"always":true}`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !r.Always {
+		t.Fatalf("rule = %+v, want Always", r)
 	}
 }
 
@@ -56,6 +69,7 @@ func TestValidateRule(t *testing.T) {
 	}})
 
 	ok := []string{
+		`{"always":true}`,
 		`{"field":"user.is_premium","op":"eq","value":true}`,
 		`{"and":[{"field":"user.level","op":"gt","value":1},{"field":"case.category","op":"in","value":["image"]}]}`,
 		`{"field":"user.is_premium","op":"exists"}`,

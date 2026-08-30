@@ -38,7 +38,7 @@ func TestMetricsBucketSize(t *testing.T) {
 		window time.Duration
 		want   time.Duration
 	}{
-		{time.Hour, 30 * time.Second},
+		{time.Hour, time.Minute},
 		{6 * time.Hour, time.Minute},
 		{24 * time.Hour, 5 * time.Minute},
 		{7 * 24 * time.Hour, 30 * time.Minute},

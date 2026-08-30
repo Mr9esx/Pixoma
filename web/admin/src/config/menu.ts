@@ -12,14 +12,14 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-export type MenuItem = {
+type MenuItem = {
   id: string
   titleKey: string
   path: string
   icon: LucideIcon
 }
 
-export type MenuGroup = {
+type MenuGroup = {
   id: string
   titleKey?: string
   items: readonly MenuItem[]

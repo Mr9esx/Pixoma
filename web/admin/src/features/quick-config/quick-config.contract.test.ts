@@ -13,11 +13,12 @@ const FLOW = read('quick-config-flow.tsx')
 const CHROME = read('wizard-chrome.tsx')
 const PAGE = read('quick-config-page.tsx')
 const STEP1 = read('step1-workflow.tsx')
-const STEP3 = read('step3-channels.tsx')
-const DONE = read('done-screen.tsx')
-const READINESS = read('lib/readiness.ts')
+const STEP2Q = read('step2-queue.tsx')
+const STEP2N = read('step2-node.tsx')
+const STEP4 = read('step4-next.tsx')
+const COMMIT = read('lib/commit.ts')
 const MENU = read('../../config/menu.ts')
-const WORKFLOW_EDITOR = read('../../features/cases/workflow-editor.tsx')
+const WORKFLOW_EDITOR = read('../cases/workflow-editor.tsx')
 const ZH = JSON.parse(read('../../lib/i18n/locales/zh.json')) as {
   menu: { quickConfig: string }
   quickConfig: Record<string, string>
@@ -27,124 +28,69 @@ const EN = JSON.parse(read('../../lib/i18n/locales/en.json')) as {
   quickConfig: Record<string, string>
 }
 
-describe('quick-config wizard contract', () => {
-  it('flow 由 Formity 定义四个步骤屏幕与 return', () => {
-    expect(FLOW).toContain('useFormity<WizardSchema>')
+describe('quick-create wizard contract', () => {
+  it('flow 为工作流、队列、节点、还差一步', () => {
     expect(FLOW).toContain('Step1Workflow')
+    expect(FLOW).toContain('Step2Queue')
     expect(FLOW).toContain('Step2Node')
-    expect(FLOW).toContain('Step3Rules')
-    expect(FLOW).toContain('Step3Channels')
-    expect(FLOW).toContain('DoneScreen')
-    expect(FLOW).toContain('return:')
+    expect(FLOW).toContain('Step4Next')
+    expect(FLOW).not.toContain('Step3Channels')
+    expect(FLOW).not.toContain('DoneScreen')
   })
 
-  it('向导内不再内嵌处理流程画布（TaskFlowEditor 本期不接入）', () => {
-    expect(FLOW).not.toContain('Step2Processing')
-    expect(FLOW).not.toContain('TaskFlowEditor')
-    expect(FLOW).not.toContain('TaskFlowCanvas')
+  it('无草稿时侧栏进入即向导，不经过创建按钮', () => {
+    expect(PAGE).not.toContain('listCases')
+    expect(PAGE).not.toContain('选择已有工作流')
+    expect(PAGE).not.toContain('qc-create-btn')
+    expect(PAGE).toContain('loadQuickConfigSession')
+    expect(PAGE).toContain("to: '/'")
   })
 
-  it('第一步复用统一 WorkflowEditor 且新建不跳转、可强制导入', () => {
-    expect(STEP1).toContain('WorkflowEditor')
-    expect(STEP1).toContain('redirectAfterSave={false}')
-    expect(STEP1).toContain('requestSubmit')
+  it('第一步隐藏处理流程', () => {
+    expect(STEP1).toContain('hideProcessing')
+    expect(STEP1).toContain('hideFooter')
+    expect(STEP1).not.toContain('onNext')
+    expect(WORKFLOW_EDITOR).toContain('hideProcessing')
   })
 
-  it('Step 1 左右分栏（左滚动配置/右固定基础信息），Header 仅保留步骤点', () => {
-    expect(STEP1).toContain('splitPane')
-    expect(STEP1).toContain('leftIntro')
-    expect(WORKFLOW_EDITOR).toContain('lg:w-80')
-    expect(WORKFLOW_EDITOR).toContain('bg-card')
-    expect(CHROME).toContain('STEP_LABELS')
-    expect(CHROME).not.toContain('text-lg font-semibold')
-    expect(CHROME).not.toContain('ruleCount')
+  it('节点步提交链写 always 规则并启用', () => {
+    expect(STEP2N).toContain('commitQuickCreate')
+    expect(COMMIT).toContain('always: true')
+    expect(COMMIT).toContain('createCase')
+    expect(COMMIT).toContain('enableCase')
+    expect(COMMIT).toContain('patchEdge')
+    expect(COMMIT).not.toContain('putMenu')
   })
 
-  it('运行节点步骤选择/新建节点且不产生订阅或写请求', () => {
-    const STEP2 = read('step2-node.tsx')
-    expect(STEP2).toContain('listEdges')
-    expect(STEP2).toContain('listPresence')
-    expect(STEP2).toContain('CreateEdgeWizard')
-    expect(STEP2).toContain('updateSelectedEdge')
-    expect(STEP2).not.toContain('patchEdge')
-    expect(STEP2).not.toContain('createEdge')
-    expect(STEP2).not.toContain('subscribe_topics')
+  it('队列步可选已有或新建', () => {
+    expect(STEP2Q).toContain('listTopics')
+    expect(STEP2Q).toContain('CreateTopicForm')
+    expect(STEP2Q).toContain('DEFAULT_TOPIC_KEY')
   })
 
-  it('特殊规则分支默认路由与跳独立页两路并存，向导内不重建编辑器', () => {
-    const RULES = read('step3-rules.tsx')
-    expect(RULES).toContain('updateRulesMode')
-    expect(RULES).toContain("'default'")
-    expect(RULES).toContain('updateRuleHandover')
-    expect(RULES).toContain('patchCase')
-    expect(RULES).not.toContain('TaskFlowEditor')
-    expect(RULES).not.toContain('TaskFlowCanvas')
+  it('还差一步进消息平台且含未通提醒', () => {
+    expect(STEP4).toContain('/channels')
+    expect(STEP4).toContain('leftover-offline')
+    expect(STEP4).toContain('goChannels')
   })
 
-  it('会话保存当前步骤且向导文案 i18n 成对', () => {
-    expect(FLOW).toContain('onStepChange')
-    expect(FLOW).toMatch(/step,/)
-    const keys = [
-      'nextSave',
-      'back',
-      'workflowConfig',
-      'nodeSelection',
-      'rulesBranch',
-      'channelPlacement',
-      'done',
-      'newNode',
-      'newChannel',
-      'channelToken',
-      'noChannelsHint',
-      'channelCreated',
-      'saveOnlyGapHint',
-      'finishChecklist',
-      'publish',
-      'rulesQuestion',
-      'noRules',
-      'noRulesHint',
-      'useRulesEditor',
-      'useRulesEditorHint',
-      'nodeOnline',
-      'nodeOffline',
-      'nodeSelected',
-    ]
-    for (const k of keys) {
-      expect(ZH.quickConfig[k]).toBeTruthy()
-      expect(EN.quickConfig[k]).toBeTruthy()
-    }
+  it('chrome 四步标签', () => {
+    expect(CHROME).toContain('queueStep')
+    expect(CHROME).toContain('leftoverTitle')
   })
 
-  it('第三步入队待提交菜单，并支持空态就地新建消息平台引用', () => {
-    expect(STEP3).toContain('updatePendingEntries')
-    expect(STEP3).toContain('getCaseMenuPlacements')
-    expect(STEP3).toContain('createChannel')
-    expect(STEP3).toContain('noChannelsHint')
-    expect(STEP3).not.toContain('putMenu')
-  })
-
-  it('完成页统一提交（Case → routing → 菜单）并发布', () => {
-    expect(DONE).toContain('computeReadiness')
-    expect(DONE).toContain('createCase')
-    expect(DONE).toContain('patchCase')
-    expect(DONE).toContain('addWorkflowMenuEntry')
-    expect(DONE).toContain('getMenu')
-    expect(DONE).toContain('putMenu')
-    expect(DONE).toContain('patchEdge')
-    expect(DONE).toContain('selectedEdgeId')
-    expect(DONE).toContain('node')
-    expect(DONE).toContain('enableCase')
-    expect(DONE).toContain('canPublish')
-  })
-
-  it('就绪模型三态', () => {
-    expect(READINESS).toContain("'ready' | 'warn' | 'gap'")
-  })
-
-  it('侧栏包含快速配置入口且 i18n 成对', () => {
-    expect(PAGE).toContain('QuickConfigFlow')
+  it('侧栏入口仍为 /quick-config 且成对 i18n', () => {
     expect(MENU).toContain("'/quick-config'")
     expect(ZH.menu.quickConfig).toBeTruthy()
     expect(EN.menu.quickConfig).toBeTruthy()
+    for (const k of [
+      'queueStep',
+      'leftoverTitle',
+      'goChannels',
+      'nodeNotReady',
+    ] as const) {
+      expect(ZH.quickConfig[k]).toBeTruthy()
+      expect(EN.quickConfig[k]).toBeTruthy()
+    }
   })
 })

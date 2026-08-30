@@ -1,7 +1,7 @@
 {
   "menu": {
     "dashboard": "仪表盘",
-    "quickConfig": "快速配置",
+    "quickConfig": "快速新建",
     "visualConfig": "可视化配置",
     "edges": "计算节点",
     "cases": "工作流",
@@ -138,6 +138,21 @@
     "issue": "存在问题",
     "unavailable": "当前不可用"
   },
+  "auth": {
+    "quote": "随时随地使用自己的 ComfyUI 进行艺术创作。",
+    "title": "登录",
+    "username": "用户名",
+    "password": "密码",
+    "remember": "记住我，30 天内免登录",
+    "submit": "登录",
+    "submitting": "登录中…",
+    "loginFailed": "登录失败",
+    "sessionExpiredTitle": "登录已失效",
+    "sessionExpiredDescription": "重新登录后继续使用后台。",
+    "registrationPrompt": "还没有账号？",
+    "createAccount": "创建账号",
+    "firstRunHint": "首次启动系统会生成默认密码，在启动日志中搜索 \"Admin password\" 即可。"
+  },
   "theme": {
     "light": "浅色",
     "dark": "深色"
@@ -145,6 +160,7 @@
   "lang": {
     "zh": "中文",
     "en": "English",
+    "label": "语言",
     "switch": "切换语言"
   },
   "dashboard": {
@@ -459,6 +475,9 @@
     "inputsHint": "使用时按顺序被问到这些内容",
     "outputsHeading": "用户会得到什么",
     "outputsHint": "完成后会收到这些结果",
+    "processingPill": "Routing",
+    "processingHeading": "处理流程",
+    "processingHint": "按顺序匹配第一条命中规则，未命中任务失败",
     "fieldFromNode": "来自节点",
     "fieldParam": "参数",
     "fieldOutput": "输出",
@@ -482,6 +501,7 @@
     "errDuplicateKey": "字段名不能重复",
     "errInputNotBound": "所有输入字段都必须绑定节点和参数",
     "errNoOutput": "至少需要一个输出",
+    "errRoutingInvalid": "处理流程存在未通过的规则",
     "errNameRequired": "先输入工作流名称再提交",
     "sectionProcess": "ComfyUI 工作流处理概览",
     "editInfo": "编辑信息",
@@ -712,7 +732,7 @@
   },
   "topics": {
     "title": "任务队列",
-    "description": "管理任务队列：工作流按规则把任务分到通道，订阅的计算节点领取执行。未命中规则的任务回退到 default。",
+    "description": "管理任务队列：工作流按规则把任务分到通道，订阅的计算节点领取执行。未命中规则的任务失败。",
     "listSearch": "搜索任务队列…",
     "new": "新建任务队列",
     "newDescription": "Key 创建后不可修改；仅支持小写字母、数字与连字符。",
@@ -729,7 +749,7 @@
     "deleted": "任务队列已删除",
     "created": "任务队列已创建",
     "defaultBadge": "默认",
-    "defaultHint": "默认任务队列不允许停用或删除；未命中任何规则的任务会回退到它。",
+    "defaultHint": "默认任务队列不允许停用或删除；只有显式规则会路由到这里。",
     "boundNodes": "绑定计算节点",
     "boundNodesHint": "订阅了该任务队列的计算节点；绑定/解绑会写入节点的 subscribe_topics。",
     "noNodes": "暂无计算节点，先到「计算节点」页添加。",
@@ -792,7 +812,8 @@
     "next": "下一步",
     "step1Hint": "工作流配置：新建（强制导入，复用 CaseForm）或调整已有（已加载可编辑）。",
     "unnamedWorkflow": "未命名工作流",
-    "requireValidJson": "必须导入合法工作流 JSON 后才能继续（不允许创建空壳 Case）。",
+    "workflowImportTitle": "新建前先导入工作流",
+    "workflowImportDescription": "导入 ComfyUI 导出的 workflow JSON。校验通过后，字段配置才会开放。",
     "requireRule": "至少需要一条处理规则",
     "unboundRule": "存在未连接任务队列的规则，先连线",
     "boundNodes": "已绑定节点：{{nodes}}",
@@ -846,14 +867,25 @@
     "nodeSelection": "哪台电脑运行你的工作流？",
     "rulesBranch": "特殊规则",
     "rulesQuestion": "你的工作流需要特殊规则吗？",
-    "noRules": "不需要 · 默认路由",
-    "noRulesHint": "任务回退到 default 主题，由运行节点消费，无需额外配置。",
+    "noRules": "不需要 · 默认规则",
+    "noRulesHint": "默认规则指向 default，由运行节点消费。",
     "useRulesEditor": "需要 · 使用规则编辑器",
     "useRulesEditorHint": "跳转到独立规则编辑页完成规则与 Topic 订阅。",
     "nodeOnline": "在线",
     "nodeOffline": "离线",
     "nodeSelected": "运行节点已选",
-    "noEdgesHint": "暂无节点，先新建一个。"
+    "noEdgesHint": "暂无节点，先新建一个。",
+    "queueStep": "任务队列",
+    "leftoverTitle": "还差一步",
+    "leftoverHint": "工作流已启用，任务进队列 {{topic}}。",
+    "leftoverTutorial": "消息平台加上打开这条工作流的菜单，Telegram 里才能点到它。",
+    "goChannels": "去消息平台",
+    "nodeNotReady": "节点还没通。本机跑完 agent 之后才会拉活。",
+    "leave": "离开",
+    "pageTitle": "快速新建",
+    "createWorkflow": "创建工作流",
+    "discardDraft": "废弃",
+    "continueDraft": "继续"
   },
   "configContext": {
     "title": "关联上下文",

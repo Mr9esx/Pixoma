@@ -1,4 +1,4 @@
-export type ListHealthTone = 'ok' | 'warn'
+type ListHealthTone = 'ok' | 'warn'
 
 export function listHealthTone(input: {
   enabled: boolean

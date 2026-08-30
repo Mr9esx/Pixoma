@@ -57,7 +57,7 @@ export function rotateEdgeToken(id: string) {
   )
 }
 
-export type DeleteEdgeResult = {
+type DeleteEdgeResult = {
   deleted: boolean
   failed_tasks?: number
 }

@@ -39,6 +39,16 @@ func (c *captureBus) Publish(_ context.Context, msg queue.Message) error {
 
 type stubPrep struct{}
 
+func setExplicitDefaultRouting(svc *orchestrator.Service) {
+	svc.Cases = &caseReaderStub{docs: map[sharedkernel.CaseID]*catalogdomain.CaseDocument{
+		1: {
+			ID:      1,
+			Routing: &catalogdomain.RoutingConfig{Rules: []catalogdomain.RoutingRule{{When: []byte(`{"always":true}`), Topic: "default"}}},
+		},
+	}}
+	svc.Condition = condition.NewRegistry()
+}
+
 func (stubPrep) PrepareJob(_ context.Context, taskID sharedkernel.TaskID) (sharedkernel.BlobRef, error) {
 	return sharedkernel.BlobRef{Key: "jobs/" + string(taskID) + "/job.json", MIME: "application/json"}, nil
 }
@@ -61,6 +71,7 @@ func TestOnTaskCreatedMakesClaimable(t *testing.T) {
 	svc := orchestrator.New(tasks, reg, bus, n)
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
+	setExplicitDefaultRouting(svc)
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t1"}); err != nil {
 		t.Fatal(err)
@@ -148,7 +159,7 @@ func TestNotify_JoinsSessionChatID(t *testing.T) {
 		ID:        "s1",
 		UserID:    "u1",
 		ChatID:    "tg:100",
-		CaseID: 1,
+		CaseID:    1,
 		Status:    convdomain.StatusSubmitted,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -323,6 +334,7 @@ func TestDispatch_PrepFailKeepsPending(t *testing.T) {
 	svc := orchestrator.New(tasks, static.New(edge.Instance{ID: "local", SubscribeTopics: []string{"default"}}), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }
 	svc.Prep = failPrep{err: errors.New("blob down")}
+	setExplicitDefaultRouting(svc)
 
 	err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t1"})
 	if err == nil {
@@ -369,6 +381,7 @@ func TestDispatch_ConcurrentPrepareOnlyOneClaimable(t *testing.T) {
 	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
+	setExplicitDefaultRouting(svc)
 
 	const n = 32
 	var wg sync.WaitGroup
@@ -423,6 +436,7 @@ func TestOrchestrator_TopicClaimableWithoutRoundRobin(t *testing.T) {
 	svc := orchestrator.New(tasks, reg, bus, &memNotify{})
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
+	setExplicitDefaultRouting(svc)
 
 	if err := svc.OnTaskCreated(ctx, sharedkernel.TaskCreated{TaskID: "t1"}); err != nil {
 		t.Fatal(err)
@@ -450,6 +464,7 @@ func TestOrchestrator_NoInstanceKeepsPending(t *testing.T) {
 	svc := orchestrator.New(tasks, static.New(), &captureBus{}, &memNotify{})
 	svc.Now = func() time.Time { return now }
 	svc.Prep = stubPrep{}
+	setExplicitDefaultRouting(svc)
 
 	if err := svc.SchedulePending(ctx, 10); err != nil {
 		t.Fatalf("SchedulePending must not fail when no instance: %v", err)

@@ -201,8 +201,8 @@ func TestEdgesTotal(t *testing.T) {
 
 func TestCasesTop(t *testing.T) {
 	repo := &fakeRepo{cases: []taskstats.CaseRow{
-		{CaseID: 1, Count: 3, TotalDurationMS: 9000},
-		{CaseID: 2, Count: 1, TotalDurationMS: 1000},
+		{CaseID: 1, CaseName: "Portrait", Count: 3, TotalDurationMS: 9000},
+		{CaseID: 2, CaseName: "Video", Count: 1, TotalDurationMS: 1000},
 	}}
 	rec := httptest.NewRecorder()
 	newRouter(repo).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/cases/top?from=2026-08-01&to=2026-08-02&limit=5", nil))
@@ -212,6 +212,7 @@ func TestCasesTop(t *testing.T) {
 	var resp struct {
 		Items []struct {
 			CaseID        uint64 `json:"case_id"`
+			CaseName      string `json:"case_name"`
 			Count         int    `json:"count"`
 			AvgDurationMS *int64 `json:"avg_duration_ms"`
 		} `json:"items"`
@@ -219,7 +220,7 @@ func TestCasesTop(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
-	if len(resp.Items) != 2 || resp.Items[0].CaseID != 1 || resp.Items[0].Count != 3 ||
+	if len(resp.Items) != 2 || resp.Items[0].CaseID != 1 || resp.Items[0].CaseName != "Portrait" || resp.Items[0].Count != 3 ||
 		resp.Items[0].AvgDurationMS == nil || *resp.Items[0].AvgDurationMS != 3000 {
 		t.Fatalf("items=%+v", resp.Items)
 	}

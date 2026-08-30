@@ -1,5 +1,3 @@
-import { DEFAULT_TOPIC_KEY } from '../../task-flow/types'
-
 export type ReadinessLevel = 'ready' | 'warn' | 'gap'
 
 type WorkflowLike = {
@@ -19,7 +17,7 @@ export function workflowStatus(caseLike: WorkflowLike): ReadinessLevel {
   return hasWorkflow && hasInputs && hasSchema ? 'ready' : 'gap'
 }
 
-export type ProcessingInput = {
+type ProcessingInput = {
   workflow: ReadinessLevel
   rules: { topic?: string }[]
   enabledTopics: string[]
@@ -28,11 +26,9 @@ export type ProcessingInput = {
   placements: unknown[]
   /** 是否已在向导选定运行节点。 */
   selectedNodeSelected: boolean
-  /** 是否为默认路由分支（无规则，default 路由）。 */
-  hasDefaultRoute: boolean
 }
 
-export type Readiness = {
+type Readiness = {
   workflow: ReadinessLevel
   processing: ReadinessLevel
   placements: ReadinessLevel
@@ -49,41 +45,31 @@ export type Readiness = {
  */
 export function computeReadiness(input: ProcessingInput): Readiness {
   let processing: ReadinessLevel
-  if (!input.hasDefaultRoute && input.rules.length === 0) {
+  const usedTopics = [
+    ...new Set(
+      input.rules
+        .map((rule) => rule.topic)
+        .filter((topic): topic is string => Boolean(topic))
+    ),
+  ]
+  const hasUnwiredRule = input.rules.some((rule) => !rule.topic)
+  if (input.rules.length === 0 || hasUnwiredRule) {
     processing = 'gap'
-  } else if (input.hasDefaultRoute && input.rules.length === 0) {
-    const hasUnbound = !input.boundTopics.includes(DEFAULT_TOPIC_KEY)
-    const hasDisabled = !input.enabledTopics.includes(DEFAULT_TOPIC_KEY)
+  } else {
+    const hasUnbound = usedTopics.some(
+      (topic) => !input.boundTopics.includes(topic)
+    )
+    const hasDisabled = usedTopics.some(
+      (topic) => !input.enabledTopics.includes(topic)
+    )
     if (hasUnbound || hasDisabled) {
       processing = 'gap'
-    } else if (input.onlineTopics.includes(DEFAULT_TOPIC_KEY)) {
+    } else if (
+      usedTopics.every((topic) => input.onlineTopics.includes(topic))
+    ) {
       processing = 'ready'
     } else {
       processing = 'warn'
-    }
-  } else {
-    const usedTopics = input.rules
-      .map((rule) => rule.topic)
-      .filter((topic): topic is string => Boolean(topic))
-    const hasUnwiredRule = input.rules.some((rule) => !rule.topic)
-    if (hasUnwiredRule) {
-      processing = 'gap'
-    } else {
-      const hasUnbound = usedTopics.some(
-        (topic) => !input.boundTopics.includes(topic)
-      )
-      const hasDisabled = usedTopics.some(
-        (topic) => !input.enabledTopics.includes(topic)
-      )
-      if (hasUnbound || hasDisabled) {
-        processing = 'gap'
-      } else if (
-        usedTopics.every((topic) => input.onlineTopics.includes(topic))
-      ) {
-        processing = 'ready'
-      } else {
-        processing = 'warn'
-      }
     }
   }
 

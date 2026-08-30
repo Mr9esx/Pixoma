@@ -32,7 +32,21 @@ func TestResolve_FirstMatchWins(t *testing.T) {
 	}
 }
 
-func TestResolve_NoMatchFallsBackToDefault(t *testing.T) {
+func TestResolve_AlwaysMatches(t *testing.T) {
+	reg := condition.NewRegistry()
+	cfg := &domain.RoutingConfig{Rules: []domain.RoutingRule{
+		{When: json.RawMessage(`{"always":true}`), Topic: "default"},
+	}}
+	got, err := routing.Resolve(cfg, context.Background(), reg)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if got != "default" {
+		t.Fatalf("topic = %q, want default", got)
+	}
+}
+
+func TestResolve_NoMatchReturnsErrNoMatch(t *testing.T) {
 	reg := condition.NewRegistry()
 	reg.Register(&condition.UserProvider{Lookup: func(context.Context, string) (*bool, error) {
 		return nil, nil // missing → false
@@ -42,23 +56,25 @@ func TestResolve_NoMatchFallsBackToDefault(t *testing.T) {
 	cfg := &domain.RoutingConfig{Rules: []domain.RoutingRule{
 		{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
 	}}
-	got, err := routing.Resolve(cfg, ctx, reg)
-	if err != nil {
-		t.Fatalf("resolve: %v", err)
-	}
-	if got != "default" {
-		t.Fatalf("topic = %q, want default", got)
+	_, err := routing.Resolve(cfg, ctx, reg)
+	if !errors.Is(err, routing.ErrNoMatch) {
+		t.Fatalf("expected ErrNoMatch, got %v", err)
 	}
 }
 
-func TestResolve_NilRoutingFallsBackToDefault(t *testing.T) {
+func TestResolve_EmptyRulesReturnsErrNoMatch(t *testing.T) {
 	reg := condition.NewRegistry()
-	got, err := routing.Resolve(nil, context.Background(), reg)
-	if err != nil {
-		t.Fatalf("resolve: %v", err)
+	_, err := routing.Resolve(&domain.RoutingConfig{}, context.Background(), reg)
+	if !errors.Is(err, routing.ErrNoMatch) {
+		t.Fatalf("expected ErrNoMatch, got %v", err)
 	}
-	if got != "default" {
-		t.Fatalf("topic = %q, want default", got)
+}
+
+func TestResolve_NilRoutingReturnsErrNoMatch(t *testing.T) {
+	reg := condition.NewRegistry()
+	_, err := routing.Resolve(nil, context.Background(), reg)
+	if !errors.Is(err, routing.ErrNoMatch) {
+		t.Fatalf("expected ErrNoMatch, got %v", err)
 	}
 }
 

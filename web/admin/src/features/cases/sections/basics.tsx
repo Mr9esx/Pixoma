@@ -3,12 +3,12 @@ import { useTranslation } from 'react-i18next'
 import type { CaseRecord } from '@/lib/api/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { MultiSelect } from '@/components/ui/multi-select'
 import { Switch } from '@/components/ui/switch'
 import { MarkdownTextField } from './markdown-text-field'
-import { MultiSelect } from '@/components/ui/multi-select'
 import { MediaPreviewField } from './media-preview-field'
 
-export type BasicsSlice = Pick<
+type BasicsSlice = Pick<
   CaseRecord,
   'name' | 'description' | 'preview' | 'tags' | 'categories' | 'enabled'
 >
@@ -46,7 +46,9 @@ export function BasicsSection({
       <div className='space-y-2'>
         <Label htmlFor='case-name'>
           {t('cases.fieldName')}
-          <span className='text-destructive' aria-hidden='true'>*</span>
+          <span className='text-destructive' aria-hidden='true'>
+            *
+          </span>
         </Label>
         <Input
           id='case-name'
@@ -60,7 +62,11 @@ export function BasicsSection({
           aria-describedby={nameError ? 'case-name-error' : undefined}
         />
         {nameError ? (
-          <p id='case-name-error' role='alert' className='text-sm text-destructive'>
+          <p
+            id='case-name-error'
+            role='alert'
+            className='text-sm text-destructive'
+          >
             {nameError}
           </p>
         ) : null}
@@ -84,7 +90,6 @@ export function BasicsSection({
           disabled={disabled}
         />
       </div>
-
 
       <div className='grid gap-4 sm:grid-cols-2'>
         <div className='space-y-2'>
