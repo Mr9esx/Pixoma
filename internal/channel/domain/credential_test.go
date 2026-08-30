@@ -32,10 +32,10 @@ func TestDecryptCredentialWrongKey(t *testing.T) {
 
 func TestMaskedToken(t *testing.T) {
 	cases := map[string]string{
-		"1234567890":     "1234****7890",
-		"abc":            "****",
-		"1234567890123":  "1234****0123",
-		"":               "****",
+		"1234567890":    "1234****7890",
+		"abc":           "****",
+		"1234567890123": "1234****0123",
+		"":              "****",
 	}
 	for in, want := range cases {
 		if got := MaskedToken(in); got != want {

@@ -70,6 +70,55 @@ func TestSpecsExposeTerminalVariables(t *testing.T) {
 	}
 }
 
+func TestSpecsExposeGroupsAndInteractionKeys(t *testing.T) {
+	byKey := map[string]text.Spec{}
+	for _, s := range text.Specs() {
+		byKey[s.Key] = s
+	}
+
+	type want struct {
+		key    string
+		group  string
+		defalt string
+	}
+	for _, item := range []want{
+		{key: text.KeyWelcome, group: text.GroupPlatform},
+		{key: text.KeyHelp, group: text.GroupCommands},
+		{key: text.KeySelectTemplate, group: text.GroupPlatform},
+		{key: text.KeyWorkflowDone, group: text.GroupNotifications},
+		{key: text.KeyWorkflowDoneFollowp, group: text.GroupNotifications},
+		{key: text.KeySubmitStarted, group: text.GroupWorkflow},
+		{key: text.KeyConfirmRun, group: text.GroupWorkflow},
+		{key: text.KeyInputPrompt, group: text.GroupWorkflow},
+		{key: text.KeyExitDone, group: text.GroupPlatform},
+		{key: text.KeyUnfinishedSession, group: text.GroupPlatform},
+		{key: text.KeyMenuActionPlaceholder, group: text.GroupPlatform},
+		{key: text.KeyMenuUpdated, group: text.GroupPlatform},
+		{key: text.KeyTaskFailed, group: text.GroupNotifications},
+		{key: text.KeyTaskCancelled, group: text.GroupNotifications},
+		{key: text.KeyPreviewHintLabel, group: text.GroupWorkflow, defalt: "预览说明："},
+		{key: text.KeyPreviewMockHint, group: text.GroupWorkflow, defalt: "（mock）确认后将返回一张示例图"},
+		{key: text.KeyButtonStartCase, group: text.GroupWorkflow, defalt: "▶ 开始 Case"},
+		{key: text.KeyInputInvalidNumber, group: text.GroupWorkflow, defalt: "请输入合法数字，例如 42"},
+		{key: text.KeyInputInvalidBoolean, group: text.GroupWorkflow, defalt: "请输入 true 或 false"},
+		{key: text.KeyButtonSkip, group: text.GroupWorkflow, defalt: "跳过"},
+		{key: text.KeyButtonConfirmRun, group: text.GroupWorkflow, defalt: "✅ 确认生成"},
+		{key: text.KeyButtonExit, group: text.GroupWorkflow, defalt: "✕ 退出"},
+		{key: text.KeySessionTerminated, group: text.GroupNotifications, defalt: "该工作流已被管理员删除，当前会话已结束。"},
+	} {
+		spec, ok := byKey[item.key]
+		if !ok {
+			t.Fatalf("specs missing key %q", item.key)
+		}
+		if spec.Group != item.group {
+			t.Fatalf("%s group=%q want %q", item.key, spec.Group, item.group)
+		}
+		if item.defalt != "" && spec.Default != item.defalt {
+			t.Fatalf("%s default=%q want %q", item.key, spec.Default, item.defalt)
+		}
+	}
+}
+
 func TestStore_RenderUsesOverrideAndChannelPrecedence(t *testing.T) {
 	st, ctx := openStore(t, "text_test")
 	// built-in default before any override

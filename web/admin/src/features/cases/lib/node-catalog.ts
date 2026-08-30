@@ -72,13 +72,65 @@ export const NODE_INPUT_KINDS: Record<string, Record<string, string>> = {
     height: 'number',
     batch_size: 'number',
   },
+  UNETLoader: { unet_name: 'enum', weight_dtype: 'enum' },
+  CLIPLoader: { clip_name: 'enum', type: 'enum' },
+  CheckpointLoaderSimple: { ckpt_name: 'enum' },
+  VAELoader: { vae_name: 'enum' },
+  LoraLoader: {
+    lora_name: 'enum',
+    strength_model: 'number',
+    strength_clip: 'number',
+  },
   SaveImage: { filename_prefix: 'string' },
 }
 
-export function inputKindFor(classType: string, field: string): InputKind {
+export function inputKindFor(
+  classType: string,
+  field: string,
+  value?: unknown
+): InputKind {
   const kind = NODE_INPUT_KINDS[classType]?.[field]
-  if (kind === undefined) return 'unknown'
-  return kind as InputKind
+  if (kind !== undefined) return kind as InputKind
+
+  const lowerField = field.toLowerCase()
+  if (
+    typeof value === 'number' ||
+    /(^|_)(seed|steps|cfg|denoise|width|height|batch_size|strength_model|strength_clip)$/.test(
+      lowerField
+    )
+  ) {
+    return 'number'
+  }
+  if (typeof value === 'boolean' || lowerField.startsWith('enable_')) {
+    return 'boolean'
+  }
+  if (
+    lowerField.includes('image') ||
+    lowerField === 'upload' ||
+    lowerField.endsWith('_image')
+  ) {
+    return 'image'
+  }
+  if (lowerField.includes('audio') || lowerField.endsWith('_audio')) {
+    return 'audio'
+  }
+  if (lowerField.includes('video') || lowerField.endsWith('_video')) {
+    return 'video'
+  }
+  if (
+    lowerField.endsWith('_name') ||
+    lowerField.endsWith('_method') ||
+    lowerField.endsWith('_mode') ||
+    lowerField.endsWith('_type') ||
+    lowerField.endsWith('_dtype') ||
+    lowerField.endsWith('_scheduler') ||
+    lowerField.endsWith('_sampler')
+  ) {
+    return 'enum'
+  }
+  if (typeof value === 'string') return 'string'
+
+  return 'unknown'
 }
 
 /** 节点输出类型（供输出字段绑定自动带出）。 */

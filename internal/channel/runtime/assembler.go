@@ -36,7 +36,7 @@ type Assembler struct {
 	Factory  AdapterFactory
 	Interval time.Duration // watch interval; default 5s
 
-	mu      sync.Mutex
+	mu       sync.Mutex
 	adapters map[string]*managedAdapter
 }
 

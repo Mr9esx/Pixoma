@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
+	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
@@ -16,6 +17,12 @@ import (
 type recordingOutbound struct {
 	media []sharedkernel.BlobRef
 	texts []string
+}
+
+type sessionTextRenderer struct{}
+
+func (sessionTextRenderer) Render(_ context.Context, _ string, key string, vars map[string]string) string {
+	return texttpl.Render(key+"|custom", vars)
 }
 
 func (r *recordingOutbound) SendText(_ context.Context, _ sharedkernel.ChannelAddr, text string) error {
@@ -104,6 +111,23 @@ func TestHandleUserNotifySessionTerminated(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(out.texts) != 1 || out.texts[0] != "该工作流已被管理员删除，当前会话已结束。" {
+		t.Fatalf("texts=%+v", out.texts)
+	}
+}
+
+func TestHandleUserNotifySessionTerminatedRendersTemplate(t *testing.T) {
+	out := &recordingOutbound{}
+	a := tg.New(out)
+	a.ChannelID = "tg-custom"
+	a.Texts = sessionTextRenderer{}
+	if err := a.HandleUserNotify(context.Background(), sharedkernel.UserNotify{
+		ChatID:   sharedkernel.ChatID("tg-custom:123"),
+		Kind:     "session_terminated",
+		ErrorMsg: "case removed",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.texts) != 1 || out.texts[0] != "session_terminated|custom" {
 		t.Fatalf("texts=%+v", out.texts)
 	}
 }

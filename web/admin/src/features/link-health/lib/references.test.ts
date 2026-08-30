@@ -233,7 +233,11 @@ describe('channelReferences', () => {
   })
 
   it('连接正常 → ok、无断点', () => {
-    const health = channelReferences('c1', { ok: true, kind: 'ok', message: '' })
+    const health = channelReferences('c1', {
+      ok: true,
+      kind: 'ok',
+      message: '',
+    })
     expect(health.state).toBe('ok')
     expect(health.breakpoints).toEqual([])
   })

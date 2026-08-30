@@ -63,15 +63,13 @@ export function parseWorkflow(raw: string): WorkflowParseResult {
   if (!isApiGraph(parsed)) {
     return {
       ok: false,
-      error:
-        '不是 ComfyUI「保存(API 格式)」导出的 JSON',
+      error: '不是 ComfyUI「保存(API 格式)」导出的 JSON',
     }
   }
   if (hasWidgetKeys(parsed)) {
     return {
       ok: false,
-      error:
-        '含 `widget_N` 占位输入，用「保存(API 格式)」重新导出',
+      error: '含 `widget_N` 占位输入，用「保存(API 格式)」重新导出',
     }
   }
   const api = parsed
@@ -85,7 +83,7 @@ export function parseWorkflow(raw: string): WorkflowParseResult {
       const ref = Array.isArray(value)
       return {
         name,
-        kind: ref ? 'ref' : inputKindFor(classType, name),
+        kind: ref ? 'ref' : inputKindFor(classType, name, value),
         ref,
       }
     })

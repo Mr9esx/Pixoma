@@ -10,7 +10,7 @@ import (
 )
 
 type fakeAdapter struct {
-	id    string
+	id      string
 	started int
 	stopped int
 }
@@ -50,10 +50,10 @@ type fakeError struct{}
 func (*fakeError) Error() string { return "fake start error" }
 
 type memSnapshotStore struct {
-	mu     sync.Mutex
-	rows   map[string]ChannelSnapshot
-	order  []string
-	seq    int
+	mu    sync.Mutex
+	rows  map[string]ChannelSnapshot
+	order []string
+	seq   int
 }
 
 func newMemStore() *memSnapshotStore {

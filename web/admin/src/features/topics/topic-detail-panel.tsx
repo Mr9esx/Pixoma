@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 import {
   CalendarCheck,
   Hash,
+  MoreHorizontal,
   PenLine,
   Power,
   SearchX,
@@ -29,7 +30,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -38,6 +38,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Reveal } from '@/components/ui/reveal'
@@ -61,6 +67,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [name, setName] = useState('')
 
   const topicQuery = useQuery({
@@ -206,16 +213,6 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{topic.name}</h2>
-            <Pill
-              dot={topic.enabled ? 'success' : 'neutral'}
-              className={
-                topic.enabled
-                  ? 'border-success/25 bg-success/10 text-success'
-                  : 'border-border bg-muted text-muted-foreground'
-              }
-            >
-              {topic.enabled ? t('topics.enabled') : t('topics.disabled')}
-            </Pill>
             {isDefault ? (
               <Pill className='border-primary/20 bg-primary/10 text-primary'>
                 {t('topics.defaultBadge')}
@@ -223,16 +220,6 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
             ) : null}
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
-            <Button
-              type='button'
-              variant='outline'
-              className={kit.btnGhost}
-              disabled={isDefault || enableMutation.isPending}
-              onClick={() => enableMutation.mutate(!topic.enabled)}
-            >
-              <Power className='size-3.5' strokeWidth={2} />
-              {topic.enabled ? t('topics.disable') : t('topics.enable')}
-            </Button>
             <Button
               type='button'
               className={kit.btnPrimary}
@@ -244,18 +231,39 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
               <PenLine className='size-3.5' strokeWidth={2} />
               {t('topics.edit')}
             </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <Button
+              type='button'
+              variant='outline'
+              className={kit.btnGhost}
+              disabled={isDefault || enableMutation.isPending}
+              onClick={() => enableMutation.mutate(!topic.enabled)}
+            >
+              <Power className='size-3.5' strokeWidth={2} />
+              {topic.enabled ? t('topics.disable') : t('topics.enable')}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   type='button'
+                  variant='outline'
+                  size='icon-sm'
+                  aria-label={t('common.moreActions')}
+                >
+                  <MoreHorizontal className='size-3.5' strokeWidth={2} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end'>
+                <DropdownMenuItem
                   variant='destructive'
-                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
                   disabled={isDefault || deleteMutation.isPending}
+                  onSelect={() => setDeleteOpen(true)}
                 >
                   <Trash2 className='size-3.5' strokeWidth={2} />
                   {t('topics.delete')}
-                </Button>
-              </AlertDialogTrigger>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>

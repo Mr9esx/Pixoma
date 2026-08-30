@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { LongText } from '@/components/long-text'
+import { StatusDot } from '@/components/status-dot'
+import type { EntityHealth } from '@/features/link-health/lib/references'
 
 export type CaseListFilters = {
   q: string
@@ -14,6 +16,8 @@ export type CaseListFilters = {
 
 type Props = {
   items: CaseRecord[]
+  healthByCase?: Record<number, EntityHealth>
+  healthReady?: boolean
   selectedId?: number
   filters: CaseListFilters
   onFiltersChange: (next: CaseListFilters) => void
@@ -25,6 +29,8 @@ type Props = {
 
 export function CaseListPanel({
   items,
+  healthByCase,
+  healthReady = false,
   selectedId,
   filters,
   onFiltersChange,
@@ -74,6 +80,9 @@ export function CaseListPanel({
         <ul className='min-h-0 flex-1 divide-y overflow-auto'>
           {items.map((item) => {
             const selected = selectedId === item.id
+            const health = healthReady ? healthByCase?.[item.id] : undefined
+            const problems =
+              (item.enabled ? 0 : 1) + (health?.breakpoints.length ?? 1)
             return (
               <li key={item.id}>
                 <Link
@@ -84,9 +93,15 @@ export function CaseListPanel({
                     selected && 'border-l-foreground bg-accent'
                   )}
                 >
-                  <span className='block truncate font-medium'>
-                    {item.name}
-                  </span>
+                  <div className='flex items-center justify-between gap-2'>
+                    <span className='truncate font-medium'>{item.name}</span>
+                    <StatusDot
+                      problems={problems}
+                      label={
+                        problems === 0 ? t('cases.enabled') : t('status.issue')
+                      }
+                    />
+                  </div>
                   {item.description ? (
                     <LongText className='mt-0.5 text-xs text-muted-foreground'>
                       {item.description}

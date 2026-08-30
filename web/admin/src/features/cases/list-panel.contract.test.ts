@@ -26,8 +26,9 @@ describe('case list filters (single search, no status segment)', () => {
     const source = read(LIST_PANEL)
     expect(source).not.toContain('cases-filter-enabled')
     expect(source).not.toContain('FilterSegment')
-    expect(source).not.toContain('item.enabled')
-    expect(source).not.toContain("t('cases.enabled')")
+    expect(source).toContain('item.enabled')
+    expect(source).toContain("t('cases.enabled')")
+    expect(source).toContain('<StatusDot')
   })
 
   it('list item title is the workflow name and secondary line is the description', () => {
@@ -56,7 +57,7 @@ describe('case list filters (single search, no status segment)', () => {
     expect(source).toMatch(
       /<CaseForm\s+mode='create'\s+splitPane\s+hideActions[\s\S]*?formId='create-case-form'\s*\/>/
     )
-    expect(source).toContain("type='submit' form='create-case-form'")
+    expect(source).toMatch(/<Button\s+type='submit'\s+form='create-case-form'/)
     expect(source).toContain('min-h-0 flex-1 overflow-auto')
     expect(source).not.toMatch(
       /hasSelection=\{Boolean\(selectedId\) \|\| caseId === 'new'\}/

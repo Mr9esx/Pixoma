@@ -247,10 +247,7 @@ func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotif
 		return a.Out.SendMenu(ctx, addr, a.renderText(ctx, texttpl.KeyWorkflowDoneFollowp, nil), nil)
 	}
 	if n.Kind == "session_terminated" {
-		msg := n.ErrorMsg
-		if msg == "" {
-			msg = "该工作流已被管理员删除，当前会话已结束。"
-		}
+		msg := a.renderText(ctx, texttpl.KeySessionTerminated, map[string]string{"error_msg": n.ErrorMsg})
 		return a.Out.SendText(ctx, addr, msg)
 	}
 	if n.Kind == "task_failed" || n.Kind == "task_cancelled" {

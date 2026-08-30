@@ -64,15 +64,28 @@ func RegisterHandlers(b *bot.Bot, ad *Adapter) {
 		return update.CallbackQuery != nil
 	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
 		cq := update.CallbackQuery
-		userID := resolveUser(ctx, ad, &cq.From)
-		chatID := cq.From.ID
-		if cq.Message.Message != nil {
-			chatID = cq.Message.Message.Chat.ID
+		answer := func(ctx context.Context, callbackID string) error {
+			_, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{CallbackQueryID: callbackID})
+			return err
 		}
-		if err := ad.HandleCallback(ctx, formatChatID(ad, chatID), cq.ID, cq.Data, userID); err != nil {
-			slog.Error("tg handle callback", "err", err, "chat_id", chatID)
+		if err := handleCallbackUpdate(ctx, ad, cq, answer); err != nil {
+			slog.Error("tg handle callback", "err", err)
 		}
 	})
+}
+
+func handleCallbackUpdate(ctx context.Context, ad *Adapter, cq *models.CallbackQuery, answerCallback func(context.Context, string) error) error {
+	if answerCallback != nil {
+		if err := answerCallback(ctx, cq.ID); err != nil {
+			slog.Error("tg answer callback", "err", err, "callback_id", cq.ID)
+		}
+	}
+	userID := resolveUser(ctx, ad, &cq.From)
+	chatID := cq.From.ID
+	if cq.Message.Message != nil {
+		chatID = cq.Message.Message.Chat.ID
+	}
+	return ad.HandleCallback(ctx, formatChatID(ad, chatID), cq.ID, cq.Data, userID)
 }
 
 func formatChatID(ad *Adapter, chatID int64) sharedkernel.ChatID {

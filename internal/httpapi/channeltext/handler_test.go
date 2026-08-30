@@ -34,6 +34,7 @@ func newTestHandler(t *testing.T) (http.Handler, *text.Store) {
 
 type dto struct {
 	Key     string   `json:"key"`
+	Group   string   `json:"group"`
 	Default string   `json:"default"`
 	Value   string   `json:"value"`
 	Vars    []string `json:"variables"`
@@ -70,6 +71,16 @@ func TestList_ReturnsFullCatalog(t *testing.T) {
 	}
 	if len(items) < 8 {
 		t.Fatalf("expected a full catalog, got %d items", len(items))
+	}
+
+	groups := map[string]bool{}
+	for _, item := range items {
+		groups[item.Group] = true
+	}
+	for _, group := range []string{text.GroupWorkflow, text.GroupNotifications, text.GroupPlatform, text.GroupCommands} {
+		if !groups[group] {
+			t.Fatalf("group %q missing", group)
+		}
 	}
 }
 

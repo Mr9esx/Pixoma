@@ -26,11 +26,30 @@ const (
 	KeyMenuUpdated           = "menu_updated"
 	KeyTaskFailed            = "task_failed"
 	KeyTaskCancelled         = "task_cancelled"
+	KeyPreviewHintLabel      = "preview_hint_label"
+	KeyPreviewMockHint       = "preview_mock_hint"
+	KeyButtonStartCase       = "button_start_case"
+	KeyInputInvalidNumber    = "input_invalid_number"
+	KeyInputInvalidBoolean   = "input_invalid_boolean"
+	KeyButtonSkip            = "button_skip"
+	KeyButtonConfirmRun      = "button_confirm_run"
+	KeyButtonExit            = "button_exit"
+	KeySessionTerminated     = "session_terminated"
+)
+
+// Scenario groups used by the admin configuration page. They describe where a
+// template is edited; storage and rendering always use the template key.
+const (
+	GroupWorkflow      = "workflow"
+	GroupNotifications = "notifications"
+	GroupPlatform      = "platform"
+	GroupCommands      = "commands"
 )
 
 // Spec is the admin-facing description of a single configurable copy template.
 type Spec struct {
 	Key         string
+	Group       string
 	Description string
 	Default     string
 	Variables   []string
@@ -56,14 +75,25 @@ var defaults = map[string]string{
 	KeyMenuUpdated:           "菜单已更新，请使用下方新按钮。",
 	KeyTaskFailed:            "❌ 任务执行失败\ntask={{ task_id }}\n状态：{{ status }}\n{{ error_msg }}",
 	KeyTaskCancelled:         "任务已取消\ntask={{ task_id }}",
+	KeyPreviewHintLabel:      "预览说明：",
+	KeyPreviewMockHint:       "（mock）确认后将返回一张示例图",
+	KeyButtonStartCase:       "▶ 开始 Case",
+	KeyInputInvalidNumber:    "请输入合法数字，例如 42",
+	KeyInputInvalidBoolean:   "请输入 true 或 false",
+	KeyButtonSkip:            "跳过",
+	KeyButtonConfirmRun:      "✅ 确认生成",
+	KeyButtonExit:            "✕ 退出",
+	KeySessionTerminated:     "该工作流已被管理员删除，当前会话已结束。",
 }
 
 var variableOf = map[string][]string{
-	KeyWorkflowDone:  {"task_id"},
-	KeySubmitStarted: {"task_id"},
-	KeyInputPrompt:   {"key", "case_name", "progress"},
-	KeyTaskFailed:    {"task_id", "status", "error_msg"},
-	KeyTaskCancelled: {"task_id", "status"},
+	KeyWorkflowDone:      {"task_id"},
+	KeySubmitStarted:     {"task_id"},
+	KeyInputPrompt:       {"key", "case_name", "progress"},
+	KeyTaskFailed:        {"task_id", "status", "error_msg"},
+	KeyTaskCancelled:     {"task_id", "status"},
+	KeySessionTerminated: {"error_msg"},
+	KeyPreviewMockHint:   {"case_name"},
 }
 
 // defaultOf looks up the built-in default template. Unknown keys fall back to
@@ -75,16 +105,19 @@ func defaultOf(key string) string {
 // Specs returns the ordered list of all configurable copy templates.
 func Specs() []Spec {
 	order := []string{
-		KeyWelcome, KeyHelp, KeySelectTemplate, KeyWorkflowDone,
-		KeyWorkflowDoneFollowp, KeySubmitStarted, KeyConfirmRun,
-		KeyInputPrompt, KeyExitDone, KeyUnfinishedSession,
-		KeyMenuActionPlaceholder, KeyMenuUpdated,
-		KeyTaskFailed, KeyTaskCancelled,
+		KeyPreviewHintLabel, KeyPreviewMockHint, KeyButtonStartCase,
+		KeyInputPrompt, KeyInputInvalidNumber, KeyInputInvalidBoolean,
+		KeyButtonSkip, KeyButtonExit, KeyConfirmRun, KeyButtonConfirmRun,
+		KeySubmitStarted, KeyWorkflowDone, KeyWorkflowDoneFollowp,
+		KeyTaskFailed, KeyTaskCancelled, KeySessionTerminated,
+		KeyWelcome, KeySelectTemplate, KeyExitDone, KeyUnfinishedSession,
+		KeyMenuActionPlaceholder, KeyMenuUpdated, KeyHelp,
 	}
 	out := make([]Spec, 0, len(order))
 	for _, k := range order {
 		out = append(out, Spec{
 			Key:         k,
+			Group:       groupOf(k),
 			Default:     defaults[k],
 			Variables:   variableOf[k],
 			Description: descriptionOf[k],
@@ -108,6 +141,32 @@ var descriptionOf = map[string]string{
 	KeyMenuUpdated:           "检测到旧按钮时的提示",
 	KeyTaskFailed:            "任务执行失败时的通知，支持 {{ task_id }}、{{ status }}、{{ error_msg }}",
 	KeyTaskCancelled:         "任务被取消时的通知，支持 {{ task_id }}、{{ status }}",
+	KeyPreviewHintLabel:      "工作流预览说明标题",
+	KeyPreviewMockHint:       "Case 没有预览媒体时的提示",
+	KeyButtonStartCase:       "工作流预览的开始按钮",
+	KeyInputInvalidNumber:    "数字输入格式错误提示",
+	KeyInputInvalidBoolean:   "布尔输入格式错误提示",
+	KeyButtonSkip:            "工作流输入阶段的跳过按钮",
+	KeyButtonConfirmRun:      "工作流确认阶段的提交按钮",
+	KeyButtonExit:            "工作流输入和确认阶段的退出按钮",
+	KeySessionTerminated:     "工作流删除导致会话终止时的通知",
+}
+
+func groupOf(key string) string {
+	switch key {
+	case KeyPreviewHintLabel, KeyPreviewMockHint, KeyButtonStartCase,
+		KeyInputPrompt, KeyInputInvalidNumber, KeyInputInvalidBoolean,
+		KeyButtonSkip, KeyButtonExit, KeyConfirmRun, KeyButtonConfirmRun,
+		KeySubmitStarted:
+		return GroupWorkflow
+	case KeyWorkflowDone, KeyWorkflowDoneFollowp, KeyTaskFailed,
+		KeyTaskCancelled, KeySessionTerminated:
+		return GroupNotifications
+	case KeyHelp:
+		return GroupCommands
+	default:
+		return GroupPlatform
+	}
 }
 
 var varPattern = regexp.MustCompile(`\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}`)

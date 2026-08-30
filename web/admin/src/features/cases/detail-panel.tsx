@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
   FolderOpen,
+  MoreHorizontal,
   PenLine,
   SearchX,
   Settings2,
@@ -15,6 +16,7 @@ import { toast } from 'sonner'
 import { deleteCase, getCase } from '@/lib/api/cases'
 import { ApiError } from '@/lib/api/client'
 import { caseDeleteErrorMessage } from '@/lib/api/localized-errors'
+import { resolveMediaKey } from '@/lib/api/media'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listSessions } from '@/lib/api/sessions'
 import { listTasks } from '@/lib/api/tasks'
@@ -27,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -37,8 +38,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Reveal } from '@/components/ui/reveal'
-import { MediaLightbox } from './components/media-lightbox'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
@@ -50,8 +56,8 @@ import { useCaseReferences } from '@/features/config-context/use-case-references
 import { kit } from '@/features/edges/kit-classes'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
-import { resolveMediaKey } from '@/lib/api/media'
 import { CaseForm } from './case-form'
+import { MediaLightbox } from './components/media-lightbox'
 import { useMediaObjectUrl } from './lib/use-media-object-url'
 import { WorkflowConfigView } from './sections/workflow-config-view'
 
@@ -69,6 +75,7 @@ export function CaseDetailPanel({ id }: Props) {
   const navigate = useNavigate()
   const [editDialog, setEditDialog] = useState<'info' | 'workflow' | null>(null)
   const [ackRefs, setAckRefs] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
 
   const detailQuery = useQuery({
@@ -214,7 +221,7 @@ export function CaseDetailPanel({ id }: Props) {
                 className='h-full w-full object-contain'
               />
             )}
-            <span className='absolute bottom-1.5 right-1.5 flex size-7 items-center justify-center rounded-md bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100'>
+            <span className='absolute right-1.5 bottom-1.5 flex size-7 items-center justify-center rounded-md bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100'>
               <ZoomIn className='size-4' />
             </span>
           </button>
@@ -226,129 +233,140 @@ export function CaseDetailPanel({ id }: Props) {
                 {record.name || record.id}
               </h2>
             </div>
-          <div className='flex shrink-0 flex-wrap gap-2'>
-            <Button
-              type='button'
-              className={kit.btnPrimary}
-              onClick={() => setEditDialog('info')}
-            >
-              <PenLine className='size-3.5' strokeWidth={2} />
-              {t('cases.edit')}
-            </Button>
-            <Button
-              type='button'
-              variant='outline'
-              className={kit.btnGhost}
-              onClick={() => setEditDialog('workflow')}
-            >
-              <Settings2 className='size-3.5' strokeWidth={2} />
-              {t('cases.editWorkflow')}
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  type='button'
-                  variant='destructive'
-                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 className='size-3.5' strokeWidth={2} />
-                  {t('cases.deleteWorkflow')}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    {t('cases.deleteWorkflowTitle')}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('cases.deleteWorkflowBody', {
-                      name: record.name || record.id,
-                    })}
-                    {placements.length > 0 ? (
-                      <div className='mt-3 space-y-2'>
-                        <p className='font-medium'>
-                          {t('cases.deleteWillRemoveRefs', {
-                            count: placements.length,
-                          })}
-                        </p>
-                        <ul className='max-h-32 overflow-auto rounded-md border bg-muted/20 p-3 text-xs'>
-                          {placements.map((p) => (
-                            <li key={`${p.channel_id}:${p.item_id}`}>
-                              {p.channel_name || p.channel_id} ·{' '}
-                              {p.path.map((s) => s.label).join(' / ')}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                    {(pendingTasksQuery.data?.length ?? 0) > 0 ||
-                    (activeSessionsQuery.data ?? 0) > 0 ? (
-                      <p className='mt-3 text-xs text-muted-foreground'>
-                        {(pendingTasksQuery.data?.length ?? 0) > 0
-                          ? t('cases.deleteWillFailTasks', {
-                              count: pendingTasksQuery.data?.length ?? 0,
-                            })
-                          : null}
-                        {(activeSessionsQuery.data ?? 0) > 0
-                          ? t('cases.deleteWillEndSessions', {
-                              count: activeSessionsQuery.data ?? 0,
-                            })
-                          : null}
-                      </p>
-                    ) : null}
-                    <label
-                      htmlFor='case-delete-ack'
-                      className='mt-4 flex items-center gap-2 text-sm'
-                    >
-                      <Checkbox
-                        id='case-delete-ack'
-                        checked={ackRefs}
-                        onCheckedChange={(v) => setAckRefs(v === true)}
-                        data-testid='case-delete-ack'
-                      />
-                      <span>{t('cases.deleteAckRefs')}</span>
-                    </label>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel
+            <div className='flex shrink-0 flex-wrap gap-2'>
+              <Button
+                type='button'
+                className={kit.btnPrimary}
+                onClick={() => setEditDialog('info')}
+              >
+                <PenLine className='size-3.5' strokeWidth={2} />
+                {t('cases.edit')}
+              </Button>
+              <Button
+                type='button'
+                variant='outline'
+                className={kit.btnGhost}
+                onClick={() => setEditDialog('workflow')}
+              >
+                <Settings2 className='size-3.5' strokeWidth={2} />
+                {t('cases.editWorkflow')}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
                     type='button'
+                    variant='outline'
+                    size='icon-sm'
+                    aria-label={t('common.moreActions')}
+                  >
+                    <MoreHorizontal className='size-3.5' strokeWidth={2} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='end'>
+                  <DropdownMenuItem
+                    variant='destructive'
                     disabled={deleteMutation.isPending}
+                    onSelect={() => setDeleteOpen(true)}
                   >
-                    {t('common.cancel')}
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    type='button'
-                    className='bg-destructive text-white hover:bg-destructive/90'
-                    disabled={deleteMutation.isPending || !ackRefs}
-                    onClick={() => deleteMutation.mutate()}
-                  >
+                    <Trash2 className='size-3.5' strokeWidth={2} />
                     {t('common.delete')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t('cases.deleteWorkflowTitle')}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t('cases.deleteWorkflowBody', {
+                        name: record.name || record.id,
+                      })}
+                      {placements.length > 0 ? (
+                        <div className='mt-3 space-y-2'>
+                          <p className='font-medium'>
+                            {t('cases.deleteWillRemoveRefs', {
+                              count: placements.length,
+                            })}
+                          </p>
+                          <ul className='max-h-32 overflow-auto rounded-md border bg-muted/20 p-3 text-xs'>
+                            {placements.map((p) => (
+                              <li key={`${p.channel_id}:${p.item_id}`}>
+                                {p.channel_name || p.channel_id} ·{' '}
+                                {p.path.map((s) => s.label).join(' / ')}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {(pendingTasksQuery.data?.length ?? 0) > 0 ||
+                      (activeSessionsQuery.data ?? 0) > 0 ? (
+                        <p className='mt-3 text-xs text-muted-foreground'>
+                          {(pendingTasksQuery.data?.length ?? 0) > 0
+                            ? t('cases.deleteWillFailTasks', {
+                                count: pendingTasksQuery.data?.length ?? 0,
+                              })
+                            : null}
+                          {(activeSessionsQuery.data ?? 0) > 0
+                            ? t('cases.deleteWillEndSessions', {
+                                count: activeSessionsQuery.data ?? 0,
+                              })
+                            : null}
+                        </p>
+                      ) : null}
+                      <label
+                        htmlFor='case-delete-ack'
+                        className='mt-4 flex items-center gap-2 text-sm'
+                      >
+                        <Checkbox
+                          id='case-delete-ack'
+                          checked={ackRefs}
+                          onCheckedChange={(v) => setAckRefs(v === true)}
+                          data-testid='case-delete-ack'
+                        />
+                        <span>{t('cases.deleteAckRefs')}</span>
+                      </label>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel
+                      type='button'
+                      disabled={deleteMutation.isPending}
+                    >
+                      {t('common.cancel')}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      type='button'
+                      className='bg-destructive text-white hover:bg-destructive/90'
+                      disabled={deleteMutation.isPending || !ackRefs}
+                      onClick={() => deleteMutation.mutate()}
+                    >
+                      {t('common.delete')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
-        </div>
-        {record.description ? (
-          <LongText className='max-w-full text-sm text-muted-foreground'>
-            {record.description}
-          </LongText>
-        ) : null}
-        <div className='mt-1 flex max-w-full flex-wrap items-center gap-2 text-xs'>
-          <MetaChip
-            icon={<Tags className='size-3.5' strokeWidth={2} />}
-            label={t('cases.fieldTags')}
-            value={record.tags?.join(', ')}
-            divider
-          />
-          <MetaChip
-            icon={<FolderOpen className='size-3.5' strokeWidth={2} />}
-            label={t('cases.fieldCategories')}
-            value={record.categories?.join(', ')}
-          />
-        </div>
+          {record.description ? (
+            <LongText className='max-w-full text-sm text-muted-foreground'>
+              {record.description}
+            </LongText>
+          ) : null}
+          <div className='mt-1 flex max-w-full flex-wrap items-center gap-2 text-xs'>
+            <MetaChip
+              icon={<Tags className='size-3.5' strokeWidth={2} />}
+              label={t('cases.fieldTags')}
+              value={record.tags?.join(', ')}
+              divider
+            />
+            <MetaChip
+              icon={<FolderOpen className='size-3.5' strokeWidth={2} />}
+              label={t('cases.fieldCategories')}
+              value={record.categories?.join(', ')}
+            />
+          </div>
         </div>
       </div>
 

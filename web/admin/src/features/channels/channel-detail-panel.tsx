@@ -6,6 +6,7 @@ import {
   Bot,
   CalendarCheck,
   Clock,
+  MoreHorizontal,
   PenLine,
   Power,
   SearchX,
@@ -34,7 +35,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,6 +43,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Reveal } from '@/components/ui/reveal'
@@ -67,6 +73,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [name, setName] = useState('')
   const [token, setToken] = useState('')
 
@@ -206,16 +213,6 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{ch.name}</h2>
-            <Pill
-              dot={ch.enabled ? 'success' : 'neutral'}
-              className={
-                ch.enabled
-                  ? 'border-success/25 bg-success/10 text-success'
-                  : 'border-border bg-muted text-muted-foreground'
-              }
-            >
-              {ch.enabled ? t('channels.enabled') : t('channels.disabled')}
-            </Pill>
             <ChannelReachabilityTag query={reachabilityQuery} />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
@@ -237,18 +234,29 @@ export function ChannelDetailPanel({ id }: { id: string }) {
               <Power className='size-3.5' strokeWidth={2} />
               {ch.enabled ? t('channels.disable') : t('channels.enable')}
             </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   type='button'
+                  variant='outline'
+                  size='icon-sm'
+                  aria-label={t('common.moreActions')}
+                >
+                  <MoreHorizontal className='size-3.5' strokeWidth={2} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end'>
+                <DropdownMenuItem
                   variant='destructive'
-                  className='h-8 gap-1.5 rounded-md px-3 text-xs'
                   disabled={deleteMutation.isPending}
+                  onSelect={() => setDeleteOpen(true)}
                 >
                   <Trash2 className='size-3.5' strokeWidth={2} />
                   {t('channels.delete')}
-                </Button>
-              </AlertDialogTrigger>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>

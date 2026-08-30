@@ -52,6 +52,7 @@ import {
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { Pill } from '@/components/kibo-ui/pill'
+import { StatusDot } from '@/components/status-dot'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -182,9 +183,10 @@ export function AdminUsersPanel() {
                     <Pill variant={roleBadge(u.role)}>{roleLabel(u.role)}</Pill>
                   </TableCell>
                   <TableCell>
-                    <Pill variant={u.enabled ? 'outline' : 'secondary'}>
-                      {u.enabled ? '启用' : '禁用'}
-                    </Pill>
+                    <StatusDot
+                      problems={u.enabled ? 0 : 1}
+                      label={u.enabled ? '已启用' : '已停用'}
+                    />
                   </TableCell>
                   <TableCell className='text-right'>
                     <DropdownMenu>

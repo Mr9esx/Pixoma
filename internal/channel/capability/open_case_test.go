@@ -7,6 +7,7 @@ import (
 
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
+	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
@@ -62,6 +63,99 @@ func (mediaPreviewCaseService) GetCase(_ context.Context, id sharedkernel.CaseID
 			Description: "示例模板", Preview: "previews/abc.png",
 		},
 	}, nil
+}
+
+type configuredCaseService struct{ fakeCaseService }
+
+func (configuredCaseService) GetCase(_ context.Context, id sharedkernel.CaseID) (*catalogdomain.Case, error) {
+	return &catalogdomain.Case{
+		Enabled: true,
+		Document: catalogdomain.CaseDocument{
+			ID:   id,
+			Name: "图片 B",
+			Inputs: []catalogdomain.InputField{
+				{Key: "count", Type: "number"},
+			},
+		},
+	}, nil
+}
+
+func (configuredCaseService) GetSession(_ context.Context, _ sharedkernel.ChatID) (*botapp.SessionView, error) {
+	return &botapp.SessionView{
+		Status: convdomain.StatusCollecting,
+		Index:  0,
+		Keys:   []string{"count"},
+		CaseID: 1,
+	}, nil
+}
+
+func (configuredCaseService) ConfirmRun(context.Context, botapp.ConfirmRunCmd) (*botapp.ConfirmRunResult, error) {
+	return &botapp.ConfirmRunResult{TaskID: "123"}, nil
+}
+
+type mappedRenderer struct{}
+
+func (mappedRenderer) Render(_ context.Context, _ string, key string, vars map[string]string) string {
+	if key == texttpl.KeySubmitStarted {
+		return texttpl.Render(key+"|task={{ task_id }}", vars)
+	}
+	return texttpl.Render(key+"|custom", vars)
+}
+
+func TestOpenCase_ConfigurableWorkflowStages(t *testing.T) {
+	ctx := context.Background()
+	app := configuredCaseService{fakeCaseService{}}
+	capability := OpenCase{App: app, Texts: mappedRenderer{}}
+
+	preview, err := capability.Invoke(ctx, protocol.AccountCtx{ChannelID: "tg-custom"}, protocol.Nav{}, "tg-custom:1", map[string]any{"step": "preview", "case_id": "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(preview.Text, "preview_hint_label|custom") ||
+		!strings.Contains(preview.Text, "preview_mock_hint|custom") {
+		t.Fatalf("preview copy not configurable: %q", preview.Text)
+	}
+	if preview.Options[0].Label != "button_start_case|custom" {
+		t.Fatalf("start button not configurable: %+v", preview.Options)
+	}
+
+	number, err := capability.submitText(ctx, "tg-custom", "tg-custom:1", map[string]any{"text": "bad"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if number.Text != "input_invalid_number|custom" {
+		t.Fatalf("number error not configurable: %q", number.Text)
+	}
+
+	input, err := capability.start(ctx, "tg-custom", protocol.AccountCtx{InternalUserID: "u1"}, "tg-custom:1", map[string]any{"case_id": "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if input.Text != "input_prompt|custom" {
+		t.Fatalf("input prompt not configurable: %q", input.Text)
+	}
+	if input.Options[0].Label != "button_skip|custom" || input.Options[1].Label != "button_exit|custom" {
+		t.Fatalf("input buttons not configurable: %+v", input.Options)
+	}
+
+	confirm, err := renderSession(ctx, "tg-custom", capability, &botapp.SessionView{Status: convdomain.StatusConfirming})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if confirm.Text != "confirm_run|custom" {
+		t.Fatalf("confirm copy not configurable: %q", confirm.Text)
+	}
+	if confirm.Options[0].Label != "button_confirm_run|custom" || confirm.Options[1].Label != "button_exit|custom" {
+		t.Fatalf("confirm buttons not configurable: %+v", confirm.Options)
+	}
+
+	submit, err := capability.confirm(ctx, "tg-custom", "tg-custom:1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if submit.Text != "submit_started|task=123" {
+		t.Fatalf("submitted copy not configurable: %q", submit.Text)
+	}
 }
 
 func TestOpenCase_PreviewMediaDelivery(t *testing.T) {

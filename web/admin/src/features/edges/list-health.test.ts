@@ -36,7 +36,7 @@ describe('listHealthTone', () => {
     ).toBe('warn')
   })
 
-  it('is warn when two of the three are bad', () => {
+  it('is warn when multiple checks are bad', () => {
     expect(
       listHealthTone({
         enabled: false,
@@ -46,13 +46,13 @@ describe('listHealthTone', () => {
     ).toBe('warn')
   })
 
-  it('is bad when enabled, node, and Comfy are all down', () => {
+  it('is warn when all checks are bad', () => {
     expect(
       listHealthTone({
         enabled: false,
         edgeOnline: false,
         comfyRunning: false,
       })
-    ).toBe('bad')
+    ).toBe('warn')
   })
 })

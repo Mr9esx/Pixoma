@@ -1,7 +1,8 @@
 import { useEffect, useReducer, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRightFromLine, Check, Globe, Moon, Sun } from 'lucide-react'
+import { ArrowRightFromLine, Check, Moon, Sun } from 'lucide-react'
+import { CN, US } from 'country-flag-icons/react/3x2'
 import { useTranslation } from 'react-i18next'
 import { fetchMediaBlob, resolveMediaKey } from '@/lib/api/media'
 import {
@@ -16,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -159,30 +161,32 @@ export function NavUser() {
       <DropdownMenuLabel className='px-2 text-xs font-medium text-muted-foreground'>
         {t('lang.switch')}
       </DropdownMenuLabel>
-      <DropdownMenuItem
-        onClick={() => switchLocale('zh')}
-        className='gap-2'
-        data-testid='nav-user-lang-zh'
-      >
-        <Globe className='size-4' />
-        <span>{t('lang.zh')}</span>
-        <Check
-          size={14}
-          className={cn('ms-auto', currentLocale !== 'zh' && 'hidden')}
-        />
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        onClick={() => switchLocale('en')}
-        className='gap-2'
-        data-testid='nav-user-lang-en'
-      >
-        <Globe className='size-4' />
-        <span>{t('lang.en')}</span>
-        <Check
-          size={14}
-          className={cn('ms-auto', currentLocale !== 'en' && 'hidden')}
-        />
-      </DropdownMenuItem>
+      <DropdownMenuGroup>
+        <DropdownMenuItem
+          onClick={() => switchLocale('zh')}
+          className='gap-2'
+          data-testid='nav-user-lang-zh'
+        >
+          <CN className='size-4' />
+          <span>{t('lang.zh')}</span>
+          <Check
+            size={14}
+            className={cn('ms-auto', currentLocale !== 'zh' && 'hidden')}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => switchLocale('en')}
+          className='gap-2'
+          data-testid='nav-user-lang-en'
+        >
+          <US className='size-4' />
+          <span>{t('lang.en')}</span>
+          <Check
+            size={14}
+            className={cn('ms-auto', currentLocale !== 'en' && 'hidden')}
+          />
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
       {isCollapsed ? (
         <>
           <DropdownMenuSeparator />
@@ -216,34 +220,41 @@ export function NavUser() {
           <DropdownMenuSeparator />
         </>
       ) : null}
-      <DropdownMenuItem
-        onClick={() => setSignOutOpen(true)}
-        className='gap-2 text-destructive focus:text-destructive'
-        data-testid='nav-user-sign-out-item'
-      >
-        <ArrowRightFromLine className='size-4' />
-        <span>{t('common.signOut')}</span>
-      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup>
+        <DropdownMenuItem
+          onClick={() => setSignOutOpen(true)}
+          className='gap-2'
+          data-testid='nav-user-sign-out-item'
+        >
+          <ArrowRightFromLine className='size-4' />
+          <span>{t('common.signOut')}</span>
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
     </>
   )
 
   return (
     <>
       <div
-        className='flex h-12 w-full items-center gap-2 ps-2 pe-0'
+        className='flex h-12 w-full items-center gap-2 pe-0'
         data-testid='nav-user'
       >
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              aria-label={t('common.moreActions')}
-              className='flex shrink-0 cursor-pointer items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
-              data-testid='nav-user-menu-trigger'
-            >
-              <UserAvatar user={user} />
-            </button>
-          </DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild>
+          <button
+            type='button'
+            className='flex h-9 min-w-0 flex-1 self-center cursor-pointer items-center gap-2 rounded-lg px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+            data-testid='nav-user-menu-trigger'
+          >
+            <UserAvatar user={user} />
+            <UserIdentity
+              user={user}
+              isLoading={isLoading}
+              className={cn('flex-1', isCollapsed && 'hidden')}
+            />
+          </button>
+        </DropdownMenuTrigger>
           <DropdownMenuContent
             className='min-w-48 rounded-lg'
             align='start'
@@ -257,24 +268,11 @@ export function NavUser() {
 
         <div
           className={cn(
-            'grid min-w-0 flex-1 transition-[grid-template-columns,opacity] duration-300 ease-in-out',
-            isCollapsed
-              ? 'grid-cols-[0fr] opacity-0'
-              : 'grid-cols-[1fr] opacity-100'
+            'shrink-0 transition-opacity duration-300 ease-in-out',
+            isCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
           )}
         >
-          <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-            <UserIdentity
-              user={user}
-              isLoading={isLoading}
-              className='flex-1'
-            />
-            <ThemeSwitcher
-              value={theme}
-              onChange={setTheme}
-              className='my-0.5 shrink-0'
-            />
-          </div>
+          <ThemeSwitcher value={theme} onChange={setTheme} className='my-0.5' />
         </div>
       </div>
 

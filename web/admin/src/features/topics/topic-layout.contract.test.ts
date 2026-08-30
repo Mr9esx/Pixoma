@@ -18,6 +18,7 @@ describe('topics admin page contract', () => {
     expect(LIST_PANEL).toContain('topics.listSearch')
     expect(LIST_PANEL).toContain('topic.key')
     expect(LIST_PANEL).toContain('topics.enabled')
+    expect(LIST_PANEL).toContain('<StatusDot')
     expect(LIST_PANEL).toContain("topic.key === 'default'")
     expect(LIST_PANEL).toContain("to='/topics/$key'")
   })

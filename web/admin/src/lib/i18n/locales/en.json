@@ -133,6 +133,11 @@
     "signOut": "Sign out",
     "moreActions": "More actions"
   },
+  "status": {
+    "normal": "Normal",
+    "issue": "Has issues",
+    "unavailable": "Unavailable"
+  },
   "theme": {
     "light": "Light",
     "dark": "Dark"
@@ -446,6 +451,8 @@
     "importReasonNotComfy": "Not JSON, or not exported from ComfyUI",
     "importReasonOldExport": "Old export format (missing API fields)",
     "importReasonBroken": "JSON was edited by hand and is malformed",
+    "inputPill": "Input",
+    "outputPill": "Output",
     "inputsHeading": "What the user needs to provide",
     "inputsHint": "Asked in order during the run",
     "outputsHeading": "What the user gets back",
@@ -961,8 +968,13 @@
     "variablesLabel": "Variables",
     "noVariables": "None",
     "columnKey": "Template",
-    "searchPlaceholder": "Search template or copy…",
     "empty": "No configurable templates",
+    "groups": {
+      "workflow": "Workflow stages",
+      "notifications": "Task notifications",
+      "platform": "Platform and sessions",
+      "commands": "Public commands"
+    },
     "edit": "Edit",
     "usesDefault": "Uses default copy",
     "actions": "Actions"

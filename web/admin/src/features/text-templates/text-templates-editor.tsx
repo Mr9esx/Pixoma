@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createColumnHelper,
+  type ColumnDef,
   getCoreRowModel,
-  getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
@@ -15,6 +15,7 @@ import {
   listTextTemplates,
   saveTextTemplates,
   type TextTemplate,
+  textTemplateGroups,
 } from '@/lib/api/text-templates'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -30,7 +31,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import { DataTable } from '@/components/data-table/data-table'
-import { DataTableToolbar } from '@/components/data-table/toolbar'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { LongText } from '@/components/long-text'
@@ -48,7 +48,6 @@ export function TextTemplatesEditor({
     queryFn: () => listTextTemplates(channelId),
   })
   const [editingKey, setEditingKey] = useState<string | null>(null)
-
   const data = useMemo(() => q.data ?? [], [q.data])
   const columnHelper = useMemo(() => createColumnHelper<TextTemplate>(), [])
   const editing = useMemo(
@@ -56,7 +55,7 @@ export function TextTemplatesEditor({
     [data, editingKey]
   )
 
-  const columns = useMemo(() => {
+  const columns = useMemo<ColumnDef<TextTemplate, unknown>[]>(() => {
     return [
       columnHelper.accessor('key', {
         id: 'key',
@@ -163,18 +162,6 @@ export function TextTemplatesEditor({
     ]
   }, [columnHelper, t, setEditingKey])
 
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    enableColumnPinning: true,
-    initialState: {
-      columnPinning: { right: ['actions'] },
-    },
-  })
-
   return (
     <div className='flex min-h-0 flex-col gap-3'>
       {q.isLoading ? <LoadingSkeleton rows={3} /> : null}
@@ -186,19 +173,21 @@ export function TextTemplatesEditor({
       ) : null}
       {!q.isLoading && !q.isError ? (
         <>
-          <DataTableToolbar
-            table={table}
-            searchPlaceholder={t('textTemplates.searchPlaceholder')}
-          />
-          <DataTable
-            table={table}
-            hidePagination
-            emptyState={
-              <p className='text-sm text-muted-foreground'>
-                {t('textTemplates.empty')}
-              </p>
-            }
-          />
+          {textTemplateGroups.map((group) => {
+            const groupData = data.filter((item) => item.group === group)
+            if (groupData.length === 0) return null
+            return (
+              <section key={group} className='flex flex-col gap-3'>
+                <h2 className='text-base font-semibold'>
+                  {t(`textTemplates.groups.${group}`)}
+                </h2>
+                <TemplateGroupTable
+                  data={groupData}
+                  columns={columns}
+                />
+              </section>
+            )
+          })}
           {editing ? (
             <EditTemplateDialog
               key={editing.key}
@@ -210,6 +199,39 @@ export function TextTemplatesEditor({
         </>
       ) : null}
     </div>
+  )
+}
+
+function TemplateGroupTable({
+  data,
+  columns,
+  search,
+}: {
+  data: TextTemplate[]
+  columns: ColumnDef<TextTemplate, unknown>[]
+}) {
+  const { t } = useTranslation()
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    enableColumnPinning: true,
+    initialState: {
+      columnPinning: { right: ['actions'] },
+    },
+  })
+
+  return (
+    <DataTable
+      table={table}
+      hidePagination
+      emptyState={
+        <p className='text-sm text-muted-foreground'>
+          {t('textTemplates.empty')}
+        </p>
+      }
+    />
   )
 }
 
