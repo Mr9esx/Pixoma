@@ -2,6 +2,7 @@ import { apiFetch } from './client'
 
 export type TextTemplate = {
   key: string
+  group: string
   description: string
   default: string
   value: string
@@ -15,6 +16,13 @@ export function listTextTemplates(channelId = '') {
     : '/api/v1/text-templates/'
   return apiFetch<TextTemplate[]>(path)
 }
+
+export const textTemplateGroups = [
+  'workflow',
+  'notifications',
+  'platform',
+  'commands',
+] as const
 
 export function saveTextTemplates(channelId: string, templates: Record<string, string>) {
   const path = channelId

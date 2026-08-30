@@ -11,17 +11,12 @@ import {
   AttachmentTitle,
   AttachmentTrigger,
 } from '@/components/ui/attachment'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CodeEditor } from '@/components/code-editor'
-import { nodeLabel } from '../lib/node-catalog'
+import { nodeLabel, type InputKind } from '../lib/node-catalog'
 import type { WorkflowGraph, WorkflowNode } from '../lib/workflow-parse'
 
 type Props = {
@@ -58,57 +53,82 @@ function NodeDiagram({ nodes }: { nodes: WorkflowNode[] }) {
   )
 }
 
+const INPUT_TYPE_LABELS: Record<InputKind, string> = {
+  string: 'string',
+  number: 'number',
+  boolean: 'boolean',
+  enum: 'enum',
+  image: 'image',
+  audio: 'audio',
+  video: 'video',
+  ref: 'ref',
+  unknown: 'unknown',
+}
+
 /** 节点的可展示信息都放进 c-card-13 折叠卡：标题、ID、输出数、已连输入/总输入、类名、输入项。 */
 function NodeCard({ node }: { node: WorkflowNode }) {
   const [isOpen, setIsOpen] = useState(false)
   const title = nodeLabel(node.class_type)
 
   return (
-    <Card className='relative w-52 !gap-2 overflow-visible !px-0 !pt-2 !pb-0'>
-      <CardHeader className='flex items-center justify-between gap-2 !px-3 !py-0'>
-        <CardTitle className='truncate text-xs font-semibold'>
-          {title}
-        </CardTitle>
-        <CardAction>
-          <span className='font-mono text-[11px] text-muted-foreground'>
-            {node.id}
-          </span>
-        </CardAction>
-      </CardHeader>
-      <CardContent
-        className={cn(
-          'relative space-y-2 overflow-hidden !px-3 !py-0 !pb-3 transition-all duration-500 ease-in-out',
-          isOpen ? 'max-h-[300px]' : 'h-24'
-        )}
-      >
-        <div className='flex justify-between rounded-lg bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground'>
-          <span>输出 · {node.outputCount}</span>
-          <span>输入 · {node.inputs.length}</span>
-        </div>
-        {node.class_type !== title ? (
-          <div className='truncate font-mono text-[11px] text-muted-foreground'>
-            {node.class_type}
+    <div className='relative'>
+      <Card className='relative w-52 !gap-0 overflow-hidden !px-0 !py-0'>
+        <CardHeader className='block border-b bg-muted/30 !px-3 !py-2'>
+          <div className='flex items-start justify-between gap-2'>
+            <div className='min-w-0'>
+              <CardTitle className='truncate text-xs font-semibold text-foreground'>
+                {title}
+              </CardTitle>
+              {node.class_type !== title ? (
+                <p className='mt-1 truncate font-mono text-[11px] text-muted-foreground'>
+                  {node.class_type}
+                </p>
+              ) : null}
+            </div>
+            <span className='font-mono text-[11px] text-muted-foreground'>
+              {node.id}
+            </span>
           </div>
-        ) : null}
-        {node.inputs.length ? (
-          <ul className='space-y-1.5'>
-            {node.inputs.map((input) => (
-              <li key={input.name} className='truncate text-[11px]'>
-                <span className='text-muted-foreground'>
-                  {input.ref ? '↳ ' : ''}
-                  {input.name}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <div
+        </CardHeader>
+        <CardContent
           className={cn(
-            'pointer-events-none absolute inset-x-0 bottom-0 h-12 rounded-b-lg bg-linear-to-t from-background to-transparent transition-opacity duration-300',
-            isOpen ? 'opacity-0' : 'opacity-100'
+            'relative space-y-2 overflow-hidden !px-3 !py-3 transition-all duration-500 ease-in-out',
+            isOpen ? 'max-h-[300px]' : 'h-24'
           )}
-        />
-      </CardContent>
+        >
+          <div className='flex justify-between rounded-lg bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground'>
+            <span>输出 · {node.outputCount}</span>
+            <span>输入 · {node.inputs.length}</span>
+          </div>
+          {node.inputs.length ? (
+            <ul className='space-y-1.5'>
+              {node.inputs.map((input) => (
+                <li
+                  key={input.name}
+                  className='flex min-w-0 items-center justify-between gap-2 text-[11px]'
+                >
+                  <span className='min-w-0 truncate text-muted-foreground'>
+                    {input.ref ? '↳ ' : ''}
+                    {input.name}
+                  </span>
+                  <Badge
+                    variant='outline'
+                    className='shrink-0 rounded-full px-1.5 py-0 text-[10px] font-normal text-muted-foreground'
+                  >
+                    {INPUT_TYPE_LABELS[input.kind]}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div
+            className={cn(
+              'pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-card to-transparent transition-opacity duration-300',
+              isOpen ? 'opacity-0' : 'opacity-100'
+            )}
+          />
+        </CardContent>
+      </Card>
       <div className='absolute -bottom-4 left-1/2 -translate-x-1/2'>
         <Button
           type='button'
@@ -127,7 +147,7 @@ function NodeCard({ node }: { node: WorkflowNode }) {
           <span className='sr-only'>展开/折叠</span>
         </Button>
       </div>
-    </Card>
+    </div>
   )
 }
 

@@ -17,6 +17,15 @@
 - 需要新组件时用项目包管理器运行 shadcn CLI 添加（本项目用 pnpm：`pnpm dlx shadcn@latest`）。
 - 遵循 shadcn 规则：用语义类名、内置 variants、`flex` + `gap`，不写裸色值/手写 `dark:`。
 
+## Admin 状态显示规范（用户偏好，永久生效）
+
+后台前端的状态展示必须遵循 `docs/frontend/admin-status-rules.md`：
+
+- 状态综合启停、配置依赖和运行依赖，不能只看 `enabled`。
+- 健康状态只有绿色（无问题）和黄色（任一问题）两档，不使用红色档位。
+- 列表、详情头部和健康告警必须使用同一套健康结果；健康数据未就绪时不得显示绿色。
+- 状态统一使用 `StatusDot` 和语义令牌，状态文案用「已启用 / 已停用」，动作文案用「启用 / 停用」。
+
 ## 后台设计体系 skill（用户偏好，永久生效）
 
 `pixoma-design-system` 是本项目的设计体系，已安装在 `.agents/skills/pixoma-design-system-skill`。所有后台前端、交互相关的需求，都必须先加载并遵循该 skill：

@@ -144,13 +144,13 @@ func (o OpenCase) submitText(ctx context.Context, channelID string, chatID share
 	case "number":
 		n, err := strconv.ParseFloat(text, 64)
 		if err != nil {
-			return protocol.Result{Text: "请输入合法数字，例如 42"}, nil
+			return protocol.Result{Text: o.renderText(ctx, channelID, texttpl.KeyInputInvalidNumber, nil)}, nil
 		}
 		draft = convdomain.DraftValue{Number: &n}
 	case "boolean":
 		b, err := strconv.ParseBool(text)
 		if err != nil {
-			return protocol.Result{Text: "请输入 true 或 false"}, nil
+			return protocol.Result{Text: o.renderText(ctx, channelID, texttpl.KeyInputInvalidBoolean, nil)}, nil
 		}
 		draft = convdomain.DraftValue{Bool: &b}
 	default:
@@ -243,18 +243,18 @@ func (o OpenCase) preview(ctx context.Context, channelID string, params map[stri
 	if key, mime, ok := previewMediaRef(doc.Preview); ok {
 		media = []protocol.MediaRef{{Key: key, MIME: mime}}
 	} else {
-		text += "\n预览说明："
+		text += "\n" + o.renderText(ctx, channelID, texttpl.KeyPreviewHintLabel, nil)
 		if doc.Preview != "" {
 			text += doc.Preview
 		} else {
-			text += "（mock）确认后将返回一张示例图"
+			text += o.renderText(ctx, channelID, texttpl.KeyPreviewMockHint, map[string]string{"case_name": doc.Name})
 		}
 	}
 	return protocol.Result{
 		Text:  text,
 		Media: media,
 		Options: []protocol.Option{
-			{Label: "▶ 开始 Case", Value: map[string]any{"step": "start", "case_id": strconv.FormatUint(uint64(caseID), 10)}},
+			{Label: o.renderText(ctx, channelID, texttpl.KeyButtonStartCase, nil), Value: map[string]any{"step": "start", "case_id": strconv.FormatUint(uint64(caseID), 10)}},
 		},
 	}, nil
 }
@@ -303,7 +303,7 @@ func (o OpenCase) start(ctx context.Context, channelID string, acct protocol.Acc
 			return protocol.Result{
 				Text: o.renderText(ctx, channelID, texttpl.KeyUnfinishedSession, nil),
 				Options: []protocol.Option{
-					{Label: "✕ 退出", Value: map[string]any{"step": "exit"}},
+					{Label: o.renderText(ctx, channelID, texttpl.KeyButtonExit, nil), Value: map[string]any{"step": "exit"}},
 				},
 			}, nil
 		}
@@ -339,8 +339,8 @@ func renderSession(ctx context.Context, channelID string, o OpenCase, view *bota
 		return protocol.Result{
 			Text: o.renderText(ctx, channelID, texttpl.KeyConfirmRun, nil),
 			Options: []protocol.Option{
-				{Label: "✅ 确认生成", Value: map[string]any{"step": "confirm"}},
-				{Label: "✕ 退出", Value: map[string]any{"step": "exit"}},
+				{Label: o.renderText(ctx, channelID, texttpl.KeyButtonConfirmRun, nil), Value: map[string]any{"step": "confirm"}},
+				{Label: o.renderText(ctx, channelID, texttpl.KeyButtonExit, nil), Value: map[string]any{"step": "exit"}},
 			},
 		}, nil
 	}
@@ -357,7 +357,7 @@ func renderSession(ctx context.Context, channelID string, o OpenCase, view *bota
 	if view.Index >= 0 && len(view.Keys) > 0 {
 		vars["progress"] = fmt.Sprintf("%d/%d", view.Index+1, len(view.Keys))
 	}
-	options := []protocol.Option{{Label: "✕ 退出", Value: map[string]any{"step": "exit"}}}
-	options = append([]protocol.Option{{Label: "跳过", Value: map[string]any{"step": "skip"}}}, options...)
+	options := []protocol.Option{{Label: o.renderText(ctx, channelID, texttpl.KeyButtonExit, nil), Value: map[string]any{"step": "exit"}}}
+	options = append([]protocol.Option{{Label: o.renderText(ctx, channelID, texttpl.KeyButtonSkip, nil), Value: map[string]any{"step": "skip"}}}, options...)
 	return protocol.Result{Text: o.renderText(ctx, channelID, texttpl.KeyInputPrompt, vars), Options: options}, nil
 }

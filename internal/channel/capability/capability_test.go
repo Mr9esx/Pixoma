@@ -12,8 +12,8 @@ import (
 
 type stubCap struct{}
 
-func (stubCap) ID() string                  { return "stub" }
-func (stubCap) DisplayName() string         { return "Stub" }
+func (stubCap) ID() string                    { return "stub" }
+func (stubCap) DisplayName() string           { return "Stub" }
 func (stubCap) ParamsSchema() json.RawMessage { return json.RawMessage(`{"type":"object"}`) }
 func (stubCap) Render(_ string, override map[string]any) (protocol.RenderDecl, error) {
 	return MergeRender(protocol.RenderDecl{Entry: "root", Config: map[string]any{"columns": 2}}, override), nil

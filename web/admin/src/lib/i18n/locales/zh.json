@@ -133,6 +133,11 @@
     "signOut": "退出登录",
     "moreActions": "更多操作"
   },
+  "status": {
+    "normal": "正常",
+    "issue": "存在问题",
+    "unavailable": "当前不可用"
+  },
   "theme": {
     "light": "浅色",
     "dark": "深色"
@@ -151,8 +156,8 @@
     "casesEnabled": "启用工作流数",
     "tasksTitle": "任务",
     "taskStatusDistribution": "状态分布",
-    "enabled": "启用",
-    "disabled": "未启用",
+    "enabled": "已启用",
+    "disabled": "已停用",
     "taskDailyTitle": "每日处理任务数",
     "taskDailyDescription": "按完成时间统计 {{from}} ~ {{to}} 的已处理任务",
     "range7d": "近 7 天",
@@ -257,8 +262,8 @@
     "notFoundTitle": "计算节点不存在",
     "notFoundDesc": "它可能已被删除，或链接已失效。",
     "backToList": "返回计算节点列表",
-    "enabled": "启用",
-    "disabled": "未启用",
+    "enabled": "已启用",
+    "disabled": "已停用",
     "edit": "编辑",
     "createNode": "新建节点",
     "editHeading": "编辑",
@@ -416,6 +421,8 @@
     "deleteFieldBody": "确定删除字段「{{key}}」？该操作不可撤销。",
     "noRows": "暂无行",
     "filterQ": "搜索",
+    "enabled": "已启用",
+    "disabled": "已停用",
     "filterQPlaceholder": "按 id / 名称搜索…",
     "createSuccess": "工作流已创建",
     "jsonMustBeObject": "必须是 JSON 对象",
@@ -446,6 +453,8 @@
     "importReasonNotComfy": "文件不是 JSON，或不是从 ComfyUI 导出的",
     "importReasonOldExport": "用的是旧版导出（缺少 API 格式字段）",
     "importReasonBroken": "JSON 被手动改坏（多了逗号/括号不匹配）",
+    "inputPill": "输入",
+    "outputPill": "输出",
     "inputsHeading": "用户需要提供什么",
     "inputsHint": "使用时按顺序被问到这些内容",
     "outputsHeading": "用户会得到什么",
@@ -798,7 +807,7 @@
     "noPlacements": "尚无投放，完成页会标记为缺口。",
     "addChannelEntry": "为消息平台添加入口",
     "enabled": "已启用",
-    "disabled": "未启用",
+    "disabled": "已停用",
     "ready": "就绪",
     "warnPublishable": "警告（可发布）",
     "gap": "缺口",
@@ -961,8 +970,13 @@
     "variablesLabel": "可用变量",
     "noVariables": "无",
     "columnKey": "模板",
-    "searchPlaceholder": "按模板或文案搜索…",
     "empty": "暂无可配置的文案",
+    "groups": {
+      "workflow": "工作流阶段",
+      "notifications": "任务通知",
+      "platform": "平台与会话",
+      "commands": "公开命令"
+    },
     "edit": "编辑",
     "usesDefault": "使用默认文案",
     "actions": "操作"

@@ -36,9 +36,4 @@ export const kit = {
   sectionDash: 'border-border min-w-0 flex-1 border-t border-dashed',
   tableWrap: 'overflow-hidden rounded-md border',
   th: 'text-muted-foreground h-10 text-left font-medium',
-  healthDot: {
-    ok: 'size-2 shrink-0 rounded-full bg-success',
-    warn: 'size-2 shrink-0 rounded-full bg-warning',
-    bad: 'size-2 shrink-0 rounded-full bg-destructive',
-  },
 } as const

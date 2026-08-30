@@ -7,7 +7,7 @@ import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { kit } from './kit-classes'
+import { StatusDot } from '@/components/status-dot'
 import { listHealthTone } from './list-health'
 import { formatBytes } from './observation'
 
@@ -83,6 +83,8 @@ export function EdgeListPanel({
               edgeOnline: presence?.edge_online === true,
               comfyRunning: presence?.comfy_running === true,
             })
+            const statusLabel =
+              tone === 'ok' ? t('status.normal') : t('status.issue')
             const cores = item.hardware?.cpu_cores
             const vramBytes = (item.hardware?.gpus ?? []).reduce(
               (sum, gpu) => sum + (gpu.vram_bytes ?? 0),
@@ -110,10 +112,9 @@ export function EdgeListPanel({
                     <span className='truncate font-medium'>
                       {item.name || item.id}
                     </span>
-                    <span
-                      className={kit.healthDot[tone]}
-                      data-health={tone}
-                      aria-hidden
+                    <StatusDot
+                      problems={tone === 'ok' ? 0 : 1}
+                      label={statusLabel}
                     />
                   </div>
                   {specLine ? (

@@ -7,6 +7,7 @@ import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { StatusDot } from '@/components/status-dot'
 
 type Props = {
   items: Channel[]
@@ -86,18 +87,14 @@ export function ChannelListPanel({
                 >
                   <div className='flex items-center justify-between gap-2'>
                     <span className='truncate font-medium'>{ch.name}</span>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]',
+                    <StatusDot
+                      problems={ch.enabled ? 0 : 1}
+                      label={
                         ch.enabled
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground'
-                      )}
-                    >
-                      {ch.enabled
-                        ? t('channels.enabled')
-                        : t('channels.disabled')}
-                    </span>
+                          ? t('channels.enabled')
+                          : t('channels.disabled')
+                      }
+                    />
                   </div>
                   <div className='mt-0.5 truncate text-xs text-muted-foreground'>
                     {ch.platform} · {ch.token_masked}

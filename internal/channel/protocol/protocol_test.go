@@ -14,7 +14,7 @@ func TestCapabilityInvokeJSONRoundTrip(t *testing.T) {
 			ExternalUserID: "1001",
 			InternalUserID: "u-1",
 		},
-		Nav: Nav{Back: "root"},
+		Nav:    Nav{Back: "root"},
 		ChatID: "tg-default:1001",
 	}
 	raw, err := json.Marshal(inv)

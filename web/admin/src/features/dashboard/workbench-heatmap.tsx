@@ -20,6 +20,7 @@ const LEVEL_CLASS = [
 
 export function WorkbenchHeatmap({ data }: { data: Activity[] }) {
   const { t } = useTranslation()
+  const today = formatISO(new Date(), { representation: 'date' })
   const weeks = useMemo(() => groupByWeeks(data), [data])
   const monthLabels = useMemo(
     () => getMonthLabels(weeks, t('dashboard.workbench.months', { returnObjects: true }) as string[]),
@@ -57,7 +58,10 @@ export function WorkbenchHeatmap({ data }: { data: Activity[] }) {
                     <div
                       className={cn(
                         'aspect-square w-full rounded-[2px]',
-                        LEVEL_CLASS[activity.level] ?? LEVEL_CLASS[0]
+                        activity.date > today
+                          ? 'bg-muted/40'
+                          : LEVEL_CLASS[activity.level] ?? LEVEL_CLASS[0],
+                        activity.date === today && 'border border-primary'
                       )}
                       data-date={activity.date}
                       data-count={activity.count}

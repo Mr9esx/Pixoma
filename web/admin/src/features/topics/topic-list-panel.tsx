@@ -7,9 +7,13 @@ import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { StatusDot } from '@/components/status-dot'
+import type { EntityHealth } from '@/features/link-health/lib/references'
 
 type Props = {
   items: Topic[]
+  healthByTopic?: Record<string, EntityHealth>
+  healthReady?: boolean
   selectedKey?: string
   isLoading?: boolean
   isError?: boolean
@@ -19,6 +23,8 @@ type Props = {
 
 export function TopicListPanel({
   items,
+  healthByTopic,
+  healthReady = false,
   selectedKey,
   isLoading,
   isError,
@@ -73,6 +79,9 @@ export function TopicListPanel({
         <ul className='min-h-0 flex-1 divide-y overflow-auto'>
           {filtered.map((topic) => {
             const selected = selectedKey === topic.key
+            const health = healthReady ? healthByTopic?.[topic.key] : undefined
+            const problems =
+              (topic.enabled ? 0 : 1) + (health?.breakpoints.length ?? 1)
             return (
               <li key={topic.key}>
                 <Link
@@ -85,18 +94,12 @@ export function TopicListPanel({
                 >
                   <div className='flex items-center justify-between gap-2'>
                     <span className='truncate font-medium'>{topic.name}</span>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]',
-                        topic.enabled
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground'
-                      )}
-                    >
-                      {topic.enabled
-                        ? t('topics.enabled')
-                        : t('topics.disabled')}
-                    </span>
+                    <StatusDot
+                      problems={problems}
+                      label={
+                        problems === 0 ? t('topics.enabled') : t('status.issue')
+                      }
+                    />
                   </div>
                   <div className='mt-0.5 truncate text-xs text-muted-foreground'>
                     {topic.key}

@@ -8,6 +8,8 @@ import {
 } from '@tanstack/react-router'
 import { Plus, Tags } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { listCases } from '@/lib/api/cases'
+import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTopics } from '@/lib/api/topics'
 import { Button } from '@/components/ui/button'
@@ -27,6 +29,7 @@ import {
 } from '@/components/ui/empty'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { kit } from '@/features/edges/kit-classes'
+import { topicReferences } from '@/features/link-health/lib/references'
 import { CreateTopicForm } from '@/features/topics/create-topic-form'
 import { TopicDetailPanel } from '@/features/topics/topic-detail-panel'
 import { TopicListPanel } from '@/features/topics/topic-list-panel'
@@ -51,8 +54,41 @@ function TopicsLayout() {
     queryKey: queryKeys.topics.all,
     queryFn: () => listTopics(),
   })
+  const casesQuery = useQuery({
+    queryKey: queryKeys.cases.all,
+    queryFn: () => listCases(),
+  })
+  const edgesQuery = useQuery({
+    queryKey: queryKeys.edges.all,
+    queryFn: listEdges,
+  })
+  const presenceQuery = useQuery({
+    queryKey: queryKeys.edges.presence,
+    queryFn: listPresence,
+  })
   const [manualCreateOpen, setManualCreateOpen] = useState(false)
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
+  const listHealthReady =
+    casesQuery.isSuccess && edgesQuery.isSuccess && presenceQuery.isSuccess
+  const healthByTopic = useMemo(() => {
+    if (!listHealthReady) return undefined
+    const cases = casesQuery.data ?? []
+    const edges = edgesQuery.data ?? []
+    const presence = presenceQuery.data ?? []
+
+    return Object.fromEntries(
+      items.map((topic) => [
+        topic.key,
+        topicReferences(topic.key, { cases, edges, presence }).health,
+      ])
+    )
+  }, [
+    casesQuery.data,
+    edgesQuery.data,
+    items,
+    listHealthReady,
+    presenceQuery.data,
+  ])
   const backToList = locationState?.backToList === true
   const selectedKey = key ?? (backToList ? undefined : items[0]?.key)
   const create = key === 'new'
@@ -116,6 +152,8 @@ function TopicsLayout() {
         list={
           <TopicListPanel
             items={items}
+            healthByTopic={healthByTopic}
+            healthReady={listHealthReady}
             selectedKey={selectedKey}
             isLoading={listQuery.isLoading}
             isError={listQuery.isError}

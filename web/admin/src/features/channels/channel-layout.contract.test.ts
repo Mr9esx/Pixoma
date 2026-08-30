@@ -11,6 +11,7 @@ describe('channel layout aligned with compute nodes', () => {
   it('list panel has search only and no header', () => {
     const source = readFileSync(LIST_PANEL, 'utf8')
     expect(source).toContain("data-testid='channels-list-panel'")
+    expect(source).toContain('<StatusDot')
     expect(source).toContain('channels.listSearch')
     expect(source).not.toContain('<h2')
   })
@@ -80,8 +81,12 @@ describe('channel layout aligned with compute nodes', () => {
     expect(zh.channels.tabMenu).toBe('菜单配置')
     expect(zh.channels.tabMenuHint).toBe('配置主菜单与卡片，保存后对用户生效。')
     expect(detail).toMatch(/tabMenuHint/)
-    expect(detail).toMatch(/<section id='channel-menu-section'[\s\S]*?<MenuCardEditor/)
-    const menuChunk = detail.split("id='channel-menu-section'")[1].split("id='channel-text-section'")[0]
+    expect(detail).toMatch(
+      /<section id='channel-menu-section'[\s\S]*?<MenuCardEditor/
+    )
+    const menuChunk = detail
+      .split("id='channel-menu-section'")[1]
+      .split("id='channel-text-section'")[0]
     expect(menuChunk).toMatch(/SectionHead/)
     expect(menuChunk).toMatch(/channels\.tabMenu/)
     expect(menuChunk).not.toMatch(/kit\.cardWrap/)

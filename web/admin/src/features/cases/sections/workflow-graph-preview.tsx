@@ -1,24 +1,25 @@
 import { useMemo, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { patchCase } from '@/lib/api/cases'
+import { queryKeys } from '@/lib/api/query-keys'
+import type { CaseRecord } from '@/lib/api/types'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { patchCase } from '@/lib/api/cases'
-import { queryKeys } from '@/lib/api/query-keys'
-import type { CaseRecord } from '@/lib/api/types'
-import { parseWorkflow, type WorkflowGraph } from '../lib/workflow-parse'
+import { Pill } from '@/components/kibo-ui/pill'
 import {
   deriveBindings,
   type InputFieldDraft,
   type OutputFieldDraft,
 } from '../lib/derive'
+import { parseWorkflow, type WorkflowGraph } from '../lib/workflow-parse'
 import {
   EditableInputFields,
   EditableOutputFields,
@@ -121,13 +122,28 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
   const noop = () => {}
 
   return (
-    <div className='min-w-0 w-full space-y-4' data-testid='case-workflow-graph-preview'>
+    <div
+      className='w-full min-w-0 space-y-4'
+      data-testid='case-workflow-graph-preview'
+    >
       {/* ===== 输入（对齐编辑工作流）===== */}
       <section className='space-y-2'>
         <header className='flex flex-wrap items-center justify-between gap-2'>
           <div className='min-w-0'>
-            <h3 className='text-sm font-semibold'>{t('cases.inputsHeading')}</h3>
-            <p className='text-xs text-muted-foreground'>{t('cases.inputsHint')}</p>
+            <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+              <Pill
+                variant='default'
+                className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
+              >
+                {t('cases.inputPill')}
+              </Pill>
+              <h3 className='text-sm font-semibold'>
+                {t('cases.inputsHeading')}
+              </h3>
+            </div>
+            <p className='text-xs text-muted-foreground'>
+              {t('cases.inputsHint')}
+            </p>
           </div>
           <Button
             type='button'
@@ -156,8 +172,20 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
       <section className='space-y-2'>
         <header className='flex flex-wrap items-center justify-between gap-2'>
           <div className='min-w-0'>
-            <h3 className='text-sm font-semibold'>{t('cases.outputsHeading')}</h3>
-            <p className='text-xs text-muted-foreground'>{t('cases.outputsHint')}</p>
+            <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+              <Pill
+                variant='default'
+                className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
+              >
+                {t('cases.outputPill')}
+              </Pill>
+              <h3 className='text-sm font-semibold'>
+                {t('cases.outputsHeading')}
+              </h3>
+            </div>
+            <p className='text-xs text-muted-foreground'>
+              {t('cases.outputsHint')}
+            </p>
           </div>
           <Button
             type='button'
@@ -191,7 +219,9 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
           readOnly
         />
       ) : (
-        <p className='px-1 text-xs text-muted-foreground'>{t('cases.noRows')}</p>
+        <p className='px-1 text-xs text-muted-foreground'>
+          {t('cases.noRows')}
+        </p>
       )}
 
       {/* ===== 编辑输入 modal（复用编辑工作流的字段列表）===== */}
@@ -228,7 +258,11 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
             />
           </div>
           <div className='flex justify-end gap-2 border-t pt-3'>
-            <Button type='button' variant='outline' onClick={() => setInputsOpen(false)}>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => setInputsOpen(false)}
+            >
               {t('common.cancel')}
             </Button>
             <Button
@@ -270,7 +304,11 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
             />
           </div>
           <div className='flex justify-end gap-2 border-t pt-3'>
-            <Button type='button' variant='outline' onClick={() => setOutputsOpen(false)}>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => setOutputsOpen(false)}
+            >
               {t('common.cancel')}
             </Button>
             <Button

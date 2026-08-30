@@ -118,7 +118,7 @@ describe('compute node layout and detail', () => {
     const observe = read('observation-panel.tsx')
     const zh = read('../../lib/i18n/locales/zh.json')
     expect(list).toMatch(/listHealthTone/)
-    expect(list).toMatch(/data-health/)
+    expect(list).toMatch(/<StatusDot/)
     expect(list).not.toMatch(/PresenceTags/)
     expect(list).not.toMatch(/edges\.enabled/)
     expect(layout).toMatch(/listPresence/)
@@ -203,7 +203,9 @@ describe('compute node layout and detail', () => {
     )
     expect(layout).toMatch(/sm:max-w-\[504px\]/)
     expect(wizard).toMatch(/min-h-0 flex-1[\s\S]*?overflow-y-auto/)
-    expect(wizard).toMatch(/flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1/)
+    expect(wizard).toMatch(
+      /flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1/
+    )
     expect(wizard).toMatch(/overflow-y-auto px-1/)
     expect(wizard).toMatch(/refetchInterval:\s*3000/)
     expect(wizard).toMatch(/edges\.deploySkip/)
@@ -244,7 +246,9 @@ describe('compute node layout and detail', () => {
       /fieldName[\s\S]*?subscribeTopics[\s\S]*?fieldDescription[\s\S]*?fieldCapabilities[\s\S]*?fieldEnabled/
     )
     expect(form).toMatch(/DEFAULT_TOPIC_KEY/)
-    expect(form).toMatch(/subscribe_topics\s*\?\?\s*\[\]\s*\)\s*:\s*\[DEFAULT_TOPIC_KEY\]/)
+    expect(form).toMatch(
+      /subscribe_topics\s*\?\?\s*\[\]\s*\)\s*:\s*\[DEFAULT_TOPIC_KEY\]/
+    )
     expect(picker).toMatch(/Alert[\s\S]*?subscribeTopicsHint/)
     expect(picker).toMatch(/font-medium[\s\S]*?\{tp\.name \|\| tp\.key\}/)
     expect(picker).toMatch(

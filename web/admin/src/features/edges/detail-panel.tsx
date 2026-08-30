@@ -10,6 +10,7 @@ import {
   Hash,
   ListTodo,
   MemoryStick,
+  MoreHorizontal,
   PenLine,
   SearchX,
   Tags,
@@ -41,6 +42,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Reveal } from '@/components/ui/reveal'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
@@ -275,15 +282,6 @@ export function EdgeDetailPanel({ id }: Props) {
           <div className='flex shrink-0 flex-wrap gap-2'>
             <Button
               type='button'
-              variant='outline'
-              className={kit.btnGhost}
-              onClick={() => setDeployOpen(true)}
-            >
-              <Terminal className='size-3.5' strokeWidth={2} />
-              {t('edges.deployCommand')}
-            </Button>
-            <Button
-              type='button'
               className={kit.btnPrimary}
               onClick={() => setEditOpen(true)}
             >
@@ -292,13 +290,35 @@ export function EdgeDetailPanel({ id }: Props) {
             </Button>
             <Button
               type='button'
-              variant='destructive'
-              className='h-8 gap-1.5 rounded-md px-3 text-xs'
-              onClick={() => setDeleteOpen(true)}
+              variant='outline'
+              className={kit.btnGhost}
+              onClick={() => setDeployOpen(true)}
             >
-              <Trash2 className='size-3.5' strokeWidth={2} />
-              {t('common.delete')}
+              <Terminal className='size-3.5' strokeWidth={2} />
+              {t('edges.deployCommand')}
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='icon-sm'
+                  aria-label={t('common.moreActions')}
+                >
+                  <MoreHorizontal className='size-3.5' strokeWidth={2} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end'>
+                <DropdownMenuItem
+                  variant='destructive'
+                  disabled={deleteMutation.isPending}
+                  onSelect={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className='size-3.5' strokeWidth={2} />
+                  {t('common.delete')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         {edge.description ? (

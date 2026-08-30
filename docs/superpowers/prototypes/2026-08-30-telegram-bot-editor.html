@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>图片生成 Bot 交互配置</title>
+  <link rel="stylesheet" href="../../../.agents/skills/pixoma-design-system-skill/colors_and_type.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-body);
+      font-size: var(--fs-body);
+      line-height: 1.55;
+    }
+    button, input, textarea { font: inherit; color: var(--foreground); }
+    button {
+      min-height: var(--button-h);
+      padding: 0 var(--gap-md);
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      background: transparent;
+      cursor: pointer;
+      transition: background 120ms, border-color 120ms;
+    }
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+    .app {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: var(--gap-lg) var(--gutter) var(--gap-2xl);
+    }
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--gap-md);
+      padding-bottom: var(--gap-md);
+      border-bottom: 1px solid var(--border);
+    }
+    .eyebrow {
+      margin: 0;
+      color: var(--muted-foreground);
+      font-size: var(--fs-meta);
+    }
+    h1 {
+      margin: 4px 0 0;
+      font-size: 26px;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      max-width: 64ch;
+      margin: 6px 0 0;
+      color: var(--muted-foreground);
+      font-size: var(--fs-sm);
+    }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+      flex-wrap: wrap;
+    }
+    .segment {
+      display: flex;
+      gap: 3px;
+      padding: 3px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--muted);
+    }
+    .segment button {
+      min-width: 84px;
+      border: 0;
+      color: var(--muted-foreground);
+    }
+    .segment button[aria-pressed="true"] {
+      background: var(--card);
+      color: var(--foreground);
+      box-shadow: inset 0 0 0 1px var(--border);
+    }
+    .primary {
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+    .primary:hover {
+      background: color-mix(in oklch, var(--primary) 90%, black);
+    }
+    .ghost:hover {
+      background: color-mix(in oklch, var(--foreground) 6%, transparent);
+    }
+    section { margin-top: var(--gap-lg); }
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--gap-md);
+      margin-bottom: var(--gap-md);
+    }
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -0.01em;
+    }
+    .section-desc {
+      max-width: 68ch;
+      margin: 5px 0 0;
+      color: var(--muted-foreground);
+      font-size: var(--fs-sm);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--card);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--fs-sm);
+    }
+    th,
+    td {
+      padding: var(--gap-md);
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted-foreground);
+      font-size: var(--fs-meta);
+      font-weight: 650;
+      white-space: nowrap;
+      background: var(--muted);
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover td {
+      background: color-mix(in oklch, var(--foreground) 2%, var(--card));
+    }
+    .stage-name {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 104px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+    .key {
+      color: var(--muted-foreground);
+      font-family: var(--font-mono);
+      font-size: var(--fs-meta);
+      font-weight: 400;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--secondary);
+      color: var(--secondary-foreground);
+      font-size: var(--fs-meta);
+      white-space: nowrap;
+    }
+    .badge-accent {
+      border-color: color-mix(in oklch, var(--accent-brand) 35%, var(--border));
+      background: color-mix(in oklch, var(--accent-brand) 12%, transparent);
+      color: var(--accent-text);
+    }
+    .editor {
+      display: grid;
+      gap: 10px;
+      min-width: min(360px, 100%);
+    }
+    .field { display: grid; gap: 5px; }
+    label {
+      color: var(--muted-foreground);
+      font-size: var(--fs-meta);
+      font-weight: 600;
+    }
+    input,
+    textarea {
+      width: 100%;
+      min-height: var(--button-h);
+      padding: 8px 10px;
+      border: 1px solid var(--input);
+      border-radius: var(--radius-md);
+      background: var(--background);
+      font-size: var(--fs-sm);
+    }
+    textarea {
+      min-height: 72px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+    .cell-narrow { min-width: 180px; }
+    .cell-wide { min-width: min(380px, 100%); }
+    .action {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      padding: 6px 9px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--muted);
+      color: var(--foreground);
+      font-family: var(--font-mono);
+      font-size: var(--fs-meta);
+      overflow-wrap: anywhere;
+    }
+    .actions { display: grid; gap: 8px; }
+    .empty {
+      color: var(--muted-foreground);
+      font-size: var(--fs-meta);
+      white-space: nowrap;
+    }
+    .footer {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: var(--gap-sm);
+      margin-top: var(--gap-lg);
+      padding: var(--gap-md);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: color-mix(in oklch, var(--background) 94%, transparent);
+      backdrop-filter: blur(8px);
+    }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 84px;
+      transform: translateX(-50%);
+      padding: 10px var(--gap-md);
+      border-radius: var(--radius-lg);
+      background: var(--primary);
+      color: var(--primary-foreground);
+      box-shadow: var(--shadow-float-lg);
+      display: none;
+      z-index: 10;
+      font-size: var(--fs-sm);
+    }
+    .toast[data-visible="true"] { display: block; }
+    @media (max-width: 920px) {
+      .app { padding: var(--gap-md) var(--gap-md) var(--gap-xl); }
+      .topbar { flex-direction: column; }
+      .top-actions { width: 100%; }
+      .top-actions .segment { flex: 1; }
+      .top-actions .segment button { flex: 1; }
+      .top-actions .primary { flex: 1; }
+      .section-head { flex-direction: column; }
+      .footer { justify-content: stretch; }
+      .footer button { flex: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">TELEGRAM BOT</p>
+        <h1>图片生成交互配置</h1>
+        <p class="lede">工作流阶段、按钮和任务通知在一页展示。菜单和卡片仍在现有菜单编辑器维护。</p>
+      </div>
+      <div class="top-actions">
+        <div class="segment" role="group" aria-label="选择配置作用域">
+          <button type="button" data-scope="platform" aria-pressed="false">平台默认</button>
+          <button type="button" data-scope="channel" aria-pressed="true">当前渠道</button>
+        </div>
+        <button class="primary" id="save" type="button">保存草稿</button>
+      </div>
+    </header>
+
+    <section aria-labelledby="workflow-title">
+      <div class="section-head">
+        <div>
+          <h2 id="workflow-title">工作流阶段</h2>
+          <p class="section-desc">每个阶段的正文、按钮和触发动作放同一行。</p>
+        </div>
+        <span class="badge">flow=image</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">阶段</th>
+              <th scope="col">正文 / 提示</th>
+              <th scope="col">按钮</th>
+              <th scope="col">动作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="stage-name">预览</div></td>
+              <td class="cell-wide">
+                <div class="editor">
+                  <div class="field"><label for="preview-hint">预览说明</label><textarea id="preview-hint">预览说明：</textarea></div>
+                  <div class="field"><label for="preview-mock">无预览提示</label><textarea id="preview-mock">（mock）确认后将返回一张示例图</textarea></div>
+                </div>
+              </td>
+              <td class="cell-narrow">
+                <div class="editor"><div class="field"><label for="preview-start">主按钮</label><input id="preview-start" value="▶ 开始 Case"></div></div>
+              </td>
+              <td class="cell-narrow"><div class="actions"><span class="action">workflow.start(flow=image)</span></div></td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">输入<span class="key">input_prompt</span></div></td>
+              <td class="cell-wide">
+                <div class="editor">
+                  <div class="field"><label for="input-prompt">输入提示</label><textarea id="input-prompt">填写参数 {{ progress }}：请输入「{{ key }}」</textarea></div>
+                  <div class="field"><label for="input-number">数字错误</label><textarea id="input-number">输入合法数字，例如 42</textarea></div>
+                  <div class="field"><label for="input-boolean">布尔错误</label><textarea id="input-boolean">输入 true 或 false</textarea></div>
+                </div>
+              </td>
+              <td class="cell-narrow">
+                <div class="editor">
+                  <div class="field"><label for="input-skip">跳过按钮</label><input id="input-skip" value="跳过"></div>
+                  <div class="field"><label for="input-exit">退出按钮</label><input id="input-exit" value="✕ 退出"></div>
+                </div>
+              </td>
+              <td class="cell-narrow">
+                <div class="actions">
+                  <span class="action">workflow.step(step=skip)</span>
+                  <span class="action">workflow.step(step=exit)</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">确认<span class="key">confirm_run</span></div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="confirm-body">正文</label><textarea id="confirm-body">输入完成，确认执行？</textarea></div></div>
+              </td>
+              <td class="cell-narrow">
+                <div class="editor">
+                  <div class="field"><label for="confirm-button">确认按钮</label><input id="confirm-button" value="✅ 确认生成"></div>
+                  <div class="field"><label for="confirm-exit">退出按钮</label><input id="confirm-exit" value="✕ 退出"></div>
+                </div>
+              </td>
+              <td class="cell-narrow">
+                <div class="actions">
+                  <span class="action">workflow.submit(flow=image)</span>
+                  <span class="action">workflow.step(step=exit)</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">已提交<span class="key">submit_started</span></div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="submitted-body">提交反馈</label><textarea id="submitted-body">已提交，正在生成… task={{ task_id }}</textarea></div></div>
+              </td>
+              <td class="cell-narrow"><span class="empty">无按钮</span></td>
+              <td class="cell-narrow"><span class="empty">等待任务事件</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="notifications-title">
+      <div class="section-head">
+        <div>
+          <h2 id="notifications-title">任务通知</h2>
+          <p class="section-desc">当前已接入的运行时事件。</p>
+        </div>
+        <span class="badge">runtime.notify</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">事件</th>
+              <th scope="col">文案</th>
+              <th scope="col">变量</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="stage-name">成功<span class="key">workflow_done</span><span class="key">workflow_done_followup</span></div></td>
+              <td class="cell-wide">
+                <div class="editor">
+                  <div class="field"><label for="notify-success">通知</label><textarea id="notify-success">✅ 工作流完成
+task={{ task_id }}</textarea></div>
+                  <div class="field"><label for="notify-followup">成功后引导</label><textarea id="notify-followup">还要继续？点菜单再选一个工作流。</textarea></div>
+                </div>
+              </td>
+              <td class="cell-narrow"><span class="action">task_id</span></td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">失败<span class="key">task_failed</span></div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="notify-failed">通知</label><textarea id="notify-failed">❌ 任务执行失败
+task={{ task_id }}
+状态：{{ status }}
+{{ error_msg }}</textarea></div></div>
+              </td>
+              <td class="cell-narrow">
+                <div class="actions"><span class="action">task_id</span><span class="action">status</span><span class="action">error_msg</span></div>
+              </td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">取消<span class="key">task_cancelled</span></div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="notify-cancelled">通知</label><textarea id="notify-cancelled">任务已取消
+task={{ task_id }}</textarea></div></div>
+              </td>
+              <td class="cell-narrow"><div class="actions"><span class="action">task_id</span><span class="action">status</span></div></td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">会话终止</div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="notify-terminated">通知</label><textarea id="notify-terminated">该工作流已被管理员删除，当前会话已结束。</textarea></div></div>
+              </td>
+              <td class="cell-narrow"><span class="empty">无变量</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="platform-title">
+      <div class="section-head">
+        <div>
+          <h2 id="platform-title">平台与会话</h2>
+          <p class="section-desc">当前系统已有、但不属于某个工作流阶段的文案。</p>
+        </div>
+        <span class="badge">6 个模板</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">模板</th>
+              <th scope="col">文案</th>
+              <th scope="col">变量</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="stage-name">welcome</div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="welcome-copy">文案</label><textarea id="welcome-copy">欢迎使用 ComfyUI Bot
+请选择功能：</textarea></div></div>
+              </td>
+              <td class="cell-narrow"><span class="empty">无</span></td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">select_template</div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="select-template-copy">文案</label><textarea id="select-template-copy">请选择模板：</textarea></div></div>
+              </td>
+              <td class="cell-narrow"><span class="empty">无</span></td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">exit_done</div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="exit-done-copy">文案</label><textarea id="exit-done-copy">已退出当前 Case，可以重新选择。</textarea></div></div>
+              </td>
+              <td class="cell-narrow"><span class="empty">无</span></td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">unfinished_session</div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="unfinished-session-copy">文案</label><textarea id="unfinished-session-copy">你有一个未完成的工作流，先退出再重新开始。</textarea></div></div>
+              </td>
+              <td class="cell-narrow"><span class="empty">无</span></td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">menu_action_placeholder</div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="menu-action-placeholder-copy">文案</label><textarea id="menu-action-placeholder-copy">暂未开放</textarea></div></div>
+              </td>
+              <td class="cell-narrow"><span class="empty">无</span></td>
+            </tr>
+            <tr>
+              <td><div class="stage-name">menu_updated</div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="menu-updated-copy">文案</label><textarea id="menu-updated-copy">菜单已更新，请使用下方新按钮。</textarea></div></div>
+              </td>
+              <td class="cell-narrow"><span class="empty">无</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="commands-title">
+      <div class="section-head">
+        <div>
+          <h2 id="commands-title">公开命令</h2>
+          <p class="section-desc">流程中的确认、跳过和退出由按钮触发，不在这里配置。</p>
+        </div>
+        <span class="badge">2 个命令</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">命令</th>
+              <th scope="col">动作</th>
+              <th scope="col">文案</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="cell-narrow"><div class="editor"><div class="field"><label for="start-command">命令</label><input id="start-command" value="/start"></div></div></td>
+              <td class="cell-narrow"><div class="editor"><div class="field"><label for="start-action">动作</label><input id="start-action" value="navigation.main"></div></div></td>
+              <td class="cell-wide"><span class="empty">无独立文案</span></td>
+            </tr>
+            <tr>
+              <td class="cell-narrow"><div class="editor"><div class="field"><label for="help-command">命令</label><input id="help-command" value="/help"></div></div></td>
+              <td class="cell-narrow"><div class="editor"><div class="field"><label for="help-action">动作</label><input id="help-action" value="navigation.help"></div></div></td>
+              <td class="cell-wide">
+                <div class="editor"><div class="field"><label for="help-copy">文案</label><textarea id="help-copy">帮助：点下方按钮选功能。菜单更新后发 /menu 刷新。</textarea></div></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span class="badge" id="scopeBadge">作用域：当前渠道</span>
+      <button class="ghost" type="button" id="reset">回平台默认</button>
+      <button class="primary" type="button" id="saveBottom">保存草稿</button>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const toast = document.getElementById("toast");
+    function showToast(message) {
+      toast.textContent = message;
+      toast.dataset.visible = "true";
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => toast.dataset.visible = "false", 1600);
+    }
+    document.querySelectorAll("[data-scope]").forEach(button => button.addEventListener("click", () => {
+      document.querySelectorAll("[data-scope]").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+      const scope = button.dataset.scope === "channel" ? "当前渠道" : "平台默认";
+      document.getElementById("scopeBadge").textContent = `作用域：${scope}`;
+      showToast(`已切到${scope}`);
+    }));
+    const save = () => showToast("草稿已保存");
+    document.getElementById("save").addEventListener("click", save);
+    document.getElementById("saveBottom").addEventListener("click", save);
+    document.getElementById("reset").addEventListener("click", () => showToast("已回到平台默认"));
+  </script>
+</body>
+</html>

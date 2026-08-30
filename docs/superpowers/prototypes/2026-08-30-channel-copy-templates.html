@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文案模板 · 场景分组原型</title>
+  <link rel="stylesheet" href="../../../.agents/skills/pixoma-design-system-skill/colors_and_type.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-body);
+      font-size: var(--fs-body);
+      line-height: 1.55;
+    }
+    button {
+      font: inherit;
+      min-height: var(--button-h);
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: var(--foreground);
+      padding: 0 var(--gap-md);
+      cursor: pointer;
+      transition: background 120ms, border-color 120ms, color 120ms;
+    }
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    dialog:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+    .shell {
+      max-width: var(--container);
+      margin: 0 auto;
+      padding: var(--gap-xl) var(--gutter) var(--gap-2xl);
+    }
+    .page-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--gap-md);
+      margin-bottom: var(--gap-lg);
+    }
+    .eyebrow {
+      margin: 0 0 var(--gap-xs);
+      color: var(--muted-foreground);
+      font-size: var(--fs-meta);
+    }
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      max-width: 64ch;
+      margin: var(--gap-sm) 0 0;
+      color: var(--muted-foreground);
+      font-size: var(--fs-sm);
+    }
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: var(--gap-sm);
+      align-items: center;
+      padding: var(--gap-sm) 0;
+      margin-bottom: var(--gap-md);
+      background: color-mix(in oklch, var(--background) 94%, transparent);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+    .search {
+      width: 100%;
+      height: var(--button-h);
+      padding: 0 var(--gap-md);
+      border: 1px solid var(--input);
+      border-radius: var(--radius-md);
+      background: var(--card);
+      color: var(--foreground);
+      font: inherit;
+    }
+    .segment {
+      display: flex;
+      padding: 3px;
+      gap: 3px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--muted);
+    }
+    .segment button {
+      min-width: 96px;
+      border: 0;
+      border-radius: var(--radius-md);
+      color: var(--muted-foreground);
+    }
+    .segment button[aria-pressed="true"] {
+      background: var(--card);
+      color: var(--foreground);
+      box-shadow: inset 0 0 0 1px var(--border);
+    }
+    .ghost:hover,
+    .outline:hover {
+      background: color-mix(in oklch, var(--foreground) 6%, transparent);
+    }
+    .outline {
+      border-color: var(--border);
+    }
+    .outline:hover {
+      border-color: var(--foreground);
+    }
+    .primary {
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+    .primary:hover {
+      background: color-mix(in oklch, var(--primary) 90%, black);
+    }
+    .groups {
+      display: grid;
+      gap: var(--gap-md);
+    }
+    .group {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      background: var(--card);
+      overflow: hidden;
+    }
+    .group[data-active="true"] {
+      border-color: color-mix(in oklch, var(--accent-brand) 55%, var(--border));
+    }
+    .group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--gap-md);
+      padding: var(--gap-md) var(--gap-lg);
+      border-bottom: 1px solid var(--border);
+    }
+    .group-title {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+      margin: 0;
+      font-size: 17px;
+      font-weight: 650;
+    }
+    .count {
+      min-width: 26px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--muted-foreground);
+      font-family: var(--font-mono);
+      font-size: var(--fs-meta);
+      font-variant-numeric: tabular-nums;
+    }
+    .group-desc {
+      margin: 0;
+      color: var(--muted-foreground);
+      font-size: var(--fs-sm);
+    }
+    .items {
+      display: grid;
+      gap: 1px;
+      background: var(--border);
+    }
+    .item {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.7fr) auto;
+      gap: var(--gap-md);
+      align-items: start;
+      padding: var(--gap-md) var(--gap-lg);
+      background: var(--card);
+      transition: background 120ms;
+    }
+    .item:hover {
+      background: color-mix(in oklch, var(--foreground) 3%, var(--card));
+    }
+    .key {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: var(--fs-meta);
+      font-weight: 650;
+      word-break: break-word;
+    }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--gap-xs);
+      margin-top: var(--gap-sm);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      border-radius: var(--radius-md);
+      background: var(--secondary);
+      color: var(--secondary-foreground);
+      font-size: var(--fs-meta);
+      white-space: nowrap;
+    }
+    .badge-shared {
+      background: color-mix(in oklch, var(--accent-brand) 14%, transparent);
+      color: var(--accent-text);
+    }
+    .value {
+      margin: 0;
+      color: var(--foreground);
+      white-space: pre-line;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--gap-sm);
+      margin-top: var(--gap-sm);
+      color: var(--muted-foreground);
+      font-size: var(--fs-meta);
+    }
+    .vars {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .var {
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+    }
+    .edit {
+      align-self: center;
+      border-color: var(--border);
+    }
+    .empty,
+    .status {
+      display: none;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--gap-lg);
+      color: var(--muted-foreground);
+      text-align: center;
+    }
+    .empty[data-visible="true"],
+    .status[data-visible="true"] {
+      display: block;
+    }
+    dialog {
+      width: min(640px, calc(100vw - 32px));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      background: var(--card);
+      color: var(--card-foreground);
+      padding: 0;
+      box-shadow: var(--shadow-float-lg);
+    }
+    dialog::backdrop {
+      background: color-mix(in oklch, var(--foreground) 32%, transparent);
+    }
+    .dialog-body {
+      padding: var(--gap-lg);
+    }
+    .dialog-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--gap-md);
+      margin-bottom: var(--gap-md);
+    }
+    .dialog-title {
+      margin: 0;
+      font-size: 18px;
+    }
+    .dialog-desc {
+      margin: 4px 0 0;
+      color: var(--muted-foreground);
+      font-size: var(--fs-sm);
+    }
+    .form-grid {
+      display: grid;
+      gap: var(--gap-md);
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted-foreground);
+      font-size: var(--fs-meta);
+    }
+    textarea {
+      width: 100%;
+      min-height: 112px;
+      resize: vertical;
+      padding: 10px var(--gap-md);
+      border: 1px solid var(--input);
+      border-radius: var(--radius-md);
+      background: var(--background);
+      color: var(--foreground);
+      font: inherit;
+      line-height: 1.5;
+    }
+    .default-box {
+      padding: var(--gap-md);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--muted);
+      white-space: pre-line;
+      font-size: var(--fs-sm);
+    }
+    .dialog-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--gap-sm);
+      padding-top: var(--gap-md);
+      border-top: 1px solid var(--border);
+    }
+    .foot-actions {
+      display: flex;
+      gap: var(--gap-sm);
+    }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      z-index: 10;
+      display: none;
+      transform: translateX(-50%);
+      padding: 10px var(--gap-md);
+      border-radius: var(--radius-lg);
+      background: var(--primary);
+      color: var(--primary-foreground);
+      box-shadow: var(--shadow-float-lg);
+      font-size: var(--fs-sm);
+    }
+    .toast[data-visible="true"] { display: block; }
+    @media (max-width: 920px) {
+      .shell { padding: var(--gap-lg) var(--gap-md) var(--gap-xl); }
+      .page-head { flex-direction: column; }
+      .toolbar { grid-template-columns: 1fr; }
+      .segment, .segment button { width: 100%; }
+      .item { grid-template-columns: 1fr; }
+      .edit { align-self: start; }
+      .dialog-foot { flex-direction: column; align-items: stretch; }
+      .foot-actions { width: 100%; }
+      .foot-actions button { flex: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="page-head">
+      <div>
+        <p class="eyebrow">渠道详情 · 文案</p>
+        <h1>文案模板</h1>
+        <p class="lede">正文、按钮和提示按场景放在一起。改「当前渠道」只影响这个渠道，没覆盖的项用平台默认。</p>
+      </div>
+      <button class="outline" id="theme" type="button">换暗色</button>
+    </header>
+
+    <section class="toolbar" aria-label="文案筛选">
+      <input class="search" id="search" type="search" placeholder="搜索 key、文案或场景" aria-label="搜索文案模板">
+      <div class="segment" role="group" aria-label="选择文案作用域">
+        <button type="button" aria-pressed="false" data-scope="platform">平台默认</button>
+        <button type="button" aria-pressed="true" data-scope="channel">当前渠道</button>
+      </div>
+      <button class="primary" id="saveAll" type="button">保存改动</button>
+    </section>
+
+    <div class="groups" id="groups">
+      <section class="group" data-group="命令与导航">
+        <div class="group-head"><div><h2 class="group-title">命令与导航 <span class="count">5</span></h2><p class="group-desc">进入 bot、命令兜底和固定返回按钮。</p></div></div>
+        <div class="items"></div>
+      </section>
+      <section class="group" data-group="工作流选择">
+        <div class="group-head"><div><h2 class="group-title">工作流选择 <span class="count">1</span></h2><p class="group-desc">选择模板时的提示。</p></div></div>
+        <div class="items"></div>
+      </section>
+      <section class="group" data-group="工作流预览">
+        <div class="group-head"><div><h2 class="group-title">工作流预览 <span class="count">3</span></h2><p class="group-desc">预览说明和开始按钮。</p></div></div>
+        <div class="items"></div>
+      </section>
+      <section class="group" data-group="输入参数">
+        <div class="group-head"><div><h2 class="group-title">输入参数 <span class="count">7</span></h2><p class="group-desc">输入提示、类型错误和操作按钮。</p></div></div>
+        <div class="items"></div>
+      </section>
+      <section class="group" data-active="true" data-group="确认生成">
+        <div class="group-head"><div><h2 class="group-title">确认生成 <span class="count">3</span></h2><p class="group-desc">确认正文和按钮一起编辑；退出按钮是共享 key。</p></div></div>
+        <div class="items"></div>
+      </section>
+      <section class="group" data-group="任务执行与结果">
+        <div class="group-head"><div><h2 class="group-title">任务执行与结果 <span class="count">7</span></h2><p class="group-desc">提交中、执行结果、任务通知和会话终止。</p></div></div>
+        <div class="items"></div>
+      </section>
+      <section class="group" data-group="会话状态">
+        <div class="group-head"><div><h2 class="group-title">会话状态 <span class="count">2</span></h2><p class="group-desc">退出提示和未完成会话提示。</p></div></div>
+        <div class="items"></div>
+      </section>
+      <section class="group" data-group="菜单与卡片">
+        <div class="group-head"><div><h2 class="group-title">菜单与卡片 <span class="count">6</span></h2><p class="group-desc">占位提示和回调失败提示。</p></div></div>
+        <div class="items"></div>
+      </section>
+      <section class="group" data-group="系统与失败">
+        <div class="group-head"><div><h2 class="group-title">系统与失败 <span class="count">5</span></h2><p class="group-desc">装配失败和图片传输失败。</p></div></div>
+        <div class="items"></div>
+      </section>
+    </div>
+
+    <div class="empty" id="empty" data-visible="false">没有匹配的文案。换个关键词再搜。</div>
+  </main>
+
+  <dialog id="editor" aria-labelledby="editorTitle">
+    <form class="dialog-body" method="dialog">
+      <div class="dialog-head">
+        <div>
+          <h2 class="dialog-title" id="editorTitle">编辑文案</h2>
+          <p class="dialog-desc" id="editorDesc">留空保存后回到上一级默认。</p>
+        </div>
+        <button class="ghost" id="closeEditor" type="button">关闭</button>
+      </div>
+      <div class="form-grid">
+        <div>
+          <label for="editorValue">当前覆盖</label>
+          <textarea id="editorValue" name="value"></textarea>
+        </div>
+        <div>
+          <label>内置默认</label>
+          <div class="default-box" id="editorDefault"></div>
+        </div>
+      </div>
+      <footer class="dialog-foot">
+        <button class="ghost" id="resetEditor" type="button">清空覆盖</button>
+        <div class="foot-actions">
+          <button class="outline" id="cancelEditor" type="button">取消</button>
+          <button class="primary" type="submit">保存</button>
+        </div>
+      </footer>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const templates = [
+      { key: "welcome", group: "命令与导航", kind: "正文", value: "欢迎使用 ComfyUI Bot\n选一个功能：", vars: [] },
+      { key: "menu_updated", group: "命令与导航", kind: "正文", value: "菜单已更新，用下方新按钮。", vars: [] },
+      { key: "command_no_session", group: "命令与导航", kind: "正文", value: "当前没有进行中的工作流。", vars: [] },
+      { key: "button_back", group: "命令与导航", kind: "按钮", value: "⬅️ 返回", vars: [] },
+      { key: "button_back_root", group: "命令与导航", kind: "按钮", value: "⬅️ 返回主菜单", vars: [] },
+      { key: "select_template", group: "工作流选择", kind: "正文", value: "选一个模板：", vars: [] },
+      { key: "button_start_case", group: "工作流预览", kind: "按钮", value: "▶ 开始 Case", vars: [] },
+      { key: "preview_hint_label", group: "工作流预览", kind: "正文", value: "预览说明：", vars: [] },
+      { key: "preview_mock_hint", group: "工作流预览", kind: "正文", value: "（mock）确认后将返回一张示例图", vars: [] },
+      { key: "input_prompt", group: "输入参数", kind: "正文", value: "填参数 {{ progress }}：输入「{{ key }}」", vars: ["key", "case_name", "progress"] },
+      { key: "input_image_required", group: "输入参数", kind: "正文", value: "这一步需要一张图片，直接发图。", vars: [] },
+      { key: "input_not_image", group: "输入参数", kind: "正文", value: "这一步不需要图片，按提示输入。", vars: [] },
+      { key: "input_invalid_number", group: "输入参数", kind: "正文", value: "输入合法数字，例如 42", vars: [] },
+      { key: "input_invalid_boolean", group: "输入参数", kind: "正文", value: "输入 true 或 false", vars: [] },
+      { key: "button_skip", group: "输入参数", kind: "按钮", value: "跳过", vars: [] },
+      { key: "button_exit", group: ["输入参数", "确认生成"], kind: "按钮", value: "✕ 退出", vars: [] },
+      { key: "confirm_run", group: "确认生成", kind: "正文", value: "输入完成，确认执行？", vars: [] },
+      { key: "button_confirm_run", group: "确认生成", kind: "按钮", value: "✅ 确认生成", vars: [] },
+      { key: "submit_started", group: "任务执行与结果", kind: "正文", value: "已提交，生成中… task={{ task_id }}", vars: ["task_id"] },
+      { key: "workflow_done", group: "任务执行与结果", kind: "正文", value: "✅ 工作流完成\ntask={{ task_id }}", vars: ["task_id"] },
+      { key: "workflow_done_followup", group: "任务执行与结果", kind: "正文", value: "还要继续？点菜单再选一个工作流。", vars: [] },
+      { key: "task_failed", group: "任务执行与结果", kind: "正文", value: "❌ 任务失败\ntask={{ task_id }}\n状态：{{ status }}\n{{ error_msg }}", vars: ["task_id", "status", "error_msg"] },
+      { key: "task_cancelled", group: "任务执行与结果", kind: "正文", value: "任务已取消\ntask={{ task_id }}", vars: ["task_id", "status"] },
+      { key: "session_terminated", group: "任务执行与结果", kind: "正文", value: "该工作流已被管理员删除，当前会话已结束。", vars: [] },
+      { key: "notify_unknown", group: "任务执行与结果", kind: "正文", value: "任务 {{ task_id }}: {{ kind }}\n{{ error_msg }}", vars: ["task_id", "kind", "error_msg"] },
+      { key: "exit_done", group: "会话状态", kind: "正文", value: "已退出当前 Case，可以重新选。", vars: [] },
+      { key: "unfinished_session", group: "会话状态", kind: "正文", value: "你有一个未完成的工作流，先退出再重新开始。", vars: [] },
+      { key: "menu_action_placeholder", group: "菜单与卡片", kind: "正文", value: "暂未开放", vars: [] },
+      { key: "callback_expired", group: "菜单与卡片", kind: "正文", value: "操作已过期，重新选一次。", vars: [] },
+      { key: "callback_unknown", group: "菜单与卡片", kind: "正文", value: "未知操作", vars: [] },
+      { key: "card_service_missing", group: "菜单与卡片", kind: "正文", value: "卡片服务未配置", vars: [] },
+      { key: "card_missing", group: "菜单与卡片", kind: "正文", value: "卡片不存在或已删除", vars: [] },
+      { key: "menu_invalid", group: "菜单与卡片", kind: "正文", value: "菜单配置无效", vars: [] },
+      { key: "capability_missing", group: "系统与失败", kind: "正文", value: "功能暂不可用", vars: [] },
+      { key: "capability_failed", group: "系统与失败", kind: "正文", value: "操作失败，稍后重试。", vars: [] },
+      { key: "media_unconfigured", group: "系统与失败", kind: "正文", value: "无法处理图片：媒体桥未配置", vars: [] },
+      { key: "media_download_failed", group: "系统与失败", kind: "正文", value: "图片下载失败", vars: [] },
+      { key: "media_save_failed", group: "系统与失败", kind: "正文", value: "保存图片失败: {{ error }}", vars: ["error"] }
+    ];
+    const sharedKeys = new Set(templates.filter(t => Array.isArray(t.group)).map(t => t.key));
+    const groups = document.querySelectorAll(".group");
+    const itemsHosts = new Map([...groups].map(group => [group.dataset.group, group.querySelector(".items")]));
+    const dialog = document.getElementById("editor");
+    const valueInput = document.getElementById("editorValue");
+    const toast = document.getElementById("toast");
+    let activeKey = "";
+
+    function escapeHTML(value) { return value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
+    function render() {
+      groups.forEach(group => { group.querySelector(".items").innerHTML = ""; group.querySelector(".count").textContent = "0"; });
+      templates.forEach((template, index) => {
+        const groupNames = Array.isArray(template.group) ? template.group : [template.group];
+        groupNames.forEach(groupName => {
+          const host = itemsHosts.get(groupName);
+          const count = Number(host.closest(".group").querySelector(".count").textContent) + 1;
+          host.closest(".group").querySelector(".count").textContent = count;
+          const row = document.createElement("article");
+          row.className = "item";
+          row.dataset.index = index;
+          row.dataset.search = `${template.key} ${template.kind} ${template.value} ${groupName}`.toLowerCase();
+          row.innerHTML = `
+            <div><p class="key">${template.key}</p><div class="tags"><span class="badge">${template.kind}</span>${sharedKeys.has(template.key) ? '<span class="badge badge-shared">共享 key</span>' : ""}</div></div>
+            <div><p class="value">${escapeHTML(template.value)}</p><div class="meta"><span>内置默认</span>${template.value === "" ? "<span>使用默认</span>" : "<span>已覆盖</span>"}<div class="vars">${template.vars.map(v => `<span class="var">{{ ${v} }}</span>`).join("")}</div></div></div>
+            <button class="edit outline" type="button">编辑</button>`;
+          host.appendChild(row);
+        });
+      });
+      filter();
+    }
+    function filter() {
+      const query = document.getElementById("search").value.trim().toLowerCase();
+      let visible = 0;
+      groups.forEach(group => {
+        let groupVisible = 0;
+        group.querySelectorAll(".item").forEach(item => {
+          const show = !query || item.dataset.search.includes(query);
+          item.style.display = show ? "" : "none";
+          if (show) groupVisible++;
+        });
+        group.style.display = groupVisible ? "" : "none";
+        visible += groupVisible;
+      });
+      document.getElementById("empty").dataset.visible = visible ? "false" : "true";
+    }
+    function showToast(message) {
+      toast.textContent = message;
+      toast.dataset.visible = "true";
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => toast.dataset.visible = "false", 1800);
+    }
+    function openEditor(key) {
+      activeKey = key;
+      const template = templates.find(item => item.key === key);
+      valueInput.value = template.value;
+      document.getElementById("editorTitle").textContent = template.key;
+      document.getElementById("editorDefault").textContent = template.value || "当前为空，使用内置默认。";
+      dialog.showModal();
+    }
+    document.getElementById("groups").addEventListener("click", event => {
+      const button = event.target.closest(".edit");
+      if (!button) return;
+      openEditor(templates[Number(button.closest(".item").dataset.index)].key);
+    });
+    document.getElementById("search").addEventListener("input", filter);
+    document.getElementById("theme").addEventListener("click", event => {
+      const dark = document.documentElement.classList.toggle("dark");
+      event.currentTarget.textContent = dark ? "换亮色" : "换暗色";
+    });
+    document.getElementById("closeEditor").addEventListener("click", () => dialog.close());
+    document.getElementById("cancelEditor").addEventListener("click", () => dialog.close());
+    document.getElementById("resetEditor").addEventListener("click", () => valueInput.value = "");
+    dialog.addEventListener("submit", event => {
+      event.preventDefault();
+      templates.forEach(template => { if (template.key === activeKey) template.value = valueInput.value.trim(); });
+      render();
+      dialog.close();
+      showToast("已保存");
+    });
+    document.getElementById("saveAll").addEventListener("click", () => showToast("全部改动已保存"));
+    document.querySelectorAll("[data-scope]").forEach(button => button.addEventListener("click", () => {
+      document.querySelectorAll("[data-scope]").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+      showToast(button.dataset.scope === "channel" ? "已切到当前渠道" : "已切到平台默认");
+    }));
+    render();
+  </script>
+</body>
+</html>

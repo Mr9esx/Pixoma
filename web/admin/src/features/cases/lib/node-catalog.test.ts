@@ -16,6 +16,14 @@ describe('node catalog', () => {
     expect(inputKindFor('RandomNode', 'anything')).toBe('unknown')
   })
 
+  it('infers loader enums and uses the API value as a fallback', () => {
+    expect(inputKindFor('UNETLoader', 'unet_name')).toBe('enum')
+    expect(inputKindFor('UNETLoader', 'weight_dtype')).toBe('enum')
+    expect(inputKindFor('RandomNode', 'anything', 3)).toBe('number')
+    expect(inputKindFor('RandomNode', 'anything', true)).toBe('boolean')
+    expect(inputKindFor('RandomNode', 'anything', 'hello')).toBe('string')
+  })
+
   it('defaults output count to 1 for unknown nodes', () => {
     expect(outputCountFor('SaveImage')).toBe(1)
     expect(outputCountFor('SomethingElse')).toBe(1)

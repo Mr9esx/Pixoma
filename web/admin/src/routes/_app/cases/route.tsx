@@ -10,6 +10,8 @@ import {
 import { ArrowLeft, Boxes, Loader2, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listCases } from '@/lib/api/cases'
+import { getCaseMenuPlacements } from '@/lib/api/channel-menu'
+import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import {
   AlertDialog,
@@ -38,6 +40,7 @@ import {
   type CaseListFilters,
 } from '@/features/cases/list-panel'
 import { kit } from '@/features/edges/kit-classes'
+import { caseReferences } from '@/features/link-health/lib/references'
 
 export const Route = createFileRoute('/_app/cases')({
   component: CasesLayout,
@@ -60,9 +63,7 @@ function CasesLayout() {
   })
   const [createPending, setCreatePending] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const [leaveTarget, setLeaveTarget] = useState<'back' | 'cancel' | null>(
-    null
-  )
+  const [leaveTarget, setLeaveTarget] = useState<'back' | 'cancel' | null>(null)
   const listParams = {
     q: filters.q.trim() || undefined,
   }
@@ -72,6 +73,54 @@ function CasesLayout() {
     queryFn: () => listCases(listParams),
   })
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
+  const edgesQuery = useQuery({
+    queryKey: queryKeys.edges.all,
+    queryFn: listEdges,
+  })
+  const presenceQuery = useQuery({
+    queryKey: queryKeys.edges.presence,
+    queryFn: listPresence,
+  })
+  const placementsQuery = useQuery({
+    queryKey: [
+      ...queryKeys.cases.all,
+      'menu-placements',
+      items.map((item) => item.id),
+    ] as const,
+    queryFn: async () =>
+      Promise.all(items.map((item) => getCaseMenuPlacements(item.id))),
+    enabled: items.length > 0,
+  })
+  const listHealthReady =
+    edgesQuery.isSuccess && presenceQuery.isSuccess && placementsQuery.isSuccess
+  const placementsByCase = useMemo(() => {
+    return Object.fromEntries(
+      items.map((item, index) => [item.id, placementsQuery.data?.[index] ?? []])
+    )
+  }, [items, placementsQuery.data])
+  const healthByCase = useMemo(() => {
+    if (!listHealthReady) return undefined
+    const edges = edgesQuery.data ?? []
+    const presence = presenceQuery.data ?? []
+
+    return Object.fromEntries(
+      items.map((item) => [
+        item.id,
+        caseReferences(item.id, {
+          cases: [item],
+          edges,
+          presence,
+          placements: placementsByCase[item.id],
+        }).health,
+      ])
+    )
+  }, [
+    edgesQuery.data,
+    items,
+    listHealthReady,
+    placementsByCase,
+    presenceQuery.data,
+  ])
   const backToList = locationState?.backToList === true
   const selectedId = useMemo(() => {
     if (caseId == null || caseId === 'new') {
@@ -171,8 +220,14 @@ function CasesLayout() {
             >
               {t('common.cancel')}
             </Button>
-            <Button type='submit' form='create-case-form' disabled={createPending}>
-              {createPending ? <Loader2 className='size-4 animate-spin' /> : null}
+            <Button
+              type='submit'
+              form='create-case-form'
+              disabled={createPending}
+            >
+              {createPending ? (
+                <Loader2 className='size-4 animate-spin' />
+              ) : null}
               {t('common.create')}
             </Button>
           </footer>
@@ -184,9 +239,7 @@ function CasesLayout() {
           >
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t('cases.unsavedTitle')}
-                </AlertDialogTitle>
+                <AlertDialogTitle>{t('cases.unsavedTitle')}</AlertDialogTitle>
                 <AlertDialogDescription>
                   {t('cases.unsavedBody')}
                 </AlertDialogDescription>
@@ -222,6 +275,8 @@ function CasesLayout() {
           list={
             <CaseListPanel
               items={items}
+              healthByCase={healthByCase}
+              healthReady={listHealthReady}
               selectedId={selectedId}
               filters={filters}
               onFiltersChange={setFilters}

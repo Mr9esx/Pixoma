@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ErrorBanner } from '@/components/feedback/error-banner'
+import { Pill } from '@/components/kibo-ui/pill'
 import { emptyCase } from './empty-case'
 import {
   deriveBindings,
@@ -19,7 +20,7 @@ import {
   type InputFieldDraft,
   type OutputFieldDraft,
 } from './lib/derive'
-import { inputKindFor, outputKindFor } from './lib/node-catalog'
+import { outputKindFor } from './lib/node-catalog'
 import {
   parseWorkflow,
   type WorkflowGraph,
@@ -75,7 +76,7 @@ function generateInputCandidates(nodes: WorkflowNode[]): InputFieldDraft[] {
       let i = 2
       while (seen.has(key)) key = `${input.name}_${i++}`
       seen.add(key)
-      const kind = inputKindFor(n.class_type, input.name)
+      const kind = input.kind
       out.push({
         key,
         type: kind === 'unknown' ? 'string' : kind,
@@ -530,7 +531,17 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           2
         </span>
         <div className='min-w-0 flex-1'>
-          <h3 className='text-sm font-semibold'>{t('cases.inputsHeading')}</h3>
+          <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+            <Pill
+              variant='default'
+              className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
+            >
+              {t('cases.inputPill')}
+            </Pill>
+            <h3 className='text-sm font-semibold'>
+              {t('cases.inputsHeading')}
+            </h3>
+          </div>
           <p className='text-xs text-muted-foreground'>
             {t('cases.inputsHint')}
           </p>
@@ -604,7 +615,17 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           3
         </span>
         <div className='min-w-0 flex-1'>
-          <h3 className='text-sm font-semibold'>{t('cases.outputsHeading')}</h3>
+          <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+            <Pill
+              variant='default'
+              className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
+            >
+              {t('cases.outputPill')}
+            </Pill>
+            <h3 className='text-sm font-semibold'>
+              {t('cases.outputsHeading')}
+            </h3>
+          </div>
           <p className='text-xs text-muted-foreground'>
             {t('cases.outputsHint')}
           </p>

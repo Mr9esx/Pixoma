@@ -45,6 +45,7 @@ func (h *Handler) mount(r chi.Router, base string, scopeOf func(*http.Request) s
 
 type itemDTO struct {
 	Key         string   `json:"key"`
+	Group       string   `json:"group"`
 	Description string   `json:"description"`
 	Default     string   `json:"default"`
 	Value       string   `json:"value"`
@@ -66,6 +67,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request, channelID string)
 	for _, s := range specs {
 		out = append(out, itemDTO{
 			Key:         s.Key,
+			Group:       s.Group,
 			Description: s.Description,
 			Default:     s.Default,
 			Value:       stored[s.Key],
