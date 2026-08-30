@@ -45,6 +45,7 @@ type Options struct {
 // NewHandler returns the admin-api chi router (health, CORS, resource APIs).
 func NewHandler(opts Options) http.Handler {
 	r := chi.NewRouter()
+	r.Use(SecurityHeaders)
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
 	r.Use(corsMiddleware(opts.CORSOrigins))
 

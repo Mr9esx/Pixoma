@@ -37,7 +37,7 @@ type sessionDTO struct {
 	ID                string              `json:"id"`
 	UserID            string              `json:"user_id"`
 	ChatID            string              `json:"chat_id"`
-	CaseID       uint64    `json:"case_id"`
+	CaseID            uint64              `json:"case_id"`
 	Status            string              `json:"status"`
 	CurrentInputIndex int                 `json:"current_input_index"`
 	InputKeys         []string            `json:"input_keys"`
@@ -151,6 +151,9 @@ func parseListQuery(r *http.Request) (domain.ListQuery, error) {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
 			return q, errors.New("invalid limit")
+		}
+		if n > 200 {
+			n = 200
 		}
 		q.Limit = n
 	}

@@ -65,7 +65,7 @@ func Open(path string) (*Store, Credentials, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, Credentials{}, errors.New("bootstrap: empty path")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, Credentials{}, fmt.Errorf("bootstrap: mkdir: %w", err)
 	}
 	fresh := false
@@ -77,6 +77,10 @@ func Open(path string) (*Store, Credentials, error) {
 	})
 	if err != nil {
 		return nil, Credentials{}, fmt.Errorf("bootstrap: open: %w", err)
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		_ = closeDB(gdb)
+		return nil, Credentials{}, fmt.Errorf("bootstrap: secure file: %w", err)
 	}
 	if err := gdb.AutoMigrate(&metaRow{}); err != nil {
 		_ = closeDB(gdb)
@@ -338,6 +342,16 @@ func (s *Store) load() (metaRow, error) {
 
 // EncKey returns the 32-byte AES key stored in bootstrap (local trust boundary).
 func (s *Store) EncKey() ([]byte, error) {
+	if override := strings.TrimSpace(os.Getenv("PIXOMA_ENCRYPTION_KEY")); override != "" {
+		raw, err := base64.RawStdEncoding.DecodeString(override)
+		if err != nil {
+			return nil, fmt.Errorf("bootstrap: decode environment enc key: %w", err)
+		}
+		if len(raw) != 32 {
+			return nil, fmt.Errorf("bootstrap: environment enc key length %d", len(raw))
+		}
+		return raw, nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	row, err := s.load()

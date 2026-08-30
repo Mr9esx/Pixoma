@@ -96,7 +96,7 @@ func main() {
 
 func run(ctx context.Context, sess *setupapi.Sessions) error {
 	dataDir := envOr("DATA_DIR", "data")
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return err
 	}
 
@@ -328,7 +328,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			restartOnce.Do(func() { close(restartCh) })
 		},
 	}
-	gate := &setupapi.Gate{Boot: boot, Sessions: sess}
+	gate := &setupapi.Gate{Boot: boot, Sessions: sess, ConsoleUsers: consoleRepo}
 	pres := presence.NewStore()
 	metricsRepo := instpersist.NewMetricsRepository(gdb, metricsRetention())
 	statsRepo := taskstatspersist.NewGormStatsRepository(gdb, statsRetention(), statsLocation())
@@ -382,6 +382,8 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	}
 
 	r := chi.NewRouter()
+	r.Use(adminhost.SecurityHeaders)
+	r.Use(adminhost.RequestBodyLimit(32 << 20))
 	r.Use(adminhost.CORS(corsOrigins()))
 	r.Use(gate.Middleware)
 	r.Route("/api/v1/setup", setupH.Mount)

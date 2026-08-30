@@ -165,12 +165,12 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		EdgeID          string         `json:"edge_id"`
-		ComfyRunning    bool           `json:"comfy_running"`
-		StartedAt       *time.Time     `json:"started_at"`
-		ComfyVersion    string         `json:"comfy_version"`
-		Hardware        *edge.Hardware `json:"hardware"`
-		Metrics         *edge.Metrics  `json:"metrics"`
+		EdgeID       string         `json:"edge_id"`
+		ComfyRunning bool           `json:"comfy_running"`
+		StartedAt    *time.Time     `json:"started_at"`
+		ComfyVersion string         `json:"comfy_version"`
+		Hardware     *edge.Hardware `json:"hardware"`
+		Metrics      *edge.Metrics  `json:"metrics"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json")
@@ -268,7 +268,7 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "task not found")
 		return
 	}
-	if cur.EdgeID != "" && cur.EdgeID != sharedkernel.EdgeID(body.EdgeID) {
+	if cur.EdgeID == "" || cur.EdgeID != sharedkernel.EdgeID(body.EdgeID) {
 		writeErr(w, http.StatusConflict, "stale holder")
 		return
 	}

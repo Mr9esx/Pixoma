@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -45,6 +46,33 @@ func TestPutGetRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(got, payload) {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestNewAndPutUsePrivatePermissions(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "blob")
+	store, err := localfs.New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Fatalf("root mode = %o, want 0700", info.Mode().Perm())
+	}
+
+	_, err = store.Put(context.Background(), "secret.txt", bytes.NewReader([]byte("x")), blob.PutOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err = os.Stat(filepath.Join(root, "secret.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("file mode = %o, want 0600", info.Mode().Perm())
 	}
 }
 

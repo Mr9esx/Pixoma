@@ -1,7 +1,9 @@
 package bootstrap_test
 
 import (
+	"encoding/base64"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -173,5 +175,52 @@ func TestSetAdminProfile_RoundTrip(t *testing.T) {
 	nick, email, avatar := st.AdminProfile()
 	if nick != "小P" || email != "a@b.com" || avatar != "http://x/a.png" {
 		t.Fatalf("profile trimmed round-trip wrong: %q %q %q", nick, email, avatar)
+	}
+}
+
+func TestOpenUsesPrivatePermissions(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "data", "bootstrap.db")
+	st, _, err := bootstrap.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	info, err := os.Stat(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Fatalf("data dir mode = %o, want 0700", info.Mode().Perm())
+	}
+	info, err = os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("bootstrap mode = %o, want 0600", info.Mode().Perm())
+	}
+}
+
+func TestEncKeyUsesEnvironmentOverride(t *testing.T) {
+	dir := t.TempDir()
+	st, _, err := bootstrap.Open(filepath.Join(dir, "bootstrap.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	want := make([]byte, 32)
+	for i := range want {
+		want[i] = byte(i + 1)
+	}
+	t.Setenv("PIXOMA_ENCRYPTION_KEY", base64.RawStdEncoding.EncodeToString(want))
+	got, err := st.EncKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("key mismatch: got %v", got)
 	}
 }

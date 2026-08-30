@@ -51,11 +51,21 @@ function TopicsLayout() {
     queryKey: queryKeys.topics.all,
     queryFn: () => listTopics(),
   })
-  const [createOpen, setCreateOpen] = useState(false)
+  const [manualCreateOpen, setManualCreateOpen] = useState(false)
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
   const backToList = locationState?.backToList === true
   const selectedKey = key ?? (backToList ? undefined : items[0]?.key)
   const create = key === 'new'
+  const createOpen = manualCreateOpen || create
+  const closeCreateDialog = () => {
+    setManualCreateOpen(false)
+    if (create) {
+      void navigate({
+        to: '/topics',
+        state: { backToList: true },
+      } as never)
+    }
+  }
   const isEmpty =
     !listQuery.isLoading && !listQuery.isError && items.length === 0
 
@@ -68,16 +78,6 @@ function TopicsLayout() {
       })
     }
   }, [key, backToList, items, navigate])
-  useEffect(() => {
-    if (create) {
-      setCreateOpen(true)
-      void navigate({
-        to: '/topics',
-        state: { backToList: true },
-      } as never)
-    }
-  }, [create, navigate])
-
   return (
     <div
       data-layout='fixed'
@@ -96,7 +96,7 @@ function TopicsLayout() {
         {!isEmpty ? (
           <Button
             className={kit.btnPrimary}
-            onClick={() => setCreateOpen(true)}
+            onClick={() => setManualCreateOpen(true)}
           >
             <Plus className='size-3.5' />
             {t('topics.new')}
@@ -143,7 +143,7 @@ function TopicsLayout() {
               <EmptyContent className='flex-row justify-center gap-2'>
                 <Button
                   className={kit.btnPrimary}
-                  onClick={() => setCreateOpen(true)}
+                  onClick={() => setManualCreateOpen(true)}
                 >
                   {t('topics.new')}
                 </Button>
@@ -152,20 +152,25 @@ function TopicsLayout() {
           ) : undefined
         }
       />
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!open) closeCreateDialog()
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('topics.new')}</DialogTitle>
           </DialogHeader>
           <CreateTopicForm
             onDone={(topic) => {
-              setCreateOpen(false)
+              setManualCreateOpen(false)
               void navigate({
                 to: '/topics/$key',
                 params: { key: topic.key },
               })
             }}
-            onCancel={() => setCreateOpen(false)}
+            onCancel={closeCreateDialog}
           />
         </DialogContent>
       </Dialog>

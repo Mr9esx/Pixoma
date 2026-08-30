@@ -1,6 +1,0 @@
-{
-  "schema": "comet.selection.v2",
-  "workflow": "classic",
-  "change": "channel-menu-editor-refactor",
-  "branch": "feat-init"
-}

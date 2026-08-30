@@ -77,6 +77,7 @@ go run ./apps/edge-agent/cmd/edge-agent
 | `CONTROL_PLANE_URL` / `PIXOMA_URL` | Edge | 控制面地址 |
 | `AGENT_TOKEN` | Edge | 该节点自己的 Agent Token（后台可见） |
 | `BLOB_DRIVER` | Edge / 紧急覆盖 | `localfs` / `s3` / `tos` |
+| `PIXOMA_ENCRYPTION_KEY` | pixoma | 覆盖内置引导加密 key；请使用长随机值并通过密钥管理系统保存 |
 | `METRICS_INTERVAL` | Edge | 系统指标采样/上报间隔（默认 `30s`，下限 `5s`） |
 | `METRICS_RETENTION` | 控制面 | `edge_metrics` 保留窗口（默认 `24h`） |
 | `STATS_TIMEZONE` | 控制面 | 任务统计归天时区（默认 `Asia/Shanghai`） |
@@ -85,6 +86,13 @@ go run ./apps/edge-agent/cmd/edge-agent
 | `S3_*` / `TOS_*` | 远程存储 | endpoint / region / bucket / keys |
 
 对象存储密钥不要提交进 git。真网 TOS 门禁：`go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip`。
+
+### 安全部署
+
+- 默认 HTTP 监听地址是 `127.0.0.1:8080`。需要跨主机访问时，显式设置 `HTTP_ADDR`，并优先使用 TLS 反向代理；反向代理应转发真实协议/主机信息，以便 HTTPS 会话 Cookie 正确标记为 `Secure`。
+- 管理端点基于会话和 RBAC：viewer 只读，operator/admin 可写，setup 管理端点仅 admin 可用。公网部署时请在反代层再加一层访问控制。
+- 本地数据目录默认为 `DATA_DIR/data`；应用会尽量创建 `0700` 目录和 `0600` 文件，避免共享给不可信账号。
+- 依赖审计、构建、测试和秘密扫描见 [`CONTRIBUTING.md`](CONTRIBUTING.md) 与 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)。安全披露流程见 [`SECURITY.md`](SECURITY.md)。
 
 ### 业务数据库
 

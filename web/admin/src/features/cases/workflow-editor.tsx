@@ -197,7 +197,6 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   const [rail, setRail] = useState<{ top: number; height: number } | null>(null)
   useLayoutEffect(() => {
     if (!props.stepRail) {
-      setRail(null)
       return
     }
     const root = railRef.current

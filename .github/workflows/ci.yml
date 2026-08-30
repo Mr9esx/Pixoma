@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat-init]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go build, test, vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: go build ./...
+      - name: Test
+        run: go test ./...
+      - name: Vulnerability scan
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  frontend:
+    name: Admin build, test, audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/admin/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+      - name: Production dependency audit
+        run: pnpm audit --prod --registry=https://registry.npmjs.org
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Gitleaks
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/v8.28.0/scripts/install.sh | sh -s -- -b /usr/local/bin v8.28.0
+      - name: Scan current tree
+        run: |
+          cat > /tmp/pixoma-gitleaks.toml <<'EOF'
+          title = "Pixoma current-tree scan"
+          [extend]
+          useDefault = true
+          [[allowlists]]
+          description = "Ignore local-only personal tooling directories"
+          paths = ['(^|/)\.agents/', '(^|/)\.cursor/', '(^|/)\.comet/', '(^|/)\.codegraph/', '(^|/)\.design-prototype/', '(^|/)\.superpowers/']
+          EOF
+          gitleaks detect --source . --config /tmp/pixoma-gitleaks.toml --no-git --max-target-megabytes 5 --redact --verbose --exit-code 1

@@ -1,6 +1,8 @@
 package setup_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
@@ -19,6 +21,28 @@ func TestIssueAccount_LookupAccount(t *testing.T) {
 	}
 	if acct.AccountID != "acct-9" || acct.Role != "admin" || acct.Username != "admin" {
 		t.Fatalf("unexpected account session: %+v", acct)
+	}
+}
+
+func TestSetCookieUsesSecureOnHTTPS(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "https://pixoma.example", nil)
+	setup.SetCookie(rec, req, "token", false)
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("cookies = %+v", cookies)
+	}
+	if !cookies[0].Secure {
+		t.Fatal("direct HTTPS cookie must be Secure")
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "http://pixoma.example", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	setup.SetCookie(rec, req, "token", false)
+	cookies = rec.Result().Cookies()
+	if len(cookies) != 1 || !cookies[0].Secure {
+		t.Fatalf("proxied HTTPS cookie must be Secure: %+v", cookies)
 	}
 }
 

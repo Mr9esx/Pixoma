@@ -181,6 +181,9 @@ func parseAdminListQuery(r *http.Request) (runtimedomain.AdminListQuery, error) 
 		if err != nil || n < 0 {
 			return q, errors.New("invalid limit")
 		}
+		if n > 200 {
+			n = 200
+		}
 		q.Limit = n
 	}
 	if v := r.URL.Query().Get("offset"); v != "" {
