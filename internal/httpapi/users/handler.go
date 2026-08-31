@@ -25,28 +25,32 @@ func (h *Handler) Mount(r chi.Router) {
 }
 
 type userDTO struct {
-	ID           string    `json:"id"`
-	Username     string    `json:"username"`
-	FirstName    string    `json:"first_name"`
-	LastName     string    `json:"last_name"`
-	LanguageCode string    `json:"language_code"`
-	Access       string    `json:"access"`
-	LastSeenAt   time.Time `json:"last_seen_at"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	ChannelID      string    `json:"channel_id"`
+	ExternalUserID string    `json:"external_user_id"`
+	Username       string    `json:"username"`
+	FirstName      string    `json:"first_name"`
+	LastName       string    `json:"last_name"`
+	LanguageCode   string    `json:"language_code"`
+	Access         string    `json:"access"`
+	LastSeenAt     time.Time `json:"last_seen_at"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 func toDTO(u *domain.User) userDTO {
 	return userDTO{
-		ID:           u.ID,
-		Username:     u.Username,
-		FirstName:    u.FirstName,
-		LastName:     u.LastName,
-		LanguageCode: u.LanguageCode,
-		Access:       string(u.Access),
-		LastSeenAt:   u.LastSeenAt,
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
+		ID:             u.ID,
+		ChannelID:      u.ChannelID,
+		ExternalUserID: u.ExternalUserID,
+		Username:       u.Username,
+		FirstName:      u.FirstName,
+		LastName:       u.LastName,
+		LanguageCode:   u.LanguageCode,
+		Access:         string(u.Access),
+		LastSeenAt:     u.LastSeenAt,
+		CreatedAt:      u.CreatedAt,
+		UpdatedAt:      u.UpdatedAt,
 	}
 }
 

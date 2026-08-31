@@ -48,6 +48,13 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	bob, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "fs-1", ExternalUserID: "9002", Username: "bob_access",
+		FirstName: "Bob", LastName: "B",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := http.Get(srv.URL + "/api/v1/users")
 	if err != nil {
@@ -68,10 +75,42 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 			if row["username"] != "alice_admin" {
 				t.Fatalf("username=%v", row["username"])
 			}
+			if row["channel_id"] != "tg-default" || row["external_user_id"] != "9001" {
+				t.Fatalf("identity context=%+v", row)
+			}
+			if _, exists := row["tg_user_id"]; exists {
+				t.Fatalf("telegram-specific key returned: %+v", row)
+			}
 		}
 	}
 	if !found {
 		t.Fatalf("user %s not in list: %+v", u.ID, list)
+	}
+
+	resSearch, err := http.Get(srv.URL + "/api/v1/users?q=9002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resSearch.Body.Close()
+	var searchByID []map[string]any
+	if err := json.NewDecoder(resSearch.Body).Decode(&searchByID); err != nil {
+		t.Fatal(err)
+	}
+	if len(searchByID) != 1 || searchByID[0]["id"] != bob.ID {
+		t.Fatalf("search external id: %+v", searchByID)
+	}
+
+	resSearch2, err := http.Get(srv.URL + "/api/v1/users?q=bob_access")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resSearch2.Body.Close()
+	var searchByName []map[string]any
+	if err := json.NewDecoder(resSearch2.Body).Decode(&searchByName); err != nil {
+		t.Fatal(err)
+	}
+	if len(searchByName) != 1 || searchByName[0]["id"] != bob.ID {
+		t.Fatalf("search username: %+v", searchByName)
 	}
 
 	res2, err := http.Get(srv.URL + "/api/v1/users/" + u.ID)
@@ -81,6 +120,13 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 	defer res2.Body.Close()
 	if res2.StatusCode != http.StatusOK {
 		t.Fatalf("get status=%d", res2.StatusCode)
+	}
+	var detail map[string]any
+	if err := json.NewDecoder(res2.Body).Decode(&detail); err != nil {
+		t.Fatal(err)
+	}
+	if detail["channel_id"] != "tg-default" || detail["external_user_id"] != "9001" {
+		t.Fatalf("detail identity context=%+v", detail)
 	}
 
 	res3, err := http.Get(srv.URL + "/api/v1/users/missing-id")

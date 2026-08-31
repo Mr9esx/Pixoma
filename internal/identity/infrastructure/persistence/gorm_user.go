@@ -149,7 +149,11 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 	if err != nil {
 		return nil, err
 	}
-	return fromRow(row), nil
+	user := fromRow(row)
+	if err := r.attachIdentities(ctx, []*domain.User{user}); err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 func (r *UserRepository) SetAccess(ctx context.Context, id string, access domain.UserAccess) (*domain.User, error) {
@@ -167,7 +171,11 @@ func (r *UserRepository) SetAccess(ctx context.Context, id string, access domain
 	if err := r.db.WithContext(ctx).Save(&row).Error; err != nil {
 		return nil, err
 	}
-	return fromRow(row), nil
+	user := fromRow(row)
+	if err := r.attachIdentities(ctx, []*domain.User{user}); err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 func (r *UserRepository) List(ctx context.Context, q domain.ListQuery) ([]*domain.User, error) {
@@ -185,8 +193,10 @@ func (r *UserRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 	if q.Q != "" {
 		like := "%" + q.Q + "%"
 		tx = tx.Where(
-			"id LIKE ? OR username LIKE ? OR first_name LIKE ? OR last_name LIKE ?",
-			like, like, like, like,
+			"id LIKE ? OR username LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR EXISTS ("+
+				"SELECT 1 FROM channel_user_external_identities WHERE user_id = channel_users.id AND external_user_id LIKE ?"+
+				")",
+			like, like, like, like, like,
 		)
 	}
 	if q.CreatedFrom != nil {
@@ -209,7 +219,36 @@ func (r *UserRepository) List(ctx context.Context, q domain.ListQuery) ([]*domai
 	for _, row := range rows {
 		out = append(out, fromRow(row))
 	}
+	if err := r.attachIdentities(ctx, out); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+func (r *UserRepository) attachIdentities(ctx context.Context, users []*domain.User) error {
+	if len(users) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(users))
+	byID := make(map[string]*domain.User, len(users))
+	for _, user := range users {
+		ids = append(ids, user.ID)
+		byID[user.ID] = user
+	}
+	var identities []UserExternalIdentityRow
+	if err := r.db.WithContext(ctx).
+		Where("user_id IN ?", ids).
+		Order("created_at, id").
+		Find(&identities).Error; err != nil {
+		return err
+	}
+	for _, identity := range identities {
+		if user, ok := byID[identity.UserID]; ok && user.ChannelID == "" {
+			user.ChannelID = identity.ChannelID
+			user.ExternalUserID = identity.ExternalUserID
+		}
+	}
+	return nil
 }
 
 func fromRow(row UserRow) *domain.User {
