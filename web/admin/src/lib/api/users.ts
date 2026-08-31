@@ -3,7 +3,8 @@ import type { UserRecord } from './types'
 
 export function listUsers(params?: {
   q?: string
-  tg_user_id?: number
+  channel_id?: string
+  external_user_id?: string
   limit?: number
   offset?: number
 }) {
