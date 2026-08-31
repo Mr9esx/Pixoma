@@ -1,9 +1,9 @@
+import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { MENU_GROUPS, filterMenuGroupsForDemo } from '@/config/menu'
-import { useQuery } from '@tanstack/react-query'
-import { fetchSetupStatus } from '@/lib/api/setup'
-import { Menu, X } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { fetchSetupStatus } from '@/lib/api/setup'
 import { useLayout } from '@/context/layout-provider'
 import {
   Sidebar,
@@ -26,7 +26,7 @@ export function AppSidebar() {
   const { collapsible, variant } = useLayout()
   const { setOpenMobile, state, toggleSidebar, isMobile } = useSidebar()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const isCollapsed = state === 'collapsed'
+  const isCollapsed = !isMobile && state === 'collapsed'
   const { data: setupStatus } = useQuery({
     queryKey: ['setup-status'],
     queryFn: fetchSetupStatus,
@@ -47,7 +47,7 @@ export function AppSidebar() {
                 onClick={toggleSidebar}
                 tooltip={t('common.expandMenu')}
               >
-                {isMobile ? <X /> : <Menu />}
+                <Menu />
                 <span className='sr-only'>Toggle Sidebar</span>
               </SidebarMenuButton>
             </SidebarMenuItem>

@@ -2,6 +2,8 @@ package capability
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -9,6 +11,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
 	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
+	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -50,6 +53,34 @@ type lockedCaseService struct{ fakeCaseService }
 
 func (lockedCaseService) StartCase(context.Context, botapp.StartCaseCmd) (*botapp.SessionView, error) {
 	return nil, convdomain.ErrSessionLocked
+}
+
+type unauthorizedCaseService struct{ fakeCaseService }
+
+func (unauthorizedCaseService) StartCase(context.Context, botapp.StartCaseCmd) (*botapp.SessionView, error) {
+	return nil, fmt.Errorf("start must be blocked before StartCase")
+}
+
+type accessUserRepository map[string]identitydomain.UserAccess
+
+func (repo accessUserRepository) UpsertByChannelExternal(context.Context, identitydomain.UpsertFrom) (*identitydomain.User, error) {
+	return nil, errors.New("not used")
+}
+
+func (repo accessUserRepository) GetByID(_ context.Context, id string) (*identitydomain.User, error) {
+	access, ok := repo[id]
+	if !ok {
+		return nil, identitydomain.ErrNotFound
+	}
+	return &identitydomain.User{ID: id, Access: access}, nil
+}
+
+func (repo accessUserRepository) SetAccess(_ context.Context, id string, access identitydomain.UserAccess) (*identitydomain.User, error) {
+	return &identitydomain.User{ID: id, Access: access}, nil
+}
+
+func (repo accessUserRepository) List(context.Context, identitydomain.ListQuery) ([]*identitydomain.User, error) {
+	return nil, errors.New("not used")
 }
 
 // mediaPreviewCaseService 返回带媒体预览的 Case，用于验证 preview 步骤以媒体引用投递。
@@ -105,7 +136,10 @@ func (mappedRenderer) Render(_ context.Context, _ string, key string, vars map[s
 func TestOpenCase_ConfigurableWorkflowStages(t *testing.T) {
 	ctx := context.Background()
 	app := configuredCaseService{fakeCaseService{}}
-	capability := OpenCase{App: app, Texts: mappedRenderer{}}
+	capability := OpenCase{
+		App: app, Texts: mappedRenderer{},
+		Users: accessUserRepository{"": identitydomain.UserAccessAlwaysAllowed},
+	}
 
 	preview, err := capability.Invoke(ctx, protocol.AccountCtx{ChannelID: "tg-custom"}, protocol.Nav{}, "tg-custom:1", map[string]any{"step": "preview", "case_id": "1"})
 	if err != nil {
@@ -163,7 +197,10 @@ func TestOpenCase_PreviewMediaDelivery(t *testing.T) {
 
 	// 媒体预览：preview 返回媒体引用（blob key）供 runtime 发送，且不再拼接文本预览。
 	r := NewRegistry()
-	if err := r.Register(OpenCase{App: mediaPreviewCaseService{}}); err != nil {
+	if err := r.Register(OpenCase{
+		App:   mediaPreviewCaseService{},
+		Users: accessUserRepository{"": identitydomain.UserAccessAlwaysAllowed},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	res, err := r.Invoke(ctx, protocol.CapabilityInvoke{
@@ -189,7 +226,10 @@ func TestOpenCase_PreviewMediaDelivery(t *testing.T) {
 
 	// 旧文本回退：非 previews/ 前缀的 Preview 不走媒体，仍拼接文本预览说明。
 	r2 := NewRegistry()
-	if err := r2.Register(OpenCase{App: fakeCaseService{}}); err != nil {
+	if err := r2.Register(OpenCase{
+		App:   fakeCaseService{},
+		Users: accessUserRepository{"": identitydomain.UserAccessAlwaysAllowed},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	res2, err := r2.Invoke(ctx, protocol.CapabilityInvoke{
@@ -209,7 +249,10 @@ func TestOpenCase_PreviewMediaDelivery(t *testing.T) {
 }
 func TestOpenCase_StartWithLockedSessionOffersExit(t *testing.T) {
 	r := NewRegistry()
-	if err := r.Register(OpenCase{App: lockedCaseService{}}); err != nil {
+	if err := r.Register(OpenCase{
+		App:   lockedCaseService{},
+		Users: accessUserRepository{"u1": identitydomain.UserAccessAlwaysAllowed},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	res, err := r.Invoke(context.Background(), protocol.CapabilityInvoke{
@@ -226,5 +269,45 @@ func TestOpenCase_StartWithLockedSessionOffersExit(t *testing.T) {
 	}
 	if len(res.Options) != 1 || res.Options[0].Label != "✕ 退出" {
 		t.Fatalf("locked options=%+v", res.Options)
+	}
+}
+
+func TestOpenCase_DeniedOrPaidUserCannotStartCase(t *testing.T) {
+	ctx := context.Background()
+	capability := OpenCase{
+		App:   unauthorizedCaseService{},
+		Texts: mappedRenderer{},
+	}
+	for _, access := range []identitydomain.UserAccess{
+		identitydomain.UserAccessDenied,
+		identitydomain.UserAccessPaid,
+	} {
+		capability.Users = accessUserRepository{"u1": access}
+		res, err := capability.Invoke(ctx, protocol.AccountCtx{InternalUserID: "u1"}, protocol.Nav{}, "tg-default:1", map[string]any{
+			"step": "start", "case_id": "1",
+		})
+		if err != nil {
+			t.Fatalf("%s invoke: %v", access, err)
+		}
+		if res.Text != capability.renderText(ctx, "tg-default", texttpl.KeyAccessDenied, nil) {
+			t.Fatalf("%s text=%q", access, res.Text)
+		}
+	}
+}
+
+func TestOpenCase_AlwaysAllowedUserCanStartCase(t *testing.T) {
+	ctx := context.Background()
+	capability := OpenCase{
+		App:   fakeCaseService{},
+		Users: accessUserRepository{"u1": identitydomain.UserAccessAlwaysAllowed},
+	}
+	res, err := capability.Invoke(ctx, protocol.AccountCtx{InternalUserID: "u1"}, protocol.Nav{}, "tg-default:1", map[string]any{
+		"step": "start", "case_id": "1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Text == "" {
+		t.Fatal("allowed user did not enter workflow")
 	}
 }

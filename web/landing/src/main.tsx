@@ -1,19 +1,17 @@
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
-import { initI18n } from "@/i18n";
 import { App } from "./App";
+import { ThemeProvider } from "@/context/theme-provider";
 import "./styles/index.css";
 
-async function bootstrap() {
-  await initI18n();
+function bootstrap() {
   const rootElement = document.getElementById("root")!;
   if (!rootElement.innerHTML) {
     ReactDOM.createRoot(rootElement).render(
       <StrictMode>
-        <BrowserRouter>
+        <ThemeProvider>
           <App />
-        </BrowserRouter>
+        </ThemeProvider>
       </StrictMode>,
     );
   }

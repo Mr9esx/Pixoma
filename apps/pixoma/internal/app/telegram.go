@@ -16,8 +16,8 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
 	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
 	channelruntime "github.com/mr9esx/comfyui_tgbot/internal/channel/runtime"
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/text"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
@@ -84,7 +84,7 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 		deps:     deps,
 		registry: registry,
 	}
-	caps := newCapabilityRegistry(facade, deps.Texts)
+	caps := newCapabilityRegistry(facade, deps.Texts, deps.Users)
 	factory.caps = caps
 	assembler := &channelruntime.Assembler{
 		Store:    &channelSnapshotStore{svc: deps.Channels},
@@ -178,9 +178,9 @@ type tgChannelFactory struct {
 	caps     *capability.Registry
 }
 
-func newCapabilityRegistry(facade *botapp.Facade, texts text.Renderer) *capability.Registry {
+func newCapabilityRegistry(facade *botapp.Facade, texts text.Renderer, users identitydomain.Repository) *capability.Registry {
 	r := capability.NewRegistry()
-	_ = r.Register(capability.OpenCase{App: facade, Texts: texts})
+	_ = r.Register(capability.OpenCase{App: facade, Texts: texts, Users: users})
 	return r
 }
 

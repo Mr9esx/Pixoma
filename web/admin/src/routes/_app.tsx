@@ -1,18 +1,15 @@
-import {
-  createFileRoute,
-  Outlet,
-  redirect,
-} from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { fetchSetupStatus } from '@/lib/api/setup'
 import { getCookie } from '@/lib/cookies'
+import { nextAdminPath } from '@/lib/setup-guard'
 import { cn } from '@/lib/utils'
 import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { AppHeader } from '@/components/layout/app-header'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { contentRegionClassName } from '@/components/layout/content-region'
 import { SkipToMain } from '@/components/skip-to-main'
-import { fetchSetupStatus } from '@/lib/api/setup'
-import { nextAdminPath } from '@/lib/setup-guard'
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async () => {
@@ -42,6 +39,7 @@ function AppLayout() {
               'md:peer-data-[variant=inset]:h-[calc(100svh-(var(--spacing)*4))]'
             )}
           >
+            <AppHeader />
             <div className={cn(contentRegionClassName, 'p-4')}>
               <Outlet />
             </div>

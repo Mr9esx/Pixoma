@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { Reveal } from '@/components/ui/reveal'
-import { getUser } from '@/lib/api/users'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { UserRecord } from '@/lib/api/types'
+import { getUser } from '@/lib/api/users'
+import { Reveal } from '@/components/ui/reveal'
+import { ErrorBanner } from '@/components/feedback/error-banner'
+import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 
 type Props = {
   id: string
@@ -19,7 +19,7 @@ function errorMessage(err: unknown): string | undefined {
 function Field({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className='grid gap-1 sm:grid-cols-[10rem_1fr] sm:items-start'>
-      <dt className='text-muted-foreground text-xs font-medium'>{label}</dt>
+      <dt className='text-xs font-medium text-muted-foreground'>{label}</dt>
       <dd className='text-sm break-all'>{value || '—'}</dd>
     </div>
   )
@@ -32,6 +32,13 @@ function UserFields({
   user: UserRecord
   t: (k: string) => string
 }) {
+  const accessLabel =
+    user.access === 'always_allowed'
+      ? t('users.accessAlwaysAllowed')
+      : user.access === 'paid'
+        ? t('users.accessPaid')
+        : t('users.accessDenied')
+
   return (
     <dl className='space-y-3'>
       <Field label={t('users.fieldId')} value={user.id} />
@@ -40,6 +47,7 @@ function UserFields({
       <Field label={t('users.fieldFirstName')} value={user.first_name} />
       <Field label={t('users.fieldLastName')} value={user.last_name} />
       <Field label={t('users.fieldLanguageCode')} value={user.language_code} />
+      <Field label={t('users.fieldAccess')} value={accessLabel} />
       <Field label={t('users.fieldLastSeenAt')} value={user.last_seen_at} />
       <Field label={t('users.fieldCreatedAt')} value={user.created_at} />
       <Field label={t('users.fieldUpdatedAt')} value={user.updated_at} />
@@ -81,7 +89,7 @@ export function UserDetailPanel({ id }: Props) {
     <Reveal className='space-y-4' data-testid='user-detail-panel'>
       <div>
         <h2 className='text-lg font-semibold'>{user.id}</h2>
-        <p className='text-muted-foreground text-sm'>
+        <p className='text-sm text-muted-foreground'>
           {t('users.detailHeading')}
         </p>
       </div>

@@ -23,5 +23,6 @@ type ListQuery struct {
 type Repository interface {
 	UpsertByChannelExternal(ctx context.Context, in UpsertFrom) (*User, error)
 	GetByID(ctx context.Context, id string) (*User, error)
+	SetAccess(ctx context.Context, id string, access UserAccess) (*User, error)
 	List(ctx context.Context, q ListQuery) ([]*User, error)
 }

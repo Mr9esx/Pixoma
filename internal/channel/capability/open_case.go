@@ -12,6 +12,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
 	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
+	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
@@ -32,6 +33,8 @@ type OpenCase struct {
 	App CaseService
 	// Texts resolves configurable copy templates; nil falls back to built-ins.
 	Texts texttpl.Renderer
+	// Users authorizes the channel account before task actions.
+	Users identitydomain.Repository
 }
 
 // renderText resolves a configurable copy template for a channel (with
@@ -103,6 +106,15 @@ func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav prot
 			return protocol.Result{Text: "none"}, nil
 		}
 		return protocol.Result{Text: "active"}, nil
+	}
+	if denied, err := o.authorize(ctx, acct); err != nil {
+		return protocol.Result{}, err
+	} else if denied {
+		return protocol.Result{
+			Text: o.renderText(ctx, channelID, texttpl.KeyAccessDenied, nil),
+		}, nil
+	}
+	switch step {
 	case "preview":
 		return o.preview(ctx, channelID, params)
 	case "start":
@@ -126,6 +138,20 @@ func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav prot
 	default:
 		return protocol.Result{}, fmt.Errorf("open_case: unknown step %q", step)
 	}
+}
+
+func (o OpenCase) authorize(ctx context.Context, acct protocol.AccountCtx) (bool, error) {
+	if o.Users == nil {
+		return false, fmt.Errorf("open_case: user access policy not configured")
+	}
+	user, err := o.Users.GetByID(ctx, acct.InternalUserID)
+	if err != nil {
+		return false, fmt.Errorf("open_case: resolve user access: %w", err)
+	}
+	if user == nil || user.Access != identitydomain.UserAccessAlwaysAllowed {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (o OpenCase) submitText(ctx context.Context, channelID string, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {

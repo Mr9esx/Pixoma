@@ -13,3 +13,13 @@ export function listUsers(params?: {
 export function getUser(id: string) {
   return apiFetch<UserRecord>(`/api/v1/users/${encodeURIComponent(id)}`)
 }
+
+export function updateUserAccess(id: string, access: UserRecord['access']) {
+  return apiFetch<UserRecord>(
+    `/api/v1/users/${encodeURIComponent(id)}/access`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ access }),
+    }
+  )
+}

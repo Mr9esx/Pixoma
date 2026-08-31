@@ -28,7 +28,14 @@ User (TG) ──► Session ──► Task
 
 ## 新部署（推荐）
 
-空目录启动控制面：
+快速安装并启动控制面：
+
+```bash
+curl -fsSL https://pixoma.miaoplus.com/install.sh | sh
+pixoma
+```
+
+也可以在源码目录直接启动控制面：
 
 ```bash
 go run ./apps/pixoma/cmd/pixoma

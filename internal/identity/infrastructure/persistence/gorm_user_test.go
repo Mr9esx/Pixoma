@@ -51,6 +51,44 @@ func TestUpsertByChannelExternal_IdempotentAndRefresh(t *testing.T) {
 	if u2.Username != "alice2" {
 		t.Fatalf("username not refreshed: %q", u2.Username)
 	}
+	if u1.Access != domain.UserAccessDenied {
+		t.Fatalf("default access=%q want denied", u1.Access)
+	}
+}
+
+func TestUserRepository_SetAccess(t *testing.T) {
+	gdb := openTestDB(t)
+	repo := persistence.NewUserRepository(gdb)
+	ctx := context.Background()
+
+	user, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "5001", Username: "alice_access",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user, err = repo.SetAccess(ctx, user.ID, domain.UserAccessAlwaysAllowed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.Access != domain.UserAccessAlwaysAllowed {
+		t.Fatalf("access=%q want always_allowed", user.Access)
+	}
+
+	refreshed, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "5001", Username: "alice_access",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.Access != domain.UserAccessAlwaysAllowed {
+		t.Fatalf("upsert reset access=%q", refreshed.Access)
+	}
+
+	if _, err := repo.SetAccess(ctx, "missing", domain.UserAccessPaid); err != domain.ErrNotFound {
+		t.Fatalf("missing access error=%v want ErrNotFound", err)
+	}
 }
 
 func TestUpsert_ConcurrentSameIdentityNoUniqueError(t *testing.T) {

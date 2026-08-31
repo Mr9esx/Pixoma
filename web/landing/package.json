@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "registries": {
+    "@tailark-oss": "https://oss.tailark.com/r/{name}.json"
+  },
   "packageManager": "pnpm@10.12.4",
   "scripts": {
     "dev": "vite",
@@ -15,13 +18,16 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@base-ui/react": "^1.7.0",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "i18next": "^25.0.0",
+    "dotted-map": "^3.1.0",
+    "lucide-react": "^1.37.0",
     "motion": "^13.1.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-i18next": "^15.4.0",
-    "react-router-dom": "^7.6.0",
+    "react-use-measure": "^2.1.7",
+    "recharts": "^2.15.4",
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
