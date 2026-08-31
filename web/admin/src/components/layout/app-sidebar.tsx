@@ -1,5 +1,7 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { MENU_GROUPS } from '@/config/menu'
+import { MENU_GROUPS, filterMenuGroupsForDemo } from '@/config/menu'
+import { useQuery } from '@tanstack/react-query'
+import { fetchSetupStatus } from '@/lib/api/setup'
 import { Menu, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useLayout } from '@/context/layout-provider'
@@ -25,6 +27,12 @@ export function AppSidebar() {
   const { setOpenMobile, state, toggleSidebar, isMobile } = useSidebar()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const isCollapsed = state === 'collapsed'
+  const { data: setupStatus } = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: fetchSetupStatus,
+  })
+  const isLiveDemo = setupStatus?.live_demo === true
+  const menuGroups = filterMenuGroupsForDemo(MENU_GROUPS, isLiveDemo)
 
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
@@ -45,7 +53,7 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </SidebarMenu>
         ) : null}
-        {MENU_GROUPS.map((group) => (
+        {menuGroups.map((group) => (
           <SidebarGroup key={group.id} className='px-2 py-1'>
             {group.titleKey ? (
               <SidebarGroupLabel>{t(group.titleKey)}</SidebarGroupLabel>

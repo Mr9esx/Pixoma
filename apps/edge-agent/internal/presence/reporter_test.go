@@ -12,9 +12,10 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/pull"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui/comfyuitest"
 )
 
-func TestReporter_MockComfyReportsRunning(t *testing.T) {
+func TestReporter_FakeComfyReportsRunning(t *testing.T) {
 	var running any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
@@ -23,10 +24,7 @@ func TestReporter_MockComfyReportsRunning(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	t.Cleanup(srv.Close)
-	comfy, err := comfyui.NewClient(comfyui.Options{Mock: true})
-	if err != nil {
-		t.Fatal(err)
-	}
+	comfy := &comfyuitest.Fake{}
 	r := &presence.Reporter{
 		Client: pull.NewClient(srv.URL, "tok", "gpu-1"),
 		Comfy:  comfy,
@@ -35,7 +33,7 @@ func TestReporter_MockComfyReportsRunning(t *testing.T) {
 		t.Fatal(err)
 	}
 	if running != true {
-		t.Fatalf("mock must report comfy_running=true, got %v", running)
+		t.Fatalf("fake must report comfy_running=true, got %v", running)
 	}
 }
 
@@ -50,10 +48,7 @@ func TestReporter_SendsStartedAtAndComfyVersion(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	t.Cleanup(srv.Close)
-	comfy, err := comfyui.NewClient(comfyui.Options{Mock: true})
-	if err != nil {
-		t.Fatal(err)
-	}
+	comfy := &comfyuitest.Fake{}
 	r := &presence.Reporter{
 		Client: pull.NewClient(srv.URL, "tok", "gpu-1"),
 		Comfy:  comfy,
@@ -65,8 +60,8 @@ func TestReporter_SendsStartedAtAndComfyVersion(t *testing.T) {
 	if !ok || first == "" {
 		t.Fatalf("started_at=%v", startedAt)
 	}
-	if version != "mock" {
-		t.Fatalf("comfy_version=%v want mock", version)
+	if version != "fake" {
+		t.Fatalf("comfy_version=%v want fake", version)
 	}
 	if err := r.ProbeAndReport(context.Background()); err != nil {
 		t.Fatal(err)
@@ -88,10 +83,7 @@ func TestReporter_UnreachableComfyReportsFalse(t *testing.T) {
 
 	dead := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	dead.Close()
-	comfy, err := comfyui.NewClient(comfyui.Options{Mock: false, BaseURL: dead.URL})
-	if err != nil {
-		t.Fatal(err)
-	}
+	comfy := comfyui.NewHTTP(dead.URL)
 	r := &presence.Reporter{
 		Client: pull.NewClient(srv.URL, "tok", "gpu-1"),
 		Comfy:  comfy,

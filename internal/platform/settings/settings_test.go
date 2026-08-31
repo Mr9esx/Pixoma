@@ -75,7 +75,6 @@ func TestStore_SQLiteRoundTripSecrets(t *testing.T) {
 		DBDSN:          filepath.Join(t.TempDir(), "app.db"),
 		BlobDriver:     botconfig.BlobDriverLocalFS,
 		BlobRoot:       "data/blob",
-		ComfyMock:      true,
 		ComfyUIBaseURL: "http://127.0.0.1:8188",
 		BlobAccessKey:  "ak-secret",
 		BlobSecretKey:  "sk-secret",
@@ -111,9 +110,6 @@ func TestStore_SQLiteRoundTripSecrets(t *testing.T) {
 	}
 	if got.ProxyKind != settings.ProxyHTTP || got.ProxyHost != "127.0.0.1" || got.ProxyPort != 7897 {
 		t.Fatalf("proxy mismatch: %+v", got)
-	}
-	if !got.ComfyMock {
-		t.Fatal("comfy_mock should round-trip")
 	}
 }
 
@@ -192,7 +188,6 @@ type legacySettingsRow struct {
 	BlobBucket       string `gorm:"column:blob_bucket;size:256"`
 	BlobAccessCipher string `gorm:"column:blob_access_cipher;type:text"`
 	BlobSecretCipher string `gorm:"column:blob_secret_cipher;type:text"`
-	ComfyMock        bool   `gorm:"column:comfy_mock;not null"`
 	ComfyUIBaseURL   string `gorm:"column:comfyui_base_url;type:text"`
 	ClaimWaitMS      int    `gorm:"column:claim_wait_ms"`
 	LeaseSeconds     int    `gorm:"column:lease_seconds"`

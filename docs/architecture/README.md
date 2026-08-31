@@ -11,4 +11,4 @@
 | [task-data-walkthrough.md](./task-data-walkthrough.md) | **数据走查**：选 Case→终态回图，按阶段列出表行 / Blob / MQ / 接口样例 |
 | [diagrams/system.html](./diagrams/system.html) | 系统拓扑可视化（浏览器打开） |
 
-运维命令与 Mock 开关见仓库根 [README.md](../../README.md)。
+运维命令见仓库根 [README.md](../../README.md)。

@@ -37,7 +37,6 @@ func run(ctx context.Context) error {
 	if token == "" {
 		return errString("AGENT_TOKEN is required")
 	}
-	comfyMock := envBool("COMFY_MOCK", true)
 	comfyURL := envOr("COMFYUI_BASE_URL", "http://127.0.0.1:8188")
 	wait := envDuration("CLAIM_WAIT", 25*time.Second)
 
@@ -47,7 +46,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	comfy, err := comfyui.NewClient(comfyui.Options{Mock: comfyMock, BaseURL: comfyURL})
+	comfy, err := comfyui.NewClient(comfyui.Options{BaseURL: comfyURL})
 	if err != nil {
 		return err
 	}
@@ -60,7 +59,7 @@ func run(ctx context.Context) error {
 		Status: pull.NewStatusPublisher(client),
 	}
 	loop := &pull.Loop{Client: client, Worker: worker, Wait: wait}
-	sampler := edgemetrics.NewSampler(comfyMock)
+	sampler := edgemetrics.NewSampler()
 	reporter := &presence.Reporter{
 		Client: client,
 		Comfy:  comfy,
@@ -75,7 +74,6 @@ func run(ctx context.Context) error {
 	slog.Info("pixoma-edge-agent running",
 		"edge_id", instID,
 		"control_plane", baseURL,
-		"mock", comfyMock,
 		"blob_driver", driver,
 	)
 	go func() {
@@ -83,7 +81,6 @@ func run(ctx context.Context) error {
 	}()
 	return loop.Run(ctx)
 }
-
 
 type errString string
 
@@ -94,21 +91,6 @@ func envOr(k, def string) string {
 		return v
 	}
 	return def
-}
-
-func envBool(k string, def bool) bool {
-	v := strings.TrimSpace(os.Getenv(k))
-	if v == "" {
-		return def
-	}
-	switch strings.ToLower(v) {
-	case "1", "true", "yes", "on":
-		return true
-	case "0", "false", "no", "off":
-		return false
-	default:
-		return def
-	}
 }
 
 func envDuration(k string, def time.Duration) time.Duration {

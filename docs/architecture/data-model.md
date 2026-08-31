@@ -369,7 +369,7 @@ erDiagram
 
 ```mermaid
 erDiagram
-  edges ||--o| PoolClient : "id → HTTP/Mock Client"
+  edges ||--o| PoolClient : "id → HTTP Client"
   edges ||--o{ tasks : "edge_id"
   PoolClient ||--o{ ComfyUI_Remote : "base_url"
 

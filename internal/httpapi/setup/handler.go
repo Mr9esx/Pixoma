@@ -427,7 +427,6 @@ func (h *Handler) blobTest(w http.ResponseWriter, r *http.Request) {
 		BlobBucket:     body.BlobBucket,
 		BlobAccessKey:  body.BlobAccessKey,
 		BlobSecretKey:  body.BlobSecretKey,
-		ComfyMock:      true,
 		ComfyUIBaseURL: "http://127.0.0.1:8188",
 	}
 	if err := cfg.Validate(); err != nil {
@@ -629,7 +628,11 @@ func (h *Handler) scheduleRestart() {
 }
 
 func (h *Handler) user(r *http.Request) (string, bool) {
-	return h.Sessions.Lookup(TokenFromRequest(r))
+	acct, ok := resolveAccount(r.Context(), h.Sessions, h.ConsoleUsers, TokenFromRequest(r))
+	if !ok {
+		return "", false
+	}
+	return acct.Username, true
 }
 
 func (h *Handler) requireSession(w http.ResponseWriter, r *http.Request) (string, bool) {

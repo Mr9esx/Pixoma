@@ -191,7 +191,6 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 		DBDSN:          "data/app.db",
 		BlobDriver:     "localfs",
 		BlobRoot:       "data/blob",
-		ComfyMock:      true,
 		ComfyUIBaseURL: "http://127.0.0.1:8188",
 	}
 	if err := st.Save(want); err != nil {
@@ -201,7 +200,7 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 	if err != nil {
 		t.Fatalf("settings load: %v", err)
 	}
-	if got.BlobRoot != want.BlobRoot || !got.ComfyMock {
+	if got.BlobRoot != want.BlobRoot || got.ComfyUIBaseURL != want.ComfyUIBaseURL {
 		t.Fatalf("settings roundtrip mismatch: %+v", got)
 	}
 
@@ -226,9 +225,9 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 	cRepo := casepersist.NewGormRepository(gdb)
 	c := &catalogdomain.Case{
 		Document: catalogdomain.CaseDocument{
-			ID:    sharedkernel.CaseID(1),
-			Name:  "Integration Case",
-			Inputs: []catalogdomain.InputField{},
+			ID:      sharedkernel.CaseID(1),
+			Name:    "Integration Case",
+			Inputs:  []catalogdomain.InputField{},
 			Outputs: []catalogdomain.OutputField{},
 			Bindings: catalogdomain.ComfyBindings{
 				WorkflowJSON: map[string]any{},

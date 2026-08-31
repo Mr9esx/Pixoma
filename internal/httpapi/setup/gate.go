@@ -101,20 +101,10 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			writeErr(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
-		acct, ok := g.Sessions.LookupAccount(TokenFromRequest(r))
+		acct, ok := resolveAccount(r.Context(), g.Sessions, g.ConsoleUsers, TokenFromRequest(r))
 		if !ok {
 			writeErr(w, http.StatusUnauthorized, "unauthorized")
 			return
-		}
-		if g.ConsoleUsers != nil {
-			refreshed, ok := g.currentAccount(r.Context(), acct)
-			if !ok {
-				writeErr(w, http.StatusUnauthorized, "unauthorized")
-				return
-			}
-			acct = refreshed
-		} else if acct.AccountID == "" {
-			acct.Role = consoledomain.RoleAdmin
 		}
 		if isSetupAdministration(path) && acct.Role != consoledomain.RoleAdmin {
 			writeErr(w, http.StatusForbidden, "forbidden")
@@ -129,9 +119,42 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (g *Gate) currentAccount(ctx context.Context, acct AccountSession) (AccountSession, bool) {
-	user, err := g.ConsoleUsers.GetByID(ctx, acct.AccountID)
+func resolveAccount(
+	ctx context.Context,
+	sessions *Sessions,
+	users consoledomain.Repository,
+	token string,
+) (AccountSession, bool) {
+	acct, ok := sessions.LookupAccount(token)
+	if !ok {
+		return AccountSession{}, false
+	}
+	if users == nil {
+		if acct.AccountID == "" {
+			acct.Role = consoledomain.RoleAdmin
+		}
+		return acct, true
+	}
+
+	if acct.AccountID != "" {
+		user, err := users.GetByID(ctx, acct.AccountID)
+		if err != nil || user == nil || !user.Enabled {
+			return AccountSession{}, false
+		}
+		return AccountSession{
+			AccountID: user.ID,
+			Username:  user.Username,
+			Role:      user.Role,
+		}, true
+	}
+
+	// Bootstrap-era sessions can survive a restart before the console account
+	// store exists. Rebind them now so status and business APIs agree.
+	user, err := users.GetByUsername(ctx, acct.Username)
 	if err != nil || user == nil || !user.Enabled {
+		return AccountSession{}, false
+	}
+	if !sessions.BindAccount(token, user.ID, user.Role) {
 		return AccountSession{}, false
 	}
 	return AccountSession{

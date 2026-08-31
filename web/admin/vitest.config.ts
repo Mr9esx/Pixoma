@@ -41,6 +41,7 @@ export default defineConfig({
       'src/lib/api/stats.test.ts',
       'src/lib/dashboard/aggregate.test.ts',
       'src/config/menu.test.ts',
+      'src/features/setup/live-demo.contract.test.ts',
       'src/lib/i18n/locale.test.ts',
       'src/lib/i18n/copy-quality.test.ts',
       'src/components/master-detail/master-detail.contract.test.ts',

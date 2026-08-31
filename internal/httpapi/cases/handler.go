@@ -118,7 +118,26 @@ func inputSchemaType(t string) string {
 }
 
 func toDTO(c *domain.Case) caseDTO {
-	return caseDTO{CaseDocument: c.Document, Enabled: c.Enabled}
+	doc := c.Document
+	if doc.Inputs == nil {
+		doc.Inputs = []domain.InputField{}
+	}
+	if doc.Outputs == nil {
+		doc.Outputs = []domain.OutputField{}
+	}
+	if doc.Bindings.WorkflowJSON == nil {
+		doc.Bindings.WorkflowJSON = map[string]any{}
+	}
+	if doc.Bindings.Inputs == nil {
+		doc.Bindings.Inputs = []domain.InputBinding{}
+	}
+	if doc.Bindings.Outputs == nil {
+		doc.Bindings.Outputs = []domain.OutputBinding{}
+	}
+	if doc.InputSchema == nil {
+		doc.InputSchema = map[string]any{}
+	}
+	return caseDTO{CaseDocument: doc, Enabled: c.Enabled}
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {

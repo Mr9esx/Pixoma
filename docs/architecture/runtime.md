@@ -13,7 +13,7 @@ sequenceDiagram
   participant APP as botapp.ConfirmRun
   participant O as Orchestrator
   participant E as pixoma-edge-agent
-  participant C as Comfy/Mock
+  participant C as ComfyUI
   participant N as notify→TG
 
   U->>TG: 确认生成
@@ -143,12 +143,11 @@ pending Task
 ## 5. Comfy 客户端选型
 
 ```text
-cfg.ComfyMock ──► Pool.Refresh ──► comfyui.NewClient(Options{Mock, BaseURL})
-                                      ├─ true  → Mock（进程内，返回示例 PNG）
-                                      └─ false → HTTP(BaseURL)
+cfg.ComfyUIBaseURL ──► Pool.Refresh ──► comfyui.NewClient(Options{BaseURL})
+                                        └─ HTTP(BaseURL)
 ```
 
-- 产品链路变更须保持 **Mock 端到端可通**（项目规则 `comfy-mock-parity`）。
+- 产品链路变更须保持真实 ComfyUI HTTP 路径端到端可通。
 - 观测 API：`GET .../system` → `/system_stats`；`GET .../queue` → `/queue`；业务历史**不用** Comfy `/history`，用 DB `tasks`。
 - 管理列表/详情的「节点在线」「Comfy运行中」两个 Tag **不以** 控制面探 Comfy 为准：Edge 本机 `SystemStats` 后 `POST /agent/v1/presence`，控制面内存 15 秒无报到视为掉线。`GET .../system` 仍是硬件明细，远程可能打不通。
 

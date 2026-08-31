@@ -35,7 +35,6 @@ type Settings struct {
 	BlobBucket     string `json:"blob_bucket"`
 	BlobAccessKey  string `json:"blob_access_key,omitempty"`
 	BlobSecretKey  string `json:"blob_secret_key,omitempty"`
-	ComfyMock      bool   `json:"comfy_mock"`
 	ComfyUIBaseURL string `json:"comfyui_base_url"`
 	ClaimWaitMS    int    `json:"claim_wait_ms"`
 	LeaseSeconds   int    `json:"lease_seconds"`

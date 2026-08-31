@@ -6,6 +6,7 @@ export type CurrentUser = {
   role: 'admin' | 'operator' | 'viewer'
   email?: string
   avatar_url?: string
+  live_demo?: boolean
 }
 
 export function fetchCurrentUser() {
@@ -19,6 +20,7 @@ export type SetupStatus = {
   username?: string
   wizard_step?: string
   restart_required?: boolean
+  live_demo?: boolean
 }
 
 export type SetupDraft = {
@@ -32,7 +34,6 @@ export type SetupDraft = {
   blob_bucket?: string
   blob_access_key?: string
   blob_secret_key?: string
-  comfy_mock: boolean
   comfyui_base_url: string
   proxy_kind?: string
   proxy_host?: string

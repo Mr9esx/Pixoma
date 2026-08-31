@@ -2,6 +2,7 @@ package setup_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -181,4 +182,95 @@ func TestGate_DisabledAccountSessionIsRejected(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("disabled account code = %d, want 401", rec.Code)
 	}
+}
+
+func TestGate_UpgradesBootstrapSessionAfterRestart(t *testing.T) {
+	boot, creds, err := bootstrap.Open(filepath.Join(t.TempDir(), "bootstrap.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer boot.Close()
+	if err := boot.MarkInitialized(); err != nil {
+		t.Fatal(err)
+	}
+
+	sess := setup.NewSessions("")
+	token, err := sess.Issue(creds.Username, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &upgradingAccountRepository{user: &domain.ConsoleUser{
+		ID:       "admin-1",
+		Username: creds.Username,
+		Role:     domain.RoleAdmin,
+		Enabled:  true,
+	}}
+	gate := &setup.Gate{Boot: boot, Sessions: sess, ConsoleUsers: repo}
+
+	var account setup.AccountSession
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var ok bool
+		account, ok = setup.AccountFromContext(r.Context())
+		if !ok {
+			http.Error(w, "missing account", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	gate.Middleware(next).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, want %d (body %s)", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if account.AccountID != repo.user.ID {
+		t.Fatalf("account ID = %q, want %q", account.AccountID, repo.user.ID)
+	}
+	bound, ok := sess.LookupAccount(token)
+	if !ok {
+		t.Fatal("session was not retained")
+	}
+	if bound.AccountID != repo.user.ID {
+		t.Fatalf("persisted session account ID = %q, want %q", bound.AccountID, repo.user.ID)
+	}
+}
+
+type upgradingAccountRepository struct {
+	user *domain.ConsoleUser
+}
+
+func (r *upgradingAccountRepository) Create(context.Context, *domain.ConsoleUser) error {
+	return nil
+}
+
+func (r *upgradingAccountRepository) GetByUsername(_ context.Context, username string) (*domain.ConsoleUser, error) {
+	if r.user.Username == username {
+		return r.user, nil
+	}
+	return nil, errors.New("not found")
+}
+
+func (r *upgradingAccountRepository) GetByID(_ context.Context, id string) (*domain.ConsoleUser, error) {
+	if r.user.ID == id {
+		return r.user, nil
+	}
+	return nil, errors.New("not found")
+}
+
+func (r *upgradingAccountRepository) List(context.Context, domain.ListQuery) ([]*domain.ConsoleUser, error) {
+	return []*domain.ConsoleUser{r.user}, nil
+}
+
+func (r *upgradingAccountRepository) CountAdmins(context.Context) (int64, error) {
+	return 1, nil
+}
+
+func (r *upgradingAccountRepository) Update(context.Context, *domain.ConsoleUser) error {
+	return nil
+}
+
+func (r *upgradingAccountRepository) Delete(context.Context, string) error {
+	return nil
 }

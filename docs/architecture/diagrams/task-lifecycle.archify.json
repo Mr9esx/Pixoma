@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Pixoma Task 生命周期",
+    "locale": "zh-CN",
+    "output": "docs/architecture/diagrams/task-lifecycle.html",
+    "viewBox": [1085, 566],
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "main", "label": "主状态流" },
+    { "id": "recovery", "label": "回收与终态" }
+  ],
+  "states": [
+    { "id": "pending", "type": "start", "label": "Pending", "sublabel": "已确认生成", "lane": "main", "col": 0, "step": "01", "tag": "created" },
+    { "id": "queued", "type": "active", "label": "Queued", "sublabel": "已备好 Job", "lane": "main", "col": 1, "step": "02", "tag": "claimable" },
+    { "id": "running", "type": "active", "label": "Running", "sublabel": "持有租约", "lane": "main", "col": 2, "step": "03", "tag": "executing" },
+    { "id": "failed", "type": "failure", "label": "Failed", "sublabel": "可重试 / 最终失败", "lane": "main", "col": 3, "step": "04", "tag": "recoverable" },
+    { "id": "succeeded", "type": "success", "label": "Succeeded", "sublabel": "输出已登记", "lane": "main", "col": 4, "step": "05", "tag": "done" },
+    { "id": "cancelled", "type": "failure", "label": "Cancelled", "sublabel": "Pending 或 Queued 取消", "lane": "recovery", "col": 0, "tag": "terminal" }
+  ],
+  "transitions": [
+    { "id": "pending-queued", "from": "pending", "to": "queued", "label": "路由命中 + Job 入 Blob", "route": "straight", "fromSide": "right", "toSide": "left", "labelDy": -30 },
+    { "id": "queued-running", "from": "queued", "to": "running", "label": "Claim + Lease", "route": "straight", "fromSide": "right", "toSide": "left", "labelAt": [325, 205] },
+    { "id": "running-succeeded", "from": "running", "to": "succeeded", "label": "输出写入 Blob", "fromSide": "bottom", "toSide": "bottom", "via": [[402, 270], [710, 270]], "labelAt": [479, 270] },
+    { "id": "running-failed", "from": "running", "to": "failed", "label": "执行 / 等待失败", "route": "straight", "fromSide": "right", "toSide": "left", "labelAt": [479, 225] },
+    { "id": "failed-queued", "from": "failed", "to": "queued", "label": "Attempts ≤ 3；退避 5s/15s/45s", "variant": "emphasis", "fromSide": "top", "toSide": "top", "via": [[556, 80], [248, 80]] },
+    { "id": "lease-queued", "from": "running", "to": "queued", "label": "Lease 过期回收", "variant": "dashed", "fromSide": "top", "toSide": "top", "via": [[402, 100], [248, 100]], "labelAt": [480, 100] },
+    { "id": "pending-cancelled", "from": "pending", "to": "cancelled", "label": "Pending 取消", "variant": "dashed", "fromSide": "bottom", "toSide": "left", "via": [[94, 307], [279, 307]], "labelAt": [150, 307] },
+    { "id": "queued-cancelled", "from": "queued", "to": "cancelled", "label": "Queued 取消", "variant": "dashed", "fromSide": "bottom", "toSide": "right", "via": [[248, 340], [520, 340], [520, 307]], "labelAt": [280, 350] }
+  ]
+}

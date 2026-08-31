@@ -77,4 +77,17 @@ export const MENU_GROUPS: readonly MenuGroup[] = [
   },
 ] as const
 
+export function filterMenuGroupsForDemo(
+  groups: readonly MenuGroup[],
+  isLiveDemo: boolean
+): readonly MenuGroup[] {
+  if (!isLiveDemo) return groups
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.id !== 'settings'),
+    }))
+    .filter((group) => group.items.length > 0)
+}
+
 export const MENU_ITEMS: readonly MenuItem[] = ITEMS

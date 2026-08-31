@@ -19,10 +19,11 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui/comfyuitest"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -71,10 +72,10 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 		t.Fatal(err)
 	}
 	var submitted comfyui.Graph
-	mock := &comfyui.Mock{
+	mock := &comfyuitest.Fake{
 		SubmitFn: func(_ context.Context, graph comfyui.Graph) (string, error) {
 			submitted = graph
-			return "prompt-mock", nil
+			return "prompt-fake", nil
 		},
 	}
 	cases := &memCases{}
@@ -174,7 +175,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	}
 }
 
-// TestMemoryAllInOneImageAndPrompt covers ConfirmRun → CaseSnapshot (upload+inject) → Mock Comfy → notify
+// TestMemoryAllInOneImageAndPrompt covers ConfirmRun → CaseSnapshot (upload+inject) → fake Comfy → notify
 // with a staged user image (reference) and prompt text.
 func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 	ctx := context.Background()
@@ -193,10 +194,10 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 
 	var submitted comfyui.Graph
 	var uploadedName string
-	mock := &comfyui.Mock{
+	mock := &comfyuitest.Fake{
 		SubmitFn: func(_ context.Context, graph comfyui.Graph) (string, error) {
 			submitted = graph
-			return "prompt-img-mock", nil
+			return "prompt-img-fake", nil
 		},
 		UploadImageFn: func(_ context.Context, filename, mime string, data []byte) (string, error) {
 			if filename != "user-ref.png" {
@@ -208,7 +209,7 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 			if !bytes.Equal(data, []byte("user-image-bytes")) {
 				t.Errorf("UploadImage data=%q want user-image-bytes", data)
 			}
-			uploadedName = "mock-upload-ref.png"
+			uploadedName = "fake-upload-ref.png"
 			return uploadedName, nil
 		},
 	}

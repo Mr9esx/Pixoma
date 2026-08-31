@@ -13,13 +13,19 @@ describe('setup api', () => {
       'fetch',
       vi.fn().mockResolvedValue(
         new Response(
-          JSON.stringify({ initialized: false, authenticated: false, must_change_password: true }),
+          JSON.stringify({
+            initialized: false,
+            authenticated: false,
+            must_change_password: true,
+            live_demo: true,
+          }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         ),
       ),
     )
     const s = await fetchSetupStatus()
     expect(s.initialized).toBe(false)
+    expect(s.live_demo).toBe(true)
   })
 
   it('stores session token after login', async () => {

@@ -23,15 +23,14 @@ type Sampler struct {
 	VirtualMemory func(ctx context.Context) (*mem.VirtualMemoryStat, error)
 	DiskIO        func(ctx context.Context) (map[string]disk.IOCountersStat, error)
 	NvidiaSMI     func(ctx context.Context) ([]edge.GPUMetric, error)
-	Mock          bool
 
 	mu       sync.Mutex
 	lastDisk map[string]disk.IOCountersStat
 }
 
 // NewSampler wires real gopsutil and nvidia-smi collectors.
-func NewSampler(mock bool) *Sampler {
-	s := &Sampler{Mock: mock, lastDisk: map[string]disk.IOCountersStat{}}
+func NewSampler() *Sampler {
+	s := &Sampler{lastDisk: map[string]disk.IOCountersStat{}}
 	s.Now = time.Now
 	s.CPUPercent = func(ctx context.Context, interval time.Duration) (float64, error) {
 		// interval>0 makes gopsutil sleep for the whole interval, which would
@@ -113,9 +112,7 @@ func (s *Sampler) Sample(ctx context.Context, since time.Time) edge.Metrics {
 			s.lastDisk = counters
 		}
 	}
-	if s.Mock {
-		m.GPUs = mockGPUs(now)
-	} else if s.NvidiaSMI != nil {
+	if s.NvidiaSMI != nil {
 		if gpus, err := s.NvidiaSMI(ctx); err == nil {
 			m.GPUs = gpus
 		}
@@ -165,19 +162,4 @@ func parseNvidiaSMIOutput(out []byte) ([]edge.GPUMetric, error) {
 		})
 	}
 	return gpus, nil
-}
-
-func mockGPUs(now time.Time) []edge.GPUMetric {
-	phase := float64(now.Unix()%60) / 60
-	usage := 20 + 40*phase
-	total := uint64(8 << 30)
-	used := uint64(float64(total) * (0.2 + 0.6*phase))
-	vramPct := float64(used) / float64(total) * 100
-	return []edge.GPUMetric{{
-		Name:             "Mock GPU",
-		UsagePercent:     &usage,
-		VRAMUsedBytes:    used,
-		VRAMTotalBytes:   total,
-		VRAMUsagePercent: &vramPct,
-	}}
 }

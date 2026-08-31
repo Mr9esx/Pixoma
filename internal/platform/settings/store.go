@@ -27,7 +27,6 @@ type row struct {
 	BlobBucket       string `gorm:"column:blob_bucket;size:256"`
 	BlobAccessCipher string `gorm:"column:blob_access_cipher;type:text"`
 	BlobSecretCipher string `gorm:"column:blob_secret_cipher;type:text"`
-	ComfyMock        bool   `gorm:"column:comfy_mock;not null"`
 	ComfyUIBaseURL   string `gorm:"column:comfyui_base_url;type:text"`
 	ClaimWaitMS      int    `gorm:"column:claim_wait_ms"`
 	LeaseSeconds     int    `gorm:"column:lease_seconds"`
@@ -88,7 +87,6 @@ func (s *Store) Save(in Settings) error {
 		BlobBucket:       in.BlobBucket,
 		BlobAccessCipher: ak,
 		BlobSecretCipher: sk,
-		ComfyMock:        in.ComfyMock,
 		ComfyUIBaseURL:   in.ComfyUIBaseURL,
 		ClaimWaitMS:      in.ClaimWaitMS,
 		LeaseSeconds:     in.LeaseSeconds,
@@ -118,23 +116,22 @@ func (s *Store) Load() (Settings, error) {
 		return Settings{}, err
 	}
 	return Settings{
-		Placement:      r.Placement,
-		DBDriver:       r.DBDriver,
-		DBDSN:          r.DBDSN,
-		BlobDriver:     r.BlobDriver,
-		BlobRoot:       r.BlobRoot,
-		BlobEndpoint:   r.BlobEndpoint,
-		BlobRegion:     r.BlobRegion,
-		BlobBucket:     r.BlobBucket,
-		BlobAccessKey:  ak,
-		BlobSecretKey:  sk,
-		ComfyMock:      r.ComfyMock,
-		ComfyUIBaseURL: r.ComfyUIBaseURL,
-		ClaimWaitMS:    r.ClaimWaitMS,
-		LeaseSeconds:   r.LeaseSeconds,
-		ProxyKind:      r.ProxyKind,
-		ProxyHost:      r.ProxyHost,
-		ProxyPort:      r.ProxyPort,
+		Placement:             r.Placement,
+		DBDriver:              r.DBDriver,
+		DBDSN:                 r.DBDSN,
+		BlobDriver:            r.BlobDriver,
+		BlobRoot:              r.BlobRoot,
+		BlobEndpoint:          r.BlobEndpoint,
+		BlobRegion:            r.BlobRegion,
+		BlobBucket:            r.BlobBucket,
+		BlobAccessKey:         ak,
+		BlobSecretKey:         sk,
+		ComfyUIBaseURL:        r.ComfyUIBaseURL,
+		ClaimWaitMS:           r.ClaimWaitMS,
+		LeaseSeconds:          r.LeaseSeconds,
+		ProxyKind:             r.ProxyKind,
+		ProxyHost:             r.ProxyHost,
+		ProxyPort:             r.ProxyPort,
 		AllowSelfRegistration: r.AllowSelfReg,
 	}, nil
 }

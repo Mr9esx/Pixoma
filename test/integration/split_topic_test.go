@@ -17,10 +17,11 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui/comfyuitest"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -39,8 +40,8 @@ func TestSplit_TopicClaimIsolation(t *testing.T) {
 
 	cases := &memCases{}
 	cases.Create(ctx, &domain.Case{Document: domain.CaseDocument{
-		ID:    8,
-		Name:  "Split",
+		ID:     8,
+		Name:   "Split",
 		Inputs: []domain.InputField{{Key: "prompt", Type: "string", Required: true}},
 		Routing: &domain.RoutingConfig{Rules: []domain.RoutingRule{
 			{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
@@ -72,7 +73,7 @@ func TestSplit_TopicClaimIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mock := &comfyui.Mock{SubmitFn: func(_ context.Context, _ comfyui.Graph) (string, error) {
+	mock := &comfyuitest.Fake{SubmitFn: func(_ context.Context, _ comfyui.Graph) (string, error) {
 		return "prompt-split", nil
 	}}
 	snap := &actuator.CaseSnapshot{Tasks: tasks, Cases: cases, Blob: store, Uploader: mock}

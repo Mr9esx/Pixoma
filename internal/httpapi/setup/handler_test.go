@@ -125,7 +125,6 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 		BlobRoot:       filepath.Join(dir, "blob"),
 		DBDriver:       "sqlite",
 		DBDSN:          dsn,
-		ComfyMock:      true,
 		ComfyUIBaseURL: "http://127.0.0.1:8188",
 	})
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/setup/draft", bytes.NewReader(okDraft))
@@ -281,7 +280,6 @@ func TestSettings_AfterInit_PasswordAndUpdate(t *testing.T) {
 		BlobRoot:       newRoot,
 		DBDriver:       "mysql",
 		DBDSN:          "user:pass@tcp(127.0.0.1:3306)/pixoma",
-		ComfyMock:      false,
 		ComfyUIBaseURL: "http://should-not-stick:9",
 		BlobAccessKey:  "********",
 		BlobSecretKey:  "********",
@@ -314,9 +312,6 @@ func TestSettings_AfterInit_PasswordAndUpdate(t *testing.T) {
 	}
 	if got.DBDSN != env.dsn {
 		t.Fatalf("db dsn must stay, got %q", got.DBDSN)
-	}
-	if !got.ComfyMock {
-		t.Fatal("comfy_mock must stay as stored, not follow the settings form")
 	}
 	if got.ComfyUIBaseURL != "http://127.0.0.1:8188" {
 		t.Fatalf("comfy url is not a settings field, got %q", got.ComfyUIBaseURL)
@@ -404,7 +399,6 @@ func completeWizard(t *testing.T) *wizardEnv {
 		BlobRoot:       filepath.Join(dir, "blob"),
 		DBDriver:       "sqlite",
 		DBDSN:          dsn,
-		ComfyMock:      true,
 		ComfyUIBaseURL: "http://127.0.0.1:8188",
 	})
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/setup/draft", bytes.NewReader(okDraft))
@@ -611,7 +605,6 @@ func TestDraft_LazyConfiguresDatabase(t *testing.T) {
 		BlobRoot:       filepath.Join(env.dir, "blob"),
 		DBDriver:       "sqlite",
 		DBDSN:          dsn,
-		ComfyMock:      true,
 		ComfyUIBaseURL: "http://127.0.0.1:8188",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/draft", bytes.NewReader(body))
