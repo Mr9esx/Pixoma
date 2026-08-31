@@ -10,9 +10,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
+	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
+	userdomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
+	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
@@ -187,5 +191,101 @@ func TestTasksHandler_FilterByChannel(t *testing.T) {
 	}
 	if len(list) != 1 || list[0]["id"] != "t1" {
 		t.Fatalf("channel filter: %+v", list)
+	}
+}
+
+func TestTasksHandler_ContextProjection(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:tasks_context_" + t.Name() + "?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, &taskpersist.TaskRow{}, &sesspersist.SessionRow{}, &userpersist.UserRow{}, &userpersist.UserExternalIdentityRow{}, &channelpersist.ChannelRow{}); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	channelStore := channelpersist.NewGormRepository(gdb)
+	if err := channelStore.Create(ctx, channeldomain.Channel{ID: "tg-default", Platform: "telegram", Name: "Default Telegram", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	userRepo := userpersist.NewUserRepository(gdb)
+	user, err := userRepo.UpsertByChannelExternal(ctx, userdomain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "9001",
+		Username: "alice", FirstName: "Alice", LastName: "A",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessionRepo := sesspersist.NewSessionRepository(gdb)
+	session := convdomain.NewCollecting("s1", "tg-default:101", 1, []string{"a"}, now)
+	session.UserID = user.ID
+	if err := sessionRepo.Save(ctx, session); err != nil {
+		t.Fatal(err)
+	}
+	taskRepo := taskpersist.NewTaskRepository(gdb)
+	if err := taskRepo.Create(ctx, runtimedomain.NewPending("task-context", "s1", 1, "pfx", now)); err != nil {
+		t.Fatal(err)
+	}
+	if err := taskRepo.Create(ctx, runtimedomain.NewPending("task-orphan", "missing", 2, "pfx", now)); err != nil {
+		t.Fatal(err)
+	}
+
+	h := &tasksapi.Handler{
+		Tasks:   taskRepo,
+		Context: taskpersist.NewTaskAdminProjection(gdb),
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/tasks", func(r chi.Router) { h.Mount(r) })
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	res, err := http.Get(srv.URL + "/api/v1/tasks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var list []map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]map[string]any{}
+	for _, row := range list {
+		byID[row["id"].(string)] = row
+	}
+	row := byID["task-context"]
+	if row == nil {
+		t.Fatalf("missing context task: %+v", list)
+	}
+	for key, want := range map[string]any{
+		"session_id":   "s1",
+		"channel_id":   "tg-default",
+		"channel_name": "Default Telegram",
+		"user_id":      user.ID,
+	} {
+		if row[key] != want {
+			t.Fatalf("%s = %v, want %v; task=%+v", key, row[key], want, row)
+		}
+	}
+	userContext, ok := row["user"].(map[string]any)
+	if !ok || userContext["id"] != user.ID || userContext["external_user_id"] != "9001" {
+		t.Fatalf("user context: %+v", row["user"])
+	}
+	orphan := byID["task-orphan"]
+	if orphan == nil || orphan["channel_id"] != "" || orphan["user"] != nil {
+		t.Fatalf("orphan task context: %+v", orphan)
+	}
+
+	res2, err := http.Get(srv.URL + "/api/v1/tasks/task-context")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res2.Body.Close()
+	var detail map[string]any
+	if err := json.NewDecoder(res2.Body).Decode(&detail); err != nil {
+		t.Fatal(err)
+	}
+	if detail["channel_id"] != "tg-default" || detail["user_id"] != user.ID {
+		t.Fatalf("detail context: %+v", detail)
 	}
 }

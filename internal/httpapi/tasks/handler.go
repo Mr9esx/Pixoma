@@ -21,8 +21,9 @@ type Canceller interface {
 
 // Handler serves task admin list/get/cancel under /api/v1/tasks.
 type Handler struct {
-	Tasks  runtimedomain.TaskRepository
-	Cancel Canceller
+	Tasks   runtimedomain.TaskRepository
+	Cancel  Canceller
+	Context runtimedomain.TaskAdminReader
 }
 
 // Mount registers list/get/cancel. Does not register task creation.
@@ -33,20 +34,33 @@ func (h *Handler) Mount(r chi.Router) {
 }
 
 type taskDTO struct {
-	ID            string     `json:"id"`
-	SessionID     string     `json:"session_id"`
-	ChatID        string     `json:"chat_id,omitempty"`
-	CaseID        uint64     `json:"case_id"`
-	Status        string     `json:"status"`
-	EdgeID        string     `json:"instance_id,omitempty"`
-	DispatchTopic string     `json:"dispatch_topic"`
-	PromptID      string     `json:"prompt_id,omitempty"`
-	ErrorCode     string     `json:"error_code,omitempty"`
-	ErrorMessage  string     `json:"error_message,omitempty"`
-	StartedAt     *time.Time `json:"started_at,omitempty"`
-	CompletedAt   *time.Time `json:"completed_at,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID            string       `json:"id"`
+	SessionID     string       `json:"session_id"`
+	ChannelID     string       `json:"channel_id"`
+	ChannelName   string       `json:"channel_name,omitempty"`
+	UserID        string       `json:"user_id,omitempty"`
+	User          *taskUserDTO `json:"user,omitempty"`
+	ChatID        string       `json:"chat_id,omitempty"`
+	CaseID        uint64       `json:"case_id"`
+	Status        string       `json:"status"`
+	EdgeID        string       `json:"instance_id,omitempty"`
+	DispatchTopic string       `json:"dispatch_topic"`
+	PromptID      string       `json:"prompt_id,omitempty"`
+	ErrorCode     string       `json:"error_code,omitempty"`
+	ErrorMessage  string       `json:"error_message,omitempty"`
+	StartedAt     *time.Time   `json:"started_at,omitempty"`
+	CompletedAt   *time.Time   `json:"completed_at,omitempty"`
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
+}
+
+type taskUserDTO struct {
+	ID             string `json:"id"`
+	ChannelID      string `json:"channel_id"`
+	ExternalUserID string `json:"external_user_id"`
+	Username       string `json:"username"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
 }
 
 func toDTO(t *runtimedomain.Task) taskDTO {
@@ -75,10 +89,44 @@ func timePtr(t time.Time) *time.Time {
 	return &t
 }
 
+func toContextDTO(context *runtimedomain.TaskAdminContext) taskDTO {
+	dto := toDTO(context.Task)
+	dto.ChannelID = context.ChannelID
+	dto.ChannelName = context.ChannelName
+	dto.UserID = context.UserID
+	if context.User != nil {
+		dto.User = &taskUserDTO{
+			ID:             context.User.ID,
+			ChannelID:      context.User.ChannelID,
+			ExternalUserID: context.User.ExternalUserID,
+			Username:       context.User.Username,
+			FirstName:      context.User.FirstName,
+			LastName:       context.User.LastName,
+		}
+	}
+	return dto
+}
+
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	q, err := parseAdminListQuery(r)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if h.Context != nil {
+		contexts, err := h.Context.List(r.Context(), q)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		out := make([]taskDTO, 0, len(contexts))
+		for _, context := range contexts {
+			if context == nil || context.Task == nil {
+				continue
+			}
+			out = append(out, toContextDTO(context))
+		}
+		writeJSON(w, http.StatusOK, out)
 		return
 	}
 	list, err := h.Tasks.List(r.Context(), q)
@@ -98,6 +146,19 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	id := sharedkernel.TaskID(chi.URLParam(r, "id"))
+	if h.Context != nil {
+		context, err := h.Context.Get(r.Context(), id)
+		if errors.Is(err, runtimedomain.ErrTaskNotFound) {
+			writeErr(w, http.StatusNotFound, "task not found")
+			return
+		}
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, toContextDTO(context))
+		return
+	}
 	t, err := h.Tasks.Get(r.Context(), id)
 	if errors.Is(err, runtimedomain.ErrTaskNotFound) {
 		writeErr(w, http.StatusNotFound, "task not found")
