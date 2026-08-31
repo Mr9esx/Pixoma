@@ -79,29 +79,40 @@ export function UserListPanel({
         ),
         enableHiding: false,
       }),
-      columnHelper.accessor('tg_user_id', {
-        id: 'tg_user_id',
-        meta: { label: t('users.fieldTgUserId') },
+      columnHelper.accessor((row) => row.channel_name || row.channel_id, {
+        id: 'channel_id',
+        meta: { label: t('users.fieldPlatform') },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
-            title={t('users.fieldTgUserId')}
-          />
-        ),
-        cell: ({ getValue }) => (
-          <span className='font-mono text-xs tabular-nums'>{getValue()}</span>
-        ),
-      }),
-      columnHelper.accessor('username', {
-        id: 'username',
-        meta: { label: t('users.fieldUsername') },
-        header: ({ column }) => (
-          <DataTableColumnHeader
-            column={column}
-            title={t('users.fieldUsername')}
+            title={t('users.fieldPlatform')}
           />
         ),
         cell: ({ getValue }) => getValue() || '—',
+      }),
+      columnHelper.accessor('external_user_id', {
+        id: 'user_info',
+        meta: { label: t('users.fieldUserInfo') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('users.fieldUserInfo')}
+          />
+        ),
+        cell: ({ row }) => {
+          const user = row.original
+          const displayName =
+            user.username ||
+            [user.first_name, user.last_name].filter(Boolean).join(' ')
+          return (
+            <div className='min-w-32'>
+              <p className='truncate text-sm'>{displayName || '—'}</p>
+              <p className='font-mono text-xs tabular-nums text-muted-foreground'>
+                {user.external_user_id || '—'}
+              </p>
+            </div>
+          )
+        },
       }),
       columnHelper.accessor('created_at', {
         id: 'created_at',
@@ -236,10 +247,17 @@ export function UserListPanel({
         .trim()
         .toLowerCase()
       if (!q) return true
-      const { id, tg_user_id, username } = row.original
-      return [id, String(tg_user_id), username].some((value) =>
-        String(value).toLowerCase().includes(q)
-      )
+      const { id, channel_id, channel_name, external_user_id, username } =
+        row.original
+      return [
+        id,
+        channel_id,
+        channel_name,
+        external_user_id,
+        username,
+        row.original.first_name,
+        row.original.last_name,
+      ].some((value) => String(value ?? '').toLowerCase().includes(q))
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),

@@ -222,6 +222,7 @@ export type FleetStats = {
 export type UserRecord = {
   id: string
   channel_id: string
+  channel_name?: string
   external_user_id: string
   username: string
   first_name: string

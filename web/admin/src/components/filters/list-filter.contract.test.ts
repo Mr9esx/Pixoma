@@ -62,6 +62,7 @@ describe('admin list filter principles', () => {
     expect(panel).toContain("id='users-filter-q'")
     expect(panel).not.toContain('users-filter-tg')
     expect(panel).not.toContain('filterTgUserId')
+    expect(panel).not.toContain('tg_user_id')
     expect(route).not.toMatch(/tg_user_id:/)
   })
 

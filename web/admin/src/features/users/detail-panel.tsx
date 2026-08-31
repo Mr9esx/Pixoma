@@ -42,7 +42,14 @@ function UserFields({
   return (
     <dl className='space-y-3'>
       <Field label={t('users.fieldId')} value={user.id} />
-      <Field label={t('users.fieldTgUserId')} value={String(user.tg_user_id)} />
+      <Field
+        label={t('users.fieldPlatform')}
+        value={user.channel_name || user.channel_id}
+      />
+      <Field
+        label={t('users.fieldExternalUserId')}
+        value={user.external_user_id}
+      />
       <Field label={t('users.fieldUsername')} value={user.username} />
       <Field label={t('users.fieldFirstName')} value={user.first_name} />
       <Field label={t('users.fieldLastName')} value={user.last_name} />
