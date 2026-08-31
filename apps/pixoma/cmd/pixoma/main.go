@@ -379,7 +379,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		}, DeleteWithCleanup: caseDeleteSvc.DeleteCase},
 		AdminUsers: &adminusersapi.Handler{Repo: consoleRepo},
 		Users:      &usersapi.Handler{Repo: userRepo},
-		Sessions:   &sessionsapi.Handler{Repo: sessionRepo},
+		Sessions:   &sessionsapi.Handler{Repo: sessionRepo, Channels: channelStore},
 		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Cancel: orch, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
 		Channels: &channelsapi.Handler{
