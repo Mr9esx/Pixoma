@@ -121,6 +121,17 @@ export function SessionListPanel({
           <span className='font-mono text-xs'>{getValue()}</span>
         ),
       }),
+      columnHelper.accessor((row) => row.channel_name || row.channel_id, {
+        id: 'channel_id',
+        meta: { label: t('sessions.fieldPlatform') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('sessions.fieldPlatform')}
+          />
+        ),
+        cell: ({ getValue }) => getValue() || '—',
+      }),
       columnHelper.accessor('case_id', {
         id: 'case_id',
         meta: { label: t('sessions.fieldCaseId') },
@@ -200,9 +211,14 @@ export function SessionListPanel({
         .toLowerCase()
       if (!q) return true
       const { id, user_id, case_id, chat_id } = row.original
-      return [id, user_id, case_id, chat_id].some((value) =>
-        String(value).toLowerCase().includes(q)
-      )
+      return [
+        id,
+        user_id,
+        case_id,
+        chat_id,
+        row.original.channel_name,
+        row.original.channel_id,
+      ].some((value) => String(value ?? '').toLowerCase().includes(q))
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),

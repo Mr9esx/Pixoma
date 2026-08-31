@@ -50,6 +50,10 @@ function SessionFields({
         value={statusKey ? t(statusKey) : session.status}
       />
       <Field label={t('sessions.fieldUserId')} value={session.user_id} />
+      <Field
+        label={t('sessions.fieldPlatform')}
+        value={session.channel_name || session.channel_id}
+      />
       <Field label={t('sessions.fieldChatId')} value={String(session.chat_id)} />
       <Field label={t('sessions.fieldCaseId')} value={session.case_id} />
       <Field
