@@ -133,7 +133,7 @@ func newAdminHandler(gdb *gorm.DB) (http.Handler, error) {
 		AdminUsers: &adminusersapi.Handler{Repo: consoleRepo},
 		Users:      &usersapi.Handler{Repo: userRepo},
 		Sessions:   &sessionsapi.Handler{Repo: sessionRepo},
-		Tasks:      &tasksapi.Handler{Tasks: taskRepo},
+		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: time.UTC, Metrics: instpersist.NewMetricsRepository(gdb, 24*time.Hour)},
 		Channels:   &channelsapi.Handler{Svc: &channelapp.Service{Store: channelStore, Key: demoEncryptionKey()}},
 		MenuCards:  menucardsapi.NewHandler(menuRepo),

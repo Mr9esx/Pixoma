@@ -380,7 +380,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		AdminUsers: &adminusersapi.Handler{Repo: consoleRepo},
 		Users:      &usersapi.Handler{Repo: userRepo},
 		Sessions:   &sessionsapi.Handler{Repo: sessionRepo},
-		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Cancel: orch},
+		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Cancel: orch, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
 		Channels: &channelsapi.Handler{
 			Svc: chSvc,
