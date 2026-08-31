@@ -8,18 +8,29 @@ afterEach(() => {
 describe('users API', () => {
   it('listUsers GETs /api/v1/users with filters', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify([{ id: 'u1', tg_user_id: 42 }]), {
+      new Response(
+        JSON.stringify([
+          {
+            id: 'u1',
+            channel_id: 'tg-default',
+            external_user_id: '9001',
+          },
+        ]),
+        {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    const data = await listUsers({ tg_user_id: 42, q: 'bob' })
+    const data = await listUsers({ external_user_id: '9001', q: 'bob' })
 
-    expect(data[0].tg_user_id).toBe(42)
+    expect(data[0]).toMatchObject({
+      channel_id: 'tg-default',
+      external_user_id: '9001',
+    })
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://127.0.0.1:8081/api/v1/users?tg_user_id=42&q=bob',
+      'http://127.0.0.1:8081/api/v1/users?external_user_id=9001&q=bob',
       expect.anything(),
     )
   })
