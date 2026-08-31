@@ -61,6 +61,21 @@ func (r *GormRepository) List(ctx context.Context) ([]domain.Channel, error) {
 	return out, nil
 }
 
+func (r *GormRepository) ChannelNames(ctx context.Context, ids []string) (map[string]string, error) {
+	if len(ids) == 0 {
+		return map[string]string{}, nil
+	}
+	var rows []ChannelRow
+	if err := r.db.WithContext(ctx).Where("id IN ?", ids).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	names := make(map[string]string, len(rows))
+	for _, row := range rows {
+		names[row.ID] = row.Name
+	}
+	return names, nil
+}
+
 func (r *GormRepository) Update(ctx context.Context, ch domain.Channel) error {
 	row := rowFromDomain(ch)
 	return r.db.WithContext(ctx).Save(&row).Error

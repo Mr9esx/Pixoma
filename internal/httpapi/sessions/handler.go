@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,7 +16,12 @@ import (
 
 // Handler serves read-only session admin HTTP under /api/v1/sessions.
 type Handler struct {
-	Repo domain.Repository
+	Repo     domain.Repository
+	Channels ChannelNamesReader
+}
+
+type ChannelNamesReader interface {
+	ChannelNames(ctx context.Context, ids []string) (map[string]string, error)
 }
 
 // Mount registers GET / and GET /{id} only.
@@ -36,6 +42,8 @@ type draftDTO struct {
 type sessionDTO struct {
 	ID                string              `json:"id"`
 	UserID            string              `json:"user_id"`
+	ChannelID         string              `json:"channel_id"`
+	ChannelName       string              `json:"channel_name,omitempty"`
 	ChatID            string              `json:"chat_id"`
 	CaseID            uint64              `json:"case_id"`
 	Status            string              `json:"status"`
@@ -46,7 +54,7 @@ type sessionDTO struct {
 	UpdatedAt         time.Time           `json:"updated_at"`
 }
 
-func toDTO(s *domain.Session) sessionDTO {
+func (h *Handler) toDTO(ctx context.Context, s *domain.Session) (sessionDTO, error) {
 	draft := map[string]draftDTO{}
 	for k, v := range s.Draft {
 		draft[k] = draftDTO{
@@ -62,9 +70,19 @@ func toDTO(s *domain.Session) sessionDTO {
 	if keys == nil {
 		keys = []string{}
 	}
+	channelName := ""
+	if h.Channels != nil && s.ChannelID != "" {
+		names, err := h.Channels.ChannelNames(ctx, []string{s.ChannelID})
+		if err != nil {
+			return sessionDTO{}, err
+		}
+		channelName = names[s.ChannelID]
+	}
 	return sessionDTO{
 		ID:                string(s.ID),
 		UserID:            s.UserID,
+		ChannelID:         s.ChannelID,
+		ChannelName:       channelName,
 		ChatID:            string(s.ChatID),
 		CaseID:            uint64(s.CaseID),
 		Status:            string(s.Status),
@@ -73,7 +91,7 @@ func toDTO(s *domain.Session) sessionDTO {
 		Draft:             draft,
 		CreatedAt:         s.CreatedAt,
 		UpdatedAt:         s.UpdatedAt,
-	}
+	}, nil
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +110,12 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		if s == nil {
 			continue
 		}
-		out = append(out, toDTO(s))
+		dto, err := h.toDTO(r.Context(), s)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		out = append(out, dto)
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -108,7 +131,12 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(s))
+	dto, err := h.toDTO(r.Context(), s)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, dto)
 }
 
 func parseListQuery(r *http.Request) (domain.ListQuery, error) {

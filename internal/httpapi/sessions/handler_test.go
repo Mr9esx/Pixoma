@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
+	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
@@ -23,11 +25,20 @@ func openSessionsHandler(t *testing.T) (*persistence.SessionRepository, *httptes
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.SessionRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.SessionRow{}, &channelpersist.ChannelRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
+	channelStore := channelpersist.NewGormRepository(gdb)
+	for _, channel := range []channeldomain.Channel{
+		{ID: "tg", Platform: "telegram", Name: "Telegram Bot", Enabled: true},
+		{ID: "ig", Platform: "instagram", Name: "Instagram Bot", Enabled: true},
+	} {
+		if err := channelStore.Create(context.Background(), channel); err != nil {
+			t.Fatal(err)
+		}
+	}
 	repo := persistence.NewSessionRepository(gdb)
-	h := &sessionsapi.Handler{Repo: repo}
+	h := &sessionsapi.Handler{Repo: repo, Channels: channelStore}
 	r := chi.NewRouter()
 	r.Route("/api/v1/sessions", func(r chi.Router) {
 		h.Mount(r)
@@ -134,6 +145,9 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 	draft, ok := detail["draft"].(map[string]any)
 	if !ok || draft["prompt"] == nil {
 		t.Fatalf("expected draft.prompt, got %+v", detail["draft"])
+	}
+	if detail["channel_id"] != "tg" || detail["channel_name"] != "Telegram Bot" {
+		t.Fatalf("session context: %+v", detail)
 	}
 
 	res3, err := http.Get(srv.URL + "/api/v1/sessions/missing")
