@@ -163,7 +163,6 @@ function SettingsEditor({
         blob_bucket: blobBucket,
         blob_access_key: secretPayload(blobAccessKey),
         blob_secret_key: secretPayload(blobSecretKey),
-        comfy_mock: initial.comfy_mock,
         comfyui_base_url: initial.comfyui_base_url,
         proxy_kind: proxyKind,
         proxy_host: proxyHost,

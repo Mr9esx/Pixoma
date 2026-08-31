@@ -11,32 +11,6 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 )
 
-func TestMock_SystemStatsAndQueue(t *testing.T) {
-	m := &comfyui.Mock{}
-	st, err := m.SystemStats(context.Background())
-	if err != nil || st == nil || !st.Mock || !st.Reachable {
-		t.Fatalf("%+v %v", st, err)
-	}
-	devices, _ := st.Raw["devices"].([]any)
-	if len(devices) == 0 {
-		t.Fatal("mock SystemStats devices empty")
-	}
-	dev, _ := devices[0].(map[string]any)
-	if _, ok := dev["vram_total"]; !ok {
-		t.Fatalf("mock device missing vram_total: %+v", dev)
-	}
-	if st.ComfyUIVersion != "mock" {
-		t.Fatalf("mock comfyui_version=%q want mock", st.ComfyUIVersion)
-	}
-	q, err := m.Queue(context.Background())
-	if err != nil || q == nil || !q.Mock || !q.Reachable {
-		t.Fatalf("%+v %v", q, err)
-	}
-	if q.Running == nil || q.Pending == nil {
-		t.Fatalf("queue slices must be non-nil: running=%v pending=%v", q.Running, q.Pending)
-	}
-}
-
 func TestHTTP_SystemStatsAndQueue(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/system_stats", func(w http.ResponseWriter, _ *http.Request) {
@@ -58,7 +32,7 @@ func TestHTTP_SystemStatsAndQueue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !st.Reachable || st.Mock || st.Raw == nil {
+	if !st.Reachable || st.Raw == nil {
 		t.Fatalf("stats=%+v", st)
 	}
 	if st.ComfyUIVersion != "0.1" {

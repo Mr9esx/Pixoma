@@ -1,13 +1,10 @@
 # Local bot config (gitignored optional — example is source of truth for keys)
 http_addr: ":8080"
 blob_root: "data/blob"
-# Reachable ComfyUI HTTP root used when comfy_mock is false (or COMFY_MOCK=false).
+# Reachable ComfyUI HTTP root.
 # Examples: http://127.0.0.1:8188  or  http://192.168.31.131:8188
 # 计算节点需在后台手动新增；如需启动时按配置文件批量登记，见下方 comfy_instances。
 comfyui_base_url: "http://127.0.0.1:8188"
-# true = in-process Mock (default for local smoke). false = real Submit/Wait/Upload via comfyui_base_url.
-comfy_mock: true
-
 # 运行时双模式（默认 allinone）
 # runtime_mode: allinone   # queue.driver=memory + blob.driver=localfs；同进程执行面
 # runtime_mode: split      # queue.driver=redis + blob.driver=s3|tos；Edge 需 REDIS_* / S3_* 或 TOS_*

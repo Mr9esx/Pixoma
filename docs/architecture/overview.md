@@ -18,7 +18,7 @@ flowchart TB
   DB[(业务库 SQLite/MySQL/Postgres)]
   BOOT[(bootstrap 本机库)]
   BLOB[(Blob localfs / S3 / TOS)]
-  C1[ComfyUI / Mock]
+  C1[ComfyUI]
 
   U <--> TG
   TG <--> CP
@@ -33,7 +33,7 @@ flowchart TB
 | 外部系统 | 关系 |
 |---|---|
 | Telegram | 入站 Update；出站文案与图片 |
-| ComfyUI | Edge Submit / Wait / Upload；可由 Mock 替换（`comfy_mock`） |
+| ComfyUI | Edge Submit / Wait / Upload |
 | 对象存储 | **远程**：S3 或 TOS；**本机**：localfs 共用目录。远程禁止 localfs |
 | 运维 HTTP | `pixoma` 托管管理 API +（发布）静态后台；需管理员会话 |
 
@@ -58,7 +58,7 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
                                 │ pixoma-edge-agent（唯一执行面） │
                                 └───────────────┬───────────────┘
                                                 ▼
-                                         ComfyUI / Mock
+                                         ComfyUI
 ```
 
 可视化拓扑（HTML）：[diagrams/system.html](./diagrams/system.html)。
@@ -96,7 +96,7 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | 执行 | Edge 长轮询 claim → Worker：Submit/Wait，产物入 blob |
 | 通知 | 终态 → `notify.Publisher` → TG 发图/文案 |
 | 多计算节点 | `edges` + Pool；健康探测 |
-| Mock | `comfy_mock` / `COMFY_MOCK` → `comfyui.NewClient`；主路径可无真实 Comfy |
+| 执行 | `pixoma-edge-agent` 直接调用真实 ComfyUI HTTP 根 |
 
 ---
 
@@ -105,7 +105,6 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | 配置键 | 作用 |
 |---|---|
 | 向导 settings / `TG_BOT_TOKEN` | Bot Token（落库加密；env 可紧急覆盖） |
-| `comfy_mock` / `COMFY_MOCK` | Mock ↔ 真实 HTTP |
 | `comfyui_base_url` + `default_edge_id` | 单节点种子 |
 | `placement` | local / remote（校验 blob；远程禁 localfs） |
 | `DATA_DIR` | bootstrap、默认 SQLite、blob |

@@ -18,7 +18,7 @@ func floatPtr(v float64) *float64 { return &v }
 func TestSample_FullSnapshot(t *testing.T) {
 	now := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
 	prev := now.Add(-30 * time.Second)
-	s := metrics.NewSampler(false)
+	s := metrics.NewSampler()
 	s.Now = func() time.Time { return now }
 	s.CPUPercent = func(_ context.Context, _ time.Duration) (float64, error) { return 42.5, nil }
 	s.VirtualMemory = func(_ context.Context) (*mem.VirtualMemoryStat, error) {
@@ -58,7 +58,7 @@ func TestSample_FullSnapshot(t *testing.T) {
 }
 
 func TestSample_NvidiaUnavailableKeepsOtherFields(t *testing.T) {
-	s := metrics.NewSampler(false)
+	s := metrics.NewSampler()
 	s.Now = func() time.Time { return time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC) }
 	s.CPUPercent = func(_ context.Context, _ time.Duration) (float64, error) { return 10, nil }
 	s.VirtualMemory = func(_ context.Context) (*mem.VirtualMemoryStat, error) {
@@ -75,26 +75,10 @@ func TestSample_NvidiaUnavailableKeepsOtherFields(t *testing.T) {
 	}
 }
 
-func TestSample_MockGPU(t *testing.T) {
-	s := metrics.NewSampler(true)
-	s.Now = func() time.Time { return time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC) }
-	s.CPUPercent = func(_ context.Context, _ time.Duration) (float64, error) { return 30, nil }
-	s.VirtualMemory = func(_ context.Context) (*mem.VirtualMemoryStat, error) {
-		return &mem.VirtualMemoryStat{Used: 4 << 30, Total: 8 << 30, UsedPercent: 50}, nil
-	}
-	s.DiskIO = func(_ context.Context) (map[string]disk.IOCountersStat, error) {
-		return map[string]disk.IOCountersStat{}, nil
-	}
-	m := s.Sample(context.Background(), time.Time{})
-	if len(m.GPUs) != 1 || m.GPUs[0].Name != "Mock GPU" || m.GPUs[0].VRAMTotalBytes != 8<<30 {
-		t.Fatalf("mock gpu: %+v", m.GPUs)
-	}
-}
-
 func TestSample_CPUPercentMustNotSleep(t *testing.T) {
 	// gopsutil cpu.PercentWithContext(interval>0) blocks for the interval;
 	// the sampler must always ask for a non-blocking since-last-call sample.
-	s := metrics.NewSampler(false)
+	s := metrics.NewSampler()
 	s.Now = func() time.Time { return time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC) }
 	var got time.Duration
 	s.CPUPercent = func(_ context.Context, interval time.Duration) (float64, error) {

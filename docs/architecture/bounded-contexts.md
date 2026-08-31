@@ -74,7 +74,7 @@
 | `runtime/domain` | `Task`、状态迁移、`TaskRepository`（含 `ClaimQueued`） |
 | `runtime/application/orchestrator` | 选实例、投递、status 收敛、终态 notify、对账 |
 | `runtime/infrastructure/actuator` | 执行 Comfy、写 blob 产物、发 `task.status` |
-| `runtime/infrastructure/comfyui` | `NewClient` / HTTP / Mock |
+| `runtime/infrastructure/comfyui` | `NewClient` / HTTP |
 | `runtime/infrastructure/persistence` | 表 `tasks` |
 
 ### Channel TG

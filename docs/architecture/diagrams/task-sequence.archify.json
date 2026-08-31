@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Pixoma Task 请求与数据流",
+    "locale": "zh-CN",
+    "output": "docs/architecture/diagrams/task-sequence.html",
+    "viewBox": [1550, 800],
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "user", "type": "external", "label": "Telegram 用户" },
+    { "id": "gateway", "type": "backend", "label": "TG Gateway" },
+    { "id": "botapp", "type": "backend", "label": "ConfirmRun" },
+    { "id": "db", "type": "database", "label": "Task DB" },
+    { "id": "blob", "type": "cloud", "label": "Blob Store" },
+    { "id": "bus", "type": "messagebus", "label": "Event Bus" },
+    { "id": "control", "type": "backend", "label": "控制面 API" },
+    { "id": "edge", "type": "backend", "label": "Edge Actuator" },
+    { "id": "comfy", "type": "cloud", "label": "ComfyUI HTTP" }
+  ],
+  "segments": [
+    { "from": 100, "to": 290, "label": "确认与登记" },
+    { "from": 300, "to": 490, "label": "调度与领取" },
+    { "from": 500, "to": 740, "label": "执行、上报与通知" }
+  ],
+  "messages": [
+    { "id": "confirm", "from": "user", "to": "gateway", "y": 160, "label": "确认生成", "variant": "emphasis" },
+    { "id": "confirm-run", "from": "gateway", "to": "botapp", "y": 192, "label": "ConfirmRun(ChatID)", "variant": "emphasis" },
+    { "id": "prepare-task", "from": "botapp", "to": "db", "y": 224, "label": "读 sessions/catalog_cases；写 tasks(pending)", "variant": "default" },
+    { "id": "stage-inputs", "from": "botapp", "to": "blob", "y": 256, "label": "stage inputs/{task_id}/*", "variant": "emphasis" },
+    { "id": "task-created", "from": "botapp", "to": "bus", "y": 288, "label": "task.created", "variant": "dashed" },
+    { "id": "accept-result", "from": "botapp", "to": "gateway", "y": 320, "label": "task_id + pending", "variant": "return" },
+    { "id": "dispatch-event", "from": "bus", "to": "control", "y": 352, "label": "OnTaskCreated", "variant": "emphasis" },
+    { "id": "prepare-job", "from": "control", "to": "blob", "y": 384, "label": "Prep jobs/{task_id}/job.json", "variant": "emphasis" },
+    { "id": "prepare-claim", "from": "control", "to": "db", "y": 416, "label": "写 tasks.queued/dispatch_topic/job_ref", "variant": "emphasis" },
+    { "id": "claim-request", "from": "edge", "to": "control", "y": 448, "label": "GET /agent/v1/jobs/claim", "variant": "emphasis" },
+    { "id": "claim-db", "from": "control", "to": "db", "y": 480, "label": "ClaimNextWithLease → running/lease", "variant": "default" },
+    { "id": "claim-result", "from": "control", "to": "edge", "y": 512, "label": "task_id + job_ref + lease_until", "variant": "return" },
+    { "id": "get-job", "from": "edge", "to": "blob", "y": 544, "label": "GET job_ref", "variant": "default" },
+    { "id": "submit-prompt", "from": "edge", "to": "comfy", "y": 572, "label": "POST /prompt", "variant": "emphasis" },
+    { "id": "running-status", "from": "edge", "to": "control", "y": 600, "label": "POST .../status(running) + heartbeat", "variant": "emphasis" },
+    { "id": "poll-history", "from": "edge", "to": "comfy", "y": 628, "label": "GET /history/{prompt_id}", "variant": "default" },
+    { "id": "store-output", "from": "edge", "to": "blob", "y": 656, "label": "PUT outputs/{task_id}/*", "variant": "emphasis" },
+    { "id": "success-status", "from": "edge", "to": "control", "y": 684, "label": "POST .../status(succeeded)", "variant": "emphasis" },
+    { "id": "notify-gateway", "from": "control", "to": "gateway", "y": 712, "label": "写 tasks.outputs + task_*_daily_stats", "variant": "dashed" }
+  ],
+  "activations": [
+    { "participant": "gateway", "from": 154, "to": 330, "type": "backend" },
+    { "participant": "botapp", "from": 186, "to": 330, "type": "backend" },
+    { "participant": "db", "from": 218, "to": 712, "type": "database" },
+    { "participant": "blob", "from": 250, "to": 664, "type": "cloud" },
+    { "participant": "bus", "from": 282, "to": 360, "type": "messagebus" },
+    { "participant": "control", "from": 346, "to": 712, "type": "backend" },
+    { "participant": "edge", "from": 442, "to": 680, "type": "backend" },
+    { "participant": "comfy", "from": 566, "to": 636, "type": "cloud" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "接受与数据落点",
+      "items": [
+        "输入进入 Blob，Task 真相写入 DB",
+        "DB：users、sessions、catalog_cases、edges、tasks",
+        "Blob：inputs/、jobs/、outputs/"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "拉取与隔离",
+      "items": [
+        "Edge 主动拉取，Claim 原子抢占并写租约",
+        "Job 包与生成输出都通过 Blob Store 传输"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "失败路径",
+      "items": [
+        "失败最多重试 3 次；租约过期回收为 Queued"
+      ]
+    }
+  ]
+}

@@ -18,7 +18,7 @@
 | Case | `text2img-demo`（`configs/cases/text2img.example.json`） |
 | Session | `sess-20260811-001` |
 | Task | `task-a1b2c3d4` |
-| Comfy 实例 | `local`（`comfy_mock: true`） |
+| Comfy 实例 | `local` |
 | 用户输入 | `prompt` = `"a red cat"`；`seed` 跳过 |
 | 时钟 | `2026-08-11T06:00:00Z` 起（下文用 `T0`、`T0+1s`…） |
 
@@ -60,7 +60,7 @@ Case 输入定义（摘要）：
 |---|---|
 | `id` | `local` |
 | `name` | `local` |
-| `base_url` | `http://127.0.0.1:8188`（mock 时仍可有配置值） |
+| `base_url` | `http://127.0.0.1:8188` |
 | `enabled` | `1` |
 | `capabilities_json` | `[]` |
 | `agent_token_enc` | AES-GCM 密文 |
@@ -374,14 +374,14 @@ Edge 每 5 秒本机探 Comfy，`POST /agent/v1/presence` `{ edge_id, comfy_runn
 
 `Blob.Get(job_ref)` → 解析 `JobPackage` →（若有）逐张 `Get` 图片并 `UploadImage` 到 Comfy。
 
-### 8.2 Comfy 接口（mock / HTTP）
+### 8.2 Comfy 接口（HTTP）
 
 | 调用 | 样例 |
 |---|---|
-| `Submit(graph)` | 返回 `prompt_id = "prompt-mock"` |
-| `Wait(prompt_id)` | 返回 PNG 字节，`Filename=out.png`，`Mime=image/png` |
+| `Submit(graph)` | 调用 `/prompt` 并返回真实 `prompt_id` |
+| `Wait(prompt_id)` | 轮询任务产物并返回 PNG 字节 |
 
-真实模式：对应 ComfyUI HTTP（如 `/prompt`、轮询 history）；业务**不以** Comfy history 为真相源。
+业务**不以** Comfy history 为真相源。
 
 ### 8.3 MQ：`task.status` → `running`
 
@@ -390,7 +390,7 @@ Edge 每 5 秒本机探 Comfy，`POST /agent/v1/presence` `{ edge_id, comfy_runn
   "task_id": "task-a1b2c3d4",
   "edge_id": "local",
   "status": "running",
-  "prompt_id": "prompt-mock",
+  "prompt_id": "prompt-run-001",
   "at": "2026-08-11T06:00:06Z"
 }
 ```
@@ -399,7 +399,7 @@ Edge 每 5 秒本机探 Comfy，`POST /agent/v1/presence` `{ edge_id, comfy_runn
 
 | Key | MIME | 内容 |
 |---|---|---|
-| `outputs/task-a1b2c3d4/0_out.png` | `image/png` | Mock/真实生成的 PNG 字节 |
+| `outputs/task-a1b2c3d4/0_out.png` | `image/png` | ComfyUI 生成的 PNG 字节 |
 
 ### 8.5 MQ：`task.status` → `succeeded`
 
@@ -408,7 +408,7 @@ Edge 每 5 秒本机探 Comfy，`POST /agent/v1/presence` `{ edge_id, comfy_runn
   "task_id": "task-a1b2c3d4",
   "edge_id": "local",
   "status": "succeeded",
-  "prompt_id": "prompt-mock",
+  "prompt_id": "prompt-run-001",
   "outputs": [
     {
       "key": "outputs/task-a1b2c3d4/0_out.png",
@@ -433,7 +433,7 @@ Edge 每 5 秒本机探 Comfy，`POST /agent/v1/presence` `{ edge_id, comfy_runn
 | 列 | 新值 |
 |---|---|
 | `status` | `running` |
-| `prompt_id` | `prompt-mock` |
+| `prompt_id` | `prompt-run-001` |
 | `updated_at` | event.`at` |
 
 ### 9.2 `succeeded` 回写
@@ -501,7 +501,7 @@ session_id    = sess-20260811-001
 case_id       = text2img-demo
 status        = succeeded
 edge_id       = local
-prompt_id     = prompt-mock
+prompt_id     = prompt-run-001
 input_prefix  = inputs/task-a1b2c3d4
 outputs_json  = [{"Key":"out-0","Blob":{"key":"outputs/task-a1b2c3d4/0_out.png",...}}]
 ```

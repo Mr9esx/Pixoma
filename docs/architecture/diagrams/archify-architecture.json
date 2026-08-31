@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Pixoma 项目架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Mr9esx/Pixoma.git",
+      "revision": "f1237957c67f6bb09ffa65c4817a2ab436ffe692"
+    },
+    "viewBox": [1020, 480]
+  },
+  "layout": {
+    "mode": "grid",
+    "origin": [60, 60],
+    "cols": 3,
+    "gapX": 120,
+    "gapY": 60,
+    "cellW": 240,
+    "cellH": 100
+  },
+  "components": [
+    {
+      "id": "tgUser",
+      "type": "external",
+      "label": "Telegram 用户",
+      "sublabel": "发送指令 · 接收生成结果",
+      "row": 0,
+      "col": 0,
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 12, "end_line": 33, "label": "系统上下文" }
+      ]
+    },
+    {
+      "id": "telegramApi",
+      "type": "external",
+      "label": "Telegram Bot API",
+      "sublabel": "Update 入站 · 文案与图片出站",
+      "row": 1,
+      "col": 0,
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 14, "end_line": 31, "label": "外部系统" }
+      ]
+    },
+    {
+      "id": "adminSpa",
+      "type": "frontend",
+      "label": "web/admin",
+      "sublabel": "登录 · 向导 · 业务管理",
+      "row": 0,
+      "col": 1,
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 74, "end_line": 74, "label": "管理 SPA" }
+      ]
+    },
+    {
+      "id": "controlPlane",
+      "type": "backend",
+      "label": "pixoma 控制面",
+      "sublabel": "Runtime · Admin · Agent API",
+      "row": 1,
+      "col": 1,
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 45, "end_line": 51, "label": "进程视图" },
+        { "path": "docs/architecture/bounded-contexts.md", "line": 42, "end_line": 60, "label": "限界上下文" }
+      ]
+    },
+    {
+      "id": "businessDb",
+      "type": "database",
+      "label": "业务库",
+      "sublabel": "SQLite / MySQL / Postgres",
+      "row": 2,
+      "col": 0,
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 14, "end_line": 21, "label": "系统上下文" },
+        { "path": "docs/architecture/data-model.md", "line": 92, "end_line": 130, "label": "数据表" }
+      ]
+    },
+    {
+      "id": "bootstrapDb",
+      "type": "database",
+      "label": "bootstrap.db",
+      "sublabel": "引导态 · 初始管理员",
+      "row": 2,
+      "col": 1,
+      "sources": [
+        { "path": "apps/pixoma/cmd/pixoma/main.go", "line": 95, "end_line": 106, "label": "启动引导" }
+      ]
+    },
+    {
+      "id": "blobStore",
+      "type": "cloud",
+      "label": "Blob 存储",
+      "sublabel": "localfs / S3 / 火山 TOS",
+      "row": 0,
+      "col": 2,
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 20, "end_line": 20, "label": "存储抽象" },
+        { "path": "docs/architecture/overview.md", "line": 35, "end_line": 40, "label": "Job 与产物" }
+      ]
+    },
+    {
+      "id": "edgeAgent",
+      "type": "backend",
+      "label": "pixoma-edge-agent",
+      "sublabel": "长轮询 claim · 心跳 · Worker",
+      "row": 1,
+      "col": 2,
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 73, "end_line": 73, "label": "执行面入口" },
+        { "path": "docs/architecture/overview.md", "line": 94, "end_line": 96, "label": "执行链路" }
+      ]
+    },
+    {
+      "id": "comfyUi",
+      "type": "external",
+      "label": "ComfyUI",
+      "sublabel": "Submit · Wait · 产物回传",
+      "row": 2,
+      "col": 2,
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 21, "end_line": 22, "label": "外部系统" },
+        { "path": "docs/architecture/overview.md", "line": 96, "end_line": 96, "label": "Worker 调用" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "pixoma 进程边界",
+      "wraps": ["controlPlane"],
+      "pad": 32
+    },
+    {
+      "kind": "region",
+      "label": "计算节点",
+      "wraps": ["edgeAgent", "comfyUi"],
+      "pad": 32
+    }
+  ],
+  "connections": [
+    {
+      "id": "userToTelegram",
+      "from": "tgUser",
+      "to": "telegramApi",
+      "label": "Bot 交互",
+      "labelAt": [150, 164]
+    },
+    {
+      "id": "telegramToControlPlane",
+      "from": "telegramApi",
+      "to": "controlPlane",
+      "label": "Update",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "controlPlaneToTelegram",
+      "from": "controlPlane",
+      "to": "telegramApi",
+      "label": "Notify 发图",
+      "variant": "dashed",
+      "labelAt": [586, 644]
+    },
+    {
+      "id": "adminToControlPlane",
+      "from": "adminSpa",
+      "to": "controlPlane",
+      "label": "Admin API",
+      "labelAt": [560, 324]
+    },
+    {
+      "id": "controlPlaneToBusinessDb",
+      "from": "controlPlane",
+      "to": "businessDb",
+      "label": "GORM 持久化",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "controlPlaneToBootstrapDb",
+      "from": "controlPlane",
+      "to": "bootstrapDb",
+      "label": "引导态",
+      "labelAt": [663, 644]
+    },
+    {
+      "id": "controlPlaneToBlob",
+      "from": "controlPlane",
+      "to": "blobStore",
+      "label": "PrepareJob 输入",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "edgeToControlPlane",
+      "from": "edgeAgent",
+      "to": "controlPlane",
+      "label": "HTTPS claim / 心跳 / status",
+      "variant": "emphasis",
+      "labelAt": [1030, 650]
+    },
+    {
+      "id": "edgeToBlob",
+      "from": "edgeAgent",
+      "to": "blobStore",
+      "label": "读写 job 与产物",
+      "labelAt": [1150, 380]
+    },
+    {
+      "id": "edgeToComfy",
+      "from": "edgeAgent",
+      "to": "comfyUi",
+      "label": "Submit / Wait",
+      "labelAt": [1190, 644]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "控制面上下文",
+      "items": [
+        "apps/pixoma 是一体入口：向导、管理 API、Agent API、TG 通道与 Runtime。",
+        "web/admin 构建后以 go:embed 交给 pixoma 托管，管理员需会话认证。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "限界上下文",
+      "items": [
+        "Identity、Conversation、Catalog、Runtime、Channel TG、TG Menu 分包收敛。",
+        "packaging/botapp 只做跨上下文用例编排；sharedkernel 只放共享 ID、状态与事件 DTO。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "任务运行时",
+      "items": [
+        "ConfirmRun 落输入后，Orchestrator 准备 job_ref 并进入可领取态。",
+        "Edge 只领取 job，不直接拼装 Case / Task 数据；终态经 Publisher 通知 Telegram。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "数据与部署",
+      "items": [
+        "业务库承载用户、会话、Case、Task、节点与统计；bootstrap.db 独立负责引导。",
+        "本机可用 localfs，远程用 S3 或火山 TOS；Edge 出站拉取，不暴露入站服务端口。"
+      ]
+    }
+  ]
+}

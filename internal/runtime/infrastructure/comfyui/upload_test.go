@@ -14,17 +14,6 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 )
 
-func TestMock_UploadImageReturnsStableFilename(t *testing.T) {
-	m := &comfyui.Mock{}
-	name, err := m.UploadImage(context.Background(), "user.png", "image/png", []byte("png-bytes"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "mock-upload.png" {
-		t.Fatalf("got %q, want mock-upload.png", name)
-	}
-}
-
 func TestHTTP_UploadImagePostsMultipartAndParsesName(t *testing.T) {
 	const wantName = "uploaded-ref.png"
 	var gotFilename string
@@ -79,19 +68,5 @@ func TestHTTP_UploadImagePostsMultipartAndParsesName(t *testing.T) {
 	}
 	if !bytes.Equal(gotBody, payload) {
 		t.Fatalf("multipart body=%q want %q", gotBody, payload)
-	}
-}
-
-func TestNewClient_MockUploadImage(t *testing.T) {
-	c, err := comfyui.NewClient(comfyui.Options{Mock: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	name, err := c.UploadImage(context.Background(), "a.png", "image/png", []byte{1, 2, 3})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "mock-upload.png" {
-		t.Fatalf("got %q, want mock-upload.png", name)
 	}
 }

@@ -14,7 +14,7 @@ User (TG) ──► Session ──► Task
                             │
                      pixoma-edge-agent
                             │
-                     ComfyUI / Mock
+                     ComfyUI
 ```
 
 默认路径**不需要 Redis**，也不再让你选 allinone / split。差别只有：Comfy 在不在这台机器上。
@@ -32,7 +32,7 @@ User (TG) ──► Session ──► Task
 
 ```bash
 go run ./apps/pixoma/cmd/pixoma
-# 或：make run-mock
+# 或：make run
 ```
 
 本地要改管理页面、走完整后台 UI 时用 `make dev`，见下方「本地调试」。只起后端时打开 8080 可能只看到提示页（前端还没打进二进制）。
@@ -41,7 +41,7 @@ go run ./apps/pixoma/cmd/pixoma
 
 改密之后，启动日志不再打印明文密码。
 
-计算节点不会自动创建：本机或远程都需要在后台「新增节点」后，按部署命令手动运行 `pixoma-edge-agent`。没有真 Comfy 时保持 `COMFY_MOCK=1`（默认），向导里也可勾 Mock。
+计算节点不会自动创建：本机或远程都需要在后台「新增节点」后，按部署命令手动运行 `pixoma-edge-agent`。
 
 ### 远程 Edge
 
@@ -53,7 +53,7 @@ export AGENT_TOKEN=...          # 该节点在后台显示的 token
 export EDGE_ID=...              # 该节点 ID（创建时自动生成）
 export EDGE_SUBSCRIBE_TOPICS=   # 可选：逗号分隔的 Topic 列表；不设 = 不消费（需绑定任务队列才能接任务）
 export BLOB_DRIVER=s3           # 或 tos，禁止 localfs
-export COMFY_MOCK=1             # 真机改 0
+export COMFYUI_BASE_URL=http://ComfyUI地址:8188
 go run ./apps/edge-agent/cmd/edge-agent
 ```
 
@@ -70,7 +70,6 @@ go run ./apps/edge-agent/cmd/edge-agent
 | `DATA_DIR` | pixoma | 引导态与默认 SQLite / blob 目录（默认 `data`） |
 | `HTTP_ADDR` | pixoma | 监听地址（默认 `127.0.0.1:8080`） |
 | `HTTPS_PROXY` / `HTTP_PROXY` | pixoma | 紧急覆盖出站代理；设置页「网络」也可配 HTTP/SOCKS |
-| `COMFY_MOCK` | pixoma / Edge | `1`/`true` = Mock；`0`/`false` = 真 Comfy |
 | `COMFYUI_BASE_URL` | pixoma / Edge | 真机 Comfy HTTP 根 |
 | `EDGE_ID` | Edge | 领取身份，须与计算节点 id 一致 |
 | `EDGE_SUBSCRIBE_TOPICS` | Edge | 订阅 Topic（逗号分隔）；未配置则不消费任何 Topic（节点需绑定任务队列才能接收任务），presence 首报写入，管理端可覆盖 |
@@ -104,13 +103,13 @@ go run ./apps/edge-agent/cmd/edge-agent
 
 同机房多设备可选用「共享目录（SMB / NFS）」驱动 `sharedfs`：先在所有机器上挂载同一共享目录（`mount -t nfs` 或 `mount -t cifs`），再在向导「文件存储配置」里选择并填写挂载路径，连通性测试会校验目录可写；控制面与 Edge 挂载同一目录后按 key 互通读写。S3 端点也可填局域网 MinIO 等 S3 兼容服务地址。
 
-## 跑通 TG 对话（默认 mock / 本机）
+## 跑通 TG 对话（本机）
 
 向导里填好 Bot Token 并重启，或：
 
 ```bash
 export TG_BOT_TOKEN=你的BotToken
-make run-mock
+make run
 ```
 
 在 Telegram 里：
@@ -119,20 +118,11 @@ make run-mock
 2. 点图片类入口 → 列出 Case
 3. 点某个 Case → 预览 → 开始
 4. 输入 prompt（可选字段可跳过）→ 确认生成
-5. 完成后 Bot 发回图片（mock 为示例 PNG）
-
-## Mock 开关
-
-```bash
-make run-mock          # COMFY_MOCK=1
-make run               # COMFY_MOCK=0（需可达 ComfyUI）
-```
-
-向导、环境变量、`comfy_mock` 都会进同一条执行链路；Mock 与真机必须一起能跑通。
+5. 完成后 Bot 发回 ComfyUI 生成结果
 
 ## 本地调试
 
-一条命令同时起控制面和管理页面（真 Comfy，和 `make run` 一样）：
+一条命令同时起控制面和管理页面：
 
 ```bash
 make dev
@@ -145,7 +135,7 @@ make dev
 
 Ctrl-C 两个一起停。改 `web/admin` 保存后页面会自己刷新；改 Go 需要再跑一次 `make dev`。
 
-只起后端、不看页面时继续用 `make run` / `make run-mock`。没把前端打进二进制时，打开 8080 会看到提示页，这是发布路径，不是日常调试入口。
+只起后端、不看页面时继续用 `make run`。没把前端打进二进制时，打开 8080 会看到提示页，这是发布路径，不是日常调试入口。
 
 发布：`make embed-admin` 之后再构建 `pixoma`，用户只开 8080 就是完整后台。
 

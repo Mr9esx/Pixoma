@@ -1,6 +1,6 @@
 DATA_DIR ?= data
 
-.PHONY: build test run run-mock embed-admin clean dev
+.PHONY: build test run run-livedemo embed-admin clean dev
 
 build:
 	go build -o bin/pixoma ./apps/pixoma/cmd/pixoma
@@ -10,10 +10,10 @@ test:
 	go test ./...
 
 run: build
-	COMFY_MOCK=0 go run ./apps/pixoma/cmd/pixoma
+	go run ./apps/pixoma/cmd/pixoma
 
-run-mock: build
-	COMFY_MOCK=1 go run ./apps/pixoma/cmd/pixoma
+run-livedemo: embed-admin
+	go run ./apps/pixoma/cmd/pixoma -livedemo
 
 dev:
 	bash scripts/dev.sh

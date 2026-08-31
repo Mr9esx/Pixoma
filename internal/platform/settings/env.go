@@ -2,7 +2,6 @@ package settings
 
 import (
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
@@ -30,23 +29,5 @@ func ApplyEnv(s *Settings) {
 	}
 	if v := strings.TrimSpace(os.Getenv("TOS_SECRET_KEY")); v != "" && s.BlobDriver == botconfig.BlobDriverTOS {
 		s.BlobSecretKey = v
-	}
-	if v := strings.TrimSpace(os.Getenv("COMFY_MOCK")); v != "" {
-		s.ComfyMock = parseBool(v, s.ComfyMock)
-	}
-}
-
-func parseBool(v string, def bool) bool {
-	b, err := strconv.ParseBool(v)
-	if err == nil {
-		return b
-	}
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "1", "yes", "on":
-		return true
-	case "0", "no", "off":
-		return false
-	default:
-		return def
 	}
 }

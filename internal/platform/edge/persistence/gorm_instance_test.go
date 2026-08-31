@@ -150,7 +150,7 @@ func TestInstanceRepo_HardwareRoundTrip(t *testing.T) {
 			CPUModel:    "Intel",
 			CPUCores:    8,
 			RAMBytes:    16 << 30,
-			GPUs:        []edge.GPU{{Name: "Mock GPU", VRAMBytes: 8 << 30}},
+			GPUs:        []edge.GPU{{Name: "Fake GPU", VRAMBytes: 8 << 30}},
 			CollectedAt: now,
 		},
 		HardwareRefreshRequested: true,

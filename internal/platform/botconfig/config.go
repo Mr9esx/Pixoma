@@ -3,7 +3,6 @@ package botconfig
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -19,10 +18,10 @@ const (
 	QueueDriverMemory = "memory"
 	QueueDriverRedis  = "redis"
 
-	BlobDriverLocalFS = "localfs"
+	BlobDriverLocalFS  = "localfs"
 	BlobDriverSharedFS = "sharedfs"
-	BlobDriverS3      = "s3"
-	BlobDriverTOS     = "tos"
+	BlobDriverS3       = "s3"
+	BlobDriverTOS      = "tos"
 )
 
 // Config is the bot process configuration.
@@ -34,9 +33,6 @@ type Config struct {
 	// Edges optionally seeds multiple ComfyUI instances on startup.
 	// When empty, no default instance is upserted; nodes are added manually.
 	Edges []EdgeSeed `yaml:"edges"`
-	// ComfyMock enables the in-process ComfyUI mock (default true).
-	// Set false (or COMFY_MOCK=0) to call a real ComfyUI at ComfyUIBaseURL.
-	ComfyMock bool `yaml:"comfy_mock"`
 	// HealthProbeInterval is how often enabled real Comfy instances are probed
 	// via SystemStats (default 30s). Parsed as Go duration, e.g. "30s".
 	HealthProbeInterval string `yaml:"health_probe_interval"`
@@ -83,7 +79,6 @@ func Default() Config {
 		HTTPAddr:            ":8082",
 		BlobRoot:            "data/blob",
 		ComfyUIBaseURL:      "http://127.0.0.1:8188",
-		ComfyMock:           true,
 		HealthProbeInterval: "30s",
 		Placement:           PlacementLocal,
 		RuntimeMode:         RuntimeModeAllinone,
@@ -201,21 +196,6 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("COMFYUI_BASE_URL"); v != "" {
 		cfg.ComfyUIBaseURL = v
-	}
-	if v := os.Getenv("COMFY_MOCK"); v != "" {
-		b, err := strconv.ParseBool(v)
-		if err != nil {
-			// accept 1/0
-			switch strings.ToLower(strings.TrimSpace(v)) {
-			case "1", "yes", "on":
-				b = true
-			case "0", "no", "off":
-				b = false
-			default:
-				b = cfg.ComfyMock
-			}
-		}
-		cfg.ComfyMock = b
 	}
 	if v := os.Getenv("PLACEMENT"); v != "" {
 		cfg.Placement = strings.TrimSpace(v)

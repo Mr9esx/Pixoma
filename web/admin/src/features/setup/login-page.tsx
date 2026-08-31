@@ -37,6 +37,7 @@ export function LoginPage({
   const { theme, setTheme } = useTheme()
   const { t } = useTranslation()
   const showFirstRunHint = !status.initialized && status.must_change_password
+  const showLiveDemoHint = status.live_demo === true
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -67,6 +68,18 @@ export function LoginPage({
           <AlertTitle>{t('auth.sessionExpiredTitle')}</AlertTitle>
           <AlertDescription>
             {t('auth.sessionExpiredDescription')}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {showLiveDemoHint ? (
+        <Alert
+          className='w-full max-w-sm'
+          data-testid='live-demo-credentials'
+        >
+          <KeyRound />
+          <AlertTitle>Live Demo</AlertTitle>
+          <AlertDescription>
+            Live Demo 为只读模式。演示账号：admin / 123456
           </AlertDescription>
         </Alert>
       ) : null}

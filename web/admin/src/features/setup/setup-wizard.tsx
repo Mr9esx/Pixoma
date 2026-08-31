@@ -232,7 +232,6 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
       blob_bucket: blobBucket,
       blob_access_key: blobAccessKey,
       blob_secret_key: blobSecretKey,
-      comfy_mock: false,
       comfyui_base_url: '',
       ...overrides,
     }

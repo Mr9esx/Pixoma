@@ -16,6 +16,7 @@ import (
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui/comfyuitest"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -49,7 +50,7 @@ func TestWorkerExtractsOutputsByBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	cap := &statusCap{}
-	mock := &comfyui.Mock{
+	mock := &comfyuitest.Fake{
 		WaitFn: func(_ context.Context, _ string) (*comfyui.Result, error) {
 			return &comfyui.Result{
 				PromptID: "p1",
@@ -103,7 +104,7 @@ func TestWorkerFailsWhenBoundNodeMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 	cap := &statusCap{}
-	mock := &comfyui.Mock{
+	mock := &comfyuitest.Fake{
 		WaitFn: func(_ context.Context, _ string) (*comfyui.Result, error) {
 			return &comfyui.Result{PromptID: "p1", Outputs: comfyui.HistoryResult{}}, nil
 		},
@@ -146,7 +147,7 @@ func TestWorkerFallsBackToAllImagesWithoutBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	cap := &statusCap{}
-	mock := &comfyui.Mock{
+	mock := &comfyuitest.Fake{
 		WaitFn: func(_ context.Context, _ string) (*comfyui.Result, error) {
 			return &comfyui.Result{
 				PromptID: "p1",
@@ -199,7 +200,7 @@ func TestHandleDispatchPublishesRunningAndSucceeded(t *testing.T) {
 	cap := &statusCap{}
 	w := &actuator.Worker{
 		EdgeID:    "local",
-		Comfy:     &comfyui.Mock{},
+		Comfy:     &comfyuitest.Fake{},
 		Blob:      store,
 		Status:    cap,
 		Workflows: actuator.StaticWorkflows{},
@@ -231,13 +232,13 @@ func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
 	}
 
 	var submitted []sharedkernel.EdgeID
-	mockA := &comfyui.Mock{
+	mockA := &comfyuitest.Fake{
 		SubmitFn: func(_ context.Context, _ comfyui.Graph) (string, error) {
 			submitted = append(submitted, "gpu-a")
 			return "pa", nil
 		},
 	}
-	mockB := &comfyui.Mock{
+	mockB := &comfyuitest.Fake{
 		SubmitFn: func(_ context.Context, _ comfyui.Graph) (string, error) {
 			submitted = append(submitted, "gpu-b")
 			return "pb", nil
@@ -278,7 +279,7 @@ func TestWorker_BadJobRefPublishesFailed(t *testing.T) {
 	}
 	cap := &statusCap{}
 	w := &actuator.Worker{
-		Comfy:  &comfyui.Mock{},
+		Comfy:  &comfyuitest.Fake{},
 		Blob:   store,
 		Status: cap,
 		Now:    func() time.Time { return time.Unix(1, 0).UTC() },
@@ -325,7 +326,7 @@ func TestWorker_JobRefHappyPath(t *testing.T) {
 	}
 	cap := &statusCap{}
 	w := &actuator.Worker{
-		Comfy:  &comfyui.Mock{},
+		Comfy:  &comfyuitest.Fake{},
 		Blob:   store,
 		Status: cap,
 		Now:    func() time.Time { return time.Unix(1, 0).UTC() },
@@ -375,7 +376,7 @@ func TestWorker_UploadUsesDispatchInstanceClient(t *testing.T) {
 	}
 
 	var uploadedTo, submittedTo sharedkernel.EdgeID
-	defaultUploader := &comfyui.Mock{
+	defaultUploader := &comfyuitest.Fake{
 		UploadImageFn: func(_ context.Context, _, _ string, _ []byte) (string, error) {
 			uploadedTo = "default"
 			return "default-remote.png", nil
@@ -385,7 +386,7 @@ func TestWorker_UploadUsesDispatchInstanceClient(t *testing.T) {
 			return "pd", nil
 		},
 	}
-	mockB := &comfyui.Mock{
+	mockB := &comfyuitest.Fake{
 		UploadImageFn: func(_ context.Context, _, _ string, _ []byte) (string, error) {
 			uploadedTo = "gpu-b"
 			return "b-remote.png", nil

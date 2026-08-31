@@ -15,7 +15,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
+	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui/comfyuitest"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -104,7 +104,7 @@ func TestLoop_ClaimExecuteReportStatus(t *testing.T) {
 	client := pull.NewClient(srv.URL, "secret", "gpu-1")
 	worker := &actuator.Worker{
 		EdgeID: "gpu-1",
-		Comfy:  &comfyui.Mock{},
+		Comfy:  &comfyuitest.Fake{},
 		Blob:   store,
 		Status: pull.NewStatusPublisher(client),
 		Now:    func() time.Time { return time.Unix(1, 0).UTC() },

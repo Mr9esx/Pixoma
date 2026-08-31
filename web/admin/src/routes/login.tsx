@@ -6,14 +6,16 @@ import { LoginPage } from '@/features/setup/login-page'
 export const Route = createFileRoute('/login')({
   beforeLoad: async () => {
     const status = await fetchSetupStatus()
-    const registrationOpen = await fetchRegistrationStatus()
-      .then((r) => r.enabled)
-      .catch(() => false)
+    const registrationOpen = status.live_demo
+      ? false
+      : await fetchRegistrationStatus()
+          .then((r) => r.enabled)
+          .catch(() => false)
     const next = nextAdminPath(status, '/login')
     if (next) {
       throw redirect({ to: next })
     }
-    return { status, registrationOpen }
+    return { status, statusLiveDemo: status.live_demo, registrationOpen }
   },
   component: LoginRouteComponent,
 })

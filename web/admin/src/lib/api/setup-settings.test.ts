@@ -48,7 +48,6 @@ describe('platform settings API', () => {
       db_dsn: 'data/app.db',
       blob_driver: 'localfs',
       blob_root: 'data/blob',
-      comfy_mock: false,
       comfyui_base_url: 'http://127.0.0.1:8188',
     }
     const data = await savePlatformSettings(draft)

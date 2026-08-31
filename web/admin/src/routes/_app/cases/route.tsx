@@ -166,7 +166,7 @@ function CasesLayout() {
                 onClick={() => requestLeave('back')}
                 title={t('common.backToList')}
                 aria-label={t('common.backToList')}
-                className='-ml-1.5 inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground'
+                className='inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground'
               >
                 <ArrowLeft className='size-4' />
               </button>
@@ -260,7 +260,7 @@ function CasesLayout() {
         </div>
       ) : (
         <MasterDetailShell
-          className='md:grid-cols-[280px_minmax(0,1fr)]'
+          className='md:grid-cols-[280px_minmax(0,1fr)] @min-[1408px]/page:grid-cols-[300px_minmax(0,1fr)]'
           hasSelection={Boolean(selectedId)}
           onBackToList={() => {
             void navigate({

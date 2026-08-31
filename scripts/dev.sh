@@ -19,7 +19,6 @@ fi
 echo "管理页面: http://127.0.0.1:5173"
 echo "后台接口: ${PUBLIC_URL:-http://127.0.0.1:8082}"
 
-export COMFY_MOCK="${COMFY_MOCK:-0}"
 go run ./apps/pixoma/cmd/pixoma &
 pixoma_pid=$!
 

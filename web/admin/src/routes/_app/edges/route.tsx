@@ -105,7 +105,7 @@ function EdgesLayout() {
         ) : null}
       </div>
       <MasterDetailShell
-        className='md:grid-cols-[280px_1fr]'
+        className='md:grid-cols-[280px_1fr] @min-[1408px]/page:grid-cols-[300px_1fr]'
         hasSelection={Boolean(selectedId)}
         onBackToList={() => {
           void navigate({

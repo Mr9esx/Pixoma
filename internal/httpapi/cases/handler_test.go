@@ -337,6 +337,46 @@ func TestCasesHandler_CreateDuplicateReturns409(t *testing.T) {
 	}
 }
 
+func TestCasesHandler_SerializesMissingCollectionsAsArrays(t *testing.T) {
+	_, repo, srv := openCasesHandler(t)
+	if err := repo.Create(context.Background(), &domain.Case{
+		Document: domain.CaseDocument{ID: 3, Name: "Minimal"},
+		Enabled:  true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := http.Get(srv.URL + "/api/v1/cases/3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("get status=%d", res.StatusCode)
+	}
+	var body struct {
+		Inputs      []any `json:"inputs"`
+		Outputs     []any `json:"outputs"`
+		Bindings    any   `json:"bindings"`
+		InputSchema any   `json:"input_schema"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Inputs == nil || body.Outputs == nil || body.Bindings == nil || body.InputSchema == nil {
+		t.Fatalf("collections must not serialize as null: %+v", body)
+	}
+	bindings, ok := body.Bindings.(map[string]any)
+	if !ok {
+		t.Fatalf("bindings must be an object, got %T", body.Bindings)
+	}
+	for _, key := range []string{"workflow", "inputs", "outputs"} {
+		if bindings[key] == nil {
+			t.Fatalf("bindings.%s must not serialize as null", key)
+		}
+	}
+}
+
 func decodeErrCode(t *testing.T, res *http.Response) string {
 	t.Helper()
 	var body map[string]string

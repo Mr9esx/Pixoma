@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/cmd/pixoma/internal/livedemo"
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/app"
 	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/webembed"
 	"github.com/mr9esx/comfyui_tgbot/internal/caseadmin"
@@ -79,6 +81,18 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	var liveDemo bool
+	flag.BoolVar(&liveDemo, "livedemo", false, "start an isolated readonly live demo")
+	flag.Parse()
+
+	if liveDemo {
+		if err := runLiveDemo(ctx); err != nil {
+			slog.Error("pixoma failed", "err", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	sess := setupapi.NewSessions(filepath.Join(envOr("DATA_DIR", "data"), setupapi.SessionStoreFile()))
 	for {
 		err := run(ctx, sess)
@@ -91,6 +105,23 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	}
+}
+
+func runLiveDemo(ctx context.Context) error {
+	addr := envOr("HTTP_ADDR", "127.0.0.1:8082")
+	listenURL := envOr("PUBLIC_URL", "http://"+addr)
+	server, err := livedemo.New(ctx, addr, listenURL)
+	if err != nil {
+		return err
+	}
+	slog.Info("pixoma listening", "addr", addr, "mode", "live-demo")
+
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return server.Shutdown(shutdownCtx)
 	}
 }
 
@@ -399,7 +430,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("pixoma listening", "addr", addr, "data_dir", dataDir, "comfy_mock", cfg.ComfyMock, "initialized", boot.Initialized())
+		slog.Info("pixoma listening", "addr", addr, "data_dir", dataDir, "initialized", boot.Initialized())
 		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
@@ -448,7 +479,6 @@ func defaultRuntimeSettings(dataDir string) settings.Settings {
 		DBDSN:          filepath.Join(dataDir, "app.db"),
 		BlobDriver:     botconfig.BlobDriverLocalFS,
 		BlobRoot:       filepath.Join(dataDir, "blob"),
-		ComfyMock:      envBool("COMFY_MOCK", true),
 		ComfyUIBaseURL: envOr("COMFYUI_BASE_URL", "http://127.0.0.1:8188"),
 	}
 }
@@ -540,21 +570,6 @@ func envOr(k, def string) string {
 		return v
 	}
 	return def
-}
-
-func envBool(k string, def bool) bool {
-	v := strings.TrimSpace(os.Getenv(k))
-	if v == "" {
-		return def
-	}
-	switch strings.ToLower(v) {
-	case "1", "true", "yes", "on":
-		return true
-	case "0", "false", "no", "off":
-		return false
-	default:
-		return def
-	}
 }
 
 // parsePremium reads the Telegram premium flag from the platform profile JSON.

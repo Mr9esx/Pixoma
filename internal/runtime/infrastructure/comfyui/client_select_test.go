@@ -1,45 +1,20 @@
 package comfyui_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 )
 
-func TestNewClient_MockDefaultPath(t *testing.T) {
-	c, err := comfyui.NewClient(comfyui.Options{Mock: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	id, err := c.Submit(context.Background(), comfyui.Graph{"1": map[string]any{}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := c.Wait(context.Background(), id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var found []byte
-	for _, node := range res.Outputs {
-		for _, img := range node.Images {
-			found = append(found, img.Data...)
-		}
-	}
-	if len(found) == 0 {
-		t.Fatal("mock must return image bytes")
-	}
-}
-
 func TestNewClient_HTTPRequiresBaseURL(t *testing.T) {
-	_, err := comfyui.NewClient(comfyui.Options{Mock: false})
+	_, err := comfyui.NewClient(comfyui.Options{})
 	if err == nil {
-		t.Fatal("expected error when mock off without base URL")
+		t.Fatal("expected base URL error")
 	}
 }
 
 func TestNewClient_HTTP(t *testing.T) {
-	c, err := comfyui.NewClient(comfyui.Options{Mock: false, BaseURL: "http://127.0.0.1:8188"})
+	c, err := comfyui.NewClient(comfyui.Options{BaseURL: "http://127.0.0.1:8188"})
 	if err != nil {
 		t.Fatal(err)
 	}
