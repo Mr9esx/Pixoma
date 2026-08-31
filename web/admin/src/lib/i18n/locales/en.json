@@ -570,6 +570,8 @@
     "fieldId": "ID",
     "fieldStatus": "Status",
     "fieldCaseId": "Workflow ID",
+    "fieldPlatform": "Platform",
+    "fieldUser": "Related user",
     "fieldSessionId": "Session ID",
     "fieldChatId": "Chat ID",
     "fieldEdgeId": "Node ID",

@@ -572,6 +572,8 @@
     "fieldId": "ID",
     "fieldStatus": "状态",
     "fieldCaseId": "工作流 ID",
+    "fieldPlatform": "消息平台",
+    "fieldUser": "关联用户",
     "fieldSessionId": "Session ID",
     "fieldChatId": "Chat ID",
     "fieldEdgeId": "节点 ID",
