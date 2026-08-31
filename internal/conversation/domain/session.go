@@ -41,6 +41,7 @@ type DraftValue struct {
 type Session struct {
 	ID                sharedkernel.SessionID
 	UserID            string
+	ChannelID         string
 	ChatID            sharedkernel.ChatID
 	CaseID            sharedkernel.CaseID
 	Status            Status

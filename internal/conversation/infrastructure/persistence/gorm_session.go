@@ -240,6 +240,7 @@ func fromRow(row SessionRow) (*domain.Session, error) {
 	return &domain.Session{
 		ID:                sharedkernel.SessionID(row.ID),
 		UserID:            row.UserID,
+		ChannelID:         row.ChannelID,
 		ChatID:            sharedkernel.ChatID(sharedkernel.FormatChatID(sharedkernel.ChannelAddr{ChannelID: row.ChannelID, ExternalChatID: row.ChatExternalID})),
 		CaseID:            sharedkernel.CaseID(row.CaseID),
 		Status:            domain.Status(row.Status),
