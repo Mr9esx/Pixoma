@@ -629,6 +629,7 @@
     "fieldId": "ID",
     "fieldStatus": "Status",
     "fieldUserId": "User ID",
+    "fieldPlatform": "Platform",
     "fieldChatId": "Chat ID",
     "fieldCaseId": "Workflow ID",
     "fieldCurrentInputIndex": "Current input index",

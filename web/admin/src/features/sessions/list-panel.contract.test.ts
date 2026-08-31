@@ -17,4 +17,11 @@ describe('session list panel', () => {
       /<EmptyState className='py-8' message=\{t\('sessions\.empty'\)\} \/>/
     )
   })
+
+  it('shows platform context', () => {
+    const source = read('list-panel.tsx')
+    expect(source).toMatch(/fieldPlatform/)
+    expect(source).toMatch(/channel_name \|\|/)
+    expect(read('detail-panel.tsx')).toMatch(/fieldPlatform/)
+  })
 })

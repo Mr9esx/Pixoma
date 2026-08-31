@@ -631,6 +631,7 @@
     "fieldId": "ID",
     "fieldStatus": "状态",
     "fieldUserId": "User ID",
+    "fieldPlatform": "消息平台",
     "fieldChatId": "Chat ID",
     "fieldCaseId": "工作流 ID",
     "fieldCurrentInputIndex": "当前输入索引",
