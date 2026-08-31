@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -102,5 +103,58 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 	defer res4.Body.Close()
 	if res4.StatusCode != http.StatusMethodNotAllowed && res4.StatusCode != http.StatusNotFound {
 		t.Fatalf("POST should be disallowed, got %d", res4.StatusCode)
+	}
+}
+
+func TestUsersHandler_UpdateAccess(t *testing.T) {
+	repo, srv := openUsersHandler(t)
+	ctx := context.Background()
+
+	u, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "9002", Username: "bob_access",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := http.NewRequest(http.MethodPut, srv.URL+"/api/v1/users/"+u.ID+"/access", strings.NewReader(`{"access":"always_allowed"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.DefaultClient.Do(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("update status=%d", response.StatusCode)
+	}
+	var updated map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated["access"] != string(domain.UserAccessAlwaysAllowed) {
+		t.Fatalf("access=%v", updated["access"])
+	}
+
+	stored, err := repo.GetByID(ctx, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Access != domain.UserAccessAlwaysAllowed {
+		t.Fatalf("stored access=%q", stored.Access)
+	}
+
+	res2, err := http.NewRequest(http.MethodPut, srv.URL+"/api/v1/users/"+u.ID+"/access", strings.NewReader(`{"access":"invalid"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	response2, err := http.DefaultClient.Do(res2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response2.Body.Close()
+	if response2.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid access status=%d", response2.StatusCode)
 	}
 }

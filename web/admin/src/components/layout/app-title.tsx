@@ -10,9 +10,9 @@ import {
 import { Button } from '../ui/button'
 
 export function AppTitle() {
-  const { state } = useSidebar()
+  const { state, isMobile } = useSidebar()
 
-  if (state === 'collapsed') {
+  if (state === 'collapsed' && !isMobile) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>

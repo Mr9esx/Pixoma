@@ -9,21 +9,30 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Eye } from 'lucide-react'
+import { Check, Eye, MoreHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { UserRecord } from '@/lib/api/types'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Reveal } from '@/components/ui/reveal'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import { DataTable } from '@/components/data-table/data-table'
 import { DataTableToolbar } from '@/components/data-table/toolbar'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { Reveal } from '@/components/ui/reveal'
 
 type Props = {
   items: UserRecord[]
   onOpenDetail: (item: UserRecord) => void
+  onSetAccess: (item: UserRecord, access: UserRecord['access']) => void
+  setAccessPendingId?: string
   isLoading?: boolean
   isError?: boolean
   errorMessage?: string
@@ -33,6 +42,8 @@ type Props = {
 export function UserListPanel({
   items,
   onOpenDetail,
+  onSetAccess,
+  setAccessPendingId,
   isLoading,
   isError,
   errorMessage,
@@ -41,6 +52,20 @@ export function UserListPanel({
   const { t } = useTranslation()
 
   const columnHelper = useMemo(() => createColumnHelper<UserRecord>(), [])
+
+  const accessOptions = useMemo(
+    () =>
+      [
+        { value: 'always_allowed', label: t('users.accessAlwaysAllowed') },
+        { value: 'paid', label: t('users.accessPaid') },
+        { value: 'denied', label: t('users.accessDenied') },
+      ] as Array<{ value: UserRecord['access']; label: string }>,
+    [t]
+  )
+
+  const accessLabel = (access: UserRecord['access']) =>
+    accessOptions.find((option) => option.value === access)?.label ??
+    t('users.accessDenied')
 
   const columns = useMemo(
     () => [
@@ -108,24 +133,91 @@ export function UserListPanel({
           </span>
         ),
       }),
+      columnHelper.accessor('access', {
+        id: 'access',
+        meta: { label: t('users.fieldAccess') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('users.fieldAccess')}
+          />
+        ),
+        cell: ({ getValue }) => {
+          const access = getValue()
+          return (
+            <Badge
+              variant={
+                access === 'always_allowed'
+                  ? 'default'
+                  : access === 'paid'
+                    ? 'secondary'
+                    : 'destructive'
+              }
+            >
+              {accessLabel(access)}
+            </Badge>
+          )
+        },
+      }),
       columnHelper.display({
         id: 'actions',
-        header: () => <span className='sr-only'>{t('common.detail')}</span>,
+        header: () => <span className='sr-only'>{t('common.actions')}</span>,
         cell: ({ row }) => (
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            onClick={() => onOpenDetail(row.original)}
-          >
-            <Eye className='size-4' />
-            {t('common.detail')}
-          </Button>
+          <div className='flex items-center justify-end gap-1'>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => onOpenDetail(row.original)}
+            >
+              <Eye className='size-4' />
+              {t('common.detail')}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='sm'
+                  className='size-8 p-0'
+                  disabled={setAccessPendingId === row.original.id}
+                  aria-label={`${row.original.username || row.original.id} ${t('users.access')}`}
+                >
+                  <MoreHorizontal className='size-4' />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end'>
+                {accessOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    disabled={row.original.access === option.value}
+                    onSelect={() => onSetAccess(row.original, option.value)}
+                  >
+                    <Check
+                      className={
+                        row.original.access === option.value
+                          ? 'opacity-100'
+                          : 'opacity-0'
+                      }
+                    />
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         ),
         enableHiding: false,
       }),
     ],
-    [columnHelper, t, onOpenDetail]
+    [
+      columnHelper,
+      t,
+      onOpenDetail,
+      onSetAccess,
+      accessOptions,
+      setAccessPendingId,
+    ]
   )
 
   const [sorting, setSorting] = useState([{ id: 'created_at', desc: true }])

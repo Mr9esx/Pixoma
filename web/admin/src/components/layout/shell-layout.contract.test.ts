@@ -8,7 +8,9 @@ const srcRoot = join(here, '../..')
 
 const APP_LAYOUT = join(srcRoot, 'routes/_app.tsx')
 const APP_SIDEBAR = join(here, 'app-sidebar.tsx')
+const APP_HEADER = join(here, 'app-header.tsx')
 const APP_TITLE = join(here, 'app-title.tsx')
+const SIDEBAR_UI = join(srcRoot, 'components/ui/sidebar.tsx')
 const LOGO = join(srcRoot, 'assets/logo.tsx')
 const NAV_USER = join(here, 'nav-user.tsx')
 
@@ -17,6 +19,20 @@ function read(path: string) {
 }
 
 describe('admin shell layout (sidebar footer + no content header)', () => {
+  it('_app.tsx exposes a mobile shell header', () => {
+    const source = read(APP_LAYOUT)
+    expect(source).toContain('AppHeader')
+  })
+
+  it('AppHeader includes app identity and sidebar trigger on mobile', () => {
+    const source = read(APP_HEADER)
+    expect(source).toMatch(/<header[^>]+md:hidden/)
+    expect(source).toContain('SidebarTrigger')
+    expect(read(SIDEBAR_UI)).toContain('<Menu className=')
+    expect(source).toContain('<Logo')
+    expect(source).toContain('<span')
+  })
+
   it('_app.tsx has no shell-level header with language/theme', () => {
     const source = read(APP_LAYOUT)
     expect(source).not.toMatch(/<header[^>]*>[\s\S]*LanguageSwitcher/)

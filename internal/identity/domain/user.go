@@ -1,6 +1,28 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
+
+type UserAccess string
+
+const (
+	UserAccessAlwaysAllowed UserAccess = "always_allowed"
+	UserAccessPaid          UserAccess = "paid"
+	UserAccessDenied        UserAccess = "denied"
+)
+
+func NormalizeUserAccess(value string) UserAccess {
+	switch UserAccess(strings.ToLower(strings.TrimSpace(value))) {
+	case UserAccessAlwaysAllowed:
+		return UserAccessAlwaysAllowed
+	case UserAccessPaid:
+		return UserAccessPaid
+	default:
+		return UserAccessDenied
+	}
+}
 
 // User is the internal identity aggregate keyed by UUID, with channel-scoped
 // external identities as the unique lookup key.
@@ -10,6 +32,7 @@ type User struct {
 	FirstName    string
 	LastName     string
 	LanguageCode string
+	Access       UserAccess
 	LastSeenAt   time.Time
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

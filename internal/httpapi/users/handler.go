@@ -12,15 +12,16 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 )
 
-// Handler serves read-only user admin HTTP under /api/v1/users.
+// Handler serves user admin HTTP under /api/v1/users.
 type Handler struct {
 	Repo domain.Repository
 }
 
-// Mount registers GET / and GET /{id} only.
+// Mount registers read routes and the admin-only access update route.
 func (h *Handler) Mount(r chi.Router) {
 	r.Get("/", h.list)
 	r.Get("/{id}", h.get)
+	r.Put("/{id}/access", h.updateAccess)
 }
 
 type userDTO struct {
@@ -29,6 +30,7 @@ type userDTO struct {
 	FirstName    string    `json:"first_name"`
 	LastName     string    `json:"last_name"`
 	LanguageCode string    `json:"language_code"`
+	Access       string    `json:"access"`
 	LastSeenAt   time.Time `json:"last_seen_at"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -41,6 +43,7 @@ func toDTO(u *domain.User) userDTO {
 		FirstName:    u.FirstName,
 		LastName:     u.LastName,
 		LanguageCode: u.LanguageCode,
+		Access:       string(u.Access),
 		LastSeenAt:   u.LastSeenAt,
 		CreatedAt:    u.CreatedAt,
 		UpdatedAt:    u.UpdatedAt,
@@ -71,6 +74,32 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	u, err := h.Repo.GetByID(r.Context(), id)
+	if errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "user not found")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, toDTO(u))
+}
+
+func (h *Handler) updateAccess(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var body struct {
+		Access string `json:"access"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	access := domain.NormalizeUserAccess(body.Access)
+	if body.Access != string(access) {
+		writeErr(w, http.StatusBadRequest, "invalid access")
+		return
+	}
+	u, err := h.Repo.SetAccess(r.Context(), id, access)
 	if errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "user not found")
 		return

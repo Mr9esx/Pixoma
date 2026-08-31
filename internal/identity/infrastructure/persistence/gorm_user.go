@@ -15,12 +15,13 @@ import (
 
 // UserRow is the GORM model for the channel_users table (internal identity).
 type UserRow struct {
-	ID           string `gorm:"primaryKey;size:36"`
-	Username     string `gorm:"size:256"`
-	FirstName    string `gorm:"size:256"`
-	LastName     string `gorm:"size:256"`
-	LanguageCode string `gorm:"size:64"`
-	LastSeenAt   time.Time `gorm:"not null"`
+	ID           string            `gorm:"primaryKey;size:36"`
+	Username     string            `gorm:"size:256"`
+	FirstName    string            `gorm:"size:256"`
+	LastName     string            `gorm:"size:256"`
+	LanguageCode string            `gorm:"size:64"`
+	Access       domain.UserAccess `gorm:"size:32;not null;default:'denied'"`
+	LastSeenAt   time.Time         `gorm:"not null"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -90,7 +91,8 @@ func (r *UserRepository) upsertOnce(ctx context.Context, in domain.UpsertFrom) (
 		user := UserRow{
 			ID: userID, Username: in.Username, FirstName: in.FirstName,
 			LastName: in.LastName, LanguageCode: in.LanguageCode,
-			LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
+			Access: domain.UserAccessDenied, LastSeenAt: now,
+			CreatedAt: now, UpdatedAt: now,
 		}
 		ident := UserExternalIdentityRow{
 			ID: uuid.NewString(), UserID: userID,
@@ -150,6 +152,24 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 	return fromRow(row), nil
 }
 
+func (r *UserRepository) SetAccess(ctx context.Context, id string, access domain.UserAccess) (*domain.User, error) {
+	access = domain.NormalizeUserAccess(string(access))
+	var row UserRow
+	err := r.db.WithContext(ctx).First(&row, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	row.Access = access
+	row.UpdatedAt = r.now()
+	if err := r.db.WithContext(ctx).Save(&row).Error; err != nil {
+		return nil, err
+	}
+	return fromRow(row), nil
+}
+
 func (r *UserRepository) List(ctx context.Context, q domain.ListQuery) ([]*domain.User, error) {
 	tx := r.db.WithContext(ctx).Model(&UserRow{})
 	if q.ChannelID != nil || q.ExternalUserID != nil {
@@ -199,6 +219,7 @@ func fromRow(row UserRow) *domain.User {
 		FirstName:    row.FirstName,
 		LastName:     row.LastName,
 		LanguageCode: row.LanguageCode,
+		Access:       domain.NormalizeUserAccess(string(row.Access)),
 		LastSeenAt:   row.LastSeenAt,
 		CreatedAt:    row.CreatedAt,
 		UpdatedAt:    row.UpdatedAt,

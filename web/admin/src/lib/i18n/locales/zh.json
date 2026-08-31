@@ -587,7 +587,7 @@
   },
   "users": {
     "title": "用户",
-    "description": "查看用户列表与详情（只读）。",
+    "description": "查看用户并管理任务使用权限。",
     "empty": "暂无用户",
     "detailHeading": "用户详情",
     "filterQ": "搜索",
@@ -600,6 +600,13 @@
     "fieldFirstName": "名",
     "fieldLastName": "姓",
     "fieldLanguageCode": "语言",
+    "fieldAccess": "使用权限",
+    "access": "设置使用权限",
+    "accessAlwaysAllowed": "始终允许",
+    "accessPaid": "收费",
+    "accessDenied": "不允许使用",
+    "accessUpdated": "使用权限已更新",
+    "accessFailed": "使用权限更新失败",
     "fieldLastSeenAt": "最近活跃",
     "fieldCreatedAt": "创建时间",
     "fieldUpdatedAt": "更新时间"

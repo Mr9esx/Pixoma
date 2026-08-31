@@ -213,6 +213,7 @@ export type UserRecord = {
   first_name: string
   last_name: string
   language_code: string
+  access: 'always_allowed' | 'paid' | 'denied'
   last_seen_at: string
   created_at: string
   updated_at: string

@@ -69,6 +69,7 @@ func NewHandler(opts Options) http.Handler {
 	})
 	r.Route("/api/v1/users", func(r chi.Router) {
 		if opts.Users != nil {
+			r.Use(RequirePermission(PermAccountManage))
 			opts.Users.Mount(r)
 		}
 	})

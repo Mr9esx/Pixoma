@@ -35,6 +35,7 @@ const (
 	KeyButtonConfirmRun      = "button_confirm_run"
 	KeyButtonExit            = "button_exit"
 	KeySessionTerminated     = "session_terminated"
+	KeyAccessDenied          = "access_denied"
 )
 
 // Scenario groups used by the admin configuration page. They describe where a
@@ -84,6 +85,7 @@ var defaults = map[string]string{
 	KeyButtonConfirmRun:      "✅ 确认生成",
 	KeyButtonExit:            "✕ 退出",
 	KeySessionTerminated:     "该工作流已被管理员删除，当前会话已结束。",
+	KeyAccessDenied:          "当前账号没有使用权限，请联系管理员。",
 }
 
 var variableOf = map[string][]string{
@@ -112,6 +114,7 @@ func Specs() []Spec {
 		KeyTaskFailed, KeyTaskCancelled, KeySessionTerminated,
 		KeyWelcome, KeySelectTemplate, KeyExitDone, KeyUnfinishedSession,
 		KeyMenuActionPlaceholder, KeyMenuUpdated, KeyHelp,
+		KeyAccessDenied,
 	}
 	out := make([]Spec, 0, len(order))
 	for _, k := range order {

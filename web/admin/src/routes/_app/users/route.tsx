@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { UserRecord } from '@/lib/api/types'
-import { listUsers } from '@/lib/api/users'
+import { listUsers, updateUserAccess } from '@/lib/api/users'
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ function errorMessage(err: unknown): string | undefined {
 
 function UsersLayout() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [detail, setDetail] = useState<UserRecord | null>(null)
 
   const listQuery = useQuery({
@@ -31,6 +33,22 @@ function UsersLayout() {
     queryFn: () => listUsers({}),
   })
   const items = listQuery.data ?? []
+
+  const accessMutation = useMutation({
+    mutationFn: ({
+      user,
+      access,
+    }: {
+      user: UserRecord
+      access: UserRecord['access']
+    }) => updateUserAccess(user.id, access),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
+      toast.success(t('users.accessUpdated'))
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : t('users.accessFailed')),
+  })
 
   return (
     <div
@@ -49,6 +67,12 @@ function UsersLayout() {
       <UserListPanel
         items={items}
         onOpenDetail={setDetail}
+        onSetAccess={(user, access) => accessMutation.mutate({ user, access })}
+        setAccessPendingId={
+          accessMutation.isPending
+            ? accessMutation.variables?.user.id
+            : undefined
+        }
         isLoading={listQuery.isLoading}
         isError={listQuery.isError}
         errorMessage={errorMessage(listQuery.error)}

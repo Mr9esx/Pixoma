@@ -585,7 +585,7 @@
   },
   "users": {
     "title": "Users",
-    "description": "Browse users and their details (read-only).",
+    "description": "Browse users and manage task access.",
     "empty": "No users",
     "detailHeading": "User detail",
     "filterQ": "Search",
@@ -598,6 +598,13 @@
     "fieldFirstName": "First name",
     "fieldLastName": "Last name",
     "fieldLanguageCode": "Language",
+    "fieldAccess": "Task access",
+    "access": "Set task access",
+    "accessAlwaysAllowed": "Always allowed",
+    "accessPaid": "Paid",
+    "accessDenied": "Denied",
+    "accessUpdated": "Task access updated",
+    "accessFailed": "Failed to update task access",
     "fieldLastSeenAt": "Last seen",
     "fieldCreatedAt": "Created at",
     "fieldUpdatedAt": "Updated at"
