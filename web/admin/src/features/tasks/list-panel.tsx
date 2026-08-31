@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import {
   createColumnHelper,
   getCoreRowModel,
@@ -125,6 +126,44 @@ export function TaskListPanel({
           <span className='font-mono text-xs tabular-nums'>{getValue()}</span>
         ),
       }),
+      columnHelper.accessor((row) => row.channel_name || row.channel_id, {
+        id: 'channel_id',
+        meta: { label: t('tasks.fieldPlatform') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('tasks.fieldPlatform')}
+          />
+        ),
+        cell: ({ getValue }) => getValue() || '—',
+      }),
+      columnHelper.accessor('user_id', {
+        id: 'user_id',
+        meta: { label: t('tasks.fieldUser') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('tasks.fieldUser')}
+          />
+        ),
+        cell: ({ row }) => {
+          const user = row.original.user
+          const label =
+            user?.username ||
+            [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
+            row.original.user_id
+          if (!label) return '—'
+          return (
+            <Link
+              to='/users/$userId'
+              params={{ userId: row.original.user_id! }}
+              className='text-foreground underline-offset-4 hover:underline'
+            >
+              {label}
+            </Link>
+          )
+        },
+      }),
       columnHelper.accessor('session_id', {
         id: 'session_id',
         meta: { label: t('tasks.fieldSessionId') },
@@ -135,7 +174,19 @@ export function TaskListPanel({
           />
         ),
         cell: ({ getValue }) => (
-          <span className='font-mono text-xs'>{getValue()}</span>
+          <span className='font-mono text-xs'>
+            {getValue() ? (
+              <Link
+                to='/sessions/$sessionId'
+                params={{ sessionId: getValue()! }}
+                className='text-foreground underline-offset-4 hover:underline'
+              >
+                {getValue()}
+              </Link>
+            ) : (
+              '—'
+            )}
+          </span>
         ),
       }),
       columnHelper.accessor('edge_id', {
@@ -202,9 +253,16 @@ export function TaskListPanel({
         .toLowerCase()
       if (!q) return true
       const { id, case_id, session_id, edge_id } = row.original
-      return [id, case_id, session_id, edge_id].some((value) =>
-        String(value).toLowerCase().includes(q)
-      )
+      return [
+        id,
+        case_id,
+        session_id,
+        edge_id,
+        row.original.channel_name,
+        row.original.channel_id,
+        row.original.user?.username,
+        row.original.user_id,
+      ].some((value) => String(value ?? '').toLowerCase().includes(q))
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),

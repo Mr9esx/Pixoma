@@ -17,4 +17,13 @@ describe('task list panel', () => {
       /<EmptyState className='py-8' message=\{t\('tasks\.empty'\)\} \/>/
     )
   })
+
+  it('shows platform and related user/session context', () => {
+    const source = read('list-panel.tsx')
+    expect(source).toMatch(/fieldPlatform/)
+    expect(source).toMatch(/channel_name \|\|/)
+    expect(source).toMatch(/to='\/users\/\$userId'/)
+    expect(source).toMatch(/to='\/sessions\/\$sessionId'/)
+    expect(read('detail-panel.tsx')).toMatch(/fieldPlatform/)
+  })
 })

@@ -35,6 +35,20 @@ function TaskFields({ task, t }: { task: TaskRecord; t: (k: string) => string })
         value={statusKey ? t(statusKey) : task.status}
       />
       <Field label={t('tasks.fieldCaseId')} value={task.case_id} />
+      <Field
+        label={t('tasks.fieldPlatform')}
+        value={task.channel_name || task.channel_id}
+      />
+      <Field
+        label={t('tasks.fieldUser')}
+        value={
+          task.user?.username ||
+          [task.user?.first_name, task.user?.last_name]
+            .filter(Boolean)
+            .join(' ') ||
+          task.user_id
+        }
+      />
       <Field label={t('tasks.fieldSessionId')} value={task.session_id} />
       <Field
         label={t('tasks.fieldChatId')}
