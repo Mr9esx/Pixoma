@@ -10,3 +10,11 @@ it('offers task access actions with all supported modes', () => {
   expect(panel).toMatch(/accessDenied/)
   expect(panel).toMatch(/onSetAccess/)
 })
+
+it('shows platform and generic user identity without telegram fields', () => {
+  expect(panel).toMatch(/fieldPlatform/)
+  expect(panel).toMatch(/fieldUserInfo/)
+  expect(panel).toMatch(/external_user_id/)
+  expect(panel).not.toMatch(/tg_user_id|fieldTgUserId/)
+  expect(panel).toMatch(/q/)
+})
