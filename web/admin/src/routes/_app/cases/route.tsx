@@ -7,7 +7,7 @@ import {
   useParams,
   useRouterState,
 } from '@tanstack/react-router'
-import { ArrowLeft, Boxes, Loader2, Plus } from 'lucide-react'
+import { ArrowLeft, Boxes, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listCases } from '@/lib/api/cases'
 import { getCaseMenuPlacements } from '@/lib/api/channel-menu'
@@ -32,6 +32,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { PixomaLoading } from '@/components/feedback/pixoma-loading'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { CaseForm } from '@/features/cases/case-form'
 import { CaseDetailPanel } from '@/features/cases/detail-panel'
@@ -222,9 +223,7 @@ function CasesLayout() {
               form='create-case-form'
               disabled={createPending}
             >
-              {createPending ? (
-                <Loader2 className='size-4 animate-spin' />
-              ) : null}
+              {createPending ? <PixomaLoading /> : null}
               {t('common.create')}
             </Button>
           </footer>

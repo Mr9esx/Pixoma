@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, User, XIcon } from 'lucide-react'
+import { User, XIcon } from 'lucide-react'
 import {
   fetchMediaBlob,
   isAllowedMedia,
@@ -13,6 +13,7 @@ import {
   AttachmentActions,
   AttachmentTrigger,
 } from '@/components/ui/attachment'
+import { PixomaLoading } from '@/components/feedback/pixoma-loading'
 
 type Props = {
   id?: string
@@ -148,15 +149,19 @@ export function AvatarUpload({ id, value, onChange, disabled }: Props) {
       >
         <div className='m-auto flex size-24 items-center justify-center overflow-hidden rounded-full bg-muted text-foreground'>
           {uploading ? (
-            <Loader2 className='size-8 animate-spin' />
+            <PixomaLoading />
           ) : hasAvatar && avatarUrl ? (
-            <img src={avatarUrl} alt='头像' className='size-full object-cover' />
+            <img
+              src={avatarUrl}
+              alt='头像'
+              className='size-full object-cover'
+            />
           ) : (
             <User className='size-10 text-foreground/70' />
           )}
         </div>
         {hasAvatar && !disabled ? (
-          <AttachmentActions className='right-2 top-2'>
+          <AttachmentActions className='top-2 right-2'>
             <AttachmentAction
               variant='outline'
               size='icon-xs'
@@ -188,7 +193,10 @@ export function AvatarUpload({ id, value, onChange, disabled }: Props) {
       />
 
       {error ? (
-        <p className='max-w-44 text-center text-xs text-destructive' role='alert'>
+        <p
+          className='max-w-44 text-center text-xs text-destructive'
+          role='alert'
+        >
           {error}
         </p>
       ) : null}

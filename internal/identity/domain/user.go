@@ -29,6 +29,7 @@ func NormalizeUserAccess(value string) UserAccess {
 type User struct {
 	ID             string
 	ChannelID      string
+	ChannelName    string
 	ExternalUserID string
 	Username       string
 	FirstName      string

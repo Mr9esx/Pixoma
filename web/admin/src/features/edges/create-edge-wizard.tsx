@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { DialogFooter } from '@/components/ui/dialog'
+import { PixomaLoading } from '@/components/feedback/pixoma-loading'
 import { DeployCredentials } from './deploy-credentials'
 import { EdgeForm } from './edge-form'
 import { PresenceTags } from './presence-tags'
@@ -121,12 +122,11 @@ export function CreateEdgeWizard({ onDone, onCancel }: Props) {
                 variant='outline'
                 onClick={handleCheckStatus}
               >
-                <RefreshCw
-                  className={cn(
-                    'size-4',
-                    spinning && 'animate-spin [animation-duration:0.6s]'
-                  )}
-                />
+                {spinning ? (
+                  <PixomaLoading />
+                ) : (
+                  <RefreshCw className='size-4' />
+                )}
                 {t('edges.checkNodeStatus')}
               </Button>
               <PresenceTags

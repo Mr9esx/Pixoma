@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Film, ImagePlus, Loader2, Trash2, ZoomIn } from 'lucide-react'
+import { Film, ImagePlus, Trash2, ZoomIn } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   isAllowedMedia,
@@ -16,8 +16,9 @@ import {
   AttachmentTitle,
   AttachmentTrigger,
 } from '@/components/ui/attachment'
-import { useMediaObjectUrl } from '../lib/use-media-object-url'
+import { PixomaLoading } from '@/components/feedback/pixoma-loading'
 import { MediaLightbox } from '../components/media-lightbox'
+import { useMediaObjectUrl } from '../lib/use-media-object-url'
 
 type Props = {
   value?: string
@@ -77,7 +78,7 @@ export function MediaPreviewField({ value, onChange, disabled }: Props) {
       >
         <AttachmentMedia variant={key && mediaUrl ? 'image' : 'icon'}>
           {uploading ? (
-            <Loader2 className='animate-spin' />
+            <PixomaLoading />
           ) : isVideo ? (
             mediaUrl ? (
               <video

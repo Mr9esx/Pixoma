@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import {
   createColumnHelper,
   getCoreRowModel,
@@ -14,15 +15,16 @@ import type { Option } from '@/types/data-table'
 import { Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { SessionRecord } from '@/lib/api/types'
+import { formatDateTime, formatUserLabel } from '@/lib/format'
 import { Button } from '@/components/ui/button'
+import { FadeSwap } from '@/components/ui/fade-swap'
+import { Reveal } from '@/components/ui/reveal'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import { DataTable } from '@/components/data-table/data-table'
 import { DataTableToolbar } from '@/components/data-table/toolbar'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { FadeSwap } from '@/components/ui/fade-swap'
-import { Reveal } from '@/components/ui/reveal'
 
 export function sessionStatusLabelKey(status: string): string | undefined {
   const map: Record<string, string> = {
@@ -110,18 +112,28 @@ export function SessionListPanel({
       }),
       columnHelper.accessor('user_id', {
         id: 'user_id',
-        meta: { label: t('sessions.fieldUserId') },
+        meta: { label: t('sessions.fieldUser') },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
-            title={t('sessions.fieldUserId')}
+            title={t('sessions.fieldUser')}
           />
         ),
-        cell: ({ getValue }) => (
-          <span className='font-mono text-xs'>{getValue()}</span>
-        ),
+        cell: ({ row }) => {
+          const label = formatUserLabel(row.original.user, row.original.user_id)
+          if (!label) return '—'
+          return (
+            <Link
+              to='/users/$userId'
+              params={{ userId: row.original.user_id }}
+              className='text-foreground underline-offset-4 hover:underline'
+            >
+              {label}
+            </Link>
+          )
+        },
       }),
-      columnHelper.accessor((row) => row.channel_name || row.channel_id, {
+      columnHelper.accessor('channel_name', {
         id: 'channel_id',
         meta: { label: t('sessions.fieldPlatform') },
         header: ({ column }) => (
@@ -169,13 +181,13 @@ export function SessionListPanel({
         ),
         cell: ({ getValue }) => (
           <span className='whitespace-nowrap text-muted-foreground'>
-            {getValue()}
+            {formatDateTime(getValue())}
           </span>
         ),
       }),
       columnHelper.display({
         id: 'actions',
-        header: () => <span className='sr-only'>{t('common.detail')}</span>,
+        header: () => <span>{t('common.actions')}</span>,
         cell: ({ row }) => (
           <Button
             type='button'
@@ -218,7 +230,11 @@ export function SessionListPanel({
         chat_id,
         row.original.channel_name,
         row.original.channel_id,
-      ].some((value) => String(value ?? '').toLowerCase().includes(q))
+      ].some((value) =>
+        String(value ?? '')
+          .toLowerCase()
+          .includes(q)
+      )
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -226,7 +242,10 @@ export function SessionListPanel({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageIndex: 0, pageSize: 10 } },
+    initialState: {
+      pagination: { pageIndex: 0, pageSize: 10 },
+      columnPinning: { right: ['actions'] },
+    },
   })
 
   return (

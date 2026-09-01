@@ -378,8 +378,8 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			return validation.ValidateRouting(context.Background(), doc.Routing, topicRepo, conditionReg)
 		}, DeleteWithCleanup: caseDeleteSvc.DeleteCase},
 		AdminUsers: &adminusersapi.Handler{Repo: consoleRepo},
-		Users:      &usersapi.Handler{Repo: userRepo},
-		Sessions:   &sessionsapi.Handler{Repo: sessionRepo, Channels: channelStore},
+		Users:      &usersapi.Handler{Repo: userRepo, Channels: channelStore},
+		Sessions:   &sessionsapi.Handler{Repo: sessionRepo, Channels: channelStore, Context: sesspersist.NewSessionAdminProjection(gdb)},
 		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Cancel: orch, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
 		Channels: &channelsapi.Handler{

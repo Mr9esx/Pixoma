@@ -11,6 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  resourceDetailBodyClassName,
+  resourceDetailDialogClassName,
+} from '@/features/resource-modal'
 import { TaskDetailPanel } from '@/features/tasks/detail-panel'
 import { TaskListPanel } from '@/features/tasks/list-panel'
 
@@ -61,11 +65,11 @@ function TasksLayout() {
           if (!open) setDetail(null)
         }}
       >
-        <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-3xl'>
+        <DialogContent className={resourceDetailDialogClassName}>
           <DialogHeader>
             <DialogTitle>{t('tasks.detailHeading')}</DialogTitle>
           </DialogHeader>
-          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
+          <div className={resourceDetailBodyClassName}>
             {detail ? <TaskDetailPanel id={detail.id} /> : null}
           </div>
         </DialogContent>

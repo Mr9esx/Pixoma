@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
 import { eachDayOfInterval, formatISO, parseISO } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
   Tooltip,
@@ -17,66 +17,81 @@ const LEVEL_CLASS = [
   'bg-muted-foreground/60',
   'bg-muted-foreground/80',
 ]
+const GAP_WIDTH = 4
+const MIN_CELL_WIDTH = 12
 
 export function WorkbenchHeatmap({ data }: { data: Activity[] }) {
   const { t } = useTranslation()
   const today = formatISO(new Date(), { representation: 'date' })
   const weeks = useMemo(() => groupByWeeks(data), [data])
   const monthLabels = useMemo(
-    () => getMonthLabels(weeks, t('dashboard.workbench.months', { returnObjects: true }) as string[]),
+    () =>
+      getMonthLabels(
+        weeks,
+        t('dashboard.workbench.months', { returnObjects: true }) as string[]
+      ),
     [weeks, t]
   )
+  const minimumGridWidth =
+    weeks.length * MIN_CELL_WIDTH + (weeks.length - 1) * GAP_WIDTH
 
   if (data.length === 0) return null
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className='flex w-full flex-col gap-1'>
-        <div className='relative h-4 w-full'>
-          {monthLabels.map((m) => (
-            <span
-              key={m.weekIndex}
-              className='absolute top-0 text-[11px] whitespace-nowrap text-muted-foreground'
-              style={{ left: `${(m.weekIndex / weeks.length) * 100}%` }}
-            >
-              {m.label}
-            </span>
-          ))}
-        </div>
+      <div className='w-full overflow-x-auto'>
         <div
-          className='grid w-full grid-flow-col grid-rows-7 gap-1'
-          style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
+          className='flex w-full flex-col gap-1'
+          style={{ minWidth: `${minimumGridWidth}px` }}
         >
-          {weeks.map((week, weekIndex) =>
-            week.map((activity, dayIndex) => {
-              if (!activity) {
-                return <div key={`${weekIndex}-${dayIndex}`} />
-              }
-              return (
-                <Tooltip key={`${weekIndex}-${dayIndex}`}>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={cn(
-                        'aspect-square w-full rounded-[2px]',
-                        activity.date > today
-                          ? 'bg-muted/40'
-                          : LEVEL_CLASS[activity.level] ?? LEVEL_CLASS[0],
-                        activity.date === today && 'border border-primary'
-                      )}
-                      data-date={activity.date}
-                      data-count={activity.count}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent side='top' align='center'>
-                    <p className='text-xs font-medium'>{activity.date}</p>
-                    <p className='text-xs text-muted-foreground'>
-                      {activity.count} {t('dashboard.workbench.taskCount')}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              )
-            })
-          )}
+          <div className='relative h-4 w-full'>
+            {monthLabels.map((m) => (
+              <span
+                key={m.weekIndex}
+                className='absolute top-0 text-[11px] whitespace-nowrap text-muted-foreground'
+                style={{ left: `${(m.weekIndex / weeks.length) * 100}%` }}
+              >
+                {m.label}
+              </span>
+            ))}
+          </div>
+          <div
+            className='grid min-h-[100px] w-full grid-flow-col grid-rows-7 gap-1'
+            style={{
+              gridTemplateColumns: `repeat(${weeks.length}, minmax(${MIN_CELL_WIDTH}px, 1fr))`,
+            }}
+          >
+            {weeks.map((week, weekIndex) =>
+              week.map((activity, dayIndex) => {
+                if (!activity) {
+                  return <div key={`${weekIndex}-${dayIndex}`} />
+                }
+                return (
+                  <Tooltip key={`${weekIndex}-${dayIndex}`}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          'aspect-square w-full rounded-[2px]',
+                          activity.date > today
+                            ? 'bg-muted/40'
+                            : (LEVEL_CLASS[activity.level] ?? LEVEL_CLASS[0]),
+                          activity.date === today && 'border border-primary'
+                        )}
+                        data-date={activity.date}
+                        data-count={activity.count}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side='top' align='center'>
+                      <p className='text-xs font-medium'>{activity.date}</p>
+                      <p className='text-xs text-muted-foreground'>
+                        {activity.count} {t('dashboard.workbench.taskCount')}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })
+            )}
+          </div>
         </div>
       </div>
     </TooltipProvider>

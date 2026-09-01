@@ -22,6 +22,7 @@
   },
   "iconLibrary": "lucide",
   "registries": {
-    "@tailark-oss": "https://oss.tailark.com/r/{name}.json"
+    "@tailark-oss": "https://oss.tailark.com/r/{name}.json",
+    "@react-bits": "https://reactbits.dev/r/{name}.json"
   }
 }

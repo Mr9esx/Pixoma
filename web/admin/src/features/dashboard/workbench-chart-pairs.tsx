@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
@@ -18,12 +19,13 @@ import {
   listTaskErrorStats,
 } from '@/lib/api/stats'
 import {
+  ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { ChartSkeleton } from '@/components/feedback/chart-skeleton'
 import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { MonitorCard, type MonitorStat } from '@/components/monitor-card'
 import type { StatsRange } from './date-range'
 import { pickCaseItems, pickDays, pickErrorItems } from './task-stats-parse'
@@ -134,173 +136,216 @@ export function WorkbenchChartPairs({ range }: { range: StatsRange }) {
     },
   ]
 
-  const anyLoading = cases.isLoading || daily.isLoading || errors.isLoading
-  const anyError = cases.isError || daily.isError || errors.isError
-
-  if (anyError) {
-    return (
-      <ErrorBanner
-        message={errorMessage(cases.error ?? daily.error ?? errors.error)}
-        onRetry={() => {
-          void cases.refetch()
-          void daily.refetch()
-          void errors.refetch()
-        }}
-      />
-    )
-  }
-
-  if (anyLoading) {
-    return (
-      <div className='flex flex-col gap-4'>
-        <LoadingSkeleton rows={4} />
-        <LoadingSkeleton rows={4} />
-      </div>
-    )
-  }
-
   return (
     <div className='flex flex-col gap-4'>
       <div className='flex flex-col gap-4 xl:flex-row'>
         <MonitorCard
+          plain
           title={t('dashboard.workbench.taskDurationTitle')}
           config={durationConfig}
-          stats={durationStats}
+          stats={daily.isLoading || daily.isError ? [] : durationStats}
         >
-          <AreaChart data={durationData} margin={MARGIN}>
-            <defs>
-              <linearGradient id='fillExec' x1='0' y1='0' x2='0' y2='1'>
-                <stop
-                  offset='0%'
-                  stopColor='var(--color-exec)'
-                  stopOpacity={0.3}
-                />
-                <stop
-                  offset='100%'
-                  stopColor='var(--color-exec)'
-                  stopOpacity={0.02}
-                />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey='date' {...TICK} height={20} />
-            <YAxis width={40} unit='s' {...TICK} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Area
-              type='monotone'
-              dataKey='exec'
-              stroke='var(--color-exec)'
-              fill='url(#fillExec)'
-              strokeWidth={2}
-            />
-            <Line
-              type='monotone'
-              dataKey='queue'
-              stroke='var(--color-queue)'
-              strokeWidth={2}
-              dot={false}
-            />
-          </AreaChart>
+          <ChartState
+            isLoading={daily.isLoading}
+            isError={daily.isError}
+            error={daily.error}
+            onRetry={() => void daily.refetch()}
+            config={durationConfig}
+          >
+            <AreaChart data={durationData} margin={MARGIN}>
+              <defs>
+                <linearGradient id='fillExec' x1='0' y1='0' x2='0' y2='1'>
+                  <stop
+                    offset='0%'
+                    stopColor='var(--color-exec)'
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset='100%'
+                    stopColor='var(--color-exec)'
+                    stopOpacity={0.02}
+                  />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey='date' {...TICK} height={20} />
+              <YAxis width={40} unit='s' {...TICK} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Area
+                type='monotone'
+                dataKey='exec'
+                stroke='var(--color-exec)'
+                fill='url(#fillExec)'
+                strokeWidth={2}
+              />
+              <Line
+                type='monotone'
+                dataKey='queue'
+                stroke='var(--color-queue)'
+                strokeWidth={2}
+                dot={false}
+              />
+            </AreaChart>
+          </ChartState>
         </MonitorCard>
 
         <MonitorCard
+          plain
           title={t('dashboard.workbench.workflowTopTitle')}
           config={workflowConfig}
-          stats={workflowStats}
+          stats={cases.isLoading || cases.isError ? [] : workflowStats}
         >
-          <BarChart
-            data={items.map((c) => ({
-              name: c.case_name?.trim() || `Case #${c.case_id}`,
-              count: c.count,
-            }))}
-            margin={MARGIN}
+          <ChartState
+            isLoading={cases.isLoading}
+            isError={cases.isError}
+            error={cases.error}
+            onRetry={() => void cases.refetch()}
+            config={workflowConfig}
           >
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey='name' {...TICK} height={20} />
-            <YAxis width={40} allowDecimals={false} {...TICK} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar
-              dataKey='count'
-              fill='var(--color-cases)'
-              radius={[2, 2, 0, 0]}
-            />
-          </BarChart>
+            <BarChart
+              data={items.map((c) => ({
+                name: c.case_name?.trim() || `Case #${c.case_id}`,
+                count: c.count,
+              }))}
+              margin={MARGIN}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey='name' {...TICK} height={20} />
+              <YAxis width={40} allowDecimals={false} {...TICK} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar
+                dataKey='count'
+                fill='var(--color-cases)'
+                radius={[2, 2, 0, 0]}
+              />
+            </BarChart>
+          </ChartState>
         </MonitorCard>
       </div>
 
       <div className='flex flex-col gap-4 xl:flex-row'>
         <MonitorCard
+          plain
           title={t('dashboard.workbench.statusDistributionTitle')}
           config={statusConfig}
-          stats={statusStats}
+          stats={daily.isLoading || daily.isError ? [] : statusStats}
         >
-          <BarChart
-            data={[
-              {
-                name: t('dashboard.succeeded'),
-                value: statusData.succeeded,
-                fill: 'var(--color-succeeded)',
-              },
-              {
-                name: t('dashboard.failed'),
-                value: statusData.failed,
-                fill: 'var(--color-failed)',
-              },
-              {
-                name: t('dashboard.cancelled'),
-                value: statusData.cancelled,
-                fill: 'var(--color-cancelled)',
-              },
-            ]}
-            margin={MARGIN}
+          <ChartState
+            isLoading={daily.isLoading}
+            isError={daily.isError}
+            error={daily.error}
+            onRetry={() => void daily.refetch()}
+            config={statusConfig}
           >
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey='name' {...TICK} height={20} />
-            <YAxis width={40} allowDecimals={false} {...TICK} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey='value' radius={[2, 2, 0, 0]}>
-              {[
+            <BarChart
+              data={[
                 {
                   name: t('dashboard.succeeded'),
+                  value: statusData.succeeded,
                   fill: 'var(--color-succeeded)',
                 },
-                { name: t('dashboard.failed'), fill: 'var(--color-failed)' },
+                {
+                  name: t('dashboard.failed'),
+                  value: statusData.failed,
+                  fill: 'var(--color-failed)',
+                },
                 {
                   name: t('dashboard.cancelled'),
+                  value: statusData.cancelled,
                   fill: 'var(--color-cancelled)',
                 },
-              ].map((entry) => (
-                <Cell key={entry.name} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
+              ]}
+              margin={MARGIN}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey='name' {...TICK} height={20} />
+              <YAxis width={40} allowDecimals={false} {...TICK} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey='value' radius={[2, 2, 0, 0]}>
+                {[
+                  {
+                    name: t('dashboard.succeeded'),
+                    fill: 'var(--color-succeeded)',
+                  },
+                  {
+                    name: t('dashboard.failed'),
+                    fill: 'var(--color-failed)',
+                  },
+                  {
+                    name: t('dashboard.cancelled'),
+                    fill: 'var(--color-cancelled)',
+                  },
+                ].map((entry) => (
+                  <Cell key={entry.name} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartState>
         </MonitorCard>
 
         <MonitorCard
+          plain
           title={t('dashboard.workbench.errorTopTitle')}
           config={errorConfig}
-          stats={errorStats}
+          stats={errors.isLoading || errors.isError ? [] : errorStats}
         >
-          <BarChart
-            data={errorItems.map((e) => ({
-              name: e.error_code,
-              count: e.count,
-            }))}
-            margin={MARGIN}
+          <ChartState
+            isLoading={errors.isLoading}
+            isError={errors.isError}
+            error={errors.error}
+            onRetry={() => void errors.refetch()}
+            config={errorConfig}
           >
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey='name' {...TICK} height={20} />
-            <YAxis width={40} allowDecimals={false} {...TICK} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar
-              dataKey='count'
-              fill='var(--color-errors)'
-              radius={[2, 2, 0, 0]}
-            />
-          </BarChart>
+            <BarChart
+              data={errorItems.map((e) => ({
+                name: e.error_code,
+                count: e.count,
+              }))}
+              margin={MARGIN}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey='name' {...TICK} height={20} />
+              <YAxis width={40} allowDecimals={false} {...TICK} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar
+                dataKey='count'
+                fill='var(--color-errors)'
+                radius={[2, 2, 0, 0]}
+              />
+            </BarChart>
+          </ChartState>
         </MonitorCard>
       </div>
     </div>
+  )
+}
+
+type ChartStateProps = {
+  isLoading: boolean
+  isError: boolean
+  error: unknown
+  onRetry: () => void
+  config: ChartConfig
+  children: ReactNode
+}
+
+function ChartState({
+  isLoading,
+  isError,
+  error,
+  onRetry,
+  config,
+  children,
+}: ChartStateProps) {
+  if (isLoading) return <ChartSkeleton />
+  if (isError) {
+    return <ErrorBanner message={errorMessage(error)} onRetry={onRetry} />
+  }
+
+  return (
+    <ChartContainer config={config} className='aspect-auto h-full w-full'>
+      {children}
+    </ChartContainer>
   )
 }
 

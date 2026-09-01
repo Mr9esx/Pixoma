@@ -7,7 +7,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Loader2, Pencil, RotateCcw, Save } from 'lucide-react'
+import { Pencil, RotateCcw, Save } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { queryKeys } from '@/lib/api/query-keys'
@@ -33,6 +33,7 @@ import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import { DataTable } from '@/components/data-table/data-table'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { PixomaLoading } from '@/components/feedback/pixoma-loading'
 import { LongText } from '@/components/long-text'
 
 // Edits the Telegram copy templates for a scope. channelId "" edits the
@@ -325,7 +326,7 @@ function EditTemplateDialog({
             onClick={() => saveMutation.mutate(value)}
           >
             {saveMutation.isPending ? (
-              <Loader2 className='size-3.5 animate-spin' />
+              <PixomaLoading />
             ) : (
               <Save className='size-3.5' />
             )}

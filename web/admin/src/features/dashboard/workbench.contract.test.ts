@@ -56,7 +56,7 @@ describe('dashboard workbench contract', () => {
 
   it('renders the shared range control with a custom button', () => {
     const center = read('../../components/time-range-control.tsx')
-    expect(center).toContain("dashboard.workbench.custom")
+    expect(center).toContain('dashboard.workbench.custom')
     expect(center).toContain('isCustom')
     expect(center).toContain('Calendar')
   })
@@ -89,13 +89,43 @@ describe('dashboard workbench contract', () => {
 
   it('renders a hover tooltip with date and task count per cell', () => {
     const heatmap = read('workbench-heatmap.tsx')
+    expect(heatmap).toContain('overflow-x-auto')
+    expect(heatmap).toContain('minmax(${MIN_CELL_WIDTH}px, 1fr)')
     expect(heatmap).toContain('TooltipTrigger')
     expect(heatmap).toContain('TooltipContent')
     expect(heatmap).toContain('activity.date')
     expect(heatmap).toContain('activity.count')
-    expect(heatmap).toContain("dashboard.workbench.taskCount")
+    expect(heatmap).toContain('dashboard.workbench.taskCount')
     expect(heatmap).toContain('getMonthLabels')
-    expect(heatmap).toContain("dashboard.workbench.months")
+    expect(heatmap).toContain('dashboard.workbench.months')
+  })
+
+  it('keeps the heatmap rows tall and scrolls narrow widths', () => {
+    const heatmap = read('workbench-heatmap.tsx')
+    expect(heatmap).toContain('min-h-[100px]')
+    expect(heatmap).toContain('MIN_CELL_WIDTH')
+  })
+
+  it('keeps dashboard cards mounted while their charts load', () => {
+    const contribution = read('workbench-contribution.tsx')
+    const overview = read('workbench-overview-cards.tsx')
+    const charts = read('workbench-chart-pairs.tsx')
+
+    expect(contribution).toContain('ChartSkeleton')
+    expect(overview).toContain('Skeleton')
+    expect(charts).toContain('ChartSkeleton')
+    expect(charts).not.toContain('if (anyLoading)')
+    expect(charts).not.toContain('if (anyError)')
+  })
+
+  it('labels the dashboard as workbench in zh', () => {
+    const locale = JSON.parse(read('../../lib/i18n/locales/zh.json')) as {
+      menu: { dashboard: string }
+      dashboard: { title: string }
+    }
+
+    expect(locale.menu.dashboard).toBe('工作台')
+    expect(locale.dashboard.title).toBe('工作台')
   })
   it('uses admin-api query helpers and semantic chart colors', () => {
     const board = read('workbench-data-board.tsx')

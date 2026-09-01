@@ -1,6 +1,7 @@
 package users
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,7 +15,12 @@ import (
 
 // Handler serves user admin HTTP under /api/v1/users.
 type Handler struct {
-	Repo domain.Repository
+	Repo     domain.Repository
+	Channels ChannelNamesReader
+}
+
+type ChannelNamesReader interface {
+	ChannelNames(ctx context.Context, ids []string) (map[string]string, error)
 }
 
 // Mount registers read routes and the admin-only access update route.
@@ -27,6 +33,7 @@ func (h *Handler) Mount(r chi.Router) {
 type userDTO struct {
 	ID             string    `json:"id"`
 	ChannelID      string    `json:"channel_id"`
+	ChannelName    string    `json:"channel_name,omitempty"`
 	ExternalUserID string    `json:"external_user_id"`
 	Username       string    `json:"username"`
 	FirstName      string    `json:"first_name"`
@@ -42,6 +49,7 @@ func toDTO(u *domain.User) userDTO {
 	return userDTO{
 		ID:             u.ID,
 		ChannelID:      u.ChannelID,
+		ChannelName:    u.ChannelName,
 		ExternalUserID: u.ExternalUserID,
 		Username:       u.Username,
 		FirstName:      u.FirstName,
@@ -62,6 +70,10 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	list, err := h.Repo.List(r.Context(), q)
 	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := h.attachChannelNames(r.Context(), list); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -86,7 +98,41 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if err := h.attachChannelNames(r.Context(), []*domain.User{u}); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	writeJSON(w, http.StatusOK, toDTO(u))
+}
+
+func (h *Handler) attachChannelNames(ctx context.Context, users []*domain.User) error {
+	if h.Channels == nil || len(users) == 0 {
+		return nil
+	}
+	channelIDs := make([]string, 0, len(users))
+	seen := make(map[string]struct{}, len(users))
+	for _, user := range users {
+		if user == nil || user.ChannelID == "" {
+			continue
+		}
+		if _, exists := seen[user.ChannelID]; !exists {
+			channelIDs = append(channelIDs, user.ChannelID)
+			seen[user.ChannelID] = struct{}{}
+		}
+	}
+	if len(channelIDs) == 0 {
+		return nil
+	}
+	names, err := h.Channels.ChannelNames(ctx, channelIDs)
+	if err != nil {
+		return err
+	}
+	for _, user := range users {
+		if user != nil {
+			user.ChannelName = names[user.ChannelID]
+		}
+	}
+	return nil
 }
 
 func (h *Handler) updateAccess(w http.ResponseWriter, r *http.Request) {

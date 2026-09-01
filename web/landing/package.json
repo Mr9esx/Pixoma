@@ -24,6 +24,7 @@
     "dotted-map": "^3.1.0",
     "lucide-react": "^1.37.0",
     "motion": "^13.1.1",
+    "radix-ui": "^1.6.7",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-use-measure": "^2.1.7",

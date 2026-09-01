@@ -12,6 +12,7 @@ const SHELL = join(here, 'master-detail-shell.tsx')
 const EMPTY = join(srcRoot, 'components/feedback/empty-state.tsx')
 const ERROR = join(srcRoot, 'components/feedback/error-banner.tsx')
 const LOADING = join(srcRoot, 'components/feedback/loading-skeleton.tsx')
+const LOADING_PAGE = join(srcRoot, 'components/feedback/loading-page.tsx')
 const EDGES_ROUTE = join(srcRoot, 'routes/_app/edges/route.tsx')
 
 const FEEDBACK_I18N_KEYS = [
@@ -69,6 +70,19 @@ describe('Master–Detail shell + feedback primitives', () => {
 
     expect(loading).toContain('export function LoadingSkeleton')
     expect(loading).toMatch(/t\('common\.loading'|animate-pulse/)
+    expect(loading).toContain('<Skeleton')
+  })
+
+  it('uses the shared Pixoma loading GIF', () => {
+    const page = readFileSync(LOADING_PAGE, 'utf8')
+    const icon = readFileSync(
+      join(dirname(LOADING), 'pixoma-loading.tsx'),
+      'utf8'
+    )
+
+    expect(page).toContain("from '@/components/feedback/pixoma-loading'")
+    expect(icon).toContain("src='/images/pixoma-loading.gif?v=3'")
+    expect(icon).toContain("cn('size-12'")
   })
 
   it('edges layout route mounts MasterDetailShell', () => {

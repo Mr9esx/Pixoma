@@ -1,17 +1,23 @@
-import type { ImgHTMLAttributes } from "react";
+import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/context/theme-provider";
 
-type LogoProps = ImgHTMLAttributes<HTMLImageElement> & {
+type LogoProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> & {
+  alt?: string;
   className?: string;
   uniColor?: boolean;
 };
 
 export function Logo({ className, alt = "Pixoma" }: LogoProps) {
+  const { theme } = useTheme();
+
   return (
     <img
-      src="/images/logo.png"
       alt={alt}
-      className={cn("size-8 shrink-0 rounded-xl object-contain", className)}
+      className={cn("h-[26px] w-auto shrink-0 object-contain", className)}
+      src={
+        theme === "dark" ? "/images/logo-dark.svg" : "/images/logo-light.svg"
+      }
     />
   );
 }
@@ -21,7 +27,7 @@ export function LogoIcon({ className, alt = "Pixoma" }: LogoProps) {
     <img
       src="/images/logo.png"
       alt={alt}
-      className={cn("size-8 shrink-0 rounded-xl object-contain", className)}
+      className={cn("size-8 shrink-0 rounded-md object-contain", className)}
     />
   );
 }

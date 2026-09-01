@@ -1,22 +1,39 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
-import { X } from "lucide-react";
+import { Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Github } from "@/components/ui/svgs/github";
 import { ThemeSwitcher } from "@/components/kibo-ui/theme-switcher";
 import { useTheme } from "@/context/theme-provider";
+import { LocaleSwitcher } from "@/components/locale-switcher";
+import { Reveal } from "@/components/motion-primitives";
 import React from "react";
-
-const menuItems = [
-  { name: "Product", href: "#link" },
-  { name: "Solutions", href: "#link" },
-  { name: "Pricing", href: "#link" },
-  { name: "Company", href: "#link" },
-];
 
 export const HeroHeader = () => {
   const [menuState, setMenuState] = React.useState(false);
+  const [locale, setLocale] = React.useState<"zh" | "en">("zh");
   const { theme, setTheme } = useTheme();
+  const [starCount, setStarCount] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    fetch("https://api.github.com/repos/Mr9esx/Pixoma")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        setStarCount(
+          typeof data.stargazers_count === "number"
+            ? data.stargazers_count
+            : null,
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!menuState) return;
@@ -42,17 +59,17 @@ export const HeroHeader = () => {
     <header>
       <nav
         data-state={menuState && "active"}
-        className="bg-background fixed top-0 z-20 w-full max-lg:data-[state=active]:bottom-0"
+        className="bg-background/80 backdrop-blur-sm fixed top-0 z-20 w-full max-lg:data-[state=active]:bottom-0"
       >
-        <div className="mx-auto max-w-7xl px-6">
+        <Reveal className="mx-auto max-w-7xl px-6" duration={0.8} y={0}>
           <div className="relative flex flex-wrap items-center justify-between max-lg:gap-6">
             <div className="max-lg:in-data-[state=active]:border-b flex w-full items-center justify-between gap-12 py-4 lg:w-auto lg:py-5">
               <Link
                 href="/"
                 aria-label="goto home"
-                className="flex items-center space-x-2"
+                className="flex items-center gap-2"
               >
-                <Logo uniColor />
+                <Logo />
               </Link>
 
               <button
@@ -67,44 +84,36 @@ export const HeroHeader = () => {
 
                 <X className="in-data-[state=active]:rotate-0 in-data-[state=active]:scale-100 in-data-[state=active]:opacity-100 absolute inset-0 m-auto size-6 translate-x-[-3px] -rotate-180 scale-0 opacity-0 duration-200" />
               </button>
-
-              <div className="max-lg:hidden">
-                <ul className="flex gap-8 text-sm">
-                  {menuItems.map((item, index) => (
-                    <li key={index}>
-                      <Link
-                        href={item.href}
-                        className="text-muted-foreground hover:text-accent-foreground block duration-150"
-                      >
-                        <span>{item.name}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
 
             <div className="in-data-[state=active]:block lg:in-data-[state=active]:flex mb-6 hidden w-full flex-wrap items-center justify-end max-lg:space-y-8 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6">
-              <div className="lg:hidden">
-                <ul>
-                  {menuItems.map((item, index) => (
-                    <li key={index}>
-                      <Link
-                        href={item.href}
-                        className="text-foreground block py-3 text-2xl font-medium"
-                      >
-                        <span>{item.name}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
-                <div className="flex items-center justify-center">
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:gap-3 md:w-fit">
+                <div className="flex items-center justify-center gap-3">
+                  <LocaleSwitcher onChange={setLocale} value={locale} />
                   <ThemeSwitcher value={theme} onChange={setTheme} />
                 </div>
                 <Button
-                  variant="outline"
+                  variant="ghost"
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      href="https://github.com/Mr9esx/Pixoma"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Star className="size-4" />
+                      <span>Star</span>
+                      {starCount !== null ? (
+                        <span className="tabular-nums">
+                          {starCount.toLocaleString()}
+                        </span>
+                      ) : null}
+                    </Link>
+                  }
+                />
+                <Button
+                  variant="ghost"
                   size="sm"
                   nativeButton={false}
                   render={
@@ -121,7 +130,7 @@ export const HeroHeader = () => {
               </div>
             </div>
           </div>
-        </div>
+        </Reveal>
       </nav>
     </header>
   );

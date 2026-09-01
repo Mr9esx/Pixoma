@@ -21,7 +21,17 @@ describe('session list panel', () => {
   it('shows platform context', () => {
     const source = read('list-panel.tsx')
     expect(source).toMatch(/fieldPlatform/)
-    expect(source).toMatch(/channel_name \|\|/)
+    expect(source).toMatch(/accessor\('channel_name'/)
     expect(read('detail-panel.tsx')).toMatch(/fieldPlatform/)
+  })
+
+  it('shows related user info with a pinned action column', () => {
+    const source = read('list-panel.tsx')
+    expect(source).toMatch(/fieldUser/)
+    expect(source).toMatch(/formatUserLabel/)
+    expect(source).toMatch(/to='\/users\/\$userId'/)
+    expect(source).toMatch(/columnPinning: \{ right: \['actions'\] \}/)
+    expect(source).toMatch(/t\('common\.actions'\)/)
+    expect(source).toMatch(/formatDateTime/)
   })
 })

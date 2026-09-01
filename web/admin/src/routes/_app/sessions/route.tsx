@@ -11,6 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  resourceDetailBodyClassName,
+  resourceDetailDialogClassName,
+} from '@/features/resource-modal'
 import { SessionDetailPanel } from '@/features/sessions/detail-panel'
 import { SessionListPanel } from '@/features/sessions/list-panel'
 
@@ -61,11 +65,11 @@ function SessionsLayout() {
           if (!open) setDetail(null)
         }}
       >
-        <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-3xl'>
+        <DialogContent className={resourceDetailDialogClassName}>
           <DialogHeader>
             <DialogTitle>{t('sessions.detailHeading')}</DialogTitle>
           </DialogHeader>
-          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
+          <div className={resourceDetailBodyClassName}>
             {detail ? <SessionDetailPanel id={detail.id} /> : null}
           </div>
         </DialogContent>

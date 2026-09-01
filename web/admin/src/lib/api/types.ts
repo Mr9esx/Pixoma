@@ -134,7 +134,7 @@ export type TaskRecord = {
   channel_id?: string
   channel_name?: string
   user_id?: string
-  user?: TaskUserContext | null
+  user?: RelatedUserContext | null
   chat_id?: number
   case_id: number
   status: string
@@ -149,7 +149,7 @@ export type TaskRecord = {
   updated_at: string
 }
 
-export type TaskUserContext = {
+export type RelatedUserContext = {
   id: string
   channel_id: string
   external_user_id: string
@@ -223,6 +223,7 @@ export type UserRecord = {
   id: string
   channel_id: string
   channel_name?: string
+  user?: RelatedUserContext | null
   external_user_id: string
   username: string
   first_name: string
@@ -248,6 +249,7 @@ export type SessionRecord = {
   user_id: string
   channel_id?: string
   channel_name?: string
+  user?: RelatedUserContext | null
   chat_id: number
   case_id: number
   status: string

@@ -1,13 +1,13 @@
-import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { listTaskDailyStats } from '@/lib/api/stats'
+import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
-import { WorkbenchHeatmap } from './workbench-heatmap'
-import { MonitorCard } from '@/components/monitor-card'
+import { listTaskDailyStats } from '@/lib/api/stats'
+import { ChartSkeleton } from '@/components/feedback/chart-skeleton'
 import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { MonitorCard } from '@/components/monitor-card'
 import { dailyToActivity } from './daily-to-activity'
 import { pickDays } from './task-stats-parse'
+import { WorkbenchHeatmap } from './workbench-heatmap'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -33,9 +33,12 @@ export function WorkbenchContribution() {
       data-testid='workbench-contribution'
     >
       {daily.isLoading ? (
-        <LoadingSkeleton rows={4} />
+        <ChartSkeleton />
       ) : daily.isError ? (
-        <ErrorBanner message={errorMessage(daily.error)} onRetry={() => void daily.refetch()} />
+        <ErrorBanner
+          message={errorMessage(daily.error)}
+          onRetry={() => void daily.refetch()}
+        />
       ) : acts.length ? (
         <div className='w-full'>
           <WorkbenchHeatmap data={acts} />
