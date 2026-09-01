@@ -10,6 +10,7 @@ import { Plus, Radio } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listChannels } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -56,9 +57,6 @@ function ChannelsLayout() {
   const selectedId =
     id && id !== 'new' ? id : backToList ? undefined : items[0]?.id
   const [createOpen, setCreateOpen] = useState(false)
-  const isEmpty =
-    !listQuery.isLoading && !listQuery.isError && items.length === 0
-
   useEffect(() => {
     if (id == null && !backToList && items.length > 0) {
       void navigate({
@@ -84,15 +82,6 @@ function ChannelsLayout() {
             {t('channels.description')}
           </p>
         </div>
-        {!isEmpty ? (
-          <Button
-            className={kit.btnPrimary}
-            onClick={() => setCreateOpen(true)}
-          >
-            <Plus className='size-3.5' />
-            {t('channels.new')}
-          </Button>
-        ) : null}
       </div>
       <MasterDetailShell
         className='md:grid-cols-[280px_1fr] @min-[1408px]/page:grid-cols-[300px_1fr]'
@@ -112,6 +101,15 @@ function ChannelsLayout() {
             isError={listQuery.isError}
             errorMessage={errorMessage(listQuery.error)}
             onRetry={() => void listQuery.refetch()}
+            footer={
+              <Button
+                className={cn(kit.btnPrimary, 'w-full')}
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus className='size-4' />
+                {t('channels.new')}
+              </Button>
+            }
           />
         }
         detail={

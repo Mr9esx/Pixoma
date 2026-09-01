@@ -1,6 +1,8 @@
 import { type RefObject } from 'react'
+import { TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { CaseRecord } from '@/lib/api/types'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MultiSelect } from '@/components/ui/multi-select'
@@ -62,13 +64,16 @@ export function BasicsSection({
           aria-describedby={nameError ? 'case-name-error' : undefined}
         />
         {nameError ? (
-          <p
+          <Alert
             id='case-name-error'
+            variant='destructive'
             role='alert'
-            className='text-sm text-destructive'
+            className='px-3 py-2'
+            data-testid='case-name-error'
           >
-            {nameError}
-          </p>
+            <TriangleAlert aria-hidden='true' />
+            <AlertTitle>{nameError}</AlertTitle>
+          </Alert>
         ) : null}
       </div>
 

@@ -24,6 +24,7 @@ export function AgentCredentials({ edge, onEdgeChange }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   const rotateMutation = useMutation({
+    meta: { handledError: true },
     mutationFn: () => rotateEdgeToken(edge.id),
     onSuccess: async (updated) => {
       setConfirmOpen(false)

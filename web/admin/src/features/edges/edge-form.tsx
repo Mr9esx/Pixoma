@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { ErrorBanner } from '@/components/feedback/error-banner'
 import { DEFAULT_TOPIC_KEY } from '@/features/task-flow/types'
 import { NodeTopicPicker } from './node-topic-picker'
 
@@ -98,7 +97,6 @@ export function EdgeForm(props: Props) {
         }
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.edges.all })
-      toast.success(t('edges.createSuccess'))
       props.onSaved(next)
     },
   })
@@ -150,11 +148,6 @@ export function EdgeForm(props: Props) {
     createMutation.isPending ||
     updateMutation.isPending ||
     refreshMutation.isPending
-  const mutationError =
-    createMutation.error ??
-    updateMutation.error ??
-    refreshMutation.error ??
-    undefined
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -213,9 +206,7 @@ export function EdgeForm(props: Props) {
       />
 
       <div className='flex flex-col gap-2'>
-        <Label htmlFor='edge-description'>
-          {t('edges.fieldDescription')}
-        </Label>
+        <Label htmlFor='edge-description'>{t('edges.fieldDescription')}</Label>
         <Textarea
           id='edge-description'
           value={description}
@@ -269,9 +260,7 @@ export function EdgeForm(props: Props) {
             />
           </div>
           <div className='flex flex-col gap-2'>
-            <Label htmlFor='edge-cpu-cores'>
-              {t('edges.fieldCpuCores')}
-            </Label>
+            <Label htmlFor='edge-cpu-cores'>{t('edges.fieldCpuCores')}</Label>
             <Input
               id='edge-cpu-cores'
               value={cpuCores}
@@ -281,9 +270,7 @@ export function EdgeForm(props: Props) {
             />
           </div>
           <div className='flex flex-col gap-2'>
-            <Label htmlFor='edge-ram-bytes'>
-              {t('edges.fieldRamBytes')}
-            </Label>
+            <Label htmlFor='edge-ram-bytes'>{t('edges.fieldRamBytes')}</Label>
             <Input
               id='edge-ram-bytes'
               value={ramBytes}
@@ -324,9 +311,7 @@ export function EdgeForm(props: Props) {
                   type='button'
                   variant='outline'
                   size='sm'
-                  onClick={() =>
-                    setGpus(gpus.filter((_, i) => i !== index))
-                  }
+                  onClick={() => setGpus(gpus.filter((_, i) => i !== index))}
                 >
                   {t('common.delete')}
                 </Button>
@@ -342,10 +327,6 @@ export function EdgeForm(props: Props) {
             </Button>
           </div>
         </>
-      ) : null}
-
-      {mutationError ? (
-        <ErrorBanner message={errorMessage(mutationError)} />
       ) : null}
     </form>
   )

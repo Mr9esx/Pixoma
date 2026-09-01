@@ -63,7 +63,7 @@ function DynamicIslandIllustration() {
       aria-hidden
       className="z-1 bg-black/2.5 mask-b-from-90% absolute inset-x-8 bottom-0 mx-auto mt-auto h-2/3 w-10/12 origin-bottom scale-95 rounded-t-[4rem] border border-black/5 px-4 pt-4"
     >
-      <div className="shadow-black/6.5 h-full overflow-hidden rounded-t-[3rem] bg-white p-3 shadow-xl ring ring-black/10">
+      <div className="h-full overflow-hidden rounded-t-[3rem] bg-white p-3 ring ring-black/10">
         <div className="relative">
           <Image
             src="https://images.unsplash.com/photo-1782366951390-d6798e902db7?q=80&w=1015&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
@@ -72,9 +72,9 @@ function DynamicIslandIllustration() {
             height={500}
             className="absolute inset-0 top-0 size-full object-cover opacity-45 blur-xl contrast-200"
           />
-          <div className="shadow-black/6.5 relative rounded-[2.25rem] bg-white p-2 shadow-xl ring ring-black/10">
+          <div className="relative rounded-[2.25rem] bg-white p-2 ring ring-black/10">
             <div className="flex gap-2">
-              <div className="size-18 relative overflow-hidden rounded-[1.75rem] shadow-md before:absolute before:inset-0 before:rounded-[1.75rem] before:border before:border-black/20">
+              <div className="size-18 relative overflow-hidden rounded-[1.75rem] before:absolute before:inset-0 before:rounded-[1.75rem] before:border before:border-black/20">
                 <Image
                   src="https://images.unsplash.com/photo-1782366951390-d6798e902db7?q=80&w=1015&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
                   alt="Théo Balick"

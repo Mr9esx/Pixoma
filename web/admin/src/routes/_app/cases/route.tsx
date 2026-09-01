@@ -13,6 +13,7 @@ import { listCases } from '@/lib/api/cases'
 import { getCaseMenuPlacements } from '@/lib/api/channel-menu'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
+import { cn } from '@/lib/utils'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,7 +41,6 @@ import {
   CaseListPanel,
   type CaseListFilters,
 } from '@/features/cases/list-panel'
-import { WorkflowImportRequirement } from '@/features/cases/workflow-import-requirement'
 import { kit } from '@/features/edges/kit-classes'
 import { caseReferences } from '@/features/link-health/lib/references'
 
@@ -131,9 +131,6 @@ function CasesLayout() {
     const n = Number(caseId)
     return Number.isNaN(n) ? undefined : n
   }, [caseId, backToList, items])
-  const isEmpty =
-    !listQuery.isLoading && !listQuery.isError && items.length === 0
-
   function requestLeave(target: 'back' | 'cancel') {
     if (dirty) {
       setLeaveTarget(target)
@@ -182,14 +179,6 @@ function CasesLayout() {
             </p>
           )}
         </div>
-        {caseId !== 'new' && !isEmpty ? (
-          <Button asChild className={kit.btnPrimary}>
-            <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
-              <Plus className='size-3.5' />
-              {t('cases.createHeading')}
-            </Link>
-          </Button>
-        ) : null}
       </div>
       {caseId === 'new' ? (
         <div
@@ -203,7 +192,6 @@ function CasesLayout() {
               splitPane
               hideActions
               stepRail
-              leftIntro={<WorkflowImportRequirement />}
               onPendingChange={setCreatePending}
               onDirtyChange={setDirty}
               formId='create-case-form'
@@ -280,6 +268,14 @@ function CasesLayout() {
               isError={listQuery.isError}
               errorMessage={errorMessage(listQuery.error)}
               onRetry={() => void listQuery.refetch()}
+              footer={
+                <Button asChild className={cn(kit.btnPrimary, 'w-full')}>
+                  <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
+                    <Plus className='size-4' />
+                    {t('cases.createHeading')}
+                  </Link>
+                </Button>
+              }
             />
           }
           detail={

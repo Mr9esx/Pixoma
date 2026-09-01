@@ -1355,7 +1355,47 @@ type EditableInputFieldsProps = {
   onReorder?: (next: InputFieldDraft[]) => void
   wide: boolean
   disabled?: boolean
+  lockReason?: string
   fieldErrors?: Record<number, boolean>
+}
+
+function AddFieldButton({
+  label,
+  disabled,
+  lockReason,
+  onClick,
+}: {
+  label: string
+  disabled?: boolean
+  lockReason?: string
+  onClick: () => void
+}) {
+  const button = (
+    <Button
+      type='button'
+      size='sm'
+      variant='secondary'
+      disabled={disabled || Boolean(lockReason)}
+      onClick={onClick}
+      className='gap-1.5'
+    >
+      <Plus className='size-3.5' />
+      {label}
+    </Button>
+  )
+
+  if (!lockReason) return button
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className='inline-flex'>{button}</span>
+      </TooltipTrigger>
+      <TooltipContent side='top' sideOffset={6}>
+        {lockReason}
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 /** 输入字段可编辑列表：宽屏表格 / 窄屏卡片 + 底部增行按钮。 */
@@ -1368,6 +1408,7 @@ export function EditableInputFields({
   onReorder,
   wide,
   disabled,
+  lockReason,
   fieldErrors,
 }: EditableInputFieldsProps) {
   const { t } = useTranslation()
@@ -1441,17 +1482,12 @@ export function EditableInputFields({
               ))}
             </ul>
           )}
-          <Button
-            type='button'
-            size='sm'
-            variant='secondary'
+          <AddFieldButton
+            label={t('cases.addInput')}
             disabled={disabled}
+            lockReason={lockReason}
             onClick={onAdd}
-            className='gap-1.5'
-          >
-            <Plus className='size-3.5' />
-            {t('cases.addInput')}
-          </Button>
+          />
         </div>
       </SortableContext>
     </DndContext>
@@ -1466,6 +1502,7 @@ type EditableOutputFieldsProps = {
   onAdd: () => void
   wide: boolean
   disabled?: boolean
+  lockReason?: string
 }
 
 /** 输出字段可编辑列表：宽屏表格 / 窄屏卡片 + 底部增行按钮。 */
@@ -1477,6 +1514,7 @@ export function EditableOutputFields({
   onAdd,
   wide,
   disabled,
+  lockReason,
 }: EditableOutputFieldsProps) {
   const { t } = useTranslation()
   return (
@@ -1503,17 +1541,12 @@ export function EditableOutputFields({
           ))}
         </ul>
       )}
-      <Button
-        type='button'
-        size='sm'
-        variant='secondary'
+      <AddFieldButton
+        label={t('cases.addOutput')}
         disabled={disabled}
+        lockReason={lockReason}
         onClick={onAdd}
-        className='gap-1.5'
-      >
-        <Plus className='size-3.5' />
-        {t('cases.addOutput')}
-      </Button>
+      />
     </div>
   )
 }

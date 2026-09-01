@@ -136,7 +136,6 @@ function SettingsEditor({
   const [allowSelfRegistration, setAllowSelfRegistration] = useState(
     Boolean(initial.allow_self_registration)
   )
-  const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [reloading, setReloading] = useState(false)
 
@@ -150,7 +149,6 @@ function SettingsEditor({
 
   async function savePlatform(overrides?: { allowSelfRegistration?: boolean }) {
     setPending(true)
-    setError(null)
     try {
       await savePlatformSettings({
         placement,
@@ -175,7 +173,7 @@ function SettingsEditor({
       await queryClient.invalidateQueries({ queryKey: queryKeys.settings.all })
       toast.success(t('common.successSaved'))
     } catch (err) {
-      setError(errorMessage(err) ?? t('common.errorGeneric'))
+      toast.error(errorMessage(err) ?? t('common.errorGeneric'))
     } finally {
       setPending(false)
       setReloading(false)
@@ -185,7 +183,7 @@ function SettingsEditor({
   if (reloading) {
     return (
       <p className='text-sm text-muted-foreground'>
-        {error ?? t('settings.reloadingWait')}
+        {t('settings.reloadingWait')}
       </p>
     )
   }
@@ -232,11 +230,6 @@ function SettingsEditor({
             desc={t('settings.storageDesc')}
             footer={
               <div className='flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end'>
-                {error ? (
-                  <p className='text-sm text-destructive sm:me-auto'>
-                    {error}
-                  </p>
-                ) : null}
                 <Button type='submit' disabled={pending}>
                   {pending ? t('common.loading') : t('common.save')}
                 </Button>
@@ -373,11 +366,6 @@ function SettingsEditor({
             desc={t('settings.networkDesc')}
             footer={
               <div className='flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end'>
-                {error ? (
-                  <p className='text-sm text-destructive sm:me-auto'>
-                    {error}
-                  </p>
-                ) : null}
                 <Button type='submit' disabled={pending}>
                   {pending ? t('common.loading') : t('common.save')}
                 </Button>
@@ -490,8 +478,6 @@ function ProfileEditor({
   const queryClient = useQueryClient()
   const [nickname, setNickname] = useState(profile.nickname ?? '')
   const [email, setEmail] = useState(profile.email ?? '')
-  const [error, setError] = useState<string | null>(null)
-
   const saveProfile = useMutation({
     mutationFn: () =>
       saveAdminProfile({
@@ -502,16 +488,14 @@ function ProfileEditor({
       void queryClient.invalidateQueries({ queryKey: ['current-user'] })
       toast.success(t('common.successSaved'))
     },
-    onError: (err) => setError(errorMessage(err) ?? t('common.errorGeneric')),
   })
 
   return (
-    <form
-      className='flex flex-col'
-      onSubmit={(e) => {
-        e.preventDefault()
-        setError(null)
-        saveProfile.mutate()
+      <form
+        className='flex flex-col'
+        onSubmit={(e) => {
+          e.preventDefault()
+          saveProfile.mutate()
       }}
     >
       <SettingsCard
@@ -519,9 +503,6 @@ function ProfileEditor({
         desc={t('settings.profileDesc')}
         footer={
           <div className='flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end'>
-            {error && !saveProfile.isPending ? (
-              <p className='text-sm text-destructive sm:me-auto'>{error}</p>
-            ) : null}
             <Button
               type='submit'
               disabled={saveProfile.isPending}
@@ -587,7 +568,7 @@ function PasswordForm() {
       setConfirmPassword('')
       toast.success(t('settings.passwordSuccess'))
     } catch (err) {
-      setError(errorMessage(err) ?? t('common.errorGeneric'))
+      toast.error(errorMessage(err) ?? t('common.errorGeneric'))
     } finally {
       setPending(false)
     }

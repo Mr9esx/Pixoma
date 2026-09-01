@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { listTopics } from '@/lib/api/topics'
 import { queryKeys } from '@/lib/api/query-keys'
+import { listTopics } from '@/lib/api/topics'
 import { cn } from '@/lib/utils'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -43,7 +44,9 @@ export function Step2Queue({ shared, next, back }: Props) {
     >
       <div className='space-y-3'>
         <div className='flex items-center justify-between gap-2'>
-          <h3 className='text-sm font-semibold'>{t('quickConfig.queueStep')}</h3>
+          <h3 className='text-sm font-semibold'>
+            {t('quickConfig.queueStep')}
+          </h3>
           <Button
             type='button'
             variant='outline'
@@ -54,6 +57,12 @@ export function Step2Queue({ shared, next, back }: Props) {
             {t('quickConfig.newTopic')}
           </Button>
         </div>
+        {!topicsQuery.isLoading && !shared.topicKey ? (
+          <Alert variant='warn' className='px-3 py-2'>
+            <TriangleAlert aria-hidden='true' />
+            <AlertTitle>{t('quickConfig.topicRequired')}</AlertTitle>
+          </Alert>
+        ) : null}
         {topicsQuery.isLoading ? (
           <LoadingSkeleton rows={2} />
         ) : (

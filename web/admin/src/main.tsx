@@ -38,8 +38,10 @@ const queryClient = new QueryClient({
       staleTime: 10 * 1000, // 10s
     },
     mutations: {
-      onError: (error) => {
-        handleServerError(error)
+      onError: (error, _variables, _context, context) => {
+        if (context?.meta?.handledError !== true) {
+          handleServerError(error)
+        }
 
         if (error instanceof AxiosError) {
           if (error.response?.status === 304) {

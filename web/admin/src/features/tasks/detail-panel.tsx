@@ -80,6 +80,7 @@ export function TaskDetailPanel({ id }: Props) {
   })
 
   const cancelMut = useMutation({
+    meta: { handledError: true },
     mutationFn: () => cancelTask(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all })

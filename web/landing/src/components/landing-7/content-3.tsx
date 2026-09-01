@@ -13,7 +13,7 @@ export default function ContentSection() {
         <div className="grid items-center gap-6 lg:grid-cols-3 lg:gap-20">
           <div className="mask-b-from-foreground relative max-lg:-mr-6 lg:col-span-2">
             <div className="relative overflow-hidden p-px max-sm:-mr-56">
-              <div className="bg-background ring-foreground/6.5 before:mask-radial-at-top-left before:mask-radial-from-65% before:mask-radial-[100%_60%] before:ring-foreground before:border-foreground/10 relative rounded-2xl p-2 shadow-xl shadow-black/50 ring before:absolute before:-inset-px before:z-10 before:size-56 before:rounded-tl-2xl before:border-l before:border-t">
+              <div className="bg-background ring-foreground/6.5 before:mask-radial-at-top-left before:mask-radial-from-65% before:mask-radial-[100%_60%] before:ring-foreground before:border-foreground/10 relative rounded-2xl p-2 ring before:absolute before:-inset-px before:z-10 before:size-56 before:rounded-tl-2xl before:border-l before:border-t">
                 <div className="bg-foreground/2 z-1 absolute inset-0 rounded-2xl" />
                 <Image
                   className="bg-background aspect-15/8 relative rounded-2xl"

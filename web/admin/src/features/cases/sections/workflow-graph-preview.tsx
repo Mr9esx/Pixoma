@@ -83,6 +83,7 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
   )
 
   const saveMutation = useMutation({
+    meta: { handledError: true },
     mutationFn: () => {
       const bindings = deriveBindings(inputDrafts, outputDrafts)
       const body: Partial<CaseRecord> = {

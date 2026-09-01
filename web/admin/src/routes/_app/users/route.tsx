@@ -39,6 +39,7 @@ function UsersLayout() {
   const items = listQuery.data ?? []
 
   const accessMutation = useMutation({
+    meta: { handledError: true },
     mutationFn: ({
       user,
       access,

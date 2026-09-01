@@ -345,13 +345,6 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         />
       ) : null}
 
-      {updateMutation.isError ? (
-        <ErrorBanner message={errorMessage(updateMutation.error)} />
-      ) : null}
-      {deleteMutation.isError ? (
-        <ErrorBanner message={errorMessage(deleteMutation.error)} />
-      ) : null}
-
       <section id='channel-menu-section' className='flex flex-col gap-4'>
         <SectionHead
           title={t('channels.tabMenu')}

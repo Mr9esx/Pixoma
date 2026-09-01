@@ -104,6 +104,7 @@ export function CaseDetailPanel({ id }: Props) {
   })
 
   const deleteMutation = useMutation({
+    meta: { handledError: true },
     mutationFn: async () => {
       if (!record) throw new Error('case missing')
       return deleteCase(record.id, ackRefs)

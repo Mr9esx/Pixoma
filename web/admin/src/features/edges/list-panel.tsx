@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import type { ComfyEdge, EdgePresence } from '@/lib/api/types'
@@ -19,6 +19,7 @@ type Props = {
   isError?: boolean
   errorMessage?: string
   onRetry?: () => void
+  footer?: ReactNode
 }
 
 export function EdgeListPanel({
@@ -29,6 +30,7 @@ export function EdgeListPanel({
   isError,
   errorMessage,
   onRetry,
+  footer,
 }: Props) {
   const { t } = useTranslation()
   const [q, setQ] = useState('')
@@ -127,6 +129,10 @@ export function EdgeListPanel({
             )
           })}
         </ul>
+      ) : null}
+
+      {items.length > 0 && footer ? (
+        <footer className='mt-auto border-t px-4 py-3'>{footer}</footer>
       ) : null}
     </div>
   )

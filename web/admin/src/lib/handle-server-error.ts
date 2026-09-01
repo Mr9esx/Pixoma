@@ -1,5 +1,6 @@
 import { AxiosError } from 'axios'
 import { toast } from 'sonner'
+import { ApiError } from './api/client'
 
 export function handleServerError(error: unknown) {
   if (import.meta.env.DEV) {
@@ -8,6 +9,10 @@ export function handleServerError(error: unknown) {
   }
 
   let errMsg = 'Something went wrong!'
+
+  if (error instanceof ApiError) {
+    errMsg = error.message
+  }
 
   if (
     error &&

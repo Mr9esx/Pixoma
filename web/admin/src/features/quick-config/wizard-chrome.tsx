@@ -8,6 +8,7 @@ type Props = {
   step: 1 | 2 | 3 | 4
   onBack?: () => void
   onNext?: () => void
+  nextForm?: string
   nextLabel?: string
   nextDisabled?: boolean
   backLabel?: string
@@ -19,6 +20,7 @@ export function WizardChrome({
   step,
   onBack,
   onNext,
+  nextForm,
   nextLabel,
   nextDisabled,
   backLabel,
@@ -85,17 +87,20 @@ export function WizardChrome({
 
       {hideFooter ? null : (
         <div className='flex shrink-0 items-center justify-between rounded-xl border border-border bg-background px-4 py-3'>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={onBack}
-            disabled={!onBack}
-          >
-            <ArrowLeft className='size-4' />
-            {backLabel ?? t('quickConfig.back')}
-          </Button>
-          {onNext ? (
-            <Button type='button' onClick={onNext} disabled={nextDisabled}>
+          {onBack ? (
+            <Button type='button' variant='outline' onClick={onBack}>
+              <ArrowLeft className='size-4' />
+              {backLabel ?? t('quickConfig.back')}
+            </Button>
+          ) : null}
+          {onNext || nextForm ? (
+            <Button
+              type={nextForm ? 'submit' : 'button'}
+              form={nextForm}
+              onClick={onNext}
+              disabled={nextDisabled}
+              className='ml-auto'
+            >
               {nextLabel ?? t('quickConfig.nextSave')}
               <ArrowRight className='size-4' />
             </Button>

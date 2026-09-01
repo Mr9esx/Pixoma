@@ -100,6 +100,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   })
 
   const deleteMutation = useMutation({
+    meta: { handledError: true },
     mutationFn: () => deleteTopic(topicKey, ackImpact),
     onSuccess: async (summary) => {
       invalidate()
@@ -349,13 +350,6 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           health={topicRefs.health}
           anchorTo='#link-health-section'
         />
-
-        {updateMutation.isError ? (
-          <ErrorBanner message={errorMessage(updateMutation.error)} />
-        ) : null}
-        {enableMutation.isError ? (
-          <ErrorBanner message={errorMessage(enableMutation.error)} />
-        ) : null}
 
         {isDefault ? (
           <Alert variant='default'>
