@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { listCases } from '@/lib/api/cases'
 import { listEdges } from '@/lib/api/edges'
-import { listFleetStats, listTaskDailyStats } from '@/lib/api/stats'
 import { queryKeys } from '@/lib/api/query-keys'
+import { listFleetStats, listTaskDailyStats } from '@/lib/api/stats'
+import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBanner } from '@/components/feedback/error-banner'
-import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { kit } from '@/features/edges/kit-classes'
 import { pickFleetStats } from './task-stats-parse'
 
@@ -42,69 +43,90 @@ export function WorkbenchOverviewCards() {
   const processed = daily.data?.summary.processed ?? 0
   const successRate = daily.data?.summary.success_rate
 
-  const isLoading =
-    edges.isLoading || fleet.isLoading || cases.isLoading || daily.isLoading
   const isError =
     edges.isError || fleet.isError || cases.isError || daily.isError
   const error = edges.error ?? fleet.error ?? cases.error ?? daily.error
 
   return (
     <div data-testid='workbench-overview-cards' className={kit.statsWrap}>
-      {isLoading ? (
-        <div className='p-4'>
-          <LoadingSkeleton rows={3} />
-        </div>
-      ) : isError ? (
-        <div className='p-4'>
-          <ErrorBanner message={errMessage(error)} onRetry={() => {
-            void edges.refetch()
-            void fleet.refetch()
-            void cases.refetch()
-            void daily.refetch()
-          }} />
-        </div>
-      ) : (
-        <div className='grid grid-cols-2 md:grid-cols-5'>
-          <div className={CELL} data-testid='workbench-node-overview'>
-            <p className={kit.statsLabel}>
-              {t('dashboard.workbench.nodeOverviewTitle')}
-            </p>
-            <p className={kit.statsValue}>{enabled} / {edgeList.length}</p>
-          </div>
-
-          <div className={CELL} data-testid='workbench-avg-load'>
-            <p className={kit.statsLabel}>
-              {t('dashboard.workbench.avgLoadTitle')}
-            </p>
+      <div className='grid grid-cols-2 md:grid-cols-5'>
+        <div className={CELL} data-testid='workbench-node-overview'>
+          <p className={kit.statsLabel}>
+            {t('dashboard.workbench.nodeOverviewTitle')}
+          </p>
+          {edges.isLoading ? (
+            <Skeleton className='mt-1 h-6 w-12' />
+          ) : (
             <p className={kit.statsValue}>
-              {fleetData?.avg_cpu_usage_percent.toFixed(0) ?? '—'}%
+              {enabled} / {edgeList.length}
             </p>
-          </div>
+          )}
+        </div>
 
-          <div className={CELL} data-testid='workbench-workflow-count'>
-            <p className={kit.statsLabel}>
-              {t('dashboard.workbench.workflowCountTitle')}
+        <div className={CELL} data-testid='workbench-avg-load'>
+          <p className={kit.statsLabel}>
+            {t('dashboard.workbench.avgLoadTitle')}
+          </p>
+          {fleet.isLoading ? (
+            <Skeleton className='mt-1 h-6 w-12' />
+          ) : (
+            <p className={kit.statsValue}>
+              {fleetData?.avg_cpu_usage_percent == null
+                ? '—'
+                : `${fleetData.avg_cpu_usage_percent.toFixed(0)}%`}
             </p>
+          )}
+        </div>
+
+        <div className={CELL} data-testid='workbench-workflow-count'>
+          <p className={kit.statsLabel}>
+            {t('dashboard.workbench.workflowCountTitle')}
+          </p>
+          {cases.isLoading ? (
+            <Skeleton className='mt-1 h-6 w-12' />
+          ) : (
             <p className={kit.statsValue}>{workflowCount}</p>
-          </div>
+          )}
+        </div>
 
-          <div className={CELL} data-testid='workbench-task-total'>
-            <p className={kit.statsLabel}>
-              {t('dashboard.workbench.taskTotalTitle')}
-            </p>
+        <div className={CELL} data-testid='workbench-task-total'>
+          <p className={kit.statsLabel}>
+            {t('dashboard.workbench.taskTotalTitle')}
+          </p>
+          {daily.isLoading ? (
+            <Skeleton className='mt-1 h-6 w-12' />
+          ) : (
             <p className={kit.statsValue}>{processed}</p>
-          </div>
+          )}
+        </div>
 
-          <div className={CELL} data-testid='workbench-success-rate'>
-            <p className={kit.statsLabel}>
-              {t('dashboard.workbench.successRateTitle')}
-            </p>
+        <div className={CELL} data-testid='workbench-success-rate'>
+          <p className={kit.statsLabel}>
+            {t('dashboard.workbench.successRateTitle')}
+          </p>
+          {daily.isLoading ? (
+            <Skeleton className='mt-1 h-6 w-12' />
+          ) : (
             <p className={kit.statsValue}>
               {successRate == null ? '—' : `${(successRate * 100).toFixed(0)}%`}
             </p>
-          </div>
+          )}
         </div>
-      )}
+
+        {isError ? (
+          <div className={cn(CELL, 'md:col-span-5')}>
+            <ErrorBanner
+              message={errMessage(error)}
+              onRetry={() => {
+                void edges.refetch()
+                void fleet.refetch()
+                void cases.refetch()
+                void daily.refetch()
+              }}
+            />
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

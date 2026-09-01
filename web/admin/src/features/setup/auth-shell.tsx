@@ -1,24 +1,27 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Logo } from '@/assets/logo'
+import { useTheme } from '@/context/theme-provider'
 import Dither from '@/components/Dither'
 import FaultyTerminal from '@/components/FaultyTerminal'
+import { DotPatternBackground } from '@/components/feedback/dot-pattern-background'
 
 export type AuthAmbient = 'terminal' | 'dither'
 
 type AuthShellProps = {
   children: React.ReactNode
   ambient?: AuthAmbient
+  logoVariant?: 'classic' | 'brand'
 }
 
-const DOT_PATTERN = {
+const DOT_PATTERN_GRADIENT = {
   backgroundImage:
     'radial-gradient(circle, color-mix(in oklch, var(--muted-foreground) 25%, transparent) 1px, transparent 1px)',
   backgroundSize: '16px 16px',
 }
 
 const DOT_MASK_GRADIENT = {
-  ...DOT_PATTERN,
+  ...DOT_PATTERN_GRADIENT,
   backgroundImage:
     'radial-gradient(circle, color-mix(in oklch, var(--foreground) 100%, transparent) 1px, transparent 1px)',
   maskImage:
@@ -29,9 +32,18 @@ const DOT_MASK_GRADIENT = {
 
 const TERMINAL_GRID_MUL: [number, number] = [2, 1]
 
-export function AuthShell({ children, ambient = 'terminal' }: AuthShellProps) {
+export function AuthShell({
+  children,
+  ambient = 'terminal',
+  logoVariant = 'classic',
+}: AuthShellProps) {
   const { t } = useTranslation()
+  const { theme } = useTheme()
   const spotRef = useRef<HTMLDivElement>(null)
+  const brandMobileLogoSrc =
+    theme === 'dark'
+      ? '/images/login-logo-dark.svg'
+      : '/images/login-logo-light.svg'
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -49,11 +61,7 @@ export function AuthShell({ children, ambient = 'terminal' }: AuthShellProps) {
       className='relative container grid h-svh flex-col items-center justify-center bg-background lg:max-w-none lg:grid-cols-2 lg:px-0'
       onMouseMove={handleMouseMove}
     >
-      <div
-        aria-hidden
-        className='pointer-events-none absolute inset-0'
-        style={DOT_PATTERN}
-      />
+      <DotPatternBackground />
       <div
         aria-hidden
         ref={spotRef}
@@ -103,10 +111,20 @@ export function AuthShell({ children, ambient = 'terminal' }: AuthShellProps) {
             />
           )}
           <div className='relative z-20 flex min-h-0 flex-1 flex-col p-10 text-white'>
-            <div className='relative z-20 flex items-center gap-2 text-lg font-medium'>
-              <Logo className='me-1 size-6 rounded-full bg-white object-contain' />
-              Pixoma
-            </div>
+            {logoVariant === 'brand' ? (
+              <div className='relative z-20 flex items-center'>
+                <img
+                  alt='Pixoma'
+                  className='h-7 w-auto'
+                  src='/images/login-logo-dark.svg'
+                />
+              </div>
+            ) : (
+              <div className='relative z-20 flex items-center gap-2 text-lg font-medium'>
+                <Logo className='me-1 size-6 rounded-full bg-white object-contain' />
+                Pixoma
+              </div>
+            )}
             <blockquote className='relative z-20 mt-auto flex flex-col gap-2'>
               <p className='text-lg'>{t('auth.quote')}</p>
             </blockquote>
@@ -115,10 +133,20 @@ export function AuthShell({ children, ambient = 'terminal' }: AuthShellProps) {
       </div>
       <div className='relative h-full overflow-y-auto lg:p-8'>
         <div className='relative mx-auto flex min-h-full w-full flex-col items-center justify-center gap-4 p-6'>
-          <div className='flex items-center justify-center lg:hidden'>
-            <Logo className='me-2 rounded-md' />
-            <h1 className='text-xl font-medium'>Pixoma</h1>
-          </div>
+          {logoVariant === 'brand' ? (
+            <div className='flex items-center justify-center lg:hidden'>
+              <img
+                alt='Pixoma'
+                className='h-6 w-auto'
+                src={brandMobileLogoSrc}
+              />
+            </div>
+          ) : (
+            <div className='flex items-center justify-center lg:hidden'>
+              <Logo className='me-2 rounded-md' />
+              <h1 className='text-xl font-medium'>Pixoma</h1>
+            </div>
+          )}
           {children}
         </div>
       </div>

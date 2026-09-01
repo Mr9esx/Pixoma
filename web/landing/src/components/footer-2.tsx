@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogoIcon } from "@/components/logo";
+import { Logo } from "@/components/logo";
 import { Gemini } from "@/components/ui/svgs/gemini";
 import { ClaudeAI } from "@/components/ui/svgs/claude-ai";
 import { Openai } from "@/components/ui/svgs/openai";
@@ -43,7 +43,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 gap-x-3 gap-y-12 sm:grid-cols-4 lg:grid-cols-6">
           <div className="col-span-full lg:col-span-3">
             <Link href="/" aria-label="go home">
-              <LogoIcon uniColor />
+              <Logo uniColor />
             </Link>
           </div>
 

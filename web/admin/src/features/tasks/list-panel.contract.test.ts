@@ -21,9 +21,19 @@ describe('task list panel', () => {
   it('shows platform and related user/session context', () => {
     const source = read('list-panel.tsx')
     expect(source).toMatch(/fieldPlatform/)
-    expect(source).toMatch(/channel_name \|\|/)
+    expect(source).toMatch(/accessor\('channel_name'/)
+    expect(source).toMatch(/formatUserLabel/)
+    expect(source).toMatch(/columnPinning: \{ right: \['actions'\] \}/)
+    expect(source).toMatch(/t\('common\.actions'\)/)
+    expect(source).toMatch(/formatDateTime/)
     expect(source).toMatch(/to='\/users\/\$userId'/)
     expect(source).toMatch(/to='\/sessions\/\$sessionId'/)
     expect(read('detail-panel.tsx')).toMatch(/fieldPlatform/)
+  })
+
+  it('limits cancel actions to pending and queued tasks', () => {
+    const source = read('detail-panel.tsx')
+    expect(source).toMatch(/cancellableStatuses/)
+    expect(source).toMatch(/queued/)
   })
 })

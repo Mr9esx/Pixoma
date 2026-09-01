@@ -1,6 +1,6 @@
 {
   "menu": {
-    "dashboard": "仪表盘",
+    "dashboard": "工作台",
     "quickConfig": "快速新建",
     "visualConfig": "可视化配置",
     "edges": "计算节点",
@@ -117,6 +117,7 @@
     "save": "保存",
     "create": "新建",
     "detail": "详情",
+    "actions": "操作",
     "cancel": "取消",
     "delete": "删除",
     "retry": "重试",
@@ -164,7 +165,7 @@
     "switch": "切换语言"
   },
   "dashboard": {
-    "title": "仪表盘",
+    "title": "工作台",
     "edgesTitle": "计算节点",
     "edgesSummary": "共 {{total}} 台，启用 {{enabled}}",
     "edgeEnabledRatio": "启用占比",
@@ -631,6 +632,7 @@
     "fieldId": "ID",
     "fieldStatus": "状态",
     "fieldUserId": "User ID",
+    "fieldUser": "关联用户",
     "fieldPlatform": "消息平台",
     "fieldChatId": "Chat ID",
     "fieldCaseId": "工作流 ID",

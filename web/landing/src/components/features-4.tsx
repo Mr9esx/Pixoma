@@ -1,16 +1,23 @@
 import { Card } from "@/components/ui/card";
 import Image from "next/image";
+import {
+  Reveal,
+  StaggerGroup,
+  StaggerItem,
+} from "@/components/motion-primitives";
 
 export default function Features() {
   return (
     <section className="py-16 md:py-20">
       <div className="mx-auto max-w-7xl px-6">
-        <h2 className="text-muted-foreground max-w-4xl text-balance text-4xl font-medium tracking-tight">
-          <span className="text-foreground">Handoffs without reset.</span>{" "}
-          <br /> Trust and context carry forward.
-        </h2>
-        <div className="mt-8 grid gap-6 md:mt-16 md:grid-cols-2 md:gap-3 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <Reveal>
+          <h2 className="text-muted-foreground max-w-4xl text-balance text-4xl font-medium tracking-tight">
+            <span className="text-foreground">Handoffs without reset.</span>{" "}
+            <br /> Trust and context carry forward.
+          </h2>
+        </Reveal>
+        <StaggerGroup className="mt-8 grid gap-6 md:mt-16 md:grid-cols-2 md:gap-3 lg:grid-cols-3">
+          <StaggerItem className="lg:col-span-2">
             <Card className="aspect-3/2 after:border-foreground/5 relative overflow-hidden ring-0 after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:border">
               <div className="relative z-10 max-w-md p-8">
                 <p className="text-foreground/75 text-balance text-lg">
@@ -29,20 +36,22 @@ export default function Features() {
                 className="absolute inset-0 size-full object-cover object-[50%_85%] opacity-50"
               />
             </Card>
-          </div>
+          </StaggerItem>
 
-          <Card className="relative h-full min-h-96 overflow-hidden bg-zinc-100">
-            <div className="relative z-10 max-w-sm p-8">
-              <p className="text-balance text-lg text-zinc-950/75 selection:bg-zinc-950 selection:text-white">
-                <span className="font-medium text-zinc-950">
-                  Proactive alerts.{" "}
-                </span>{" "}
-                Surface renewals and quiet accounts before they slip.
-              </p>
-            </div>
-            <DynamicIslandIllustration />
-          </Card>
-        </div>
+          <StaggerItem className="h-full">
+            <Card className="relative h-full min-h-96 overflow-hidden bg-zinc-100">
+              <div className="relative z-10 max-w-sm p-8">
+                <p className="text-balance text-lg text-zinc-950/75 selection:bg-zinc-950 selection:text-white">
+                  <span className="font-medium text-zinc-950">
+                    Proactive alerts.{" "}
+                  </span>{" "}
+                  Surface renewals and quiet accounts before they slip.
+                </p>
+              </div>
+              <DynamicIslandIllustration />
+            </Card>
+          </StaggerItem>
+        </StaggerGroup>
       </div>
     </section>
   );

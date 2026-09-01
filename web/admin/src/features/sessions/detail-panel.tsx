@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { queryKeys } from '@/lib/api/query-keys'
+import { getSession } from '@/lib/api/sessions'
+import type { SessionRecord } from '@/lib/api/types'
+import { formatDateTime, formatUserLabel } from '@/lib/format'
+import { Reveal } from '@/components/ui/reveal'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { Reveal } from '@/components/ui/reveal'
-import { getSession } from '@/lib/api/sessions'
-import { queryKeys } from '@/lib/api/query-keys'
-import type { SessionRecord } from '@/lib/api/types'
 import { sessionStatusLabelKey } from './list-panel'
 
 type Props = {
@@ -20,7 +21,7 @@ function errorMessage(err: unknown): string | undefined {
 function Field({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className='grid gap-1 sm:grid-cols-[10rem_1fr] sm:items-start'>
-      <dt className='text-muted-foreground text-xs font-medium'>{label}</dt>
+      <dt className='text-xs font-medium text-muted-foreground'>{label}</dt>
       <dd className='text-sm break-all'>{value || '—'}</dd>
     </div>
   )
@@ -28,7 +29,7 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className='bg-muted max-h-96 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap break-all'>
+    <pre className='max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs break-all whitespace-pre-wrap'>
       {JSON.stringify(value, null, 2)}
     </pre>
   )
@@ -49,12 +50,15 @@ function SessionFields({
         label={t('sessions.fieldStatus')}
         value={statusKey ? t(statusKey) : session.status}
       />
-      <Field label={t('sessions.fieldUserId')} value={session.user_id} />
       <Field
-        label={t('sessions.fieldPlatform')}
-        value={session.channel_name || session.channel_id}
+        label={t('sessions.fieldUser')}
+        value={formatUserLabel(session.user, session.user_id)}
       />
-      <Field label={t('sessions.fieldChatId')} value={String(session.chat_id)} />
+      <Field label={t('sessions.fieldPlatform')} value={session.channel_name} />
+      <Field
+        label={t('sessions.fieldChatId')}
+        value={String(session.chat_id)}
+      />
       <Field label={t('sessions.fieldCaseId')} value={session.case_id} />
       <Field
         label={t('sessions.fieldCurrentInputIndex')}
@@ -68,10 +72,16 @@ function SessionFields({
             : undefined
         }
       />
-      <Field label={t('sessions.fieldCreatedAt')} value={session.created_at} />
-      <Field label={t('sessions.fieldUpdatedAt')} value={session.updated_at} />
+      <Field
+        label={t('sessions.fieldCreatedAt')}
+        value={formatDateTime(session.created_at)}
+      />
+      <Field
+        label={t('sessions.fieldUpdatedAt')}
+        value={formatDateTime(session.updated_at)}
+      />
       <div className='space-y-2'>
-        <dt className='text-muted-foreground text-xs font-medium'>
+        <dt className='text-xs font-medium text-muted-foreground'>
           {t('sessions.fieldDraft')}
         </dt>
         <dd>
@@ -116,7 +126,7 @@ export function SessionDetailPanel({ id }: Props) {
     <Reveal className='space-y-4' data-testid='session-detail-panel'>
       <div>
         <h2 className='text-lg font-semibold'>{session.id}</h2>
-        <p className='text-muted-foreground text-sm'>
+        <p className='text-sm text-muted-foreground'>
           {t('sessions.detailHeading')}
         </p>
       </div>

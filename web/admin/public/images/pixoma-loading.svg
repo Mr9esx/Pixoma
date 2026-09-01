@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Pixoma Loading">
+  <style>
+    #pixoma-loader {
+      transform-box: view-box;
+      transform-origin: 50% 86%;
+      animation: pixoma-hop 1s steps(1, end) infinite;
+    }
+    @keyframes pixoma-hop {
+      0%, 100% { transform: translateY(4px) scale(1, 1); }
+      12% { transform: translateY(9px) scale(1.06, .94); }
+      28% { transform: translateY(-9px) scale(.96, 1.04); }
+      45% { transform: translateY(-14px) scale(1, 1); }
+      62% { transform: translateY(-6px) scale(.98, 1.02); }
+      82% { transform: translateY(9px) scale(1.07, .93); }
+      92% { transform: translateY(6px) scale(1.02, .98); }
+    }
+  </style>
+  <g id="pixoma-loader">
+    <g transform="translate(19.2 19.2) scale(1.7)" shape-rendering="crispEdges">
+      <path fill="#1d1d1d" d="M54 8h34v1h-34zM54 9h35v1h-35zM53 10h36v5h-36zM46 15h50v1h-50zM44 16h54v7h-54zM38 23h19v1h-19zM85 23h20v1h-20zM86 24h19v1h-19zM37 24h19v6h-19zM86 25h20v5h-20zM37 30h14v1h-14zM52 30h1v1h-1zM87 30h1v1h-1zM90 30h1v1h-1zM92 30h14v1h-14zM37 31h13v1h-13zM93 31h13v6h-13zM37 32h12v5h-12zM32 37h17v1h-17zM93 37h17v1h-17zM98 38h14v1h-14zM57 43h5v1h-5zM83 43h4v1h-4zM82 44h6v1h-6zM56 44h7v2h-7zM81 45h7v1h-7zM56 46h8v1h-8zM81 46h8v2h-8zM80 48h9v5h-9zM55 47h9v7h-9zM81 53h8v2h-8zM56 54h7v2h-7zM81 55h7v1h-7zM57 56h5v1h-5zM82 56h6v1h-6zM58 57h3v1h-3zM83 57h4v1h-4zM75 59h3v1h-3zM66 59h3v2h-3zM75 60h4v1h-4zM66 61h5v1h-5zM73 61h5v1h-5zM66 62h12v1h-12zM67 63h10v1h-10zM99 39h13v26h-13zM68 64h8v1h-8zM30 38h14v28h-14zM98 65h14v1h-14zM30 66h19v1h-19zM93 66h19v7h-19zM30 67h20v6h-20zM30 73h21v1h-21zM92 73h20v1h-20zM30 74h82v3h-82zM31 77h80v1h-80zM16 86h9v5h-9zM36 78h70v14h-70zM16 91h10v1h-10zM16 92h90v6h-90zM16 98h89v1h-89zM17 99h87v1h-87zM23 100h76v5h-76zM24 105h74v1h-74zM24 106h73v1h-73zM36 107h54v6h-54zM37 113h52v1h-52zM47 114h33v5h-33zM48 119h31v1h-31z"/>
+      <path fill="#f8f8f8" d="M57 23h28v1h-28zM56 24h30v6h-30zM51 30h1v1h-1zM53 30h34v1h-34zM88 30h2v1h-2zM91 30h1v1h-1zM50 31h43v1h-43zM49 32h44v6h-44zM44 38h54v1h-54zM44 39h55v4h-55zM44 43h13v1h-13zM62 43h21v1h-21zM87 43h12v1h-12zM63 44h19v1h-19zM88 44h11v2h-11zM63 45h18v1h-18zM44 44h12v3h-12zM64 46h17v2h-17zM64 48h16v5h-16zM44 47h11v7h-11zM64 53h17v1h-17zM89 46h10v9h-10zM44 54h12v2h-12zM63 54h18v2h-18zM88 55h11v2h-11zM44 56h13v1h-13zM62 56h20v1h-20zM44 57h14v1h-14zM61 57h22v1h-22zM87 57h12v1h-12zM44 58h55v1h-55zM78 59h21v1h-21zM69 59h6v2h-6zM79 60h20v1h-20zM71 61h2v1h-2zM44 59h22v4h-22zM78 61h21v2h-21zM44 63h23v1h-23zM77 63h22v1h-22zM44 64h24v1h-24zM76 64h23v1h-23zM44 65h54v1h-54zM49 66h44v1h-44zM50 67h43v6h-43zM51 73h41v1h-41z"/>
+    </g>
+  </g>
+</svg>

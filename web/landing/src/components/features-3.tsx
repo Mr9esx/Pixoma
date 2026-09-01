@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Reveal } from "@/components/motion-primitives";
 import {
   ArrowUp,
   ChevronDown,
@@ -15,11 +16,15 @@ export default function Features() {
   return (
     <section className="py-16 md:py-20">
       <div className="mx-auto max-w-7xl px-6">
-        <h2 className="text-muted-foreground max-w-4xl text-balance text-4xl font-medium tracking-tight">
-          <span className="text-foreground">Context before every reply.</span>{" "}
-          <br /> Grounded in real account history.
-        </h2>
-        <div className="**:data-[slot=card]:bg-background mt-8 grid gap-x-3 gap-y-6 md:mt-16 md:grid-cols-2 lg:grid-cols-3">
+        <Reveal>
+          <h2 className="text-muted-foreground max-w-4xl text-balance text-4xl font-medium tracking-tight">
+            <span className="text-foreground">
+              文生图、文生视频、图生图、图生视频、TTS、STT...
+            </span>{" "}
+            <br /> 以及更多能力可扩展。
+          </h2>
+        </Reveal>
+        <Reveal className="**:data-[slot=card]:bg-background mt-8 grid gap-x-3 gap-y-6 md:mt-16 md:grid-cols-2 lg:grid-cols-3">
           <div className="row-span-2 grid grid-cols-subgrid gap-4">
             <Card className="aspect-9/12 relative overflow-hidden">
               <AIInputIllustration />
@@ -33,8 +38,9 @@ export default function Features() {
             </Card>
 
             <p className="text-muted-foreground text-balance">
-              <span className="text-foreground">Seamless handoffs. </span>{" "}
-              Ownership changes without resetting the relationship.
+              <span className="text-foreground">化繁为简</span>
+              <br />
+              不再关心节点和参数，把灵感交给 Pixoma。
             </p>
           </div>
 
@@ -44,8 +50,9 @@ export default function Features() {
             </Card>
 
             <p className="text-muted-foreground text-balance">
-              <span className="text-foreground">Proactive alerts. </span>{" "}
-              Surface renewals and quiet accounts before they slip.
+              <span className="text-foreground">创意不设限</span>
+              <br />
+              随时随地在 Telegram 上继续你的灵感实现。
             </p>
           </div>
 
@@ -65,11 +72,12 @@ export default function Features() {
             </Card>
 
             <p className="text-muted-foreground text-balance">
-              <span className="text-foreground">Shared timeline. </span> Sales,
-              success, and support work from one account view.
+              <span className="text-foreground">部署简单</span>
+              <br />
+              支持本地运行，依赖最小化。也支持云端多节点部署。
             </p>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );

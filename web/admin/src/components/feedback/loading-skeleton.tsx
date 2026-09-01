@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type Props = {
   rows?: number
@@ -15,8 +15,8 @@ export function LoadingSkeleton({ rows = 4, className }: Props) {
       role='status'
       aria-label={t('common.loading')}
     >
-      {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className='h-4 w-full animate-pulse' />
+      {Array.from({ length: rows }, (_, index) => (
+        <Skeleton key={index} className='h-4 w-full' />
       ))}
     </div>
   )

@@ -5,6 +5,11 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import Link from "next/link";
+import {
+  Reveal,
+  StaggerGroup,
+  StaggerItem,
+} from "@/components/motion-primitives";
 
 export default function FAQs() {
   const faqItems = [
@@ -43,30 +48,33 @@ export default function FAQs() {
   return (
     <section className="py-16 md:py-24">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="grid gap-12 md:grid-cols-2 md:gap-6">
+        <Reveal className="grid gap-12 md:grid-cols-2 md:gap-6">
           <h2 className="text-foreground max-w-sm text-balance text-4xl font-medium tracking-tight">
-            Frequently Asked Questions
+            常见问题
           </h2>
 
           <div>
-            <Accordion className="w-full">
-              {faqItems.map((item) => (
-                <AccordionItem
-                  key={item.id}
-                  value={item.id}
-                  className="border-dashed"
-                >
-                  <AccordionTrigger className="cursor-pointer text-base hover:no-underline">
-                    {item.question}
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <p className="text-muted-foreground text-base">
-                      {item.answer}
-                    </p>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+            <StaggerGroup viewportMargin="0px 0px -25% 0px">
+              <Accordion className="w-full">
+                {faqItems.map((item) => (
+                  <StaggerItem
+                    key={item.id}
+                    className="border-b border-dashed last:border-b-0"
+                  >
+                    <AccordionItem value={item.id}>
+                      <AccordionTrigger className="cursor-pointer text-base hover:no-underline">
+                        {item.question}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <p className="text-muted-foreground text-base">
+                          {item.answer}
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </StaggerItem>
+                ))}
+              </Accordion>
+            </StaggerGroup>
 
             <p className="text-muted-foreground mt-6">
               Can't find what you're looking for? Contact our{" "}
@@ -78,7 +86,7 @@ export default function FAQs() {
               </Link>
             </p>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );

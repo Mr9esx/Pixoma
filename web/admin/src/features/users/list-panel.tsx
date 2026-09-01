@@ -9,9 +9,10 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Check, Eye, MoreHorizontal } from 'lucide-react'
+import { Check, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { UserRecord } from '@/lib/api/types'
+import { formatDateTime, formatUserLabel } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -79,7 +80,7 @@ export function UserListPanel({
         ),
         enableHiding: false,
       }),
-      columnHelper.accessor((row) => row.channel_name || row.channel_id, {
+      columnHelper.accessor('channel_name', {
         id: 'channel_id',
         meta: { label: t('users.fieldPlatform') },
         header: ({ column }) => (
@@ -101,13 +102,11 @@ export function UserListPanel({
         ),
         cell: ({ row }) => {
           const user = row.original
-          const displayName =
-            user.username ||
-            [user.first_name, user.last_name].filter(Boolean).join(' ')
+          const displayName = formatUserLabel(user)
           return (
             <div className='min-w-32'>
               <p className='truncate text-sm'>{displayName || '—'}</p>
-              <p className='font-mono text-xs tabular-nums text-muted-foreground'>
+              <p className='font-mono text-xs text-muted-foreground tabular-nums'>
                 {user.external_user_id || '—'}
               </p>
             </div>
@@ -125,7 +124,7 @@ export function UserListPanel({
         ),
         cell: ({ getValue }) => (
           <span className='whitespace-nowrap text-muted-foreground'>
-            {getValue()}
+            {formatDateTime(getValue())}
           </span>
         ),
       }),
@@ -140,7 +139,7 @@ export function UserListPanel({
         ),
         cell: ({ getValue }) => (
           <span className='whitespace-nowrap text-muted-foreground'>
-            {getValue() || '—'}
+            {formatDateTime(getValue())}
           </span>
         ),
       }),
@@ -172,7 +171,7 @@ export function UserListPanel({
       }),
       columnHelper.display({
         id: 'actions',
-        header: () => <span className='sr-only'>{t('common.actions')}</span>,
+        header: () => <span>{t('common.actions')}</span>,
         cell: ({ row }) => (
           <div className='flex items-center justify-end gap-1'>
             <Button
@@ -188,13 +187,12 @@ export function UserListPanel({
               <DropdownMenuTrigger asChild>
                 <Button
                   type='button'
-                  variant='ghost'
+                  variant='outline'
                   size='sm'
-                  className='size-8 p-0'
                   disabled={setAccessPendingId === row.original.id}
                   aria-label={`${row.original.username || row.original.id} ${t('users.access')}`}
                 >
-                  <MoreHorizontal className='size-4' />
+                  {t('users.fieldAccess')}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align='end'>
@@ -257,7 +255,11 @@ export function UserListPanel({
         username,
         row.original.first_name,
         row.original.last_name,
-      ].some((value) => String(value ?? '').toLowerCase().includes(q))
+      ].some((value) =>
+        String(value ?? '')
+          .toLowerCase()
+          .includes(q)
+      )
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -265,7 +267,10 @@ export function UserListPanel({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageIndex: 0, pageSize: 10 } },
+    initialState: {
+      pagination: { pageIndex: 0, pageSize: 10 },
+      columnPinning: { right: ['actions'] },
+    },
   })
 
   return (

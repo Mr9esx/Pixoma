@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { UserRecord } from '@/lib/api/types'
 import { getUser } from '@/lib/api/users'
+import { formatDateTime } from '@/lib/format'
 import { Reveal } from '@/components/ui/reveal'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
@@ -42,10 +43,7 @@ function UserFields({
   return (
     <dl className='space-y-3'>
       <Field label={t('users.fieldId')} value={user.id} />
-      <Field
-        label={t('users.fieldPlatform')}
-        value={user.channel_name || user.channel_id}
-      />
+      <Field label={t('users.fieldPlatform')} value={user.channel_name} />
       <Field
         label={t('users.fieldExternalUserId')}
         value={user.external_user_id}
@@ -55,9 +53,18 @@ function UserFields({
       <Field label={t('users.fieldLastName')} value={user.last_name} />
       <Field label={t('users.fieldLanguageCode')} value={user.language_code} />
       <Field label={t('users.fieldAccess')} value={accessLabel} />
-      <Field label={t('users.fieldLastSeenAt')} value={user.last_seen_at} />
-      <Field label={t('users.fieldCreatedAt')} value={user.created_at} />
-      <Field label={t('users.fieldUpdatedAt')} value={user.updated_at} />
+      <Field
+        label={t('users.fieldLastSeenAt')}
+        value={formatDateTime(user.last_seen_at)}
+      />
+      <Field
+        label={t('users.fieldCreatedAt')}
+        value={formatDateTime(user.created_at)}
+      />
+      <Field
+        label={t('users.fieldUpdatedAt')}
+        value={formatDateTime(user.updated_at)}
+      />
     </dl>
   )
 }

@@ -18,6 +18,7 @@ import (
 type Handler struct {
 	Repo     domain.Repository
 	Channels ChannelNamesReader
+	Context  domain.SessionAdminReader
 }
 
 type ChannelNamesReader interface {
@@ -42,6 +43,7 @@ type draftDTO struct {
 type sessionDTO struct {
 	ID                string              `json:"id"`
 	UserID            string              `json:"user_id"`
+	User              *sessionUserDTO     `json:"user,omitempty"`
 	ChannelID         string              `json:"channel_id"`
 	ChannelName       string              `json:"channel_name,omitempty"`
 	ChatID            string              `json:"chat_id"`
@@ -52,6 +54,15 @@ type sessionDTO struct {
 	Draft             map[string]draftDTO `json:"draft"`
 	CreatedAt         time.Time           `json:"created_at"`
 	UpdatedAt         time.Time           `json:"updated_at"`
+}
+
+type sessionUserDTO struct {
+	ID             string `json:"id"`
+	ChannelID      string `json:"channel_id"`
+	ExternalUserID string `json:"external_user_id"`
+	Username       string `json:"username"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
 }
 
 func (h *Handler) toDTO(ctx context.Context, s *domain.Session) (sessionDTO, error) {
@@ -100,6 +111,27 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if h.Context != nil {
+		contexts, err := h.Context.List(r.Context(), q)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		out := make([]sessionDTO, 0, len(contexts))
+		for _, context := range contexts {
+			if context == nil || context.Session == nil {
+				continue
+			}
+			dto, err := h.toContextDTO(r.Context(), context)
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			out = append(out, dto)
+		}
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
 	list, err := h.Repo.List(r.Context(), q)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
@@ -122,6 +154,28 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	id := sharedkernel.SessionID(chi.URLParam(r, "id"))
+	if h.Context != nil {
+		context, err := h.Context.Get(r.Context(), id)
+		if errors.Is(err, domain.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "session not found")
+			return
+		}
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if context == nil || context.Session == nil {
+			writeErr(w, http.StatusNotFound, "session not found")
+			return
+		}
+		dto, err := h.toContextDTO(r.Context(), context)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+		return
+	}
 	s, err := h.Repo.GetByID(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "session not found")
@@ -137,6 +191,25 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, dto)
+}
+
+func (h *Handler) toContextDTO(ctx context.Context, context *domain.SessionAdminContext) (sessionDTO, error) {
+	dto, err := h.toDTO(ctx, context.Session)
+	if err != nil {
+		return sessionDTO{}, err
+	}
+	dto.ChannelName = context.ChannelName
+	if context.User != nil {
+		dto.User = &sessionUserDTO{
+			ID:             context.User.ID,
+			ChannelID:      context.User.ChannelID,
+			ExternalUserID: context.User.ExternalUserID,
+			Username:       context.User.Username,
+			FirstName:      context.User.FirstName,
+			LastName:       context.User.LastName,
+		}
+	}
+	return dto, nil
 }
 
 func parseListQuery(r *http.Request) (domain.ListQuery, error) {

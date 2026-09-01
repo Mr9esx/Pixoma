@@ -1,6 +1,7 @@
 import { Menu, X } from 'lucide-react'
 import { Logo } from '@/assets/logo'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/context/theme-provider'
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -11,6 +12,7 @@ import { Button } from '../ui/button'
 
 export function AppTitle() {
   const { state, isMobile } = useSidebar()
+  const { theme } = useTheme()
 
   if (state === 'collapsed' && !isMobile) {
     return (
@@ -41,7 +43,14 @@ export function AppTitle() {
           <div className='flex items-center justify-between gap-2'>
             <span className='flex min-w-0 items-center gap-1.5 font-bold'>
               <Logo className='size-5 shrink-0 rounded-md' />
-              <span className='truncate'>Pixoma</span>
+              <img
+                alt='Pixoma'
+                className={cn(
+                  'h-[14px] w-auto shrink-0',
+                  theme === 'dark' && 'invert'
+                )}
+                src='/images/Pixoma.svg'
+              />
             </span>
             <ToggleSidebar />
           </div>

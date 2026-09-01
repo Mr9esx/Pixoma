@@ -23,11 +23,11 @@ describe("ThemeProvider", () => {
 
     expect(document.documentElement.classList.contains("light")).toBe(true);
 
-    fireEvent.click(screen.getByLabelText("Dark theme"));
+    fireEvent.click(screen.getByRole("switch", { name: "Toggle theme" }));
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(document.cookie).toContain("vite-ui-theme=dark");
 
-    fireEvent.click(screen.getByLabelText("Light theme"));
+    fireEvent.click(screen.getByRole("switch", { name: "Toggle theme" }));
     expect(document.documentElement.classList.contains("light")).toBe(true);
     expect(document.cookie).toContain("vite-ui-theme=light");
   });

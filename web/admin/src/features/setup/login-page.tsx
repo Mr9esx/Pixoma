@@ -58,7 +58,7 @@ export function LoginPage({
   }
 
   return (
-    <AuthShell ambient={ambient}>
+    <AuthShell ambient={ambient} logoVariant='brand'>
       {expired ? (
         <Alert
           variant='destructive'
@@ -72,10 +72,7 @@ export function LoginPage({
         </Alert>
       ) : null}
       {showLiveDemoHint ? (
-        <Alert
-          className='w-full max-w-sm'
-          data-testid='live-demo-credentials'
-        >
+        <Alert className='w-full max-w-sm' data-testid='live-demo-credentials'>
           <KeyRound />
           <AlertTitle>Live Demo</AlertTitle>
           <AlertDescription>

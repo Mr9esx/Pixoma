@@ -15,17 +15,19 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
+	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
+	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
 )
 
-func openSessionsHandler(t *testing.T) (*persistence.SessionRepository, *httptest.Server) {
+func openSessionsHandler(t *testing.T) (*persistence.SessionRepository, *identitydomain.User, *httptest.Server) {
 	t.Helper()
 	dsn := "file:sessions_httpapi_" + t.Name() + "?mode=memory&cache=shared"
 	gdb, err := db.Open(db.Options{DSN: dsn})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.SessionRow{}, &channelpersist.ChannelRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.SessionRow{}, &channelpersist.ChannelRow{}, &identitypersist.UserRow{}, &identitypersist.UserExternalIdentityRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	channelStore := channelpersist.NewGormRepository(gdb)
@@ -38,23 +40,32 @@ func openSessionsHandler(t *testing.T) (*persistence.SessionRepository, *httptes
 		}
 	}
 	repo := persistence.NewSessionRepository(gdb)
-	h := &sessionsapi.Handler{Repo: repo, Channels: channelStore}
+	now := time.Now().UTC()
+	userRepo := identitypersist.NewUserRepository(gdb)
+	user, err := userRepo.UpsertByChannelExternal(context.Background(), identitydomain.UpsertFrom{
+		ChannelID: "tg", ExternalUserID: "9001", Username: "alice_session",
+		FirstName: "Alice", LastName: "S", LastSeenAt: now.Add(-time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &sessionsapi.Handler{Repo: repo, Channels: channelStore, Context: persistence.NewSessionAdminProjection(gdb)}
 	r := chi.NewRouter()
 	r.Route("/api/v1/sessions", func(r chi.Router) {
 		h.Mount(r)
 	})
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
-	return repo, srv
+	return repo, user, srv
 }
 
 func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
-	repo, srv := openSessionsHandler(t)
+	repo, user, srv := openSessionsHandler(t)
 	ctx := context.Background()
 	now := time.Now().UTC()
 
 	s1 := domain.NewCollecting("sess-a", "tg:101", 1, []string{"prompt"}, now)
-	s1.UserID = "user-a"
+	s1.UserID = user.ID
 	text := "hello"
 	s1.Draft["prompt"] = domain.DraftValue{Key: "prompt", Text: &text}
 	if err := repo.Save(ctx, s1); err != nil {
@@ -70,7 +81,7 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := http.Get(srv.URL + "/api/v1/sessions?user_id=user-a")
+	res, err := http.Get(srv.URL + "/api/v1/sessions?user_id=" + user.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,6 +159,17 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 	}
 	if detail["channel_id"] != "tg" || detail["channel_name"] != "Telegram Bot" {
 		t.Fatalf("session context: %+v", detail)
+	}
+	if detail["user_id"] != user.ID {
+		t.Fatalf("session user id: %+v", detail)
+	}
+	sessionUser, ok := detail["user"].(map[string]any)
+	if !ok ||
+		sessionUser["id"] != user.ID ||
+		sessionUser["channel_id"] != "tg" ||
+		sessionUser["external_user_id"] != "9001" ||
+		sessionUser["username"] != "alice_session" {
+		t.Fatalf("session related user: %+v", detail["user"])
 	}
 
 	res3, err := http.Get(srv.URL + "/api/v1/sessions/missing")

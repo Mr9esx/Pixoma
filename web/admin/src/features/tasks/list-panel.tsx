@@ -15,15 +15,16 @@ import type { Option } from '@/types/data-table'
 import { Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TaskRecord } from '@/lib/api/types'
+import { formatDateTime, formatUserLabel } from '@/lib/format'
 import { Button } from '@/components/ui/button'
+import { FadeSwap } from '@/components/ui/fade-swap'
+import { Reveal } from '@/components/ui/reveal'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import { DataTable } from '@/components/data-table/data-table'
 import { DataTableToolbar } from '@/components/data-table/toolbar'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { FadeSwap } from '@/components/ui/fade-swap'
-import { Reveal } from '@/components/ui/reveal'
 
 export function taskStatusLabelKey(status: string): string | undefined {
   const map: Record<string, string> = {
@@ -126,7 +127,7 @@ export function TaskListPanel({
           <span className='font-mono text-xs tabular-nums'>{getValue()}</span>
         ),
       }),
-      columnHelper.accessor((row) => row.channel_name || row.channel_id, {
+      columnHelper.accessor('channel_name', {
         id: 'channel_id',
         meta: { label: t('tasks.fieldPlatform') },
         header: ({ column }) => (
@@ -141,17 +142,10 @@ export function TaskListPanel({
         id: 'user_id',
         meta: { label: t('tasks.fieldUser') },
         header: ({ column }) => (
-          <DataTableColumnHeader
-            column={column}
-            title={t('tasks.fieldUser')}
-          />
+          <DataTableColumnHeader column={column} title={t('tasks.fieldUser')} />
         ),
         cell: ({ row }) => {
-          const user = row.original.user
-          const label =
-            user?.username ||
-            [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
-            row.original.user_id
+          const label = formatUserLabel(row.original.user, row.original.user_id)
           if (!label) return '—'
           return (
             <Link
@@ -211,13 +205,13 @@ export function TaskListPanel({
         ),
         cell: ({ getValue }) => (
           <span className='whitespace-nowrap text-muted-foreground'>
-            {getValue()}
+            {formatDateTime(getValue())}
           </span>
         ),
       }),
       columnHelper.display({
         id: 'actions',
-        header: () => <span className='sr-only'>{t('common.detail')}</span>,
+        header: () => <span>{t('common.actions')}</span>,
         cell: ({ row }) => (
           <Button
             type='button'
@@ -262,7 +256,11 @@ export function TaskListPanel({
         row.original.channel_id,
         row.original.user?.username,
         row.original.user_id,
-      ].some((value) => String(value ?? '').toLowerCase().includes(q))
+      ].some((value) =>
+        String(value ?? '')
+          .toLowerCase()
+          .includes(q)
+      )
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -270,7 +268,10 @@ export function TaskListPanel({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageIndex: 0, pageSize: 10 } },
+    initialState: {
+      pagination: { pageIndex: 0, pageSize: 10 },
+      columnPinning: { right: ['actions'] },
+    },
   })
 
   return (

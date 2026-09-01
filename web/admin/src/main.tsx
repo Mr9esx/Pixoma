@@ -10,6 +10,7 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { handleServerError } from '@/lib/handle-server-error'
 import { initI18n } from '@/lib/i18n'
+import { LoadingPage } from '@/components/feedback/loading-page'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
@@ -75,6 +76,9 @@ const router = createRouter({
   context: { queryClient },
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 0,
+  defaultPendingComponent: LoadingPage,
+  defaultPendingMs: 150,
+  defaultPendingMinMs: 250,
 })
 
 // Register the router instance for type safety

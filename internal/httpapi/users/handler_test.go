@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
+	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	"github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
@@ -23,11 +25,17 @@ func openUsersHandler(t *testing.T) (*persistence.UserRepository, *httptest.Serv
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if err := db.AutoMigrate(gdb, &persistence.UserRow{}, &persistence.UserExternalIdentityRow{}); err != nil {
+	if err := db.AutoMigrate(gdb, &persistence.UserRow{}, &persistence.UserExternalIdentityRow{}, &channelpersist.ChannelRow{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
+	channels := channelpersist.NewGormRepository(gdb)
+	if err := channels.Create(context.Background(), channeldomain.Channel{
+		ID: "tg-default", Platform: "telegram", Name: "Telegram Bot", Enabled: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	repo := persistence.NewUserRepository(gdb)
-	h := &usersapi.Handler{Repo: repo}
+	h := &usersapi.Handler{Repo: repo, Channels: channels}
 	r := chi.NewRouter()
 	r.Route("/api/v1/users", func(r chi.Router) {
 		h.Mount(r)
@@ -78,6 +86,17 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 			if row["channel_id"] != "tg-default" || row["external_user_id"] != "9001" {
 				t.Fatalf("identity context=%+v", row)
 			}
+			if row["channel_name"] != "Telegram Bot" {
+				t.Fatalf("channel name=%v", row["channel_name"])
+			}
+			created, ok := row["created_at"].(string)
+			if !ok || created == "" || created[:4] == "0001" {
+				t.Fatalf("created_at not initialized=%v", row["created_at"])
+			}
+			lastSeen, ok := row["last_seen_at"].(string)
+			if !ok || lastSeen == "" || lastSeen[:4] == "0001" {
+				t.Fatalf("last_seen_at not initialized=%v", row["last_seen_at"])
+			}
 			if _, exists := row["tg_user_id"]; exists {
 				t.Fatalf("telegram-specific key returned: %+v", row)
 			}
@@ -127,6 +146,9 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 	}
 	if detail["channel_id"] != "tg-default" || detail["external_user_id"] != "9001" {
 		t.Fatalf("detail identity context=%+v", detail)
+	}
+	if detail["channel_name"] != "Telegram Bot" {
+		t.Fatalf("detail channel name=%v", detail["channel_name"])
 	}
 
 	res3, err := http.Get(srv.URL + "/api/v1/users/missing-id")

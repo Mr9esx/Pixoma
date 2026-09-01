@@ -11,7 +11,7 @@ export function Logo({ className, alt = "Pixoma" }: LogoProps) {
     <img
       src="/images/logo.png"
       alt={alt}
-      className={cn("size-8 shrink-0 rounded-xl object-contain", className)}
+      className={cn("size-8 shrink-0 rounded-md object-contain", className)}
     />
   );
 }
@@ -21,7 +21,7 @@ export function LogoIcon({ className, alt = "Pixoma" }: LogoProps) {
     <img
       src="/images/logo.png"
       alt={alt}
-      className={cn("size-8 shrink-0 rounded-xl object-contain", className)}
+      className={cn("size-8 shrink-0 rounded-md object-contain", className)}
     />
   );
 }
