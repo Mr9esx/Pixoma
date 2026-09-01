@@ -103,6 +103,7 @@ export function AdminUsersPanel() {
     queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all })
 
   const enableMutation = useMutation({
+    meta: { handledError: true },
     mutationFn: (u: AdminUser) =>
       updateAdminUser(u.id, { enabled: !u.enabled }),
     onSuccess: () => {
@@ -113,6 +114,7 @@ export function AdminUsersPanel() {
   })
 
   const deleteMutation = useMutation({
+    meta: { handledError: true },
     mutationFn: (id: string) => deleteAdminUser(id),
     onSuccess: () => {
       setDeleteTarget(null)
@@ -281,6 +283,7 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
   const [password, setPassword] = useState('')
 
   const create = useMutation({
+    meta: { handledError: true },
     mutationFn: () =>
       createAdminUser({
         username: username.trim(),
@@ -384,6 +387,7 @@ function ResetPasswordDialog({
   const [password, setPassword] = useState('')
 
   const reset = useMutation({
+    meta: { handledError: true },
     mutationFn: () =>
       user
         ? updateAdminUser(user.id, { password })

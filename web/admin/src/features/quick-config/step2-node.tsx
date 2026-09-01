@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Info, Plus, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import { cn } from '@/lib/utils'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,6 +27,7 @@ export function Step2Node({ shared, next, back }: Props) {
   const { t } = useTranslation()
   const [createOpen, setCreateOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [commitError, setCommitError] = useState<string | undefined>()
 
   const edgesQuery = useQuery({
     queryKey: queryKeys.edges.all,
@@ -43,10 +44,18 @@ export function Step2Node({ shared, next, back }: Props) {
     ? queueHasSubscribers(edges, shared.topicKey)
     : false
   const canAdvance = nodeStepCanAdvance(hasSubscribers, shared.selectedEdgeId)
+  const selectedEdge = edges.find((row) => row.id === shared.selectedEdgeId)
+  const selectedOnline = Boolean(
+    presence.find(
+      (row) =>
+        row.id === selectedEdge?.id && row.edge_online && row.comfy_running
+    )
+  )
 
   async function handleNext() {
     if (!canAdvance || !shared.caseRecord || !shared.topicKey) return
     setBusy(true)
+    setCommitError(undefined)
     try {
       const edge = edges.find((row) => row.id === shared.selectedEdgeId)
       const saved = await commitQuickCreate({
@@ -61,7 +70,7 @@ export function Step2Node({ shared, next, back }: Props) {
       clearQuickConfigSession(window.localStorage)
       next({})
     } catch (err) {
-      toast.error(
+      setCommitError(
         err instanceof Error ? err.message : t('quickConfig.saveFailed')
       )
     } finally {
@@ -93,13 +102,34 @@ export function Step2Node({ shared, next, back }: Props) {
           </Button>
         </div>
 
+        {edgesQuery.isLoading ? null : edges.length === 0 ? (
+          <Alert variant='info' className='px-3 py-2'>
+            <Info aria-hidden='true' />
+            <AlertTitle>{t('quickConfig.noEdgesHint')}</AlertTitle>
+          </Alert>
+        ) : !canAdvance ? (
+          <Alert variant='warn' className='px-3 py-2'>
+            <TriangleAlert aria-hidden='true' />
+            <AlertTitle>{t('quickConfig.nodeRequired')}</AlertTitle>
+          </Alert>
+        ) : null}
+        {selectedEdge && !selectedOnline ? (
+          <Alert variant='warn' className='px-3 py-2'>
+            <TriangleAlert aria-hidden='true' />
+            <AlertTitle>{t('quickConfig.nodeNotReady')}</AlertTitle>
+          </Alert>
+        ) : null}
+        {commitError ? (
+          <Alert variant='destructive' className='px-3 py-2'>
+            <TriangleAlert aria-hidden='true' />
+            <AlertTitle>{t('quickConfig.saveFailed')}</AlertTitle>
+            <AlertDescription>{commitError}</AlertDescription>
+          </Alert>
+        ) : null}
+
         {edgesQuery.isLoading ? (
           <LoadingSkeleton rows={2} />
-        ) : edges.length === 0 ? (
-          <p className='text-xs text-muted-foreground'>
-            {t('quickConfig.noEdgesHint')}
-          </p>
-        ) : (
+        ) : edges.length === 0 ? null : (
           <ul className='space-y-1'>
             {edges.map((edge) => {
               const online = presence.find(

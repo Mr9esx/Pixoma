@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { queryKeys } from '@/lib/api/query-keys'
 import { createTopic, type Topic } from '@/lib/api/topics'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -29,7 +30,6 @@ export function CreateTopicForm({ onDone, onCancel }: Props) {
     mutationFn: () => createTopic({ key: key.trim(), name: name.trim() }),
     onSuccess: (topic) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.topics.all })
-      toast.success(t('topics.created'))
       onDone(topic)
     },
   })
@@ -57,12 +57,16 @@ export function CreateTopicForm({ onDone, onCancel }: Props) {
           autoComplete='off'
         />
       </div>
-      {createMutation.isError ? (
-        <p className='text-sm text-destructive'>
-          {createMutation.error instanceof Error
-            ? createMutation.error.message
-            : t('common.errorGeneric')}
-        </p>
+      {createMutation.error ? (
+        <Alert variant='destructive' className='px-3 py-2'>
+          <TriangleAlert aria-hidden='true' />
+          <AlertTitle>{t('quickConfig.saveFailed')}</AlertTitle>
+          <AlertDescription>
+            {createMutation.error instanceof Error
+              ? createMutation.error.message
+              : t('quickConfig.saveFailed')}
+          </AlertDescription>
+        </Alert>
       ) : null}
       <DialogFooter className='shrink-0'>
         <Button type='button' variant='outline' onClick={onCancel}>

@@ -6,7 +6,7 @@ const cardVariants = cva("text-card-foreground rounded-xl", {
   variants: {
     variant: {
       default:
-        "bg-card border shadow border-transparent ring-1 ring-foreground/5",
+        "bg-card border border-transparent ring-1 ring-foreground/5",
       soft: "bg-foreground/5",
       mixed: "bg-foreground/5 border border-foreground.5",
     },

@@ -16,10 +16,6 @@ import {
 import { TaskFlowTable } from '@/features/task-flow/task-flow-table'
 import type { CaseContextData } from './use-case-references'
 
-function errorMessage(err: unknown): string | undefined {
-  return err instanceof Error ? err.message : undefined
-}
-
 /** Case 详情「处理流程」：编辑 routing + 关联上下文面板。 */
 export function CaseContextSection({
   record,
@@ -98,11 +94,6 @@ export function CaseContextSection({
               </Button>
             }
           />
-          {save.error ? (
-            <p className='px-4 py-3 text-sm text-destructive' role='alert'>
-              {errorMessage(save.error)}
-            </p>
-          ) : null}
         </DialogContent>
       </Dialog>
     </>

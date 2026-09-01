@@ -1,12 +1,17 @@
 import { useRef, useState } from 'react'
-import { ArrowRight, ChevronDownIcon, FileJson } from 'lucide-react'
+import {
+  ArrowRight,
+  CheckCircle2,
+  ChevronDownIcon,
+  FileJson,
+  TriangleAlert,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   Attachment,
   AttachmentContent,
-  AttachmentDescription,
   AttachmentMedia,
   AttachmentTitle,
   AttachmentTrigger,
@@ -262,6 +267,49 @@ export function WorkflowImportSection({
         </div>
       </div>
 
+      {graph ? (
+        <Alert
+          variant='success'
+          data-testid='workflow-import-status'
+          className='px-3 py-2'
+        >
+          <CheckCircle2 aria-hidden='true' />
+          <AlertTitle>{t('cases.importValid')}</AlertTitle>
+          <AlertDescription>
+            {t('cases.importNodesCount', {
+              count: graph.nodes.length,
+              inputs: graph.nodes.reduce(
+                (sum, node) => sum + node.inputs.length,
+                0
+              ),
+              outputs: graph.nodes.reduce(
+                (sum, node) => sum + node.outputCount,
+                0
+              ),
+            })}
+          </AlertDescription>
+        </Alert>
+      ) : error ? (
+        <Alert
+          variant='destructive'
+          data-testid='workflow-import-status'
+          className='px-3 py-2'
+        >
+          <TriangleAlert aria-hidden='true' />
+          <AlertTitle>{t('cases.importFailed')}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : (
+        <Alert
+          variant='warn'
+          data-testid='workflow-import-status'
+          className='px-3 py-2'
+        >
+          <TriangleAlert aria-hidden='true' />
+          <AlertTitle>{t('cases.workflowRequired')}</AlertTitle>
+        </Alert>
+      )}
+
       <div
         data-testid='workflow-import-dropzone'
         onDragOver={(e) => {
@@ -284,22 +332,6 @@ export function WorkflowImportSection({
               {filename ||
                 (value ? t('cases.importFile') : t('cases.importDropHint'))}
             </AttachmentTitle>
-            {graph ? (
-              <AttachmentDescription>
-                {t('cases.importValid')} ·{' '}
-                {t('cases.importNodesCount', {
-                  count: graph.nodes.length,
-                  inputs: graph.nodes.reduce(
-                    (sum, node) => sum + node.inputs.length,
-                    0
-                  ),
-                  outputs: graph.nodes.reduce(
-                    (sum, node) => sum + node.outputCount,
-                    0
-                  ),
-                })}
-              </AttachmentDescription>
-            ) : null}
           </AttachmentContent>
           {!disabled && (
             <AttachmentTrigger onClick={() => fileRef.current?.click()} />
@@ -324,14 +356,6 @@ export function WorkflowImportSection({
         onChange={onChange}
         readOnly={disabled}
       />
-      {error ? (
-        <Alert variant='destructive' data-testid='workflow-import-error'>
-          <AlertTitle className='text-sm font-medium'>
-            {t('cases.importFailed')}
-          </AlertTitle>
-          <AlertDescription className='text-sm'>{error}</AlertDescription>
-        </Alert>
-      ) : null}
     </section>
   )
 }

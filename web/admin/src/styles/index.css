@@ -175,8 +175,8 @@
   --destructive-foreground: var(--color-red-800);
   --success: var(--color-emerald-500);
   --success-foreground: var(--color-emerald-900);
-  --info: var(--color-violet-500);
-  --info-foreground: var(--color-violet-900);
+  --info: var(--info-text);
+  --info-foreground: var(--color-blue-900);
   --warning: var(--color-yellow-500);
   --warning-foreground: var(--color-yellow-900);
   --invert: var(--color-zinc-900);
@@ -187,8 +187,8 @@
   --destructive-foreground: var(--color-red-600);
   --success: var(--color-emerald-500);
   --success-foreground: var(--color-emerald-600);
-  --info: var(--color-violet-500);
-  --info-foreground: var(--color-violet-600);
+  --info: var(--info-text);
+  --info-foreground: var(--color-blue-600);
   --warning: var(--color-yellow-500);
   --warning-foreground: var(--color-yellow-600);
   --invert: var(--color-zinc-700);

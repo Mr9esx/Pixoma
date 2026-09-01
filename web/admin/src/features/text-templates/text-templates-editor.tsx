@@ -247,6 +247,7 @@ function EditTemplateDialog({
   const hasOverride = value.trim().length > 0
 
   const saveMutation = useMutation({
+    meta: { handledError: true },
     mutationFn: (save: string) =>
       saveTextTemplates(channelId, { [template.key]: save }),
     onSuccess: () => {

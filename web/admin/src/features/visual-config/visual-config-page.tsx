@@ -16,10 +16,6 @@ import {
 import { useCaseReferences } from '@/features/config-context/use-case-references'
 import { TaskFlowTable } from '@/features/task-flow/task-flow-table'
 
-function errorMessage(err: unknown): string | undefined {
-  return err instanceof Error ? err.message : undefined
-}
-
 /**
  * 可视化配置页：选择工作流后，用规则表编辑其路由规则并保存。
  */
@@ -109,11 +105,6 @@ export function VisualConfigPage() {
               </Button>
             }
           />
-          {save.error ? (
-            <p className='px-4 py-3 text-sm text-destructive' role='alert'>
-              {errorMessage(save.error)}
-            </p>
-          ) : null}
         </div>
       ) : (
         <div className='flex flex-1 items-center justify-center px-6'>

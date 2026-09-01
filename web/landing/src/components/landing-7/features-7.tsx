@@ -27,11 +27,11 @@ export default function FeaturesSection() {
 
             <div aria-hidden className="relative">
               <div className="absolute inset-0 z-10 m-auto size-fit -translate-y-full">
-                <div className="rounded-(--radius) text-muted-foreground z-1 ring-foreground/6.5 shadow-black/6.5 relative flex size-fit w-fit items-center gap-2 bg-zinc-900/75 px-3 py-1 text-xs font-medium shadow-lg ring backdrop-blur">
+                <div className="rounded-(--radius) text-muted-foreground z-1 ring-foreground/6.5 relative flex size-fit w-fit items-center gap-2 bg-zinc-900/75 px-3 py-1 text-xs font-medium ring backdrop-blur">
                   <span className="text-lg">🌐</span> 最近连接来自{" "}
                   <span className="text-foreground">DR Congo</span>
                 </div>
-                <div className="rounded-(--radius) bg-background ring-foreground/6.5 absolute inset-2 -bottom-2 mx-auto px-3 py-4 text-xs font-medium shadow-md shadow-black/5 ring"></div>
+                <div className="rounded-(--radius) bg-background ring-foreground/6.5 absolute inset-2 -bottom-2 mx-auto px-3 py-4 text-xs font-medium ring"></div>
               </div>
 
               <div className="mask-radial-at-center mask-radial-from-25% mask-radial-[50%_50%] relative overflow-hidden opacity-25">
@@ -57,7 +57,7 @@ export default function FeaturesSection() {
                   <div className="bg-foreground/10 size-1.5 rounded-full"></div>
                 </div>
 
-                <div className="bg-foreground/2 ring-foreground/6.5 mx-6 mt-auto h-32 rounded-xl shadow-xl ring" />
+                <div className="bg-foreground/2 ring-foreground/6.5 mx-6 mt-auto h-32 rounded-xl ring" />
               </div>
             </div>
           </div>

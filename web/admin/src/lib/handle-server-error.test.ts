@@ -1,5 +1,6 @@
 import { AxiosError } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiError } from './api/client'
 import { handleServerError } from './handle-server-error'
 
 const toastError = vi.hoisted(() => vi.fn())
@@ -15,6 +16,12 @@ beforeEach(() => {
 })
 
 describe('handleServerError', () => {
+  it('shows the API message for ApiError', () => {
+    handleServerError(new ApiError(400, '工作流校验失败', 'invalid_workflow'))
+
+    expect(toastError).toHaveBeenCalledWith('工作流校验失败')
+  })
+
   it('shows a generic message when the error is not recognised', () => {
     handleServerError(new Error('network'))
 

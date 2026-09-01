@@ -30,8 +30,17 @@ User (TG) ──► Session ──► Task
 
 快速安装并启动控制面：
 
+macOS / Linux：
+
 ```bash
 curl -fsSL https://pixoma.miaoplus.com/install.sh | sh
+pixoma
+```
+
+Windows PowerShell：
+
+```powershell
+irm https://pixoma.miaoplus.com/install.ps1 | iex
 pixoma
 ```
 

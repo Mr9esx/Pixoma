@@ -165,6 +165,7 @@ export function EdgeDetailPanel({ id }: Props) {
   const runningCount = runningTasksQuery.data?.length ?? 0
 
   const deleteMutation = useMutation({
+    meta: { handledError: true },
     mutationFn: () => deleteEdge(id, ackRunning),
     onSuccess: async (summary) => {
       toast.success(

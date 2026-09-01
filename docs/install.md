@@ -1,11 +1,19 @@
 # Pixoma 安装与部署
 
-Pixoma 控制面建议先用安装脚本部署，再通过管理后台完成数据库、对象存储、Telegram 和计算节点配置。当前安装器支持 macOS、Linux，以及通过 Git Bash 运行的 Windows，均覆盖 `amd64` / `arm64`。
+Pixoma 控制面建议先用安装脚本部署，再通过管理后台完成数据库、对象存储、Telegram 和计算节点配置。当前安装器支持 macOS、Linux 与 Windows PowerShell，均覆盖 `amd64` / `arm64`。
 
 ## 快速安装控制面
 
+macOS / Linux：
+
 ```bash
 curl -fsSL https://pixoma.miaoplus.com/install.sh | sh
+```
+
+Windows PowerShell：
+
+```powershell
+irm https://pixoma.miaoplus.com/install.ps1 | iex
 ```
 
 如果希望先检查脚本再执行：
@@ -22,7 +30,7 @@ sh pixoma-install.sh
 pixoma
 ```
 
-Windows 用户请在 Git Bash 或 MSYS 终端中执行上面的命令。安装后二进制名称是：
+安装后二进制名称是：
 
 ```bash
 pixoma.exe
@@ -42,7 +50,7 @@ curl -fsSL https://pixoma.miaoplus.com/install.sh | PIXOMA_VERSION=v0.1.0 sh
 curl -fsSL https://pixoma.miaoplus.com/install.sh | PIXOMA_INSTALL_DIR="$HOME/.pixoma/bin" sh
 ```
 
-Windows 默认安装到 `~/.pixoma/bin`（对应 `%USERPROFILE%\.pixoma\bin`）。如果该目录不在 PATH 中，按脚本输出的提示添加。
+Windows 默认安装到 `%USERPROFILE%\.pixoma\bin`，安装器会把它加入用户 PATH。当前终端可能需要重新打开后才能直接运行 `pixoma`。
 
 ## 添加计算节点
 
@@ -63,6 +71,16 @@ curl -fsSL https://pixoma.miaoplus.com/install.sh | \
 
 ```bash
 pixoma-edge-agent
+```
+
+Windows PowerShell 也可安装 Edge Agent：
+
+```powershell
+$env:PIXOMA_INSTALL = "edge"
+$env:CONTROL_PLANE_URL = "https://pixoma.example.com"
+$env:AGENT_TOKEN = "你的节点Token"
+$env:EDGE_ID = "你的节点ID"
+irm https://pixoma.miaoplus.com/install.ps1 | iex
 ```
 
 生产环境建议用 `systemd` 或 `launchd` 托管进程，并为控制面配置 HTTPS 反向代理。

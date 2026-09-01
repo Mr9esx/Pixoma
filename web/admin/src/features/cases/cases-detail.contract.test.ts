@@ -57,6 +57,8 @@ describe('workflow detail panel', () => {
     const source = readFileSync(WORKFLOW_EDITOR, 'utf8')
     expect(source).toContain('showBasics')
     expect(source).toContain('BasicsSection')
+    expect(source).toContain('nameError={nameError}')
+    expect(source).toContain('noValidate')
     expect(source).toContain('WorkflowImportSection')
     expect(source).not.toContain('PreviewSection')
     expect(source).not.toContain('previewSection')

@@ -12,6 +12,7 @@ import { listCases } from '@/lib/api/cases'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTopics } from '@/lib/api/topics'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -102,9 +103,6 @@ function TopicsLayout() {
       } as never)
     }
   }
-  const isEmpty =
-    !listQuery.isLoading && !listQuery.isError && items.length === 0
-
   useEffect(() => {
     if (key == null && !backToList && items.length > 0) {
       void navigate({
@@ -129,15 +127,6 @@ function TopicsLayout() {
             {t('topics.description')}
           </p>
         </div>
-        {!isEmpty ? (
-          <Button
-            className={kit.btnPrimary}
-            onClick={() => setManualCreateOpen(true)}
-          >
-            <Plus className='size-3.5' />
-            {t('topics.new')}
-          </Button>
-        ) : null}
       </div>
       <MasterDetailShell
         className='md:grid-cols-[280px_1fr] @min-[1408px]/page:grid-cols-[300px_1fr]'
@@ -159,6 +148,15 @@ function TopicsLayout() {
             isError={listQuery.isError}
             errorMessage={errorMessage(listQuery.error)}
             onRetry={() => void listQuery.refetch()}
+            footer={
+              <Button
+                className={cn(kit.btnPrimary, 'w-full')}
+                onClick={() => setManualCreateOpen(true)}
+              >
+                <Plus className='size-4' />
+                {t('topics.new')}
+              </Button>
+            }
           />
         }
         detail={

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import type { CaseRecord } from '@/lib/api/types'
@@ -25,6 +26,7 @@ type Props = {
   isError?: boolean
   errorMessage?: string
   onRetry?: () => void
+  footer?: ReactNode
 }
 
 export function CaseListPanel({
@@ -38,6 +40,7 @@ export function CaseListPanel({
   isError,
   errorMessage,
   onRetry,
+  footer,
 }: Props) {
   const { t } = useTranslation()
 
@@ -112,6 +115,10 @@ export function CaseListPanel({
             )
           })}
         </ul>
+      ) : null}
+
+      {items.length > 0 && footer ? (
+        <footer className='mt-auto border-t px-4 py-3'>{footer}</footer>
       ) : null}
     </div>
   )

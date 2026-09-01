@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import { TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { isEdgeOnline } from '@/features/task-flow/lib/topic-binding'
 import { queueHasSubscribers } from './lib/queue-binding'
@@ -51,17 +53,21 @@ export function Step4Next({ shared }: Props) {
       backLabel={t('quickConfig.leave')}
     >
       <div className='space-y-4'>
-        <h3 className='text-sm font-semibold'>{t('quickConfig.leftoverTitle')}</h3>
+        <h3 className='text-sm font-semibold'>
+          {t('quickConfig.leftoverTitle')}
+        </h3>
         <p className='text-sm text-muted-foreground'>
           {t('quickConfig.leftoverHint', { topic: shared.topicKey ?? '' })}
         </p>
         {offline ? (
-          <p
-            className='rounded-md border border-border px-3 py-2 text-sm'
+          <Alert
+            variant='warn'
+            className='px-3 py-2'
             data-testid='leftover-offline'
           >
-            {t('quickConfig.nodeNotReady')}
-          </p>
+            <TriangleAlert aria-hidden='true' />
+            <AlertTitle>{t('quickConfig.nodeNotReady')}</AlertTitle>
+          </Alert>
         ) : null}
         <p className='text-sm'>{t('quickConfig.leftoverTutorial')}</p>
         <Button
