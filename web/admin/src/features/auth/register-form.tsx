@@ -3,8 +3,6 @@ import { useNavigate, Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { registerAccount } from '@/lib/api/setup'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Card,
   CardContent,
@@ -12,6 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { SecretInput } from '@/components/secret-input'
 import { AuthShell } from '@/features/setup/auth-shell'
 
 function errorMessage(err: unknown): string | undefined {
@@ -65,61 +66,69 @@ export function RegisterForm() {
       <Card className='w-full max-w-md'>
         <CardHeader>
           <CardTitle>注册账号</CardTitle>
-          <CardDescription>创建一个只读账号来访问 Pixoma 后台。</CardDescription>
+          <CardDescription>
+            创建一个只读账号来访问 Pixoma 后台。
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className='flex flex-col gap-3' onSubmit={onSubmit} data-testid='register-form'>
-            <div className='space-y-1.5'>
-              <Label htmlFor='register-username'>账号名</Label>
-              <Input
-                id='register-username'
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete='off'
-                autoFocus
-              />
-            </div>
-            <div className='space-y-1.5'>
-              <Label htmlFor='register-email'>邮箱</Label>
-              <Input
-                id='register-email'
-                type='email'
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete='off'
-              />
-            </div>
-            <div className='space-y-1.5'>
-              <Label htmlFor='register-nickname'>昵称</Label>
-              <Input
-                id='register-nickname'
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                autoComplete='off'
-              />
-            </div>
-            <div className='space-y-1.5'>
-              <Label htmlFor='register-password'>密码（至少 8 位）</Label>
-              <Input
-                id='register-password'
-                type='password'
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete='new-password'
-              />
-            </div>
-            <div className='space-y-1.5'>
-              <Label htmlFor='register-confirm'>再输一遍</Label>
-              <Input
-                id='register-confirm'
-                type='password'
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                autoComplete='new-password'
-              />
-            </div>
+          <form onSubmit={onSubmit} data-testid='register-form'>
+            <FieldGroup className='gap-3'>
+              <Field>
+                <FieldLabel htmlFor='register-username'>账号名</FieldLabel>
+                <Input
+                  id='register-username'
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete='off'
+                  autoFocus
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor='register-email'>邮箱</FieldLabel>
+                <Input
+                  id='register-email'
+                  type='email'
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete='off'
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor='register-nickname'>昵称</FieldLabel>
+                <Input
+                  id='register-nickname'
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  autoComplete='off'
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor='register-password'>
+                  密码（至少 8 位）
+                </FieldLabel>
+                <SecretInput
+                  id='register-password'
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete='new-password'
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor='register-confirm'>再输一遍</FieldLabel>
+                <SecretInput
+                  id='register-confirm'
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  autoComplete='new-password'
+                />
+              </Field>
+            </FieldGroup>
             {error ? <p className='text-sm text-destructive'>{error}</p> : null}
-            <Button type='submit' disabled={pending} data-testid='register-submit'>
+            <Button
+              type='submit'
+              disabled={pending}
+              data-testid='register-submit'
+            >
               {pending ? '注册中…' : '注册'}
             </Button>
             <p className='text-center text-sm text-muted-foreground'>

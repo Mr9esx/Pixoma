@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
@@ -8,6 +7,7 @@ import { formatDateTime, formatUserLabel } from '@/lib/format'
 import { Reveal } from '@/components/ui/reveal'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { DetailField as Field } from '@/components/detail-field'
 import { sessionStatusLabelKey } from './list-panel'
 
 type Props = {
@@ -16,15 +16,6 @@ type Props = {
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
-}
-
-function Field({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className='grid gap-1 sm:grid-cols-[10rem_1fr] sm:items-start'>
-      <dt className='text-xs font-medium text-muted-foreground'>{label}</dt>
-      <dd className='text-sm break-all'>{value || '—'}</dd>
-    </div>
-  )
 }
 
 function JsonBlock({ value }: { value: unknown }) {

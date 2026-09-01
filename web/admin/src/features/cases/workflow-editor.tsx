@@ -9,8 +9,8 @@ import { queryKeys } from '@/lib/api/query-keys'
 import type { CaseRecord } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Pill } from '@/components/kibo-ui/pill'
 import { useCaseReferences } from '@/features/config-context/use-case-references'
 import { validateRouting } from '@/features/task-flow/lib/validate'
 import { TaskFlowTable } from '@/features/task-flow/task-flow-table'
@@ -18,6 +18,7 @@ import { emptyCase } from './empty-case'
 import {
   deriveBindings,
   deriveInputSchema,
+  normalizeOutputTypes,
   validateEditor,
   type InputFieldDraft,
   type OutputFieldDraft,
@@ -177,6 +178,8 @@ type EditProps = {
   stepRail?: boolean
   hideProcessing?: boolean
   onCollect?: (payload: CaseRecord) => void
+  /** 工作流导入校验结果变化回调。 */
+  onWorkflowImportedChange?: (imported: boolean) => void
   formId?: string
   footer?: React.ReactNode
 }
@@ -455,7 +458,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         required: f.required,
         description: f.description?.trim() || undefined,
       })),
-      outputs: outputDrafts.map((f) => ({
+      outputs: normalizeOutputTypes(outputDrafts, graph.nodes).map((f) => ({
         key: f.key.trim(),
         type: f.type,
         description: f.description?.trim() || undefined,
@@ -541,12 +544,12 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         </span>
         <div className='min-w-0 flex-1'>
           <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
-            <Pill
+            <Badge
               variant='default'
               className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
             >
               {t('cases.inputPill')}
-            </Pill>
+            </Badge>
             <h3 className='text-sm font-semibold'>
               {t('cases.inputsHeading')}
             </h3>
@@ -630,12 +633,12 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         </span>
         <div className='min-w-0 flex-1'>
           <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
-            <Pill
+            <Badge
               variant='default'
               className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
             >
               {t('cases.outputPill')}
-            </Pill>
+            </Badge>
             <h3 className='text-sm font-semibold'>
               {t('cases.outputsHeading')}
             </h3>
@@ -710,12 +713,12 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           </span>
           <div className='min-w-0 flex-1'>
             <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
-              <Pill
+              <Badge
                 variant='default'
                 className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
               >
                 {t('cases.processingPill')}
-              </Pill>
+              </Badge>
               <h3 className='text-sm font-semibold'>
                 {t('cases.processingHeading')}
               </h3>

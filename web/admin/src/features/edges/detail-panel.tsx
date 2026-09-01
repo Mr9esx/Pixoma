@@ -35,6 +35,7 @@ import { queryKeys } from '@/lib/api/query-keys'
 import type { ComfyEdge } from '@/lib/api/types'
 import { scrollAndFlash } from '@/lib/scroll-focus'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -529,11 +530,10 @@ export function EdgeDetailPanel({ id }: Props) {
               </div>
             ) : null}
             {runningCount > 0 ? (
-              <label className='flex items-start gap-2'>
-                <input
-                  type='checkbox'
+              <label className='flex cursor-pointer items-start gap-2'>
+                <Checkbox
                   checked={ackRunning}
-                  onChange={(e) => setAckRunning(e.target.checked)}
+                  onCheckedChange={(checked) => setAckRunning(checked === true)}
                   data-testid='edge-delete-ack'
                 />
                 <span>{t('edges.deleteAckRunning')}</span>

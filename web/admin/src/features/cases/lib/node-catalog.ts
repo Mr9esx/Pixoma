@@ -134,7 +134,10 @@ export function inputKindFor(
 }
 
 /** 节点输出类型（供输出字段绑定自动带出）。 */
-const NODE_OUTPUT_KINDS: Record<string, 'image' | 'text' | 'file'> = {
+const NODE_OUTPUT_KINDS: Record<
+  string,
+  'image' | 'video' | 'audio' | 'text' | 'file'
+> = {
   LoadImage: 'image',
   SaveImage: 'image',
   KSampler: 'image',
@@ -143,10 +146,26 @@ const NODE_OUTPUT_KINDS: Record<string, 'image' | 'text' | 'file'> = {
   EmptyLatentImage: 'image',
   CLIPTextEncode: 'text',
   PreviewImage: 'image',
+  VideoCombine: 'video',
+  VHS_VideoCombine: 'video',
+  SaveWEBM: 'video',
+  SaveAudio: 'audio',
+  SaveAudioMP3: 'audio',
+  SaveAudioOpus: 'audio',
 }
 
-export function outputKindFor(classType: string): 'image' | 'text' | 'file' {
-  return NODE_OUTPUT_KINDS[classType] ?? 'image'
+export function outputKindFor(
+  classType: string
+): 'image' | 'video' | 'audio' | 'text' | 'file' {
+  const exact = NODE_OUTPUT_KINDS[classType]
+  if (exact) return exact
+
+  const c = classType.toLowerCase()
+  if (c.includes('video') || c.endsWith('webm')) return 'video'
+  if (c.includes('audio')) return 'audio'
+  if (c.includes('image')) return 'image'
+  if (c.includes('text') || c.includes('prompt')) return 'text'
+  return 'file'
 }
 
 /** 节点类型 → 图标 + 分类色（详情页流程图与绑定弹层共用）。 */

@@ -69,6 +69,14 @@ export function deleteTopic(key: string, ack?: boolean) {
   )
 }
 
-export function getTopicStats(key: string) {
-  return apiFetch<TopicStats>(`/api/v1/topics/${encodeURIComponent(key)}/stats`)
+export function getTopicStats(
+  key: string,
+  range: { from: string; to: string }
+) {
+  return apiFetch<TopicStats>(
+    `/api/v1/topics/${encodeURIComponent(key)}/stats${toQuery({
+      from: new Date(`${range.from}T00:00:00`).toISOString(),
+      to: new Date(`${range.to}T23:59:59.999`).toISOString(),
+    })}`
+  )
 }

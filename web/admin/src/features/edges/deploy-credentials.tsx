@@ -9,7 +9,7 @@ import type { ComfyEdge } from '@/lib/api/types'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { PasswordInput } from '@/components/password-input'
+import { SecretInput } from '@/components/secret-input'
 import { edgeDeployCommand } from './deploy-command'
 
 async function copyText(text: string) {
@@ -109,7 +109,7 @@ export function DeployCredentials({
         <div className='flex flex-col gap-2'>
           <Label htmlFor='agent-token'>{t('edges.fieldAgentToken')}</Label>
           <div className='flex flex-wrap gap-2'>
-            <PasswordInput
+            <SecretInput
               id='agent-token'
               value={token}
               readOnly

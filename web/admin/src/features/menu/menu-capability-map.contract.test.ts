@@ -23,7 +23,7 @@ describe('MenuCapabilityMap', () => {
     expect(src).toContain('workflowEntryCount')
     expect(src).toContain('actionOutcomeLabel')
     expect(src).toContain('actionIsBroken')
-    expect(src).toContain('min-h-11')
+    expect(src).toContain('h-11')
     expect(src).not.toContain('PhoneSimulation')
     expect(src).not.toContain('tab-outline')
     expect(src).not.toContain('‹ 返回')

@@ -115,14 +115,15 @@ function PathBody({
             {card.buttons.length > 0 ? (
               <div className='flex flex-wrap gap-2'>
                 {card.buttons.map((b) => (
-                  <button
+                  <Button
                     key={b.id}
                     type='button'
-                    className='h-9 min-h-9 rounded-md border border-border bg-card px-3 text-sm font-medium hover:border-foreground'
+                    variant='outline'
+                    className='h-11 rounded-md px-3 font-medium hover:border-foreground'
                     onClick={() => onButton(b)}
                   >
                     {b.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             ) : null}
@@ -261,13 +262,14 @@ export function MenuCapabilityMap({
               menu.items.map((it) => {
                 const broken = actionIsBroken(it.action, cards, workflows)
                 return (
-                  <button
+                  <Button
                     key={it.id}
                     type='button'
                     data-testid='map-key'
                     aria-pressed={it.id === selectedItemId}
+                    variant='outline'
                     className={cn(
-                      'flex min-h-11 flex-col items-start justify-center gap-0.5 rounded-md border border-border bg-background px-3 py-2 text-left',
+                      'flex h-11 flex-col items-start justify-center gap-0.5 rounded-md px-3 py-2 text-left',
                       'hover:border-foreground/35',
                       it.id === selectedItemId && 'border-foreground bg-muted',
                       broken && 'border-destructive'
@@ -285,7 +287,7 @@ export function MenuCapabilityMap({
                     >
                       {outcomeText(t, it.action, cards, workflows)}
                     </span>
-                  </button>
+                  </Button>
                 )
               })
             )}
@@ -312,13 +314,15 @@ export function MenuCapabilityMap({
                         {step.label}
                       </span>
                     ) : (
-                      <button
+                      <Button
                         type='button'
-                        className='bg-transparent p-0 text-sm text-muted-foreground hover:text-foreground'
+                        variant='ghost'
+                        size='sm'
+                        className='h-auto rounded-none bg-transparent p-0 text-sm text-muted-foreground hover:bg-transparent hover:text-foreground'
                         onClick={() => setTrail((cur) => sliceTrail(cur, i))}
                       >
                         {step.label}
-                      </button>
+                      </Button>
                     )}
                   </span>
                 ))}
@@ -345,12 +349,13 @@ export function MenuCapabilityMap({
             </p>
             <div className='flex flex-wrap gap-2'>
               {orphans.map((c) => (
-                <button
+                <Button
                   key={c.id}
                   type='button'
                   aria-pressed={c.id === selectedOrphanId}
+                  variant='outline'
                   className={cn(
-                    'h-9 min-h-9 rounded-md border border-dashed border-border bg-transparent px-3 text-sm',
+                    'h-11 rounded-md border-dashed px-3 text-sm',
                     'hover:border-solid hover:border-foreground',
                     c.id === selectedOrphanId &&
                       'border-solid border-foreground bg-muted'
@@ -358,7 +363,7 @@ export function MenuCapabilityMap({
                   onClick={() => setTrail(trailFromOrphan(c))}
                 >
                   {c.name}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

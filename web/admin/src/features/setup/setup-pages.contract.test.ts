@@ -255,7 +255,7 @@ describe('login and setup pages', () => {
     expect(wizard).toMatch(/AlertTitle>注意！<\/AlertTitle>/)
     expect(wizard).toMatch(/AlertDescription>/)
     expect(wizard).toMatch(
-      /这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。/
+      /这个配置只适合\s+ComfyUI\s+和后台在同一台机器上使用，无法使用远程节点。/
     )
     expect(wizard).not.toMatch(/<br \/>/)
     expect(wizard).toMatch(/blobDriver === 'localfs'/)

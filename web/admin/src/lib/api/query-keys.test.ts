@@ -30,7 +30,15 @@ describe('queryKeys', () => {
     expect(queryKeys.channels.menu('ch1')).toEqual(['channels', 'ch1', 'menu'])
     expect(queryKeys.topics.all).toEqual(['topics'])
     expect(queryKeys.topics.detail('fast-gpu')).toEqual(['topics', 'fast-gpu'])
-    expect(queryKeys.topics.stats('fast-gpu')).toEqual(['topics', 'fast-gpu', 'stats'])
+    expect(queryKeys.topics.stats('fast-gpu', { from: '2026-08-15', to: '2026-08-21' })).toEqual([
+      'topics',
+      'fast-gpu',
+      'stats',
+      { from: '2026-08-15', to: '2026-08-21' },
+    ])
+    expect(
+      queryKeys.topics.stats('fast-gpu', { from: '2026-07-23', to: '2026-08-21' })
+    ).not.toEqual(queryKeys.topics.stats('fast-gpu', { from: '2026-08-15', to: '2026-08-21' }))
     expect(queryKeys.settings.all).toEqual(['settings'])
   })
 })

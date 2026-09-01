@@ -111,6 +111,8 @@
     "mapLoadFailed": "菜单读取失败"
   },
   "common": {
+    "showSecret": "显示敏感内容",
+    "hideSecret": "隐藏敏感内容",
     "loading": "加载中…",
     "empty": "暂无数据",
     "backToList": "返回列表",
@@ -485,7 +487,6 @@
     "fieldEnumOptions": "选项（逗号分隔）",
     "addInput": "添加一个输入",
     "addOutput": "添加一个输出",
-    "singleOutputAuto": "该节点只有 1 个输出，已自动选好",
     "nodeSearchPlaceholder": "搜索节点…",
     "mdPlaceholder": "支持 Markdown 排版…",
     "mdBold": "加粗",
@@ -537,7 +538,7 @@
     "typeRestoreAuto": "恢复自动",
     "restoreSuggestedType": "恢复建议类型",
     "typeAutoSource": "已自动判断，可手动修改",
-    "typeAutoSourceOutput": "已自动判断，可手动修改",
+    "typeAutoSourceOutput": "按绑定节点自动识别",
     "bindFlowHintOutput": "① 在图上点一个节点 → ② 在下方点它的输出",
     "saveSuccess": "保存成功",
     "saveFailed": "保存失败",

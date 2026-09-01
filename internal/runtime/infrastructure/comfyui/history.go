@@ -5,7 +5,9 @@ import (
 	"fmt"
 )
 
-// NodeImage is one image recorded for a node, with Comfy view metadata.
+// NodeImage is one binary file recorded for a node, with Comfy view metadata.
+// ComfyUI reports video and audio files through separate history arrays, so
+// this type represents those output files as well.
 type NodeImage struct {
 	OutputFile
 	Subfolder string
@@ -21,19 +23,36 @@ type NodeOutput struct {
 // HistoryResult maps node IDs to their outputs for one prompt.
 type HistoryResult map[string]NodeOutput
 
+type historyFile struct {
+	Filename  string `json:"filename"`
+	Subfolder string `json:"subfolder"`
+	Type      string `json:"type"`
+}
+
+type historyNodeOutput struct {
+	Images []historyFile `json:"images"`
+	Audio  []historyFile `json:"audio"`
+	Gifs   []historyFile `json:"gifs"`
+	Text   []string      `json:"text"`
+}
+
 type historyEntry struct {
-	Outputs map[string]struct {
-		Images []struct {
-			Filename  string `json:"filename"`
-			Subfolder string `json:"subfolder"`
-			Type      string `json:"type"`
-		} `json:"images"`
-		Text []string `json:"text"`
-	} `json:"outputs"`
-	Status struct {
+	Outputs map[string]historyNodeOutput `json:"outputs"`
+	Status  struct {
 		StatusStr string `json:"status_str"`
 		Completed bool   `json:"completed"`
 	} `json:"status"`
+}
+
+func appendHistoryFiles(dst []NodeImage, files []historyFile) []NodeImage {
+	for _, file := range files {
+		dst = append(dst, NodeImage{
+			OutputFile: OutputFile{Filename: file.Filename},
+			Subfolder:  file.Subfolder,
+			Type:       file.Type,
+		})
+	}
+	return dst
 }
 
 // ParseHistory parses a GET /history/{prompt_id} response body.
@@ -45,14 +64,9 @@ func ParseHistory(raw []byte) (HistoryResult, error) {
 	out := HistoryResult{}
 	for _, entry := range hist {
 		for nodeID, node := range entry.Outputs {
-			var images []NodeImage
-			for _, img := range node.Images {
-				images = append(images, NodeImage{
-					OutputFile: OutputFile{Filename: img.Filename},
-					Subfolder:  img.Subfolder,
-					Type:       img.Type,
-				})
-			}
+			images := appendHistoryFiles(nil, node.Images)
+			images = appendHistoryFiles(images, node.Audio)
+			images = appendHistoryFiles(images, node.Gifs)
 			if len(images) == 0 && len(node.Text) == 0 {
 				continue
 			}

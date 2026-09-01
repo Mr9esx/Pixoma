@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { resolveMediaKey } from '@/lib/api/media'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/reui/badge'
+import { Badge } from '@/components/ui/badge'
 import { useMediaObjectUrl } from '@/features/cases/lib/use-media-object-url'
 import { type WorkflowRef } from './node-view'
 

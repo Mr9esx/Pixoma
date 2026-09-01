@@ -1,34 +1,50 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
 import { BadgeCheck, ListTodo, Timer } from 'lucide-react'
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import { getTopicStats } from '@/lib/api/topics'
+import { useTranslation } from 'react-i18next'
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { queryKeys } from '@/lib/api/query-keys'
+import { getTopicStats } from '@/lib/api/topics'
+import { cn } from '@/lib/utils'
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import {
+  TimeRangeControl,
+  type RangePreset,
+} from '@/components/time-range-control'
+import { daysAgo, type StatsRange } from '@/features/dashboard/date-range'
 import { kit } from '@/features/edges/kit-classes'
-import { cn } from '@/lib/utils'
 
-const STATUS_ORDER = ['pending', 'queued', 'running', 'succeeded', 'failed', 'cancelled'] as const
+const STATUS_ORDER = [
+  'pending',
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+  'cancelled',
+] as const
 
 const STATUS_COLOR: Record<string, string> = {
   pending: 'bg-muted-foreground/40',
-  queued: 'bg-amber-500',
-  running: 'bg-blue-500',
-  succeeded: 'bg-emerald-500',
-  failed: 'bg-rose-500',
+  queued: 'bg-warning',
+  running: 'bg-info',
+  succeeded: 'bg-success',
+  failed: 'bg-destructive',
   cancelled: 'bg-muted-foreground/60',
 }
 
@@ -65,7 +81,10 @@ function formatRate(rate: number | null | undefined): string {
 }
 
 function timeTick(v: number): string {
-  return new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return new Date(v).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function formatThroughputLabel(payload: readonly unknown[]): string {
@@ -76,9 +95,15 @@ function formatThroughputLabel(payload: readonly unknown[]): string {
 
 export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
   const { t } = useTranslation()
+  const [range, setRange] = useState<StatsRange>(() => ({
+    from: daysAgo(6),
+    to: daysAgo(0),
+  }))
   const statsQuery = useQuery({
-    queryKey: queryKeys.topics.stats(topicKey),
-    queryFn: () => getTopicStats(topicKey),
+    queryKey: queryKeys.topics.stats(topicKey, range),
+    queryFn: () => getTopicStats(topicKey, range),
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[1] === topicKey ? previousData : undefined,
   })
 
   if (statsQuery.isLoading) return <LoadingSkeleton rows={6} />
@@ -98,6 +123,22 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
   const chartConfig: ChartConfig = {
     count: { label: t('topics.statsThroughput'), color: 'var(--primary)' },
   }
+  const rangeDuration = Date.parse(stats.to) - Date.parse(stats.from)
+  const isChartLoading = statsQuery.isFetching && !statsQuery.isLoading
+  const throughputTickFormatter = (value: number) => {
+    if (rangeDuration > 24 * 60 * 60 * 1000) {
+      return new Date(value).toLocaleDateString([], {
+        month: '2-digit',
+        day: '2-digit',
+      })
+    }
+    return timeTick(value)
+  }
+  const presets: RangePreset[] = [
+    { value: '7d', label: t('dashboard.range7d'), days: 7 },
+    { value: '30d', label: t('dashboard.range30d'), days: 30 },
+    { value: '90d', label: t('dashboard.range90d'), days: 90 },
+  ]
 
   return (
     <div className='flex flex-col gap-4' data-testid='topic-stats-panel'>
@@ -124,17 +165,17 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
               <BadgeCheck className='size-4' />
               {t('topics.statsSuccessRate')}
             </p>
-            <p className={kit.statsValue}>
-              {formatRate(stats.success_rate)}
-            </p>
+            <p className={kit.statsValue}>{formatRate(stats.success_rate)}</p>
           </div>
         </div>
       </div>
 
-      <div className='flex min-w-0 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none'>
-        <div className='mb-3'>
-          <h2 className='text-base font-semibold'>{t('topics.statsThroughput')}</h2>
-          <div className='mt-3 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground'>
+      <Card className='min-w-0 gap-4 rounded-md border-border py-4'>
+        <CardHeader className='gap-3 px-4'>
+          <CardTitle className='text-base font-semibold'>
+            {t('topics.statsThroughput')}
+          </CardTitle>
+          <CardDescription className='flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground'>
             <span className='inline-flex items-center gap-1.5'>
               <span
                 className='size-2 rounded-full'
@@ -142,87 +183,135 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
               />
               {t('topics.statsThroughput')}
             </span>
+          </CardDescription>
+          <CardAction>
+            <TimeRangeControl
+              presets={presets}
+              from={range.from}
+              to={range.to}
+              onChange={setRange}
+            />
+          </CardAction>
+        </CardHeader>
+        <CardContent className='px-4'>
+          <div className='h-[160px] w-full min-w-0'>
+          {isChartLoading ? (
+            <Skeleton className='h-[160px] w-full rounded-[8px]' />
+          ) : (
+            <ChartContainer
+              config={chartConfig}
+              className='aspect-auto h-full w-full'
+            >
+              <AreaChart data={chartData} margin={CHART_MARGIN}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey='ts'
+                  type='number'
+                  scale='time'
+                  domain={['dataMin', 'dataMax']}
+                  tickFormatter={throughputTickFormatter}
+                  height={24}
+                  {...TICK_PROPS}
+                />
+                <YAxis width={32} allowDecimals={false} {...TICK_PROPS} />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(_, payload) =>
+                        formatThroughputLabel(payload)
+                      }
+                    />
+                  }
+                />
+                <Area
+                  dataKey='count'
+                  type='monotone'
+                  stroke='var(--primary)'
+                  fill='var(--primary)'
+                  fillOpacity={0.15}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </AreaChart>
+            </ChartContainer>
+          )}
           </div>
-        </div>
-        <div className='h-[160px] w-full min-w-0'>
-          <ChartContainer config={chartConfig} className='aspect-auto h-full w-full'>
-            <AreaChart data={chartData} margin={CHART_MARGIN}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey='ts'
-                type='number'
-                scale='time'
-                domain={['dataMin', 'dataMax']}
-                tickFormatter={timeTick}
-                height={20}
-                {...TICK_PROPS}
-              />
-              <YAxis width={32} allowDecimals={false} {...TICK_PROPS} />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(_, payload) =>
-                      formatThroughputLabel(payload)
-                    }
-                  />
-                }
-              />
-              <Area
-                dataKey='count'
-                type='monotone'
-                stroke='var(--primary)'
-                fill='var(--primary)'
-                fillOpacity={0.15}
-                strokeWidth={2}
-                dot={false}
-              />
-            </AreaChart>
-          </ChartContainer>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <div className='grid gap-4 lg:grid-cols-2'>
-        <div className='flex min-w-0 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none'>
-          <h2 className='mb-3 text-base font-semibold'>{t('topics.statsStatus')}</h2>
-          <ul className='space-y-2'>
+        <Card className='min-w-0 gap-3 rounded-md border-border py-4'>
+          <CardHeader className='px-4'>
+            <CardTitle className='text-base font-semibold'>
+            {t('topics.statsStatus')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className='px-4'>
+            <ul className='space-y-2'>
             {STATUS_ORDER.map((status) => {
               const count = stats.status[status] ?? 0
               const total = Math.max(stats.task_count, 1)
               const pct = Math.round((count / total) * 100)
               return (
                 <li key={status} className='flex items-center gap-2 text-sm'>
-                  <span className={cn('size-2 shrink-0 rounded-full', STATUS_COLOR[status])} />
+                  <span
+                    className={cn(
+                      'size-2 shrink-0 rounded-full',
+                      STATUS_COLOR[status]
+                    )}
+                  />
                   <span className='w-24 shrink-0 truncate text-muted-foreground'>
                     {t(STATUS_LABEL_KEY[status])}
                   </span>
                   <div className='h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted'>
                     <div
-                      className={cn('h-full rounded-full', STATUS_COLOR[status])}
+                      className={cn(
+                        'h-full rounded-full',
+                        STATUS_COLOR[status]
+                      )}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className='w-10 shrink-0 text-right tabular-nums'>{count}</span>
+                  <span className='w-10 shrink-0 text-right tabular-nums'>
+                    {count}
+                  </span>
                 </li>
               )
             })}
-          </ul>
-        </div>
+            </ul>
+          </CardContent>
+        </Card>
 
-        <div className='flex min-w-0 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none'>
-          <h2 className='mb-3 text-base font-semibold'>{t('topics.statsErrors')}</h2>
+        <Card className='min-w-0 gap-3 rounded-md border-border py-4'>
+          <CardHeader className='px-4'>
+            <CardTitle className='text-base font-semibold'>
+            {t('topics.statsErrors')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className='px-4'>
           {stats.error_codes.length === 0 ? (
-            <p className='text-sm text-muted-foreground'>{t('topics.statsNoErrors')}</p>
+            <p className='text-sm text-muted-foreground'>
+              {t('topics.statsNoErrors')}
+            </p>
           ) : (
             <ul className='space-y-2'>
               {stats.error_codes.map((e) => (
-                <li key={e.code} className='flex items-center justify-between gap-2 text-sm'>
-                  <span className='min-w-0 truncate font-mono text-xs'>{e.code}</span>
-                  <span className='shrink-0 tabular-nums text-muted-foreground'>{e.count}</span>
+                <li
+                  key={e.code}
+                  className='flex items-center justify-between gap-2 text-sm'
+                >
+                  <span className='min-w-0 truncate font-mono text-xs'>
+                    {e.code}
+                  </span>
+                  <span className='shrink-0 text-muted-foreground tabular-nums'>
+                    {e.count}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

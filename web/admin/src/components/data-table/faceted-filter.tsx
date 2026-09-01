@@ -3,6 +3,7 @@ import { CheckIcon, PlusCircledIcon } from '@radix-ui/react-icons'
 import { type Column } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -19,7 +20,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
-import { Pill } from '@/components/kibo-ui/pill'
 
 type DataTableFacetedFilterProps<TData, TValue> = {
   column?: Column<TData, TValue>
@@ -49,31 +49,31 @@ export function DataTableFacetedFilter<TData, TValue>({
           {selectedValues?.size > 0 && (
             <>
               <Separator orientation='vertical' className='mx-2 h-4' />
-              <Pill
+              <Badge
                 variant='secondary'
                 className='rounded-sm px-1 font-normal lg:hidden'
               >
                 {selectedValues.size}
-              </Pill>
+              </Badge>
               <div className='hidden space-x-1 lg:flex'>
                 {selectedValues.size > 2 ? (
-                  <Pill
+                  <Badge
                     variant='secondary'
                     className='rounded-sm px-1 font-normal'
                   >
                     {selectedValues.size} selected
-                  </Pill>
+                  </Badge>
                 ) : (
                   options
                     .filter((option) => selectedValues.has(option.value))
                     .map((option) => (
-                      <Pill
+                      <Badge
                         variant='secondary'
                         key={option.value}
                         className='rounded-sm px-1 font-normal'
                       >
                         {option.label}
-                      </Pill>
+                      </Badge>
                     ))
                 )}
               </div>

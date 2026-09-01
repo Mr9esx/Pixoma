@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SecretInput } from '@/components/secret-input'
 
 type Props = {
   onDone: (channel: Channel) => void
@@ -46,7 +47,7 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
       </div>
       <div className='space-y-1.5'>
         <Label htmlFor='channel-token'>{t('channels.token')}</Label>
-        <Input
+        <SecretInput
           id='channel-token'
           value={token}
           onChange={(e) => setToken(e.target.value)}

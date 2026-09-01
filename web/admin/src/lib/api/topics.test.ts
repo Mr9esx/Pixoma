@@ -121,17 +121,24 @@ describe('topics API', () => {
           to: '2026-08-22T00:00:00Z',
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+      )
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    const data = await getTopicStats('fast-gpu')
+    const data = await getTopicStats('fast-gpu', {
+      from: '2026-08-15',
+      to: '2026-08-21',
+    })
 
     expect(data.task_count).toBe(3)
     expect(data.error_codes[0].code).toBe('timeout')
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://127.0.0.1:8081/api/v1/topics/fast-gpu/stats',
-      expect.anything(),
+    const url = new URL(fetchMock.mock.calls[0][0] as string)
+    expect(url.pathname).toBe('/api/v1/topics/fast-gpu/stats')
+    expect(url.searchParams.get('from')).toBe(
+      new Date('2026-08-15T00:00:00').toISOString()
+    )
+    expect(url.searchParams.get('to')).toBe(
+      new Date('2026-08-21T23:59:59.999').toISOString()
     )
   })
 })

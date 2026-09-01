@@ -9,6 +9,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -132,12 +133,13 @@ export function TaskFlowTable({
             <h2 className='truncate text-lg font-semibold tracking-tight'>
               {title}
             </h2>
-            <div
+            <Badge
+              variant='outline'
               data-routing-status
               className={cn(
-                'flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs',
+                'shrink-0 gap-1.5 px-2.5 py-1.5 text-xs',
                 validation.valid
-                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+                  ? 'border-success/40 bg-success/10 text-success'
                   : 'border-destructive/50 bg-destructive/10 text-destructive'
               )}
             >
@@ -146,14 +148,12 @@ export function TaskFlowTable({
               ) : (
                 <CircleAlert className='size-3.5' />
               )}
-              <span>
-                {validation.valid
-                  ? '校验通过，可保存'
-                  : routingEmpty
-                    ? '路由规则不能为空'
-                    : `${validation.issues.length} 条规则未通过校验`}
-              </span>
-            </div>
+              {validation.valid
+                ? '校验通过，可保存'
+                : routingEmpty
+                  ? '路由规则不能为空'
+                  : `${validation.issues.length} 条规则未通过校验`}
+            </Badge>
           </div>
           <div className='flex shrink-0 items-center gap-2'>
             {headerActions}

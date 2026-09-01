@@ -48,7 +48,7 @@ export function WizardChrome({
                   className={cn(
                     'grid size-5 place-items-center rounded-full border text-[11px] font-semibold',
                     i < step
-                      ? 'border-emerald-600/50 text-emerald-600'
+                      ? 'border-success/50 text-success'
                       : i === step
                         ? 'border-foreground bg-foreground text-background'
                         : 'border-border text-muted-foreground'
@@ -72,7 +72,7 @@ export function WizardChrome({
                   aria-hidden='true'
                   className={cn(
                     'h-px min-w-4 flex-1',
-                    i < step ? 'bg-emerald-600/50' : 'bg-border'
+                    i < step ? 'bg-success/50' : 'bg-border'
                   )}
                 />
               ) : null}

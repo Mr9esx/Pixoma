@@ -62,7 +62,7 @@ describe('kokonutui mouse-effect card workbench adaptation', () => {
 
   it('renders the welcome card at a fixed 288px height', () => {
     const card = read('../../features/dashboard/workbench-welcome-card.tsx')
-    expect(card).toContain('h-[288px]')
+    expect(card).toContain('h-[292px]')
     expect(card).toContain('justify-center')
     expect(card).toContain('text-center')
   })

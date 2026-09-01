@@ -1,4 +1,9 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useRouterState,
+} from '@tanstack/react-router'
 import { fetchSetupStatus } from '@/lib/api/setup'
 import { getCookie } from '@/lib/cookies'
 import { nextAdminPath } from '@/lib/setup-guard'
@@ -24,6 +29,7 @@ export const Route = createFileRoute('/_app')({
 
 function AppLayout() {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
+  const isPending = useRouterState({ select: (state) => state.status === 'pending' })
 
   return (
     <SearchProvider>
@@ -40,7 +46,14 @@ function AppLayout() {
             )}
           >
             <AppHeader />
-            <div className={cn(contentRegionClassName, 'p-4')}>
+            <div
+              className={cn(
+                contentRegionClassName,
+                'p-4',
+                isPending &&
+                  'flex flex-col [&>[role=status]]:h-full [&>[role=status]]:min-h-0 [&>[role=status]]:flex-1'
+              )}
+            >
               <Outlet />
             </div>
           </SidebarInset>

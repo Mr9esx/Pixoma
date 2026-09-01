@@ -49,7 +49,8 @@ export const queryKeys = {
   topics: {
     all: ['topics'] as const,
     detail: (key: string) => ['topics', key] as const,
-    stats: (key: string) => ['topics', key, 'stats'] as const,
+    stats: (key: string, range: { from: string; to: string }) =>
+      ['topics', key, 'stats', range] as const,
   },
   settings: {
     all: ['settings'] as const,

@@ -64,7 +64,6 @@ const REQUIRED_KEYS = [
   'typeAutoSource',
   'addInput',
   'addOutput',
-  'singleOutputAuto',
   'emptyWorkflowLock',
   'workflowRequired',
   'autoGenerateInputs',
@@ -180,9 +179,22 @@ describe('field cards (table + anchored bind popover)', () => {
     expect(source).toContain("data-testid='output-field-card'")
     expect(source).toContain("mode='output'")
     expect(source).toContain('outputKindFor(')
-    expect(source).toContain('cases.singleOutputAuto')
+    expect(source).toContain("data-testid='output-type'")
+    expect(source).toContain("data-testid='selected-output-type'")
+    expect(source).not.toContain('OUTPUT_TYPES')
+    expect(source).not.toContain('cases.singleOutputAuto')
     expect(source).toContain("data-testid='output-fields-table'")
     expect(source).toContain("data-testid='input-fields-table'")
+    const cardStart = source.indexOf('function OutputFieldCard')
+    const cardEnd = source.indexOf('===== 宽屏表格化批量编辑 =====')
+    const tableStart = source.indexOf('export function OutputFieldsTable')
+    const tableEnd = source.indexOf('type EditableOutputFieldsProps')
+    const outputSource =
+      source.slice(cardStart, cardEnd) + source.slice(tableStart, tableEnd)
+    expect(outputSource).not.toContain('<Select')
+    expect(outputSource).not.toContain('RestoreTypeButton')
+    const tableSource = source.slice(tableStart, tableEnd)
+    expect(tableSource).not.toContain("t('cases.fieldType')")
   })
 })
 

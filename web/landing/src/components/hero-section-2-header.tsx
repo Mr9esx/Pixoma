@@ -19,9 +19,20 @@ export const HeroHeader = () => {
     let active = true;
 
     fetch("https://api.github.com/repos/Mr9esx/Pixoma")
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) =>
+        response.status === 404
+          ? null
+          : response.ok
+            ? response.json()
+            : undefined,
+      )
       .then((data) => {
-        if (!active || !data) return;
+        if (!active) return;
+        if (data === null) {
+          setStarCount(0);
+          return;
+        }
+        if (!data) return;
         setStarCount(
           typeof data.stargazers_count === "number"
             ? data.stargazers_count
@@ -92,41 +103,45 @@ export const HeroHeader = () => {
                   <LocaleSwitcher onChange={setLocale} value={locale} />
                   <ThemeSwitcher value={theme} onChange={setTheme} />
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  nativeButton={false}
-                  render={
-                    <Link
-                      href="https://github.com/Mr9esx/Pixoma"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Star className="size-4" />
-                      <span>Star</span>
-                      {starCount !== null ? (
-                        <span className="tabular-nums">
-                          {starCount.toLocaleString()}
-                        </span>
-                      ) : null}
-                    </Link>
-                  }
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  nativeButton={false}
-                  render={
-                    <Link
-                      href="https://github.com/Mr9esx/Pixoma"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Github className="size-4" />
-                      <span>Github</span>
-                    </Link>
-                  }
-                />
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="px-2"
+                    nativeButton={false}
+                    aria-label="GitHub stars"
+                    render={
+                      <Link
+                        href="https://github.com/Mr9esx/Pixoma"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Star className="size-4" />
+                        {starCount !== null ? (
+                          <span className="tabular-nums">
+                            {starCount.toLocaleString()}
+                          </span>
+                        ) : null}
+                      </Link>
+                    }
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="px-2"
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href="https://github.com/Mr9esx/Pixoma"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Github className="size-4" />
+                        <span>Github</span>
+                      </Link>
+                    }
+                  />
+                </div>
               </div>
             </div>
           </div>

@@ -17,6 +17,13 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
@@ -38,6 +45,14 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
@@ -149,24 +164,22 @@ function LineCardShell({
   children: ReactNode
 }) {
   return (
-    <div className='flex min-w-0 flex-1 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none'>
-      <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
-        <div>
-          <h2 className='text-base font-semibold'>{title}</h2>
-          <div className='mt-3 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground'>
-            {Object.entries(config).map(([key, entry]) => (
-              <span key={key} className='inline-flex items-center gap-1.5'>
-                <span
-                  className='size-2 rounded-full'
-                  style={{ backgroundColor: entry.color }}
-                />
-                {entry.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div
+    <Card className='min-w-0 flex-1 gap-3 rounded-md border-border py-4'>
+      <CardHeader className='gap-3 px-4'>
+        <CardTitle className='text-base font-semibold'>{title}</CardTitle>
+        <CardDescription className='flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground'>
+          {Object.entries(config).map(([key, entry]) => (
+            <span key={key} className='inline-flex items-center gap-1.5'>
+              <span
+                className='size-2 rounded-full'
+                style={{ backgroundColor: entry.color }}
+              />
+              {entry.label}
+            </span>
+          ))}
+        </CardDescription>
+      </CardHeader>
+      <CardContent
         className={
           compact
             ? 'grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_122px]'
@@ -200,8 +213,8 @@ function LineCardShell({
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -669,38 +682,44 @@ function TasksSection({
         hint={t('edges.observationTasksHint')}
       />
       <div className={kit.tableWrap}>
-        <table className='w-full caption-bottom text-sm'>
-          <thead>
-            <tr className='border-b bg-muted/25'>
-              <th className={`${kit.th} px-4`}>{t('tasks.fieldStatus')}</th>
-              <th className={kit.th}>{t('tasks.fieldCaseId')}</th>
-              <th className={kit.th}>{t('tasks.fieldId')}</th>
-              <th className={kit.th}>{t('tasks.fieldUpdatedAt')}</th>
-              <th className={kit.th}>{t('edges.taskDetail')}</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className='w-full caption-bottom text-sm'>
+          <TableHeader className='bg-muted/25'>
+            <TableRow>
+              <TableHead className={`${kit.th} px-4`}>
+                {t('tasks.fieldStatus')}
+              </TableHead>
+              <TableHead className={kit.th}>{t('tasks.fieldCaseId')}</TableHead>
+              <TableHead className={kit.th}>{t('tasks.fieldId')}</TableHead>
+              <TableHead className={kit.th}>
+                {t('tasks.fieldUpdatedAt')}
+              </TableHead>
+              <TableHead className={kit.th}>{t('edges.taskDetail')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {tasks.length === 0 ? (
-              <tr>
-                <td colSpan={5} className='p-0'>
+              <TableRow>
+                <TableCell colSpan={5} className='p-0'>
                   <EmptyState className='py-6' message={t('tasks.empty')} />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               tasks.map((task) => {
                 const statusKey = taskStatusLabelKey(task.status)
                 return (
-                  <tr key={task.id} className='border-b last:border-0'>
-                    <td className='px-4 py-3'>
+                  <TableRow key={task.id}>
+                    <TableCell className='px-4 py-3'>
                       <Pill
                         dot={statusTagDot(task.status)}
                         className={statusTagClass(task.status)}
                       >
                         {statusKey ? t(statusKey) : task.status}
                       </Pill>
-                    </td>
-                    <td className='max-w-32 truncate py-3'>{task.case_id}</td>
-                    <td className='max-w-40 truncate py-3 font-mono text-xs'>
+                    </TableCell>
+                    <TableCell className='max-w-32 truncate py-3'>
+                      {task.case_id}
+                    </TableCell>
+                    <TableCell className='max-w-40 truncate py-3 font-mono text-xs'>
                       <Link
                         to='/tasks/$taskId'
                         params={{ taskId: task.id }}
@@ -708,11 +727,11 @@ function TasksSection({
                       >
                         {task.id}
                       </Link>
-                    </td>
-                    <td className='py-3 whitespace-nowrap text-muted-foreground'>
+                    </TableCell>
+                    <TableCell className='py-3 whitespace-nowrap text-muted-foreground'>
                       {formatTime(task.updated_at)}
-                    </td>
-                    <td className='py-3'>
+                    </TableCell>
+                    <TableCell className='py-3'>
                       <Button
                         type='button'
                         variant='outline'
@@ -721,13 +740,13 @@ function TasksSection({
                       >
                         {t('edges.taskDetail')}
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )
               })
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {hasPrev || hasNext ? (
         <div className='flex items-center justify-between gap-2'>
@@ -889,8 +908,8 @@ function MonitoringSection({
                 className={cn(
                   'inline-flex h-full items-center gap-1.5 rounded-md border border-transparent px-2.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50',
                   metricsRange.kind === 'custom'
-                    ? 'border-input bg-background text-foreground shadow-sm dark:border-white/10 dark:bg-input/30 dark:text-foreground'
-                    : 'text-muted-foreground hover:text-foreground dark:text-muted-foreground'
+                    ? 'border-input bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {t('edges.monitorCustom')}
@@ -1021,12 +1040,12 @@ function MonitoringSkeleton() {
 function ChartSkeleton({ compact = false }: { compact?: boolean }) {
   const statsCells = compact ? 4 : 3
   return (
-    <div className='flex min-w-0 flex-1 flex-col rounded-[8px] border bg-card p-4 shadow-sm shadow-zinc-200/40 dark:border-white/10 dark:bg-[#161616] dark:shadow-none'>
-      <div className='mb-3'>
+    <Card className='min-w-0 flex-1 gap-3 rounded-md border-border py-4'>
+      <CardHeader className='gap-3 px-4'>
         <Skeleton className='h-4 w-28' />
-        <Skeleton className='mt-3 h-3 w-44' />
-      </div>
-      <div
+        <Skeleton className='h-3 w-44' />
+      </CardHeader>
+      <CardContent
         className={cn(
           'grid min-h-0 flex-1 gap-1.5',
           compact
@@ -1058,8 +1077,8 @@ function ChartSkeleton({ compact = false }: { compact?: boolean }) {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 

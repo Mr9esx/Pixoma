@@ -31,7 +31,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -50,7 +52,6 @@ import { Reveal } from '@/components/ui/reveal'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
-import { Pill } from '@/components/kibo-ui/pill'
 import { MetaChip } from '@/components/meta-chip'
 import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
@@ -215,9 +216,9 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{topic.name}</h2>
             {isDefault ? (
-              <Pill className='border-primary/20 bg-primary/10 text-primary'>
+              <Badge className='border-primary/20 bg-primary/10 text-primary'>
                 {t('topics.defaultBadge')}
-              </Pill>
+              </Badge>
             ) : null}
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
@@ -294,11 +295,12 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
                       </p>
                     ) : null}
                     {hasImpact ? (
-                      <label className='mt-4 flex items-start gap-2'>
-                        <input
-                          type='checkbox'
+                      <label className='mt-4 flex cursor-pointer items-start gap-2'>
+                        <Checkbox
                           checked={ackImpact}
-                          onChange={(e) => setAckImpact(e.target.checked)}
+                          onCheckedChange={(checked) =>
+                            setAckImpact(checked === true)
+                          }
                           data-testid='topic-delete-ack'
                         />
                         <span>{t('topics.deleteAckImpact')}</span>

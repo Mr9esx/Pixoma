@@ -244,19 +244,14 @@ func (h *HTTP) pollHistory(ctx context.Context, promptID string) (*Result, bool,
 	nodeOutputs := HistoryResult{}
 	for nodeID, node := range hist {
 		out := NodeOutput{}
-		for _, img := range node.Images {
-			if img.Filename == "" {
-				continue
-			}
-			data, mime, err := h.fetchView(ctx, img.Filename, img.Subfolder, img.Type)
+		for _, file := range node.Images {
+			data, mime, err := h.fetchView(ctx, file.Filename, file.Subfolder, file.Type)
 			if err != nil {
 				return nil, false, err
 			}
-			out.Images = append(out.Images, NodeImage{
-				OutputFile: OutputFile{Filename: img.Filename, Mime: mime, Data: data},
-				Subfolder:  img.Subfolder,
-				Type:       img.Type,
-			})
+			file.Mime = mime
+			file.Data = data
+			out.Images = append(out.Images, file)
 		}
 		out.Texts = append(out.Texts, node.Texts...)
 		if len(out.Images) > 0 || len(out.Texts) > 0 {

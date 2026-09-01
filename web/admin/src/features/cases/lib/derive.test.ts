@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   deriveBindings,
   deriveInputSchema,
+  normalizeOutputTypes,
   validateEditor,
   type InputFieldDraft,
   type OutputFieldDraft,
@@ -54,6 +55,21 @@ describe('derive', () => {
       ],
       outputs: [{ key: 'image', node_id: '9', index: 0 }],
     })
+  })
+
+  it('normalizes output types from bound nodes', () => {
+    const outputs: OutputFieldDraft[] = [
+      { key: 'image', type: 'file', node_id: 'node-a', index: 0 },
+      { key: 'unbound', type: 'image', node_id: '', index: 0 },
+    ]
+    expect(
+      normalizeOutputTypes(outputs, [
+        { id: 'node-a', class_type: 'VHS_VideoCombine' },
+      ])
+    ).toEqual([
+      { key: 'image', type: 'video', node_id: 'node-a', index: 0 },
+      { key: 'unbound', type: 'image', node_id: '', index: 0 },
+    ])
   })
 
   it('derives input_schema with types, enums and required', () => {

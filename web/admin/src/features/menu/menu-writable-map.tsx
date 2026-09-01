@@ -266,19 +266,20 @@ export function MenuWritableMap({
               className='grid grid-cols-8 gap-1'
             >
               {COLUMN_COUNTS.map((n) => (
-                <button
+                <Button
                   key={n}
                   type='button'
                   aria-pressed={cols === n}
+                  variant='outline'
                   className={cn(
-                    'min-h-11 rounded-md border border-border bg-background text-sm tabular-nums',
+                    'h-11 rounded-md text-sm tabular-nums',
                     'hover:border-foreground/35',
                     cols === n && 'border-foreground bg-muted'
                   )}
                   onClick={() => onColumnsChange(n)}
                 >
                   {n}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -295,13 +296,14 @@ export function MenuWritableMap({
               menu.items.map((it) => {
                 const broken = actionIsBroken(it.action, cards, workflows)
                 return (
-                  <button
+                  <Button
                     key={it.id}
                     type='button'
                     data-testid='map-key'
                     aria-pressed={it.id === selectedItemId}
+                    variant='outline'
                     className={cn(
-                      'flex min-h-11 flex-col items-start justify-center gap-0.5 rounded-md border border-border bg-background px-3 py-2 text-left',
+                      'flex h-11 flex-col items-start justify-center gap-0.5 rounded-md px-3 py-2 text-left',
                       'hover:border-foreground/35',
                       it.id === selectedItemId && 'border-foreground bg-muted',
                       broken && 'border-destructive'
@@ -319,18 +321,19 @@ export function MenuWritableMap({
                     >
                       {outcomeText(t, it.action, cards, workflows)}
                     </span>
-                  </button>
+                  </Button>
                 )
               })
             )}
-            <button
+            <Button
               type='button'
               data-testid='add-key'
+              variant='outline'
               onClick={onAddKey}
-              className='flex min-h-11 items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground'
+              className='flex h-11 flex-1 items-center justify-center rounded-md border-dashed text-sm text-muted-foreground'
             >
               {t('menu.addKey')}
-            </button>
+            </Button>
           </div>
         </>
       }
@@ -352,13 +355,15 @@ export function MenuWritableMap({
                         {step.label || t('menu.untitled')}
                       </span>
                     ) : (
-                      <button
+                      <Button
                         type='button'
-                        className='bg-transparent p-0 text-sm text-muted-foreground hover:text-foreground'
+                        variant='ghost'
+                        size='sm'
+                        className='h-auto rounded-none bg-transparent p-0 text-sm text-muted-foreground hover:bg-transparent hover:text-foreground'
                         onClick={() => onTrailChange(sliceTrail(trail, i))}
                       >
                         {step.label || t('menu.untitled')}
-                      </button>
+                      </Button>
                     )}
                   </span>
                 ))}
@@ -512,12 +517,13 @@ export function MenuWritableMap({
             {paneLabel(t('menu.mapOrphans', { n: orphans.length }))}
             <div className='flex flex-wrap gap-2'>
               {orphans.map((c) => (
-                <button
+                <Button
                   key={c.id}
                   type='button'
                   aria-pressed={c.id === selectedOrphanId}
+                  variant='outline'
                   className={cn(
-                    'h-11 min-h-11 rounded-md border border-dashed border-border bg-transparent px-3 text-sm',
+                    'h-11 rounded-md border-dashed px-3 text-sm',
                     'hover:border-solid hover:border-foreground',
                     c.id === selectedOrphanId &&
                       'border-solid border-foreground bg-muted'
@@ -525,7 +531,7 @@ export function MenuWritableMap({
                   onClick={() => onTrailChange(trailFromOrphan(c))}
                 >
                   {c.name}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -625,19 +631,20 @@ function EditCardMessage({
           <Label>{t('menu.cardButtons')}</Label>
           <div className='flex flex-wrap gap-2'>
             {card.buttons.map((b) => (
-              <button
+              <Button
                 key={b.id}
                 type='button'
                 data-testid='edit-card-button'
+                variant='outline'
                 className={cn(
-                  'h-11 min-h-11 rounded-md border border-border bg-card px-3 text-sm font-medium',
+                  'h-11 rounded-md px-3 font-medium',
                   'hover:border-foreground',
                   b.id === selectedButtonId && 'border-foreground bg-muted'
                 )}
                 onClick={() => onPushButton(b)}
               >
                 {b.label || t('menu.untitled')}
-              </button>
+              </Button>
             ))}
             <Button
               type='button'
