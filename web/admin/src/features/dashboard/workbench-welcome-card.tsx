@@ -16,7 +16,7 @@ export function WorkbenchWelcomeCard() {
   return (
     <MouseEffectCard
       data-testid='workbench-welcome'
-      className='h-[288px] w-full'
+      className='h-[292px] w-full'
     >
       <h2 className='text-center text-2xl font-bold tracking-tight text-foreground'>
         {t('dashboard.workbench.welcomeTitle', { name })}

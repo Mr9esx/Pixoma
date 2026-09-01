@@ -198,7 +198,7 @@ func (w *Worker) storeOutputs(ctx context.Context, taskID sharedkernel.TaskID, r
 	for _, binding := range bindings {
 		node, ok := res.Outputs[binding.NodeID]
 		if !ok || len(node.Images) == 0 {
-			return nil, fmt.Errorf("output binding %q: node %s produced no image outputs", binding.Key, binding.NodeID)
+			return nil, fmt.Errorf("output binding %q: node %s produced no output files", binding.Key, binding.NodeID)
 		}
 		index := binding.Index
 		if index < 0 {

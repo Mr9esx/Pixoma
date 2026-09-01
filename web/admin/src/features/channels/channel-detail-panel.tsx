@@ -37,6 +37,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -57,6 +58,7 @@ import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
 import { Pill } from '@/components/kibo-ui/pill'
 import { MetaChip } from '@/components/meta-chip'
+import { SecretInput } from '@/components/secret-input'
 import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
 import { channelReferences } from '@/features/link-health/lib/references'
@@ -279,11 +281,12 @@ export function ChannelDetailPanel({ id }: { id: string }) {
                       </p>
                     ) : null}
                     {hasImpact ? (
-                      <label className='mt-4 flex items-start gap-2'>
-                        <input
-                          type='checkbox'
+                      <label className='mt-4 flex cursor-pointer items-start gap-2'>
+                        <Checkbox
                           checked={ackImpact}
-                          onChange={(e) => setAckImpact(e.target.checked)}
+                          onCheckedChange={(checked) =>
+                            setAckImpact(checked === true)
+                          }
                           data-testid='channel-delete-ack'
                         />
                         <span>{t('channels.deleteAckImpact')}</span>
@@ -384,7 +387,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             </div>
             <div className='space-y-1.5'>
               <Label>{t('channels.token')}</Label>
-              <Input
+              <SecretInput
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 placeholder={ch.token_masked}

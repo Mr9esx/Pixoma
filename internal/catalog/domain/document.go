@@ -46,7 +46,7 @@ type InputField struct {
 
 type OutputField struct {
 	Key         string `json:"key"`
-	Type        string `json:"type"` // image|text|file
+	Type        string `json:"type"` // image|video|audio|text|file
 	Description string `json:"description,omitempty"`
 	MediaType   string `json:"media_type,omitempty"`
 }

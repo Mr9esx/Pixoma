@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Check, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -16,7 +17,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Pill } from '@/components/kibo-ui/pill'
 
 type MultiSelectProps = {
   value: string[]
@@ -79,14 +79,14 @@ export function MultiSelect({
         >
           {values.length ? (
             values.map((v) => (
-              <Pill
+              <Badge
                 key={v}
                 variant='secondary'
                 className='rounded-sm px-2 py-0 font-normal'
                 data-testid='multi-select-badge'
               >
                 {v}
-              </Pill>
+              </Badge>
             ))
           ) : (
             <span className='text-muted-foreground'>{placeholder}</span>

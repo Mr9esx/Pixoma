@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -75,7 +76,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Pill } from '@/components/kibo-ui/pill'
 import type { InputFieldDraft, OutputFieldDraft } from '../lib/derive'
 import {
   inputKindFor,
@@ -94,12 +94,6 @@ const INPUT_TYPES: Array<{ value: string; labelKey: string }> = [
   { value: 'boolean', labelKey: 'cases.typeBoolean' },
   { value: 'enum', labelKey: 'cases.typeEnum' },
 ]
-const OUTPUT_TYPES: Array<{ value: string; labelKey: string }> = [
-  { value: 'image', labelKey: 'cases.typeImage' },
-  { value: 'text', labelKey: 'cases.typeText' },
-  { value: 'file', labelKey: 'cases.typeFile' },
-]
-
 /** 类型 value → i18n key；用于列表徽标等处显示中文类型名。 */
 const TYPE_LABEL_KEYS: Record<string, string> = {
   string: 'cases.typeString',
@@ -117,6 +111,25 @@ const TYPE_LABEL_KEYS: Record<string, string> = {
 function safeAutoType(classType: string, fieldPath: string): string {
   const kind = inputKindFor(classType, fieldPath)
   return kind === 'unknown' ? 'string' : kind
+}
+
+function OutputTypeBadge({
+  node,
+  type,
+}: {
+  node?: WorkflowNode
+  type: string
+}) {
+  const { t } = useTranslation()
+  const labelKey = node
+    ? (TYPE_LABEL_KEYS[outputKindFor(node.class_type)] ?? 'cases.typeFile')
+    : (TYPE_LABEL_KEYS[type] ?? 'cases.typeFile')
+
+  return (
+    <Badge data-testid='output-type' variant='secondary'>
+      {t(labelKey)}
+    </Badge>
+  )
 }
 
 // ===== 轻量绑定浮层（锚定当前行，点选即绑定，不放大弹窗）=====
@@ -154,7 +167,7 @@ function BindNodePopover({
       return p ? t(TYPE_LABEL_KEYS[p.kind] ?? 'cases.typeString') : undefined
     }
     return t(
-      TYPE_LABEL_KEYS[outputKindFor(node.class_type)] ?? 'cases.typeImage'
+      TYPE_LABEL_KEYS[outputKindFor(node.class_type)] ?? 'cases.typeFile'
     )
   })()
   const triggerText =
@@ -190,7 +203,7 @@ function BindNodePopover({
     return `${nodeLabel(n.class_type)} ${n.id} ${field}`
   }
 
-  function nodeHead(n: WorkflowNode, note?: string) {
+  function nodeHead(n: WorkflowNode) {
     const { Icon, className } = nodeVisualFor(n.class_type)
     return (
       <span className='flex items-center gap-1.5'>
@@ -205,11 +218,6 @@ function BindNodePopover({
         <span className='font-mono text-[10px] font-normal text-muted-foreground'>
           #{n.id}
         </span>
-        {note ? (
-          <span className='ml-auto text-[10px] font-normal text-muted-foreground'>
-            {note}
-          </span>
-        ) : null}
       </span>
     )
   }
@@ -231,7 +239,7 @@ function BindNodePopover({
               }
             >
               {bound ? (
-                <span className='flex min-w-0 items-center gap-1.5'>
+                <span className='flex min-w-0 flex-1 items-center gap-1.5'>
                   {(() => {
                     const { Icon, className } = nodeVisualFor(node.class_type)
                     return (
@@ -253,6 +261,15 @@ function BindNodePopover({
                       </span>
                     ) : null}
                   </span>
+                  {mode === 'output' && typeLabel ? (
+                    <Badge
+                      data-testid='selected-output-type'
+                      variant='secondary'
+                      className='ms-auto'
+                    >
+                      {typeLabel}
+                    </Badge>
+                  ) : null}
                 </span>
               ) : (
                 <span className='min-w-0 truncate text-sm font-normal text-muted-foreground'>
@@ -294,14 +311,7 @@ function BindNodePopover({
               ? outputGroups.map((n, gi) => (
                   <Fragment key={n.id}>
                     {gi > 0 ? <CommandSeparator /> : null}
-                    <CommandGroup
-                      heading={nodeHead(
-                        n,
-                        n.outputCount === 1
-                          ? t('cases.singleOutputAuto')
-                          : undefined
-                      )}
-                    >
+                    <CommandGroup heading={nodeHead(n)}>
                       {n.outputCount > 1 ? (
                         Array.from({ length: n.outputCount }, (_, i) => (
                           <CommandItem
@@ -616,12 +626,12 @@ function InputFieldCard({
         ) : null}
         {bound && !isCustom ? (
           <>
-            <Pill
+            <Badge
               variant='secondary'
               className='border-info/30 bg-info/10 text-info'
             >
               {t('cases.typeAuto')}
-            </Pill>
+            </Badge>
             <span className='text-xs text-muted-foreground'>
               {t('cases.typeAutoSource', {
                 node: nodeLabel(node?.class_type ?? ''),
@@ -697,8 +707,6 @@ function OutputFieldCard({
   const { t } = useTranslation()
   const node = nodes.find((n) => n.id === value.node_id)
   const bound = !!value.node_id
-  const autoType = bound && node ? outputKindFor(node.class_type) : ''
-  const isCustom = bound && value.type !== autoType
 
   return (
     <li
@@ -716,46 +724,7 @@ function OutputFieldCard({
           aria-label={t('cases.fieldKey')}
         />
         <span className='text-sm text-foreground'>{t('cases.fieldType')}</span>
-        <Select
-          value={value.type}
-          onValueChange={(type) =>
-            onChange({ ...value, type: type as OutputFieldDraft['type'] })
-          }
-          disabled={disabled}
-          aria-label={t('cases.fieldType')}
-        >
-          <SelectTrigger size='sm' className='w-28'>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {OUTPUT_TYPES.map((type) => (
-              <SelectItem key={type.value} value={type.value}>
-                {t(type.labelKey)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {bound && isCustom ? (
-          <RestoreTypeButton
-            disabled={disabled}
-            onClick={() => onChange({ ...value, type: autoType })}
-          />
-        ) : null}
-        {bound && !isCustom ? (
-          <>
-            <Pill
-              variant='secondary'
-              className='border-info/30 bg-info/10 text-info'
-            >
-              {t('cases.typeAuto')}
-            </Pill>
-            <span className='text-xs text-muted-foreground'>
-              {t('cases.typeAutoSourceOutput', {
-                node: nodeLabel(node?.class_type ?? ''),
-              })}
-            </span>
-          </>
-        ) : null}
+        <OutputTypeBadge node={bound ? node : undefined} type={value.type} />
       </div>
 
       <div className='flex items-center gap-2'>
@@ -1204,7 +1173,6 @@ export function OutputFieldsTable({
         <TableHeader className='sticky top-0 z-10 bg-background [&_th]:bg-background'>
           <TableRow>
             <TableHead className='w-40'>{t('cases.fieldKey')}</TableHead>
-            <TableHead className='w-32'>{t('cases.fieldType')}</TableHead>
             <TableHead className='w-56'>{t('cases.fieldBind')}</TableHead>
             <TableHead className='min-w-0'>
               {t('cases.fieldDescription')}
@@ -1233,45 +1201,6 @@ export function OutputFieldsTable({
                     disabled={disabled}
                     autoComplete='off'
                   />
-                </TableCell>
-                <TableCell>
-                  <div className='flex items-center gap-1.5'>
-                    <Select
-                      value={value.type}
-                      onValueChange={(type) =>
-                        onChange(index, {
-                          ...value,
-                          type: type as OutputFieldDraft['type'],
-                        })
-                      }
-                      disabled={disabled}
-                      aria-label={t('cases.fieldType')}
-                    >
-                      <SelectTrigger size='sm' className='w-28'>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {OUTPUT_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {t(type.labelKey)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {bound &&
-                    node &&
-                    value.type !== outputKindFor(node.class_type) ? (
-                      <RestoreTypeButton
-                        disabled={disabled}
-                        onClick={() =>
-                          onChange(index, {
-                            ...value,
-                            type: outputKindFor(node.class_type),
-                          })
-                        }
-                      />
-                    ) : null}
-                  </div>
                 </TableCell>
                 <TableCell>
                   <div className='flex items-center gap-2'>
@@ -1331,7 +1260,7 @@ export function OutputFieldsTable({
           {fields.length === 0 ? (
             <TableRow data-testid='output-table-empty'>
               <TableCell
-                colSpan={hideActions ? 4 : 5}
+                colSpan={hideActions ? 3 : 4}
                 className='py-6 text-center text-sm text-muted-foreground'
               >
                 {t('cases.noRows')}

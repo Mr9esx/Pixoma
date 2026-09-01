@@ -9,9 +9,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { ThemeSwitcher } from '@/components/kibo-ui/theme-switcher'
+import { PasswordInput } from '@/components/password-input'
 import { AuthShell, type AuthAmbient } from './auth-shell'
 import { LocaleSwitcher } from './locale-switcher'
 
@@ -85,33 +86,34 @@ export function LoginPage({
           <CardTitle>{t('auth.title')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form className='flex flex-col gap-4' onSubmit={onSubmit}>
-            <div className='flex flex-col gap-2'>
-              <Label htmlFor='username'>{t('auth.username')}</Label>
-              <Input
-                id='username'
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete='username'
-              />
-            </div>
-            <div className='flex flex-col gap-2'>
-              <Label htmlFor='password'>{t('auth.password')}</Label>
-              <Input
-                id='password'
-                type='password'
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete='current-password'
-              />
-            </div>
-            <label className='flex cursor-pointer items-center gap-2 text-sm text-muted-foreground'>
-              <Checkbox
-                checked={remember}
-                onCheckedChange={(v) => setRemember(v === true)}
-              />
-              {t('auth.remember')}
-            </label>
+          <form onSubmit={onSubmit}>
+            <FieldGroup className='gap-4'>
+              <Field>
+                <FieldLabel htmlFor='username'>{t('auth.username')}</FieldLabel>
+                <Input
+                  id='username'
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete='username'
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor='password'>{t('auth.password')}</FieldLabel>
+                <PasswordInput
+                  id='password'
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete='current-password'
+                />
+              </Field>
+              <label className='flex cursor-pointer items-center gap-2 text-sm text-muted-foreground'>
+                <Checkbox
+                  checked={remember}
+                  onCheckedChange={(v) => setRemember(v === true)}
+                />
+                {t('auth.remember')}
+              </label>
+            </FieldGroup>
             {error ? <p className='text-sm text-destructive'>{error}</p> : null}
             <Button type='submit' className='w-full' disabled={pending}>
               {pending ? t('auth.submitting') : t('auth.submit')}

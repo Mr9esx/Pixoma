@@ -1,4 +1,6 @@
 import type { InputBinding, OutputBinding } from '@/lib/api/types'
+import { outputKindFor } from './node-catalog'
+import type { WorkflowNode } from './workflow-parse'
 
 export type InputFieldDraft = {
   key: string
@@ -76,6 +78,19 @@ export function deriveBindings(
         index: field.index ?? 0,
       })),
   }
+}
+
+export function normalizeOutputTypes(
+  outputs: OutputFieldDraft[],
+  nodes: WorkflowNode[]
+): OutputFieldDraft[] {
+  const outputKindByNodeId = new Map(
+    nodes.map((node) => [node.id, outputKindFor(node.class_type)])
+  )
+  return outputs.map((field) => {
+    const type = outputKindByNodeId.get(field.node_id)
+    return type ? { ...field, type } : field
+  })
 }
 
 export function validateEditor(

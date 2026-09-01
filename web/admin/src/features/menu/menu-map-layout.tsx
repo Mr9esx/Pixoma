@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
 export function MenuMapLayout({
   toolbar,
@@ -17,19 +18,19 @@ export function MenuMapLayout({
   className?: string
 }) {
   return (
-    <div
+    <Card
       data-testid={testId}
       className={cn(
-        'flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-border bg-card',
+        'min-h-0 flex-1 flex-col gap-0 overflow-hidden rounded-md py-0',
         className
       )}
     >
       {toolbar ? (
-        <div className='flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3'>
+        <CardHeader className='flex shrink-0 flex-row items-center justify-between gap-3 border-b border-border px-4 py-3'>
           {toolbar}
-        </div>
+        </CardHeader>
       ) : null}
-      <div className='grid min-h-[420px] flex-1 grid-cols-1 min-[920px]:grid-cols-2'>
+      <CardContent className='grid min-h-[420px] flex-1 grid-cols-1 p-0 min-[920px]:grid-cols-2'>
         <div className='min-h-0 min-w-0 overflow-y-auto border-border p-4 min-[920px]:border-r'>
           {keyboard}
         </div>
@@ -39,8 +40,8 @@ export function MenuMapLayout({
         >
           {path}
         </div>
-      </div>
+      </CardContent>
       {orphans}
-    </div>
+    </Card>
   )
 }

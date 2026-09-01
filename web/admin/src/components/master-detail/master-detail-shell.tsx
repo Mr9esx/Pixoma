@@ -2,6 +2,7 @@ import { isValidElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useScrollFocus } from '@/lib/scroll-focus'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/ui/reveal'
 
 type Props = {
@@ -57,13 +58,15 @@ export function MasterDetailShell({
         {hasSelection ? (
           <>
             {onBackToList ? (
-              <button
+              <Button
                 type='button'
-                className='mb-3 px-4 pt-3 text-sm underline md:hidden'
+                variant='link'
+                size='sm'
+                className='mb-3 justify-start px-4 pt-3 md:hidden'
                 onClick={onBackToList}
               >
                 {t('common.backToList', { defaultValue: '返回列表' })}
-              </button>
+              </Button>
             ) : null}
             <Reveal key={detailKey} className='flex min-h-0 flex-1 flex-col'>
               {detail}

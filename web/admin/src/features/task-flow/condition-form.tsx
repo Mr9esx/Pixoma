@@ -67,7 +67,7 @@ function LeafRow({
 
   return (
     <div
-      className='grid grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)_1.5rem] items-center gap-1.5 rounded-[3px] bg-[#f8f8f8] px-1.5 py-1.5'
+      className='grid grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)_1.5rem] items-center gap-1.5 rounded-[3px] bg-muted px-1.5 py-1.5'
       data-filter-item
     >
       <Select
@@ -239,8 +239,8 @@ function GroupConditionSelect({
         className={cn(
           'h-5 w-12 shrink-0 justify-center rounded-full border px-0 text-[11px] shadow-none [&>svg]:hidden',
           kind === 'and'
-            ? 'border-[#d8c9f0] bg-[#f9f6fe] text-violet-700'
-            : 'border-[#fed58b] bg-[#feefd5] text-amber-800'
+            ? 'border-primary/30 bg-primary/10 text-primary'
+            : 'border-warning/30 bg-warning/10 text-warning-foreground'
         )}
       >
         <SelectValue />
@@ -314,7 +314,7 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
     onChange(next === 'and' ? { and: leaves } : { or: leaves })
   }
 
-  const lineColor = groupKind === 'or' ? '#fed58b' : '#d8c9f0'
+  const lineColor = groupKind === 'or' ? 'var(--warning)' : 'var(--primary)'
   const showConnector = Boolean(leaves && leaves.length > 1)
 
   return (
@@ -391,7 +391,7 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
                 />
               )}
               {leaves && leaves.length === 0 && (
-                <div className='rounded-[3px] bg-[#f8f8f8] px-3 py-2.5 text-xs text-muted-foreground'>
+                <div className='rounded-[3px] bg-muted px-3 py-2.5 text-xs text-muted-foreground'>
                   暂无规则，请点击下方「新增规则」添加
                 </div>
               )}
@@ -403,7 +403,7 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
             variant='outline'
             size='sm'
             className={cn(
-              'mt-2 h-7 gap-1 rounded-full border-[#ecedef] text-xs',
+              'mt-2 h-7 gap-1 rounded-full border-border text-xs',
               showConnector && 'ml-10'
             )}
             onClick={appendLeaf}

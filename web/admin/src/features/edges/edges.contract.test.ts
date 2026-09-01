@@ -12,7 +12,7 @@ function read(rel: string) {
 describe('compute node layout and detail', () => {
   it('renders the node task records empty state inside the table body', () => {
     const observe = read('observation-panel.tsx')
-    expect(observe).toMatch(/<tbody/)
+    expect(observe).toMatch(/<TableBody/)
     expect(observe).toMatch(/colSpan=\{5\}/)
     expect(observe).toMatch(
       /EmptyState[\s\S]*?className='py-6'[\s\S]*?message=\{t\('tasks\.empty'\)\}/
@@ -153,7 +153,7 @@ describe('compute node layout and detail', () => {
     expect(creds).toMatch(/rotateEdgeToken/)
     expect(creds).toMatch(/DeployCredentials/)
     expect(deployView).toMatch(/agent_token/)
-    expect(deployView).toMatch(/PasswordInput/)
+    expect(deployView).toMatch(/SecretInput/)
     expect(deployView).toMatch(/maskToken:\s*true/)
     expect(deployView).toMatch(/showToken/)
     expect(deployView).toMatch(/Alert[\s\S]*?deployComfyHint/)

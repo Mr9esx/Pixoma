@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -51,7 +52,7 @@ import {
 } from '@/components/ui/table'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { Pill } from '@/components/kibo-ui/pill'
+import { SecretInput } from '@/components/secret-input'
 import { StatusDot } from '@/components/status-dot'
 
 function errorMessage(err: unknown): string | undefined {
@@ -182,7 +183,9 @@ export function AdminUsersPanel() {
                   <TableCell>{u.nickname || '—'}</TableCell>
                   <TableCell>{u.email || '—'}</TableCell>
                   <TableCell>
-                    <Pill variant={roleBadge(u.role)}>{roleLabel(u.role)}</Pill>
+                    <Badge variant={roleBadge(u.role)}>
+                      {roleLabel(u.role)}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <StatusDot
@@ -351,11 +354,10 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
           </div>
           <div className='space-y-1.5'>
             <Label htmlFor='admin-user-password'>密码（至少 8 位）</Label>
-            <Input
+            <SecretInput
               id='admin-user-password'
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              type='password'
               autoComplete='new-password'
             />
           </div>
@@ -412,11 +414,10 @@ function ResetPasswordDialog({
         </DialogHeader>
         <div className='space-y-1.5'>
           <Label htmlFor='admin-reset-password'>新密码（至少 8 位）</Label>
-          <Input
+          <SecretInput
             id='admin-reset-password'
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            type='password'
             autoComplete='new-password'
           />
         </div>

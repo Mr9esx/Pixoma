@@ -14,9 +14,9 @@ import type {
 } from './lib/references'
 
 const stateClass: Record<string, string> = {
-  ok: 'border-emerald-600/20 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-900/30 dark:text-emerald-400',
-  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300',
-  bad: 'border-red-600/20 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-900/30 dark:text-red-400',
+  ok: 'border-success/25 bg-success/10 text-success',
+  warn: 'border-warning/30 bg-warning/10 text-warning',
+  bad: 'border-destructive/25 bg-destructive/10 text-destructive',
 }
 
 const PAGE_SIZE = 10
@@ -80,15 +80,15 @@ export function LinkHealthSection({
             {health.breakpoints.map((b, i) => (
               <li key={`${b.stage}-${i}`} className='space-y-1 px-3 py-2.5'>
                 <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-sm text-amber-700 dark:text-amber-300'>
+                  <span className='text-sm text-warning'>
                     {t(b.key, b.params)}
                   </span>
                   <span
                     className={cn(
                       'rounded-sm px-1.5 py-0.5 text-[11px]',
                       b.fix === 'config'
-                        ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
-                        : 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                        ? 'bg-info/10 text-info-foreground'
+                        : 'bg-destructive/10 text-destructive'
                     )}
                   >
                     {b.fix === 'config'

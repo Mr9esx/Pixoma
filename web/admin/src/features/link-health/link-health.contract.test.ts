@@ -13,7 +13,7 @@ describe('link health visibility', () => {
   it('LinkHealthAlert 在 Header 展示告警摘要（仅异常时）', () => {
     const alert = read('link-health-alert.tsx')
     expect(alert).toContain("data-testid='link-health-alert'")
-    expect(alert).toContain("@/components/ui/alert")
+    expect(alert).toContain('@/components/ui/alert')
     expect(alert).toContain('linkHealth.alertTitle')
     expect(alert).toContain('linkHealth.alertSummary')
     expect(alert).toContain('linkHealth.alertViewDetails')
@@ -36,7 +36,7 @@ describe('link health visibility', () => {
     expect(section).toContain('requestFocus')
     expect(section).toContain('b.guide')
     expect(section).toContain('linkHealth.howToHandle')
-    expect(section).toContain('text-sm text-amber-700')
+    expect(section).toContain('text-sm text-warning')
     expect(section).toContain('text-sm text-muted-foreground')
     expect(section).toContain("data-testid='link-health-ok'")
     expect(section).toContain('linkHealth.stateOk')
@@ -95,5 +95,4 @@ describe('link health visibility', () => {
     expect(panel).toContain('linkHealth.relatedEntries')
     expect(panel).toContain('linkHealth.routeTopics')
   })
-
 })

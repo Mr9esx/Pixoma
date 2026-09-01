@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useFormity, type Flow, type s } from '@formity/react'
 import type { CaseRecord } from '@/lib/api/types'
-import { saveQuickConfigSession } from './lib/session'
-import type { TopicDraft } from './lib/session'
+import { saveQuickConfigSession, type TopicDraft } from './lib/session'
 import { Step1Workflow } from './step1-workflow'
-import { Step2Queue } from './step2-queue'
 import { Step2Node } from './step2-node'
+import { Step2Queue } from './step2-queue'
 import { Step4Next } from './step4-next'
 import type { WizardShared, WizardSummary } from './types'
 
@@ -155,7 +154,15 @@ export function QuickConfigFlow({
       selectedEdgeId,
       updatedAt: new Date().toISOString(),
     })
-  }, [caseId, caseRecord, topicKey, topicDraft, selectedEdgeId, step, committed])
+  }, [
+    caseId,
+    caseRecord,
+    topicKey,
+    topicDraft,
+    selectedEdgeId,
+    step,
+    committed,
+  ])
 
   const rendered = useFormity<WizardSchema>({ flow, params: shared })
   return <>{rendered}</>

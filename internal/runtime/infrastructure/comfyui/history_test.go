@@ -11,6 +11,8 @@ func TestParseHistoryGroupsByNode(t *testing.T) {
 		"prompt-id-1": {
 			"outputs": {
 				"4": { "images": [{ "filename": "a.png", "subfolder": "", "type": "output" }] },
+				"5": { "audio": [{ "filename": "a.mp3", "subfolder": "audio", "type": "output" }] },
+				"6": { "gifs": [{ "filename": "a.mp4", "subfolder": "video", "type": "output" }] },
 				"9": { "text": ["hello", "world"] }
 			},
 			"status": { "status_str": "success", "completed": true }
@@ -26,6 +28,14 @@ func TestParseHistoryGroupsByNode(t *testing.T) {
 	}
 	if node4.Images[0].Subfolder != "" || node4.Images[0].Type != "output" {
 		t.Fatalf("node 4 image meta: %+v", node4.Images[0])
+	}
+	node5, ok := got["5"]
+	if !ok || len(node5.Images) != 1 || node5.Images[0].Filename != "a.mp3" {
+		t.Fatalf("node 5 audio: %+v", got["5"])
+	}
+	node6, ok := got["6"]
+	if !ok || len(node6.Images) != 1 || node6.Images[0].Filename != "a.mp4" {
+		t.Fatalf("node 6 gifs: %+v", got["6"])
 	}
 	node9, ok := got["9"]
 	if !ok || len(node9.Texts) != 2 || node9.Texts[0] != "hello" {

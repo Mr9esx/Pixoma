@@ -5,6 +5,13 @@ import { EditorView } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import CodeMirror, { type ReactCodeMirrorProps } from '@uiw/react-codemirror'
 import { cn } from '@/lib/utils'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 const jsonHighlight = HighlightStyle.define([
   { tag: tags.propertyName, color: 'var(--muted-foreground)' },
@@ -70,39 +77,43 @@ export function CodeEditor({
   ...props
 }: Props) {
   return (
-    <div
+    <Card
       className={cn(
-        'overflow-hidden rounded-md border border-border bg-card text-card-foreground',
+        'overflow-hidden rounded-md py-0 text-card-foreground',
         className
       )}
     >
       {title != null ? (
-        <header className='flex h-9 items-center justify-between gap-2 border-b border-border bg-muted/30 px-3'>
-          <h4 className='text-xs font-medium tracking-wide text-muted-foreground'>
+        <CardHeader className='flex h-9 flex-row items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-0 pb-0'>
+          <CardTitle className='text-xs font-medium tracking-wide text-muted-foreground'>
             {title}
-          </h4>
-          {action}
-        </header>
+          </CardTitle>
+          {action ? <CardAction className='gap-2'>{action}</CardAction> : null}
+        </CardHeader>
       ) : null}
-      <CodeMirror
-        extensions={extensions}
-        theme='none'
-        maxHeight={typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight}
-        minHeight={
-          typeof minHeight === 'number' ? `${minHeight}px` : minHeight
-        }
-        basicSetup={{
-          lineNumbers: false,
-          foldGutter: false,
-          highlightActiveLine: false,
-          highlightActiveLineGutter: false,
-          bracketMatching: true,
-          closeBrackets: true,
-          autocompletion: false,
-        }}
-        onChange={onChange ? (value) => onChange(value) : undefined}
-        {...props}
-      />
-    </div>
+      <CardContent className='p-0'>
+        <CodeMirror
+          extensions={extensions}
+          theme='none'
+          maxHeight={
+            typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight
+          }
+          minHeight={
+            typeof minHeight === 'number' ? `${minHeight}px` : minHeight
+          }
+          basicSetup={{
+            lineNumbers: false,
+            foldGutter: false,
+            highlightActiveLine: false,
+            highlightActiveLineGutter: false,
+            bracketMatching: true,
+            closeBrackets: true,
+            autocompletion: false,
+          }}
+          onChange={onChange ? (value) => onChange(value) : undefined}
+          {...props}
+        />
+      </CardContent>
+    </Card>
   )
 }

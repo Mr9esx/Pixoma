@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/utils'
 import { Calendar } from '@/components/ui/calendar'
 import {
   Popover,
@@ -7,7 +8,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
 import { formatDate } from '@/features/dashboard/date-range'
 
 export type RangePreset = {
@@ -48,18 +48,22 @@ export function TimeRangeControl({
           setIsCustom(false)
         }}
       >
-        <TabsList className='h-7 w-fit' aria-label={t('dashboard.workbench.range')}>
+        <TabsList
+          className='h-7 w-fit'
+          aria-label={t('dashboard.workbench.range')}
+        >
           {presets.map((p) => (
-            <TabsTrigger key={p.value} value={p.value} className='h-full px-2.5 text-xs'>
+            <TabsTrigger
+              key={p.value}
+              value={p.value}
+              className='h-full px-2.5 text-xs'
+            >
               {p.label}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
-      <Popover
-        open={open}
-        onOpenChange={(next) => setOpen(next)}
-      >
+      <Popover open={open} onOpenChange={(next) => setOpen(next)}>
         <div className='inline-flex h-7 items-center rounded-lg bg-muted p-0.75 text-muted-foreground'>
           <PopoverTrigger asChild>
             <button
@@ -68,8 +72,8 @@ export function TimeRangeControl({
               className={cn(
                 'inline-flex h-full items-center gap-1.5 rounded-md border border-transparent px-2.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50',
                 isCustom
-                  ? 'border-input bg-background text-foreground shadow-sm dark:border-white/10 dark:bg-input/30 dark:text-foreground'
-                  : 'text-muted-foreground hover:text-foreground dark:text-muted-foreground'
+                  ? 'border-input bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               {t('dashboard.workbench.custom')}

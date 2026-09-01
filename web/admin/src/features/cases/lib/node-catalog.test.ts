@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { inputKindFor, nodeLabel, outputCountFor } from './node-catalog'
+import {
+  inputKindFor,
+  nodeLabel,
+  outputCountFor,
+  outputKindFor,
+} from './node-catalog'
 
 describe('node catalog', () => {
   it('labels common nodes in Chinese and falls back to class type', () => {
@@ -27,5 +32,13 @@ describe('node catalog', () => {
   it('defaults output count to 1 for unknown nodes', () => {
     expect(outputCountFor('SaveImage')).toBe(1)
     expect(outputCountFor('SomethingElse')).toBe(1)
+  })
+
+  it('infers media output kinds and uses file for unknown nodes', () => {
+    expect(outputKindFor('SaveImage')).toBe('image')
+    expect(outputKindFor('VHS_VideoCombine')).toBe('video')
+    expect(outputKindFor('SaveAudioMP3')).toBe('audio')
+    expect(outputKindFor('CLIPTextEncode')).toBe('text')
+    expect(outputKindFor('TotallyUnknownNode')).toBe('file')
   })
 })

@@ -151,7 +151,7 @@ export function Step2Node({ shared, next, back }: Props) {
                     <span
                       className={cn(
                         'shrink-0 text-xs',
-                        online ? 'text-emerald-600' : 'text-muted-foreground'
+                        online ? 'text-success' : 'text-muted-foreground'
                       )}
                     >
                       {online

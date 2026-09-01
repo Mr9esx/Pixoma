@@ -111,6 +111,8 @@
     "mapLoadFailed": "Menu failed to load"
   },
   "common": {
+    "showSecret": "Show secret",
+    "hideSecret": "Hide secret",
     "loading": "Loading…",
     "empty": "No data",
     "backToList": "Back to list",
@@ -483,7 +485,6 @@
     "fieldEnumOptions": "Options (comma-separated)",
     "addInput": "Add an input",
     "addOutput": "Add an output",
-    "singleOutputAuto": "This node has a single output; already selected",
     "nodeSearchPlaceholder": "Search nodes…",
     "mdPlaceholder": "Supports Markdown…",
     "mdBold": "Bold",
@@ -535,7 +536,7 @@
     "typeRestoreAuto": "Restore auto",
     "restoreSuggestedType": "Restore suggested type",
     "typeAutoSource": "Auto-detected — you can override",
-    "typeAutoSourceOutput": "Auto-detected — you can override",
+    "typeAutoSourceOutput": "Auto-detected from the bound node",
     "bindFlowHintOutput": "① Click a node → ② click one of its outputs",
     "saveSuccess": "Saved",
     "saveFailed": "Save failed",

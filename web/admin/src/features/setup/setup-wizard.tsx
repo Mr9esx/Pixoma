@@ -13,6 +13,7 @@ import {
   type SetupStatus,
 } from '@/lib/api/setup'
 import { cn } from '@/lib/utils'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -21,14 +22,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from '@/components/ui/alert'
+import { Field as ShadcnField, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { AvatarUpload } from '@/components/avatar-upload'
 import {
   Select,
   SelectContent,
@@ -37,14 +33,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { AvatarUpload } from '@/components/avatar-upload'
+import { SecretInput } from '@/components/secret-input'
 import { AuthShell } from './auth-shell'
-import {
-  buildMySQLDSN,
-  buildPostgresDSN,
-  buildSqliteDSN,
-} from './db-dsn'
-import { setupErrorCopy, type AlertCopy } from './db-error'
 import { blobErrorCopy } from './blob-error'
+import { buildMySQLDSN, buildPostgresDSN, buildSqliteDSN } from './db-dsn'
+import { setupErrorCopy, type AlertCopy } from './db-error'
 import {
   initialSetupStep,
   previousSetupStep,
@@ -188,7 +182,10 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
     setPending(true)
     setError(null)
     try {
-      const res = await testBlob({ ...blobConfig(), auto_create_bucket: autoCreateBucket })
+      const res = await testBlob({
+        ...blobConfig(),
+        auto_create_bucket: autoCreateBucket,
+      })
       if (!res.ok && res.code === 'bucket_not_found' && !autoCreateBucket) {
         setBlobMissingBucket(res.bucket ?? blobBucket)
         setBlobPromptCreate(true)
@@ -315,18 +312,16 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           }}
         >
           <Field label='新密码（至少 8 位）' htmlFor='new-password'>
-            <Input
+            <SecretInput
               id='new-password'
-              type='password'
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               autoComplete='new-password'
             />
           </Field>
           <Field label='再输一遍' htmlFor='confirm-password'>
-            <Input
+            <SecretInput
               id='confirm-password'
-              type='password'
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               autoComplete='new-password'
@@ -459,9 +454,8 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                 />
               </Field>
               <Field label='密码' htmlFor='db-password'>
-                <Input
+                <SecretInput
                   id='db-password'
-                  type='password'
                   value={dbPassword}
                   onChange={(e) => setDbPassword(e.target.value)}
                   autoComplete='off'
@@ -514,9 +508,8 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                 />
               </Field>
               <Field label='密码' htmlFor='db-password'>
-                <Input
+                <SecretInput
                   id='db-password'
-                  type='password'
                   value={dbPassword}
                   onChange={(e) => setDbPassword(e.target.value)}
                   autoComplete='off'
@@ -592,7 +585,9 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value='localfs'>本机目录</SelectItem>
-                  <SelectItem value='sharedfs'>共享目录（SMB / NFS）</SelectItem>
+                  <SelectItem value='sharedfs'>
+                    共享目录（SMB / NFS）
+                  </SelectItem>
                   <SelectItem value='s3'>S3</SelectItem>
                   <SelectItem value='tos'>火山 TOS</SelectItem>
                 </SelectGroup>
@@ -647,11 +642,11 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                 />
               </Field>
               <Field label='Secret Key' htmlFor='blob-secret'>
-                <Input
+                <SecretInput
                   id='blob-secret'
-                  type='password'
                   value={blobSecretKey}
                   onChange={(e) => setBlobSecretKey(e.target.value)}
+                  autoComplete='off'
                 />
               </Field>
             </>
@@ -688,7 +683,8 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               <CircleAlert aria-hidden='true' />
               <AlertTitle>注意！</AlertTitle>
               <AlertDescription>
-                这个配置只适合 ComfyUI 和后台在同一台机器上使用，无法使用远程节点。
+                这个配置只适合 ComfyUI
+                和后台在同一台机器上使用，无法使用远程节点。
               </AlertDescription>
             </Alert>
           ) : null}
@@ -773,10 +769,10 @@ function Field({
   children: React.ReactNode
 }) {
   return (
-    <div className='flex flex-col gap-2'>
-      <Label htmlFor={htmlFor}>{label}</Label>
+    <ShadcnField className='gap-2'>
+      <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
       {children}
-    </div>
+    </ShadcnField>
   )
 }
 

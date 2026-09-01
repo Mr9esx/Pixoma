@@ -1,17 +1,8 @@
-import {
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from 'react'
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query'
+import { useState, type FormEvent, type ReactNode } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { queryKeys } from '@/lib/api/query-keys'
-import { cn } from '@/lib/utils'
 import {
   changeAdminPassword,
   fetchCurrentUser,
@@ -21,6 +12,7 @@ import {
   waitForSetupReady,
   type SetupDraft,
 } from '@/lib/api/setup'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -30,8 +22,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -41,11 +33,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { AdminUsersPanel } from '@/features/admin-users/admin-users-panel'
-import { TextTemplatesEditor } from '@/features/text-templates/text-templates-editor'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import { SecretInput } from '@/components/secret-input'
+import { AdminUsersPanel } from '@/features/admin-users/admin-users-panel'
+import { TextTemplatesEditor } from '@/features/text-templates/text-templates-editor'
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
@@ -189,17 +182,14 @@ function SettingsEditor({
   }
 
   return (
-    <Tabs
-      defaultValue={initialTab ?? 'account'}
-      className='max-w-2xl gap-4'
-    >
+    <Tabs defaultValue={initialTab ?? 'account'} className='max-w-2xl gap-4'>
       <TabsList>
         <TabsTrigger value='account'>{t('settings.tabAccount')}</TabsTrigger>
         <TabsTrigger value='storage'>{t('settings.tabStorage')}</TabsTrigger>
         <TabsTrigger value='network'>{t('settings.tabNetwork')}</TabsTrigger>
         <TabsTrigger value='users'>{t('settings.tabUsers')}</TabsTrigger>
         <TabsTrigger value='text'>{t('settings.tabText')}</TabsTrigger>
-    </TabsList>
+      </TabsList>
 
       <TabsContent value='account' className='flex flex-col gap-4'>
         <ProfileForm />
@@ -236,7 +226,10 @@ function SettingsEditor({
               </div>
             }
           >
-            <SettingRow label={t('settings.fieldPlacement')} htmlFor='placement'>
+            <SettingRow
+              label={t('settings.fieldPlacement')}
+              htmlFor='placement'
+            >
               <Select value={placement} onValueChange={onPlacementChange}>
                 <SelectTrigger id='placement' className='w-full'>
                   <SelectValue />
@@ -338,9 +331,8 @@ function SettingsEditor({
                   label={t('settings.fieldSecretKey')}
                   htmlFor='blob-secret'
                 >
-                  <Input
+                  <SecretInput
                     id='blob-secret'
-                    type='password'
                     value={blobSecretKey}
                     onChange={(e) => setBlobSecretKey(e.target.value)}
                     disabled={pending}
@@ -387,7 +379,9 @@ function SettingsEditor({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value='off'>{t('settings.proxyOff')}</SelectItem>
+                    <SelectItem value='off'>
+                      {t('settings.proxyOff')}
+                    </SelectItem>
                     <SelectItem value='http'>
                       {t('settings.proxyHTTP')}
                     </SelectItem>
@@ -398,7 +392,10 @@ function SettingsEditor({
                 </SelectContent>
               </Select>
             </SettingRow>
-            <SettingRow label={t('settings.fieldProxyHost')} htmlFor='proxy-host'>
+            <SettingRow
+              label={t('settings.fieldProxyHost')}
+              htmlFor='proxy-host'
+            >
               <Input
                 id='proxy-host'
                 value={proxyHost}
@@ -407,7 +404,10 @@ function SettingsEditor({
                 autoComplete='off'
               />
             </SettingRow>
-            <SettingRow label={t('settings.fieldProxyPort')} htmlFor='proxy-port'>
+            <SettingRow
+              label={t('settings.fieldProxyPort')}
+              htmlFor='proxy-port'
+            >
               <Input
                 id='proxy-port'
                 inputMode='numeric'
@@ -491,11 +491,11 @@ function ProfileEditor({
   })
 
   return (
-      <form
-        className='flex flex-col'
-        onSubmit={(e) => {
-          e.preventDefault()
-          saveProfile.mutate()
+    <form
+      className='flex flex-col'
+      onSubmit={(e) => {
+        e.preventDefault()
+        saveProfile.mutate()
       }}
     >
       <SettingsCard
@@ -503,10 +503,7 @@ function ProfileEditor({
         desc={t('settings.profileDesc')}
         footer={
           <div className='flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end'>
-            <Button
-              type='submit'
-              disabled={saveProfile.isPending}
-            >
+            <Button type='submit' disabled={saveProfile.isPending}>
               {saveProfile.isPending
                 ? t('common.loading')
                 : t('settings.saveProfile')}
@@ -594,9 +591,8 @@ function PasswordForm() {
           label={t('settings.fieldCurrentPassword')}
           htmlFor='old-password'
         >
-          <Input
+          <SecretInput
             id='old-password'
-            type='password'
             autoComplete='current-password'
             value={oldPassword}
             onChange={(e) => setOldPassword(e.target.value)}
@@ -608,9 +604,8 @@ function PasswordForm() {
           label={t('settings.fieldNewPassword')}
           htmlFor='new-password'
         >
-          <Input
+          <SecretInput
             id='new-password'
-            type='password'
             autoComplete='new-password'
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -622,9 +617,8 @@ function PasswordForm() {
           label={t('settings.fieldConfirmPassword')}
           htmlFor='confirm-password'
         >
-          <Input
+          <SecretInput
             id='confirm-password'
-            type='password'
             autoComplete='new-password'
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -652,7 +646,7 @@ function SettingsCard({
 }) {
   return (
     <Card className={cn('gap-0 py-0', className)}>
-      <CardHeader className='px-5 pb-2 pt-4'>
+      <CardHeader className='px-5 pt-4 pb-2'>
         <CardTitle className='text-sm font-semibold'>{title}</CardTitle>
         {desc ? (
           <CardDescription className='text-xs'>{desc}</CardDescription>
@@ -682,14 +676,14 @@ function SettingRow({
   children: ReactNode
 }) {
   return (
-    <div className='flex flex-col gap-1.5 py-3'>
-      <Label htmlFor={htmlFor} className='text-sm font-medium'>
+    <Field className='gap-1.5 py-3'>
+      <FieldLabel htmlFor={htmlFor} className='text-sm font-medium'>
         {label}
-      </Label>
-      <div className='flex min-w-0 flex-col gap-1'>
-        {children}
-        {hint ? <p className='text-xs text-muted-foreground'>{hint}</p> : null}
-      </div>
-    </div>
+      </FieldLabel>
+      {children}
+      {hint ? (
+        <FieldDescription className='text-xs'>{hint}</FieldDescription>
+      ) : null}
+    </Field>
   )
 }

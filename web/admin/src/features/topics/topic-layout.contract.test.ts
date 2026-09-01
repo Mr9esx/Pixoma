@@ -47,6 +47,8 @@ describe('topics admin page contract', () => {
 
   it('统计面板：吞吐曲线 + 状态分布 + 错误码 + 耗时', () => {
     expect(STATS).toContain('getTopicStats')
+    expect(STATS).toContain('TimeRangeControl')
+    expect(STATS).toContain('dashboard.range7d')
     expect(STATS).toContain('AreaChart')
     expect(STATS).toContain('throughput')
     expect(STATS).toMatch(/formatThroughputLabel\(payload\)/)

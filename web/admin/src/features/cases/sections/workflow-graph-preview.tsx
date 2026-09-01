@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { patchCase } from '@/lib/api/cases'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { CaseRecord } from '@/lib/api/types'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,9 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Pill } from '@/components/kibo-ui/pill'
 import {
   deriveBindings,
+  normalizeOutputTypes,
   type InputFieldDraft,
   type OutputFieldDraft,
 } from '../lib/derive'
@@ -93,7 +94,7 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
           required: f.required,
           description: f.description,
         })),
-        outputs: outputDrafts.map((f) => ({
+        outputs: normalizeOutputTypes(outputDrafts, wfNodes).map((f) => ({
           key: f.key,
           type: f.type,
           description: f.description,
@@ -132,12 +133,12 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
         <header className='flex flex-wrap items-center justify-between gap-2'>
           <div className='min-w-0'>
             <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
-              <Pill
+              <Badge
                 variant='default'
                 className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
               >
                 {t('cases.inputPill')}
-              </Pill>
+              </Badge>
               <h3 className='text-sm font-semibold'>
                 {t('cases.inputsHeading')}
               </h3>
@@ -175,12 +176,12 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
         <header className='flex flex-wrap items-center justify-between gap-2'>
           <div className='min-w-0'>
             <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
-              <Pill
+              <Badge
                 variant='default'
                 className='h-auto shrink-0 px-1.5 py-0.5 text-xs leading-none'
               >
                 {t('cases.outputPill')}
-              </Pill>
+              </Badge>
               <h3 className='text-sm font-semibold'>
                 {t('cases.outputsHeading')}
               </h3>
