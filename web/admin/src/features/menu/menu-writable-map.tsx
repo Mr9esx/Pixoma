@@ -13,11 +13,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { FilterSegment } from '@/components/filters/filter-segment'
 import { ActionForm } from './action-form'
 import { buildNewCardDraft, validateNewCardDraft } from './card-draft'
 import {
   actionIsBroken,
-  actionOutcomeLabel,
   clampMenuColumns,
   createBlankCardButton,
   mediaKindLabelKey,
@@ -31,17 +31,7 @@ import {
 import { MenuMapLayout } from './menu-map-layout'
 import type { WorkflowRef } from './node-view'
 
-const COLUMN_COUNTS = [1, 2, 3, 4, 5, 6, 7, 8] as const
-
-function outcomeText(
-  t: (key: string, opts?: { name?: string }) => string,
-  action: Action,
-  cards: Card[],
-  workflows: WorkflowRef[]
-): string {
-  const o = actionOutcomeLabel(action, cards, workflows)
-  return t(`menu.${o.key}`, { name: o.name ?? '' })
-}
+const COLUMN_COUNTS = ['1', '2', '3', '4', '5', '6', '7', '8'] as const
 
 function cardFromStep(step: MapTrailStep, cards: Card[]): Card | undefined {
   if (step.kind === 'orphan') return cards.find((c) => c.id === step.id)
@@ -259,29 +249,13 @@ export function MenuWritableMap({
             <Label className='text-sm text-muted-foreground'>
               {t('menu.columnCount')}
             </Label>
-            <div
-              data-testid='menu-columns'
-              role='group'
+            <FilterSegment
+              value={String(cols)}
+              options={COLUMN_COUNTS.map((n) => ({ value: n, label: n }))}
+              onValueChange={(n) => onColumnsChange(Number(n))}
               aria-label={t('menu.columnCount')}
-              className='grid grid-cols-8 gap-1'
-            >
-              {COLUMN_COUNTS.map((n) => (
-                <Button
-                  key={n}
-                  type='button'
-                  aria-pressed={cols === n}
-                  variant='outline'
-                  className={cn(
-                    'h-11 rounded-md text-sm tabular-nums',
-                    'hover:border-foreground/35',
-                    cols === n && 'border-foreground bg-muted'
-                  )}
-                  onClick={() => onColumnsChange(n)}
-                >
-                  {n}
-                </Button>
-              ))}
-            </div>
+              data-testid='menu-columns'
+            />
           </div>
           <div
             data-testid='map-keyboard'
@@ -303,24 +277,14 @@ export function MenuWritableMap({
                     aria-pressed={it.id === selectedItemId}
                     variant='outline'
                     className={cn(
-                      'flex h-11 flex-col items-start justify-center gap-0.5 rounded-md px-3 py-2 text-left',
+                      'h-11 truncate rounded-md px-3 text-left text-sm font-semibold',
                       'hover:border-foreground/35',
                       it.id === selectedItemId && 'border-foreground bg-muted',
                       broken && 'border-destructive'
                     )}
                     onClick={() => onTrailChange(trailFromItem(it))}
                   >
-                    <span className='text-sm leading-snug font-semibold'>
-                      {it.label || t('menu.untitled')}
-                    </span>
-                    <span
-                      className={cn(
-                        'w-full truncate text-sm leading-snug text-muted-foreground',
-                        broken && 'text-destructive'
-                      )}
-                    >
-                      {outcomeText(t, it.action, cards, workflows)}
-                    </span>
+                    {it.label || t('menu.untitled')}
                   </Button>
                 )
               })

@@ -262,6 +262,10 @@ describe('capability map helpers', () => {
     expect(
       actionOutcomeLabel({ type: 'copy_text', text: 'CODE' }, [], [])
     ).toEqual({ key: 'mapCopyText' })
+    expect(actionOutcomeLabel({ type: 'list_tasks' }, [], [])).toEqual({
+      key: 'mapListTasks',
+    })
+    expect(actionIsBroken({ type: 'list_tasks' }, [], [])).toBe(false)
   })
 
   it('actionIsBroken 只在卡片/工作流缺失时为 true', () => {

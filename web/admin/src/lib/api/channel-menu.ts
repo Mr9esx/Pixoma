@@ -24,6 +24,7 @@ export function getCaseMenuPlacements(caseId: number) {
 export type ActionType =
   | 'open_card'
   | 'open_workflow'
+  | 'list_tasks'
   | 'send_text'
   | 'send_media'
   | 'open_url'

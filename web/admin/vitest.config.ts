@@ -66,6 +66,7 @@ export default defineConfig({
       'src/features/menu/menu-capability-map.contract.test.ts',
       'src/features/menu/menu-writable-map.contract.test.ts',
       'src/features/menu/menu-editor.contract.test.ts',
+      'src/features/menu/list-tasks-preview.test.ts',
       'src/features/channels/channel-layout.contract.test.ts',
       'src/features/topics/topic-layout.contract.test.ts',
       'src/features/admin-users/admin-users-panel.contract.test.ts',

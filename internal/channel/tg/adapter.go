@@ -308,6 +308,15 @@ func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID
 		inv.Params = map[string]any{"step": "start", "case_id": action.WorkflowID}
 		inv.Nav = protocol.Nav{Back: backCtx}
 		return a.dispatchInvoke(ctx, chatID, inv)
+	case "list_tasks":
+		inv, err := a.baseInvoke(ctx, chatID)
+		if err != nil {
+			return err
+		}
+		inv.CapabilityID = "list_tasks"
+		inv.Params = map[string]any{}
+		inv.Nav = protocol.Nav{Back: backCtx}
+		return a.dispatchInvoke(ctx, chatID, inv)
 	case "send_text", "copy_text":
 		return a.Out.SendText(ctx, addr, action.Text)
 	case "send_media":

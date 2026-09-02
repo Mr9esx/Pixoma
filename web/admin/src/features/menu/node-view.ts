@@ -28,7 +28,7 @@ export function toWorkflowRef(c: WorkflowRef): WorkflowRef {
 type ActionView = {
   type: ActionType
   /** 动作大类：workflow / card / text / media / url / copy */
-  kind: 'workflow' | 'card' | 'text' | 'media' | 'url' | 'copy'
+  kind: 'workflow' | 'card' | 'text' | 'media' | 'url' | 'copy' | 'tasks'
   /** 一句话摘要，如「打开工作流『写实』」 */
   summary: string
   /** 具体参数行（k/v） */
@@ -37,6 +37,7 @@ type ActionView = {
 
 const ACTION_TYPE_LABEL: Record<ActionType, string> = {
   open_workflow: '打开工作流',
+  list_tasks: '我的任务',
   open_card: '打开卡片',
   send_text: '发文字',
   send_media: '发媒体',
@@ -48,6 +49,8 @@ function actionKind(type: ActionType): ActionView['kind'] {
   switch (type) {
     case 'open_workflow':
       return 'workflow'
+    case 'list_tasks':
+      return 'tasks'
     case 'open_card':
       return 'card'
     case 'send_text':
@@ -109,6 +112,13 @@ export function describeAction(
           : [],
       }
     }
+    case 'list_tasks':
+      return {
+        type,
+        kind,
+        summary: typeLabel,
+        params: [],
+      }
     case 'send_text':
     case 'copy_text':
       return {

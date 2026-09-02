@@ -37,6 +37,14 @@ describe('MenuWritableMap', () => {
     expect(s).not.toContain('ButtonEditor')
   })
 
+  it('column picker is compact FilterSegment; keys show label only', () => {
+    const s = src()
+    expect(s).toContain('FilterSegment')
+    expect(s).toContain("data-testid='menu-columns'")
+    expect(s).not.toContain('grid-cols-8')
+    expect(s).not.toMatch(/data-testid='map-key'[\s\S]{0,800}outcomeText/)
+  })
+
   it('lists orphans with map-orphans and can delete a card', () => {
     const s = src()
     expect(s).toContain("data-testid='map-orphans'")

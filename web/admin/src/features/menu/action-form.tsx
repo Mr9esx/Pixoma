@@ -16,6 +16,7 @@ import { ACTION_TYPES } from './action-templates'
 import { CardPicker } from './card-picker'
 import { type WorkflowRef } from './node-view'
 import { WorkflowInfoCard } from './workflow-info-card'
+import { ListTasksPreview } from './list-tasks-preview'
 
 type Props = {
   action: Action
@@ -30,15 +31,17 @@ type Props = {
 const ACTION_KEYS: Record<ActionType, string> = {
   open_card: 'menu.actionOpenCard',
   open_workflow: 'menu.actionOpenWorkflow',
+  list_tasks: 'menu.actionListTasks',
   send_text: 'menu.actionSendText',
   send_media: 'menu.actionSendMedia',
   open_url: 'menu.actionOpenUrl',
   copy_text: 'menu.actionCopyText',
 }
 
-// v2 分类：工作流能力（进入工作流流程）/ TG 平台能力（平台层固定能力）
-const WORKFLOW_CAPABILITIES: ActionType[] = ['open_workflow', 'open_card']
+// 平台能力（Pixoma）/ TG 能力（Telegram 消息层）
+const WORKFLOW_CAPABILITIES: ActionType[] = ['open_workflow', 'list_tasks']
 const TG_PLATFORM_CAPABILITIES: ActionType[] = [
+  'open_card',
   'send_text',
   'send_media',
   'open_url',
@@ -63,6 +66,9 @@ export function ActionForm({
         return
       case 'open_card':
         onChange({ type, card_id: '' })
+        return
+      case 'list_tasks':
+        onChange({ type })
         return
       case 'send_text':
       case 'copy_text':
@@ -157,6 +163,8 @@ export function ActionForm({
           }
         />
       ) : null}
+
+      {action.type === 'list_tasks' ? <ListTasksPreview /> : null}
 
       {action.type === 'send_text' || action.type === 'copy_text' ? (
         <div className='flex flex-col gap-1.5'>
