@@ -8,16 +8,16 @@ import {
 } from './action-templates'
 
 describe('action-templates', () => {
-  it('listActionTypes 包含 6 种 v2 合法 action type', () => {
+  it('listActionTypes 包含 7 种动作，含 list_tasks', () => {
     const types = listActionTypes()
-    expect(types).toHaveLength(6)
+    expect(types).toHaveLength(7)
     expect(types).toContain('open_workflow')
+    expect(types).toContain('list_tasks')
     expect(types).toContain('open_card')
     expect(types).toContain('send_text')
     expect(types).toContain('send_media')
     expect(types).toContain('open_url')
     expect(types).toContain('copy_text')
-    // v2 删 placeholder
     expect(types).not.toContain('placeholder')
   })
 
@@ -27,9 +27,14 @@ describe('action-templates', () => {
     expect(new Set(types).size).toBe(types.length)
   })
 
-  it('ACTION_FIELD_KIND 6 种 type 各自映射到非 none 的字段类型', () => {
+  it('ACTION_FIELD_KIND：list_tasks 无额外字段，其余有字段', () => {
+    expect(getActionField('list_tasks')).toBe('none')
     for (const type of listActionTypes()) {
       expect(ACTION_FIELD_KIND[type]).toBeTruthy()
+      if (type === 'list_tasks') {
+        expect(ACTION_FIELD_KIND[type]).toBe('none')
+        continue
+      }
       expect(ACTION_FIELD_KIND[type]).not.toBe('none')
     }
   })
@@ -55,8 +60,10 @@ describe('action-templates', () => {
     expect(getActionField('open_url')).toBe('url')
   })
 
-  it('hasTemplate 对 6 种合法 type 返回 true', () => {
+  it('hasTemplate：list_tasks 为 false，其余为 true', () => {
+    expect(hasTemplate('list_tasks')).toBe(false)
     for (const type of listActionTypes()) {
+      if (type === 'list_tasks') continue
       expect(hasTemplate(type)).toBe(true)
     }
   })

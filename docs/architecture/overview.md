@@ -95,6 +95,7 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | 调度 | Orchestrator：prep `job_ref` 后进入可领取态（queued + lease） |
 | 执行 | Edge 长轮询 claim → Worker：Submit/Wait，产物入 blob |
 | 通知 | 终态 → `notify.Publisher` → TG 发图/文案 |
+| 我的任务 | 菜单动作 `list_tasks` → 按聊天查 Task，回当前排队/执行与最近 8 条 |
 | 多计算节点 | `edges` + Pool；健康探测 |
 | 执行 | `pixoma-edge-agent` 直接调用真实 ComfyUI HTTP 根 |
 

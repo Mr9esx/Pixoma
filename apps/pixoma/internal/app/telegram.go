@@ -181,6 +181,7 @@ type tgChannelFactory struct {
 func newCapabilityRegistry(facade *botapp.Facade, texts text.Renderer, users identitydomain.Repository) *capability.Registry {
 	r := capability.NewRegistry()
 	_ = r.Register(capability.OpenCase{App: facade, Texts: texts, Users: users})
+	_ = r.Register(capability.ListTasks{Tasks: facade.Tasks, Cases: facade.Cases})
 	return r
 }
 

@@ -1,18 +1,19 @@
 import type { ActionType } from '@/lib/api/channel-menu'
 
 /**
- * 6 种 v2 合法 action type 各自对应一个字段面板 kind。
- * - `workflow`: 单值工作流 Select（v8 收紧：单工作流）
+ * 动作类型对应的字段面板 kind。
+ * - `workflow`: 单值工作流 Select
  * - `card`: 单值卡片 Select
  * - `text`: 单 Textarea（send_text / copy_text 共用）
  * - `media`: 多 URL Textarea（每行一个媒体）
  * - `url`: 单 URL Input
- * - `none`: 不需要额外字段（占位 / 未来扩展）
+ * - `none`: 不需要额外字段（如 list_tasks）
  */
 type ActionFieldKind = 'workflow' | 'card' | 'text' | 'media' | 'url' | 'none'
 
 export const ACTION_FIELD_KIND: Record<ActionType, ActionFieldKind> = {
   open_workflow: 'workflow',
+  list_tasks: 'none',
   open_card: 'card',
   send_text: 'text',
   send_media: 'media',
@@ -34,6 +35,7 @@ export function hasTemplate(type: ActionType): boolean {
  */
 export const ACTION_TYPES: readonly ActionType[] = [
   'open_workflow',
+  'list_tasks',
   'open_card',
   'send_text',
   'send_media',

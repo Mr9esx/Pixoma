@@ -54,13 +54,9 @@ describe('describeAction', () => {
     expect(v.params[0].value).toBe('https://a/b.png')
   })
 
-  it('open_url 展示链接', () => {
-    const v = describeAction(
-      { type: 'open_url', url: 'https://example.com' },
-      cards,
-      wl
-    )
-    expect(v.kind).toBe('url')
-    expect(v.summary).toBe('跳转链接「https://example.com」')
+  it('list_tasks 展示为我的任务', () => {
+    const v = describeAction({ type: 'list_tasks' }, cards, wl)
+    expect(v.kind).toBe('tasks')
+    expect(v.summary).toBe('我的任务')
   })
 })

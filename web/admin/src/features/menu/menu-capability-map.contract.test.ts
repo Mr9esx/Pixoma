@@ -49,5 +49,7 @@ describe('MenuCapabilityMap', () => {
     )
     expect(src).toContain('WorkflowInfoCard')
     expect(src).toContain("step.action.type === 'open_workflow'")
+    expect(src).toContain("step.action.type === 'list_tasks'")
+    expect(src).toContain('ListTasksPreview')
   })
 })

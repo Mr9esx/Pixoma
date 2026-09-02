@@ -36,7 +36,7 @@ func DefaultMenu() Menu {
 // v2 schema:
 //   - workflow_id: 绑定的 case id（单数，替代旧的 workflow_ids[] + mode + direct_id）
 type Action struct {
-	Type       string  `json:"type"` // open_card | open_workflow | send_text | send_media | open_url | copy_text
+	Type       string  `json:"type"` // open_card | open_workflow | list_tasks | send_text | send_media | open_url | copy_text
 	CardID     string  `json:"card_id,omitempty"`
 	WorkflowID string  `json:"workflow_id,omitempty"`
 	Text       string  `json:"text,omitempty"`
@@ -69,6 +69,7 @@ func ValidateAction(a Action) error {
 		if a.WorkflowID == "" {
 			return ErrValidation
 		}
+	case "list_tasks":
 	case "open_url":
 		if !hasHTTPPrefix(a.URL) {
 			return ErrValidation

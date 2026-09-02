@@ -18,6 +18,7 @@ import {
 import { MenuMapLayout } from './menu-map-layout'
 import type { WorkflowRef } from './node-view'
 import { WorkflowInfoCard } from './workflow-info-card'
+import { ListTasksPreview } from './list-tasks-preview'
 
 function outcomeText(
   t: (key: string, opts?: { name?: string }) => string,
@@ -33,6 +34,8 @@ function payloadKey(type: Action['type']): string | null {
   switch (type) {
     case 'open_workflow':
       return 'menu.mapPayloadWorkflow'
+    case 'list_tasks':
+      return 'menu.mapListTasks'
     case 'send_text':
       return 'menu.mapPayloadText'
     case 'copy_text':
@@ -151,6 +154,17 @@ function PathBody({
         ) : (
           <p className='m-0 text-sm font-semibold'>{o.name}</p>
         )}
+      </div>
+    )
+  }
+
+  if (step.action.type === 'list_tasks') {
+    return (
+      <div className='flex flex-col gap-2'>
+        <span className='font-mono text-sm font-semibold tracking-wider text-muted-foreground uppercase'>
+          {t(pk)}
+        </span>
+        <ListTasksPreview />
       </div>
     )
   }
@@ -276,7 +290,7 @@ export function MenuCapabilityMap({
                     )}
                     onClick={() => setTrail(trailFromItem(it))}
                   >
-                    <span className='text-sm leading-snug font-semibold'>
+                    <span className='w-full truncate text-sm leading-snug font-semibold'>
                       {it.label}
                     </span>
                     <span

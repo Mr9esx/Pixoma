@@ -72,6 +72,7 @@ function validateAction(
 type MapOutcomeKey =
   | 'mapOpenCard'
   | 'mapStartWorkflow'
+  | 'mapListTasks'
   | 'mapSendText'
   | 'mapSendMedia'
   | 'mapOpenUrl'
@@ -110,6 +111,8 @@ export function actionOutcomeLabel(
         ? { key: 'mapStartWorkflow', name: w.name }
         : { key: 'mapWorkflowMissing' }
     }
+    case 'list_tasks':
+      return { key: 'mapListTasks' }
     case 'send_text':
       return { key: 'mapSendText' }
     case 'send_media':

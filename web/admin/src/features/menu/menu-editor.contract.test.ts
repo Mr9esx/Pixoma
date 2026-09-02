@@ -50,6 +50,7 @@ const V2_KEYS = [
   'actionSendMedia',
   'actionOpenUrl',
   'actionCopyText',
+  'actionListTasks',
   'menuItemLabel',
   'menuItemAction',
   'targetCard',
@@ -84,6 +85,7 @@ const V2_KEYS = [
   'mapSendMedia',
   'mapOpenUrl',
   'mapCopyText',
+  'mapListTasks',
   'mapCardMissing',
   'mapWorkflowMissing',
   'workflowCardView',
@@ -168,18 +170,25 @@ describe('menu editor i18n (v2)', () => {
     expect(zh.menu.discardEdits).toBe('丢弃这次修改？')
     expect(zh.menu.discard).toBe('丢弃')
     expect(zh.menu.editMenu).toBe('改菜单')
+    expect(zh.menu.actionGroupWorkflow).toBe('平台能力')
+    expect(zh.menu.actionGroupTg).toBe('TG 能力')
+    expect(zh.menu.actionListTasks).toBe('我的任务')
   })
 })
 
 describe('action form (v2)', () => {
-  it('uses single Select + optgroup + 6 action types', () => {
+  it('groups platform vs TG actions and includes list_tasks', () => {
     const source = readFileSync(ACTION_FORM, 'utf8')
     expect(source).toContain("data-testid='action-form'")
     expect(source).toContain("data-testid='action-type-select'")
     expect(source).toContain('SelectGroup')
-    expect(source).toContain('SelectLabel')
     expect(source).toContain("t('menu.actionGroupWorkflow')")
     expect(source).toContain("t('menu.actionGroupTg')")
+    expect(source).toContain("'open_workflow', 'list_tasks'")
+    expect(source).toContain("'open_card'")
+    expect(source).toContain("case 'list_tasks'")
+    expect(source).toContain('ListTasksPreview')
+    expect(source).toContain("action.type === 'list_tasks'")
     for (const key of [
       'open_card',
       'open_workflow',

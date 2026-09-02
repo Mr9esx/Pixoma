@@ -41,4 +41,7 @@ func TestValidateActionRules(t *testing.T) {
 	if err := domain.ValidateAction(domain.Action{Type: "send_text", Text: "hi"}); err != nil {
 		t.Fatalf("placeholder must pass: %v", err)
 	}
+	if err := domain.ValidateAction(domain.Action{Type: "list_tasks"}); err != nil {
+		t.Fatalf("list_tasks must pass: %v", err)
+	}
 }
