@@ -32,8 +32,11 @@ func (s *invokeStore) get(token string) (protocol.CapabilityInvoke, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	inv, ok := s.invokes[token]
-	if ok {
-		delete(s.invokes, token)
-	}
 	return inv, ok
+}
+
+func (s *invokeStore) consume(token string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.invokes, token)
 }

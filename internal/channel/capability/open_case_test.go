@@ -145,9 +145,9 @@ func TestOpenCase_ConfigurableWorkflowStages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(preview.Text, "preview_hint_label|custom") ||
-		!strings.Contains(preview.Text, "preview_mock_hint|custom") {
-		t.Fatalf("preview copy not configurable: %q", preview.Text)
+	if strings.Contains(preview.Text, "preview_mock_hint") ||
+		strings.Contains(preview.Text, "preview_hint_label") {
+		t.Fatalf("preview without media should not append hint copy: %q", preview.Text)
 	}
 	if preview.Options[0].Label != "button_start_case|custom" {
 		t.Fatalf("start button not configurable: %+v", preview.Options)
@@ -309,5 +309,25 @@ func TestOpenCase_AlwaysAllowedUserCanStartCase(t *testing.T) {
 	}
 	if res.Text == "" {
 		t.Fatal("allowed user did not enter workflow")
+	}
+}
+
+type exitMissingService struct{ fakeCaseService }
+
+func (exitMissingService) ExitSession(context.Context, sharedkernel.ChatID) error {
+	return convdomain.ErrNoActiveSession
+}
+
+func TestOpenCase_ExitWithoutActiveSession(t *testing.T) {
+	cap := OpenCase{
+		App:   exitMissingService{},
+		Users: accessUserRepository{"": identitydomain.UserAccessAlwaysAllowed},
+	}
+	res, err := cap.Invoke(context.Background(), protocol.AccountCtx{}, protocol.Nav{}, "tg-default:1", map[string]any{"step": "exit"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Text != texttpl.Default(texttpl.KeyExitDone) {
+		t.Fatalf("text=%q", res.Text)
 	}
 }

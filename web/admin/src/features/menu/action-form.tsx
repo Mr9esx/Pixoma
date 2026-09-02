@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { Action, ActionType, Card } from '@/lib/api/channel-menu'
+import type { Action, ActionType } from '@/lib/api/channel-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -13,19 +13,17 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { ACTION_TYPES } from './action-templates'
-import { CardPicker } from './card-picker'
 import { type WorkflowRef } from './node-view'
 import { WorkflowInfoCard } from './workflow-info-card'
 import { ListTasksPreview } from './list-tasks-preview'
 
 type Props = {
   action: Action
-  cards: Card[]
   workflows: WorkflowRef[]
   onChange: (next: Action) => void
-  onCreateNewCard?: () => void
   disabled?: boolean
   compact?: boolean
+  channelId?: string
 }
 
 const ACTION_KEYS: Record<ActionType, string> = {
@@ -50,12 +48,11 @@ const TG_PLATFORM_CAPABILITIES: ActionType[] = [
 
 export function ActionForm({
   action,
-  cards,
   workflows,
   onChange,
-  onCreateNewCard,
   disabled,
   compact,
+  channelId,
 }: Props) {
   const { t } = useTranslation()
 
@@ -65,7 +62,7 @@ export function ActionForm({
         onChange({ type, workflow_id: '' })
         return
       case 'open_card':
-        onChange({ type, card_id: '' })
+        onChange({ type, card: { text: '' } })
         return
       case 'list_tasks':
         onChange({ type })
@@ -121,14 +118,20 @@ export function ActionForm({
       </div>
 
       {action.type === 'open_card' ? (
-        <CardPicker
-          cards={cards}
-          value={action.card_id}
-          onPick={(cardId) => onChange({ ...action, card_id: cardId })}
-          onCreateNew={onCreateNewCard}
-          disabled={disabled}
-          compact={compact}
-        />
+        <div className='flex flex-col gap-1.5'>
+          {compact ? null : <Label>{t('menu.cardText')}</Label>}
+          <Textarea
+            value={action.card?.text ?? ''}
+            onChange={(e) =>
+              onChange({
+                ...action,
+                card: { ...action.card, text: e.target.value },
+              })
+            }
+            rows={3}
+            disabled={disabled}
+          />
+        </div>
       ) : null}
 
       {action.type === 'open_workflow' ? (
@@ -164,7 +167,9 @@ export function ActionForm({
         />
       ) : null}
 
-      {action.type === 'list_tasks' ? <ListTasksPreview /> : null}
+      {action.type === 'list_tasks' ? (
+        <ListTasksPreview channelId={channelId} />
+      ) : null}
 
       {action.type === 'send_text' || action.type === 'copy_text' ? (
         <div className='flex flex-col gap-1.5'>

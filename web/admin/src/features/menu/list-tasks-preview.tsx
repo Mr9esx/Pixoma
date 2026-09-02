@@ -1,20 +1,36 @@
-export const LIST_TASKS_SAMPLE_ZH = [
-  '我的任务',
-  '',
-  '当前任务',
-  '✅ 当前没有排队中的任务',
-  '',
-  '最近任务',
-  '✅ #1120186 · 工作流名 · 已完成 · 08-30 07:50',
-].join('\n')
+import { useQuery } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/api/query-keys'
+import { listTextTemplates } from '@/lib/api/text-templates'
+import { cn } from '@/lib/utils'
+import { composeListTasksPreview } from './list-tasks-copy'
 
-export function ListTasksPreview() {
+export { composeListTasksPreview } from './list-tasks-copy'
+
+export function ListTasksPreview({
+  channelId,
+  className,
+}: {
+  channelId?: string
+  className?: string
+}) {
+  const q = useQuery({
+    queryKey: queryKeys.textTemplates.channel(channelId ?? ''),
+    queryFn: () => listTextTemplates(channelId ?? ''),
+    enabled: Boolean(channelId),
+  })
+  const overrides: Record<string, string> = {}
+  for (const item of q.data ?? []) {
+    overrides[item.key] = item.value || item.default
+  }
   return (
     <p
       data-testid='list-tasks-preview'
-      className='m-0 rounded-md border border-border bg-background px-3.5 py-3 text-sm whitespace-pre-wrap'
+      className={cn(
+        'm-0 rounded-md border border-border bg-background px-3.5 py-3 text-sm whitespace-pre-wrap',
+        className
+      )}
     >
-      {LIST_TASKS_SAMPLE_ZH}
+      {composeListTasksPreview(overrides)}
     </p>
   )
 }

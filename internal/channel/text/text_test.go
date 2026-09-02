@@ -97,7 +97,6 @@ func TestSpecsExposeGroupsAndInteractionKeys(t *testing.T) {
 		{key: text.KeyTaskFailed, group: text.GroupNotifications},
 		{key: text.KeyTaskCancelled, group: text.GroupNotifications},
 		{key: text.KeyPreviewHintLabel, group: text.GroupWorkflow, defalt: "预览说明："},
-		{key: text.KeyPreviewMockHint, group: text.GroupWorkflow, defalt: "（mock）确认后将返回一张示例图"},
 		{key: text.KeyButtonStartCase, group: text.GroupWorkflow, defalt: "▶ 开始 Case"},
 		{key: text.KeyInputInvalidNumber, group: text.GroupWorkflow, defalt: "请输入合法数字，例如 42"},
 		{key: text.KeyInputInvalidBoolean, group: text.GroupWorkflow, defalt: "请输入 true 或 false"},
@@ -105,6 +104,7 @@ func TestSpecsExposeGroupsAndInteractionKeys(t *testing.T) {
 		{key: text.KeyButtonConfirmRun, group: text.GroupWorkflow, defalt: "✅ 确认生成"},
 		{key: text.KeyButtonExit, group: text.GroupWorkflow, defalt: "✕ 退出"},
 		{key: text.KeySessionTerminated, group: text.GroupNotifications, defalt: "该工作流已被管理员删除，当前会话已结束。"},
+		{key: text.KeyListTasks, group: text.GroupPlatform, defalt: "我的任务\n\n当前任务\n{{ current }}\n\n最近任务\n{{ recent }}"},
 	} {
 		spec, ok := byKey[item.key]
 		if !ok {

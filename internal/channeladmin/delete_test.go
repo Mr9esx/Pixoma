@@ -51,10 +51,10 @@ func TestDeleteWithCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	menuRepo := mencardpersist.NewGormCardRepository(gdb)
-	if err := menuRepo.PutMenu(ctx, "tg", mcdomain.Menu{ID: "m", Name: "主", Columns: 2}); err != nil {
-		t.Fatal(err)
-	}
-	if err := menuRepo.CreateCard(ctx, "tg", mcdomain.Card{ID: "c1", Name: "卡", Text: "hi"}); err != nil {
+	if err := menuRepo.PutTree(ctx, "tg", mcdomain.MenuTree{
+		Columns: 2,
+		Items:   []mcdomain.TreeButton{{ID: "a", Label: "A", Action: mcdomain.TreeAction{Type: "list_tasks"}}},
+	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -86,14 +86,7 @@ func TestDeleteWithCleanup(t *testing.T) {
 	if byID["s2"] != string(convdomain.StatusSubmitted) {
 		t.Fatalf("s2 status=%s want submitted (untouched)", byID["s2"])
 	}
-	if _, err := menuRepo.GetMenu(ctx, "tg"); err == nil {
+	if _, err := menuRepo.GetTree(ctx, "tg"); err == nil {
 		t.Fatal("menu must be deleted")
-	}
-	cards, err := menuRepo.ListCards(ctx, "tg")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cards) != 0 {
-		t.Fatalf("cards=%+v", cards)
 	}
 }

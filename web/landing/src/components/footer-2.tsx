@@ -1,10 +1,5 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
-import { Gemini } from "@/components/ui/svgs/gemini";
-import { ClaudeAI } from "@/components/ui/svgs/claude-ai";
-import { Openai } from "@/components/ui/svgs/openai";
-import { Perplexity } from "@/components/ui/svgs/perplexity";
-import { Button } from "@/components/ui/button";
 
 const footerLinks = [
   {
@@ -65,56 +60,9 @@ export default function Footer() {
             </div>
           ))}
         </div>
-        <div className="mt-24 grid gap-x-3 gap-y-6 border-t pt-6 sm:grid-cols-2">
-          <div>
-            <p className="text-muted-foreground text-sm">
-              Get an AI summary of this page
-            </p>
-            <div className="-ml-2.5 mt-2 flex items-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                nativeButton={false}
-                render={
-                  <Link href="#" aria-label="Claude AI">
-                    <ClaudeAI />
-                  </Link>
-                }
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                nativeButton={false}
-                render={
-                  <Link href="#" aria-label="OpenAI">
-                    <Openai />
-                  </Link>
-                }
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                nativeButton={false}
-                render={
-                  <Link href="#" aria-label="Perplexity">
-                    <Perplexity className="size-5!" />
-                  </Link>
-                }
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                nativeButton={false}
-                render={
-                  <Link href="#" aria-label="Gemini">
-                    <Gemini />
-                  </Link>
-                }
-              />
-            </div>
-          </div>
-          <span className="text-muted-foreground block text-sm">
-            &copy; Tailark 2025 - Present
+        <div className="mt-24 flex justify-center border-t pt-6">
+          <span className="text-muted-foreground text-sm">
+            &copy; Pixoma {new Date().getFullYear()}
           </span>
         </div>
       </div>

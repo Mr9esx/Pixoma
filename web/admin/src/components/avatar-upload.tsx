@@ -22,7 +22,7 @@ type Props = {
   disabled?: boolean
 }
 
-const AVATAR_SIZE = 'h-[132px] w-[132px]'
+const AVATAR_SIZE = 'h-[140px] w-[140px]'
 const AVATAR_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 const AVATAR_OUTPUT_SIZE = 512
 
@@ -99,7 +99,7 @@ function useAvatarObjectUrl(value?: string): string | undefined {
   return loaded && loaded.key === key ? loaded.url : undefined
 }
 
-/** 头像上传：一个 132×132 圆形头像 Attachment，图片裁成正方形后上传。 */
+/** 头像上传：一个 134×134 圆形头像 Attachment，图片裁成正方形后上传。 */
 export function AvatarUpload({ id, value, onChange, disabled }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)

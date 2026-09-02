@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 const here = dirname(fileURLToPath(import.meta.url))
 const LIST_PANEL = join(here, 'channel-list-panel.tsx')
 const ROUTE = join(here, '../../routes/_app/channels/route.tsx')
+const ID_ROUTE = join(here, '../../routes/_app/channels/$id.tsx')
 
 describe('channel layout aligned with compute nodes', () => {
   it('list panel has search only and no header', () => {
@@ -21,11 +22,19 @@ describe('channel layout aligned with compute nodes', () => {
     expect(source).toContain('MasterDetailShell')
     expect(source).toContain('md:grid-cols-[280px_1fr]')
     expect(source).toContain('ChannelDetailPanel')
+    expect(source).toContain('<Outlet />')
+    expect(source).toContain('isMenuEditor')
     expect(source).toContain('CreateChannelForm')
     expect(source).toContain('<Dialog open={createOpen}')
     expect(source).toContain('onOpenChange={setCreateOpen}')
     expect(source).toMatch(/hasSelection=\{Boolean\(selectedId\)\}/)
     expect(source).not.toContain("id === 'new'")
+  })
+
+  it('channel $id route renders Outlet so nested /menu can mount', () => {
+    const source = readFileSync(ID_ROUTE, 'utf8')
+    expect(source).toContain('<Outlet />')
+    expect(source).not.toMatch(/component:\s*\(\)\s*=>\s*null/)
   })
 
   it('auto-selects the first channel and navigates the url', () => {
@@ -79,7 +88,7 @@ describe('channel layout aligned with compute nodes', () => {
       readFileSync(join(here, '../../lib/i18n/locales/zh.json'), 'utf8')
     ) as { channels: Record<string, string> }
     expect(zh.channels.tabMenu).toBe('菜单配置')
-    expect(zh.channels.tabMenuHint).toBe('配置主菜单与卡片，保存后对用户生效。')
+    expect(zh.channels.tabMenuHint).toBe('主键盘与按钮卡片，保存后立刻生效。')
     expect(detail).toMatch(/tabMenuHint/)
     expect(detail).toMatch(
       /<section id='channel-menu-section'[\s\S]*?<MenuCardEditor/

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { LIST_TASKS_SAMPLE_ZH } from './list-tasks-preview'
+import { composeListTasksPreview } from './list-tasks-copy'
 
 describe('list-tasks preview copy', () => {
   it('matches the Telegram empty-current + recent shape', () => {
-    expect(LIST_TASKS_SAMPLE_ZH).toBe(
+    expect(composeListTasksPreview()).toBe(
       [
         '我的任务',
         '',
@@ -14,5 +14,11 @@ describe('list-tasks preview copy', () => {
         '✅ #1120186 · 工作流名 · 已完成 · 08-30 07:50',
       ].join('\n')
     )
+  })
+
+  it('uses text-template overrides', () => {
+    expect(
+      composeListTasksPreview({ list_tasks: '任务清单\n{{ current }}{{ recent }}' })
+    ).toMatch(/^任务清单\n/)
   })
 })

@@ -43,6 +43,18 @@ func TestHandleCallbackUpdateAnswersBeforeProcessing(t *testing.T) {
 	}
 }
 
+func TestHandleCallbackClearsMarkup(t *testing.T) {
+	out := &captureOutbound{}
+	ad := New(out)
+	ad.ChannelID = "tg-default"
+	if err := ad.HandleCallback(context.Background(), "tg-default:1", 42, CBMenu, ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.edited) != 1 || out.edited[0] != 42 {
+		t.Fatalf("edited=%v", out.edited)
+	}
+}
+
 type identityResolverFunc func(ctx context.Context, addr sharedkernel.ChannelAddr, profile identitydomain.UpsertFrom) (string, error)
 
 func (f identityResolverFunc) Resolve(ctx context.Context, addr sharedkernel.ChannelAddr, profile identitydomain.UpsertFrom) (string, error) {

@@ -8,7 +8,8 @@ const ZH = join(here, '../../lib/i18n/locales/zh.json')
 const EN = join(here, '../../lib/i18n/locales/en.json')
 const ACTION_FORM = join(here, 'action-form.tsx')
 const MENU_EDITOR = join(here, 'menu-card-editor.tsx')
-const MENU_EDITOR_MODAL = join(here, 'menu-editor-modal.tsx')
+const MENU_PUCK = join(here, 'menu-puck-editor.tsx')
+const PUCK_CONFIG = join(here, 'puck-config.tsx')
 
 const V2_KEYS = [
   'tabOutline',
@@ -105,6 +106,11 @@ const V2_KEYS = [
   'unsaved',
   'discardEdits',
   'discard',
+  'saveFailed',
+  'errRootCount',
+  'errColumns',
+  'errDupId',
+  'errDepth',
 ] as const
 
 const REMOVED_V1_KEYS = [
@@ -148,11 +154,11 @@ describe('menu editor i18n (v2)', () => {
     }
   })
 
-  it('editMenu is 改菜单', () => {
+  it('editMenu is 编辑菜单', () => {
     const zh = JSON.parse(readFileSync(ZH, 'utf8')) as {
       menu: Record<string, string>
     }
-    expect(zh.menu.editMenu).toBe('改菜单')
+    expect(zh.menu.editMenu).toBe('编辑菜单')
   })
 
   it('writable map chrome copy', () => {
@@ -167,9 +173,9 @@ describe('menu editor i18n (v2)', () => {
     expect(zh.menu.deleteButton).toBe('删这个按钮')
     expect(zh.menu.deleteCard).toBe('删这张卡片')
     expect(zh.menu.unsaved).toBe('未保存')
-    expect(zh.menu.discardEdits).toBe('丢弃这次修改？')
-    expect(zh.menu.discard).toBe('丢弃')
-    expect(zh.menu.editMenu).toBe('改菜单')
+    expect(zh.menu.discardEdits).toBe('废弃这次修改？')
+    expect(zh.menu.discard).toBe('废弃')
+    expect(zh.menu.editMenu).toBe('编辑菜单')
     expect(zh.menu.actionGroupWorkflow).toBe('平台能力')
     expect(zh.menu.actionGroupTg).toBe('TG 能力')
     expect(zh.menu.actionListTasks).toBe('我的任务')
@@ -233,58 +239,96 @@ describe('action form (v2)', () => {
   })
 })
 
-describe('menu view mode (主视图只读能力地图)', () => {
-  it('hosts MenuCapabilityMap and MenuEditorModal only', () => {
+describe('menu view mode (详情只读手机)', () => {
+  it('hosts MenuPhone and a link into the full-page editor', () => {
     const source = readFileSync(MENU_EDITOR, 'utf8')
     expect(source).toContain("data-testid='menu-card-editor'")
-    expect(source).toContain('MenuCapabilityMap')
-    expect(source).toContain('MenuEditorModal')
-    expect(source).toContain('mapLoadFailed')
-    expect(source).not.toContain('PhoneSimulation')
+    expect(source).toContain('MenuPhone')
+    expect(source).toContain('channelId={channelId}')
+    const phone = readFileSync(join(here, 'menu-phone.tsx'), 'utf8')
+    expect(phone).toContain("to='/channels/$id/menu'")
+    expect(phone).toContain("data-testid='edit-menu'")
+    expect(phone).toContain("variant='outline'")
+    expect(phone).toContain("size='sm'")
+    expect(phone).toContain('PenLine')
+    expect(phone).toContain('h-[500px]')
+    expect(phone).toContain("data-testid='menu-phone-info'")
+    expect(phone).toContain("data-testid='menu-phone-keys'")
+    expect(phone).toContain('h-[35%]')
+    expect(phone).toContain("className='w-full shrink-0'")
+    expect(phone).not.toContain('mt-auto')
+    expect(phone).toContain('WorkflowInfoCard')
+    expect(phone).toContain('PhonePeekCard')
+    expect(phone).toContain('previewEmpty')
+    expect(phone).toContain("data-testid='menu-phone-empty'")
+    expect(phone).toContain('overflow-y-auto')
+    expect(phone).not.toContain('max-h-[70%]')
+    expect(phone).not.toContain('h-[334px]')
+    expect(phone).not.toContain('h-[667px]')
+    expect(source).not.toContain('justify-end')
+    expect(source).not.toContain('MenuCapabilityMap')
+    expect(source).not.toContain('MenuEditorModal')
+    expect(source).not.toContain('listCards')
     expect(source).not.toContain("data-testid='left-pane'")
-    expect(source).not.toContain("data-testid='preview-pane'")
-    expect(source).not.toContain("data-testid='tab-outline'")
-    expect(source).not.toContain("data-testid='tab-library'")
-    expect(source).not.toContain('OutlinePane')
-    expect(source).not.toContain('CardLibraryPane')
-    expect(source).not.toContain("data-testid='add-menu-item'")
-    expect(source).not.toContain("data-testid='save-menu'")
   })
 })
 
-describe('menu edit mode (可写能力地图弹层)', () => {
-  it('is a writable map: keyboard + path + save, no outline/library/phone', () => {
-    const source = readFileSync(MENU_EDITOR_MODAL, 'utf8')
-    const writable = readFileSync(join(here, 'menu-writable-map.tsx'), 'utf8')
-    const layout = readFileSync(join(here, 'menu-map-layout.tsx'), 'utf8')
-    const all = source + writable + layout
-    expect(source).toContain("data-testid='menu-editor-modal'")
-    expect(source).toContain("data-testid='save-menu'")
-    expect(source).toContain('h-svh')
-    expect(source).not.toContain("data-testid='menu-columns'")
-    expect(all).toContain("data-testid='menu-columns'")
-    expect(all).toContain("data-testid='add-key'")
-    expect(all).toContain("data-testid='map-keyboard'")
-    expect(all).toContain("data-testid='map-path'")
-    expect(source).toContain('validateMenuConfig')
+describe('menu edit mode (Puck 整页)', () => {
+  it('is a phone canvas with palette, fields, save, and unsaved leave confirm', () => {
+    const source = readFileSync(MENU_PUCK, 'utf8')
+    const config = readFileSync(PUCK_CONFIG, 'utf8')
+    expect(source).toContain("data-testid='menu-puck-editor'")
+    expect(source).toContain("data-testid='discard-menu'")
     expect(source).toContain('putMenu')
-    expect(source).toContain('onSaved')
-    expect(source).toContain('isMenuDraftDirty')
-    expect(source).toContain('discardEdits')
+    expect(source).toContain('validateMenuTree')
     expect(source).toContain('AlertDialog')
+    expect(source).toContain('ArrowLeft')
+    expect(source).toContain("size='icon'")
+    expect(source).toContain('useBlocker')
+    expect(source).toContain('<footer')
     expect(source).toContain("t('menu.discard')")
-    expect(source).not.toContain("data-testid='tab-outline'")
-    expect(source).not.toContain("data-testid='tab-library'")
-    expect(source).not.toContain("data-testid='phone-simulation'")
-    expect(source).not.toContain("data-testid='new-card'")
-    expect(source).not.toContain("data-testid='editor-pane'")
-    expect(source).not.toContain('OutlinePane')
-    expect(source).not.toContain('CardLibraryPane')
-    expect(source).not.toContain('PhoneSimulation')
-    expect(source).not.toContain('NewCardDialog')
-    expect(source).not.toContain('ItemEditor')
-    expect(source).not.toContain('CardEditor')
-    expect(source).not.toContain('ButtonEditor')
+    expect(source).toContain('beforeunload')
+    expect(source).toContain('Puck.Components')
+    expect(source).toContain('Puck.Preview')
+    expect(source).toContain('Puck.Fields')
+    expect(source).toContain("data-testid='menu-palette'")
+    expect(source).toContain("data-testid='menu-fields'")
+    expect(source).toContain('overflow-y-auto')
+    expect(source).toContain('MENU_PUCK_OVERRIDES')
+    expect(source).toContain('wrapFields={false}')
+    expect(source).toContain('listCases')
+    expect(source).toContain('MenuPuckMetaProvider')
+    const fields = readFileSync(join(here, 'puck-fields.tsx'), 'utf8')
+    expect(fields).toContain('FieldLabel')
+    expect(fields).toContain('onOpenChange')
+    expect(fields).toContain('CardButtonsField')
+    expect(fields).toContain('Collapsible')
+    expect(fields).toContain('WorkflowInfoCard')
+    expect(fields).toContain("data-testid='action-type-select'")
+    expect(fields).toContain("data-testid='workflow-select'")
+    expect(source).toContain('380px')
+    expect(fields).toContain('MarkdownTextField')
+    expect(config).toContain('ActionTypeField')
+    expect(config).toContain('WorkflowField')
+    expect(config).toContain('CardButtonsField')
+    expect(config).not.toContain("type: 'array'")
+    expect(config).not.toContain('categories')
+    expect(config).toContain("data-testid='menu-phone-canvas'")
+    expect(config).toContain('--menu-cols')
+    expect(config).not.toContain('gridTemplateColumns')
+    const css = readFileSync(join(here, 'menu-puck.css'), 'utf8')
+    expect(css).toContain('data-puck-dropzone')
+    expect(css).toContain('grid-template-columns')
+    expect(css).toContain('--foreground')
+    expect(source).toContain('FitPhonePane')
+    expect(css).toContain('--phone-w')
+    expect(css).not.toContain('100cqh')
+    expect(css).not.toContain('100cqi')
+    expect(config).toContain('MenuButton')
+    expect(config).not.toContain('HeadingBlock')
+    expect(config).toContain("type !== 'open_card'")
+    expect(source).not.toContain('listCards')
+    expect(source).not.toContain('MenuCapabilityMap')
   })
 
   it('dead editor panes are gone', () => {
@@ -296,6 +340,11 @@ describe('menu edit mode (可写能力地图弹层)', () => {
       'item-editor.tsx',
       'card-editor.tsx',
       'button-editor.tsx',
+      'menu-editor-modal.tsx',
+      'menu-capability-map.tsx',
+      'menu-writable-map.tsx',
+      'card-picker.tsx',
+      'card-draft.ts',
     ]
     for (const f of files) {
       expect(existsSync(join(here, f))).toBe(false)

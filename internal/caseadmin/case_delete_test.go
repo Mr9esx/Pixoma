@@ -68,8 +68,8 @@ func TestDeleteCase_AckRequired(t *testing.T) {
 	if err := sessRepo.Save(ctx, convdomain.NewCollecting("s1", "tg:9", 10, []string{"a"}, now)); err != nil {
 		t.Fatal(err)
 	}
-	if err := menuRepo.PutMenu(ctx, "ch1", mcdomain.Menu{ID: "m", Name: "主", Columns: 2, Items: []mcdomain.MenuItem{
-		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "10"}},
+	if err := menuRepo.PutTree(ctx, "ch1", mcdomain.MenuTree{Columns: 2, Items: []mcdomain.TreeButton{
+		{ID: "mi", Label: "L", Action: mcdomain.TreeAction{Type: "open_workflow", WorkflowID: "10"}},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -119,8 +119,8 @@ func TestDeleteCase_CleanupAndDelete(t *testing.T) {
 	if err := sessRepo.Save(ctx, convdomain.NewCollecting("s1", "tg:9", 10, []string{"a"}, now)); err != nil {
 		t.Fatal(err)
 	}
-	if err := menuRepo.PutMenu(ctx, "ch1", mcdomain.Menu{ID: "m", Name: "主", Columns: 2, Items: []mcdomain.MenuItem{
-		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "10"}},
+	if err := menuRepo.PutTree(ctx, "ch1", mcdomain.MenuTree{Columns: 2, Items: []mcdomain.TreeButton{
+		{ID: "mi", Label: "L", Action: mcdomain.TreeAction{Type: "open_workflow", WorkflowID: "10"}},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -147,8 +147,8 @@ func TestDeleteCase_CleanupAndDelete(t *testing.T) {
 	if err != nil || len(sess) != 0 {
 		t.Fatalf("sessions not terminated: %+v err=%v", sess, err)
 	}
-	menu, err := menuRepo.GetMenu(ctx, "ch1")
-	if err != nil || len(menu.Items) != 0 {
+	menu, err := menuRepo.GetTree(ctx, "ch1")
+	if err != nil || len(menu.Items) != 2 {
 		t.Fatalf("menu items=%+v err=%v", menu.Items, err)
 	}
 	var kinds []string

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   createFileRoute,
+  Outlet,
   useNavigate,
   useParams,
   useRouterState,
@@ -42,6 +43,8 @@ function ChannelsLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { id } = useParams({ strict: false }) as { id?: string }
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isMenuEditor = /\/channels\/[^/]+\/menu\/?$/.test(pathname)
   const locationState = useRouterState({
     select: (s) => s.location.state,
   }) as { backToList?: boolean } | undefined
@@ -64,6 +67,18 @@ function ChannelsLayout() {
       })
     }
   }, [id, backToList, items, navigate])
+
+  if (isMenuEditor) {
+    return (
+      <div
+        data-layout='fixed'
+        className='flex min-h-0 flex-1 flex-col overflow-hidden'
+        data-testid='channel-menu-page'
+      >
+        <Outlet />
+      </div>
+    )
+  }
 
   return (
     <div

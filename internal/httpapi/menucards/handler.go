@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -13,7 +12,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 )
 
-// Handler serves the new menu/card management API under /api/v1/channels/{id}.
+// Handler serves menu tree management under /api/v1/channels/{id}.
 type Handler struct {
 	Repo persistence.CardRepository
 }
@@ -25,132 +24,51 @@ func NewHandler(repo persistence.CardRepository) *Handler {
 func (h *Handler) Mount(r chi.Router) {
 	r.Get("/menu", h.getMenu)
 	r.Put("/menu", h.putMenu)
-	r.Get("/cards", h.listCards)
-	r.Post("/cards", h.createCard)
-	r.Patch("/cards/{cardID}", h.updateCard)
-	r.Delete("/cards/{cardID}", h.deleteCard)
-	r.Get("/cards/{cardID}/references", h.cardReferences)
+	r.Get("/cards", h.goneCards)
+	r.Post("/cards", h.goneCards)
+	r.Patch("/cards/{cardID}", h.goneCards)
+	r.Delete("/cards/{cardID}", h.goneCards)
+	r.Get("/cards/{cardID}/references", h.goneCards)
 }
 
 func (h *Handler) getMenu(w http.ResponseWriter, r *http.Request) {
-	menu, err := h.Repo.GetMenu(r.Context(), chi.URLParam(r, "id"))
+	channelID := chi.URLParam(r, "id")
+	tree, err := h.Repo.GetTree(r.Context(), channelID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		def := mcdomain.DefaultMenu()
-		def.ID = chi.URLParam(r, "id")
-		writeJSON(w, http.StatusOK, def)
+		writeJSON(w, http.StatusOK, mcdomain.DefaultMenuTree(channelID))
 		return
 	}
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, menu)
+	writeJSON(w, http.StatusOK, tree)
 }
 
 func (h *Handler) putMenu(w http.ResponseWriter, r *http.Request) {
-	var menu mcdomain.Menu
-	if err := json.NewDecoder(r.Body).Decode(&menu); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
-		return
-	}
-	if err := mcdomain.ValidateMenu(menu); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := h.Repo.PutMenu(r.Context(), chi.URLParam(r, "id"), menu); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, menu)
-}
-
-func (h *Handler) listCards(w http.ResponseWriter, r *http.Request) {
-	cards, err := h.Repo.ListCards(r.Context(), chi.URLParam(r, "id"))
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	if q != "" {
-		filtered := cards[:0]
-		for _, c := range cards {
-			if strings.Contains(c.Name, q) {
-				filtered = append(filtered, c)
-			}
-		}
-		cards = filtered
-	}
-	writeJSON(w, http.StatusOK, cards)
-}
-
-func (h *Handler) createCard(w http.ResponseWriter, r *http.Request) {
-	var card mcdomain.Card
-	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
-		return
-	}
-	if err := mcdomain.ValidateCard(card); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := h.Repo.CreateCard(r.Context(), chi.URLParam(r, "id"), card); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusCreated, card)
-}
-
-func (h *Handler) updateCard(w http.ResponseWriter, r *http.Request) {
-	var card mcdomain.Card
-	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
-		return
-	}
-	card.ID = chi.URLParam(r, "cardID")
-	if err := mcdomain.ValidateCard(card); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := h.Repo.UpdateCard(r.Context(), chi.URLParam(r, "id"), card); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, card)
-}
-
-func (h *Handler) deleteCard(w http.ResponseWriter, r *http.Request) {
 	channelID := chi.URLParam(r, "id")
-	cardID := chi.URLParam(r, "cardID")
-	refs, err := h.Repo.CardReferences(r.Context(), channelID, cardID)
-	if err != nil {
+	var tree mcdomain.MenuTree
+	if err := json.NewDecoder(r.Body).Decode(&tree); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	tree.ID = channelID
+	if err := mcdomain.ValidateTree(tree, nil); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.Repo.PutTree(r.Context(), channelID, tree); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if len(refs) > 0 {
-		writeJSON(w, http.StatusConflict, map[string]any{
-			"error":      "card is referenced",
-			"references": refs,
-		})
-		return
-	}
-	if err := h.Repo.DeleteCard(r.Context(), channelID, cardID); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, tree)
 }
 
-func (h *Handler) cardReferences(w http.ResponseWriter, r *http.Request) {
-	refs, err := h.Repo.CardReferences(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "cardID"))
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, refs)
+func (h *Handler) goneCards(w http.ResponseWriter, r *http.Request) {
+	writeErr(w, http.StatusGone, "cards are nested in the menu tree")
 }
 
-// ListWorkflowPlacements returns where a workflow is referenced across menus
-// and card buttons (new model reverse lookup).
+// ListWorkflowPlacements returns where a workflow is referenced in menu trees.
 func (h *Handler) ListWorkflowPlacements(w http.ResponseWriter, r *http.Request) {
 	placements, err := h.Repo.WorkflowPlacements(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
@@ -170,12 +88,19 @@ func (h *Handler) ListWorkflowPlacements(w http.ResponseWriter, r *http.Request)
 	}
 	out := make([]placementDTO, 0, len(placements))
 	for _, p := range placements {
+		path := make([]step, 0, len(p.Labels))
+		for _, lab := range p.Labels {
+			path = append(path, step{ID: p.ItemID, Label: lab})
+		}
+		if len(path) == 0 {
+			path = []step{{ID: p.ItemID, Label: p.Label}}
+		}
 		out = append(out, placementDTO{
 			ChannelID:   p.ChannelID,
 			ChannelName: p.ChannelName,
 			ItemID:      p.ItemID,
 			Kind:        p.Kind,
-			Path:        []step{{ID: p.ItemID, Label: p.Label}},
+			Path:        path,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)

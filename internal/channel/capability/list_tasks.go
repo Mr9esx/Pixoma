@@ -10,13 +10,15 @@ import (
 
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
+	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 const (
-	myTasksFetchLimit = 64
-	myTasksRecentCap  = 8
+	myTasksFetchLimit   = 64
+	myTasksRecentCap    = 8
+	myTasksCurrentEmpty = "✅ 当前没有排队中的任务"
 )
 
 // CaseLookup resolves a Case name for task list lines.
@@ -28,6 +30,7 @@ type CaseLookup interface {
 type ListTasks struct {
 	Tasks runtimedomain.TaskRepository
 	Cases CaseLookup
+	Texts texttpl.Renderer
 	Now   func() time.Time
 	Loc   *time.Location
 }
@@ -46,7 +49,7 @@ func (ListTasks) Render(_ string, override map[string]any) (protocol.RenderDecl,
 	}, override), nil
 }
 
-func (l ListTasks) Invoke(ctx context.Context, _ protocol.AccountCtx, _ protocol.Nav, chatID sharedkernel.ChatID, _ map[string]any) (protocol.Result, error) {
+func (l ListTasks) Invoke(ctx context.Context, acct protocol.AccountCtx, _ protocol.Nav, chatID sharedkernel.ChatID, _ map[string]any) (protocol.Result, error) {
 	now := time.Now()
 	if l.Now != nil {
 		now = l.Now()
@@ -60,7 +63,16 @@ func (l ListTasks) Invoke(ctx context.Context, _ protocol.AccountCtx, _ protocol
 		tasks = listed
 	}
 	names := l.caseNames(ctx, tasks)
-	return protocol.Result{Text: FormatMyTasks(tasks, names, now, l.Loc)}, nil
+	current, recent := myTaskVars(tasks, names, now, l.Loc)
+	return protocol.Result{Text: l.renderCopy(ctx, acct.ChannelID, current, recent)}, nil
+}
+
+func (l ListTasks) renderCopy(ctx context.Context, channelID, current, recent string) string {
+	vars := map[string]string{"current": current, "recent": recent}
+	if l.Texts == nil {
+		return texttpl.Render(texttpl.Default(texttpl.KeyListTasks), vars)
+	}
+	return l.Texts.Render(ctx, channelID, texttpl.KeyListTasks, vars)
 }
 
 func (l ListTasks) caseNames(ctx context.Context, tasks []*runtimedomain.Task) map[sharedkernel.CaseID]string {
@@ -89,6 +101,14 @@ func (l ListTasks) caseNames(ctx context.Context, tasks []*runtimedomain.Task) m
 }
 
 func FormatMyTasks(tasks []*runtimedomain.Task, names map[sharedkernel.CaseID]string, now time.Time, loc *time.Location) string {
+	current, recent := myTaskVars(tasks, names, now, loc)
+	return texttpl.Render(texttpl.Default(texttpl.KeyListTasks), map[string]string{
+		"current": current,
+		"recent":  recent,
+	})
+}
+
+func myTaskVars(tasks []*runtimedomain.Task, names map[sharedkernel.CaseID]string, now time.Time, loc *time.Location) (current, recent string) {
 	if loc == nil {
 		var err error
 		loc, err = time.LoadLocation("Asia/Shanghai")
@@ -96,47 +116,42 @@ func FormatMyTasks(tasks []*runtimedomain.Task, names map[sharedkernel.CaseID]st
 			loc = time.FixedZone("CST", 8*3600)
 		}
 	}
-	var current, recent []*runtimedomain.Task
+	var currentTasks, recentTasks []*runtimedomain.Task
 	for _, t := range tasks {
 		if t == nil {
 			continue
 		}
 		if isInFlight(t.Status) {
-			current = append(current, t)
+			currentTasks = append(currentTasks, t)
 			continue
 		}
-		recent = append(recent, t)
+		recentTasks = append(recentTasks, t)
 	}
-	sort.Slice(current, func(i, j int) bool {
-		return current[i].CreatedAt.After(current[j].CreatedAt)
+	sort.Slice(currentTasks, func(i, j int) bool {
+		return currentTasks[i].CreatedAt.After(currentTasks[j].CreatedAt)
 	})
-	sort.Slice(recent, func(i, j int) bool {
-		return recentTime(recent[i]).After(recentTime(recent[j]))
+	sort.Slice(recentTasks, func(i, j int) bool {
+		return recentTime(recentTasks[i]).After(recentTime(recentTasks[j]))
 	})
-	if len(recent) > myTasksRecentCap {
-		recent = recent[:myTasksRecentCap]
+	if len(recentTasks) > myTasksRecentCap {
+		recentTasks = recentTasks[:myTasksRecentCap]
 	}
-
-	var b strings.Builder
-	b.WriteString("我的任务\n\n当前任务\n")
-	if len(current) == 0 {
-		b.WriteString("✅ 当前没有排队中的任务")
+	if len(currentTasks) == 0 {
+		current = myTasksCurrentEmpty
 	} else {
-		for i, t := range current {
-			if i > 0 {
-				b.WriteByte('\n')
-			}
-			b.WriteString(formatTaskLine(t, names, now, loc, true))
-		}
+		current = joinTaskLines(currentTasks, names, now, loc, true)
 	}
-	if len(recent) > 0 {
-		b.WriteString("\n\n最近任务\n")
-		for i, t := range recent {
-			if i > 0 {
-				b.WriteByte('\n')
-			}
-			b.WriteString(formatTaskLine(t, names, now, loc, false))
+	recent = joinTaskLines(recentTasks, names, now, loc, false)
+	return current, recent
+}
+
+func joinTaskLines(tasks []*runtimedomain.Task, names map[sharedkernel.CaseID]string, now time.Time, loc *time.Location, inFlight bool) string {
+	var b strings.Builder
+	for i, t := range tasks {
+		if i > 0 {
+			b.WriteByte('\n')
 		}
+		b.WriteString(formatTaskLine(t, names, now, loc, inFlight))
 	}
 	return b.String()
 }
