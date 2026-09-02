@@ -20,16 +20,6 @@ import { resolveMediaKey } from '@/lib/api/media'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listSessions } from '@/lib/api/sessions'
 import { listTasks } from '@/lib/api/tasks'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -45,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Reveal } from '@/components/ui/reveal'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
@@ -161,14 +152,10 @@ export function CaseDetailPanel({ id }: Props) {
         description={t('cases.notFoundDesc')}
         actions={
           <>
-            <Button asChild className={kit.btnPrimary}>
+            <Button asChild size='sm'>
               <Link to='/cases'>{t('cases.backToList')}</Link>
             </Button>
-            <Button
-              asChild
-              variant='outline'
-              className='h-8 gap-1.5 rounded-md px-3 text-xs'
-            >
+            <Button asChild variant='outline' size='sm'>
               <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
                 {t('cases.createHeading')}
               </Link>
@@ -200,11 +187,11 @@ export function CaseDetailPanel({ id }: Props) {
     >
       <div className='flex min-w-0 items-stretch gap-4'>
         {previewKey ? (
-          <button
-            type='button'
+          <Button
+            variant='outline'
             onClick={() => setPreviewOpen(true)}
             aria-label={t('media.zoom')}
-            className='group relative h-[84px] w-[84px] shrink-0 overflow-hidden rounded-lg border bg-muted'
+            className='group h-[84px] w-[84px] shrink-0 rounded-lg bg-muted p-0'
           >
             {previewIsVideo ? (
               <video
@@ -222,10 +209,10 @@ export function CaseDetailPanel({ id }: Props) {
                 className='h-full w-full object-contain'
               />
             )}
-            <span className='absolute right-1.5 bottom-1.5 flex size-7 items-center justify-center rounded-md bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100'>
+            <span className='absolute right-1.5 bottom-1.5 flex size-7 items-center justify-center rounded-md bg-foreground/45 text-background opacity-0 transition-opacity group-hover:opacity-100'>
               <ZoomIn className='size-4' />
             </span>
-          </button>
+          </Button>
         ) : null}
         <div className='flex min-w-0 flex-1 flex-col gap-[6px]'>
           <div className='flex min-w-0 items-center justify-between gap-3'>
@@ -237,7 +224,7 @@ export function CaseDetailPanel({ id }: Props) {
             <div className='flex shrink-0 flex-wrap gap-2'>
               <Button
                 type='button'
-                className={kit.btnPrimary}
+                size='sm'
                 onClick={() => setEditDialog('info')}
               >
                 <PenLine className='size-3.5' strokeWidth={2} />
@@ -246,7 +233,7 @@ export function CaseDetailPanel({ id }: Props) {
               <Button
                 type='button'
                 variant='outline'
-                className={kit.btnGhost}
+                size='sm'
                 onClick={() => setEditDialog('workflow')}
               >
                 <Settings2 className='size-3.5' strokeWidth={2} />
@@ -274,80 +261,69 @@ export function CaseDetailPanel({ id }: Props) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      {t('cases.deleteWorkflowTitle')}
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {t('cases.deleteWorkflowBody', {
-                        name: record.name || record.id,
-                      })}
-                      {placements.length > 0 ? (
-                        <div className='mt-3 space-y-2'>
-                          <p className='font-medium'>
-                            {t('cases.deleteWillRemoveRefs', {
-                              count: placements.length,
-                            })}
-                          </p>
-                          <ul className='max-h-32 overflow-auto rounded-md border bg-muted/20 p-3 text-xs'>
-                            {placements.map((p) => (
-                              <li key={`${p.channel_id}:${p.item_id}`}>
-                                {p.channel_name || p.channel_id} ·{' '}
-                                {p.path.map((s) => s.label).join(' / ')}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                      {(pendingTasksQuery.data?.length ?? 0) > 0 ||
-                      (activeSessionsQuery.data ?? 0) > 0 ? (
-                        <p className='mt-3 text-xs text-muted-foreground'>
-                          {(pendingTasksQuery.data?.length ?? 0) > 0
-                            ? t('cases.deleteWillFailTasks', {
-                                count: pendingTasksQuery.data?.length ?? 0,
-                              })
-                            : null}
-                          {(activeSessionsQuery.data ?? 0) > 0
-                            ? t('cases.deleteWillEndSessions', {
-                                count: activeSessionsQuery.data ?? 0,
-                              })
-                            : null}
+              <ConfirmDialog
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+                destructive
+                isLoading={deleteMutation.isPending}
+                disabled={!ackRefs}
+                title={t('cases.deleteWorkflowTitle')}
+                desc={
+                  <div className='text-sm'>
+                    {t('cases.deleteWorkflowBody', {
+                      name: record.name || record.id,
+                    })}
+                    {placements.length > 0 ? (
+                      <div className='mt-3 flex flex-col gap-2'>
+                        <p className='font-medium'>
+                          {t('cases.deleteWillRemoveRefs', {
+                            count: placements.length,
+                          })}
                         </p>
-                      ) : null}
-                      <label
-                        htmlFor='case-delete-ack'
-                        className='mt-4 flex items-center gap-2 text-sm'
-                      >
-                        <Checkbox
-                          id='case-delete-ack'
-                          checked={ackRefs}
-                          onCheckedChange={(v) => setAckRefs(v === true)}
-                          data-testid='case-delete-ack'
-                        />
-                        <span>{t('cases.deleteAckRefs')}</span>
-                      </label>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel
-                      type='button'
-                      disabled={deleteMutation.isPending}
-                    >
-                      {t('common.cancel')}
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      type='button'
-                      className='bg-destructive text-white hover:bg-destructive/90'
-                      disabled={deleteMutation.isPending || !ackRefs}
-                      onClick={() => deleteMutation.mutate()}
-                    >
-                      {t('common.delete')}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                        <ul className='max-h-32 overflow-auto rounded-md border bg-muted/20 p-3 text-xs'>
+                          {placements.map((p) => (
+                            <li key={`${p.channel_id}:${p.item_id}`}>
+                              {p.channel_name || p.channel_id} ·{' '}
+                              {p.path.map((s) => s.label).join(' / ')}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {(pendingTasksQuery.data?.length ?? 0) > 0 ||
+                    (activeSessionsQuery.data ?? 0) > 0 ? (
+                      <p className='mt-3 text-xs text-muted-foreground'>
+                        {(pendingTasksQuery.data?.length ?? 0) > 0
+                          ? t('cases.deleteWillFailTasks', {
+                              count: pendingTasksQuery.data?.length ?? 0,
+                            })
+                          : null}
+                        {(activeSessionsQuery.data ?? 0) > 0
+                          ? t('cases.deleteWillEndSessions', {
+                              count: activeSessionsQuery.data ?? 0,
+                            })
+                          : null}
+                      </p>
+                    ) : null}
+                  </div>
+                }
+                confirmText={t('common.delete')}
+                cancelBtnText={t('common.cancel')}
+                handleConfirm={() => deleteMutation.mutate()}
+              >
+                <label
+                  htmlFor='case-delete-ack'
+                  className='flex cursor-pointer items-center gap-2 text-sm'
+                >
+                  <Checkbox
+                    id='case-delete-ack'
+                    checked={ackRefs}
+                    onCheckedChange={(v) => setAckRefs(v === true)}
+                    data-testid='case-delete-ack'
+                  />
+                  <span>{t('cases.deleteAckRefs')}</span>
+                </label>
+              </ConfirmDialog>
             </div>
           </div>
           {record.description ? (

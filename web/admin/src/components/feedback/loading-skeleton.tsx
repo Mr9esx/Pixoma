@@ -11,7 +11,7 @@ export function LoadingSkeleton({ rows = 4, className }: Props) {
   const { t } = useTranslation()
   return (
     <div
-      className={cn('space-y-3', className)}
+      className={cn('flex flex-col gap-3', className)}
       role='status'
       aria-label={t('common.loading')}
     >

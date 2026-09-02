@@ -35,11 +35,11 @@ import { queryKeys } from '@/lib/api/query-keys'
 import type { ComfyEdge } from '@/lib/api/types'
 import { scrollAndFlash } from '@/lib/scroll-focus'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -50,9 +50,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Reveal } from '@/components/ui/reveal'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
+import { Pill } from '@/components/kibo-ui/pill'
 import { LongText } from '@/components/long-text'
 import { MetaChip } from '@/components/meta-chip'
 import { SectionHead } from '@/components/section-head'
@@ -64,9 +66,29 @@ import { EdgeForm } from './edge-form'
 import { kit } from './kit-classes'
 import { formatBytes } from './observation'
 import { ObservationPanel } from './observation-panel'
-import { StatusTag } from './presence-tags'
 
 const TASKS_PAGE_SIZE = 10
+
+function DetailStatusTag({
+  on,
+  children,
+}: {
+  on: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Pill
+      dot={on ? 'success' : 'neutral'}
+      className={
+        on
+          ? 'border-success/25 bg-success/10 text-success'
+          : 'border-border bg-muted text-muted-foreground'
+      }
+    >
+      {children}
+    </Pill>
+  )
+}
 
 // 终端本地时间可能晚于服务端 now（跨时区/晚于当前秒），把 to 钳到 now，
 // 避免后端 `to cannot be in the future` 400。to 已 ≤ now 时原样返回。
@@ -212,14 +234,10 @@ export function EdgeDetailPanel({ id }: Props) {
           description={t('edges.notFoundDesc')}
           actions={
             <>
-              <Button asChild className={kit.btnPrimary}>
+              <Button asChild size='sm'>
                 <Link to='/edges'>{t('edges.backToList')}</Link>
               </Button>
-              <Button
-                asChild
-                variant='outline'
-                className='h-8 gap-1.5 rounded-md px-3 text-xs'
-              >
+              <Button asChild variant='outline' size='sm'>
                 <Link to='/quick-config'>{t('menu.quickConfig')}</Link>
               </Button>
             </>
@@ -267,33 +285,29 @@ export function EdgeDetailPanel({ id }: Props) {
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{edge.name || edge.id}</h2>
-            <StatusTag on={edge.enabled}>
+            <DetailStatusTag on={edge.enabled}>
               {edge.enabled ? t('edges.enabled') : t('edges.disabled')}
-            </StatusTag>
-            <StatusTag on={presence?.edge_online === true}>
+            </DetailStatusTag>
+            <DetailStatusTag on={presence?.edge_online === true}>
               {presence?.edge_online
                 ? t('edges.nodeOnline')
                 : t('edges.nodeOffline')}
-            </StatusTag>
-            <StatusTag on={presence?.comfy_running === true}>
+            </DetailStatusTag>
+            <DetailStatusTag on={presence?.comfy_running === true}>
               {presence?.comfy_running
                 ? t('edges.comfyRunning')
                 : t('edges.comfyStopped')}
-            </StatusTag>
+            </DetailStatusTag>
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
-            <Button
-              type='button'
-              className={kit.btnPrimary}
-              onClick={() => setEditOpen(true)}
-            >
+            <Button type='button' size='sm' onClick={() => setEditOpen(true)}>
               <PenLine className='size-3.5' strokeWidth={2} />
               {t('edges.edit')}
             </Button>
             <Button
               type='button'
               variant='outline'
-              className={kit.btnGhost}
+              size='sm'
               onClick={() => setDeployOpen(true)}
             >
               <Terminal className='size-3.5' strokeWidth={2} />
@@ -437,7 +451,7 @@ export function EdgeDetailPanel({ id }: Props) {
           title={t('edges.overviewTitle')}
           hint={t('edges.overviewHint')}
         />
-        <div className={kit.statsWrap}>
+        <Card className='gap-0 overflow-hidden py-0'>
           <div className={kit.statsGrid}>
             <div className={kit.statsCell[0]}>
               <p className={kit.statsLabel}>
@@ -471,7 +485,7 @@ export function EdgeDetailPanel({ id }: Props) {
               </p>
             </div>
           </div>
-        </div>
+        </Card>
       </section>
 
       <ObservationPanel
@@ -506,19 +520,22 @@ export function EdgeDetailPanel({ id }: Props) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className='sm:max-w-lg'>
-          <DialogHeader>
-            <DialogTitle>{t('edges.deleteConfirmTitle')}</DialogTitle>
-          </DialogHeader>
-          <div className='space-y-3 text-sm'>
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        destructive
+        isLoading={deleteMutation.isPending}
+        disabled={runningCount > 0 && !ackRunning}
+        title={t('edges.deleteConfirmTitle')}
+        desc={
+          <div className='text-sm'>
             {runningCount > 0 ? (
               <p>{t('edges.deleteWillFailRunning', { count: runningCount })}</p>
             ) : (
               <p>{t('edges.deleteNoRunning')}</p>
             )}
             {(edge.subscribe_topics ?? []).length > 0 ? (
-              <div className='space-y-1'>
+              <div className='flex flex-col gap-1'>
                 <p className='font-medium'>
                   {t('edges.deleteSubscribedTopics')}
                 </p>
@@ -529,38 +546,23 @@ export function EdgeDetailPanel({ id }: Props) {
                 </ul>
               </div>
             ) : null}
-            {runningCount > 0 ? (
-              <label className='flex cursor-pointer items-start gap-2'>
-                <Checkbox
-                  checked={ackRunning}
-                  onCheckedChange={(checked) => setAckRunning(checked === true)}
-                  data-testid='edge-delete-ack'
-                />
-                <span>{t('edges.deleteAckRunning')}</span>
-              </label>
-            ) : null}
           </div>
-          <DialogFooter>
-            <Button
-              type='button'
-              variant='outline'
-              onClick={() => setDeleteOpen(false)}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type='button'
-              variant='destructive'
-              disabled={
-                deleteMutation.isPending || (runningCount > 0 && !ackRunning)
-              }
-              onClick={() => deleteMutation.mutate()}
-            >
-              {t('common.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        }
+        confirmText={t('common.delete')}
+        cancelBtnText={t('common.cancel')}
+        handleConfirm={() => deleteMutation.mutate()}
+      >
+        {runningCount > 0 ? (
+          <label className='flex cursor-pointer items-start gap-2 text-sm'>
+            <Checkbox
+              checked={ackRunning}
+              onCheckedChange={(checked) => setAckRunning(checked === true)}
+              data-testid='edge-delete-ack'
+            />
+            <span>{t('edges.deleteAckRunning')}</span>
+          </label>
+        ) : null}
+      </ConfirmDialog>
 
       <Dialog open={deployOpen} onOpenChange={setDeployOpen}>
         <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>
@@ -589,16 +591,18 @@ export function EdgeDetailPanel({ id }: Props) {
         }}
         renderAction={(b) =>
           b.key === 'linkHealth.noTopicBinding' ? (
-            <button
+            <Button
               type='button'
-              className='ml-auto text-sm font-medium text-foreground underline underline-offset-2'
+              variant='link'
+              size='sm'
+              className='ml-auto underline underline-offset-2'
               onClick={() => {
                 setDeployOpen(true)
                 scrollAndFlash('edge-deploy-topics', 200)
               }}
             >
               {t('linkHealth.actionDeployNode')} →
-            </button>
+            </Button>
           ) : null
         }
       />

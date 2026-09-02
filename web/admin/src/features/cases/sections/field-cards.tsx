@@ -27,17 +27,6 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -76,6 +65,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import type { InputFieldDraft, OutputFieldDraft } from '../lib/derive'
 import {
   inputKindFor,
@@ -215,7 +205,7 @@ function BindNodePopover({
         <span className='truncate font-semibold'>
           {nodeLabel(n.class_type)}
         </span>
-        <span className='font-mono text-[10px] font-normal text-muted-foreground'>
+        <span className='font-mono text-xs font-normal text-muted-foreground'>
           #{n.id}
         </span>
       </span>
@@ -321,7 +311,7 @@ function BindNodePopover({
                             className='text-sm'
                           >
                             <span className='font-mono'>{i}</span>
-                            <span className='ms-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] whitespace-nowrap text-muted-foreground'>
+                            <span className='ms-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground'>
                               {t(TYPE_LABEL_KEYS[outputKindFor(n.class_type)])}
                             </span>
                           </CommandItem>
@@ -354,7 +344,7 @@ function BindNodePopover({
                           <span className='min-w-0 flex-1 truncate font-mono'>
                             {p.name}
                           </span>
-                          <span className='ms-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] whitespace-nowrap text-muted-foreground'>
+                          <span className='ms-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground'>
                             {t(TYPE_LABEL_KEYS[p.kind] ?? 'cases.typeString')}
                           </span>
                         </CommandItem>
@@ -385,46 +375,37 @@ function RemoveFieldButton({
   compact,
 }: RemoveFieldButtonProps) {
   const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button
-          type='button'
-          variant='ghost'
-          size={compact ? 'sm' : 'icon'}
-          disabled={disabled}
-          aria-label={t('cases.removeRow')}
-          className={
-            compact
-              ? 'size-9 text-muted-foreground hover:text-destructive'
-              : 'text-muted-foreground hover:text-destructive'
-          }
-        >
-          <Trash2 className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
-          <span className='sr-only'>{t('cases.removeRow')}</span>
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t('cases.deleteFieldTitle')}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {t('cases.deleteFieldBody', { key: fieldKey })}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel type='button'>
-            {t('common.cancel')}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            type='button'
-            onClick={onRemove}
-            className='bg-destructive text-white hover:bg-destructive/90'
-          >
-            {t('common.delete')}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <>
+      <Button
+        type='button'
+        variant='ghost'
+        size={compact ? 'sm' : 'icon'}
+        disabled={disabled}
+        aria-label={t('cases.removeRow')}
+        className={
+          compact
+            ? 'size-9 text-muted-foreground hover:text-destructive'
+            : 'text-muted-foreground hover:text-destructive'
+        }
+        onClick={() => setOpen(true)}
+      >
+        <Trash2 className={compact ? 'size-3.5' : 'size-4'} />
+        <span className='sr-only'>{t('cases.removeRow')}</span>
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        destructive
+        title={t('cases.deleteFieldTitle')}
+        desc={t('cases.deleteFieldBody', { key: fieldKey })}
+        confirmText={t('common.delete')}
+        cancelBtnText={t('common.cancel')}
+        handleConfirm={onRemove}
+      />
+    </>
   )
 }
 
@@ -508,7 +489,7 @@ function InputFieldCard({
       data-testid='input-field-card'
       style={dragStyle}
       className={cn(
-        'space-y-2 rounded-md border p-3',
+        'flex flex-col gap-2 rounded-md border p-3',
         isDragging && 'opacity-50'
       )}
     >
@@ -711,7 +692,7 @@ function OutputFieldCard({
   return (
     <li
       data-testid='output-field-card'
-      className='space-y-2 rounded-md border p-3'
+      className='flex flex-col gap-2 rounded-md border p-3'
     >
       <div className='flex flex-wrap items-center gap-2'>
         <span className='text-sm text-foreground'>{t('cases.fieldKey')}</span>
@@ -1380,7 +1361,7 @@ export function EditableInputFields({
         items={fields.map((_, i) => i)}
         strategy={verticalListSortingStrategy}
       >
-        <div className='space-y-3'>
+        <div className='flex flex-col gap-3'>
           {wide ? (
             <InputFieldsTable
               nodes={nodes}
@@ -1393,7 +1374,7 @@ export function EditableInputFields({
               onHintOpenChange={setHintOpen}
             />
           ) : (
-            <ul className='space-y-3'>
+            <ul className='flex flex-col gap-3'>
               {fields.map((field, index) => (
                 <SortableInputCard
                   key={`input-${index}`}
@@ -1447,7 +1428,7 @@ export function EditableOutputFields({
 }: EditableOutputFieldsProps) {
   const { t } = useTranslation()
   return (
-    <div className='space-y-3'>
+    <div className='flex flex-col gap-3'>
       {wide ? (
         <OutputFieldsTable
           nodes={nodes}
@@ -1457,7 +1438,7 @@ export function EditableOutputFields({
           disabled={disabled}
         />
       ) : (
-        <ul className='space-y-3'>
+        <ul className='flex flex-col gap-3'>
           {fields.map((field, index) => (
             <OutputFieldCard
               key={`output-${index}`}

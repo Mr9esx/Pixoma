@@ -7,12 +7,6 @@ import { queryKeys } from '@/lib/api/query-keys'
 import { getTopicStats } from '@/lib/api/topics'
 import { cn } from '@/lib/utils'
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart'
-import {
   Card,
   CardAction,
   CardContent,
@@ -20,6 +14,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
@@ -142,7 +142,7 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
 
   return (
     <div className='flex flex-col gap-4' data-testid='topic-stats-panel'>
-      <div className={kit.statsWrap}>
+      <Card className='gap-0 overflow-hidden py-0'>
         <div className={kit.statsGrid}>
           <div className={kit.statsCell[0]}>
             <p className={kit.statsLabel}>
@@ -168,14 +168,14 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
             <p className={kit.statsValue}>{formatRate(stats.success_rate)}</p>
           </div>
         </div>
-      </div>
+      </Card>
 
       <Card className='min-w-0 gap-4 rounded-md border-border py-4'>
         <CardHeader className='gap-3 px-4'>
           <CardTitle className='text-base font-semibold'>
             {t('topics.statsThroughput')}
           </CardTitle>
-          <CardDescription className='flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground'>
+          <CardDescription className='flex flex-wrap items-center gap-4 text-xs text-muted-foreground'>
             <span className='inline-flex items-center gap-1.5'>
               <span
                 className='size-2 rounded-full'
@@ -195,46 +195,46 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
         </CardHeader>
         <CardContent className='px-4'>
           <div className='h-[160px] w-full min-w-0'>
-          {isChartLoading ? (
-            <Skeleton className='h-[160px] w-full rounded-[8px]' />
-          ) : (
-            <ChartContainer
-              config={chartConfig}
-              className='aspect-auto h-full w-full'
-            >
-              <AreaChart data={chartData} margin={CHART_MARGIN}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey='ts'
-                  type='number'
-                  scale='time'
-                  domain={['dataMin', 'dataMax']}
-                  tickFormatter={throughputTickFormatter}
-                  height={24}
-                  {...TICK_PROPS}
-                />
-                <YAxis width={32} allowDecimals={false} {...TICK_PROPS} />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      labelFormatter={(_, payload) =>
-                        formatThroughputLabel(payload)
-                      }
-                    />
-                  }
-                />
-                <Area
-                  dataKey='count'
-                  type='monotone'
-                  stroke='var(--primary)'
-                  fill='var(--primary)'
-                  fillOpacity={0.15}
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </AreaChart>
-            </ChartContainer>
-          )}
+            {isChartLoading ? (
+              <Skeleton className='h-[160px] w-full rounded-md' />
+            ) : (
+              <ChartContainer
+                config={chartConfig}
+                className='aspect-auto h-full w-full'
+              >
+                <AreaChart data={chartData} margin={CHART_MARGIN}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey='ts'
+                    type='number'
+                    scale='time'
+                    domain={['dataMin', 'dataMax']}
+                    tickFormatter={throughputTickFormatter}
+                    height={24}
+                    {...TICK_PROPS}
+                  />
+                  <YAxis width={32} allowDecimals={false} {...TICK_PROPS} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(_, payload) =>
+                          formatThroughputLabel(payload)
+                        }
+                      />
+                    }
+                  />
+                  <Area
+                    dataKey='count'
+                    type='monotone'
+                    stroke='var(--primary)'
+                    fill='var(--primary)'
+                    fillOpacity={0.15}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -243,41 +243,41 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
         <Card className='min-w-0 gap-3 rounded-md border-border py-4'>
           <CardHeader className='px-4'>
             <CardTitle className='text-base font-semibold'>
-            {t('topics.statsStatus')}
+              {t('topics.statsStatus')}
             </CardTitle>
           </CardHeader>
           <CardContent className='px-4'>
-            <ul className='space-y-2'>
-            {STATUS_ORDER.map((status) => {
-              const count = stats.status[status] ?? 0
-              const total = Math.max(stats.task_count, 1)
-              const pct = Math.round((count / total) * 100)
-              return (
-                <li key={status} className='flex items-center gap-2 text-sm'>
-                  <span
-                    className={cn(
-                      'size-2 shrink-0 rounded-full',
-                      STATUS_COLOR[status]
-                    )}
-                  />
-                  <span className='w-24 shrink-0 truncate text-muted-foreground'>
-                    {t(STATUS_LABEL_KEY[status])}
-                  </span>
-                  <div className='h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted'>
-                    <div
+            <ul className='flex flex-col gap-2'>
+              {STATUS_ORDER.map((status) => {
+                const count = stats.status[status] ?? 0
+                const total = Math.max(stats.task_count, 1)
+                const pct = Math.round((count / total) * 100)
+                return (
+                  <li key={status} className='flex items-center gap-2 text-sm'>
+                    <span
                       className={cn(
-                        'h-full rounded-full',
+                        'size-2 shrink-0 rounded-full',
                         STATUS_COLOR[status]
                       )}
-                      style={{ width: `${pct}%` }}
                     />
-                  </div>
-                  <span className='w-10 shrink-0 text-right tabular-nums'>
-                    {count}
-                  </span>
-                </li>
-              )
-            })}
+                    <span className='w-24 shrink-0 truncate text-muted-foreground'>
+                      {t(STATUS_LABEL_KEY[status])}
+                    </span>
+                    <div className='h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted'>
+                      <div
+                        className={cn(
+                          'h-full rounded-full',
+                          STATUS_COLOR[status]
+                        )}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className='w-10 shrink-0 text-right tabular-nums'>
+                      {count}
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
           </CardContent>
         </Card>
@@ -285,31 +285,31 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
         <Card className='min-w-0 gap-3 rounded-md border-border py-4'>
           <CardHeader className='px-4'>
             <CardTitle className='text-base font-semibold'>
-            {t('topics.statsErrors')}
+              {t('topics.statsErrors')}
             </CardTitle>
           </CardHeader>
           <CardContent className='px-4'>
-          {stats.error_codes.length === 0 ? (
-            <p className='text-sm text-muted-foreground'>
-              {t('topics.statsNoErrors')}
-            </p>
-          ) : (
-            <ul className='space-y-2'>
-              {stats.error_codes.map((e) => (
-                <li
-                  key={e.code}
-                  className='flex items-center justify-between gap-2 text-sm'
-                >
-                  <span className='min-w-0 truncate font-mono text-xs'>
-                    {e.code}
-                  </span>
-                  <span className='shrink-0 text-muted-foreground tabular-nums'>
-                    {e.count}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+            {stats.error_codes.length === 0 ? (
+              <p className='text-sm text-muted-foreground'>
+                {t('topics.statsNoErrors')}
+              </p>
+            ) : (
+              <ul className='flex flex-col gap-2'>
+                {stats.error_codes.map((e) => (
+                  <li
+                    key={e.code}
+                    className='flex items-center justify-between gap-2 text-sm'
+                  >
+                    <span className='min-w-0 truncate font-mono text-xs'>
+                      {e.code}
+                    </span>
+                    <span className='shrink-0 text-muted-foreground tabular-nums'>
+                      {e.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>

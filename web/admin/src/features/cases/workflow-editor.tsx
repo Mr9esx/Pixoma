@@ -530,7 +530,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
 
   const inputsSection = showWorkflow ? (
     <section
-      className={cn('relative space-y-3', props.stepRail && 'pl-7')}
+      className={cn('relative flex flex-col gap-3', props.stepRail && 'pl-7')}
       data-testid='case-section-inputs'
     >
       <div className='flex items-center gap-2'>
@@ -619,7 +619,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
 
   const outputsSection = showWorkflow ? (
     <section
-      className={cn('relative space-y-3', props.stepRail && 'pl-7')}
+      className={cn('relative flex flex-col gap-3', props.stepRail && 'pl-7')}
       data-testid='case-section-outputs'
     >
       <div className='flex items-center gap-2'>
@@ -699,7 +699,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   const processingSection =
     showWorkflow && !hideProcessing ? (
       <section
-        className={cn('relative space-y-3', props.stepRail && 'pl-7')}
+        className={cn('relative flex flex-col gap-3', props.stepRail && 'pl-7')}
         data-testid='case-section-processing'
       >
         <div className='flex items-center gap-2'>
@@ -757,13 +757,16 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         props.formId ?? (props.mode === 'edit' ? 'case-edit-form' : undefined)
       }
       onSubmit={onSubmit}
-      className='space-y-8'
+      className='flex flex-col gap-8'
       noValidate
       data-testid='case-form'
     >
       {props.splitPane ? (
         <div className='flex flex-col gap-6 lg:flex-row lg:items-start'>
-          <div ref={railRef} className='relative min-w-0 flex-1 space-y-6'>
+          <div
+            ref={railRef}
+            className='relative flex min-w-0 flex-1 flex-col gap-6'
+          >
             {props.stepRail && rail ? (
               <div
                 aria-hidden='true'

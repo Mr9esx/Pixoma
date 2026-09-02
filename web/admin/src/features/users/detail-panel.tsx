@@ -5,9 +5,9 @@ import type { UserRecord } from '@/lib/api/types'
 import { getUser } from '@/lib/api/users'
 import { formatDateTime } from '@/lib/format'
 import { Reveal } from '@/components/ui/reveal'
+import { DetailField as Field } from '@/components/detail-field'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { DetailField as Field } from '@/components/detail-field'
 
 type Props = {
   id: string
@@ -32,7 +32,7 @@ function UserFields({
         : t('users.accessDenied')
 
   return (
-    <dl className='space-y-3'>
+    <dl className='flex flex-col gap-3'>
       <Field label={t('users.fieldId')} value={user.id} />
       <Field label={t('users.fieldPlatform')} value={user.channel_name} />
       <Field
@@ -78,7 +78,7 @@ export function UserDetailPanel({ id }: Props) {
 
   if (detailQuery.isError) {
     return (
-      <div data-testid='user-detail-panel' className='space-y-3'>
+      <div data-testid='user-detail-panel' className='flex flex-col gap-3'>
         <ErrorBanner
           message={errorMessage(detailQuery.error)}
           onRetry={() => void detailQuery.refetch()}
@@ -91,7 +91,7 @@ export function UserDetailPanel({ id }: Props) {
   if (!user) return null
 
   return (
-    <Reveal className='space-y-4' data-testid='user-detail-panel'>
+    <Reveal className='flex flex-col gap-4' data-testid='user-detail-panel'>
       <div>
         <h2 className='text-lg font-semibold'>{user.id}</h2>
         <p className='text-sm text-muted-foreground'>

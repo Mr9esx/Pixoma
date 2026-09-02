@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Pill } from '@/components/kibo-ui/pill'
+import { Badge } from '@/components/ui/badge'
 
 type Props = {
   on: boolean
@@ -8,8 +8,8 @@ type Props = {
 
 export function StatusTag({ on, children }: Props) {
   return (
-    <Pill
-      dot={on ? 'success' : 'neutral'}
+    <Badge
+      variant='outline'
       className={
         on
           ? 'border-success/25 bg-success/10 text-success'
@@ -17,7 +17,7 @@ export function StatusTag({ on, children }: Props) {
       }
     >
       {children}
-    </Pill>
+    </Badge>
   )
 }
 

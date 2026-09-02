@@ -130,7 +130,7 @@ describe('workflow detail panel', () => {
     const source = readFileSync(DETAIL, 'utf8')
     expect(source).toContain('cases.deleteWorkflow')
     expect(source).toContain('Trash2')
-    expect(source).toContain('AlertDialog')
+    expect(source).toContain('ConfirmDialog')
     expect(source).toContain('deleteCase(record.id, ackRefs)')
     expect(source).toContain('cases.deleteWillRemoveRefs')
     expect(source).toContain('cases.deleteWillFailTasks')

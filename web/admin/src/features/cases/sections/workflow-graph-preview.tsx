@@ -125,11 +125,11 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
 
   return (
     <div
-      className='w-full min-w-0 space-y-4'
+      className='flex w-full min-w-0 flex-col gap-4'
       data-testid='case-workflow-graph-preview'
     >
       {/* ===== 输入（对齐编辑工作流）===== */}
-      <section className='space-y-2'>
+      <section className='flex flex-col gap-2'>
         <header className='flex flex-wrap items-center justify-between gap-2'>
           <div className='min-w-0'>
             <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
@@ -172,7 +172,7 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
       </section>
 
       {/* ===== 输出（对齐编辑工作流）===== */}
-      <section className='space-y-2'>
+      <section className='flex flex-col gap-2'>
         <header className='flex flex-wrap items-center justify-between gap-2'>
           <div className='min-w-0'>
             <div className='flex min-w-0 flex-wrap items-center gap-1.5'>

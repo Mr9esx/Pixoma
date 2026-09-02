@@ -34,7 +34,7 @@ export function DataTableToolbar<TData>({
 
   return (
     <div className='-ms-1 -me-1 flex items-center justify-between gap-2'>
-      <div className='flex flex-1 flex-col-reverse items-start gap-y-2 sm:flex-row sm:items-center sm:space-x-2'>
+      <div className='flex flex-1 flex-col-reverse items-start gap-x-2 gap-y-2 sm:flex-row sm:items-center'>
         {searchKey ? (
           <Input
             placeholder={placeholder}

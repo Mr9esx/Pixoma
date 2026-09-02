@@ -26,21 +26,13 @@ import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listSessions } from '@/lib/api/sessions'
 import { listTasks } from '@/lib/api/tasks'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -50,13 +42,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Reveal } from '@/components/ui/reveal'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
-import { Pill } from '@/components/kibo-ui/pill'
 import { MetaChip } from '@/components/meta-chip'
 import { SecretInput } from '@/components/secret-input'
 import { SectionHead } from '@/components/section-head'
@@ -178,14 +175,10 @@ export function ChannelDetailPanel({ id }: { id: string }) {
           description={t('channels.notFoundDesc')}
           actions={
             <>
-              <Button asChild className={kit.btnPrimary}>
+              <Button asChild size='sm'>
                 <Link to='/channels'>{t('channels.backToList')}</Link>
               </Button>
-              <Button
-                asChild
-                variant='outline'
-                className='h-8 gap-1.5 rounded-md px-3 text-xs'
-              >
+              <Button asChild variant='outline' size='sm'>
                 <Link to='/channels/$id' params={{ id: 'new' }}>
                   {t('channels.new')}
                 </Link>
@@ -218,18 +211,14 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             <ChannelReachabilityTag query={reachabilityQuery} />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
-            <Button
-              type='button'
-              className={kit.btnPrimary}
-              onClick={() => setEditOpen(true)}
-            >
+            <Button type='button' size='sm' onClick={() => setEditOpen(true)}>
               <PenLine className='size-3.5' strokeWidth={2} />
               {t('channels.edit')}
             </Button>
             <Button
               type='button'
               variant='outline'
-              className={kit.btnGhost}
+              size='sm'
               onClick={() => enableMutation.mutate(!ch.enabled)}
               disabled={enableMutation.isPending}
             >
@@ -258,57 +247,49 @@ export function ChannelDetailPanel({ id }: { id: string }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    {t('channels.deleteConfirmTitle')}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('channels.deleteConfirmBody', { name: ch.name })}
-                    {(sessionsQuery.data ?? 0) > 0 ? (
-                      <p className='mt-3'>
-                        {t('channels.deleteWillEndSessions', {
-                          count: sessionsQuery.data ?? 0,
-                        })}
-                      </p>
-                    ) : null}
-                    {(inFlightTasksQuery.data ?? 0) > 0 ? (
-                      <p className='mt-1'>
-                        {t('channels.deleteInFlightTasks', {
-                          count: inFlightTasksQuery.data ?? 0,
-                        })}
-                      </p>
-                    ) : null}
-                    {hasImpact ? (
-                      <label className='mt-4 flex cursor-pointer items-start gap-2'>
-                        <Checkbox
-                          checked={ackImpact}
-                          onCheckedChange={(checked) =>
-                            setAckImpact(checked === true)
-                          }
-                          data-testid='channel-delete-ack'
-                        />
-                        <span>{t('channels.deleteAckImpact')}</span>
-                      </label>
-                    ) : null}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel type='button'>
-                    {t('common.cancel')}
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    type='button'
-                    onClick={() => deleteMutation.mutate()}
-                    className='bg-destructive text-white hover:bg-destructive/90'
-                    disabled={hasImpact ? !ackImpact : false}
-                  >
-                    {t('channels.delete')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmDialog
+              open={deleteOpen}
+              onOpenChange={setDeleteOpen}
+              destructive
+              isLoading={deleteMutation.isPending}
+              disabled={hasImpact ? !ackImpact : false}
+              title={t('channels.deleteConfirmTitle')}
+              desc={
+                <div className='text-sm'>
+                  {t('channels.deleteConfirmBody', { name: ch.name })}
+                  {(sessionsQuery.data ?? 0) > 0 ? (
+                    <p className='mt-3'>
+                      {t('channels.deleteWillEndSessions', {
+                        count: sessionsQuery.data ?? 0,
+                      })}
+                    </p>
+                  ) : null}
+                  {(inFlightTasksQuery.data ?? 0) > 0 ? (
+                    <p className='mt-1'>
+                      {t('channels.deleteInFlightTasks', {
+                        count: inFlightTasksQuery.data ?? 0,
+                      })}
+                    </p>
+                  ) : null}
+                </div>
+              }
+              confirmText={t('channels.delete')}
+              cancelBtnText={t('common.cancel')}
+              handleConfirm={() => deleteMutation.mutate()}
+            >
+              {hasImpact ? (
+                <label className='flex cursor-pointer items-start gap-2 text-sm'>
+                  <Checkbox
+                    checked={ackImpact}
+                    onCheckedChange={(checked) =>
+                      setAckImpact(checked === true)
+                    }
+                    data-testid='channel-delete-ack'
+                  />
+                  <span>{t('channels.deleteAckImpact')}</span>
+                </label>
+              ) : null}
+            </ConfirmDialog>
           </div>
         </div>
         <div className='mt-1 flex max-w-full flex-wrap items-center gap-2 text-xs'>
@@ -376,29 +357,29 @@ export function ChannelDetailPanel({ id }: { id: string }) {
           <DialogHeader>
             <DialogTitle>{t('channels.editInfo')}</DialogTitle>
           </DialogHeader>
-          <div className='space-y-4'>
-            <div className='space-y-1.5'>
-              <Label>{t('channels.name')}</Label>
+          <FieldGroup className='gap-4'>
+            <Field>
+              <FieldLabel>{t('channels.name')}</FieldLabel>
               <Input
                 value={name || ch.name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete='off'
               />
-            </div>
-            <div className='space-y-1.5'>
-              <Label>{t('channels.token')}</Label>
+            </Field>
+            <Field>
+              <FieldLabel>{t('channels.token')}</FieldLabel>
               <SecretInput
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 placeholder={ch.token_masked}
                 autoComplete='off'
               />
-              <p className='text-xs text-muted-foreground'>
+              <FieldDescription className='text-xs'>
                 {t('channels.tokenHint')}
-              </p>
-            </div>
-          </div>
-          <div className='flex justify-end gap-2'>
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
+          <DialogFooter>
             <Button
               type='button'
               variant='outline'
@@ -414,7 +395,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             >
               {t('common.save')}
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Reveal>
@@ -435,62 +416,62 @@ function ChannelReachabilityTag({
   const { t } = useTranslation()
   if (query.isPending) {
     return (
-      <Pill
-        dot='neutral'
+      <Badge
+        variant='outline'
         className='border-border bg-muted text-muted-foreground'
       >
         {t('channels.checkingReachability')}
-      </Pill>
+      </Badge>
     )
   }
   if (query.isError || !query.data) {
     return (
-      <Pill
-        dot='error'
+      <Badge
+        variant='outline'
         className='border-destructive/25 bg-destructive/10 text-destructive'
       >
         {t('channels.reachabilityFailed')}
-      </Pill>
+      </Badge>
     )
   }
   const result = query.data
   if (result.kind === 'ok') {
     return (
-      <Pill
-        dot='success'
+      <Badge
+        variant='outline'
         className='border-success/25 bg-success/10 text-success'
       >
         {t('channels.reachabilityOK')}
-      </Pill>
+      </Badge>
     )
   }
   if (result.kind === 'network') {
     return (
-      <Pill
-        dot='warning'
+      <Badge
+        variant='outline'
         className='border-warning/30 bg-warning/10 text-warning'
       >
         {t('channels.reachabilityNetwork')}
-      </Pill>
+      </Badge>
     )
   }
   if (result.kind === 'auth') {
     return (
-      <Pill
-        dot='error'
+      <Badge
+        variant='outline'
         className='border-destructive/25 bg-destructive/10 text-destructive'
       >
         {t('channels.reachabilityAuth')}
-      </Pill>
+      </Badge>
     )
   }
   return (
-    <Pill
-      dot='neutral'
+    <Badge
+      variant='outline'
       className='border-border bg-muted text-muted-foreground'
       title={result.message || undefined}
     >
       {t('channels.reachabilityFailed')}
-    </Pill>
+    </Badge>
   )
 }

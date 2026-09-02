@@ -5,6 +5,7 @@ import { listEdges } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listFleetStats, listTaskDailyStats } from '@/lib/api/stats'
 import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { kit } from '@/features/edges/kit-classes'
@@ -48,7 +49,10 @@ export function WorkbenchOverviewCards() {
   const error = edges.error ?? fleet.error ?? cases.error ?? daily.error
 
   return (
-    <div data-testid='workbench-overview-cards' className={kit.statsWrap}>
+    <Card
+      data-testid='workbench-overview-cards'
+      className='gap-0 overflow-hidden py-0'
+    >
       <div className='grid grid-cols-2 md:grid-cols-5'>
         <div className={CELL} data-testid='workbench-node-overview'>
           <p className={kit.statsLabel}>
@@ -127,6 +131,6 @@ export function WorkbenchOverviewCards() {
           </div>
         ) : null}
       </div>
-    </div>
+    </Card>
   )
 }

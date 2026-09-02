@@ -67,7 +67,7 @@ function LeafRow({
 
   return (
     <div
-      className='grid grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)_1.5rem] items-center gap-1.5 rounded-[3px] bg-muted px-1.5 py-1.5'
+      className='grid grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)_1.5rem] items-center gap-1.5 rounded-md bg-muted px-1.5 py-1.5'
       data-filter-item
     >
       <Select
@@ -84,7 +84,7 @@ function LeafRow({
       >
         <SelectTrigger
           size='sm'
-          className='h-7 w-full border-0 bg-white text-xs shadow-none'
+          className='h-7 w-full border-0 bg-background text-xs shadow-none'
         >
           <SelectValue placeholder='选择字段' />
         </SelectTrigger>
@@ -102,7 +102,7 @@ function LeafRow({
       >
         <SelectTrigger
           size='sm'
-          className='h-7 w-full border-0 bg-white text-xs shadow-none'
+          className='h-7 w-full border-0 bg-background text-xs shadow-none'
         >
           <SelectValue />
         </SelectTrigger>
@@ -171,7 +171,7 @@ function ValueControl({
       <Select value={String(value ?? '')} onValueChange={onChange}>
         <SelectTrigger
           size='sm'
-          className='h-7 w-full border-0 bg-white text-xs shadow-none'
+          className='h-7 w-full border-0 bg-background text-xs shadow-none'
         >
           <SelectValue placeholder='选择值' />
         </SelectTrigger>
@@ -189,7 +189,7 @@ function ValueControl({
     const text = Array.isArray(value) ? value.join(', ') : String(value ?? '')
     return (
       <Input
-        className='h-7 w-full border-0 bg-white text-xs shadow-none'
+        className='h-7 w-full border-0 bg-background text-xs shadow-none'
         placeholder='逗号分隔多个值'
         value={text}
         onChange={(e) =>
@@ -206,7 +206,7 @@ function ValueControl({
   if (type === 'number') {
     return (
       <Input
-        className='h-7 w-full border-0 bg-white text-xs shadow-none'
+        className='h-7 w-full border-0 bg-background text-xs shadow-none'
         type='number'
         value={String(value ?? '')}
         onChange={(e) =>
@@ -217,7 +217,7 @@ function ValueControl({
   }
   return (
     <Input
-      className='h-7 w-full border-0 bg-white text-xs shadow-none'
+      className='h-7 w-full border-0 bg-background text-xs shadow-none'
       value={String(value ?? '')}
       onChange={(e) => onChange(e.target.value)}
     />
@@ -237,7 +237,7 @@ function GroupConditionSelect({
       <SelectTrigger
         size='sm'
         className={cn(
-          'h-5 w-12 shrink-0 justify-center rounded-full border px-0 text-[11px] shadow-none [&>svg]:hidden',
+          'h-5 w-12 shrink-0 justify-center rounded-full border px-0 text-xs shadow-none [&>svg]:hidden',
           kind === 'and'
             ? 'border-primary/30 bg-primary/10 text-primary'
             : 'border-warning/30 bg-warning/10 text-warning-foreground'
@@ -391,7 +391,7 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
                 />
               )}
               {leaves && leaves.length === 0 && (
-                <div className='rounded-[3px] bg-muted px-3 py-2.5 text-xs text-muted-foreground'>
+                <div className='rounded-md bg-muted px-3 py-2.5 text-xs text-muted-foreground'>
                   暂无规则，请点击下方「新增规则」添加
                 </div>
               )}

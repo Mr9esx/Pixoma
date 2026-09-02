@@ -48,7 +48,7 @@ export function WorkbenchHeatmap({ data }: { data: Activity[] }) {
             {monthLabels.map((m) => (
               <span
                 key={m.weekIndex}
-                className='absolute top-0 text-[11px] whitespace-nowrap text-muted-foreground'
+                className='absolute top-0 text-xs whitespace-nowrap text-muted-foreground'
                 style={{ left: `${(m.weekIndex / weeks.length) * 100}%` }}
               >
                 {m.label}

@@ -52,7 +52,7 @@ export function Step4Next({ shared }: Props) {
       onBack={shared.onExit}
       backLabel={t('quickConfig.leave')}
     >
-      <div className='space-y-4'>
+      <div className='flex flex-col gap-4'>
         <h3 className='text-sm font-semibold'>
           {t('quickConfig.leftoverTitle')}
         </h3>

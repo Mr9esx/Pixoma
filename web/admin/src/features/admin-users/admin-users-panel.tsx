@@ -10,16 +10,6 @@ import {
   type AdminUser,
 } from '@/lib/api/admin-users'
 import { queryKeys } from '@/lib/api/query-keys'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,8 +30,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -50,6 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { SecretInput } from '@/components/secret-input'
@@ -247,33 +243,21 @@ export function AdminUsersPanel() {
         onDone={() => void invalidate()}
       />
 
-      <AlertDialog
+      <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null)
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              删除账号 {deleteTarget?.username}？
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              删除后不可恢复。若这是唯一的管理员，后端会拒绝删除。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
-              }}
-            >
-              确认删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        destructive
+        isLoading={deleteMutation.isPending}
+        title={`删除账号 ${deleteTarget?.username ?? ''}？`}
+        desc='删除后不可恢复。若这是唯一的管理员，后端会拒绝删除。'
+        confirmText='确认删除'
+        cancelBtnText='取消'
+        handleConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
+        }}
+      />
     </section>
   )
 }
@@ -323,18 +307,18 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
             新用户默认角色为「只读」，稍后可在列表里调整。
           </DialogDescription>
         </DialogHeader>
-        <div className='flex flex-col gap-3'>
-          <div className='space-y-1.5'>
-            <Label htmlFor='admin-user-username'>账号名</Label>
+        <FieldGroup className='gap-4'>
+          <Field>
+            <FieldLabel htmlFor='admin-user-username'>账号名</FieldLabel>
             <Input
               id='admin-user-username'
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete='off'
             />
-          </div>
-          <div className='space-y-1.5'>
-            <Label htmlFor='admin-user-email'>邮箱</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor='admin-user-email'>邮箱</FieldLabel>
             <Input
               id='admin-user-email'
               value={email}
@@ -342,26 +326,28 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
               type='email'
               autoComplete='off'
             />
-          </div>
-          <div className='space-y-1.5'>
-            <Label htmlFor='admin-user-nickname'>昵称</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor='admin-user-nickname'>昵称</FieldLabel>
             <Input
               id='admin-user-nickname'
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               autoComplete='off'
             />
-          </div>
-          <div className='space-y-1.5'>
-            <Label htmlFor='admin-user-password'>密码（至少 8 位）</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor='admin-user-password'>
+              密码（至少 8 位）
+            </FieldLabel>
             <SecretInput
               id='admin-user-password'
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete='new-password'
             />
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <DialogClose asChild>
             <Button type='button' variant='outline'>
@@ -412,15 +398,22 @@ function ResetPasswordDialog({
             设置新密码后，该用户下次登录将被要求改密。
           </DialogDescription>
         </DialogHeader>
-        <div className='space-y-1.5'>
-          <Label htmlFor='admin-reset-password'>新密码（至少 8 位）</Label>
-          <SecretInput
-            id='admin-reset-password'
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete='new-password'
-          />
-        </div>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor='admin-reset-password'>
+              新密码（至少 8 位）
+            </FieldLabel>
+            <SecretInput
+              id='admin-reset-password'
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete='new-password'
+            />
+            <FieldDescription>
+              设置新密码后，该用户下次登录将被要求改密。
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <DialogClose asChild>
             <Button type='button' variant='outline'>

@@ -12,7 +12,6 @@ import { listCases } from '@/lib/api/cases'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTopics } from '@/lib/api/topics'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -29,7 +28,6 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
-import { kit } from '@/features/edges/kit-classes'
 import { topicReferences } from '@/features/link-health/lib/references'
 import { CreateTopicForm } from '@/features/topics/create-topic-form'
 import { TopicDetailPanel } from '@/features/topics/topic-detail-panel'
@@ -150,7 +148,8 @@ function TopicsLayout() {
             onRetry={() => void listQuery.refetch()}
             footer={
               <Button
-                className={cn(kit.btnPrimary, 'w-full')}
+                size='sm'
+                className='w-full'
                 onClick={() => setManualCreateOpen(true)}
               >
                 <Plus className='size-4' />
@@ -177,10 +176,7 @@ function TopicsLayout() {
                 <EmptyDescription>{t('topics.emptyDesc')}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
-                <Button
-                  className={kit.btnPrimary}
-                  onClick={() => setManualCreateOpen(true)}
-                >
+                <Button size='sm' onClick={() => setManualCreateOpen(true)}>
                   {t('topics.new')}
                 </Button>
               </EmptyContent>

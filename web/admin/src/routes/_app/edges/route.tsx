@@ -10,7 +10,6 @@ import { Plus, Server } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -29,7 +28,6 @@ import {
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
 import { CreateEdgeWizard } from '@/features/edges/create-edge-wizard'
 import { EdgeDetailPanel } from '@/features/edges/detail-panel'
-import { kit } from '@/features/edges/kit-classes'
 import { EdgeListPanel } from '@/features/edges/list-panel'
 
 export const Route = createFileRoute('/_app/edges')({
@@ -114,7 +112,8 @@ function EdgesLayout() {
             onRetry={() => void listQuery.refetch()}
             footer={
               <Button
-                className={cn(kit.btnPrimary, 'w-full')}
+                size='sm'
+                className='w-full'
                 onClick={() => setCreateOpen(true)}
               >
                 <Plus className='size-4' />
@@ -141,10 +140,7 @@ function EdgesLayout() {
                 <EmptyDescription>{t('edges.emptyDesc')}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
-                <Button
-                  className={kit.btnPrimary}
-                  onClick={() => setCreateOpen(true)}
-                >
+                <Button size='sm' onClick={() => setCreateOpen(true)}>
                   {t('edges.createNode')}
                 </Button>
               </EmptyContent>

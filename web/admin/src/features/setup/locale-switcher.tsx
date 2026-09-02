@@ -3,6 +3,7 @@ import { Check, Globe } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { setStoredLocale, type AppLocale } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,15 +36,16 @@ export function LocaleSwitcher({ className }: { className?: string }) {
     >
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
+          <Button
             aria-label={t('lang.label')}
-            className='flex h-6 items-center gap-1.5 rounded-full bg-background px-2.5 ring-1 ring-border ring-inset'
+            variant='outline'
+            size='xs'
+            className='h-6 gap-1.5 rounded-full px-2.5'
             data-testid='locale-switcher-trigger'
-            type='button'
           >
             <Globe className='size-3.5 text-muted-foreground' />
             <span className='text-xs text-foreground'>{t('lang.label')}</span>
-          </button>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' side='top'>
           {locales.map(({ value, labelKey, Flag }) => {

@@ -58,7 +58,7 @@ describe('channel layout aligned with compute nodes', () => {
     )
     expect(detail).not.toMatch(/upstream=\{\{/)
     expect(detail).toMatch(/ChannelReachabilityTag/)
-    expect(detail).toMatch(/from '@\/components\/kibo-ui\/pill'/)
+    expect(detail).toMatch(/from '@\/components\/ui\/badge'/)
     expect(detail).not.toMatch(/kit\.tag/)
     expect(detail).toMatch(/channels\.reachabilityNetwork/)
     expect(detail).not.toMatch(/to='\/settings'/)

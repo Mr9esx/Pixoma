@@ -13,7 +13,6 @@ import { listCases } from '@/lib/api/cases'
 import { getCaseMenuPlacements } from '@/lib/api/channel-menu'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
-import { cn } from '@/lib/utils'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,7 +40,6 @@ import {
   CaseListPanel,
   type CaseListFilters,
 } from '@/features/cases/list-panel'
-import { kit } from '@/features/edges/kit-classes'
 import { caseReferences } from '@/features/link-health/lib/references'
 
 export const Route = createFileRoute('/_app/cases')({
@@ -159,15 +157,16 @@ function CasesLayout() {
         <div className='flex min-w-0 flex-col gap-[6px]'>
           <div className='flex min-w-0 items-center gap-2'>
             {caseId === 'new' ? (
-              <button
+              <Button
                 type='button'
+                variant='ghost'
+                size='icon'
                 onClick={() => requestLeave('back')}
                 title={t('common.backToList')}
                 aria-label={t('common.backToList')}
-                className='inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground'
               >
                 <ArrowLeft className='size-4' />
-              </button>
+              </Button>
             ) : null}
             <h1 className='truncate text-2xl leading-tight font-semibold tracking-tight'>
               {caseId === 'new' ? t('cases.createHeading') : t('cases.title')}
@@ -269,7 +268,7 @@ function CasesLayout() {
               errorMessage={errorMessage(listQuery.error)}
               onRetry={() => void listQuery.refetch()}
               footer={
-                <Button asChild className={cn(kit.btnPrimary, 'w-full')}>
+                <Button asChild size='sm' className='w-full'>
                   <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
                     <Plus className='size-4' />
                     {t('cases.createHeading')}
@@ -296,7 +295,7 @@ function CasesLayout() {
                   <EmptyDescription>{t('cases.emptyDesc')}</EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent className='flex-row justify-center gap-2'>
-                  <Button asChild className={kit.btnPrimary}>
+                  <Button asChild size='sm'>
                     <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
                       {t('cases.createHeading')}
                     </Link>

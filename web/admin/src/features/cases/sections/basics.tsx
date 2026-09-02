@@ -42,10 +42,10 @@ export function BasicsSection({
   }
 
   return (
-    <section className='space-y-4' data-testid='case-section-basics'>
+    <section className='flex flex-col gap-4' data-testid='case-section-basics'>
       <h3 className='text-base font-semibold'>{t('cases.sectionBasics')}</h3>
 
-      <div className='space-y-2'>
+      <div className='flex flex-col gap-2'>
         <Label htmlFor='case-name'>
           {t('cases.fieldName')}
           <span className='text-destructive' aria-hidden='true'>
@@ -77,7 +77,7 @@ export function BasicsSection({
         ) : null}
       </div>
 
-      <div className='space-y-2'>
+      <div className='flex flex-col gap-2'>
         <Label htmlFor='case-description'>{t('cases.fieldDescription')}</Label>
         <MarkdownTextField
           id='case-description'
@@ -87,7 +87,7 @@ export function BasicsSection({
         />
       </div>
 
-      <div className='space-y-2'>
+      <div className='flex flex-col gap-2'>
         <Label htmlFor='case-preview'>{t('cases.fieldPreview')}</Label>
         <MediaPreviewField
           value={value.preview}
@@ -97,7 +97,7 @@ export function BasicsSection({
       </div>
 
       <div className='grid gap-4 sm:grid-cols-2'>
-        <div className='space-y-2'>
+        <div className='flex flex-col gap-2'>
           <Label>{t('cases.fieldTags')}</Label>
           <MultiSelect
             value={value.tags ?? []}
@@ -109,7 +109,7 @@ export function BasicsSection({
             emptyText={t('cases.listEmpty')}
           />
         </div>
-        <div className='space-y-2'>
+        <div className='flex flex-col gap-2'>
           <Label>{t('cases.fieldCategories')}</Label>
           <MultiSelect
             value={value.categories ?? []}

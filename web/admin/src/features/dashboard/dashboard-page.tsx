@@ -12,7 +12,7 @@ export function DashboardPage() {
   return (
     <div
       data-testid='dashboard-page'
-      className='min-h-0 flex-1 space-y-6 overflow-auto'
+      className='flex min-h-0 flex-1 flex-col gap-6 overflow-auto'
     >
       <div
         data-testid='workbench-grid'

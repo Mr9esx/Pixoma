@@ -70,11 +70,11 @@ export function DataTablePagination<TData>({
         </div>
       </div>
 
-      <div className='flex items-center sm:space-x-6 lg:space-x-8'>
+      <div className='flex items-center gap-6 lg:gap-8'>
         <div className='flex w-25 items-center justify-center text-sm font-medium @max-3xl/content:hidden'>
           {pageLabel}
         </div>
-        <div className='flex items-center space-x-2'>
+        <div className='flex items-center gap-2'>
           <Button
             variant='outline'
             className='size-8 p-0 @max-md/content:hidden'

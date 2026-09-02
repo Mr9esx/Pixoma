@@ -625,7 +625,7 @@ function EditCardMessage({
           {t('menu.addMedia')}
         </Button>
       </div>
-      <div className='overflow-hidden rounded-[10px] border border-border bg-background'>
+      <div className='overflow-hidden rounded-lg border border-border bg-background'>
         <MediaThumbs media={card.media ?? []} t={t} />
         <div className='flex flex-col gap-2 px-3.5 py-3.5'>
           <Label>{t('menu.cardButtons')}</Label>

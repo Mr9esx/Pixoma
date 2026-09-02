@@ -42,7 +42,7 @@ export function Step2Queue({ shared, next, back }: Props) {
       nextLabel={t('quickConfig.next')}
       nextDisabled={!shared.topicKey}
     >
-      <div className='space-y-3'>
+      <div className='flex flex-col gap-3'>
         <div className='flex items-center justify-between gap-2'>
           <h3 className='text-sm font-semibold'>
             {t('quickConfig.queueStep')}
@@ -66,14 +66,14 @@ export function Step2Queue({ shared, next, back }: Props) {
         {topicsQuery.isLoading ? (
           <LoadingSkeleton rows={2} />
         ) : (
-          <ul className='space-y-1'>
+          <ul className='flex flex-col gap-1'>
             {topics.map((topic) => (
               <li key={topic.key}>
-                <button
-                  type='button'
+                <Button
+                  variant='outline'
                   onClick={() => shared.updateTopic(topic.key, null)}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-md border border-border px-3 py-2.5 text-left',
+                    'h-auto w-full items-center justify-between rounded-md px-3 py-2.5 text-left',
                     shared.topicKey === topic.key &&
                       'border-primary bg-muted/60'
                   )}
@@ -82,7 +82,7 @@ export function Step2Queue({ shared, next, back }: Props) {
                   <span className='text-xs text-muted-foreground'>
                     {topic.key}
                   </span>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

@@ -1,8 +1,8 @@
 import { useEffect, useReducer, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRightFromLine, Check, Moon, Sun } from 'lucide-react'
 import { CN, US } from 'country-flag-icons/react/3x2'
+import { ArrowRightFromLine, Check, Moon, Sun } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchMediaBlob, resolveMediaKey } from '@/lib/api/media'
 import {
@@ -14,6 +14,7 @@ import { setStoredLocale, type AppLocale } from '@/lib/i18n'
 import { cn, getDisplayNameInitials } from '@/lib/utils'
 import { useTheme } from '@/context/theme-provider'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -241,20 +242,21 @@ export function NavUser() {
         data-testid='nav-user'
       >
         <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type='button'
-            className='flex h-9 min-w-0 flex-1 self-center cursor-pointer items-center gap-2 rounded-lg px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
-            data-testid='nav-user-menu-trigger'
-          >
-            <UserAvatar user={user} />
-            <UserIdentity
-              user={user}
-              isLoading={isLoading}
-              className={cn('flex-1', isCollapsed && 'hidden')}
-            />
-          </button>
-        </DropdownMenuTrigger>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant='ghost'
+              size='sm'
+              className='flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 self-center rounded-lg px-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+              data-testid='nav-user-menu-trigger'
+            >
+              <UserAvatar user={user} />
+              <UserIdentity
+                user={user}
+                isLoading={isLoading}
+                className={cn('flex-1', isCollapsed && 'hidden')}
+              />
+            </Button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent
             className='min-w-48 rounded-lg'
             align='start'
