@@ -57,15 +57,16 @@ func (m *BotMessenger) SendList(ctx context.Context, addr sharedkernel.ChannelAd
 	return err
 }
 
-func (m *BotMessenger) SendMedia(ctx context.Context, addr sharedkernel.ChannelAddr, ref sharedkernel.BlobRef, caption string) error {
+func (m *BotMessenger) SendMedia(ctx context.Context, addr sharedkernel.ChannelAddr, ref sharedkernel.BlobRef, caption string, buttons [][]ports.Button) error {
 	chatID, err := externalChatID(addr)
 	if err != nil {
 		return err
 	}
 	if m.Blob == nil {
 		_, err := m.Bot.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: chatID,
-			Text:   truncateTGText(caption+"\n(blob: "+ref.Key+")", maxTGTextRunes),
+			ChatID:      chatID,
+			Text:        truncateTGText(caption+"\n(blob: "+ref.Key+")", maxTGTextRunes),
+			ReplyMarkup: optionalInlineMarkup(buttons),
 		})
 		return err
 	}
@@ -80,35 +81,61 @@ func (m *BotMessenger) SendMedia(ctx context.Context, addr sharedkernel.ChannelA
 	}
 	name := photoUploadName(ref.Key)
 	_, err = m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
-		ChatID:  chatID,
-		Caption: truncateTGText(caption, maxTGCaptionRunes),
-		Photo:   &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
+		ChatID:      chatID,
+		Caption:     truncateTGText(caption, maxTGCaptionRunes),
+		Photo:       &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
+		ReplyMarkup: optionalInlineMarkup(buttons),
 	})
 	return err
 }
 
-func (m *BotMessenger) SendMediaURL(ctx context.Context, addr sharedkernel.ChannelAddr, imageURL, caption string) error {
+func (m *BotMessenger) SendMediaURL(ctx context.Context, addr sharedkernel.ChannelAddr, imageURL, caption string, buttons [][]ports.Button) error {
 	chatID, err := externalChatID(addr)
 	if err != nil {
 		return err
 	}
 	_, err = m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
-		ChatID:  chatID,
-		Caption: truncateTGText(caption, maxTGCaptionRunes),
-		Photo:   &models.InputFileString{Data: imageURL},
+		ChatID:      chatID,
+		Caption:     truncateTGText(caption, maxTGCaptionRunes),
+		Photo:       &models.InputFileString{Data: imageURL},
+		ReplyMarkup: optionalInlineMarkup(buttons),
+	})
+	return err
+}
+
+func (m *BotMessenger) EditReplyMarkup(ctx context.Context, addr sharedkernel.ChannelAddr, messageID int, rows [][]ports.Button) error {
+	chatID, err := externalChatID(addr)
+	if err != nil {
+		return err
+	}
+	markup := optionalInlineMarkup(rows)
+	if markup == nil {
+		markup = &models.InlineKeyboardMarkup{InlineKeyboard: [][]models.InlineKeyboardButton{}}
+	}
+	_, err = m.Bot.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
+		ChatID:      chatID,
+		MessageID:   messageID,
+		ReplyMarkup: markup,
 	})
 	return err
 }
 
 func (m *BotMessenger) replyKeyboard(ctx context.Context) *models.ReplyKeyboardMarkup {
 	if m != nil && m.Menu != nil {
-		menu, err := m.Menu.GetMenu(ctx)
+		menu, err := m.Menu.GetTree(ctx)
 		if err == nil {
 			return BuildReplyKeyboard(menu)
 		}
 		slog.Error("tg menu load for keyboard failed; using default", "err", err)
 	}
 	return BuildReplyKeyboard(DefaultMainMenu())
+}
+
+func optionalInlineMarkup(rows [][]ports.Button) models.ReplyMarkup {
+	if len(rows) == 0 {
+		return nil
+	}
+	return toInlineMarkup(rows)
 }
 
 func toInlineMarkup(rows [][]ports.Button) *models.InlineKeyboardMarkup {

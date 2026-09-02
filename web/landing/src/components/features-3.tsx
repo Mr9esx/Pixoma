@@ -17,11 +17,11 @@ export default function Features() {
     <section className="py-16 md:py-20">
       <div className="mx-auto max-w-7xl px-6">
         <Reveal>
-          <h2 className="text-muted-foreground max-w-4xl text-balance text-4xl font-medium tracking-tight">
+          <h2 className="text-muted-foreground max-w-5xl text-balance text-4xl font-medium tracking-tight">
             <span className="text-foreground">
-              文生图、文生视频、图生图、图生视频、TTS、STT...
-            </span>{" "}
-            <br /> 以及更多能力可扩展。
+              文生图、文生视频、图片编辑、图生视频、TTS、人声模仿...
+            </span>
+            <br /> 创意随处轻松实现。
           </h2>
         </Reveal>
         <Reveal className="**:data-[slot=card]:bg-background mt-8 grid gap-x-3 gap-y-6 md:mt-16 md:grid-cols-2 lg:grid-cols-3">

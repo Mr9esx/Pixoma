@@ -9,107 +9,47 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 )
 
-type memCardRepo struct {
-	menu  mcdomain.Menu
-	cards map[string]mcdomain.Card
+type memTreeRepo struct {
+	tree    mcdomain.MenuTree
+	missing bool
 }
 
-func (m *memCardRepo) GetMenu(_ context.Context, _ string) (mcdomain.Menu, error) { return m.menu, nil }
-func (m *memCardRepo) PutMenu(_ context.Context, _ string, menu mcdomain.Menu) error {
-	m.menu = menu
-	return nil
-}
-func (m *memCardRepo) ListCards(_ context.Context, _ string) ([]mcdomain.Card, error) {
-	out := make([]mcdomain.Card, 0, len(m.cards))
-	for _, c := range m.cards {
-		out = append(out, c)
+func (m *memTreeRepo) GetTree(_ context.Context, _ string) (mcdomain.MenuTree, error) {
+	if m.missing {
+		return mcdomain.MenuTree{}, gorm.ErrRecordNotFound
 	}
-	return out, nil
+	return m.tree, nil
 }
-func (m *memCardRepo) GetCard(_ context.Context, _, id string) (mcdomain.Card, error) {
-	c, ok := m.cards[id]
-	if !ok {
-		return mcdomain.Card{}, http.ErrNotSupported
-	}
-	return c, nil
-}
-func (m *memCardRepo) CreateCard(_ context.Context, _ string, card mcdomain.Card) error {
-	if m.cards == nil {
-		m.cards = map[string]mcdomain.Card{}
-	}
-	m.cards[card.ID] = card
+func (m *memTreeRepo) PutTree(_ context.Context, id string, tree mcdomain.MenuTree) error {
+	tree.ID = id
+	m.tree = tree
+	m.missing = false
 	return nil
 }
-func (m *memCardRepo) UpdateCard(_ context.Context, _ string, card mcdomain.Card) error {
-	m.cards[card.ID] = card
-	return nil
-}
-func (m *memCardRepo) DeleteCard(_ context.Context, _, id string) error {
-	delete(m.cards, id)
-	return nil
-}
-func (m *memCardRepo) CardReferences(ctx context.Context, channelID, id string) ([]string, error) {
-	return referencesOf(m.menu, m.cards, id), nil
-}
-
-func (m *memCardRepo) WorkflowPlacements(_ context.Context, workflowID string) ([]persistence.WorkflowPlacement, error) {
+func (m *memTreeRepo) WorkflowPlacements(_ context.Context, workflowID string) ([]persistence.WorkflowPlacement, error) {
 	var out []persistence.WorkflowPlacement
-	for _, it := range m.menu.Items {
-		if it.Action.Type == "open_workflow" && it.Action.WorkflowID == workflowID {
-			out = append(out, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
+	for _, p := range mcdomain.WalkWorkflowPlacements(m.tree) {
+		if p.WorkflowID == workflowID {
+			out = append(out, persistence.WorkflowPlacement{
+				ChannelID: "ch1", ItemID: p.ButtonID, Label: p.Labels[len(p.Labels)-1],
+				Kind: p.Kind, Labels: p.Labels,
+			})
 		}
 	}
 	return out, nil
 }
-
-func (m *memCardRepo) RemoveWorkflowReferences(_ context.Context, workflowID string) ([]persistence.WorkflowPlacement, error) {
-	var removed []persistence.WorkflowPlacement
-	items := m.menu.Items[:0]
-	for _, it := range m.menu.Items {
-		if it.Action.Type != "open_workflow" || it.Action.WorkflowID != workflowID {
-			items = append(items, it)
-			continue
-		}
-		removed = append(removed, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: it.ID, Label: it.Label, Kind: "menu_item"})
-	}
-	m.menu.Items = items
-	for id, card := range m.cards {
-		buttons := card.Buttons[:0]
-		for _, b := range card.Buttons {
-			if b.Action.Type != "open_workflow" || b.Action.WorkflowID != workflowID {
-				buttons = append(buttons, b)
-				continue
-			}
-			removed = append(removed, persistence.WorkflowPlacement{ChannelID: "ch1", ItemID: b.ID, Label: b.Label, Kind: "card_button"})
-		}
-		card.Buttons = buttons
-		m.cards[id] = card
-	}
-	return removed, nil
+func (m *memTreeRepo) RemoveWorkflowReferences(context.Context, string) ([]persistence.WorkflowPlacement, error) {
+	return nil, nil
 }
 
-func referencesOf(menu mcdomain.Menu, cards map[string]mcdomain.Card, id string) []string {
-	refs := []string{}
-	for _, it := range menu.Items {
-		if it.Action.Type == "open_card" && it.Action.CardID == id {
-			refs = append(refs, "menu:"+it.ID)
-		}
-	}
-	for _, card := range cards {
-		for _, b := range card.Buttons {
-			if b.Action.Type == "open_card" && b.Action.CardID == id {
-				refs = append(refs, "card:"+card.ID+":"+b.ID)
-			}
-		}
-	}
-	return refs
-}
+var _ persistence.CardRepository = (*memTreeRepo)(nil)
 
 func mustReq(t *testing.T, method, url string, body []byte) *http.Request {
 	t.Helper()
@@ -123,8 +63,8 @@ func mustReq(t *testing.T, method, url string, body []byte) *http.Request {
 	return req
 }
 
-func TestMenuCardsHandlerCRUD(t *testing.T) {
-	repo := &memCardRepo{cards: map[string]mcdomain.Card{}}
+func TestPutGetMenuTree(t *testing.T) {
+	repo := &memTreeRepo{missing: true}
 	h := menucardsapi.NewHandler(repo)
 	r := chi.NewRouter()
 	r.Route("/api/v1/channels/{id}", func(r chi.Router) { h.Mount(r) })
@@ -132,59 +72,77 @@ func TestMenuCardsHandlerCRUD(t *testing.T) {
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
-	body, _ := json.Marshal(mcdomain.Menu{ID: "m", Name: "主", Columns: 2})
-	resp, err := http.DefaultClient.Do(mustReq(t, http.MethodPut, srv.URL+"/api/v1/channels/ch1/menu", body))
-	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatalf("put menu status=%v err=%v", resp.StatusCode, err)
+	get, err := http.DefaultClient.Do(mustReq(t, http.MethodGet, srv.URL+"/api/v1/channels/ch1/menu", nil))
+	if err != nil || get.StatusCode != http.StatusOK {
+		t.Fatalf("get default status=%v err=%v", get.StatusCode, err)
 	}
-	resp.Body.Close()
-
-	cardBody, _ := json.Marshal(mcdomain.Card{ID: "c1", Name: "x", Text: "hi", Buttons: []mcdomain.CardButton{
-		{ID: "b", Label: "B", Action: mcdomain.Action{Type: "send_text", Text: "ok"}},
-	}})
-	cardResp, err := http.DefaultClient.Do(mustReq(t, http.MethodPost, srv.URL+"/api/v1/channels/ch1/cards", cardBody))
-	if err != nil || cardResp.StatusCode != http.StatusCreated {
-		t.Fatalf("post card status=%v err=%v", cardResp.StatusCode, err)
-	}
-	cardResp.Body.Close()
-
-	menuWithRef, _ := json.Marshal(mcdomain.Menu{ID: "m", Name: "主", Columns: 2, Items: []mcdomain.MenuItem{
-		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_card", CardID: "c1"}},
-	}})
-	_, _ = http.DefaultClient.Do(mustReq(t, http.MethodPut, srv.URL+"/api/v1/channels/ch1/menu", menuWithRef))
-
-	delResp, err := http.DefaultClient.Do(mustReq(t, http.MethodDelete, srv.URL+"/api/v1/channels/ch1/cards/c1", nil))
-	if err != nil || delResp.StatusCode != http.StatusConflict {
-		t.Fatalf("delete referenced status=%v err=%v", delResp.StatusCode, err)
-	}
-	delResp.Body.Close()
-
-	refResp, err := http.DefaultClient.Do(mustReq(t, http.MethodGet, srv.URL+"/api/v1/channels/ch1/cards/c1/references", nil))
-	if err != nil || refResp.StatusCode != http.StatusOK {
-		t.Fatalf("references status=%v err=%v", refResp.StatusCode, err)
-	}
-	var refs []string
-	_ = json.NewDecoder(refResp.Body).Decode(&refs)
-	refResp.Body.Close()
-	if len(refs) != 1 || refs[0] != "menu:mi" {
-		t.Fatalf("refs=%v", refs)
+	var def mcdomain.MenuTree
+	_ = json.NewDecoder(get.Body).Decode(&def)
+	get.Body.Close()
+	if def.ID != "ch1" || len(def.Items) != 2 {
+		t.Fatalf("default=%+v", def)
 	}
 
-	// workflow placements reverse lookup
-	wfMenu, _ := json.Marshal(mcdomain.Menu{ID: "m", Name: "主", Columns: 2, Items: []mcdomain.MenuItem{
-		{ID: "mi", Label: "L", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "w1"}},
-	}})
-	_, _ = http.DefaultClient.Do(mustReq(t, http.MethodPut, srv.URL+"/api/v1/channels/ch1/menu", wfMenu))
-	wfResp, err := http.DefaultClient.Do(mustReq(t, http.MethodGet, srv.URL+"/api/v1/cases/w1/menu-placements", nil))
-	if err != nil || wfResp.StatusCode != http.StatusOK {
-		t.Fatalf("workflow placements status=%v err=%v", wfResp.StatusCode, err)
+	tree := mcdomain.MenuTree{
+		Columns: 2,
+		Items: []mcdomain.TreeButton{
+			{ID: "a", Label: "图", Action: mcdomain.TreeAction{Type: "open_workflow", WorkflowID: "10"}},
+		},
+	}
+	body, _ := json.Marshal(tree)
+	put, err := http.DefaultClient.Do(mustReq(t, http.MethodPut, srv.URL+"/api/v1/channels/ch1/menu", body))
+	if err != nil || put.StatusCode != http.StatusOK {
+		t.Fatalf("put status=%v err=%v", put.StatusCode, err)
+	}
+	put.Body.Close()
+
+	get2, err := http.DefaultClient.Do(mustReq(t, http.MethodGet, srv.URL+"/api/v1/channels/ch1/menu", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got mcdomain.MenuTree
+	_ = json.NewDecoder(get2.Body).Decode(&got)
+	get2.Body.Close()
+	if len(got.Items) != 1 || got.Items[0].Action.WorkflowID != "10" {
+		t.Fatalf("got=%+v", got)
+	}
+
+	wf, err := http.DefaultClient.Do(mustReq(t, http.MethodGet, srv.URL+"/api/v1/cases/10/menu-placements", nil))
+	if err != nil || wf.StatusCode != http.StatusOK {
+		t.Fatalf("placements status=%v err=%v", wf.StatusCode, err)
 	}
 	var placements []map[string]any
-	_ = json.NewDecoder(wfResp.Body).Decode(&placements)
-	wfResp.Body.Close()
-	if len(placements) != 1 || placements[0]["kind"] != "menu_item" {
+	_ = json.NewDecoder(wf.Body).Decode(&placements)
+	wf.Body.Close()
+	if len(placements) != 1 || placements[0]["kind"] != "keyboard" {
 		t.Fatalf("placements=%v", placements)
 	}
 }
 
-var _ persistence.CardRepository = (*memCardRepo)(nil)
+func TestCardsEndpointsGone(t *testing.T) {
+	h := menucardsapi.NewHandler(&memTreeRepo{})
+	r := chi.NewRouter()
+	r.Route("/api/v1/channels/{id}", func(r chi.Router) { h.Mount(r) })
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+
+	resp, err := http.DefaultClient.Do(mustReq(t, http.MethodGet, srv.URL+"/api/v1/channels/ch1/cards", nil))
+	if err != nil || resp.StatusCode != http.StatusGone {
+		t.Fatalf("status=%v err=%v", resp.StatusCode, err)
+	}
+	resp.Body.Close()
+}
+
+func TestPutRejectsEmptyRoot(t *testing.T) {
+	h := menucardsapi.NewHandler(&memTreeRepo{})
+	r := chi.NewRouter()
+	r.Route("/api/v1/channels/{id}", func(r chi.Router) { h.Mount(r) })
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+	body, _ := json.Marshal(mcdomain.MenuTree{Columns: 2, Items: nil})
+	resp, err := http.DefaultClient.Do(mustReq(t, http.MethodPut, srv.URL+"/api/v1/channels/ch1/menu", body))
+	if err != nil || resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%v err=%v", resp.StatusCode, err)
+	}
+	resp.Body.Close()
+}

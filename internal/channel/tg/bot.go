@@ -85,7 +85,14 @@ func handleCallbackUpdate(ctx context.Context, ad *Adapter, cq *models.CallbackQ
 	if cq.Message.Message != nil {
 		chatID = cq.Message.Message.Chat.ID
 	}
-	return ad.HandleCallback(ctx, formatChatID(ad, chatID), cq.ID, cq.Data, userID)
+	return ad.HandleCallback(ctx, formatChatID(ad, chatID), callbackMessageID(cq), cq.Data, userID)
+}
+
+func callbackMessageID(cq *models.CallbackQuery) int {
+	if cq == nil || cq.Message.Message == nil {
+		return 0
+	}
+	return cq.Message.Message.ID
 }
 
 func formatChatID(ad *Adapter, chatID int64) sharedkernel.ChatID {

@@ -8,13 +8,14 @@ import (
 
 	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
+	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 func TestFormatMyTasksEmpty(t *testing.T) {
 	got := FormatMyTasks(nil, nil, time.Now(), shanghai())
-	want := "我的任务\n\n当前任务\n✅ 当前没有排队中的任务"
+	want := "我的任务\n\n当前任务\n✅ 当前没有排队中的任务\n\n最近任务\n"
 	if got != want {
 		t.Fatalf("got=%q want=%q", got, want)
 	}
@@ -84,8 +85,11 @@ func TestFormatMyTasksRecentCapAndNoRecentSection(t *testing.T) {
 			return q
 		}(),
 	}, map[sharedkernel.CaseID]string{1: "口交"}, now, loc)
-	if strings.Contains(emptyRecent, "最近任务") {
-		t.Fatalf("recent section should omit: %q", emptyRecent)
+	if !strings.Contains(emptyRecent, "最近任务\n") {
+		t.Fatalf("recent header missing: %q", emptyRecent)
+	}
+	if strings.Contains(emptyRecent, "✅ #") {
+		t.Fatalf("recent lines leaked: %q", emptyRecent)
 	}
 }
 
@@ -129,6 +133,28 @@ func TestListTasksInvoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(res.Text, "✅ #1120186 · 后入高潮痉挛 · 已完成 · 08-30 07:50") {
+		t.Fatalf("text=%q", res.Text)
+	}
+}
+
+type stubTexts struct {
+	tpl string
+}
+
+func (s stubTexts) Render(_ context.Context, _, key string, vars map[string]string) string {
+	if key == texttpl.KeyListTasks && s.tpl != "" {
+		return texttpl.Render(s.tpl, vars)
+	}
+	return texttpl.Render(texttpl.Default(key), vars)
+}
+
+func TestListTasksUsesTextTemplates(t *testing.T) {
+	cap := ListTasks{Texts: stubTexts{tpl: "任务清单\n\n{{ current }}{{ recent }}"}}
+	res, err := cap.Invoke(context.Background(), protocol.AccountCtx{ChannelID: "tg-default"}, protocol.Nav{}, "tg-default:1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Text != "任务清单\n\n✅ 当前没有排队中的任务" {
 		t.Fatalf("text=%q", res.Text)
 	}
 }

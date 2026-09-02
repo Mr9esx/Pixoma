@@ -123,12 +123,10 @@ func Seed(ctx context.Context, gdb *gorm.DB) error {
 		return err
 	}
 
-	menu := mcdomain.Menu{
-		ID: "demo-menu", Name: "演示主菜单", Columns: 2,
-		Items: []mcdomain.MenuItem{
-			{ID: "generate", Label: "开始生成", Action: mcdomain.Action{Type: "open_workflow", WorkflowID: "1"}},
-			{ID: "tasks", Label: "我的任务", Action: mcdomain.Action{Type: "send_text", Text: "演示任务列表"}},
-		},
+	menu := mcdomain.DefaultMenuTree("channel-demo")
+	menu.Items = []mcdomain.TreeButton{
+		{ID: "generate", Label: "开始生成", Action: mcdomain.TreeAction{Type: "open_workflow", WorkflowID: "1"}},
+		{ID: "tasks", Label: "我的任务", Action: mcdomain.TreeAction{Type: "send_text", Text: "演示任务列表"}},
 	}
 	if err := gdb.WithContext(ctx).Create([]mencardpersist.MainMenuRow{
 		{ChannelID: "channel-demo", DocJSON: mustJSON(menu)},

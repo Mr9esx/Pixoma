@@ -132,7 +132,9 @@ func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav prot
 			return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 		}
 		if err := o.App.ExitSession(ctx, chatID); err != nil {
-			return protocol.Result{}, err
+			if !errors.Is(err, convdomain.ErrNoActiveSession) && !errors.Is(err, convdomain.ErrNotFound) {
+				return protocol.Result{}, err
+			}
 		}
 		return protocol.Result{Text: o.renderText(ctx, channelID, texttpl.KeyExitDone, nil)}, nil
 	default:
@@ -268,13 +270,8 @@ func (o OpenCase) preview(ctx context.Context, channelID string, params map[stri
 	var media []protocol.MediaRef
 	if key, mime, ok := previewMediaRef(doc.Preview); ok {
 		media = []protocol.MediaRef{{Key: key, MIME: mime}}
-	} else {
-		text += "\n" + o.renderText(ctx, channelID, texttpl.KeyPreviewHintLabel, nil)
-		if doc.Preview != "" {
-			text += doc.Preview
-		} else {
-			text += o.renderText(ctx, channelID, texttpl.KeyPreviewMockHint, map[string]string{"case_name": doc.Name})
-		}
+	} else if strings.TrimSpace(doc.Preview) != "" {
+		text += "\n" + o.renderText(ctx, channelID, texttpl.KeyPreviewHintLabel, nil) + doc.Preview
 	}
 	return protocol.Result{
 		Text:  text,

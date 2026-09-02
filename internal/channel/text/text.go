@@ -27,7 +27,6 @@ const (
 	KeyTaskFailed            = "task_failed"
 	KeyTaskCancelled         = "task_cancelled"
 	KeyPreviewHintLabel      = "preview_hint_label"
-	KeyPreviewMockHint       = "preview_mock_hint"
 	KeyButtonStartCase       = "button_start_case"
 	KeyInputInvalidNumber    = "input_invalid_number"
 	KeyInputInvalidBoolean   = "input_invalid_boolean"
@@ -36,6 +35,7 @@ const (
 	KeyButtonExit            = "button_exit"
 	KeySessionTerminated     = "session_terminated"
 	KeyAccessDenied          = "access_denied"
+	KeyListTasks             = "list_tasks"
 )
 
 // Scenario groups used by the admin configuration page. They describe where a
@@ -77,7 +77,6 @@ var defaults = map[string]string{
 	KeyTaskFailed:            "❌ 任务执行失败\ntask={{ task_id }}\n状态：{{ status }}\n{{ error_msg }}",
 	KeyTaskCancelled:         "任务已取消\ntask={{ task_id }}",
 	KeyPreviewHintLabel:      "预览说明：",
-	KeyPreviewMockHint:       "（mock）确认后将返回一张示例图",
 	KeyButtonStartCase:       "▶ 开始 Case",
 	KeyInputInvalidNumber:    "请输入合法数字，例如 42",
 	KeyInputInvalidBoolean:   "请输入 true 或 false",
@@ -86,6 +85,7 @@ var defaults = map[string]string{
 	KeyButtonExit:            "✕ 退出",
 	KeySessionTerminated:     "该工作流已被管理员删除，当前会话已结束。",
 	KeyAccessDenied:          "当前账号没有使用权限，请联系管理员。",
+	KeyListTasks:             "我的任务\n\n当前任务\n{{ current }}\n\n最近任务\n{{ recent }}",
 }
 
 var variableOf = map[string][]string{
@@ -95,7 +95,7 @@ var variableOf = map[string][]string{
 	KeyTaskFailed:        {"task_id", "status", "error_msg"},
 	KeyTaskCancelled:     {"task_id", "status"},
 	KeySessionTerminated: {"error_msg"},
-	KeyPreviewMockHint:   {"case_name"},
+	KeyListTasks:         {"current", "recent"},
 }
 
 // defaultOf looks up the built-in default template. Unknown keys fall back to
@@ -107,14 +107,14 @@ func defaultOf(key string) string {
 // Specs returns the ordered list of all configurable copy templates.
 func Specs() []Spec {
 	order := []string{
-		KeyPreviewHintLabel, KeyPreviewMockHint, KeyButtonStartCase,
+		KeyPreviewHintLabel, KeyButtonStartCase,
 		KeyInputPrompt, KeyInputInvalidNumber, KeyInputInvalidBoolean,
 		KeyButtonSkip, KeyButtonExit, KeyConfirmRun, KeyButtonConfirmRun,
 		KeySubmitStarted, KeyWorkflowDone, KeyWorkflowDoneFollowp,
 		KeyTaskFailed, KeyTaskCancelled, KeySessionTerminated,
 		KeyWelcome, KeySelectTemplate, KeyExitDone, KeyUnfinishedSession,
 		KeyMenuActionPlaceholder, KeyMenuUpdated, KeyHelp,
-		KeyAccessDenied,
+		KeyAccessDenied, KeyListTasks,
 	}
 	out := make([]Spec, 0, len(order))
 	for _, k := range order {
@@ -145,7 +145,6 @@ var descriptionOf = map[string]string{
 	KeyTaskFailed:            "任务执行失败时的通知，支持 {{ task_id }}、{{ status }}、{{ error_msg }}",
 	KeyTaskCancelled:         "任务被取消时的通知，支持 {{ task_id }}、{{ status }}",
 	KeyPreviewHintLabel:      "工作流预览说明标题",
-	KeyPreviewMockHint:       "Case 没有预览媒体时的提示",
 	KeyButtonStartCase:       "工作流预览的开始按钮",
 	KeyInputInvalidNumber:    "数字输入格式错误提示",
 	KeyInputInvalidBoolean:   "布尔输入格式错误提示",
@@ -153,11 +152,13 @@ var descriptionOf = map[string]string{
 	KeyButtonConfirmRun:      "工作流确认阶段的提交按钮",
 	KeyButtonExit:            "工作流输入和确认阶段的退出按钮",
 	KeySessionTerminated:     "工作流删除导致会话终止时的通知",
+	KeyAccessDenied:          "当前账号没有使用权限时的提示",
+	KeyListTasks:             "「我的任务」。{{ current }} 填当前任务那几行，{{ recent }} 填最近任务那几行",
 }
 
 func groupOf(key string) string {
 	switch key {
-	case KeyPreviewHintLabel, KeyPreviewMockHint, KeyButtonStartCase,
+	case KeyPreviewHintLabel, KeyButtonStartCase,
 		KeyInputPrompt, KeyInputInvalidNumber, KeyInputInvalidBoolean,
 		KeyButtonSkip, KeyButtonExit, KeyConfirmRun, KeyButtonConfirmRun,
 		KeySubmitStarted:

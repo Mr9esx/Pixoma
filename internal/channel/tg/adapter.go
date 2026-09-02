@@ -3,7 +3,6 @@ package tg
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -27,7 +26,6 @@ type Adapter struct {
 	Media     ports.MediaBridge
 	Users     ports.IdentityResolver
 	Menu      MenuReader
-	Cards     CardProvider
 	Registry  *capability.Registry
 	Blob      blob.Store
 	ChannelID string
@@ -145,16 +143,21 @@ func (a *Adapter) HandleText(ctx context.Context, chatID sharedkernel.ChatID, te
 	default:
 		doc := a.loadMenu(ctx)
 		if item, ok := FindEnabledItemByLabel(doc, text); ok {
-			return a.actionDispatch(ctx, chatID, addr, item.Action, "root")
+			return a.actionDispatch(ctx, chatID, addr, item, "root")
 		}
 		return a.sendMainMenu(ctx, addr)
 	}
 }
 
-func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID, _ string, data string, _ string) error {
+func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID, messageID int, data string, _ string) error {
 	addr, err := addrOf(chatID)
 	if err != nil {
 		return err
+	}
+	if messageID != 0 {
+		if err := a.Out.EditReplyMarkup(ctx, addr, messageID, nil); err != nil {
+			slog.Error("tg clear callback markup", "err", err, "chat_id", chatID, "message_id", messageID)
+		}
 	}
 	if strings.HasPrefix(data, CBInvoke) {
 		token := strings.TrimPrefix(data, CBInvoke)
@@ -163,15 +166,19 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID
 			return a.Out.SendText(ctx, addr, "操作已过期，请重新选择。")
 		}
 		if inv.CapabilityID == "" {
-			if raw, ok := inv.Params["action"].(json.RawMessage); ok {
-				var action mcdomain.Action
-				if err := json.Unmarshal(raw, &action); err == nil {
-					return a.actionDispatch(ctx, chatID, addr, action, inv.Nav.Back)
+			if id, ok := inv.Params["button_id"].(string); ok {
+				if btn, found := mcdomain.FindButtonByID(a.loadMenu(ctx), id); found {
+					a.store.consume(token)
+					return a.actionDispatch(ctx, chatID, addr, btn, inv.Nav.Back)
 				}
 			}
 			return a.Out.SendText(ctx, addr, "未知操作")
 		}
-		return a.dispatchInvoke(ctx, chatID, inv)
+		err := a.dispatchInvoke(ctx, chatID, inv)
+		if err == nil {
+			a.store.consume(token)
+		}
+		return err
 	}
 	nav, err := TranslateMenuCallback(data)
 	if err != nil {
@@ -235,7 +242,7 @@ func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotif
 					}
 					continue
 				}
-				if err := a.Out.SendMedia(ctx, addr, ref, caption); err != nil {
+				if err := a.Out.SendMedia(ctx, addr, ref, caption, nil); err != nil {
 					return err
 				}
 			}
@@ -287,25 +294,29 @@ func (a *Adapter) openCaseStep(ctx context.Context, chatID sharedkernel.ChatID, 
 	return a.dispatchInvoke(ctx, chatID, inv)
 }
 
-func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID, addr sharedkernel.ChannelAddr, action mcdomain.Action, backCtx string) error {
+func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID, addr sharedkernel.ChannelAddr, btn mcdomain.TreeButton, backCtx string) error {
+	action := btn.Action
 	switch action.Type {
 	case "open_card":
-		if a.Cards == nil {
-			return a.Out.SendText(ctx, addr, "卡片服务未配置")
+		card := action.Card
+		if card == nil {
+			compiled := mcdomain.Compile(a.loadMenu(ctx))
+			if c, ok := compiled.CardByOpenerID[btn.ID]; ok {
+				card = &c
+			}
 		}
-		card, err := a.Cards.GetCard(ctx, a.ChannelID, action.CardID)
-		if err != nil {
+		if card == nil {
 			return a.Out.SendText(ctx, addr, "卡片不存在或已删除")
 		}
 		a.back.push(string(chatID), backCtx)
-		return a.sendCard(ctx, addr, card, backCtx)
+		return a.sendCard(ctx, addr, *card, btn.ID, backCtx)
 	case "open_workflow":
 		inv, err := a.baseInvoke(ctx, chatID)
 		if err != nil {
 			return err
 		}
 		inv.CapabilityID = "open_case"
-		inv.Params = map[string]any{"step": "start", "case_id": action.WorkflowID}
+		inv.Params = map[string]any{"step": "preview", "case_id": action.WorkflowID}
 		inv.Nav = protocol.Nav{Back: backCtx}
 		return a.dispatchInvoke(ctx, chatID, inv)
 	case "list_tasks":
@@ -321,7 +332,7 @@ func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID
 		return a.Out.SendText(ctx, addr, action.Text)
 	case "send_media":
 		for _, m := range action.Media {
-			if err := a.Out.SendMediaURL(ctx, addr, m.URL, action.Text); err != nil {
+			if err := a.Out.SendMediaURL(ctx, addr, m.URL, action.Text, nil); err != nil {
 				return err
 			}
 		}
@@ -331,16 +342,14 @@ func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID
 		return nil
 	case "open_url":
 		return a.Out.SendText(ctx, addr, action.URL)
-	case "placeholder":
-		return a.Out.SendText(ctx, addr, a.renderText(ctx, texttpl.KeyMenuActionPlaceholder, nil))
 	default:
 		return a.Out.SendText(ctx, addr, "菜单配置无效")
 	}
 }
 
-func (a *Adapter) sendCard(ctx context.Context, addr sharedkernel.ChannelAddr, card mcdomain.Card, backCtx string) error {
+func (a *Adapter) sendCard(ctx context.Context, addr sharedkernel.ChannelAddr, card mcdomain.TreeCard, openerID, backCtx string) error {
 	for _, m := range card.Media {
-		if err := a.Out.SendMediaURL(ctx, addr, m.URL, card.Text); err != nil {
+		if err := a.Out.SendMediaURL(ctx, addr, m.URL, card.Text, nil); err != nil {
 			return err
 		}
 	}
@@ -357,10 +366,9 @@ func (a *Adapter) sendCard(ctx context.Context, addr sharedkernel.ChannelAddr, c
 	rows := make([][]ports.Button, 0, len(card.Buttons)+1)
 	for _, b := range card.Buttons {
 		inv := base
-		raw, _ := json.Marshal(b.Action)
 		inv.CapabilityID = ""
-		inv.Params = map[string]any{"action": json.RawMessage(raw)}
-		inv.Nav = protocol.Nav{Back: card.ID}
+		inv.Params = map[string]any{"button_id": b.ID}
+		inv.Nav = protocol.Nav{Back: openerID}
 		rows = append(rows, []ports.Button{{Text: b.Label, Data: CBInvoke + a.store.put(inv)}})
 	}
 	backData := CBMenuBack + backCtx
@@ -377,18 +385,16 @@ func (a *Adapter) handleBack(ctx context.Context, chatID sharedkernel.ChatID, ad
 	if !ok {
 		return a.sendMainMenu(ctx, addr)
 	}
-	if a.Cards == nil {
-		return a.sendMainMenu(ctx, addr)
-	}
-	card, err := a.Cards.GetCard(ctx, a.ChannelID, target)
-	if err != nil {
+	compiled := mcdomain.Compile(a.loadMenu(ctx))
+	card, found := compiled.CardByOpenerID[target]
+	if !found {
 		return a.sendMainMenu(ctx, addr)
 	}
 	source := "root"
 	if top, ok := a.back.top(string(chatID)); ok {
 		source = top
 	}
-	return a.sendCard(ctx, addr, card, source)
+	return a.sendCard(ctx, addr, card, target, source)
 }
 
 func (a *Adapter) dispatchInvoke(ctx context.Context, chatID sharedkernel.ChatID, inv protocol.CapabilityInvoke) error {
@@ -408,30 +414,48 @@ func (a *Adapter) dispatchInvoke(ctx context.Context, chatID sharedkernel.ChatID
 }
 
 func (a *Adapter) renderResult(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID, base protocol.CapabilityInvoke, res protocol.Result) error {
-	for _, m := range res.Media {
-		if err := a.Out.SendMedia(ctx, addr, sharedkernel.BlobRef{Key: m.Key, MIME: m.MIME}, res.Text); err != nil {
-			return err
-		}
-	}
-	for _, u := range res.MediaURLs {
-		if err := a.Out.SendMediaURL(ctx, addr, u, res.Text); err != nil {
-			return err
-		}
-	}
+	var rows [][]ports.Button
 	if len(res.Options) > 0 {
-		var rows [][]ports.Button
 		for _, opt := range res.Options {
 			next := base
 			next.Params = opt.Value
 			rows = append(rows, []ports.Button{{Text: opt.Label, Data: CBInvoke + a.store.put(next)}})
 		}
 		rows = append(rows, a.backButton(base.Nav))
+	}
+	hasMedia := len(res.Media) > 0 || len(res.MediaURLs) > 0
+	first := true
+	for _, m := range res.Media {
+		caption, buttons := mediaExtras(res.Text, rows, first)
+		first = false
+		if err := a.Out.SendMedia(ctx, addr, sharedkernel.BlobRef{Key: m.Key, MIME: m.MIME}, caption, buttons); err != nil {
+			return err
+		}
+	}
+	for _, u := range res.MediaURLs {
+		caption, buttons := mediaExtras(res.Text, rows, first)
+		first = false
+		if err := a.Out.SendMediaURL(ctx, addr, u, caption, buttons); err != nil {
+			return err
+		}
+	}
+	if hasMedia {
+		return nil
+	}
+	if len(rows) > 0 {
 		return a.Out.SendList(ctx, addr, res.Text, rows)
 	}
 	if res.Text != "" {
 		return a.Out.SendText(ctx, addr, res.Text)
 	}
 	return nil
+}
+
+func mediaExtras(text string, rows [][]ports.Button, first bool) (caption string, buttons [][]ports.Button) {
+	if !first {
+		return "", nil
+	}
+	return text, rows
 }
 
 func (a *Adapter) backButton(nav protocol.Nav) []ports.Button {

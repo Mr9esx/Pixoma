@@ -107,7 +107,7 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
     expect(source).toContain('contentRegionClassName')
     const region = read(join(here, 'content-region.ts'))
     expect(region).toContain(
-      'mx-auto w-full max-w-[1440px] has-[>[data-layout=fixed]]:flex has-[>[data-layout=fixed]]:overflow-hidden'
+      'mx-auto w-full max-w-[1440px] has-[>[data-layout=fixed]]:flex has-[>[data-layout=fixed]]:flex-col has-[>[data-layout=fixed]]:overflow-hidden'
     )
   })
 })

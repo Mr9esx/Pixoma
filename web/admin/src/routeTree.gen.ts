@@ -44,6 +44,7 @@ import { Route as AppSessionsSessionIdRouteImport } from './routes/_app/sessions
 import { Route as AppEdgesEdgeIdRouteImport } from './routes/_app/edges/$edgeId'
 import { Route as AppChannelsIdRouteImport } from './routes/_app/channels/$id'
 import { Route as AppCasesCaseIdRouteImport } from './routes/_app/cases/$caseId'
+import { Route as AppChannelsIdMenuRouteImport } from './routes/_app/channels/$id.menu'
 
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
@@ -219,6 +220,11 @@ const AppCasesCaseIdRoute = AppCasesCaseIdRouteImport.update({
   path: '/$caseId',
   getParentRoute: () => AppCasesRouteRoute,
 } as any)
+const AppChannelsIdMenuRoute = AppChannelsIdMenuRouteImport.update({
+  id: '/menu',
+  path: '/menu',
+  getParentRoute: () => AppChannelsIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
@@ -241,7 +247,7 @@ export interface FileRoutesByFullPath {
   '/quick-config': typeof AppQuickConfigRoute
   '/visual-config': typeof AppVisualConfigRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
-  '/channels/$id': typeof AppChannelsIdRoute
+  '/channels/$id': typeof AppChannelsIdRouteWithChildren
   '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
@@ -255,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/tasks/': typeof AppTasksIndexRoute
   '/topics/': typeof AppTopicsIndexRoute
   '/users/': typeof AppUsersIndexRoute
+  '/channels/$id/menu': typeof AppChannelsIdMenuRoute
 }
 export interface FileRoutesByTo {
   '/$': typeof SplatRoute
@@ -270,7 +277,7 @@ export interface FileRoutesByTo {
   '/visual-config': typeof AppVisualConfigRoute
   '/': typeof AppIndexRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
-  '/channels/$id': typeof AppChannelsIdRoute
+  '/channels/$id': typeof AppChannelsIdRouteWithChildren
   '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
@@ -284,6 +291,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AppTasksIndexRoute
   '/topics': typeof AppTopicsIndexRoute
   '/users': typeof AppUsersIndexRoute
+  '/channels/$id/menu': typeof AppChannelsIdMenuRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -308,7 +316,7 @@ export interface FileRoutesById {
   '/_app/visual-config': typeof AppVisualConfigRoute
   '/_app/': typeof AppIndexRoute
   '/_app/cases/$caseId': typeof AppCasesCaseIdRoute
-  '/_app/channels/$id': typeof AppChannelsIdRoute
+  '/_app/channels/$id': typeof AppChannelsIdRouteWithChildren
   '/_app/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/_app/sessions/$sessionId': typeof AppSessionsSessionIdRoute
   '/_app/tasks/$taskId': typeof AppTasksTaskIdRoute
@@ -322,6 +330,7 @@ export interface FileRoutesById {
   '/_app/tasks/': typeof AppTasksIndexRoute
   '/_app/topics/': typeof AppTopicsIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
+  '/_app/channels/$id/menu': typeof AppChannelsIdMenuRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -360,6 +369,7 @@ export interface FileRouteTypes {
     | '/tasks/'
     | '/topics/'
     | '/users/'
+    | '/channels/$id/menu'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$'
@@ -389,6 +399,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/topics'
     | '/users'
+    | '/channels/$id/menu'
   id:
     | '__root__'
     | '/$'
@@ -426,6 +437,7 @@ export interface FileRouteTypes {
     | '/_app/tasks/'
     | '/_app/topics/'
     | '/_app/users/'
+    | '/_app/channels/$id/menu'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -688,6 +700,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCasesCaseIdRouteImport
       parentRoute: typeof AppCasesRouteRoute
     }
+    '/_app/channels/$id/menu': {
+      id: '/_app/channels/$id/menu'
+      path: '/menu'
+      fullPath: '/channels/$id/menu'
+      preLoaderRoute: typeof AppChannelsIdMenuRouteImport
+      parentRoute: typeof AppChannelsIdRoute
+    }
   }
 }
 
@@ -705,13 +724,25 @@ const AppCasesRouteRouteWithChildren = AppCasesRouteRoute._addFileChildren(
   AppCasesRouteRouteChildren,
 )
 
+interface AppChannelsIdRouteChildren {
+  AppChannelsIdMenuRoute: typeof AppChannelsIdMenuRoute
+}
+
+const AppChannelsIdRouteChildren: AppChannelsIdRouteChildren = {
+  AppChannelsIdMenuRoute: AppChannelsIdMenuRoute,
+}
+
+const AppChannelsIdRouteWithChildren = AppChannelsIdRoute._addFileChildren(
+  AppChannelsIdRouteChildren,
+)
+
 interface AppChannelsRouteRouteChildren {
-  AppChannelsIdRoute: typeof AppChannelsIdRoute
+  AppChannelsIdRoute: typeof AppChannelsIdRouteWithChildren
   AppChannelsIndexRoute: typeof AppChannelsIndexRoute
 }
 
 const AppChannelsRouteRouteChildren: AppChannelsRouteRouteChildren = {
-  AppChannelsIdRoute: AppChannelsIdRoute,
+  AppChannelsIdRoute: AppChannelsIdRouteWithChildren,
   AppChannelsIndexRoute: AppChannelsIndexRoute,
 }
 

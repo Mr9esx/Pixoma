@@ -55,4 +55,24 @@ describe('settings page', () => {
     expect(route).toMatch(/search\.tab/)
     expect(page).toMatch(/initialTab/)
   })
+
+  it('lets the signed-in admin update avatar on the profile card', () => {
+    const page = read('settings-page.tsx')
+    expect(page).toContain("from '@/components/avatar-upload'")
+    expect(page).toMatch(/htmlFor=['"]profile-avatar['"]/)
+    expect(page).toMatch(/<AvatarUpload/)
+    expect(page).toMatch(/avatarUrl:/)
+    expect(page).toMatch(/saveAdminProfile/)
+  })
+
+  it('lays out profile like setup: avatar left, nickname and email right', () => {
+    const page = read('settings-page.tsx')
+    expect(page).toMatch(/grid-cols-\[auto_minmax\(0,1fr\)\] items-stretch/)
+    const avatarIdx = page.search(/htmlFor=['"]profile-avatar['"]/)
+    const nicknameIdx = page.search(/htmlFor=['"]profile-nickname['"]/)
+    const emailIdx = page.search(/htmlFor=['"]profile-email['"]/)
+    expect(avatarIdx).toBeGreaterThan(-1)
+    expect(nicknameIdx).toBeGreaterThan(avatarIdx)
+    expect(emailIdx).toBeGreaterThan(nicknameIdx)
+  })
 })

@@ -448,7 +448,7 @@ flowchart LR
 | tasks | `internal/runtime/infrastructure/persistence` |
 | edges / Pool | `internal/platform/edge` |
 | catalog_cases | `internal/catalog/infrastructure/persistence` |
-| tg_menus / tg_menu_items / tg_menu_item_cases | `internal/tgmenu`（domain/application/persistence）；HTTP `internal/httpapi/tgmenu`；Case 反查 `GET .../cases/{id}/menu-placements` |
+| channel_main_menus | `internal/menucard`（嵌套树 JSON）；HTTP `GET/PUT /api/v1/channels/{id}/menu`；Case 反查 `GET .../cases/{id}/menu-placements`。卡片内嵌在树节点，无独立 cards 管理 API。 |
 | HTTP API | `internal/httpapi/edges` 等 |
 | 任务统计 | `internal/platform/taskstats`（领域/仓储）、`internal/httpapi/stats`（HTTP）、backfill `apps/pixoma/cmd/backfill-task-stats` |
 | 接线 | `apps/pixoma/cmd/pixoma/main.go`（组合根） |

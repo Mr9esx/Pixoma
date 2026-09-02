@@ -38,12 +38,16 @@ func (r *recordingOutbound) SendList(_ context.Context, _ sharedkernel.ChannelAd
 	return nil
 }
 
-func (r *recordingOutbound) SendMedia(_ context.Context, _ sharedkernel.ChannelAddr, ref sharedkernel.BlobRef, _ string) error {
+func (r *recordingOutbound) SendMedia(_ context.Context, _ sharedkernel.ChannelAddr, ref sharedkernel.BlobRef, _ string, _ [][]ports.Button) error {
 	r.media = append(r.media, ref)
 	return nil
 }
 
-func (r *recordingOutbound) SendMediaURL(_ context.Context, _ sharedkernel.ChannelAddr, _, _ string) error {
+func (r *recordingOutbound) SendMediaURL(_ context.Context, _ sharedkernel.ChannelAddr, _, _ string, _ [][]ports.Button) error {
+	return nil
+}
+
+func (r *recordingOutbound) EditReplyMarkup(context.Context, sharedkernel.ChannelAddr, int, [][]ports.Button) error {
 	return nil
 }
 

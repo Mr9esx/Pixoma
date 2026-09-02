@@ -181,7 +181,7 @@ type tgChannelFactory struct {
 func newCapabilityRegistry(facade *botapp.Facade, texts text.Renderer, users identitydomain.Repository) *capability.Registry {
 	r := capability.NewRegistry()
 	_ = r.Register(capability.OpenCase{App: facade, Texts: texts, Users: users})
-	_ = r.Register(capability.ListTasks{Tasks: facade.Tasks, Cases: facade.Cases})
+	_ = r.Register(capability.ListTasks{Tasks: facade.Tasks, Cases: facade.Cases, Texts: texts})
 	return r
 }
 
@@ -249,8 +249,8 @@ type channelMenuReader struct {
 	channelID string
 }
 
-func (r channelMenuReader) GetMenu(ctx context.Context) (mcdomain.Menu, error) {
-	return r.cards.GetMenu(ctx, r.channelID)
+func (r channelMenuReader) GetTree(ctx context.Context) (mcdomain.MenuTree, error) {
+	return r.cards.GetTree(ctx, r.channelID)
 }
 
 type identityResolver struct {

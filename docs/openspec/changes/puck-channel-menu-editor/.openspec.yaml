@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-09-02
+goal: 用 Puck 可视化编辑器重做渠道菜单：手机画布拖拽键盘/卡片/按钮，文档为嵌套树，编译成 Telegram 键盘与卡片动作；旧 Menu/Card
+  数据与 API 不兼容、直接作废。

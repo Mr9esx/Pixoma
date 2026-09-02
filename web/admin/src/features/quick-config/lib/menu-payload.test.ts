@@ -4,7 +4,6 @@ import { addWorkflowMenuEntry } from './menu-payload'
 
 const baseMenu: Menu = {
   id: 'default',
-  name: '主菜单',
   columns: 2,
   items: [{ id: 'mi-help', label: '帮助', action: { type: 'send_text', text: '帮助菜单' } }],
 }
@@ -33,5 +32,19 @@ describe('addWorkflowMenuEntry (v2 schema)', () => {
         workflowId: 12,
       })
     ).toThrow()
+  })
+
+  it('根键盘满 6 个时失败', () => {
+    const full: Menu = {
+      ...baseMenu,
+      items: Array.from({ length: 6 }, (_, i) => ({
+        id: `k${i}`,
+        label: `k${i}`,
+        action: { type: 'send_text' as const, text: 'x' },
+      })),
+    }
+    expect(() =>
+      addWorkflowMenuEntry(full, { label: '再加', workflowId: 1 })
+    ).toThrow(/full/)
   })
 })

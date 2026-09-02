@@ -22,11 +22,10 @@
 │ User upsert│  │ Session 填表   │  │ Case 目录 │
 └────────────┘  └────────────────┘  └─────┬─────┘
                                           │ 校验/读 Doc
-┌─ tgmenu ────────────────────────────────────────┐
-│  MenuTree 真相源；ReplaceTree；Case 反查 Placements │
-│  admin GET/PUT /tg-menu；GET .../menu-placements │
-│  bot 只读；folder Inline 在 channel/tg          │
-└─────────────────────────────────────────────────┘
+┌─ menucard ──────────────────────────────────────────┐
+│  每渠道一份嵌套菜单树；GET/PUT /channels/{id}/menu     │
+│  Bot 编译成键盘/卡片；Case 反查 menu-placements         │
+└─────────────────────────────────────────────────────┘
 ┌─ runtime ───────────────────────────────────────┐
 │ domain.Task │ orchestrator │ actuator │ comfyui │
 └───────┬─────────────┬─────────────┬─────────────┘
@@ -45,7 +44,7 @@
 | **Catalog** | `internal/catalog` | Case 持久化、`doc_json` 协议、输入校验 | 调度、Comfy 调用 |
 | **Runtime** | `internal/runtime` | Task 状态机、Orchestrator、Actuator、Comfy Client | TG UI、User 资料 |
 | **Channel TG** | `internal/channel/tg` | Telegram 适配、菜单/回调、通知落地 | 领域规则 |
-| **TG Menu** | `internal/tgmenu` | 主键盘树持久化、校验、`MenuPlacement` 反查 | TG Inline 发送、callback 路由 |
+| **Menu Card** | `internal/menucard` | 渠道菜单嵌套树、校验、编译、placements | TG 发送、callback 路由 |
 | **Platform** | `internal/platform` | db/blob/queue/notify/edge/botconfig | 业务决策 |
 | **Packaging** | `internal/packaging/botapp` | 跨 BC 用例门面 | 基础设施实现细节 |
 | **HTTP API** | `internal/httpapi` | 计算节点 CRUD/观测；Case/User/Session/Task；TG Menu | TG 通道实现 |

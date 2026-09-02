@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   type Action,
-  deleteCard,
   getCaseMenuPlacements,
   getMenu,
   putMenu,
@@ -90,22 +89,11 @@ describe('channel-menu API', () => {
       )
     vi.stubGlobal('fetch', fetchMock)
     const menu = await getMenu('ch1')
-    expect(menu.name).toBe('主')
+    expect(menu.id).toBe('m')
+    expect(menu.columns).toBe(2)
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8081/api/v1/channels/ch1/menu',
       expect.anything()
-    )
-  })
-
-  it('deleteCard sends DELETE', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(null, { status: 204 }))
-    vi.stubGlobal('fetch', fetchMock)
-    await deleteCard('ch1', 'c1')
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://127.0.0.1:8081/api/v1/channels/ch1/cards/c1',
-      expect.objectContaining({ method: 'DELETE' })
     )
   })
 })
@@ -140,7 +128,6 @@ describe('Action schema (v2: workflow_id single, no mode)', () => {
 
     const menu: Menu = {
       id: 'm',
-      name: '主',
       columns: 2,
       items: [
         {

@@ -1,4 +1,4 @@
-import type { Action, ActionType, Card } from '@/lib/api/channel-menu'
+import type { Action, ActionType } from '@/lib/api/channel-menu'
 
 /** 工作流项：id + 可读名 + 卡片展示字段（来自 CaseRecord） */
 export type WorkflowRef = {
@@ -68,15 +68,9 @@ function workflowName(id: string, workflows: WorkflowRef[]): string {
   return w ? w.name : `#${id}`
 }
 
-function cardName(id: string, cards: Card[]): string {
-  const c = cards.find((x) => x.id === id)
-  return c && c.name ? c.name : `#${id}`
-}
-
 /** 把 action 解析成人话摘要 + 具体参数，供只读详情展示。 */
 export function describeAction(
   action: Action,
-  cards: Card[],
   workflows: WorkflowRef[]
 ): ActionView {
   const type = action.type
@@ -102,14 +96,12 @@ export function describeAction(
       }
     }
     case 'open_card': {
-      const name = action.card_id ? cardName(action.card_id, cards) : ''
+      const name = action.card?.text ?? ''
       return {
         type,
         kind,
         summary: name ? `打开卡片「${name}」` : typeLabel,
-        params: action.card_id
-          ? [{ key: '打开卡片', value: cardName(action.card_id, cards) }]
-          : [],
+        params: name ? [{ key: '打开卡片', value: name }] : [],
       }
     }
     case 'list_tasks':

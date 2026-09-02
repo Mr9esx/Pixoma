@@ -1,14 +1,21 @@
 import { ArrowRightIcon, BellIcon, SparklesIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { resolveMediaKey } from '@/lib/api/media'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { useMediaObjectUrl } from '@/features/cases/lib/use-media-object-url'
 import { type WorkflowRef } from './node-view'
 
 /** 选中「开始工作流」且已绑定目标时，用 c-card-7 视觉展示该工作流信息。 */
-export function WorkflowInfoCard({ workflow }: { workflow: WorkflowRef }) {
+export function WorkflowInfoCard({
+  workflow,
+  className,
+}: {
+  workflow: WorkflowRef
+  className?: string
+}) {
   const { t } = useTranslation()
   // Tag 只展示工作流自身的标签；没有就不渲染，避免用动作分组名（如“工作流能力”）误导。
   const badgeText = workflow.tags?.[0] ?? workflow.categories?.[0] ?? ''
@@ -19,7 +26,7 @@ export function WorkflowInfoCard({ workflow }: { workflow: WorkflowRef }) {
 
   return (
     <Card
-      className='w-full max-w-xs gap-3 p-3'
+      className={cn('w-full max-w-xs gap-3 p-3', className)}
       data-testid='workflow-info-card'
     >
       <CardContent className='flex flex-col gap-3 p-0'>

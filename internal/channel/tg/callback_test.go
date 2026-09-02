@@ -40,8 +40,11 @@ func TestInvokeStorePutGet(t *testing.T) {
 	if !ok || got.CapabilityID != "open_case" {
 		t.Fatalf("get: %+v %v", got, ok)
 	}
-	// 一次性消费
+	if _, ok := s.get(token); !ok {
+		t.Fatal("get must keep token until consume")
+	}
+	s.consume(token)
 	if _, ok := s.get(token); ok {
-		t.Fatal("token must be single-use")
+		t.Fatal("consumed token must be gone")
 	}
 }

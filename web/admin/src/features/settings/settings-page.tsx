@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AvatarUpload } from '@/components/avatar-upload'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { SecretInput } from '@/components/secret-input'
@@ -478,11 +479,13 @@ function ProfileEditor({
   const queryClient = useQueryClient()
   const [nickname, setNickname] = useState(profile.nickname ?? '')
   const [email, setEmail] = useState(profile.email ?? '')
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url ?? '')
   const saveProfile = useMutation({
     mutationFn: () =>
       saveAdminProfile({
         nickname: nickname.trim(),
         email: email.trim(),
+        avatarUrl: avatarUrl.trim(),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['current-user'] })
@@ -511,28 +514,52 @@ function ProfileEditor({
           </div>
         }
       >
-        <SettingRow
-          label={t('settings.fieldNickname')}
-          htmlFor='profile-nickname'
-        >
-          <Input
-            id='profile-nickname'
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            disabled={saveProfile.isPending}
-            autoComplete='off'
-          />
-        </SettingRow>
-        <SettingRow label={t('settings.fieldEmail')} htmlFor='profile-email'>
-          <Input
-            id='profile-email'
-            type='email'
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={saveProfile.isPending}
-            autoComplete='email'
-          />
-        </SettingRow>
+        <div className='grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-3 py-3'>
+          <div className='flex h-full items-center justify-center'>
+            <FieldLabel htmlFor='profile-avatar' className='sr-only'>
+              {t('settings.fieldAvatar')}
+            </FieldLabel>
+            <AvatarUpload
+              id='profile-avatar'
+              value={avatarUrl}
+              onChange={(next) => setAvatarUrl(next ?? '')}
+              disabled={saveProfile.isPending}
+            />
+          </div>
+          <div className='flex min-w-0 flex-col gap-4'>
+            <Field className='gap-1.5'>
+              <FieldLabel
+                htmlFor='profile-nickname'
+                className='text-sm font-medium'
+              >
+                {t('settings.fieldNickname')}
+              </FieldLabel>
+              <Input
+                id='profile-nickname'
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                disabled={saveProfile.isPending}
+                autoComplete='off'
+              />
+            </Field>
+            <Field className='gap-1.5'>
+              <FieldLabel
+                htmlFor='profile-email'
+                className='text-sm font-medium'
+              >
+                {t('settings.fieldEmail')}
+              </FieldLabel>
+              <Input
+                id='profile-email'
+                type='email'
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={saveProfile.isPending}
+                autoComplete='email'
+              />
+            </Field>
+          </div>
+        </div>
       </SettingsCard>
     </form>
   )

@@ -65,10 +65,9 @@ sequenceDiagram
 
 要点：
 
-- **根键盘**：仅 `parent_id` 为空的启用节点；`BuildReplyKeyboard` 按 `(row, col)` 排序。
-- **folder**：根按钮或 Inline「📁」进入 `showMenuFolder`；消息正文优先 `intro_text`（空则用 `label`）；按钮顺序为同节点 `case_ids`（`CBCasePreview`）→ 子 folder（`mf:`）→ 「⬅️ 返回」（`mb:root` / `mb:<parent_id>`）。
-- **list_cases_by_tag**：仍走既有按 tag 列表 Inline（兼容旧 `btn-image` 行为）；与 folder 内挂 Case 可并存。
-- **callback 编码**：`mf:<menu_item_id>` 下钻；`mb:root` / `mb:<parent_item_id>` 返回（见 `channel/tg/menu.go`）。
+- **根键盘**：`MenuTree.items` 按 `columns` 折行成 ReplyKeyboard。
+- **卡片**：`open_card` 的子节点 `card` 作为消息 + inline 按钮；callback 用树节点 id。
+- **返回**：`mb:root` 回主键盘；`mb:<opener_id>` 回到打开该卡的按钮对应卡片。
 
 ---
 
