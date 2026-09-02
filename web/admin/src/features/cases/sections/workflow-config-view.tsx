@@ -8,7 +8,10 @@ type Props = {
 
 export function WorkflowConfigView({ record, onSaved }: Props) {
   return (
-    <div className='min-w-0 space-y-3' data-testid='case-workflow-config-view'>
+    <div
+      className='flex min-w-0 flex-col gap-3'
+      data-testid='case-workflow-config-view'
+    >
       <WorkflowGraphPreview record={record} onSaved={onSaved} />
     </div>
   )

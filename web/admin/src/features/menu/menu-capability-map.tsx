@@ -106,7 +106,7 @@ function PathBody({
     return (
       <div>
         <p className='mb-2 text-sm text-muted-foreground'>{card.name}</p>
-        <div className='overflow-hidden rounded-[10px] border border-border bg-background'>
+        <div className='overflow-hidden rounded-lg border border-border bg-background'>
           <MediaThumbs media={card.media ?? []} t={t} />
           <div className='px-3.5 py-3.5'>
             {card.text ? (

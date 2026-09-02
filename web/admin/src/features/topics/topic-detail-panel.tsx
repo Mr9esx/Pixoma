@@ -21,22 +21,13 @@ import { queryKeys } from '@/lib/api/query-keys'
 import { listTasks } from '@/lib/api/tasks'
 import { deleteTopic, getTopic, updateTopic } from '@/lib/api/topics'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -46,9 +37,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Reveal } from '@/components/ui/reveal'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { NotFoundState } from '@/components/feedback/not-found-state'
@@ -178,14 +170,10 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           description={t('topics.notFoundDesc')}
           actions={
             <>
-              <Button asChild className={kit.btnPrimary}>
+              <Button asChild size='sm'>
                 <Link to='/topics'>{t('topics.backToList')}</Link>
               </Button>
-              <Button
-                asChild
-                variant='outline'
-                className='h-8 gap-1.5 rounded-md px-3 text-xs'
-              >
+              <Button asChild variant='outline' size='sm'>
                 <Link to='/topics/$key' params={{ key: 'new' }}>
                   {t('topics.new')}
                 </Link>
@@ -224,7 +212,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           <div className='flex shrink-0 flex-wrap gap-2'>
             <Button
               type='button'
-              className={kit.btnPrimary}
+              size='sm'
               onClick={() => {
                 setName(topic.name)
                 setEditOpen(true)
@@ -236,7 +224,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
             <Button
               type='button'
               variant='outline'
-              className={kit.btnGhost}
+              size='sm'
               disabled={isDefault || enableMutation.isPending}
               onClick={() => enableMutation.mutate(!topic.enabled)}
             >
@@ -265,64 +253,54 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    {t('topics.deleteConfirmTitle')}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('topics.deleteConfirmBody', { name: topic.name })}
-                    {caseRefCount > 0 ? (
-                      <p className='mt-3'>
-                        {t('topics.deleteWillRemoveRules', {
-                          count: caseRefCount,
-                        })}
-                      </p>
-                    ) : null}
-                    {edgeRefCount > 0 ? (
-                      <p className='mt-1'>
-                        {t('topics.deleteWillUnbindNodes', {
-                          count: edgeRefCount,
-                        })}
-                      </p>
-                    ) : null}
-                    {queuedCount > 0 ? (
-                      <p className='mt-1'>
-                        {t('topics.deleteWillFailQueued', {
-                          count: queuedCount,
-                        })}
-                      </p>
-                    ) : null}
-                    {hasImpact ? (
-                      <label className='mt-4 flex cursor-pointer items-start gap-2'>
-                        <Checkbox
-                          checked={ackImpact}
-                          onCheckedChange={(checked) =>
-                            setAckImpact(checked === true)
-                          }
-                          data-testid='topic-delete-ack'
-                        />
-                        <span>{t('topics.deleteAckImpact')}</span>
-                      </label>
-                    ) : null}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel type='button'>
-                    {t('common.cancel')}
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    type='button'
-                    onClick={() => deleteMutation.mutate()}
-                    className='bg-destructive text-white hover:bg-destructive/90'
-                    disabled={hasImpact ? !ackImpact : false}
-                  >
-                    {t('topics.delete')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmDialog
+              open={deleteOpen}
+              onOpenChange={setDeleteOpen}
+              destructive
+              isLoading={deleteMutation.isPending}
+              disabled={hasImpact ? !ackImpact : false}
+              title={t('topics.deleteConfirmTitle')}
+              desc={
+                <div className='text-sm'>
+                  {t('topics.deleteConfirmBody', { name: topic.name })}
+                  {caseRefCount > 0 ? (
+                    <p className='mt-3'>
+                      {t('topics.deleteWillRemoveRules', {
+                        count: caseRefCount,
+                      })}
+                    </p>
+                  ) : null}
+                  {edgeRefCount > 0 ? (
+                    <p className='mt-1'>
+                      {t('topics.deleteWillUnbindNodes', {
+                        count: edgeRefCount,
+                      })}
+                    </p>
+                  ) : null}
+                  {queuedCount > 0 ? (
+                    <p className='mt-1'>
+                      {t('topics.deleteWillFailQueued', { count: queuedCount })}
+                    </p>
+                  ) : null}
+                </div>
+              }
+              confirmText={t('topics.delete')}
+              cancelBtnText={t('common.cancel')}
+              handleConfirm={() => deleteMutation.mutate()}
+            >
+              {hasImpact ? (
+                <label className='flex cursor-pointer items-start gap-2 text-sm'>
+                  <Checkbox
+                    checked={ackImpact}
+                    onCheckedChange={(checked) =>
+                      setAckImpact(checked === true)
+                    }
+                    data-testid='topic-delete-ack'
+                  />
+                  <span>{t('topics.deleteAckImpact')}</span>
+                </label>
+              ) : null}
+            </ConfirmDialog>
           </div>
         </div>
         <div className='mt-1 flex max-w-full flex-wrap items-center gap-2 text-xs'>
@@ -386,16 +364,20 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           <DialogHeader>
             <DialogTitle>{t('topics.editInfo')}</DialogTitle>
           </DialogHeader>
-          <div className='space-y-1.5'>
-            <Label htmlFor='topic-name'>{t('topics.fieldName')}</Label>
-            <Input
-              id='topic-name'
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete='off'
-            />
-          </div>
-          <div className='flex justify-end gap-2'>
+          <FieldGroup className='gap-4'>
+            <Field>
+              <FieldLabel htmlFor='topic-name'>
+                {t('topics.fieldName')}
+              </FieldLabel>
+              <Input
+                id='topic-name'
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete='off'
+              />
+            </Field>
+          </FieldGroup>
+          <DialogFooter>
             <Button
               type='button'
               variant='outline'
@@ -410,7 +392,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
             >
               {t('common.save')}
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Reveal>

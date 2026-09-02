@@ -8,9 +8,9 @@ import type { TaskRecord } from '@/lib/api/types'
 import { formatDateTime, formatUserLabel } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/ui/reveal'
+import { DetailField as Field } from '@/components/detail-field'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { DetailField as Field } from '@/components/detail-field'
 import { taskStatusLabelKey } from './list-panel'
 
 type Props = {
@@ -26,7 +26,7 @@ function TaskFields({
 }) {
   const statusKey = taskStatusLabelKey(task.status)
   return (
-    <dl className='space-y-3'>
+    <dl className='flex flex-col gap-3'>
       <Field label={t('tasks.fieldId')} value={task.id} />
       <Field
         label={t('tasks.fieldStatus')}
@@ -95,7 +95,7 @@ export function TaskDetailPanel({ id }: Props) {
 
   if (detailQuery.isError) {
     return (
-      <div data-testid='task-detail-panel' className='space-y-3'>
+      <div data-testid='task-detail-panel' className='flex flex-col gap-3'>
         <ErrorBanner
           message={taskActionErrorMessage(detailQuery.error, t)}
           onRetry={() => void detailQuery.refetch()}
@@ -108,7 +108,7 @@ export function TaskDetailPanel({ id }: Props) {
   if (!task) return null
 
   return (
-    <Reveal className='space-y-4' data-testid='task-detail-panel'>
+    <Reveal className='flex flex-col gap-4' data-testid='task-detail-panel'>
       <div className='flex flex-wrap items-start justify-between gap-3'>
         <div>
           <h2 className='text-lg font-semibold'>{task.id}</h2>

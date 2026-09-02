@@ -126,7 +126,7 @@ export function TaskFlowTable({
   )
 
   return (
-    <div data-routing-table className={cn('space-y-3', className)}>
+    <div data-routing-table className={cn('flex flex-col gap-3', className)}>
       {showHeader && !preview ? (
         <div className='flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4'>
           <div className='flex min-w-0 items-center gap-3'>

@@ -46,7 +46,7 @@ export function WizardChrome({
               <div className='flex items-center gap-1.5'>
                 <span
                   className={cn(
-                    'grid size-5 place-items-center rounded-full border text-[11px] font-semibold',
+                    'grid size-5 place-items-center rounded-full border text-xs font-semibold',
                     i < step
                       ? 'border-success/50 text-success'
                       : i === step

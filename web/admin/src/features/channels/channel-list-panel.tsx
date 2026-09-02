@@ -46,7 +46,7 @@ export function ChannelListPanel({
       className='flex h-full min-h-0 flex-col'
       data-testid='channels-list-panel'
     >
-      <div className='space-y-2 border-b px-4 py-3'>
+      <div className='flex flex-col gap-2 border-b px-4 py-3'>
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}

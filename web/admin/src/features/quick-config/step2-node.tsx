@@ -86,7 +86,7 @@ export function Step2Node({ shared, next, back }: Props) {
       nextLabel={t('quickConfig.next')}
       nextDisabled={!canAdvance || busy || !shared.caseRecord}
     >
-      <div className='space-y-3'>
+      <div className='flex flex-col gap-3'>
         <div className='flex items-center justify-between gap-2'>
           <h3 className='text-sm font-semibold'>
             {t('quickConfig.nodeSelection')}
@@ -130,7 +130,7 @@ export function Step2Node({ shared, next, back }: Props) {
         {edgesQuery.isLoading ? (
           <LoadingSkeleton rows={2} />
         ) : edges.length === 0 ? null : (
-          <ul className='space-y-1'>
+          <ul className='flex flex-col gap-1'>
             {edges.map((edge) => {
               const online = presence.find(
                 (row) =>
@@ -138,11 +138,11 @@ export function Step2Node({ shared, next, back }: Props) {
               )
               return (
                 <li key={edge.id}>
-                  <button
-                    type='button'
+                  <Button
+                    variant='outline'
                     onClick={() => shared.updateSelectedEdge(edge.id)}
                     className={cn(
-                      'flex w-full items-center justify-between rounded-md border border-border px-3 py-2.5 text-left',
+                      'h-auto w-full items-center justify-between rounded-md px-3 py-2.5 text-left',
                       shared.selectedEdgeId === edge.id &&
                         'border-primary bg-muted/60'
                     )}
@@ -158,7 +158,7 @@ export function Step2Node({ shared, next, back }: Props) {
                         ? t('quickConfig.nodeOnline')
                         : t('quickConfig.nodeOffline')}
                     </span>
-                  </button>
+                  </Button>
                 </li>
               )
             })}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
   Popover,
@@ -66,8 +67,10 @@ export function TimeRangeControl({
       <Popover open={open} onOpenChange={(next) => setOpen(next)}>
         <div className='inline-flex h-7 items-center rounded-lg bg-muted p-0.75 text-muted-foreground'>
           <PopoverTrigger asChild>
-            <button
+            <Button
               type='button'
+              variant={isCustom ? 'outline' : 'ghost'}
+              size='sm'
               aria-label={t('dashboard.workbench.range')}
               className={cn(
                 'inline-flex h-full items-center gap-1.5 rounded-md border border-transparent px-2.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50',
@@ -84,7 +87,7 @@ export function TimeRangeControl({
                   </span>
                 </span>
               ) : null}
-            </button>
+            </Button>
           </PopoverTrigger>
         </div>
         <PopoverContent align='end' className='w-auto p-0'>

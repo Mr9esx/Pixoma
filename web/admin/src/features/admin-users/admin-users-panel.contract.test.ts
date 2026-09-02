@@ -29,7 +29,7 @@ describe('admin users panel', () => {
     expect(panel).toMatch(/deleteAdminUser/)
     expect(panel).toMatch(/admin-user-password/)
     expect(panel).toMatch(/admin-reset-password/)
-    expect(panel).toMatch(/AlertDialog/)
+    expect(panel).toMatch(/ConfirmDialog/)
   })
 
   it('keeps password hashes out of the frontend model', () => {

@@ -1,6 +1,14 @@
 import type { ReactNode } from 'react'
-import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 import { cn } from '@/lib/utils'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export type MonitorStat = { label: string; value: string }
 
@@ -10,7 +18,7 @@ export function MonitorCard({
   stats,
   compact = false,
   className,
-  "data-testid": dataTestId,
+  'data-testid': dataTestId,
   children,
   plain = false,
 }: {
@@ -19,39 +27,34 @@ export function MonitorCard({
   stats: MonitorStat[]
   compact?: boolean
   className?: string
-  "data-testid"?: string
+  'data-testid'?: string
   plain?: boolean
   children: ReactNode
 }) {
   return (
-    <div
-      className={cn(
-        'flex min-w-0 flex-1 flex-col rounded-xl border bg-card p-4 text-card-foreground shadow-none',
-        className
-      )}
+    <Card
+      className={cn('min-w-0 flex-1 gap-3 py-4', className)}
       data-testid={dataTestId}
     >
-      <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
-        <div>
-          <h2 className='text-base font-semibold'>{title}</h2>
-          {Object.keys(config).length > 0 ? (
-            <div className='mt-3 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground'>
-              {Object.entries(config).map(([key, entry]) => (
-                <span key={key} className='inline-flex items-center gap-1.5'>
-                  <span
-                    className='size-2 rounded-full'
-                    style={{ backgroundColor: entry.color }}
-                  />
-                  {entry.label}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
-      <div
+      <CardHeader className='gap-3 px-4'>
+        <CardTitle className='text-base font-semibold'>{title}</CardTitle>
+        {Object.keys(config).length > 0 ? (
+          <CardDescription className='flex flex-wrap items-center gap-4 text-xs text-muted-foreground'>
+            {Object.entries(config).map(([key, entry]) => (
+              <span key={key} className='inline-flex items-center gap-1.5'>
+                <span
+                  className='size-2 rounded-full'
+                  style={{ backgroundColor: entry.color }}
+                />
+                {entry.label}
+              </span>
+            ))}
+          </CardDescription>
+        ) : null}
+      </CardHeader>
+      <CardContent
         className={cn(
-          'grid min-h-0 flex-1 gap-1.5',
+          'grid min-h-0 flex-1 gap-1.5 px-4',
           stats.length === 0
             ? 'grid-cols-1'
             : compact
@@ -63,7 +66,10 @@ export function MonitorCard({
           {plain ? (
             <div className='h-full w-full'>{children}</div>
           ) : (
-            <ChartContainer config={config} className='aspect-auto h-full w-full'>
+            <ChartContainer
+              config={config}
+              className='aspect-auto h-full w-full'
+            >
               {children}
             </ChartContainer>
           )}
@@ -87,12 +93,64 @@ export function MonitorCard({
                 >
                   {stat.value}
                 </p>
-                <p className='text-[11px] text-muted-foreground'>{stat.label}</p>
+                <p className='text-xs text-muted-foreground'>{stat.label}</p>
               </div>
             ))}
           </div>
         ) : null}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export function MonitorCardSkeleton({
+  compact = false,
+  statsCells = compact ? 4 : 3,
+  className,
+}: {
+  compact?: boolean
+  statsCells?: number
+  className?: string
+}) {
+  return (
+    <Card className={cn('min-w-0 flex-1 gap-3 py-4', className)}>
+      <CardHeader className='gap-3 px-4'>
+        <Skeleton className='h-4 w-28' />
+        <Skeleton className='h-3 w-44' />
+      </CardHeader>
+      <CardContent
+        className={cn(
+          'grid min-h-0 flex-1 gap-1.5 px-4',
+          compact
+            ? 'lg:grid-cols-[minmax(0,1fr)_122px]'
+            : 'lg:grid-cols-[minmax(0,1fr)_72px]'
+        )}
+      >
+        <div className='h-full min-h-[150px] w-full min-w-0'>
+          <Skeleton className='h-full w-full' />
+        </div>
+        <div
+          className={cn(
+            'grid content-center gap-2',
+            compact
+              ? 'grid-cols-2 gap-1.5'
+              : 'grid-cols-3 lg:grid-cols-1 lg:text-right'
+          )}
+        >
+          {Array.from({ length: statsCells }, (_, index) => (
+            <div
+              key={index}
+              className={cn(
+                'flex flex-col items-center gap-1',
+                !compact && 'lg:items-end'
+              )}
+            >
+              <Skeleton className='h-4 w-12' />
+              <Skeleton className='h-2.5 w-10' />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

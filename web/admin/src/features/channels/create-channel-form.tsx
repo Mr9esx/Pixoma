@@ -6,8 +6,8 @@ import { createChannel, type Channel } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
 import { DialogFooter } from '@/components/ui/dialog'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { SecretInput } from '@/components/secret-input'
 
 type Props = {
@@ -32,29 +32,31 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
 
   return (
     <div className='flex flex-1 flex-col gap-4'>
-      <div className='space-y-1.5'>
-        <Label>{t('channels.platform')}</Label>
-        <Input value='Telegram' disabled />
-      </div>
-      <div className='space-y-1.5'>
-        <Label htmlFor='channel-name'>{t('channels.name')}</Label>
-        <Input
-          id='channel-name'
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          autoComplete='off'
-        />
-      </div>
-      <div className='space-y-1.5'>
-        <Label htmlFor='channel-token'>{t('channels.token')}</Label>
-        <SecretInput
-          id='channel-token'
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          placeholder='123456:ABC…'
-          autoComplete='off'
-        />
-      </div>
+      <FieldGroup className='gap-4'>
+        <Field data-disabled='true'>
+          <FieldLabel>{t('channels.platform')}</FieldLabel>
+          <Input value='Telegram' disabled />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor='channel-name'>{t('channels.name')}</FieldLabel>
+          <Input
+            id='channel-name'
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete='off'
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor='channel-token'>{t('channels.token')}</FieldLabel>
+          <SecretInput
+            id='channel-token'
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder='123456:ABC…'
+            autoComplete='off'
+          />
+        </Field>
+      </FieldGroup>
       <DialogFooter className='shrink-0'>
         <Button type='button' variant='outline' onClick={onCancel}>
           {t('common.cancel')}

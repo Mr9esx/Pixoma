@@ -23,7 +23,10 @@ export function WorkbenchDataBoard({
   ]
 
   return (
-    <div data-testid='workbench-data-board' className='min-w-0 space-y-4'>
+    <div
+      data-testid='workbench-data-board'
+      className='flex min-w-0 flex-col gap-4'
+    >
       <WorkbenchContribution />
       <WorkbenchOverviewCards />
       <div className='flex items-center justify-start'>

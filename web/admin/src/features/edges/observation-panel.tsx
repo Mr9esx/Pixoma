@@ -14,17 +14,10 @@ import {
 import type { MetricsRange, MetricsWindow } from '@/lib/api/edges'
 import type { EdgeMetricsResponse, TaskRecord } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import {
-  ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -44,7 +37,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -57,7 +49,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { Pill, type PillTone } from '@/components/kibo-ui/pill'
+import { MonitorCard, MonitorCardSkeleton } from '@/components/monitor-card'
 import { SectionHead } from '@/components/section-head'
 import { TaskDetailPanel } from '@/features/tasks/detail-panel'
 import { taskStatusLabelKey } from '@/features/tasks/list-panel'
@@ -149,74 +141,8 @@ function ioStats(
   ]
 }
 
-// Sprint health 卡片：标题在上，主体左图右值（桌面端右列 92px 统计）。
-function LineCardShell({
-  title,
-  config,
-  stats,
-  compact = false,
-  children,
-}: {
-  title: string
-  config: ChartConfig
-  stats: StatItem[]
-  compact?: boolean
-  children: ReactNode
-}) {
-  return (
-    <Card className='min-w-0 flex-1 gap-3 rounded-md border-border py-4'>
-      <CardHeader className='gap-3 px-4'>
-        <CardTitle className='text-base font-semibold'>{title}</CardTitle>
-        <CardDescription className='flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground'>
-          {Object.entries(config).map(([key, entry]) => (
-            <span key={key} className='inline-flex items-center gap-1.5'>
-              <span
-                className='size-2 rounded-full'
-                style={{ backgroundColor: entry.color }}
-              />
-              {entry.label}
-            </span>
-          ))}
-        </CardDescription>
-      </CardHeader>
-      <CardContent
-        className={
-          compact
-            ? 'grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_122px]'
-            : 'grid min-h-0 flex-1 gap-1.5 lg:grid-cols-[minmax(0,1fr)_72px]'
-        }
-      >
-        <div className='h-full min-h-[120px] w-full min-w-0'>
-          <ChartContainer config={config} className='aspect-auto h-full w-full'>
-            {children}
-          </ChartContainer>
-        </div>
-        <div
-          className={
-            compact
-              ? 'grid grid-cols-2 content-center gap-1.5 text-center lg:text-right'
-              : 'grid grid-cols-3 content-center gap-2 text-center lg:grid-cols-1 lg:text-right'
-          }
-        >
-          {stats.map((stat) => (
-            <div key={stat.label}>
-              <p
-                className={
-                  compact
-                    ? 'text-xs leading-5 font-semibold'
-                    : 'text-lg leading-6 font-semibold'
-                }
-              >
-                {stat.value}
-              </p>
-              <p className='text-[11px] text-muted-foreground'>{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
+// Sprint health 卡片：标题在上，主体左图右值。
+const LineCardShell = MonitorCard
 
 function CpuCard({ series }: { series: MetricsPoint[] }) {
   const { t } = useTranslation()
@@ -651,12 +577,6 @@ function statusTagClass(status: string): string {
   return 'border-border bg-muted text-muted-foreground'
 }
 
-function statusTagDot(status: string): PillTone {
-  if (status === 'succeeded') return 'success'
-  if (status === 'failed') return 'error'
-  return 'neutral'
-}
-
 type TasksPagination = {
   offset: number
   pageSize: number
@@ -709,12 +629,12 @@ function TasksSection({
                 return (
                   <TableRow key={task.id}>
                     <TableCell className='px-4 py-3'>
-                      <Pill
-                        dot={statusTagDot(task.status)}
+                      <Badge
+                        variant='outline'
                         className={statusTagClass(task.status)}
                       >
                         {statusKey ? t(statusKey) : task.status}
-                      </Pill>
+                      </Badge>
                     </TableCell>
                     <TableCell className='max-w-32 truncate py-3'>
                       {task.case_id}
@@ -902,8 +822,10 @@ function MonitoringSection({
         >
           <div className='inline-flex h-7 items-center rounded-lg bg-muted p-0.75 text-muted-foreground'>
             <PopoverTrigger asChild>
-              <button
+              <Button
                 type='button'
+                variant={metricsRange.kind === 'custom' ? 'outline' : 'ghost'}
+                size='sm'
                 aria-label={t('edges.monitorRange')}
                 className={cn(
                   'inline-flex h-full items-center gap-1.5 rounded-md border border-transparent px-2.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50',
@@ -918,7 +840,7 @@ function MonitoringSection({
                     {customTime}
                   </span>
                 ) : null}
-              </button>
+              </Button>
             </PopoverTrigger>
           </div>
           <PopoverContent align='end' className='w-auto p-0'>
@@ -1024,61 +946,15 @@ function MonitoringSkeleton() {
   return (
     <div className='flex flex-col gap-4' role='status' aria-label='loading'>
       <div className='flex flex-col gap-4 xl:flex-row'>
-        <ChartSkeleton />
-        <ChartSkeleton />
+        <MonitorCardSkeleton />
+        <MonitorCardSkeleton />
       </div>
       <div className='flex flex-col gap-4 xl:flex-row'>
-        <ChartSkeleton />
-        <ChartSkeleton />
+        <MonitorCardSkeleton />
+        <MonitorCardSkeleton />
       </div>
-      <ChartSkeleton compact />
+      <MonitorCardSkeleton compact />
     </div>
-  )
-}
-
-// 复用 LineCardShell 的卡壳、头部两行与右列统计占位，保证骨架高度与真实图表一致。
-function ChartSkeleton({ compact = false }: { compact?: boolean }) {
-  const statsCells = compact ? 4 : 3
-  return (
-    <Card className='min-w-0 flex-1 gap-3 rounded-md border-border py-4'>
-      <CardHeader className='gap-3 px-4'>
-        <Skeleton className='h-4 w-28' />
-        <Skeleton className='h-3 w-44' />
-      </CardHeader>
-      <CardContent
-        className={cn(
-          'grid min-h-0 flex-1 gap-1.5',
-          compact
-            ? 'lg:grid-cols-[minmax(0,1fr)_122px]'
-            : 'lg:grid-cols-[minmax(0,1fr)_72px]'
-        )}
-      >
-        <div className='h-full min-h-[150px] w-full min-w-0'>
-          <Skeleton className='h-full w-full' />
-        </div>
-        <div
-          className={cn(
-            'grid content-center gap-2',
-            compact
-              ? 'grid-cols-2 gap-1.5'
-              : 'grid-cols-3 lg:grid-cols-1 lg:text-right'
-          )}
-        >
-          {Array.from({ length: statsCells }, (_, i) => (
-            <div
-              key={i}
-              className={cn(
-                'flex flex-col items-center gap-1',
-                !compact && 'lg:items-end'
-              )}
-            >
-              <Skeleton className='h-4 w-12' />
-              <Skeleton className='h-2.5 w-10' />
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
   )
 }
 

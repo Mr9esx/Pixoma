@@ -5,9 +5,9 @@ import { getSession } from '@/lib/api/sessions'
 import type { SessionRecord } from '@/lib/api/types'
 import { formatDateTime, formatUserLabel } from '@/lib/format'
 import { Reveal } from '@/components/ui/reveal'
+import { DetailField as Field } from '@/components/detail-field'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { DetailField as Field } from '@/components/detail-field'
 import { sessionStatusLabelKey } from './list-panel'
 
 type Props = {
@@ -35,7 +35,7 @@ function SessionFields({
 }) {
   const statusKey = sessionStatusLabelKey(session.status)
   return (
-    <dl className='space-y-3'>
+    <dl className='flex flex-col gap-3'>
       <Field label={t('sessions.fieldId')} value={session.id} />
       <Field
         label={t('sessions.fieldStatus')}
@@ -71,7 +71,7 @@ function SessionFields({
         label={t('sessions.fieldUpdatedAt')}
         value={formatDateTime(session.updated_at)}
       />
-      <div className='space-y-2'>
+      <div className='flex flex-col gap-2'>
         <dt className='text-xs font-medium text-muted-foreground'>
           {t('sessions.fieldDraft')}
         </dt>
@@ -101,7 +101,7 @@ export function SessionDetailPanel({ id }: Props) {
 
   if (detailQuery.isError) {
     return (
-      <div data-testid='session-detail-panel' className='space-y-3'>
+      <div data-testid='session-detail-panel' className='flex flex-col gap-3'>
         <ErrorBanner
           message={errorMessage(detailQuery.error)}
           onRetry={() => void detailQuery.refetch()}
@@ -114,7 +114,7 @@ export function SessionDetailPanel({ id }: Props) {
   if (!session) return null
 
   return (
-    <Reveal className='space-y-4' data-testid='session-detail-panel'>
+    <Reveal className='flex flex-col gap-4' data-testid='session-detail-panel'>
       <div>
         <h2 className='text-lg font-semibold'>{session.id}</h2>
         <p className='text-sm text-muted-foreground'>

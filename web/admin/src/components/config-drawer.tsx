@@ -1,5 +1,4 @@
 import { type SVGProps } from 'react'
-import { Root as Radio, Item } from '@radix-ui/react-radio-group'
 import { CircleCheck, RotateCcw, Settings } from 'lucide-react'
 import { IconDir } from '@/assets/custom/icon-dir'
 import { IconLayoutCompact } from '@/assets/custom/icon-layout-compact'
@@ -15,6 +14,11 @@ import { useDirection } from '@/context/direction-provider'
 import { type Collapsible, useLayout } from '@/context/layout-provider'
 import { useTheme } from '@/context/theme-provider'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import {
+  RadioGroup as ShadcnRadioGroup,
+  RadioGroupItem as ShadcnRadioGroupItem,
+} from '@/components/ui/radio-group'
 import {
   Sheet,
   SheetContent,
@@ -58,7 +62,7 @@ export function ConfigDrawer() {
             Adjust the appearance and layout to suit your preferences.
           </SheetDescription>
         </SheetHeader>
-        <div className='space-y-6 overflow-y-auto px-4'>
+        <div className='flex flex-col gap-6 overflow-y-auto px-4'>
           <ThemeConfig />
           <SidebarConfig />
           <LayoutConfig />
@@ -128,16 +132,22 @@ function RadioGroupItem({
   isTheme?: boolean
 }) {
   return (
-    <Item
-      value={item.value}
-      className={cn('group outline-none', 'transition duration-200 ease-in')}
-      aria-label={`Select ${item.label.toLowerCase()}`}
-      aria-describedby={`${item.value}-description`}
+    <Label
+      className={cn(
+        'group transition duration-200 ease-in outline-none',
+        'focus-visible:[&>div]:ring-ring has-data-[state=checked]:[&>div]:ring-primary'
+      )}
     >
+      <ShadcnRadioGroupItem
+        value={item.value}
+        className='sr-only'
+        aria-label={`Select ${item.label.toLowerCase()}`}
+        aria-describedby={`${item.value}-description`}
+      />
       <div
         className={cn(
-          'relative rounded-[6px] ring-[1px] ring-border',
-          'group-data-[state=checked]:shadow-2xl group-data-[state=checked]:ring-primary',
+          'relative rounded-md ring-1 ring-border',
+          'group-has-data-[state=checked]:ring-primary',
           'group-focus-visible:ring-2'
         )}
         role='img'
@@ -146,7 +156,7 @@ function RadioGroupItem({
       >
         <CircleCheck
           className={cn(
-            'size-6 fill-primary stroke-white',
+            'size-6 fill-primary stroke-primary-foreground',
             'group-data-[state=unchecked]:hidden',
             'absolute top-0 right-0 translate-x-1/2 -translate-y-1/2'
           )}
@@ -167,7 +177,7 @@ function RadioGroupItem({
       >
         {item.label}
       </div>
-    </Item>
+    </Label>
   )
 }
 
@@ -181,7 +191,7 @@ function ThemeConfig() {
         onReset={() => setTheme(defaultTheme)}
         resetAriaLabel='Reset theme preference to default'
       />
-      <Radio
+      <ShadcnRadioGroup
         value={theme}
         onValueChange={setTheme}
         className='grid w-full max-w-md grid-cols-2 gap-4'
@@ -202,7 +212,7 @@ function ThemeConfig() {
         ].map((item) => (
           <RadioGroupItem key={item.value} item={item} isTheme />
         ))}
-      </Radio>
+      </ShadcnRadioGroup>
       <div id='theme-description' className='sr-only'>
         Choose between light mode or dark mode
       </div>
@@ -220,7 +230,7 @@ function SidebarConfig() {
         onReset={() => setVariant(defaultVariant)}
         resetAriaLabel='Reset sidebar style to default'
       />
-      <Radio
+      <ShadcnRadioGroup
         value={variant}
         onValueChange={setVariant}
         className='grid w-full max-w-md grid-cols-3 gap-4'
@@ -246,7 +256,7 @@ function SidebarConfig() {
         ].map((item) => (
           <RadioGroupItem key={item.value} item={item} />
         ))}
-      </Radio>
+      </ShadcnRadioGroup>
       <div id='sidebar-description' className='sr-only'>
         Choose between inset, floating, or standard sidebar layout
       </div>
@@ -271,7 +281,7 @@ function LayoutConfig() {
         }}
         resetAriaLabel='Reset layout options to default'
       />
-      <Radio
+      <ShadcnRadioGroup
         value={radioState}
         onValueChange={(v) => {
           if (v === 'default') {
@@ -304,7 +314,7 @@ function LayoutConfig() {
         ].map((item) => (
           <RadioGroupItem key={item.value} item={item} />
         ))}
-      </Radio>
+      </ShadcnRadioGroup>
       <div id='layout-description' className='sr-only'>
         Choose between default expanded, compact icon-only, or full layout mode
       </div>
@@ -322,7 +332,7 @@ function DirConfig() {
         onReset={() => setDir(defaultDir)}
         resetAriaLabel='Reset text direction to default'
       />
-      <Radio
+      <ShadcnRadioGroup
         value={dir}
         onValueChange={setDir}
         className='grid w-full max-w-md grid-cols-3 gap-4'
@@ -347,7 +357,7 @@ function DirConfig() {
         ].map((item) => (
           <RadioGroupItem key={item.value} item={item} />
         ))}
-      </Radio>
+      </ShadcnRadioGroup>
       <div id='direction-description' className='sr-only'>
         Choose between left-to-right or right-to-left site direction
       </div>

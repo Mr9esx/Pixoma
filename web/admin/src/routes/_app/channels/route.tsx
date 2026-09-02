@@ -10,7 +10,6 @@ import { Plus, Radio } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listChannels } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -30,7 +29,6 @@ import { MasterDetailShell } from '@/components/master-detail/master-detail-shel
 import { ChannelDetailPanel } from '@/features/channels/channel-detail-panel'
 import { ChannelListPanel } from '@/features/channels/channel-list-panel'
 import { CreateChannelForm } from '@/features/channels/create-channel-form'
-import { kit } from '@/features/edges/kit-classes'
 
 export const Route = createFileRoute('/_app/channels')({
   component: ChannelsLayout,
@@ -103,7 +101,8 @@ function ChannelsLayout() {
             onRetry={() => void listQuery.refetch()}
             footer={
               <Button
-                className={cn(kit.btnPrimary, 'w-full')}
+                size='sm'
+                className='w-full'
                 onClick={() => setCreateOpen(true)}
               >
                 <Plus className='size-4' />
@@ -130,10 +129,7 @@ function ChannelsLayout() {
                 <EmptyDescription>{t('channels.emptyDesc')}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
-                <Button
-                  className={kit.btnPrimary}
-                  onClick={() => setCreateOpen(true)}
-                >
+                <Button size='sm' onClick={() => setCreateOpen(true)}>
                   {t('channels.new')}
                 </Button>
               </EmptyContent>

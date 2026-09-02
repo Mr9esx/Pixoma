@@ -85,32 +85,32 @@ function NodeCard({ node }: { node: WorkflowNode }) {
                 {title}
               </CardTitle>
               {node.class_type !== title ? (
-                <p className='mt-1 truncate font-mono text-[11px] text-muted-foreground'>
+                <p className='mt-1 truncate font-mono text-xs text-muted-foreground'>
                   {node.class_type}
                 </p>
               ) : null}
             </div>
-            <span className='font-mono text-[11px] text-muted-foreground'>
+            <span className='font-mono text-xs text-muted-foreground'>
               {node.id}
             </span>
           </div>
         </CardHeader>
         <CardContent
           className={cn(
-            'relative space-y-2 overflow-hidden !px-3 !py-3 transition-all duration-500 ease-in-out',
+            'relative flex flex-col gap-2 overflow-hidden !px-3 !py-3 transition-all duration-500 ease-in-out',
             isOpen ? 'max-h-[300px]' : 'h-24'
           )}
         >
-          <div className='flex justify-between rounded-lg bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground'>
+          <div className='flex justify-between rounded-lg bg-muted/60 px-2.5 py-1.5 text-xs text-muted-foreground'>
             <span>输出 · {node.outputCount}</span>
             <span>输入 · {node.inputs.length}</span>
           </div>
           {node.inputs.length ? (
-            <ul className='space-y-1.5'>
+            <ul className='flex flex-col gap-1.5'>
               {node.inputs.map((input) => (
                 <li
                   key={input.name}
-                  className='flex min-w-0 items-center justify-between gap-2 text-[11px]'
+                  className='flex min-w-0 items-center justify-between gap-2 text-xs'
                 >
                   <span className='min-w-0 truncate text-muted-foreground'>
                     {input.ref ? '↳ ' : ''}
@@ -118,7 +118,7 @@ function NodeCard({ node }: { node: WorkflowNode }) {
                   </span>
                   <Badge
                     variant='outline'
-                    className='shrink-0 rounded-full px-1.5 py-0 text-[10px] font-normal text-muted-foreground'
+                    className='shrink-0 rounded-full px-1.5 py-0 text-xs font-normal text-muted-foreground'
                   >
                     {INPUT_TYPE_LABELS[input.kind]}
                   </Badge>
@@ -247,7 +247,7 @@ export function WorkflowImportSection({
 
   return (
     <section
-      className={cn('relative space-y-3', stepRail && 'pl-7')}
+      className={cn('relative flex flex-col gap-3', stepRail && 'pl-7')}
       data-testid='case-section-workflow-import'
     >
       <div className='flex items-center gap-2'>

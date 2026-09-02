@@ -78,14 +78,17 @@ export function LinkHealthSection({
         >
           <ul className='divide-y'>
             {health.breakpoints.map((b, i) => (
-              <li key={`${b.stage}-${i}`} className='space-y-1 px-3 py-2.5'>
+              <li
+                key={`${b.stage}-${i}`}
+                className='flex flex-col gap-1 px-3 py-2.5'
+              >
                 <div className='flex flex-wrap items-center gap-2'>
                   <span className='text-sm text-warning'>
                     {t(b.key, b.params)}
                   </span>
                   <span
                     className={cn(
-                      'rounded-sm px-1.5 py-0.5 text-[11px]',
+                      'rounded-sm px-1.5 py-0.5 text-xs',
                       b.fix === 'config'
                         ? 'bg-info/10 text-info-foreground'
                         : 'bg-destructive/10 text-destructive'
@@ -186,7 +189,7 @@ function ReferenceList({
                 </Link>
                 <span
                   className={cn(
-                    'ml-auto shrink-0 rounded-md border px-1.5 py-0.5 text-[11px]',
+                    'ml-auto shrink-0 rounded-md border px-1.5 py-0.5 text-xs',
                     stateClass[item.state]
                   )}
                 >

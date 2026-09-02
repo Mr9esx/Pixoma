@@ -7,8 +7,13 @@ import { createTopic, type Topic } from '@/lib/api/topics'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { DialogFooter } from '@/components/ui/dialog'
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 
 const KEY_PATTERN = /^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/
 
@@ -36,27 +41,31 @@ export function CreateTopicForm({ onDone, onCancel }: Props) {
 
   return (
     <div className='flex flex-1 flex-col gap-4'>
-      <div className='space-y-1.5'>
-        <Label htmlFor='topic-key'>{t('topics.fieldKey')}</Label>
-        <Input
-          id='topic-key'
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder='fast-gpu'
-          autoComplete='off'
-        />
-        <p className='text-xs text-muted-foreground'>{t('topics.keyHint')}</p>
-      </div>
-      <div className='space-y-1.5'>
-        <Label htmlFor='topic-name'>{t('topics.fieldName')}</Label>
-        <Input
-          id='topic-name'
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t('topics.namePlaceholder')}
-          autoComplete='off'
-        />
-      </div>
+      <FieldGroup className='gap-4'>
+        <Field data-invalid={!keyValid}>
+          <FieldLabel htmlFor='topic-key'>{t('topics.fieldKey')}</FieldLabel>
+          <Input
+            id='topic-key'
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder='fast-gpu'
+            autoComplete='off'
+          />
+          <FieldDescription className='text-xs'>
+            {t('topics.keyHint')}
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor='topic-name'>{t('topics.fieldName')}</FieldLabel>
+          <Input
+            id='topic-name'
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('topics.namePlaceholder')}
+            autoComplete='off'
+          />
+        </Field>
+      </FieldGroup>
       {createMutation.error ? (
         <Alert variant='destructive' className='px-3 py-2'>
           <TriangleAlert aria-hidden='true' />
