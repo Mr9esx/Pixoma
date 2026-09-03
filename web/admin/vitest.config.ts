@@ -91,6 +91,12 @@ export default defineConfig({
       'src/features/config-context/config-chain.contract.test.ts',
       'src/features/link-health/link-health.contract.test.ts',
       'src/features/link-health/lib/references.test.ts',
+      'src/features/config-topology/lib/walk-menu-workflows.test.ts',
+      'src/features/config-topology/lib/build-link-graph.test.ts',
+      'src/features/config-topology/lib/path-through.test.ts',
+      'src/features/config-topology/link-graph.contract.test.ts',
+      'src/features/config-topology/topology-card.contract.test.ts',
+      'src/features/config-topology/topology-dialog.contract.test.ts',
     ],
   },
 })

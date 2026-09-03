@@ -60,6 +60,7 @@ import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
 import { channelReferences } from '@/features/link-health/lib/references'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
+import { TopologyOpenButton } from '@/features/config-topology/topology-dialog'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
 import { MenuCardEditor } from '@/features/menu/menu-card-editor'
 import { TextTemplatesEditor } from '@/features/text-templates/text-templates-editor'
@@ -211,6 +212,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             <ChannelReachabilityTag query={reachabilityQuery} />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
+            <TopologyOpenButton kind='platform' id={ch.id} />
             <Button type='button' size='sm' onClick={() => setEditOpen(true)}>
               <PenLine className='size-3.5' strokeWidth={2} />
               {t('channels.edit')}
