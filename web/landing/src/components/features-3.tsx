@@ -68,8 +68,8 @@ export default function Features() {
               <Image
                 src={isDark ? "/images/simplify-dark.png" : "/images/simplify-light.png"}
                 alt="化繁为简：ComfyUI 节点被 Pixoma 简化为三段式工作流"
-                width={1024}
-                height={1365}
+                width={800}
+                height={1070}
                 className="absolute inset-0 size-full object-cover"
               />
             </Card>
