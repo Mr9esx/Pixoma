@@ -28,6 +28,15 @@ const BLUR_LAYER_STYLE = {
   maskImage: VIGNETTE_MASK,
 } as CSSProperties;
 
+const SIMPLIFY_VIGNETTE_MASK =
+  "radial-gradient(circle at center, transparent 0%, transparent 160px, black 100%)";
+
+const SIMPLIFY_BLUR_STYLE = {
+  ...BLUR_LAYER_STYLE,
+  WebkitMaskImage: SIMPLIFY_VIGNETTE_MASK,
+  maskImage: SIMPLIFY_VIGNETTE_MASK,
+} as CSSProperties;
+
 const WHITE_TINT_STYLE = {
   backgroundColor: "rgba(255, 255, 255, 1)",
   WebkitMaskMode: "alpha",
@@ -79,7 +88,7 @@ export default function Features() {
                   width={800}
                   height={1070}
                   className={IMAGE_CLASS}
-                  style={BLUR_LAYER_STYLE}
+                  style={SIMPLIFY_BLUR_STYLE}
                 />
               </div>
               <div
