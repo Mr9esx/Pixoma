@@ -1,18 +1,56 @@
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/motion-primitives";
+import { motion } from "motion/react";
 import {
-  ArrowUp,
-  ChevronDown,
-  CloudDownload,
-  HardDriveDownload,
-  Mic2,
-  MonitorDown,
-  Plus,
+  CloudCog,
+  Monitor,
+  Rocket,
 } from "lucide-react";
 import Image from "next/image";
+import { useState, type CSSProperties } from "react";
+import { useTheme } from "@/context/theme-provider";
+import { cn } from "@/lib/utils";
+
+type DeployMode = "local" | "cloud";
+
+const VIGNETTE_MASK =
+  "radial-gradient(circle at center, transparent 0%, transparent 136px, black 100%)";
+
+const IMAGE_CLASS = "absolute inset-0 size-full object-cover";
+
+const CROSSFADE = { duration: 0.45, ease: "easeInOut" as const };
+
+const BLUR_LAYER_STYLE = {
+  filter: "blur(64px)",
+  WebkitMaskMode: "alpha",
+  maskMode: "alpha",
+  WebkitMaskImage: VIGNETTE_MASK,
+  maskImage: VIGNETTE_MASK,
+} as CSSProperties;
+
+const WHITE_TINT_STYLE = {
+  backgroundColor: "rgba(255, 255, 255, 1)",
+  WebkitMaskMode: "alpha",
+  maskMode: "alpha",
+  WebkitMaskImage: VIGNETTE_MASK,
+  maskImage: VIGNETTE_MASK,
+} as CSSProperties;
+
+const DARK_TINT_STYLE = {
+  backgroundColor: "rgba(0, 0, 0, 1)",
+  WebkitMaskMode: "alpha",
+  maskMode: "alpha",
+  WebkitMaskImage: VIGNETTE_MASK,
+  maskImage: VIGNETTE_MASK,
+} as CSSProperties;
 
 export default function Features() {
+  const { theme } = useTheme();
+  const [mode, setMode] = useState<DeployMode>("local");
+  const showLocal = mode === "local";
+  const showCloud = mode === "cloud";
+  const isDark = theme === "dark";
+
   return (
     <section className="py-16 md:py-20">
       <div className="mx-auto max-w-7xl px-6">
@@ -27,12 +65,11 @@ export default function Features() {
         <Reveal className="**:data-[slot=card]:bg-background mt-8 grid gap-x-3 gap-y-6 md:mt-16 md:grid-cols-2 lg:grid-cols-3">
           <div className="row-span-2 grid grid-cols-subgrid gap-4">
             <Card className="aspect-9/12 relative overflow-hidden">
-              <AIInputIllustration />
               <Image
-                src="https://images.unsplash.com/photo-1656012710277-e103fe942e30?q=80&w=2342&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-                alt="abstract background"
-                width={670}
-                height={670}
+                src={isDark ? "/images/simplify-dark.png" : "/images/simplify-light.png"}
+                alt="化繁为简：ComfyUI 节点被 Pixoma 简化为三段式工作流"
+                width={1024}
+                height={1365}
                 className="absolute inset-0 size-full object-cover"
               />
             </Card>
@@ -58,17 +95,75 @@ export default function Features() {
 
           <div className="row-span-2 grid grid-cols-subgrid gap-4">
             <Card className="aspect-9/12 relative overflow-hidden">
-              <DownloadIllustration />
+              <motion.div
+                className="absolute inset-0"
+                initial={false}
+                animate={{ opacity: showLocal ? 1 : 0 }}
+                transition={CROSSFADE}
+              >
+                <Image
+                  src={isDark ? "/images/deploy-local-dark.jpg" : "/images/deploy-local.jpg"}
+                  alt="单机部署示意"
+                  width={1280}
+                  height={1024}
+                  className={IMAGE_CLASS}
+                />
+              </motion.div>
+              <motion.div
+                className="absolute inset-0"
+                initial={false}
+                animate={{ opacity: showCloud ? 1 : 0 }}
+                transition={CROSSFADE}
+              >
+                <Image
+                  src={isDark ? "/images/deploy-cloud-dark.jpg" : "/images/deploy-cloud.jpg"}
+                  alt="云端多节点部署示意"
+                  width={1280}
+                  height={1024}
+                  className={IMAGE_CLASS}
+                />
+              </motion.div>
 
-              <video
-                autoPlay
-                loop
-                preload="none"
-                src="https://videos.pexels.com/video-files/37957431/16106725_1440_2560_24fps.mp4"
-                className="absolute inset-0 size-full object-cover"
-                width="2700"
-                height="1440"
+              <motion.div
+                className="absolute inset-0 z-[1]"
+                initial={false}
+                animate={{ opacity: showLocal ? 1 : 0 }}
+                transition={CROSSFADE}
+                aria-hidden
+              >
+                <Image
+                  src={isDark ? "/images/deploy-local-dark.jpg" : "/images/deploy-local.jpg"}
+                  alt=""
+                  width={1280}
+                  height={1024}
+                  className={IMAGE_CLASS}
+                  style={BLUR_LAYER_STYLE}
+                />
+              </motion.div>
+              <motion.div
+                className="absolute inset-0 z-[1]"
+                initial={false}
+                animate={{ opacity: showCloud ? 1 : 0 }}
+                transition={CROSSFADE}
+                aria-hidden
+              >
+                <Image
+                  src={isDark ? "/images/deploy-cloud-dark.jpg" : "/images/deploy-cloud.jpg"}
+                  alt=""
+                  width={1280}
+                  height={1024}
+                  className={IMAGE_CLASS}
+                  style={BLUR_LAYER_STYLE}
+                />
+              </motion.div>
+
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 z-[1]"
+                style={isDark ? DARK_TINT_STYLE : WHITE_TINT_STYLE}
               />
+
+              <DeployModePicker mode={mode} onChange={setMode} />
             </Card>
 
             <p className="text-muted-foreground text-balance">
@@ -83,69 +178,57 @@ export default function Features() {
   );
 }
 
-function DownloadIllustration() {
+function DeployModePicker({
+  mode,
+  onChange,
+}: {
+  mode: DeployMode;
+  onChange: (mode: DeployMode) => void;
+}) {
   return (
-    <div className="z-1 absolute inset-0 m-auto size-fit scale-95">
-      <Button
-        variant="secondary"
-        className="bg-background/25 inset-ring inset-ring-foreground/25 ml-1 backdrop-blur"
-        size="sm"
-        nativeButton={false}
-        render={
-          <div>
-            <HardDriveDownload className="opacity-75" />
-            <span className="border-r pr-2">Download</span>
-            <ChevronDown className="opacity-50" />
-          </div>
-        }
-      />
+    <div className="z-[2] absolute bottom-3 left-3 flex w-[min(15rem,calc(100%-1.5rem))] flex-col gap-2">
+      <div className="bg-background/40 ring-foreground/10 flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring backdrop-blur-md">
+        <Rocket className="opacity-70 size-3.5" />
+        部署方式
+      </div>
 
-      <div className="mt-3 min-w-52 rounded-2xl bg-white p-1 ring ring-black/10 *:cursor-pointer">
-        <div className="peer flex gap-2 rounded-xl px-3 py-1.5 hover:bg-black/5">
-          <MonitorDown className="size-4 translate-y-0.5 text-black" />
-          <div className="space-y-0.5">
-            <div className="text-xs font-medium text-black">Computer</div>
-            <div className="text-xs text-black/50">16.1MB left</div>
+      <div className="bg-background/70 ring-foreground/10 rounded-2xl p-1 ring backdrop-blur-md">
+        <button
+          type="button"
+          onClick={() => onChange("local")}
+          aria-pressed={mode === "local"}
+          className={cn(
+            "flex w-full cursor-pointer items-center gap-2 rounded-xl px-2.5 py-1.5 text-left transition-colors",
+            mode === "local" ? "bg-foreground/8" : "hover:bg-foreground/5",
+          )}
+        >
+          <Monitor className="size-3.5 shrink-0 text-foreground/80" />
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="text-xs font-medium text-foreground">单机部署</div>
+            <div className="truncate text-[10px] text-foreground/55">一台本地电脑即可运行</div>
           </div>
-        </div>
+        </button>
 
-        <div className="not-peer-hover:bg-black/5 flex gap-2 rounded-xl px-3 py-1.5">
-          <CloudDownload className="size-4 translate-y-0.5 text-black" />
-          <div className="space-y-0.5">
-            <div className="text-xs font-medium text-black">Cloud</div>
-            <div className="text-xs text-black/50">Unlimited</div>
+        <button
+          type="button"
+          onClick={() => onChange("cloud")}
+          aria-pressed={mode === "cloud"}
+          className={cn(
+            "flex w-full cursor-pointer items-center gap-2 rounded-xl px-2.5 py-1.5 text-left transition-colors",
+            mode === "cloud" ? "bg-foreground/8" : "hover:bg-foreground/5",
+          )}
+        >
+          <CloudCog className="size-3.5 shrink-0 text-foreground/80" />
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="text-xs font-medium text-foreground">云端多节点</div>
+            <div className="truncate text-[10px] text-foreground/55">云端多节点任务调度</div>
           </div>
-        </div>
+        </button>
       </div>
     </div>
   );
 }
 
-function AIInputIllustration() {
-  return (
-    <div aria-hidden className="z-1 absolute inset-8 m-auto h-fit scale-95">
-      <div className="bg-card ring-foreground/15 mt-auto h-fit rounded-3xl p-3 ring">
-        <div className="text-muted-foreground p-2 pb-3 text-sm">
-          Ask Tailark what you need...
-        </div>
-        <div className="flex justify-between gap-3">
-          <div className="flex items-center gap-1">
-            <div className="hover:bg-muted flex size-7 cursor-pointer rounded-full *:m-auto *:size-4">
-              <Plus />
-            </div>
-            <div className="hover:bg-muted flex size-7 cursor-pointer rounded-full *:m-auto *:size-4">
-              <Mic2 />
-            </div>
-          </div>
-
-          <div className="bg-foreground text-background flex size-7 cursor-pointer rounded-full *:m-auto *:size-4 hover:brightness-110">
-            <ArrowUp />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function DynamicIslandIllustration() {
   return (

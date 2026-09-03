@@ -29,7 +29,7 @@ export default function HeroSection() {
 
                 <div className="mt-8 flex max-w-md flex-col gap-4">
                   <h1 className="text-balance text-5xl font-medium tracking-tight md:text-6xl">
-                    让你随时随地使用 ComfyUI{" "}
+                    让你随时随地{" "}
                     <span className="text-muted-foreground">
                       把灵感快速变成作品
                     </span>

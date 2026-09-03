@@ -8,29 +8,26 @@ export default function ContentSection() {
         <div className="grid gap-4 md:grid-cols-2 md:gap-6 lg:gap-12">
           <Reveal>
             <h2 className="max-w-md text-balance text-4xl font-medium tracking-tight lg:text-5xl">
-              A CRM workspace for every customer relationship.
+              Pixoma 是一个什么样的项目？
             </h2>
           </Reveal>
-          <Reveal className="space-y-6 lg:space-y-12" delay={0.08}>
+          <Reveal className="space-y-6 lg:space-y-6" delay={0.08}>
             <p className="text-muted-foreground text-balance text-lg">
-              Tailark keeps pipeline, conversations, tasks, and account history
-              connected so teams can spot the next best move, follow up with
-              context, and turn every customer signal into momentum.
+            ComfyUI 高度依赖本地电脑环境，出门在外就没法使用工作流。
+            Pixoma 是 ComfyUI 的代理抽象层，把你的工作流打包成可调用服务。随时随地可以调用，团队内也能一键共享复用，不再被设备束缚。
             </p>
 
-            <div className="grid gap-4 pt-6 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <p className="text-muted-foreground text-balance text-lg">
                 <span className="text-foreground font-medium">
-                  <Zap className="inline size-4 -translate-y-0.5" /> Fast.
+                  <Zap className="inline size-4 -translate-y-0.5" /> 一次构建，随处可用。
                 </span>{" "}
-                Move from signal to follow-up without losing context.
               </p>
 
               <p className="text-muted-foreground text-balance text-lg">
                 <span className="text-foreground font-medium">
-                  <Cpu className="inline size-4 -translate-y-0.5" /> Powerful.
+                  <Cpu className="inline size-4 -translate-y-0.5" /> 对外分享 AI 能力。
                 </span>{" "}
-                Unify pipeline, tasks, and account history.
               </p>
             </div>
           </Reveal>

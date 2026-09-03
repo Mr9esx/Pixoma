@@ -3,32 +3,29 @@ import { Logo } from "@/components/logo";
 
 const footerLinks = [
   {
-    name: "Product",
+    name: "其他项目",
     links: [
-      { href: "#", label: "Features" },
-      { href: "#", label: "Solutions" },
-      { href: "#", label: "Agents" },
-      { href: "#", label: "Pricing" },
+      { href: "https://kura.miaoplus.com", label: "KuRa" }
     ],
   },
-  {
-    name: "Company",
-    links: [
-      { href: "#", label: "About" },
-      { href: "#", label: "Blog" },
-      { href: "#", label: "Contact" },
-      { href: "#", label: "LinkedIn" },
-      { href: "#", label: "X" },
-    ],
-  },
-  {
-    name: "Legal",
-    links: [
-      { href: "#", label: "Licence" },
-      { href: "#", label: "Privacy Policy" },
-      { href: "#", label: "Terms of Service" },
-    ],
-  },
+  // {
+  //   name: "Company",
+  //   links: [
+  //     { href: "#", label: "About" },
+  //     { href: "#", label: "Blog" },
+  //     { href: "#", label: "Contact" },
+  //     { href: "#", label: "LinkedIn" },
+  //     { href: "#", label: "X" },
+  //   ],
+  // },
+  // {
+  //   name: "Legal",
+  //   links: [
+  //     { href: "#", label: "Licence" },
+  //     { href: "#", label: "Privacy Policy" },
+  //     { href: "#", label: "Terms of Service" },
+  //   ],
+  // },
 ];
 
 export default function Footer() {
@@ -39,6 +36,9 @@ export default function Footer() {
           <div className="col-span-full lg:col-span-3">
             <Link href="/" aria-label="go home">
               <Logo uniColor />
+              <span className="text-muted-foreground text-sm" style={{ marginLeft: '32px' }}>
+              创意不设限
+              </span>
             </Link>
           </div>
 

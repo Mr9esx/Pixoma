@@ -12,10 +12,10 @@ export default function DuskLandingPage() {
   return (
     <>
       <HeroSection />
-      <FeaturesThree />
       <Content />
+      <FeaturesThree />
       <FeaturesFour />
-      <Stats />
+      {/* <Stats /> */}
       <InstallSection />
       <FAQs />
       <CallToAction />

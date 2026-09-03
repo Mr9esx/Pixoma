@@ -12,8 +12,8 @@ export default function Features() {
       <div className="mx-auto max-w-7xl px-6">
         <Reveal>
           <h2 className="text-muted-foreground max-w-4xl text-balance text-4xl font-medium tracking-tight">
-            <span className="text-foreground">Handoffs without reset.</span>{" "}
-            <br /> Trust and context carry forward.
+            <span className="text-foreground">使用示例</span>{" "}
+            {/* <br /> Trust and context carry forward. */}
           </h2>
         </Reveal>
         <StaggerGroup className="mt-8 grid gap-6 md:mt-16 md:grid-cols-2 md:gap-3 lg:grid-cols-3">
@@ -22,8 +22,8 @@ export default function Features() {
               <div className="relative z-10 max-w-md p-8">
                 <p className="text-foreground/75 text-balance text-lg">
                   <span className="text-foreground font-medium">
-                    Seamless handoffs.{" "}
-                  </span>{" "}
+                    创建工作流{" "}
+                  </span>{" "}<br />
                   Ownership changes without resetting the relationship.
                 </p>
               </div>
@@ -43,8 +43,8 @@ export default function Features() {
               <div className="relative z-10 max-w-sm p-8">
                 <p className="text-balance text-lg text-zinc-950/75 selection:bg-zinc-950 selection:text-white">
                   <span className="font-medium text-zinc-950">
-                    Proactive alerts.{" "}
-                  </span>{" "}
+                    使用工作流{" "}
+                  </span>{" "}<br />
                   Surface renewals and quiet accounts before they slip.
                 </p>
               </div>
