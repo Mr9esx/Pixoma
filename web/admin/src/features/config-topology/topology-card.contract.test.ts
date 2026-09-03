@@ -24,5 +24,6 @@ describe('topology card contract', () => {
     expect(card).toContain('h-[360px]')
     expect(card).toContain('ErrorBanner')
     expect(source).not.toContain('checkChannelReachability')
+    expect(source).toContain('getQueryData')
   })
 })

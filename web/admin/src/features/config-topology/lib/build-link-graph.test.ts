@@ -115,13 +115,34 @@ describe('buildLinkGraph all', () => {
   })
 
   it('marks platform health pending when reachability is missing', () => {
-    const graph = buildLinkGraph(
-      source({ reachability: {} }),
-      { type: 'all' }
-    )
+    const graph = buildLinkGraph(source({ reachability: {} }), { type: 'all' })
     expect(graph.nodes.find((n) => n.id === 'platform:ch1')?.health).toBe(
       'pending'
     )
+  })
+
+  it('drops a platform whose only menu target is a missing workflow', () => {
+    const graph = buildLinkGraph(
+      source({
+        menus: { ch1: menuOpen('missing') },
+        cases: [],
+        topics: [],
+        edges: [],
+      }),
+      { type: 'all' }
+    )
+    expect(graph.nodes).toEqual([])
+    expect(graph.edges).toEqual([])
+  })
+
+  it('marks an offline node warn using edgeReferences', () => {
+    const graph = buildLinkGraph(
+      source({
+        presence: [{ id: 'n1', edge_online: false, comfy_running: false }],
+      }),
+      { type: 'all' }
+    )
+    expect(graph.nodes.find((n) => n.id === 'edge:n1')?.health).toBe('warn')
   })
 })
 

@@ -165,9 +165,13 @@ export function buildLinkGraph(
     }
   }
 
+  const nodeIds = new Set(rawNodes.map((n) => n.id))
+  const connectedEdges = rawEdges.filter(
+    (e) => nodeIds.has(e.source) && nodeIds.has(e.target)
+  )
   const degree = new Map<string, number>()
   for (const n of rawNodes) degree.set(n.id, 0)
-  for (const e of rawEdges) {
+  for (const e of connectedEdges) {
     degree.set(e.source, (degree.get(e.source) ?? 0) + 1)
     degree.set(e.target, (degree.get(e.target) ?? 0) + 1)
   }
@@ -178,7 +182,9 @@ export function buildLinkGraph(
     )
     return {
       nodes: rawNodes.filter((n) => keep.has(n.id)),
-      edges: rawEdges.filter((e) => keep.has(e.source) && keep.has(e.target)),
+      edges: connectedEdges.filter(
+        (e) => keep.has(e.source) && keep.has(e.target)
+      ),
     }
   }
 
@@ -190,7 +196,7 @@ export function buildLinkGraph(
   }
   const incoming = new Map<string, string[]>()
   const outgoing = new Map<string, string[]>()
-  for (const e of rawEdges) {
+  for (const e of connectedEdges) {
     outgoing.set(e.source, [...(outgoing.get(e.source) ?? []), e.target])
     incoming.set(e.target, [...(incoming.get(e.target) ?? []), e.source])
   }
@@ -214,6 +220,6 @@ export function buildLinkGraph(
   ])
   return {
     nodes: rawNodes.filter((n) => keep.has(n.id)),
-    edges: rawEdges.filter((e) => keep.has(e.source) && keep.has(e.target)),
+    edges: connectedEdges.filter((e) => keep.has(e.source) && keep.has(e.target)),
   }
 }

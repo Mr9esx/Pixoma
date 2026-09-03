@@ -80,6 +80,7 @@ function FlowCanvas({ graph }: { graph: TopologyGraph }) {
         onNodeClick={(_, node) => setSelectedId(node.id)}
         nodesDraggable={false}
         nodesConnectable={false}
+        deleteKeyCode={null}
         fitView
         minZoom={0.3}
         proOptions={{ hideAttribution: true }}

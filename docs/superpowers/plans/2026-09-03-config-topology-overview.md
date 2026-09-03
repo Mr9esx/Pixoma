@@ -45,11 +45,11 @@ base-ref: 15878a784532800bfd04edfc32da6cd70965a5bf
 
 **Produces:** `walkMenuWorkflows(menu: MenuTree): string[]` — 递归 items 与 card.buttons，收集 `open_workflow` 的 `workflow_id`，去重。
 
-- [ ] **Step 1: 写失败测试**（根按钮 + 卡片嵌套 + 忽略其它 action）
-- [ ] **Step 2: 跑测确认失败** `cd web/admin && pnpm vitest run src/features/config-topology/lib/walk-menu-workflows.test.ts`
-- [ ] **Step 3: 实现并登记 vitest include**
-- [ ] **Step 4: 测试通过**
-- [ ] **Step 5: Commit** `test: walk menu open_workflow ids for topology graph`
+- [x] **Step 1: 写失败测试**（根按钮 + 卡片嵌套 + 忽略其它 action）
+- [x] **Step 2: 跑测确认失败** `cd web/admin && pnpm vitest run src/features/config-topology/lib/walk-menu-workflows.test.ts`
+- [x] **Step 3: 实现并登记 vitest include**
+- [x] **Step 4: 测试通过**
+- [x] **Step 5: Commit** `test: walk menu open_workflow ids for topology graph`
 
 ### Task 2: buildLinkGraph + pathThrough
 
@@ -75,11 +75,11 @@ function pathThrough(graph, nodeId: string): { nodes: Set<string>; edges: Set<st
 
 节点 id：`platform:${id}` `case:${id}` `topic:${key}` `edge:${id}`。
 
-- [ ] **Step 1: 失败测试** — 四层边、多入口合并、全量丢孤立、缺入口有下游仍出现、焦点无边只留自己、health 来自 references、pending 当 reachability 缺失
-- [ ] **Step 2: 跑测失败**
-- [ ] **Step 3: 实现**
-- [ ] **Step 4: 通过**
-- [ ] **Step 5: Commit** `feat: build read-only config topology graph model`
+- [x] **Step 1: 失败测试** — 四层边、多入口合并、全量丢孤立、缺入口有下游仍出现、焦点无边只留自己、health 来自 references、pending 当 reachability 缺失
+- [x] **Step 2: 跑测失败**
+- [x] **Step 3: 实现**
+- [x] **Step 4: 通过**
+- [x] **Step 5: Commit** `feat: build read-only config topology graph model`
 
 ### Task 3: LinkGraph 只读画布
 
@@ -90,11 +90,11 @@ function pathThrough(graph, nodeId: string): { nodes: Set<string>; edges: Set<st
 - 点选 `pathThrough` 降透明；`Link`「打开详情」`nodrag`
 - 合同：无 `onConnect` 持久化；含 `data-testid='link-graph'`
 
-- [ ] **Step 1: 合同测试先写**
-- [ ] **Step 2: 确认失败**
-- [ ] **Step 3: 实现画布（nodeTypes 在模块作用域，引入 xyflow css）**
-- [ ] **Step 4: 通过**
-- [ ] **Step 5: Commit** `feat: add read-only React Flow config topology canvas`
+- [x] **Step 1: 合同测试先写**
+- [x] **Step 2: 确认失败**
+- [x] **Step 3: 实现画布（nodeTypes 在模块作用域，引入 xyflow css）**
+- [x] **Step 4: 通过**
+- [x] **Step 5: Commit** `feat: add read-only React Flow config topology canvas`
 
 ### Task 4: useTopologySource + 工作台卡片
 
@@ -105,11 +105,11 @@ function pathThrough(graph, nodeId: string): { nodes: Set<string>; edges: Set<st
 - Card `h-[360px]`，`ErrorBanner`/`LoadingSkeleton` 隔离
 - 合同：`data-testid='topology-card'` 在 data-board 顶部
 
-- [ ] **Step 1: 合同测试（卡片存在、不调用 checkChannelReachability）**
-- [ ] **Step 2: 失败**
-- [ ] **Step 3: 实现**
-- [ ] **Step 4: 通过**
-- [ ] **Step 5: Commit** `feat: show config topology card on workbench`
+- [x] **Step 1: 合同测试（卡片存在、不调用 checkChannelReachability）**
+- [x] **Step 2: 失败**
+- [x] **Step 3: 实现**
+- [x] **Step 4: 通过**
+- [x] **Step 5: Commit** `feat: show config topology card on workbench`
 
 ### Task 5: 详情 TopologyDialog
 
@@ -119,8 +119,8 @@ function pathThrough(graph, nodeId: string): { nodes: Set<string>; edges: Set<st
 - Dialog 标题「配置拓扑」，画布 focus 模式
 - 不移除 `link-health-section`
 
-- [ ] **Step 1: 四页合同测试（按钮 + 仍含 link-health-section）**
-- [ ] **Step 2: 失败**
-- [ ] **Step 3: 实现 Dialog 与入口**
-- [ ] **Step 4: `pnpm tsc -b` + 相关 vitest**
-- [ ] **Step 5: Commit** `feat: open focused topology dialog from resource details`
+- [x] **Step 1: 四页合同测试（按钮 + 仍含 link-health-section）**
+- [x] **Step 2: 失败**
+- [x] **Step 3: 实现 Dialog 与入口**
+- [x] **Step 4: `pnpm tsc -b` + 相关 vitest**
+- [x] **Step 5: Commit** `feat: open focused topology dialog from resource details`
