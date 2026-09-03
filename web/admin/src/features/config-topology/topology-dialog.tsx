@@ -59,7 +59,9 @@ function TopologyDialog({
   id: string
 }) {
   const { t } = useTranslation()
-  const { source, isLoading, isError, error, refetch } = useTopologySource()
+  const { source, isLoading, isError, error, refetch } = useTopologySource({
+    enabled: open,
+  })
   const graph = source
     ? buildLinkGraph(source, { type: 'focus', kind, id })
     : { nodes: [], edges: [] }

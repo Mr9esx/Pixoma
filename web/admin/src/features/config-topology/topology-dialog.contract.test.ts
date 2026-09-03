@@ -25,7 +25,7 @@ describe('topology dialog contract', () => {
   it('dialog uses focused graph mode', () => {
     const dialog = read('topology-dialog.tsx')
     expect(dialog).toContain("data-testid='topology-open'")
-    expect(dialog).toContain("type: 'focus'")
+    expect(dialog).toContain('enabled: open')
     expect(dialog).toContain('topology.title')
   })
 })

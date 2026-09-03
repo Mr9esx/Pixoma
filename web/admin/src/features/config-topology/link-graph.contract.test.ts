@@ -14,7 +14,7 @@ describe('link graph contract', () => {
     expect(graph).toContain("data-testid='link-graph'")
     expect(graph).toContain('nodesDraggable={false}')
     expect(graph).toContain('nodesConnectable={false}')
-    expect(graph).toContain('fitView')
+    expect(graph).toContain('deleteKeyCode={null}')
     expect(graph).toContain('Controls')
     expect(graph).not.toContain('onConnect')
     expect(graph).toContain('nodeTypes')
