@@ -230,3 +230,136 @@ func TestMigrate_ExistingTableAddsAllowSelfRegistration(t *testing.T) {
 		t.Fatal("expected AllowSelfRegistration to default to false")
 	}
 }
+
+
+func TestValidate_MediaMaxBytes(t *testing.T) {
+	base := settings.Settings{
+		Placement:  settings.PlacementLocal,
+		DBDriver:   settings.DriverSQLite,
+		DBDSN:      "data/app.db",
+		BlobDriver: botconfig.BlobDriverLocalFS,
+		BlobRoot:   "data/blob",
+	}
+	cases := []struct {
+		name      string
+		bytes     int64
+		wantError string
+	}{
+		{"zero means default", 0, ""},
+		{"default 25 MiB", 25 * 1024 * 1024, ""},
+		{"hundred MiB ok", 100 * 1024 * 1024, ""},
+		{"min boundary", settings.MinMediaMaxBytes, ""},
+		{"below min rejected", settings.MinMediaMaxBytes - 1, "media_max_bytes"},
+		{"negative rejected", -1, "non-negative"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := base
+			cfg.MediaMaxBytes = tc.bytes
+			err := cfg.Validate()
+			if tc.wantError == "" {
+				if err != nil {
+					t.Fatalf("expected ok, got %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tc.wantError)
+			}
+			if !strings.Contains(err.Error(), tc.wantError) {
+				t.Fatalf("error should contain %q, got %v", tc.wantError, err)
+			}
+		})
+	}
+}
+
+func TestStore_RoundTripMediaMaxBytes(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:settings_media_" + t.Name() + "?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gdb.DB()
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(i + 5)
+	}
+	st, err := settings.NewStore(gdb, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := settings.Settings{
+		Placement:      settings.PlacementLocal,
+		DBDriver:       settings.DriverSQLite,
+		DBDSN:          "data/app.db",
+		BlobDriver:     botconfig.BlobDriverLocalFS,
+		BlobRoot:       "data/blob",
+		ComfyUIBaseURL: "http://127.0.0.1:8188",
+		MediaMaxBytes:  50 * 1024 * 1024,
+	}
+	if err := st.Save(in); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	got, err := st.Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if got.MediaMaxBytes != in.MediaMaxBytes {
+		t.Fatalf("MediaMaxBytes round-trip: want %d, got %d", in.MediaMaxBytes, got.MediaMaxBytes)
+	}
+
+	// Saving with zero should clear the cap back to "use default".
+	in.MediaMaxBytes = 0
+	if err := st.Save(in); err != nil {
+		t.Fatalf("save zero: %v", err)
+	}
+	got, err = st.Load()
+	if err != nil {
+		t.Fatalf("load after zero: %v", err)
+	}
+	if got.MediaMaxBytes != 0 {
+		t.Fatalf("MediaMaxBytes after clearing: want 0, got %d", got.MediaMaxBytes)
+	}
+}
+
+type legacyMediaSettingsRow struct {
+	ID          string `gorm:"primaryKey;size:32"`
+	Placement   string `gorm:"size:32;not null"`
+	DBDriver    string `gorm:"column:db_driver;size:32;not null"`
+	DBDSN       string `gorm:"column:db_dsn;type:text;not null"`
+	BlobDriver  string `gorm:"column:blob_driver;size:32;not null"`
+	BlobRoot    string `gorm:"column:blob_root;type:text"`
+	ComfyUIBase string `gorm:"column:comfyui_base_url;type:text"`
+}
+
+func (legacyMediaSettingsRow) TableName() string { return "platform_settings" }
+
+func TestMigrate_ExistingTableAddsMediaMaxBytes(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:mig_media?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gdb.DB()
+	if err := gdb.AutoMigrate(&legacyMediaSettingsRow{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.Create(&legacyMediaSettingsRow{
+		ID: "singleton", Placement: "local",
+		DBDriver: "sqlite", DBDSN: "data/app.db",
+		BlobDriver: "localfs", BlobRoot: "data/blob",
+		ComfyUIBase: "http://127.0.0.1:8188",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	key := make([]byte, 32)
+	st, err := settings.NewStore(gdb, key)
+	if err != nil {
+		t.Fatalf("migrate existing table: %v", err)
+	}
+	got, err := st.Load()
+	if err != nil {
+		t.Fatalf("load after migrate: %v", err)
+	}
+	if got.MediaMaxBytes != 0 {
+		t.Fatalf("expected MediaMaxBytes to default to 0, got %d", got.MediaMaxBytes)
+	}
+}

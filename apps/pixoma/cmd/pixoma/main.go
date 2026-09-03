@@ -395,7 +395,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			DeleteWithCleanup: topicDeleteSvc.DeleteTopic,
 		},
 		Routing:     &routingapi.Handler{Registry: conditionReg},
-		Media:       &media.Handler{Blob: blobStore, MaxBytes: media.DefaultMaxBytes},
+		Media:       &media.Handler{Blob: blobStore, MaxBytes: mediaMediaMaxBytes(cfg)},
 		ChannelText: &channeltext.Handler{Store: textStore},
 		NotFound:    webembed.Handler(),
 	})
@@ -414,7 +414,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 
 	r := chi.NewRouter()
 	r.Use(adminhost.SecurityHeaders)
-	r.Use(adminhost.RequestBodyLimit(32 << 20))
+	r.Use(adminhost.RequestBodyLimit(requestBodyLimit(cfg)))
 	r.Use(adminhost.CORS(corsOrigins()))
 	r.Use(gate.Middleware)
 	r.Route("/api/v1/setup", setupH.Mount)
@@ -515,6 +515,28 @@ func leaseDuration(cfg settings.Settings) time.Duration {
 		return time.Duration(cfg.LeaseSeconds) * time.Second
 	}
 	return 90 * time.Second
+}
+
+// mediaMediaMaxBytes returns the configured per-upload media cap, falling back
+// to media.DefaultMaxBytes when the value is unset or below the lower bound.
+func mediaMediaMaxBytes(cfg settings.Settings) int64 {
+	if cfg.MediaMaxBytes >= settings.MinMediaMaxBytes {
+		return cfg.MediaMaxBytes
+	}
+	return media.DefaultMaxBytes
+}
+
+// requestBodyLimit returns the HTTP request body limit for admin routes. It
+// tracks cfg.MediaMaxBytes so the body cap never sits below the media upload
+// cap. A small overhead is added for JSON envelopes and multipart framing.
+func requestBodyLimit(cfg settings.Settings) int64 {
+	const overhead int64 = 1 << 20 // 1 MiB slack for headers / multipart envelope
+	limit := mediaMediaMaxBytes(cfg) + overhead
+	const floor int64 = 32 << 20 // legacy default — never go below 32 MiB
+	if limit < floor {
+		return floor
+	}
+	return limit
 }
 
 func metricsRetention() time.Duration {

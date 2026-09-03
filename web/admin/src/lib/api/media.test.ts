@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_MEDIA_MAX_BYTES,
   isAllowedMedia,
   mediaApiPath,
-  MEDIA_MAX_BYTES,
   resolveMediaKey,
+  resolveMediaMaxBytes,
 } from './media'
 
 describe('resolveMediaKey', () => {
@@ -38,6 +39,17 @@ describe('isAllowedMedia', () => {
     expect(isAllowedMedia('text/plain', 'a.txt')).toBe(false)
   })
   it('defaults size limit to 25MiB', () => {
-    expect(MEDIA_MAX_BYTES).toBe(25 * 1024 * 1024)
+    expect(DEFAULT_MEDIA_MAX_BYTES).toBe(25 * 1024 * 1024)
+  })
+})
+
+describe('resolveMediaMaxBytes', () => {
+  it('falls back to default for 0 / undefined / negative', () => {
+    expect(resolveMediaMaxBytes(undefined)).toBe(DEFAULT_MEDIA_MAX_BYTES)
+    expect(resolveMediaMaxBytes(0)).toBe(DEFAULT_MEDIA_MAX_BYTES)
+    expect(resolveMediaMaxBytes(-1)).toBe(DEFAULT_MEDIA_MAX_BYTES)
+  })
+  it('returns the value when > 0', () => {
+    expect(resolveMediaMaxBytes(50 * 1024 * 1024)).toBe(50 * 1024 * 1024)
   })
 })

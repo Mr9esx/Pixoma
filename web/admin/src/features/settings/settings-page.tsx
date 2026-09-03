@@ -127,6 +127,14 @@ function SettingsEditor({
       ? String(initial.proxy_port)
       : ''
   )
+  const [mediaMax, setMediaMax] = useState<string>(
+    initial.media_max_bytes && initial.media_max_bytes > 0
+      ? String(initial.media_max_bytes)
+      : ''
+  )
+  const [mediaUnit, setMediaUnit] = useState<'B' | 'KB' | 'MB' | 'GB'>(
+    pickMediaUnit(initial.media_max_bytes)
+  )
   const [allowSelfRegistration, setAllowSelfRegistration] = useState(
     Boolean(initial.allow_self_registration)
   )
@@ -159,6 +167,7 @@ function SettingsEditor({
         proxy_kind: proxyKind,
         proxy_host: proxyHost,
         proxy_port: Number(proxyPort) || 0,
+        media_max_bytes: computeMediaMaxBytes(mediaMax, mediaUnit),
         allow_self_registration:
           overrides?.allowSelfRegistration ?? allowSelfRegistration,
       })
@@ -344,6 +353,18 @@ function SettingsEditor({
             )}
           </SettingsCard>
         </form>
+        <MediaUploadCard
+          value={mediaMax}
+          unit={mediaUnit}
+          onValueChange={setMediaMax}
+          onUnitChange={setMediaUnit}
+          onReset={() => {
+            setMediaMax('')
+            setMediaUnit('MB')
+          }}
+          onSave={() => void savePlatform()}
+          pending={pending}
+        />
       </TabsContent>
 
       <TabsContent value='network'>
@@ -712,5 +733,123 @@ function SettingRow({
         <FieldDescription className='text-xs'>{hint}</FieldDescription>
       ) : null}
     </Field>
+  )
+}
+
+type MediaUnit = 'B' | 'KB' | 'MB' | 'GB'
+
+const MEDIA_UNIT_FACTORS: Record<MediaUnit, number> = {
+  B: 1,
+  KB: 1024,
+  MB: 1024 * 1024,
+  GB: 1024 * 1024 * 1024,
+}
+
+/** 选择最贴合给定字节数的展示单位。 */
+function pickMediaUnit(bytes: number | undefined): MediaUnit {
+  if (!bytes || bytes <= 0) return 'MB'
+  if (bytes >= MEDIA_UNIT_FACTORS.GB && bytes % MEDIA_UNIT_FACTORS.GB === 0)
+    return 'GB'
+  if (bytes >= MEDIA_UNIT_FACTORS.MB && bytes % MEDIA_UNIT_FACTORS.MB === 0)
+    return 'MB'
+  if (bytes >= MEDIA_UNIT_FACTORS.KB && bytes % MEDIA_UNIT_FACTORS.KB === 0)
+    return 'KB'
+  return 'B'
+}
+
+/** 把「数值 + 单位」合成字节数；空串 / 非数字 / 非法单位一律回退 0。 */
+function computeMediaMaxBytes(value: string, unit: MediaUnit): number {
+  if (!value.trim()) return 0
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < 0) return 0
+  return Math.round(n * MEDIA_UNIT_FACTORS[unit])
+}
+
+function MediaUploadCard({
+  value,
+  unit,
+  onValueChange,
+  onUnitChange,
+  onReset,
+  onSave,
+  pending,
+}: {
+  value: string
+  unit: MediaUnit
+  onValueChange: (next: string) => void
+  onUnitChange: (next: MediaUnit) => void
+  onReset: () => void
+  onSave: () => void
+  pending: boolean
+}) {
+  const { t } = useTranslation()
+  const bytes = computeMediaMaxBytes(value, unit)
+  const invalid = value.trim() !== '' && bytes <= 0
+  return (
+    <SettingsCard
+      title={t('settings.mediaUploadTitle')}
+      desc={t('settings.mediaUploadDesc')}
+      footer={
+        <div className='flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end'>
+          <Button
+            type='button'
+            variant='ghost'
+            onClick={onReset}
+            disabled={pending}
+          >
+            {t('settings.mediaUploadReset')}
+          </Button>
+          <Button type='button' onClick={onSave} disabled={pending || invalid}>
+            {pending ? t('common.loading') : t('common.save')}
+          </Button>
+        </div>
+      }
+    >
+      <SettingRow
+        label={t('settings.mediaUploadMaxLabel')}
+        hint={t('settings.mediaUploadMaxHint')}
+        htmlFor='media-max'
+      >
+        <div className='flex items-center gap-2'>
+          <Input
+            id='media-max'
+            inputMode='numeric'
+            value={value}
+            onChange={(e) => onValueChange(e.target.value)}
+            disabled={pending}
+            placeholder='25'
+            aria-invalid={invalid}
+            className='w-28 tabular-nums'
+          />
+          <Select
+            value={unit}
+            onValueChange={(next) => onUnitChange(next as MediaUnit)}
+          >
+            <SelectTrigger
+              aria-label={t('settings.mediaUploadMaxLabel')}
+              className='w-24 tabular-nums'
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value='B'>
+                  {t('settings.mediaUploadUnitBytes')}
+                </SelectItem>
+                <SelectItem value='KB'>
+                  {t('settings.mediaUploadUnitKB')}
+                </SelectItem>
+                <SelectItem value='MB'>
+                  {t('settings.mediaUploadUnitMB')}
+                </SelectItem>
+                <SelectItem value='GB'>
+                  {t('settings.mediaUploadUnitGB')}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+      </SettingRow>
+    </SettingsCard>
   )
 }

@@ -58,6 +58,7 @@ export default defineConfig({
       'src/features/cases/lib/derive.test.ts',
       'src/features/cases/empty-case.test.ts',
       'src/lib/api/media.test.ts',
+      'src/lib/api/use-media-max-bytes.contract.test.ts',
       'src/features/cases/sections/media-preview-field.contract.test.ts',
       'src/features/menu/action-templates.test.ts',
       'src/features/menu/node-view.test.ts',

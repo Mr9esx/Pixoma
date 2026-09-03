@@ -21,6 +21,10 @@ const (
 
 	// DefaultProxyPort is the proxy port used when no explicit port is set.
 	DefaultProxyPort = 7897
+
+	// MinMediaMaxBytes is the lower bound (1 KiB) enforced on MediaMaxBytes to
+	// keep the value meaningful. Zero means "fall back to media.DefaultMaxBytes".
+	MinMediaMaxBytes int64 = 1024
 )
 
 // Settings is the persisted platform configuration (no queue.driver / runtime_mode).
@@ -41,6 +45,9 @@ type Settings struct {
 	ProxyKind      string `json:"proxy_kind,omitempty"`
 	ProxyHost      string `json:"proxy_host,omitempty"`
 	ProxyPort      int    `json:"proxy_port,omitempty"`
+	// MediaMaxBytes caps a single preview media upload (bytes). 0 means
+	// "use media.DefaultMaxBytes". Must be >= MinMediaMaxBytes when set.
+	MediaMaxBytes int64 `json:"media_max_bytes,omitempty"`
 	// AllowSelfRegistration toggles public console-account registration.
 	AllowSelfRegistration bool `json:"allow_self_registration"`
 }
@@ -88,6 +95,12 @@ func (s Settings) Validate() error {
 		}
 	default:
 		return fmt.Errorf("settings: unknown placement %q", p)
+	}
+	if s.MediaMaxBytes < 0 {
+		return fmt.Errorf("settings: media_max_bytes must be non-negative")
+	}
+	if s.MediaMaxBytes > 0 && s.MediaMaxBytes < MinMediaMaxBytes {
+		return fmt.Errorf("settings: media_max_bytes must be at least %d bytes", MinMediaMaxBytes)
 	}
 	return validateProxy(s)
 }

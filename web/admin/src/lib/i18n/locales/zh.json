@@ -706,7 +706,16 @@
     "fieldAvatar": "头像",
     "fieldNickname": "昵称",
     "fieldEmail": "邮箱",
-    "saveProfile": "保存资料"
+    "saveProfile": "保存资料",
+    "mediaUploadTitle": "媒体上传",
+    "mediaUploadDesc": "单次上传的最大体积。设为 0 回退到默认值。",
+    "mediaUploadMaxLabel": "单文件上限",
+    "mediaUploadMaxHint": "支持 B / KB / MB / GB；0 表示恢复默认（25 MB）。",
+    "mediaUploadUnitBytes": "B",
+    "mediaUploadUnitKB": "KB",
+    "mediaUploadUnitMB": "MB",
+    "mediaUploadUnitGB": "GB",
+    "mediaUploadReset": "恢复默认"
   },
   "channels": {
     "title": "消息平台",
@@ -823,6 +832,7 @@
     "uploading": "上传中…",
     "uploadFailed": "上传失败",
     "errorSize": "文件大小超限",
+    "errorSizeWith": "文件大小超限，当前上限 {{max}}",
     "errorType": "仅支持图片与视频",
     "zoom": "放大预览"
   },

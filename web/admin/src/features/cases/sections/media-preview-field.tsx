@@ -1,12 +1,8 @@
 import { useRef, useState } from 'react'
 import { Film, ImagePlus, Trash2, ZoomIn } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import {
-  isAllowedMedia,
-  MEDIA_MAX_BYTES,
-  resolveMediaKey,
-  uploadMedia,
-} from '@/lib/api/media'
+import { isAllowedMedia, resolveMediaKey, uploadMedia } from '@/lib/api/media'
+import { useMediaMaxBytes } from '@/lib/api/use-media-max-bytes'
 import {
   Attachment,
   AttachmentAction,
@@ -33,6 +29,7 @@ export function MediaPreviewField({ value, onChange, disabled }: Props) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | undefined>()
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const maxBytes = useMediaMaxBytes()
   const mediaUrl = useMediaObjectUrl(value)
   const key = resolveMediaKey(value)
   const isVideo = /\.(mp4|webm)$/i.test(key ?? '')
@@ -45,8 +42,8 @@ export function MediaPreviewField({ value, onChange, disabled }: Props) {
       setError(t('media.errorType'))
       return
     }
-    if (file.size > MEDIA_MAX_BYTES) {
-      setError(t('media.errorSize'))
+    if (file.size > maxBytes) {
+      setError(t('media.errorSizeWith', { max: formatBytes(maxBytes) }))
       return
     }
     setUploading(true)
@@ -164,4 +161,19 @@ export function MediaPreviewField({ value, onChange, disabled }: Props) {
       />
     </div>
   )
+}
+
+/** 把字节数格式化为「25 MB / 512 KB / 1.2 GB」之类的易读串。 */
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  const rounded =
+    value >= 10 || unit === 0 ? Math.round(value) : Math.round(value * 10) / 10
+  return `${rounded} ${units[unit]}`
 }
