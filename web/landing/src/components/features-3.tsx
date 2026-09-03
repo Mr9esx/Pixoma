@@ -67,11 +67,19 @@ export default function Features() {
             <Card className="aspect-9/12 relative overflow-hidden">
               <div className="absolute inset-0 z-[1]" aria-hidden>
                 <Image
-                  src={isDark ? "/images/simplify-dark.png" : "/images/simplify-light.png"}
+                  src="/images/simplify-dark.png"
                   alt=""
                   width={800}
                   height={1070}
-                  className={IMAGE_CLASS}
+                  className={cn(IMAGE_CLASS, !isDark && "hidden")}
+                  style={BLUR_LAYER_STYLE}
+                />
+                <Image
+                  src="/images/simplify-light.png"
+                  alt=""
+                  width={800}
+                  height={1070}
+                  className={cn(IMAGE_CLASS, isDark && "hidden")}
                   style={BLUR_LAYER_STYLE}
                 />
               </div>
