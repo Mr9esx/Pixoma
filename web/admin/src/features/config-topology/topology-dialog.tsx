@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
-import { buildLinkGraph, type TopologyKind } from './lib/build-link-graph'
+import { buildLinkGraph, nodeId, type TopologyKind } from './lib/build-link-graph'
 import { LinkGraph } from './link-graph'
 import { useTopologySource } from './use-topology-source'
 
@@ -62,15 +62,21 @@ function TopologyDialog({
   const { source, isLoading, isError, error, refetch } = useTopologySource({
     enabled: open,
   })
+  const focusId = nodeId(kind, id)
   const graph = source
     ? buildLinkGraph(source, { type: 'focus', kind, id })
     : { nodes: [], edges: [] }
+  const focusName = graph.nodes.find((n) => n.id === focusId)?.name
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='flex h-[min(80vh,720px)] max-w-[90vw] flex-col gap-0 p-0 sm:max-w-[90vw]'>
         <DialogHeader className='border-b px-5 py-4'>
-          <DialogTitle>{t('topology.title')}</DialogTitle>
+          <DialogTitle>
+            {focusName
+              ? `${t('topology.title')} · ${focusName}`
+              : t('topology.title')}
+          </DialogTitle>
         </DialogHeader>
         <div className='min-h-0 flex-1 p-4'>
           {isLoading ? (
@@ -82,7 +88,7 @@ function TopologyDialog({
             />
           ) : (
             <div className='h-full min-h-[320px]'>
-              <LinkGraph graph={graph} />
+              <LinkGraph graph={graph} focusId={focusId} />
             </div>
           )}
         </div>

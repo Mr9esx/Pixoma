@@ -22,7 +22,11 @@ const ROW_H = 88
 
 const nodeTypes = { topology: TopologyNode }
 
-function layout(graph: TopologyGraph, selectedId: string | null): TopologyNodeType[] {
+function layout(
+  graph: TopologyGraph,
+  selectedId: string | null,
+  focusId?: string | null
+): TopologyNodeType[] {
   const hit = selectedId ? pathThrough(graph, selectedId) : null
   const grouped = new Map<string, typeof graph.nodes>()
   for (const n of graph.nodes) {
@@ -43,7 +47,7 @@ function layout(graph: TopologyGraph, selectedId: string | null): TopologyNodeTy
         id: n.id,
         type: 'topology',
         position: { x: col * COL_W, y: i * ROW_H },
-        data: { ...n, highlighted, dimmed },
+        data: { ...n, highlighted, dimmed, isFocus: n.id === focusId },
         selectable: true,
         draggable: false,
       })
@@ -64,9 +68,18 @@ function layoutEdges(graph: TopologyGraph, selectedId: string | null): Edge[] {
   }))
 }
 
-function FlowCanvas({ graph }: { graph: TopologyGraph }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const nodes = useMemo(() => layout(graph, selectedId), [graph, selectedId])
+function FlowCanvas({
+  graph,
+  focusId,
+}: {
+  graph: TopologyGraph
+  focusId?: string | null
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(focusId ?? null)
+  const nodes = useMemo(
+    () => layout(graph, selectedId, focusId),
+    [graph, selectedId, focusId]
+  )
   const edges = useMemo(
     () => layoutEdges(graph, selectedId),
     [graph, selectedId]
@@ -92,11 +105,17 @@ function FlowCanvas({ graph }: { graph: TopologyGraph }) {
   )
 }
 
-export function LinkGraph({ graph }: { graph: TopologyGraph }) {
+export function LinkGraph({
+  graph,
+  focusId,
+}: {
+  graph: TopologyGraph
+  focusId?: string | null
+}) {
   return (
     <div data-testid='link-graph' className='h-full min-h-0 w-full'>
       <ReactFlowProvider>
-        <FlowCanvas graph={graph} />
+        <FlowCanvas graph={graph} focusId={focusId} />
       </ReactFlowProvider>
     </div>
   )

@@ -23,4 +23,10 @@ describe('link graph contract', () => {
     expect(node).toContain('nodrag')
     expect(node).toContain('topology.openDetail')
   })
+
+  it('accepts focusId and marks focus nodes', () => {
+    expect(graph).toContain('focusId')
+    expect(graph).toContain('isFocus')
+    expect(graph).toMatch(/useState.*focusId/)
+  })
 })
