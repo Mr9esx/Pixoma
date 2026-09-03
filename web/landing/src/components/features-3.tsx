@@ -65,61 +65,28 @@ export default function Features() {
         <Reveal className="**:data-[slot=card]:bg-background mt-8 grid gap-x-3 gap-y-6 md:mt-16 md:grid-cols-2 lg:grid-cols-3">
           <div className="row-span-2 grid grid-cols-subgrid gap-4">
             <Card className="aspect-9/12 relative overflow-hidden">
-              <div className="absolute inset-0 z-[1]" aria-hidden>
+              <Image
+                src={isDark ? "/images/simplify-dark.png" : "/images/simplify-light.png"}
+                alt="化繁为简：ComfyUI 节点被 Pixoma 简化为三段式工作流"
+                width={800}
+                height={1070}
+                className={IMAGE_CLASS}
+              />
+              <div aria-hidden className="absolute inset-0">
                 <Image
-                  src="/images/simplify-dark.png"
+                  src={isDark ? "/images/simplify-dark.png" : "/images/simplify-light.png"}
                   alt=""
                   width={800}
                   height={1070}
-                  className={cn(IMAGE_CLASS, !isDark && "hidden")}
-                  style={BLUR_LAYER_STYLE}
-                />
-                <Image
-                  src="/images/simplify-light.png"
-                  alt=""
-                  width={800}
-                  height={1070}
-                  className={cn(IMAGE_CLASS, isDark && "hidden")}
+                  className={IMAGE_CLASS}
                   style={BLUR_LAYER_STYLE}
                 />
               </div>
-
-              <motion.div
-                className="absolute inset-0"
-                initial={false}
-                animate={{ opacity: isDark ? 1 : 0 }}
-                transition={CROSSFADE}
-              >
-                <Image
-                  src="/images/simplify-dark.png"
-                  alt="化繁为简：ComfyUI 节点被 Pixoma 简化为三段式工作流（暗色）"
-                  width={800}
-                  height={1070}
-                  className={IMAGE_CLASS}
-                />
-              </motion.div>
-
-              <motion.div
-                className="absolute inset-0"
-                initial={false}
-                animate={{ opacity: !isDark ? 1 : 0 }}
-                transition={CROSSFADE}
-              >
-                <Image
-                  src="/images/simplify-light.png"
-                  alt="化繁为简：ComfyUI 节点被 Pixoma 简化为三段式工作流（亮色）"
-                  width={800}
-                  height={1070}
-                  className={IMAGE_CLASS}
-                />
-              </motion.div>
-
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-0 z-[1]"
                 style={isDark ? DARK_TINT_STYLE : WHITE_TINT_STYLE}
               />
-
             </Card>
 
             <p className="text-muted-foreground text-balance">
