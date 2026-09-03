@@ -65,6 +65,17 @@ export default function Features() {
         <Reveal className="**:data-[slot=card]:bg-background mt-8 grid gap-x-3 gap-y-6 md:mt-16 md:grid-cols-2 lg:grid-cols-3">
           <div className="row-span-2 grid grid-cols-subgrid gap-4">
             <Card className="aspect-9/12 relative overflow-hidden">
+              <div className="absolute inset-0 z-[1]" aria-hidden>
+                <Image
+                  src={isDark ? "/images/simplify-dark.png" : "/images/simplify-light.png"}
+                  alt=""
+                  width={800}
+                  height={1070}
+                  className={IMAGE_CLASS}
+                  style={BLUR_LAYER_STYLE}
+                />
+              </div>
+
               <motion.div
                 className="absolute inset-0"
                 initial={false}
@@ -77,14 +88,6 @@ export default function Features() {
                   width={800}
                   height={1070}
                   className={IMAGE_CLASS}
-                />
-                <Image
-                  src="/images/simplify-dark.png"
-                  alt=""
-                  width={800}
-                  height={1070}
-                  className={IMAGE_CLASS}
-                  style={BLUR_LAYER_STYLE}
                 />
               </motion.div>
 
@@ -100,14 +103,6 @@ export default function Features() {
                   width={800}
                   height={1070}
                   className={IMAGE_CLASS}
-                />
-                <Image
-                  src="/images/simplify-light.png"
-                  alt=""
-                  width={800}
-                  height={1070}
-                  className={IMAGE_CLASS}
-                  style={BLUR_LAYER_STYLE}
                 />
               </motion.div>
 
