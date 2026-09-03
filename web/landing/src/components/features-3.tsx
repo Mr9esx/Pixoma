@@ -78,7 +78,16 @@ export default function Features() {
                   height={1070}
                   className={IMAGE_CLASS}
                 />
+                <Image
+                  src="/images/simplify-dark.png"
+                  alt=""
+                  width={800}
+                  height={1070}
+                  className={IMAGE_CLASS}
+                  style={BLUR_LAYER_STYLE}
+                />
               </motion.div>
+
               <motion.div
                 className="absolute inset-0"
                 initial={false}
@@ -92,31 +101,6 @@ export default function Features() {
                   height={1070}
                   className={IMAGE_CLASS}
                 />
-              </motion.div>
-
-              <motion.div
-                className="absolute inset-0 z-[1]"
-                initial={false}
-                animate={{ opacity: isDark ? 1 : 0 }}
-                transition={CROSSFADE}
-                aria-hidden
-              >
-                <Image
-                  src="/images/simplify-dark.png"
-                  alt=""
-                  width={800}
-                  height={1070}
-                  className={IMAGE_CLASS}
-                  style={BLUR_LAYER_STYLE}
-                />
-              </motion.div>
-              <motion.div
-                className="absolute inset-0 z-[1]"
-                initial={false}
-                animate={{ opacity: !isDark ? 1 : 0 }}
-                transition={CROSSFADE}
-                aria-hidden
-              >
                 <Image
                   src="/images/simplify-light.png"
                   alt=""
