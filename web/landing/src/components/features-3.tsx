@@ -4,7 +4,9 @@ import { motion } from "motion/react";
 import {
   CloudCog,
   Monitor,
+  Moon,
   Rocket,
+  Sun,
 } from "lucide-react";
 import Image from "next/image";
 import { useState, type CSSProperties } from "react";
@@ -12,6 +14,8 @@ import { useTheme } from "@/context/theme-provider";
 import { cn } from "@/lib/utils";
 
 type DeployMode = "local" | "cloud";
+
+type ThemePreview = "dark" | "light";
 
 const VIGNETTE_MASK =
   "radial-gradient(circle at center, transparent 0%, transparent 136px, black 100%)";
@@ -47,9 +51,14 @@ const DARK_TINT_STYLE = {
 export default function Features() {
   const { theme } = useTheme();
   const [mode, setMode] = useState<DeployMode>("local");
+  const [themePreview, setThemePreview] = useState<ThemePreview>(
+    theme === "dark" ? "dark" : "light",
+  );
   const showLocal = mode === "local";
   const showCloud = mode === "cloud";
   const isDark = theme === "dark";
+  const showDark = themePreview === "dark";
+  const showLight = themePreview === "light";
 
   return (
     <section className="py-16 md:py-20">
@@ -65,13 +74,75 @@ export default function Features() {
         <Reveal className="**:data-[slot=card]:bg-background mt-8 grid gap-x-3 gap-y-6 md:mt-16 md:grid-cols-2 lg:grid-cols-3">
           <div className="row-span-2 grid grid-cols-subgrid gap-4">
             <Card className="aspect-9/12 relative overflow-hidden">
-              <Image
-                src={isDark ? "/images/simplify-dark.png" : "/images/simplify-light.png"}
-                alt="化繁为简：ComfyUI 节点被 Pixoma 简化为三段式工作流"
-                width={800}
-                height={1070}
-                className="absolute inset-0 size-full object-cover"
+              <motion.div
+                className="absolute inset-0"
+                initial={false}
+                animate={{ opacity: showDark ? 1 : 0 }}
+                transition={CROSSFADE}
+              >
+                <Image
+                  src="/images/simplify-dark.png"
+                  alt="化繁为简：ComfyUI 节点被 Pixoma 简化为三段式工作流（暗色）"
+                  width={800}
+                  height={1070}
+                  className={IMAGE_CLASS}
+                />
+              </motion.div>
+              <motion.div
+                className="absolute inset-0"
+                initial={false}
+                animate={{ opacity: showLight ? 1 : 0 }}
+                transition={CROSSFADE}
+              >
+                <Image
+                  src="/images/simplify-light.png"
+                  alt="化繁为简：ComfyUI 节点被 Pixoma 简化为三段式工作流（亮色）"
+                  width={800}
+                  height={1070}
+                  className={IMAGE_CLASS}
+                />
+              </motion.div>
+
+              <motion.div
+                className="absolute inset-0 z-[1]"
+                initial={false}
+                animate={{ opacity: showDark ? 1 : 0 }}
+                transition={CROSSFADE}
+                aria-hidden
+              >
+                <Image
+                  src="/images/simplify-dark.png"
+                  alt=""
+                  width={800}
+                  height={1070}
+                  className={IMAGE_CLASS}
+                  style={BLUR_LAYER_STYLE}
+                />
+              </motion.div>
+              <motion.div
+                className="absolute inset-0 z-[1]"
+                initial={false}
+                animate={{ opacity: showLight ? 1 : 0 }}
+                transition={CROSSFADE}
+                aria-hidden
+              >
+                <Image
+                  src="/images/simplify-light.png"
+                  alt=""
+                  width={800}
+                  height={1070}
+                  className={IMAGE_CLASS}
+                  style={BLUR_LAYER_STYLE}
+                />
+              </motion.div>
+
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 z-[1]"
+                style={isDark ? DARK_TINT_STYLE : WHITE_TINT_STYLE}
               />
+
+              <ThemePreviewPicker preview={themePreview} onChange={setThemePreview} />
             </Card>
 
             <p className="text-muted-foreground text-balance">
@@ -175,6 +246,57 @@ export default function Features() {
         </Reveal>
       </div>
     </section>
+  );
+}
+
+function ThemePreviewPicker({
+  preview,
+  onChange,
+}: {
+  preview: ThemePreview;
+  onChange: (preview: ThemePreview) => void;
+}) {
+  return (
+    <div className="z-[2] absolute bottom-3 left-3 flex w-[min(15rem,calc(100%-1.5rem))] flex-col gap-2">
+      <div className="bg-background/40 ring-foreground/10 flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring backdrop-blur-md">
+        <Sun className="opacity-70 size-3.5" />
+        界面风格
+      </div>
+
+      <div className="bg-background/70 ring-foreground/10 rounded-2xl p-1 ring backdrop-blur-md">
+        <button
+          type="button"
+          onClick={() => onChange("light")}
+          aria-pressed={preview === "light"}
+          className={cn(
+            "flex w-full cursor-pointer items-center gap-2 rounded-xl px-2.5 py-1.5 text-left transition-colors",
+            preview === "light" ? "bg-foreground/8" : "hover:bg-foreground/5",
+          )}
+        >
+          <Sun className="size-3.5 shrink-0 text-foreground/80" />
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="text-xs font-medium text-foreground">亮色模式</div>
+            <div className="truncate text-[10px] text-foreground/55">清爽明亮的界面风格</div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onChange("dark")}
+          aria-pressed={preview === "dark"}
+          className={cn(
+            "flex w-full cursor-pointer items-center gap-2 rounded-xl px-2.5 py-1.5 text-left transition-colors",
+            preview === "dark" ? "bg-foreground/8" : "hover:bg-foreground/5",
+          )}
+        >
+          <Moon className="size-3.5 shrink-0 text-foreground/80" />
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="text-xs font-medium text-foreground">暗色模式</div>
+            <div className="truncate text-[10px] text-foreground/55">沉浸舒适的界面风格</div>
+          </div>
+        </button>
+      </div>
+    </div>
   );
 }
 
