@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -80,27 +81,130 @@ func (m *BotMessenger) SendMedia(ctx context.Context, addr sharedkernel.ChannelA
 		return err
 	}
 	name := photoUploadName(ref.Key)
-	_, err = m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
-		ChatID:      chatID,
-		Caption:     truncateTGText(caption, maxTGCaptionRunes),
-		Photo:       &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
-		ReplyMarkup: optionalInlineMarkup(buttons),
-	})
-	return err
+	return sendUploadByMIME(ctx, m.Bot, chatID, ref.MIME, name, data, caption, buttons)
 }
 
-func (m *BotMessenger) SendMediaURL(ctx context.Context, addr sharedkernel.ChannelAddr, imageURL, caption string, buttons [][]ports.Button) error {
+func (m *BotMessenger) SendMediaURL(ctx context.Context, addr sharedkernel.ChannelAddr, imageURL, mime, caption string, buttons [][]ports.Button) error {
 	chatID, err := externalChatID(addr)
 	if err != nil {
 		return err
 	}
-	_, err = m.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
-		ChatID:      chatID,
-		Caption:     truncateTGText(caption, maxTGCaptionRunes),
-		Photo:       &models.InputFileString{Data: imageURL},
-		ReplyMarkup: optionalInlineMarkup(buttons),
-	})
-	return err
+	effective := mime
+	if effective == "" {
+		effective = mimeFromURLExt(imageURL)
+	}
+	return sendURLByMIME(ctx, m.Bot, chatID, effective, imageURL, caption, buttons)
+}
+
+// sendUploadByMIME 路由图片 / 视频 / 动图 / 其它 blob 上传到合适的 Telegram API。
+func sendUploadByMIME(ctx context.Context, b *bot.Bot, chatID int64, mime, name string, data []byte, caption string, buttons [][]ports.Button) error {
+	truncated := truncateTGText(caption, maxTGCaptionRunes)
+	markup := optionalInlineMarkup(buttons)
+	switch {
+	case strings.HasPrefix(mime, "image/gif"):
+		_, err := b.SendAnimation(ctx, &bot.SendAnimationParams{
+			ChatID:      chatID,
+			Caption:     truncated,
+			Animation:   &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
+			ReplyMarkup: markup,
+		})
+		return err
+	case strings.HasPrefix(mime, "image/"):
+		_, err := b.SendPhoto(ctx, &bot.SendPhotoParams{
+			ChatID:      chatID,
+			Caption:     truncated,
+			Photo:       &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
+			ReplyMarkup: markup,
+		})
+		return err
+	case strings.HasPrefix(mime, "video/"):
+		_, err := b.SendVideo(ctx, &bot.SendVideoParams{
+			ChatID:      chatID,
+			Caption:     truncated,
+			Video:       &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
+			ReplyMarkup: markup,
+		})
+		return err
+	default:
+		_, err := b.SendDocument(ctx, &bot.SendDocumentParams{
+			ChatID:      chatID,
+			Caption:     truncated,
+			Document:    &models.InputFileUpload{Filename: name, Data: bytesReader(data)},
+			ReplyMarkup: markup,
+		})
+		return err
+	}
+}
+
+// sendURLByMIME 路由外链 URL 到合适的 Telegram API；mime 为空时回退图片。
+func sendURLByMIME(ctx context.Context, b *bot.Bot, chatID int64, mime, url, caption string, buttons [][]ports.Button) error {
+	truncated := truncateTGText(caption, maxTGCaptionRunes)
+	markup := optionalInlineMarkup(buttons)
+	switch {
+	case strings.HasPrefix(mime, "image/gif"):
+		_, err := b.SendAnimation(ctx, &bot.SendAnimationParams{
+			ChatID:      chatID,
+			Caption:     truncated,
+			Animation:   &models.InputFileString{Data: url},
+			ReplyMarkup: markup,
+		})
+		return err
+	case strings.HasPrefix(mime, "video/"):
+		_, err := b.SendVideo(ctx, &bot.SendVideoParams{
+			ChatID:      chatID,
+			Caption:     truncated,
+			Video:       &models.InputFileString{Data: url},
+			ReplyMarkup: markup,
+		})
+		return err
+	case strings.HasPrefix(mime, "image/") || mime == "":
+		_, err := b.SendPhoto(ctx, &bot.SendPhotoParams{
+			ChatID:      chatID,
+			Caption:     truncated,
+			Photo:       &models.InputFileString{Data: url},
+			ReplyMarkup: markup,
+		})
+		return err
+	default:
+		_, err := b.SendDocument(ctx, &bot.SendDocumentParams{
+			ChatID:      chatID,
+			Caption:     truncated,
+			Document:    &models.InputFileString{Data: url},
+			ReplyMarkup: markup,
+		})
+		return err
+	}
+}
+
+// mimeFromURLExt 从 URL 路径末段扩展名推断 mime（兜底用）。
+// 已知后缀：图片（png/jpg/jpeg/webp/gif）、视频（mp4/webm/mov）。
+func mimeFromURLExt(rawURL string) string {
+	u := rawURL
+	if i := strings.Index(u, "?"); i >= 0 {
+		u = u[:i]
+	}
+	dot := strings.LastIndex(u, ".")
+	if dot < 0 {
+		return ""
+	}
+	ext := strings.ToLower(u[dot:])
+	switch ext {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".webp":
+		return "image/webp"
+	case ".gif":
+		return "image/gif"
+	case ".mp4":
+		return "video/mp4"
+	case ".webm":
+		return "video/webm"
+	case ".mov":
+		return "video/quicktime"
+	}
+	return ""
 }
 
 func (m *BotMessenger) EditReplyMarkup(ctx context.Context, addr sharedkernel.ChannelAddr, messageID int, rows [][]ports.Button) error {

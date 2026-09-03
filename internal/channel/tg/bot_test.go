@@ -6,13 +6,14 @@ import (
 
 	"github.com/go-telegram/bot/models"
 
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/tginternal"
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 func TestHandleCallbackUpdateAnswersBeforeProcessing(t *testing.T) {
-	out := &textCaptureOutbound{}
-	ad := New(out)
+	b, srv := tginternal.NewBot(t)
+	ad := New(&BotMessenger{Bot: b})
 	ad.ChannelID = "tg-default"
 	var order []string
 	ad.Users = identityResolverFunc(func(_ context.Context, _ sharedkernel.ChannelAddr, _ identitydomain.UpsertFrom) (string, error) {
@@ -38,20 +39,28 @@ func TestHandleCallbackUpdateAnswersBeforeProcessing(t *testing.T) {
 	if len(order) != 2 || order[0] != "answer" || order[1] != "resolve" {
 		t.Fatalf("order=%q", order)
 	}
-	if len(out.texts) != 1 || out.texts[0] != "未知操作" {
-		t.Fatalf("texts=%q", out.texts)
+	if got := srv.SendMessageCalls(); got != 1 {
+		t.Fatalf("sendMessage calls = %d, want 1", got)
+	}
+	texts := srv.SendMessageTexts()
+	if len(texts) < 1 || texts[0] != "未知操作" {
+		t.Fatalf("sendMessage texts = %v, want first %q", texts, "未知操作")
 	}
 }
 
 func TestHandleCallbackClearsMarkup(t *testing.T) {
-	out := &captureOutbound{}
-	ad := New(out)
+	b, srv := tginternal.NewBot(t)
+	ad := New(&BotMessenger{Bot: b})
 	ad.ChannelID = "tg-default"
 	if err := ad.HandleCallback(context.Background(), "tg-default:1", 42, CBMenu, ""); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.edited) != 1 || out.edited[0] != 42 {
-		t.Fatalf("edited=%v", out.edited)
+	if got := srv.EditMessageReplyMarkupCalls(); got != 1 {
+		t.Fatalf("editMessageReplyMarkup calls = %d, want 1", got)
+	}
+	ids := srv.EditedMessageIDs()
+	if len(ids) != 1 || ids[0] != 42 {
+		t.Fatalf("edited ids = %v, want [42]", ids)
 	}
 }
 
