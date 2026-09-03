@@ -704,7 +704,16 @@
     "fieldAvatar": "Avatar",
     "fieldNickname": "Nickname",
     "fieldEmail": "Email",
-    "saveProfile": "Save profile"
+    "saveProfile": "Save profile",
+    "mediaUploadTitle": "Media upload",
+    "mediaUploadDesc": "Maximum size per upload. Set to 0 to fall back to the default cap.",
+    "mediaUploadMaxLabel": "Per-file cap",
+    "mediaUploadMaxHint": "Accepts B / KB / MB / GB; 0 means default (25 MB).",
+    "mediaUploadUnitBytes": "B",
+    "mediaUploadUnitKB": "KB",
+    "mediaUploadUnitMB": "MB",
+    "mediaUploadUnitGB": "GB",
+    "mediaUploadReset": "Reset to default"
   },
   "channels": {
     "title": "Message platforms",
@@ -821,6 +830,7 @@
     "uploading": "Uploading…",
     "uploadFailed": "Upload failed",
     "errorSize": "File exceeds size limit",
+    "errorSizeWith": "File exceeds size limit, current cap is {{max}}",
     "errorType": "Images and videos only",
     "zoom": "Zoom preview"
   },

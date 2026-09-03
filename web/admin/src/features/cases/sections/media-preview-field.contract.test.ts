@@ -13,7 +13,7 @@ describe('media preview field', () => {
     const source = readFileSync(FIELD, 'utf8')
     expect(source).toContain("data-testid='media-preview-field'")
     expect(source).toContain('uploadMedia')
-    expect(source).toContain('MEDIA_MAX_BYTES')
+    expect(source).toContain('useMediaMaxBytes')
     expect(source).toContain('useMediaObjectUrl')
     expect(source).toContain('ImagePlus')
     expect(source).toContain('accept=')

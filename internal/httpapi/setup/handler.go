@@ -559,6 +559,7 @@ func mergePlatformSettings(existing, in settings.Settings) settings.Settings {
 	out.ProxyKind = in.ProxyKind
 	out.ProxyHost = in.ProxyHost
 	out.ProxyPort = in.ProxyPort
+	out.MediaMaxBytes = in.MediaMaxBytes
 	return out
 }
 

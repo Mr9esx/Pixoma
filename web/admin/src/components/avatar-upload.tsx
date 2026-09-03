@@ -3,10 +3,10 @@ import { User, XIcon } from 'lucide-react'
 import {
   fetchMediaBlob,
   isAllowedMedia,
-  MEDIA_MAX_BYTES,
   resolveMediaKey,
   uploadMedia,
 } from '@/lib/api/media'
+import { useMediaMaxBytes } from '@/lib/api/use-media-max-bytes'
 import {
   Attachment,
   AttachmentAction,
@@ -106,6 +106,7 @@ export function AvatarUpload({ id, value, onChange, disabled }: Props) {
   const [error, setError] = useState<string | undefined>()
   const avatarUrl = useAvatarObjectUrl(value)
   const hasAvatar = Boolean(resolveMediaKey(value))
+  const maxBytes = useMediaMaxBytes()
 
   async function onFile(file: File | undefined) {
     if (!file) return
@@ -114,8 +115,8 @@ export function AvatarUpload({ id, value, onChange, disabled }: Props) {
       setError('仅支持 png / jpeg / webp / gif 图片')
       return
     }
-    if (file.size > MEDIA_MAX_BYTES) {
-      setError('图片过大，单张上限 25MB')
+    if (file.size > maxBytes) {
+      setError(`图片过大，单张上限 ${formatBytes(maxBytes)}`)
       return
     }
     setUploading(true)
@@ -202,4 +203,19 @@ export function AvatarUpload({ id, value, onChange, disabled }: Props) {
       ) : null}
     </div>
   )
+}
+
+/** 把字节数格式化为「25 MB / 512 KB / 1.2 GB」之类的易读串。 */
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  const rounded =
+    value >= 10 || unit === 0 ? Math.round(value) : Math.round(value * 10) / 10
+  return `${rounded} ${units[unit]}`
 }

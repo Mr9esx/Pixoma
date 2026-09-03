@@ -17,8 +17,21 @@ const MEDIA_MIME_WHITELIST: Record<string, string> = {
   'video/webm': '.webm',
 }
 
-/** 默认单文件上限，与服务端一致。 */
-export const MEDIA_MAX_BYTES = 25 * 1024 * 1024
+/**
+ * 单文件默认上限（25 MiB），与服务端 media.DefaultMaxBytes 保持一致。
+ * 仅作为客户端兜底：真实上限由设置项 `media_max_bytes` 决定，未配置时回退到本值。
+ */
+export const DEFAULT_MEDIA_MAX_BYTES = 25 * 1024 * 1024
+
+/**
+ * Resolve the effective per-upload cap from the configured value.
+ * `0` / `undefined` / 负数均视为「使用默认」。
+ */
+export function resolveMediaMaxBytes(value: number | undefined): number {
+  return typeof value === 'number' && value > 0
+    ? value
+    : DEFAULT_MEDIA_MAX_BYTES
+}
 
 function authHeaders(): Record<string, string> {
   const token = sessionToken()
