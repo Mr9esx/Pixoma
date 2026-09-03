@@ -23,7 +23,7 @@ export default function HeroSection() {
               y={0}
             >
               <h1 className="max-w-2xl text-balance text-4xl font-medium tracking-tight md:text-5xl">
-                <span className="block">让你随时随地使用 ComfyUI</span>
+                <span className="block">让你随时随地</span>
                 <span className="block">把灵感快速变成作品</span>
               </h1>
 
