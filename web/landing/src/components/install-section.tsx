@@ -31,7 +31,7 @@ export default function InstallSection() {
         <div className="mx-auto w-full max-w-7xl px-6">
           <Reveal>
             <h2 className="text-foreground text-4xl font-semibold">
-              一条命令开始使用
+              一条命令即可使用
             </h2>
           </Reveal>
           <Reveal className="mt-8" delay={0.08}>
