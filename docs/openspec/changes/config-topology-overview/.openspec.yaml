@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-09-03
+goal: 后台配置拓扑只读总览：工作台卡片画布 + 四类详情页弹窗，用 React Flow 展示消息平台→工作流→任务队列→计算节点

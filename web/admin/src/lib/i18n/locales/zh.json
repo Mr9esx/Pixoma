@@ -1039,5 +1039,14 @@
     "edit": "编辑",
     "usesDefault": "使用默认文案",
     "actions": "操作"
+  },
+  "topology": {
+    "title": "配置拓扑",
+    "open": "拓扑",
+    "openDetail": "打开详情",
+    "kindPlatform": "消息平台",
+    "kindCase": "工作流",
+    "kindTopic": "任务队列",
+    "kindEdge": "计算节点"
   }
 }

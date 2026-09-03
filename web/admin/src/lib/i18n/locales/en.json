@@ -1037,5 +1037,14 @@
     "edit": "Edit",
     "usesDefault": "Uses default copy",
     "actions": "Actions"
+  },
+  "topology": {
+    "title": "Config topology",
+    "open": "Topology",
+    "openDetail": "Open detail",
+    "kindPlatform": "Channel",
+    "kindCase": "Workflow",
+    "kindTopic": "Queue",
+    "kindEdge": "Node"
   }
 }

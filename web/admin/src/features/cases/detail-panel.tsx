@@ -46,6 +46,7 @@ import { CaseContextSection } from '@/features/config-context/case-context-secti
 import { useCaseReferences } from '@/features/config-context/use-case-references'
 import { kit } from '@/features/edges/kit-classes'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
+import { TopologyOpenButton } from '@/features/config-topology/topology-dialog'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
 import { CaseForm } from './case-form'
 import { MediaLightbox } from './components/media-lightbox'
@@ -222,6 +223,7 @@ export function CaseDetailPanel({ id }: Props) {
               </h2>
             </div>
             <div className='flex shrink-0 flex-wrap gap-2'>
+              <TopologyOpenButton kind='case' id={String(record.id)} />
               <Button
                 type='button'
                 size='sm'
