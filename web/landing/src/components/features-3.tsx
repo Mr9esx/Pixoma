@@ -139,12 +139,10 @@ export default function Features() {
                 />
               </motion.div>
 
-              <motion.div
+              <div
                 className="absolute inset-0 z-[1]"
-                initial={false}
-                animate={{ opacity: showLocal ? 1 : 0 }}
-                transition={CROSSFADE}
                 aria-hidden
+                style={{ display: showLocal ? undefined : "none" }}
               >
                 <Image
                   src={isDark ? "/images/deploy-local-dark.jpg" : "/images/deploy-local.jpg"}
@@ -154,13 +152,11 @@ export default function Features() {
                   className={IMAGE_CLASS}
                   style={BLUR_LAYER_STYLE}
                 />
-              </motion.div>
-              <motion.div
+              </div>
+              <div
                 className="absolute inset-0 z-[1]"
-                initial={false}
-                animate={{ opacity: showCloud ? 1 : 0 }}
-                transition={CROSSFADE}
                 aria-hidden
+                style={{ display: showCloud ? undefined : "none" }}
               >
                 <Image
                   src={isDark ? "/images/deploy-cloud-dark.jpg" : "/images/deploy-cloud.jpg"}
@@ -170,7 +166,7 @@ export default function Features() {
                   className={IMAGE_CLASS}
                   style={BLUR_LAYER_STYLE}
                 />
-              </motion.div>
+              </div>
 
               <div
                 aria-hidden
