@@ -1,4 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
+import { Boxes, Radio, Server, Tags } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { StatusDot } from '@/components/status-dot'
@@ -6,7 +7,7 @@ import { cn } from '@/lib/utils'
 import type { GraphNode } from './lib/build-link-graph'
 
 export type TopologyNodeType = Node<
-  GraphNode & { highlighted: boolean; dimmed: boolean },
+  GraphNode & { highlighted: boolean; dimmed: boolean; isFocus: boolean },
   'topology'
 >
 
@@ -17,13 +18,22 @@ const kindKey: Record<GraphNode['kind'], string> = {
   edge: 'topology.kindEdge',
 }
 
+const kindIcon: Record<GraphNode['kind'], typeof Radio> = {
+  platform: Radio,
+  case: Boxes,
+  topic: Tags,
+  edge: Server,
+}
+
 export function TopologyNode({ data }: NodeProps<TopologyNodeType>) {
   const { t } = useTranslation()
   const showDot = data.health !== 'pending'
+  const Icon = kindIcon[data.kind]
   return (
     <div
       className={cn(
         'rounded-md border bg-card px-3 py-2',
+        data.isFocus && 'border-primary bg-muted/60',
         data.dimmed && 'opacity-30'
       )}
     >
@@ -36,6 +46,7 @@ export function TopologyNode({ data }: NodeProps<TopologyNodeType>) {
               label={data.health === 'ok' ? t('linkHealth.stateOk') : t('linkHealth.stateWarn')}
             />
           ) : null}
+          <Icon className='size-3.5 shrink-0 text-muted-foreground' aria-hidden />
           <span className='text-xs text-muted-foreground'>
             {t(kindKey[data.kind])}
           </span>

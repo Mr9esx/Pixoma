@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { requestFocus, scrollAndFlash } from '@/lib/scroll-focus'
 import { cn } from '@/lib/utils'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SectionHead } from '@/components/section-head'
 import type {
@@ -86,18 +87,18 @@ export function LinkHealthSection({
                   <span className='text-sm text-warning'>
                     {t(b.key, b.params)}
                   </span>
-                  <span
+                  <Badge
+                    variant='outline'
                     className={cn(
-                      'rounded-sm px-1.5 py-0.5 text-xs',
                       b.fix === 'config'
-                        ? 'bg-info/10 text-info-foreground'
-                        : 'bg-destructive/10 text-destructive'
+                        ? 'border-info/30 bg-info/10 text-info-foreground'
+                        : 'border-destructive/30 bg-destructive/10 text-destructive'
                     )}
                   >
                     {b.fix === 'config'
                       ? t('linkHealth.fixConfig')
                       : t('linkHealth.fixRuntime')}
-                  </span>
+                  </Badge>
                   {renderAction?.(b) ?? (
                     <Link
                       to={b.action.to}
@@ -187,18 +188,16 @@ function ReferenceList({
                 >
                   {item.name}
                 </Link>
-                <span
-                  className={cn(
-                    'ml-auto shrink-0 rounded-md border px-1.5 py-0.5 text-xs',
-                    stateClass[item.state]
-                  )}
+                <Badge
+                  variant='outline'
+                  className={cn('ml-auto shrink-0', stateClass[item.state])}
                 >
                   {item.state === 'ok'
                     ? t('linkHealth.stateReady')
                     : item.state === 'warn'
                       ? t('linkHealth.stateWarn')
                       : t('linkHealth.stateBad')}
-                </span>
+                </Badge>
               </li>
             ))}
           </ul>
