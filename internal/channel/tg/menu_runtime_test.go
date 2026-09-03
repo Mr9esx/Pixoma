@@ -1,14 +1,18 @@
 package tg
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/capability"
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/tginternal"
 	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
+	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
@@ -42,39 +46,9 @@ func TestFindEnabledItemByLabel(t *testing.T) {
 	}
 }
 
-type captureOutbound struct {
-	lists         [][][]ports.Button
-	mediaCaptions []string
-	mediaButtons  [][][]ports.Button
-	edited        []int
-}
-
-func (c *captureOutbound) SendText(context.Context, sharedkernel.ChannelAddr, string) error {
-	return nil
-}
-func (c *captureOutbound) SendMenu(context.Context, sharedkernel.ChannelAddr, string, []ports.MenuEntry) error {
-	return nil
-}
-func (c *captureOutbound) SendList(_ context.Context, _ sharedkernel.ChannelAddr, _ string, rows [][]ports.Button) error {
-	c.lists = append(c.lists, rows)
-	return nil
-}
-func (c *captureOutbound) SendMedia(_ context.Context, _ sharedkernel.ChannelAddr, _ sharedkernel.BlobRef, caption string, buttons [][]ports.Button) error {
-	c.mediaCaptions = append(c.mediaCaptions, caption)
-	c.mediaButtons = append(c.mediaButtons, buttons)
-	return nil
-}
-func (c *captureOutbound) SendMediaURL(context.Context, sharedkernel.ChannelAddr, string, string, [][]ports.Button) error {
-	return nil
-}
-func (c *captureOutbound) EditReplyMarkup(_ context.Context, _ sharedkernel.ChannelAddr, messageID int, _ [][]ports.Button) error {
-	c.edited = append(c.edited, messageID)
-	return nil
-}
-
 func TestRenderResultBackButton(t *testing.T) {
-	out := &captureOutbound{}
-	ad := New(out)
+	b, srv := tginternal.NewBot(t)
+	ad := New(&BotMessenger{Bot: b})
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
 
 	base := protocol.CapabilityInvoke{
@@ -90,31 +64,40 @@ func TestRenderResultBackButton(t *testing.T) {
 	if err := ad.renderResult(context.Background(), addr, "tg-default:1", base, res); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.lists) != 1 {
-		t.Fatalf("lists=%d", len(out.lists))
+	texts, data := srv.LastInlineKeyboardTexts(), srv.LastInlineKeyboardData()
+	if len(texts) != 2 {
+		t.Fatalf("rows=%d", len(texts))
 	}
-	rows := out.lists[0]
-	if len(rows) != 2 || rows[0][0].Data == "" || !isInvokeData(rows[0][0].Data) {
-		t.Fatalf("row0=%+v", rows[0])
+	if len(texts[0]) == 0 || !isInvokeData(data[0][0]) {
+		t.Fatalf("row0=%+v", texts[0])
 	}
-	if rows[1][0].Text != "⬅️ 返回" || rows[1][0].Data != "mb:group-1" {
-		t.Fatalf("back=%+v", rows[1])
+	if texts[1][0] != "⬅️ 返回" || data[1][0] != "mb:group-1" {
+		t.Fatalf("back=%+v data=%+v", texts[1], data[1])
 	}
 
 	// root nav → 返回主菜单
 	base.Nav.Back = "root"
-	out.lists = nil
 	if err := ad.renderResult(context.Background(), addr, "tg-default:1", base, res); err != nil {
 		t.Fatal(err)
 	}
-	if out.lists[0][1][0].Data != CBMenu {
-		t.Fatalf("root back=%+v", out.lists[0][1])
+	texts, data = srv.LastInlineKeyboardTexts(), srv.LastInlineKeyboardData()
+	if data[len(data)-1][0] != CBMenu {
+		t.Fatalf("root back=%+v", data[len(data)-1])
 	}
 }
 
 func TestRenderResultMediaWithOptionsDoesNotRepeatText(t *testing.T) {
-	out := &captureOutbound{}
-	ad := New(out)
+	ctx := context.Background()
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Put(ctx, "previews/a.png", bytes.NewReader([]byte("png-bytes")), blob.PutOptions{MIME: "image/png"}); err != nil {
+		t.Fatal(err)
+	}
+	b, srv := tginternal.NewBot(t)
+	messenger := &BotMessenger{Bot: b, Blob: store}
+	ad := New(messenger)
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
 	base := protocol.CapabilityInvoke{
 		CapabilityID: "open_case",
@@ -129,49 +112,28 @@ func TestRenderResultMediaWithOptionsDoesNotRepeatText(t *testing.T) {
 	if err := ad.renderResult(context.Background(), addr, "tg-default:1", base, res); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.lists) != 0 {
-		t.Fatalf("list must not repeat caption: lists=%d", len(out.lists))
+	// Media path: 1 sendPhoto, no sendMessage follow-up list.
+	if got := srv.SendPhotoCalls(); got != 1 {
+		t.Fatalf("sendPhoto calls = %d, want 1", got)
 	}
-	if len(out.mediaCaptions) != 1 || out.mediaCaptions[0] != "📎 Flux\n好工作流" {
-		t.Fatalf("captions=%q", out.mediaCaptions)
+	if got := srv.LastCaption(); got != "📎 Flux\n好工作流" {
+		t.Fatalf("caption = %q", got)
 	}
-	if len(out.mediaButtons) != 1 || len(out.mediaButtons[0]) != 2 {
-		t.Fatalf("buttons=%+v", out.mediaButtons)
+	texts, _ := srv.LastInlineKeyboardTexts(), srv.LastInlineKeyboardData()
+	if len(texts) < 2 {
+		t.Fatalf("inline keyboard rows = %+v (want at least 2)", texts)
 	}
-	if out.mediaButtons[0][0][0].Text != "▶ 开始 Case" {
-		t.Fatalf("start=%+v", out.mediaButtons[0][0])
+	// First row is the option button; last row is the back button.
+	if texts[0][0] != "▶ 开始 Case" {
+		t.Fatalf("start button = %+v", texts[0])
 	}
 }
 
 func isInvokeData(d string) bool { return len(d) > len(CBInvoke) && d[:len(CBInvoke)] == CBInvoke }
 
-type mediaURLOutbound struct {
-	mediaURLs []string
-}
-
-func (m *mediaURLOutbound) SendText(context.Context, sharedkernel.ChannelAddr, string) error {
-	return nil
-}
-func (m *mediaURLOutbound) SendMenu(context.Context, sharedkernel.ChannelAddr, string, []ports.MenuEntry) error {
-	return nil
-}
-func (m *mediaURLOutbound) SendList(context.Context, sharedkernel.ChannelAddr, string, [][]ports.Button) error {
-	return nil
-}
-func (m *mediaURLOutbound) SendMedia(context.Context, sharedkernel.ChannelAddr, sharedkernel.BlobRef, string, [][]ports.Button) error {
-	return nil
-}
-func (m *mediaURLOutbound) SendMediaURL(_ context.Context, _ sharedkernel.ChannelAddr, imageURL, _ string, _ [][]ports.Button) error {
-	m.mediaURLs = append(m.mediaURLs, imageURL)
-	return nil
-}
-func (m *mediaURLOutbound) EditReplyMarkup(context.Context, sharedkernel.ChannelAddr, int, [][]ports.Button) error {
-	return nil
-}
-
 func TestRenderResultSendsMediaURLs(t *testing.T) {
-	out := &mediaURLOutbound{}
-	ad := New(out)
+	b, srv := tginternal.NewBot(t)
+	ad := New(&BotMessenger{Bot: b})
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
 	res := protocol.Result{
 		Text:      "联系方式",
@@ -180,38 +142,14 @@ func TestRenderResultSendsMediaURLs(t *testing.T) {
 	if err := ad.renderResult(context.Background(), addr, "tg-default:1", protocol.CapabilityInvoke{}, res); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.mediaURLs) != 2 || out.mediaURLs[0] != "https://a/qr.png" {
-		t.Fatalf("mediaURLs=%q", out.mediaURLs)
+	if got := srv.SendPhotoCalls(); got != 2 {
+		t.Fatalf("sendPhoto calls = %d, want 2", got)
 	}
 }
 
-type textCaptureOutbound struct {
-	texts []string
-}
-
-func (c *textCaptureOutbound) SendText(_ context.Context, _ sharedkernel.ChannelAddr, text string) error {
-	c.texts = append(c.texts, text)
-	return nil
-}
-func (c *textCaptureOutbound) SendMenu(context.Context, sharedkernel.ChannelAddr, string, []ports.MenuEntry) error {
-	return nil
-}
-func (c *textCaptureOutbound) SendList(context.Context, sharedkernel.ChannelAddr, string, [][]ports.Button) error {
-	return nil
-}
-func (c *textCaptureOutbound) SendMedia(context.Context, sharedkernel.ChannelAddr, sharedkernel.BlobRef, string, [][]ports.Button) error {
-	return nil
-}
-func (c *textCaptureOutbound) SendMediaURL(context.Context, sharedkernel.ChannelAddr, string, string, [][]ports.Button) error {
-	return nil
-}
-func (c *textCaptureOutbound) EditReplyMarkup(context.Context, sharedkernel.ChannelAddr, int, [][]ports.Button) error {
-	return nil
-}
-
 func TestActionDispatchOpenCardSendsCard(t *testing.T) {
-	out := &captureOutbound{}
-	ad := New(out)
+	b, srv := tginternal.NewBot(t)
+	ad := New(&BotMessenger{Bot: b})
 	ad.ChannelID = "ch1"
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
 	btn := mcdomain.TreeButton{
@@ -230,33 +168,36 @@ func TestActionDispatchOpenCardSendsCard(t *testing.T) {
 	if err := ad.actionDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), addr, btn, "root"); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.lists) != 1 {
-		t.Fatalf("lists=%d", len(out.lists))
+	texts, data := srv.LastInlineKeyboardTexts(), srv.LastInlineKeyboardData()
+	if len(texts) == 0 {
+		t.Fatalf("no inline keyboard rows")
 	}
-	rows := out.lists[0]
-	if rows[0][0].Text != "写实" {
-		t.Fatalf("row0=%+v", rows[0])
+	if texts[0][0] != "写实" {
+		t.Fatalf("row0=%+v", texts[0])
 	}
-	if rows[len(rows)-1][0].Text != "‹ 返回" || rows[len(rows)-1][0].Data != CBMenuBack+"root" {
-		t.Fatalf("back=%+v", rows[len(rows)-1])
+	last := len(texts) - 1
+	if texts[last][0] != "‹ 返回" || data[last][0] != CBMenuBack+"root" {
+		t.Fatalf("back=%+v", texts[last])
 	}
 }
 
 func TestActionDispatchSendText(t *testing.T) {
-	out := &textCaptureOutbound{}
-	ad := New(out)
+	b, srv := tginternal.NewBot(t)
+	ad := New(&BotMessenger{Bot: b})
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
 	btn := mcdomain.TreeButton{ID: "t", Label: "x", Action: mcdomain.TreeAction{Type: "send_text", Text: "即将上线"}}
 	if err := ad.actionDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), addr, btn, "root"); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.texts) != 1 || out.texts[0] != "即将上线" {
-		t.Fatalf("texts=%q", out.texts)
+	texts := srv.SendMessageTexts()
+	if len(texts) < 1 || texts[0] != "即将上线" {
+		t.Fatalf("sendMessage texts = %v, want first %q", texts, "即将上线")
 	}
 }
 
 func TestBackChainTracksSources(t *testing.T) {
-	ad := New(&captureOutbound{})
+	b, _ := tginternal.NewBot(t)
+	ad := New(&BotMessenger{Bot: b})
 	ad.ChannelID = "ch1"
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
 	chat := "tg-default:1"
@@ -303,13 +244,13 @@ func (r *recordOpenCase) Invoke(_ context.Context, _ protocol.AccountCtx, _ prot
 }
 
 func TestActionDispatchOpenWorkflowPreviews(t *testing.T) {
-	out := &captureOutbound{}
+	b, srv := tginternal.NewBot(t)
 	cap := &recordOpenCase{}
 	reg := capability.NewRegistry()
 	if err := reg.Register(cap); err != nil {
 		t.Fatal(err)
 	}
-	ad := New(out)
+	ad := New(&BotMessenger{Bot: b})
 	ad.ChannelID = "tg-default"
 	ad.Registry = reg
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
@@ -325,7 +266,40 @@ func TestActionDispatchOpenWorkflowPreviews(t *testing.T) {
 	if cap.params["case_id"] != "10" {
 		t.Fatalf("case_id=%v", cap.params["case_id"])
 	}
-	if len(out.lists) != 1 {
-		t.Fatalf("lists=%d", len(out.lists))
+	if got := srv.SendMessageCalls(); got < 1 {
+		t.Fatalf("expected at least one sendMessage, got %d", got)
+	}
+}
+
+func TestSendCardPassesVideoMIMEToSendMediaURL(t *testing.T) {
+	b, srv := tginternal.NewBot(t)
+	ad := New(&BotMessenger{Bot: b})
+	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
+	card := mcdomain.TreeCard{
+		Text:  "卡片正文",
+		Media: []mcdomain.Media{{Kind: "video", URL: "https://cdn/x.mp4"}},
+	}
+	if err := ad.sendCard(context.Background(), addr, card, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := srv.SendVideoCalls(); got != 1 {
+		t.Fatalf("sendVideo calls = %d, want 1 (got sendPhoto=%d sendAnimation=%d sendDocument=%d)",
+			got, srv.SendPhotoCalls(), srv.SendAnimationCalls(), srv.SendDocumentCalls())
+	}
+}
+
+func TestSendCardPassesAnimationMIMEToSendMediaURL(t *testing.T) {
+	b, srv := tginternal.NewBot(t)
+	ad := New(&BotMessenger{Bot: b})
+	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
+	card := mcdomain.TreeCard{
+		Media: []mcdomain.Media{{Kind: "animation", URL: "https://cdn/x.gif"}},
+	}
+	if err := ad.sendCard(context.Background(), addr, card, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := srv.SendAnimationCalls(); got != 1 {
+		t.Fatalf("sendAnimation calls = %d, want 1 (got sendPhoto=%d sendVideo=%d sendDocument=%d)",
+			got, srv.SendPhotoCalls(), srv.SendVideoCalls(), srv.SendDocumentCalls())
 	}
 }

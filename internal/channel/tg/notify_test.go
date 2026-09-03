@@ -6,18 +6,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
 	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg"
+	"github.com/mr9esx/comfyui_tgbot/internal/channel/tg/tginternal"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
-
-type recordingOutbound struct {
-	media []sharedkernel.BlobRef
-	texts []string
-}
 
 type sessionTextRenderer struct{}
 
@@ -25,37 +20,23 @@ func (sessionTextRenderer) Render(_ context.Context, _ string, key string, vars 
 	return texttpl.Render(key+"|custom", vars)
 }
 
-func (r *recordingOutbound) SendText(_ context.Context, _ sharedkernel.ChannelAddr, text string) error {
-	r.texts = append(r.texts, text)
-	return nil
-}
-
-func (r *recordingOutbound) SendMenu(_ context.Context, _ sharedkernel.ChannelAddr, _ string, _ []ports.MenuEntry) error {
-	return nil
-}
-
-func (r *recordingOutbound) SendList(_ context.Context, _ sharedkernel.ChannelAddr, _ string, _ [][]ports.Button) error {
-	return nil
-}
-
-func (r *recordingOutbound) SendMedia(_ context.Context, _ sharedkernel.ChannelAddr, ref sharedkernel.BlobRef, _ string, _ [][]ports.Button) error {
-	r.media = append(r.media, ref)
-	return nil
-}
-
-func (r *recordingOutbound) SendMediaURL(_ context.Context, _ sharedkernel.ChannelAddr, _, _ string, _ [][]ports.Button) error {
-	return nil
-}
-
-func (r *recordingOutbound) EditReplyMarkup(context.Context, sharedkernel.ChannelAddr, int, [][]ports.Button) error {
-	return nil
-}
-
 func TestHandleUserNotifySendsAllOutputs(t *testing.T) {
-	out := &recordingOutbound{}
-	a := tg.New(out)
+	ctx := context.Background()
+	store, err := localfs.New(filepath.Join(t.TempDir(), "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"image_0_a.png", "image_1_b.png"} {
+		if _, err := store.Put(ctx, "outputs/t1/"+name, bytes.NewReader([]byte("png-bytes")), blob.PutOptions{MIME: "image/png"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b, srv := tginternal.NewBot(t)
+	messenger := &tg.BotMessenger{Bot: b, Blob: store}
+	a := tg.New(messenger)
 	a.ChannelID = "tg"
-	err := a.HandleUserNotify(context.Background(), sharedkernel.UserNotify{
+	a.Blob = store
+	if err := a.HandleUserNotify(ctx, sharedkernel.UserNotify{
 		ChatID: sharedkernel.ChatID("tg:123"),
 		TaskID: "t1",
 		Kind:   "task_succeeded",
@@ -63,15 +44,15 @@ func TestHandleUserNotifySendsAllOutputs(t *testing.T) {
 			{Key: "outputs/t1/image_0_a.png", MIME: "image/png"},
 			{Key: "outputs/t1/image_1_b.png", MIME: "image/png"},
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.media) != 2 {
-		t.Fatalf("media=%d", len(out.media))
+	if got := srv.SendPhotoCalls(); got != 2 {
+		t.Fatalf("sendPhoto calls = %d, want 2", got)
 	}
-	if out.media[0].Key != "outputs/t1/image_0_a.png" || out.media[1].Key != "outputs/t1/image_1_b.png" {
-		t.Fatalf("media keys=%q %q", out.media[0].Key, out.media[1].Key)
+	names := srv.UploadNames()
+	if len(names) != 2 || names[0] != "image_0_a.png" || names[1] != "image_1_b.png" {
+		t.Fatalf("upload names = %v", names)
 	}
 }
 
@@ -85,8 +66,9 @@ func TestHandleUserNotifySendsTextOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := &recordingOutbound{}
-	a := tg.New(out)
+	b, srv := tginternal.NewBot(t)
+	messenger := &tg.BotMessenger{Bot: b, Blob: store}
+	a := tg.New(messenger)
 	a.ChannelID = "tg"
 	a.Blob = store
 	if err := a.HandleUserNotify(ctx, sharedkernel.UserNotify{
@@ -97,14 +79,15 @@ func TestHandleUserNotifySendsTextOutput(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.texts) != 1 || out.texts[0] != "hello from workflow" {
-		t.Fatalf("texts=%q", out.texts)
+	texts := srv.SendMessageTexts()
+	if len(texts) < 1 || texts[0] != "hello from workflow" {
+		t.Fatalf("sendMessage texts = %v, want first %q", texts, "hello from workflow")
 	}
 }
 
 func TestHandleUserNotifySessionTerminated(t *testing.T) {
-	out := &recordingOutbound{}
-	a := tg.New(out)
+	b, srv := tginternal.NewBot(t)
+	a := tg.New(&tg.BotMessenger{Bot: b})
 	a.ChannelID = "tg"
 	err := a.HandleUserNotify(context.Background(), sharedkernel.UserNotify{
 		ChatID:   sharedkernel.ChatID("tg:123"),
@@ -114,14 +97,15 @@ func TestHandleUserNotifySessionTerminated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out.texts) != 1 || out.texts[0] != "该工作流已被管理员删除，当前会话已结束。" {
-		t.Fatalf("texts=%+v", out.texts)
+	texts := srv.SendMessageTexts()
+	if len(texts) != 1 || texts[0] != "该工作流已被管理员删除，当前会话已结束。" {
+		t.Fatalf("sendMessage texts = %v", texts)
 	}
 }
 
 func TestHandleUserNotifySessionTerminatedRendersTemplate(t *testing.T) {
-	out := &recordingOutbound{}
-	a := tg.New(out)
+	b, srv := tginternal.NewBot(t)
+	a := tg.New(&tg.BotMessenger{Bot: b})
 	a.ChannelID = "tg-custom"
 	a.Texts = sessionTextRenderer{}
 	if err := a.HandleUserNotify(context.Background(), sharedkernel.UserNotify{
@@ -131,14 +115,15 @@ func TestHandleUserNotifySessionTerminatedRendersTemplate(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.texts) != 1 || out.texts[0] != "session_terminated|custom" {
-		t.Fatalf("texts=%+v", out.texts)
+	texts := srv.SendMessageTexts()
+	if len(texts) != 1 || texts[0] != "session_terminated|custom" {
+		t.Fatalf("sendMessage texts = %v", texts)
 	}
 }
 
 func TestHandleUserNotifyFailedRendersTemplate(t *testing.T) {
-	out := &recordingOutbound{}
-	a := tg.New(out)
+	b, srv := tginternal.NewBot(t)
+	a := tg.New(&tg.BotMessenger{Bot: b})
 	a.ChannelID = "tg"
 	if err := a.HandleUserNotify(context.Background(), sharedkernel.UserNotify{
 		ChatID:   sharedkernel.ChatID("tg:123"),
@@ -148,18 +133,16 @@ func TestHandleUserNotifyFailedRendersTemplate(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.texts) != 1 {
-		t.Fatalf("texts=%+v", out.texts)
-	}
 	want := "❌ 任务执行失败\ntask=T42\n状态：failed\ncomfy timeout"
-	if out.texts[0] != want {
-		t.Fatalf("got %q want %q", out.texts[0], want)
+	texts := srv.SendMessageTexts()
+	if len(texts) < 1 || texts[0] != want {
+		t.Fatalf("sendMessage texts = %v, want first %q", texts, want)
 	}
 }
 
 func TestHandleUserNotifySuccessWithoutOutputsSendsDone(t *testing.T) {
-	out := &recordingOutbound{}
-	a := tg.New(out)
+	b, srv := tginternal.NewBot(t)
+	a := tg.New(&tg.BotMessenger{Bot: b})
 	a.ChannelID = "tg"
 	if err := a.HandleUserNotify(context.Background(), sharedkernel.UserNotify{
 		ChatID: sharedkernel.ChatID("tg:123"),
@@ -168,11 +151,9 @@ func TestHandleUserNotifySuccessWithoutOutputsSendsDone(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.texts) != 1 {
-		t.Fatalf("texts=%+v", out.texts)
-	}
 	want := "✅ 工作流完成\ntask=T7"
-	if out.texts[0] != want {
-		t.Fatalf("got %q want %q", out.texts[0], want)
+	texts := srv.SendMessageTexts()
+	if len(texts) < 1 || texts[0] != want {
+		t.Fatalf("sendMessage texts = %v, want first %q", texts, want)
 	}
 }

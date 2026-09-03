@@ -332,7 +332,7 @@ func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID
 		return a.Out.SendText(ctx, addr, action.Text)
 	case "send_media":
 		for _, m := range action.Media {
-			if err := a.Out.SendMediaURL(ctx, addr, m.URL, action.Text, nil); err != nil {
+			if err := a.Out.SendMediaURL(ctx, addr, m.URL, mediaKindToMIME(m.Kind), action.Text, nil); err != nil {
 				return err
 			}
 		}
@@ -349,7 +349,7 @@ func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID
 
 func (a *Adapter) sendCard(ctx context.Context, addr sharedkernel.ChannelAddr, card mcdomain.TreeCard, openerID, backCtx string) error {
 	for _, m := range card.Media {
-		if err := a.Out.SendMediaURL(ctx, addr, m.URL, card.Text, nil); err != nil {
+		if err := a.Out.SendMediaURL(ctx, addr, m.URL, mediaKindToMIME(m.Kind), card.Text, nil); err != nil {
 			return err
 		}
 	}
@@ -435,7 +435,7 @@ func (a *Adapter) renderResult(ctx context.Context, addr sharedkernel.ChannelAdd
 	for _, u := range res.MediaURLs {
 		caption, buttons := mediaExtras(res.Text, rows, first)
 		first = false
-		if err := a.Out.SendMediaURL(ctx, addr, u, caption, buttons); err != nil {
+		if err := a.Out.SendMediaURL(ctx, addr, u, "", caption, buttons); err != nil {
 			return err
 		}
 	}
@@ -521,4 +521,20 @@ func mustAddr(chatID sharedkernel.ChatID) sharedkernel.ChannelAddr {
 		return sharedkernel.ChannelAddr{}
 	}
 	return addr
+}
+
+
+// mediaKindToMIME maps a menucard domain.Media.Kind to a Telegram-friendly mime
+// hint. Unknown kinds fall back to "" so the URL extension-based guesser takes
+// over.
+func mediaKindToMIME(kind string) string {
+	switch kind {
+	case "image":
+		return "image/jpeg"
+	case "animation":
+		return "image/gif"
+	case "video":
+		return "video/mp4"
+	}
+	return ""
 }
