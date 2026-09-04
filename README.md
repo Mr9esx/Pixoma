@@ -92,6 +92,7 @@ go run ./apps/edge-agent/cmd/edge-agent
 | `CONTROL_PLANE_URL` / `PIXOMA_URL` | Edge | 控制面地址 |
 | `AGENT_TOKEN` | Edge | 该节点自己的 Agent Token（后台可见） |
 | `BLOB_DRIVER` | Edge / 紧急覆盖 | `localfs` / `s3` / `tos` |
+| `CLAIM_WAIT` | Edge | 任务领取长轮询等待时间（默认 `5s`，控制面上限 `60s`） |
 | `PIXOMA_ENCRYPTION_KEY` | pixoma | 覆盖内置引导加密 key；请使用长随机值并通过密钥管理系统保存 |
 | `METRICS_INTERVAL` | Edge | 系统指标采样/上报间隔（默认 `30s`，下限 `5s`） |
 | `METRICS_RETENTION` | 控制面 | `edge_metrics` 保留窗口（默认 `24h`） |

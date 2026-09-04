@@ -38,7 +38,7 @@ func run(ctx context.Context) error {
 		return errString("AGENT_TOKEN is required")
 	}
 	comfyURL := envOr("COMFYUI_BASE_URL", "http://127.0.0.1:8188")
-	wait := envDuration("CLAIM_WAIT", 25*time.Second)
+	wait := envDuration("CLAIM_WAIT", pull.DefaultClaimWait)
 
 	driver := envOr("BLOB_DRIVER", botconfig.BlobDriverLocalFS)
 	blobStore, err := factory.New(driver, envOr("BLOB_LOCAL_ROOT", "data/blob"))
