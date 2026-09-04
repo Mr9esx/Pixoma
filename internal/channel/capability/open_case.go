@@ -380,7 +380,31 @@ func renderSession(ctx context.Context, channelID string, o OpenCase, view *bota
 	if view.Index >= 0 && len(view.Keys) > 0 {
 		vars["progress"] = fmt.Sprintf("%d/%d", view.Index+1, len(view.Keys))
 	}
+
+	var currentField *catalogdomain.InputField
+	if view.CaseID != 0 {
+		if c, err := o.App.GetCase(ctx, view.CaseID); err == nil && c != nil {
+			for i := range c.Document.Inputs {
+				if c.Document.Inputs[i].Key == key {
+					currentField = &c.Document.Inputs[i]
+					break
+				}
+			}
+		}
+	}
+
+	canSkip := currentField == nil || !currentField.Required || currentField.SkipAllowed
+	if currentField != nil && currentField.Description != "" {
+		vars["description"] = currentField.Description
+	}
+
 	options := []protocol.Option{{Label: o.renderText(ctx, channelID, texttpl.KeyButtonExit, nil), Value: map[string]any{"step": "exit"}}}
-	options = append([]protocol.Option{{Label: o.renderText(ctx, channelID, texttpl.KeyButtonSkip, nil), Value: map[string]any{"step": "skip"}}}, options...)
-	return protocol.Result{Text: o.renderText(ctx, channelID, texttpl.KeyInputPrompt, vars), Options: options}, nil
+	if canSkip {
+		options = append([]protocol.Option{{Label: o.renderText(ctx, channelID, texttpl.KeyButtonSkip, nil), Value: map[string]any{"step": "skip"}}}, options...)
+	}
+	prompt := o.renderText(ctx, channelID, texttpl.KeyInputPrompt, vars)
+	if currentField != nil && currentField.Description != "" {
+		prompt += "\n\n" + currentField.Description
+	}
+	return protocol.Result{Text: prompt, Options: options}, nil
 }
