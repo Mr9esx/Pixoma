@@ -229,13 +229,15 @@ type Loop struct {
 	Once   bool // for tests: stop after one claim attempt (empty or executed)
 }
 
+const DefaultClaimWait = 5 * time.Second
+
 func (l *Loop) Run(ctx context.Context) error {
 	if l.Client == nil || l.Worker == nil {
 		return fmt.Errorf("pull: loop not configured")
 	}
 	wait := l.Wait
 	if wait <= 0 && !l.Once {
-		wait = 25 * time.Second
+		wait = DefaultClaimWait
 	}
 	for {
 		if err := ctx.Err(); err != nil {

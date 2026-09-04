@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -129,6 +130,39 @@ func TestLoop_ClaimExecuteReportStatus(t *testing.T) {
 	}
 	if !foundOK {
 		t.Fatalf("want succeeded status, got %v", statuses)
+	}
+}
+
+func TestLoop_DefaultClaimWait(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var gotWait string
+	var requests atomic.Int32
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/agent/v1/jobs/claim" {
+			http.NotFound(w, r)
+			return
+		}
+		gotWait = r.URL.Query().Get("wait")
+		if requests.Add(1) == 1 {
+			w.WriteHeader(http.StatusNoContent)
+			cancel()
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+
+	loop := &pull.Loop{
+		Client: pull.NewClient(srv.URL, "tok", "gpu-1"),
+		Worker: &actuator.Worker{},
+	}
+	err := loop.Run(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("want canceled context, got %v", err)
+	}
+	if gotWait != "5s" {
+		t.Fatalf("default claim wait = %q, want 5s", gotWait)
 	}
 }
 
