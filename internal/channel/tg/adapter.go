@@ -3,6 +3,7 @@ package tg
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -14,6 +15,7 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/ports"
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/protocol"
 	texttpl "github.com/mr9esx/comfyui_tgbot/internal/channel/text"
+	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
 	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
@@ -407,6 +409,9 @@ func (a *Adapter) dispatchInvoke(ctx context.Context, chatID sharedkernel.ChatID
 	}
 	res, err := a.Registry.Invoke(ctx, inv)
 	if err != nil {
+		if errors.Is(err, convdomain.ErrNoActiveSession) {
+			return a.Out.SendText(ctx, addr, a.renderText(ctx, texttpl.KeyExitDone, nil))
+		}
 		slog.Error("capability invoke", "err", err, "capability", inv.CapabilityID)
 		return a.Out.SendText(ctx, addr, "操作失败，请稍后重试。")
 	}
