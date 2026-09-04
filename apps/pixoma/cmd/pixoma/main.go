@@ -214,6 +214,9 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	}
 	defer func() { _ = cleanup() }()
 
+	runCtx, runCancel := context.WithCancel(ctx)
+	defer runCancel()
+
 	if err := bootstrap.MigrateBootstrapAdmin(ctx, gdb, boot); err != nil {
 		return err
 	}
@@ -285,7 +288,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Cases: caseRepo,
 		Blob:  blobStore,
 	}
-	botRT, err := app.StartBotRuntime(ctx, app.BotDeps{
+	botRT, err := app.StartBotRuntime(runCtx, app.BotDeps{
 		Channels:     chSvc,
 		Cases:        caseRepo,
 		Sessions:     sessSvc,
@@ -342,10 +345,10 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	orch.Now = func() time.Time { return time.Now().UTC() }
 	orch.Cases = caseDocReader{repo: caseRepo}
 	orch.Condition = conditionReg
-	if err := app.SubscribeTaskCreated(ctx, bus, orch); err != nil {
+	if err := app.SubscribeTaskCreated(runCtx, bus, orch); err != nil {
 		return err
 	}
-	app.RunScheduler(ctx, orch)
+	app.RunScheduler(runCtx, orch)
 
 	restartCh := make(chan struct{})
 	var restartOnce sync.Once
