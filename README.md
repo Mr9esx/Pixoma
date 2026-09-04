@@ -31,11 +31,11 @@
 
 | 管理后台 | Telegram Bot |
 | :---: | :---: |
-| <a href="web/landing/public/images/app-dashboard-dark.png"><img src="web/landing/public/images/app-dashboard-dark.png" width="480" alt="Pixoma 管理后台"></a> | <a href="web/landing/public/images/telegram-bot-dark.png"><img src="web/landing/public/images/telegram-bot-dark.png" width="480" alt="Telegram Bot 对话界面"></a> |
+| <a href="docs/images/app-dashboard-dark.png"><img src="docs/images/app-dashboard-dark.png" width="480" alt="Pixoma 管理后台"></a> | <a href="docs/images/telegram-bot-dark.png"><img src="docs/images/telegram-bot-dark.png" width="480" alt="Telegram Bot 对话界面"></a> |
 
 | 工作流简化 |
 | :---: |
-| <a href="web/landing/public/images/simplify-dark.png"><img src="web/landing/public/images/simplify-dark.png" width="480" alt="ComfyUI 节点简化为三段式工作流"></a> |
+| <a href="docs/images/simplify-dark.png"><img src="docs/images/simplify-dark.png" width="480" alt="ComfyUI 节点简化为三段式工作流"></a> |
 
 ## Pixoma 是什么
 
