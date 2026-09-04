@@ -29,7 +29,7 @@ const BLUR_LAYER_STYLE = {
 } as CSSProperties;
 
 const SIMPLIFY_VIGNETTE_MASK =
-  "radial-gradient(circle at center, transparent 0%, transparent 160px, black 100%)";
+  "radial-gradient(circle at center, transparent 0%, transparent 640px, black 100%)";
 
 const SIMPLIFY_BLUR_STYLE = {
   ...BLUR_LAYER_STYLE,
