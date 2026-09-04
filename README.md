@@ -1,34 +1,95 @@
-# Pixoma
+<p align="center">
+  <img src="logo.png" width="128" height="128" alt="Pixoma">
+</p>
 
-Pixoma 让你随时随地使用自己的 ComfyUI 进行艺术创作。Telegram Bot + Case 目录 + 对话 Session + Task 运行时 + 多计算节点。
+<h1 align="center">Pixoma</h1>
 
-## 架构简述
+<p align="center">
+  把 ComfyUI 变成 Telegram Bot。自托管，多节点调度，随时随地出图。
+</p>
 
-```text
-User (TG) ──► Session ──► Task
-                            │
-                     pixoma 控制面
-                     （调度 / 管理后台 / Agent API）
-                            │
-                     DB 可领取 + 长轮询 claim
-                            │
-                     pixoma-edge-agent
-                            │
-                     ComfyUI
-```
+<p align="center">
+  <a href="#安装"><b>安装</b></a>
+  ·
+  <a href="#快速开始"><b>快速开始</b></a>
+  ·
+  <a href="#功能"><b>功能</b></a>
+  ·
+  <a href="#faq"><b>FAQ</b></a>
+</p>
 
-默认路径**不需要 Redis**，也不再让你选 allinone / split。差别只有：Comfy 在不在这台机器上。
+<p align="center">
+  <a href="https://github.com/Mr9esx/Pixoma/stargazers">
+    <img src="https://img.shields.io/github/stars/Mr9esx/Pixoma?style=social" alt="GitHub stars">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/Mr9esx/Pixoma" alt="License">
+  </a>
+</p>
 
-| 你怎么用 | 日常差别 | 文件存在哪 | 进程 |
-|---|---|---|---|
-| **本机** | 一台电脑起 `pixoma`；计算节点需在后台手动新增，再按部署命令跑 agent | 本地目录 `data/blob` | `pixoma` + 手动部署的 `pixoma-edge-agent` |
-| **远程** | 控制面在一台机器，GPU 在另一台；Edge **主动连过来领活** | S3 或火山 TOS（禁止本机目录） | `pixoma` + 远端 `pixoma-edge-agent` |
+## 截图
 
-完整架构：[`docs/architecture/`](docs/architecture/)。运行时：[`docs/architecture/runtime.md`](docs/architecture/runtime.md)。
+| 管理后台 | Telegram Bot |
+| :---: | :---: |
+| <a href="web/landing/public/images/app-dashboard-dark.png"><img src="web/landing/public/images/app-dashboard-dark.png" width="480" alt="Pixoma 管理后台"></a> | <a href="web/landing/public/images/telegram-bot-dark.png"><img src="web/landing/public/images/telegram-bot-dark.png" width="480" alt="Telegram Bot 对话界面"></a> |
 
-## 新部署（推荐）
+| 工作流简化 |
+| :---: |
+| <a href="web/landing/public/images/simplify-dark.png"><img src="web/landing/public/images/simplify-dark.png" width="480" alt="ComfyUI 节点简化为三段式工作流"></a> |
 
-快速安装并启动控制面：
+## Pixoma 是什么
+
+Pixoma 把你已有的 ComfyUI 工作流包装成 Telegram Bot，让你在手机上也能随时调用。工作流、节点、任务队列、存储，全部自托管。
+
+- 单机跑：一台电脑，Pixoma + ComfyUI 都在本地
+- 多节点：Pixoma 跑在一台机器上，GPU 节点上跑 agent 主动领任务
+- 支持文生图、文生视频、图片编辑、图生视频、TTS、人声模仿等任何 ComfyUI 工作流
+
+## 功能
+
+### Telegram Bot 对话式生成
+
+- `/start` 主菜单，按分类浏览 Case
+- 对话式填写参数，可选字段可跳过
+- 生成进度推送，完成后 Bot 直接返回结果
+- 多 Session 并行，互不干扰
+
+### 工作流管理
+
+- 导入 ComfyUI 工作流，配置输入输出节点
+- 三段式简化：输入 → 生成 → 输出，隐藏复杂节点
+- Case 分组管理，支持启用/停用
+- 内置可视化工作流编辑器
+
+### 多计算节点调度
+
+- 计算节点通过长轮询领任务，无需 Redis
+- 支持 Topic 路由，不同节点接不同类型任务
+- 节点状态、负载、指标实时监控
+- 单机 all-in-one 或云端多节点自由切换
+
+### 存储与数据库
+
+- 对象存储：本地目录 / S3 / TOS / 共享目录（SMB / NFS）
+- 数据库：SQLite（默认）/ MySQL / Postgres
+- 初始化向导一键配置，支持连通性测试
+
+### 管理后台
+
+- RBAC 权限：viewer / operator / admin
+- 任务列表、详情、重试
+- 节点管理、Case 管理、用户管理
+- 任务统计、节点指标图表
+- 支持亮/暗主题
+
+### 安全
+
+- 会话鉴权 + CSRF 防护
+- 数据目录 `0700` / `0600` 权限
+- 敏感配置加密存储
+- 支持 HTTPS 反向代理
+
+## 安装
 
 macOS / Linux：
 
@@ -44,123 +105,115 @@ irm https://pixoma.miaoplus.com/install.ps1 | iex
 pixoma
 ```
 
-也可以在源码目录直接启动控制面：
+源码运行：
 
 ```bash
 go run ./apps/pixoma/cmd/pixoma
-# 或：make run
 ```
 
-本地要改管理页面、走完整后台 UI 时用 `make dev`，见下方「本地调试」。只起后端时打开 8080 可能只看到提示页（前端还没打进二进制）。
+## 快速开始
 
-日志会打出后台地址和**仅首次**的默认管理员账密。打开后台：先登录、改密，再走初始化向导（库、本机/远程、存储、节点、TG Token）。**保存后重启 `pixoma` 才按新配置装配。**
+1. 启动 `pixoma`，日志里找到后台地址和默认管理员密码
+2. 浏览器打开后台，登录后走初始化向导：改密 → 选数据库 → 选对象存储 → 加节点 → 填 Telegram Bot Token
+3. 在有 ComfyUI 的机器上，按后台「节点部署命令」运行 `pixoma-edge-agent`
+4. 后台 → Case → 导入你的 ComfyUI 工作流
+5. Telegram 里找到你的 Bot，`/start` 开始生成
 
-改密之后，启动日志不再打印明文密码。
+> 保存配置后需要重启 `pixoma` 才会生效。
 
-计算节点不会自动创建：本机或远程都需要在后台「新增节点」后，按部署命令手动运行 `pixoma-edge-agent`。
+## 它是怎么工作的
 
-### 远程 Edge
-
-GPU 机器只需出站访问控制面，不要用本机目录当对象存储。在后台新建计算节点后复制部署命令（每台一把 `AGENT_TOKEN`）：
-
-```bash
-export CONTROL_PLANE_URL=http://控制面地址:8080
-export AGENT_TOKEN=...          # 该节点在后台显示的 token
-export EDGE_ID=...              # 该节点 ID（创建时自动生成）
-export EDGE_SUBSCRIBE_TOPICS=   # 可选：逗号分隔的 Topic 列表；不设 = 不消费（需绑定任务队列才能接任务）
-export BLOB_DRIVER=s3           # 或 tos，禁止 localfs
-export COMFYUI_BASE_URL=http://ComfyUI地址:8188
-go run ./apps/edge-agent/cmd/edge-agent
+```
+Telegram 用户 ──► 对话 Session ──► 生成任务
+                                      │
+                                Pixoma 服务
+                           （调度 / 管理后台 / API）
+                                      │
+                           任务队列 + 长轮询领任务
+                                      │
+                            计算节点 Agent
+                                      │
+                                   ComfyUI
 ```
 
-### BREAKING
+计算节点不被动等待推送，而是主动向 Pixoma 服务发起长轮询请求，有任务就领走执行。这样部署最简单：GPU 机器只要能访问到 Pixoma 服务就行，不需要公网 IP。
 
-相对旧版 YAML/`runtime_mode`/`queue.driver`/Redis Streams 派发：新安装只走 `pixoma` + 向导 + Edge 拉取。旧 Redis split **不保证原地升级**。独立 `admin-api` 与旧 `apps/bot` 入口已移除，管理 HTTP 由 `pixoma` 一体托管。
+### 两种部署方式
 
-管理 API 初始化后需要管理员会话（登录 cookie / Bearer）；未初始化只放行登录与向导。
-
-## 常用环境变量
-
-| 变量 | 谁读 | 作用 |
+| | 单机 | 多节点 |
 |---|---|---|
-| `DATA_DIR` | pixoma | 引导态与默认 SQLite / blob 目录（默认 `data`） |
-| `HTTP_ADDR` | pixoma | 监听地址（默认 `127.0.0.1:8080`） |
-| `HTTPS_PROXY` / `HTTP_PROXY` | pixoma | 紧急覆盖出站代理；设置页「网络」也可配 HTTP/SOCKS |
-| `COMFYUI_BASE_URL` | pixoma / Edge | 真机 Comfy HTTP 根 |
-| `EDGE_ID` | Edge | 领取身份，须与计算节点 id 一致 |
-| `EDGE_SUBSCRIBE_TOPICS` | Edge | 订阅 Topic（逗号分隔）；未配置则不消费任何 Topic（节点需绑定任务队列才能接收任务），presence 首报写入，管理端可覆盖 |
-| `CONTROL_PLANE_URL` / `PIXOMA_URL` | Edge | 控制面地址 |
-| `AGENT_TOKEN` | Edge | 该节点自己的 Agent Token（后台可见） |
-| `BLOB_DRIVER` | Edge / 紧急覆盖 | `localfs` / `s3` / `tos` |
-| `CLAIM_WAIT` | Edge | 任务领取长轮询等待时间（默认 `5s`，控制面上限 `60s`） |
-| `PIXOMA_ENCRYPTION_KEY` | pixoma | 覆盖内置引导加密 key；请使用长随机值并通过密钥管理系统保存 |
-| `METRICS_INTERVAL` | Edge | 系统指标采样/上报间隔（默认 `30s`，下限 `5s`） |
-| `METRICS_RETENTION` | 控制面 | `edge_metrics` 保留窗口（默认 `24h`） |
-| `STATS_TIMEZONE` | 控制面 | 任务统计归天时区（默认 `Asia/Shanghai`） |
-| `TASK_STATS_RETENTION` | 控制面 | 任务统计保留时长（默认 `8760h`，即 365 天） |
-| `DB_DRIVER` / `DATABASE_DSN` | backfill | 统计回填命令的数据库驱动与 DSN（默认 sqlite / `DATA_DIR/app.db`） |
-| `S3_*` / `TOS_*` | 远程存储 | endpoint / region / bucket / keys |
+| Pixoma 服务 | 本地 | 服务器（公网 IP / 域名） |
+| 计算节点 | 同一台机器 | 多台 GPU 机器 |
+| 对象存储 | 本地目录 | S3 / TOS |
+| 适合 | 个人使用 | 团队 / 多卡 / 弹性扩容 |
 
-对象存储密钥不要提交进 git。真网 TOS 门禁：`go test ./internal/platform/blob/tos/ -tags=live_tos -run TestRealTOS_PutGetRoundTrip`。
+## 配置
 
-### 安全部署
+主要环境变量：
 
-- 默认 HTTP 监听地址是 `127.0.0.1:8080`。需要跨主机访问时，显式设置 `HTTP_ADDR`，并优先使用 TLS 反向代理；反向代理应转发真实协议/主机信息，以便 HTTPS 会话 Cookie 正确标记为 `Secure`。
-- 管理端点基于会话和 RBAC：viewer 只读，operator/admin 可写，setup 管理端点仅 admin 可用。公网部署时请在反代层再加一层访问控制。
-- 本地数据目录默认为 `DATA_DIR/data`；应用会尽量创建 `0700` 目录和 `0600` 文件，避免共享给不可信账号。
-- 依赖审计、构建、测试和秘密扫描见 [`CONTRIBUTING.md`](CONTRIBUTING.md) 与 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)。安全披露流程见 [`SECURITY.md`](SECURITY.md)。
+| 变量 | 说明 | 默认值 |
+|---|---|---|
+| `DATA_DIR` | 数据目录（SQLite / blob） | `data` |
+| `HTTP_ADDR` | 监听地址 | `127.0.0.1:8080` |
+| `DB_DRIVER` / `DATABASE_DSN` | 数据库驱动与 DSN | `sqlite` / `DATA_DIR/app.db` |
+| `BLOB_DRIVER` | 对象存储驱动：`localfs` / `s3` / `tos` / `sharedfs` | `localfs` |
+| `TG_BOT_TOKEN` | Telegram Bot Token | — |
+| `EDGE_ID` | 计算节点 ID（agent 端） | — |
+| `AGENT_TOKEN` | 计算节点 Token（agent 端） | — |
+| `CONTROL_PLANE_URL` / `PIXOMA_URL` | Pixoma 服务地址（agent 端） | — |
+| `COMFYUI_BASE_URL` | ComfyUI 地址 | — |
+| `CLAIM_WAIT` | 长轮询等待时间（agent 端） | `5s` |
+| `STATS_TIMEZONE` | 统计归天时区 | `Asia/Shanghai` |
+| `PIXOMA_ENCRYPTION_KEY` | 加密密钥，建议自行设置长随机值 | 内置 |
 
-### 业务数据库
+完整列表见 [`docs/install.md`](docs/install.md)。
 
-新部署在初始化向导的「数据库配置」步骤选择 SQLite / MySQL / Postgres 并填写连接；设置页只读展示业务库驱动与 DSN。MySQL 建议 8.0+。业务库连接只在 Setup 向导配置，换库/跨引擎数据迁移不在界面内支持：需要迁移时请走数据迁移后重跑初始化向导。
+## FAQ
 
-### 对象存储
+**Pixoma 自带 ComfyUI 吗？**
 
-初始化向导步骤为 密码 → 数据库 → 对象存储（不再单独选择部署位置，`localfs` 视为本机、`s3`/`tos` 视为远程）。对象存储步骤支持「连通性测试」：`localfs` 校验目录可写；S3/TOS 校验 endpoint/region/bucket/密钥（HeadBucket）。bucket 不存在时会提示是否代为创建，确认后自动创建（需账号具备建桶权限）。`localfs` 跨机使用需把同一目录挂载到所有机器（NFS / SMB）。
+不带。Pixoma 是在你已有的 ComfyUI 基础上加一层 Bot 接口和调度，需要你先有能正常跑的 ComfyUI 和工作流。
 
-同机房多设备可选用「共享目录（SMB / NFS）」驱动 `sharedfs`：先在所有机器上挂载同一共享目录（`mount -t nfs` 或 `mount -t cifs`），再在向导「文件存储配置」里选择并填写挂载路径，连通性测试会校验目录可写；控制面与 Edge 挂载同一目录后按 key 互通读写。S3 端点也可填局域网 MinIO 等 S3 兼容服务地址。
+**单机部署需要什么？**
 
-## 跑通 TG 对话（本机）
+一台能跑 ComfyUI 的电脑就行。SQLite + 本地文件存储，零外部依赖。需要能访问 Telegram。
 
-向导里填好 Bot Token 并重启，或：
+**用云端 GPU 节点需要什么准备？**
 
-```bash
-export TG_BOT_TOKEN=你的BotToken
-make run
-```
+1. Pixoma 服务部署在有公网 IP 或域名的服务器
+2. 对象存储用 S3 或 TOS（不能用本地目录）
+3. GPU 机器上运行 `pixoma-edge-agent`，能访问到 Pixoma 服务
 
-在 Telegram 里：
+**支持哪些 ComfyUI 节点？**
 
-1. `/start` → 弹出主菜单
-2. 点图片类入口 → 列出 Case
-3. 点某个 Case → 预览 → 开始
-4. 输入 prompt（可选字段可跳过）→ 确认生成
-5. 完成后 Bot 发回 ComfyUI 生成结果
+所有节点都支持。Pixoma 不关心工作流里用了什么节点，只负责把输入参数填进去、把输出结果取出来。
 
-## 本地调试
+**旧版 Redis split 能升级吗？**
 
-一条命令同时起控制面和管理页面：
+不保证原地升级。新版默认走 Pixoma 服务 + 向导 + 节点长轮询，不再依赖 Redis。
+
+## 开发
 
 ```bash
-make dev
+make dev        # Pixoma 服务 + Vite 管理页面（热更新）
+make run        # 只起后端
+make build      # 构建二进制
+make test       # 运行测试
+make clean      # 清空 data/，下次启动重新走引导
 ```
 
-启动日志里有两个地址：
+`make dev` 启动后：
+- 管理页面：`http://127.0.0.1:5173`
+- 后端 API：`http://127.0.0.1:8080`
 
-- **管理页面**（浏览器打开这个）：`http://127.0.0.1:5173`
-- **后台接口**：`http://127.0.0.1:8080`
+更多开发文档见 [`docs/architecture/`](docs/architecture/)。
 
-Ctrl-C 两个一起停。改 `web/admin` 保存后页面会自己刷新；改 Go 需要再跑一次 `make dev`。
+## 贡献
 
-只起后端、不看页面时继续用 `make run`。没把前端打进二进制时，打开 8080 会看到提示页，这是发布路径，不是日常调试入口。
+[`CONTRIBUTING.md`](CONTRIBUTING.md)
 
-发布：`make embed-admin` 之后再构建 `pixoma`，用户只开 8080 就是完整后台。
+安全问题请见 [`SECURITY.md`](SECURITY.md)，不要公开提 issue。
 
-```bash
-make build
-make test
-make clean            # 清掉 data/，下次启动重新走引导
-curl -s localhost:8080/healthz
-```
+## License
 
-调试用 `make dev`（`pixoma` + Vite）。
+[`LICENSE`](LICENSE)
