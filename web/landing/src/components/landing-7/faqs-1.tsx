@@ -61,7 +61,7 @@ export default function FAQs() {
                   </AccordionTrigger>
                   <AccordionContent>
                     <p className="text-muted-foreground text-base">
-                      {item.answer}
+                      <span dangerouslySetInnerHTML={{ __html: item.answer }} />
                     </p>
                   </AccordionContent>
                 </AccordionItem>

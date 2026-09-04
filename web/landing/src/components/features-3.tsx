@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 type DeployMode = "local" | "cloud";
 
 const VIGNETTE_MASK =
-  "radial-gradient(circle at center, transparent 0%, transparent 136px, black 100%)";
+  "radial-gradient(circle at center, transparent 0%, transparent 160px, black 100%)";
 
 const IMAGE_CLASS = "absolute inset-0 size-full object-cover";
 
@@ -29,10 +29,26 @@ const BLUR_LAYER_STYLE = {
 } as CSSProperties;
 
 const SIMPLIFY_VIGNETTE_MASK =
-  "radial-gradient(circle at center, transparent 0%, transparent 640px, black 100%)";
+  "radial-gradient(circle at center, transparent 0%, transparent 160px, black 100%)";
 
 const SIMPLIFY_BLUR_STYLE = {
   ...BLUR_LAYER_STYLE,
+  WebkitMaskImage: SIMPLIFY_VIGNETTE_MASK,
+  maskImage: SIMPLIFY_VIGNETTE_MASK,
+} as CSSProperties;
+
+const SIMPLIFY_WHITE_TINT_STYLE = {
+  backgroundColor: "rgba(255, 255, 255, 1)",
+  WebkitMaskMode: "alpha",
+  maskMode: "alpha",
+  WebkitMaskImage: SIMPLIFY_VIGNETTE_MASK,
+  maskImage: SIMPLIFY_VIGNETTE_MASK,
+} as CSSProperties;
+
+const SIMPLIFY_DARK_TINT_STYLE = {
+  backgroundColor: "rgba(0, 0, 0, 1)",
+  WebkitMaskMode: "alpha",
+  maskMode: "alpha",
   WebkitMaskImage: SIMPLIFY_VIGNETTE_MASK,
   maskImage: SIMPLIFY_VIGNETTE_MASK,
 } as CSSProperties;
@@ -72,7 +88,7 @@ export default function Features() {
           </h2>
         </Reveal>
         <Reveal className="**:data-[slot=card]:bg-background mt-8 grid gap-x-3 gap-y-6 md:mt-16 md:grid-cols-2 lg:grid-cols-3">
-          <div className="row-span-2 grid grid-cols-subgrid gap-4">
+          <div className="row-span-2 grid grid-cols-subgrid gap-4 content-start">
             <Card className="aspect-9/12 relative overflow-hidden">
               <Image
                 src={isDark ? "/images/simplify-dark.png" : "/images/simplify-light.png"}
@@ -94,20 +110,26 @@ export default function Features() {
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-0 z-[1]"
-                style={isDark ? DARK_TINT_STYLE : WHITE_TINT_STYLE}
+                style={isDark ? SIMPLIFY_DARK_TINT_STYLE : SIMPLIFY_WHITE_TINT_STYLE}
               />
             </Card>
 
             <p className="text-muted-foreground text-balance">
               <span className="text-foreground">化繁为简</span>
               <br />
-              不再关心节点和参数，把灵感交给 Pixoma。
+              一次配置，简化操作，释放灵感。
             </p>
           </div>
 
-          <div className="row-span-2 grid grid-cols-subgrid gap-4">
-            <Card className="aspect-9/12 bg-zinc-200! relative overflow-hidden">
-              <DynamicIslandIllustration />
+          <div className="row-span-2 grid grid-cols-subgrid gap-4 content-start">
+            <Card className="aspect-9/12 relative overflow-hidden">
+              <Image
+                src={isDark ? "/images/telegram-bot-dark.png" : "/images/telegram-bot-light.png"}
+                alt="创意不设限：在 Telegram 上通过 Pixoma 机器人实现文生视频"
+                width={800}
+                height={1070}
+                className={IMAGE_CLASS}
+              />
             </Card>
 
             <p className="text-muted-foreground text-balance">
@@ -117,7 +139,7 @@ export default function Features() {
             </p>
           </div>
 
-          <div className="row-span-2 grid grid-cols-subgrid gap-4">
+          <div className="row-span-2 grid grid-cols-subgrid gap-4 content-start">
             <Card className="aspect-9/12 relative overflow-hidden">
               <motion.div
                 className="absolute inset-0"
@@ -189,7 +211,8 @@ export default function Features() {
             <p className="text-muted-foreground text-balance">
               <span className="text-foreground">部署简单</span>
               <br />
-              支持本地运行，依赖最小化。也支持云端多节点部署。
+              {/* 支持本地运行，依赖最小化。也支持云端多节点部署。 */}
+              最小化依赖，支持本地运行或云端多节点部署，灵活适配个人与团队环境。
             </p>
           </div>
         </Reveal>

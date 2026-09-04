@@ -5,7 +5,7 @@ const footerLinks = [
   {
     name: "其他项目",
     links: [
-      { href: "https://kura.miaoplus.com", label: "KuRa" }
+      { href: "https://kura.miaoplus.com", target: "_blank", label: "KuRa" }
     ],
   },
   // {
@@ -50,6 +50,7 @@ export default function Footer() {
                   <li key={index}>
                     <Link
                       href={link.href}
+                      target={link.target}
                       className="hover:text-primary text-muted-foreground text-sm duration-150"
                     >
                       {link.label}
