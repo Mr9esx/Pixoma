@@ -15,33 +15,21 @@ export default function FAQs() {
   const faqItems = [
     {
       id: "item-1",
-      question: "How long does shipping take?",
+      question: "部署 Pixoma 需要做好什么准备？",
       answer:
-        "Standard shipping takes 3-5 business days, depending on your location. Express shipping options are available at checkout for 1-2 business day delivery.",
+        "Pixoma 设计都支持依赖最小化（SQLite+本地文件存储），在 ALL IN ONE 场景下，你只需一台电脑即可完成整套服务的部署。但是对于网络环境受限的用户来说，还需要具备可正常访问 Telegram 的网络环境。",
     },
     {
       id: "item-2",
-      question: "What payment methods do you accept?",
+      question: "Pixoma 会帮我准备好 ComfyUI 吗?",
       answer:
-        "We accept all major credit cards (Visa, Mastercard, American Express), PayPal, Apple Pay, and Google Pay. For enterprise customers, we also offer invoicing options.",
+        "不会，Pixoma 目前定位更多是帮助你把 ComfyUI 能力向外提供，所以需要您先准备好 ComfyUI 的运行环境，并且确保你的工作流都是可以正常运行。",
     },
     {
       id: "item-3",
-      question: "Can I change or cancel my order?",
+      question: "如果我想要使用云端的 ComfyUI 计算节点，需要做哪些准备？",
       answer:
-        "You can modify or cancel your order within 1 hour of placing it. After this window, please contact our customer support team who will assist you with any changes.",
-    },
-    {
-      id: "item-4",
-      question: "Do you ship internationally?",
-      answer:
-        "Yes, we ship to over 50 countries worldwide. International shipping typically takes 7-14 business days. Additional customs fees may apply depending on your country's import regulations.",
-    },
-    {
-      id: "item-5",
-      question: "What is your return policy?",
-      answer:
-        "We offer a 30-day return policy for most items. Products must be in original condition with tags attached. Some specialty items may have different return terms, which will be noted on the product page.",
+        "1. 把 Pixoma 进程部署到云服务器：需要具备公网 IP 或者域名，以便 Pixoma-Edge-Agent 可以访问 Pixoma 服务拉取工作流任务。<br/>2. 准备一个公网 OSS 云存储：用于存储工作流任务的输入文件以及输出结果。",
     },
   ];
 
@@ -67,7 +55,7 @@ export default function FAQs() {
                       </AccordionTrigger>
                       <AccordionContent>
                         <p className="text-muted-foreground text-base">
-                          {item.answer}
+                          <span dangerouslySetInnerHTML={{ __html: item.answer }} />
                         </p>
                       </AccordionContent>
                     </AccordionItem>
@@ -77,13 +65,15 @@ export default function FAQs() {
             </StaggerGroup>
 
             <p className="text-muted-foreground mt-6">
-              Can't find what you're looking for? Contact our{" "}
+              有问题需要反馈或者咨询? 欢迎提{" "}
               <Link
-                href="#"
+                href="https://github.com/Mr9esx/Pixoma/issues"
+                target="_blank"
                 className="text-primary font-medium hover:underline"
               >
-                customer support team
+                Issue
               </Link>
+              。
             </p>
           </div>
         </Reveal>

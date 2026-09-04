@@ -24,7 +24,7 @@ export default function Features() {
                   <span className="text-foreground font-medium">
                     创建工作流{" "}
                   </span>{" "}<br />
-                  Ownership changes without resetting the relationship.
+                  {/* Ownership changes without resetting the relationship. */}
                 </p>
               </div>
 
@@ -45,7 +45,7 @@ export default function Features() {
                   <span className="font-medium text-zinc-950">
                     使用工作流{" "}
                   </span>{" "}<br />
-                  Surface renewals and quiet accounts before they slip.
+                  {/* Surface renewals and quiet accounts before they slip. */}
                 </p>
               </div>
               <DynamicIslandIllustration />
