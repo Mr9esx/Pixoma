@@ -70,7 +70,7 @@ import type { InputFieldDraft, OutputFieldDraft } from '../lib/derive'
 import {
   inputKindFor,
   outputKindFor,
-  nodeLabel,
+  nodeTitle,
   nodeVisualFor,
 } from '../lib/node-catalog'
 import type { WorkflowNode } from '../lib/workflow-parse'
@@ -162,7 +162,7 @@ function BindNodePopover({
   })()
   const triggerText =
     bound && node
-      ? [nodeLabel(node.class_type), boundLabel, typeLabel]
+      ? [nodeTitle(node), boundLabel, typeLabel]
           .filter(Boolean)
           .join(' · ')
       : undefined
@@ -190,7 +190,7 @@ function BindNodePopover({
 
   // cmdk 按 value 过滤，因此在 value 里带上节点名/编号和字段名以便搜索。
   function itemValue(n: WorkflowNode, field: string) {
-    return `${nodeLabel(n.class_type)} ${n.id} ${field}`
+    return `${nodeTitle(n)} ${n.id} ${field}`
   }
 
   function nodeHead(n: WorkflowNode) {
@@ -203,7 +203,7 @@ function BindNodePopover({
           <Icon className='size-3' />
         </span>
         <span className='truncate font-semibold'>
-          {nodeLabel(n.class_type)}
+          {nodeTitle(n)}
         </span>
         <span className='font-mono text-xs font-normal text-muted-foreground'>
           #{n.id}
@@ -242,7 +242,7 @@ function BindNodePopover({
                   })()}
                   <span className='min-w-0 truncate'>
                     <span className='font-normal'>
-                      {nodeLabel(node.class_type)}
+                      {nodeTitle(node)}
                     </span>
                     {boundLabel ? (
                       <span className='font-mono text-muted-foreground'>
@@ -615,7 +615,7 @@ function InputFieldCard({
             </Badge>
             <span className='text-xs text-muted-foreground'>
               {t('cases.typeAutoSource', {
-                node: nodeLabel(node?.class_type ?? ''),
+                node: nodeTitle(node ?? { class_type: '' }),
                 param: value.field_path,
               })}
             </span>

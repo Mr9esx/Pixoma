@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CodeEditor } from '@/components/code-editor'
-import { nodeLabel, type InputKind } from '../lib/node-catalog'
+import { nodeTitle, type InputKind } from '../lib/node-catalog'
 import type { WorkflowGraph, WorkflowNode } from '../lib/workflow-parse'
 
 type Props = {
@@ -73,7 +73,7 @@ const INPUT_TYPE_LABELS: Record<InputKind, string> = {
 /** 节点的可展示信息都放进 c-card-13 折叠卡：标题、ID、输出数、已连输入/总输入、类名、输入项。 */
 function NodeCard({ node }: { node: WorkflowNode }) {
   const [isOpen, setIsOpen] = useState(false)
-  const title = nodeLabel(node.class_type)
+  const title = nodeTitle(node)
 
   return (
     <div className='relative'>
