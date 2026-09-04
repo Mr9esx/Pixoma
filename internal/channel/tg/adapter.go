@@ -416,7 +416,7 @@ func (a *Adapter) dispatchInvoke(ctx context.Context, chatID sharedkernel.ChatID
 	}
 	res, err := a.Registry.Invoke(ctx, inv)
 	if err != nil {
-		if errors.Is(err, convdomain.ErrNoActiveSession) {
+		if errors.Is(err, convdomain.ErrNoActiveSession) || errors.Is(err, convdomain.ErrInvalidState) || errors.Is(err, convdomain.ErrInputOutOfOrder) {
 			return a.sendMainMenu(ctx, addr)
 		}
 		slog.Error("capability invoke", "err", err, "capability", inv.CapabilityID)
