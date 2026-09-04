@@ -41,6 +41,11 @@ export function nodeLabel(classType: string): string {
   return NODE_LABELS[classType] ?? classType
 }
 
+/** 优先使用 ComfyUI `_meta.title`，没有才回退到类型默认标签。 */
+export function nodeTitle(node: { title?: string; class_type: string }): string {
+  return node.title ?? nodeLabel(node.class_type)
+}
+
 const NODE_OUTPUT_COUNTS: Record<string, number> = {
   LoadImage: 1,
   SaveImage: 1,

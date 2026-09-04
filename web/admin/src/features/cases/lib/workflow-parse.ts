@@ -5,6 +5,8 @@ export type WorkflowNodeLink = { name: string; src: string; slot: number }
 export type WorkflowNode = {
   id: string
   class_type: string
+  /** ComfyUI `_meta.title`（用户在 ComfyUI 里自定义的节点名），可能为空。 */
+  title?: string
   inputs: WorkflowNodeInput[]
   /** 字面量参数（名 → 字符串化的当前值），供绑定弹层预览。 */
   literals: Array<[string, string]>
@@ -77,6 +79,11 @@ export function parseWorkflow(raw: string): WorkflowParseResult {
   const nodes: WorkflowNode[] = Object.entries(api).map(([id, rawNode]) => {
     const node = rawNode as Record<string, unknown>
     const classType = String(node['class_type'])
+    const rawMeta = isRecord(node['_meta']) ? node['_meta'] : {}
+    const title =
+      typeof rawMeta['title'] === 'string' && rawMeta['title'].trim() !== ''
+        ? rawMeta['title'].trim()
+        : undefined
     const rawInputs = isRecord(node['inputs']) ? node['inputs'] : {}
     const entries = Object.entries(rawInputs)
     const inputs: WorkflowNodeInput[] = entries.map(([name, value]) => {
@@ -104,6 +111,7 @@ export function parseWorkflow(raw: string): WorkflowParseResult {
     return {
       id,
       class_type: classType,
+      title,
       inputs,
       literals,
       links,
