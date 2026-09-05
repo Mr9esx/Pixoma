@@ -23,12 +23,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import {
   Empty,
@@ -185,7 +179,72 @@ function CasesLayout() {
           )}
         </div>
       </div>
-      {caseId === 'new' ? null : (
+      {caseId === 'new' ? (
+        <div
+          data-layout='fixed'
+          data-testid='cases-create-page'
+          className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border'
+        >
+          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
+            <CaseForm
+              mode='create'
+              splitPane
+              hideActions
+              stepRail
+              onPendingChange={setCreatePending}
+              onDirtyChange={setDirty}
+              formId='create-case-form'
+            />
+          </div>
+          <footer className='flex shrink-0 flex-wrap items-center gap-2 border-t bg-card px-5 py-3'>
+            <Button
+              type='button'
+              variant='outline'
+              disabled={createPending}
+              onClick={() => requestLeave('cancel')}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type='submit'
+              form='create-case-form'
+              disabled={createPending}
+            >
+              {createPending ? <PixomaLoading /> : null}
+              {t('common.create')}
+            </Button>
+          </footer>
+          <AlertDialog
+            open={leaveTarget !== null}
+            onOpenChange={(open) => {
+              if (!open) setLeaveTarget(null)
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('cases.unsavedTitle')}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t('cases.unsavedBody')}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  type='button'
+                  onClick={() => setLeaveTarget(null)}
+                >
+                  {t('cases.unsavedKeepEditing')}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  type='button'
+                  onClick={() => void navigate({ to: '/cases' })}
+                >
+                  {t('cases.unsavedDiscard')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      ) : (
         <MasterDetailShell
           className='md:grid-cols-[280px_minmax(0,1fr)] @min-[1408px]/page:grid-cols-[300px_minmax(0,1fr)]'
           hasSelection={Boolean(selectedId)}
@@ -254,72 +313,6 @@ function CasesLayout() {
           }
         />
       )}
-      <Dialog
-        open={caseId === 'new'}
-        onOpenChange={(open) => {
-          if (!open) requestLeave('cancel')
-        }}
-      >
-        <DialogContent className='flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl'>
-          <DialogHeader className='border-b px-5 py-4'>
-            <DialogTitle>{t('cases.createHeading')}</DialogTitle>
-          </DialogHeader>
-          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
-            <CaseForm
-              mode='create'
-              splitPane
-              hideActions
-              onPendingChange={setCreatePending}
-              onDirtyChange={setDirty}
-              formId='create-case-form'
-            />
-          </div>
-          <footer className='flex shrink-0 flex-wrap items-center gap-2 border-t bg-card px-5 py-3'>
-            <Button
-              type='button'
-              variant='outline'
-              disabled={createPending}
-              onClick={() => requestLeave('cancel')}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type='submit'
-              form='create-case-form'
-              disabled={createPending}
-            >
-              {createPending ? <PixomaLoading /> : null}
-              {t('common.create')}
-            </Button>
-          </footer>
-        </DialogContent>
-      </Dialog>
-      <AlertDialog
-        open={leaveTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setLeaveTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('cases.unsavedTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('cases.unsavedBody')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel type='button' onClick={() => setLeaveTarget(null)}>
-              {t('cases.unsavedKeepEditing')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              type='button'
-              onClick={() => void navigate({ to: '/cases' })}
-            >
-              {t('cases.unsavedDiscard')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
