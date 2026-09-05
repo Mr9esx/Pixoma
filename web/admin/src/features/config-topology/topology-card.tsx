@@ -14,11 +14,16 @@ export function TopologyCard() {
   const { graphAll, isLoading, isError, error, refetch } = useTopologySource()
 
   return (
-    <Card data-testid='topology-card' className='shadow-none'>
-      <CardHeader className='px-4 py-3'>
-        <CardTitle className='text-sm'>{t('topology.title')}</CardTitle>
+    <Card
+      data-testid='topology-card'
+      className='min-w-0 flex-1 gap-3 py-4'
+    >
+      <CardHeader className='gap-3 px-4'>
+        <CardTitle className='text-base font-semibold'>
+          {t('topology.title')}
+        </CardTitle>
       </CardHeader>
-      <CardContent className='px-4 pb-4'>
+      <CardContent className='grid min-h-0 flex-1 gap-1.5 px-4'>
         <div className='h-[360px]'>
           {isLoading ? (
             <LoadingSkeleton rows={6} />
