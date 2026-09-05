@@ -65,7 +65,7 @@ export function TopologyCard() {
         </div>
       </CardContent>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className='flex h-[90vh] max-w-[95vw] flex-col gap-0 p-0'>
+        <DialogContent className='flex h-[90vh] w-[95vw] flex-col gap-0 p-0 sm:max-w-[95vw]'>
           <DialogHeader className='border-b px-5 py-4'>
             <DialogTitle>{t('topology.title')}</DialogTitle>
           </DialogHeader>
