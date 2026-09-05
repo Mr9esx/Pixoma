@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -310,19 +309,6 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	edgeDeleteSvc := edgeadmin.NewService(gdb, botRT.Notify)
 	topicDeleteSvc := topicadmin.NewService(gdb, botRT.Notify)
 	conditionReg := condition.NewRegistry()
-	conditionReg.Register(&condition.UserProvider{Lookup: func(ctx context.Context, userID string) (*bool, error) {
-		var row struct {
-			ProfileJSON string
-		}
-		if err := gdb.WithContext(ctx).Model(&userpersist.UserExternalIdentityRow{}).
-			Where("user_id = ?", userID).
-			Order("last_seen_at DESC").
-			Limit(1).
-			Scan(&row).Error; err != nil {
-			return nil, err
-		}
-		return parsePremium(row.ProfileJSON), nil
-	}})
 	conditionReg.Register(&condition.CaseProvider{Lookup: func(ctx context.Context, caseID string) (string, []string, error) {
 		cid, err := sharedkernel.ParseCaseID(caseID)
 		if err != nil {
@@ -597,20 +583,6 @@ func envOr(k, def string) string {
 	return def
 }
 
-// parsePremium reads the Telegram premium flag from the platform profile JSON.
-// Missing or unparsable profile yields nil (attribute treated as missing).
-func parsePremium(profileJSON string) *bool {
-	if strings.TrimSpace(profileJSON) == "" {
-		return nil
-	}
-	var profile struct {
-		IsPremium *bool `json:"is_premium"`
-	}
-	if err := json.Unmarshal([]byte(profileJSON), &profile); err != nil {
-		return nil
-	}
-	return profile.IsPremium
-}
 
 // caseDocReader adapts the catalog repository to the orchestrator CaseReader
 // port (routing evaluation only needs the protocol document).
