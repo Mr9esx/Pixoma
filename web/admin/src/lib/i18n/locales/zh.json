@@ -1057,6 +1057,7 @@
     "kindPlatform": "消息平台",
     "kindCase": "工作流",
     "kindTopic": "任务队列",
-    "kindEdge": "计算节点"
+    "kindEdge": "计算节点",
+    "fullscreen": "全屏"
   }
 }

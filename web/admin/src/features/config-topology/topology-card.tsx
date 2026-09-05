@@ -1,5 +1,20 @@
 import { useTranslation } from 'react-i18next'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Maximize2 } from 'lucide-react'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { LinkGraph } from './link-graph'
@@ -12,6 +27,7 @@ function errorMessage(err: unknown): string | undefined {
 export function TopologyCard() {
   const { t } = useTranslation()
   const { graphAll, isLoading, isError, error, refetch } = useTopologySource()
+  const [open, setOpen] = useState(false)
 
   return (
     <Card
@@ -22,6 +38,17 @@ export function TopologyCard() {
         <CardTitle className='text-base font-semibold'>
           {t('topology.title')}
         </CardTitle>
+        <CardAction>
+          <Button
+            type='button'
+            variant='ghost'
+            size='icon-sm'
+            aria-label={t('topology.fullscreen')}
+            onClick={() => setOpen(true)}
+          >
+            <Maximize2 className='size-4' />
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent className='grid min-h-0 flex-1 gap-1.5 px-4'>
         <div className='h-[360px]'>
@@ -37,6 +64,18 @@ export function TopologyCard() {
           )}
         </div>
       </CardContent>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className='flex h-[90vh] max-w-[95vw] flex-col gap-0 p-0'>
+          <DialogHeader className='border-b px-5 py-4'>
+            <DialogTitle>{t('topology.title')}</DialogTitle>
+          </DialogHeader>
+          <div className='min-h-0 flex-1 p-4'>
+            <div className='h-full'>
+              <LinkGraph graph={graphAll} />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
