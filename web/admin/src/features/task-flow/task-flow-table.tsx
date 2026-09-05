@@ -332,7 +332,7 @@ export function TaskFlowTable({
           if (!open) setEditingIndex(null)
         }}
       >
-        <DialogContent className='sm:max-w-2xl'>
+        <DialogContent className='sm:max-w-lg'>
           <DialogHeader>
             <DialogTitle>
               编辑条件 {editingIndex != null ? `#${editingIndex + 1}` : ''}
