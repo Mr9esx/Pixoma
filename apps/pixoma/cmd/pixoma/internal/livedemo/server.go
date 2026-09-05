@@ -120,6 +120,7 @@ func newAdminHandler(gdb *gorm.DB) (http.Handler, error) {
 	statsRepo := taskstatspersist.NewGormStatsRepository(gdb, 365*24*time.Hour, time.UTC)
 	menuRepo := mencardpersist.NewGormCardRepository(gdb)
 	conditionReg := condition.NewRegistry()
+	conditionReg.Register(&condition.UserProvider{})
 	conditionReg.Register(&condition.CaseProvider{})
 	textStore, err := text.NewStore(gdb)
 	if err != nil {
