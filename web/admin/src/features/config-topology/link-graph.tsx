@@ -5,8 +5,11 @@ import {
   Background,
   Controls,
   Panel,
+  getNodesBounds,
+  getViewportForBounds,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   type Edge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -72,30 +75,42 @@ function layoutEdges(graph: TopologyGraph, selectedId: string | null): Edge[] {
 }
 
 function ExportButton() {
+  const { getNodes } = useReactFlow()
+
   async function exportPng() {
-    const flowEl = document.querySelector(
-      '.react-flow'
+    const nodes = getNodes()
+    if (nodes.length === 0) return
+    const bounds = getNodesBounds(nodes)
+    const imageWidth = Math.ceil(bounds.width + 160)
+    const imageHeight = Math.ceil(bounds.height + 160)
+    const viewport = getViewportForBounds(bounds, imageWidth, imageHeight, 0.3, 2, 0.1)
+
+    const viewportEl = document.querySelector(
+      '.react-flow__viewport'
     ) as HTMLElement | null
-    if (!flowEl) return
-    const controls = flowEl.querySelector(
-      '.react-flow__controls'
-    ) as HTMLElement | null
-    const panel = flowEl.querySelector('.react-flow__panel') as HTMLElement | null
-    if (controls) controls.style.display = 'none'
-    if (panel) panel.style.display = 'none'
-    try {
-      const dataUrl = await toPng(flowEl, {
-        backgroundColor: getComputedStyle(document.body).backgroundColor,
-        pixelRatio: 2,
-      })
-      const a = document.createElement('a')
-      a.href = dataUrl
-      a.download = 'topology.png'
-      a.click()
-    } finally {
-      if (controls) controls.style.display = ''
-      if (panel) panel.style.display = ''
-    }
+    if (!viewportEl) return
+
+    const isDark = document.documentElement.classList.contains('dark')
+    const bg = isDark ? '#1c1c1e' : getComputedStyle(document.body).backgroundColor
+    const dotColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)'
+
+    const dataUrl = await toPng(viewportEl, {
+      backgroundColor: bg,
+      width: imageWidth,
+      height: imageHeight,
+      style: {
+        width: `${imageWidth}px`,
+        height: `${imageHeight}px`,
+        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+        backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1px)`,
+        backgroundSize: '20px 20px',
+      },
+      pixelRatio: 2,
+    })
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = 'topology.png'
+    a.click()
   }
 
   return (
