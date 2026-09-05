@@ -4,10 +4,10 @@ import {
   type RangePreset,
 } from '@/components/time-range-control'
 import type { StatsRange } from './date-range'
-import { TopologyCard } from '@/features/config-topology/topology-card'
 import { WorkbenchChartPairs } from './workbench-chart-pairs'
 import { WorkbenchContribution } from './workbench-contribution'
 import { WorkbenchOverviewCards } from './workbench-overview-cards'
+import { TopologyCard } from '@/features/config-topology/topology-card'
 
 export function WorkbenchDataBoard({
   range,
@@ -28,7 +28,6 @@ export function WorkbenchDataBoard({
       data-testid='workbench-data-board'
       className='flex min-w-0 flex-col gap-4'
     >
-      <TopologyCard />
       <WorkbenchContribution />
       <WorkbenchOverviewCards />
       <div className='flex items-center justify-start'>
@@ -40,6 +39,7 @@ export function WorkbenchDataBoard({
         />
       </div>
       <WorkbenchChartPairs range={range} />
+      <TopologyCard />
     </div>
   )
 }
