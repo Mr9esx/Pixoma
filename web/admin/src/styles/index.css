@@ -59,6 +59,23 @@
   }
 }
 
+/* React Flow 控件暗色模式适配 */
+.dark .react-flow__controls {
+  box-shadow: none;
+}
+.dark .react-flow__controls-button {
+  background: var(--color-popover);
+  border-color: var(--color-border);
+  fill: var(--color-foreground);
+  color: var(--color-foreground);
+}
+.dark .react-flow__controls-button:hover {
+  background: var(--color-muted);
+}
+.dark .react-flow__controls-button svg {
+  fill: var(--color-foreground);
+}
+
 @utility container {
   margin-inline: auto;
   padding-inline: 2rem;

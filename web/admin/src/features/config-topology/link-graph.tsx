@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
+import { Download } from 'lucide-react'
+import { toPng } from 'html-to-image'
 import {
   Background,
   Controls,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   type Edge,
@@ -68,6 +71,36 @@ function layoutEdges(graph: TopologyGraph, selectedId: string | null): Edge[] {
   }))
 }
 
+function ExportButton() {
+  async function exportPng() {
+    const viewport = document.querySelector(
+      '.react-flow__viewport'
+    ) as HTMLElement | null
+    if (!viewport) return
+    const dataUrl = await toPng(viewport, {
+      backgroundColor: getComputedStyle(document.body).backgroundColor,
+      pixelRatio: 2,
+    })
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = 'topology.png'
+    a.click()
+  }
+
+  return (
+    <Panel position='bottom-right'>
+      <button
+        type='button'
+        className='react-flow__controls-button'
+        title='导出图片'
+        onClick={exportPng}
+      >
+        <Download className='size-4' />
+      </button>
+    </Panel>
+  )
+}
+
 function FlowCanvas({
   graph,
   focusId,
@@ -100,6 +133,7 @@ function FlowCanvas({
       >
         <Background />
         <Controls showInteractive={false} />
+        <ExportButton />
       </ReactFlow>
     </div>
   )
