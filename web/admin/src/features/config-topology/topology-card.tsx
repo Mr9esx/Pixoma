@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Maximize2 } from 'lucide-react'
+import { Maximize2, X } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,7 +12,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ErrorBanner } from '@/components/feedback/error-banner'
@@ -65,14 +64,24 @@ export function TopologyCard() {
         </div>
       </CardContent>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className='flex h-[90vh] w-[95vw] flex-col gap-0 p-0 sm:max-w-[95vw]'>
-          <DialogHeader className='border-b px-5 py-4'>
-            <DialogTitle>{t('topology.title')}</DialogTitle>
-          </DialogHeader>
-          <div className='min-h-0 flex-1 p-4'>
-            <div className='h-full'>
-              <LinkGraph graph={graphAll} />
-            </div>
+        <DialogContent
+          className='h-screen w-screen max-w-none rounded-none p-0 sm:max-w-none'
+          showCloseButton={false}
+        >
+          <DialogTitle className='sr-only'>{t('topology.title')}</DialogTitle>
+          <div className='absolute top-4 right-4 z-10'>
+            <Button
+              type='button'
+              variant='outline'
+              size='icon'
+              aria-label='关闭'
+              onClick={() => setOpen(false)}
+            >
+              <X className='size-4' />
+            </Button>
+          </div>
+          <div className='h-full'>
+            <LinkGraph graph={graphAll} />
           </div>
         </DialogContent>
       </Dialog>
