@@ -73,18 +73,29 @@ function layoutEdges(graph: TopologyGraph, selectedId: string | null): Edge[] {
 
 function ExportButton() {
   async function exportPng() {
-    const viewport = document.querySelector(
-      '.react-flow__viewport'
+    const flowEl = document.querySelector(
+      '.react-flow'
     ) as HTMLElement | null
-    if (!viewport) return
-    const dataUrl = await toPng(viewport, {
-      backgroundColor: getComputedStyle(document.body).backgroundColor,
-      pixelRatio: 2,
-    })
-    const a = document.createElement('a')
-    a.href = dataUrl
-    a.download = 'topology.png'
-    a.click()
+    if (!flowEl) return
+    const controls = flowEl.querySelector(
+      '.react-flow__controls'
+    ) as HTMLElement | null
+    const panel = flowEl.querySelector('.react-flow__panel') as HTMLElement | null
+    if (controls) controls.style.display = 'none'
+    if (panel) panel.style.display = 'none'
+    try {
+      const dataUrl = await toPng(flowEl, {
+        backgroundColor: getComputedStyle(document.body).backgroundColor,
+        pixelRatio: 2,
+      })
+      const a = document.createElement('a')
+      a.href = dataUrl
+      a.download = 'topology.png'
+      a.click()
+    } finally {
+      if (controls) controls.style.display = ''
+      if (panel) panel.style.display = ''
+    }
   }
 
   return (
