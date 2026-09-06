@@ -21,5 +21,5 @@
 - [x] 4.1 不变式测试与前端合同全绿；`go test` 与 admin vitest / tsc
 
 审查（standard）接受项：
-- 非 Telegram 平台仍要求 `LastCheckKind=ok` 才算可用起点：设计如此；无探测能力时保持 pending，不在 GET 上补探测。
+- 平台是否可用跟适配器启停走；Telegram 探测只在打开通道详情时自动打，不挡列表绿黄。GET /link-health 热路径仍不探测。
 - 无会话拒绝依赖既有 admin gate，与其它 `/api/v1` 相同；handler 单测不重复套 gate。

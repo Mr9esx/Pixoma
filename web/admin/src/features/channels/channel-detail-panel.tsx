@@ -94,15 +94,14 @@ export function ChannelDetailPanel({ id }: { id: string }) {
     id,
     healthQuery.isSuccess
   )
-  const checkMutation = useMutation({
-    mutationFn: () => checkChannelReachability(id),
-    onSuccess: () => {
+  const reachabilityQuery = useQuery({
+    queryKey: ['channels', id, 'reachability'],
+    queryFn: async () => {
+      const res = await checkChannelReachability(id)
       void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.channels.detail(id),
-      })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
+      return res
     },
+    enabled: Boolean(ch),
   })
 
   const updateMutation = useMutation({
@@ -221,18 +220,11 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{ch.name}</h2>
-            <Button
-              type='button'
-              variant='outline'
-              size='sm'
-              onClick={() => checkMutation.mutate()}
-              disabled={checkMutation.isPending}
-            >
-              {checkMutation.isPending
-                ? t('channels.checkingReachability')
-                : t('channels.checkReachability')}
-            </Button>
-            <ChannelReachabilityTag result={checkMutation.data} pending={checkMutation.isPending} failed={checkMutation.isError} />
+            <ChannelReachabilityTag
+              result={reachabilityQuery.data}
+              pending={reachabilityQuery.isPending}
+              failed={reachabilityQuery.isError}
+            />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
             <TopologyOpenButton kind='platform' id={ch.id} />

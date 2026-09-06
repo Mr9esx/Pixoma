@@ -112,7 +112,7 @@ func TestAssembleLivePathInvariants(t *testing.T) {
 			},
 		},
 		{
-			name: "从未探测则 pending 不得 ok",
+			name: "从未探测但适配器在跑则活路仍可 ok",
 			snap: liveChain([]ChannelSnap{{
 				ID:           "tg",
 				Name:         "电报",
@@ -120,6 +120,26 @@ func TestAssembleLivePathInvariants(t *testing.T) {
 				AdapterFound: true,
 				AdapterState: "running",
 			}}, true),
+			want: map[string]Health{
+				"platform:tg": HealthOK,
+				"case:10":     HealthOK,
+				"topic:jobs":  HealthOK,
+				"edge:e1":     HealthOK,
+			},
+		},
+		{
+			name: "适配器读不到则 pending 不得 ok",
+			snap: func() Snapshot {
+				s := liveChain([]ChannelSnap{{
+					ID:           "tg",
+					Name:         "电报",
+					Enabled:      true,
+					AdapterFound: true,
+					AdapterState: "running",
+				}}, true)
+				s.AdapterKnown = false
+				return s
+			}(),
 			want: map[string]Health{
 				"platform:tg": HealthPending,
 				"case:10":     HealthPending,
@@ -164,6 +184,7 @@ func TestAssemblePendingExposesBreakpoints(t *testing.T) {
 		AdapterFound: true,
 		AdapterState: "running",
 	}}, true)
+	snap.AdapterKnown = false
 	g := Assemble(snap)
 	for _, id := range []string{"platform:tg", "case:10", "topic:jobs", "edge:e1"} {
 		n := node(t, g, id)
@@ -175,7 +196,7 @@ func TestAssemblePendingExposesBreakpoints(t *testing.T) {
 		}
 	}
 	plat := node(t, g, "platform:tg")
-	if plat.Breakpoints[0].Key != "linkHealth.channelNotChecked" {
+	if plat.Breakpoints[0].Key != "linkHealth.pathNotReady" {
 		t.Fatalf("platform breakpoint=%q", plat.Breakpoints[0].Key)
 	}
 }
