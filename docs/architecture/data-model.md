@@ -452,7 +452,7 @@ flowchart LR
 | edges / Pool | `internal/platform/edge` |
 | catalog_cases | `internal/catalog/infrastructure/persistence` |
 | channel_main_menus | `internal/menucard`（嵌套树 JSON）；HTTP `GET/PUT /api/v1/channels/{id}/menu`；Case 反查 `GET .../cases/{id}/menu-placements`。卡片内嵌在树节点，无独立 cards 管理 API。 |
-| channels.last_check_* | 通道上次探测 kind/message/at；`POST /channels/{id}/check` 写入；组装器只读 |
+| channels.last_check_* | 通道上次探测 kind/message/at；后台 `ReachabilityProbe` 周期写入（`POST /channels/{id}/check` 仍可手写）；组装器与页面只读 |
 | 链路健康 | `internal/packaging/linkhealth` + `internal/httpapi/linkhealth` |
 | HTTP API | `internal/httpapi/edges` 等 |
 | 任务统计 | `internal/platform/taskstats`（领域/仓储）、`internal/httpapi/stats`（HTTP）、backfill `apps/pixoma/cmd/backfill-task-stats` |

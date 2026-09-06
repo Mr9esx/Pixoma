@@ -98,7 +98,7 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | 通知 | 终态 → `notify.Publisher` → TG 发图/文案 |
 | 我的任务 | 菜单动作 `list_tasks` → 按聊天查 Task，回当前排队/执行与最近 8 条 |
 | 多计算节点 | `edges` + Pool；健康探测 |
-| 配置链路绿黄 | 控制面 `GET /api/v1/link-health`；列表 / 详情 / 拓扑同一套，页面不得本地再算 |
+| 配置链路绿黄 | 控制面 `GET /api/v1/link-health`；列表 / 详情 / 拓扑同一套，页面不得本地再算；通道连通由后台探测落库 |
 | 执行 | `pixoma-edge-agent` 直接调用真实 ComfyUI HTTP 根 |
 
 ---

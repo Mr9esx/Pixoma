@@ -51,15 +51,19 @@ describe('channel layout aligned with compute nodes', () => {
     expect(form).not.toMatch(/max-w-xl/)
   })
 
-  it('detail panel auto-checks reachability and renders health from the link-health query', () => {
+  it('detail panel reads stored last check and does not probe Telegram on open', () => {
     const detail = readFileSync(join(here, 'channel-detail-panel.tsx'), 'utf8')
     const api = readFileSync(join(here, '../../lib/api/channels.ts'), 'utf8')
-    expect(api).toMatch(/checkChannelReachability/)
-    expect(api).toMatch(/\/check`/)
+    const route = readFileSync(ROUTE, 'utf8')
+    const hook = readFileSync(
+      join(here, '../link-health/use-link-health.ts'),
+      'utf8'
+    )
+    expect(api).toMatch(/last_check_kind/)
     expect(api).toMatch(/adapter_state/)
-    expect(detail).toMatch(/checkChannelReachability\(id\)/)
-    expect(detail).toMatch(/enabled:\s*Boolean\(ch\)/)
+    expect(detail).not.toMatch(/checkChannelReachability/)
     expect(detail).not.toMatch(/checkMutation\.mutate/)
+    expect(detail).toMatch(/last_check_kind/)
     expect(detail).toMatch(/queryKeys.linkHealth/)
     expect(detail).not.toMatch(/channelReferences\(/)
     expect(detail).toMatch(/<LinkHealthAlert/)
@@ -74,6 +78,9 @@ describe('channel layout aligned with compute nodes', () => {
     expect(detail).not.toMatch(/kit\.tag/)
     expect(detail).toMatch(/channels\.reachabilityNetwork/)
     expect(detail).not.toMatch(/to='\/settings'/)
+    expect(route).toMatch(/enabled:\s*listQuery\.isSuccess/)
+    expect(hook).not.toMatch(/refetchInterval:\s*5000/)
+    expect(hook).not.toMatch(/staleTime:\s*0/)
   })
 
   it('delete is available while enabled and shows impact', () => {

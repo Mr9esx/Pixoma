@@ -15,11 +15,11 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
-  checkChannelReachability,
   deleteChannel,
   getChannel,
   setChannelEnabled,
   updateChannel,
+  type Channel,
   type ChannelReachability,
 } from '@/lib/api/channels'
 import { ApiError } from '@/lib/api/client'
@@ -87,22 +87,14 @@ export function ChannelDetailPanel({ id }: { id: string }) {
   const botUsername =
     typeof extra?.username === 'string' && extra.username ? extra.username : ''
 
-  const healthQuery = useLinkHealthQuery()
+  const healthQuery = useLinkHealthQuery({ enabled: false })
   const channelHealth = resolvedEntityHealth(
     healthQuery.data,
     'platform',
     id,
     healthQuery.isSuccess
   )
-  const reachabilityQuery = useQuery({
-    queryKey: ['channels', id, 'reachability'],
-    queryFn: async () => {
-      const res = await checkChannelReachability(id)
-      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
-      return res
-    },
-    enabled: Boolean(ch),
-  })
+  const storedCheck = storedReachability(ch)
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -152,6 +144,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
       ])
       return collecting.length + confirming.length
     },
+    enabled: deleteOpen,
   })
   const inFlightTasksQuery = useQuery({
     queryKey: ['channels', id, 'in-flight-tasks'] as const,
@@ -163,6 +156,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
       ])
       return pending.length + queued.length + running.length
     },
+    enabled: deleteOpen,
   })
   const hasImpact =
     (sessionsQuery.data ?? 0) > 0 || (inFlightTasksQuery.data ?? 0) > 0
@@ -221,9 +215,9 @@ export function ChannelDetailPanel({ id }: { id: string }) {
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{ch.name}</h2>
             <ChannelReachabilityTag
-              result={reachabilityQuery.data}
-              pending={reachabilityQuery.isPending}
-              failed={reachabilityQuery.isError}
+              result={storedCheck}
+              pending={false}
+              failed={false}
             />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
@@ -422,6 +416,18 @@ export function ChannelDetailPanel({ id }: { id: string }) {
       </Dialog>
     </Reveal>
   )
+}
+
+function storedReachability(
+  ch: Channel | undefined
+): ChannelReachability | undefined {
+  if (!ch?.last_check_kind) return undefined
+  return {
+    ok: ch.last_check_kind === 'ok',
+    kind: ch.last_check_kind,
+    message: ch.last_check_message ?? '',
+    checked_at: ch.last_check_at,
+  }
 }
 
 function formatTime(iso: string): string {

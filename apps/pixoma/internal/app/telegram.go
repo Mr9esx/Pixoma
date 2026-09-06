@@ -60,7 +60,8 @@ type BotDeps struct {
 	Texts text.Renderer
 }
 
-// StartBotRuntime builds the facade, channel assembler, and notify router.
+// StartBotRuntime builds the facade, channel assembler, background
+// reachability probe, and notify router.
 func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 	facade := &botapp.Facade{
 		Cases:        deps.Cases,
@@ -94,6 +95,12 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 	go func() {
 		if err := assembler.Run(ctx); err != nil && ctx.Err() == nil {
 			slog.Error("channel assembler stopped", "err", err)
+		}
+	}()
+	go func() {
+		probe := &channelapp.ReachabilityProbe{Svc: deps.Channels}
+		if err := probe.Run(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("channel reachability probe stopped", "err", err)
 		}
 	}()
 	botRT := &BotRuntime{

@@ -55,7 +55,7 @@ function ChannelsLayout() {
     queryKey: queryKeys.channels.all,
     queryFn: listChannels,
   })
-  const healthQuery = useLinkHealthQuery()
+  const healthQuery = useLinkHealthQuery({ enabled: listQuery.isSuccess })
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
   const backToList = locationState?.backToList === true
   const selectedId =
