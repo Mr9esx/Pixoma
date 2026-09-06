@@ -194,7 +194,9 @@ func newCapabilityRegistry(facade *botapp.Facade, texts text.Renderer, users ide
 
 func (f *tgChannelFactory) Create(snap channelruntime.ChannelSnapshot) (channelruntime.Adapter, error) {
 	menuReader := channelMenuReader{cards: f.deps.MenuCards, channelID: snap.ID}
-	botInst, err := newTelegramBot(snap.Credential)
+	// Skip getMe here: bot.New's default 5s probe would hold assembler
+	// restart under Telegram RTT. Reachability belongs to ReachabilityProbe.
+	botInst, err := newTelegramBot(snap.Credential, bot.WithSkipGetMe())
 	if err != nil {
 		return nil, err
 	}

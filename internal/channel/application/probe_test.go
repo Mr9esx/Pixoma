@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
 )
@@ -84,5 +85,54 @@ func TestReachabilityProbe_ProbeOnceContinuesAfterOneFailure(t *testing.T) {
 	}
 	if got.LastCheckKind != string(ReachabilityNetwork) || got.LastCheckAt == nil {
 		t.Fatalf("second channel must still persist: %+v", got)
+	}
+}
+
+func TestCheckReachability_ListNotBlockedDuringTelegram(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{
+		Store:         store,
+		Key:           make([]byte, 32),
+		FetchTelegram: offlineFetch,
+		CheckTelegram: func(_ context.Context, _ string) (ReachabilityResult, error) {
+			close(entered)
+			<-release
+			return ReachabilityResult{OK: true, Kind: ReachabilityOK}, nil
+		},
+	}
+	if _, err := svc.Create(context.Background(), "on", domain.PlatformTelegram, "开", "tok", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := svc.CheckReachability(context.Background(), "on")
+		errCh <- err
+	}()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("probe did not start")
+	}
+
+	start := time.Now()
+	if _, err := svc.List(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(start); elapsed > 200*time.Millisecond {
+		t.Fatalf("List blocked %s during CheckTelegram", elapsed)
+	}
+	close(release)
+	if err := <-errCh; err != nil {
+		t.Fatal(err)
 	}
 }

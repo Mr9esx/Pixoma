@@ -30,6 +30,11 @@ type AdapterStatus struct {
 	LastErr error
 }
 
+type startJob struct {
+	id   string
+	snap ChannelSnapshot
+}
+
 // Assembler reconciles channel snapshots with running adapters (hot reload).
 type Assembler struct {
 	Store    SnapshotStore
@@ -37,6 +42,7 @@ type Assembler struct {
 	Interval time.Duration // watch interval; default 5s
 
 	mu       sync.Mutex
+	halted   bool
 	adapters map[string]*managedAdapter
 }
 
@@ -77,16 +83,20 @@ func (a *Assembler) Run(ctx context.Context) error {
 // StopAll stops every running adapter.
 func (a *Assembler) StopAll(ctx context.Context) error {
 	a.mu.Lock()
-	defer a.mu.Unlock()
-	var firstErr error
+	a.halted = true
+	var toStop []Adapter
 	for id, ma := range a.adapters {
-		if ma.adapter != nil && (ma.state == stateRunning || ma.state == stateStarting) {
-			if err := ma.adapter.Stop(ctx); err != nil && firstErr == nil {
-				firstErr = err
-			}
-			ma.state = stateAbsent
+		if ad := detachIfActive(ma); ad != nil {
+			toStop = append(toStop, ad)
 		}
 		delete(a.adapters, id)
+	}
+	a.mu.Unlock()
+	var firstErr error
+	for _, ad := range toStop {
+		if err := ad.Stop(ctx); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
 	return firstErr
 }
@@ -96,75 +106,113 @@ func (a *Assembler) reconcile(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	var starts []startJob
+	var toStop []Adapter
+
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	if a.halted {
+		a.mu.Unlock()
+		return nil
+	}
 	if a.adapters == nil {
 		a.adapters = map[string]*managedAdapter{}
 	}
-
 	seen := map[string]struct{}{}
 	for _, snap := range snapshots {
 		seen[snap.ID] = struct{}{}
 		ma, ok := a.adapters[snap.ID]
 		if !ok {
-			a.adapters[snap.ID] = &managedAdapter{snapshot: snap, state: stateAbsent}
-			ma = a.adapters[snap.ID]
+			ma = &managedAdapter{snapshot: snap, state: stateAbsent}
+			a.adapters[snap.ID] = ma
 		}
 		credChanged := ma.snapshot.CredentialHash != snap.CredentialHash
 		ma.snapshot = snap
 		switch {
 		case !snap.Enabled:
-			a.stopLocked(ctx, ma)
+			if ad := detachIfActive(ma); ad != nil {
+				toStop = append(toStop, ad)
+			}
+			ma.state = stateAbsent
+			ma.lastErr = nil
 		case credChanged || ma.state == stateError || ma.state == stateAbsent:
-			a.restartLocked(ctx, ma)
+			if ad := detachIfActive(ma); ad != nil {
+				toStop = append(toStop, ad)
+			}
+			ma.state = stateStarting
+			ma.lastErr = nil
+			starts = append(starts, startJob{id: snap.ID, snap: snap})
 		}
 	}
 	for id, ma := range a.adapters {
 		if _, ok := seen[id]; !ok {
-			a.stopLocked(ctx, ma)
+			if ad := detachIfActive(ma); ad != nil {
+				toStop = append(toStop, ad)
+			}
 			delete(a.adapters, id)
 		}
+	}
+	a.mu.Unlock()
+
+	for _, ad := range toStop {
+		if err := ad.Stop(ctx); err != nil {
+			slog.Error("channel adapter stop", "err", err)
+		}
+	}
+	for _, job := range starts {
+		a.startOne(ctx, job.id, job.snap)
 	}
 	return nil
 }
 
-func (a *Assembler) restartLocked(ctx context.Context, ma *managedAdapter) {
-	if ma.adapter != nil && (ma.state == stateRunning || ma.state == stateStarting) {
-		if err := ma.adapter.Stop(ctx); err != nil {
-			ma.state = stateError
-			ma.lastErr = err
-			slog.Error("channel adapter stop", "err", err, "channel", ma.snapshot.ID)
-			return
-		}
-		ma.adapter = nil
+func detachIfActive(ma *managedAdapter) Adapter {
+	if ma == nil || ma.adapter == nil {
+		return nil
 	}
-	ad, err := a.Factory.Create(ma.snapshot)
+	if ma.state != stateRunning && ma.state != stateStarting {
+		return nil
+	}
+	ad := ma.adapter
+	ma.adapter = nil
+	return ad
+}
+
+func (a *Assembler) startOne(ctx context.Context, id string, snap ChannelSnapshot) {
+	ad, err := a.Factory.Create(snap)
+	if err != nil {
+		a.finishStart(id, snap, nil, err)
+		slog.Error("channel adapter create", "err", err, "channel", id)
+		return
+	}
+	if err := ad.Start(ctx); err != nil {
+		a.finishStart(id, snap, nil, err)
+		slog.Error("channel adapter start", "err", err, "channel", id)
+		return
+	}
+	if a.finishStart(id, snap, ad, nil) {
+		if stopErr := ad.Stop(ctx); stopErr != nil {
+			slog.Error("channel adapter stop", "err", stopErr, "channel", id)
+		}
+		return
+	}
+	slog.Info("channel adapter started", "channel", id)
+}
+
+func (a *Assembler) finishStart(id string, snap ChannelSnapshot, ad Adapter, err error) (discard bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	ma, ok := a.adapters[id]
+	if a.halted || !ok || !ma.snapshot.Enabled || ma.snapshot.CredentialHash != snap.CredentialHash {
+		return ad != nil
+	}
 	if err != nil {
 		ma.state = stateError
 		ma.lastErr = err
-		slog.Error("channel adapter create", "err", err, "channel", ma.snapshot.ID)
-		return
+		ma.adapter = nil
+		return false
 	}
 	ma.adapter = ad
-	ma.state = stateStarting
-	if err := ad.Start(ctx); err != nil {
-		ma.state = stateError
-		ma.lastErr = err
-		slog.Error("channel adapter start", "err", err, "channel", ma.snapshot.ID)
-		return
-	}
 	ma.state = stateRunning
 	ma.lastErr = nil
-	slog.Info("channel adapter started", "channel", ma.snapshot.ID)
-}
-
-func (a *Assembler) stopLocked(ctx context.Context, ma *managedAdapter) {
-	if ma.adapter == nil || (ma.state != stateRunning && ma.state != stateStarting) {
-		ma.state = stateAbsent
-		return
-	}
-	if err := ma.adapter.Stop(ctx); err != nil {
-		slog.Error("channel adapter stop", "err", err, "channel", ma.snapshot.ID)
-	}
-	ma.state = stateAbsent
+	return false
 }
