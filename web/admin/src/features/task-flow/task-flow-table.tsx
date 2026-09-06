@@ -1,10 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import {
   ArrowDown,
   ArrowUp,
   CircleAlert,
   CircleCheck,
-  Pencil,
   Plus,
   Trash2,
 } from 'lucide-react'
@@ -12,12 +11,6 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -78,7 +71,6 @@ export function TaskFlowTable({
   preview = false,
   className,
 }: TaskFlowTableProps) {
-  const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const effectiveReadOnly = readOnly || preview
   const showActions = !effectiveReadOnly && !hideActions
   const rules = routing?.rules ?? []
@@ -120,7 +112,6 @@ export function TaskFlowTable({
     })
   }
 
-  const editingRule = editingIndex == null ? undefined : rules[editingIndex]
   const routingEmpty = validation.issues.some(
     (issue) => issue.kind === 'routing-empty'
   )
@@ -185,21 +176,35 @@ export function TaskFlowTable({
                     {index + 1}
                   </TableCell>
                   <TableCell>
-                    <div className='max-w-[420px]'>
-                      <div
-                        className={cn(
-                          'truncate',
-                          issue ? 'text-destructive' : 'text-foreground'
-                        )}
-                      >
-                        {describeCondition(rule.when)}
-                      </div>
-                      {issue ? (
-                        <div className='truncate text-xs text-destructive'>
-                          {issue.message}
+                    {effectiveReadOnly ? (
+                      <div className='max-w-[420px]'>
+                        <div
+                          className={cn(
+                            'truncate',
+                            issue ? 'text-destructive' : 'text-foreground'
+                          )}
+                        >
+                          {describeCondition(rule.when)}
                         </div>
-                      ) : null}
-                    </div>
+                        {issue ? (
+                          <div className='truncate text-xs text-destructive'>
+                            {issue.message}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <ConditionForm
+                        value={rule.when}
+                        attributes={attributes}
+                        onChange={(when: Condition) =>
+                          onChange({
+                            rules: rules.map((r, i) =>
+                              i === index ? { ...r, when } : r
+                            ),
+                          })
+                        }
+                      />
+                    )}
                   </TableCell>
                   <TableCell>
                     {effectiveReadOnly ? (
@@ -268,16 +273,6 @@ export function TaskFlowTable({
                           type='button'
                           variant='ghost'
                           size='icon-xs'
-                          aria-label='编辑条件'
-                          disabled={effectiveReadOnly}
-                          onClick={() => setEditingIndex(index)}
-                        >
-                          <Pencil className='size-3.5' />
-                        </Button>
-                        <Button
-                          type='button'
-                          variant='ghost'
-                          size='icon-xs'
                           className='text-destructive'
                           aria-label='删除规则'
                           disabled={effectiveReadOnly}
@@ -326,42 +321,6 @@ export function TaskFlowTable({
         </Button>
       ) : null}
 
-      <Dialog
-        open={editingIndex != null}
-        onOpenChange={(open) => {
-          if (!open) setEditingIndex(null)
-        }}
-      >
-        <DialogContent className='sm:max-w-2xl'>
-          <DialogHeader>
-            <DialogTitle>
-              编辑条件 {editingIndex != null ? `#${editingIndex + 1}` : ''}
-            </DialogTitle>
-            <DialogDescription>
-              按顺序执行；第一条命中的规则决定目标 Topic。
-            </DialogDescription>
-          </DialogHeader>
-          {editingRule ? (
-            <ConditionForm
-              value={editingRule.when}
-              attributes={attributes}
-              onChange={(when: Condition) =>
-                editingIndex != null &&
-                onChange({
-                  rules: rules.map((rule, i) =>
-                    i === editingIndex ? { ...rule, when } : rule
-                  ),
-                })
-              }
-            />
-          ) : null}
-          <DialogFooter>
-            <Button type='button' onClick={() => setEditingIndex(null)}>
-              完成
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
