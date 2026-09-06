@@ -501,7 +501,7 @@
 
         <text x="80" y="808" fill="#22d3ee" font-size="9" font-weight="600">共同验收</text>
         <text x="80" y="832" fill="#94a3b8" font-size="8">1. 列表圆点、详情健康、拓扑节点三处同色，禁止列表绿详情黄。</text>
-        <text x="80" y="852" fill="#94a3b8" font-size="8">2. GET /api/v1/link-health 不触发外部探测；场景 1 依赖已落库的 last_check。</text>
+        <text x="80" y="852" fill="#94a3b8" font-size="8">2. GET /api/v1/link-health 与打开页面不触发外部探测；last_check 由后台循环写入。</text>
         <text x="80" y="872" fill="#94a3b8" font-size="8">3. 控制面重启后探测结论仍在；presence 仍是内存，重启后短暂 pending 可接受。</text>
         <text x="80" y="892" fill="#94a3b8" font-size="8">4. 不把四类资源收成一个写 API；菜单、工作流、队列、节点继续各写各的。</text>
         <text x="80" y="920" fill="#64748b" font-size="8">图例：绿 = ok（无问题） · 黄 = warn（存在问题） · 灰 = pending（未就绪，不得当绿）</text>

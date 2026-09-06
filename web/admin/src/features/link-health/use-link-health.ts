@@ -11,7 +11,6 @@ export function useLinkHealthQuery(opts?: { enabled?: boolean }) {
     queryKey: queryKeys.linkHealth,
     queryFn: getLinkHealth,
     enabled: opts?.enabled ?? true,
-    staleTime: 0,
-    refetchInterval: 5000,
+    staleTime: 30_000,
   })
 }

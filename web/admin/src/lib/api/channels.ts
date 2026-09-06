@@ -11,6 +11,9 @@ export type Channel = {
   updated_at: string
   adapter_state?: 'absent' | 'starting' | 'running' | 'stopping' | 'error'
   adapter_error?: string
+  last_check_kind?: 'ok' | 'network' | 'auth' | 'other'
+  last_check_message?: string
+  last_check_at?: string
 }
 
 export type ChannelReachability = {

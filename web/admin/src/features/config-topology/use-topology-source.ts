@@ -9,8 +9,7 @@ export function useTopologySource(opts?: { enabled?: boolean }) {
     queryKey: queryKeys.linkHealth,
     queryFn: getLinkHealth,
     enabled,
-    staleTime: 0,
-    refetchInterval: 5000,
+    staleTime: 30_000,
   })
 
   const graphAll = query.data

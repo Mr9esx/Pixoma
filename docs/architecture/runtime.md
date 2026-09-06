@@ -78,6 +78,7 @@ sequenceDiagram
 | **Orchestrator** | `runtime/application/orchestrator` | 路由求值、按 Topic 置可领取、收敛 status、失败有界重试、终态 notify、对账 |
 | **Actuator** | `runtime/infrastructure/actuator` | 按实例客户端跑 workflow、产物入 blob、上报 status |
 | **Edge Pool** | `platform/edge` | CRUD 元数据、健康探测、持有 per-edge Client、RR 候选 |
+| **Channel probe** | `channel/application.ReachabilityProbe` | 后台周期探测启用中的消息平台（getMe），写入 `last_check_*`；不挡 HTTP / 页面打开 |
 
 Task 表是**执行态唯一真相源**（无独立 Actuator Ledger）。
 

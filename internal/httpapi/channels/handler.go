@@ -36,16 +36,19 @@ func (h *Handler) Mount(r chi.Router) {
 }
 
 type channelDTO struct {
-	ID           string          `json:"id"`
-	Platform     string          `json:"platform"`
-	Name         string          `json:"name"`
-	ExtraInfo    json.RawMessage `json:"extra_info"`
-	TokenMasked  string          `json:"token_masked"`
-	Enabled      bool            `json:"enabled"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
-	AdapterState string          `json:"adapter_state,omitempty"`
-	AdapterError string          `json:"adapter_error,omitempty"`
+	ID               string          `json:"id"`
+	Platform         string          `json:"platform"`
+	Name             string          `json:"name"`
+	ExtraInfo        json.RawMessage `json:"extra_info"`
+	TokenMasked      string          `json:"token_masked"`
+	Enabled          bool            `json:"enabled"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
+	AdapterState     string          `json:"adapter_state,omitempty"`
+	AdapterError     string          `json:"adapter_error,omitempty"`
+	LastCheckKind    string          `json:"last_check_kind,omitempty"`
+	LastCheckMessage string          `json:"last_check_message,omitempty"`
+	LastCheckAt      *time.Time      `json:"last_check_at,omitempty"`
 }
 
 func (h *Handler) toDTO(ctx *http.Request, ch domain.Channel) (channelDTO, error) {
@@ -62,6 +65,9 @@ func (h *Handler) toDTO(ctx *http.Request, ch domain.Channel) (channelDTO, error
 		ExtraInfo:   extra,
 		TokenMasked: masked, Enabled: ch.Enabled,
 		CreatedAt: ch.CreatedAt, UpdatedAt: ch.UpdatedAt,
+		LastCheckKind:    ch.LastCheckKind,
+		LastCheckMessage: ch.LastCheckMessage,
+		LastCheckAt:      ch.LastCheckAt,
 	}
 	if h.Svc != nil && h.Svc.AdapterStatus != nil {
 		if state, lastErr, found := h.Svc.AdapterStatus(ctx.Context(), ch.ID); found {

@@ -20,6 +20,12 @@
 
 - [x] 4.1 不变式测试与前端合同全绿；`go test` 与 admin vitest / tsc
 
+## 5. 后台探测，页面只读
+
+- [x] 5.1 后台周期探测启用中的通道并写入 last_check；HTTP 热路径与页面打开不打 Telegram
+- [x] 5.2 详情标签只读已存 last_check；列表先出再拉健康；去掉 5s 强刷
+- [x] 5.3 架构文档：探测主人改为后台循环
+
 审查（standard）接受项：
-- 平台是否可用跟适配器启停走；Telegram 探测只在打开通道详情时自动打，不挡列表绿黄。GET /link-health 热路径仍不探测。
+- 平台是否可用跟适配器启停走；Telegram 探测由后台循环写入 last_check，打开页面只读。GET /link-health 热路径仍不探测。
 - 无会话拒绝依赖既有 admin gate，与其它 `/api/v1` 相同；handler 单测不重复套 gate。
