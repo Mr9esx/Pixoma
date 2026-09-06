@@ -155,6 +155,31 @@ func TestAssembleLivePathInvariants(t *testing.T) {
 	}
 }
 
+func TestAssemblePendingExposesBreakpoints(t *testing.T) {
+	t.Parallel()
+	snap := liveChain([]ChannelSnap{{
+		ID:           "tg",
+		Name:         "电报",
+		Enabled:      true,
+		AdapterFound: true,
+		AdapterState: "running",
+	}}, true)
+	g := Assemble(snap)
+	for _, id := range []string{"platform:tg", "case:10", "topic:jobs", "edge:e1"} {
+		n := node(t, g, id)
+		if n.Health != HealthPending {
+			t.Fatalf("%s health=%s, want pending", id, n.Health)
+		}
+		if len(n.Breakpoints) == 0 {
+			t.Fatalf("%s pending with no breakpoints", id)
+		}
+	}
+	plat := node(t, g, "platform:tg")
+	if plat.Breakpoints[0].Key != "linkHealth.channelNotChecked" {
+		t.Fatalf("platform breakpoint=%q", plat.Breakpoints[0].Key)
+	}
+}
+
 func TestAssembleDisabledUniqueTopicBlocksLivePath(t *testing.T) {
 	t.Parallel()
 	snap := liveChain([]ChannelSnap{usablePlatform("tg", "电报")}, true)

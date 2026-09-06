@@ -323,11 +323,18 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
       </div>
 
       <div className='flex flex-col gap-2'>
-        <LinkHealthAlert
-          name={name || topicKey}
-          health={topicRefs.health}
-          anchorTo='#link-health-section'
-        />
+        {healthQuery.isError ? (
+          <ErrorBanner
+            message={errorMessage(healthQuery.error) ?? t('common.errorGeneric')}
+            onRetry={() => void healthQuery.refetch()}
+          />
+        ) : healthQuery.isSuccess ? (
+          <LinkHealthAlert
+            name={name || topicKey}
+            health={topicRefs.health}
+            anchorTo='#link-health-section'
+          />
+        ) : null}
 
         {isDefault ? (
           <Alert variant='default'>
@@ -344,6 +351,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
         <TopicStatsPanel topicKey={topicKey} />
       </section>
 
+      {healthQuery.isSuccess ? (
       <LinkHealthSection
         title={t('linkHealth.title')}
         health={topicRefs.health}
@@ -356,6 +364,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           items: topicRefs.edges,
         }}
       />
+      ) : null}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='sm:max-w-md'>

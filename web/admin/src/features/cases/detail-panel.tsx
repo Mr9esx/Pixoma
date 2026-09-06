@@ -78,7 +78,7 @@ export function CaseDetailPanel({ id }: Props) {
   const previewUrl = useMediaObjectUrl(record?.preview)
   const previewKey = resolveMediaKey(record?.preview)
   const previewIsVideo = /\.(mp4|webm)$/i.test(previewKey ?? '')
-  const { topics, attributes, edges, presence, placements, caseRefs } =
+  const { topics, attributes, edges, presence, placements, caseRefs, healthReady, healthError } =
     useCaseReferences(record)
   const pendingTasksQuery = useQuery({
     queryKey: ['cases', id, 'pending-tasks'] as const,
@@ -350,7 +350,10 @@ export function CaseDetailPanel({ id }: Props) {
         </div>
       </div>
 
-      {caseRefs ? (
+      {healthError ? (
+        <ErrorBanner message={t('common.errorGeneric')} />
+      ) : null}
+      {healthReady && caseRefs ? (
         <LinkHealthAlert
           name={record.name}
           health={caseRefs.health}
@@ -382,7 +385,7 @@ export function CaseDetailPanel({ id }: Props) {
         />
       </section>
 
-      {caseRefs ? (
+      {healthReady && caseRefs ? (
         <LinkHealthSection
           title={t('linkHealth.title')}
           health={caseRefs.health}
