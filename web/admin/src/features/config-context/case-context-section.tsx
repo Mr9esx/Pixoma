@@ -69,7 +69,7 @@ export function CaseContextSection({
       />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-3xl'>
+        <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[54rem]'>
           <DialogHeader className='border-b px-5 py-4'>
             <DialogTitle>{t('configContext.editFlow')}</DialogTitle>
           </DialogHeader>
