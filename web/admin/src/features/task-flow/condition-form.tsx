@@ -237,7 +237,7 @@ function GroupConditionSelect({
       <SelectTrigger
         size='sm'
         className={cn(
-          'h-5 w-12 shrink-0 justify-center rounded-full border px-0 text-xs shadow-none [&>svg]:hidden',
+          'h-5 w-10 shrink-0 justify-center rounded-full border px-0 text-[10px] shadow-none [&>svg]:hidden',
           kind === 'and'
             ? 'border-primary/30 bg-primary/10 text-primary'
             : 'border-warning/30 bg-warning/10 text-warning-foreground'
@@ -314,7 +314,7 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
     onChange(next === 'and' ? { and: leaves } : { or: leaves })
   }
 
-  const lineColor = groupKind === 'or' ? 'var(--warning)' : 'var(--primary)'
+  const lineColor = groupKind === 'or' ? 'var(--warning)' : 'var(--border)'
   const showConnector = Boolean(leaves && leaves.length > 1)
 
   return (
@@ -340,7 +340,7 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
             {showConnector && (
               <div className='relative flex w-10 shrink-0 items-center justify-center'>
                 <div
-                  className='absolute left-3 top-1 bottom-1 w-0 border-l-2'
+                  className='absolute left-3 top-2 bottom-2 w-0 border-l'
                   style={{ borderColor: lineColor }}
                   aria-hidden
                 />
