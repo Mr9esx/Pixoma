@@ -152,7 +152,7 @@ export function TaskFlowTable({
         </div>
       ) : null}
 
-      <div className='overflow-hidden rounded-md'>
+      <div className='overflow-hidden rounded-md border'>
         <Table
           className='w-full table-fixed'
           wrapperClassName='max-h-[300px] overflow-y-auto'
