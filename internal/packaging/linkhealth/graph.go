@@ -331,10 +331,14 @@ func Assemble(snap Snapshot) Graph {
 }
 
 func platformLocal(ch ChannelSnap, adapterKnown bool) localState {
-	if !adapterKnown || ch.LastCheckKind == "" {
+	if !adapterKnown {
 		return localPending
 	}
-	if ch.Enabled && ch.AdapterFound && ch.AdapterState == "running" && ch.LastCheckKind == "ok" {
+	switch ch.LastCheckKind {
+	case "network", "auth", "other":
+		return localWarn
+	}
+	if ch.Enabled && ch.AdapterFound && ch.AdapterState == "running" {
 		return localOK
 	}
 	return localWarn
@@ -479,8 +483,8 @@ func platformBreakpoints(id string, snap Snapshot) []Breakpoint {
 		return nil
 	}
 	to := "/channels/" + url.PathEscape(id)
-	if !snap.AdapterKnown || ch.LastCheckKind == "" {
-		return []Breakpoint{bp("entry", "runtime", "linkHealth.channelNotChecked", nil, to, "linkHealth.actionCheckChannel")}
+	if !snap.AdapterKnown {
+		return []Breakpoint{bp("entry", "runtime", "linkHealth.pathNotReady", nil, to, "linkHealth.actionManageChannels")}
 	}
 	switch ch.LastCheckKind {
 	case "network":
