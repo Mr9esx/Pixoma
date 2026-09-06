@@ -161,9 +161,9 @@ export function TaskFlowTable({
             <TableRow>
               <TableHead className='w-12'>顺序</TableHead>
               <TableHead className='min-w-0'>条件</TableHead>
-              <TableHead className='w-56'>目标 Topic</TableHead>
+              <TableHead className='w-44'>目标 Topic</TableHead>
               {showActions ? (
-                <TableHead className='w-36 text-right'>操作</TableHead>
+                <TableHead className='w-24 text-right'>操作</TableHead>
               ) : null}
             </TableRow>
           </TableHeader>
@@ -223,7 +223,7 @@ export function TaskFlowTable({
                       >
                         <SelectTrigger
                           size='sm'
-                          className='h-8 w-48'
+                          className='h-8 w-full'
                           aria-label={`规则 ${index + 1} 目标 Topic`}
                         >
                           <SelectValue placeholder='选择 Topic' />
