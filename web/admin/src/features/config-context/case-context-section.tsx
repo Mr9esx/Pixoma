@@ -69,7 +69,7 @@ export function CaseContextSection({
       />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-6 sm:max-w-4xl'>
+        <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-3xl'>
           <DialogHeader className='sr-only'>
             <DialogTitle>{t('configContext.editFlow')}</DialogTitle>
           </DialogHeader>
@@ -81,7 +81,7 @@ export function CaseContextSection({
             presence={presence}
             onChange={setRouting}
             title={record.name}
-            className='min-h-0 flex-1 overflow-auto'
+            className='min-h-0 flex-1 overflow-auto rounded-none border-0 shadow-none'
             headerActions={
               <Button
                 type='button'
