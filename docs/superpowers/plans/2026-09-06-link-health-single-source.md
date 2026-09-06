@@ -33,11 +33,11 @@ base-ref: 2adfdaaea9d2cfbf6d73a5e4668f772ca760b59c
 **Interfaces:**
 - Produces: `Assemble(Snapshot) Graph`；`NodeID(kind, id) string`；health `ok|warn|pending`
 
-- [ ] **Step 1: 写失败测试** 四场景：唯一入口不可用；双入口有活路；唯一节点不可用；从未探测 → pending 不得 ok
-- [ ] **Step 2: 跑测确认失败**
-- [ ] **Step 3: 实现 Assemble**
-- [ ] **Step 4: 测试通过**
-- [ ] **Step 5: Commit** `feat(linkhealth): assemble path-based config health`
+- [x] **Step 1: 写失败测试** 四场景：唯一入口不可用；双入口有活路；唯一节点不可用；从未探测 → pending 不得 ok
+- [x] **Step 2: 跑测确认失败**
+- [x] **Step 3: 实现 Assemble**
+- [x] **Step 4: 测试通过**
+- [x] **Step 5: Commit** `feat(linkhealth): assemble path-based config health`
 
 ### Task 2: 探测对组装器可见 + HTTP
 
@@ -46,9 +46,9 @@ base-ref: 2adfdaaea9d2cfbf6d73a5e4668f772ca760b59c
 - Create: `internal/httpapi/linkhealth/handler.go` + test
 - Modify: `internal/httpapi/adminhost/server.go`、`apps/pixoma/cmd/pixoma/main.go`、livedemo
 
-- [ ] **Step 1: 测试 check 后 List 能读到 kind；GET /link-health 200；无会话由既有管理门闩拒绝（与其它 /api/v1 一致）；handler 不调用 CheckTelegram**
-- [ ] **Step 2: 实现落库与装配 Snapshot → Assemble**
-- [ ] **Step 3: 测试通过并提交** `feat(linkhealth): expose GET /api/v1/link-health`
+- [x] **Step 1: 测试 check 后 List 能读到 kind；GET /link-health 200；无会话由既有管理门闩拒绝（与其它 /api/v1 一致）；handler 不调用 CheckTelegram**
+- [x] **Step 2: 实现落库与装配 Snapshot → Assemble**
+- [x] **Step 3: 测试通过并提交** `feat(linkhealth): expose GET /api/v1/link-health`
 
 ### Task 3: 前端只渲染并删除旧逻辑
 
@@ -58,12 +58,12 @@ base-ref: 2adfdaaea9d2cfbf6d73a5e4668f772ca760b59c
 - Delete `references.ts`、`list-health.ts` 及运行时调用；类型迁到 `features/link-health/types.ts`
 - 合同测试改为断言 queryKeys.linkHealth 且源码不含 `caseReferences(`
 
-- [ ] **Step 1: 合同测试先失败**
-- [ ] **Step 2: 改吃 API，删除旧文件**
-- [ ] **Step 3: vitest + tsc 通过并提交** `feat(admin): render link-health from single query`
+- [x] **Step 1: 合同测试先失败**
+- [x] **Step 2: 改吃 API，删除旧文件**
+- [x] **Step 3: vitest + tsc 通过并提交** `feat(admin): render link-health from single query`
 
 ### Task 4: 架构文档
 
 **Files:** `docs/architecture/bounded-contexts.md`、`data-model.md`、`overview.md`、`docs/architecture/diagrams/link-health.html`、`docs/architecture/README.md`
 
-- [ ] 同步读模型与图，提交 `docs: document link-health assembler`
+- [x] 同步读模型与图，提交 `docs: document link-health assembler`
