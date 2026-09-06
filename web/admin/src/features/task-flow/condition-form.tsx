@@ -318,7 +318,7 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
   const showConnector = Boolean(leaves && leaves.length > 1)
 
   return (
-    <div className='rounded-[4px] border border-border p-3' data-filter-group>
+    <div className='rounded-[4px] p-3' data-filter-group>
       <div className='mb-3 flex items-center gap-2'>
         <Switch
           data-condition-unconditional
