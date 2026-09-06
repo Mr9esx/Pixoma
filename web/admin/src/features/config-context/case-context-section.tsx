@@ -70,30 +70,39 @@ export function CaseContextSection({
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-3xl'>
-          <DialogHeader className='sr-only'>
+          <DialogHeader className='border-b px-5 py-4'>
             <DialogTitle>{t('configContext.editFlow')}</DialogTitle>
           </DialogHeader>
-          <TaskFlowTable
-            routing={routing}
-            topics={topics}
-            attributes={attributes}
-            edges={edges}
-            presence={presence}
-            onChange={setRouting}
-            title={record.name}
-            className='min-h-0 flex-1 overflow-auto rounded-none border-0 p-4 shadow-none'
-            headerActions={
-              <Button
-                type='button'
-                size='sm'
-                disabled={save.isPending}
-                onClick={() => save.mutate()}
-                data-case-routing-save
-              >
-                {t('configContext.saveRouting')}
-              </Button>
-            }
-          />
+          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
+            <TaskFlowTable
+              routing={routing}
+              topics={topics}
+              attributes={attributes}
+              edges={edges}
+              presence={presence}
+              onChange={setRouting}
+              showHeader={false}
+            />
+          </div>
+          <div className='flex items-center justify-end gap-2 border-t px-5 py-3'>
+            <Button
+              type='button'
+              variant='outline'
+              className='h-8 gap-1.5 px-3 text-xs'
+              onClick={() => setEditOpen(false)}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type='button'
+              className='h-8 gap-1.5 px-3 text-xs'
+              disabled={save.isPending}
+              onClick={() => save.mutate()}
+              data-case-routing-save
+            >
+              {t('configContext.saveRouting')}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </>
