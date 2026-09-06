@@ -8,8 +8,6 @@ import {
 } from '@tanstack/react-router'
 import { Plus, Tags } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { listCases } from '@/lib/api/cases'
-import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTopics } from '@/lib/api/topics'
 import { Button } from '@/components/ui/button'
@@ -28,10 +26,14 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { MasterDetailShell } from '@/components/master-detail/master-detail-shell'
-import { topicReferences } from '@/features/link-health/lib/references'
+import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
 import { CreateTopicForm } from '@/features/topics/create-topic-form'
 import { TopicDetailPanel } from '@/features/topics/topic-detail-panel'
 import { TopicListPanel } from '@/features/topics/topic-list-panel'
+import {
+  findLinkNode,
+  nodeEntityHealth,
+} from '@/lib/api/link-health'
 
 export const Route = createFileRoute('/_app/topics')({
   component: TopicsLayout,
@@ -53,41 +55,22 @@ function TopicsLayout() {
     queryKey: queryKeys.topics.all,
     queryFn: () => listTopics(),
   })
-  const casesQuery = useQuery({
-    queryKey: queryKeys.cases.all,
-    queryFn: () => listCases(),
-  })
-  const edgesQuery = useQuery({
-    queryKey: queryKeys.edges.all,
-    queryFn: listEdges,
-  })
-  const presenceQuery = useQuery({
-    queryKey: queryKeys.edges.presence,
-    queryFn: listPresence,
-  })
   const [manualCreateOpen, setManualCreateOpen] = useState(false)
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
-  const listHealthReady =
-    casesQuery.isSuccess && edgesQuery.isSuccess && presenceQuery.isSuccess
+  const healthQuery = useLinkHealthQuery()
+  const listHealthReady = healthQuery.isSuccess
   const healthByTopic = useMemo(() => {
     if (!listHealthReady) return undefined
-    const cases = casesQuery.data ?? []
-    const edges = edgesQuery.data ?? []
-    const presence = presenceQuery.data ?? []
-
     return Object.fromEntries(
       items.map((topic) => [
         topic.key,
-        topicReferences(topic.key, { cases, edges, presence }).health,
+        nodeEntityHealth(findLinkNode(healthQuery.data, 'topic', topic.key)) ?? {
+          state: 'warn' as const,
+          breakpoints: [],
+        },
       ])
     )
-  }, [
-    casesQuery.data,
-    edgesQuery.data,
-    items,
-    listHealthReady,
-    presenceQuery.data,
-  ])
+  }, [healthQuery.data, items, listHealthReady])
   const backToList = locationState?.backToList === true
   const selectedKey = key ?? (backToList ? undefined : items[0]?.key)
   const create = key === 'new'

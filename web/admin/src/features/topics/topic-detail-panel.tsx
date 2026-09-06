@@ -13,9 +13,12 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { listCases } from '@/lib/api/cases'
 import { ApiError } from '@/lib/api/client'
-import { listEdges, listPresence } from '@/lib/api/edges'
+import {
+  findLinkNode,
+  nodeRefs,
+  resolvedEntityHealth,
+} from '@/lib/api/link-health'
 import { topicDeleteErrorMessage } from '@/lib/api/localized-errors'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTasks } from '@/lib/api/tasks'
@@ -47,7 +50,7 @@ import { NotFoundState } from '@/components/feedback/not-found-state'
 import { MetaChip } from '@/components/meta-chip'
 import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
-import { topicReferences } from '@/features/link-health/lib/references'
+import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
 import { TopologyOpenButton } from '@/features/config-topology/topology-dialog'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
@@ -76,6 +79,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
       queryKey: queryKeys.topics.detail(topicKey),
     })
     void queryClient.invalidateQueries({ queryKey: queryKeys.topics.all })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
   }
 
   const updateMutation = useMutation({
@@ -124,29 +128,21 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   })
   const queuedCount = queuedTasksQuery.data?.length ?? 0
 
-  const edgesQuery = useQuery({
-    queryKey: queryKeys.edges.all,
-    queryFn: listEdges,
-  })
-
-  const edges = edgesQuery.data ?? []
-  const casesQuery = useQuery({
-    queryKey: queryKeys.cases.all,
-    queryFn: () => listCases(),
-  })
-  const presenceQuery = useQuery({
-    queryKey: queryKeys.edges.presence,
-    queryFn: listPresence,
-  })
-  const linkInput = {
-    cases: casesQuery.data ?? [],
-    edges,
-    presence: presenceQuery.data ?? [],
-  }
-  const topicRefs = useMemo(
-    () => topicReferences(topicKey, linkInput),
-    [topicKey, linkInput]
-  )
+  const healthQuery = useLinkHealthQuery()
+  const topicRefs = useMemo(() => {
+    const ready = healthQuery.isSuccess
+    const node = findLinkNode(healthQuery.data, 'topic', topicKey)
+    return {
+      health: resolvedEntityHealth(
+        healthQuery.data,
+        'topic',
+        topicKey,
+        ready
+      ),
+      cases: ready ? nodeRefs(node?.upstream) : [],
+      edges: ready ? nodeRefs(node?.downstream) : [],
+    }
+  }, [topicKey, healthQuery.data, healthQuery.isSuccess])
   const caseRefCount = topicRefs.cases.length
   const edgeRefCount = topicRefs.edges.length
   const hasImpact = caseRefCount > 0 || edgeRefCount > 0 || queuedCount > 0

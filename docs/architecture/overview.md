@@ -78,6 +78,7 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | `internal/runtime` | Task 领域 + Orchestrator + Actuator + Comfy 客户端 |
 | `internal/channel/tg` | Telegram 适配与通知落地 |
 | `internal/packaging/botapp` | 跨 BC 用例编排 |
+| `internal/packaging/linkhealth` | 配置链路活路健康（只读组装，后台只渲染） |
 | `internal/platform/*` | db / blob / bootstrap / settings / notify / instance / botconfig |
 | `internal/httpapi` | 管理 API、Agent API、向导 |
 | `internal/sharedkernel` | ID、状态、事件 DTO |
@@ -97,6 +98,7 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | 通知 | 终态 → `notify.Publisher` → TG 发图/文案 |
 | 我的任务 | 菜单动作 `list_tasks` → 按聊天查 Task，回当前排队/执行与最近 8 条 |
 | 多计算节点 | `edges` + Pool；健康探测 |
+| 配置链路绿黄 | 控制面 `GET /api/v1/link-health`；列表 / 详情 / 拓扑同一套，页面不得本地再算 |
 | 执行 | `pixoma-edge-agent` 直接调用真实 ComfyUI HTTP 根 |
 
 ---

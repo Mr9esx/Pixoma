@@ -11,6 +11,7 @@ import (
 	channelapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	channeltext "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channeltext"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
+	linkhealthapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/linkhealth"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/media"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	routingapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
@@ -38,6 +39,7 @@ type Options struct {
 	Routing     *routingapi.Handler
 	Media       *media.Handler
 	ChannelText *channeltext.Handler
+	LinkHealth  *linkhealthapi.Handler
 	// NotFound handles unmatched paths (SPA embed).
 	NotFound http.Handler
 }
@@ -134,6 +136,9 @@ func NewHandler(opts Options) http.Handler {
 			opts.ChannelText.Mount(r)
 		}
 	})
+	if opts.LinkHealth != nil {
+		r.Get("/api/v1/link-health", opts.LinkHealth.Get)
+	}
 
 	if opts.NotFound != nil {
 		r.NotFound(opts.NotFound.ServeHTTP)

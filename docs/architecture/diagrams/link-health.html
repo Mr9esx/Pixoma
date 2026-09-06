@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixoma 链路健康查询架构</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container { max-width: 1480px; margin: 0 auto; }
+    .header { margin-bottom: 1.5rem; }
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .pulse-dot {
+      width: 12px; height: 12px;
+      background: #22d3ee;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; }
+    h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 2rem 0 0.75rem;
+      color: #e2e8f0;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-left: 1.75rem;
+    }
+    .diagram-container {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+    svg { width: 100%; min-width: 1280px; display: block; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    @media (max-width: 800px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      padding: 1.25rem;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.amber { background: #fbbf24; }
+    .card h3 { font-size: 1rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.875rem; }
+    .card li { margin-bottom: 0.5rem; }
+    .footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: #475569;
+      font-size: 0.75rem;
+    }
+    .toolbar {
+      display: flex;
+      gap: 0.5rem;
+      margin-left: auto;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .toolbar-toggle {
+      background: transparent;
+      border: none;
+      color: #475569;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      transition: color 0.2s, background 0.2s;
+    }
+    .toolbar-toggle:hover { color: #94a3b8; background: rgba(30, 41, 59, 0.5); }
+    .toolbar-actions { display: none; gap: 0.5rem; }
+    .toolbar.expanded .toolbar-actions { display: flex; }
+    .toolbar-actions button {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.375rem;
+      font-family: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .toolbar-actions button:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: white;
+      border-color: #475569;
+    }
+    @media print {
+      body { background: #020617; padding: 1rem; }
+      .toolbar { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>链路健康 · 唯一主人</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="downloadPNG(this)">🖼️ PNG</button>
+            <button onclick="downloadPDF(this)">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">写仍分模块 · 绿黄只有一个组装器 · 页面只渲染 · 不变式防漏页 · change: link-health-single-source</p>
+    </div>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1400 860" font-family="'JetBrains Mono', monospace">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <marker id="arrow-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee" />
+          </marker>
+          <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#34d399" />
+          </marker>
+          <marker id="arrow-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa" />
+          </marker>
+          <marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fb923c" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- arrows first -->
+        <line x1="150" y1="168" x2="198" y2="168" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <line x1="430" y1="128" x2="498" y2="248" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <line x1="430" y1="168" x2="498" y2="268" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <line x1="430" y1="208" x2="498" y2="288" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <line x1="680" y1="268" x2="748" y2="268" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+        <line x1="830" y1="348" x2="830" y2="398" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+        <line x1="270" y1="458" x2="270" y2="528" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+        <line x1="1160" y1="458" x2="1160" y2="528" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+
+        <!-- legend outside control-plane, top-right of canvas but we'll put below region -->
+        <rect x="20" y="80" width="130" height="80" rx="6" fill="#0f172a"/>
+        <rect x="20" y="80" width="130" height="80" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="85" y="112" fill="white" font-size="12" font-weight="600" text-anchor="middle">运维</text>
+        <text x="85" y="132" fill="#94a3b8" font-size="9" text-anchor="middle">浏览器</text>
+
+        <rect x="180" y="36" width="1200" height="680" rx="12" fill="rgba(251, 191, 36, 0.04)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="196" y="58" fill="#fbbf24" font-size="10" font-weight="600">控制面 · pixoma · 读模型（不改写边界）</text>
+
+        <!-- frontend -->
+        <rect x="200" y="80" width="230" height="176" rx="8" fill="#0f172a"/>
+        <rect x="200" y="80" width="230" height="176" rx="8" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="315" y="104" fill="white" font-size="12" font-weight="600" text-anchor="middle">web/admin</text>
+        <text x="315" y="122" fill="#22d3ee" font-size="8" text-anchor="middle">只渲染，不发明绿黄</text>
+        <text x="315" y="148" fill="#94a3b8" font-size="9" text-anchor="middle">列表 StatusDot</text>
+        <text x="315" y="168" fill="#94a3b8" font-size="9" text-anchor="middle">详情 状态与关联</text>
+        <text x="315" y="188" fill="#94a3b8" font-size="9" text-anchor="middle">工作台 / 弹窗 拓扑</text>
+        <text x="315" y="214" fill="#64748b" font-size="7" text-anchor="middle">同一 queryKey</text>
+        <text x="315" y="236" fill="#22d3ee" font-size="8" text-anchor="middle">GET /api/v1/link-health</text>
+
+        <rect x="500" y="230" width="180" height="76" rx="6" fill="#0f172a"/>
+        <rect x="500" y="230" width="180" height="76" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="590" y="258" fill="white" font-size="11" font-weight="600" text-anchor="middle">httpapi</text>
+        <text x="590" y="276" fill="#94a3b8" font-size="9" text-anchor="middle">会话鉴权 · 只读</text>
+        <text x="590" y="292" fill="#34d399" font-size="8" text-anchor="middle">linkhealth.Handler</text>
+
+        <rect x="750" y="210" width="160" height="116" rx="6" fill="#0f172a"/>
+        <rect x="750" y="210" width="160" height="116" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="830" y="238" fill="white" font-size="11" font-weight="600" text-anchor="middle">packaging</text>
+        <text x="830" y="256" fill="#34d399" font-size="10" text-anchor="middle">linkhealth</text>
+        <text x="830" y="276" fill="#94a3b8" font-size="8" text-anchor="middle">拼图</text>
+        <text x="830" y="292" fill="#94a3b8" font-size="8" text-anchor="middle">合成平台可用</text>
+        <text x="830" y="308" fill="#94a3b8" font-size="8" text-anchor="middle">走完整活路</text>
+
+        <!-- read sources -->
+        <rect x="200" y="400" width="1180" height="48" rx="4" fill="transparent" stroke="#64748b" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="212" y="420" fill="#64748b" font-size="8">只读端口 · 各 BC 互不 import</text>
+        <text x="212" y="436" fill="#64748b" font-size="8">查询组装在 packaging，不把通道逻辑写进 Catalog</text>
+
+        <rect x="200" y="460" width="140" height="60" rx="6" fill="#0f172a"/>
+        <rect x="200" y="460" width="140" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="270" y="484" fill="white" font-size="11" font-weight="600" text-anchor="middle">Channel</text>
+        <text x="270" y="502" fill="#94a3b8" font-size="8" text-anchor="middle">启用 · adapter</text>
+
+        <rect x="360" y="460" width="140" height="60" rx="6" fill="#0f172a"/>
+        <rect x="360" y="460" width="140" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="430" y="484" fill="white" font-size="11" font-weight="600" text-anchor="middle">MenuCard</text>
+        <text x="430" y="502" fill="#94a3b8" font-size="8" text-anchor="middle">菜单挂载边</text>
+
+        <rect x="520" y="460" width="140" height="60" rx="6" fill="#0f172a"/>
+        <rect x="520" y="460" width="140" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="590" y="484" fill="white" font-size="11" font-weight="600" text-anchor="middle">Catalog</text>
+        <text x="590" y="502" fill="#94a3b8" font-size="8" text-anchor="middle">Case · routing</text>
+
+        <rect x="680" y="460" width="140" height="60" rx="6" fill="#0f172a"/>
+        <rect x="680" y="460" width="140" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="750" y="484" fill="white" font-size="11" font-weight="600" text-anchor="middle">Topic</text>
+        <text x="750" y="502" fill="#94a3b8" font-size="8" text-anchor="middle">任务队列</text>
+
+        <rect x="840" y="460" width="140" height="60" rx="6" fill="#0f172a"/>
+        <rect x="840" y="460" width="140" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="910" y="484" fill="white" font-size="11" font-weight="600" text-anchor="middle">Edge</text>
+        <text x="910" y="502" fill="#94a3b8" font-size="8" text-anchor="middle">订阅 · 启停</text>
+
+        <rect x="1000" y="460" width="160" height="60" rx="6" fill="#0f172a"/>
+        <rect x="1000" y="460" width="160" height="60" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="1080" y="484" fill="white" font-size="11" font-weight="600" text-anchor="middle">Presence</text>
+        <text x="1080" y="502" fill="#fb923c" font-size="8" text-anchor="middle">内存 last_seen</text>
+
+        <!-- persist -->
+        <rect x="200" y="560" width="300" height="80" rx="6" fill="#0f172a"/>
+        <rect x="200" y="560" width="300" height="80" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="350" y="588" fill="white" font-size="11" font-weight="600" text-anchor="middle">配置真相 · 库表</text>
+        <text x="350" y="608" fill="#94a3b8" font-size="8" text-anchor="middle">通道 · 菜单 · Case · Topic · Edge</text>
+        <text x="350" y="624" fill="#a78bfa" font-size="8" text-anchor="middle">组装器只读，不合并写模型</text>
+
+        <rect x="1000" y="560" width="220" height="80" rx="6" fill="#0f172a"/>
+        <rect x="1000" y="560" width="220" height="80" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="1110" y="588" fill="white" font-size="11" font-weight="600" text-anchor="middle">不落库</text>
+        <text x="1110" y="608" fill="#94a3b8" font-size="8" text-anchor="middle">节点心跳 15s TTL</text>
+        <text x="1110" y="624" fill="#94a3b8" font-size="8" text-anchor="middle">查询只读，不改 TTL</text>
+
+        <rect x="540" y="560" width="420" height="80" rx="6" fill="#0f172a"/>
+        <rect x="540" y="560" width="420" height="80" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="750" y="588" fill="white" font-size="11" font-weight="600" text-anchor="middle">信号必须组装器可见</text>
+        <text x="750" y="608" fill="#fb7185" font-size="8" text-anchor="middle">只活在某一详情页缓存里的信号不得当全图真相</text>
+        <text x="750" y="624" fill="#94a3b8" font-size="8" text-anchor="middle">读不到 → pending，不得标绿</text>
+
+        <!-- write strip -->
+        <rect x="180" y="736" width="1200" height="100" rx="8" fill="rgba(15, 23, 42, 0.9)" stroke="#334155" stroke-width="1.5"/>
+        <text x="196" y="760" fill="#94a3b8" font-size="10" font-weight="600">写模型保持分家 · CRUD 不合并</text>
+        <text x="196" y="784" fill="#64748b" font-size="8">POST/PUT /channels  /cases  /topics  /edges  /channels/:id/menu</text>
+        <text x="196" y="804" fill="#64748b" font-size="8">Bot 开跑、Orchestrator 派活不读本查询 · 本期不拦截用户</text>
+        <text x="196" y="822" fill="#64748b" font-size="8">新增点类型 / 边类型时只扩展 packaging/linkhealth 的拼图与走路径</text>
+
+        <!-- query fan-in arrows from assembler down -->
+        <path d="M 830 326 L 830 400 L 270 400 L 270 458" fill="none" stroke="#34d399" stroke-width="1.2"/>
+        <path d="M 830 400 L 430 400 L 430 458" fill="none" stroke="#34d399" stroke-width="1.2"/>
+        <path d="M 830 400 L 590 400 L 590 458" fill="none" stroke="#34d399" stroke-width="1.2"/>
+        <path d="M 830 400 L 750 400 L 750 458" fill="none" stroke="#34d399" stroke-width="1.2"/>
+        <path d="M 830 400 L 910 400 L 910 458" fill="none" stroke="#34d399" stroke-width="1.2"/>
+        <path d="M 830 400 L 1080 400 L 1080 458" fill="none" stroke="#fb923c" stroke-width="1.2"/>
+      </svg>
+    </div>
+
+    <h2>怎么判绿：完整活路</h2>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1400 420" font-family="'JetBrains Mono', monospace">
+        <defs>
+          <marker id="arrow2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <pattern id="grid2" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid2)" />
+
+        <line x1="250" y1="100" x2="368" y2="100" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow2)"/>
+        <line x1="520" y1="100" x2="638" y2="100" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow2)"/>
+        <line x1="790" y1="100" x2="908" y2="100" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow2)"/>
+
+        <rect x="80" y="60" width="170" height="80" rx="6" fill="#0f172a"/>
+        <rect x="80" y="60" width="170" height="80" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="165" y="90" fill="white" font-size="12" font-weight="600" text-anchor="middle">消息平台</text>
+        <text x="165" y="110" fill="#94a3b8" font-size="8" text-anchor="middle">菜单挂载边</text>
+
+        <rect x="370" y="60" width="150" height="80" rx="6" fill="#0f172a"/>
+        <rect x="370" y="60" width="150" height="80" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="445" y="90" fill="white" font-size="12" font-weight="600" text-anchor="middle">工作流</text>
+        <text x="445" y="110" fill="#94a3b8" font-size="8" text-anchor="middle">routing.topic</text>
+
+        <rect x="640" y="60" width="150" height="80" rx="6" fill="#0f172a"/>
+        <rect x="640" y="60" width="150" height="80" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="715" y="90" fill="white" font-size="12" font-weight="600" text-anchor="middle">任务队列</text>
+        <text x="715" y="110" fill="#94a3b8" font-size="8" text-anchor="middle">subscribe</text>
+
+        <rect x="910" y="60" width="170" height="80" rx="6" fill="#0f172a"/>
+        <rect x="910" y="60" width="170" height="80" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="995" y="90" fill="white" font-size="12" font-weight="600" text-anchor="middle">计算节点</text>
+        <text x="995" y="110" fill="#94a3b8" font-size="8" text-anchor="middle">presence + comfy</text>
+
+        <rect x="1120" y="60" width="240" height="80" rx="6" fill="#0f172a"/>
+        <rect x="1120" y="60" width="240" height="80" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="1240" y="90" fill="white" font-size="11" font-weight="600" text-anchor="middle">资源为 ok</text>
+        <text x="1240" y="110" fill="#94a3b8" font-size="8" text-anchor="middle">自身过关 且 有一条活路穿过</text>
+
+        <rect x="80" y="180" width="620" height="200" rx="8" fill="#0f172a"/>
+        <rect x="80" y="180" width="620" height="200" rx="8" fill="rgba(6, 78, 59, 0.35)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="100" y="208" fill="#34d399" font-size="11" font-weight="600">平台可用（路径起点）</text>
+        <text x="100" y="232" fill="#94a3b8" font-size="9">1. enabled</text>
+        <text x="100" y="252" fill="#94a3b8" font-size="9">2. adapter_state = running</text>
+        <text x="100" y="272" fill="#94a3b8" font-size="9">3. last_check.kind = ok</text>
+        <text x="100" y="300" fill="#fbbf24" font-size="9">缺探测 → pending，不能当起点，也不能标绿</text>
+        <text x="100" y="324" fill="#94a3b8" font-size="9">Token 失效 / 网络不通 / 停用 → 不可用</text>
+        <text x="100" y="348" fill="#64748b" font-size="8">running 只说明进程没挂，不代表用户能发进来</text>
+        <text x="100" y="364" fill="#64748b" font-size="8">这是工作流全绿、平台已黄的根因</text>
+
+        <rect x="720" y="180" width="640" height="200" rx="8" fill="#0f172a"/>
+        <rect x="720" y="180" width="640" height="200" rx="8" fill="rgba(251, 191, 36, 0.08)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="740" y="208" fill="#fbbf24" font-size="11" font-weight="600">节点就绪（路径终点）</text>
+        <text x="740" y="232" fill="#94a3b8" font-size="9">enabled ∧ edge_online ∧ comfy_running</text>
+        <text x="740" y="260" fill="#e2e8f0" font-size="9">展示规则</text>
+        <text x="740" y="284" fill="#94a3b8" font-size="9">ok    = 自身无断点 且 至少一条完整活路</text>
+        <text x="740" y="304" fill="#94a3b8" font-size="9">warn  = 自身有断点，或一条活路都没有</text>
+        <text x="740" y="324" fill="#94a3b8" font-size="9">pending = 算路所需运行态缺失</text>
+        <text x="740" y="352" fill="#fbbf24" font-size="9">双平台：A 挂 B 通 → 工作流仍 ok，黄只打在 A</text>
+        <text x="740" y="368" fill="#94a3b8" font-size="8">唯一入口挂了 → 工作流 warn（场景 1）</text>
+      </svg>
+    </div>
+
+    <h2>三个场景</h2>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1400 980" font-family="'JetBrains Mono', monospace">
+        <defs>
+          <marker id="arrow3" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <pattern id="grid3" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid3)" />
+
+        <!-- S1 region -->
+        <rect x="40" y="24" width="1320" height="280" rx="12" fill="rgba(251, 191, 36, 0.04)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="56" y="48" fill="#fbbf24" font-size="11" font-weight="600">场景 1 · 唯一入口挂了（当前 bug）</text>
+        <text x="56" y="68" fill="#94a3b8" font-size="8">文生图只挂 Telegram · Token 失效 · 适配器仍 running · 节点在线</text>
+
+        <text x="200" y="96" fill="#94a3b8" font-size="9" font-weight="600">现在 · 前端各算各的</text>
+        <rect x="80" y="112" width="110" height="56" rx="6" fill="#0f172a"/>
+        <rect x="80" y="112" width="110" height="56" rx="6" fill="rgba(120, 53, 15, 0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="135" y="134" fill="white" font-size="10" font-weight="600" text-anchor="middle">Telegram</text>
+        <text x="135" y="152" fill="#fbbf24" font-size="8" text-anchor="middle">详情黄 · 探测</text>
+        <line x1="190" y1="140" x2="228" y2="140" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="230" y="112" width="110" height="56" rx="6" fill="#0f172a"/>
+        <rect x="230" y="112" width="110" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="285" y="134" fill="white" font-size="10" font-weight="600" text-anchor="middle">文生图</text>
+        <text x="285" y="152" fill="#34d399" font-size="8" text-anchor="middle">列表全绿</text>
+        <line x1="340" y1="140" x2="378" y2="140" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="380" y="112" width="90" height="56" rx="6" fill="#0f172a"/>
+        <rect x="380" y="112" width="90" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="425" y="134" fill="white" font-size="10" font-weight="600" text-anchor="middle">队列</text>
+        <text x="425" y="152" fill="#34d399" font-size="8" text-anchor="middle">绿</text>
+        <line x1="470" y1="140" x2="508" y2="140" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="510" y="112" width="90" height="56" rx="6" fill="#0f172a"/>
+        <rect x="510" y="112" width="90" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="555" y="134" fill="white" font-size="10" font-weight="600" text-anchor="middle">节点</text>
+        <text x="555" y="152" fill="#34d399" font-size="8" text-anchor="middle">绿</text>
+        <text x="80" y="192" fill="#fb7185" font-size="8">各页各算：修工作流挡不住队列/节点/拓扑继续撒谎</text>
+
+        <text x="860" y="96" fill="#34d399" font-size="9" font-weight="600">目标 · 同一查询</text>
+        <rect x="740" y="112" width="110" height="56" rx="6" fill="#0f172a"/>
+        <rect x="740" y="112" width="110" height="56" rx="6" fill="rgba(120, 53, 15, 0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="795" y="134" fill="white" font-size="10" font-weight="600" text-anchor="middle">Telegram</text>
+        <text x="795" y="152" fill="#fbbf24" font-size="8" text-anchor="middle">auth · warn</text>
+        <line x1="850" y1="140" x2="888" y2="140" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="890" y="112" width="110" height="56" rx="6" fill="#0f172a"/>
+        <rect x="890" y="112" width="110" height="56" rx="6" fill="rgba(120, 53, 15, 0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="945" y="134" fill="white" font-size="10" font-weight="600" text-anchor="middle">文生图</text>
+        <text x="945" y="152" fill="#fbbf24" font-size="8" text-anchor="middle">无活路 · warn</text>
+        <line x1="1000" y1="140" x2="1038" y2="140" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="1040" y="112" width="90" height="56" rx="6" fill="#0f172a"/>
+        <rect x="1040" y="112" width="90" height="56" rx="6" fill="rgba(120, 53, 15, 0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="1085" y="134" fill="white" font-size="10" font-weight="600" text-anchor="middle">队列</text>
+        <text x="1085" y="152" fill="#fbbf24" font-size="8" text-anchor="middle">无入口</text>
+        <line x1="1130" y1="140" x2="1168" y2="140" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="1170" y="112" width="90" height="56" rx="6" fill="#0f172a"/>
+        <rect x="1170" y="112" width="90" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="1215" y="134" fill="white" font-size="10" font-weight="600" text-anchor="middle">节点</text>
+        <text x="1215" y="152" fill="#34d399" font-size="8" text-anchor="middle">机器仍活</text>
+        <text x="740" y="192" fill="#e2e8f0" font-size="8">列表 / 详情 / 拓扑三处工作流同为黄 · 断点指向平台</text>
+        <text x="80" y="230" fill="#94a3b8" font-size="8">验收靠活路不变式：唯一入口不可用 → 工作流不得绿。不是「给 caseReferences 再加一个 if」。</text>
+        <text x="80" y="250" fill="#94a3b8" font-size="8">节点可以仍绿（它自己在线）；但不能把工作流洗绿。列表/详情/拓扑必须同色。</text>
+        <text x="80" y="278" fill="#64748b" font-size="8">通道只是这一跳的例子。下一跳坏在队列或节点，同一条规则也要红。</text>
+
+        <!-- S2 -->
+        <rect x="40" y="324" width="1320" height="280" rx="12" fill="rgba(52, 211, 153, 0.05)" stroke="#34d399" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="56" y="348" fill="#34d399" font-size="11" font-weight="600">场景 2 · 双平台还有活路</text>
+        <text x="56" y="368" fill="#94a3b8" font-size="8">同一工作流挂 Telegram + 飞书 · Telegram 探测失败 · 飞书可用 · 下游就绪</text>
+
+        <rect x="80" y="392" width="110" height="56" rx="6" fill="#0f172a"/>
+        <rect x="80" y="392" width="110" height="56" rx="6" fill="rgba(120, 53, 15, 0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="135" y="414" fill="white" font-size="10" font-weight="600" text-anchor="middle">Telegram</text>
+        <text x="135" y="432" fill="#fbbf24" font-size="8" text-anchor="middle">warn</text>
+        <line x1="190" y1="420" x2="318" y2="468" stroke="#fbbf24" stroke-width="1.2"/>
+
+        <rect x="80" y="468" width="110" height="56" rx="6" fill="#0f172a"/>
+        <rect x="80" y="468" width="110" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="135" y="490" fill="white" font-size="10" font-weight="600" text-anchor="middle">飞书</text>
+        <text x="135" y="508" fill="#34d399" font-size="8" text-anchor="middle">ok · 活路</text>
+        <line x1="190" y1="496" x2="318" y2="468" stroke="#34d399" stroke-width="2" marker-end="url(#arrow3)"/>
+
+        <rect x="320" y="430" width="130" height="56" rx="6" fill="#0f172a"/>
+        <rect x="320" y="430" width="130" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="385" y="452" fill="white" font-size="10" font-weight="600" text-anchor="middle">文生图</text>
+        <text x="385" y="470" fill="#34d399" font-size="8" text-anchor="middle">ok · 列表绿</text>
+        <line x1="450" y1="458" x2="518" y2="458" stroke="#34d399" stroke-width="2" marker-end="url(#arrow3)"/>
+        <rect x="520" y="430" width="110" height="56" rx="6" fill="#0f172a"/>
+        <rect x="520" y="430" width="110" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="575" y="452" fill="white" font-size="10" font-weight="600" text-anchor="middle">队列</text>
+        <text x="575" y="470" fill="#34d399" font-size="8" text-anchor="middle">ok</text>
+        <line x1="630" y1="458" x2="698" y2="458" stroke="#34d399" stroke-width="2" marker-end="url(#arrow3)"/>
+        <rect x="700" y="430" width="110" height="56" rx="6" fill="#0f172a"/>
+        <rect x="700" y="430" width="110" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="755" y="452" fill="white" font-size="10" font-weight="600" text-anchor="middle">节点</text>
+        <text x="755" y="470" fill="#34d399" font-size="8" text-anchor="middle">就绪</text>
+
+        <rect x="860" y="400" width="460" height="160" rx="8" fill="#0f172a"/>
+        <rect x="860" y="400" width="460" height="160" rx="8" fill="rgba(15, 23, 42, 0.9)" stroke="#334155" stroke-width="1.5"/>
+        <text x="880" y="428" fill="#e2e8f0" font-size="10" font-weight="600">产品选择</text>
+        <text x="880" y="452" fill="#94a3b8" font-size="9">工作流问的是「用户还能不能跑」</text>
+        <text x="880" y="472" fill="#94a3b8" font-size="9">不是「是不是每个邻居都完美」</text>
+        <text x="880" y="500" fill="#34d399" font-size="9">黄打在 Telegram 引用上</text>
+        <text x="880" y="520" fill="#94a3b8" font-size="9">工作流圆点保持绿 · 详情仍列出上游黄项</text>
+        <text x="880" y="544" fill="#64748b" font-size="8">若改成「任一平台有问题工作流就黄」，场景 2 会误伤</text>
+
+        <!-- S3 -->
+        <rect x="40" y="624" width="1320" height="320" rx="12" fill="rgba(8, 51, 68, 0.25)" stroke="#22d3ee" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="56" y="648" fill="#22d3ee" font-size="11" font-weight="600">场景 3 · 节点掉线 / 从未探测</text>
+
+        <text x="80" y="676" fill="#e2e8f0" font-size="9" font-weight="600">3a 唯一节点离线</text>
+        <rect x="80" y="692" width="100" height="52" rx="6" fill="#0f172a"/>
+        <rect x="80" y="692" width="100" height="52" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="130" y="714" fill="white" font-size="10" font-weight="600" text-anchor="middle">平台</text>
+        <text x="130" y="730" fill="#34d399" font-size="8" text-anchor="middle">ok</text>
+        <line x1="180" y1="718" x2="218" y2="718" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="220" y="692" width="100" height="52" rx="6" fill="#0f172a"/>
+        <rect x="220" y="692" width="100" height="52" rx="6" fill="rgba(120, 53, 15, 0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="270" y="714" fill="white" font-size="10" font-weight="600" text-anchor="middle">工作流</text>
+        <text x="270" y="730" fill="#fbbf24" font-size="8" text-anchor="middle">warn</text>
+        <line x1="320" y1="718" x2="358" y2="718" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="360" y="692" width="100" height="52" rx="6" fill="#0f172a"/>
+        <rect x="360" y="692" width="100" height="52" rx="6" fill="rgba(120, 53, 15, 0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="410" y="714" fill="white" font-size="10" font-weight="600" text-anchor="middle">队列</text>
+        <text x="410" y="730" fill="#fbbf24" font-size="8" text-anchor="middle">warn</text>
+        <line x1="460" y1="718" x2="498" y2="718" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="500" y="692" width="110" height="52" rx="6" fill="#0f172a"/>
+        <rect x="500" y="692" width="110" height="52" rx="6" fill="rgba(120, 53, 15, 0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="555" y="714" fill="white" font-size="10" font-weight="600" text-anchor="middle">节点</text>
+        <text x="555" y="730" fill="#fbbf24" font-size="8" text-anchor="middle">离线</text>
+        <text x="80" y="766" fill="#94a3b8" font-size="8">断点在节点 runtime · 平台保持绿 · 工作流不能因为「自己配齐了」就绿</text>
+
+        <text x="740" y="676" fill="#e2e8f0" font-size="9" font-weight="600">3b 新平台从未探测</text>
+        <rect x="740" y="692" width="120" height="52" rx="6" fill="#0f172a"/>
+        <rect x="740" y="692" width="120" height="52" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="800" y="714" fill="white" font-size="10" font-weight="600" text-anchor="middle">新平台</text>
+        <text x="800" y="730" fill="#94a3b8" font-size="8" text-anchor="middle">pending</text>
+        <line x1="860" y1="718" x2="898" y2="718" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <rect x="900" y="692" width="120" height="52" rx="6" fill="#0f172a"/>
+        <rect x="900" y="692" width="120" height="52" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="960" y="714" fill="white" font-size="10" font-weight="600" text-anchor="middle">只挂它的流</text>
+        <text x="960" y="730" fill="#94a3b8" font-size="8" text-anchor="middle">不得标绿</text>
+        <text x="740" y="766" fill="#94a3b8" font-size="8">适配器 running 也不能默认正常 · 与 admin-status-rules 第 4 条一致</text>
+
+        <text x="80" y="808" fill="#22d3ee" font-size="9" font-weight="600">共同验收</text>
+        <text x="80" y="832" fill="#94a3b8" font-size="8">1. 列表圆点、详情健康、拓扑节点三处同色，禁止列表绿详情黄。</text>
+        <text x="80" y="852" fill="#94a3b8" font-size="8">2. GET /api/v1/link-health 不触发外部探测；场景 1 依赖已落库的 last_check。</text>
+        <text x="80" y="872" fill="#94a3b8" font-size="8">3. 控制面重启后探测结论仍在；presence 仍是内存，重启后短暂 pending 可接受。</text>
+        <text x="80" y="892" fill="#94a3b8" font-size="8">4. 不把四类资源收成一个写 API；菜单、工作流、队列、节点继续各写各的。</text>
+        <text x="80" y="920" fill="#64748b" font-size="8">图例：绿 = ok（无问题） · 黄 = warn（存在问题） · 灰 = pending（未就绪，不得当绿）</text>
+      </svg>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot cyan"></div>
+          <h3>页面只渲染</h3>
+        </div>
+        <ul>
+          <li>• 列表 / 详情 / 拓扑共用组装器</li>
+          <li>• 禁止各页再发明绿黄</li>
+          <li>• 新信号只改组装器与不变式测试</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>唯一组装器</h3>
+        </div>
+        <ul>
+          <li>• packaging 跨 BC 只读拼图</li>
+          <li>• 不新建写侧限界上下文</li>
+          <li>• 页面缓存里的信号不算全图真相</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot amber"></div>
+          <h3>活路不变式</h3>
+        </div>
+        <ul>
+          <li>• 弄坏任一 hop、无旁路 → 下游不得绿</li>
+          <li>• 有活路 → 黄打在坏掉的那一跳</li>
+          <li>• 缺输入不得标绿</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer">Pixoma · link-health-single-source · docs/openspec/changes/link-health-single-source/diagrams/link-health.html</p>
+  </div>
+
+  <script>
+    async function copyAsImage(btn) {
+      const orig = btn.textContent;
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.textContent = '✓ Copied!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPNG(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const link = document.createElement('a');
+        link.download = 'diagram.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPDF(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('diagram.pdf');
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+  </script>
+</body>
+</html>

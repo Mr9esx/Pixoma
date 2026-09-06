@@ -97,6 +97,7 @@ export function EdgeForm(props: Props) {
         }
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.edges.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       props.onSaved(next)
     },
   })
@@ -114,6 +115,7 @@ export function EdgeForm(props: Props) {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.edges.detail(props.initial.id),
       })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       toast.success(t('common.successSaved'))
       props.onSaved(next)
     },

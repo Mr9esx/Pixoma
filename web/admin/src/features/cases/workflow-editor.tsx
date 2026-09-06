@@ -303,6 +303,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     mutationFn: createCase,
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.cases.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       toast.success(t('cases.createSuccess'))
       const redirectAfterSave =
         props.mode === 'create' && props.redirectAfterSave !== false
@@ -328,6 +329,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.cases.detail(updated.id),
       })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       setDraft(structuredClone(updated))
       const text = stringifyObject(updated.bindings.workflow)
       const parsed = parseWorkflow(text)

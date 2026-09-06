@@ -12,12 +12,15 @@ import (
 
 // ChannelRow is the GORM model for the channels table.
 type ChannelRow struct {
-	ID                   string    `gorm:"primaryKey;size:128"`
-	Platform             string    `gorm:"size:32;not null"`
-	Name                 string    `gorm:"size:256;not null"`
-	ExtraInfo            string    `gorm:"type:text"`
-	CredentialCiphertext string    `gorm:"type:text;not null"`
-	Enabled              bool      `gorm:"not null;default:true"`
+	ID                   string `gorm:"primaryKey;size:128"`
+	Platform             string `gorm:"size:32;not null"`
+	Name                 string `gorm:"size:256;not null"`
+	ExtraInfo            string `gorm:"type:text"`
+	CredentialCiphertext string `gorm:"type:text;not null"`
+	Enabled              bool   `gorm:"not null;default:true"`
+	LastCheckKind        string `gorm:"size:32"`
+	LastCheckMessage     string `gorm:"type:text"`
+	LastCheckAt          *time.Time
 	CreatedAt            time.Time `gorm:"not null"`
 	UpdatedAt            time.Time `gorm:"not null"`
 }
@@ -93,6 +96,9 @@ func rowFromDomain(ch domain.Channel) ChannelRow {
 		ExtraInfo:            ch.ExtraInfo,
 		CredentialCiphertext: ch.CredentialCiphertext,
 		Enabled:              ch.Enabled,
+		LastCheckKind:        ch.LastCheckKind,
+		LastCheckMessage:     ch.LastCheckMessage,
+		LastCheckAt:          ch.LastCheckAt,
 		CreatedAt:            ch.CreatedAt,
 		UpdatedAt:            ch.UpdatedAt,
 	}
@@ -106,6 +112,9 @@ func (r ChannelRow) toDomain() domain.Channel {
 		ExtraInfo:            r.ExtraInfo,
 		CredentialCiphertext: r.CredentialCiphertext,
 		Enabled:              r.Enabled,
+		LastCheckKind:        r.LastCheckKind,
+		LastCheckMessage:     r.LastCheckMessage,
+		LastCheckAt:          r.LastCheckAt,
 		CreatedAt:            r.CreatedAt,
 		UpdatedAt:            r.UpdatedAt,
 	}

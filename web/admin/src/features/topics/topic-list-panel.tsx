@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { StatusDot } from '@/components/status-dot'
-import type { EntityHealth } from '@/features/link-health/lib/references'
+import { healthProblems } from '@/lib/api/link-health'
+import type { EntityHealth } from '@/features/link-health/types'
 
 type Props = {
   items: Topic[]
@@ -82,8 +83,7 @@ export function TopicListPanel({
           {filtered.map((topic) => {
             const selected = selectedKey === topic.key
             const health = healthReady ? healthByTopic?.[topic.key] : undefined
-            const problems =
-              (topic.enabled ? 0 : 1) + (health?.breakpoints.length ?? 1)
+            const problems = healthProblems(health, healthReady)
             return (
               <li key={topic.key}>
                 <Link

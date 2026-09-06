@@ -27,7 +27,6 @@ const kindIcon: Record<GraphNode['kind'], typeof Radio> = {
 
 export function TopologyNode({ data }: NodeProps<TopologyNodeType>) {
   const { t } = useTranslation()
-  const showDot = data.health !== 'pending'
   const Icon = kindIcon[data.kind]
   return (
     <div
@@ -40,12 +39,10 @@ export function TopologyNode({ data }: NodeProps<TopologyNodeType>) {
       <Handle type='target' position={Position.Left} className='opacity-0' />
       <div className='flex flex-col gap-1'>
         <div className='flex items-center gap-1.5'>
-          {showDot ? (
-            <StatusDot
-              problems={data.health === 'ok' ? 0 : 1}
-              label={data.health === 'ok' ? t('linkHealth.stateOk') : t('linkHealth.stateWarn')}
-            />
-          ) : null}
+          <StatusDot
+            problems={data.health === 'ok' ? 0 : 1}
+            label={data.health === 'ok' ? t('linkHealth.stateOk') : t('linkHealth.stateWarn')}
+          />
           <Icon className='size-3.5 shrink-0 text-muted-foreground' aria-hidden />
           <span className='text-xs text-muted-foreground'>
             {t(kindKey[data.kind])}

@@ -51,14 +51,15 @@ describe('channel layout aligned with compute nodes', () => {
     expect(form).not.toMatch(/max-w-xl/)
   })
 
-  it('detail panel runs a one-time reachability check and guides to proxy settings', () => {
+  it('detail panel checks on demand and renders health from the link-health query', () => {
     const detail = readFileSync(join(here, 'channel-detail-panel.tsx'), 'utf8')
     const api = readFileSync(join(here, '../../lib/api/channels.ts'), 'utf8')
     expect(api).toMatch(/checkChannelReachability/)
     expect(api).toMatch(/\/check`/)
     expect(api).toMatch(/adapter_state/)
     expect(detail).toMatch(/checkChannelReachability\(id\)/)
-    expect(detail).toMatch(/channelReferences\(/)
+    expect(detail).toMatch(/queryKeys.linkHealth/)
+    expect(detail).not.toMatch(/channelReferences\(/)
     expect(detail).toMatch(/<LinkHealthAlert/)
     expect(detail).toMatch(/<LinkHealthSection/)
     expect(detail).toMatch(/linkHealth\.title/)

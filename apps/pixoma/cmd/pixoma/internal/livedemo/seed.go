@@ -62,7 +62,7 @@ func Seed(ctx context.Context, gdb *gorm.DB) error {
 		return err
 	}
 	if err := gdb.WithContext(ctx).Create([]channelpersist.ChannelRow{
-		{ID: "channel-demo", Platform: "telegram", Name: "演示 Telegram", CredentialCiphertext: channelCredential, Enabled: true, CreatedAt: now, UpdatedAt: now},
+		{ID: "channel-demo", Platform: "telegram", Name: "演示 Telegram", CredentialCiphertext: channelCredential, Enabled: true, LastCheckKind: "ok", LastCheckAt: &now, CreatedAt: now, UpdatedAt: now},
 	}).Error; err != nil {
 		return err
 	}

@@ -24,6 +24,7 @@ import (
 	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	channeltextapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channeltext"
 	edgesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
+	linkhealthapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/linkhealth"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	routingapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
 	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
@@ -33,12 +34,14 @@ import (
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
+	packlink "github.com/mr9esx/comfyui_tgbot/internal/packaging/linkhealth"
 	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
 	taskstatspersist "github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats/persistence"
 	topicpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/topic/persistence"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
 	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
+	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
 type Server struct {
@@ -126,20 +129,42 @@ func newAdminHandler(gdb *gorm.DB) (http.Handler, error) {
 		return nil, err
 	}
 
+	topicRepo := topicpersist.NewTopicRepository(gdb)
+	pres := presence.NewStore()
+	pres.Report(sharedkernel.EdgeID("edge-demo-1"), true)
+	pres.Report(sharedkernel.EdgeID("edge-demo-2"), true)
+	adapter := func(_ context.Context, _ string) (state string, lastErr string, found bool) {
+		return "running", "", true
+	}
+	chSvc := &channelapp.Service{Store: channelStore, Key: demoEncryptionKey(), AdapterStatus: adapter}
+
 	return adminhost.NewHandler(adminhost.Options{
-		Instances:  &edgesapi.Handler{Repo: instRepo, Tasks: taskRepo, Metrics: instpersist.NewMetricsRepository(gdb, 24*time.Hour), Presence: presence.NewStore()},
+		Instances:  &edgesapi.Handler{Repo: instRepo, Tasks: taskRepo, Metrics: instpersist.NewMetricsRepository(gdb, 24*time.Hour), Presence: pres},
 		Cases:      &casesapi.Handler{Repo: caseRepo},
 		AdminUsers: &adminusersapi.Handler{Repo: consoleRepo},
 		Users:      &usersapi.Handler{Repo: userRepo, Channels: channelStore},
 		Sessions:   &sessionsapi.Handler{Repo: sessionRepo, Channels: channelStore, Context: sesspersist.NewSessionAdminProjection(gdb)},
 		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: time.UTC, Metrics: instpersist.NewMetricsRepository(gdb, 24*time.Hour)},
-		Channels:   &channelsapi.Handler{Svc: &channelapp.Service{Store: channelStore, Key: demoEncryptionKey()}},
+		Channels:   &channelsapi.Handler{Svc: chSvc},
 		MenuCards:  menucardsapi.NewHandler(menuRepo),
-		Topics:     &topicsapi.Handler{Repo: topicpersist.NewTopicRepository(gdb), Tasks: taskRepo},
+		Topics:     &topicsapi.Handler{Repo: topicRepo, Tasks: taskRepo},
 		Routing:    &routingapi.Handler{Registry: conditionReg},
 		ChannelText: &channeltextapi.Handler{
 			Store: textStore,
+		},
+		LinkHealth: &linkhealthapi.Handler{
+			Snapshot: func(r *http.Request) (packlink.Snapshot, error) {
+				return linkhealthapi.Collect(r.Context(), linkhealthapi.Source{
+					Channels: channelStore,
+					Adapter:  adapter,
+					Menus:    menuRepo,
+					Cases:    caseRepo,
+					Topics:   topicRepo,
+					Edges:    instRepo,
+					Presence: pres,
+				})
+			},
 		},
 		NotFound: webembed.Handler(),
 	}), nil

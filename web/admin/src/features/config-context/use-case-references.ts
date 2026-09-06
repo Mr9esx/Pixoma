@@ -5,6 +5,11 @@ import {
   type MenuPlacement,
 } from '@/lib/api/channel-menu'
 import { listEdges, listPresence } from '@/lib/api/edges'
+import {
+  findLinkNode,
+  nodeRefs,
+  resolvedEntityHealth,
+} from '@/lib/api/link-health'
 import { queryKeys } from '@/lib/api/query-keys'
 import {
   listRoutingAttributes,
@@ -12,15 +17,22 @@ import {
 } from '@/lib/api/routing'
 import { listTopics } from '@/lib/api/topics'
 import type { CaseRecord } from '@/lib/api/types'
-import {
-  caseReferences,
-  type CaseReferencesResult,
-} from '@/features/link-health/lib/references'
+import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
+import type {
+  EntityHealth,
+  ReferenceItem,
+} from '@/features/link-health/types'
 import type {
   EdgePresence,
   EdgeRecord,
   TopicRecord,
 } from '@/features/task-flow/types'
+
+export type CaseReferencesResult = {
+  menuEntries: ReferenceItem[]
+  topics: ReferenceItem[]
+  health: EntityHealth
+}
 
 export type CaseContextData = {
   topics: TopicRecord[]
@@ -31,7 +43,7 @@ export type CaseContextData = {
   caseRefs: CaseReferencesResult | undefined
 }
 
-/** Case 详情共享数据：路由属性、节点、在线状态、菜单关联与可达性引用。 */
+/** Case 详情共享数据：路由属性、节点、在线状态、菜单关联与链路健康。 */
 export function useCaseReferences(record?: CaseRecord): CaseContextData {
   const topicsQuery = useQuery({
     queryKey: queryKeys.topics.all,
@@ -54,6 +66,7 @@ export function useCaseReferences(record?: CaseRecord): CaseContextData {
     queryFn: () => getCaseMenuPlacements(record?.id ?? -1),
     enabled: record != null,
   })
+  const healthQuery = useLinkHealthQuery()
 
   const topics: TopicRecord[] = topicsQuery.data ?? []
   const attributes = attributesQuery.data?.attributes ?? []
@@ -69,13 +82,19 @@ export function useCaseReferences(record?: CaseRecord): CaseContextData {
 
   const caseRefs = useMemo(() => {
     if (!record) return undefined
-    return caseReferences(record.id, {
-      cases: [record],
-      edges,
-      presence,
-      placements,
-    })
-  }, [record, edges, presence, placements])
+    const ready = healthQuery.isSuccess
+    const node = findLinkNode(healthQuery.data, 'case', String(record.id))
+    return {
+      health: resolvedEntityHealth(
+        healthQuery.data,
+        'case',
+        String(record.id),
+        ready
+      ),
+      menuEntries: ready ? nodeRefs(node?.upstream) : [],
+      topics: ready ? nodeRefs(node?.downstream) : [],
+    }
+  }, [record, healthQuery.data, healthQuery.isSuccess])
 
   return { topics, attributes, edges, presence, placements, caseRefs }
 }

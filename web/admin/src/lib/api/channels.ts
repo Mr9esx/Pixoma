@@ -9,6 +9,8 @@ export type Channel = {
   enabled: boolean
   created_at: string
   updated_at: string
+  adapter_state?: 'absent' | 'starting' | 'running' | 'stopping' | 'error'
+  adapter_error?: string
 }
 
 export type ChannelReachability = {

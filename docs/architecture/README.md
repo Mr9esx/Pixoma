@@ -10,5 +10,6 @@
 | [data-model.md](./data-model.md) | 领域字段、SQLite 表结构、表关系 ER、计算节点关系 ER |
 | [task-data-walkthrough.md](./task-data-walkthrough.md) | **数据走查**：选 Case→终态回图，按阶段列出表行 / Blob / MQ / 接口样例 |
 | [diagrams/system.html](./diagrams/system.html) | 系统拓扑可视化（浏览器打开） |
+| [diagrams/link-health.html](./diagrams/link-health.html) | 配置链路健康：读模型、活路规则、场景 |
 
 运维命令见仓库根 [README.md](../../README.md)。

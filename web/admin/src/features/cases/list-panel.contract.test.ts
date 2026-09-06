@@ -26,7 +26,7 @@ describe('case list filters (single search, no status segment)', () => {
     const source = read(LIST_PANEL)
     expect(source).not.toContain('cases-filter-enabled')
     expect(source).not.toContain('FilterSegment')
-    expect(source).toContain('item.enabled')
+    expect(source).toContain('healthProblems')
     expect(source).toContain("t('cases.enabled')")
     expect(source).toContain('<StatusDot')
   })

@@ -185,6 +185,62 @@ func TestService_CreatePrefersFirstNameForUnnamedChannel(t *testing.T) {
 	}
 }
 
+func TestService_CheckReachabilityPersistsLastCheck(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{
+		Store:         store,
+		Key:           make([]byte, 32),
+		FetchTelegram: offlineFetch,
+		CheckTelegram: func(context.Context, string) (ReachabilityResult, error) {
+			return ReachabilityResult{OK: false, Kind: ReachabilityNetwork, Message: "i/o timeout"}, nil
+		},
+	}
+	if _, err := svc.Create(context.Background(), "tg-1", domain.PlatformTelegram, "a", "t", ""); err != nil {
+		t.Fatal(err)
+	}
+	res, err := svc.CheckReachability(context.Background(), "tg-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Kind != ReachabilityNetwork {
+		t.Fatalf("kind=%s", res.Kind)
+	}
+	got, err := svc.Get(context.Background(), "tg-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.LastCheckKind != string(ReachabilityNetwork) || got.LastCheckMessage != "i/o timeout" || got.LastCheckAt == nil {
+		t.Fatalf("persisted last check: %+v", got)
+	}
+}
+
+func TestService_UpdateTokenClearsLastCheck(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{Store: store, Key: make([]byte, 32), FetchTelegram: offlineFetch}
+	if _, err := svc.Create(context.Background(), "tg-1", domain.PlatformTelegram, "a", "t", ""); err != nil {
+		t.Fatal(err)
+	}
+	now := svc.nowFn()().UTC()
+	ch, err := svc.Get(context.Background(), "tg-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ch.LastCheckKind = string(ReachabilityOK)
+	ch.LastCheckMessage = "ok"
+	ch.LastCheckAt = &now
+	if err := store.Update(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	token := "new-token"
+	got, err := svc.Update(context.Background(), "tg-1", "", &token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.LastCheckKind != "" || got.LastCheckMessage != "" || got.LastCheckAt != nil {
+		t.Fatalf("token change must clear last check: %+v", got)
+	}
+}
+
 func TestService_CreateRejectsInvalidExtraInfo(t *testing.T) {
 	store := &memStore{rows: map[string]domain.Channel{}}
 	svc := &Service{Store: store, Key: make([]byte, 32), FetchTelegram: offlineFetch}

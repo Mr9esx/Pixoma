@@ -10,6 +10,7 @@ import {
 import { Plus, Radio } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listChannels } from '@/lib/api/channels'
+import { findLinkNode, nodeEntityHealth } from '@/lib/api/link-health'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,6 +31,7 @@ import { MasterDetailShell } from '@/components/master-detail/master-detail-shel
 import { ChannelDetailPanel } from '@/features/channels/channel-detail-panel'
 import { ChannelListPanel } from '@/features/channels/channel-list-panel'
 import { CreateChannelForm } from '@/features/channels/create-channel-form'
+import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
 
 export const Route = createFileRoute('/_app/channels')({
   component: ChannelsLayout,
@@ -53,6 +55,7 @@ function ChannelsLayout() {
     queryKey: queryKeys.channels.all,
     queryFn: listChannels,
   })
+  const healthQuery = useLinkHealthQuery()
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
   const backToList = locationState?.backToList === true
   const selectedId =
@@ -109,6 +112,19 @@ function ChannelsLayout() {
         list={
           <ChannelListPanel
             items={items}
+            healthByChannel={
+              healthQuery.isSuccess
+                ? Object.fromEntries(
+                    items.map((ch) => [
+                      ch.id,
+                      nodeEntityHealth(
+                        findLinkNode(healthQuery.data, 'platform', ch.id)
+                      ) ?? { state: 'warn' as const, breakpoints: [] },
+                    ])
+                  )
+                : undefined
+            }
+            healthReady={healthQuery.isSuccess}
             selectedId={selectedId}
             isLoading={listQuery.isLoading}
             isError={listQuery.isError}

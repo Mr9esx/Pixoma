@@ -41,6 +41,9 @@ type Channel struct {
 	ExtraInfo            string
 	CredentialCiphertext string
 	Enabled              bool
+	LastCheckKind        string
+	LastCheckMessage     string
+	LastCheckAt          *time.Time
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }

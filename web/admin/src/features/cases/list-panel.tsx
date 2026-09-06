@@ -9,7 +9,8 @@ import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { LongText } from '@/components/long-text'
 import { StatusDot } from '@/components/status-dot'
-import type { EntityHealth } from '@/features/link-health/lib/references'
+import { healthProblems } from '@/lib/api/link-health'
+import type { EntityHealth } from '@/features/link-health/types'
 
 export type CaseListFilters = {
   q: string
@@ -84,8 +85,7 @@ export function CaseListPanel({
           {items.map((item) => {
             const selected = selectedId === item.id
             const health = healthReady ? healthByCase?.[item.id] : undefined
-            const problems =
-              (item.enabled ? 0 : 1) + (health?.breakpoints.length ?? 1)
+            const problems = healthProblems(health, healthReady)
             return (
               <li key={item.id}>
                 <Link

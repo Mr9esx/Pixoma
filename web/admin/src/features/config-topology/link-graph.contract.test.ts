@@ -19,7 +19,7 @@ describe('link graph contract', () => {
     expect(graph).not.toContain('onConnect')
     expect(graph).toContain('nodeTypes')
     expect(node).toContain('StatusDot')
-    expect(node).toContain("health !== 'pending'")
+    expect(node).not.toContain("health !== 'pending'")
     expect(node).toContain('nodrag')
     expect(node).toContain('topology.openDetail')
   })

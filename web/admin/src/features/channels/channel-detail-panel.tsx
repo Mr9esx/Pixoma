@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
@@ -23,6 +23,7 @@ import {
   type ChannelReachability,
 } from '@/lib/api/channels'
 import { ApiError } from '@/lib/api/client'
+import { resolvedEntityHealth } from '@/lib/api/link-health'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listSessions } from '@/lib/api/sessions'
 import { listTasks } from '@/lib/api/tasks'
@@ -58,7 +59,7 @@ import { MetaChip } from '@/components/meta-chip'
 import { SecretInput } from '@/components/secret-input'
 import { SectionHead } from '@/components/section-head'
 import { kit } from '@/features/edges/kit-classes'
-import { channelReferences } from '@/features/link-health/lib/references'
+import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
 import { TopologyOpenButton } from '@/features/config-topology/topology-dialog'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
@@ -86,15 +87,23 @@ export function ChannelDetailPanel({ id }: { id: string }) {
   const botUsername =
     typeof extra?.username === 'string' && extra.username ? extra.username : ''
 
-  const reachabilityQuery = useQuery({
-    queryKey: ['channels', id, 'reachability'],
-    queryFn: () => checkChannelReachability(id),
-    enabled: Boolean(ch),
-  })
-  const channelHealth = useMemo(
-    () => channelReferences(id, reachabilityQuery.data),
-    [id, reachabilityQuery.data]
+  const healthQuery = useLinkHealthQuery()
+  const channelHealth = resolvedEntityHealth(
+    healthQuery.data,
+    'platform',
+    id,
+    healthQuery.isSuccess
   )
+  const checkMutation = useMutation({
+    mutationFn: () => checkChannelReachability(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.channels.detail(id),
+      })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
+    },
+  })
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -109,6 +118,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         queryKey: queryKeys.channels.detail(id),
       })
       void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       toast.success(t('common.successSaved'))
     },
   })
@@ -120,6 +130,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         queryKey: queryKeys.channels.detail(id),
       })
       void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
     },
   })
 
@@ -127,6 +138,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
     mutationFn: () => deleteChannel(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       toast.success(t('channels.deleted'))
     },
   })
@@ -209,7 +221,18 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{ch.name}</h2>
-            <ChannelReachabilityTag query={reachabilityQuery} />
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => checkMutation.mutate()}
+              disabled={checkMutation.isPending}
+            >
+              {checkMutation.isPending
+                ? t('channels.checkingReachability')
+                : t('channels.checkReachability')}
+            </Button>
+            <ChannelReachabilityTag result={checkMutation.data} pending={checkMutation.isPending} failed={checkMutation.isError} />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
             <TopologyOpenButton kind='platform' id={ch.id} />
@@ -323,13 +346,11 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         </div>
       </div>
 
-      {reachabilityQuery.data ? (
-        <LinkHealthAlert
-          name={ch.name}
-          health={channelHealth}
-          anchorTo='#link-health-section'
-        />
-      ) : null}
+      <LinkHealthAlert
+        name={ch.name}
+        health={channelHealth}
+        anchorTo='#link-health-section'
+      />
 
       <section id='channel-menu-section' className='flex flex-col gap-4'>
         <SectionHead
@@ -347,12 +368,10 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <TextTemplatesEditor channelId={id} />
       </section>
 
-      {reachabilityQuery.data ? (
-        <LinkHealthSection
-          title={t('linkHealth.title')}
-          health={channelHealth}
-        />
-      ) : null}
+      <LinkHealthSection
+        title={t('linkHealth.title')}
+        health={channelHealth}
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='sm:max-w-lg'>
@@ -411,12 +430,16 @@ function formatTime(iso: string): string {
 }
 
 function ChannelReachabilityTag({
-  query,
+  result,
+  pending,
+  failed,
 }: {
-  query: ReturnType<typeof useQuery<ChannelReachability, Error>>
+  result?: ChannelReachability
+  pending: boolean
+  failed: boolean
 }) {
   const { t } = useTranslation()
-  if (query.isPending) {
+  if (pending) {
     return (
       <Badge
         variant='outline'
@@ -426,17 +449,17 @@ function ChannelReachabilityTag({
       </Badge>
     )
   }
-  if (query.isError || !query.data) {
+  if (!result && !failed) return null
+  if (failed || !result) {
     return (
       <Badge
         variant='outline'
-        className='border-destructive/25 bg-destructive/10 text-destructive'
+        className='border-warning/30 bg-warning/10 text-warning'
       >
         {t('channels.reachabilityFailed')}
       </Badge>
     )
   }
-  const result = query.data
   if (result.kind === 'ok') {
     return (
       <Badge

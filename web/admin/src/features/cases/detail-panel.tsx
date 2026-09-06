@@ -119,6 +119,7 @@ export function CaseDetailPanel({ id }: Props) {
         toast.success(t('cases.deleteSuccess'))
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.cases.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       queryClient.removeQueries({ queryKey: queryKeys.cases.detail(id) })
       void navigate({ to: '/cases', state: { backToList: true } } as never)
     },

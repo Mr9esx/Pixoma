@@ -36,14 +36,16 @@ func (h *Handler) Mount(r chi.Router) {
 }
 
 type channelDTO struct {
-	ID          string          `json:"id"`
-	Platform    string          `json:"platform"`
-	Name        string          `json:"name"`
-	ExtraInfo   json.RawMessage `json:"extra_info"`
-	TokenMasked string          `json:"token_masked"`
-	Enabled     bool            `json:"enabled"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID           string          `json:"id"`
+	Platform     string          `json:"platform"`
+	Name         string          `json:"name"`
+	ExtraInfo    json.RawMessage `json:"extra_info"`
+	TokenMasked  string          `json:"token_masked"`
+	Enabled      bool            `json:"enabled"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+	AdapterState string          `json:"adapter_state,omitempty"`
+	AdapterError string          `json:"adapter_error,omitempty"`
 }
 
 func (h *Handler) toDTO(ctx *http.Request, ch domain.Channel) (channelDTO, error) {
@@ -55,12 +57,19 @@ func (h *Handler) toDTO(ctx *http.Request, ch domain.Channel) (channelDTO, error
 	if ch.ExtraInfo != "" {
 		extra = json.RawMessage(ch.ExtraInfo)
 	}
-	return channelDTO{
+	dto := channelDTO{
 		ID: ch.ID, Platform: ch.Platform, Name: ch.Name,
 		ExtraInfo:   extra,
 		TokenMasked: masked, Enabled: ch.Enabled,
 		CreatedAt: ch.CreatedAt, UpdatedAt: ch.UpdatedAt,
-	}, nil
+	}
+	if h.Svc != nil && h.Svc.AdapterStatus != nil {
+		if state, lastErr, found := h.Svc.AdapterStatus(ctx.Context(), ch.ID); found {
+			dto.AdapterState = state
+			dto.AdapterError = lastErr
+		}
+	}
+	return dto, nil
 }
 
 type createBody struct {

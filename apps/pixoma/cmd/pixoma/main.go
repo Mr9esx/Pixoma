@@ -40,6 +40,7 @@ import (
 	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/channeltext"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
+	linkhealthapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/linkhealth"
 	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/media"
 	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
 	routingapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
@@ -51,6 +52,7 @@ import (
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
+	packlink "github.com/mr9esx/comfyui_tgbot/internal/packaging/linkhealth"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
@@ -386,7 +388,20 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 		Routing:     &routingapi.Handler{Registry: conditionReg},
 		Media:       &media.Handler{Blob: blobStore, MaxBytes: mediaMediaMaxBytes(cfg)},
 		ChannelText: &channeltext.Handler{Store: textStore},
-		NotFound:    webembed.Handler(),
+		LinkHealth: &linkhealthapi.Handler{
+			Snapshot: func(r *http.Request) (packlink.Snapshot, error) {
+				return linkhealthapi.Collect(r.Context(), linkhealthapi.Source{
+					Channels: channelStore,
+					Adapter:  chSvc.AdapterStatus,
+					Menus:    menuRepo,
+					Cases:    caseRepo,
+					Topics:   topicRepo,
+					Edges:    instRepo,
+					Presence: pres,
+				})
+			},
+		},
+		NotFound: webembed.Handler(),
 	})
 
 	agentH := &agentapi.Handler{
@@ -582,7 +597,6 @@ func envOr(k, def string) string {
 	}
 	return def
 }
-
 
 // caseDocReader adapts the catalog repository to the orchestrator CaseReader
 // port (routing evaluation only needs the protocol document).

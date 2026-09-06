@@ -38,6 +38,7 @@ export function CaseContextSection({
       void queryClient.invalidateQueries({
         queryKey: queryKeys.cases.detail(record.id),
       })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       toast.success(t('configContext.saved'))
     },
   })
