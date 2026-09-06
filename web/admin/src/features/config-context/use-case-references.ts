@@ -41,6 +41,8 @@ export type CaseContextData = {
   presence: EdgePresence[]
   placements: MenuPlacement[]
   caseRefs: CaseReferencesResult | undefined
+  healthReady: boolean
+  healthError: boolean
 }
 
 /** Case 详情共享数据：路由属性、节点、在线状态、菜单关联与链路健康。 */
@@ -96,5 +98,14 @@ export function useCaseReferences(record?: CaseRecord): CaseContextData {
     }
   }, [record, healthQuery.data, healthQuery.isSuccess])
 
-  return { topics, attributes, edges, presence, placements, caseRefs }
+  return {
+    topics,
+    attributes,
+    edges,
+    presence,
+    placements,
+    caseRefs,
+    healthReady: healthQuery.isSuccess,
+    healthError: healthQuery.isError,
+  }
 }

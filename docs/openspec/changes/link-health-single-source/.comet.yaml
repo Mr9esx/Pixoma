@@ -13,8 +13,8 @@ auto_transition: true
 base_ref: 2adfdaaea9d2cfbf6d73a5e4668f772ca760b59c
 design_doc: docs/superpowers/specs/2026-09-06-link-health-single-source-design.md
 plan: docs/superpowers/plans/2026-09-06-link-health-single-source.md
-verify_result: pending
-verify_failures: 0
+verify_result: fail
+verify_failures: 1
 verification_report: null
 branch_status: pending
 created_at: 2026-09-06

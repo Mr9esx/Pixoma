@@ -1006,8 +1006,15 @@
     "relatedEntries": "关联入口",
     "routeTopics": "路由任务队列",
     "actionManageChannels": "去管理消息平台",
+    "actionCheckChannel": "去检测",
     "entryChannelUnusable": "消息平台入口不可用",
-    "guideEntryChannelUnusable": "消息平台未运行或已停用。检查平台启停与适配器状态后重试"
+    "guideEntryChannelUnusable": "消息平台未运行或已停用。检查平台启停与适配器状态后重试",
+    "channelNotChecked": "尚未检测连通",
+    "guideChannelNotChecked": "在消息平台详情点「检测」",
+    "edgePresenceUnknown": "节点在线状态未知",
+    "guideEdgePresenceUnknown": "等 agent 心跳上来",
+    "pathNotReady": "没有完整活路",
+    "guidePathNotReady": "先检测入口连通，再看队列绑定和节点在线"
   },
   "dataTable": {
     "search": "搜索",

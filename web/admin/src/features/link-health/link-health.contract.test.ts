@@ -19,6 +19,7 @@ describe('link health visibility', () => {
     expect(alert).toContain('linkHealth.alertViewDetails')
     expect(alert).toContain('anchorTo')
     expect(alert).toContain("health.state === 'ok'")
+    expect(alert).toContain('n === 0')
   })
 
   it('LinkHealthSection 提供断点（分类 + 行动 + 指引）与引用列表', () => {

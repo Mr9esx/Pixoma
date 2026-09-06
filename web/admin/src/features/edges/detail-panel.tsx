@@ -390,11 +390,18 @@ export function EdgeDetailPanel({ id }: Props) {
         </div>
       </div>
 
-      <LinkHealthAlert
-        name={edge.name}
-        health={edgeRefs.health}
-        anchorTo='#link-health-section'
-      />
+      {healthQuery.isError ? (
+        <ErrorBanner
+          message={errorMessage(healthQuery.error) ?? t('common.errorGeneric')}
+          onRetry={() => void healthQuery.refetch()}
+        />
+      ) : healthQuery.isSuccess ? (
+        <LinkHealthAlert
+          name={edge.name}
+          health={edgeRefs.health}
+          anchorTo='#link-health-section'
+        />
+      ) : null}
 
       <section className={kit.specsWrap}>
         <div className={kit.specsCell}>
@@ -589,6 +596,7 @@ export function EdgeDetailPanel({ id }: Props) {
         </DialogContent>
       </Dialog>
 
+      {healthQuery.isSuccess ? (
       <LinkHealthSection
         title={t('linkHealth.title')}
         health={edgeRefs.health}
@@ -617,6 +625,7 @@ export function EdgeDetailPanel({ id }: Props) {
           ) : null
         }
       />
+      ) : null}
     </Reveal>
   )
 }

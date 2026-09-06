@@ -17,7 +17,8 @@ export function LinkHealthAlert({
 }: LinkHealthAlertProps) {
   const { t } = useTranslation()
   if (health.state === 'ok') return null
-  const n = Math.max(health.breakpoints.length, 1)
+  const n = health.breakpoints.length
+  if (n === 0) return null
   return (
     <Alert
       variant='warn'

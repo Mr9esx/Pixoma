@@ -346,11 +346,18 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         </div>
       </div>
 
-      <LinkHealthAlert
-        name={ch.name}
-        health={channelHealth}
-        anchorTo='#link-health-section'
-      />
+      {healthQuery.isError ? (
+        <ErrorBanner
+          message={errorMessage(healthQuery.error) ?? t('common.errorGeneric')}
+          onRetry={() => void healthQuery.refetch()}
+        />
+      ) : healthQuery.isSuccess ? (
+        <LinkHealthAlert
+          name={ch.name}
+          health={channelHealth}
+          anchorTo='#link-health-section'
+        />
+      ) : null}
 
       <section id='channel-menu-section' className='flex flex-col gap-4'>
         <SectionHead
@@ -368,10 +375,12 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <TextTemplatesEditor channelId={id} />
       </section>
 
-      <LinkHealthSection
-        title={t('linkHealth.title')}
-        health={channelHealth}
-      />
+      {healthQuery.isSuccess ? (
+        <LinkHealthSection
+          title={t('linkHealth.title')}
+          health={channelHealth}
+        />
+      ) : null}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='sm:max-w-lg'>

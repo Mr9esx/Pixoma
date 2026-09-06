@@ -444,21 +444,33 @@ func intersect(a, b map[string]bool) map[string]bool {
 }
 
 func breakpoints(n *Node, snap Snapshot, platLocal, edgeLocalMap map[string]localState) []Breakpoint {
-	if n.Health == HealthOK || n.Health == HealthPending {
+	if n.Health == HealthOK {
 		return nil
 	}
+	var out []Breakpoint
 	switch n.Kind {
 	case KindPlatform:
-		return platformBreakpoints(n.RefID, snap)
+		out = platformBreakpoints(n.RefID, snap)
 	case KindCase:
-		return caseBreakpoints(n, platLocal)
+		out = caseBreakpoints(n, platLocal)
 	case KindTopic:
-		return topicBreakpoints(n, edgeLocalMap)
+		out = topicBreakpoints(n, edgeLocalMap)
 	case KindEdge:
-		return edgeBreakpoints(n, snap, edgeLocalMap)
-	default:
-		return nil
+		out = edgeBreakpoints(n, snap, edgeLocalMap)
 	}
+	if len(out) == 0 {
+		action := "linkHealth.actionCheckChannel"
+		switch n.Kind {
+		case KindTopic:
+			action = "linkHealth.actionBindTopic"
+		case KindEdge:
+			action = "linkHealth.actionCheckNode"
+		case KindCase:
+			action = "linkHealth.actionAddEntry"
+		}
+		out = []Breakpoint{bp("entry", "runtime", "linkHealth.pathNotReady", nil, n.path(), action)}
+	}
+	return out
 }
 
 func platformBreakpoints(id string, snap Snapshot) []Breakpoint {
@@ -467,6 +479,9 @@ func platformBreakpoints(id string, snap Snapshot) []Breakpoint {
 		return nil
 	}
 	to := "/channels/" + url.PathEscape(id)
+	if !snap.AdapterKnown || ch.LastCheckKind == "" {
+		return []Breakpoint{bp("entry", "runtime", "linkHealth.channelNotChecked", nil, to, "linkHealth.actionCheckChannel")}
+	}
 	switch ch.LastCheckKind {
 	case "network":
 		return []Breakpoint{bp("entry", "runtime", "linkHealth.channelUnreachable", nil, "/settings", "linkHealth.actionConfigureProxy")}
@@ -486,15 +501,27 @@ func caseBreakpoints(n *Node, platLocal map[string]localState) []Breakpoint {
 	if len(n.Upstream) == 0 {
 		out = append(out, bp("entry", "config", "linkHealth.noMenuEntry", nil, "/channels", "linkHealth.actionAddEntry"))
 	}
+	pendingEntry := false
 	for _, up := range n.Upstream {
-		if platLocal[up.ID] == localWarn {
+		switch platLocal[up.ID] {
+		case localPending:
+			pendingEntry = true
+			out = append(out, bp("entry", "runtime", "linkHealth.channelNotChecked", map[string]string{"channel": nodesRefID(up.ID)}, up.To, "linkHealth.actionCheckChannel"))
+		case localWarn:
 			out = append(out, bp("entry", "runtime", "linkHealth.entryChannelUnusable", map[string]string{"channel": nodesRefID(up.ID)}, "/channels", "linkHealth.actionManageChannels"))
 		}
 	}
 	if len(n.Downstream) == 0 {
 		out = append(out, bp("topic", "config", "linkHealth.noCaseRoutes", nil, n.path(), "linkHealth.actionConfigureRouting"))
 	}
+	if pendingEntry {
+		return out
+	}
 	for _, down := range n.Downstream {
+		if down.State == HealthPending {
+			out = append(out, bp("node", "runtime", "linkHealth.edgePresenceUnknown", map[string]string{"topic": nodesRefID(down.ID)}, "/edges", "linkHealth.actionManageNodes"))
+			continue
+		}
 		if down.State != HealthOK {
 			out = append(out, bp("node", "runtime", "linkHealth.topicNoReadyNode", map[string]string{"topic": nodesRefID(down.ID)}, "/edges", "linkHealth.actionManageNodes"))
 		}
@@ -512,12 +539,18 @@ func topicBreakpoints(n *Node, edgeLocalMap map[string]localState) []Breakpoint 
 		return out
 	}
 	ready := 0
+	pendingDown := 0
 	for _, down := range n.Downstream {
-		if edgeLocalMap[down.ID] == localOK {
+		switch edgeLocalMap[down.ID] {
+		case localOK:
 			ready++
+		case localPending:
+			pendingDown++
 		}
 	}
-	if ready == 0 {
+	if ready == 0 && pendingDown > 0 {
+		out = append(out, bp("node", "runtime", "linkHealth.edgePresenceUnknown", nil, "/edges", "linkHealth.actionManageNodes"))
+	} else if ready == 0 {
 		out = append(out, bp("node", "runtime", "linkHealth.subscribersOffline", nil, "/edges", "linkHealth.actionManageNodes"))
 	}
 	return out
@@ -530,7 +563,10 @@ func edgeBreakpoints(n *Node, snap Snapshot, edgeLocalMap map[string]localState)
 	} else if !edgeHasCase(n.RefID, snap) {
 		out = append(out, bp("workflow", "config", "linkHealth.noCaseReachable", nil, "/cases", "linkHealth.actionConfigureRouting"))
 	}
-	if edgeLocalMap[n.ID] != localOK {
+	switch edgeLocalMap[n.ID] {
+	case localPending:
+		out = append(out, bp("node", "runtime", "linkHealth.edgePresenceUnknown", nil, n.path(), "linkHealth.actionCheckNode"))
+	case localWarn:
 		out = append(out, bp("node", "runtime", "linkHealth.edgeNotReady", nil, n.path(), "linkHealth.actionCheckNode"))
 	}
 	return out

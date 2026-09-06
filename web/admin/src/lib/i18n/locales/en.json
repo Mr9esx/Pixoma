@@ -1004,8 +1004,15 @@
     "relatedEntries": "Related entries",
     "routeTopics": "Routed task queues",
     "actionManageChannels": "Manage channels",
+    "actionCheckChannel": "Check",
     "entryChannelUnusable": "Channel entry unavailable",
-    "guideEntryChannelUnusable": "The channel is disabled or its adapter is not running. Check channel state."
+    "guideEntryChannelUnusable": "The channel is disabled or its adapter is not running. Check channel state.",
+    "channelNotChecked": "Reachability not checked",
+    "guideChannelNotChecked": "Open the channel and tap Check",
+    "edgePresenceUnknown": "Node online state unknown",
+    "guideEdgePresenceUnknown": "Wait for the agent heartbeat",
+    "pathNotReady": "No complete live path",
+    "guidePathNotReady": "Check channel reachability, queue binding, and node online state"
   },
   "dataTable": {
     "search": "Search",
