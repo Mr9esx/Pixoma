@@ -81,7 +81,7 @@ export function CaseContextSection({
             presence={presence}
             onChange={setRouting}
             title={record.name}
-            className='min-h-0 flex-1 overflow-auto rounded-none border-0 shadow-none'
+            className='min-h-0 flex-1 overflow-auto rounded-none border-0 p-4 shadow-none'
             headerActions={
               <Button
                 type='button'
