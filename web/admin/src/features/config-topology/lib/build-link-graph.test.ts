@@ -1,81 +1,48 @@
 import { describe, expect, it } from 'vitest'
-import type { MenuTree } from '@/lib/api/channel-menu'
-import type { ChannelReachability } from '@/lib/api/channels'
-import type { EdgePresence } from '@/features/task-flow/types'
-import { buildLinkGraph, type TopologySource } from './build-link-graph'
+import type { LinkHealthGraph, LinkHealthNode } from '@/lib/api/link-health'
+import { buildLinkGraph } from './build-link-graph'
 
-const menuOpen = (workflowId: string): MenuTree => ({
-  id: 'm',
-  columns: 1,
-  items: [
-    {
-      id: 'b',
-      label: '开',
-      action: { type: 'open_workflow', workflow_id: workflowId },
-    },
-  ],
-})
+function node(
+  id: string,
+  kind: LinkHealthNode['kind'],
+  health: LinkHealthNode['health'] = 'ok'
+): LinkHealthNode {
+  const ref_id = id.slice(id.indexOf(':') + 1)
+  return {
+    id,
+    kind,
+    ref_id,
+    name: id,
+    health,
+    breakpoints: [],
+    upstream: [],
+    downstream: [],
+  }
+}
 
-const source = (over: Partial<TopologySource> = {}): TopologySource => ({
-  channels: [{ id: 'ch1', name: 'TG' }],
-  menus: { ch1: menuOpen('1') },
-  cases: [
-    {
-      id: 1,
-      name: '工作流一',
-      routing: { rules: [{ when: { always: true }, topic: 't1' }] },
-    },
+const connected: LinkHealthGraph = {
+  nodes: [
+    node('platform:ch1', 'platform'),
+    node('case:1', 'case'),
+    node('topic:t1', 'topic'),
+    node('edge:n1', 'edge'),
   ],
-  topics: [{ key: 't1', name: '队列一' }],
   edges: [
-    {
-      id: 'n1',
-      name: '节点一',
-      enabled: true,
-      subscribe_topics: ['t1'],
-      effective_topics: ['t1'],
-    },
+    { from: 'platform:ch1', to: 'case:1' },
+    { from: 'case:1', to: 'topic:t1' },
+    { from: 'topic:t1', to: 'edge:n1' },
   ],
-  presence: [
-    { id: 'n1', edge_online: true, comfy_running: true },
-  ] satisfies EdgePresence[],
-  reachability: {
-    ch1: { ok: true, kind: 'ok', message: '' } satisfies ChannelReachability,
-  },
-  ...over,
-})
+}
 
 describe('buildLinkGraph all', () => {
-  it('builds four-layer edges and merges duplicate platform-case links', () => {
-    const menu: MenuTree = {
-      id: 'm',
-      columns: 1,
-      items: [
-        {
-          id: 'a',
-          label: 'A',
-          action: { type: 'open_workflow', workflow_id: '1' },
-        },
-        {
-          id: 'b',
-          label: 'B',
-          action: { type: 'open_workflow', workflow_id: '1' },
-        },
-      ],
-    }
-    const graph = buildLinkGraph(source({ menus: { ch1: menu } }), {
-      type: 'all',
-    })
+  it('keeps connected four-layer nodes and edges', () => {
+    const graph = buildLinkGraph(connected, { type: 'all' })
     expect(graph.nodes.map((n) => n.id).sort()).toEqual([
       'case:1',
       'edge:n1',
       'platform:ch1',
       'topic:t1',
     ])
-    const pc = graph.edges.filter(
-      (e) => e.source === 'platform:ch1' && e.target === 'case:1'
-    )
-    expect(pc).toHaveLength(1)
     expect(graph.edges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ source: 'case:1', target: 'topic:t1' }),
@@ -86,16 +53,10 @@ describe('buildLinkGraph all', () => {
 
   it('drops isolated resources from the full graph', () => {
     const graph = buildLinkGraph(
-      source({
-        cases: [
-          {
-            id: 1,
-            name: '工作流一',
-            routing: { rules: [{ when: { always: true }, topic: 't1' }] },
-          },
-          { id: 99, name: '孤立', routing: { rules: [] } },
-        ],
-      }),
+      {
+        nodes: [...connected.nodes, node('case:99', 'case')],
+        edges: connected.edges,
+      },
       { type: 'all' }
     )
     expect(graph.nodes.some((n) => n.id === 'case:99')).toBe(false)
@@ -103,43 +64,56 @@ describe('buildLinkGraph all', () => {
 
   it('keeps a case with downstream even without a menu entry', () => {
     const graph = buildLinkGraph(
-      source({
-        menus: {
-          ch1: { id: 'm', columns: 1, items: [] },
-        },
-      }),
+      {
+        nodes: [
+          node('platform:ch1', 'platform'),
+          node('case:1', 'case'),
+          node('topic:t1', 'topic'),
+          node('edge:n1', 'edge'),
+        ],
+        edges: [
+          { from: 'case:1', to: 'topic:t1' },
+          { from: 'topic:t1', to: 'edge:n1' },
+        ],
+      },
       { type: 'all' }
     )
     expect(graph.nodes.some((n) => n.id === 'case:1')).toBe(true)
     expect(graph.nodes.some((n) => n.id === 'platform:ch1')).toBe(false)
   })
 
-  it('marks platform health pending when reachability is missing', () => {
-    const graph = buildLinkGraph(source({ reachability: {} }), { type: 'all' })
+  it('passes through pending platform health', () => {
+    const graph = buildLinkGraph(
+      {
+        ...connected,
+        nodes: connected.nodes.map((n) =>
+          n.id === 'platform:ch1' ? { ...n, health: 'pending' } : n
+        ),
+      },
+      { type: 'all' }
+    )
     expect(graph.nodes.find((n) => n.id === 'platform:ch1')?.health).toBe(
       'pending'
     )
   })
 
-  it('drops a platform whose only menu target is a missing workflow', () => {
+  it('drops a platform with no remaining edges', () => {
     const graph = buildLinkGraph(
-      source({
-        menus: { ch1: menuOpen('missing') },
-        cases: [],
-        topics: [],
-        edges: [],
-      }),
+      { nodes: [node('platform:ch1', 'platform')], edges: [] },
       { type: 'all' }
     )
     expect(graph.nodes).toEqual([])
     expect(graph.edges).toEqual([])
   })
 
-  it('marks an offline node warn using edgeReferences', () => {
+  it('passes through warn node health', () => {
     const graph = buildLinkGraph(
-      source({
-        presence: [{ id: 'n1', edge_online: false, comfy_running: false }],
-      }),
+      {
+        ...connected,
+        nodes: connected.nodes.map((n) =>
+          n.id === 'edge:n1' ? { ...n, health: 'warn' } : n
+        ),
+      },
       { type: 'all' }
     )
     expect(graph.nodes.find((n) => n.id === 'edge:n1')?.health).toBe('warn')
@@ -149,12 +123,10 @@ describe('buildLinkGraph all', () => {
 describe('buildLinkGraph focus', () => {
   it('keeps only the focused node when it has no edges', () => {
     const graph = buildLinkGraph(
-      source({
-        cases: [{ id: 7, name: '空', routing: { rules: [] } }],
-        menus: { ch1: { id: 'm', columns: 1, items: [] } },
-        topics: [],
+      {
+        nodes: [node('case:7', 'case')],
         edges: [],
-      }),
+      },
       { type: 'focus', kind: 'case', id: '7' }
     )
     expect(graph.nodes).toEqual([

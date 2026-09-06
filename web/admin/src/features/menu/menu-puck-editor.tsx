@@ -118,6 +118,7 @@ export function MenuPuckEditor({ channelId }: { channelId: string }) {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.channels.menu(channelId),
       })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       toast.success(t('common.successSaved'))
     },
   })

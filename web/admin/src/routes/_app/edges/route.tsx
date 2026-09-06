@@ -9,6 +9,10 @@ import {
 import { Plus, Server } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listEdges, listPresence } from '@/lib/api/edges'
+import {
+  findLinkNode,
+  nodeEntityHealth,
+} from '@/lib/api/link-health'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +33,7 @@ import { MasterDetailShell } from '@/components/master-detail/master-detail-shel
 import { CreateEdgeWizard } from '@/features/edges/create-edge-wizard'
 import { EdgeDetailPanel } from '@/features/edges/detail-panel'
 import { EdgeListPanel } from '@/features/edges/list-panel'
+import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
 
 export const Route = createFileRoute('/_app/edges')({
   component: EdgesLayout,
@@ -53,14 +58,12 @@ function EdgesLayout() {
     queryKey: queryKeys.edges.all,
     queryFn: listEdges,
   })
-  const presenceQuery = useQuery({
+  useQuery({
     queryKey: queryKeys.edges.presence,
     queryFn: listPresence,
     refetchInterval: 5000,
   })
-  const presenceById = Object.fromEntries(
-    (presenceQuery.data ?? []).map((row) => [row.id, row])
-  )
+  const healthQuery = useLinkHealthQuery()
   const items = listQuery.data ?? []
   const selectedId =
     edgeId && edgeId !== 'new' ? edgeId : backToList ? undefined : items[0]?.id
@@ -104,7 +107,19 @@ function EdgesLayout() {
         list={
           <EdgeListPanel
             items={items}
-            presenceById={presenceById}
+            healthByEdge={
+              healthQuery.isSuccess
+                ? Object.fromEntries(
+                    items.map((item) => [
+                      item.id,
+                      nodeEntityHealth(
+                        findLinkNode(healthQuery.data, 'edge', item.id)
+                      ) ?? { state: 'warn' as const, breakpoints: [] },
+                    ])
+                  )
+                : undefined
+            }
+            healthReady={healthQuery.isSuccess}
             selectedId={selectedId}
             isLoading={listQuery.isLoading}
             isError={listQuery.isError}

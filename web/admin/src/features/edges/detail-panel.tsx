@@ -20,7 +20,6 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { listCases } from '@/lib/api/cases'
 import { ApiError } from '@/lib/api/client'
 import {
   deleteEdge,
@@ -31,6 +30,11 @@ import {
   listPresence,
   type MetricsRange,
 } from '@/lib/api/edges'
+import {
+  findLinkNode,
+  nodeRefs,
+  resolvedEntityHealth,
+} from '@/lib/api/link-health'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { ComfyEdge } from '@/lib/api/types'
 import { scrollAndFlash } from '@/lib/scroll-focus'
@@ -58,7 +62,7 @@ import { Pill } from '@/components/kibo-ui/pill'
 import { LongText } from '@/components/long-text'
 import { MetaChip } from '@/components/meta-chip'
 import { SectionHead } from '@/components/section-head'
-import { edgeReferences } from '@/features/link-health/lib/references'
+import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
 import { TopologyOpenButton } from '@/features/config-topology/topology-dialog'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
@@ -176,10 +180,7 @@ export function EdgeDetailPanel({ id }: Props) {
     queryFn: listPresence,
     refetchInterval: 5000,
   })
-  const casesQuery = useQuery({
-    queryKey: queryKeys.cases.all,
-    queryFn: () => listCases(),
-  })
+  const healthQuery = useLinkHealthQuery()
 
   const runningTasksQuery = useQuery({
     queryKey: ['edges', id, 'running-tasks'] as const,
@@ -198,6 +199,7 @@ export function EdgeDetailPanel({ id }: Props) {
           : t('edges.deleteSuccess')
       )
       await queryClient.invalidateQueries({ queryKey: queryKeys.edges.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       queryClient.removeQueries({ queryKey: queryKeys.edges.detail(id) })
       void navigate({ to: '/edges' })
     },
@@ -206,23 +208,30 @@ export function EdgeDetailPanel({ id }: Props) {
     },
   })
   const edgeRefs = useMemo(() => {
-    const data = detailQuery.data
-    return edgeReferences(id, {
-      cases: casesQuery.data ?? [],
-      edges: data
-        ? [
-            {
-              id: data.id,
-              name: data.name,
-              enabled: data.enabled,
-              subscribe_topics: data.subscribe_topics ?? [],
-              effective_topics: data.effective_topics ?? [],
-            },
-          ]
-        : [],
-      presence: presenceQuery.data ?? [],
-    })
-  }, [id, detailQuery.data, casesQuery.data, presenceQuery.data])
+    const ready = healthQuery.isSuccess
+    const node = findLinkNode(healthQuery.data, 'edge', id)
+    const health = resolvedEntityHealth(healthQuery.data, 'edge', id, ready)
+    if (!ready || !healthQuery.data) {
+      return { health, cases: [] as ReturnType<typeof nodeRefs>, topics: [] as ReturnType<typeof nodeRefs> }
+    }
+    const topicIds = new Set((node?.upstream ?? []).map((r) => r.id))
+    const cases = healthQuery.data.nodes
+      .filter(
+        (n) =>
+          n.kind === 'case' && n.downstream.some((d) => topicIds.has(d.id))
+      )
+      .map((n) => ({
+        id: n.id,
+        name: n.name,
+        state: n.health,
+        to: `/cases/${n.ref_id}`,
+      }))
+    return {
+      health,
+      cases,
+      topics: nodeRefs(node?.upstream),
+    }
+  }, [id, healthQuery.data, healthQuery.isSuccess])
 
   if (detailQuery.isError) {
     const notFound =

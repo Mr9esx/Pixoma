@@ -175,6 +175,13 @@ func TestChannelsHandler_CheckReachability(t *testing.T) {
 	if out.CheckedAt == "" || out.AdapterState != "error" || out.AdapterError != "dial timeout" {
 		t.Fatalf("out=%+v", out)
 	}
+	stored, err := svc.Get(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.LastCheckKind != string(channelapp.ReachabilityNetwork) {
+		t.Fatalf("persisted kind=%q", stored.LastCheckKind)
+	}
 
 	notFoundRes, err := http.Post(srv.URL+"/api/v1/channels/missing/check", "application/json", nil)
 	if err != nil {
@@ -183,6 +190,46 @@ func TestChannelsHandler_CheckReachability(t *testing.T) {
 	notFoundRes.Body.Close()
 	if notFoundRes.StatusCode != http.StatusNotFound {
 		t.Fatalf("not found status=%d", notFoundRes.StatusCode)
+	}
+}
+
+func TestChannelsHandler_ListDetailExposeAdapterState(t *testing.T) {
+	srv, svc := openChannelsServer(t)
+	res, m := post(t, srv.URL+"/api/v1/channels", map[string]any{
+		"platform": "telegram", "name": "主机器人", "token": "1234567890",
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d body=%v", res.StatusCode, m)
+	}
+	id := m["id"].(string)
+
+	svc.AdapterStatus = func(_ context.Context, _ string) (state string, lastErr string, found bool) {
+		return "error", "dial timeout", true
+	}
+
+	listRes, err := http.Get(srv.URL + "/api/v1/channels")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var list []map[string]any
+	_ = json.NewDecoder(listRes.Body).Decode(&list)
+	listRes.Body.Close()
+	if len(list) != 1 {
+		t.Fatalf("list len=%d", len(list))
+	}
+	if list[0]["adapter_state"] != "error" || list[0]["adapter_error"] != "dial timeout" {
+		t.Fatalf("list adapter=%v", list[0])
+	}
+
+	detailRes, err := http.Get(srv.URL + "/api/v1/channels/" + id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var detail map[string]any
+	_ = json.NewDecoder(detailRes.Body).Decode(&detail)
+	detailRes.Body.Close()
+	if detail["adapter_state"] != "error" || detail["adapter_error"] != "dial timeout" {
+		t.Fatalf("detail adapter=%v", detail)
 	}
 }
 

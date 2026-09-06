@@ -26,7 +26,11 @@
 │  每渠道一份嵌套菜单树；GET/PUT /channels/{id}/menu     │
 │  Bot 编译成键盘/卡片；Case 反查 menu-placements         │
 └─────────────────────────────────────────────────────┘
-┌─ runtime ───────────────────────────────────────┐
+┌─ packaging/linkhealth ───────────────────────────┐
+│  只读拼图：通道+菜单+Case 路由+Topic+Edge+presence  │
+│  合成活路绿黄；HTTP GET /api/v1/link-health         │
+└───────────────────────────────────────────────────┘
+
 │ domain.Task │ orchestrator │ actuator │ comfyui │
 └───────┬─────────────┬─────────────┬─────────────┘
         ▼             ▼             ▼
@@ -46,8 +50,8 @@
 | **Channel TG** | `internal/channel/tg` | Telegram 适配、菜单/回调、通知落地 | 领域规则 |
 | **Menu Card** | `internal/menucard` | 渠道菜单嵌套树、校验、编译、placements | TG 发送、callback 路由 |
 | **Platform** | `internal/platform` | db/blob/queue/notify/edge/botconfig | 业务决策 |
-| **Packaging** | `internal/packaging/botapp` | 跨 BC 用例门面 | 基础设施实现细节 |
-| **HTTP API** | `internal/httpapi` | 计算节点 CRUD/观测；Case/User/Session/Task；TG Menu | TG 通道实现 |
+| **Packaging** | `internal/packaging/botapp`、`internal/packaging/linkhealth` | 跨 BC 用例门面；配置链路健康只读组装 | 写侧 CRUD、Task 执行 |
+| **HTTP API** | `internal/httpapi` | 计算节点 CRUD/观测；Case/User/Session/Task；TG Menu；`GET /api/v1/link-health` | TG 通道实现 |
 | **Shared Kernel** | `internal/sharedkernel` | ID、状态枚举、事件 DTO、topic | 业务行为 |
 
 ---

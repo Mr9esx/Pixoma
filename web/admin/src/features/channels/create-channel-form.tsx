@@ -25,6 +25,7 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
     mutationFn: () => createChannel({ platform: 'telegram', name, token }),
     onSuccess: (ch) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       toast.success(t('channels.created'))
       onDone(ch)
     },

@@ -10,8 +10,10 @@ import {
 import { ArrowLeft, Boxes, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listCases } from '@/lib/api/cases'
-import { getCaseMenuPlacements } from '@/lib/api/channel-menu'
-import { listEdges, listPresence } from '@/lib/api/edges'
+import {
+  findLinkNode,
+  nodeEntityHealth,
+} from '@/lib/api/link-health'
 import { queryKeys } from '@/lib/api/query-keys'
 import {
   AlertDialog,
@@ -40,7 +42,7 @@ import {
   CaseListPanel,
   type CaseListFilters,
 } from '@/features/cases/list-panel'
-import { caseReferences } from '@/features/link-health/lib/references'
+import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
 
 export const Route = createFileRoute('/_app/cases')({
   component: CasesLayout,
@@ -73,54 +75,19 @@ function CasesLayout() {
     queryFn: () => listCases(listParams),
   })
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
-  const edgesQuery = useQuery({
-    queryKey: queryKeys.edges.all,
-    queryFn: listEdges,
-  })
-  const presenceQuery = useQuery({
-    queryKey: queryKeys.edges.presence,
-    queryFn: listPresence,
-  })
-  const placementsQuery = useQuery({
-    queryKey: [
-      ...queryKeys.cases.all,
-      'menu-placements',
-      items.map((item) => item.id),
-    ] as const,
-    queryFn: async () =>
-      Promise.all(items.map((item) => getCaseMenuPlacements(item.id))),
-    enabled: items.length > 0,
-  })
-  const listHealthReady =
-    edgesQuery.isSuccess && presenceQuery.isSuccess && placementsQuery.isSuccess
-  const placementsByCase = useMemo(() => {
-    return Object.fromEntries(
-      items.map((item, index) => [item.id, placementsQuery.data?.[index] ?? []])
-    )
-  }, [items, placementsQuery.data])
+  const healthQuery = useLinkHealthQuery()
+  const listHealthReady = healthQuery.isSuccess
   const healthByCase = useMemo(() => {
     if (!listHealthReady) return undefined
-    const edges = edgesQuery.data ?? []
-    const presence = presenceQuery.data ?? []
-
     return Object.fromEntries(
       items.map((item) => [
         item.id,
-        caseReferences(item.id, {
-          cases: [item],
-          edges,
-          presence,
-          placements: placementsByCase[item.id],
-        }).health,
+        nodeEntityHealth(
+          findLinkNode(healthQuery.data, 'case', String(item.id))
+        ) ?? { state: 'warn' as const, breakpoints: [] },
       ])
     )
-  }, [
-    edgesQuery.data,
-    items,
-    listHealthReady,
-    placementsByCase,
-    presenceQuery.data,
-  ])
+  }, [healthQuery.data, items, listHealthReady])
   const backToList = locationState?.backToList === true
   const selectedId = useMemo(() => {
     if (caseId == null || caseId === 'new') {

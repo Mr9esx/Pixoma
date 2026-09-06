@@ -756,6 +756,7 @@
     "tokenHint": "Leave blank to keep unchanged; tokens are stored encrypted and shown masked.",
     "tabPreview": "Message Platform Preview",
     "checkingReachability": "Checking…",
+    "checkReachability": "Check",
     "reachabilityOK": "Connected",
     "reachabilityNetwork": "Cannot reach Telegram",
     "reachabilityAuth": "Token invalid",
@@ -1001,7 +1002,10 @@
     "subscribedTopics": "Subscribed task queues",
     "boundNodes": "Bound compute nodes",
     "relatedEntries": "Related entries",
-    "routeTopics": "Routed task queues"
+    "routeTopics": "Routed task queues",
+    "actionManageChannels": "Manage channels",
+    "entryChannelUnusable": "Channel entry unavailable",
+    "guideEntryChannelUnusable": "The channel is disabled or its adapter is not running. Check channel state."
   },
   "dataTable": {
     "search": "Search",

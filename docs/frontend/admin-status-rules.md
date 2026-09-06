@@ -30,6 +30,5 @@
 ## 参考实现
 
 - 组件：`web/admin/src/components/status-dot.tsx`
-- 计算节点列表：`web/admin/src/features/edges/list-health.ts`
-- 任务队列健康：`web/admin/src/features/link-health/lib/references.ts` 中的 `topicReferences`
-- 工作流健康：`web/admin/src/features/link-health/lib/references.ts` 中的 `caseReferences`
+- 健康查询：`GET /api/v1/link-health`（`queryKeys.linkHealth`）
+- 列表、详情、拓扑只渲染该查询；不得在页面再用 `*References` / `listHealthTone` 发明绿黄

@@ -2,15 +2,19 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import type { Channel } from '@/lib/api/channels'
+import { healthProblems } from '@/lib/api/link-health'
 import { cn } from '@/lib/utils'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { StatusDot } from '@/components/status-dot'
+import type { EntityHealth } from '@/features/link-health/types'
 
 type Props = {
   items: Channel[]
+  healthByChannel?: Record<string, EntityHealth>
+  healthReady?: boolean
   selectedId?: string
   isLoading?: boolean
   isError?: boolean
@@ -21,6 +25,8 @@ type Props = {
 
 export function ChannelListPanel({
   items,
+  healthByChannel,
+  healthReady = false,
   selectedId,
   isLoading,
   isError,
@@ -77,6 +83,10 @@ export function ChannelListPanel({
         <ul className='min-h-0 flex-1 divide-y overflow-auto'>
           {filtered.map((ch) => {
             const selected = selectedId === ch.id
+            const problems = healthProblems(
+              healthReady ? healthByChannel?.[ch.id] : undefined,
+              healthReady
+            )
             return (
               <li key={ch.id}>
                 <Link
@@ -90,11 +100,11 @@ export function ChannelListPanel({
                   <div className='flex items-center justify-between gap-2'>
                     <span className='truncate font-medium'>{ch.name}</span>
                     <StatusDot
-                      problems={ch.enabled ? 0 : 1}
+                      problems={problems}
                       label={
-                        ch.enabled
+                        problems === 0
                           ? t('channels.enabled')
-                          : t('channels.disabled')
+                          : t('status.issue')
                       }
                     />
                   </div>

@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"testing"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -62,6 +63,27 @@ func TestChannelCRUD(t *testing.T) {
 	}
 	if _, err := repo.Get(ctx, "tg-default"); err != domain.ErrNotFound {
 		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+}
+
+func TestChannelLastCheckRoundtrip(t *testing.T) {
+	repo := NewGormRepository(openTestDB(t))
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	ch := domain.Channel{
+		ID: "tg-default", Platform: string(domain.PlatformTelegram),
+		Name: "主机器人", CredentialCiphertext: "cipher", Enabled: true,
+		LastCheckKind: "network", LastCheckMessage: "i/o timeout", LastCheckAt: &now,
+	}
+	if err := repo.Create(ctx, ch); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.Get(ctx, "tg-default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.LastCheckKind != "network" || got.LastCheckMessage != "i/o timeout" || got.LastCheckAt == nil {
+		t.Fatalf("last check: %+v", got)
 	}
 }
 

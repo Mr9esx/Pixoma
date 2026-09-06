@@ -128,7 +128,19 @@ func (s *Service) CheckReachability(ctx context.Context, id string) (Reachabilit
 	if probe == nil {
 		probe = checkTelegramReachability
 	}
-	return probe(ctx, cred.BotToken)
+	res, err := probe(ctx, cred.BotToken)
+	if err != nil {
+		return ReachabilityResult{}, err
+	}
+	now := s.nowFn()().UTC()
+	ch.LastCheckKind = string(res.Kind)
+	ch.LastCheckMessage = res.Message
+	ch.LastCheckAt = &now
+	ch.UpdatedAt = now
+	if err := s.Store.Update(ctx, ch); err != nil {
+		return ReachabilityResult{}, fmt.Errorf("channel: persist last check: %w", err)
+	}
+	return res, nil
 }
 
 func (s *Service) List(ctx context.Context) ([]domain.Channel, error) {
@@ -149,6 +161,9 @@ func (s *Service) Update(ctx context.Context, id, name string, token *string) (d
 			return domain.Channel{}, err
 		}
 		ch.CredentialCiphertext = ct
+		ch.LastCheckKind = ""
+		ch.LastCheckMessage = ""
+		ch.LastCheckAt = nil
 	}
 	ch.UpdatedAt = s.nowFn()().UTC()
 	if err := s.Store.Update(ctx, ch); err != nil {

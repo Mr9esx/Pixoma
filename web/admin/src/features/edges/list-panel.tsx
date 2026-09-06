@@ -1,19 +1,21 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import type { ComfyEdge, EdgePresence } from '@/lib/api/types'
+import type { ComfyEdge } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { StatusDot } from '@/components/status-dot'
-import { listHealthTone } from './list-health'
+import { healthProblems } from '@/lib/api/link-health'
+import type { EntityHealth } from '@/features/link-health/types'
 import { formatBytes } from './observation'
 
 type Props = {
   items: ComfyEdge[]
-  presenceById?: Record<string, EdgePresence>
+  healthByEdge?: Record<string, EntityHealth>
+  healthReady?: boolean
   selectedId?: string
   isLoading?: boolean
   isError?: boolean
@@ -24,7 +26,8 @@ type Props = {
 
 export function EdgeListPanel({
   items,
-  presenceById,
+  healthByEdge,
+  healthReady = false,
   selectedId,
   isLoading,
   isError,
@@ -79,14 +82,12 @@ export function EdgeListPanel({
         <ul className='min-h-0 flex-1 divide-y overflow-auto'>
           {filtered.map((item) => {
             const selected = selectedId === item.id
-            const presence = presenceById?.[item.id]
-            const tone = listHealthTone({
-              enabled: item.enabled,
-              edgeOnline: presence?.edge_online === true,
-              comfyRunning: presence?.comfy_running === true,
-            })
+            const problems = healthProblems(
+              healthReady ? healthByEdge?.[item.id] : undefined,
+              healthReady
+            )
             const statusLabel =
-              tone === 'ok' ? t('status.normal') : t('status.issue')
+              problems === 0 ? t('status.normal') : t('status.issue')
             const cores = item.hardware?.cpu_cores
             const vramBytes = (item.hardware?.gpus ?? []).reduce(
               (sum, gpu) => sum + (gpu.vram_bytes ?? 0),
@@ -115,7 +116,7 @@ export function EdgeListPanel({
                       {item.name || item.id}
                     </span>
                     <StatusDot
-                      problems={tone === 'ok' ? 0 : 1}
+                      problems={problems}
                       label={statusLabel}
                     />
                   </div>

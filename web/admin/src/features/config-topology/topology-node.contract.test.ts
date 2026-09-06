@@ -20,6 +20,6 @@ describe('topology node contract', () => {
     expect(node).toContain('isFocus')
     expect(node).toContain('border-primary')
     expect(node).toContain('StatusDot')
-    expect(node).toContain("health !== 'pending'")
+    expect(node).not.toContain("health !== 'pending'")
   })
 })

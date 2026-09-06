@@ -59,4 +59,5 @@ export const queryKeys = {
     all: ['text-templates'] as const,
     channel: (channelId: string) => ['text-templates', channelId] as const,
   },
+  linkHealth: ['link-health'] as const,
 }

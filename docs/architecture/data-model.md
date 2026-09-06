@@ -11,7 +11,9 @@
 |---|---|---|
 | 输入/输出文件 | `data/blob/` 或 OSS | Task 只存 `input_prefix` / outputs BlobRef |
 | 同进程编排 | 进程内 memory | 跨进程派活走 Agent claim，不依赖 Redis |
-| 熔断 / 健康缓存 / RR 游标 | 进程内存 | 可重建 |
+| 熔断 / RR 游标 | 进程内存 | 可重建 |
+| Edge presence | 控制面内存 | 15s TTL；组装器读得到，不落库 |
+| 通道上次探测 | `channels.last_check_*` | 组装器读库，查询热路径不打外部 |
 | 通知去重 map | 进程内存 | 重启可能重复通知 |
 
 ---
@@ -426,6 +428,7 @@ flowchart LR
 | `GET .../{id}/queue` | 该节点 Comfy `/queue` |
 | `GET .../{id}/tasks` | `tasks WHERE edge_id=?` |
 | `GET .../{id}/stats` | 该节点任务数 / 累计耗时 / 成功率 |
+| `GET /api/v1/link-health` | 组装器拼图后的 nodes/edges/health；热路径不探测外部 |
 
 ---
 
@@ -449,6 +452,8 @@ flowchart LR
 | edges / Pool | `internal/platform/edge` |
 | catalog_cases | `internal/catalog/infrastructure/persistence` |
 | channel_main_menus | `internal/menucard`（嵌套树 JSON）；HTTP `GET/PUT /api/v1/channels/{id}/menu`；Case 反查 `GET .../cases/{id}/menu-placements`。卡片内嵌在树节点，无独立 cards 管理 API。 |
+| channels.last_check_* | 通道上次探测 kind/message/at；`POST /channels/{id}/check` 写入；组装器只读 |
+| 链路健康 | `internal/packaging/linkhealth` + `internal/httpapi/linkhealth` |
 | HTTP API | `internal/httpapi/edges` 等 |
 | 任务统计 | `internal/platform/taskstats`（领域/仓储）、`internal/httpapi/stats`（HTTP）、backfill `apps/pixoma/cmd/backfill-task-stats` |
 | 接线 | `apps/pixoma/cmd/pixoma/main.go`（组合根） |

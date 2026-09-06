@@ -35,6 +35,7 @@ export function CreateTopicForm({ onDone, onCancel }: Props) {
     mutationFn: () => createTopic({ key: key.trim(), name: name.trim() }),
     onSuccess: (topic) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.topics.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
       onDone(topic)
     },
   })

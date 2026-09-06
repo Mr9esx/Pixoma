@@ -40,5 +40,6 @@ describe('queryKeys', () => {
       queryKeys.topics.stats('fast-gpu', { from: '2026-07-23', to: '2026-08-21' })
     ).not.toEqual(queryKeys.topics.stats('fast-gpu', { from: '2026-08-15', to: '2026-08-21' }))
     expect(queryKeys.settings.all).toEqual(['settings'])
+    expect(queryKeys.linkHealth).toEqual(['link-health'])
   })
 })

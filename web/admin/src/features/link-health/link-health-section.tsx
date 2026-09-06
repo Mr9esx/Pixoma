@@ -12,12 +12,12 @@ import type {
   EntityHealth,
   HealthBreakpoint,
   ReferenceItem,
-} from './lib/references'
+} from './types'
 
 const stateClass: Record<string, string> = {
   ok: 'border-success/25 bg-success/10 text-success',
   warn: 'border-warning/30 bg-warning/10 text-warning',
-  bad: 'border-destructive/25 bg-destructive/10 text-destructive',
+  pending: 'border-warning/30 bg-warning/10 text-warning',
 }
 
 const PAGE_SIZE = 10

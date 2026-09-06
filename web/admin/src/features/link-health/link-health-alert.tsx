@@ -1,7 +1,7 @@
 import { AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import type { EntityHealth } from './lib/references'
+import type { EntityHealth } from './types'
 
 type LinkHealthAlertProps = {
   name: string
@@ -17,7 +17,7 @@ export function LinkHealthAlert({
 }: LinkHealthAlertProps) {
   const { t } = useTranslation()
   if (health.state === 'ok') return null
-  const n = health.breakpoints.length
+  const n = Math.max(health.breakpoints.length, 1)
   return (
     <Alert
       variant='warn'

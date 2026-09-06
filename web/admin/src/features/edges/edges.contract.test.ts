@@ -117,11 +117,13 @@ describe('compute node layout and detail', () => {
     const layout = read('../../routes/_app/edges/route.tsx')
     const observe = read('observation-panel.tsx')
     const zh = read('../../lib/i18n/locales/zh.json')
-    expect(list).toMatch(/listHealthTone/)
+    expect(list).toMatch(/healthProblems/)
     expect(list).toMatch(/<StatusDot/)
+    expect(list).not.toMatch(/listHealthTone/)
     expect(list).not.toMatch(/PresenceTags/)
     expect(list).not.toMatch(/edges\.enabled/)
     expect(layout).toMatch(/listPresence/)
+    expect(layout).toMatch(/useLinkHealthQuery/)
     expect(layout).toMatch(/refetchInterval:\s*5000/)
     const listQuery = layout.match(
       /useQuery\(\{[\s\S]*?queryFn:\s*listEdges[\s\S]*?\}\)/
