@@ -199,3 +199,73 @@ func TestAssembler_CancelStopsAll(t *testing.T) {
 		t.Fatalf("all adapters must stop: %+v", factory.adapters)
 	}
 }
+
+// blockingFactory hangs in Create until release is closed. Models bot.New
+// waiting on Telegram getMe (default 5s) while HTTP Status must stay fast.
+type blockingFactory struct {
+	entered chan struct{}
+	release chan struct{}
+	inner   *fakeFactory
+}
+
+func (f *blockingFactory) Create(snap ChannelSnapshot) (Adapter, error) {
+	select {
+	case <-f.entered:
+	default:
+		close(f.entered)
+	}
+	<-f.release
+	return f.inner.Create(snap)
+}
+
+func TestAssembler_StatusDoesNotBlockOnSlowCreate(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	store := newMemStore()
+	store.upsert("tg-1", "token-slow", true)
+	factory := &blockingFactory{entered: entered, release: release, inner: newFakeFactory()}
+	as := &Assembler{Store: store, Factory: factory}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		runOnce(as, context.Background())
+	}()
+
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("Create did not start")
+	}
+
+	statusCh := make(chan map[string]AdapterStatus, 1)
+	go func() { statusCh <- as.Status() }()
+	var st map[string]AdapterStatus
+	select {
+	case st = <-statusCh:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("Status blocked; must not wait for Telegram during Create")
+	}
+	got := st["tg-1"]
+	if got.State != stateStarting {
+		t.Fatalf("status during Create: %+v want starting", got)
+	}
+
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("reconcile did not finish")
+	}
+	st = as.Status()
+	if st["tg-1"].State != stateRunning {
+		t.Fatalf("status after Create: %+v", st["tg-1"])
+	}
+}
