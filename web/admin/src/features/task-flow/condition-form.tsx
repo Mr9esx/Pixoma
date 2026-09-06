@@ -338,34 +338,16 @@ export function ConditionForm({ value, attributes, onChange }: Props) {
         <>
           <div className='flex'>
             {showConnector && (
-              // .k-filter-builder-condition-group-range：40px 连接柱，只包住条件行（不含底部按钮）。
-              <div className='flex w-10 shrink-0 flex-col'>
-                <div className='flex flex-1 items-stretch'>
-                  <div className='w-[calc(40%-2px)]' aria-hidden />
-                  <div
-                    className='w-[calc(60%+2px)] rounded-tl'
-                    style={{
-                      borderTop: `2px solid ${lineColor}`,
-                      borderLeft: `2px solid ${lineColor}`,
-                    }}
-                    aria-hidden
-                  />
-                </div>
-                <div className='flex items-center py-0.5'>
+              <div className='relative flex w-10 shrink-0 items-center justify-center'>
+                <div
+                  className='absolute left-3 top-1 bottom-1 w-0 border-l-2'
+                  style={{ borderColor: lineColor }}
+                  aria-hidden
+                />
+                <div className='relative z-10'>
                   <GroupConditionSelect
                     kind={groupKind ?? 'and'}
                     onChange={setGroupKind}
-                  />
-                </div>
-                <div className='flex flex-1 items-stretch'>
-                  <div className='w-[calc(40%-2px)]' aria-hidden />
-                  <div
-                    className='w-[calc(60%+2px)] rounded-bl'
-                    style={{
-                      borderBottom: `2px solid ${lineColor}`,
-                      borderLeft: `2px solid ${lineColor}`,
-                    }}
-                    aria-hidden
                   />
                 </div>
               </div>
