@@ -123,7 +123,6 @@ func newAdminHandler(gdb *gorm.DB) (http.Handler, error) {
 	statsRepo := taskstatspersist.NewGormStatsRepository(gdb, 365*24*time.Hour, time.UTC)
 	menuRepo := mencardpersist.NewGormCardRepository(gdb)
 	conditionReg := condition.NewRegistry()
-	conditionReg.Register(&condition.CaseProvider{})
 	textStore, err := text.NewStore(gdb)
 	if err != nil {
 		return nil, err
@@ -137,6 +136,7 @@ func newAdminHandler(gdb *gorm.DB) (http.Handler, error) {
 		return "running", "", true
 	}
 	chSvc := &channelapp.Service{Store: channelStore, Key: demoEncryptionKey(), AdapterStatus: adapter}
+	probe := &channelapp.ReachabilityProbe{Svc: chSvc}
 
 	return adminhost.NewHandler(adminhost.Options{
 		Instances:  &edgesapi.Handler{Repo: instRepo, Tasks: taskRepo, Metrics: instpersist.NewMetricsRepository(gdb, 24*time.Hour), Presence: pres},
@@ -146,7 +146,7 @@ func newAdminHandler(gdb *gorm.DB) (http.Handler, error) {
 		Sessions:   &sessionsapi.Handler{Repo: sessionRepo, Channels: channelStore, Context: sesspersist.NewSessionAdminProjection(gdb)},
 		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: time.UTC, Metrics: instpersist.NewMetricsRepository(gdb, 24*time.Hour)},
-		Channels:   &channelsapi.Handler{Svc: chSvc},
+		Channels:   &channelsapi.Handler{Svc: chSvc, Probe: probe},
 		MenuCards:  menucardsapi.NewHandler(menuRepo),
 		Topics:     &topicsapi.Handler{Repo: topicRepo, Tasks: taskRepo},
 		Routing:    &routingapi.Handler{Registry: conditionReg},

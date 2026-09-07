@@ -35,20 +35,20 @@ type ListByTopicQuery struct {
 
 // AdminListQuery filters tasks for admin list (parameterized; no client keys in SQL).
 type AdminListQuery struct {
-	Q           string
-	Status      sharedkernel.TaskStatus
-	EdgeID      sharedkernel.EdgeID
-	ChatID      sharedkernel.ChatID // "" = no filter
+	Q      string
+	Status sharedkernel.TaskStatus
+	EdgeID sharedkernel.EdgeID
+	ChatID sharedkernel.ChatID // "" = no filter
 	// ChannelID filters tasks whose session belongs to a channel (join sessions).
-	ChannelID   string
+	ChannelID string
 	// DispatchTopic filters tasks dispatched to a topic.
 	DispatchTopic string
-	SessionID   sharedkernel.SessionID
-	CaseID      sharedkernel.CaseID
-	CreatedFrom *time.Time
-	CreatedTo   *time.Time
-	Limit       int
-	Offset      int
+	SessionID     sharedkernel.SessionID
+	CaseID        sharedkernel.CaseID
+	CreatedFrom   *time.Time
+	CreatedTo     *time.Time
+	Limit         int
+	Offset        int
 }
 
 type TaskRepository interface {
@@ -168,11 +168,7 @@ func (r *MemoryTaskRepository) ClaimNextWithLease(_ context.Context, edgeID shar
 		if t.Status != sharedkernel.TaskQueued || t.JobRef.Key == "" {
 			continue
 		}
-		topicKey := t.DispatchTopic
-		if topicKey == "" {
-			topicKey = "default"
-		}
-		if !want[topicKey] {
+		if !want[t.DispatchTopic] {
 			continue
 		}
 		if !t.RequeueAt.IsZero() && now.Before(t.RequeueAt) {
@@ -297,16 +293,10 @@ func (r *MemoryTaskRepository) ListByTopic(_ context.Context, topicKey string, q
 	if topicKey == "" {
 		return nil, nil
 	}
-	normalized := func(t *Task) string {
-		if t.DispatchTopic == "" {
-			return "default"
-		}
-		return t.DispatchTopic
-	}
 	var out []*Task
 	skipped := 0
 	for _, t := range r.byID {
-		if normalized(t) != topicKey {
+		if t.DispatchTopic != topicKey {
 			continue
 		}
 		if q.Status != "" && t.Status != q.Status {

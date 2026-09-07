@@ -56,8 +56,8 @@ export function LinkHealthSection({
       data-testid='link-health-section'
       className='flex flex-col gap-4'
     >
-      <SectionHead title={title} hint={t('linkHealth.sectionHint')} />
-      {health.state === 'ok' ? (
+      <SectionHead title={title} />
+      {health.state === 'ok' && !blocked ? (
         <Alert
           variant='success'
           data-testid='link-health-ok'

@@ -74,7 +74,9 @@ func (a *Assembler) Run(ctx context.Context) error {
 		}
 		select {
 		case <-ctx.Done():
-			return a.StopAll(context.Background())
+			stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			return a.StopAll(stopCtx)
 		case <-ticker.C:
 		}
 	}

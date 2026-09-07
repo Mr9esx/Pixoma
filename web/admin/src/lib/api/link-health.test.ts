@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  alignPlatformHealth,
   healthProblems,
   resolvedEntityHealth,
   type LinkHealthGraph,
@@ -41,5 +42,31 @@ describe('resolvedEntityHealth', () => {
     expect(healthProblems({ state: 'ok', breakpoints: [] }, true)).toBe(0)
     expect(healthProblems({ state: 'warn', breakpoints: [] }, true)).toBe(1)
     expect(healthProblems({ state: 'pending', breakpoints: [] }, true)).toBe(1)
+  })
+})
+
+describe('alignPlatformHealth', () => {
+  const ok = { state: 'ok' as const, breakpoints: [] }
+
+  it('keeps assembler ok when last_check is ok', () => {
+    expect(alignPlatformHealth(ok, 'ok').state).toBe('ok')
+  })
+
+  it('does not treat a stale ok graph as ready when last_check is network', () => {
+    const aligned = alignPlatformHealth(ok, 'network')
+    expect(aligned.state).not.toBe('ok')
+  })
+
+  it('does not treat a stale ok graph as ready when last_check is auth or other', () => {
+    expect(alignPlatformHealth(ok, 'auth').state).not.toBe('ok')
+    expect(alignPlatformHealth(ok, 'other').state).not.toBe('ok')
+  })
+
+  it('leaves warn and pending graphs unchanged', () => {
+    const warn = { state: 'warn' as const, breakpoints: [] }
+    expect(alignPlatformHealth(warn, 'network')).toEqual(warn)
+    expect(alignPlatformHealth({ state: 'pending', breakpoints: [] }, '').state).toBe(
+      'pending'
+    )
   })
 })

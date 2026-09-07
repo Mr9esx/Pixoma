@@ -11,8 +11,6 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-} from '@/components/ui/dialog'
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,13 +25,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ConditionForm } from './condition-form'
 import { describeCondition, moveRule, removeRule } from './lib/rule-operations'
 import { topicBindings } from './lib/topic-binding'
 import { validateRouting } from './lib/validate'
 import type {
   AttributeDescriptor,
-  Condition,
   EdgePresence,
   EdgeRecord,
   RoutingConfig,
@@ -176,35 +172,21 @@ export function TaskFlowTable({
                     {index + 1}
                   </TableCell>
                   <TableCell>
-                    {effectiveReadOnly ? (
-                      <div className='max-w-[420px]'>
-                        <div
-                          className={cn(
-                            'truncate',
-                            issue ? 'text-destructive' : 'text-foreground'
-                          )}
-                        >
-                          {describeCondition(rule.when)}
-                        </div>
-                        {issue ? (
-                          <div className='truncate text-xs text-destructive'>
-                            {issue.message}
-                          </div>
-                        ) : null}
+                    <div className='max-w-[420px]'>
+                      <div
+                        className={cn(
+                          'truncate',
+                          issue ? 'text-destructive' : 'text-foreground'
+                        )}
+                      >
+                        {describeCondition(rule.when)}
                       </div>
-                    ) : (
-                      <ConditionForm
-                        value={rule.when}
-                        attributes={attributes}
-                        onChange={(when: Condition) =>
-                          onChange({
-                            rules: rules.map((r, i) =>
-                              i === index ? { ...r, when } : r
-                            ),
-                          })
-                        }
-                      />
-                    )}
+                      {issue ? (
+                        <div className='truncate text-xs text-destructive'>
+                          {issue.message}
+                        </div>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {effectiveReadOnly ? (
@@ -306,8 +288,7 @@ export function TaskFlowTable({
                 ...rules,
                 {
                   when: {
-                    field: attributes[0]?.key ?? '',
-                    op: 'exists',
+                    always: true,
                   },
                   topic: undefined,
                 },

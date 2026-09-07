@@ -4,8 +4,6 @@ import { listTextTemplates } from '@/lib/api/text-templates'
 import { cn } from '@/lib/utils'
 import { composeListTasksPreview } from './list-tasks-copy'
 
-export { composeListTasksPreview } from './list-tasks-copy'
-
 export function ListTasksPreview({
   channelId,
   className,

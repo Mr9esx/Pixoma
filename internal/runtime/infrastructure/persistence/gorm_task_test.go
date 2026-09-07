@@ -285,7 +285,7 @@ func TestGormTask_ClaimNextWithLeaseAndExpire(t *testing.T) {
 	now := time.Unix(300, 0).UTC()
 	ref := sharedkernel.BlobRef{Key: "jobs/t-c2/job.json"}
 	task := domain.NewPending("t-c2", "s-claim2", sharedkernel.CaseID(1), "inputs/t-c2", now)
-	_ = task.PrepareForClaim("gpu-1", ref, now)
+	_ = task.PrepareForTopic("default", ref, now)
 	if err := tasks.Create(ctx, task); err != nil {
 		t.Fatal(err)
 	}
@@ -321,6 +321,61 @@ func TestGormTask_ClaimNextWithLeaseAndExpire(t *testing.T) {
 	if err != nil || again == nil || again.ID != "t-c2" {
 		t.Fatalf("reclaim=%+v err=%v", again, err)
 	}
+}
+
+func TestGormTask_EmptyDispatchTopicDoesNotMatchDefault(t *testing.T) {
+	ctx := context.Background()
+	now := time.Unix(800, 0).UTC()
+
+	seed := func(t *testing.T) domain.TaskRepository {
+		t.Helper()
+		gdb := openTestDB(t)
+		seedSession(t, gdb, "s-empty", sharedkernel.ChatID("tg:13"))
+		tasks := persistence.NewTaskRepository(gdb)
+		empty := domain.NewPending("empty-1", "s-empty", sharedkernel.CaseID(1), "inputs/empty-1", now)
+		_ = empty.PrepareForTopic("default", sharedkernel.BlobRef{Key: "j/empty-1"}, now)
+		empty.DispatchTopic = ""
+		empty.CreatedAt = now
+		if err := tasks.Create(ctx, empty); err != nil {
+			t.Fatal(err)
+		}
+		def := domain.NewPending("default-1", "s-empty", sharedkernel.CaseID(1), "inputs/default-1", now)
+		_ = def.PrepareForTopic("default", sharedkernel.BlobRef{Key: "j/default-1"}, now)
+		def.CreatedAt = now.Add(time.Second)
+		if err := tasks.Create(ctx, def); err != nil {
+			t.Fatal(err)
+		}
+		return tasks
+	}
+
+	t.Run("claim default skips empty topic", func(t *testing.T) {
+		tasks := seed(t)
+		claimed, err := tasks.ClaimNextWithLease(ctx, "gpu-1", []string{"default"}, time.Minute, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if claimed == nil || claimed.ID != "default-1" {
+			t.Fatalf("claimed=%+v, want default-1 (empty topic must stay unclaimed)", claimed)
+		}
+		leftover, err := tasks.Get(ctx, "empty-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if leftover.Status != sharedkernel.TaskQueued || leftover.DispatchTopic != "" {
+			t.Fatalf("empty row status=%s topic=%q, want queued with empty topic", leftover.Status, leftover.DispatchTopic)
+		}
+	})
+
+	t.Run("list default excludes empty topic", func(t *testing.T) {
+		tasks := seed(t)
+		list, err := tasks.ListByTopic(ctx, "default", domain.ListByTopicQuery{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(list) != 1 || list[0].ID != "default-1" {
+			t.Fatalf("list = %v, want only default-1", idsOf(list))
+		}
+	})
 }
 
 func TestGormTask_HeartbeatLease(t *testing.T) {

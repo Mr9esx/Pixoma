@@ -355,5 +355,4 @@ func writeNodeInput(graph comfyui.Graph, nodeID, fieldPath string, value any) er
 	return nil
 }
 
-var _ CaseSnapshotProvider = (*CaseSnapshot)(nil)
 var _ ImageUploader = (comfyui.Client)(nil)

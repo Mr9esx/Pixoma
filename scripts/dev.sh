@@ -19,18 +19,33 @@ fi
 echo "管理页面: http://127.0.0.1:5173"
 echo "后台接口: ${PUBLIC_URL:-http://127.0.0.1:8082}"
 
-go run ./apps/pixoma/cmd/pixoma &
-pixoma_pid=$!
+start_pixoma() {
+  go run ./apps/pixoma/cmd/pixoma &
+  pixoma_pid=$!
+}
+
+start_pixoma
 
 export VITE_ADMIN_API_BASE=
 pnpm --dir web/admin dev &
 vite_pid=$!
 
+stopping=0
 cleanup() {
+  stopping=1
   trap - INT TERM EXIT
   kill "$pixoma_pid" "$vite_pid" 2>/dev/null || true
   wait "$pixoma_pid" "$vite_pid" 2>/dev/null || true
 }
 trap cleanup INT TERM EXIT
 
-wait
+while kill -0 "$vite_pid" 2>/dev/null; do
+  if [[ "$stopping" -eq 1 ]]; then
+    break
+  fi
+  if ! kill -0 "$pixoma_pid" 2>/dev/null; then
+    echo "pixoma 退出了，正在重新拉起控制面…"
+    start_pixoma
+  fi
+  wait -n "$pixoma_pid" "$vite_pid" 2>/dev/null || true
+done

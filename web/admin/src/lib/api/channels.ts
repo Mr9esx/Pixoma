@@ -21,19 +21,14 @@ export type ChannelReachability = {
   kind: 'ok' | 'network' | 'auth' | 'other'
   message: string
   checked_at?: string
-  adapter_state?: 'absent' | 'starting' | 'running' | 'error'
-  adapter_error?: string
 }
 
 export function listChannels() {
   return apiFetch<Channel[]>('/api/v1/channels')
 }
 
-export function checkChannelReachability(id: string) {
-  return apiFetch<ChannelReachability>(
-    `/api/v1/channels/${encodeURIComponent(id)}/check`,
-    { method: 'POST' }
-  )
+export function kickChannelProbe() {
+  return apiFetch<void>('/api/v1/channels/probe', { method: 'POST' })
 }
 
 export function createChannel(body: {
@@ -73,14 +68,4 @@ export function deleteChannel(id: string) {
     `/api/v1/channels/${encodeURIComponent(id)}`,
     { method: 'DELETE' }
   )
-}
-
-type CapabilityBrief = {
-  id: string
-  display_name: string
-  params_schema: Record<string, unknown>
-}
-
-export function listCapabilities() {
-  return apiFetch<CapabilityBrief[]>('/api/v1/channels/capabilities')
 }

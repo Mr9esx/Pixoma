@@ -19,6 +19,13 @@
 - **WHEN** 客户端连续两次请求且期间无人改配置
 - **THEN** 菜单挂载、工作流路由、节点订阅均保持不变
 
+### Requirement: 打开消息平台可异步踢一轮探测
+系统 MUST 提供管理侧异步探测踢脚（对已启用通道执行与后台 `ReachabilityProbe` 相同的 ProbeOnce）。该踢脚 MUST 在 Telegram 往返完成前返回。MUST NOT 让列表或健康查询等待这次探测。MUST NOT 恢复打开详情时同步 POST `/channels/{id}/check` 并卡住页面的做法。
+
+#### Scenario: 踢脚立刻返回且探测仍会跑
+- **WHEN** 已登录客户端对踢脚接口发起请求，且 Telegram getMe 尚未返回
+- **THEN** 该请求在探测完成前即以成功被接受结束；探测仍会对已启用通道写入 last_check
+
 ### Requirement: 活路不变式
 工作流、任务队列、计算节点的展示健康 MUST 满足：自身无断点，并且至少存在一条完整可用路径（可用的消息平台 → 该资源所在位置 → 就绪计算节点）。某一跳不可用且没有别的活路时，所有必须经过它才能跑通的资源 MUST 为存在问题。另有活路时，该资源自身 MUST 仍为正常，不可用的那一跳 MUST 在引用里标为存在问题。该规则 MUST NOT 写成只针对某一种资源或某一种故障（例如只处理通道进程）。
 
@@ -54,6 +61,14 @@
 #### Scenario: 查询失败不标绿
 - **WHEN** 健康查询失败或仍在加载
 - **THEN** 列表圆点、详情与拓扑均不得把该资源显示为正常
+
+#### Scenario: 尚未探测的消息平台不得标绿
+- **WHEN** 某消息平台适配器在跑，但 last_check 为空
+- **THEN** 该平台健康为未就绪，MUST NOT 为正常
+
+#### Scenario: last_check 为故障时不得写链路正常
+- **WHEN** 某消息平台 last_check 为 network、auth 或 other
+- **THEN** 该平台健康 MUST NOT 为正常；详情「状态与关联」MUST NOT 显示链路正常
 
 ### Requirement: 页面不得发明绿黄
 管理后台的工作流、消息平台、任务队列、计算节点列表与详情，以及配置拓扑，MUST 使用组装器返回的健康。MUST NOT 再用页面内拼接多份列表的方式计算绿黄。

@@ -144,12 +144,18 @@
     "expandMenu": "Expand menu",
     "untitled": "Untitled",
     "signOut": "Sign out",
-    "moreActions": "More actions"
+    "moreActions": "More actions",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "status": {
     "normal": "Normal",
     "issue": "Has issues",
     "unavailable": "Unavailable"
+  },
+  "operations": {
+    "related": "Related",
+    "ids": "IDs"
   },
   "auth": {
     "quote": "Use your own ComfyUI for creative work, anywhere.",
@@ -589,6 +595,9 @@
     "fieldChatId": "Chat ID",
     "fieldEdgeId": "Node ID",
     "fieldPromptId": "Prompt ID",
+    "fieldTopic": "Queue",
+    "fieldStartedAt": "Started at",
+    "fieldCompletedAt": "Completed at",
     "fieldErrorCode": "Error code",
     "fieldErrorMessage": "Error message",
     "fieldCreatedAt": "Created at",
@@ -610,8 +619,6 @@
     "fieldUserInfo": "User info",
     "fieldExternalUserId": "External user ID",
     "fieldUsername": "Username",
-    "fieldFirstName": "First name",
-    "fieldLastName": "Last name",
     "fieldLanguageCode": "Language",
     "fieldAccess": "Task access",
     "access": "Set task access",
@@ -648,7 +655,9 @@
     "fieldCaseId": "Workflow ID",
     "fieldCurrentInputIndex": "Current input index",
     "fieldInputKeys": "Input keys",
+    "fieldProgress": "Input progress",
     "fieldDraft": "Draft",
+    "draftSkipped": "Skipped",
     "fieldCreatedAt": "Created at",
     "fieldUpdatedAt": "Updated at"
   },
@@ -691,6 +700,7 @@
     "fieldDbDsn": "DSN",
     "tabUsers": "Users",
     "tabText": "Default copy",
+    "defaultUserAccess": "Default access for new users",
     "registrationTitle": "Open registration",
     "registrationHint": "Anyone can create an account via the sign-up page (read-only by default).",
     "registrationNote": "The sign-up page is hidden while this is off.",
@@ -728,7 +738,6 @@
     "backToList": "Back to message platforms",
     "platform": "Platform",
     "name": "Name",
-    "botName": "Bot name",
     "botUsername": "Bot username",
     "token": "Bot Token",
     "fieldCreatedAt": "Created at",
@@ -755,8 +764,6 @@
     "deleteAckImpact": "I understand the impact above",
     "tokenHint": "Leave blank to keep unchanged; tokens are stored encrypted and shown masked.",
     "tabPreview": "Message Platform Preview",
-    "checkingReachability": "Checking…",
-    "checkReachability": "Check",
     "reachabilityOK": "Connected",
     "reachabilityNetwork": "Cannot reach Telegram",
     "reachabilityAuth": "Token invalid",
@@ -993,7 +1000,7 @@
     "channelTokenInvalid": "Bot token invalid",
     "channelCheckFailed": "Reachability check failed: {{message}}",
     "topicNoReadyNode": "Task queue {{topic}} has no online compute node",
-    "noEdgeSubscribers": "No compute node subscribes to this task queue",
+    "noEdgeSubscribers": "No compute node subscribes to {{topic}}",
     "subscribersOffline": "All subscribing compute nodes are offline",
     "caseMissing": "Workflow not found",
     "edgeMissing": "Compute node not found",
@@ -1004,15 +1011,14 @@
     "relatedEntries": "Related entries",
     "routeTopics": "Routed task queues",
     "actionManageChannels": "Manage channels",
-    "actionCheckChannel": "Check",
     "entryChannelUnusable": "Channel entry unavailable",
     "guideEntryChannelUnusable": "The channel is disabled or its adapter is not running. Check channel state.",
     "channelNotChecked": "Reachability not checked",
-    "guideChannelNotChecked": "Open the channel and tap Check",
+    "guideChannelNotChecked": "Wait for the background probe",
     "edgePresenceUnknown": "Node online state unknown",
     "guideEdgePresenceUnknown": "Wait for the agent heartbeat",
     "pathNotReady": "No complete live path",
-    "guidePathNotReady": "Check channel reachability, queue binding, and node online state"
+    "guidePathNotReady": "Confirm compute nodes are online"
   },
   "dataTable": {
     "search": "Search",

@@ -22,16 +22,21 @@ type Handler struct {
 	// scoped data (e.g. an initial copy of the platform default templates) can
 	// be seeded. Failures are logged but do not fail channel creation.
 	OnCreated func(ctx context.Context, id string) error
+	// Probe, when set, is kicked asynchronously by POST /probe.
+	Probe *application.ReachabilityProbe
+	// ProbeCtx is the process context for kicked ProbeOnce calls; request
+	// cancel must not abort the probe. Nil falls back to context.Background.
+	ProbeCtx context.Context
 }
 
 func (h *Handler) Mount(r chi.Router) {
 	r.Get("/", h.List)
 	r.Post("/", h.Create)
+	r.Post("/probe", h.KickProbe)
 	r.Get("/{id}", h.Get)
 	r.Put("/{id}", h.Update)
 	r.Post("/{id}/disable", h.Disable)
 	r.Post("/{id}/enable", h.Enable)
-	r.Post("/{id}/check", h.CheckReachability)
 	r.Delete("/{id}", h.Delete)
 }
 
@@ -210,37 +215,23 @@ func (h *Handler) Enable(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"enabled": true})
 }
 
-func (h *Handler) CheckReachability(w http.ResponseWriter, r *http.Request) {
-	if h == nil || h.Svc == nil {
+func (h *Handler) KickProbe(w http.ResponseWriter, r *http.Request) {
+	if h == nil {
 		writeErr(w, http.StatusInternalServerError, "channel service not configured")
 		return
 	}
-	id := chi.URLParam(r, "id")
-	res, err := h.Svc.CheckReachability(r.Context(), id)
-	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
-		return
-	}
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	dto := struct {
-		application.ReachabilityResult
-		CheckedAt    time.Time `json:"checked_at"`
-		AdapterState string    `json:"adapter_state,omitempty"`
-		AdapterError string    `json:"adapter_error,omitempty"`
-	}{
-		ReachabilityResult: res,
-		CheckedAt:          time.Now().UTC(),
-	}
-	if h.Svc.AdapterStatus != nil {
-		if state, lastErr, found := h.Svc.AdapterStatus(r.Context(), id); found {
-			dto.AdapterState = state
-			dto.AdapterError = lastErr
+	if h.Probe != nil {
+		ctx := h.ProbeCtx
+		if ctx == nil {
+			ctx = context.Background()
 		}
+		go func() {
+			if err := h.Probe.ProbeOnce(ctx); err != nil && ctx.Err() == nil {
+				slog.Error("channel reachability probe kick", "err", err)
+			}
+		}()
 	}
-	writeJSON(w, http.StatusOK, dto)
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {

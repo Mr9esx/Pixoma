@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import {
   createColumnHelper,
   getCoreRowModel,
@@ -16,6 +15,7 @@ import { Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TaskRecord } from '@/lib/api/types'
 import { formatDateTime, formatUserLabel } from '@/lib/format'
+import type { OperationsDetailTarget } from '@/features/operations/types'
 import { Button } from '@/components/ui/button'
 import { FadeSwap } from '@/components/ui/fade-swap'
 import { Reveal } from '@/components/ui/reveal'
@@ -40,7 +40,7 @@ export function taskStatusLabelKey(status: string): string | undefined {
 
 type Props = {
   items: TaskRecord[]
-  onOpenDetail: (item: TaskRecord) => void
+  onOpenDetail: (target: OperationsDetailTarget) => void
   isLoading?: boolean
   isError?: boolean
   errorMessage?: string
@@ -146,15 +146,17 @@ export function TaskListPanel({
         ),
         cell: ({ row }) => {
           const label = formatUserLabel(row.original.user, row.original.user_id)
-          if (!label) return '—'
+          if (!label || !row.original.user_id) return '—'
           return (
-            <Link
-              to='/users/$userId'
-              params={{ userId: row.original.user_id! }}
+            <button
+              type='button'
               className='text-foreground underline-offset-4 hover:underline'
+              onClick={() =>
+                onOpenDetail({ kind: 'user', id: row.original.user_id! })
+              }
             >
               {label}
-            </Link>
+            </button>
           )
         },
       }),
@@ -170,13 +172,15 @@ export function TaskListPanel({
         cell: ({ getValue }) => (
           <span className='font-mono text-xs'>
             {getValue() ? (
-              <Link
-                to='/sessions/$sessionId'
-                params={{ sessionId: getValue()! }}
+              <button
+                type='button'
                 className='text-foreground underline-offset-4 hover:underline'
+                onClick={() =>
+                  onOpenDetail({ kind: 'session', id: getValue()! })
+                }
               >
                 {getValue()}
-              </Link>
+              </button>
             ) : (
               '—'
             )}
@@ -217,7 +221,9 @@ export function TaskListPanel({
             type='button'
             variant='outline'
             size='sm'
-            onClick={() => onOpenDetail(row.original)}
+            onClick={() =>
+              onOpenDetail({ kind: 'task', id: row.original.id })
+            }
           >
             <Eye className='size-4' />
             {t('common.detail')}

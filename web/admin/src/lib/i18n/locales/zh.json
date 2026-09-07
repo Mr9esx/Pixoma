@@ -144,12 +144,18 @@
     "expandMenu": "展开菜单",
     "untitled": "未命名",
     "signOut": "退出登录",
-    "moreActions": "更多操作"
+    "moreActions": "更多操作",
+    "copy": "复制",
+    "copied": "已复制"
   },
   "status": {
     "normal": "正常",
     "issue": "存在问题",
     "unavailable": "当前不可用"
+  },
+  "operations": {
+    "related": "关联",
+    "ids": "标识"
   },
   "auth": {
     "quote": "随时随地使用自己的 ComfyUI 进行艺术创作。",
@@ -591,6 +597,9 @@
     "fieldChatId": "Chat ID",
     "fieldEdgeId": "节点 ID",
     "fieldPromptId": "Prompt ID",
+    "fieldTopic": "任务队列",
+    "fieldStartedAt": "开始时间",
+    "fieldCompletedAt": "结束时间",
     "fieldErrorCode": "错误码",
     "fieldErrorMessage": "错误信息",
     "fieldCreatedAt": "创建时间",
@@ -612,8 +621,6 @@
     "fieldUserInfo": "用户信息",
     "fieldExternalUserId": "外部用户 ID",
     "fieldUsername": "用户名",
-    "fieldFirstName": "名",
-    "fieldLastName": "姓",
     "fieldLanguageCode": "语言",
     "fieldAccess": "使用权限",
     "access": "设置使用权限",
@@ -650,7 +657,9 @@
     "fieldCaseId": "工作流 ID",
     "fieldCurrentInputIndex": "当前输入索引",
     "fieldInputKeys": "输入键",
+    "fieldProgress": "输入进度",
     "fieldDraft": "Draft",
+    "draftSkipped": "已跳过",
     "fieldCreatedAt": "创建时间",
     "fieldUpdatedAt": "更新时间"
   },
@@ -693,6 +702,7 @@
     "fieldDbDsn": "连接",
     "tabUsers": "用户管理",
     "tabText": "默认文案",
+    "defaultUserAccess": "新用户默认使用权限",
     "registrationTitle": "是否开放注册",
     "registrationHint": "开启后，任何人都能通过注册页创建账号（默认只读）。",
     "registrationNote": "关闭时注册页不可访问。",
@@ -730,7 +740,6 @@
     "backToList": "返回消息平台列表",
     "platform": "平台",
     "name": "名称",
-    "botName": "Bot 名称",
     "botUsername": "Bot 用户名",
     "token": "Bot Token",
     "fieldCreatedAt": "创建时间",
@@ -757,8 +766,6 @@
     "deleteAckImpact": "我已知悉上述影响",
     "tokenHint": "留空表示不修改；Token 只加密存储，页面仅显示掩码。",
     "tabPreview": "消息平台预览",
-    "checkingReachability": "检测中…",
-    "checkReachability": "检测",
     "reachabilityOK": "连接正常",
     "reachabilityNetwork": "无法连接 Telegram",
     "reachabilityAuth": "Token 无效",
@@ -995,7 +1002,7 @@
     "channelTokenInvalid": "Bot Token 无效",
     "channelCheckFailed": "连接检测失败：{{message}}",
     "topicNoReadyNode": "任务队列 {{topic}} 没有在线计算节点",
-    "noEdgeSubscribers": "没有计算节点订阅该任务队列",
+    "noEdgeSubscribers": "没有计算节点订阅「{{topic}}」",
     "subscribersOffline": "订阅计算节点全部离线",
     "caseMissing": "工作流不存在",
     "edgeMissing": "计算节点不存在",
@@ -1006,15 +1013,14 @@
     "relatedEntries": "关联入口",
     "routeTopics": "路由任务队列",
     "actionManageChannels": "去管理消息平台",
-    "actionCheckChannel": "去检测",
     "entryChannelUnusable": "消息平台入口不可用",
     "guideEntryChannelUnusable": "消息平台未运行或已停用。检查平台启停与适配器状态后重试",
-    "channelNotChecked": "尚未检测连通",
-    "guideChannelNotChecked": "在消息平台详情点「检测」",
+    "channelNotChecked": "尚未探测连通",
+    "guideChannelNotChecked": "等探测结果",
     "edgePresenceUnknown": "节点在线状态未知",
     "guideEdgePresenceUnknown": "等 agent 心跳上来",
     "pathNotReady": "没有完整活路",
-    "guidePathNotReady": "先检测入口连通，再看队列绑定和节点在线"
+    "guidePathNotReady": "确认计算节点在线"
   },
   "dataTable": {
     "search": "搜索",

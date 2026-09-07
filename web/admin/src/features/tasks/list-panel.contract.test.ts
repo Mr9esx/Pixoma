@@ -26,8 +26,10 @@ describe('task list panel', () => {
     expect(source).toMatch(/columnPinning: \{ right: \['actions'\] \}/)
     expect(source).toMatch(/t\('common\.actions'\)/)
     expect(source).toMatch(/formatDateTime/)
-    expect(source).toMatch(/to='\/users\/\$userId'/)
-    expect(source).toMatch(/to='\/sessions\/\$sessionId'/)
+    expect(source).not.toMatch(/to='\/users\/\$userId'/)
+    expect(source).not.toMatch(/to='\/sessions\/\$sessionId'/)
+    expect(source).toMatch(/kind: 'user'/)
+    expect(source).toMatch(/kind: 'session'/)
     expect(read('detail-panel.tsx')).toMatch(/fieldPlatform/)
   })
 

@@ -56,6 +56,48 @@ func TestUpsertByChannelExternal_IdempotentAndRefresh(t *testing.T) {
 	}
 }
 
+func TestUpsertByChannelExternal_UsesConfiguredDefaultAccess(t *testing.T) {
+	gdb := openTestDB(t)
+	repo := persistence.NewUserRepository(gdb)
+	repo.SetDefaultAccess(func() domain.UserAccess {
+		return domain.UserAccessAlwaysAllowed
+	})
+	ctx := context.Background()
+
+	created, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "77", Username: "newcomer",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Access != domain.UserAccessAlwaysAllowed {
+		t.Fatalf("access=%q want always_allowed", created.Access)
+	}
+
+	repo.SetDefaultAccess(func() domain.UserAccess {
+		return domain.UserAccessPaid
+	})
+	other, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "78", Username: "paid-user",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if other.Access != domain.UserAccessPaid {
+		t.Fatalf("access=%q want paid", other.Access)
+	}
+
+	refreshed, err := repo.UpsertByChannelExternal(ctx, domain.UpsertFrom{
+		ChannelID: "tg-default", ExternalUserID: "77", Username: "newcomer",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.Access != domain.UserAccessAlwaysAllowed {
+		t.Fatalf("upsert reset access=%q", refreshed.Access)
+	}
+}
+
 func TestUserRepository_SetAccess(t *testing.T) {
 	gdb := openTestDB(t)
 	repo := persistence.NewUserRepository(gdb)

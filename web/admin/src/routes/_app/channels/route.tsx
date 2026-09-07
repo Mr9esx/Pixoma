@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createFileRoute,
   Outlet,
@@ -9,7 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { Plus, Radio } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { listChannels } from '@/lib/api/channels'
+import { kickChannelProbe, listChannels, type Channel } from '@/lib/api/channels'
 import { findLinkNode, nodeEntityHealth } from '@/lib/api/link-health'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,10 @@ import { MasterDetailShell } from '@/components/master-detail/master-detail-shel
 import { ChannelDetailPanel } from '@/features/channels/channel-detail-panel'
 import { ChannelListPanel } from '@/features/channels/channel-list-panel'
 import { CreateChannelForm } from '@/features/channels/create-channel-form'
+import {
+  captureProbeStamps,
+  probeHasSettled,
+} from '@/features/channels/probe-refresh'
 import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
 
 export const Route = createFileRoute('/_app/channels')({
@@ -55,6 +59,31 @@ function ChannelsLayout() {
     queryKey: queryKeys.channels.all,
     queryFn: listChannels,
   })
+  const queryClient = useQueryClient()
+  const probeKicked = useRef(false)
+  useEffect(() => {
+    if (probeKicked.current) return
+    if (!listQuery.isSuccess) return
+    probeKicked.current = true
+    const before = captureProbeStamps(listQuery.data ?? [])
+    let cancelled = false
+    void kickChannelProbe().then(async () => {
+      const deadline = Date.now() + 30_000
+      while (!cancelled && Date.now() < deadline) {
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.channels.all,
+        })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
+        const items =
+          queryClient.getQueryData<Channel[]>(queryKeys.channels.all) ?? []
+        if (probeHasSettled(before, items)) break
+        await new Promise((resolve) => setTimeout(resolve, 2_000))
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [listQuery.isSuccess, queryClient])
   const healthQuery = useLinkHealthQuery({ enabled: listQuery.isSuccess })
   const items = useMemo(() => listQuery.data ?? [], [listQuery.data])
   const backToList = locationState?.backToList === true

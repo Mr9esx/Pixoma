@@ -11,7 +11,7 @@ func TestCaseDocumentRoutingRoundTrip(t *testing.T) {
 		Name:       "case-a",
 		Routing: &RoutingConfig{
 			Rules: []RoutingRule{
-				{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
+				{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`), Topic: "fast-gpu"},
 			},
 		},
 	}

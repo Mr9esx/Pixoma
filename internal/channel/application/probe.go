@@ -3,16 +3,18 @@ package application
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 )
 
-const defaultProbeInterval = 60 * time.Second
+const defaultProbeInterval = 30 * time.Second
 
 // ReachabilityProbe periodically probes enabled channels and persists last_check.
-// It must not run on HTTP or page-load paths.
+// GET and page render must not wait on it; POST /probe may kick ProbeOnce in the background.
 type ReachabilityProbe struct {
 	Svc      *Service
 	Interval time.Duration
+	mu       sync.Mutex
 }
 
 func (p *ReachabilityProbe) interval() time.Duration {
@@ -28,6 +30,10 @@ func (p *ReachabilityProbe) ProbeOnce(ctx context.Context) error {
 	if p == nil || p.Svc == nil {
 		return nil
 	}
+	if !p.mu.TryLock() {
+		return nil
+	}
+	defer p.mu.Unlock()
 	chs, err := p.Svc.List(ctx)
 	if err != nil {
 		return err
@@ -39,9 +45,12 @@ func (p *ReachabilityProbe) ProbeOnce(ctx context.Context) error {
 		if !ch.Enabled {
 			continue
 		}
-		if _, err := p.Svc.CheckReachability(ctx, ch.ID); err != nil {
+		res, err := p.Svc.CheckReachability(ctx, ch.ID)
+		if err != nil {
 			slog.Warn("channel reachability probe", "channel", ch.ID, "err", err)
+			continue
 		}
+		slog.Info("channel reachability probe", "channel", ch.ID, "kind", string(res.Kind))
 	}
 	return nil
 }

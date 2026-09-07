@@ -16,6 +16,26 @@ type fakeTopicRepo struct {
 	topics map[string]bool // key -> enabled
 }
 
+type valStubProvider struct {
+	val func(ctx context.Context, field string) (any, error)
+}
+
+func (s *valStubProvider) Namespace() string { return "user" }
+func (s *valStubProvider) ListAttributes() []condition.AttributeDescriptor {
+	return []condition.AttributeDescriptor{{
+		Key:     "user.level",
+		Context: "user",
+		Label:   "Level",
+		Schema:  map[string]any{"type": "string"},
+	}}
+}
+func (s *valStubProvider) Value(ctx context.Context, field string) (any, error) {
+	if s.val == nil {
+		return nil, condition.ErrAttributeMissing
+	}
+	return s.val(ctx, field)
+}
+
 func (f *fakeTopicRepo) List(_ context.Context, _ *bool) ([]topic.Topic, error) { return nil, nil }
 
 func (f *fakeTopicRepo) Get(_ context.Context, key string) (*topic.Topic, error) {
@@ -33,10 +53,10 @@ func (f *fakeTopicRepo) Delete(_ context.Context, _ string) error      { return 
 func TestValidateRouting(t *testing.T) {
 	topics := &fakeTopicRepo{topics: map[string]bool{"fast-gpu": true, "disabled": false}}
 	reg := condition.NewRegistry()
-	reg.Register(&condition.UserProvider{Lookup: func(context.Context, string) (*bool, error) { return nil, nil }})
+	reg.Register(&valStubProvider{})
 
 	ok := &domain.RoutingConfig{Rules: []domain.RoutingRule{
-		{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
+		{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`), Topic: "fast-gpu"},
 	}}
 	if err := validation.ValidateRouting(context.Background(), ok, topics, reg); err != nil {
 		t.Fatalf("valid routing rejected: %v", err)
@@ -68,16 +88,16 @@ func TestValidateRouting(t *testing.T) {
 		want string
 	}{
 		{"unknown topic", &domain.RoutingConfig{Rules: []domain.RoutingRule{
-			{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "nope"},
+			{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`), Topic: "nope"},
 		}}, "nope"},
 		{"disabled topic", &domain.RoutingConfig{Rules: []domain.RoutingRule{
-			{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "disabled"},
+			{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`), Topic: "disabled"},
 		}}, "disabled"},
 		{"unknown condition field", &domain.RoutingConfig{Rules: []domain.RoutingRule{
 			{When: json.RawMessage(`{"field":"user.unknown","op":"eq","value":1}`), Topic: "fast-gpu"},
 		}}, "user.unknown"},
 		{"missing topic", &domain.RoutingConfig{Rules: []domain.RoutingRule{
-			{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`)},
+			{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`)},
 		}}, "topic required"},
 	}
 	for _, tc := range bad {

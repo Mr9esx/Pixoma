@@ -51,6 +51,19 @@ describe('channel layout aligned with compute nodes', () => {
     expect(form).not.toMatch(/max-w-xl/)
   })
 
+  it('list mount kicks async probe without waiting for list render', () => {
+    const route = readFileSync(ROUTE, 'utf8')
+    const api = readFileSync(join(here, '../../lib/api/channels.ts'), 'utf8')
+    expect(api).toMatch(/\/api\/v1\/channels\/probe/)
+    expect(api).toMatch(/kickChannelProbe/)
+    expect(route).toMatch(/kickChannelProbe/)
+    expect(route).toMatch(/queryFn:\s*listChannels/)
+    expect(route).not.toMatch(/await kickChannelProbe/)
+    expect(route).not.toMatch(/checkChannelReachability/)
+    expect(route).not.toMatch(/正在检测/)
+    expect(route).toMatch(/invalidateQueries\(\{\s*queryKey:\s*queryKeys\.linkHealth/)
+  })
+
   it('detail panel reads stored last check and does not probe Telegram on open', () => {
     const detail = readFileSync(join(here, 'channel-detail-panel.tsx'), 'utf8')
     const api = readFileSync(join(here, '../../lib/api/channels.ts'), 'utf8')
@@ -81,6 +94,31 @@ describe('channel layout aligned with compute nodes', () => {
     expect(route).toMatch(/enabled:\s*listQuery\.isSuccess/)
     expect(hook).not.toMatch(/refetchInterval:\s*5000/)
     expect(hook).not.toMatch(/staleTime:\s*0/)
+    expect(detail).not.toMatch(/useLinkHealthQuery\(\{\s*enabled:\s*false/)
+    expect(detail).toMatch(/alignPlatformHealth/)
+  })
+
+  it('last_check network must not render link-health-ok', () => {
+    const detail = readFileSync(join(here, 'channel-detail-panel.tsx'), 'utf8')
+    const section = readFileSync(
+      join(here, '../link-health/link-health-section.tsx'),
+      'utf8'
+    )
+    expect(detail).toMatch(/ChannelReachabilityTag/)
+    expect(detail).toMatch(/alignPlatformHealth/)
+    expect(detail).toMatch(/storedCheck/)
+    expect(section).toMatch(/health\.state === 'ok' && !blocked/)
+    expect(section).toContain("data-testid='link-health-ok'")
+    expect(section).toContain('linkHealth.stateOk')
+  })
+
+  it('probe kick refreshes channel last_check and link-health together', () => {
+    const route = readFileSync(ROUTE, 'utf8')
+    expect(route).toMatch(/kickChannelProbe/)
+    expect(route).toMatch(/probeHasSettled/)
+    expect(route).toMatch(/queryKeys\.channels\.all/)
+    expect(route).toMatch(/queryKeys\.linkHealth/)
+    expect(route).not.toMatch(/setTimeout\(\(\) => \{[\s\S]*queryKeys\.linkHealth[\s\S]*\}, 3_000\)/)
   })
 
   it('delete is available while enabled and shows impact', () => {

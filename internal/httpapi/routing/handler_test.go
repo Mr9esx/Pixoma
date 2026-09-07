@@ -14,8 +14,6 @@ import (
 
 func TestAttributesCatalog(t *testing.T) {
 	reg := condition.NewRegistry()
-	reg.Register(&condition.UserProvider{Lookup: nil})
-	reg.Register(&condition.CaseProvider{Lookup: nil})
 
 	h := &routing.Handler{Registry: reg}
 	r := chi.NewRouter()
@@ -33,20 +31,7 @@ func TestAttributesCatalog(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(body.Attributes) != 3 {
-		t.Fatalf("attributes = %d, want 3", len(body.Attributes))
-	}
-	keys := map[string]bool{}
-	for _, a := range body.Attributes {
-		key, _ := a["key"].(string)
-		keys[key] = true
-		if a["schema"] == nil || a["label"] == nil || a["context"] == nil {
-			t.Fatalf("attribute %s missing fields: %+v", key, a)
-		}
-	}
-	for _, want := range []string{"user.is_premium", "case.category", "case.tags"} {
-		if !keys[want] {
-			t.Fatalf("missing attribute %s: %v", want, keys)
-		}
+	if len(body.Attributes) != 0 {
+		t.Fatalf("attributes = %d, want 0", len(body.Attributes))
 	}
 }

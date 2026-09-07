@@ -16,25 +16,26 @@ type Store struct {
 }
 
 type row struct {
-	ID               string `gorm:"primaryKey;size:32"`
-	Placement        string `gorm:"size:32;not null"`
-	DBDriver         string `gorm:"column:db_driver;size:32;not null"`
-	DBDSN            string `gorm:"column:db_dsn;type:text;not null"`
-	BlobDriver       string `gorm:"column:blob_driver;size:32;not null"`
-	BlobRoot         string `gorm:"column:blob_root;type:text"`
-	BlobEndpoint     string `gorm:"column:blob_endpoint;type:text"`
-	BlobRegion       string `gorm:"column:blob_region;size:64"`
-	BlobBucket       string `gorm:"column:blob_bucket;size:256"`
-	BlobAccessCipher string `gorm:"column:blob_access_cipher;type:text"`
-	BlobSecretCipher string `gorm:"column:blob_secret_cipher;type:text"`
-	ComfyUIBaseURL   string `gorm:"column:comfyui_base_url;type:text"`
-	ClaimWaitMS      int    `gorm:"column:claim_wait_ms"`
-	LeaseSeconds     int    `gorm:"column:lease_seconds"`
-	ProxyKind        string `gorm:"column:proxy_kind;size:16"`
-	ProxyHost        string `gorm:"column:proxy_host;type:text"`
-	ProxyPort        int    `gorm:"column:proxy_port"`
-	MediaMaxBytes    int64  `gorm:"column:media_max_bytes;not null;default:0"`
-	AllowSelfReg     bool   `gorm:"column:allow_self_registration;not null;default:false"`
+	ID                string `gorm:"primaryKey;size:32"`
+	Placement         string `gorm:"size:32;not null"`
+	DBDriver          string `gorm:"column:db_driver;size:32;not null"`
+	DBDSN             string `gorm:"column:db_dsn;type:text;not null"`
+	BlobDriver        string `gorm:"column:blob_driver;size:32;not null"`
+	BlobRoot          string `gorm:"column:blob_root;type:text"`
+	BlobEndpoint      string `gorm:"column:blob_endpoint;type:text"`
+	BlobRegion        string `gorm:"column:blob_region;size:64"`
+	BlobBucket        string `gorm:"column:blob_bucket;size:256"`
+	BlobAccessCipher  string `gorm:"column:blob_access_cipher;type:text"`
+	BlobSecretCipher  string `gorm:"column:blob_secret_cipher;type:text"`
+	ComfyUIBaseURL    string `gorm:"column:comfyui_base_url;type:text"`
+	ClaimWaitMS       int    `gorm:"column:claim_wait_ms"`
+	LeaseSeconds      int    `gorm:"column:lease_seconds"`
+	ProxyKind         string `gorm:"column:proxy_kind;size:16"`
+	ProxyHost         string `gorm:"column:proxy_host;type:text"`
+	ProxyPort         int    `gorm:"column:proxy_port"`
+	MediaMaxBytes     int64  `gorm:"column:media_max_bytes;not null;default:0"`
+	AllowSelfReg      bool   `gorm:"column:allow_self_registration;not null;default:false"`
+	DefaultUserAccess string `gorm:"column:default_user_access;size:32;not null;default:'denied'"`
 }
 
 func (row) TableName() string { return "platform_settings" }
@@ -77,25 +78,26 @@ func (s *Store) Save(in Settings) error {
 		}
 	}
 	r := row{
-		ID:               rowID,
-		Placement:        in.Placement,
-		DBDriver:         in.DBDriver,
-		DBDSN:            in.DBDSN,
-		BlobDriver:       in.BlobDriver,
-		BlobRoot:         in.BlobRoot,
-		BlobEndpoint:     in.BlobEndpoint,
-		BlobRegion:       in.BlobRegion,
-		BlobBucket:       in.BlobBucket,
-		BlobAccessCipher: ak,
-		BlobSecretCipher: sk,
-		ComfyUIBaseURL:   in.ComfyUIBaseURL,
-		ClaimWaitMS:      in.ClaimWaitMS,
-		LeaseSeconds:     in.LeaseSeconds,
-		ProxyKind:        in.ProxyKind,
-		ProxyHost:        in.ProxyHost,
-		ProxyPort:        in.ProxyPort,
-		MediaMaxBytes:    in.MediaMaxBytes,
-		AllowSelfReg:     in.AllowSelfRegistration,
+		ID:                rowID,
+		Placement:         in.Placement,
+		DBDriver:          in.DBDriver,
+		DBDSN:             in.DBDSN,
+		BlobDriver:        in.BlobDriver,
+		BlobRoot:          in.BlobRoot,
+		BlobEndpoint:      in.BlobEndpoint,
+		BlobRegion:        in.BlobRegion,
+		BlobBucket:        in.BlobBucket,
+		BlobAccessCipher:  ak,
+		BlobSecretCipher:  sk,
+		ComfyUIBaseURL:    in.ComfyUIBaseURL,
+		ClaimWaitMS:       in.ClaimWaitMS,
+		LeaseSeconds:      in.LeaseSeconds,
+		ProxyKind:         in.ProxyKind,
+		ProxyHost:         in.ProxyHost,
+		ProxyPort:         in.ProxyPort,
+		MediaMaxBytes:     in.MediaMaxBytes,
+		AllowSelfReg:      in.AllowSelfRegistration,
+		DefaultUserAccess: NormalizeDefaultUserAccess(in.DefaultUserAccess),
 	}
 	return s.db.Save(&r).Error
 }
@@ -136,5 +138,6 @@ func (s *Store) Load() (Settings, error) {
 		ProxyPort:             r.ProxyPort,
 		MediaMaxBytes:         r.MediaMaxBytes,
 		AllowSelfRegistration: r.AllowSelfReg,
+		DefaultUserAccess:     NormalizeDefaultUserAccess(r.DefaultUserAccess),
 	}, nil
 }

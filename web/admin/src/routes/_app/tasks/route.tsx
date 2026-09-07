@@ -4,18 +4,8 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTasks } from '@/lib/api/tasks'
-import type { TaskRecord } from '@/lib/api/types'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  resourceDetailBodyClassName,
-  resourceDetailDialogClassName,
-} from '@/features/resource-modal'
-import { TaskDetailPanel } from '@/features/tasks/detail-panel'
+import { OperationsDetailDialog } from '@/features/operations/detail-dialog'
+import type { OperationsDetailTarget } from '@/features/operations/types'
 import { TaskListPanel } from '@/features/tasks/list-panel'
 
 export const Route = createFileRoute('/_app/tasks')({
@@ -28,7 +18,7 @@ function errorMessage(err: unknown): string | undefined {
 
 function TasksLayout() {
   const { t } = useTranslation()
-  const [detail, setDetail] = useState<TaskRecord | null>(null)
+  const [detail, setDetail] = useState<OperationsDetailTarget | null>(null)
 
   const listQuery = useQuery({
     queryKey: queryKeys.tasks.all,
@@ -59,21 +49,11 @@ function TasksLayout() {
         onRetry={() => void listQuery.refetch()}
       />
 
-      <Dialog
-        open={detail !== null}
-        onOpenChange={(open) => {
-          if (!open) setDetail(null)
-        }}
-      >
-        <DialogContent className={resourceDetailDialogClassName}>
-          <DialogHeader>
-            <DialogTitle>{t('tasks.detailHeading')}</DialogTitle>
-          </DialogHeader>
-          <div className={resourceDetailBodyClassName}>
-            {detail ? <TaskDetailPanel id={detail.id} /> : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <OperationsDetailDialog
+        target={detail}
+        onClose={() => setDetail(null)}
+        onOpenRelated={setDetail}
+      />
     </div>
   )
 }

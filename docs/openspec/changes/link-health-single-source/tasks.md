@@ -26,6 +26,16 @@
 - [x] 5.2 详情标签只读已存 last_check；列表先出再拉健康；去掉 5s 强刷
 - [x] 5.3 架构文档：探测主人改为后台循环
 
+## 6. 进消息平台异步踢一轮
+
+- [x] 6.1 `POST /api/v1/channels/probe` 立刻 202，后台 ProbeOnce 只测已启用通道；重叠调用有锁不踩踏
+- [x] 6.2 消息平台列表挂载时 fire-and-forget 踢脚，列表渲染不等探测；不恢复详情同步 /check
+
+## 7. 详情 pill 与状态与关联不得打架
+
+- [x] 7.1 空 last_check → pending；network → warn 且断点 `channelUnreachable`，不得 HealthOK
+- [x] 7.2 详情拉与 last_check 一致的 graph；探测结束后同时刷新 channel 与 link-health；last_check 已是故障时不得渲染链路正常；保留标题 pill
+
 审查（standard）接受项：
 - 平台是否可用跟适配器启停走；Telegram 探测由后台循环写入 last_check，打开页面只读。GET /link-health 热路径仍不探测。
 - 无会话拒绝依赖既有 admin gate，与其它 `/api/v1` 相同；handler 单测不重复套 gate。

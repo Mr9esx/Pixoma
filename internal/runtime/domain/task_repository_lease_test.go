@@ -39,7 +39,7 @@ func TestMemory_RequeueExpiredThenClaim(t *testing.T) {
 	repo := domain.NewMemoryTaskRepository()
 	now := time.Unix(10, 0).UTC()
 	task := domain.NewPending("t1", "s1", sharedkernel.CaseID(1), "in", now)
-	_ = task.PrepareForClaim("gpu-1", sharedkernel.BlobRef{Key: "j"}, now)
+	_ = task.PrepareForTopic("default", sharedkernel.BlobRef{Key: "j"}, now)
 	_ = task.ClaimWithLease("gpu-1", time.Second, now)
 	if err := repo.Create(ctx, task); err != nil {
 		t.Fatal(err)

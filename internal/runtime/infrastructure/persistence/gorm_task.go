@@ -184,7 +184,7 @@ func (r *TaskRepository) ClaimNextWithLease(ctx context.Context, edgeID sharedke
 		for {
 			var row TaskRow
 			err := tx.Where(
-				"status = ? AND (dispatch_topic IN ("+strings.Join(placeholders, ",")+") OR dispatch_topic = '') "+
+				"status = ? AND dispatch_topic IN ("+strings.Join(placeholders, ",")+") "+
 					"AND job_ref_json != '' AND job_ref_json IS NOT NULL "+
 					"AND (requeue_at IS NULL OR requeue_at <= ?)",
 				args...,
@@ -326,12 +326,9 @@ func (r *TaskRepository) ListByTopic(ctx context.Context, topicKey string, q dom
 	if topicKey == "" {
 		return nil, nil
 	}
-	tx := r.db.WithContext(ctx).Model(&TaskRow{}).Order("created_at ASC")
-	if topicKey == "default" {
-		tx = tx.Where("dispatch_topic = ? OR dispatch_topic = ''", topicKey)
-	} else {
-		tx = tx.Where("dispatch_topic = ?", topicKey)
-	}
+	tx := r.db.WithContext(ctx).Model(&TaskRow{}).
+		Where("dispatch_topic = ?", topicKey).
+		Order("created_at ASC")
 	if q.Status != "" {
 		tx = tx.Where("status = ?", string(q.Status))
 	}
@@ -509,19 +506,4 @@ func rowsToTasks(rows []TaskRow) ([]*domain.Task, error) {
 		out = append(out, t)
 	}
 	return out, nil
-}
-
-// MigrateLegacyTasks reassigns pre-topic queued tasks: rows bound to an edge
-// with an expired lease become claimable on the default topic.
-func MigrateLegacyTasks(ctx context.Context, gdb *gorm.DB, now time.Time) (int64, error) {
-	res := gdb.WithContext(ctx).Model(&TaskRow{}).
-		Where("status = ? AND edge_id != '' AND lease_until < ?", string(sharedkernel.TaskQueued), now).
-		Updates(map[string]any{
-			"edge_id":        "",
-			"lease_until":    gorm.Expr("NULL"),
-			"requeue_at":     gorm.Expr("NULL"),
-			"dispatch_topic": "default",
-			"updated_at":     now,
-		})
-	return res.RowsAffected, res.Error
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
 	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
-	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/actuator"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
 	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui/comfyuitest"
@@ -69,7 +68,6 @@ func TestWorkerExtractsOutputsByBinding(t *testing.T) {
 		Comfy:     mock,
 		Blob:      store,
 		Status:    cap,
-		Workflows: actuator.StaticWorkflows{},
 		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
 	}
 	jobRef := writeJob(t, ctx, store, actuator.JobPackage{
@@ -114,7 +112,6 @@ func TestWorkerFailsWhenBoundNodeMissing(t *testing.T) {
 		Comfy:     mock,
 		Blob:      store,
 		Status:    cap,
-		Workflows: actuator.StaticWorkflows{},
 		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
 	}
 	jobRef := writeJob(t, ctx, store, actuator.JobPackage{
@@ -167,7 +164,6 @@ func TestWorkerFallsBackToAllImagesWithoutBindings(t *testing.T) {
 		Comfy:     mock,
 		Blob:      store,
 		Status:    cap,
-		Workflows: actuator.StaticWorkflows{},
 		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
 	}
 	jobRef := writeJob(t, ctx, store, actuator.JobPackage{
@@ -203,10 +199,16 @@ func TestHandleDispatchPublishesRunningAndSucceeded(t *testing.T) {
 		Comfy:     &comfyuitest.Fake{},
 		Blob:      store,
 		Status:    cap,
-		Workflows: actuator.StaticWorkflows{},
 		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
 	}
-	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{TaskID: "t1", EdgeID: "local"}); err != nil {
+	jobRef := writeJob(t, ctx, store, actuator.JobPackage{
+		TaskID:   "t1",
+		EdgeID:   "local",
+		Workflow: comfyui.Graph{"1": map[string]any{"class_type": "Noop", "inputs": map[string]any{}}},
+	})
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+		TaskID: "t1", EdgeID: "local", JobRef: jobRef,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if len(cap.msgs) != 2 {
@@ -249,7 +251,6 @@ func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
 	w := &actuator.Worker{
 		Blob:      store,
 		Status:    cap,
-		Workflows: actuator.StaticWorkflows{},
 		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
 		Clients: map[sharedkernel.EdgeID]comfyui.Client{
 			"gpu-a": mockA,
@@ -257,7 +258,14 @@ func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
 		},
 	}
 
-	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{TaskID: "t1", EdgeID: "gpu-b"}); err != nil {
+	jobRef := writeJob(t, ctx, store, actuator.JobPackage{
+		TaskID:   "t1",
+		EdgeID:   "gpu-b",
+		Workflow: comfyui.Graph{"1": map[string]any{"class_type": "Noop", "inputs": map[string]any{}}},
+	})
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+		TaskID: "t1", EdgeID: "gpu-b", JobRef: jobRef,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if len(submitted) != 1 || submitted[0] != "gpu-b" {
@@ -267,6 +275,37 @@ func TestWorker_UsesDispatchInstanceClient(t *testing.T) {
 	_ = json.Unmarshal(cap.msgs[0].Payload, &running)
 	if running.EdgeID != "gpu-b" {
 		t.Fatalf("status instance=%s want gpu-b", running.EdgeID)
+	}
+}
+
+func TestWorker_MissingJobRefFails(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	store, err := localfs.New(filepath.Join(dir, "blob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap := &statusCap{}
+	w := &actuator.Worker{
+		Comfy:  &comfyuitest.Fake{},
+		Blob:   store,
+		Status: cap,
+		Now:    func() time.Time { return time.Unix(1, 0).UTC() },
+	}
+	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
+		TaskID: "t-no-ref", EdgeID: "local",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(cap.msgs) != 1 {
+		t.Fatalf("status msgs=%d want 1", len(cap.msgs))
+	}
+	var ev sharedkernel.TaskStatusEvent
+	if err := json.Unmarshal(cap.msgs[0].Payload, &ev); err != nil {
+		t.Fatal(err)
+	}
+	if ev.Status != sharedkernel.TaskFailed || ev.ErrorCode != "workflow" {
+		t.Fatalf("ev=%+v", ev)
 	}
 }
 
@@ -353,25 +392,8 @@ func TestWorker_UploadUsesDispatchInstanceClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	prefix := "inputs/t-img"
-	imgKey := prefix + "/reference.png"
-	ref, err := store.Put(ctx, imgKey, bytes.NewReader([]byte("img-bytes")), blob.PutOptions{MIME: "image/png"})
+	imgRef, err := store.Put(ctx, "inputs/t-img/reference.png", bytes.NewReader([]byte("img-bytes")), blob.PutOptions{MIME: "image/png"})
 	if err != nil {
-		t.Fatal(err)
-	}
-	meta, _ := json.Marshal(ref)
-	if _, err := store.Put(ctx, prefix+"/reference.blob.json", bytes.NewReader(meta), blob.PutOptions{MIME: "application/json"}); err != nil {
-		t.Fatal(err)
-	}
-
-	tasks := runtimedomain.NewMemoryTaskRepository()
-	now := time.Unix(1, 0).UTC()
-	if err := tasks.Create(ctx, runtimedomain.NewPending("t-img", "s1", sharedkernel.CaseID(4), prefix, now)); err != nil {
-		t.Fatal(err)
-	}
-	cases := &memCases{}
-	if err := cases.Create(ctx, &catalogdomain.Case{Document: imageWorkflowCase(), Enabled: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -397,24 +419,28 @@ func TestWorker_UploadUsesDispatchInstanceClient(t *testing.T) {
 		},
 	}
 
-	snap := &actuator.CaseSnapshot{
-		Tasks: tasks, Cases: cases, Blob: store,
-		Uploader: defaultUploader,
-	}
 	cap := &statusCap{}
 	w := &actuator.Worker{
-		Blob:      store,
-		Status:    cap,
-		Workflows: snap,
-		Now:       func() time.Time { return time.Unix(1, 0).UTC() },
+		Blob:   store,
+		Status: cap,
+		Now:    func() time.Time { return time.Unix(1, 0).UTC() },
 		Clients: map[sharedkernel.EdgeID]comfyui.Client{
 			"gpu-a": defaultUploader,
 			"gpu-b": mockB,
 		},
 	}
-
+	jobRef := writeJob(t, ctx, store, actuator.JobPackage{
+		TaskID: "t-img",
+		EdgeID: "gpu-b",
+		Workflow: comfyui.Graph{
+			"1": map[string]any{"class_type": "LoadImage", "inputs": map[string]any{}},
+		},
+		Images: []actuator.JobImage{{
+			NodeID: "1", FieldPath: "image", Blob: imgRef,
+		}},
+	})
 	if err := w.HandleDispatch(ctx, sharedkernel.DispatchCommand{
-		TaskID: "t-img", EdgeID: "gpu-b", InputPrefix: prefix,
+		TaskID: "t-img", EdgeID: "gpu-b", JobRef: jobRef,
 	}); err != nil {
 		t.Fatal(err)
 	}

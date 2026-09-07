@@ -6,17 +6,8 @@ import { toast } from 'sonner'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { UserRecord } from '@/lib/api/types'
 import { listUsers, updateUserAccess } from '@/lib/api/users'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  resourceDetailBodyClassName,
-  resourceDetailDialogClassName,
-} from '@/features/resource-modal'
-import { UserDetailPanel } from '@/features/users/detail-panel'
+import { OperationsDetailDialog } from '@/features/operations/detail-dialog'
+import type { OperationsDetailTarget } from '@/features/operations/types'
 import { UserListPanel } from '@/features/users/list-panel'
 
 export const Route = createFileRoute('/_app/users')({
@@ -30,7 +21,7 @@ function errorMessage(err: unknown): string | undefined {
 function UsersLayout() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [detail, setDetail] = useState<UserRecord | null>(null)
+  const [detail, setDetail] = useState<OperationsDetailTarget | null>(null)
 
   const listQuery = useQuery({
     queryKey: queryKeys.users.all,
@@ -84,21 +75,11 @@ function UsersLayout() {
         onRetry={() => void listQuery.refetch()}
       />
 
-      <Dialog
-        open={detail !== null}
-        onOpenChange={(open) => {
-          if (!open) setDetail(null)
-        }}
-      >
-        <DialogContent className={resourceDetailDialogClassName}>
-          <DialogHeader>
-            <DialogTitle>{t('users.detailHeading')}</DialogTitle>
-          </DialogHeader>
-          <div className={resourceDetailBodyClassName}>
-            {detail ? <UserDetailPanel id={detail.id} /> : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <OperationsDetailDialog
+        target={detail}
+        onClose={() => setDetail(null)}
+        onOpenRelated={setDetail}
+      />
     </div>
   )
 }

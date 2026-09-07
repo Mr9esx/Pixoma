@@ -112,7 +112,7 @@ func TestAssembleLivePathInvariants(t *testing.T) {
 			},
 		},
 		{
-			name: "从未探测但适配器在跑则活路仍可 ok",
+			name: "从未探测即使适配器在跑也不得 ok",
 			snap: liveChain([]ChannelSnap{{
 				ID:           "tg",
 				Name:         "电报",
@@ -121,10 +121,10 @@ func TestAssembleLivePathInvariants(t *testing.T) {
 				AdapterState: "running",
 			}}, true),
 			want: map[string]Health{
-				"platform:tg": HealthOK,
-				"case:10":     HealthOK,
-				"topic:jobs":  HealthOK,
-				"edge:e1":     HealthOK,
+				"platform:tg": HealthPending,
+				"case:10":     HealthPending,
+				"topic:jobs":  HealthPending,
+				"edge:e1":     HealthPending,
 			},
 		},
 		{
@@ -175,6 +175,88 @@ func TestAssembleLivePathInvariants(t *testing.T) {
 	}
 }
 
+func TestAssemble_EmptyLastCheck_NotHealthOK(t *testing.T) {
+	t.Parallel()
+	g := Assemble(liveChain([]ChannelSnap{{
+		ID:           "tg",
+		Name:         "电报",
+		Enabled:      true,
+		AdapterFound: true,
+		AdapterState: "running",
+	}}, true))
+	plat := node(t, g, "platform:tg")
+	if plat.Health != HealthPending {
+		t.Fatalf("empty last_check health=%s, want pending", plat.Health)
+	}
+	if len(plat.Breakpoints) == 0 || plat.Breakpoints[0].Key != "linkHealth.channelNotChecked" {
+		t.Fatalf("empty last_check breakpoints=%+v, want channelNotChecked", plat.Breakpoints)
+	}
+}
+
+func TestAssemble_NetworkLastCheck_WarnsWithUnreachableBreakpoint(t *testing.T) {
+	t.Parallel()
+	g := Assemble(liveChain([]ChannelSnap{unusablePlatform("tg", "电报")}, true))
+	plat := node(t, g, "platform:tg")
+	if plat.Health != HealthWarn {
+		t.Fatalf("network last_check health=%s, want warn", plat.Health)
+	}
+	if plat.Health == HealthOK {
+		t.Fatal("network last_check must not be ok")
+	}
+	if len(plat.Breakpoints) == 0 {
+		t.Fatal("expected channelUnreachable breakpoint")
+	}
+	if plat.Breakpoints[0].Key != "linkHealth.channelUnreachable" {
+		t.Fatalf("breakpoint=%q, want channelUnreachable", plat.Breakpoints[0].Key)
+	}
+	if plat.Breakpoints[0].Action.To != "/settings" {
+		t.Fatalf("to=%q, want /settings", plat.Breakpoints[0].Action.To)
+	}
+}
+
+func TestAssemble_UsablePlatformNoReadyNode_BreakpointsPointToNodes(t *testing.T) {
+	t.Parallel()
+	g := Assemble(liveChain([]ChannelSnap{usablePlatform("tg", "电报")}, false))
+	plat := node(t, g, "platform:tg")
+	if plat.Health == HealthOK {
+		t.Fatal("platform without live path must not be ok")
+	}
+	if len(plat.Breakpoints) == 0 {
+		t.Fatal("expected breakpoints")
+	}
+	b := plat.Breakpoints[0]
+	if b.Key != "linkHealth.topicNoReadyNode" {
+		t.Fatalf("want named queue breakpoint, got %q", b.Key)
+	}
+	if b.Params["topic"] != "出图" {
+		t.Fatalf("topic param=%q, want 出图", b.Params["topic"])
+	}
+	if b.Action.To != "/topics/jobs" {
+		t.Fatalf("to=%q, want /topics/jobs", b.Action.To)
+	}
+}
+
+func TestAssemble_UsablePlatformNoMenu_BreakpointsPointToEntry(t *testing.T) {
+	t.Parallel()
+	snap := liveChain([]ChannelSnap{usablePlatform("tg", "电报")}, true)
+	snap.Menus = map[string]mcdomain.MenuTree{}
+	g := Assemble(snap)
+	plat := node(t, g, "platform:tg")
+	if plat.Health == HealthOK {
+		t.Fatal("platform with no workflow entry must not be ok")
+	}
+	if len(plat.Breakpoints) == 0 {
+		t.Fatal("expected breakpoints")
+	}
+	b := plat.Breakpoints[0]
+	if b.Key != "linkHealth.noMenuEntry" || b.Action.Key != "linkHealth.actionAddEntry" {
+		t.Fatalf("want add-entry CTA, got key=%q action=%q", b.Key, b.Action.Key)
+	}
+	if b.Action.To != "/channels/tg" {
+		t.Fatalf("to=%q", b.Action.To)
+	}
+}
+
 func TestAssemblePendingExposesBreakpoints(t *testing.T) {
 	t.Parallel()
 	snap := liveChain([]ChannelSnap{{
@@ -198,6 +280,15 @@ func TestAssemblePendingExposesBreakpoints(t *testing.T) {
 	plat := node(t, g, "platform:tg")
 	if plat.Breakpoints[0].Key != "linkHealth.pathNotReady" {
 		t.Fatalf("platform breakpoint=%q", plat.Breakpoints[0].Key)
+	}
+	caseNode := node(t, g, "case:10")
+	for _, b := range caseNode.Breakpoints {
+		if b.Action.Key == "linkHealth.actionCheckChannel" {
+			t.Fatalf("stale check-button CTA: %+v", b)
+		}
+	}
+	if caseNode.Breakpoints[0].Action.Key != "linkHealth.actionManageChannels" {
+		t.Fatalf("case action=%q", caseNode.Breakpoints[0].Action.Key)
 	}
 }
 

@@ -35,11 +35,6 @@ func Bootstrap(ctx context.Context, opts Options) (*gorm.DB, func() error, error
 		return nil, nil, err
 	}
 
-	if err := db.RenameLegacy(gdb); err != nil {
-		_ = closeDB(gdb)
-		return nil, nil, err
-	}
-
 	models := append([]any(nil), opts.Models...)
 	if opts.MigrateEdges {
 		models = append(models, &instpersist.EdgeRow{}, &instpersist.MetricsRow{})

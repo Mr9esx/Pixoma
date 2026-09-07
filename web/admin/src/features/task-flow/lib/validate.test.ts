@@ -35,33 +35,33 @@ const topics: TopicRecord[] = [
 
 const attributes: AttributeDescriptor[] = [
   {
-    key: 'user.is_premium',
-    context: 'user',
+    key: 'input.flag',
+    context: 'input',
     label: '用户是否付费',
     schema: { type: 'boolean' },
   },
   {
-    key: 'case.category',
+    key: 'input.kind',
     context: 'case',
     label: 'Case 分类',
     schema: { type: 'string', enum: ['image', 'video', 'audio'] },
   },
   {
-    key: 'case.tags',
+    key: 'input.tags',
     context: 'case',
     label: 'Case 标签',
     schema: { type: 'array', items: { type: 'string' } },
   },
   {
-    key: 'user.age',
-    context: 'user',
+    key: 'input.count',
+    context: 'input',
     label: '用户年龄',
     schema: { type: 'number' },
   },
 ]
 
 const okRule = (
-  when: unknown = { field: 'user.is_premium', op: 'eq', value: true },
+  when: unknown = { field: 'input.flag', op: 'eq', value: true },
   topic = 'fast-gpu'
 ) => ({
   when,
@@ -81,7 +81,7 @@ describe('validateRule', () => {
 
   it('未连线（topic 缺失）报 topic-missing', () => {
     const issue = validateRule(
-      { when: { field: 'user.is_premium', op: 'eq', value: true } },
+      { when: { field: 'input.flag', op: 'eq', value: true } },
       2,
       topics,
       attributes
@@ -123,7 +123,7 @@ describe('validateRule', () => {
   it('操作符与字段类型不匹配报 condition-bad-op', () => {
     // boolean 字段不支持 in
     const issue = validateRule(
-      okRule({ field: 'user.is_premium', op: 'in', value: [true] }) as never,
+      okRule({ field: 'input.flag', op: 'in', value: [true] }) as never,
       0,
       topics,
       attributes
@@ -147,7 +147,7 @@ describe('validateRule', () => {
     const issue = validateRule(
       okRule({
         or: [
-          { field: 'case.category', op: 'eq', value: 'image' },
+          { field: 'input.kind', op: 'eq', value: 'image' },
           { field: 'ghost', op: 'eq', value: 1 },
         ],
       }) as never,
@@ -161,7 +161,7 @@ describe('validateRule', () => {
 
   it('值类型不正确报 condition-bad-value（boolean 字段给字符串）', () => {
     const issue = validateRule(
-      okRule({ field: 'user.is_premium', op: 'eq', value: 'yes' }) as never,
+      okRule({ field: 'input.flag', op: 'eq', value: 'yes' }) as never,
       0,
       topics,
       attributes
@@ -171,7 +171,7 @@ describe('validateRule', () => {
 
   it('enum 字段值不在枚举内报 condition-bad-value', () => {
     const issue = validateRule(
-      okRule({ field: 'case.category', op: 'eq', value: 'pdf' }) as never,
+      okRule({ field: 'input.kind', op: 'eq', value: 'pdf' }) as never,
       0,
       topics,
       attributes
@@ -182,7 +182,7 @@ describe('validateRule', () => {
   it('exists 操作符不需要值', () => {
     expect(
       validateRule(
-        okRule({ field: 'user.is_premium', op: 'exists' }) as never,
+        okRule({ field: 'input.flag', op: 'exists' }) as never,
         0,
         topics,
         attributes
@@ -237,12 +237,12 @@ describe('validateRouting', () => {
     const routing: RoutingConfig = {
       rules: [
         {
-          when: { field: 'user.is_premium', op: 'eq', value: true },
+          when: { field: 'input.flag', op: 'eq', value: true },
           topic: 'fast-gpu',
         },
-        { when: { field: 'case.category', op: 'eq', value: 'image' } }, // 未连线
+        { when: { field: 'input.kind', op: 'eq', value: 'image' } }, // 未连线
         {
-          when: { field: 'case.tags', op: 'in', value: ['night'] },
+          when: { field: 'input.tags', op: 'in', value: ['night'] },
           topic: 'cpu-low',
         }, // 已禁用
       ],
@@ -269,7 +269,7 @@ describe('validateRouting', () => {
       {
         rules: [
           {
-            when: { field: 'user.is_premium', op: 'eq', value: true },
+            when: { field: 'input.flag', op: 'eq', value: true },
             topic: 'fast-gpu',
           },
         ],
@@ -284,11 +284,11 @@ describe('validateRouting', () => {
     const routing: RoutingConfig = {
       rules: [
         {
-          when: { field: 'user.is_premium', op: 'eq', value: true },
+          when: { field: 'input.flag', op: 'eq', value: true },
           topic: 'fast-gpu',
         },
         {
-          when: { field: 'case.category', op: 'eq', value: 'image' },
+          when: { field: 'input.kind', op: 'eq', value: 'image' },
           topic: 'batch-night',
         },
       ],

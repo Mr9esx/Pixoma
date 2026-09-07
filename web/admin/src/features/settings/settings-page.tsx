@@ -138,6 +138,9 @@ function SettingsEditor({
   const [allowSelfRegistration, setAllowSelfRegistration] = useState(
     Boolean(initial.allow_self_registration)
   )
+  const [defaultUserAccess, setDefaultUserAccess] = useState(
+    normalizeDefaultUserAccess(initial.default_user_access)
+  )
   const [pending, setPending] = useState(false)
   const [reloading, setReloading] = useState(false)
 
@@ -149,7 +152,10 @@ function SettingsEditor({
     }
   }
 
-  async function savePlatform(overrides?: { allowSelfRegistration?: boolean }) {
+  async function savePlatform(overrides?: {
+    allowSelfRegistration?: boolean
+    defaultUserAccess?: DefaultUserAccess
+  }) {
     setPending(true)
     try {
       await savePlatformSettings({
@@ -170,6 +176,8 @@ function SettingsEditor({
         media_max_bytes: computeMediaMaxBytes(mediaMax, mediaUnit),
         allow_self_registration:
           overrides?.allowSelfRegistration ?? allowSelfRegistration,
+        default_user_access:
+          overrides?.defaultUserAccess ?? defaultUserAccess,
       })
       setReloading(true)
       await waitForSetupReady()
@@ -461,6 +469,42 @@ function SettingsEditor({
             />
           </div>
         </SettingsCard>
+        <SettingsCard title={t('settings.defaultUserAccess')}>
+          <SettingRow
+            label={t('settings.defaultUserAccess')}
+            htmlFor='default-user-access'
+          >
+            <Select
+              value={defaultUserAccess}
+              onValueChange={(next) => {
+                const value = normalizeDefaultUserAccess(next)
+                setDefaultUserAccess(value)
+                void savePlatform({ defaultUserAccess: value })
+              }}
+            >
+              <SelectTrigger
+                id='default-user-access'
+                className='w-full'
+                disabled={pending}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value='always_allowed'>
+                    {t('users.accessAlwaysAllowed')}
+                  </SelectItem>
+                  <SelectItem value='paid'>
+                    {t('users.accessPaid')}
+                  </SelectItem>
+                  <SelectItem value='denied'>
+                    {t('users.accessDenied')}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        </SettingsCard>
         <AdminUsersPanel />
       </TabsContent>
 
@@ -737,6 +781,14 @@ function SettingRow({
 }
 
 type MediaUnit = 'B' | 'KB' | 'MB' | 'GB'
+type DefaultUserAccess = 'always_allowed' | 'paid' | 'denied'
+
+function normalizeDefaultUserAccess(
+  value: string | undefined
+): DefaultUserAccess {
+  if (value === 'always_allowed' || value === 'paid') return value
+  return 'denied'
+}
 
 const MEDIA_UNIT_FACTORS: Record<MediaUnit, number> = {
   B: 1,

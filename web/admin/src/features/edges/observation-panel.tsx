@@ -1,5 +1,4 @@
 import { Fragment, useState, type ReactNode } from 'react'
-import { Link } from '@tanstack/react-router'
 import { Activity } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -22,6 +21,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { lifecycleBadgeClass } from '@/features/operations/identity'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   Empty,
@@ -51,6 +51,7 @@ import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { MonitorCard, MonitorCardSkeleton } from '@/components/monitor-card'
 import { SectionHead } from '@/components/section-head'
+import { resourceDetailDialogClassName } from '@/features/resource-modal'
 import { TaskDetailPanel } from '@/features/tasks/detail-panel'
 import { taskStatusLabelKey } from '@/features/tasks/list-panel'
 import { kit } from './kit-classes'
@@ -567,16 +568,6 @@ function formatTime(iso: string): string {
   return new Date(ms).toLocaleString()
 }
 
-function statusTagClass(status: string): string {
-  if (status === 'succeeded') {
-    return 'border-success/25 bg-success/10 text-success'
-  }
-  if (status === 'failed') {
-    return 'border-destructive/25 bg-destructive/10 text-destructive'
-  }
-  return 'border-border bg-muted text-muted-foreground'
-}
-
 type TasksPagination = {
   offset: number
   pageSize: number
@@ -631,7 +622,7 @@ function TasksSection({
                     <TableCell className='px-4 py-3'>
                       <Badge
                         variant='outline'
-                        className={statusTagClass(task.status)}
+                        className={lifecycleBadgeClass(task.status)}
                       >
                         {statusKey ? t(statusKey) : task.status}
                       </Badge>
@@ -640,13 +631,7 @@ function TasksSection({
                       {task.case_id}
                     </TableCell>
                     <TableCell className='max-w-40 truncate py-3 font-mono text-xs'>
-                      <Link
-                        to='/tasks/$taskId'
-                        params={{ taskId: task.id }}
-                        className='underline-offset-4 hover:underline'
-                      >
-                        {task.id}
-                      </Link>
+                      {task.id}
                     </TableCell>
                     <TableCell className='py-3 whitespace-nowrap text-muted-foreground'>
                       {formatTime(task.updated_at)}
@@ -709,7 +694,7 @@ function TasksSection({
           if (!open) setDetailId(null)
         }}
       >
-        <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>
+        <DialogContent className={resourceDetailDialogClassName}>
           {detailId ? <TaskDetailPanel id={detailId} /> : null}
         </DialogContent>
       </Dialog>

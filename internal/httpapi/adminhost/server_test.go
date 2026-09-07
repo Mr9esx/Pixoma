@@ -187,23 +187,29 @@ func TestChannelReachabilityRouteMounted(t *testing.T) {
 	}
 	createResp.Body.Close()
 
-	chSvc.CheckTelegram = func(_ context.Context, token string) (channelapp.ReachabilityResult, error) {
-		return channelapp.ReachabilityResult{OK: true, Kind: channelapp.ReachabilityOK}, nil
-	}
-
 	checkResp, err := http.Post(srv.URL+"/api/v1/channels/"+created.ID+"/check", "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer checkResp.Body.Close()
-	if checkResp.StatusCode != http.StatusOK {
-		t.Fatalf("check status=%d, want 200", checkResp.StatusCode)
+	if checkResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("check status=%d, want 404", checkResp.StatusCode)
 	}
-	var out channelapp.ReachabilityResult
-	if err := json.NewDecoder(checkResp.Body).Decode(&out); err != nil {
-		t.Fatal(err)
+}
+
+func TestChannelProbeRouteNotShadowedByID(t *testing.T) {
+	chAPI := &channelsapi.Handler{}
+	h := adminhost.NewHandler(adminhost.Options{Channels: chAPI})
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	resp, err := client.Post(srv.URL+"/api/v1/channels/probe", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST /probe: %v", err)
 	}
-	if !out.OK || out.Kind != channelapp.ReachabilityOK {
-		t.Fatalf("out=%+v", out)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("probe status=%d want 202", resp.StatusCode)
 	}
 }
