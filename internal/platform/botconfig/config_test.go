@@ -40,7 +40,6 @@ func TestDefault_LocalLocalfs(t *testing.T) {
 func TestValidateRuntimeDrivers_RemoteIgnoresQueue(t *testing.T) {
 	cfg := botconfig.Default()
 	cfg.Placement = botconfig.PlacementRemote
-	cfg.RuntimeMode = botconfig.RuntimeModeSplit
 	cfg.Queue.Driver = botconfig.QueueDriverMemory
 	cfg.Blob.Driver = botconfig.BlobDriverS3
 	if err := cfg.ValidateRuntimeDrivers(); err != nil {
@@ -57,18 +56,18 @@ func TestValidateRuntimeDrivers_RemoteOK(t *testing.T) {
 	}
 }
 
-func TestValidateRuntimeDrivers_SplitTOSOK(t *testing.T) {
+func TestValidateRuntimeDrivers_RemoteTOSOK(t *testing.T) {
 	cfg := botconfig.Default()
-	cfg.RuntimeMode = botconfig.RuntimeModeSplit
+	cfg.Placement = botconfig.PlacementRemote
 	cfg.Blob.Driver = botconfig.BlobDriverTOS
 	if err := cfg.ValidateRuntimeDrivers(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestValidateRuntimeDrivers_SplitRejectsLocalFS(t *testing.T) {
+func TestValidateRuntimeDrivers_RemoteRejectsLocalFS(t *testing.T) {
 	cfg := botconfig.Default()
-	cfg.RuntimeMode = botconfig.RuntimeModeSplit
+	cfg.Placement = botconfig.PlacementRemote
 	cfg.Blob.Driver = botconfig.BlobDriverLocalFS
 	err := cfg.ValidateRuntimeDrivers()
 	if err == nil {
@@ -79,19 +78,19 @@ func TestValidateRuntimeDrivers_SplitRejectsLocalFS(t *testing.T) {
 	}
 }
 
-func TestValidateRuntimeDrivers_SplitS3StillOK(t *testing.T) {
+func TestValidateRuntimeDrivers_RemoteS3StillOK(t *testing.T) {
 	cfg := botconfig.Default()
-	cfg.RuntimeMode = botconfig.RuntimeModeSplit
+	cfg.Placement = botconfig.PlacementRemote
 	cfg.Blob.Driver = botconfig.BlobDriverS3
 	if err := cfg.ValidateRuntimeDrivers(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestLoad_RuntimeModeFromYAML(t *testing.T) {
+func TestLoad_PlacementFromYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bot.yaml")
-	content := "runtime_mode: split\nqueue:\n  driver: redis\nblob:\n  driver: s3\n"
+	content := "placement: remote\nqueue:\n  driver: redis\nblob:\n  driver: s3\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -99,8 +98,8 @@ func TestLoad_RuntimeModeFromYAML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.RuntimeMode != botconfig.RuntimeModeSplit {
-		t.Fatalf("mode=%q", cfg.RuntimeMode)
+	if cfg.Placement != botconfig.PlacementRemote {
+		t.Fatalf("placement=%q", cfg.Placement)
 	}
 	if cfg.Queue.Driver != botconfig.QueueDriverRedis {
 		t.Fatalf("queue=%q", cfg.Queue.Driver)

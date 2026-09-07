@@ -89,3 +89,15 @@ export function healthProblems(
   if (!ready || !health) return 1
   return health.state === 'ok' ? 0 : 1
 }
+
+const UNREACHABLE_LAST_CHECK = new Set(['network', 'auth', 'other'])
+
+export function alignPlatformHealth(
+  health: EntityHealth,
+  lastCheckKind: string | undefined
+): EntityHealth {
+  if (health.state !== 'ok') return health
+  if (!lastCheckKind || lastCheckKind === 'ok') return health
+  if (!UNREACHABLE_LAST_CHECK.has(lastCheckKind)) return health
+  return { ...health, state: 'warn' }
+}

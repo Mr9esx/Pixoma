@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import {
   createColumnHelper,
   getCoreRowModel,
@@ -16,6 +15,7 @@ import { Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { SessionRecord } from '@/lib/api/types'
 import { formatDateTime, formatUserLabel } from '@/lib/format'
+import type { OperationsDetailTarget } from '@/features/operations/types'
 import { Button } from '@/components/ui/button'
 import { FadeSwap } from '@/components/ui/fade-swap'
 import { Reveal } from '@/components/ui/reveal'
@@ -38,7 +38,7 @@ export function sessionStatusLabelKey(status: string): string | undefined {
 
 type Props = {
   items: SessionRecord[]
-  onOpenDetail: (item: SessionRecord) => void
+  onOpenDetail: (target: OperationsDetailTarget) => void
   isLoading?: boolean
   isError?: boolean
   errorMessage?: string
@@ -123,13 +123,15 @@ export function SessionListPanel({
           const label = formatUserLabel(row.original.user, row.original.user_id)
           if (!label) return '—'
           return (
-            <Link
-              to='/users/$userId'
-              params={{ userId: row.original.user_id }}
+            <button
+              type='button'
               className='text-foreground underline-offset-4 hover:underline'
+              onClick={() =>
+                onOpenDetail({ kind: 'user', id: row.original.user_id })
+              }
             >
               {label}
-            </Link>
+            </button>
           )
         },
       }),
@@ -193,7 +195,9 @@ export function SessionListPanel({
             type='button'
             variant='outline'
             size='sm'
-            onClick={() => onOpenDetail(row.original)}
+            onClick={() =>
+              onOpenDetail({ kind: 'session', id: row.original.id })
+            }
           >
             <Eye className='size-4' />
             {t('common.detail')}

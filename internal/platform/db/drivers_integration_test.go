@@ -165,20 +165,6 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 	ctx := context.Background()
 	now := time.Unix(1000, 0).UTC()
 
-	// RenameLegacy must be a no-op on fresh MySQL/Postgres databases.
-	if err := db.RenameLegacy(gdb); err != nil {
-		t.Fatalf("rename legacy: %v", err)
-	}
-	// Legacy menu tables dropped by the app at boot must be droppable.
-	if err := gdb.Migrator().DropTable(
-		"channel_menus",
-		"channel_menu_items",
-		"channel_menu_item_cases",
-		"channel_menu_item_extras",
-	); err != nil {
-		t.Fatalf("drop legacy menu tables: %v", err)
-	}
-
 	// settings roundtrip
 	key := bytes.Repeat([]byte{7}, 32)
 	st, err := settings.NewStore(gdb, key)
@@ -246,11 +232,11 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 		t.Fatalf("case get: %+v err=%v", cgot, err)
 	}
 
-	// task roundtrip incl. PrepareForClaim (writes NULL timestamps)
+	// task roundtrip: explicit topic + claim (writes NULL timestamps on prepare)
 	tasks := runtimepersist.NewTaskRepository(gdb)
 	ref := sharedkernel.BlobRef{Key: "jobs/t-int/job.json"}
 	task := taskdomain.NewPending("t-int", "s-int", sharedkernel.CaseID(1), "inputs/t-int", now)
-	_ = task.PrepareForClaim("gpu-int", ref, now)
+	_ = task.PrepareForTopic("integration", ref, now)
 	if err := tasks.Create(ctx, task); err != nil {
 		t.Fatalf("task create: %v", err)
 	}
@@ -279,18 +265,4 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 		}
 	}
 
-	// legacy task reassignment path
-	stale := taskdomain.NewPending("t-stale2", "s-int", sharedkernel.CaseID(1), "inputs/t-stale2", now)
-	_ = stale.PrepareForClaim("gpu-old", sharedkernel.BlobRef{Key: "jobs/t-stale2/job.json"}, now.Add(-time.Minute))
-	stale.LeaseUntil = now.Add(-time.Second)
-	if err := tasks.Create(ctx, stale); err != nil {
-		t.Fatalf("stale create: %v", err)
-	}
-	n, err := runtimepersist.MigrateLegacyTasks(ctx, gdb, now)
-	if err != nil {
-		t.Fatalf("migrate legacy: %v", err)
-	}
-	if n < 1 {
-		t.Fatalf("migrate legacy count=%d want >=1", n)
-	}
 }

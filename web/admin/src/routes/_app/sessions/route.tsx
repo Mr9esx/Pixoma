@@ -4,18 +4,8 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listSessions } from '@/lib/api/sessions'
-import type { SessionRecord } from '@/lib/api/types'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  resourceDetailBodyClassName,
-  resourceDetailDialogClassName,
-} from '@/features/resource-modal'
-import { SessionDetailPanel } from '@/features/sessions/detail-panel'
+import { OperationsDetailDialog } from '@/features/operations/detail-dialog'
+import type { OperationsDetailTarget } from '@/features/operations/types'
 import { SessionListPanel } from '@/features/sessions/list-panel'
 
 export const Route = createFileRoute('/_app/sessions')({
@@ -28,7 +18,7 @@ function errorMessage(err: unknown): string | undefined {
 
 function SessionsLayout() {
   const { t } = useTranslation()
-  const [detail, setDetail] = useState<SessionRecord | null>(null)
+  const [detail, setDetail] = useState<OperationsDetailTarget | null>(null)
 
   const listQuery = useQuery({
     queryKey: queryKeys.sessions.all,
@@ -59,21 +49,11 @@ function SessionsLayout() {
         onRetry={() => void listQuery.refetch()}
       />
 
-      <Dialog
-        open={detail !== null}
-        onOpenChange={(open) => {
-          if (!open) setDetail(null)
-        }}
-      >
-        <DialogContent className={resourceDetailDialogClassName}>
-          <DialogHeader>
-            <DialogTitle>{t('sessions.detailHeading')}</DialogTitle>
-          </DialogHeader>
-          <div className={resourceDetailBodyClassName}>
-            {detail ? <SessionDetailPanel id={detail.id} /> : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <OperationsDetailDialog
+        target={detail}
+        onClose={() => setDetail(null)}
+        onOpenRelated={setDetail}
+      />
     </div>
   )
 }

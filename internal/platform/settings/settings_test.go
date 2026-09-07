@@ -111,6 +111,20 @@ func TestStore_SQLiteRoundTripSecrets(t *testing.T) {
 	if got.ProxyKind != settings.ProxyHTTP || got.ProxyHost != "127.0.0.1" || got.ProxyPort != 7897 {
 		t.Fatalf("proxy mismatch: %+v", got)
 	}
+	if got.DefaultUserAccess != "" && got.DefaultUserAccess != "denied" {
+		t.Fatalf("unset default user access=%q", got.DefaultUserAccess)
+	}
+	in.DefaultUserAccess = "always_allowed"
+	if err := st.Save(in); err != nil {
+		t.Fatal(err)
+	}
+	got, err = st.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DefaultUserAccess != "always_allowed" {
+		t.Fatalf("default user access=%q", got.DefaultUserAccess)
+	}
 }
 
 func TestSettings_ProxyURLAndValidate(t *testing.T) {
@@ -229,8 +243,10 @@ func TestMigrate_ExistingTableAddsAllowSelfRegistration(t *testing.T) {
 	if got.AllowSelfRegistration {
 		t.Fatal("expected AllowSelfRegistration to default to false")
 	}
+	if got.DefaultUserAccess != "" && got.DefaultUserAccess != "denied" {
+		t.Fatalf("expected DefaultUserAccess denied, got %q", got.DefaultUserAccess)
+	}
 }
-
 
 func TestValidate_MediaMaxBytes(t *testing.T) {
 	base := settings.Settings{

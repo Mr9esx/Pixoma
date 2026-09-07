@@ -24,10 +24,6 @@ export interface AttributeDescriptor {
   }
 }
 
-export interface AttributesCatalogResponse {
-  attributes: AttributeDescriptor[]
-}
-
 export type Condition =
   | { always: true }
   | { field: string; op: ConditionOp; value?: unknown }
@@ -52,13 +48,6 @@ export interface RoutingRule {
 
 export interface RoutingConfig {
   rules: RoutingRule[]
-}
-
-/** Case 文档中的路由配置（与 catalog CaseDocument.routing 对齐）。 */
-export interface CaseWithRouting {
-  id: number
-  name: string
-  routing?: RoutingConfig
 }
 
 export interface EdgeRecord {

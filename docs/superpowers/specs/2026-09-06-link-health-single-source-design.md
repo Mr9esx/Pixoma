@@ -69,6 +69,7 @@ GET /api/v1/link-health
 - 唯一路径上任一 hop 不可用 → 必须经过它的工作流/队列不得 `ok`。
 - 另有活路 → 资源自身可 `ok`，坏 hop 只在引用里 `warn`。
 - 组装器读不到所需运行态 → `pending`，不得 `ok`。
+- 消息平台 `last_check` 为空（从未探测）→ `pending`，即使适配器 `running` 也不得 `ok`。`network`/`auth`/`other` → `warn`。
 
 Go 表测至少三条：唯一入口不可用、双入口有活路、唯一节点不可用。再加一条输入缺失。禁止用「通道 error 则 case warn」当唯一验收。
 

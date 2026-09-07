@@ -83,7 +83,7 @@
 ### Channel TG
 - `Adapter`、`Messenger` / `BotMessenger`
 - `notifybridge`：实现 `platform/notify.Publisher` → `HandleUserNotify`
-- `channel/application.ReachabilityProbe`：后台周期探测启用通道并写入 `last_check_*`；HTTP 与页面只读，不在打开页时打 Telegram
+- `channel/application.ReachabilityProbe`：后台周期探测启用通道并写入 `last_check_*`；GET 热路径与页面渲染只读。打开消息平台时可 `POST /api/v1/channels/probe` 异步再踢一轮，不挡列表。
 
 ### TG Menu
 - `domain.MenuTree` / `MenuNode` / `MenuKind` / `MenuPlacement`；`Validate` + `MaxTreeDepth`

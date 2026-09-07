@@ -50,6 +50,7 @@ import (
 	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
 	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
 	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
+	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
 	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
 	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
 	packlink "github.com/mr9esx/comfyui_tgbot/internal/packaging/linkhealth"
@@ -95,10 +96,18 @@ func main() {
 	}
 
 	sess := setupapi.NewSessions(filepath.Join(envOr("DATA_DIR", "data"), setupapi.SessionStoreFile()))
+	var listenRetries int
 	for {
 		err := run(ctx, sess)
 		if errors.Is(err, errRestart) && ctx.Err() == nil {
+			listenRetries = 0
 			slog.Info("reloading pixoma after setup")
+			continue
+		}
+		if ctx.Err() == nil && isListenBusy(err) && listenRetries < 5 {
+			listenRetries++
+			slog.Error("pixoma listen failed; retrying", "err", err, "attempt", listenRetries)
+			time.Sleep(200 * time.Millisecond)
 			continue
 		}
 		if err != nil {
@@ -205,14 +214,6 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	if err != nil {
 		return err
 	}
-	if err := gdb.Migrator().DropTable(
-		"channel_menus",
-		"channel_menu_items",
-		"channel_menu_item_cases",
-		"channel_menu_item_extras",
-	); err != nil {
-		return err
-	}
 	defer func() { _ = cleanup() }()
 
 	runCtx, runCancel := context.WithCancel(ctx)
@@ -256,20 +257,15 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	if err := topic.EnsureDefaultTopic(ctx, topicRepo); err != nil {
 		return err
 	}
-	if n, err := taskpersist.MigrateLegacyTasks(ctx, gdb, time.Now().UTC()); err != nil {
-		return err
-	} else if n > 0 {
-		slog.Info("legacy tasks migrated", "count", n)
-	}
 	pool := edge.NewPool(instRepo, edge.PoolOptions{})
 	if err := pool.Refresh(ctx); err != nil {
 		return err
 	}
 	caseRepo := casepersist.NewGormRepository(gdb)
-	if err := casepersist.RepairLegacyCaseID(ctx, gdb); err != nil {
-		return err
-	}
 	userRepo := userpersist.NewUserRepository(gdb)
+	userRepo.SetDefaultAccess(func() identitydomain.UserAccess {
+		return identitydomain.NormalizeUserAccess(cfg.DefaultUserAccess)
+	})
 	consoleRepo := consolepersist.NewConsoleUserRepository(gdb)
 	sessionRepo := sesspersist.NewSessionRepository(gdb)
 	sessSvc := convdomain.NewService(sessionRepo, func() sharedkernel.SessionID {
@@ -311,21 +307,6 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	edgeDeleteSvc := edgeadmin.NewService(gdb, botRT.Notify)
 	topicDeleteSvc := topicadmin.NewService(gdb, botRT.Notify)
 	conditionReg := condition.NewRegistry()
-	conditionReg.Register(&condition.CaseProvider{Lookup: func(ctx context.Context, caseID string) (string, []string, error) {
-		cid, err := sharedkernel.ParseCaseID(caseID)
-		if err != nil {
-			return "", nil, err
-		}
-		c, err := caseRepo.Get(ctx, cid)
-		if err != nil {
-			return "", nil, err
-		}
-		category := ""
-		if len(c.Document.Categories) > 0 {
-			category = c.Document.Categories[0]
-		}
-		return category, c.Document.Tags, nil
-	}})
 
 	orch := orchestrator.New(taskRepo, pool, nil, botRT.Notify)
 	orch.Sessions = sessionRepo
@@ -378,6 +359,8 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 			OnCreated: func(ctx context.Context, id string) error {
 				return textStore.Seed(ctx, id)
 			},
+			Probe:    botRT.Probe,
+			ProbeCtx: runCtx,
 		},
 		MenuCards: menucardsapi.NewHandler(menuRepo),
 		Topics: &topicsapi.Handler{
@@ -426,7 +409,7 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 	r.Mount("/", adminH)
 	r.Route("/agent/v1", agentH.Mount)
 
-	ln, err := listenWithRetry(addr, 20, 100*time.Millisecond)
+	ln, err := listenWithRetry(addr, 50, 100*time.Millisecond)
 	if err != nil {
 		return err
 	}
@@ -443,21 +426,54 @@ func run(ctx context.Context, sess *setupapi.Sessions) error {
 
 	select {
 	case <-ctx.Done():
+		runCancel()
+		waitChannelRuntime(botRT)
 		return shutdownServer(srv)
 	case <-restartCh:
-		if err := shutdownServer(srv); err != nil {
-			return err
-		}
-		return errRestart
+		return finishReload(srv, runCancel, botRT)
 	case err := <-errCh:
+		runCancel()
+		waitChannelRuntime(botRT)
 		return err
 	}
 }
 
-func shutdownServer(srv *http.Server) error {
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func finishReload(srv *http.Server, runCancel context.CancelFunc, rt *app.BotRuntime) error {
+	_ = shutdownServer(srv)
+	if runCancel != nil {
+		runCancel()
+	}
+	waitChannelRuntime(rt)
+	return errRestart
+}
+
+func waitChannelRuntime(rt *app.BotRuntime) {
+	if rt == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
-	return srv.Shutdown(shutdownCtx)
+	if err := rt.Wait(ctx); err != nil {
+		slog.Warn("channel runtime stop timed out", "err", err)
+	}
+}
+
+func shutdownServer(srv *http.Server) error {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	err := srv.Shutdown(shutdownCtx)
+	_ = srv.Close()
+	return err
+}
+
+func isListenBusy(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, syscall.EADDRINUSE) {
+		return true
+	}
+	return strings.Contains(err.Error(), "address already in use")
 }
 
 func listenWithRetry(addr string, attempts int, pause time.Duration) (net.Listener, error) {

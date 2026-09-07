@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
+	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-telegram/bot"
 	"github.com/google/uuid"
@@ -43,6 +45,9 @@ type BotRuntime struct {
 	// ChannelStatus reports the background adapter state for a channel ID
 	// (state, last error, found).
 	ChannelStatus func(channelID string) (state string, lastErr string, found bool)
+	// Probe is shared by the 30s ticker and POST /api/v1/channels/probe.
+	Probe *channelapp.ReachabilityProbe
+	done  chan struct{}
 }
 
 // BotDeps is everything needed to run channel adapters and notify users.
@@ -92,22 +97,33 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 		Factory:  factory,
 		Interval: channelWatchInterval,
 	}
+	probe := &channelapp.ReachabilityProbe{Svc: deps.Channels}
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
 		if err := assembler.Run(ctx); err != nil && ctx.Err() == nil {
 			slog.Error("channel assembler stopped", "err", err)
 		}
 	}()
 	go func() {
-		probe := &channelapp.ReachabilityProbe{Svc: deps.Channels}
+		defer wg.Done()
 		if err := probe.Run(ctx); err != nil && ctx.Err() == nil {
 			slog.Error("channel reachability probe stopped", "err", err)
 		}
+	}()
+	go func() {
+		wg.Wait()
+		close(done)
 	}()
 	botRT := &BotRuntime{
 		Facade:       facade,
 		Notify:       router,
 		Stop:         assembler.StopAll,
 		Capabilities: caps,
+		Probe:        probe,
+		done:         done,
 	}
 	botRT.ChannelStatus = func(channelID string) (string, string, bool) {
 		st, ok := assembler.Status()[channelID]
@@ -123,7 +139,32 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 	return botRT, nil
 }
 
-const channelWatchInterval = 5 * 1000_000_000 // 5s
+const (
+	channelWatchInterval = 5 * time.Second
+	telegramPollTimeout  = 15 * time.Second
+)
+
+// telegramHTTPClient is the Bot API client. Timeout stays 0: getUpdates
+// long-polls for pollTimeout-1s, and a Client.Timeout at pollTimeout races
+// that wait ("awaiting headers") even when the proxy already works.
+func telegramHTTPClient() *http.Client {
+	return &http.Client{}
+}
+
+// Wait blocks until the assembler and reachability probe have exited after
+// ctx cancel. Used by pixoma reload so the next run does not share SQLite /
+// getUpdates with the previous one.
+func (rt *BotRuntime) Wait(ctx context.Context) error {
+	if rt == nil || rt.done == nil {
+		return nil
+	}
+	select {
+	case <-rt.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
 
 type channelSnapshotStore struct {
 	svc *channelapp.Service
@@ -196,7 +237,7 @@ func (f *tgChannelFactory) Create(snap channelruntime.ChannelSnapshot) (channelr
 	menuReader := channelMenuReader{cards: f.deps.MenuCards, channelID: snap.ID}
 	// Skip getMe here: bot.New's default 5s probe would hold assembler
 	// restart under Telegram RTT. Reachability belongs to ReachabilityProbe.
-	botInst, err := newTelegramBot(snap.Credential, bot.WithSkipGetMe())
+	botInst, err := newTelegramBot(snap.Credential, bot.WithSkipGetMe(), bot.WithHTTPClient(telegramPollTimeout, telegramHTTPClient()))
 	if err != nil {
 		return nil, err
 	}
@@ -229,6 +270,7 @@ type tgBotWrapper struct {
 	bot       *telegramBot
 	mu        sync.Mutex
 	cancel    context.CancelFunc
+	done      chan struct{}
 }
 
 func (w *tgBotWrapper) Start(ctx context.Context) error {
@@ -236,7 +278,11 @@ func (w *tgBotWrapper) Start(ctx context.Context) error {
 	defer w.mu.Unlock()
 	bctx, cancel := context.WithCancel(ctx)
 	w.cancel = cancel
-	go w.bot.Start(bctx)
+	w.done = make(chan struct{})
+	go func() {
+		defer close(w.done)
+		w.bot.Start(bctx)
+	}()
 	w.registry.set(w.channelID, w.adapter)
 	slog.Info("telegram bot started", "channel", w.channelID)
 	return nil
@@ -244,13 +290,23 @@ func (w *tgBotWrapper) Start(ctx context.Context) error {
 
 func (w *tgBotWrapper) Stop(ctx context.Context) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-	if w.cancel != nil {
-		w.cancel()
-		w.cancel = nil
+	cancel := w.cancel
+	done := w.done
+	w.cancel = nil
+	w.mu.Unlock()
+	if cancel != nil {
+		cancel()
 	}
 	w.registry.unset(w.channelID)
-	return nil
+	if done == nil {
+		return nil
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 type channelMenuReader struct {

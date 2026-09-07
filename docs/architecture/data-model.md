@@ -59,7 +59,7 @@
 | PromptID | string | Comfy prompt id |
 | JobRef | string | 可领取 job 包路径 |
 | LeaseUntil | time | claim 租约截止 |
-| DispatchTopic | string | 实际路由 Topic（空值按默认 Topic 处理） |
+| DispatchTopic | string | 实际路由 Topic；空值不按默认 Topic 领取或列出 |
 | Attempts | int | 失败/执行尝试计数（有界重试） |
 | RequeueAt | time | 失败重试退避到期时间；到期前不可被领取 |
 | InputPrefix | string | blob 路径前缀 |
@@ -167,7 +167,7 @@ Edge 心跳上报的实时系统指标快照，整快照 JSON 一列，写入时
 
 ### 2.4a `platform_settings`
 
-业务库单行配置：部署位置（local/remote）、blob 驱动、密文 Token/密钥等。不含 `queue.driver`。
+业务库单行配置：部署位置（local/remote）、blob 驱动、密文 Token/密钥、是否开放控制台自助注册（`allow_self_registration`）、新频道用户默认使用权限（`default_user_access`：`always_allowed` / `paid` / `denied`，缺省 `denied`，只作用于新建用户）。不含 `queue.driver`。
 
 引导态 `bootstrap_meta`（本机 `bootstrap.db`）：initialized、管理员哈希、业务库 driver/DSN、enc key、向导进度。 |
 
@@ -429,6 +429,7 @@ flowchart LR
 | `GET .../{id}/tasks` | `tasks WHERE edge_id=?` |
 | `GET .../{id}/stats` | 该节点任务数 / 累计耗时 / 成功率 |
 | `GET /api/v1/link-health` | 组装器拼图后的 nodes/edges/health；热路径不探测外部 |
+| `POST /api/v1/channels/probe` | 立刻 202，后台对已启用通道跑 `ReachabilityProbe.ProbeOnce` |
 
 ---
 
@@ -452,7 +453,7 @@ flowchart LR
 | edges / Pool | `internal/platform/edge` |
 | catalog_cases | `internal/catalog/infrastructure/persistence` |
 | channel_main_menus | `internal/menucard`（嵌套树 JSON）；HTTP `GET/PUT /api/v1/channels/{id}/menu`；Case 反查 `GET .../cases/{id}/menu-placements`。卡片内嵌在树节点，无独立 cards 管理 API。 |
-| channels.last_check_* | 通道上次探测 kind/message/at；后台 `ReachabilityProbe` 周期写入（`POST /channels/{id}/check` 仍可手写）；组装器与页面只读 |
+| channels.last_check_* | 通道上次探测 kind/message/at；后台 `ReachabilityProbe` 周期写入，进消息平台 `POST /channels/probe` 也会异步踢一轮；组装器与页面只读 |
 | 链路健康 | `internal/packaging/linkhealth` + `internal/httpapi/linkhealth` |
 | HTTP API | `internal/httpapi/edges` 等 |
 | 任务统计 | `internal/platform/taskstats`（领域/仓储）、`internal/httpapi/stats`（HTTP）、backfill `apps/pixoma/cmd/backfill-task-stats` |

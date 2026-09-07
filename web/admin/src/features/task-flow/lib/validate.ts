@@ -38,7 +38,7 @@ interface ValidationResult {
   invalidIndexes: Set<number>
 }
 
-/** 与 condition-form 的 OPS_BY_TYPE 一致：类型允许的操作符集合。 */
+/** 类型允许的操作符集合。 */
 const OPS_BY_TYPE: Record<string, string[]> = {
   boolean: ['eq', 'ne', 'exists'],
   string: ['eq', 'ne', 'in', 'exists'],

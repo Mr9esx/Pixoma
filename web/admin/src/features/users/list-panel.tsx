@@ -13,6 +13,7 @@ import { Check, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { UserRecord } from '@/lib/api/types'
 import { formatDateTime, formatUserLabel } from '@/lib/format'
+import type { OperationsDetailTarget } from '@/features/operations/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,7 +32,7 @@ import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 
 type Props = {
   items: UserRecord[]
-  onOpenDetail: (item: UserRecord) => void
+  onOpenDetail: (target: OperationsDetailTarget) => void
   onSetAccess: (item: UserRecord, access: UserRecord['access']) => void
   setAccessPendingId?: string
   isLoading?: boolean
@@ -178,7 +179,9 @@ export function UserListPanel({
               type='button'
               variant='outline'
               size='sm'
-              onClick={() => onOpenDetail(row.original)}
+              onClick={() =>
+                onOpenDetail({ kind: 'user', id: row.original.id })
+              }
             >
               <Eye className='size-4' />
               {t('common.detail')}

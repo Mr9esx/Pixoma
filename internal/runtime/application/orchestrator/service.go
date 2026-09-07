@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -170,14 +169,7 @@ func (s *Service) resolveTopic(ctx context.Context, t *runtimedomain.Task) (stri
 	if err != nil {
 		return "", fmt.Errorf("load case %d: %w", t.CaseID, err)
 	}
-	evalCtx := ctx
-	if s.Sessions != nil {
-		if sess, err := s.Sessions.GetByID(ctx, t.SessionID); err == nil && sess != nil {
-			evalCtx = condition.WithUserID(evalCtx, sess.UserID)
-		}
-	}
-	evalCtx = condition.WithCaseID(evalCtx, strconv.FormatUint(uint64(t.CaseID), 10))
-	return routing.Resolve(caseDoc.Routing, evalCtx, s.Condition)
+	return routing.Resolve(caseDoc.Routing, ctx, s.Condition)
 }
 
 func (s *Service) topicHasOnlineConsumer(ctx context.Context, topicKey string) bool {

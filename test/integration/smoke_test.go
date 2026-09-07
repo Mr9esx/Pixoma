@@ -87,9 +87,8 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 		EdgeID:    "local",
 		Comfy:     mock,
 		Blob:      store,
-		Status:    bus,
-		Workflows: snap,
-		Now:       func() time.Time { return now },
+		Status: bus,
+		Now:    func() time.Time { return now },
 	}
 
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskCreated, func(ctx context.Context, msg queue.Message) error {
@@ -222,9 +221,8 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 		EdgeID:    "local",
 		Comfy:     mock,
 		Blob:      store,
-		Status:    bus,
-		Workflows: snap,
-		Now:       func() time.Time { return now },
+		Status: bus,
+		Now:    func() time.Time { return now },
 	}
 
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskCreated, func(ctx context.Context, msg queue.Message) error {

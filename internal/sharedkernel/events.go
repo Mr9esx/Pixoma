@@ -20,10 +20,9 @@ type TaskCreated struct {
 }
 
 type DispatchCommand struct {
-	TaskID      TaskID  `json:"task_id"`
-	EdgeID      EdgeID  `json:"edge_id"`
-	InputPrefix string  `json:"input_prefix,omitempty"` // legacy; success path uses JobRef
-	JobRef      BlobRef `json:"job_ref"`
+	TaskID TaskID  `json:"task_id"`
+	EdgeID EdgeID  `json:"edge_id"`
+	JobRef BlobRef `json:"job_ref"`
 }
 
 type TaskStatusEvent struct {

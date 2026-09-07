@@ -318,6 +318,77 @@ func TestSettings_AfterInit_PasswordAndUpdate(t *testing.T) {
 	}
 }
 
+func TestPutSettings_DefaultUserAccess(t *testing.T) {
+	env := completeWizard(t)
+	defer env.boot.Close()
+	if err := env.boot.SetRestartRequired(false); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		select {
+		case <-env.restarted:
+		default:
+			goto drained
+		}
+	}
+drained:
+
+	got := loadSettings(t, env)
+	if got.DefaultUserAccess != settings.DefaultUserAccessDenied {
+		t.Fatalf("wizard default access=%q", got.DefaultUserAccess)
+	}
+
+	putBody, _ := json.Marshal(settings.Settings{
+		Placement:         settings.PlacementLocal,
+		BlobDriver:        botconfig.BlobDriverLocalFS,
+		BlobRoot:          got.BlobRoot,
+		DBDriver:          got.DBDriver,
+		DBDSN:             got.DBDSN,
+		DefaultUserAccess: settings.DefaultUserAccessAlwaysAllowed,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/setup/settings", bytes.NewReader(putBody))
+	env.auth(req)
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put settings: %d %s", rec.Code, rec.Body.String())
+	}
+	select {
+	case <-env.restarted:
+	case <-time.After(time.Second):
+		t.Fatal("expected Restart after put settings")
+	}
+
+	got = loadSettings(t, env)
+	if got.DefaultUserAccess != settings.DefaultUserAccessAlwaysAllowed {
+		t.Fatalf("default user access=%q", got.DefaultUserAccess)
+	}
+
+	putBody, _ = json.Marshal(settings.Settings{
+		Placement:  settings.PlacementLocal,
+		BlobDriver: botconfig.BlobDriverLocalFS,
+		BlobRoot:   got.BlobRoot,
+		DBDriver:   got.DBDriver,
+		DBDSN:      got.DBDSN,
+	})
+	req = httptest.NewRequest(http.MethodPut, "/api/v1/setup/settings", bytes.NewReader(putBody))
+	env.auth(req)
+	rec = httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put settings without access: %d %s", rec.Code, rec.Body.String())
+	}
+	select {
+	case <-env.restarted:
+	case <-time.After(time.Second):
+		t.Fatal("expected Restart after second put")
+	}
+	got = loadSettings(t, env)
+	if got.DefaultUserAccess != settings.DefaultUserAccessAlwaysAllowed {
+		t.Fatalf("omitted access reset=%q", got.DefaultUserAccess)
+	}
+}
+
 type wizardEnv struct {
 	t         *testing.T
 	dir       string

@@ -337,11 +337,14 @@ func platformLocal(ch ChannelSnap, adapterKnown bool) localState {
 	switch ch.LastCheckKind {
 	case "network", "auth", "other":
 		return localWarn
+	case "ok":
+		if ch.Enabled && ch.AdapterFound && ch.AdapterState == "running" {
+			return localOK
+		}
+		return localWarn
+	default:
+		return localPending
 	}
-	if ch.Enabled && ch.AdapterFound && ch.AdapterState == "running" {
-		return localOK
-	}
-	return localWarn
 }
 
 func edgeLocal(e EdgeSnap, snap Snapshot) localState {
@@ -463,18 +466,105 @@ func breakpoints(n *Node, snap Snapshot, platLocal, edgeLocalMap map[string]loca
 		out = edgeBreakpoints(n, snap, edgeLocalMap)
 	}
 	if len(out) == 0 {
-		action := "linkHealth.actionCheckChannel"
-		switch n.Kind {
-		case KindTopic:
-			action = "linkHealth.actionBindTopic"
-		case KindEdge:
-			action = "linkHealth.actionCheckNode"
-		case KindCase:
-			action = "linkHealth.actionAddEntry"
-		}
-		out = []Breakpoint{bp("entry", "runtime", "linkHealth.pathNotReady", nil, n.path(), action)}
+		out = pathNotReadyBreakpoints(n, snap, edgeLocalMap)
 	}
 	return out
+}
+
+func pathNotReadyBreakpoints(n *Node, snap Snapshot, edgeLocalMap map[string]localState) []Breakpoint {
+	switch n.Kind {
+	case KindPlatform:
+		if len(n.Downstream) == 0 {
+			return []Breakpoint{bp("entry", "config", "linkHealth.noMenuEntry", nil, n.path(), "linkHealth.actionAddEntry")}
+		}
+		return platformLivePathBreakpoints(n, snap, edgeLocalMap)
+	case KindTopic:
+		return []Breakpoint{bp("entry", "runtime", "linkHealth.pathNotReady", nil, n.path(), "linkHealth.actionBindTopic")}
+	case KindEdge:
+		return []Breakpoint{bp("entry", "runtime", "linkHealth.pathNotReady", nil, n.path(), "linkHealth.actionCheckNode")}
+	case KindCase:
+		return []Breakpoint{bp("entry", "runtime", "linkHealth.pathNotReady", nil, n.path(), "linkHealth.actionAddEntry")}
+	default:
+		return []Breakpoint{bp("entry", "runtime", "linkHealth.pathNotReady", nil, n.path(), "linkHealth.actionManageChannels")}
+	}
+}
+
+func platformLivePathBreakpoints(n *Node, snap Snapshot, edgeLocalMap map[string]localState) []Breakpoint {
+	var out []Breakpoint
+	seen := map[string]struct{}{}
+	add := func(b Breakpoint) {
+		id := b.Key + "\x00" + b.Action.To + "\x00" + b.Params["topic"] + b.Params["name"]
+		if _, ok := seen[id]; ok {
+			return
+		}
+		seen[id] = struct{}{}
+		out = append(out, b)
+	}
+	for _, caseRef := range n.Downstream {
+		cs, ok := caseByRefID(snap, nodesRefID(caseRef.ID))
+		if !ok {
+			continue
+		}
+		if len(cs.Topics) == 0 {
+			add(bp("topic", "config", "linkHealth.noCaseRoutes", nil, "/cases/"+url.PathEscape(cs.ref()), "linkHealth.actionConfigureRouting"))
+			continue
+		}
+		for _, key := range cs.Topics {
+			name := topicName(snap, key)
+			to := "/topics/" + url.PathEscape(key)
+			var subscribed, ready int
+			for _, e := range snap.Edges {
+				if !edgeSubscribes(e, key) {
+					continue
+				}
+				subscribed++
+				if edgeLocalMap[NodeID(KindEdge, e.ID)] == localOK {
+					ready++
+				}
+			}
+			switch {
+			case subscribed == 0:
+				add(bp("node", "config", "linkHealth.noEdgeSubscribers", map[string]string{"topic": name}, to, "linkHealth.actionBindTopic"))
+			case ready == 0:
+				add(bp("node", "runtime", "linkHealth.topicNoReadyNode", map[string]string{"topic": name}, to, "linkHealth.actionManageNodes"))
+			}
+		}
+	}
+	return out
+}
+
+func caseByRefID(snap Snapshot, id string) (CaseSnap, bool) {
+	for _, c := range snap.Cases {
+		if strconv.FormatUint(c.ID, 10) == id {
+			return c, true
+		}
+	}
+	return CaseSnap{}, false
+}
+
+func (c CaseSnap) ref() string {
+	return strconv.FormatUint(c.ID, 10)
+}
+
+func topicName(snap Snapshot, key string) string {
+	for _, tp := range snap.Topics {
+		if tp.Key == key {
+			if strings.TrimSpace(tp.Name) != "" {
+				return tp.Name
+			}
+			return key
+		}
+	}
+	return key
+}
+
+func edgeSubscribes(e EdgeSnap, topicKey string) bool {
+	for _, key := range e.Topics {
+		if key == topicKey {
+			return true
+		}
+	}
+	return false
 }
 
 func platformBreakpoints(id string, snap Snapshot) []Breakpoint {
@@ -493,6 +583,8 @@ func platformBreakpoints(id string, snap Snapshot) []Breakpoint {
 		return []Breakpoint{bp("entry", "config", "linkHealth.channelTokenInvalid", nil, to, "linkHealth.actionEditChannel")}
 	case "other":
 		return []Breakpoint{bp("entry", "runtime", "linkHealth.channelCheckFailed", map[string]string{"message": ch.LastCheckMessage}, "/settings", "linkHealth.actionConfigureProxy")}
+	case "":
+		return []Breakpoint{bp("entry", "runtime", "linkHealth.channelNotChecked", map[string]string{"channel": id}, to, "linkHealth.actionManageChannels")}
 	}
 	if !ch.Enabled || !ch.AdapterFound || ch.AdapterState != "running" {
 		return []Breakpoint{bp("entry", "runtime", "linkHealth.entryChannelUnusable", map[string]string{"channel": id}, "/channels", "linkHealth.actionManageChannels")}
@@ -510,7 +602,7 @@ func caseBreakpoints(n *Node, platLocal map[string]localState) []Breakpoint {
 		switch platLocal[up.ID] {
 		case localPending:
 			pendingEntry = true
-			out = append(out, bp("entry", "runtime", "linkHealth.channelNotChecked", map[string]string{"channel": nodesRefID(up.ID)}, up.To, "linkHealth.actionCheckChannel"))
+			out = append(out, bp("entry", "runtime", "linkHealth.channelNotChecked", map[string]string{"channel": nodesRefID(up.ID)}, up.To, "linkHealth.actionManageChannels"))
 		case localWarn:
 			out = append(out, bp("entry", "runtime", "linkHealth.entryChannelUnusable", map[string]string{"channel": nodesRefID(up.ID)}, "/channels", "linkHealth.actionManageChannels"))
 		}
@@ -539,7 +631,7 @@ func topicBreakpoints(n *Node, edgeLocalMap map[string]localState) []Breakpoint 
 		out = append(out, bp("workflow", "config", "linkHealth.noCaseRoutes", nil, "/cases", "linkHealth.actionConfigureRouting"))
 	}
 	if len(n.Downstream) == 0 {
-		out = append(out, bp("node", "config", "linkHealth.noEdgeSubscribers", nil, "/edges", "linkHealth.actionBindTopic"))
+		out = append(out, bp("node", "config", "linkHealth.noEdgeSubscribers", map[string]string{"topic": n.Name}, "/edges", "linkHealth.actionBindTopic"))
 		return out
 	}
 	ready := 0

@@ -11,7 +11,6 @@ type LinkHealthAlertProps = {
 }
 
 export function LinkHealthAlert({
-  name,
   health,
   anchorTo,
 }: LinkHealthAlertProps) {
@@ -28,7 +27,7 @@ export function LinkHealthAlert({
       <div className='flex min-w-0 flex-wrap items-center gap-2'>
         <AlertCircle className='size-4 shrink-0' aria-hidden='true' />
         <AlertTitle className='text-sm font-medium'>
-          {t('linkHealth.alertTitle', { name })}
+          {t(health.breakpoints[0].key, health.breakpoints[0].params)}
         </AlertTitle>
         <AlertDescription className='text-sm'>
           {t('linkHealth.alertSummary', { n })}

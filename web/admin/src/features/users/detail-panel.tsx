@@ -1,13 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
-import type { UserRecord } from '@/lib/api/types'
 import { getUser } from '@/lib/api/users'
-import { formatDateTime } from '@/lib/format'
-import { Reveal } from '@/components/ui/reveal'
-import { DetailField as Field } from '@/components/detail-field'
+import { formatDateTime, formatUserLabel } from '@/lib/format'
 import { ErrorBanner } from '@/components/feedback/error-banner'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
+import {
+  RelatedChip,
+  ResourceDetailFallbackTitle,
+  ResourceDetailLayout,
+  type IdentifierItem,
+} from '@/features/operations/detail-layout'
+import { lifecycleBadgeClass } from '@/features/operations/identity'
+import { resourceDetailBodyClassName } from '@/features/resource-modal'
 
 type Props = {
   id: string
@@ -15,49 +20,6 @@ type Props = {
 
 function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
-}
-
-function UserFields({
-  user,
-  t,
-}: {
-  user: UserRecord
-  t: (k: string) => string
-}) {
-  const accessLabel =
-    user.access === 'always_allowed'
-      ? t('users.accessAlwaysAllowed')
-      : user.access === 'paid'
-        ? t('users.accessPaid')
-        : t('users.accessDenied')
-
-  return (
-    <dl className='flex flex-col gap-3'>
-      <Field label={t('users.fieldId')} value={user.id} />
-      <Field label={t('users.fieldPlatform')} value={user.channel_name} />
-      <Field
-        label={t('users.fieldExternalUserId')}
-        value={user.external_user_id}
-      />
-      <Field label={t('users.fieldUsername')} value={user.username} />
-      <Field label={t('users.fieldFirstName')} value={user.first_name} />
-      <Field label={t('users.fieldLastName')} value={user.last_name} />
-      <Field label={t('users.fieldLanguageCode')} value={user.language_code} />
-      <Field label={t('users.fieldAccess')} value={accessLabel} />
-      <Field
-        label={t('users.fieldLastSeenAt')}
-        value={formatDateTime(user.last_seen_at)}
-      />
-      <Field
-        label={t('users.fieldCreatedAt')}
-        value={formatDateTime(user.created_at)}
-      />
-      <Field
-        label={t('users.fieldUpdatedAt')}
-        value={formatDateTime(user.updated_at)}
-      />
-    </dl>
-  )
 }
 
 export function UserDetailPanel({ id }: Props) {
@@ -70,35 +32,103 @@ export function UserDetailPanel({ id }: Props) {
 
   if (detailQuery.isLoading) {
     return (
-      <div data-testid='user-detail-panel'>
-        <LoadingSkeleton rows={8} />
-      </div>
+      <>
+        <ResourceDetailFallbackTitle>
+          {t('users.detailHeading')}
+        </ResourceDetailFallbackTitle>
+        <div
+          data-testid='user-detail-panel'
+          className={resourceDetailBodyClassName}
+        >
+          <LoadingSkeleton rows={8} />
+        </div>
+      </>
     )
   }
 
   if (detailQuery.isError) {
     return (
-      <div data-testid='user-detail-panel' className='flex flex-col gap-3'>
-        <ErrorBanner
-          message={errorMessage(detailQuery.error)}
-          onRetry={() => void detailQuery.refetch()}
-        />
-      </div>
+      <>
+        <ResourceDetailFallbackTitle>
+          {t('users.detailHeading')}
+        </ResourceDetailFallbackTitle>
+        <div
+          data-testid='user-detail-panel'
+          className={`${resourceDetailBodyClassName} flex flex-col gap-3`}
+        >
+          <ErrorBanner
+            message={errorMessage(detailQuery.error)}
+            onRetry={() => void detailQuery.refetch()}
+          />
+        </div>
+      </>
     )
   }
 
   const user = detailQuery.data
   if (!user) return null
 
+  const title = formatUserLabel(user, user.external_user_id) || user.id
+  const accessLabel =
+    user.access === 'always_allowed'
+      ? t('users.accessAlwaysAllowed')
+      : user.access === 'paid'
+        ? t('users.accessPaid')
+        : t('users.accessDenied')
+  const accessClass =
+    user.access === 'denied'
+      ? 'border-destructive/25 bg-destructive/10 text-destructive'
+      : lifecycleBadgeClass('succeeded')
+
+  const identifiers: IdentifierItem[] = [
+    {
+      label: t('users.fieldExternalUserId'),
+      value: user.external_user_id,
+      copy: true,
+    },
+    user.username && user.username !== title
+      ? { label: t('users.fieldUsername'), value: user.username }
+      : null,
+    user.language_code
+      ? { label: t('users.fieldLanguageCode'), value: user.language_code }
+      : null,
+    {
+      label: t('users.fieldLastSeenAt'),
+      value: formatDateTime(user.last_seen_at),
+    },
+    {
+      label: t('users.fieldCreatedAt'),
+      value: formatDateTime(user.created_at),
+    },
+    {
+      label: t('users.fieldUpdatedAt'),
+      value: formatDateTime(user.updated_at),
+    },
+  ].filter((item): item is IdentifierItem => item != null)
+
   return (
-    <Reveal className='flex flex-col gap-4' data-testid='user-detail-panel'>
-      <div>
-        <h2 className='text-lg font-semibold'>{user.id}</h2>
-        <p className='text-sm text-muted-foreground'>
-          {t('users.detailHeading')}
-        </p>
-      </div>
-      <UserFields user={user} t={t} />
-    </Reveal>
+    <ResourceDetailLayout
+      testId='user-detail-panel'
+      title={title}
+      status={accessLabel}
+      statusClassName={accessClass}
+      recordId={user.id}
+      related={
+        user.channel_id ? (
+          <RelatedChip
+            label={t('users.fieldPlatform')}
+            value={user.channel_name || user.channel_id}
+            to='/channels/$id'
+            params={{ id: user.channel_id }}
+          />
+        ) : user.channel_name ? (
+          <RelatedChip
+            label={t('users.fieldPlatform')}
+            value={user.channel_name}
+          />
+        ) : null
+      }
+      identifiers={identifiers}
+    />
   )
 }

@@ -5,9 +5,8 @@ blob_root: "data/blob"
 # Examples: http://127.0.0.1:8188  or  http://192.168.31.131:8188
 # 计算节点需在后台手动新增；如需启动时按配置文件批量登记，见下方 comfy_instances。
 comfyui_base_url: "http://127.0.0.1:8188"
-# 运行时双模式（默认 allinone）
-# runtime_mode: allinone   # queue.driver=memory + blob.driver=localfs；同进程执行面
-# runtime_mode: split      # queue.driver=redis + blob.driver=s3|tos；Edge 需 REDIS_* / S3_* 或 TOS_*
+# placement: local    # 本机；blob.driver=localfs
+# placement: remote   # 远程；blob.driver=s3 或 tos；Edge 需 S3_* 或 TOS_*
 # queue:
 #   driver: memory
 # blob:

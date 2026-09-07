@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -18,10 +19,22 @@ import (
 )
 
 func openChannelsServer(t *testing.T) (*httptest.Server, *channelapp.Service) {
+	return openChannelsServerPool(t, 0)
+}
+
+func openChannelsServerPool(t *testing.T, maxOpen int) (*httptest.Server, *channelapp.Service) {
 	t.Helper()
 	gdb, err := db.Open(db.Options{DSN: "file:ch_http_" + t.Name() + "?mode=memory&cache=shared"})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if maxOpen > 0 {
+		sqlDB, err := gdb.DB()
+		if err != nil {
+			t.Fatal(err)
+		}
+		sqlDB.SetMaxIdleConns(maxOpen)
+		sqlDB.SetMaxOpenConns(maxOpen)
 	}
 	if err := db.AutoMigrate(gdb, &channelpersist.ChannelRow{}); err != nil {
 		t.Fatal(err)
@@ -33,7 +46,11 @@ func openChannelsServer(t *testing.T) (*httptest.Server, *channelapp.Service) {
 			return nil, errors.New("offline")
 		},
 	}
-	h := &channelsapi.Handler{Svc: svc}
+	h := &channelsapi.Handler{
+		Svc:      svc,
+		Probe:    &channelapp.ReachabilityProbe{Svc: svc},
+		ProbeCtx: context.Background(),
+	}
 	r := chi.NewRouter()
 	r.Route("/api/v1/channels", func(r chi.Router) {
 		h.Mount(r)
@@ -131,8 +148,8 @@ func TestChannelsHandler_CreateListDetailUpdateDelete(t *testing.T) {
 	}
 }
 
-func TestChannelsHandler_CheckReachability(t *testing.T) {
-	srv, svc := openChannelsServer(t)
+func TestChannelsHandler_CheckRouteRemoved(t *testing.T) {
+	srv, _ := openChannelsServer(t)
 	res, m := post(t, srv.URL+"/api/v1/channels", map[string]any{
 		"platform": "telegram", "name": "主机器人", "token": "1234567890",
 	})
@@ -140,57 +157,74 @@ func TestChannelsHandler_CheckReachability(t *testing.T) {
 		t.Fatalf("create status=%d body=%v", res.StatusCode, m)
 	}
 	id := m["id"].(string)
-
-	var gotToken string
-	svc.CheckTelegram = func(_ context.Context, token string) (channelapp.ReachabilityResult, error) {
-		gotToken = token
-		return channelapp.ReachabilityResult{OK: false, Kind: channelapp.ReachabilityNetwork, Message: "dial timeout"}, nil
-	}
-	svc.AdapterStatus = func(_ context.Context, id string) (state string, lastErr string, found bool) {
-		return "error", "dial timeout", true
-	}
-
 	checkRes, err := http.Post(srv.URL+"/api/v1/channels/"+id+"/check", "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer checkRes.Body.Close()
-	var out struct {
-		OK           bool                        `json:"ok"`
-		Kind         channelapp.ReachabilityKind `json:"kind"`
-		CheckedAt    string                      `json:"checked_at"`
-		AdapterState string                      `json:"adapter_state"`
-		AdapterError string                      `json:"adapter_error"`
+	checkRes.Body.Close()
+	if checkRes.StatusCode != http.StatusNotFound {
+		t.Fatalf("check status=%d want 404", checkRes.StatusCode)
 	}
-	_ = json.NewDecoder(checkRes.Body).Decode(&out)
-	if checkRes.StatusCode != http.StatusOK {
-		t.Fatalf("check status=%d", checkRes.StatusCode)
+}
+
+func TestChannelsHandler_KickProbeReturnsBeforeTelegram(t *testing.T) {
+	srv, svc := openChannelsServer(t)
+	res, m := post(t, srv.URL+"/api/v1/channels", map[string]any{
+		"platform": "telegram", "name": "开", "token": "tok",
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d body=%v", res.StatusCode, m)
 	}
-	if gotToken != "1234567890" {
-		t.Fatalf("token=%q", gotToken)
-	}
-	if out.OK || out.Kind != channelapp.ReachabilityNetwork {
-		t.Fatalf("out=%+v", out)
-	}
-	if out.CheckedAt == "" || out.AdapterState != "error" || out.AdapterError != "dial timeout" {
-		t.Fatalf("out=%+v", out)
-	}
-	stored, err := svc.Get(context.Background(), id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored.LastCheckKind != string(channelapp.ReachabilityNetwork) {
-		t.Fatalf("persisted kind=%q", stored.LastCheckKind)
+	id := m["id"].(string)
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	svc.CheckTelegram = func(_ context.Context, _ string) (channelapp.ReachabilityResult, error) {
+		close(entered)
+		<-release
+		return channelapp.ReachabilityResult{OK: true, Kind: channelapp.ReachabilityOK}, nil
 	}
 
-	notFoundRes, err := http.Post(srv.URL+"/api/v1/channels/missing/check", "application/json", nil)
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	start := time.Now()
+	kickRes, err := client.Post(srv.URL+"/api/v1/channels/probe", "application/json", nil)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("POST /probe blocked on Telegram: %v", err)
 	}
-	notFoundRes.Body.Close()
-	if notFoundRes.StatusCode != http.StatusNotFound {
-		t.Fatalf("not found status=%d", notFoundRes.StatusCode)
+	defer kickRes.Body.Close()
+	if elapsed := time.Since(start); elapsed > 200*time.Millisecond {
+		t.Fatalf("POST /probe took %s, want immediate 202", elapsed)
 	}
+	if kickRes.StatusCode != http.StatusAccepted {
+		t.Fatalf("kick status=%d want 202", kickRes.StatusCode)
+	}
+
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("ProbeOnce did not run")
+	}
+	close(release)
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		stored, err := svc.Get(context.Background(), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if stored.LastCheckKind == string(channelapp.ReachabilityOK) && stored.LastCheckAt != nil {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("ProbeOnce must still persist last_check")
 }
 
 func TestChannelsHandler_ListDetailExposeAdapterState(t *testing.T) {
@@ -230,6 +264,68 @@ func TestChannelsHandler_ListDetailExposeAdapterState(t *testing.T) {
 	detailRes.Body.Close()
 	if detail["adapter_state"] != "error" || detail["adapter_error"] != "dial timeout" {
 		t.Fatalf("detail adapter=%v", detail)
+	}
+}
+
+func TestChannelsHandler_ListGetNotBlockedDuringTelegram(t *testing.T) {
+	srv, svc := openChannelsServerPool(t, 1)
+	res, m := post(t, srv.URL+"/api/v1/channels", map[string]any{
+		"platform": "telegram", "name": "开", "token": "tok",
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d body=%v", res.StatusCode, m)
+	}
+	id := m["id"].(string)
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	svc.CheckTelegram = func(_ context.Context, _ string) (channelapp.ReachabilityResult, error) {
+		close(entered)
+		<-release
+		return channelapp.ReachabilityResult{OK: true, Kind: channelapp.ReachabilityOK}, nil
+	}
+	svc.AdapterStatus = func(_ context.Context, _ string) (state string, lastErr string, found bool) {
+		return "running", "", true
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := svc.CheckReachability(context.Background(), id)
+		errCh <- err
+	}()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("probe did not start")
+	}
+
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	listRes, err := client.Get(srv.URL + "/api/v1/channels")
+	if err != nil {
+		t.Fatalf("GET /channels during probe: %v", err)
+	}
+	listRes.Body.Close()
+	if listRes.StatusCode != http.StatusOK {
+		t.Fatalf("list status=%d", listRes.StatusCode)
+	}
+	getRes, err := client.Get(srv.URL + "/api/v1/channels/" + id)
+	if err != nil {
+		t.Fatalf("GET /channels/{id} during probe: %v", err)
+	}
+	getRes.Body.Close()
+	if getRes.StatusCode != http.StatusOK {
+		t.Fatalf("get status=%d", getRes.StatusCode)
+	}
+	close(release)
+	if err := <-errCh; err != nil {
+		t.Fatal(err)
 	}
 }
 

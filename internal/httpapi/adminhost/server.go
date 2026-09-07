@@ -100,12 +100,12 @@ func NewHandler(opts Options) http.Handler {
 		if opts.Channels != nil {
 			r.Get("/", opts.Channels.List)
 			r.Post("/", opts.Channels.Create)
+			r.Post("/probe", opts.Channels.KickProbe)
 			r.Route("/{id}", func(r chi.Router) {
 				r.Get("/", opts.Channels.Get)
 				r.Put("/", opts.Channels.Update)
 				r.Post("/disable", opts.Channels.Disable)
 				r.Post("/enable", opts.Channels.Enable)
-				r.Post("/check", opts.Channels.CheckReachability)
 				r.Delete("/", opts.Channels.Delete)
 				if opts.MenuCards != nil {
 					opts.MenuCards.Mount(r)

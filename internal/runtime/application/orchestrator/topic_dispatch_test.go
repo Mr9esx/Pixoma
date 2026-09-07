@@ -49,6 +49,26 @@ func buildTopicSvc(t *testing.T, reg *static.Registry, cases *caseReaderStub, co
 	return svc, tasks
 }
 
+type topicStubProvider struct {
+	val func(ctx context.Context, field string) (any, error)
+}
+
+func (s *topicStubProvider) Namespace() string { return "user" }
+func (s *topicStubProvider) ListAttributes() []condition.AttributeDescriptor {
+	return []condition.AttributeDescriptor{{
+		Key:     "user.level",
+		Context: "user",
+		Label:   "Level",
+		Schema:  map[string]any{"type": "string", "enum": []any{"image", "video"}},
+	}}
+}
+func (s *topicStubProvider) Value(ctx context.Context, field string) (any, error) {
+	if s.val == nil {
+		return nil, condition.ErrAttributeMissing
+	}
+	return s.val(ctx, field)
+}
+
 func TestDispatch_RoutesToTopicWithoutEdgeBinding(t *testing.T) {
 	ctx := context.Background()
 	reg := static.New(edge.Instance{ID: "gpu-1", SubscribeTopics: []string{"fast-gpu"}})
@@ -56,13 +76,13 @@ func TestDispatch_RoutesToTopicWithoutEdgeBinding(t *testing.T) {
 		1: {
 			ID: 1,
 			Routing: &domain.RoutingConfig{Rules: []domain.RoutingRule{
-				{When: json.RawMessage(`{"field":"case.category","op":"eq","value":"image"}`), Topic: "fast-gpu"},
+				{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`), Topic: "fast-gpu"},
 			}},
 		},
 	}}
 	cond := condition.NewRegistry()
-	cond.Register(&condition.CaseProvider{Lookup: func(context.Context, string) (string, []string, error) {
-		return "image", nil, nil
+	cond.Register(&topicStubProvider{val: func(context.Context, string) (any, error) {
+		return "image", nil
 	}})
 	svc, tasks := buildTopicSvc(t, reg, cases, cond)
 
@@ -93,13 +113,13 @@ func TestDispatch_EvalErrorKeepsPending(t *testing.T) {
 		1: {
 			ID: 1,
 			Routing: &domain.RoutingConfig{Rules: []domain.RoutingRule{
-				{When: json.RawMessage(`{"field":"case.category","op":"eq","value":"image"}`), Topic: "fast-gpu"},
+				{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`), Topic: "fast-gpu"},
 			}},
 		},
 	}}
 	cond := condition.NewRegistry()
-	cond.Register(&condition.CaseProvider{Lookup: func(context.Context, string) (string, []string, error) {
-		return "", nil, errors.New("provider boom")
+	cond.Register(&topicStubProvider{val: func(context.Context, string) (any, error) {
+		return nil, errors.New("provider boom")
 	}})
 	svc, tasks := buildTopicSvc(t, reg, cases, cond)
 
@@ -150,13 +170,13 @@ func TestDispatch_UnmatchedRulesFailsWithoutFallback(t *testing.T) {
 		1: {
 			ID: 1,
 			Routing: &domain.RoutingConfig{Rules: []domain.RoutingRule{
-				{When: json.RawMessage(`{"field":"case.category","op":"eq","value":"image"}`), Topic: "fast-gpu"},
+				{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`), Topic: "fast-gpu"},
 			}},
 		},
 	}}
 	cond := condition.NewRegistry()
-	cond.Register(&condition.CaseProvider{Lookup: func(context.Context, string) (string, []string, error) {
-		return "", nil, nil
+	cond.Register(&topicStubProvider{val: func(context.Context, string) (any, error) {
+		return "", nil
 	}})
 	svc, tasks := buildTopicSvc(t, reg, cases, cond)
 
@@ -208,13 +228,13 @@ func TestDispatch_NoOnlineConsumerKeepsPending(t *testing.T) {
 		1: {
 			ID: 1,
 			Routing: &domain.RoutingConfig{Rules: []domain.RoutingRule{
-				{When: json.RawMessage(`{"field":"case.category","op":"eq","value":"image"}`), Topic: "fast-gpu"},
+				{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`), Topic: "fast-gpu"},
 			}},
 		},
 	}}
 	cond := condition.NewRegistry()
-	cond.Register(&condition.CaseProvider{Lookup: func(context.Context, string) (string, []string, error) {
-		return "image", nil, nil
+	cond.Register(&topicStubProvider{val: func(context.Context, string) (any, error) {
+		return "image", nil
 	}})
 	svc, tasks := buildTopicSvc(t, reg, cases, cond)
 	svc.Online = func(context.Context, sharedkernel.EdgeID) bool { return false }

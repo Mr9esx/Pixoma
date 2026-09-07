@@ -44,8 +44,9 @@ func (UserExternalIdentityRow) TableName() string { return "channel_user_externa
 
 // UserRepository is a GORM-backed identity.Repository.
 type UserRepository struct {
-	db  *gorm.DB
-	now func() time.Time
+	db            *gorm.DB
+	now           func() time.Time
+	defaultAccess func() domain.UserAccess
 }
 
 // NewUserRepository constructs a UserRepository.
@@ -54,6 +55,21 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 		db:  db,
 		now: time.Now,
 	}
+}
+
+// SetDefaultAccess sets the access used only when creating a new channel user.
+func (r *UserRepository) SetDefaultAccess(fn func() domain.UserAccess) {
+	if r == nil {
+		return
+	}
+	r.defaultAccess = fn
+}
+
+func (r *UserRepository) createAccess() domain.UserAccess {
+	if r == nil || r.defaultAccess == nil {
+		return domain.UserAccessDenied
+	}
+	return domain.NormalizeUserAccess(string(r.defaultAccess()))
 }
 
 // UpsertByChannelExternal upserts an internal user keyed by (channel, external id).
@@ -91,7 +107,7 @@ func (r *UserRepository) upsertOnce(ctx context.Context, in domain.UpsertFrom) (
 		user := UserRow{
 			ID: userID, Username: in.Username, FirstName: in.FirstName,
 			LastName: in.LastName, LanguageCode: in.LanguageCode,
-			Access: domain.UserAccessDenied, LastSeenAt: now,
+			Access: r.createAccess(), LastSeenAt: now,
 			CreatedAt: now, UpdatedAt: now,
 		}
 		ident := UserExternalIdentityRow{

@@ -519,6 +519,9 @@ func (h *Handler) putSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	merged := mergePlatformSettings(existing, body)
 	merged.AllowSelfRegistration = body.AllowSelfRegistration
+	if strings.TrimSpace(body.DefaultUserAccess) != "" {
+		merged.DefaultUserAccess = settings.NormalizeDefaultUserAccess(body.DefaultUserAccess)
+	}
 	merged.DBDriver = driver
 	merged.DBDSN = dsn
 	if err := merged.Validate(); err != nil {
@@ -560,6 +563,9 @@ func mergePlatformSettings(existing, in settings.Settings) settings.Settings {
 	out.ProxyHost = in.ProxyHost
 	out.ProxyPort = in.ProxyPort
 	out.MediaMaxBytes = in.MediaMaxBytes
+	if strings.TrimSpace(in.DefaultUserAccess) != "" {
+		out.DefaultUserAccess = settings.NormalizeDefaultUserAccess(in.DefaultUserAccess)
+	}
 	return out
 }
 

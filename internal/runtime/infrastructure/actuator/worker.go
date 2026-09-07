@@ -17,22 +17,6 @@ import (
 	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
 )
 
-// CaseSnapshotProvider supplies workflow graph for a task (Phase1: injected map).
-// uploader is the per-dispatch Comfy client used for image uploads (may be nil).
-type CaseSnapshotProvider interface {
-	WorkflowForTask(ctx context.Context, taskID sharedkernel.TaskID, uploader ImageUploader) (comfyui.Graph, error)
-}
-
-type StaticWorkflows map[sharedkernel.TaskID]comfyui.Graph
-
-func (s StaticWorkflows) WorkflowForTask(_ context.Context, taskID sharedkernel.TaskID, _ ImageUploader) (comfyui.Graph, error) {
-	g, ok := s[taskID]
-	if !ok {
-		return comfyui.Graph{"1": map[string]any{}}, nil
-	}
-	return g, nil
-}
-
 type Worker struct {
 	EdgeID sharedkernel.EdgeID
 	Comfy  comfyui.Client
@@ -42,7 +26,6 @@ type Worker struct {
 	ResolveClient func(sharedkernel.EdgeID) (comfyui.Client, error)
 	Blob          blob.Store
 	Status        queue.Publisher
-	Workflows     CaseSnapshotProvider
 	Now           func() time.Time
 }
 
@@ -125,18 +108,14 @@ func stripAnnotationNodes(graph comfyui.Graph) comfyui.Graph {
 }
 
 func (w *Worker) resolveJob(ctx context.Context, ev sharedkernel.DispatchCommand, cli comfyui.Client) (comfyui.Graph, []catalogdomain.OutputBinding, error) {
-	if ev.JobRef.Key != "" {
-		job, err := w.jobFromBlob(ctx, ev.JobRef, cli)
-		if err != nil {
-			return nil, nil, err
-		}
-		return job.Workflow, job.Outputs, nil
+	if ev.JobRef.Key == "" {
+		return nil, nil, fmt.Errorf("actuator: missing job_ref")
 	}
-	if w.Workflows == nil {
-		return nil, nil, fmt.Errorf("actuator: missing job_ref and workflows provider")
+	job, err := w.jobFromBlob(ctx, ev.JobRef, cli)
+	if err != nil {
+		return nil, nil, err
 	}
-	graph, err := w.Workflows.WorkflowForTask(ctx, ev.TaskID, cli)
-	return graph, nil, err
+	return job.Workflow, job.Outputs, nil
 }
 
 func (w *Worker) jobFromBlob(ctx context.Context, ref sharedkernel.BlobRef, uploader ImageUploader) (*JobPackage, error) {

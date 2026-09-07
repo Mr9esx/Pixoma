@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
@@ -23,7 +23,7 @@ import {
   type ChannelReachability,
 } from '@/lib/api/channels'
 import { ApiError } from '@/lib/api/client'
-import { resolvedEntityHealth } from '@/lib/api/link-health'
+import { alignPlatformHealth, resolvedEntityHealth } from '@/lib/api/link-health'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listSessions } from '@/lib/api/sessions'
 import { listTasks } from '@/lib/api/tasks'
@@ -87,14 +87,22 @@ export function ChannelDetailPanel({ id }: { id: string }) {
   const botUsername =
     typeof extra?.username === 'string' && extra.username ? extra.username : ''
 
-  const healthQuery = useLinkHealthQuery({ enabled: false })
-  const channelHealth = resolvedEntityHealth(
-    healthQuery.data,
-    'platform',
-    id,
-    healthQuery.isSuccess
-  )
   const storedCheck = storedReachability(ch)
+  const healthQuery = useLinkHealthQuery()
+  const channelHealth = alignPlatformHealth(
+    resolvedEntityHealth(
+      healthQuery.data,
+      'platform',
+      id,
+      healthQuery.isSuccess
+    ),
+    storedCheck?.kind
+  )
+
+  useEffect(() => {
+    if (!ch?.last_check_kind && !ch?.last_check_at) return
+    void queryClient.invalidateQueries({ queryKey: queryKeys.linkHealth })
+  }, [ch?.last_check_kind, ch?.last_check_at, queryClient])
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -214,11 +222,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{ch.name}</h2>
-            <ChannelReachabilityTag
-              result={storedCheck}
-              pending={false}
-              failed={false}
-            />
+            <ChannelReachabilityTag result={storedCheck} />
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
             <TopologyOpenButton kind='platform' id={ch.id} />
@@ -438,35 +442,11 @@ function formatTime(iso: string): string {
 
 function ChannelReachabilityTag({
   result,
-  pending,
-  failed,
 }: {
   result?: ChannelReachability
-  pending: boolean
-  failed: boolean
 }) {
   const { t } = useTranslation()
-  if (pending) {
-    return (
-      <Badge
-        variant='outline'
-        className='border-border bg-muted text-muted-foreground'
-      >
-        {t('channels.checkingReachability')}
-      </Badge>
-    )
-  }
-  if (!result && !failed) return null
-  if (failed || !result) {
-    return (
-      <Badge
-        variant='outline'
-        className='border-warning/30 bg-warning/10 text-warning'
-      >
-        {t('channels.reachabilityFailed')}
-      </Badge>
-    )
-  }
+  if (!result) return null
   if (result.kind === 'ok') {
     return (
       <Badge

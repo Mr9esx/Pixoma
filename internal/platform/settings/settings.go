@@ -25,9 +25,13 @@ const (
 	// MinMediaMaxBytes is the lower bound (1 KiB) enforced on MediaMaxBytes to
 	// keep the value meaningful. Zero means "fall back to media.DefaultMaxBytes".
 	MinMediaMaxBytes int64 = 1024
+
+	DefaultUserAccessAlwaysAllowed = "always_allowed"
+	DefaultUserAccessPaid          = "paid"
+	DefaultUserAccessDenied        = "denied"
 )
 
-// Settings is the persisted platform configuration (no queue.driver / runtime_mode).
+// Settings is the persisted platform configuration.
 type Settings struct {
 	Placement      string `json:"placement"`
 	DBDriver       string `json:"db_driver"`
@@ -50,6 +54,8 @@ type Settings struct {
 	MediaMaxBytes int64 `json:"media_max_bytes,omitempty"`
 	// AllowSelfRegistration toggles public console-account registration.
 	AllowSelfRegistration bool `json:"allow_self_registration"`
+	// DefaultUserAccess is applied only when creating a new channel user.
+	DefaultUserAccess string `json:"default_user_access"`
 }
 
 // Validate checks local/remote vs blob legality.
@@ -103,6 +109,18 @@ func (s Settings) Validate() error {
 		return fmt.Errorf("settings: media_max_bytes must be at least %d bytes", MinMediaMaxBytes)
 	}
 	return validateProxy(s)
+}
+
+// NormalizeDefaultUserAccess maps unknown values to denied.
+func NormalizeDefaultUserAccess(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case DefaultUserAccessAlwaysAllowed:
+		return DefaultUserAccessAlwaysAllowed
+	case DefaultUserAccessPaid:
+		return DefaultUserAccessPaid
+	default:
+		return DefaultUserAccessDenied
+	}
 }
 
 func validateProxy(s Settings) error {

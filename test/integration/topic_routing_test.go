@@ -51,7 +51,7 @@ func TestMemoryAllInOne_TopicRoutedToFastGpu(t *testing.T) {
 		Name:   "Routed",
 		Inputs: []domain.InputField{{Key: "prompt", Type: "string", Required: true}},
 		Routing: &domain.RoutingConfig{Rules: []domain.RoutingRule{
-			{When: json.RawMessage(`{"field":"user.is_premium","op":"eq","value":true}`), Topic: "fast-gpu"},
+			{When: json.RawMessage(`{"field":"user.level","op":"eq","value":"image"}`), Topic: "fast-gpu"},
 		}},
 		Bindings: domain.ComfyBindings{
 			WorkflowJSON: map[string]any{
@@ -70,9 +70,8 @@ func TestMemoryAllInOne_TopicRoutedToFastGpu(t *testing.T) {
 	orch.Sessions = sessions
 	orch.Cases = caseDocReader{cases: cases}
 	cond := condition.NewRegistry()
-	cond.Register(&condition.UserProvider{Lookup: func(context.Context, string) (*bool, error) {
-		trueVal := true
-		return &trueVal, nil
+	cond.Register(&smokeStubProvider{val: func(context.Context, string) (any, error) {
+		return "image", nil
 	}})
 	orch.Condition = cond
 
@@ -89,9 +88,8 @@ func TestMemoryAllInOne_TopicRoutedToFastGpu(t *testing.T) {
 		EdgeID:    "local",
 		Comfy:     mock,
 		Blob:      store,
-		Status:    bus,
-		Workflows: snap,
-		Now:       func() time.Time { return now },
+		Status: bus,
+		Now:    func() time.Time { return now },
 	}
 
 	_ = bus.Subscribe(ctx, sharedkernel.TopicTaskCreated, func(ctx context.Context, msg queue.Message) error {

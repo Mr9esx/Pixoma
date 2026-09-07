@@ -40,6 +40,7 @@ export type SetupDraft = {
   proxy_port?: number
   media_max_bytes?: number
   allow_self_registration?: boolean
+  default_user_access?: 'always_allowed' | 'paid' | 'denied'
 }
 
 export function fetchSetupStatus() {

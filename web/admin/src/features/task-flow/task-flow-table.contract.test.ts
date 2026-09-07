@@ -7,7 +7,6 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (path: string) => readFileSync(join(here, path), 'utf8')
 
 const TABLE = read('task-flow-table.tsx')
-const CONDITION_FORM = read('condition-form.tsx')
 const CASE_CONTEXT = read('../config-context/case-context-section.tsx')
 const VISUAL_CONFIG = read('../visual-config/visual-config-page.tsx')
 
@@ -31,8 +30,8 @@ describe('task flow table', () => {
       "<div className='flex justify-end'>{headerActions}</div>"
     )
     expect(TABLE).toContain('validateRouting')
-    expect(TABLE).toContain('ConditionForm')
-    expect(CONDITION_FORM).toContain('data-condition-unconditional')
+    expect(TABLE).toContain('describeCondition')
+    expect(TABLE).not.toContain('ConditionForm')
     expect(TABLE).not.toContain('@xyflow/react')
     expect(TABLE).not.toContain('TaskFlowCanvas')
     expect(TABLE).not.toContain('TaskFlowEditor')
@@ -59,9 +58,8 @@ describe('task flow table', () => {
     expect(VALIDATE).toContain('routing-empty')
   })
 
-  it('lets unconditional rules switch to conditional editing', () => {
-    expect(CONDITION_FORM).toContain('Switch')
-    expect(CONDITION_FORM).toContain("always' in value")
-    expect(CONDITION_FORM).toContain('无条件')
+  it('shows condition text without an editor', () => {
+    expect(TABLE).toContain('describeCondition')
+    expect(TABLE).not.toContain('ConditionForm')
   })
 })
