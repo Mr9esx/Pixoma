@@ -41,6 +41,7 @@ jobs:
           version: 10.12.4
       - name: Build admin UI
         run: |
+          rm -f web/admin/.npmrc
           pnpm --dir web/admin install --frozen-lockfile
           pnpm --dir web/admin build
           rm -rf apps/pixoma/internal/webembed/dist
