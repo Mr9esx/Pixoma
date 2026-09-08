@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/packaging/linkhealth"
+	"github.com/Mr9esx/Pixoma/internal/packaging/linkhealth"
 )
 
 // Handler serves GET /api/v1/link-health.

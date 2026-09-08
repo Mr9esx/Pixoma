@@ -3,7 +3,7 @@ package notify
 import (
 	"context"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type Publisher interface {

@@ -1,4 +1,4 @@
-module github.com/mr9esx/comfyui_tgbot
+module github.com/Mr9esx/Pixoma
 
 go 1.25.13
 

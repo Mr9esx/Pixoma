@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue"
 )
 
 type Bus struct {

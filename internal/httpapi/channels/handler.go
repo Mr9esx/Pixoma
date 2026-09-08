@@ -11,8 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/application"
-	"github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
+	"github.com/Mr9esx/Pixoma/internal/channels/application"
+	"github.com/Mr9esx/Pixoma/internal/channels/domain"
 )
 
 // Handler serves channel management endpoints under /api/v1/channels.

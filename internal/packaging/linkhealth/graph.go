@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
+	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
+	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
 )
 
 type Kind string

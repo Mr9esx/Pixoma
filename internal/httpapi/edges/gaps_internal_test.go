@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 )
 
 func TestFillMetricsGaps(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 
 	volctos "github.com/volcengine/ve-tos-golang-sdk/v2/tos"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 // Options configures a Volcengine TOS blob store.

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue/memory"
 )
 
 func TestPublishSubscribeDeliversPayload(t *testing.T) {

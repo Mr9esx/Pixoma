@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/crypto/bcrypt"
 
-	consoledomain "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
-	consolepersist "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/persistence"
-	adminusersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminusers"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	consoledomain "github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	consolepersist "github.com/Mr9esx/Pixoma/internal/adminusers/infrastructure/persistence"
+	adminusersapi "github.com/Mr9esx/Pixoma/internal/httpapi/adminusers"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func newRouter(t *testing.T) (*chi.Mux, *consolepersist.ConsoleUserRepository) {

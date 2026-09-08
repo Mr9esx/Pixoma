@@ -11,8 +11,8 @@ import (
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
-	blobs3 "github.com/mr9esx/comfyui_tgbot/internal/platform/blob/s3"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	blobs3 "github.com/Mr9esx/Pixoma/internal/platform/blob/s3"
 )
 
 func TestPutGetRoundTrip(t *testing.T) {

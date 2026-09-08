@@ -9,7 +9,7 @@
 ```mermaid
 sequenceDiagram
   participant U as Telegram User
-  participant TG as channel/tg
+  participant TG as channels/tg
   participant APP as botapp.ConfirmRun
   participant O as Orchestrator
   participant E as pixoma-edge-agent
@@ -39,14 +39,14 @@ sequenceDiagram
 | 本机（默认） | `pixoma` 自动 spawn Edge | localfs 共用目录 | `pixoma-edge-agent` |
 | 远程 | 控制面 + 独立 Edge | s3 或 tos（禁止 localfs） | Edge 出站 claim |
 
-对话入口：Telegram 主 ReplyKeyboard 来自 `tg_menus` + `tg_menu_items`（空库种子或自 `tg_menu_configs` 迁移）；`channel/tg` 每次构建键盘时读 `MenuTree`（失败回退 `DefaultSeedTree`）。
+对话入口：Telegram 主 ReplyKeyboard 来自 `tg_menus` + `tg_menu_items`（空库种子或自 `tg_menu_configs` 迁移）；`channels/tg` 每次构建键盘时读 `MenuTree`（失败回退 `DefaultSeedTree`）。
 
 ### 1.1 TG 主键盘与 folder Inline 浏览
 
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant TG as channel/tg
+  participant TG as channels/tg
   participant M as tgmenu.Repository
 
   U->>TG: /start 或点根按钮
@@ -75,10 +75,10 @@ sequenceDiagram
 
 | 角色 | 包 | 职责 |
 |---|---|---|
-| **Orchestrator** | `runtime/application/orchestrator` | 路由求值、按 Topic 置可领取、收敛 status、失败有界重试、终态 notify、对账 |
-| **Actuator** | `runtime/infrastructure/actuator` | 按实例客户端跑 workflow、产物入 blob、上报 status |
-| **Edge Pool** | `platform/edge` | CRUD 元数据、健康探测、持有 per-edge Client、RR 候选 |
-| **Channel probe** | `channel/application.ReachabilityProbe` | 后台周期探测启用中的消息平台（getMe），写入 `last_check_*`；进页 `POST /channels/probe` 可再踢一轮，均不挡 GET / 列表渲染 |
+| **Orchestrator** | `tasks/application/orchestrator` | 路由求值、按 Topic 置可领取、收敛 status、失败有界重试、终态 notify、对账 |
+| **Actuator** | `tasks/infrastructure/actuator` | 按实例客户端跑 workflow、产物入 blob、上报 status |
+| **Edge Pool** | `edge/application` / `edge/domain` | CRUD 元数据、健康探测、持有 per-edge Client、RR 候选 |
+| **Channel probe** | `channels/application.ReachabilityProbe` | 后台周期探测启用中的消息平台（getMe），写入 `last_check_*`；进页 `POST /channels/probe` 可再踢一轮，均不挡 GET / 列表渲染 |
 
 Task 表是**执行态唯一真相源**（无独立 Actuator Ledger）。
 
@@ -115,10 +115,10 @@ Orchestrator ──Publish(UserNotify)──► platform/notify.Publisher
 |---|---|
 | Confirm | `internal/packaging/botapp/confirm_run.go` |
 | 事件 DTO | `internal/sharedkernel/events.go` |
-| Orchestrator | `internal/runtime/application/orchestrator/service.go` |
-| Actuator | `internal/runtime/infrastructure/actuator/worker.go` |
-| Case→workflow | `internal/runtime/infrastructure/actuator/snapshot.go` |
-| 组合根 | `apps/pixoma/cmd/pixoma/main.go` |
+| Orchestrator | `internal/tasks/application/orchestrator/service.go` |
+| Actuator | `internal/tasks/infrastructure/actuator/worker.go` |
+| Case→workflow | `internal/tasks/infrastructure/actuator/snapshot.go` |
+| 组合根 | `apps/pixoma/internal/application/app.go`（`cmd/pixoma/main.go` 只做薄壳启动） |
 
 ---
 

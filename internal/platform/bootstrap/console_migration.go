@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	consoledomain "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
-	consolepersist "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/persistence"
+	consoledomain "github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	consolepersist "github.com/Mr9esx/Pixoma/internal/adminusers/infrastructure/persistence"
 )
 
 // MigrateBootstrapAdmin seeds the console-users table with the bootstrap admin

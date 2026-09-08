@@ -10,7 +10,7 @@ import (
 
 	goredis "github.com/redis/go-redis/v9"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue"
 )
 
 const (

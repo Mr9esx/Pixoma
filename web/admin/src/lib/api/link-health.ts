@@ -36,8 +36,14 @@ export type LinkHealthGraph = {
   edges: LinkHealthEdge[]
 }
 
-export function getLinkHealth() {
-  return apiFetch<LinkHealthGraph>('/api/v1/link-health')
+export async function getLinkHealth(): Promise<LinkHealthGraph> {
+  const graph = await apiFetch<LinkHealthGraph | undefined>(
+    '/api/v1/link-health'
+  )
+  return {
+    nodes: graph?.nodes ?? [],
+    edges: graph?.edges ?? [],
+  }
 }
 
 export function findLinkNode(

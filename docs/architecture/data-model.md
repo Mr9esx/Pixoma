@@ -20,7 +20,7 @@
 
 ## 1. 领域数据结构（内存/领域模型）
 
-### 1.1 User（`internal/identity/domain`）
+### 1.1 User（`internal/users/domain`）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -31,7 +31,7 @@
 | IsBot / IsPremium | *bool | 可空 |
 | LastSeenAt | time | upsert 刷新 |
 
-### 1.2 Session（`internal/conversation/domain`）
+### 1.2 Session（`internal/sessions/domain`）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -46,7 +46,7 @@
 
 生命周期：**不含** Task 执行；确认后 → `submitted`，行长期保留。
 
-### 1.3 Task（`internal/runtime/domain`）
+### 1.3 Task（`internal/tasks/domain`）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -66,7 +66,7 @@
 | Outputs | []OutputRef | 产物 Blob |
 | ErrorCode / ErrorMessage | string | |
 
-### 1.4 Edge Record（`internal/platform/edge`）
+### 1.4 Edge Record（`internal/edge`）
 
 管理界面叫「计算节点」。代码/表/接口叫 edge。
 
@@ -447,16 +447,16 @@ flowchart LR
 
 | 表 / 能力 | 包路径 |
 |---|---|
-| users | `internal/identity/infrastructure/persistence` |
-| sessions | `internal/conversation/infrastructure/persistence` |
-| tasks | `internal/runtime/infrastructure/persistence` |
-| edges / Pool | `internal/platform/edge` |
-| catalog_cases | `internal/catalog/infrastructure/persistence` |
-| channel_main_menus | `internal/menucard`（嵌套树 JSON）；HTTP `GET/PUT /api/v1/channels/{id}/menu`；Case 反查 `GET .../cases/{id}/menu-placements`。卡片内嵌在树节点，无独立 cards 管理 API。 |
+| users | `internal/users/infrastructure/persistence` |
+| sessions | `internal/sessions/infrastructure/persistence` |
+| tasks | `internal/tasks/infrastructure/persistence` |
+| edges / Pool | `internal/edge` |
+| catalog_cases | `internal/cases/infrastructure/persistence` |
+| channel_main_menus | `internal/menus`（嵌套树 JSON）；HTTP `GET/PUT /api/v1/channels/{id}/menu`；Case 反查 `GET .../cases/{id}/menu-placements`。卡片内嵌在树节点，无独立 cards 管理 API。 |
 | channels.last_check_* | 通道上次探测 kind/message/at；后台 `ReachabilityProbe` 周期写入，进消息平台 `POST /channels/probe` 也会异步踢一轮；组装器与页面只读 |
 | 链路健康 | `internal/packaging/linkhealth` + `internal/httpapi/linkhealth` |
 | HTTP API | `internal/httpapi/edges` 等 |
-| 任务统计 | `internal/platform/taskstats`（领域/仓储）、`internal/httpapi/stats`（HTTP）、backfill `apps/pixoma/cmd/backfill-task-stats` |
+| 任务统计 | `internal/stats`（领域/仓储）、`internal/httpapi/stats`（HTTP）、backfill `apps/pixoma/cmd/backfill-task-stats` |
 | 接线 | `apps/pixoma/cmd/pixoma/main.go`（组合根） |
 
 设计原文：`docs/superpowers/specs/2026-08-08-comfy-multi-instance-design.md`

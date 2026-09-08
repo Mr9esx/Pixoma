@@ -42,7 +42,7 @@
    - 单列布局适配对话框窄屏；不做左右分栏（页面宽度不够）。
    - 绑定交互保持轻量：锚定行、单次点击完成、自动推断类型；禁止两步大弹窗/滚动。
    - 每行未绑定要有行内可诊断提示（如「未绑定节点」），提交前校验并定位到字段（对齐 `validateEditor`）。
-4. **后端改动独立**：`POST/GET /api/v1/media` + TG 预览投递（`internal/httpapi/adminhost`、`internal/channel/capability/open_case.go`）可单独成任务，纯前端阶段不要混入。
+4. **后端改动独立**：`POST/GET /api/v1/media` + TG 预览投递（`internal/httpapi/adminhost`、`internal/channels/application/capability/open_case.go`）可单独成任务，纯前端阶段不要混入。
 
 ## 5. 分阶段实施（建议顺序）
 - **阶段 A（纯前端，安全先做）**：抽取 `WorkflowEditor`；表格化批量编辑 + 轻量绑定浮层；一键生成；文案与校验。两端（独立页 + Step1）行为一致。

@@ -10,8 +10,8 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
-	queueredis "github.com/mr9esx/comfyui_tgbot/internal/platform/queue/redis"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue"
+	queueredis "github.com/Mr9esx/Pixoma/internal/platform/queue/redis"
 )
 
 func TestPublishSubscribeRoundTrip(t *testing.T) {

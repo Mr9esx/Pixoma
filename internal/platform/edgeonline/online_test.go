@@ -8,7 +8,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edgeonline"
+	"github.com/Mr9esx/Pixoma/internal/platform/edgeonline"
 )
 
 func TestChecker_ReportsOnlineWhenKeyPresent(t *testing.T) {

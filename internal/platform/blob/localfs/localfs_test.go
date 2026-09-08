@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
 )
 
 func TestPutGetRoundTrip(t *testing.T) {

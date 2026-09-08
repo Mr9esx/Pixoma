@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
-	blobs3 "github.com/mr9esx/comfyui_tgbot/internal/platform/blob/s3"
-	blobtos "github.com/mr9esx/comfyui_tgbot/internal/platform/blob/tos"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
+	blobs3 "github.com/Mr9esx/Pixoma/internal/platform/blob/s3"
+	blobtos "github.com/Mr9esx/Pixoma/internal/platform/blob/tos"
+	"github.com/Mr9esx/Pixoma/internal/platform/botconfig"
 )
 
 // CheckOptions carries explicit blob configuration for connectivity checks.

@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
 )
 
 func newTestHandler(t *testing.T, max int64) http.Handler {

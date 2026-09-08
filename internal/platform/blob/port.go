@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type PutOptions struct {

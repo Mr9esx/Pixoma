@@ -12,25 +12,25 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/edgeadmin"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	edgeapp "github.com/Mr9esx/Pixoma/internal/edge/application"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
+	"github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 // Handler serves /api/v1/edges CRUD and observation endpoints.
 type Handler struct {
 	Repo     edge.Repository
-	Pool     *edge.Pool
+	Pool     *edgeapp.Pool
 	Tasks    domain.TaskRepository
 	Metrics  edge.MetricsRepository
 	EncKey   []byte
 	Presence *presence.Store
-	Topics   topic.Repository
-	// DeleteWithCleanup performs the cleanup delete (see internal/edgeadmin).
-	DeleteWithCleanup func(ctx context.Context, id sharedkernel.EdgeID, ack bool) (edgeadmin.DeleteSummary, error)
+	Topics   topicdomain.Repository
+	// DeleteWithCleanup performs the cleanup delete (see internal/edge/application).
+	DeleteWithCleanup func(ctx context.Context, id sharedkernel.EdgeID, ack bool) (edgeapp.DeleteSummary, error)
 }
 
 // Mount registers chi routes on r (caller should mount under /api/v1/edges).
@@ -323,7 +323,7 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 		rec.Capabilities = append([]string(nil), req.Capabilities...)
 	}
 	if req.SubscribeTopics != nil {
-		topics := topic.NormalizeTopics(req.SubscribeTopics)
+		topics := topicdomain.NormalizeTopics(req.SubscribeTopics)
 		if h.Topics == nil {
 			writeErr(w, http.StatusInternalServerError, "topics repository not configured")
 			return
@@ -388,7 +388,7 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	summary, err := h.DeleteWithCleanup(r.Context(), id, body.AckReferences)
-	if errors.Is(err, edgeadmin.ErrNeedsAck) {
+	if errors.Is(err, edgeapp.ErrNeedsAck) {
 		writeErrCode(w, http.StatusConflict, "edge_delete_needs_ack",
 			"edge has running tasks; confirm with ack_references to mark them failed")
 		return

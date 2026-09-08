@@ -10,10 +10,10 @@ import (
 
 	"gorm.io/gorm/clause"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
-	taskstatspersist "github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats/persistence"
-	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/appboot"
+	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
+	taskstatspersist "github.com/Mr9esx/Pixoma/internal/stats/infrastructure/persistence"
+	taskpersist "github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/persistence"
 )
 
 // backfill-task-stats recomputes the task stats tables from the tasks table
@@ -79,7 +79,7 @@ func main() {
 			if completedAt.IsZero() {
 				completedAt = row.UpdatedAt
 			}
-			d := taskstats.DateOf(completedAt, loc)
+			d := statsdomain.DateOf(completedAt, loc)
 			a := byDate[d]
 			if a == nil {
 				a = &dayAgg{}
@@ -214,7 +214,7 @@ func main() {
 	}
 
 	repo := taskstatspersist.NewGormStatsRepository(gdb, statsRetention(), loc)
-	if err := repo.Prune(ctx, taskstats.DateOf(time.Now().In(loc).Add(-statsRetention()), loc)); err != nil {
+	if err := repo.Prune(ctx, statsdomain.DateOf(time.Now().In(loc).Add(-statsRetention()), loc)); err != nil {
 		slog.Error("prune", "err", err)
 		os.Exit(1)
 	}

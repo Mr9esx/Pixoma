@@ -10,17 +10,17 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/caseadmin"
-	"github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	caseapp "github.com/Mr9esx/Pixoma/internal/cases/application"
+	domain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 // Handler serves Case admin CRUD under /api/v1/cases.
 type Handler struct {
 	Repo     domain.Repository
 	Validate func(domain.CaseDocument) error
-	// DeleteWithCleanup performs the cleanup delete (see internal/caseadmin).
-	DeleteWithCleanup func(ctx context.Context, id sharedkernel.CaseID, ack bool) (caseadmin.DeleteSummary, error)
+	// DeleteWithCleanup performs the cleanup delete (see internal/cases/application).
+	DeleteWithCleanup func(ctx context.Context, id sharedkernel.CaseID, ack bool) (caseapp.DeleteSummary, error)
 }
 
 // Mount registers chi routes on r (caller mounts under /api/v1/cases).
@@ -236,7 +236,7 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	summary, err := h.DeleteWithCleanup(r.Context(), id, body.AckReferences)
-	if errors.Is(err, caseadmin.ErrNeedsAck) {
+	if errors.Is(err, caseapp.ErrNeedsAck) {
 		writeErrCode(w, http.StatusConflict, "case_delete_needs_ack",
 			"case is referenced by menu or card entries; confirm with ack_references to remove references")
 		return

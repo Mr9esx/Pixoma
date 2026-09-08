@@ -3,7 +3,7 @@ package smoke_test
 import (
 	"context"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
+	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
 )
 
 type smokeStubProvider struct {

@@ -10,19 +10,19 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
-	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
-	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
-	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
-	userdomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
-	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/notify"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/application/orchestrator"
-	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
-	taskpersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
+	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	sesspersist "github.com/Mr9esx/Pixoma/internal/sessions/infrastructure/persistence"
+	tasksapi "github.com/Mr9esx/Pixoma/internal/httpapi/tasks"
+	userdomain "github.com/Mr9esx/Pixoma/internal/users/domain"
+	userpersist "github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	"github.com/Mr9esx/Pixoma/internal/platform/notify"
+	"github.com/Mr9esx/Pixoma/internal/tasks/application/orchestrator"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	taskpersist "github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 func TestTasksHandler_ListGetCancel(t *testing.T) {

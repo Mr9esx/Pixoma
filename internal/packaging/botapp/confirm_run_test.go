@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
-	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/packaging/botapp"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/localfs"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
-	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	domain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	"github.com/Mr9esx/Pixoma/internal/cases/infrastructure/validation"
+	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	"github.com/Mr9esx/Pixoma/internal/packaging/botapp"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type memCases struct {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func TestEnsureDatabase_SQLiteNoop(t *testing.T) {

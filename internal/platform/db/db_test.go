@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func TestOpenMemorySQLite(t *testing.T) {

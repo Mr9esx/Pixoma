@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/setup"
 )
 
 // TestRememberMe_SurvivesRestart proves the core "remember me" promise: a

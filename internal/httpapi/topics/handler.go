@@ -12,10 +12,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
-	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
-	"github.com/mr9esx/comfyui_tgbot/internal/topicadmin"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	topicapp "github.com/Mr9esx/Pixoma/internal/topics/application"
 )
 
 // KeyPattern is the shared topic key format.
@@ -23,11 +23,11 @@ var KeyPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$`)
 
 // Handler serves /api/v1/topics CRUD.
 type Handler struct {
-	Repo topic.Repository
+	Repo topicdomain.Repository
 	// Tasks optionally enables /{key}/stats aggregation.
 	Tasks runtimedomain.TaskRepository
-	// DeleteWithCleanup performs the cleanup delete (see internal/topicadmin).
-	DeleteWithCleanup func(ctx context.Context, key string, ack bool) (topicadmin.DeleteSummary, error)
+	// DeleteWithCleanup performs the cleanup delete (see internal/topics/application).
+	DeleteWithCleanup func(ctx context.Context, key string, ack bool) (topicapp.DeleteSummary, error)
 }
 
 // Mount registers chi routes (caller mounts under /api/v1/topics).
@@ -48,7 +48,7 @@ type topicDTO struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-func toDTO(t topic.Topic) topicDTO {
+func toDTO(t topicdomain.Topic) topicDTO {
 	return topicDTO{
 		Key:       t.Key,
 		Name:      t.Name,
@@ -97,14 +97,14 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	if err := h.Repo.Create(r.Context(), topic.Topic{
+	if err := h.Repo.Create(r.Context(), topicdomain.Topic{
 		Key:       req.Key,
 		Name:      strings.TrimSpace(req.Name),
 		Enabled:   true,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}); err != nil {
-		if errors.Is(err, topic.ErrTopicConflict) {
+		if errors.Is(err, topicdomain.ErrTopicConflict) {
 			writeErr(w, http.StatusConflict, "topic key already exists")
 			return
 		}
@@ -123,7 +123,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 	got, err := h.Repo.Get(r.Context(), key)
 	if err != nil {
-		if errors.Is(err, topic.ErrTopicNotFound) {
+		if errors.Is(err, topicdomain.ErrTopicNotFound) {
 			writeErr(w, http.StatusNotFound, "topic not found")
 			return
 		}
@@ -154,7 +154,7 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		got.Name = strings.TrimSpace(*req.Name)
 	}
 	if req.Enabled != nil {
-		if key == topic.DefaultKey && !*req.Enabled {
+		if key == topicdomain.DefaultKey && !*req.Enabled {
 			writeErr(w, http.StatusConflict, "default topic cannot be disabled")
 			return
 		}
@@ -179,16 +179,16 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	summary, err := h.DeleteWithCleanup(r.Context(), key, body.AckReferences)
-	if errors.Is(err, topicadmin.ErrDefaultProtected) {
+	if errors.Is(err, topicapp.ErrDefaultProtected) {
 		writeErrCode(w, http.StatusConflict, "topic_default_protected", "default topic cannot be deleted")
 		return
 	}
-	if errors.Is(err, topicadmin.ErrNeedsAck) {
+	if errors.Is(err, topicapp.ErrNeedsAck) {
 		writeErrCode(w, http.StatusConflict, "topic_delete_needs_ack",
 			"topic is referenced by cases or edges; confirm with ack_references to remove references")
 		return
 	}
-	if errors.Is(err, topic.ErrTopicNotFound) {
+	if errors.Is(err, topicdomain.ErrTopicNotFound) {
 		writeErr(w, http.StatusNotFound, "topic not found")
 		return
 	}
@@ -236,7 +236,7 @@ type throughputPointDTO struct {
 func (h *Handler) stats(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 	if _, err := h.Repo.Get(r.Context(), key); err != nil {
-		if errors.Is(err, topic.ErrTopicNotFound) {
+		if errors.Is(err, topicdomain.ErrTopicNotFound) {
 			writeErr(w, http.StatusNotFound, "topic not found")
 			return
 		}

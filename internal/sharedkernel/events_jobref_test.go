@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 func TestDispatchCommand_JobRefRoundTrip(t *testing.T) {

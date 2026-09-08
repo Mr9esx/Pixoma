@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/appboot"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/platform/appboot"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 func TestBootstrap_MigratesInstancesAndAllowsRoundTrip(t *testing.T) {

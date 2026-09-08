@@ -9,7 +9,7 @@
 ## 1. 模块地图
 
 ```text
-┌─ channel/tg ─────────────────────────────────────┐
+┌─ channels/tg ─────────────────────────────────────┐
 │  Update→用例；DTO→消息/按钮；Notify→发图          │
 │  主菜单只读 ← tgmenu                               │
 └───────────────────────┬──────────────────────────┘
@@ -18,11 +18,11 @@
 │  StartCase / ConfirmRun / 跨 BC 应用用例          │
 └───────┬───────────────┬───────────────┬──────────┘
         ▼               ▼               ▼
-┌─ identity ─┐  ┌─ conversation ─┐  ┌─ catalog ─┐
+┌─ users ─┐  ┌─ sessions ─┐  ┌─ cases ─┐
 │ User upsert│  │ Session 填表   │  │ Case 目录 │
 └────────────┘  └────────────────┘  └─────┬─────┘
                                           │ 校验/读 Doc
-┌─ menucard ──────────────────────────────────────────┐
+┌─ menus ──────────────────────────────────────────┐
 │  每渠道一份嵌套菜单树；GET/PUT /channels/{id}/menu     │
 │  Bot 编译成键盘/卡片；Case 反查 menu-placements         │
 └─────────────────────────────────────────────────────┘
@@ -34,7 +34,7 @@
 │ domain.Task │ orchestrator │ actuator │ comfyui │
 └───────┬─────────────┬─────────────┬─────────────┘
         ▼             ▼             ▼
-   platform/edge  queue/blob   notify 端口
+   edge           queue/blob   notify 端口
 ```
 
 ---
@@ -43,12 +43,12 @@
 
 | Context | 包根 | 负责 | 不负责 |
 |---|---|---|---|
-| **Identity** | `internal/identity` | User 聚合、按 `tg_user_id` upsert | Session/Task/TG 协议细节 |
-| **Conversation** | `internal/conversation` | Session 填表状态机、草稿、Start/Skip/Exit/Confirm 前 | Task 执行、发图 |
-| **Catalog** | `internal/catalog` | Case 持久化、`doc_json` 协议、输入校验 | 调度、Comfy 调用 |
-| **Runtime** | `internal/runtime` | Task 状态机、Orchestrator、Actuator、Comfy Client | TG UI、User 资料 |
-| **Channel TG** | `internal/channel/tg` | Telegram 适配、菜单/回调、通知落地 | 领域规则 |
-| **Menu Card** | `internal/menucard` | 渠道菜单嵌套树、校验、编译、placements | TG 发送、callback 路由 |
+| **Users** | `internal/users` | User 聚合、按 `tg_user_id` upsert | Session/Task/TG 协议细节 |
+| **Sessions** | `internal/sessions` | Session 填表状态机、草稿、Start/Skip/Exit/Confirm 前 | Task 执行、发图 |
+| **Cases** | `internal/cases` | Case 持久化、`doc_json` 协议、输入校验 | 调度、Comfy 调用 |
+| **Tasks** | `internal/tasks` | Task 状态机、Orchestrator、Actuator、Comfy Client | TG UI、User 资料 |
+| **Channels** | `internal/channels` | Telegram 适配、菜单/回调、通知落地 | 领域规则 |
+| **Menus** | `internal/menus` | 渠道菜单嵌套树、校验、编译、placements | TG 发送、callback 路由 |
 | **Platform** | `internal/platform` | db/blob/queue/notify/edge/botconfig | 业务决策 |
 | **Packaging** | `internal/packaging/botapp`、`internal/packaging/linkhealth` | 跨 BC 用例门面；配置链路健康只读组装 | 写侧 CRUD、Task 执行 |
 | **HTTP API** | `internal/httpapi` | 计算节点 CRUD/观测；Case/User/Session/Task；TG Menu；`GET /api/v1/link-health` | TG 通道实现 |
@@ -58,38 +58,38 @@
 
 ## 3. 关键类型与包
 
-### Identity
+### Users
 - `domain.User` / `Repository`
 - `infrastructure/persistence` → 表 `users`
 
-### Conversation
+### Sessions
 - `domain.Session`、`DraftValue`、`Service`
 - `infrastructure/persistence` → 表 `sessions`
 
-### Catalog
+### Cases
 - `domain.Case` / `CaseDocument`（`bindings.workflow` = Comfy API JSON）
 - `infrastructure/persistence` → 表 `catalog_cases`
 - `infrastructure/validation` → 按 Case 校验采集输入
 
-### Runtime
+### Tasks
 | 包 | 职责 |
 |---|---|
-| `runtime/domain` | `Task`、状态迁移、`TaskRepository`（含 `ClaimQueued`） |
-| `runtime/application/orchestrator` | 选实例、投递、status 收敛、终态 notify、对账 |
-| `runtime/infrastructure/actuator` | 执行 Comfy、写 blob 产物、发 `task.status` |
-| `runtime/infrastructure/comfyui` | `NewClient` / HTTP |
-| `runtime/infrastructure/persistence` | 表 `tasks` |
+| `tasks/domain` | `Task`、状态迁移、`TaskRepository`（含 `ClaimQueued`） |
+| `tasks/application/orchestrator` | 选实例、投递、status 收敛、终态 notify、对账 |
+| `tasks/infrastructure/actuator` | 执行 Comfy、写 blob 产物、发 `task.status` |
+| `tasks/infrastructure/comfyui` | `NewClient` / HTTP |
+| `tasks/infrastructure/persistence` | 表 `tasks` |
 
-### Channel TG
+### Channels
 - `Adapter`、`Messenger` / `BotMessenger`
 - `notifybridge`：实现 `platform/notify.Publisher` → `HandleUserNotify`
-- `channel/application.ReachabilityProbe`：后台周期探测启用通道并写入 `last_check_*`；GET 热路径与页面渲染只读。打开消息平台时可 `POST /api/v1/channels/probe` 异步再踢一轮，不挡列表。
+- `channels/application.ReachabilityProbe`：后台周期探测启用通道并写入 `last_check_*`；GET 热路径与页面渲染只读。打开消息平台时可 `POST /api/v1/channels/probe` 异步再踢一轮，不挡列表。
 
-### TG Menu
+### Menus
 - `domain.MenuTree` / `MenuNode` / `MenuKind` / `MenuPlacement`；`Validate` + `MaxTreeDepth`
 - `application.Service`：`Get` / `Replace` / `ListPlacementsByCase` / `EnsureDefault`
 - `infrastructure/persistence` → 表 `tg_menus`、`tg_menu_items`、`tg_menu_item_cases`（遗留 `tg_menu_configs` 仅迁移读）
-- `httpapi/tgmenu`：`GET/PUT /api/v1/tg-menu`；`GET /api/v1/cases/{id}/menu-placements`
+- `httpapi/channels`：`GET/PUT /api/v1/tg-menu`；`GET /api/v1/cases/{id}/menu-placements`
 
 ### Platform
 | 包 | 职责 |
@@ -107,10 +107,10 @@
 
 1. **`domain/*` 只依赖 `sharedkernel`**，不依赖 adapter、orchestrator、具体 MQ/FS SDK。
 2. **BC domain 互不 import**；跨聚合编排放在 `packaging/botapp` 或 application 服务。
-3. **`channel/tg` → `botapp` → domains/platform`**；禁止 domain 反向依赖 channel。`channel/tg` 只读依赖 `tgmenu`（窄端口）；`httpapi/tgmenu` 写同一真相源；组合根 `apps/pixoma` 之外的入口 **禁止** import `channel/tg`。
-4. **Orchestrator / Actuator** 依赖 `runtime/domain` + platform **ports**；通知只调 `notify.Publisher`，不直接 import TG。
+3. **`channels/tg` → `botapp` → domains/platform`**；禁止 domain 反向依赖 channel。`channels/tg` 只读依赖 `tgmenu`（窄端口）；`httpapi/channels` 写同一真相源；组合根 `apps/pixoma` 之外的入口 **禁止** import `channels/tg`。
+4. **Orchestrator / Actuator** 依赖 `tasks/domain` + platform **ports**；通知只调 `notify.Publisher`，不直接 import TG。
 5. **换实现**（Memory→NATS、LocalFS→S3/TOS）= 加 port 适配器，不改 BC 边界。
-6. **已知特例**：`platform/edge.Pool` 持有 `runtime/.../comfyui.Client`（池在平台层建客户端）。
+6. **已知特例**：`edge/application.Pool` 持有 `tasks/infrastructure/comfyui.Client`（池在 edge 应用层建客户端）。
 7. **组合根** `apps/pixoma` 是唯一允许全局接线的层（已移除旧 `apps/bot` / `apps/admin-api` 入口）。
 
 ```text

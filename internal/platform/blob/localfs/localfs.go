@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type Store struct {

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/consoleuser/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	"github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	"github.com/Mr9esx/Pixoma/internal/adminusers/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/setup"
+	"github.com/Mr9esx/Pixoma/internal/platform/bootstrap"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func TestGate_MediaReachableWithSetupSessionBeforeInit(t *testing.T) {

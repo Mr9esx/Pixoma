@@ -8,13 +8,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
 )
 
 // Handler serves /api/v1/stats/tasks/* aggregation endpoints.
 type Handler struct {
-	Repo    taskstats.Repository
+	Repo    statsdomain.Repository
 	Loc     *time.Location
 	Metrics edge.MetricsRepository
 }
@@ -94,7 +94,7 @@ func (h *Handler) daily(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	byDate := make(map[string]taskstats.DailyRow, len(rows))
+	byDate := make(map[string]statsdomain.DailyRow, len(rows))
 	for _, row := range rows {
 		byDate[row.Date] = row
 	}
@@ -106,7 +106,7 @@ func (h *Handler) daily(w http.ResponseWriter, r *http.Request) {
 		d := cur.Format(dateLayout)
 		row, ok := byDate[d]
 		if !ok {
-			row = taskstats.DailyRow{Date: d}
+			row = statsdomain.DailyRow{Date: d}
 		}
 		day := dayResp{
 			Date: d, Processed: row.Processed, Succeeded: row.Succeeded,

@@ -14,16 +14,16 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/edgeadmin"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
-	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	edgeapp "github.com/Mr9esx/Pixoma/internal/edge/application"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue/memory"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 func TestHandler_CreateListAndTasksFilter(t *testing.T) {
@@ -187,7 +187,7 @@ func TestHandler_CreateRefreshesPoolAndDispatchTopicReceivable(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 	repo := instpersist.NewEdgeRepository(gdb)
-	pool := edge.NewPool(repo, edge.PoolOptions{})
+	pool := edgeapp.NewPool(repo, edgeapp.PoolOptions{})
 	bus := memory.New()
 	t.Cleanup(func() { _ = bus.Close() })
 	ctx := context.Background()
@@ -897,14 +897,14 @@ func TestEdge_GetIncludesStartedAtAndComfyVersion(t *testing.T) {
 
 func TestHandler_DeleteCleanup(t *testing.T) {
 	h := &edges.Handler{
-		DeleteWithCleanup: func(ctx context.Context, id sharedkernel.EdgeID, ack bool) (edgeadmin.DeleteSummary, error) {
+		DeleteWithCleanup: func(ctx context.Context, id sharedkernel.EdgeID, ack bool) (edgeapp.DeleteSummary, error) {
 			if id == "gpu-x" && !ack {
-				return edgeadmin.DeleteSummary{}, edgeadmin.ErrNeedsAck
+				return edgeapp.DeleteSummary{}, edgeapp.ErrNeedsAck
 			}
 			if id == "missing" {
-				return edgeadmin.DeleteSummary{}, edge.ErrNotFound
+				return edgeapp.DeleteSummary{}, edge.ErrNotFound
 			}
-			return edgeadmin.DeleteSummary{FailedTasks: 1}, nil
+			return edgeapp.DeleteSummary{FailedTasks: 1}, nil
 		},
 	}
 	r := chi.NewRouter()
