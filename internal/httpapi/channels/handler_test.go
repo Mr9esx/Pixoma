@@ -12,10 +12,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
-	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	channelapp "github.com/Mr9esx/Pixoma/internal/channels/application"
+	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	channelsapi "github.com/Mr9esx/Pixoma/internal/httpapi/channels"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func openChannelsServer(t *testing.T) (*httptest.Server, *channelapp.Service) {

@@ -8,7 +8,7 @@ Pixoma 处于公开发布的早期阶段。请始终使用最新稳定版本；�
 
 请不要在公开 Issue、Pull Request、讨论或社交媒体中披露未修复的安全漏洞。
 
-请通过 [GitHub Security Advisories](https://github.com/mr9esx/comfyui_tgbot/security/advisories/new) 私下报告。请尽量包含：
+请通过 [GitHub Security Advisories](https://github.com/Mr9esx/Pixoma/security/advisories/new) 私下报告。请尽量包含：
 
 - 受影响的组件、接口、版本或提交；
 - 复现步骤和最小 PoC；

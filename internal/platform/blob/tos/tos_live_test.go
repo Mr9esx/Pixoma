@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
-	blobtos "github.com/mr9esx/comfyui_tgbot/internal/platform/blob/tos"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	blobtos "github.com/Mr9esx/Pixoma/internal/platform/blob/tos"
 )
 
 func requireTOSEnv(t *testing.T) blobtos.Options {

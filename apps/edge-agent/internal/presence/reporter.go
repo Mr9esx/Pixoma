@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/pull"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
+	"github.com/Mr9esx/Pixoma/apps/edge-agent/internal/controlplane"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/comfyui"
 )
 
 const defaultEvery = 5 * time.Second
@@ -18,7 +18,7 @@ const minMetricsInterval = 5 * time.Second
 
 // Reporter probes local Comfy and POSTs /agent/v1/presence.
 type Reporter struct {
-	Client          *pull.Client
+	Client          *controlplane.Client
 	Comfy           comfyui.Client
 	Collect         func(ctx context.Context) edge.Hardware
 	Sample          func(ctx context.Context, since time.Time) edge.Metrics

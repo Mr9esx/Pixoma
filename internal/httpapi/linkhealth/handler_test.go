@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	linkhealthapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/linkhealth"
-	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/packaging/linkhealth"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
+	linkhealthapi "github.com/Mr9esx/Pixoma/internal/httpapi/linkhealth"
+	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
+	"github.com/Mr9esx/Pixoma/internal/packaging/linkhealth"
+	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
 )
 
 func TestHandlerGetAssemblesWithoutProbing(t *testing.T) {

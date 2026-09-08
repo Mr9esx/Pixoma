@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/setup"
 )
 
 func TestIssueAccount_LookupAccount(t *testing.T) {

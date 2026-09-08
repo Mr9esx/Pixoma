@@ -10,12 +10,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
-	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
-	"github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
+	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	usersapi "github.com/Mr9esx/Pixoma/internal/httpapi/users"
+	domain "github.com/Mr9esx/Pixoma/internal/users/domain"
+	"github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func openUsersHandler(t *testing.T) (*persistence.UserRepository, *httptest.Server) {

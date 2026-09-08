@@ -98,7 +98,7 @@ Case 输入定义（摘要）：
 
 ## 3. 阶段 A — 用户发消息 / 点按钮（身份）
 
-**入口**：Telegram Update → `channel/tg.Adapter` → `UpsertFromTG`。
+**入口**：Telegram Update → `channels/tg.Adapter` → `UpsertFromTG`。
 
 ### 写入：`users`
 
@@ -121,7 +121,7 @@ Case 输入定义（摘要）：
 
 ## 4. 阶段 B — 开始 Case（创建 Session）
 
-**入口**：用户选 Case → `botapp.StartCase` → `conversation.StartCase`。
+**入口**：用户选 Case → `botapp.StartCase` → `sessions.StartCase`。
 
 ### 写入：`sessions`（INSERT）
 
@@ -166,7 +166,7 @@ Case 输入定义（摘要）：
 }
 ```
 
-（JSON 字段名以 GORM 序列化的 `DraftValue` 为准；领域结构见 `conversation/domain.DraftValue`。）
+（JSON 字段名以 GORM 序列化的 `DraftValue` 为准；领域结构见 `sessions/domain.DraftValue`。）
 
 ### 5.2 跳过 `seed`
 
@@ -597,8 +597,8 @@ pending → queued → running → succeeded
 | StartCase / SubmitInput | `internal/packaging/botapp/facade.go` |
 | ConfirmRun + stage | `internal/packaging/botapp/confirm_run.go` |
 | 事件 DTO | `internal/sharedkernel/events.go` |
-| 调度 / OnStatus / Notify | `internal/runtime/application/orchestrator/service.go` |
-| PrepareJob / JobPackage | `internal/runtime/infrastructure/actuator/snapshot.go`、`job.go` |
-| Worker | `internal/runtime/infrastructure/actuator/worker.go` |
-| TG 适配 | `internal/channel/tg/adapter.go` |
-| Edge 在线 | `internal/platform/presence/store.go` |
+| 调度 / OnStatus / Notify | `internal/tasks/application/orchestrator/service.go` |
+| PrepareJob / JobPackage | `internal/tasks/infrastructure/actuator/snapshot.go`、`job.go` |
+| Worker | `internal/tasks/infrastructure/actuator/worker.go` |
+| TG 适配 | `internal/channels/tg/adapter.go` |
+| Edge 在线 | `internal/edge/infrastructure/presence/store.go` |

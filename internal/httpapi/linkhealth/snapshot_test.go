@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
-	catalogpersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
-	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
-	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
-	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	linkhealthapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/linkhealth"
-	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
-	topicpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/topic/persistence"
+	catalogpersist "github.com/Mr9esx/Pixoma/internal/cases/infrastructure/persistence"
+	channelapp "github.com/Mr9esx/Pixoma/internal/channels/application"
+	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
+	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	linkhealthapi "github.com/Mr9esx/Pixoma/internal/httpapi/linkhealth"
+	mencardpersist "github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	topicpersist "github.com/Mr9esx/Pixoma/internal/topics/infrastructure/persistence"
 )
 
 func TestCollect_NotBlockedDuringTelegramProbe(t *testing.T) {

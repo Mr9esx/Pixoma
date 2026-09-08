@@ -10,30 +10,30 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/stats"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/stats"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type fakeRepo struct {
-	days  []taskstats.DailyRow
-	errs  []taskstats.ErrorRow
-	edges []taskstats.EdgeRow
-	cases []taskstats.CaseRow
+	days  []statsdomain.DailyRow
+	errs  []statsdomain.ErrorRow
+	edges []statsdomain.EdgeRow
+	cases []statsdomain.CaseRow
 }
 
-func (f *fakeRepo) AddTerminal(context.Context, taskstats.AddTerminalInput) error { return nil }
-func (f *fakeRepo) ListDaily(_ context.Context, _, _ string) ([]taskstats.DailyRow, error) {
+func (f *fakeRepo) AddTerminal(context.Context, statsdomain.AddTerminalInput) error { return nil }
+func (f *fakeRepo) ListDaily(_ context.Context, _, _ string) ([]statsdomain.DailyRow, error) {
 	return f.days, nil
 }
-func (f *fakeRepo) ListErrors(_ context.Context, _, _ string, _ int) ([]taskstats.ErrorRow, error) {
+func (f *fakeRepo) ListErrors(_ context.Context, _, _ string, _ int) ([]statsdomain.ErrorRow, error) {
 	return f.errs, nil
 }
-func (f *fakeRepo) ListEdges(_ context.Context, _, _ string) ([]taskstats.EdgeRow, error) {
+func (f *fakeRepo) ListEdges(_ context.Context, _, _ string) ([]statsdomain.EdgeRow, error) {
 	return f.edges, nil
 }
-func (f *fakeRepo) ListCases(_ context.Context, _, _ string, _ int) ([]taskstats.CaseRow, error) {
+func (f *fakeRepo) ListCases(_ context.Context, _, _ string, _ int) ([]statsdomain.CaseRow, error) {
 	return f.cases, nil
 }
 func (f *fakeRepo) Prune(context.Context, string) error { return nil }
@@ -50,7 +50,7 @@ func (m *metricsFake) LatestAll(context.Context, time.Time) (map[sharedkernel.Ed
 	return m.latest, nil
 }
 
-func newRouter(repo taskstats.Repository) http.Handler {
+func newRouter(repo statsdomain.Repository) http.Handler {
 	h := &stats.Handler{
 		Repo: repo, Loc: time.FixedZone("CST", 8*3600),
 		Metrics: &metricsFake{},
@@ -61,7 +61,7 @@ func newRouter(repo taskstats.Repository) http.Handler {
 }
 
 func TestDailyZeroFillAndSummary(t *testing.T) {
-	repo := &fakeRepo{days: []taskstats.DailyRow{
+	repo := &fakeRepo{days: []statsdomain.DailyRow{
 		{Date: "2026-08-20", Processed: 3, Succeeded: 2, Failed: 1, TotalDurationMS: 3000, TotalQueueMS: 1000, TotalExecMS: 2000},
 	}}
 	rec := httptest.NewRecorder()
@@ -139,7 +139,7 @@ func TestDailyInvalidRanges(t *testing.T) {
 }
 
 func TestErrorsTopN(t *testing.T) {
-	repo := &fakeRepo{errs: []taskstats.ErrorRow{{ErrorCode: "timeout", Count: 5}, {ErrorCode: "oom", Count: 2}}}
+	repo := &fakeRepo{errs: []statsdomain.ErrorRow{{ErrorCode: "timeout", Count: 5}, {ErrorCode: "oom", Count: 2}}}
 	rec := httptest.NewRecorder()
 	newRouter(repo).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/tasks/errors?from=2026-08-01&to=2026-08-02&limit=5", nil))
 	if rec.Code != http.StatusOK {
@@ -167,7 +167,7 @@ func TestErrorsTopN(t *testing.T) {
 }
 
 func TestEdgesTotal(t *testing.T) {
-	repo := &fakeRepo{edges: []taskstats.EdgeRow{
+	repo := &fakeRepo{edges: []statsdomain.EdgeRow{
 		{EdgeID: "gpu-1", Count: 3, Succeeded: 2, Failed: 1},
 		{EdgeID: "gpu-2", Count: 1, Succeeded: 1, Failed: 0},
 	}}
@@ -200,7 +200,7 @@ func TestEdgesTotal(t *testing.T) {
 }
 
 func TestCasesTop(t *testing.T) {
-	repo := &fakeRepo{cases: []taskstats.CaseRow{
+	repo := &fakeRepo{cases: []statsdomain.CaseRow{
 		{CaseID: 1, CaseName: "Portrait", Count: 3, TotalDurationMS: 9000},
 		{CaseID: 2, CaseName: "Video", Count: 1, TotalDurationMS: 1000},
 	}}

@@ -41,7 +41,7 @@ pixoma.exe
 固定版本安装：
 
 ```bash
-curl -fsSL https://pixoma.miaoplus.com/install.sh | PIXOMA_VERSION=v0.1.0 sh
+curl -fsSL https://pixoma.miaoplus.com/install.sh | PIXOMA_VERSION=v0.1.0-alpha sh
 ```
 
 自定义安装目录：
@@ -96,11 +96,11 @@ make build
 如需生成发布归档：
 
 ```bash
-scripts/package-release.sh darwin arm64 v0.1.0
+scripts/package-release.sh darwin arm64 v0.1.0-alpha
 ```
 
 脚本会构建 `pixoma` 和 `pixoma-edge-agent`，并在 `release/` 目录生成 `tar.gz` 归档与 checksum。Windows 产物是 `pixoma.exe` 和 `pixoma-edge-agent.exe`，例如：
 
 ```bash
-scripts/package-release.sh windows arm64 v0.1.0
+scripts/package-release.sh windows arm64 v0.1.0-alpha
 ```

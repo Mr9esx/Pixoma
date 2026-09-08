@@ -5,15 +5,15 @@ import (
 	"errors"
 	"fmt"
 
-	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
-	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
-	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
-	mcdomain "github.com/mr9esx/comfyui_tgbot/internal/menucard/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/packaging/linkhealth"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	channelapp "github.com/Mr9esx/Pixoma/internal/channels/application"
+	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
+	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
+	"github.com/Mr9esx/Pixoma/internal/packaging/linkhealth"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	"gorm.io/gorm"
 )
 
@@ -22,7 +22,7 @@ type Source struct {
 	Adapter  func(ctx context.Context, id string) (state string, lastErr string, found bool)
 	Menus    MenuTreeReader
 	Cases    catalogdomain.Repository
-	Topics   topic.Repository
+	Topics   topicdomain.Repository
 	Edges    edge.Repository
 	Presence *presence.Store
 }
@@ -129,5 +129,5 @@ func routingTopics(c *catalogdomain.Case) []string {
 	for _, rule := range c.Document.Routing.Rules {
 		raw = append(raw, rule.Topic)
 	}
-	return topic.NormalizeTopics(raw)
+	return topicdomain.NormalizeTopics(raw)
 }

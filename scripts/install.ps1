@@ -26,10 +26,16 @@ $architecture = switch ($detectedArchitecture) {
 
 $version = $env:PIXOMA_VERSION
 if ([string]::IsNullOrWhiteSpace($version)) {
-    $releaseUri = "https://api.github.com/repos/$GitHubOwner/$GitHubRepo/releases/latest"
+    $releaseUri = "https://github.com/$GitHubOwner/$GitHubRepo/releases.atom"
     try {
-        $release = Invoke-RestMethod -Uri $releaseUri -Headers @{ "User-Agent" = "pixoma-installer" }
-        $version = $release.tag_name
+        $releaseFeed = (Invoke-WebRequest -Uri $releaseUri -Headers @{ "User-Agent" = "pixoma-installer" }).Content
+        $versionMatch = [regex]::Match(
+            $releaseFeed,
+            '<link rel="alternate" type="text/html" href="https://github.com/[^/]+/[^/]+/releases/tag/([^"]+)"'
+        )
+        if ($versionMatch.Success) {
+            $version = $versionMatch.Groups[1].Value
+        }
     } catch {
         Fail "unable to resolve the latest release"
     }

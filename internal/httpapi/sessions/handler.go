@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 // Handler serves read-only session admin HTTP under /api/v1/sessions.

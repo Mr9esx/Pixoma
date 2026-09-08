@@ -11,13 +11,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/caseadmin"
-	"github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/validation"
-	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	caseapp "github.com/Mr9esx/Pixoma/internal/cases/application"
+	domain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	"github.com/Mr9esx/Pixoma/internal/cases/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/cases/infrastructure/validation"
+	casesapi "github.com/Mr9esx/Pixoma/internal/httpapi/cases"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 func openCasesHandler(t *testing.T) (*casesapi.Handler, *persistence.GormRepository, *httptest.Server) {
@@ -389,14 +389,14 @@ func decodeErrCode(t *testing.T, res *http.Response) string {
 func TestCasesHandler_DeleteCleanup(t *testing.T) {
 	h := &casesapi.Handler{
 		Repo: &persistence.GormRepository{},
-		DeleteWithCleanup: func(ctx context.Context, id sharedkernel.CaseID, ack bool) (caseadmin.DeleteSummary, error) {
+		DeleteWithCleanup: func(ctx context.Context, id sharedkernel.CaseID, ack bool) (caseapp.DeleteSummary, error) {
 			if id == 10 && !ack {
-				return caseadmin.DeleteSummary{}, caseadmin.ErrNeedsAck
+				return caseapp.DeleteSummary{}, caseapp.ErrNeedsAck
 			}
 			if id == 999999 {
-				return caseadmin.DeleteSummary{}, domain.ErrNotFound
+				return caseapp.DeleteSummary{}, domain.ErrNotFound
 			}
-			return caseadmin.DeleteSummary{FailedTasks: 1, TerminatedSessions: 2}, nil
+			return caseapp.DeleteSummary{FailedTasks: 1, TerminatedSessions: 2}, nil
 		},
 	}
 	r := chi.NewRouter()

@@ -3,7 +3,7 @@ package adminhost
 import (
 	"net/http"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/setup"
 )
 
 // Permission is a fine-grained capability an account's role must grant to call

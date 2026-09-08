@@ -3,7 +3,7 @@ package migrate_test
 import (
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/scripts/migrate-menu-action/migrate"
+	"github.com/Mr9esx/Pixoma/scripts/migrate-menu-action/migrate"
 )
 
 func TestMigrateAction(t *testing.T) {

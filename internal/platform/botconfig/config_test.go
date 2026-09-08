@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
+	"github.com/Mr9esx/Pixoma/internal/platform/botconfig"
 )
 
 func TestLoad_YAMLAndEnvOverride(t *testing.T) {

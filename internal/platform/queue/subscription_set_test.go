@@ -5,9 +5,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/queue/memory"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue/memory"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 func TestSubscriptionSet_EnsureIdempotentAndDeliversNewTopic(t *testing.T) {

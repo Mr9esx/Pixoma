@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 // Canceller cancels a task using runtime domain rules (e.g. orchestrator.RequestCancel).

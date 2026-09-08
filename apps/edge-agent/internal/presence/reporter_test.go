@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/presence"
-	"github.com/mr9esx/comfyui_tgbot/apps/edge-agent/internal/pull"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/comfyui/comfyuitest"
+	"github.com/Mr9esx/Pixoma/apps/edge-agent/internal/controlplane"
+	"github.com/Mr9esx/Pixoma/apps/edge-agent/internal/presence"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/comfyui"
+	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/comfyui/comfyuitest"
 )
 
 func TestReporter_FakeComfyReportsRunning(t *testing.T) {
@@ -26,7 +26,7 @@ func TestReporter_FakeComfyReportsRunning(t *testing.T) {
 	t.Cleanup(srv.Close)
 	comfy := &comfyuitest.Fake{}
 	r := &presence.Reporter{
-		Client: pull.NewClient(srv.URL, "tok", "gpu-1"),
+		Client: controlplane.NewClient(srv.URL, "tok", "gpu-1"),
 		Comfy:  comfy,
 	}
 	if err := r.ProbeAndReport(context.Background()); err != nil {
@@ -50,7 +50,7 @@ func TestReporter_SendsStartedAtAndComfyVersion(t *testing.T) {
 	t.Cleanup(srv.Close)
 	comfy := &comfyuitest.Fake{}
 	r := &presence.Reporter{
-		Client: pull.NewClient(srv.URL, "tok", "gpu-1"),
+		Client: controlplane.NewClient(srv.URL, "tok", "gpu-1"),
 		Comfy:  comfy,
 	}
 	if err := r.ProbeAndReport(context.Background()); err != nil {
@@ -85,7 +85,7 @@ func TestReporter_UnreachableComfyReportsFalse(t *testing.T) {
 	dead.Close()
 	comfy := comfyui.NewHTTP(dead.URL)
 	r := &presence.Reporter{
-		Client: pull.NewClient(srv.URL, "tok", "gpu-1"),
+		Client: controlplane.NewClient(srv.URL, "tok", "gpu-1"),
 		Comfy:  comfy,
 	}
 	if err := r.ProbeAndReport(context.Background()); err != nil {
@@ -113,7 +113,7 @@ func TestReporter_SendsHardwareFirstThenOmits(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	r := &presence.Reporter{
-		Client:       pull.NewClient(srv.URL, "tok", "gpu-1"),
+		Client:       controlplane.NewClient(srv.URL, "tok", "gpu-1"),
 		SendHardware: true,
 		Collect: func(ctx context.Context) edge.Hardware {
 			return edge.Hardware{CPUModel: "Intel"}
@@ -149,7 +149,7 @@ func TestReporter_ResendsHardwareWhenRefreshRequested(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	r := &presence.Reporter{
-		Client:       pull.NewClient(srv.URL, "tok", "gpu-1"),
+		Client:       controlplane.NewClient(srv.URL, "tok", "gpu-1"),
 		SendHardware: true,
 		Collect: func(ctx context.Context) edge.Hardware {
 			return edge.Hardware{CPUModel: "Intel"}
@@ -179,7 +179,7 @@ func TestReporter_MetricsCadence(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	r := &presence.Reporter{
-		Client:          pull.NewClient(srv.URL, "tok", "gpu-1"),
+		Client:          controlplane.NewClient(srv.URL, "tok", "gpu-1"),
 		MetricsInterval: 30 * time.Second,
 		Sample: func(ctx context.Context, since time.Time) edge.Metrics {
 			return edge.Metrics{CPUUsagePercent: 10, CollectedAt: time.Now().UTC()}
@@ -210,7 +210,7 @@ func TestReporter_FirstSampleImmediate(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	r := &presence.Reporter{
-		Client:          pull.NewClient(srv.URL, "tok", "gpu-1"),
+		Client:          controlplane.NewClient(srv.URL, "tok", "gpu-1"),
 		MetricsInterval: time.Hour,
 		Sample: func(_ context.Context, since time.Time) edge.Metrics {
 			gotSince = since

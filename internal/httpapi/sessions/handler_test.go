@@ -10,14 +10,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	channeldomain "github.com/mr9esx/comfyui_tgbot/internal/channel/domain"
-	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
-	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
-	identitydomain "github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
-	identitypersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
+	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	"github.com/Mr9esx/Pixoma/internal/sessions/infrastructure/persistence"
+	sessionsapi "github.com/Mr9esx/Pixoma/internal/httpapi/sessions"
+	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
+	identitypersist "github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func openSessionsHandler(t *testing.T) (*persistence.SessionRepository, *identitydomain.User, *httptest.Server) {

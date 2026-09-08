@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/adminhost"
 )
 
 func TestSecurityHeaders(t *testing.T) {

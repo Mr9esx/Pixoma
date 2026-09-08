@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
-	"github.com/mr9esx/comfyui_tgbot/internal/runtime/domain/condition"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/routing"
+	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
 )
 
 func TestAttributesCatalog(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
+	"github.com/Mr9esx/Pixoma/internal/platform/bootstrap"
 )
 
 func TestEnsureAgentToken_MintsOnce(t *testing.T) {

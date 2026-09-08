@@ -9,8 +9,8 @@ import (
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob/factory"
+	"github.com/Mr9esx/Pixoma/internal/platform/botconfig"
 )
 
 func TestCheck_LocalFS(t *testing.T) {

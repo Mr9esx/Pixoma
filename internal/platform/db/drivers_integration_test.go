@@ -15,22 +15,22 @@ import (
 
 	gomysql "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
-	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
-	casepersist "github.com/mr9esx/comfyui_tgbot/internal/catalog/infrastructure/persistence"
-	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	sesspersist "github.com/mr9esx/comfyui_tgbot/internal/conversation/infrastructure/persistence"
-	userpersist "github.com/mr9esx/comfyui_tgbot/internal/identity/infrastructure/persistence"
-	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
-	statspersist "github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
-	topicpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/topic/persistence"
-	taskdomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
-	runtimepersist "github.com/mr9esx/comfyui_tgbot/internal/runtime/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	casepersist "github.com/Mr9esx/Pixoma/internal/cases/infrastructure/persistence"
+	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	sesspersist "github.com/Mr9esx/Pixoma/internal/sessions/infrastructure/persistence"
+	userpersist "github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
+	mencardpersist "github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	settingsdomain "github.com/Mr9esx/Pixoma/internal/settings/domain"
+	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
+	statspersist "github.com/Mr9esx/Pixoma/internal/stats/infrastructure/persistence"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
+	topicpersist "github.com/Mr9esx/Pixoma/internal/topics/infrastructure/persistence"
+	taskdomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	runtimepersist "github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 func TestIntegration_FullMigrateAndRoundtrip(t *testing.T) {
@@ -167,13 +167,13 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 
 	// settings roundtrip
 	key := bytes.Repeat([]byte{7}, 32)
-	st, err := settings.NewStore(gdb, key)
+	st, err := settingsdomain.NewStore(gdb, key)
 	if err != nil {
 		t.Fatalf("settings store: %v", err)
 	}
-	want := settings.Settings{
-		Placement:      settings.PlacementLocal,
-		DBDriver:       settings.DriverSQLite,
+	want := settingsdomain.Settings{
+		Placement:      settingsdomain.PlacementLocal,
+		DBDriver:       settingsdomain.DriverSQLite,
 		DBDSN:          "data/app.db",
 		BlobDriver:     "localfs",
 		BlobRoot:       "data/blob",
@@ -192,7 +192,7 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 
 	// topic roundtrip
 	tRepo := topicpersist.NewTopicRepository(gdb)
-	tRow := topic.Topic{
+	tRow := topicdomain.Topic{
 		Key:       "integration",
 		Name:      "Integration Topic",
 		Enabled:   true,
@@ -252,9 +252,9 @@ func exerciseCoreRoundtrip(t *testing.T, gdb *gorm.DB) {
 	// stats upsert (clause.OnConflict) exercised twice on the same day
 	statsRepo := statspersist.NewGormStatsRepository(gdb, 24*time.Hour, time.UTC)
 	for i := 0; i < 2; i++ {
-		if err := statsRepo.AddTerminal(ctx, taskstats.AddTerminalInput{
+		if err := statsRepo.AddTerminal(ctx, statsdomain.AddTerminalInput{
 			EdgeID:          "gpu-int",
-			Status:          taskstats.StatusSucceeded,
+			Status:          statsdomain.StatusSucceeded,
 			CompletedAt:     now,
 			CreatedAt:       now.Add(-time.Minute),
 			CaseID:          1,

@@ -6,9 +6,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
 )
 
 // Options configures shared DB open, migrate, and optional instance seeding.

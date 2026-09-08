@@ -11,36 +11,36 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type fakeTopicRepo struct {
-	topics map[string]topic.Topic
+	topics map[string]topicdomain.Topic
 }
 
-func (f *fakeTopicRepo) List(_ context.Context, _ *bool) ([]topic.Topic, error) {
-	var out []topic.Topic
+func (f *fakeTopicRepo) List(_ context.Context, _ *bool) ([]topicdomain.Topic, error) {
+	var out []topicdomain.Topic
 	for _, t := range f.topics {
 		out = append(out, t)
 	}
 	return out, nil
 }
 
-func (f *fakeTopicRepo) Get(_ context.Context, key string) (*topic.Topic, error) {
+func (f *fakeTopicRepo) Get(_ context.Context, key string) (*topicdomain.Topic, error) {
 	t, ok := f.topics[key]
 	if !ok {
-		return nil, topic.ErrTopicNotFound
+		return nil, topicdomain.ErrTopicNotFound
 	}
 	return &t, nil
 }
 
-func (f *fakeTopicRepo) Create(_ context.Context, t topic.Topic) error { f.topics[t.Key] = t; return nil }
-func (f *fakeTopicRepo) Update(_ context.Context, t topic.Topic) error { f.topics[t.Key] = t; return nil }
+func (f *fakeTopicRepo) Create(_ context.Context, t topicdomain.Topic) error { f.topics[t.Key] = t; return nil }
+func (f *fakeTopicRepo) Update(_ context.Context, t topicdomain.Topic) error { f.topics[t.Key] = t; return nil }
 func (f *fakeTopicRepo) Delete(_ context.Context, key string) error    { delete(f.topics, key); return nil }
 
 func TestEdges_PatchSubscribeTopics(t *testing.T) {
@@ -56,7 +56,7 @@ func TestEdges_PatchSubscribeTopics(t *testing.T) {
 	now := time.Now().UTC()
 	_ = repo.Upsert(context.Background(), &edge.Record{ID: "gpu-1", Name: "gpu-1", Enabled: true, CreatedAt: now, UpdatedAt: now})
 
-	topicsRepo := &fakeTopicRepo{topics: map[string]topic.Topic{
+	topicsRepo := &fakeTopicRepo{topics: map[string]topicdomain.Topic{
 		"default":   {Key: "default", Name: "Default", Enabled: true},
 		"fast-gpu":  {Key: "fast-gpu", Name: "Fast", Enabled: true},
 		"disabled":  {Key: "disabled", Name: "D", Enabled: false},

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/setup"
 )
 
 func TestAttemptLimiterBlocksAndResets(t *testing.T) {

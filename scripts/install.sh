@@ -13,7 +13,7 @@ Installs the latest Pixoma release. Set PIXOMA_VERSION to pin a tag.
 Examples:
   curl -fsSL https://pixoma.miaoplus.com/install.sh | sh
   curl -fsSL https://pixoma.miaoplus.com/install.sh | \
-    PIXOMA_VERSION=v0.1.0 sh
+    PIXOMA_VERSION=v0.1.0-alpha sh
 
 Edge agents should use PIXOMA_INSTALL=edge and provide:
   CONTROL_PLANE_URL, AGENT_TOKEN, EDGE_ID
@@ -96,9 +96,11 @@ EDGE_BINARY="pixoma-edge-agent${binary_extension}"
 
 version="${PIXOMA_VERSION:-}"
 if [ -z "$version" ]; then
-  api_url="https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest"
-  release_json="$(curl -fsSL "$api_url")" || fail "unable to resolve the latest release"
-  version="$(printf '%s\n' "$release_json" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)"
+  release_feed="https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases.atom"
+  version="$(curl -fsSL "$release_feed" \
+    | tr -d '\r' \
+    | sed -n 's#.*<link rel="alternate" type="text/html" href="https://github.com/[^/]*/[^/]*/releases/tag/\([^"]*\)"/>.*#\1#p' \
+    | head -n 1)"
   [ -n "$version" ] || fail "the release metadata did not contain a tag name"
 fi
 

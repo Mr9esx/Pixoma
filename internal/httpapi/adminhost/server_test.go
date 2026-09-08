@@ -10,30 +10,29 @@ import (
 	"testing"
 	"time"
 
-	channelapp "github.com/mr9esx/comfyui_tgbot/internal/channel/application"
-	channelpersist "github.com/mr9esx/comfyui_tgbot/internal/channel/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
-	channelsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
-	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
-	statsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/stats"
-	mencardpersist "github.com/mr9esx/comfyui_tgbot/internal/menucard/infrastructure/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/taskstats"
+	channelapp "github.com/Mr9esx/Pixoma/internal/channels/application"
+	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/adminhost"
+	channelsapi "github.com/Mr9esx/Pixoma/internal/httpapi/channels"
+	statsapi "github.com/Mr9esx/Pixoma/internal/httpapi/stats"
+	mencardpersist "github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
 )
 
 type statsFakeRepo struct{}
 
-func (statsFakeRepo) AddTerminal(context.Context, taskstats.AddTerminalInput) error { return nil }
-func (statsFakeRepo) ListDaily(context.Context, string, string) ([]taskstats.DailyRow, error) {
+func (statsFakeRepo) AddTerminal(context.Context, statsdomain.AddTerminalInput) error { return nil }
+func (statsFakeRepo) ListDaily(context.Context, string, string) ([]statsdomain.DailyRow, error) {
 	return nil, nil
 }
-func (statsFakeRepo) ListErrors(context.Context, string, string, int) ([]taskstats.ErrorRow, error) {
+func (statsFakeRepo) ListErrors(context.Context, string, string, int) ([]statsdomain.ErrorRow, error) {
 	return nil, nil
 }
-func (statsFakeRepo) ListEdges(context.Context, string, string) ([]taskstats.EdgeRow, error) {
+func (statsFakeRepo) ListEdges(context.Context, string, string) ([]statsdomain.EdgeRow, error) {
 	return nil, nil
 }
-func (statsFakeRepo) ListCases(context.Context, string, string, int) ([]taskstats.CaseRow, error) {
+func (statsFakeRepo) ListCases(context.Context, string, string, int) ([]statsdomain.CaseRow, error) {
 	return nil, nil
 }
 func (statsFakeRepo) Prune(context.Context, string) error { return nil }
@@ -86,11 +85,11 @@ func TestChannelDetailRouteNotShadowedByMenuMount(t *testing.T) {
 		},
 	}
 	chAPI := &channelsapi.Handler{Svc: chSvc}
-	menuCardsAPI := menucardsapi.NewHandler(mencardpersist.NewGormCardRepository(gdb))
+	menuCardsAPI := channelsapi.NewMenuHandler(mencardpersist.NewGormCardRepository(gdb))
 
 	h := adminhost.NewHandler(adminhost.Options{
 		Channels:  chAPI,
-		MenuCards: menuCardsAPI,
+		MenuHandler: menuCardsAPI,
 	})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)

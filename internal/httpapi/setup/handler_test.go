@@ -17,14 +17,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	consoledomain "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
-	consolepersist "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminhost"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/setup"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/botconfig"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
+	consoledomain "github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	consolepersist "github.com/Mr9esx/Pixoma/internal/adminusers/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/adminhost"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/setup"
+	"github.com/Mr9esx/Pixoma/internal/platform/bootstrap"
+	"github.com/Mr9esx/Pixoma/internal/platform/botconfig"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	settingsdomain "github.com/Mr9esx/Pixoma/internal/settings/domain"
+	settingsinfra "github.com/Mr9esx/Pixoma/internal/settings/infrastructure"
 )
 
 func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
@@ -104,8 +105,8 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 		t.Fatalf("database: %d %s", rec.Code, rec.Body.String())
 	}
 
-	bad, _ := json.Marshal(settings.Settings{
-		Placement:  settings.PlacementRemote,
+	bad, _ := json.Marshal(settingsdomain.Settings{
+		Placement:  settingsdomain.PlacementRemote,
 		BlobDriver: botconfig.BlobDriverLocalFS,
 		BlobRoot:   filepath.Join(dir, "blob"),
 		DBDriver:   "sqlite",
@@ -119,8 +120,8 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 		t.Fatalf("remote localfs should fail: %d %s", rec.Code, rec.Body.String())
 	}
 
-	okDraft, _ := json.Marshal(settings.Settings{
-		Placement:      settings.PlacementLocal,
+	okDraft, _ := json.Marshal(settingsdomain.Settings{
+		Placement:      settingsdomain.PlacementLocal,
 		BlobDriver:     botconfig.BlobDriverLocalFS,
 		BlobRoot:       filepath.Join(dir, "blob"),
 		DBDriver:       "sqlite",
@@ -215,8 +216,8 @@ func TestPutSettings_RequiresInitialized(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	body, _ := json.Marshal(settings.Settings{
-		Placement:  settings.PlacementLocal,
+	body, _ := json.Marshal(settingsdomain.Settings{
+		Placement:  settingsdomain.PlacementLocal,
 		BlobDriver: botconfig.BlobDriverLocalFS,
 		BlobRoot:   filepath.Join(dir, "blob"),
 		DBDriver:   "sqlite",
@@ -274,8 +275,8 @@ func TestSettings_AfterInit_PasswordAndUpdate(t *testing.T) {
 	}
 
 	newRoot := filepath.Join(env.dir, "blob-2")
-	putBody, _ := json.Marshal(settings.Settings{
-		Placement:      settings.PlacementLocal,
+	putBody, _ := json.Marshal(settingsdomain.Settings{
+		Placement:      settingsdomain.PlacementLocal,
 		BlobDriver:     botconfig.BlobDriverLocalFS,
 		BlobRoot:       newRoot,
 		DBDriver:       "mysql",
@@ -334,17 +335,17 @@ func TestPutSettings_DefaultUserAccess(t *testing.T) {
 drained:
 
 	got := loadSettings(t, env)
-	if got.DefaultUserAccess != settings.DefaultUserAccessDenied {
+	if got.DefaultUserAccess != settingsdomain.DefaultUserAccessDenied {
 		t.Fatalf("wizard default access=%q", got.DefaultUserAccess)
 	}
 
-	putBody, _ := json.Marshal(settings.Settings{
-		Placement:         settings.PlacementLocal,
+	putBody, _ := json.Marshal(settingsdomain.Settings{
+		Placement:         settingsdomain.PlacementLocal,
 		BlobDriver:        botconfig.BlobDriverLocalFS,
 		BlobRoot:          got.BlobRoot,
 		DBDriver:          got.DBDriver,
 		DBDSN:             got.DBDSN,
-		DefaultUserAccess: settings.DefaultUserAccessAlwaysAllowed,
+		DefaultUserAccess: settingsdomain.DefaultUserAccessAlwaysAllowed,
 	})
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/setup/settings", bytes.NewReader(putBody))
 	env.auth(req)
@@ -360,12 +361,12 @@ drained:
 	}
 
 	got = loadSettings(t, env)
-	if got.DefaultUserAccess != settings.DefaultUserAccessAlwaysAllowed {
+	if got.DefaultUserAccess != settingsdomain.DefaultUserAccessAlwaysAllowed {
 		t.Fatalf("default user access=%q", got.DefaultUserAccess)
 	}
 
-	putBody, _ = json.Marshal(settings.Settings{
-		Placement:  settings.PlacementLocal,
+	putBody, _ = json.Marshal(settingsdomain.Settings{
+		Placement:  settingsdomain.PlacementLocal,
 		BlobDriver: botconfig.BlobDriverLocalFS,
 		BlobRoot:   got.BlobRoot,
 		DBDriver:   got.DBDriver,
@@ -384,7 +385,7 @@ drained:
 		t.Fatal("expected Restart after second put")
 	}
 	got = loadSettings(t, env)
-	if got.DefaultUserAccess != settings.DefaultUserAccessAlwaysAllowed {
+	if got.DefaultUserAccess != settingsdomain.DefaultUserAccessAlwaysAllowed {
 		t.Fatalf("omitted access reset=%q", got.DefaultUserAccess)
 	}
 }
@@ -464,8 +465,8 @@ func completeWizard(t *testing.T) *wizardEnv {
 		t.Fatalf("database: %d %s", rec.Code, rec.Body.String())
 	}
 
-	okDraft, _ := json.Marshal(settings.Settings{
-		Placement:      settings.PlacementLocal,
+	okDraft, _ := json.Marshal(settingsdomain.Settings{
+		Placement:      settingsdomain.PlacementLocal,
 		BlobDriver:     botconfig.BlobDriverLocalFS,
 		BlobRoot:       filepath.Join(dir, "blob"),
 		DBDriver:       "sqlite",
@@ -555,7 +556,7 @@ func envWithoutDB(t *testing.T) *wizardEnv {
 	}
 }
 
-func loadSettings(t *testing.T, env *wizardEnv) settings.Settings {
+func loadSettings(t *testing.T, env *wizardEnv) settingsdomain.Settings {
 	t.Helper()
 	key, err := env.boot.EncKey()
 	if err != nil {
@@ -569,7 +570,7 @@ func loadSettings(t *testing.T, env *wizardEnv) settings.Settings {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st, err := settings.NewStore(gdb, key)
+	st, err := settingsinfra.NewStore(gdb, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -670,8 +671,8 @@ func TestBlobTest_SharedFSSuccess(t *testing.T) {
 func TestDraft_LazyConfiguresDatabase(t *testing.T) {
 	env := envWithoutDB(t)
 	dsn := filepath.Join(env.dir, "app.db")
-	body, _ := json.Marshal(settings.Settings{
-		Placement:      settings.PlacementLocal,
+	body, _ := json.Marshal(settingsdomain.Settings{
+		Placement:      settingsdomain.PlacementLocal,
 		BlobDriver:     botconfig.BlobDriverLocalFS,
 		BlobRoot:       filepath.Join(env.dir, "blob"),
 		DBDriver:       "sqlite",
@@ -795,11 +796,11 @@ func setupRegisteredBoot(t *testing.T, dir, dsn string, allowed bool) *bootstrap
 		t.Fatal(err)
 	}
 	defer gdb.DB()
-	st, err := settings.NewStore(gdb, key)
+	st, err := settingsinfra.NewStore(gdb, key)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.Save(settings.Settings{
+	if err := st.Save(settingsdomain.Settings{
 		Placement: "local", DBDriver: "sqlite", DBDSN: dsn,
 		BlobDriver: "localfs", BlobRoot: dir,
 		AllowSelfRegistration: allowed,

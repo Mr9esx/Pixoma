@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/identity/domain"
+	domain "github.com/Mr9esx/Pixoma/internal/users/domain"
 )
 
 // Handler serves user admin HTTP under /api/v1/users.

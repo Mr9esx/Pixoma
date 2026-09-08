@@ -11,13 +11,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/agent"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/edge"
-	instpersist "github.com/mr9esx/comfyui_tgbot/internal/platform/edge/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/presence"
-	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/agent"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 func TestAgent_PresenceDoesNotCarryTopicBinding(t *testing.T) {

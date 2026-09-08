@@ -6,20 +6,19 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	adminusersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/adminusers"
-	casesapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/cases"
-	channelapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channels"
-	channeltext "github.com/mr9esx/comfyui_tgbot/internal/httpapi/channeltext"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/edges"
-	linkhealthapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/linkhealth"
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/media"
-	menucardsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/menucards"
-	routingapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/routing"
-	sessionsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/sessions"
-	statsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/stats"
-	tasksapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/tasks"
-	topicsapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
-	usersapi "github.com/mr9esx/comfyui_tgbot/internal/httpapi/users"
+	adminusersapi "github.com/Mr9esx/Pixoma/internal/httpapi/adminusers"
+	casesapi "github.com/Mr9esx/Pixoma/internal/httpapi/cases"
+	channelapi "github.com/Mr9esx/Pixoma/internal/httpapi/channels"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
+	linkhealthapi "github.com/Mr9esx/Pixoma/internal/httpapi/linkhealth"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/media"
+	channelsapi "github.com/Mr9esx/Pixoma/internal/httpapi/channels"
+	routingapi "github.com/Mr9esx/Pixoma/internal/httpapi/routing"
+	sessionsapi "github.com/Mr9esx/Pixoma/internal/httpapi/sessions"
+	statsapi "github.com/Mr9esx/Pixoma/internal/httpapi/stats"
+	tasksapi "github.com/Mr9esx/Pixoma/internal/httpapi/tasks"
+	topicsapi "github.com/Mr9esx/Pixoma/internal/httpapi/topics"
+	usersapi "github.com/Mr9esx/Pixoma/internal/httpapi/users"
 )
 
 // Options configures the admin-api HTTP handler.
@@ -34,11 +33,11 @@ type Options struct {
 	Tasks       *tasksapi.Handler
 	Stats       *statsapi.Handler
 	Channels    *channelapi.Handler
-	MenuCards   *menucardsapi.Handler
+	MenuHandler   *channelsapi.MenuHandler
 	Topics      *topicsapi.Handler
 	Routing     *routingapi.Handler
 	Media       *media.Handler
-	ChannelText *channeltext.Handler
+	TextHandler *channelsapi.TextHandler
 	LinkHealth  *linkhealthapi.Handler
 	// NotFound handles unmatched paths (SPA embed).
 	NotFound http.Handler
@@ -65,8 +64,8 @@ func NewHandler(opts Options) http.Handler {
 		if opts.Cases != nil {
 			opts.Cases.Mount(r)
 		}
-		if opts.MenuCards != nil {
-			r.Get("/{id}/menu-placements", opts.MenuCards.ListWorkflowPlacements)
+		if opts.MenuHandler != nil {
+			r.Get("/{id}/menu-placements", opts.MenuHandler.ListWorkflowPlacements)
 		}
 	})
 	r.Route("/api/v1/users", func(r chi.Router) {
@@ -107,11 +106,11 @@ func NewHandler(opts Options) http.Handler {
 				r.Post("/disable", opts.Channels.Disable)
 				r.Post("/enable", opts.Channels.Enable)
 				r.Delete("/", opts.Channels.Delete)
-				if opts.MenuCards != nil {
-					opts.MenuCards.Mount(r)
+				if opts.MenuHandler != nil {
+					opts.MenuHandler.Mount(r)
 				}
-				if opts.ChannelText != nil {
-					opts.ChannelText.MountChannel(r)
+				if opts.TextHandler != nil {
+					opts.TextHandler.MountChannel(r)
 				}
 			})
 		}
@@ -132,8 +131,8 @@ func NewHandler(opts Options) http.Handler {
 		}
 	})
 	r.Route("/api/v1/text-templates", func(r chi.Router) {
-		if opts.ChannelText != nil {
-			opts.ChannelText.Mount(r)
+		if opts.TextHandler != nil {
+			opts.TextHandler.Mount(r)
 		}
 	})
 	if opts.LinkHealth != nil {

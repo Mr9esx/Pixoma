@@ -72,11 +72,15 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | `apps/pixoma/cmd/pixoma` | 控制面一体入口（引导、向导、管理 API、Agent API、本机 spawn Edge） |
 | `apps/edge-agent` | 执行面：长轮询 claim、读 blob job、本机 Comfy |
 | `web/admin` | 管理 SPA：登录 / 向导 / 业务壳；发布 `go:embed` 进 pixoma |
-| `internal/catalog` | Case 目录与协议校验 |
-| `internal/conversation` | 填表 Session（不含 Task 执行） |
-| `internal/identity` | User（TG From upsert） |
-| `internal/runtime` | Task 领域 + Orchestrator + Actuator + Comfy 客户端 |
-| `internal/channel/tg` | Telegram 适配与通知落地 |
+| `apps/pixoma/internal/application` | pixoma 进程组装：`Run`、配置装载、live demo 与热重载 |
+| `apps/pixoma/internal/config`、`telegram`、`scheduling`、`demo` | pixoma 进程专用配置、TG 运行时、任务订阅调度、演示数据 |
+| `apps/edge-agent/internal/application` | edge-agent 进程组装：`Run`、`Config/FromEnv` |
+| `apps/edge-agent/internal/controlplane`、`collect`、`presence` | claim/执行/上报循环、硬件与指标采样、心跳上报 |
+| `internal/cases` | Case 目录与协议校验 |
+| `internal/sessions` | 填表 Session（不含 Task 执行） |
+| `internal/users` | User（TG From upsert） |
+| `internal/tasks` | Task 领域 + Orchestrator + Actuator + Comfy 客户端 |
+| `internal/channels/tg` | Telegram 适配与通知落地 |
 | `internal/packaging/botapp` | 跨 BC 用例编排 |
 | `internal/packaging/linkhealth` | 配置链路活路健康（只读组装，后台只渲染） |
 | `internal/platform/*` | db / blob / bootstrap / settings / notify / instance / botconfig |
@@ -121,13 +125,20 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 
 ```text
 apps/pixoma  ──组装──►  控制面模块 + 管理/Agent HTTP
-channel/tg  → packaging/botapp → domain BCs + platform ports
-runtime/{orchestrator,actuator} → runtime/domain + platform + catalog(执行用)
+channels/tg  → packaging/botapp → domain BCs + platform ports
+tasks/{application/orchestrator,infrastructure/actuator} → tasks/domain + platform + cases(执行用)
 domain/* → sharedkernel only（BC domain 互不引用）
 platform/* → sharedkernel（Pool 例外：持有 comfyui.Client）
 ```
 
 细则与包表：[bounded-contexts.md](./bounded-contexts.md)。
+
+### 6.1 根 `internal/` 与 `apps/*/internal/` 的边界
+
+- 根 `internal/`：可复用产品内核。领域上下文、平台端口、HTTP API、打包层都在这里；不绑定某次进程启动方式。
+- `apps/*/internal/`：进程级组装与变体。只放“这个二进制怎么把内核接起来”的代码，例如 `application.Run`、进程专用配置、live demo/热重载、edge-agent 的 claim loop 和采集适配。
+- `apps/*/cmd/*/main.go`：保持薄壳，只解析最少的 OS 信号/环境并交给对应 `internal/application.Run`。
+- 依赖方向：`cmd/*` → `apps/*/internal/*` → 根 `internal/*`；根 `internal` 不 import `apps/*`。
 
 ---
 

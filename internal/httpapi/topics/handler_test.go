@@ -11,17 +11,17 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/httpapi/topics"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/topic"
-	"github.com/mr9esx/comfyui_tgbot/internal/topicadmin"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/topics"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
+	topicapp "github.com/Mr9esx/Pixoma/internal/topics/application"
 )
 
 type fakeRepo struct {
-	topics map[string]topic.Topic
+	topics map[string]topicdomain.Topic
 }
 
-func (f *fakeRepo) List(_ context.Context, enabled *bool) ([]topic.Topic, error) {
-	var out []topic.Topic
+func (f *fakeRepo) List(_ context.Context, enabled *bool) ([]topicdomain.Topic, error) {
+	var out []topicdomain.Topic
 	for _, t := range f.topics {
 		if enabled != nil && t.Enabled != *enabled {
 			continue
@@ -31,25 +31,25 @@ func (f *fakeRepo) List(_ context.Context, enabled *bool) ([]topic.Topic, error)
 	return out, nil
 }
 
-func (f *fakeRepo) Get(_ context.Context, key string) (*topic.Topic, error) {
+func (f *fakeRepo) Get(_ context.Context, key string) (*topicdomain.Topic, error) {
 	t, ok := f.topics[key]
 	if !ok {
-		return nil, topic.ErrTopicNotFound
+		return nil, topicdomain.ErrTopicNotFound
 	}
 	return &t, nil
 }
 
-func (f *fakeRepo) Create(_ context.Context, t topic.Topic) error {
+func (f *fakeRepo) Create(_ context.Context, t topicdomain.Topic) error {
 	if _, ok := f.topics[t.Key]; ok {
-		return topic.ErrTopicConflict
+		return topicdomain.ErrTopicConflict
 	}
 	f.topics[t.Key] = t
 	return nil
 }
 
-func (f *fakeRepo) Update(_ context.Context, t topic.Topic) error {
+func (f *fakeRepo) Update(_ context.Context, t topicdomain.Topic) error {
 	if _, ok := f.topics[t.Key]; !ok {
-		return topic.ErrTopicNotFound
+		return topicdomain.ErrTopicNotFound
 	}
 	f.topics[t.Key] = t
 	return nil
@@ -57,7 +57,7 @@ func (f *fakeRepo) Update(_ context.Context, t topic.Topic) error {
 
 func (f *fakeRepo) Delete(_ context.Context, key string) error {
 	if _, ok := f.topics[key]; !ok {
-		return topic.ErrTopicNotFound
+		return topicdomain.ErrTopicNotFound
 	}
 	delete(f.topics, key)
 	return nil
@@ -83,11 +83,11 @@ func do(t *testing.T, r http.Handler, method, path, body string) *httptest.Respo
 
 func seedRepo(repo *fakeRepo) {
 	now := time.Now().UTC()
-	repo.topics["default"] = topic.Topic{Key: "default", Name: "Default", Enabled: true, CreatedAt: now, UpdatedAt: now}
+	repo.topics["default"] = topicdomain.Topic{Key: "default", Name: "Default", Enabled: true, CreatedAt: now, UpdatedAt: now}
 }
 
 func TestTopics_CreateAndList(t *testing.T) {
-	repo := &fakeRepo{topics: map[string]topic.Topic{}}
+	repo := &fakeRepo{topics: map[string]topicdomain.Topic{}}
 	r := newTestRouter(repo)
 
 	rec := do(t, r, http.MethodPost, "/", `{"key":"fast-gpu","name":"Fast GPU"}`)
@@ -105,7 +105,7 @@ func TestTopics_CreateAndList(t *testing.T) {
 }
 
 func TestTopics_InvalidKey(t *testing.T) {
-	repo := &fakeRepo{topics: map[string]topic.Topic{}}
+	repo := &fakeRepo{topics: map[string]topicdomain.Topic{}}
 	r := newTestRouter(repo)
 	for _, key := range []string{"Bad Key", "UPPER", "-lead", "trail-", "a_b", ""} {
 		rec := do(t, r, http.MethodPost, "/", `{"key":"`+key+`","name":"x"}`)
@@ -116,7 +116,7 @@ func TestTopics_InvalidKey(t *testing.T) {
 }
 
 func TestTopics_DuplicateConflict(t *testing.T) {
-	repo := &fakeRepo{topics: map[string]topic.Topic{}}
+	repo := &fakeRepo{topics: map[string]topicdomain.Topic{}}
 	r := newTestRouter(repo)
 	_ = do(t, r, http.MethodPost, "/", `{"key":"dup","name":"D"}`)
 	rec := do(t, r, http.MethodPost, "/", `{"key":"dup","name":"D2"}`)
@@ -126,7 +126,7 @@ func TestTopics_DuplicateConflict(t *testing.T) {
 }
 
 func TestTopics_Update(t *testing.T) {
-	repo := &fakeRepo{topics: map[string]topic.Topic{}}
+	repo := &fakeRepo{topics: map[string]topicdomain.Topic{}}
 	r := newTestRouter(repo)
 	_ = do(t, r, http.MethodPost, "/", `{"key":"k","name":"K"}`)
 	rec := do(t, r, http.MethodPut, "/k", `{"name":"K2","enabled":false}`)
@@ -140,7 +140,7 @@ func TestTopics_Update(t *testing.T) {
 }
 
 func TestTopics_CannotDisableDefault(t *testing.T) {
-	repo := &fakeRepo{topics: map[string]topic.Topic{}}
+	repo := &fakeRepo{topics: map[string]topicdomain.Topic{}}
 	seedRepo(repo)
 	r := newTestRouter(repo)
 	rec := do(t, r, http.MethodPut, "/default", `{"enabled":false}`)
@@ -154,22 +154,22 @@ func TestTopics_CannotDisableDefault(t *testing.T) {
 }
 
 func TestTopics_DeleteCleanup(t *testing.T) {
-	repo := &fakeRepo{topics: map[string]topic.Topic{}}
+	repo := &fakeRepo{topics: map[string]topicdomain.Topic{}}
 	seedRepo(repo)
 	now := time.Now().UTC()
-	repo.topics["fast-gpu"] = topic.Topic{Key: "fast-gpu", Name: "F", Enabled: true, CreatedAt: now, UpdatedAt: now}
+	repo.topics["fast-gpu"] = topicdomain.Topic{Key: "fast-gpu", Name: "F", Enabled: true, CreatedAt: now, UpdatedAt: now}
 
-	deleteFn := func(ctx context.Context, key string, ack bool) (topicadmin.DeleteSummary, error) {
+	deleteFn := func(ctx context.Context, key string, ack bool) (topicapp.DeleteSummary, error) {
 		if key == "default" {
-			return topicadmin.DeleteSummary{}, topicadmin.ErrDefaultProtected
+			return topicapp.DeleteSummary{}, topicapp.ErrDefaultProtected
 		}
 		if key == "fast-gpu" && !ack {
-			return topicadmin.DeleteSummary{}, topicadmin.ErrNeedsAck
+			return topicapp.DeleteSummary{}, topicapp.ErrNeedsAck
 		}
 		if key == "missing" {
-			return topicadmin.DeleteSummary{}, topic.ErrTopicNotFound
+			return topicapp.DeleteSummary{}, topicdomain.ErrTopicNotFound
 		}
-		return topicadmin.DeleteSummary{RemovedCaseRules: 1, RemovedEdgeSubs: 2, FailedTasks: 3}, nil
+		return topicapp.DeleteSummary{RemovedCaseRules: 1, RemovedEdgeSubs: 2, FailedTasks: 3}, nil
 	}
 	h := &topics.Handler{Repo: repo, DeleteWithCleanup: deleteFn}
 	r := chi.NewRouter()

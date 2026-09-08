@@ -70,4 +70,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release create "$GITHUB_REF_NAME" release/*.tar.gz release/checksums.txt --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          release_args=(create "$GITHUB_REF_NAME" release/*.tar.gz release/checksums.txt --title "$GITHUB_REF_NAME" --generate-notes)
+          case "$GITHUB_REF_NAME" in
+            *-alpha*|*-beta*|*-rc*) release_args+=(--prerelease) ;;
+          esac
+          gh "${release_args[@]}"

@@ -3,10 +3,10 @@ package botapp
 import (
 	"context"
 
-	catalogdomain "github.com/mr9esx/comfyui_tgbot/internal/catalog/domain"
-	convdomain "github.com/mr9esx/comfyui_tgbot/internal/conversation/domain"
-	runtimedomain "github.com/mr9esx/comfyui_tgbot/internal/runtime/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/sharedkernel"
+	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type StartCaseCmd struct {

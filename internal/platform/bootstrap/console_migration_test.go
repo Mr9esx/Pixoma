@@ -9,10 +9,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
-	consolepersist "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/persistence"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
+	"github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	consolepersist "github.com/Mr9esx/Pixoma/internal/adminusers/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/bootstrap"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func openConsoleGDB(t *testing.T) *gorm.DB {

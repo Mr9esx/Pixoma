@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	consoledomain "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
+	consoledomain "github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	"github.com/Mr9esx/Pixoma/internal/platform/bootstrap"
 )
 
 type accountCtxKey struct{}

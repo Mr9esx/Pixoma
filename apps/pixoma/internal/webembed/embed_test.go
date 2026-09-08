@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mr9esx/comfyui_tgbot/apps/pixoma/internal/webembed"
+	"github.com/Mr9esx/Pixoma/apps/pixoma/internal/webembed"
 )
 
 func TestHandler_ServesIndex(t *testing.T) {

@@ -16,12 +16,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	consoledomain "github.com/mr9esx/comfyui_tgbot/internal/consoleuser/domain"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/blob/factory"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/bootstrap"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/db"
-	"github.com/mr9esx/comfyui_tgbot/internal/platform/settings"
+	consoledomain "github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob/factory"
+	"github.com/Mr9esx/Pixoma/internal/platform/bootstrap"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	settingsdomain "github.com/Mr9esx/Pixoma/internal/settings/domain"
+	settingsinfra "github.com/Mr9esx/Pixoma/internal/settings/infrastructure"
 )
 
 // Handler serves login + wizard APIs under /api/v1/setup.
@@ -291,14 +292,14 @@ func (h *Handler) database(w http.ResponseWriter, r *http.Request) {
 	}
 	driver := strings.ToLower(strings.TrimSpace(body.Driver))
 	if driver == "" {
-		driver = settings.DriverSQLite
+		driver = settingsdomain.DriverSQLite
 	}
 	dsn := strings.TrimSpace(body.DSN)
 	if dsn == "" {
 		writeErr(w, http.StatusBadRequest, "dsn required")
 		return
 	}
-	if driver == settings.DriverSQLite {
+	if driver == settingsdomain.DriverSQLite {
 		if err := os.MkdirAll(filepath.Dir(dsn), 0o755); err != nil && filepath.Dir(dsn) != "." {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -332,7 +333,7 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.requireSession(w, r); !ok {
 		return
 	}
-	var body settings.Settings
+	var body settingsdomain.Settings
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
@@ -345,7 +346,7 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(dsn) == "" {
 		d := strings.ToLower(strings.TrimSpace(body.DBDriver))
 		if d == "" {
-			d = settings.DriverSQLite
+			d = settingsdomain.DriverSQLite
 		}
 		dbDSN := strings.TrimSpace(body.DBDSN)
 		if dbDSN == "" {
@@ -383,7 +384,7 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	step := "storage"
-	if body.Placement == settings.PlacementRemote {
+	if body.Placement == settingsdomain.PlacementRemote {
 		step = "edge"
 	}
 	_ = h.Boot.SetWizardStep(step)
@@ -412,13 +413,13 @@ func (h *Handler) blobTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	driver := strings.ToLower(strings.TrimSpace(body.BlobDriver))
-	placement := settings.PlacementLocal
+	placement := settingsdomain.PlacementLocal
 	if driver == "s3" || driver == "tos" || driver == "sharedfs" {
-		placement = settings.PlacementRemote
+		placement = settingsdomain.PlacementRemote
 	}
-	cfg := settings.Settings{
+	cfg := settingsdomain.Settings{
 		Placement:      placement,
-		DBDriver:       settings.DriverSQLite,
+		DBDriver:       settingsdomain.DriverSQLite,
 		DBDSN:          "data/app.db",
 		BlobDriver:     driver,
 		BlobRoot:       body.BlobRoot,
@@ -496,7 +497,7 @@ func (h *Handler) putSettings(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "finalize setup first")
 		return
 	}
-	var body settings.Settings
+	var body settingsdomain.Settings
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
@@ -520,7 +521,7 @@ func (h *Handler) putSettings(w http.ResponseWriter, r *http.Request) {
 	merged := mergePlatformSettings(existing, body)
 	merged.AllowSelfRegistration = body.AllowSelfRegistration
 	if strings.TrimSpace(body.DefaultUserAccess) != "" {
-		merged.DefaultUserAccess = settings.NormalizeDefaultUserAccess(body.DefaultUserAccess)
+		merged.DefaultUserAccess = settingsdomain.NormalizeDefaultUserAccess(body.DefaultUserAccess)
 	}
 	merged.DBDriver = driver
 	merged.DBDSN = dsn
@@ -545,7 +546,7 @@ func (h *Handler) putSettings(w http.ResponseWriter, r *http.Request) {
 	h.scheduleRestart()
 }
 
-func mergePlatformSettings(existing, in settings.Settings) settings.Settings {
+func mergePlatformSettings(existing, in settingsdomain.Settings) settingsdomain.Settings {
 	out := existing
 	if p := strings.TrimSpace(in.Placement); p != "" {
 		out.Placement = p
@@ -564,7 +565,7 @@ func mergePlatformSettings(existing, in settings.Settings) settings.Settings {
 	out.ProxyPort = in.ProxyPort
 	out.MediaMaxBytes = in.MediaMaxBytes
 	if strings.TrimSpace(in.DefaultUserAccess) != "" {
-		out.DefaultUserAccess = settings.NormalizeDefaultUserAccess(in.DefaultUserAccess)
+		out.DefaultUserAccess = settingsdomain.NormalizeDefaultUserAccess(in.DefaultUserAccess)
 	}
 	return out
 }
@@ -661,7 +662,7 @@ func (h *Handler) openDB(driver, dsn string) (*gorm.DB, error) {
 	return db.Open(db.Options{Driver: driver, DSN: dsn})
 }
 
-func (h *Handler) settingsStore(driver, dsn string) (*settings.Store, func() error, error) {
+func (h *Handler) settingsStore(driver, dsn string) (*settingsinfra.Store, func() error, error) {
 	key, err := h.Boot.EncKey()
 	if err != nil {
 		return nil, nil, err
@@ -670,7 +671,7 @@ func (h *Handler) settingsStore(driver, dsn string) (*settings.Store, func() err
 	if err != nil {
 		return nil, nil, err
 	}
-	st, err := settings.NewStore(gdb, key)
+	st, err := settingsinfra.NewStore(gdb, key)
 	if err != nil {
 		if sqlDB, e := gdb.DB(); e == nil {
 			_ = sqlDB.Close()
