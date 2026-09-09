@@ -82,15 +82,18 @@ flowchart LR
     P[pixoma]
     E[pixoma-edge-agent]
     C[ComfyUI]
+    S[(本地目录)]
     P --> E --> C
+    P --> S
+    E --> S
   end
   TG --> P
   C --> TG
 ```
 
-pixoma、pixoma-edge-agent、ComfyUI 全部部署在同一台本地电脑上。
+pixoma、pixoma-edge-agent、ComfyUI 全部部署在同一台本地电脑上。生成的文件存在本机目录。
 
-方案二：分离部署（云端控制面 + 云端 GPU 算力机）
+### 方案二：分离部署（云端控制面 + 云端 GPU 算力机）
 
 ```mermaid
 flowchart LR
@@ -98,6 +101,7 @@ flowchart LR
   subgraph server [云服务器]
     P[pixoma]
   end
+  S[(S3 / TOS)]
   subgraph gpu [有显卡的机器]
     E[pixoma-edge-agent]
     C[ComfyUI]
@@ -105,10 +109,12 @@ flowchart LR
   end
   TG --> P
   P --> E
+  P --> S
+  E --> S
   C --> TG
 ```
 
-pixoma 部署在云服务器；pixoma-edge-agent 与 ComfyUI 运行在带显卡的机器上。
+pixoma 部署在云服务器；pixoma-edge-agent 与 ComfyUI 运行在带显卡的机器上。两边共用对象存储（S3 / TOS），不能用本机文件夹。
 GPU 算力机**不需要公网 IP**，只要可以访问云服务器即可。
 
 ### 执行流程
