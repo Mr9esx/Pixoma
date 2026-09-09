@@ -1,93 +1,122 @@
 <p align="center">
-  <img src="logo.png" width="128" height="128" alt="Pixoma">
+  <img src="docs/images/logo-radius.webp" width="64" alt="Pixoma">
+  <br/>
+  <img src="docs/images/title-light.svg#gh-light-mode-only" width="100" height="23" alt="Pixoma">
+  <img src="docs/images/title-dark.svg#gh-dark-mode-only" width="100" height="23" alt="Pixoma">
+  <br/>
+  <i>
+    <samp>创意不设限</samp>
+  </i>
 </p>
 
-<h1 align="center">Pixoma</h1>
+<br/>
+
+这是一套可通过 Telegram、飞书、MCP 调用 ComfyUI 工作流的服务，让你随时随地将灵感转化为作品。
+
+<br/>
+
+<img src="docs/images/pixoma.webp" style="border: 1px solid #ededed">
+
+<br/>
 
 <p align="center">
-  把 ComfyUI 变成 Telegram Bot。自托管，多节点调度，随时随地出图。
+  <img src="https://img.shields.io/badge/Go-%2300ADD8.svg?&logo=go&logoColor=white" alt="Go">
+  <img src="https://img.shields.io/badge/React-%2320232a.svg?logo=react&logoColor=%2361DAFB" alt="React">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff" alt="TypeScript">
+  <img src="https://img.shields.io/badge/shadcn%2Fui-000?logo=shadcnui&logoColor=fff" alt="shadcn/ui">
+  <img src="https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=fff" alt="Vite">
+  <img src="https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white" alt="Tailwind CSS">
+  <img src="https://img.shields.io/badge/pnpm-F69220?logo=pnpm&logoColor=fff" alt="pnpm">
+  <img src="https://img.shields.io/badge/Telegram-2CA5E0?logo=telegram&logoColor=white" alt="Telegram">
+  <img src="https://img.shields.io/badge/SQLite-%2307405e.svg?logo=sqlite&logoColor=white" alt="SQLite">
+  <img src="https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=fff" alt="MySQL">
+  <img src="https://img.shields.io/badge/Postgres-%23316192.svg?logo=postgresql&logoColor=white" alt="Postgres">
 </p>
 
 <p align="center">
-  <a href="#安装"><b>安装</b></a>
-  ·
-  <a href="#快速开始"><b>快速开始</b></a>
-  ·
-  <a href="#功能"><b>功能</b></a>
-  ·
-  <a href="#faq"><b>FAQ</b></a>
+  <img src="https://img.shields.io/github/stars/Mr9esx/Pixoma?style=social" alt="GitHub stars">
+  <img src="https://img.shields.io/github/license/Mr9esx/Pixoma" alt="License">
 </p>
 
-<p align="center">
-  <a href="https://github.com/Mr9esx/Pixoma/stargazers">
-    <img src="https://img.shields.io/github/stars/Mr9esx/Pixoma?style=social" alt="GitHub stars">
-  </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/Mr9esx/Pixoma" alt="License">
-  </a>
-</p>
+<p align="left"><sub><em>P.S: 飞书、MCP 等能力开发中</em></sub><p/>
 
-## 截图
+## 简介
 
-| 管理后台 | Telegram Bot |
-| :---: | :---: |
-| <a href="docs/images/app-dashboard-dark.png"><img src="docs/images/app-dashboard-dark.png" width="480" alt="Pixoma 管理后台"></a> | <a href="docs/images/telegram-bot-dark.png"><img src="docs/images/telegram-bot-dark.png" width="480" alt="Telegram Bot 对话界面"></a> |
+开发这个服务的初衷是：我家里有一台配置不错的电脑，平时常用 ComfyUI 搭建各类工作流，用来生成图片、制作视频。
 
-| 工作流简化 |
-| :---: |
-| <a href="docs/images/simplify-dark.png"><img src="docs/images/simplify-dark.png" width="480" alt="ComfyUI 节点简化为三段式工作流"></a> |
+但 ComfyUI 有个痛点 —— 外出的时候很难直接使用。
 
-## Pixoma 是什么
+过去一般只有两种方案：
 
-Pixoma 把你已有的 ComfyUI 工作流包装成 Telegram Bot，让你在手机上也能随时调用。工作流、节点、任务队列、存储，全部自托管。
+- 折腾内网穿透，通过静态 IP、DDNS 等方式，在外访问家里的设备；
 
-- 单机跑：一台电脑，Pixoma + ComfyUI 都在本地
-- 多节点：Pixoma 跑在一台机器上，GPU 节点上跑 agent 主动领任务
-- 支持文生图、文生视频、图片编辑、图生视频、TTS、人声模仿等任何 ComfyUI 工作流
+- 购买云服务器自行部署 ComfyUI，或是使用 RunningHub 这类云端平台。
 
-## 功能
+可家里明明已经有性能够用的主机，没必要额外花钱租用服务器，或是订阅付费平台，而且通常这些平台会有很多审查机制。
 
-### Telegram Bot 对话式生成
+除此之外还有个麻烦：ComfyUI 复杂的工作流操作界面，在手机等移动设备上操作体验很差。
 
-- `/start` 主菜单，按分类浏览 Case
-- 对话式填写参数，可选字段可跳过
-- 生成进度推送，完成后 Bot 直接返回结果
-- 多 Session 并行，互不干扰
+正是为了解决这些难题，我着手开始制作 Pixoma。
 
-### 工作流管理
+## 它能做什么
 
-- 导入 ComfyUI 工作流，配置输入输出节点
-- 三段式简化：输入 → 生成 → 输出，隐藏复杂节点
-- Case 分组管理，支持启用/停用
-- 内置可视化工作流编辑器
+- 接入 Telegram、飞书 等 IM 工具，可以直接通过对话调用 ComfyUI 工作流，并查看成品。
+- 提供 MCP 工具，方便 AI 对话工具直接调用。
 
-### 多计算节点调度
+Pixoma 最大优点是：
 
-- 计算节点通过长轮询领任务，无需 Redis
-- 支持 Topic 路由，不同节点接不同类型任务
-- 节点状态、负载、指标实时监控
-- 单机 all-in-one 或云端多节点自由切换
+最小化部署的情况下，只需要一台可以正常运行 ComfyUI 的电脑，不需要任何域名和服务器，只需要你的电脑可以正常访问互联网，即可接入 Telegram 等 IM 软件在外使用。
 
-### 存储与数据库
+> P.S: 如果你需要通过 Telegram 去使用，这里正常访问互联网指的是 “全世界的公网网站都能畅通无阻”。
 
-- 对象存储：本地目录 / S3 / TOS / 共享目录（SMB / NFS）
-- 数据库：SQLite（默认）/ MySQL / Postgres
-- 初始化向导一键配置，支持连通性测试
+## 它怎么工作
 
-### 管理后台
+Pixoma 支持两种部署方案：
 
-- RBAC 权限：viewer / operator / admin
-- 任务列表、详情、重试
-- 节点管理、Case 管理、用户管理
-- 任务统计、节点指标图表
-- 支持亮/暗主题
+### 方案一：单机部署（全部跑在家里同一台电脑）
 
-### 安全
+```mermaid
+flowchart LR
+  TG[Telegram]
+  subgraph home [家里这一台电脑]
+    P[pixoma]
+    E[pixoma-edge-agent]
+    C[ComfyUI]
+    P --> E --> C
+  end
+  TG --> P
+  C --> TG
+```
 
-- 会话鉴权 + CSRF 防护
-- 数据目录 `0700` / `0600` 权限
-- 敏感配置加密存储
-- 支持 HTTPS 反向代理
+pixoma、pixoma-edge-agent、ComfyUI 全部部署在同一台本地电脑上。
+
+方案二：分离部署（云端控制面 + 云端 GPU 算力机）
+
+```mermaid
+flowchart LR
+  TG[Telegram]
+  subgraph server [云服务器]
+    P[pixoma]
+  end
+  subgraph gpu [有显卡的机器]
+    E[pixoma-edge-agent]
+    C[ComfyUI]
+    E --> C
+  end
+  TG --> P
+  P --> E
+  C --> TG
+```
+
+pixoma 部署在云服务器；pixoma-edge-agent 与 ComfyUI 运行在带显卡的机器上。
+GPU 算力机**不需要公网 IP**，只要可以访问云服务器即可。
+
+### 执行流程
+
+1. 在对话中选择工作流，填写所需参数，确认提交生成任务。
+2. pixoma 接收并记录任务。
+3. pixoma-edge-agent 获取任务，转发给对应机器上的 ComfyUI 执行。
+4. 任务完成后，生成的图片或视频自动发送回原对话。
 
 ## 安装
 
@@ -105,115 +134,177 @@ irm https://pixoma.miaoplus.com/install.ps1 | iex
 pixoma
 ```
 
-源码运行：
+## 预览
 
-```bash
-go run ./apps/pixoma/cmd/pixoma
-```
+<table>
+<tr>
+<td valign="top" width="50%">
 
-## 快速开始
+**工作台**
 
-1. 启动 `pixoma`，日志里找到后台地址和默认管理员密码
-2. 浏览器打开后台，登录后走初始化向导：改密 → 选数据库 → 选对象存储 → 加节点 → 填 Telegram Bot Token
-3. 在有 ComfyUI 的机器上，按后台「节点部署命令」运行 `pixoma-edge-agent`
-4. 后台 → Case → 导入你的 ComfyUI 工作流
-5. Telegram 里找到你的 Bot，`/start` 开始生成
+- 查看任务量、成功率与执行耗时
+- 监控计算节点在线状态
+- 快捷入口：新建工作流、管理计算节点
 
-> 保存配置后需要重启 `pixoma` 才会生效。
+</td>
+<td valign="top" width="50%">
 
-## 它是怎么工作的
+<img src="docs/images/screenshot-0.webp" alt="工作台" width="100%">
 
-```
-Telegram 用户 ──► 对话 Session ──► 生成任务
-                                      │
-                                Pixoma 服务
-                           （调度 / 管理后台 / API）
-                                      │
-                           任务队列 + 长轮询领任务
-                                      │
-                            计算节点 Agent
-                                      │
-                                   ComfyUI
-```
+</td>
+</tr>
+<tr>
+<td valign="top" width="50%">
 
-计算节点不被动等待推送，而是主动向 Pixoma 服务发起长轮询请求，有任务就领走执行。这样部署最简单：GPU 机器只要能访问到 Pixoma 服务就行，不需要公网 IP。
+**快速新建工作流**
 
-### 两种部署方式
+- 导入 ComfyUI 工作流 JSON
+- 配置输入项、输出规则与后处理流程
+- 选择执行算力机器，发布到聊天菜单
 
-| | 单机 | 多节点 |
-|---|---|---|
-| Pixoma 服务 | 本地 | 服务器（公网 IP / 域名） |
-| 计算节点 | 同一台机器 | 多台 GPU 机器 |
-| 对象存储 | 本地目录 | S3 / TOS |
-| 适合 | 个人使用 | 团队 / 多卡 / 弹性扩容 |
+</td>
+<td valign="top" width="50%">
 
-## 配置
+<img src="docs/images/screenshot-1.webp" alt="快速新建工作流" width="100%">
 
-主要环境变量：
+</td>
+</tr>
+<tr>
+<td valign="top" width="50%">
 
-| 变量 | 说明 | 默认值 |
-|---|---|---|
-| `DATA_DIR` | 数据目录（SQLite / blob） | `data` |
-| `HTTP_ADDR` | 监听地址 | `127.0.0.1:8080` |
-| `DB_DRIVER` / `DATABASE_DSN` | 数据库驱动与 DSN | `sqlite` / `DATA_DIR/app.db` |
-| `BLOB_DRIVER` | 对象存储驱动：`localfs` / `s3` / `tos` / `sharedfs` | `localfs` |
-| `TG_BOT_TOKEN` | Telegram Bot Token | — |
-| `EDGE_ID` | 计算节点 ID（agent 端） | — |
-| `AGENT_TOKEN` | 计算节点 Token（agent 端） | — |
-| `CONTROL_PLANE_URL` / `PIXOMA_URL` | Pixoma 服务地址（agent 端） | — |
-| `COMFYUI_BASE_URL` | ComfyUI 地址 | — |
-| `CLAIM_WAIT` | 长轮询等待时间（agent 端） | `5s` |
-| `STATS_TIMEZONE` | 统计归天时区 | `Asia/Shanghai` |
-| `PIXOMA_ENCRYPTION_KEY` | 加密密钥，建议自行设置长随机值 | 内置 |
+**工作流**
 
-完整列表见 [`docs/install.md`](docs/install.md)。
+- 列表浏览、新建、编辑、启停管理
+- 绑定用户输入 / 输出字段至 ComfyUI 节点
+- 预览节点画布，配置处理逻辑
 
-## FAQ
+</td>
+<td valign="top" width="50%">
 
-**Pixoma 自带 ComfyUI 吗？**
+<img src="docs/images/screenshot-2.webp" alt="工作流" width="100%">
 
-不带。Pixoma 是在你已有的 ComfyUI 基础上加一层 Bot 接口和调度，需要你先有能正常跑的 ComfyUI 和工作流。
+</td>
+</tr>
+<tr>
+<td valign="top" width="50%">
 
-**单机部署需要什么？**
+**消息平台**
 
-一台能跑 ComfyUI 的电脑就行。SQLite + 本地文件存储，零外部依赖。需要能访问 Telegram。
+- 接入 Telegram，填写 Bot Token
+- 查看连接状态，支持启停
+- 配置 Bot 菜单与提示文案
 
-**用云端 GPU 节点需要什么准备？**
+</td>
+<td valign="top" width="50%">
 
-1. Pixoma 服务部署在有公网 IP 或域名的服务器
-2. 对象存储用 S3 或 TOS（不能用本地目录）
-3. GPU 机器上运行 `pixoma-edge-agent`，能访问到 Pixoma 服务
+<img src="docs/images/screenshot-3.webp" alt="消息平台" width="100%">
 
-**支持哪些 ComfyUI 节点？**
+</td>
+</tr>
+<tr>
+<td valign="top" width="50%">
 
-所有节点都支持。Pixoma 不关心工作流里用了什么节点，只负责把输入参数填进去、把输出结果取出来。
+**任务队列**
 
-**旧版 Redis split 能升级吗？**
+- 创建队列并绑定计算节点
+- 按规则将工作流任务分配至队列
+- 监控吞吐、成功率与错误日志
 
-不保证原地升级。新版默认走 Pixoma 服务 + 向导 + 节点长轮询，不再依赖 Redis。
+</td>
+<td valign="top" width="50%">
+
+<img src="docs/images/screenshot-4.webp" alt="任务队列" width="100%">
+
+</td>
+</tr>
+<tr>
+<td valign="top" width="50%">
+
+**计算节点**
+
+- 新建节点，一键复制部署命令
+- 订阅任务队列；检测节点在线状态、ComfyUI 服务健康
+- 查看硬件信息及 CPU / 内存 / GPU 实时占用
+
+</td>
+<td valign="top" width="50%">
+
+<img src="docs/images/screenshot-5.webp" alt="计算节点" width="100%">
+
+</td>
+</tr>
+<tr>
+<td valign="top" width="50%">
+
+**设置**
+
+- 账号密码管理
+- 存储配置：本地目录 / S3 / TOS
+- 网络代理、用户权限、默认提示文案
+
+</td>
+<td valign="top" width="50%">
+
+<img src="docs/images/screenshot-6.webp" alt="设置" width="100%">
+
+</td>
+</tr>
+<tr>
+<td valign="top" width="50%">
+
+**配置拓扑**
+
+- 可视化查看消息平台、工作流、任务队列、计算节点之间的关联关系
+- 点击组件直接打开详情页
+
+</td>
+<td valign="top" width="50%">
+
+<img src="docs/images/screenshot-7.webp" alt="配置拓扑" width="100%">
+
+</td>
+</tr>
+</table>
+
+## 常见问题
+
+### Q：需要先安装 ComfyUI 吗？
+
+A：需要。你要先在电脑部署好可正常运行的 ComfyUI 与对应工作流，再安装 Pixoma。Pixoma 不会帮你安装 ComfyUI。
+
+### Q：家里电脑没有公网 IP、也没有域名，在外也能使用吗？
+
+A：可以。只要设备能正常联网、能访问 Telegram 即可，**无需配置内网穿透，也不用额外购买云服务器**。
+
+### Q：在聊天里需要填写工作流全部节点参数吗？
+
+A：不用。工作流节点一次性配置完成后基本无需改动。你只需要在对话中填写核心参数，例如产品图、场景描述、图像尺寸等。
+
+### Q：生成的图片会上传到第三方服务器吗？
+
+A：默认不会。全部生成任务都在你本地这台装有 ComfyUI 的电脑上执行。
+
+### Q：支持哪些 ComfyUI 节点？
+
+A：只要该工作流能在你的 ComfyUI 正常运行，Pixoma 就可以调用。Pixoma 不会限制节点类型。
 
 ## 开发
 
+需要 Go 1.25+、Node.js 22+、pnpm。
+
 ```bash
-make dev        # Pixoma 服务 + Vite 管理页面（热更新）
-make run        # 只起后端
-make build      # 构建二进制
-make test       # 运行测试
-make clean      # 清空 data/，下次启动重新走引导
+make dev        # pixoma + Vite 管理页
+make run        # 只起控制面
+make build      # bin/pixoma 和 bin/pixoma-edge-agent
+make test       # go test ./...
+make clean      # 清空 DATA_DIR，下次启动重新走向导
 ```
 
 `make dev` 启动后：
-- 管理页面：`http://127.0.0.1:5173`
-- 后端 API：`http://127.0.0.1:8080`
 
-更多开发文档见 [`docs/architecture/`](docs/architecture/)。
+- 管理页：`http://127.0.0.1:5173`
+- 控制面：`http://127.0.0.1:8082`（`HTTP_ADDR` 可覆盖；开发脚本默认 `0.0.0.0:8082`）
 
-## 贡献
+架构说明见 [`docs/architecture/`](docs/architecture/)。
 
-[`CONTRIBUTING.md`](CONTRIBUTING.md)
-
-安全问题请见 [`SECURITY.md`](SECURITY.md)，不要公开提 issue。
-
-## License
-
-[`LICENSE`](LICENSE)
+贡献见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。安全问题见 [`SECURITY.md`](SECURITY.md)。许可证是 MIT，见 [`LICENSE`](LICENSE)。

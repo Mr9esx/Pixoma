@@ -13,6 +13,12 @@
       "skillPath": "skills/brainstorming/SKILL.md",
       "computedHash": "225b53fce53d627d3a1e94bfea84060ccdbf11a58a2d5cf11eefef89d598020e"
     },
+    "create-readme": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/create-readme/SKILL.md",
+      "computedHash": "d0ece1b2164ce1376e4ab6e98d6ac079df3a2a94f5f02224362b6a1ce2516ae9"
+    },
     "dispatching-parallel-agents": {
       "source": "obra/superpowers",
       "sourceType": "github",
@@ -161,6 +167,12 @@
       "sourceType": "github",
       "skillPath": "plugins/tanstack-table/skills/tanstack-table/SKILL.md",
       "computedHash": "d5ac71bd795696cd3310165c3ea0e435c310a0ac3c4e9dd45b39ed91b8dbcbb1"
+    },
+    "tech-doc-style-chinese": {
+      "source": "Fenng/tech-doc-style-chinese",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "9fd98ef7ca87100ae802633e916a9d8bc04bc260cdc9f864904d08fd8591e592"
     },
     "test-driven-development": {
       "source": "obra/superpowers",
