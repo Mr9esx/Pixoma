@@ -439,7 +439,7 @@
         "viewerChromeActive": true,
         "viewerChromeOk": true,
         "resolvedTheme": "light",
-        "file": "archify-architecture.visual-check.1440x900.light.png"
+        "file": "archify-architecture.visual-check.1440x900.light.webp"
       },
       {
         "width": 1440,
@@ -471,7 +471,7 @@
         "viewerChromeActive": true,
         "viewerChromeOk": true,
         "resolvedTheme": "dark",
-        "file": "archify-architecture.visual-check.1440x900.dark.png"
+        "file": "archify-architecture.visual-check.1440x900.dark.webp"
       },
       {
         "width": 2048,
@@ -503,7 +503,7 @@
         "viewerChromeActive": true,
         "viewerChromeOk": true,
         "resolvedTheme": "light",
-        "file": "archify-architecture.visual-check.2048x1320.light.png"
+        "file": "archify-architecture.visual-check.2048x1320.light.webp"
       },
       {
         "width": 2048,
@@ -535,7 +535,7 @@
         "viewerChromeActive": true,
         "viewerChromeOk": true,
         "resolvedTheme": "dark",
-        "file": "archify-architecture.visual-check.2048x1320.dark.png"
+        "file": "archify-architecture.visual-check.2048x1320.dark.webp"
       }
     ],
     "contactSheet": "archify-architecture.visual-check.html"
