@@ -463,11 +463,36 @@ func decodeBytes(s string) ([]byte, string, error) {
 	return raw, mime, nil
 }
 
+func guideToolError(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, botapp.ErrAccessDenied) {
+		return GuideToolAccessDenied
+	}
+	if errors.Is(err, catalogdomain.ErrNotFound) || errors.Is(err, catalogdomain.ErrDisabled) {
+		return GuideToolWorkflowGone
+	}
+	if errors.Is(err, runtimedomain.ErrTaskNotFound) {
+		return GuideToolTaskHidden
+	}
+	raw := err.Error()
+	if strings.Contains(raw, "workflow not found") || strings.Contains(raw, "case not found") {
+		return GuideToolWorkflowGone
+	}
+	if _, keys, ok := strings.Cut(raw, "missing required:"); ok {
+		return fmt.Sprintf(GuideToolMissingInput, strings.TrimSpace(keys))
+	}
+	if raw == "task_id required" {
+		return GuideToolTaskHidden
+	}
+	return raw
+}
+
 func toolErr[T any](err error) (*mcpsdk.CallToolResult, T, error) {
 	var zero T
-	msg := err.Error()
 	return &mcpsdk.CallToolResult{
 		IsError: true,
-		Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: msg}},
+		Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: guideToolError(err)}},
 	}, zero, nil
 }

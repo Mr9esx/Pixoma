@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -388,6 +389,198 @@ func TestMCP_RunWorkflow_PaidUserDoesNotCreateTask(t *testing.T) {
 	}
 	if len(list) != 0 {
 		t.Fatalf("created tasks=%d", len(list))
+	}
+}
+
+func toolErrorText(t *testing.T, res *mcp.CallToolResult) string {
+	t.Helper()
+	var b strings.Builder
+	for _, c := range res.Content {
+		if tc, ok := c.(*mcp.TextContent); ok {
+			b.WriteString(tc.Text)
+			continue
+		}
+		b.WriteString(fmt.Sprint(c))
+	}
+	return b.String()
+}
+
+func TestMCP_RunWorkflow_PaidUserGuidesAdmin(t *testing.T) {
+	facade, tasks, ident := mcpHarness(t)
+	users := facade.Users.(*memUsers)
+	paid := users.byID[ident.UserID]
+	paid.Access = identitydomain.UserAccessPaid
+
+	cs, cleanup := connectMCP(t, pixmcp.Deps{Facade: facade, Identity: ident})
+	defer cleanup()
+
+	ctx := context.Background()
+	res, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name: "run_workflow",
+		Arguments: map[string]any{
+			"case_id": 1,
+			"inputs":  map[string]any{"prompt": "a cat"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("paid user must not run workflow")
+	}
+	got := toolErrorText(t, res)
+	if !strings.Contains(got, "不能跑工作流") || !strings.Contains(got, "MCP 渠道用户") {
+		t.Fatalf("guide=%q", got)
+	}
+	list, err := tasks.ListByChat(ctx, ident.ChatID(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("created tasks=%d", len(list))
+	}
+}
+
+func TestMCP_RunWorkflow_DisabledGuidesList(t *testing.T) {
+	facade, tasks, ident := mcpHarness(t)
+	ctx := context.Background()
+	c, err := facade.Cases.Get(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Enabled = false
+	if err := facade.Cases.Save(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	cs, cleanup := connectMCP(t, pixmcp.Deps{Facade: facade, Identity: ident})
+	defer cleanup()
+	res, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name: "run_workflow",
+		Arguments: map[string]any{
+			"case_id": 1,
+			"inputs":  map[string]any{"prompt": "a cat"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error")
+	}
+	got := toolErrorText(t, res)
+	if !strings.Contains(got, "list_workflows") || !strings.Contains(got, "停用") {
+		t.Fatalf("guide=%q", got)
+	}
+	list, err := tasks.ListByChat(ctx, ident.ChatID(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("created tasks=%d", len(list))
+	}
+}
+
+func TestMCP_GetWorkflow_MissingGuidesList(t *testing.T) {
+	facade, _, ident := mcpHarness(t)
+	cs, cleanup := connectMCP(t, pixmcp.Deps{Facade: facade, Identity: ident})
+	defer cleanup()
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "get_workflow",
+		Arguments: map[string]any{"case_id": 999},
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error")
+	}
+	got := toolErrorText(t, res)
+	if !strings.Contains(got, "list_workflows") {
+		t.Fatalf("guide=%q", got)
+	}
+}
+
+func TestMCP_RunWorkflow_MissingRequiredGuidesGetWorkflow(t *testing.T) {
+	facade, tasks, ident := mcpHarness(t)
+	cs, cleanup := connectMCP(t, pixmcp.Deps{Facade: facade, Identity: ident})
+	defer cleanup()
+	ctx := context.Background()
+	res, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "run_workflow",
+		Arguments: map[string]any{"case_id": 1, "inputs": map[string]any{}},
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected tool error for missing required")
+	}
+	got := toolErrorText(t, res)
+	if !strings.Contains(got, "prompt") || !strings.Contains(got, "get_workflow") || !strings.Contains(got, "inputs") {
+		t.Fatalf("guide=%q", got)
+	}
+	list, err := tasks.ListByChat(ctx, ident.ChatID(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("created tasks=%d", len(list))
+	}
+}
+
+func TestMCP_GetTask_ForeignOrEmptyGuidesListTasks(t *testing.T) {
+	facade, _, ident := mcpHarness(t)
+	other := pixmcp.Identity{UserID: "user-mcp-2", ChannelID: "ch-mcp", ExternalUserID: "ext-2"}
+	users := facade.Users.(*memUsers)
+	users.byID["user-mcp-2"] = &identitydomain.User{
+		ID:             "user-mcp-2",
+		ChannelID:      "ch-mcp",
+		ExternalUserID: "ext-2",
+		Access:         identitydomain.UserAccessAlwaysAllowed,
+	}
+	owner, cleanupA := connectMCP(t, pixmcp.Deps{Facade: facade, Identity: ident})
+	defer cleanupA()
+	stranger, cleanupB := connectMCP(t, pixmcp.Deps{Facade: facade, Identity: other})
+	defer cleanupB()
+	ctx := context.Background()
+	created, err := owner.CallTool(ctx, &mcp.CallToolParams{
+		Name: "run_workflow",
+		Arguments: map[string]any{
+			"case_id": 1,
+			"inputs":  map[string]any{"prompt": "a cat"},
+		},
+	})
+	if err != nil || created.IsError {
+		t.Fatalf("run: err=%v res=%+v", err, created)
+	}
+	taskID := structuredString(t, created, "task_id")
+	got, err := stranger.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "get_task",
+		Arguments: map[string]any{"task_id": taskID},
+	})
+	if err != nil {
+		t.Fatalf("get_task: %v", err)
+	}
+	if !got.IsError {
+		t.Fatal("stranger must not read another user's task")
+	}
+	text := toolErrorText(t, got)
+	if !strings.Contains(text, "连接器") && !strings.Contains(text, "list_tasks") {
+		t.Fatalf("foreign guide=%q", text)
+	}
+	empty, err := owner.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "get_task",
+		Arguments: map[string]any{"task_id": ""},
+	})
+	if err != nil {
+		t.Fatalf("empty: %v", err)
+	}
+	if !empty.IsError {
+		t.Fatal("empty task_id must error")
+	}
+	emptyText := toolErrorText(t, empty)
+	if !strings.Contains(emptyText, "list_tasks") && !strings.Contains(emptyText, "task_id") {
+		t.Fatalf("empty guide=%q", emptyText)
 	}
 }
 
