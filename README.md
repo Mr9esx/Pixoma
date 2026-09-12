@@ -63,6 +63,10 @@
 - 接入 Telegram、飞书 等 IM 工具，可以直接通过对话调用 ComfyUI 工作流，并查看成品。
 - 提供 MCP 工具，方便 AI 对话工具直接调用。
 
+调用方 Agent 安装提示词（聊天需支持 MCP 连接器）：
+
+把 https://pixoma.miaoplus.com/skills/pixoma-mcp/SKILL.md 装进本机 skills 目录；用户的聊天产品需要能配置 MCP 连接器。仓库内同源文件：docs/skills/pixoma-mcp/SKILL.md。
+
 Pixoma 最大优点是：
 
 最小化部署的情况下，只需要一台可以正常运行 ComfyUI 的电脑，不需要任何域名和服务器，只需要你的电脑可以正常访问互联网，即可接入 Telegram 等 IM 软件在外使用。
