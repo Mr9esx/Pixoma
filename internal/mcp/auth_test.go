@@ -159,6 +159,9 @@ func TestMCP_DisabledChannelBodyMentionsUnavailable(t *testing.T) {
 	if !strings.Contains(body, "停用") {
 		t.Fatalf("body=%q missing 停用", body)
 	}
+	if strings.Contains(body, "invalid token") {
+		t.Fatalf("body=%q leaked sdk suffix", body)
+	}
 }
 
 func TestMCP_StreamableSessionRejectsOtherBearer(t *testing.T) {

@@ -121,8 +121,12 @@ func (w *authGuideWriter) Write(p []byte) (int, error) {
 	if code == 0 {
 		code = http.StatusOK
 	}
-	if code == http.StatusUnauthorized && !bytes.Contains(p, []byte("连接器")) {
-		p = []byte(GuideUnauthorized + "\n")
+	if code == http.StatusUnauthorized {
+		if bytes.Contains(p, []byte("停用")) {
+			p = []byte(GuideUnavailable + "\n")
+		} else {
+			p = []byte(GuideUnauthorized + "\n")
+		}
 	}
 	if code == http.StatusForbidden && bytes.Contains(p, []byte("session user mismatch")) {
 		p = []byte(GuideForbidden + "\n")
