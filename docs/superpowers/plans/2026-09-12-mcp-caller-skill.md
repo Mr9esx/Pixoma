@@ -61,7 +61,7 @@ const (
 - `RequireBearer` 返回的 handler 最外层包 `rewriteMCPAuthBody`：若状态 401 且正文不含 `连接器`，改写成 `GuideUnauthorized`；若状态 403 且正文含 `session user mismatch`，改写成 `GuideForbidden`。不要改写其它 4xx。
 - `sse_guard.go` 的 `http.Error` 第三参保持 `http.StatusForbidden`，正文改为 `GuideForbidden`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `internal/mcp/auth_test.go` 增加辅助函数与三个测试（复用 `TestMCP_RequiresBearer` 的夹具写法，不要改旧测试的状态断言；旧测试缺正文检查，本任务用新测试锁文案）。
 
@@ -130,7 +130,7 @@ func TestMCP_SessionMismatchBodyGuidesReconnect(t *testing.T) {
 
 把 `TestMCP_RequiresBearer` 里「tokens / users / channels / handler」抽成 `newAuthedMCPHandler(t)`（返回 `http.Handler` 与 `plain` token、`channels`）避免复制三份；抽函数时不要改旧测试期望。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 go test ./internal/mcp/ -count=1 -run 'TestMCP_UnauthorizedBodyGuidesConnector|TestMCP_DisabledChannelBodyMentionsUnavailable|TestMCP_SessionMismatchBodyGuidesReconnect'
@@ -138,7 +138,7 @@ go test ./internal/mcp/ -count=1 -run 'TestMCP_UnauthorizedBodyGuidesConnector|T
 
 Expected: FAIL——401 正文仍是 `no bearer token` / `invalid token` / `unauthorized`，403 正文仍是 `session user mismatch`，缺 `连接器`。
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 `auth.go`：
 
@@ -198,7 +198,7 @@ func (w *authGuideWriter) Write(p []byte) (int, error) {
 
 `sse_guard.go`：`http.Error(w, GuideForbidden, http.StatusForbidden)`。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 go test ./internal/mcp/ -count=1 -run 'TestMCP_'
@@ -206,7 +206,7 @@ go test ./internal/mcp/ -count=1 -run 'TestMCP_'
 
 Expected: PASS（含旧鉴权与会话测试）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 GIT_AUTHOR_NAME="李卓洲" GIT_AUTHOR_EMAIL="1138099359@qq.com" \
@@ -252,7 +252,7 @@ const (
 | `errors.Is(..., runtimedomain.ErrTaskNotFound)` 或原文为 `task_id required` | `GuideToolTaskHidden` |
 | 其它 | `err.Error()` 原样透传，不加前缀 |
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `tools_test.go` 增加：
 
@@ -348,7 +348,7 @@ func TestMCP_GetTask_ForeignOrEmptyGuidesListTasks(t *testing.T) {
 
 可把付费用户旧测试扩成断言正文，但必须先让新断言失败再改 `toolErr`。不要删「不创建任务」断言。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 go test ./internal/mcp/ -count=1 -run 'TestMCP_RunWorkflow_PaidUserGuidesAdmin|TestMCP_RunWorkflow_DisabledGuidesList|TestMCP_GetWorkflow_MissingGuidesList|TestMCP_RunWorkflow_MissingRequiredGuidesGetWorkflow|TestMCP_GetTask_ForeignOrEmptyGuidesListTasks'
@@ -356,7 +356,7 @@ go test ./internal/mcp/ -count=1 -run 'TestMCP_RunWorkflow_PaidUserGuidesAdmin|T
 
 Expected: FAIL——正文仍是 `user access denied` / `case disabled` / `case not found` / `missing required: prompt` / `task not found`。
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 `tools.go`：
 
@@ -398,7 +398,7 @@ func toolErr[T any](err error) (*mcpsdk.CallToolResult, T, error) {
 
 常量可与 Task 1 一样放在 `auth.go`，或新建 `internal/mcp/guide.go` 只放字符串（不要新包）。优先 `guide.go`，避免 `auth.go` 再膨胀。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 go test ./internal/mcp/ -count=1
@@ -406,7 +406,7 @@ go test ./internal/mcp/ -count=1
 
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 GIT_AUTHOR_NAME="李卓洲" GIT_AUTHOR_EMAIL="1138099359@qq.com" \
@@ -431,7 +431,7 @@ EOF
 - Consumes: Task 1/2 的 `Guide*` 原文（错误表步骤必须同义，可复述不可改成另一套话）
 - Produces: `name: pixoma-mcp`；公开路径约定 `https://pixoma.miaoplus.com/skills/pixoma-mcp/SKILL.md`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```go
 package mcp_test
@@ -497,7 +497,7 @@ func TestPixomaMCPSkill_ProductAttachment(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 go test ./internal/mcp/ -count=1 -run TestPixomaMCPSkill_ProductAttachment
@@ -505,7 +505,7 @@ go test ./internal/mcp/ -count=1 -run TestPixomaMCPSkill_ProductAttachment
 
 Expected: FAIL `read skill: ... no such file`。
 
-- [ ] **Step 3: 写 skill 全文**
+- [x] **Step 3: 写 skill 全文**
 
 创建 `docs/skills/pixoma-mcp/SKILL.md`（不要放到 `.agents/skills`）：
 
@@ -554,7 +554,7 @@ description: "Use when the user wants to run a Pixoma workflow, generate an imag
 - 不改走管理端代跑工作流
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 go test ./internal/mcp/ -count=1 -run TestPixomaMCPSkill_ProductAttachment
@@ -562,7 +562,7 @@ go test ./internal/mcp/ -count=1 -run TestPixomaMCPSkill_ProductAttachment
 
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 GIT_AUTHOR_NAME="李卓洲" GIT_AUTHOR_EMAIL="1138099359@qq.com" \
@@ -593,7 +593,7 @@ EOF
 把 https://pixoma.miaoplus.com/skills/pixoma-mcp/SKILL.md 装进本机 skills 目录；用户的聊天产品需要能配置 MCP 连接器。仓库内同源文件：docs/skills/pixoma-mcp/SKILL.md。
 ```
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `skill_doc_test.go` 追加：
 
@@ -628,7 +628,7 @@ func TestPixomaMCPSkill_InstallPromptInREADME(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 go test ./internal/mcp/ -count=1 -run TestPixomaMCPSkill_InstallPromptInREADME
@@ -636,7 +636,7 @@ go test ./internal/mcp/ -count=1 -run TestPixomaMCPSkill_InstallPromptInREADME
 
 Expected: FAIL `README missing install prompt`。
 
-- [ ] **Step 3: 写入 README**
+- [x] **Step 3: 写入 README**
 
 在 `README.md`「它能做什么」列表后插入：
 
@@ -648,7 +648,7 @@ Expected: FAIL `README missing install prompt`。
 
 不要写 token、Bearer、占位密钥。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```bash
 go test ./internal/mcp/ -count=1
@@ -656,7 +656,7 @@ go test ./internal/mcp/ -count=1
 
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 GIT_AUTHOR_NAME="李卓洲" GIT_AUTHOR_EMAIL="1138099359@qq.com" \
@@ -680,7 +680,7 @@ EOF
 - Consumes: 本计划 Task 1–4 产物与 `docs/openspec/changes/mcp-caller-skill/specs/mcp-caller-skill/spec.md`
 - Produces: 本地验收记录（不必新文件；在 PR/change 备注勾选即可）
 
-- [ ] **Step 1: 跑包测试**
+- [x] **Step 1: 跑包测试**
 
 ```bash
 go test ./internal/mcp/ -count=1
@@ -688,7 +688,7 @@ go test ./internal/mcp/ -count=1
 
 Expected: PASS。
 
-- [ ] **Step 2: 对照 spec 勾选**
+- [x] **Step 2: 对照 spec 勾选**
 
 | Requirement | 证据 |
 |---|---|
@@ -701,7 +701,7 @@ Expected: PASS。
 | 403 不改走管理端代跑 | skill 403 行 |
 | 不进开发技能树 | `TestPixomaMCPSkill_ProductAttachment` 断言无 `.agents/skills/pixoma-mcp` |
 
-- [ ] **Step 3: 无提交**（无代码变更则跳过）
+- [x] **Step 3: 无提交**（无代码变更则跳过）
 
 ---
 
