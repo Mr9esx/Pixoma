@@ -3,6 +3,10 @@
 ### Requirement: 不替代 TG upsert 主路径
 admin-api MUST NOT 成为 Telegram 等 IM 用户的创建入口；这些用户仍由消息路径 upsert。MCP 消息平台上的用户 MUST 允许由管理端创建（MCP 没有入站消息）。
 
+#### Scenario: 管理面本期只读
+- **WHEN** 运维使用本期用户管理 API
+- **THEN** 可完成列表与详情；对 Telegram 等 IM 用户不存在创建/更新/删除入口
+
 #### Scenario: 管理面不为 IM 提供创建
 - **WHEN** 运维对非 MCP 消息平台使用用户管理 API
 - **THEN** 不存在创建该类用户的管理写入口

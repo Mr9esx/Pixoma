@@ -2,6 +2,7 @@
 change: mcp-call-workflow
 design-doc: docs/superpowers/specs/2026-09-10-mcp-call-workflow-design.md
 base-ref: ef01f1f7e7f06d084e1b7bec12b5fe26a5cf5e45
+archived-with: 2026-09-12-mcp-call-workflow
 ---
 
 # MCP 调用已有工作流 Implementation Plan

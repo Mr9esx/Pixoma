@@ -2,6 +2,8 @@
 comet_change: mcp-call-workflow
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-09-12-mcp-call-workflow
+status: final
 ---
 
 # MCP 调用已有工作流 深度技术设计
