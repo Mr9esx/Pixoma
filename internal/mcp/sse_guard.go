@@ -25,7 +25,7 @@ func (g *sseSessionGuard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		owner := g.owner[sid]
 		g.mu.Unlock()
 		if sid != "" && owner != "" && id.UserID != "" && owner != id.UserID {
-			http.Error(w, "session user mismatch", http.StatusForbidden)
+			http.Error(w, GuideForbidden, http.StatusForbidden)
 			return
 		}
 		g.inner.ServeHTTP(w, r)

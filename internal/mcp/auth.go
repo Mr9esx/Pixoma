@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"crypto/subtle"
 	"errors"
@@ -13,7 +14,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/auth"
 )
 
-var errUnauthorized = errors.New("unauthorized")
+var (
+	errUnauthorized = errors.New("unauthorized")
+	errUnavailable  = errors.New("mcp channel or user unavailable")
+)
 
 type ChannelGetter interface {
 	Get(ctx context.Context, id string) (channeldomain.Channel, error)
@@ -48,11 +52,11 @@ func (r *Resolver) Resolve(ctx context.Context, bearer string) (Identity, error)
 	}
 	user, err := r.Users.GetByID(ctx, rec.UserID)
 	if err != nil || user == nil {
-		return Identity{}, errUnauthorized
+		return Identity{}, errUnavailable
 	}
 	ch, err := r.Channels.Get(ctx, user.ChannelID)
 	if err != nil || !ch.Enabled || ch.Platform != string(channeldomain.PlatformMCP) {
-		return Identity{}, errUnauthorized
+		return Identity{}, errUnavailable
 	}
 	return Identity{
 		UserID:         user.ID,
@@ -65,7 +69,11 @@ func RequireBearer(res *Resolver) func(http.Handler) http.Handler {
 	verifier := func(ctx context.Context, token string, _ *http.Request) (*auth.TokenInfo, error) {
 		id, err := res.Resolve(ctx, token)
 		if err != nil {
-			return nil, fmt.Errorf("%w", auth.ErrInvalidToken)
+			msg := GuideUnauthorized
+			if errors.Is(err, errUnavailable) {
+				msg = GuideUnavailable
+			}
+			return nil, fmt.Errorf("%s: %w", msg, auth.ErrInvalidToken)
 		}
 		return &auth.TokenInfo{
 			UserID: id.UserID,
@@ -76,18 +84,56 @@ func RequireBearer(res *Resolver) func(http.Handler) http.Handler {
 		AllowMissingExpiration: true,
 	})
 	return func(next http.Handler) http.Handler {
-		return mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		return rewriteMCPAuthBody(mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			info := auth.TokenInfoFromContext(r.Context())
 			if info == nil {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				http.Error(w, GuideUnauthorized, http.StatusUnauthorized)
 				return
 			}
 			id, _ := info.Extra["identity"].(Identity)
 			if id.UserID == "" {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				http.Error(w, GuideUnauthorized, http.StatusUnauthorized)
 				return
 			}
 			next.ServeHTTP(w, r.WithContext(WithIdentity(r.Context(), id)))
-		}))
+		})))
+	}
+}
+
+func rewriteMCPAuthBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(&authGuideWriter{ResponseWriter: w}, r)
+	})
+}
+
+type authGuideWriter struct {
+	http.ResponseWriter
+	code int
+}
+
+func (w *authGuideWriter) WriteHeader(code int) {
+	w.code = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *authGuideWriter) Write(p []byte) (int, error) {
+	code := w.code
+	if code == 0 {
+		code = http.StatusOK
+	}
+	if code == http.StatusUnauthorized && !bytes.Contains(p, []byte("连接器")) {
+		p = []byte(GuideUnauthorized + "\n")
+	}
+	if code == http.StatusForbidden && bytes.Contains(p, []byte("session user mismatch")) {
+		p = []byte(GuideForbidden + "\n")
+	}
+	return w.ResponseWriter.Write(p)
+}
+
+func (w *authGuideWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *authGuideWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
 	}
 }

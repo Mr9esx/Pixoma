@@ -16,7 +16,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func TestMCP_RequiresBearer(t *testing.T) {
+func newAuthedMCPHandler(t *testing.T) (http.Handler, string, *authChannels) {
+	t.Helper()
 	ctx := context.Background()
 	tokens := pixmcp.NewMemoryTokenStore()
 	users := &authUsers{byID: map[string]*identitydomain.User{
@@ -42,6 +43,30 @@ func TestMCP_RequiresBearer(t *testing.T) {
 	h := pixmcp.NewHandler(pixmcp.Deps{
 		Resolver: pixmcp.NewResolver(tokens, users, channels, key),
 	})
+	return h, plain, channels
+}
+
+func mcpAuthBody(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	return rec.Body.String()
+}
+
+func assertAgentAuthGuide(t *testing.T, body string) {
+	t.Helper()
+	if !strings.Contains(body, "连接器") {
+		t.Fatalf("body=%q missing 连接器", body)
+	}
+	if !strings.Contains(body, "不要") {
+		t.Fatalf("body=%q missing 不要", body)
+	}
+	if strings.Contains(body, "把 token 发给") || strings.Contains(body, "贴 token") || strings.Contains(body, "Bearer") {
+		t.Fatalf("body solicits credential: %q", body)
+	}
+}
+
+func TestMCP_RequiresBearer(t *testing.T) {
+	ctx := context.Background()
+	h, plain, channels := newAuthedMCPHandler(t)
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}")))
@@ -93,6 +118,46 @@ func TestMCP_RequiresBearer(t *testing.T) {
 	h.ServeHTTP(rec, disabled)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("disabled channel status=%d", rec.Code)
+	}
+}
+
+func TestMCP_UnauthorizedBodyGuidesConnector(t *testing.T) {
+	h, _, _ := newAuthedMCPHandler(t)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}")))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d", rec.Code)
+	}
+	assertAgentAuthGuide(t, mcpAuthBody(t, rec))
+
+	bad := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
+	bad.Header.Set("Authorization", "Bearer wrong")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, bad)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("wrong bearer status=%d", rec.Code)
+	}
+	assertAgentAuthGuide(t, mcpAuthBody(t, rec))
+}
+
+func TestMCP_DisabledChannelBodyMentionsUnavailable(t *testing.T) {
+	h, plain, channels := newAuthedMCPHandler(t)
+	ch := channels.byID["ch-mcp"]
+	ch.Enabled = false
+	channels.byID["ch-mcp"] = ch
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
+	req.Header.Set("Authorization", "Bearer "+plain)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d", rec.Code)
+	}
+	body := mcpAuthBody(t, rec)
+	assertAgentAuthGuide(t, body)
+	if !strings.Contains(body, "停用") {
+		t.Fatalf("body=%q missing 停用", body)
 	}
 }
 
@@ -171,6 +236,115 @@ func TestMCP_StreamableSessionRejectsOtherBearer(t *testing.T) {
 	defer okResp.Body.Close()
 	if okResp.StatusCode != http.StatusOK {
 		t.Fatalf("owner session status=%d", okResp.StatusCode)
+	}
+}
+
+func TestMCP_SessionMismatchBodyGuidesReconnect(t *testing.T) {
+	ctx := context.Background()
+	tokens := pixmcp.NewMemoryTokenStore()
+	users := &authUsers{byID: map[string]*identitydomain.User{
+		"user-1": {
+			ID: "user-1", ChannelID: "ch-mcp", ExternalUserID: "ext-1",
+			Access: identitydomain.UserAccessAlwaysAllowed,
+		},
+		"user-2": {
+			ID: "user-2", ChannelID: "ch-mcp", ExternalUserID: "ext-2",
+			Access: identitydomain.UserAccessAlwaysAllowed,
+		},
+	}}
+	channels := &authChannels{byID: map[string]channeldomain.Channel{
+		"ch-mcp": {ID: "ch-mcp", Platform: string(channeldomain.PlatformMCP), Enabled: true},
+	}}
+	key := make([]byte, 32)
+	plain1 := "mcp-guide-owner"
+	plain2 := "mcp-guide-stranger"
+	mustStoreMCPToken(t, tokens, key, "user-1", plain1)
+	mustStoreMCPToken(t, tokens, key, "user-2", plain2)
+	h := pixmcp.NewHandler(pixmcp.Deps{
+		Resolver: pixmcp.NewResolver(tokens, users, channels, key),
+	})
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	initBody := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`
+	ownerInit, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL+"/mcp", strings.NewReader(initBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	setMCPJSONHeaders(ownerInit, plain1)
+	ownerResp, err := http.DefaultClient.Do(ownerInit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ownerResp.Body.Close()
+	if ownerResp.StatusCode != http.StatusOK {
+		t.Fatalf("initialize status=%d", ownerResp.StatusCode)
+	}
+	sessionID := ownerResp.Header.Get("Mcp-Session-Id")
+	if sessionID == "" {
+		t.Fatal("missing Mcp-Session-Id")
+	}
+
+	pingBody := `{"jsonrpc":"2.0","id":2,"method":"ping"}`
+	strangerPing, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL+"/mcp", strings.NewReader(pingBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	setMCPJSONHeaders(strangerPing, plain2)
+	strangerPing.Header.Set("Mcp-Session-Id", sessionID)
+	strangerResp, err := http.DefaultClient.Do(strangerPing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer strangerResp.Body.Close()
+	body, err := io.ReadAll(strangerResp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strangerResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("status=%d", strangerResp.StatusCode)
+	}
+	assertAgentAuthGuide(t, string(body))
+	if !strings.Contains(string(body), "重连") && !strings.Contains(string(body), "不一致") {
+		t.Fatalf("403 body=%q", body)
+	}
+
+	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/sse", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	getReq.Header.Set("Accept", "text/event-stream")
+	getReq.Header.Set("Authorization", "Bearer "+plain1)
+	getResp, err := http.DefaultClient.Do(getReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer getResp.Body.Close()
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("sse get status=%d", getResp.StatusCode)
+	}
+	sseID := readSSESessionID(t, getResp.Body)
+	stranger, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL+"/sse?sessionid="+sseID, strings.NewReader(pingBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stranger.Header.Set("Content-Type", "application/json")
+	stranger.Header.Set("Authorization", "Bearer "+plain2)
+	sseResp, err := http.DefaultClient.Do(stranger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sseResp.Body.Close()
+	sseBody, err := io.ReadAll(sseResp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sseResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("sse status=%d", sseResp.StatusCode)
+	}
+	assertAgentAuthGuide(t, string(sseBody))
+	if !strings.Contains(string(sseBody), "重连") && !strings.Contains(string(sseBody), "不一致") {
+		t.Fatalf("sse 403 body=%q", sseBody)
 	}
 }
 
