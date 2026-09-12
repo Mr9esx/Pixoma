@@ -122,7 +122,7 @@ describe('workflow import section', () => {
     expect(source).toContain("data-testid='workflow-import-diagram'")
     expect(source).toContain("useState<ViewMode>('diagram')")
     expect(source).toContain('function NodeDiagram')
-    expect(source).toContain('nodeLabel(')
+    expect(source).toContain('nodeTitle(')
     expect(source).toContain("from '@/components/ui/tabs'")
     expect(source).toContain('<Tabs')
     expect(source).toContain('<TabsList')

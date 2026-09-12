@@ -86,7 +86,7 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
     const html = read(join(srcRoot, '../index.html'))
     const pkg = read(join(srcRoot, '../package.json'))
     expect(html).toContain('<title>Pixoma</title>')
-    expect(html).toContain('Pixoma 管理控制台')
+    expect(html).toContain('Pixoma 后台')
     expect(html).not.toMatch(/[Ss]hadcn/)
     expect(html).not.toContain('shadcn-admin.netlify.app')
     expect(pkg).toContain('"name": "pixoma-admin"')
