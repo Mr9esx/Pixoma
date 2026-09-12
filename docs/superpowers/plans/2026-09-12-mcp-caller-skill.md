@@ -2,6 +2,7 @@
 change: mcp-caller-skill
 design-doc: docs/superpowers/specs/2026-09-12-mcp-caller-skill-design.md
 base-ref: 99891849405c1e26d618ad03cbdb6d73b9a45c33
+archived-with: 2026-09-12-mcp-caller-skill
 ---
 
 # MCP 调用方 Skill Implementation Plan

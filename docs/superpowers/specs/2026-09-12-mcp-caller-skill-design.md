@@ -2,6 +2,8 @@
 comet_change: mcp-caller-skill
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-09-12-mcp-caller-skill
+status: final
 ---
 
 # MCP 调用方 Skill 深度技术设计
