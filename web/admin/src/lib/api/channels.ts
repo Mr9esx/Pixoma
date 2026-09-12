@@ -31,15 +31,48 @@ export function kickChannelProbe() {
   return apiFetch<void>('/api/v1/channels/probe', { method: 'POST' })
 }
 
+export type MCPUser = {
+  id: string
+  channel_id: string
+  external_user_id: string
+  username: string
+  access: string
+  created_at: string
+  updated_at: string
+}
+
 export function createChannel(body: {
   platform: string
   name: string
-  token: string
+  token?: string
 }) {
   return apiFetch<Channel>('/api/v1/channels', {
     method: 'POST',
     body: JSON.stringify(body),
   })
+}
+
+export function listMCPUsers(channelId: string) {
+  return apiFetch<MCPUser[]>(
+    `/api/v1/channels/${encodeURIComponent(channelId)}/mcp-users`
+  )
+}
+
+export function createMCPUser(channelId: string, name: string) {
+  return apiFetch<{ user: MCPUser; token: string }>(
+    `/api/v1/channels/${encodeURIComponent(channelId)}/mcp-users`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }
+  )
+}
+
+export function deleteMCPUser(channelId: string, userId: string) {
+  return apiFetch<{ deleted: boolean }>(
+    `/api/v1/channels/${encodeURIComponent(channelId)}/mcp-users/${encodeURIComponent(userId)}`,
+    { method: 'DELETE' }
+  )
 }
 
 export function getChannel(id: string) {

@@ -63,6 +63,7 @@ import { useLinkHealthQuery } from '@/features/link-health/use-link-health'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
 import { TopologyOpenButton } from '@/features/config-topology/topology-dialog'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
+import { McpUsersSection } from '@/features/channels/mcp-users-section'
 import { MenuCardEditor } from '@/features/menu/menu-card-editor'
 import { TextTemplatesEditor } from '@/features/text-templates/text-templates-editor'
 
@@ -222,11 +223,21 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h2 className={kit.title}>{ch.name}</h2>
-            <ChannelReachabilityTag result={storedCheck} />
+            {ch.platform === 'mcp' ? null : (
+              <ChannelReachabilityTag result={storedCheck} />
+            )}
           </div>
           <div className='flex shrink-0 flex-wrap gap-2'>
             <TopologyOpenButton kind='platform' id={ch.id} />
-            <Button type='button' size='sm' onClick={() => setEditOpen(true)}>
+            <Button
+              type='button'
+              size='sm'
+              onClick={() => {
+                setName(ch.name)
+                setToken('')
+                setEditOpen(true)
+              }}
+            >
               <PenLine className='size-3.5' strokeWidth={2} />
               {t('channels.edit')}
             </Button>
@@ -336,41 +347,49 @@ export function ChannelDetailPanel({ id }: { id: string }) {
         </div>
       </div>
 
-      {healthQuery.isError ? (
-        <ErrorBanner
-          message={errorMessage(healthQuery.error) ?? t('common.errorGeneric')}
-          onRetry={() => void healthQuery.refetch()}
-        />
-      ) : healthQuery.isSuccess ? (
-        <LinkHealthAlert
-          name={ch.name}
-          health={channelHealth}
-          anchorTo='#link-health-section'
-        />
-      ) : null}
+      {ch.platform === 'mcp' ? (
+        <McpUsersSection channelId={id} />
+      ) : (
+        <>
+          {healthQuery.isError ? (
+            <ErrorBanner
+              message={
+                errorMessage(healthQuery.error) ?? t('common.errorGeneric')
+              }
+              onRetry={() => void healthQuery.refetch()}
+            />
+          ) : healthQuery.isSuccess ? (
+            <LinkHealthAlert
+              name={ch.name}
+              health={channelHealth}
+              anchorTo='#link-health-section'
+            />
+          ) : null}
 
-      <section id='channel-menu-section' className='flex flex-col gap-4'>
-        <SectionHead
-          title={t('channels.tabMenu')}
-          hint={t('channels.tabMenuHint')}
-        />
-        <MenuCardEditor channelId={id} />
-      </section>
+          <section id='channel-menu-section' className='flex flex-col gap-4'>
+            <SectionHead
+              title={t('channels.tabMenu')}
+              hint={t('channels.tabMenuHint')}
+            />
+            <MenuCardEditor channelId={id} />
+          </section>
 
-      <section id='channel-text-section' className='flex flex-col gap-4'>
-        <SectionHead
-          title={t('channels.tabText')}
-          hint={t('channels.tabTextHint')}
-        />
-        <TextTemplatesEditor channelId={id} />
-      </section>
+          <section id='channel-text-section' className='flex flex-col gap-4'>
+            <SectionHead
+              title={t('channels.tabText')}
+              hint={t('channels.tabTextHint')}
+            />
+            <TextTemplatesEditor channelId={id} />
+          </section>
 
-      {healthQuery.isSuccess ? (
-        <LinkHealthSection
-          title={t('linkHealth.title')}
-          health={channelHealth}
-        />
-      ) : null}
+          {healthQuery.isSuccess ? (
+            <LinkHealthSection
+              title={t('linkHealth.title')}
+              health={channelHealth}
+            />
+          ) : null}
+        </>
+      )}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className='sm:max-w-lg'>
@@ -381,23 +400,25 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             <Field>
               <FieldLabel>{t('channels.name')}</FieldLabel>
               <Input
-                value={name || ch.name}
+                value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete='off'
               />
             </Field>
-            <Field>
-              <FieldLabel>{t('channels.token')}</FieldLabel>
-              <SecretInput
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder={ch.token_masked}
-                autoComplete='off'
-              />
-              <FieldDescription className='text-xs'>
-                {t('channels.tokenHint')}
-              </FieldDescription>
-            </Field>
+            {ch.platform === 'mcp' ? null : (
+              <Field>
+                <FieldLabel>{t('channels.token')}</FieldLabel>
+                <SecretInput
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder={ch.token_masked}
+                  autoComplete='off'
+                />
+                <FieldDescription className='text-xs'>
+                  {t('channels.tokenHint')}
+                </FieldDescription>
+              </Field>
+            )}
           </FieldGroup>
           <DialogFooter>
             <Button
@@ -409,7 +430,10 @@ export function ChannelDetailPanel({ id }: { id: string }) {
             </Button>
             <Button
               disabled={
-                updateMutation.isPending || (!name.trim() && !token.trim())
+                updateMutation.isPending ||
+                (ch.platform === 'mcp'
+                  ? !name.trim()
+                  : !name.trim() && !token.trim())
               }
               onClick={() => updateMutation.mutate()}
             >

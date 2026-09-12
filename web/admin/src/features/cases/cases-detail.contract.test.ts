@@ -82,9 +82,7 @@ describe('workflow detail panel', () => {
     const source = readFileSync(GRAPH, 'utf8')
     // 标题/文案对齐编辑工作流。
     expect(source).toContain('cases.inputsHeading')
-    expect(source).toContain('cases.inputsHint')
     expect(source).toContain('cases.outputsHeading')
-    expect(source).toContain('cases.outputsHint')
     expect(source).toContain('cases.editInputs')
     expect(source).toContain('cases.editOutputs')
     // 展示层复用编辑工作流的表格（只读）。

@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from 'lucide-react'
 import { motion } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 type ThemeSwitcherProps = {
@@ -15,12 +16,13 @@ export const ThemeSwitcher = ({
   onChange,
   className,
 }: ThemeSwitcherProps) => {
+  const { t } = useTranslation()
   const isDark = value === 'dark'
 
   return (
     <button
       aria-checked={isDark}
-      aria-label='Toggle theme'
+      aria-label={t('a11y.toggleTheme')}
       className={cn(
         'relative isolate flex h-6 rounded-full bg-background p-0.5 ring-1 ring-border ring-inset',
         className

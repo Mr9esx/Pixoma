@@ -24,3 +24,16 @@ export function updateUserAccess(id: string, access: UserRecord['access']) {
     }
   )
 }
+
+export function getMCPToken(id: string) {
+  return apiFetch<{ token?: string }>(
+    `/api/v1/users/${encodeURIComponent(id)}/mcp-token`
+  )
+}
+
+export function rotateMCPToken(id: string) {
+  return apiFetch<{ token: string }>(
+    `/api/v1/users/${encodeURIComponent(id)}/mcp-token/rotate`,
+    { method: 'POST' }
+  )
+}

@@ -17,19 +17,19 @@ type BannerInput struct {
 // StartupBanner formats the zero-config welcome message.
 func StartupBanner(in BannerInput) string {
 	var b strings.Builder
-	b.WriteString("Pixoma control plane ready\n")
-	b.WriteString("Admin URL: ")
+	b.WriteString("Pixoma 已启动\n")
+	b.WriteString("后台地址：")
 	b.WriteString(in.ListenURL)
 	b.WriteByte('\n')
 	if in.Username != "" {
-		b.WriteString("Admin user: ")
+		b.WriteString("管理员账号：")
 		b.WriteString(in.Username)
 		b.WriteByte('\n')
 	}
 	if in.Password != "" {
-		b.WriteString("Admin password: ")
+		b.WriteString("初始密码：")
 		b.WriteString(in.Password)
-		b.WriteString("\n(change this password on first login)\n")
+		b.WriteString("\n(首次登录后改密)\n")
 	}
 	return b.String()
 }

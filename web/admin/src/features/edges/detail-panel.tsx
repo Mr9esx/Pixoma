@@ -465,10 +465,7 @@ export function EdgeDetailPanel({ id }: Props) {
       </section>
 
       <section className='flex flex-col gap-4'>
-        <SectionHead
-          title={t('edges.overviewTitle')}
-          hint={t('edges.overviewHint')}
-        />
+        <SectionHead title={t('edges.overviewTitle')} />
         <Card className='gap-0 overflow-hidden py-0'>
           <div className={kit.statsGrid}>
             <div className={kit.statsCell[0]}>

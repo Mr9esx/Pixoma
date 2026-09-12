@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/Mr9esx/Pixoma/internal/channels/domain"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
@@ -15,6 +16,7 @@ type NotifyHandler interface {
 // NotifyRouter routes user notifications to the owning channel's handler.
 type NotifyRouter struct {
 	HandlerByChannel func(channelID string) (NotifyHandler, bool)
+	PlatformOf       func(ctx context.Context, channelID string) (string, bool)
 }
 
 // Publish routes n to the channel handler; unknown channels are logged and skipped.
@@ -22,6 +24,11 @@ func (r *NotifyRouter) Publish(ctx context.Context, n sharedkernel.UserNotify) e
 	addr, err := sharedkernel.ParseChatID(string(n.ChatID))
 	if err != nil {
 		return err
+	}
+	if r != nil && r.PlatformOf != nil {
+		if platform, ok := r.PlatformOf(ctx, addr.ChannelID); ok && platform == string(domain.PlatformMCP) {
+			return nil
+		}
 	}
 	if r == nil || r.HandlerByChannel == nil {
 		slog.Warn("notify router: no handler lookup configured", "chat_id", n.ChatID)

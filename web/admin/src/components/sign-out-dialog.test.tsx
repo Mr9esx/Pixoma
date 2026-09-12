@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
+import { initI18n } from '@/lib/i18n'
 import { SignOutDialog } from './sign-out-dialog'
 
 describe('SignOutDialog', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    await initI18n()
   })
 
   it('calls onSignOut then closes on confirm', async () => {

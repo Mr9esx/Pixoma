@@ -45,6 +45,7 @@ export const queryKeys = {
     detail: (id: string) => ['channels', id] as const,
     menu: (id: string) => ['channels', id, 'menu'] as const,
     extras: (id: string) => ['channels', id, 'menu', 'extras'] as const,
+    mcpUsers: (id: string) => ['channels', id, 'mcp-users'] as const,
   },
   topics: {
     all: ['topics'] as const,

@@ -69,6 +69,35 @@ sequenceDiagram
 - **卡片**：`open_card` 的子节点 `card` 作为消息 + inline 按钮；callback 用树节点 id。
 - **返回**：`mb:root` 回主键盘；`mb:<opener_id>` 回到打开该卡的按钮对应卡片。
 
+### 1.2 MCP 调用（无 IM 填表）
+
+MCP 挂在控制面同一 `http.Server`：`/mcp` Streamable HTTP，`/sse` 旧 HTTP+SSE。不占用主进程 stdin。身份是 `platform=mcp` 渠道上的 `channel_users`，每用户一把 Bearer（`mcp_user_tokens`）。管理员 cookie 不能代替 Bearer；渠道停用后该渠道全部 401。
+
+```mermaid
+sequenceDiagram
+  participant C as MCP 客户端
+  participant M as /mcp
+  participant R as botapp.RunCase
+  participant O as Orchestrator
+  participant E as pixoma-edge-agent
+  participant N as notify
+
+  C->>M: Bearer + run_workflow
+  M->>R: RunCase（校验 Case + 输入）
+  R->>R: Task pending + blob + task.created
+  R-->>C: task_id（不等出图）
+  R->>O: OnTaskCreated
+  E->>O: claim / 执行 / status
+  O->>N: 终态 UserNotify
+  Note over N: platform=mcp 跳过 IM 投递
+```
+
+要点：
+
+- **不经** Telegram ConfirmRun，也 **不经** admin 代跑。
+- ChatID 用 MCP 渠道地址；后续 `list_tasks` / `get_task` / resource 只读本 Bearer 用户。
+- `ReachabilityProbe` 跳过 `platform=mcp`；该平台不启动 IM 适配器。
+
 ---
 
 ## 2. 控制面 vs 执行面
@@ -78,7 +107,7 @@ sequenceDiagram
 | **Orchestrator** | `tasks/application/orchestrator` | 路由求值、按 Topic 置可领取、收敛 status、失败有界重试、终态 notify、对账 |
 | **Actuator** | `tasks/infrastructure/actuator` | 按实例客户端跑 workflow、产物入 blob、上报 status |
 | **Edge Pool** | `edge/application` / `edge/domain` | CRUD 元数据、健康探测、持有 per-edge Client、RR 候选 |
-| **Channel probe** | `channels/application.ReachabilityProbe` | 后台周期探测启用中的消息平台（getMe），写入 `last_check_*`；进页 `POST /channels/probe` 可再踢一轮，均不挡 GET / 列表渲染 |
+| **Channel probe** | `channels/application.ReachabilityProbe` | 后台周期探测启用中的 **IM** 消息平台（getMe），写入 `last_check_*`；`platform=mcp` 跳过 |
 
 Task 表是**执行态唯一真相源**（无独立 Actuator Ledger）。
 
@@ -92,7 +121,7 @@ Task 表是**执行态唯一真相源**（无独立 Actuator Ledger）。
 
 | Topic | 载荷 | 方向 |
 |---|---|---|
-| `task.created` | `TaskCreated` | ConfirmRun → Orchestrator（可同进程） |
+| `task.created` | `TaskCreated` | ConfirmRun / RunCase → Orchestrator（可同进程） |
 | `task.status` | `TaskStatusEvent` | Edge Agent API → Orchestrator |
 
 跨进程投递：`GET /agent/v1/jobs/claim` 返回含 `job_ref` 的任务。
@@ -101,6 +130,9 @@ Task 表是**执行态唯一真相源**（无独立 Actuator Ledger）。
 
 ```text
 Orchestrator ──Publish(UserNotify)──► platform/notify.Publisher
+                                          │
+                                          ▼
+                                   NotifyRouter（platform=mcp 直接 return）
                                           │
                                           ▼
                                    tg/notifybridge
@@ -114,6 +146,8 @@ Orchestrator ──Publish(UserNotify)──► platform/notify.Publisher
 | 步骤 | 路径 |
 |---|---|
 | Confirm | `internal/packaging/botapp/confirm_run.go` |
+| MCP RunCase | `internal/packaging/botapp/run_case.go` |
+| MCP 传输 | `internal/mcp`（`/mcp` `/sse`） |
 | 事件 DTO | `internal/sharedkernel/events.go` |
 | Orchestrator | `internal/tasks/application/orchestrator/service.go` |
 | Actuator | `internal/tasks/infrastructure/actuator/worker.go` |

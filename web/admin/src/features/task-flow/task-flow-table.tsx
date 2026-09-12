@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowDown,
   ArrowUp,
@@ -27,7 +28,7 @@ import {
 } from '@/components/ui/table'
 import { describeCondition, moveRule, removeRule } from './lib/rule-operations'
 import { topicBindings } from './lib/topic-binding'
-import { validateRouting } from './lib/validate'
+import { formatRuleIssue, validateRouting } from './lib/validate'
 import type {
   AttributeDescriptor,
   EdgePresence,
@@ -59,7 +60,7 @@ export function TaskFlowTable({
   edges,
   presence,
   onChange,
-  title = '任务分流规则',
+  title,
   headerActions,
   showHeader = true,
   hideActions = false,
@@ -67,6 +68,8 @@ export function TaskFlowTable({
   preview = false,
   className,
 }: TaskFlowTableProps) {
+  const { t } = useTranslation()
+  const heading = title ?? t('taskFlow.title')
   const effectiveReadOnly = readOnly || preview
   const showActions = !effectiveReadOnly && !hideActions
   const rules = routing?.rules ?? []
@@ -94,12 +97,12 @@ export function TaskFlowTable({
   const topicName = (key: string) =>
     topics.find((topic) => topic.key === key)?.name ?? key
   const bindingText = (topic: string | undefined) => {
-    if (!topic) return '未选择'
+    if (!topic) return t('taskFlow.unselected')
     const binding = bindingByTopic.get(topic)
     if (binding?.status === 'ready')
-      return `${binding.onlineEdges.length} 台在线`
-    if (binding?.status === 'bound-offline') return '已绑定，无在线 agent'
-    return '未绑定'
+      return t('taskFlow.onlineCount', { n: binding.onlineEdges.length })
+    if (binding?.status === 'bound-offline') return t('taskFlow.boundOffline')
+    return t('taskFlow.unbound')
   }
 
   const updateRule = (index: number, topic: string | undefined) => {
@@ -118,7 +121,7 @@ export function TaskFlowTable({
         <div className='flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4'>
           <div className='flex min-w-0 items-center gap-3'>
             <h2 className='truncate text-lg font-semibold tracking-tight'>
-              {title}
+              {heading}
             </h2>
             <Badge
               variant='outline'
@@ -136,10 +139,12 @@ export function TaskFlowTable({
                 <CircleAlert className='size-3.5' />
               )}
               {validation.valid
-                ? '校验通过，可保存'
+                ? t('taskFlow.valid')
                 : routingEmpty
-                  ? '路由规则不能为空'
-                  : `${validation.issues.length} 条规则未通过校验`}
+                  ? t('taskFlow.empty')
+                  : t('taskFlow.invalidCount', {
+                      n: validation.issues.length,
+                    })}
             </Badge>
           </div>
           <div className='flex shrink-0 items-center gap-2'>
@@ -155,11 +160,13 @@ export function TaskFlowTable({
         >
           <TableHeader className='sticky top-0 z-10 bg-background [&_th]:bg-background'>
             <TableRow>
-              <TableHead className='w-12'>顺序</TableHead>
-              <TableHead className='min-w-0'>条件</TableHead>
-              <TableHead className='w-44'>目标 Topic</TableHead>
+              <TableHead className='w-12'>{t('taskFlow.order')}</TableHead>
+              <TableHead className='min-w-0'>{t('taskFlow.condition')}</TableHead>
+              <TableHead className='w-44'>{t('taskFlow.targetQueue')}</TableHead>
               {showActions ? (
-                <TableHead className='w-24 text-right'>操作</TableHead>
+                <TableHead className='w-24 text-right'>
+                  {t('common.actions')}
+                </TableHead>
               ) : null}
             </TableRow>
           </TableHeader>
@@ -183,7 +190,7 @@ export function TaskFlowTable({
                       </div>
                       {issue ? (
                         <div className='truncate text-xs text-destructive'>
-                          {issue.message}
+                          {formatRuleIssue(issue, t)}
                         </div>
                       ) : null}
                     </div>
@@ -192,7 +199,9 @@ export function TaskFlowTable({
                     {effectiveReadOnly ? (
                       <div className='min-w-0'>
                         <div className='truncate text-sm font-medium'>
-                          {rule.topic ? topicName(rule.topic) : '未选择'}
+                          {rule.topic
+                            ? topicName(rule.topic)
+                            : t('taskFlow.unselected')}
                         </div>
                         <div className='truncate text-xs text-muted-foreground'>
                           {bindingText(rule.topic)}
@@ -206,9 +215,9 @@ export function TaskFlowTable({
                         <SelectTrigger
                           size='sm'
                           className='h-8 w-full'
-                          aria-label={`规则 ${index + 1} 目标 Topic`}
+                          aria-label={t('a11y.ruleTopic', { n: index + 1 })}
                         >
-                          <SelectValue placeholder='选择 Topic' />
+                          <SelectValue placeholder={t('taskFlow.pickQueue')} />
                         </SelectTrigger>
                         <SelectContent>
                           {topics
@@ -229,7 +238,7 @@ export function TaskFlowTable({
                           type='button'
                           variant='ghost'
                           size='icon-xs'
-                          aria-label='上移'
+                          aria-label={t('a11y.moveUp')}
                           disabled={effectiveReadOnly || index === 0}
                           onClick={() =>
                             onChange(moveRule({ rules }, index, -1))
@@ -241,7 +250,7 @@ export function TaskFlowTable({
                           type='button'
                           variant='ghost'
                           size='icon-xs'
-                          aria-label='下移'
+                          aria-label={t('a11y.moveDown')}
                           disabled={
                             effectiveReadOnly || index === rules.length - 1
                           }
@@ -256,7 +265,7 @@ export function TaskFlowTable({
                           variant='ghost'
                           size='icon-xs'
                           className='text-destructive'
-                          aria-label='删除规则'
+                          aria-label={t('a11y.deleteRule')}
                           disabled={effectiveReadOnly}
                           onClick={() => onChange(removeRule({ rules }, index))}
                         >
@@ -298,7 +307,7 @@ export function TaskFlowTable({
           className='gap-1.5'
         >
           <Plus className='size-3.5' />
-          新增规则
+          {t('taskFlow.addRule')}
         </Button>
       ) : null}
 

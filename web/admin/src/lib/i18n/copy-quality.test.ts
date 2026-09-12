@@ -29,7 +29,7 @@ function stripPlaceholders(s: string) {
 }
 
 // 用户明确指定的原文，按 voice profile「用户原文优先」豁免；改文案前先跟用户确认。
-const PLEASE_EXEMPT = new Set(['cases.emptyWorkflowLock'])
+const PLEASE_EXEMPT = new Set<string>()
 
 describe('zh.json copy quality (pixoma-voice)', () => {
   it('does not use "请" as a softener at sentence start', () => {

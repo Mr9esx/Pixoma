@@ -83,6 +83,10 @@ func (repo accessUserRepository) List(context.Context, identitydomain.ListQuery)
 	return nil, errors.New("not used")
 }
 
+func (repo accessUserRepository) Delete(context.Context, string) error {
+	return errors.New("not used")
+}
+
 // mediaPreviewCaseService 返回带媒体预览的 Case，用于验证 preview 步骤以媒体引用投递。
 type mediaPreviewCaseService struct{ fakeCaseService }
 
@@ -217,7 +221,7 @@ func TestOpenCase_PreviewMediaDelivery(t *testing.T) {
 	if res.Media[0].Key != "previews/abc.png" || res.Media[0].MIME != "image/png" {
 		t.Fatalf("unexpected media ref: %+v", res.Media[0])
 	}
-	if strings.Contains(res.Text, "预览说明") {
+	if strings.Contains(res.Text, "预览：") || strings.Contains(res.Text, "预览说明") {
 		t.Fatalf("media preview must not include text preview hint: %q", res.Text)
 	}
 	if !strings.Contains(res.Text, "示例模板") {
@@ -243,7 +247,7 @@ func TestOpenCase_PreviewMediaDelivery(t *testing.T) {
 	if len(res2.Media) != 0 {
 		t.Fatalf("legacy preview must not emit media, got %+v", res2.Media)
 	}
-	if !strings.Contains(res2.Text, "预览说明") {
+	if !strings.Contains(res2.Text, "预览：") {
 		t.Fatalf("legacy preview must keep text hint: %q", res2.Text)
 	}
 }
@@ -267,7 +271,7 @@ func TestOpenCase_StartWithLockedSessionOffersExit(t *testing.T) {
 	if res.Text == "" {
 		t.Fatal("locked session must return a hint text")
 	}
-	if len(res.Options) != 1 || res.Options[0].Label != "✕ 退出" {
+	if len(res.Options) != 1 || res.Options[0].Label != "退出" {
 		t.Fatalf("locked options=%+v", res.Options)
 	}
 }

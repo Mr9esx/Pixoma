@@ -35,6 +35,10 @@
 - 组件形状照 `ui_kits/app/components.html` 与 `ui_kits/app/components/*.css`，布局照 `ui_kits/app/surfaces.html`；组件本身仍优先复用 shadcn/ui。
 - 文案照 `build/source-examples/voice-profile.md`；交付前过一遍 `DESIGN.md` 第 11 节 10 条验收。
 
+## Git 提交作者（用户偏好，永久生效）
+
+所有 commit 的 author 和 committer 必须是用户本人（`李卓洲 <1138099359@qq.com>`），禁止写成 Cursor / Cursor Agent。提交时用环境变量显式指定 `GIT_AUTHOR_*` 与 `GIT_COMMITTER_*`，不要加 `Co-authored-by: Cursor`。
+
 ## 与模型协作约定（用户偏好，永久生效）
 
 不要尝试用截图/浏览器脚本把页面视觉发给模型：模型只支持文本与问题输入。需要核对布局或视觉时，用文字、类名与结构描述代替截图：

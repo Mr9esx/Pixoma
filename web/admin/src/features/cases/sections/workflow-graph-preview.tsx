@@ -143,9 +143,7 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
                 {t('cases.inputsHeading')}
               </h3>
             </div>
-            <p className='text-xs text-muted-foreground'>
-              {t('cases.inputsHint')}
-            </p>
+            {null}
           </div>
           <Button
             type='button'
@@ -186,9 +184,7 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
                 {t('cases.outputsHeading')}
               </h3>
             </div>
-            <p className='text-xs text-muted-foreground'>
-              {t('cases.outputsHint')}
-            </p>
+            {null}
           </div>
           <Button
             type='button'

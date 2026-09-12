@@ -23,7 +23,6 @@ import { topicDeleteErrorMessage } from '@/lib/api/localized-errors'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTasks } from '@/lib/api/tasks'
 import { deleteTopic, getTopic, updateTopic } from '@/lib/api/topics'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -336,11 +335,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           />
         ) : null}
 
-        {isDefault ? (
-          <Alert variant='default'>
-            <AlertDescription>{t('topics.defaultHint')}</AlertDescription>
-          </Alert>
-        ) : null}
+        {null}
       </div>
 
       <section className='flex flex-col gap-4'>

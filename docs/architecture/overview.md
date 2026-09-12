@@ -1,6 +1,6 @@
 # Pixoma 系统架构总览
 
-> Go monorepo：Telegram Bot + Case Catalog + 对话 Session + Task 运行时 + 多 ComfyUI 实例池。  
+> Go monorepo：Telegram Bot + MCP + Case Catalog + 对话 Session + Task 运行时 + 多 ComfyUI 实例池。  
 > 部署形态：**本机 / 远程** — 控制面 `pixoma` + 执行面 `pixoma-edge-agent`。默认无 Redis、无用户侧 `queue.driver`。
 
 数据表 / ER 见 [data-model.md](./data-model.md)。限界上下文细节见 [bounded-contexts.md](./bounded-contexts.md)。执行链路见 [runtime.md](./runtime.md)。
@@ -12,6 +12,7 @@
 ```mermaid
 flowchart TB
   U[Telegram 用户]
+  MCP[MCP 客户端]
   TG[Telegram Bot API]
   CP[pixoma 控制面]
   EDGE[pixoma-edge-agent]
@@ -22,6 +23,7 @@ flowchart TB
 
   U <--> TG
   TG <--> CP
+  MCP -->|Bearer /mcp /sse| CP
   CP <--> DB
   CP <--> BOOT
   CP <--> BLOB
@@ -33,6 +35,7 @@ flowchart TB
 | 外部系统 | 关系 |
 |---|---|
 | Telegram | 入站 Update；出站文案与图片 |
+| MCP 客户端 | 主进程 `/mcp`（Streamable HTTP）与 `/sse`；每用户 Bearer；列出/调用已有工作流并读产物 |
 | ComfyUI | Edge Submit / Wait / Upload |
 | 对象存储 | **远程**：S3 或 TOS；**本机**：localfs 共用目录。远程禁止 localfs |
 | 运维 HTTP | `pixoma` 托管管理 API +（发布）静态后台；需管理员会话 |
@@ -45,7 +48,7 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 
 ```text
 ┌─ pixoma（控制面）──────────────────────────────────────────────┐
-│  bootstrap · settings · TG · Orchestrator · 管理 API · Agent API │
+│  bootstrap · settings · TG · MCP · Orchestrator · 管理 API · Agent API │
 │  本机：spawn pixoma-edge-agent                                    │
 └───────────────┬───────────────────────────────┬──────────────────┘
                 │ claim/heartbeat/status         │ blob
@@ -78,10 +81,11 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | `apps/edge-agent/internal/controlplane`、`collect`、`presence` | claim/执行/上报循环、硬件与指标采样、心跳上报 |
 | `internal/cases` | Case 目录与协议校验 |
 | `internal/sessions` | 填表 Session（不含 Task 执行） |
-| `internal/users` | User（TG From upsert） |
+| `internal/users` | User（渠道用户：TG upsert / MCP 签发） |
 | `internal/tasks` | Task 领域 + Orchestrator + Actuator + Comfy 客户端 |
 | `internal/channels/tg` | Telegram 适配与通知落地 |
-| `internal/packaging/botapp` | 跨 BC 用例编排 |
+| `internal/mcp` | 主进程 MCP：`/mcp` Streamable HTTP、`/sse` 旧 HTTP+SSE；Bearer → `channel_users` |
+| `internal/packaging/botapp` | 跨 BC 用例编排（含 `ConfirmRun` / `RunCase`） |
 | `internal/packaging/linkhealth` | 配置链路活路健康（只读组装，后台只渲染） |
 | `internal/platform/*` | db / blob / bootstrap / settings / notify / instance / botconfig |
 | `internal/httpapi` | 管理 API、Agent API、向导 |
@@ -97,9 +101,10 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 |---|---|
 | 对话填表 | TG → Session 状态机 → `submitted` 后行长期保留 |
 | 确认生成 | `ConfirmRun` 写 Task、落 blob 输入；同进程编排可走内存通道 |
+| MCP 调用 | `run_workflow` → `botapp.RunCase` 建 Task 即返回 `task_id`；`platform=mcp` 终态 **不** notify |
 | 调度 | Orchestrator：prep `job_ref` 后进入可领取态（queued + lease） |
 | 执行 | Edge 长轮询 claim → Worker：Submit/Wait，产物入 blob |
-| 通知 | 终态 → `notify.Publisher` → TG 发图/文案 |
+| 通知 | 终态 → `notify.Publisher` → TG 发图/文案；MCP 渠道跳过 |
 | 我的任务 | 菜单动作 `list_tasks` → 按聊天查 Task，回当前排队/执行与最近 8 条 |
 | 多计算节点 | `edges` + Pool；健康探测 |
 | 配置链路绿黄 | 控制面 `GET /api/v1/link-health`；列表 / 详情 / 拓扑同一套，页面不得本地再算；通道连通由后台探测落库，进消息平台可异步再踢一轮 |
@@ -112,10 +117,11 @@ ConfirmRun 后控制面 `PrepareJob` 写 `jobs/<task_id>/job.json`，任务进�
 | 配置键 | 作用 |
 |---|---|
 | 向导 settings / `TG_BOT_TOKEN` | Bot Token（落库加密；env 可紧急覆盖） |
+| MCP Bearer | 消息平台 `platform=mcp` 详情签发；密文 `mcp_user_tokens`。不进 yaml、不进 `platform_settings` 总密钥 |
 | `comfyui_base_url` + `default_edge_id` | 单节点种子 |
 | `placement` | local / remote（校验 blob；远程禁 localfs） |
 | `DATA_DIR` | bootstrap、默认 SQLite、blob |
-| `http_addr` / `HTTP_ADDR` | 控制面监听 |
+| `http_addr` / `HTTP_ADDR` | 控制面监听（管理 API 与 `/mcp` `/sse` 共用） |
 
 默认本地数据：`data/bootstrap.db`、`data/app.db`、`data/blob/`。
 

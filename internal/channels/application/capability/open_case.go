@@ -168,7 +168,7 @@ func (o OpenCase) submitText(ctx context.Context, channelID string, chatID share
 	var draft convdomain.DraftValue
 	switch ft {
 	case "image":
-		return protocol.Result{Text: "当前需要一张图片，请发送图片。"}, nil
+		return protocol.Result{Text: "当前需要一张图片，发送图片。"}, nil
 	case "number":
 		n, err := strconv.ParseFloat(text, 64)
 		if err != nil {
@@ -200,7 +200,7 @@ func (o OpenCase) submitMedia(ctx context.Context, channelID string, chatID shar
 		return protocol.Result{}, err
 	}
 	if ft != "image" {
-		return protocol.Result{Text: "当前不需要图片，请按提示输入。"}, nil
+		return protocol.Result{Text: "当前不需要图片，按提示输入。"}, nil
 	}
 	blobMap, ok := params["blob"].(map[string]any)
 	if !ok {

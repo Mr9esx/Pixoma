@@ -34,7 +34,7 @@ describe('topics admin page contract', () => {
     expect(DETAIL_PANEL).toContain(
       'disabled={isDefault || deleteMutation.isPending}'
     )
-    expect(DETAIL_PANEL).toContain('topics.defaultHint')
+    expect(DETAIL_PANEL).not.toContain('topics.defaultHint')
     expect(DETAIL_PANEL).toContain('useLinkHealthQuery')
     expect(DETAIL_PANEL).not.toContain('listEdges')
     expect(DETAIL_PANEL).toContain('topics.deleteWillRemoveRules')

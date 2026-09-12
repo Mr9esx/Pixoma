@@ -69,7 +69,6 @@ export function Step4Next({ shared }: Props) {
             <AlertTitle>{t('quickConfig.nodeNotReady')}</AlertTitle>
           </Alert>
         ) : null}
-        <p className='text-sm'>{t('quickConfig.leftoverTutorial')}</p>
         <Button
           type='button'
           onClick={() => void navigate({ to: '/channels' })}

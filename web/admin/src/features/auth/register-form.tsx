@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { registerAccount } from '@/lib/api/setup'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ function errorMessage(err: unknown): string | undefined {
 }
 
 export function RegisterForm() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -32,15 +34,15 @@ export function RegisterForm() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (username.trim().length < 1) {
-      setError('账号名不能为空')
+      setError(t('auth.usernameRequired'))
       return
     }
     if (password.length < 8) {
-      setError('密码至少 8 位')
+      setError(t('settings.passwordTooShort'))
       return
     }
     if (password !== confirm) {
-      setError('两次密码不一致')
+      setError(t('settings.passwordMismatch'))
       return
     }
     setPending(true)
@@ -52,10 +54,10 @@ export function RegisterForm() {
         nickname: nickname.trim(),
         password,
       })
-      toast.success('注册成功，已登录')
+      toast.success(t('auth.registerSuccess'))
       await navigate({ to: '/' })
     } catch (err) {
-      setError(errorMessage(err) ?? '注册失败')
+      setError(errorMessage(err) ?? t('auth.registerFailed'))
     } finally {
       setPending(false)
     }
@@ -65,16 +67,16 @@ export function RegisterForm() {
     <AuthShell>
       <Card className='w-full max-w-md'>
         <CardHeader>
-          <CardTitle>注册账号</CardTitle>
-          <CardDescription>
-            创建一个只读账号来访问 Pixoma 后台。
-          </CardDescription>
+          <CardTitle>{t('auth.registerTitle')}</CardTitle>
+          <CardDescription>{t('auth.registerDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} data-testid='register-form'>
             <FieldGroup className='gap-3'>
               <Field>
-                <FieldLabel htmlFor='register-username'>账号名</FieldLabel>
+                <FieldLabel htmlFor='register-username'>
+                  {t('auth.registerUsername')}
+                </FieldLabel>
                 <Input
                   id='register-username'
                   value={username}
@@ -84,7 +86,9 @@ export function RegisterForm() {
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor='register-email'>邮箱</FieldLabel>
+                <FieldLabel htmlFor='register-email'>
+                  {t('setup.email')}
+                </FieldLabel>
                 <Input
                   id='register-email'
                   type='email'
@@ -94,7 +98,9 @@ export function RegisterForm() {
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor='register-nickname'>昵称</FieldLabel>
+                <FieldLabel htmlFor='register-nickname'>
+                  {t('setup.nickname')}
+                </FieldLabel>
                 <Input
                   id='register-nickname'
                   value={nickname}
@@ -104,7 +110,7 @@ export function RegisterForm() {
               </Field>
               <Field>
                 <FieldLabel htmlFor='register-password'>
-                  密码（至少 8 位）
+                  {t('auth.registerPassword')}
                 </FieldLabel>
                 <SecretInput
                   id='register-password'
@@ -114,7 +120,9 @@ export function RegisterForm() {
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor='register-confirm'>再输一遍</FieldLabel>
+                <FieldLabel htmlFor='register-confirm'>
+                  {t('auth.registerConfirm')}
+                </FieldLabel>
                 <SecretInput
                   id='register-confirm'
                   value={confirm}
@@ -129,12 +137,12 @@ export function RegisterForm() {
               disabled={pending}
               data-testid='register-submit'
             >
-              {pending ? '注册中…' : '注册'}
+              {pending ? t('auth.registerSubmitting') : t('auth.registerSubmit')}
             </Button>
             <p className='text-center text-sm text-muted-foreground'>
-              已有账号？{' '}
+              {t('auth.hasAccount')}{' '}
               <Link to='/login' className='text-primary hover:underline'>
-                去登录
+                {t('auth.goLogin')}
               </Link>
             </p>
           </form>

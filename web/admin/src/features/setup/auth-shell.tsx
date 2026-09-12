@@ -112,39 +112,44 @@ export function AuthShell({
           )}
           <div className='relative z-20 flex min-h-0 flex-1 flex-col p-10 text-white'>
             {logoVariant === 'brand' ? (
-              <div className='relative z-20 flex items-center'>
+              <div className='relative z-20 flex flex-col items-start'>
                 <img
                   alt='Pixoma'
                   className='h-7 w-auto'
                   src='/images/login-logo-dark.svg'
                 />
+                <p className='-mt-1 ml-11 text-xs'>{t('auth.quote')}</p>
               </div>
             ) : (
-              <div className='relative z-20 flex items-center gap-2 text-lg font-medium'>
-                <Logo className='me-1 size-6 rounded-full bg-white object-contain' />
-                Pixoma
+              <div className='relative z-20 flex flex-col items-start'>
+                <div className='flex items-center gap-2 text-lg font-medium'>
+                  <Logo className='me-1 size-6 rounded-full bg-white object-contain' />
+                  Pixoma
+                </div>
+                <p className='-mt-1 ml-11 text-xs'>{t('auth.quote')}</p>
               </div>
             )}
-            <blockquote className='relative z-20 mt-auto flex flex-col gap-2'>
-              <p className='text-lg'>{t('auth.quote')}</p>
-            </blockquote>
           </div>
         </div>
       </div>
       <div className='relative h-full overflow-y-auto lg:p-8'>
         <div className='relative mx-auto flex min-h-full w-full flex-col items-center justify-center gap-4 p-6'>
           {logoVariant === 'brand' ? (
-            <div className='flex items-center justify-center lg:hidden'>
+            <div className='flex flex-col items-center justify-center gap-1 lg:hidden'>
               <img
                 alt='Pixoma'
                 className='h-6 w-auto'
                 src={brandMobileLogoSrc}
               />
+              <p className='text-xs text-muted-foreground'>{t('auth.quote')}</p>
             </div>
           ) : (
-            <div className='flex items-center justify-center lg:hidden'>
-              <Logo className='me-2 rounded-md' />
-              <h1 className='text-xl font-medium'>Pixoma</h1>
+            <div className='flex flex-col items-center justify-center gap-1 lg:hidden'>
+              <div className='flex items-center justify-center'>
+                <Logo className='me-2 rounded-md' />
+                <h1 className='text-xl font-medium'>Pixoma</h1>
+              </div>
+              <p className='text-xs text-muted-foreground'>{t('auth.quote')}</p>
             </div>
           )}
           {children}

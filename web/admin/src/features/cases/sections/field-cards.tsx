@@ -511,7 +511,7 @@ function InputFieldCard({
               </Button>
             </TooltipTrigger>
             <TooltipContent side='top' sideOffset={8}>
-              {t('cases.dragReorderHint')}
+              {t('a11y.reorder')}
             </TooltipContent>
           </Tooltip>
         ) : (
@@ -875,7 +875,7 @@ function SortableInputTableRow({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side='top' sideOffset={8}>
-                {t('cases.dragReorderHint')}
+                {t('a11y.reorder')}
               </TooltipContent>
             </Tooltip>
           ) : (

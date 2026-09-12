@@ -261,9 +261,6 @@ export function WorkflowImportSection({
         </span>
         <div className='min-w-0 flex-1'>
           <h3 className='text-sm font-semibold'>{t('cases.importHeading')}</h3>
-          <p className='text-xs text-muted-foreground'>
-            {t('cases.importHint')}
-          </p>
         </div>
       </div>
 
@@ -297,7 +294,9 @@ export function WorkflowImportSection({
         >
           <TriangleAlert aria-hidden='true' />
           <AlertTitle>{t('cases.importFailed')}</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error.startsWith('cases.') ? t(error) : error}
+          </AlertDescription>
         </Alert>
       ) : (
         <Alert

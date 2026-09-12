@@ -35,9 +35,6 @@ function TasksLayout() {
         <h1 className='truncate text-2xl leading-tight font-semibold tracking-tight'>
           {t('tasks.title')}
         </h1>
-        <p className='text-sm text-muted-foreground'>
-          {t('tasks.description')}
-        </p>
       </div>
 
       <TaskListPanel

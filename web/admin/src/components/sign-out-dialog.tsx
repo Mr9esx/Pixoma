@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 
 interface SignOutDialogProps {
@@ -11,6 +12,7 @@ export function SignOutDialog({
   onOpenChange,
   onSignOut,
 }: SignOutDialogProps) {
+  const { t } = useTranslation()
   const handleConfirm = async () => {
     try {
       await onSignOut?.()
@@ -23,10 +25,10 @@ export function SignOutDialog({
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
-      title='退出登录'
-      desc='退出后回到登录页，重新登录才能继续使用后台。'
-      confirmText='退出登录'
-      cancelBtnText='取消'
+      title={t('common.signOut')}
+      desc={t('common.signOutDesc')}
+      confirmText={t('common.signOut')}
+      cancelBtnText={t('common.cancel')}
       destructive
       handleConfirm={handleConfirm}
       className='sm:max-w-sm'

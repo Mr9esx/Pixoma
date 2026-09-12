@@ -29,7 +29,7 @@ func TestStartupBanner_OmitsPasswordWhenEmpty(t *testing.T) {
 	if strings.Contains(strings.ToLower(msg), "password:") && strings.Contains(msg, "admin") {
 		// password line should not show empty secret
 	}
-	if strings.Contains(msg, "Password:") {
+	if strings.Contains(msg, "初始密码：") {
 		t.Fatalf("must not print password line when empty: %s", msg)
 	}
 }

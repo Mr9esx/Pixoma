@@ -58,20 +58,20 @@ export function parseWorkflow(raw: string): WorkflowParseResult {
   try {
     parsed = JSON.parse(raw)
   } catch {
-    return { ok: false, error: '不是有效的 JSON' }
+    return { ok: false, error: 'cases.importInvalidJson' }
   }
-  if (!isRecord(parsed)) return { ok: false, error: 'JSON 顶层必须是对象' }
+  if (!isRecord(parsed)) return { ok: false, error: 'cases.importNotObject' }
 
   if (!isApiGraph(parsed)) {
     return {
       ok: false,
-      error: '不是 ComfyUI「保存(API 格式)」导出的 JSON',
+      error: 'cases.importNotApiFormat',
     }
   }
   if (hasWidgetKeys(parsed)) {
     return {
       ok: false,
-      error: '含 `widget_N` 占位输入，用「保存(API 格式)」重新导出',
+      error: 'cases.importReasonWidgetPlaceholder',
     }
   }
   const api = parsed

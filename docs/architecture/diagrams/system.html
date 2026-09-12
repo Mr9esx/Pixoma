@@ -177,6 +177,8 @@
 
         <!-- TG → Control -->
         <line x1="170" y1="180" x2="218" y2="180" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrow-cyan)"/>
+        <!-- MCP → botapp -->
+        <line x1="170" y1="288" x2="245" y2="288" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrow-cyan)"/>
 
         <!-- Control stack connectors -->
         <line x1="360" y1="220" x2="360" y2="248" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
@@ -218,6 +220,12 @@
         <text x="100" y="175" fill="white" font-size="16" font-weight="600" text-anchor="middle">Telegram</text>
         <text x="100" y="198" fill="#94a3b8" font-size="14" text-anchor="middle">用户端</text>
 
+        <!-- LEFT: MCP -->
+        <rect x="30" y="248" width="140" height="80" rx="8" fill="#0f172a"/>
+        <rect x="30" y="248" width="140" height="80" rx="8" fill="rgba(30, 41, 59, 0.5)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="100" y="283" fill="white" font-size="16" font-weight="600" text-anchor="middle">MCP</text>
+        <text x="100" y="306" fill="#94a3b8" font-size="14" text-anchor="middle">/mcp · /sse</text>
+
         <!-- Control plane -->
         <rect x="220" y="100" width="280" height="520" rx="14" fill="rgba(251, 191, 36, 0.04)" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="8,4"/>
         <text x="240" y="132" fill="#fbbf24" font-size="15" font-weight="600">控制面 · pixoma</text>
@@ -230,7 +238,7 @@
         <rect x="245" y="248" width="230" height="80" rx="8" fill="#0f172a"/>
         <rect x="245" y="248" width="230" height="80" rx="8" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
         <text x="360" y="280" fill="white" font-size="15" font-weight="600" text-anchor="middle">botapp + BC</text>
-        <text x="360" y="304" fill="#94a3b8" font-size="14" text-anchor="middle">ConfirmRun · Case</text>
+        <text x="360" y="304" fill="#94a3b8" font-size="14" text-anchor="middle">ConfirmRun · RunCase</text>
 
         <rect x="245" y="356" width="230" height="80" rx="8" fill="#0f172a"/>
         <rect x="245" y="356" width="230" height="80" rx="8" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
@@ -303,7 +311,7 @@
           <h3>控制面</h3>
         </div>
         <ul>
-          <li>• ConfirmRun → Task pending</li>
+          <li>• ConfirmRun / RunCase → Task pending</li>
           <li>• PrepareJob 写入 Blob 任务包</li>
           <li>• 发布带 job_ref 的 dispatch</li>
           <li>• split：以 edge:online TTL 判定在线</li>

@@ -74,7 +74,7 @@ export function TopologyCard() {
               type='button'
               variant='outline'
               size='icon'
-              aria-label='关闭'
+              aria-label={t('a11y.close')}
               onClick={() => setOpen(false)}
             >
               <X className='size-4' />

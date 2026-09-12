@@ -14,8 +14,8 @@ describe('readonly live demo UX', () => {
     const source = read('src/features/setup/login-page.tsx')
     expect(source).toMatch(/showLiveDemoHint = status\.live_demo === true/)
     expect(source).toMatch(/data-testid='live-demo-credentials'/)
-    expect(source).toMatch(/admin \/ 123456/)
-    expect(source).toMatch(/Live Demo 为只读模式/)
+    expect(source).toMatch(/auth\.liveDemoHint/)
+    expect(source).toMatch(/auth\.liveDemoTitle/)
   })
 
   it('propagates live demo status through login routing', () => {

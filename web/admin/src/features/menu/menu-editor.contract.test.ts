@@ -105,6 +105,7 @@ const V2_KEYS = [
   'actionRow',
   'unsaved',
   'discardEdits',
+  'discardEditsDesc',
   'discard',
   'saveFailed',
   'errRootCount',
@@ -173,11 +174,11 @@ describe('menu editor i18n (v2)', () => {
     expect(zh.menu.deleteButton).toBe('删这个按钮')
     expect(zh.menu.deleteCard).toBe('删这张卡片')
     expect(zh.menu.unsaved).toBe('未保存')
-    expect(zh.menu.discardEdits).toBe('废弃这次修改？')
+    expect(zh.menu.discardEdits).toBe('丢弃修改？')
     expect(zh.menu.discard).toBe('废弃')
     expect(zh.menu.editMenu).toBe('编辑菜单')
     expect(zh.menu.actionGroupWorkflow).toBe('平台能力')
-    expect(zh.menu.actionGroupTg).toBe('TG 能力')
+    expect(zh.menu.actionGroupTg).toBe('Telegram 能力')
     expect(zh.menu.actionListTasks).toBe('我的任务')
   })
 })

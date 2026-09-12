@@ -1,4 +1,4 @@
-<p align="center">
+/<p align="center">
   <img src="docs/images/logo-radius.webp" width="64" alt="Pixoma">
   <br/>
   <img src="docs/images/title-light.svg#gh-light-mode-only" width="100" height="23" alt="Pixoma">
@@ -261,7 +261,7 @@ pixoma
 **配置拓扑**
 
 - 可视化查看消息平台、工作流、任务队列、计算节点之间的关联关系
-- 点击组件直接打开详情页
+- 点组件直接打开详情页
 
 </td>
 <td valign="top" width="50%">

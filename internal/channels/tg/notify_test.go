@@ -98,7 +98,7 @@ func TestHandleUserNotifySessionTerminated(t *testing.T) {
 		t.Fatal(err)
 	}
 	texts := srv.SendMessageTexts()
-	if len(texts) != 1 || texts[0] != "该工作流已被管理员删除，当前会话已结束。" {
+	if len(texts) != 1 || texts[0] != "该工作流已被删除，当前会话已结束。" {
 		t.Fatalf("sendMessage texts = %v", texts)
 	}
 }
@@ -133,7 +133,7 @@ func TestHandleUserNotifyFailedRendersTemplate(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	want := "❌ 任务执行失败\ntask=T42\n状态：failed\ncomfy timeout"
+	want := "任务执行失败\ntask=T42\n状态：failed\ncomfy timeout"
 	texts := srv.SendMessageTexts()
 	if len(texts) < 1 || texts[0] != want {
 		t.Fatalf("sendMessage texts = %v, want first %q", texts, want)
@@ -151,7 +151,7 @@ func TestHandleUserNotifySuccessWithoutOutputsSendsDone(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	want := "✅ 工作流完成\ntask=T7"
+	want := "工作流已完成\ntask=T7"
 	texts := srv.SendMessageTexts()
 	if len(texts) < 1 || texts[0] != want {
 		t.Fatalf("sendMessage texts = %v, want first %q", texts, want)

@@ -171,7 +171,7 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID
 		token := strings.TrimPrefix(data, CBInvoke)
 		inv, ok := a.store.get(token)
 		if !ok {
-			return a.Out.SendText(ctx, addr, "操作已过期，请重新选择。")
+			return a.Out.SendText(ctx, addr, "操作已过期，重新选择。")
 		}
 		if inv.CapabilityID == "" {
 			if id, ok := inv.Params["button_id"].(string); ok {
@@ -380,7 +380,7 @@ func (a *Adapter) sendCard(ctx context.Context, addr sharedkernel.ChannelAddr, c
 		rows = append(rows, []protocol.Button{{Text: b.Label, Data: CBInvoke + a.store.put(inv)}})
 	}
 	backData := CBMenuBack + backCtx
-	rows = append(rows, []protocol.Button{{Text: "‹ 返回", Data: backData}})
+	rows = append(rows, []protocol.Button{{Text: "返回", Data: backData}})
 	return a.Out.SendList(ctx, addr, card.Text, rows)
 }
 
@@ -419,7 +419,7 @@ func (a *Adapter) dispatchInvoke(ctx context.Context, chatID sharedkernel.ChatID
 			return a.sendMainMenu(ctx, addr)
 		}
 		slog.Error("capability invoke", "err", err, "capability", inv.CapabilityID)
-		return a.Out.SendText(ctx, addr, "操作失败，请稍后重试。")
+		return a.Out.SendText(ctx, addr, "操作失败，稍后重试。")
 	}
 	return a.renderResult(ctx, addr, chatID, inv, res)
 }
@@ -472,9 +472,9 @@ func mediaExtras(text string, rows [][]protocol.Button, first bool) (caption str
 func (a *Adapter) backButton(nav protocol.Nav) []protocol.Button {
 	switch nav.Back {
 	case "", "root":
-		return []protocol.Button{{Text: "⬅️ 返回主菜单", Data: CBMenu}}
+		return []protocol.Button{{Text: "返回主菜单", Data: CBMenu}}
 	default:
-		return []protocol.Button{{Text: "⬅️ 返回", Data: CBMenuBack + nav.Back}}
+		return []protocol.Button{{Text: "返回", Data: CBMenuBack + nav.Back}}
 	}
 }
 

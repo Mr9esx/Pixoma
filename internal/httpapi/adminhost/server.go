@@ -9,10 +9,10 @@ import (
 	adminusersapi "github.com/Mr9esx/Pixoma/internal/httpapi/adminusers"
 	casesapi "github.com/Mr9esx/Pixoma/internal/httpapi/cases"
 	channelapi "github.com/Mr9esx/Pixoma/internal/httpapi/channels"
+	channelsapi "github.com/Mr9esx/Pixoma/internal/httpapi/channels"
 	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
 	linkhealthapi "github.com/Mr9esx/Pixoma/internal/httpapi/linkhealth"
 	"github.com/Mr9esx/Pixoma/internal/httpapi/media"
-	channelsapi "github.com/Mr9esx/Pixoma/internal/httpapi/channels"
 	routingapi "github.com/Mr9esx/Pixoma/internal/httpapi/routing"
 	sessionsapi "github.com/Mr9esx/Pixoma/internal/httpapi/sessions"
 	statsapi "github.com/Mr9esx/Pixoma/internal/httpapi/stats"
@@ -33,7 +33,7 @@ type Options struct {
 	Tasks       *tasksapi.Handler
 	Stats       *statsapi.Handler
 	Channels    *channelapi.Handler
-	MenuHandler   *channelsapi.MenuHandler
+	MenuHandler *channelsapi.MenuHandler
 	Topics      *topicsapi.Handler
 	Routing     *routingapi.Handler
 	Media       *media.Handler
@@ -70,8 +70,12 @@ func NewHandler(opts Options) http.Handler {
 	})
 	r.Route("/api/v1/users", func(r chi.Router) {
 		if opts.Users != nil {
-			r.Use(RequirePermission(PermAccountManage))
-			opts.Users.Mount(r)
+			r.Get("/{id}/mcp-token", opts.Users.GetMCPToken)
+			r.Post("/{id}/mcp-token/rotate", opts.Users.RotateMCPToken)
+			r.Group(func(r chi.Router) {
+				r.Use(RequirePermission(PermAccountManage))
+				opts.Users.Mount(r)
+			})
 		}
 	})
 	r.Route("/api/v1/adminusers", func(r chi.Router) {
@@ -106,6 +110,9 @@ func NewHandler(opts Options) http.Handler {
 				r.Post("/disable", opts.Channels.Disable)
 				r.Post("/enable", opts.Channels.Enable)
 				r.Delete("/", opts.Channels.Delete)
+				r.Get("/mcp-users", opts.Channels.ListMCPUsers)
+				r.Post("/mcp-users", opts.Channels.CreateMCPUser)
+				r.Delete("/mcp-users/{userId}", opts.Channels.DeleteMCPUser)
 				if opts.MenuHandler != nil {
 					opts.MenuHandler.Mount(r)
 				}

@@ -12,7 +12,10 @@ import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useCaseReferences } from '@/features/config-context/use-case-references'
-import { validateRouting } from '@/features/task-flow/lib/validate'
+import {
+  formatRuleIssue,
+  validateRouting,
+} from '@/features/task-flow/lib/validate'
 import { TaskFlowTable } from '@/features/task-flow/task-flow-table'
 import { emptyCase } from './empty-case'
 import {
@@ -556,9 +559,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
               {t('cases.inputsHeading')}
             </h3>
           </div>
-          <p className='text-xs text-muted-foreground'>
-            {t('cases.inputsHint')}
-          </p>
+          {null}
         </div>
         {graph ? (
           <Button
@@ -645,9 +646,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
               {t('cases.outputsHeading')}
             </h3>
           </div>
-          <p className='text-xs text-muted-foreground'>
-            {t('cases.outputsHint')}
-          </p>
+          {null}
         </div>
         {graph ? (
           <Button
@@ -725,15 +724,17 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
                 {t('cases.processingHeading')}
               </h3>
             </div>
-            <p className='text-xs text-muted-foreground'>
-              {t('cases.processingHint')}
-            </p>
+            {null}
           </div>
         </div>
         {showFieldErrors && !hideProcessing && !routingValidation.valid ? (
           <Alert variant='destructive'>
             <TriangleAlert aria-hidden='true' />
-            <AlertTitle>{t('cases.errRoutingInvalid')}</AlertTitle>
+            <AlertTitle>
+              {routingValidation.issues[0]
+                ? formatRuleIssue(routingValidation.issues[0], t)
+                : t('cases.errRoutingInvalid')}
+            </AlertTitle>
           </Alert>
         ) : null}
         {graph ? (

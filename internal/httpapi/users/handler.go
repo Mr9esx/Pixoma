@@ -10,17 +10,28 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
+	edgedomain "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/setup"
+	pixmcp "github.com/Mr9esx/Pixoma/internal/mcp"
 	domain "github.com/Mr9esx/Pixoma/internal/users/domain"
 )
 
 // Handler serves user admin HTTP under /api/v1/users.
 type Handler struct {
-	Repo     domain.Repository
-	Channels ChannelNamesReader
+	Repo       domain.Repository
+	Channels   ChannelNamesReader
+	Tokens     pixmcp.TokenStore
+	Key        []byte
+	ChannelGet ChannelGetter
 }
 
 type ChannelNamesReader interface {
 	ChannelNames(ctx context.Context, ids []string) (map[string]string, error)
+}
+
+type ChannelGetter interface {
+	Get(ctx context.Context, id string) (channeldomain.Channel, error)
 }
 
 // Mount registers read routes and the admin-only access update route.
@@ -201,6 +212,92 @@ func parseListQuery(r *http.Request) (domain.ListQuery, error) {
 		q.Offset = n
 	}
 	return q, nil
+}
+
+func (h *Handler) GetMCPToken(w http.ResponseWriter, r *http.Request) {
+	u, rec, ok := h.loadMCPToken(w, r)
+	if !ok {
+		return
+	}
+	_ = u
+	out := map[string]any{}
+	if canRevealMCPToken(r) {
+		plain, err := pixmcp.DecryptToken(h.Key, rec.TokenCipher)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		out["token"] = plain
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) RotateMCPToken(w http.ResponseWriter, r *http.Request) {
+	if !canRevealMCPToken(r) {
+		writeErr(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	u, _, ok := h.loadMCPToken(w, r)
+	if !ok {
+		return
+	}
+	plain, err := edgedomain.MintToken()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	cipher, err := pixmcp.EncryptToken(h.Key, plain)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := h.Tokens.Put(r.Context(), pixmcp.TokenRecord{
+		UserID: u.ID, TokenHash: pixmcp.HashToken(plain), TokenCipher: cipher,
+	}); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"token": plain})
+}
+
+func (h *Handler) loadMCPToken(w http.ResponseWriter, r *http.Request) (*domain.User, pixmcp.TokenRecord, bool) {
+	if h == nil || h.Repo == nil || h.Tokens == nil || h.ChannelGet == nil {
+		writeErr(w, http.StatusInternalServerError, "mcp token not configured")
+		return nil, pixmcp.TokenRecord{}, false
+	}
+	id := chi.URLParam(r, "id")
+	u, err := h.Repo.GetByID(r.Context(), id)
+	if errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "user not found")
+		return nil, pixmcp.TokenRecord{}, false
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return nil, pixmcp.TokenRecord{}, false
+	}
+	ch, err := h.ChannelGet.Get(r.Context(), u.ChannelID)
+	if err != nil || ch.Platform != string(channeldomain.PlatformMCP) {
+		writeErr(w, http.StatusNotFound, "mcp token not found")
+		return nil, pixmcp.TokenRecord{}, false
+	}
+	rec, err := h.Tokens.GetByUserID(r.Context(), u.ID)
+	if errors.Is(err, pixmcp.ErrTokenNotFound) {
+		writeErr(w, http.StatusNotFound, "mcp token not found")
+		return nil, pixmcp.TokenRecord{}, false
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return nil, pixmcp.TokenRecord{}, false
+	}
+	return u, rec, true
+}
+
+func canRevealMCPToken(r *http.Request) bool {
+	acct, ok := setup.AccountFromContext(r.Context())
+	if !ok {
+		return false
+	}
+	return acct.Role == "admin" || acct.Role == "operator"
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

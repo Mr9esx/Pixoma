@@ -18,7 +18,7 @@ import (
 const (
 	myTasksFetchLimit   = 64
 	myTasksRecentCap    = 8
-	myTasksCurrentEmpty = "✅ 当前没有排队中的任务"
+	myTasksCurrentEmpty = "当前没有排队中的任务"
 )
 
 // CaseLookup resolves a Case name for task list lines.
@@ -177,8 +177,8 @@ func formatTaskLine(t *runtimedomain.Task, names map[sharedkernel.CaseID]string,
 	if name == "" {
 		name = fmt.Sprintf("%d", t.CaseID)
 	}
-	mark, status, extra := taskLineMeta(t, now, loc, inFlight)
-	return fmt.Sprintf("%s #%s · %s · %s · %s", mark, t.ID, name, status, extra)
+	_, status, extra := taskLineMeta(t, now, loc, inFlight)
+	return fmt.Sprintf("#%s · %s · %s · %s", t.ID, name, status, extra)
 }
 
 func taskLineMeta(t *runtimedomain.Task, now time.Time, loc *time.Location, inFlight bool) (mark, status, extra string) {
@@ -188,20 +188,20 @@ func taskLineMeta(t *runtimedomain.Task, now time.Time, loc *time.Location, inFl
 		if start.IsZero() {
 			start = t.CreatedAt
 		}
-		return "⏳", "执行中", "已跑 " + formatElapsed(now.Sub(start))
+		return "", "运行中", formatElapsed(now.Sub(start))
 	case sharedkernel.TaskQueued, sharedkernel.TaskPending:
-		return "🕒", "排队中", "等了 " + formatElapsed(now.Sub(t.CreatedAt))
+		return "", "排队中", formatElapsed(now.Sub(t.CreatedAt))
 	case sharedkernel.TaskSucceeded:
-		return "✅", "已完成", formatClock(t, loc)
+		return "", "成功", formatClock(t, loc)
 	case sharedkernel.TaskFailed:
-		return "❌", "失败", formatClock(t, loc)
+		return "", "失败", formatClock(t, loc)
 	case sharedkernel.TaskCancelled:
-		return "➖", "已取消", formatClock(t, loc)
+		return "", "已取消", formatClock(t, loc)
 	default:
 		if inFlight {
-			return "🕒", string(t.Status), "等了 " + formatElapsed(now.Sub(t.CreatedAt))
+			return "", string(t.Status), formatElapsed(now.Sub(t.CreatedAt))
 		}
-		return "➖", string(t.Status), formatClock(t, loc)
+		return "", string(t.Status), formatClock(t, loc)
 	}
 }
 
@@ -220,10 +220,10 @@ func formatElapsed(d time.Duration) string {
 	s := sec % 60
 	switch {
 	case h > 0:
-		return fmt.Sprintf("%d小时%d分", h, m)
+		return fmt.Sprintf("%d 小时 %d 分", h, m)
 	case m > 0:
-		return fmt.Sprintf("%d分%02d秒", m, s)
+		return fmt.Sprintf("%d 分 %02d 秒", m, s)
 	default:
-		return fmt.Sprintf("%d秒", s)
+		return fmt.Sprintf("%d 秒", s)
 	}
 }

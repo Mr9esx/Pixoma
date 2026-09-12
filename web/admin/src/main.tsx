@@ -9,7 +9,7 @@ import {
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { handleServerError } from '@/lib/handle-server-error'
-import { initI18n } from '@/lib/i18n'
+import { i18n, initI18n } from '@/lib/i18n'
 import { LoadingPage } from '@/components/feedback/loading-page'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
@@ -45,7 +45,7 @@ const queryClient = new QueryClient({
 
         if (error instanceof AxiosError) {
           if (error.response?.status === 304) {
-            toast.error('Content not modified!')
+            toast.error(i18n.t('common.contentUnchanged'))
           }
         }
       },
@@ -55,10 +55,10 @@ const queryClient = new QueryClient({
     onError: (error) => {
       if (error instanceof AxiosError) {
         if (error.response?.status === 401) {
-          toast.error('Session expired!')
+          toast.error(i18n.t('common.sessionExpiredToast'))
         }
         if (error.response?.status === 500) {
-          toast.error('Internal Server Error!')
+          toast.error(i18n.t('common.serverErrorToast'))
           // Only navigate to error page in production to avoid disrupting HMR in development
           if (import.meta.env.PROD) {
             router.navigate({ to: '/500' })

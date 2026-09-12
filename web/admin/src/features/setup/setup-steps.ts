@@ -12,24 +12,24 @@ export const SETUP_STEP_COPY: Record<
   { title: string; desc: string; submit: string }
 > = {
   password: {
-    title: '设管理员密码',
-    desc: '设个新的管理员密码。',
-    submit: '保存密码',
+    title: 'setup.passwordTitle',
+    desc: '',
+    submit: 'setup.passwordSubmit',
   },
   profile: {
-    title: '如何称呼您',
+    title: 'setup.nicknameTitle',
     desc: '',
-    submit: '继续',
+    submit: 'setup.continue',
   },
   database: {
-    title: '数据库配置',
+    title: 'setup.databaseTitle',
     desc: '',
-    submit: '继续',
+    submit: 'setup.continue',
   },
   storage: {
-    title: '文件存储配置',
-    desc: '决定了生成的图和视频存放的位置。',
-    submit: '完成',
+    title: 'setup.storageTitle',
+    desc: '',
+    submit: 'setup.saveAndRestart',
   },
 }
 

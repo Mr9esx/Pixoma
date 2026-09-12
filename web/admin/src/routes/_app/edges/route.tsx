@@ -24,7 +24,6 @@ import {
 import {
   Empty,
   EmptyContent,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -152,7 +151,6 @@ function EdgesLayout() {
                 <EmptyTitle className='text-sm font-medium'>
                   {t('edges.empty')}
                 </EmptyTitle>
-                <EmptyDescription>{t('edges.emptyDesc')}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
                 <Button size='sm' onClick={() => setCreateOpen(true)}>

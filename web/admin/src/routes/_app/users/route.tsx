@@ -55,9 +55,6 @@ function UsersLayout() {
         <h1 className='truncate text-2xl leading-tight font-semibold tracking-tight'>
           {t('users.title')}
         </h1>
-        <p className='text-sm text-muted-foreground'>
-          {t('users.description')}
-        </p>
       </div>
 
       <UserListPanel

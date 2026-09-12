@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/Mr9esx/Pixoma/internal/channels/domain"
 )
 
 const defaultProbeInterval = 30 * time.Second
@@ -42,7 +44,7 @@ func (p *ReachabilityProbe) ProbeOnce(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if !ch.Enabled {
+		if !ch.Enabled || ch.Platform == string(domain.PlatformMCP) {
 			continue
 		}
 		res, err := p.Svc.CheckReachability(ctx, ch.ID)

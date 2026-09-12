@@ -194,6 +194,22 @@ func (r *UserRepository) SetAccess(ctx context.Context, id string, access domain
 	return user, nil
 }
 
+func (r *UserRepository) Delete(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ?", id).Delete(&UserExternalIdentityRow{}).Error; err != nil {
+			return fmt.Errorf("delete user identities: %w", err)
+		}
+		res := tx.Where("id = ?", id).Delete(&UserRow{})
+		if res.Error != nil {
+			return fmt.Errorf("delete user: %w", res.Error)
+		}
+		if res.RowsAffected == 0 {
+			return domain.ErrNotFound
+		}
+		return nil
+	})
+}
+
 func (r *UserRepository) List(ctx context.Context, q domain.ListQuery) ([]*domain.User, error) {
 	tx := r.db.WithContext(ctx).Model(&UserRow{})
 	if q.ChannelID != nil || q.ExternalUserID != nil {

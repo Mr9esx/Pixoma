@@ -75,10 +75,8 @@ export function LoginPage({
       {showLiveDemoHint ? (
         <Alert className='w-full max-w-sm' data-testid='live-demo-credentials'>
           <KeyRound />
-          <AlertTitle>Live Demo</AlertTitle>
-          <AlertDescription>
-            Live Demo 为只读模式。演示账号：admin / 123456
-          </AlertDescription>
+          <AlertTitle>{t('auth.liveDemoTitle')}</AlertTitle>
+          <AlertDescription>{t('auth.liveDemoHint')}</AlertDescription>
         </Alert>
       ) : null}
       <Card className='w-full max-w-sm'>
@@ -115,7 +113,7 @@ export function LoginPage({
               </label>
             </FieldGroup>
             {error ? <p className='text-sm text-destructive'>{error}</p> : null}
-            <Button type='submit' className='w-full' disabled={pending}>
+            <Button type='submit' className='w-full mt-4' disabled={pending}>
               {pending ? t('auth.submitting') : t('auth.submit')}
             </Button>
             {registrationOpen ? (

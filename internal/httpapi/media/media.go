@@ -68,7 +68,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	reader, err := r.MultipartReader()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "请求必须是 multipart/form-data")
+		writeError(w, http.StatusBadRequest, "请求格式错误：需 multipart/form-data")
 		return
 	}
 	part, err := reader.NextPart()
@@ -85,7 +85,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n > max {
-		writeError(w, http.StatusRequestEntityTooLarge, "上传文件超过大小上限")
+		writeError(w, http.StatusRequestEntityTooLarge, "文件超过大小上限")
 		return
 	}
 

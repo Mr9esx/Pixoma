@@ -20,7 +20,6 @@ import {
 import {
   Empty,
   EmptyContent,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -156,7 +155,6 @@ function TopicsLayout() {
                 <EmptyTitle className='text-sm font-medium'>
                   {t('topics.empty')}
                 </EmptyTitle>
-                <EmptyDescription>{t('topics.emptyDesc')}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent className='flex-row justify-center gap-2'>
                 <Button size='sm' onClick={() => setManualCreateOpen(true)}>

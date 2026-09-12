@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
@@ -55,11 +56,11 @@ function errorMessage(err: unknown): string | undefined {
   return err instanceof Error ? err.message : undefined
 }
 
-const ROLE_FILTERS: { value: AdminUser['role'] | 'all'; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: 'admin', label: '管理员' },
-  { value: 'operator', label: '操作员' },
-  { value: 'viewer', label: '只读' },
+const ROLE_FILTERS: Array<AdminUser['role'] | 'all'> = [
+  'all',
+  'admin',
+  'operator',
+  'viewer',
 ]
 
 function roleBadge(
@@ -70,13 +71,17 @@ function roleBadge(
   return 'outline'
 }
 
-function roleLabel(role: AdminUser['role']): string {
-  if (role === 'admin') return '管理员'
-  if (role === 'operator') return '操作员'
-  return '只读'
+function roleLabelKey(
+  role: AdminUser['role'] | 'all'
+): 'adminUsers.roleAll' | 'adminUsers.roleAdmin' | 'adminUsers.roleOperator' | 'adminUsers.roleViewer' {
+  if (role === 'all') return 'adminUsers.roleAll'
+  if (role === 'admin') return 'adminUsers.roleAdmin'
+  if (role === 'operator') return 'adminUsers.roleOperator'
+  return 'adminUsers.roleViewer'
 }
 
 export function AdminUsersPanel() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<AdminUser['role'] | 'all'>('all')
@@ -105,9 +110,9 @@ export function AdminUsersPanel() {
       updateAdminUser(u.id, { enabled: !u.enabled }),
     onSuccess: () => {
       void invalidate()
-      toast.success('已更新账号状态')
+      toast.success(t('adminUsers.updated'))
     },
-    onError: (err) => toast.error(errorMessage(err) ?? '操作失败'),
+    onError: (err) => toast.error(errorMessage(err) ?? t('adminUsers.opFailed')),
   })
 
   const deleteMutation = useMutation({
@@ -116,9 +121,9 @@ export function AdminUsersPanel() {
     onSuccess: () => {
       setDeleteTarget(null)
       void invalidate()
-      toast.success('已删除账号')
+      toast.success(t('adminUsers.deleted'))
     },
-    onError: (err) => toast.error(errorMessage(err) ?? '删除失败'),
+    onError: (err) => toast.error(errorMessage(err) ?? t('adminUsers.deleteFailed')),
   })
 
   return (
@@ -128,16 +133,16 @@ export function AdminUsersPanel() {
           data-testid='admin-users-search'
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder='搜索账号名或邮箱'
+          placeholder={t('adminUsers.searchPlaceholder')}
           className='max-w-xs'
-          aria-label='搜索用户'
+          aria-label={t('a11y.searchUsers')}
         />
         <div
           role='group'
-          aria-label='按角色筛选'
+          aria-label={t('a11y.filterRole')}
           className='inline-flex items-center rounded-lg bg-muted p-0.5'
         >
-          {ROLE_FILTERS.map(({ value, label }) => (
+          {ROLE_FILTERS.map((value) => (
             <Button
               key={value}
               type='button'
@@ -147,7 +152,7 @@ export function AdminUsersPanel() {
               className='min-h-8'
               onClick={() => setRoleFilter(value)}
             >
-              {label}
+              {t(roleLabelKey(value))}
             </Button>
           ))}
         </div>
@@ -164,12 +169,12 @@ export function AdminUsersPanel() {
           <Table data-testid='admin-users-table'>
             <TableHeader>
               <TableRow>
-                <TableHead>账号</TableHead>
-                <TableHead>昵称</TableHead>
-                <TableHead>邮箱</TableHead>
-                <TableHead>角色</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead className='text-right'>操作</TableHead>
+                <TableHead>{t('adminUsers.account')}</TableHead>
+                <TableHead>{t('adminUsers.nickname')}</TableHead>
+                <TableHead>{t('adminUsers.email')}</TableHead>
+                <TableHead>{t('adminUsers.role')}</TableHead>
+                <TableHead>{t('adminUsers.status')}</TableHead>
+                <TableHead className='text-right'>{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -180,13 +185,17 @@ export function AdminUsersPanel() {
                   <TableCell>{u.email || '—'}</TableCell>
                   <TableCell>
                     <Badge variant={roleBadge(u.role)}>
-                      {roleLabel(u.role)}
+                      {t(roleLabelKey(u.role))}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <StatusDot
                       problems={u.enabled ? 0 : 1}
-                      label={u.enabled ? '已启用' : '已停用'}
+                      label={
+                        u.enabled
+                          ? t('adminUsers.enabled')
+                          : t('adminUsers.disabled')
+                      }
                     />
                   </TableCell>
                   <TableCell className='text-right'>
@@ -196,7 +205,9 @@ export function AdminUsersPanel() {
                           size='sm'
                           variant='ghost'
                           className='size-9'
-                          aria-label={`${u.username} 操作`}
+                          aria-label={t('a11y.userActions', {
+                            name: u.username,
+                          })}
                         >
                           <MoreHorizontal className='size-4' />
                         </Button>
@@ -205,17 +216,19 @@ export function AdminUsersPanel() {
                         <DropdownMenuItem
                           onSelect={() => enableMutation.mutate(u)}
                         >
-                          {u.enabled ? '禁用' : '启用'}
+                          {u.enabled
+                            ? t('adminUsers.disable')
+                            : t('adminUsers.enable')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => setResetTarget(u)}>
-                          重置密码
+                          {t('adminUsers.resetPassword')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className='text-destructive focus:text-destructive'
                           onSelect={() => setDeleteTarget(u)}
                         >
-                          删除
+                          {t('adminUsers.delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -228,7 +241,9 @@ export function AdminUsersPanel() {
                     colSpan={6}
                     className='text-center text-muted-foreground'
                   >
-                    {roleFilter === 'all' ? '暂无用户' : '该角色暂无用户'}
+                    {roleFilter === 'all'
+                      ? t('adminUsers.empty')
+                      : t('adminUsers.emptyRole')}
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -250,10 +265,12 @@ export function AdminUsersPanel() {
         }}
         destructive
         isLoading={deleteMutation.isPending}
-        title={`删除账号 ${deleteTarget?.username ?? ''}？`}
-        desc='删除后不可恢复。若这是唯一的管理员，后端会拒绝删除。'
-        confirmText='确认删除'
-        cancelBtnText='取消'
+        title={t('adminUsers.deleteTitle', {
+          name: deleteTarget?.username ?? '',
+        })}
+        desc={t('adminUsers.deleteDesc')}
+        confirmText={t('adminUsers.confirmDelete')}
+        cancelBtnText={t('common.cancel')}
         handleConfirm={() => {
           if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
         }}

@@ -13,6 +13,8 @@ import (
 
 	"github.com/Mr9esx/Pixoma/internal/channels/application"
 	"github.com/Mr9esx/Pixoma/internal/channels/domain"
+	pixmcp "github.com/Mr9esx/Pixoma/internal/mcp"
+	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
 )
 
 // Handler serves channel management endpoints under /api/v1/channels.
@@ -27,6 +29,9 @@ type Handler struct {
 	// ProbeCtx is the process context for kicked ProbeOnce calls; request
 	// cancel must not abort the probe. Nil falls back to context.Background.
 	ProbeCtx context.Context
+	Users    identitydomain.Repository
+	Tokens   pixmcp.TokenStore
+	Key      []byte
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -38,6 +43,9 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/{id}/disable", h.Disable)
 	r.Post("/{id}/enable", h.Enable)
 	r.Delete("/{id}", h.Delete)
+	r.Get("/{id}/mcp-users", h.ListMCPUsers)
+	r.Post("/{id}/mcp-users", h.CreateMCPUser)
+	r.Delete("/{id}/mcp-users/{userId}", h.DeleteMCPUser)
 }
 
 type channelDTO struct {

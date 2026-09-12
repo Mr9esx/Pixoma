@@ -79,14 +79,14 @@ describe('parseWorkflow', () => {
     const result = parseWorkflow(UI_JSON)
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.error).toContain('保存(API 格式)')
+    expect(result.error).toBe('cases.importNotApiFormat')
   })
 
   it('rejects API-format JSON that still carries widget_N keys', () => {
     const result = parseWorkflow(WIDGET_API_JSON)
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.error).toContain('widget_N')
+    expect(result.error).toBe('cases.importReasonWidgetPlaceholder')
   })
 
   it('returns readable errors for invalid input', () => {

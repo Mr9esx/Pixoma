@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, CircleAlert, CircleCheck, Info } from 'lucide-react'
 import {
   changeAdminPassword,
@@ -55,6 +56,7 @@ const TOS_DEFAULTS = {
 }
 
 export function SetupWizard({ status }: { status: SetupStatus }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const steps = useMemo(
     () => setupStepsFor(status.must_change_password),
@@ -275,19 +277,17 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
       <AuthShell>
         <Card className='w-full max-w-md'>
           <CardHeader>
-            <CardTitle>正在重启</CardTitle>
-            <CardDescription>
-              配置已经写好。等 pixoma 重新起来就会进后台，不用自己杀进程。
-            </CardDescription>
+            <CardTitle>{t('setup.restarting')}</CardTitle>
+            <CardDescription>{t('setup.restartDesc')}</CardDescription>
           </CardHeader>
           <CardContent className='flex flex-col gap-3 text-sm'>
             {error ? (
               <Alert variant='destructive'>
-                <AlertTitle>{error.title}</AlertTitle>
+                <AlertTitle>{t(error.key)}</AlertTitle>
                 <AlertDescription>{error.detail}</AlertDescription>
               </Alert>
             ) : (
-              <p className='text-muted-foreground'>正在等待服务回来…</p>
+              <p className='text-muted-foreground'>{t('setup.waitingService')}</p>
             )}
           </CardContent>
         </Card>
@@ -296,22 +296,28 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
   }
 
   return (
-    <WizardCard steps={steps} step={step} title={copy.title} desc={copy.desc}>
+    <WizardCard
+      steps={steps}
+      step={step}
+      title={t(copy.title)}
+      desc={copy.desc ? t(copy.desc) : ''}
+    >
       {step === 'password' ? (
         <form
           className='flex flex-col gap-4'
           onSubmit={(e) => {
             e.preventDefault()
+            if (newPassword !== confirmPassword) {
+              setError({ key: 'setup.passwordMismatch', detail: '' })
+              return
+            }
             void run(async () => {
-              if (newPassword !== confirmPassword) {
-                throw new Error('两次输入不一致')
-              }
               await changeAdminPassword({ newPassword })
               setStep('profile')
             })
           }}
         >
-          <Field label='新密码（至少 8 位）' htmlFor='new-password'>
+          <Field label={t('setup.newPassword')} htmlFor='new-password'>
             <SecretInput
               id='new-password'
               value={newPassword}
@@ -319,7 +325,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               autoComplete='new-password'
             />
           </Field>
-          <Field label='再输一遍' htmlFor='confirm-password'>
+          <Field label={t('setup.confirmPassword')} htmlFor='confirm-password'>
             <SecretInput
               id='confirm-password'
               value={confirmPassword}
@@ -327,7 +333,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               autoComplete='new-password'
             />
           </Field>
-          <StepActions error={error} pending={pending} submit={copy.submit} />
+          <StepActions error={error} pending={pending} submit={t(copy.submit)} />
         </form>
       ) : null}
 
@@ -349,7 +355,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           <div className='grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-3'>
             <div className='flex h-full items-center justify-center'>
               <Label className='sr-only' htmlFor='profile-avatar'>
-                头像
+                {t('setup.avatar')}
               </Label>
               <AvatarUpload
                 id='profile-avatar'
@@ -359,16 +365,16 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               />
             </div>
             <div className='flex min-w-0 flex-col gap-4'>
-              <Field label='昵称' htmlFor='profile-nickname'>
+              <Field label={t('setup.nickname')} htmlFor='profile-nickname'>
                 <Input
                   id='profile-nickname'
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
                   autoComplete='off'
-                  placeholder='例如：小 P'
+                  placeholder={t('setup.nicknamePlaceholder')}
                 />
               </Field>
-              <Field label='邮箱' htmlFor='profile-email'>
+              <Field label={t('setup.email')} htmlFor='profile-email'>
                 <Input
                   id='profile-email'
                   type='email'
@@ -383,7 +389,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           <StepActions
             error={error}
             pending={pending}
-            submit={copy.submit}
+            submit={t(copy.submit)}
             onBack={backStep ? goBack : undefined}
           />
         </form>
@@ -402,7 +408,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             })
           }}
         >
-          <Field label='业务库' htmlFor='db-driver'>
+          <Field label={t('setup.database')} htmlFor='db-driver'>
             <Select value={driver} onValueChange={onDriverChange}>
               <SelectTrigger id='db-driver' className='w-full'>
                 <SelectValue />
@@ -417,7 +423,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             </Select>
           </Field>
           {driver === 'sqlite' ? (
-            <Field label='数据库文件' htmlFor='db-sqlite-path'>
+            <Field label={t('setup.dbFile')} htmlFor='db-sqlite-path'>
               <Input
                 id='db-sqlite-path'
                 value={sqlitePath}
@@ -428,7 +434,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           ) : driver === 'mysql' ? (
             <>
               <div className='grid grid-cols-2 gap-3'>
-                <Field label='Host' htmlFor='db-host'>
+                <Field label={t('setup.host')} htmlFor='db-host'>
                   <Input
                     id='db-host'
                     value={dbHost}
@@ -436,7 +442,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                     placeholder='127.0.0.1'
                   />
                 </Field>
-                <Field label='端口' htmlFor='db-port'>
+                <Field label={t('setup.port')} htmlFor='db-port'>
                   <Input
                     id='db-port'
                     value={dbPort}
@@ -445,7 +451,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   />
                 </Field>
               </div>
-              <Field label='用户' htmlFor='db-user'>
+              <Field label={t('setup.user')} htmlFor='db-user'>
                 <Input
                   id='db-user'
                   value={dbUser}
@@ -453,16 +459,16 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   placeholder='pixoma'
                 />
               </Field>
-              <Field label='密码' htmlFor='db-password'>
+              <Field label={t('setup.password')} htmlFor='db-password'>
                 <SecretInput
                   id='db-password'
                   value={dbPassword}
                   onChange={(e) => setDbPassword(e.target.value)}
                   autoComplete='off'
-                  placeholder='留空表示无密码'
+                  placeholder={t('setup.passwordOptional')}
                 />
               </Field>
-              <Field label='数据库' htmlFor='db-name'>
+              <Field label={t('setup.dbName')} htmlFor='db-name'>
                 <Input
                   id='db-name'
                   value={dbName}
@@ -470,7 +476,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   placeholder='pixoma'
                 />
               </Field>
-              <Field label='附加参数' htmlFor='db-extra-params'>
+              <Field label={t('setup.extraParams')} htmlFor='db-extra-params'>
                 <Input
                   id='db-extra-params'
                   value={dbExtraParams}
@@ -482,7 +488,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           ) : (
             <>
               <div className='grid grid-cols-2 gap-3'>
-                <Field label='Host' htmlFor='db-host'>
+                <Field label={t('setup.host')} htmlFor='db-host'>
                   <Input
                     id='db-host'
                     value={dbHost}
@@ -490,7 +496,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                     placeholder='127.0.0.1'
                   />
                 </Field>
-                <Field label='端口' htmlFor='db-port'>
+                <Field label={t('setup.port')} htmlFor='db-port'>
                   <Input
                     id='db-port'
                     value={dbPort}
@@ -499,7 +505,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   />
                 </Field>
               </div>
-              <Field label='用户' htmlFor='db-user'>
+              <Field label={t('setup.user')} htmlFor='db-user'>
                 <Input
                   id='db-user'
                   value={dbUser}
@@ -507,16 +513,16 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   placeholder='pixoma'
                 />
               </Field>
-              <Field label='密码' htmlFor='db-password'>
+              <Field label={t('setup.password')} htmlFor='db-password'>
                 <SecretInput
                   id='db-password'
                   value={dbPassword}
                   onChange={(e) => setDbPassword(e.target.value)}
                   autoComplete='off'
-                  placeholder='留空表示无密码'
+                  placeholder={t('setup.passwordOptional')}
                 />
               </Field>
-              <Field label='数据库' htmlFor='db-name'>
+              <Field label={t('setup.dbName')} htmlFor='db-name'>
                 <Input
                   id='db-name'
                   value={dbName}
@@ -524,7 +530,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   placeholder='pixoma'
                 />
               </Field>
-              <Field label='SSL 模式' htmlFor='db-ssl-mode'>
+              <Field label={t('setup.sslMode')} htmlFor='db-ssl-mode'>
                 <Select value={pgSslMode} onValueChange={setPgSslMode}>
                   <SelectTrigger id='db-ssl-mode' className='w-full'>
                     <SelectValue />
@@ -538,7 +544,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label='附加参数' htmlFor='db-extra-params'>
+              <Field label={t('setup.extraParams')} htmlFor='db-extra-params'>
                 <Input
                   id='db-extra-params'
                   value={dbExtraParams}
@@ -551,7 +557,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           <StepActions
             error={error}
             pending={pending}
-            submit={copy.submit}
+            submit={t(copy.submit)}
             onBack={backStep ? goBack : undefined}
             onTest={() => {
               void run(async () => {
@@ -577,26 +583,32 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             })
           }}
         >
-          <Field label='对象存储' htmlFor='blob-driver'>
+          <Field label={t('setup.blobDriver')} htmlFor='blob-driver'>
             <Select value={blobDriver} onValueChange={onBlobDriverChange}>
               <SelectTrigger id='blob-driver' className='w-full'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value='localfs'>本机目录</SelectItem>
+                  <SelectItem value='localfs'>
+                    {t('setup.localfsLabel')}
+                  </SelectItem>
                   <SelectItem value='sharedfs'>
-                    共享目录（SMB / NFS）
+                    {t('setup.sharedfsLabel')}
                   </SelectItem>
                   <SelectItem value='s3'>S3</SelectItem>
-                  <SelectItem value='tos'>火山 TOS</SelectItem>
+                  <SelectItem value='tos'>{t('setup.tos')}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
           </Field>
           {blobDriver === 'localfs' || blobDriver === 'sharedfs' ? (
             <Field
-              label={blobDriver === 'sharedfs' ? '挂载目录' : '目录'}
+              label={
+                blobDriver === 'sharedfs'
+                  ? t('setup.mountDir')
+                  : t('setup.dir')
+              }
               htmlFor='blob-root'
             >
               <Input
@@ -612,14 +624,9 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   id='blob-endpoint'
                   value={blobEndpoint}
                   onChange={(e) => setBlobEndpoint(e.target.value)}
+                  placeholder={t('setup.endpointPlaceholder')}
                 />
               </Field>
-              {blobDriver === 's3' ? (
-                <p className='text-sm text-muted-foreground'>
-                  局域网可用 MinIO 等 S3 兼容服务，如{' '}
-                  <code>http://&lt;server-ip&gt;:9000</code>
-                </p>
-              ) : null}
               <Field label='Region' htmlFor='blob-region'>
                 <Input
                   id='blob-region'
@@ -654,7 +661,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           {blobPromptCreate ? (
             <Alert variant='info'>
               <AlertTitle>
-                bucket `{blobMissingBucket}` 不存在，帮你创建？
+                {t('setup.bucketMissing', { bucket: blobMissingBucket })}
               </AlertTitle>
               <div className='flex gap-2 pt-2'>
                 <Button
@@ -665,7 +672,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                     void runBlobTest(true)
                   }}
                 >
-                  创建
+                  {t('setup.createBucket')}
                 </Button>
                 <Button
                   type='button'
@@ -673,7 +680,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   disabled={pending}
                   onClick={() => setBlobPromptCreate(false)}
                 >
-                  取消
+                  {t('common.cancel')}
                 </Button>
               </div>
             </Alert>
@@ -681,33 +688,21 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           {blobDriver === 'localfs' ? (
             <Alert variant='warn'>
               <CircleAlert aria-hidden='true' />
-              <AlertTitle>注意！</AlertTitle>
-              <AlertDescription>
-                这个配置只适合 ComfyUI
-                和后台在同一台机器上使用，无法使用远程节点。
-              </AlertDescription>
+              <AlertTitle>{t('setup.localfsTitle')}</AlertTitle>
+              <AlertDescription>{t('setup.localfsBody')}</AlertDescription>
             </Alert>
           ) : null}
           {blobDriver === 'sharedfs' ? (
             <Alert variant='info'>
               <Info aria-hidden='true' />
-              <AlertTitle>注意！</AlertTitle>
-              <AlertDescription>
-                需要先在所有机器上挂载同一共享目录（SMB / NFS）。
-                <pre className='mt-2 w-full overflow-x-auto rounded-md border bg-card p-2 text-xs leading-relaxed'>
-                  {`# Linux NFS（<server-ip> 换成共享服务器地址，<share-path> 换成导出目录）
-mount -t nfs <server-ip>:/<share-path> /mnt/pixoma-shared
-
-# Linux / macOS CIFS (SMB)（<server-ip> / <share-name> / <mount-point> 按实际替换）
-mount -t cifs //<server-ip>/<share-name> <mount-point> -o username=<user>`}
-                </pre>
-              </AlertDescription>
+              <AlertTitle>{t('setup.sharedfsTitle')}</AlertTitle>
+              <AlertDescription>{t('setup.sharedfsBody')}</AlertDescription>
             </Alert>
           ) : null}
           <StepActions
             error={error}
             pending={pending}
-            submit={copy.submit}
+            submit={t(copy.submit)}
             onBack={backStep ? goBack : undefined}
             onTest={() => void runBlobTest(false)}
             testPassed={blobTested}
@@ -731,12 +726,20 @@ function WizardCard({
   desc: string
   children: React.ReactNode
 }) {
+  const { t } = useTranslation()
   const index = setupStepIndex(steps, step)
   return (
     <AuthShell>
       <Card className='w-full max-w-md'>
         <CardHeader>
-          <div className='flex gap-1' aria-hidden>
+          <div
+            className='flex gap-1'
+            role='img'
+            aria-label={t('setup.stepOf', {
+              current: index + 1,
+              total: steps.length,
+            })}
+          >
             {steps.map((item, i) => (
               <div
                 key={item}
@@ -748,7 +751,7 @@ function WizardCard({
             ))}
           </div>
           <p className='text-sm text-muted-foreground'>
-            第 {index + 1} / {steps.length} 步
+            {t('setup.stepOf', { current: index + 1, total: steps.length })}
           </p>
           <CardTitle>{title}</CardTitle>
           {desc ? <CardDescription>{desc}</CardDescription> : null}
@@ -793,18 +796,21 @@ function StepActions({
   onTest?: () => void
   testPassed?: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className='flex flex-col gap-2'>
       {error ? (
         <Alert variant='destructive'>
-          <AlertTitle>{error.title}</AlertTitle>
-          <AlertDescription>{error.detail}</AlertDescription>
+          <AlertTitle>{t(error.key)}</AlertTitle>
+          {error.detail ? (
+            <AlertDescription>{error.detail}</AlertDescription>
+          ) : null}
         </Alert>
       ) : null}
       {testPassed ? (
         <Alert variant='success'>
           <CircleCheck aria-hidden='true' />
-          <AlertTitle>连接正常</AlertTitle>
+          <AlertTitle>{t('setup.connectionOk')}</AlertTitle>
         </Alert>
       ) : null}
       <div className='flex gap-2'>
@@ -815,8 +821,8 @@ function StepActions({
             disabled={pending}
             onClick={onBack}
           >
-            <ArrowLeft />
-            上一步
+            <ArrowLeft aria-hidden='true' />
+            {t('setup.back')}
           </Button>
         ) : null}
         {onTest ? (
@@ -826,7 +832,7 @@ function StepActions({
             disabled={pending}
             onClick={onTest}
           >
-            连通性测试
+            {t('setup.testConn')}
           </Button>
         ) : null}
         {onSkip ? (
@@ -836,11 +842,11 @@ function StepActions({
             disabled={pending}
             onClick={onSkip}
           >
-            暂时跳过
+            {t('setup.skip')}
           </Button>
         ) : null}
         <Button type='submit' className='flex-1' disabled={pending}>
-          {pending ? '处理中…' : submit}
+          {pending ? t('setup.processing') : submit}
         </Button>
       </div>
     </div>

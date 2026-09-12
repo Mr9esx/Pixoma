@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/Mr9esx/Pixoma/internal/channels/domain"
 )
 
 type adapterState string
@@ -130,8 +132,9 @@ func (a *Assembler) reconcile(ctx context.Context) error {
 		}
 		credChanged := ma.snapshot.CredentialHash != snap.CredentialHash
 		ma.snapshot = snap
+		needsAdapter := snap.Enabled && snap.Platform != string(domain.PlatformMCP)
 		switch {
-		case !snap.Enabled:
+		case !needsAdapter:
 			if ad := detachIfActive(ma); ad != nil {
 				toStop = append(toStop, ad)
 			}

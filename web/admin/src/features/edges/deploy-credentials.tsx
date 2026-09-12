@@ -1,12 +1,10 @@
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { queryKeys } from '@/lib/api/query-keys'
 import { fetchPlatformSettings } from '@/lib/api/setup'
 import type { ComfyEdge } from '@/lib/api/types'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { SecretInput } from '@/components/secret-input'
@@ -99,10 +97,7 @@ export function DeployCredentials({
         >
           {t('edges.copyDeployCommand')}
         </Button>
-        <Alert variant='info'>
-          <Info aria-hidden />
-          <AlertDescription>{t('edges.deployComfyHint')}</AlertDescription>
-        </Alert>
+        {null}
       </div>
 
       {showToken ? (

@@ -36,7 +36,7 @@ const ACTION_KEYS: Record<ActionType, string> = {
   copy_text: 'menu.actionCopyText',
 }
 
-// 平台能力（Pixoma）/ TG 能力（Telegram 消息层）
+// 平台能力（Pixoma）/ Telegram 能力（Telegram 消息层）
 const WORKFLOW_CAPABILITIES: ActionType[] = ['open_workflow', 'list_tasks']
 const TG_PLATFORM_CAPABILITIES: ActionType[] = [
   'open_card',

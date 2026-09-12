@@ -14,12 +14,14 @@ type SecretInputProps = Omit<
   'type'
 > & {
   ref?: React.Ref<HTMLInputElement>
+  endAddon?: React.ReactNode
 }
 
 export function SecretInput({
   className,
   disabled,
   ref,
+  endAddon,
   ...props
 }: SecretInputProps) {
   const { t } = useTranslation()
@@ -46,6 +48,7 @@ export function SecretInput({
             {showSecret ? t('common.hideSecret') : t('common.showSecret')}
           </span>
         </InputGroupButton>
+        {endAddon}
       </InputGroupAddon>
     </InputGroup>
   )

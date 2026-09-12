@@ -136,7 +136,7 @@ func TestChannelScopedRoutes_ScopesToChannelID(t *testing.T) {
 	if got := st.Render(context.Background(), "ch-1", templates.KeyWelcome, nil); got != "消息平台欢迎" {
 		t.Fatalf("channel render: got %q", got)
 	}
-	if got := st.Render(context.Background(), "other-ch", templates.KeyWelcome, nil); got != "欢迎使用 Pixoma\n请选择功能：" {
+	if got := st.Render(context.Background(), "other-ch", templates.KeyWelcome, nil); got != "欢迎使用 Pixoma\n选择功能：" {
 		t.Fatalf("other channel should keep default: got %q", got)
 	}
 }

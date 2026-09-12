@@ -61,7 +61,9 @@ describe('channel layout aligned with compute nodes', () => {
     expect(route).not.toMatch(/await kickChannelProbe/)
     expect(route).not.toMatch(/checkChannelReachability/)
     expect(route).not.toMatch(/正在检测/)
-    expect(route).toMatch(/invalidateQueries\(\{\s*queryKey:\s*queryKeys\.linkHealth/)
+    expect(route).toMatch(
+      /invalidateQueries\(\{\s*queryKey:\s*queryKeys\.linkHealth/
+    )
   })
 
   it('detail panel reads stored last check and does not probe Telegram on open', () => {
@@ -118,7 +120,9 @@ describe('channel layout aligned with compute nodes', () => {
     expect(route).toMatch(/probeHasSettled/)
     expect(route).toMatch(/queryKeys\.channels\.all/)
     expect(route).toMatch(/queryKeys\.linkHealth/)
-    expect(route).not.toMatch(/setTimeout\(\(\) => \{[\s\S]*queryKeys\.linkHealth[\s\S]*\}, 3_000\)/)
+    expect(route).not.toMatch(
+      /setTimeout\(\(\) => \{[\s\S]*queryKeys\.linkHealth[\s\S]*\}, 3_000\)/
+    )
   })
 
   it('delete is available while enabled and shows impact', () => {
@@ -147,5 +151,50 @@ describe('channel layout aligned with compute nodes', () => {
     expect(menuChunk).toMatch(/SectionHead/)
     expect(menuChunk).toMatch(/channels\.tabMenu/)
     expect(menuChunk).not.toMatch(/kit\.cardWrap/)
+  })
+
+  it('create form picks Telegram or MCP and hides token for MCP', () => {
+    const form = readFileSync(join(here, 'create-channel-form.tsx'), 'utf8')
+    expect(form).toMatch(/platformTelegram/)
+    expect(form).toMatch(/platformMCP/)
+    expect(form).toMatch(/platform === 'mcp'/)
+    expect(form).toMatch(/platform === 'telegram'/)
+    expect(form).not.toMatch(/platform: 'telegram', name, token/)
+  })
+
+  it('mcp channel detail has user tokens and no bot token field', () => {
+    const detail = readFileSync(join(here, 'channel-detail-panel.tsx'), 'utf8')
+    const users = readFileSync(join(here, 'mcp-users-section.tsx'), 'utf8')
+    const zh = JSON.parse(
+      readFileSync(join(here, '../../lib/i18n/locales/zh.json'), 'utf8')
+    ) as { channels: Record<string, string> }
+    expect(detail).toMatch(/McpUsersSection/)
+    expect(detail).toMatch(/ch.platform === 'mcp'/)
+    expect(users).toMatch(/createMCPUser/)
+    expect(users).toMatch(/deleteMCPUser/)
+    expect(users).toMatch(/rotateMCPToken/)
+    expect(users).toMatch(/mcpRotateTitle/)
+    expect(users).toMatch(/mcpDeleteTitle/)
+    expect(users).toMatch(/common\.detail/)
+    expect(users).toMatch(/common\.delete/)
+    expect(users).toMatch(/ResourceDetailLayout/)
+    expect(users).toMatch(/fetchCurrentUser/)
+    expect(users).toMatch(/from '@\/components\/data-table\/data-table'/)
+    expect(users).toMatch(/<DataTable/)
+    expect(users).toMatch(/id: 'token'/)
+    expect(users).toMatch(/SecretInput/)
+    expect(users).toMatch(/endAddon/)
+    expect(users).toMatch(/mcpCopyClient/)
+    expect(users).toMatch(/mcpServers/)
+    expect(users).toMatch(/Authorization: `Bearer /)
+    expect(zh.channels.mcpCopyClient).toBe('复制配置')
+    expect(users).not.toMatch(/columnPinning/)
+    expect(users).not.toMatch(/users\.map\(\(u\) =>/)
+    expect(zh.channels.mcpRotateTitle).toBe('重新生成 MCP token？')
+    expect(zh.channels.mcpRotateDesc).toBe('旧 token 立刻作废。')
+    expect(zh.channels.mcpDeleteTitle).toBe('删除「{{name}}」？')
+    expect(zh.channels.mcpDeleteDesc).toBe('Token 立刻作废。')
+    expect(users).not.toMatch(/请/)
+    expect(users).not.toMatch(/温馨提示/)
   })
 })

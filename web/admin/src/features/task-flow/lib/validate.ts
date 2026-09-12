@@ -28,6 +28,11 @@ export interface RuleIssue {
   index: number
   kind: RuleIssueKind
   message: string
+  topic?: string
+  field?: string
+  label?: string
+  op?: string
+  ops?: string
 }
 
 interface ValidationResult {
@@ -63,7 +68,7 @@ export function validateRule(
     return {
       index,
       kind: 'topic-missing',
-      message: `规则 #${index + 1}：未连接目标 Topic（从右侧圆点拖线到 Topic）`,
+      message: `规则 #${index + 1}：未选择任务队列`,
     }
   }
   const record = topics.find((t) => t.key === topic)
@@ -71,21 +76,24 @@ export function validateRule(
     return {
       index,
       kind: 'topic-unknown',
-      message: `规则 #${index + 1}：目标 Topic「${topic}」不存在（引用已删除的 Topic）`,
+      topic,
+      message: `规则 #${index + 1}：目标任务队列「${topic}」不存在`,
     }
   }
   if (!record.enabled) {
     return {
       index,
       kind: 'topic-disabled',
-      message: `规则 #${index + 1}：目标 Topic「${topicName(topics, topic)}」已禁用，请先启用或改连其他 Topic`,
+      topic: topicName(topics, topic),
+      message: `规则 #${index + 1}：目标任务队列「${topicName(topics, topic)}」已停用`,
     }
   }
   if (boundTopicKeys && !boundTopicKeys.has(topic)) {
     return {
       index,
       kind: 'topic-unbound',
-      message: `规则 #${index + 1}：目标 Topic「${topicName(topics, topic)}」未绑定计算节点，请先为该 Topic 绑定启用节点`,
+      topic: topicName(topics, topic),
+      message: `规则 #${index + 1}：目标队列「${topicName(topics, topic)}」未绑定计算节点`,
     }
   }
   if ('always' in rule.when) return null
@@ -109,7 +117,7 @@ function validateCondition(
     if (c.and.length === 0) {
       return {
         kind: 'condition-empty-group',
-        message: 'AND 组合为空，请添加至少一个子条件',
+        message: 'AND 组合为空，添加至少一个子条件',
       }
     }
     for (const sub of c.and) {
@@ -122,7 +130,7 @@ function validateCondition(
     if (c.or.length === 0) {
       return {
         kind: 'condition-empty-group',
-        message: 'OR 组合为空，请添加至少一个子条件',
+        message: 'OR 组合为空，添加至少一个子条件',
       }
     }
     for (const sub of c.or) {
@@ -137,7 +145,8 @@ function validateCondition(
   if (!attr) {
     return {
       kind: 'condition-unknown-field',
-      message: `条件字段「${leaf.field}」未在属性目录注册，请重新选择字段`,
+      field: leaf.field,
+      message: `条件字段「${leaf.field}」未在属性目录注册，重新选择字段`,
     }
   }
   const type = attr.schema.type ?? 'string'
@@ -145,6 +154,9 @@ function validateCondition(
   if (!allowed.includes(leaf.op)) {
     return {
       kind: 'condition-bad-op',
+      label: attr.label,
+      op: leaf.op,
+      ops: allowed.join('、'),
       message: `字段「${attr.label}」不支持操作符「${leaf.op}」（可用：${allowed.join('、')}）`,
     }
   }
@@ -152,6 +164,7 @@ function validateCondition(
   if (!validateValue(leaf.value, attr, leaf.op)) {
     return {
       kind: 'condition-bad-value',
+      label: attr.label,
       message: `字段「${attr.label}」的值类型不正确`,
     }
   }
@@ -210,7 +223,7 @@ export function validateRouting(
   if (rules.length === 0) {
     return {
       issues: [
-        { index: -1, kind: 'routing-empty', message: '至少需要一条路由规则' },
+        { index: -1, kind: 'routing-empty', message: '至少添加一条处理规则' },
       ],
       valid: false,
       invalidIndexes,
@@ -224,4 +237,39 @@ export function validateRouting(
     }
   }
   return { issues, valid: issues.length === 0, invalidIndexes }
+}
+
+export function formatRuleIssue(
+  issue: RuleIssue,
+  t: (key: string, opts?: Record<string, unknown>) => string
+): string {
+  const n = issue.index + 1
+  switch (issue.kind) {
+    case 'routing-empty':
+      return t('taskFlow.empty')
+    case 'topic-missing':
+      return t('taskFlow.errTopicMissing', { n })
+    case 'topic-unknown':
+      return t('taskFlow.errTopicUnknown', { n, topic: issue.topic })
+    case 'topic-disabled':
+      return t('taskFlow.errTopicDisabled', { n, topic: issue.topic })
+    case 'topic-unbound':
+      return t('taskFlow.errTopicUnbound', { n, topic: issue.topic })
+    case 'condition-empty-group':
+      return issue.message.includes('OR')
+        ? t('taskFlow.errOrEmpty')
+        : t('taskFlow.errAndEmpty')
+    case 'condition-unknown-field':
+      return t('taskFlow.errUnknownField', { field: issue.field })
+    case 'condition-bad-op':
+      return t('taskFlow.errBadOp', {
+        label: issue.label,
+        op: issue.op,
+        ops: issue.ops,
+      })
+    case 'condition-bad-value':
+      return t('taskFlow.errBadValue', { label: issue.label })
+    default:
+      return issue.message
+  }
 }

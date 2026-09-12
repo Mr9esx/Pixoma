@@ -14,6 +14,7 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/platform/queue"
 	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
 )
 
 type ConfirmRunCmd struct {
@@ -28,6 +29,7 @@ type ConfirmRunResult struct {
 type Facade struct {
 	Cases        catalogdomain.Repository
 	Validator    catalogdomain.Validator
+	Users        identitydomain.Repository
 	Sessions     *convdomain.Service
 	SessionStore convdomain.Repository
 	Tasks        runtimedomain.TaskRepository

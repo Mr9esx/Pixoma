@@ -13,24 +13,25 @@ import (
 
 	"gorm.io/gorm"
 
-	gomysql "github.com/go-sql-driver/mysql"
-	"github.com/jackc/pgx/v5"
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	casepersist "github.com/Mr9esx/Pixoma/internal/cases/infrastructure/persistence"
 	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
-	sesspersist "github.com/Mr9esx/Pixoma/internal/sessions/infrastructure/persistence"
-	userpersist "github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
+	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	pixmcp "github.com/Mr9esx/Pixoma/internal/mcp"
 	mencardpersist "github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/platform/db"
-	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	sesspersist "github.com/Mr9esx/Pixoma/internal/sessions/infrastructure/persistence"
 	settingsdomain "github.com/Mr9esx/Pixoma/internal/settings/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
 	statspersist "github.com/Mr9esx/Pixoma/internal/stats/infrastructure/persistence"
-	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
-	topicpersist "github.com/Mr9esx/Pixoma/internal/topics/infrastructure/persistence"
 	taskdomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	runtimepersist "github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/persistence"
-	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
+	topicpersist "github.com/Mr9esx/Pixoma/internal/topics/infrastructure/persistence"
+	userpersist "github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
+	gomysql "github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v5"
 )
 
 func TestIntegration_FullMigrateAndRoundtrip(t *testing.T) {
@@ -153,6 +154,7 @@ func allBusinessModels() []any {
 		&statspersist.CaseDailyStatsRow{},
 		&topicpersist.TopicRow{},
 		&channelpersist.ChannelRow{},
+		&pixmcp.TokenRow{},
 		&mencardpersist.MainMenuRow{},
 		&mencardpersist.CardRow{},
 		&instpersist.EdgeRow{},

@@ -13,6 +13,7 @@ import (
 	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
 	textpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
 	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	pixmcp "github.com/Mr9esx/Pixoma/internal/mcp"
 	mencardpersist "github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
 	sesspersist "github.com/Mr9esx/Pixoma/internal/sessions/infrastructure/persistence"
 	taskstatspersist "github.com/Mr9esx/Pixoma/internal/stats/infrastructure/persistence"
@@ -47,6 +48,7 @@ func OpenDatabase() (*gorm.DB, func() error, error) {
 		&taskstatspersist.CaseDailyStatsRow{},
 		&topicpersist.TopicRow{},
 		&channelpersist.ChannelRow{},
+		&pixmcp.TokenRow{},
 		&textpersist.Row{},
 		&mencardpersist.MainMenuRow{},
 		&mencardpersist.CardRow{},

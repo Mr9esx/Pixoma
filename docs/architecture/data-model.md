@@ -167,7 +167,7 @@ Edge 心跳上报的实时系统指标快照，整快照 JSON 一列，写入时
 
 ### 2.4a `platform_settings`
 
-业务库单行配置：部署位置（local/remote）、blob 驱动、密文 Token/密钥、是否开放控制台自助注册（`allow_self_registration`）、新频道用户默认使用权限（`default_user_access`：`always_allowed` / `paid` / `denied`，缺省 `denied`，只作用于新建用户）。不含 `queue.driver`。
+业务库单行配置：部署位置（local/remote）、blob 驱动、密文 Token/密钥、是否开放控制台自助注册（`allow_self_registration`）、新频道用户默认使用权限（`default_user_access`：`always_allowed` / `paid` / `denied`，缺省 `denied`，只作用于新建用户）。不含 `queue.driver`。**不含 MCP 总密钥**（MCP Bearer 按用户存在 `mcp_user_tokens`）。
 
 引导态 `bootstrap_meta`（本机 `bootstrap.db`）：initialized、管理员哈希、业务库 driver/DSN、enc key、向导进度。 |
 
@@ -190,6 +190,19 @@ Edge 心跳上报的实时系统指标快照，整快照 JSON 一列，写入时
 `task_error_daily_stats`：PK `(stat_date, error_code)`，`count` 为每日错误码出现次数（仅非空 error_code）。
 
 `task_case_daily_stats`：PK `(stat_date, case_id)`，`count` 与 `total_duration_ms` 为按 Case 聚合的终态任务数与耗时累计（Case 热度与耗时散点数据源）。
+
+### 2.4d `mcp_user_tokens`
+
+MCP 消息平台（`channels.platform = mcp`）上每个内部用户一把 Bearer。明文只在签发 / 管理员读取 API 返回；库内只存 hash 与 AES-GCM 密文（与节点 `AGENT_TOKEN` 同套密钥）。
+
+| 列 | 约束 | 说明 |
+|---|---|---|
+| user_id | PK | → `channel_users.id` |
+| token_hash | UNIQUE NOT NULL | sha256 hex |
+| token_cipher | TEXT NOT NULL | 可解密供 admin/operator 复制 |
+| created_at, updated_at | | |
+
+MCP 用户行在 `channel_users` + `channel_user_external_identities`（`external_user_id` 形如 `mcp-<uuid>`，Access 默认 `always_allowed`）。停用该 MCP 渠道后，其 Bearer 全部 401。`ReachabilityProbe` 跳过 `platform=mcp`。
 
 ### 2.5 `catalog_cases`（既有）
 
@@ -270,6 +283,7 @@ Telegram 主 ReplyKeyboard 配置真相源，**关系型树**（非 JSON 文档�
 ```mermaid
 erDiagram
   users ||--o{ sessions : "user_id"
+  users ||--o| mcp_user_tokens : "user_id（MCP）"
   sessions ||--o{ tasks : "session_id"
   catalog_cases ||--o{ sessions : "case_id (逻辑)"
   catalog_cases ||--o{ tasks : "case_id (逻辑)"
@@ -289,6 +303,12 @@ erDiagram
     bool is_bot
     bool is_premium
     datetime last_seen_at
+  }
+
+  mcp_user_tokens {
+    string user_id PK
+    string token_hash UK
+    text token_cipher
   }
 
   sessions {
@@ -429,7 +449,7 @@ flowchart LR
 | `GET .../{id}/tasks` | `tasks WHERE edge_id=?` |
 | `GET .../{id}/stats` | 该节点任务数 / 累计耗时 / 成功率 |
 | `GET /api/v1/link-health` | 组装器拼图后的 nodes/edges/health；热路径不探测外部 |
-| `POST /api/v1/channels/probe` | 立刻 202，后台对已启用通道跑 `ReachabilityProbe.ProbeOnce` |
+| `POST /api/v1/channels/probe` | 立刻 202，后台对已启用 **IM** 通道跑 `ReachabilityProbe.ProbeOnce`（跳过 mcp） |
 
 ---
 
@@ -447,7 +467,8 @@ flowchart LR
 
 | 表 / 能力 | 包路径 |
 |---|---|
-| users | `internal/users/infrastructure/persistence` |
+| users | `internal/users/infrastructure/persistence`（表 `channel_users`） |
+| mcp_user_tokens | `internal/mcp`；HTTP `GET/POST /api/v1/users/{id}/mcp-token*`、`POST/DELETE /api/v1/channels/{id}/mcp-users` |
 | sessions | `internal/sessions/infrastructure/persistence` |
 | tasks | `internal/tasks/infrastructure/persistence` |
 | edges / Pool | `internal/edge` |

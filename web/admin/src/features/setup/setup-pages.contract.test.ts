@@ -88,10 +88,11 @@ describe('login and setup pages', () => {
     expect(cardStart).toBeGreaterThan(expiredAlert)
   })
 
-  it('uses the auth-shell blockquote as a real elevator pitch, not an onboarding summary', () => {
+  it('uses the auth-shell quote under the logo, not an onboarding summary', () => {
     const shell = read('src/features/setup/auth-shell.tsx')
-    // New pitch text: the product's core value prop
     expect(shell).toMatch(/t\('auth\.quote'\)/)
+    expect(shell).toMatch(/text-xs/)
+    expect(shell).not.toContain('<blockquote')
     // Old onboarding-summary phrases must not return
     expect(shell).not.toMatch(/先登录后台/)
     expect(shell).not.toMatch(/还没配过/)
@@ -104,7 +105,7 @@ describe('login and setup pages', () => {
 
   it('uses multi-step only on the setup wizard and allows going back', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
-    expect(wizard).toMatch(/上一步/)
+    expect(wizard).toMatch(/setup\.back/)
     expect(wizard).toMatch(/previousSetupStep/)
     expect(wizard).toMatch(/steps\.length/)
   })
@@ -112,7 +113,8 @@ describe('login and setup pages', () => {
   it('keeps the password step description short and action-direct', () => {
     const steps = read('src/features/setup/setup-steps.ts')
     // New: short, single-sentence, action-direct
-    expect(steps).toMatch(/设个新的管理员密码/)
+    expect(steps).toMatch(/title: 'setup.passwordTitle'/)
+    expect(steps).toMatch(/desc: ''/)
     // Old rambling patterns must not return
     expect(steps).not.toMatch(/登录已经验证过/)
     expect(steps).not.toMatch(/启动密码/)
@@ -126,11 +128,11 @@ describe('login and setup pages', () => {
     const steps = read('src/features/setup/setup-steps.ts')
     const wizard = read('src/features/setup/setup-wizard.tsx')
     // Title is the generic config noun; the step is self-explanatory, so desc is empty
-    expect(steps).toMatch(/title: '数据库配置'/)
+    expect(steps).toMatch(/title: 'setup.databaseTitle'/)
     expect(steps).toMatch(
-      /database: \{[\s\S]*?title: '数据库配置',\s*desc: '',/
+      /database: \{[\s\S]*?title: 'setup.databaseTitle',\s*desc: '',/
     )
-    expect(steps).toMatch(/submit: '继续'/)
+    expect(steps).toMatch(/submit: 'setup.continue'/)
     // Database step uses a structured per-driver form, not a raw one-line DSN
     expect(wizard).toMatch(/htmlFor='db-driver'/)
     expect(wizard).toMatch(/htmlFor='db-sqlite-path'/)
@@ -156,7 +158,7 @@ describe('login and setup pages', () => {
     expect(wizard).not.toMatch(/ComfyUI 节点/)
     expect(steps).not.toMatch(/ComfyUI 节点/)
     expect(wizard).toMatch(/comfyui_base_url: ''/)
-    expect(wizard).toMatch(/暂时跳过/)
+    expect(wizard).toMatch(/setup\.skip/)
   })
 
   it('asks for the new password twice and no longer collects a Telegram token', () => {
@@ -191,7 +193,7 @@ describe('login and setup pages', () => {
 
   it('lets users append extra connection parameters without a raw DSN editor', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
-    expect(wizard).toMatch(/label='附加参数' htmlFor='db-extra-params'/)
+    expect(wizard).toMatch(/htmlFor='db-extra-params'/)
     expect(wizard).toMatch(/setDbExtraParams/)
     expect(wizard).toMatch(/params: dbExtraParams/)
     expect(wizard).not.toMatch(/高级：直接输入 DSN/)
@@ -209,14 +211,14 @@ describe('login and setup pages', () => {
 
   it('splits connectivity test and continue into separate buttons', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
-    expect(wizard).toMatch(/连通性测试/)
+    expect(wizard).toMatch(/setup\.testConn/)
     expect(wizard).toMatch(/testDatabase\(driver, dsn\)/)
     expect(wizard).toMatch(/setDbTested\(true\)/)
     expect(wizard).not.toMatch(/测连通并继续/)
     expect(wizard).not.toMatch(/submitDisabled/)
     expect(wizard).toMatch(/setStep\('storage'\)/)
     expect(wizard).toMatch(/Alert variant='success'/)
-    expect(wizard).toMatch(/AlertTitle>连接正常<\/AlertTitle>/)
+    expect(wizard).toMatch(/setup\.connectionOk/)
     expect(wizard).toMatch(/CircleCheck/)
     expect(wizard).not.toMatch(/text-emerald-600/)
     expect(wizard).toMatch(
@@ -239,24 +241,22 @@ describe('login and setup pages', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
     expect(wizard).toMatch(/testBlob\(/)
     expect(wizard).toMatch(/bucket_not_found/)
-    expect(wizard).toMatch(/帮你创建/)
+    expect(wizard).toMatch(/setup\.bucketMissing/)
     expect(wizard).toMatch(/auto_create_bucket/)
     expect(wizard).toMatch(/Alert variant='info'/)
-    expect(wizard).not.toMatch(/variant='ghost'[\s\S]*?取消/)
-    expect(wizard).toMatch(/variant='outline'[\s\S]*?取消/)
-    expect(wizard).not.toMatch(/variant='outline'[\s\S]*?创建/)
+    expect(wizard).not.toMatch(/variant='ghost'[\s\S]*?common\.cancel/)
+    expect(wizard).toMatch(/variant='outline'[\s\S]*?common\.cancel/)
+    expect(wizard).not.toMatch(/variant='outline'[\s\S]*?setup\.createBucket/)
   })
 
   it('uses storage step copy and warns for localfs', () => {
     const steps = read('src/features/setup/setup-steps.ts')
     const wizard = read('src/features/setup/setup-wizard.tsx')
-    expect(steps).toMatch(/title: '文件存储配置'/)
-    expect(steps).toMatch(/desc: '决定了生成的图和视频存放的位置。'/)
-    expect(wizard).toMatch(/AlertTitle>注意！<\/AlertTitle>/)
+    expect(steps).toMatch(/title: 'setup.storageTitle'/)
+    expect(steps).toMatch(/submit: 'setup.saveAndRestart'/)
+    expect(wizard).toMatch(/setup\.localfsTitle/)
     expect(wizard).toMatch(/AlertDescription>/)
-    expect(wizard).toMatch(
-      /这个配置只适合\s+ComfyUI\s+和后台在同一台机器上使用，无法使用远程节点。/
-    )
+    expect(wizard).toMatch(/setup\.localfsBody/)
     expect(wizard).not.toMatch(/<br \/>/)
     expect(wizard).toMatch(/blobDriver === 'localfs'/)
     expect(wizard).toMatch(/Alert variant='warn'/)
@@ -280,15 +280,14 @@ describe('login and setup pages', () => {
   it('offers shared directory (SMB/NFS) with mount guidance', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
     const alert = read('src/components/ui/alert.tsx')
-    expect(wizard).toMatch(/共享目录（SMB \/ NFS）/)
+    expect(wizard).toMatch(/setup\.sharedfsLabel/)
     expect(wizard).toMatch(/SelectItem value='sharedfs'/)
-    expect(wizard).toMatch(/mount -t nfs/)
-    expect(wizard).toMatch(/mount -t cifs/)
-    expect(wizard).toMatch(/<server-ip>/)
+    expect(wizard).not.toMatch(/mount -t nfs/)
+    expect(wizard).not.toMatch(/mount -t cifs/)
+    expect(wizard).toMatch(/setup\.endpointPlaceholder/)
     expect(wizard).not.toMatch(/192\.168\./)
     expect(wizard).toMatch(/blobDriver === 'sharedfs'/)
-    expect(wizard).toMatch(/MinIO/)
-    expect(wizard).toMatch(/overflow-x-auto/)
+    expect(wizard).not.toMatch(/MinIO/)
     expect(alert).toMatch(/data-slot='alert-description'[\s\S]*?min-w-0/)
     expect(wizard).toMatch(
       /placement: blobDriver === 'localfs' \? 'local' : 'remote'/

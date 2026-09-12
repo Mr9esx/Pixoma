@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { User, XIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   fetchMediaBlob,
   isAllowedMedia,
@@ -101,6 +102,7 @@ function useAvatarObjectUrl(value?: string): string | undefined {
 
 /** 头像上传：一个 134×134 圆形头像 Attachment，图片裁成正方形后上传。 */
 export function AvatarUpload({ id, value, onChange, disabled }: Props) {
+  const { t } = useTranslation()
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | undefined>()
@@ -112,7 +114,7 @@ export function AvatarUpload({ id, value, onChange, disabled }: Props) {
     if (!file) return
     setError(undefined)
     if (!isAllowedMedia(file.type, file.name)) {
-      setError('仅支持 png / jpeg / webp / gif 图片')
+      setError(t('media.errorType'))
       return
     }
     if (file.size > maxBytes) {
@@ -167,7 +169,7 @@ export function AvatarUpload({ id, value, onChange, disabled }: Props) {
               variant='outline'
               size='icon-xs'
               className='size-6 rounded-full border bg-background text-muted-foreground hover:text-destructive'
-              aria-label='移除头像'
+              aria-label={t('a11y.removeAvatar')}
               title='移除头像'
               onClick={() => onChange(undefined)}
             >

@@ -12,7 +12,7 @@ function read(rel: string) {
 describe('setup wizard admin profile step', () => {
   it('inserts the「如何称呼您」step right after password', () => {
     const steps = read('src/features/setup/setup-steps.ts')
-    expect(steps).toMatch(/title: '如何称呼您'/)
+    expect(steps).toMatch(/title: 'setup.nicknameTitle'/)
     const idx = steps.indexOf("'profile'")
     const pwdIdx = steps.indexOf("'password'")
     expect(idx).toBeGreaterThan(pwdIdx)

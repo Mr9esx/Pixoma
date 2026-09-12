@@ -83,10 +83,15 @@ export function ChannelListPanel({
         <ul className='min-h-0 flex-1 divide-y overflow-auto'>
           {filtered.map((ch) => {
             const selected = selectedId === ch.id
-            const problems = healthProblems(
-              healthReady ? healthByChannel?.[ch.id] : undefined,
-              healthReady
-            )
+            const problems =
+              ch.platform === 'mcp'
+                ? ch.enabled
+                  ? 0
+                  : 1
+                : healthProblems(
+                    healthReady ? healthByChannel?.[ch.id] : undefined,
+                    healthReady
+                  )
             return (
               <li key={ch.id}>
                 <Link
@@ -109,7 +114,9 @@ export function ChannelListPanel({
                     />
                   </div>
                   <div className='mt-0.5 truncate text-xs text-muted-foreground'>
-                    {ch.platform} · {ch.token_masked}
+                    {ch.platform === 'mcp' || !ch.token_masked
+                      ? ch.platform
+                      : `${ch.platform} · ${ch.token_masked}`}
                   </div>
                 </Link>
               </li>

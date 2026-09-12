@@ -362,10 +362,7 @@ export function CaseDetailPanel({ id }: Props) {
       ) : null}
 
       <section className='flex flex-col gap-4'>
-        <SectionHead
-          title={t('cases.sectionConfig')}
-          hint={t('cases.sectionConfigHint')}
-        />
+        <SectionHead title={t('cases.sectionConfig')} />
         <WorkflowConfigView
           record={record}
           onSaved={(next) =>

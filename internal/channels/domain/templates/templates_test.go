@@ -38,14 +38,14 @@ func openStore(t *testing.T, name string) (*textpersist.Store, context.Context) 
 }
 
 func TestDefaultReturnsBuiltins(t *testing.T) {
-	want := "✅ 工作流完成\ntask={{ task_id }}"
+	want := "工作流已完成\ntask={{ task_id }}"
 	if got := templates.Default(templates.KeyWorkflowDone); got != want {
 		t.Fatalf("default workflow_done: got %q want %q", got, want)
 	}
 	if got := templates.Default("unknown-key"); got != "" {
 		t.Fatalf("unknown key should be empty: got %q", got)
 	}
-	if got := templates.Default(templates.KeyTaskFailed); got != "❌ 任务执行失败\ntask={{ task_id }}\n状态：{{ status }}\n{{ error_msg }}" {
+	if got := templates.Default(templates.KeyTaskFailed); got != "任务执行失败\ntask={{ task_id }}\n状态：{{ status }}\n{{ error_msg }}" {
 		t.Fatalf("default task_failed: got %q", got)
 	}
 	if got := templates.Default(templates.KeyTaskCancelled); got != "任务已取消\ntask={{ task_id }}" {
@@ -97,14 +97,14 @@ func TestSpecsExposeGroupsAndInteractionKeys(t *testing.T) {
 		{key: templates.KeyMenuUpdated, group: templates.GroupPlatform},
 		{key: templates.KeyTaskFailed, group: templates.GroupNotifications},
 		{key: templates.KeyTaskCancelled, group: templates.GroupNotifications},
-		{key: templates.KeyPreviewHintLabel, group: templates.GroupWorkflow, defalt: "预览说明："},
-		{key: templates.KeyButtonStartCase, group: templates.GroupWorkflow, defalt: "▶ 开始 Case"},
-		{key: templates.KeyInputInvalidNumber, group: templates.GroupWorkflow, defalt: "请输入合法数字，例如 42"},
-		{key: templates.KeyInputInvalidBoolean, group: templates.GroupWorkflow, defalt: "请输入 true 或 false"},
+		{key: templates.KeyPreviewHintLabel, group: templates.GroupWorkflow, defalt: "预览："},
+		{key: templates.KeyButtonStartCase, group: templates.GroupWorkflow, defalt: "开始工作流"},
+		{key: templates.KeyInputInvalidNumber, group: templates.GroupWorkflow, defalt: "输入合法数字，例如 42"},
+		{key: templates.KeyInputInvalidBoolean, group: templates.GroupWorkflow, defalt: "输入 true 或 false"},
 		{key: templates.KeyButtonSkip, group: templates.GroupWorkflow, defalt: "跳过"},
-		{key: templates.KeyButtonConfirmRun, group: templates.GroupWorkflow, defalt: "✅ 确认生成"},
-		{key: templates.KeyButtonExit, group: templates.GroupWorkflow, defalt: "✕ 退出"},
-		{key: templates.KeySessionTerminated, group: templates.GroupNotifications, defalt: "该工作流已被管理员删除，当前会话已结束。"},
+		{key: templates.KeyButtonConfirmRun, group: templates.GroupWorkflow, defalt: "确认生成"},
+		{key: templates.KeyButtonExit, group: templates.GroupWorkflow, defalt: "退出"},
+		{key: templates.KeySessionTerminated, group: templates.GroupNotifications, defalt: "该工作流已被删除，当前会话已结束。"},
 		{key: templates.KeyListTasks, group: templates.GroupPlatform, defalt: "我的任务\n\n当前任务\n{{ current }}\n\n最近任务\n{{ recent }}"},
 	} {
 		spec, ok := byKey[item.key]
@@ -123,7 +123,7 @@ func TestSpecsExposeGroupsAndInteractionKeys(t *testing.T) {
 func TestStore_RenderUsesOverrideAndChannelPrecedence(t *testing.T) {
 	st, ctx := openStore(t, "text_test")
 	// built-in default before any override
-	if got := st.Render(ctx, "ch", templates.KeyWorkflowDone, map[string]string{"task_id": "T1"}); got != "✅ 工作流完成\ntask=T1" {
+	if got := st.Render(ctx, "ch", templates.KeyWorkflowDone, map[string]string{"task_id": "T1"}); got != "工作流已完成\ntask=T1" {
 		t.Fatalf("builtin render: got %q", got)
 	}
 	// platform default override applies to a channel without its own override
@@ -164,7 +164,7 @@ func TestStore_SeedMaterializesEffectiveDefaults(t *testing.T) {
 		t.Fatalf("seeded override: got %q", got)
 	}
 	// a key without a global override falls back to built-in, still renderable
-	if got := st.Render(ctx, "ch-new", templates.KeyWelcome, nil); got != "欢迎使用 Pixoma\n请选择功能：" {
+	if got := st.Render(ctx, "ch-new", templates.KeyWelcome, nil); got != "欢迎使用 Pixoma\n选择功能：" {
 		t.Fatalf("seeded builtin fallback: got %q", got)
 	}
 }

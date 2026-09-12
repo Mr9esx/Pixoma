@@ -71,7 +71,7 @@ func TestRenderResultBackButton(t *testing.T) {
 	if len(texts[0]) == 0 || !isInvokeData(data[0][0]) {
 		t.Fatalf("row0=%+v", texts[0])
 	}
-	if texts[1][0] != "⬅️ 返回" || data[1][0] != "mb:group-1" {
+	if texts[1][0] != "返回" || data[1][0] != "mb:group-1" {
 		t.Fatalf("back=%+v data=%+v", texts[1], data[1])
 	}
 
@@ -107,7 +107,7 @@ func TestRenderResultMediaWithOptionsDoesNotRepeatText(t *testing.T) {
 	res := protocol.Result{
 		Text:    "📎 Flux\n好工作流",
 		Media:   []protocol.MediaRef{{Key: "previews/a.png", MIME: "image/png"}},
-		Options: []protocol.Option{{Label: "▶ 开始 Case", Value: map[string]any{"step": "start"}}},
+		Options: []protocol.Option{{Label: "开始工作流", Value: map[string]any{"step": "start"}}},
 	}
 	if err := ad.renderResult(context.Background(), addr, "tg-default:1", base, res); err != nil {
 		t.Fatal(err)
@@ -124,7 +124,7 @@ func TestRenderResultMediaWithOptionsDoesNotRepeatText(t *testing.T) {
 		t.Fatalf("inline keyboard rows = %+v (want at least 2)", texts)
 	}
 	// First row is the option button; last row is the back button.
-	if texts[0][0] != "▶ 开始 Case" {
+	if texts[0][0] != "开始工作流" {
 		t.Fatalf("start button = %+v", texts[0])
 	}
 }
@@ -176,7 +176,7 @@ func TestActionDispatchOpenCardSendsCard(t *testing.T) {
 		t.Fatalf("row0=%+v", texts[0])
 	}
 	last := len(texts) - 1
-	if texts[last][0] != "‹ 返回" || data[last][0] != CBMenuBack+"root" {
+	if texts[last][0] != "返回" || data[last][0] != CBMenuBack+"root" {
 		t.Fatalf("back=%+v", texts[last])
 	}
 }
@@ -239,7 +239,7 @@ func (r *recordOpenCase) Invoke(_ context.Context, _ protocol.AccountCtx, _ prot
 	r.params = params
 	return protocol.Result{
 		Text:    "📎 图片 B",
-		Options: []protocol.Option{{Label: "▶ 开始 Case", Value: map[string]any{"step": "start", "case_id": "10"}}},
+		Options: []protocol.Option{{Label: "开始工作流", Value: map[string]any{"step": "start", "case_id": "10"}}},
 	}, nil
 }
 

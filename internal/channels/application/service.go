@@ -52,7 +52,13 @@ func (s *Service) Create(ctx context.Context, id string, platform domain.Platfor
 	if !domain.ValidPlatform(platform) {
 		return domain.Channel{}, fmt.Errorf("channel: unsupported platform %q", platform)
 	}
-	if id == "" || token == "" {
+	if id == "" {
+		return domain.Channel{}, fmt.Errorf("channel: id required")
+	}
+	if platform == domain.PlatformMCP && strings.TrimSpace(name) == "" {
+		return domain.Channel{}, fmt.Errorf("channel: name required")
+	}
+	if platform != domain.PlatformMCP && token == "" {
 		return domain.Channel{}, fmt.Errorf("channel: id/token required")
 	}
 	if extraInfo == "" && platform == domain.PlatformTelegram {
@@ -119,6 +125,9 @@ func (s *Service) CheckReachability(ctx context.Context, id string) (Reachabilit
 	ch, err := s.Store.Get(ctx, id)
 	if err != nil {
 		return ReachabilityResult{}, err
+	}
+	if ch.Platform == string(domain.PlatformMCP) {
+		return ReachabilityResult{OK: true, Kind: ReachabilityOK}, nil
 	}
 	cred, err := domain.DecryptCredential(s.Key, ch.CredentialCiphertext)
 	if err != nil {

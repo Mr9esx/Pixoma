@@ -121,12 +121,7 @@ export function LinkHealthSection({
                     </Link>
                   )}
                 </div>
-                <p
-                  className='text-sm text-muted-foreground'
-                  data-testid='link-health-guide'
-                >
-                  {t('linkHealth.howToHandle')}：{t(b.guide)}
-                </p>
+                {null}
               </li>
             ))}
           </ul>

@@ -250,8 +250,8 @@ export function MenuPuckEditor({ channelId }: { channelId: string }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('menu.discardEdits')}</AlertDialogTitle>
-            <AlertDialogDescription className='sr-only'>
-              {t('menu.discardEdits')}
+            <AlertDialogDescription>
+              {t('menu.discardEditsDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -46,8 +46,8 @@ func DefaultMenuTree(channelID string) MenuTree {
 		ID:      channelID,
 		Columns: 2,
 		Items: []TreeButton{
-			{ID: "mi-image", Label: "🖼 图片生成", Action: TreeAction{Type: "open_workflow", WorkflowID: "default-image"}},
-			{ID: "mi-help", Label: "🆘 帮助", Action: TreeAction{Type: "send_text", Text: "请使用主菜单中的功能。"}},
+			{ID: "mi-image", Label: "图片生成", Action: TreeAction{Type: "open_workflow", WorkflowID: "default-image"}},
+			{ID: "mi-help", Label: "帮助", Action: TreeAction{Type: "send_text", Text: "使用主菜单中的功能。"}},
 		},
 	}
 }

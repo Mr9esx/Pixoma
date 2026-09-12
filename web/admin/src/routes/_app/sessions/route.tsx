@@ -35,9 +35,6 @@ function SessionsLayout() {
         <h1 className='truncate text-2xl leading-tight font-semibold tracking-tight'>
           {t('sessions.title')}
         </h1>
-        <p className='text-sm text-muted-foreground'>
-          {t('sessions.description')}
-        </p>
       </div>
 
       <SessionListPanel

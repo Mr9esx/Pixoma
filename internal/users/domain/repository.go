@@ -25,4 +25,5 @@ type Repository interface {
 	GetByID(ctx context.Context, id string) (*User, error)
 	SetAccess(ctx context.Context, id string, access UserAccess) (*User, error)
 	List(ctx context.Context, q ListQuery) ([]*User, error)
+	Delete(ctx context.Context, id string) error
 }

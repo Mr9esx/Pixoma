@@ -1,5 +1,5 @@
-# Bot example config (phase 1)
-# Copy to configs/bot.yaml or set BOT_CONFIG=/path/to/file
+# Bot 配置示例
+# 复制为 configs/bot.yaml 后修改，或用 BOT_CONFIG 指定文件
 
 http_addr: ":8080"
 database_dsn: "file:data/app.db?cache=shared&_pragma=foreign_keys(1)"

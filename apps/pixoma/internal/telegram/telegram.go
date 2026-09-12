@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -70,6 +71,7 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 	facade := &botapp.Facade{
 		Cases:        deps.Cases,
 		Validator:    validation.New(),
+		Users:        deps.Users,
 		Sessions:     deps.Sessions,
 		SessionStore: deps.SessionStore,
 		Tasks:        deps.Tasks,
@@ -83,6 +85,13 @@ func StartBotRuntime(ctx context.Context, deps BotDeps) (*BotRuntime, error) {
 	registry := &notifyRegistry{handlers: map[string]channelapp.NotifyHandler{}}
 	router := &channelapp.NotifyRouter{
 		HandlerByChannel: registry.lookup,
+		PlatformOf: func(ctx context.Context, id string) (string, bool) {
+			ch, err := deps.Channels.Get(ctx, id)
+			if err != nil {
+				return "", false
+			}
+			return ch.Platform, true
+		},
 	}
 	factory := &tgChannelFactory{
 		facade:   facade,
@@ -233,6 +242,9 @@ func newCapabilityRegistry(facade *botapp.Facade, texts templates.Renderer, user
 }
 
 func (f *tgChannelFactory) Create(snap channelapp.ChannelSnapshot) (channelapp.Adapter, error) {
+	if snap.Platform == string(channeldomain.PlatformMCP) {
+		return nil, fmt.Errorf("channel: mcp has no IM adapter")
+	}
 	menuReader := channelMenuReader{cards: f.deps.MenuCards, channelID: snap.ID}
 	// Skip getMe here: bot.New's default 5s probe would hold assembler
 	// restart under Telegram RTT. Reachability belongs to ReachabilityProbe.

@@ -15,7 +15,7 @@ import (
 
 func TestFormatMyTasksEmpty(t *testing.T) {
 	got := FormatMyTasks(nil, nil, time.Now(), shanghai())
-	want := "我的任务\n\n当前任务\n✅ 当前没有排队中的任务\n\n最近任务\n"
+	want := "我的任务\n\n当前任务\n当前没有排队中的任务\n\n最近任务\n"
 	if got != want {
 		t.Fatalf("got=%q want=%q", got, want)
 	}
@@ -47,13 +47,13 @@ func TestFormatMyTasksCurrentAndRecent(t *testing.T) {
 	if !strings.Contains(got, "我的任务\n\n当前任务\n") {
 		t.Fatalf("missing current header: %q", got)
 	}
-	if !strings.Contains(got, "⏳ #r1 · 后入高潮痉挛 · 执行中 · 已跑 3分12秒") {
+	if !strings.Contains(got, "#r1 · 后入高潮痉挛 · 运行中 · 3 分 12 秒") {
 		t.Fatalf("running line: %q", got)
 	}
-	if !strings.Contains(got, "🕒 #q1 · 口交 · 排队中 · 等了 1分05秒") {
+	if !strings.Contains(got, "#q1 · 口交 · 排队中 · 1 分 05 秒") {
 		t.Fatalf("queued line: %q", got)
 	}
-	if !strings.Contains(got, "最近任务\n✅ #1120186 · 后入高潮痉挛 · 已完成 · 08-30 07:50") {
+	if !strings.Contains(got, "最近任务\n#1120186 · 后入高潮痉挛 · 成功 · 08-30 07:50") {
 		t.Fatalf("recent line: %q", got)
 	}
 	if strings.Contains(got, "当前没有排队中的任务") {
@@ -74,7 +74,7 @@ func TestFormatMyTasksRecentCapAndNoRecentSection(t *testing.T) {
 		tasks = append(tasks, t0)
 	}
 	got := FormatMyTasks(tasks, map[sharedkernel.CaseID]string{1: "口交"}, now, loc)
-	if strings.Count(got, "✅ #") != 8 {
+	if strings.Count(got, " · 成功 · ") != 8 {
 		t.Fatalf("recent cap: %q", got)
 	}
 
@@ -132,7 +132,7 @@ func TestListTasksInvoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(res.Text, "✅ #1120186 · 后入高潮痉挛 · 已完成 · 08-30 07:50") {
+	if !strings.Contains(res.Text, "#1120186 · 后入高潮痉挛 · 成功 · 08-30 07:50") {
 		t.Fatalf("text=%q", res.Text)
 	}
 }
@@ -154,7 +154,7 @@ func TestListTasksUsesTextTemplates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Text != "任务清单\n\n✅ 当前没有排队中的任务" {
+	if res.Text != "任务清单\n\n当前没有排队中的任务" {
 		t.Fatalf("text=%q", res.Text)
 	}
 }

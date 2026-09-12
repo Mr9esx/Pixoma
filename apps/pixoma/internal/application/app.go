@@ -46,6 +46,7 @@ import (
 	tasksapi "github.com/Mr9esx/Pixoma/internal/httpapi/tasks"
 	topicsapi "github.com/Mr9esx/Pixoma/internal/httpapi/topics"
 	usersapi "github.com/Mr9esx/Pixoma/internal/httpapi/users"
+	pixmcp "github.com/Mr9esx/Pixoma/internal/mcp"
 	mencardpersist "github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
 	packlink "github.com/Mr9esx/Pixoma/internal/packaging/linkhealth"
 	"github.com/Mr9esx/Pixoma/internal/platform/appboot"
@@ -218,6 +219,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 			&taskstatspersist.CaseDailyStatsRow{},
 			&topicpersist.TopicRow{},
 			&channelpersist.ChannelRow{},
+			&pixmcp.TokenRow{},
 			&mencardpersist.MainMenuRow{},
 			&mencardpersist.CardRow{},
 		},
@@ -277,6 +279,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	userRepo.SetDefaultAccess(func() identitydomain.UserAccess {
 		return identitydomain.NormalizeUserAccess(cfg.DefaultUserAccess)
 	})
+	mcpTokens := pixmcp.NewGormTokenStore(gdb)
 	consoleRepo := consolepersist.NewConsoleUserRepository(gdb)
 	sessionRepo := sesspersist.NewSessionRepository(gdb)
 	sessSvc := convdomain.NewService(sessionRepo, func() sharedkernel.SessionID {
@@ -361,7 +364,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 			return validation.ValidateRouting(context.Background(), doc.Routing, topicRepo, conditionReg)
 		}, DeleteWithCleanup: caseDeleteSvc.DeleteCase},
 		AdminUsers: &adminusersapi.Handler{Repo: consoleRepo},
-		Users:      &usersapi.Handler{Repo: userRepo, Channels: channelStore},
+		Users:      &usersapi.Handler{Repo: userRepo, Channels: channelStore, Tokens: mcpTokens, Key: encKey, ChannelGet: chSvc},
 		Sessions:   &sessionsapi.Handler{Repo: sessionRepo, Channels: channelStore, Context: sesspersist.NewSessionAdminProjection(gdb)},
 		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Cancel: orch, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
@@ -372,6 +375,9 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 			},
 			Probe:    botRT.Probe,
 			ProbeCtx: runCtx,
+			Users:    userRepo,
+			Tokens:   mcpTokens,
+			Key:      encKey,
 		},
 		MenuHandler: channelsapi.NewMenuHandler(menuRepo),
 		Topics: &topicsapi.Handler{
@@ -415,6 +421,12 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	r.Use(adminhost.RequestBodyLimit(requestBodyLimit(cfg)))
 	r.Use(adminhost.CORS(corsOrigins()))
 	r.Use(gate.Middleware)
+	mcpH := pixmcp.NewHandler(pixmcp.Deps{
+		Facade:   botRT.Facade,
+		Resolver: pixmcp.NewResolver(mcpTokens, userRepo, chSvc, encKey),
+	})
+	r.Handle("/mcp", mcpH)
+	r.Handle("/sse", mcpH)
 	r.Route("/api/v1/setup", setupH.Mount)
 	r.Route("/api/v1/auth", setupH.MountAuth)
 	r.Mount("/", adminH)
