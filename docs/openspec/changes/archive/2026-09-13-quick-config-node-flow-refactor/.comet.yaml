@@ -16,11 +16,11 @@ plan: docs/superpowers/plans/2026-08-28-quick-config-node-flow-refactor.md
 verify_result: pass
 verify_failures: 0
 verification_report: docs/superpowers/reports/2026-08-28-quick-config-node-flow-refactor-verify.md
-branch_status: pending
+branch_status: handled
 created_at: 2026-08-27
 verified_at: 2026-08-28
-archive_confirmation: pending
-archived: false
+archive_confirmation: done
+archived: true
 bound_branch: feat-init
 direct_override: null
 classic_profile: full
