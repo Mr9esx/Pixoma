@@ -1,25 +1,25 @@
 ---
 name: pixoma-mcp
-description: "Use when the user wants to run a Pixoma workflow, generate an image through Pixoma, check their own Pixoma tasks, or Pixoma MCP tools are missing from the chat."
+description: "Use when the user wants to create with Pixoma — run a workflow, generate or edit an image, generate a video, check their Pixoma tasks or progress — when Pixoma tools are in the chat but how to call them is unclear, or when Pixoma MCP tools are missing from the chat."
 ---
 
 # Pixoma MCP
 
-## 前置
-
-用户的聊天产品必须能配置 MCP 连接器。本 skill 不教如何配置 token。
+用户的聊天需要已配置 Pixoma MCP 连接器。凭据只存在连接器里。
 
 ## 调用顺序
 
-能看到 Pixoma tools 时按这次序：
+能看到 Pixoma tools 时：
 
-1. `list_workflows` 列出已启用工作流
-2. `get_workflow` 看必填 `inputs`
-3. `run_workflow`：立刻返回 `task_id`，不要等它一次吐成品
-4. 轮询 `get_task`
-5. 读 `pixoma://task/{id}/output/{n}`
+1. 要跑工作流：`list_workflows` 列出已启用的。用户说名字时，用返回项里的 `id`
+2. `get_workflow`，参数是 `case_id`（工作流 id），看必填 `inputs`
+3. `run_workflow`：带 `case_id` 和 `inputs`。立刻返回 `task_id`，不要等它一次吐成品
+4. 轮询 `get_task`。`pending` / `queued` / `running` 就继续等；`succeeded` 再读产物；`failed` / `cancelled` 停下来，把错误告诉用户
+5. 读 `pixoma://task/{id}/output/{n}`（图、视频都走这条）
 
-只使用列出、查看、发起与查询。用户要求通过 MCP 创建或修改 Case 时拒绝。
+用户要查自己的任务或进度：用 `list_tasks`，再按需 `get_task`。
+
+只使用列出、查看、发起与查询。用户要求创建或改工作流定义时拒绝。
 
 ## 错误对照
 
@@ -37,6 +37,6 @@ description: "Use when the user wants to run a Pixoma workflow, generate an imag
 
 ## 禁区
 
-- 不创建或修改 Case
+- 不创建或修改工作流定义
 - 不向用户索要 token，不把 Bearer 贴进对话
 - 不改走管理端代跑工作流

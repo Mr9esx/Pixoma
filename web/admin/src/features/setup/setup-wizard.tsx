@@ -23,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { RequiredBadge } from '@/components/required-badge'
 import { Field as ShadcnField, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -317,7 +318,11 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             })
           }}
         >
-          <Field label={t('setup.newPassword')} htmlFor='new-password'>
+          <Field
+            label={t('setup.newPassword')}
+            htmlFor='new-password'
+            required
+          >
             <SecretInput
               id='new-password'
               value={newPassword}
@@ -325,7 +330,11 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
               autoComplete='new-password'
             />
           </Field>
-          <Field label={t('setup.confirmPassword')} htmlFor='confirm-password'>
+          <Field
+            label={t('setup.confirmPassword')}
+            htmlFor='confirm-password'
+            required
+          >
             <SecretInput
               id='confirm-password'
               value={confirmPassword}
@@ -423,7 +432,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             </Select>
           </Field>
           {driver === 'sqlite' ? (
-            <Field label={t('setup.dbFile')} htmlFor='db-sqlite-path'>
+            <Field label={t('setup.dbFile')} htmlFor='db-sqlite-path' required>
               <Input
                 id='db-sqlite-path'
                 value={sqlitePath}
@@ -434,7 +443,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           ) : driver === 'mysql' ? (
             <>
               <div className='grid grid-cols-2 gap-3'>
-                <Field label={t('setup.host')} htmlFor='db-host'>
+                <Field label={t('setup.host')} htmlFor='db-host' required>
                   <Input
                     id='db-host'
                     value={dbHost}
@@ -442,7 +451,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                     placeholder='127.0.0.1'
                   />
                 </Field>
-                <Field label={t('setup.port')} htmlFor='db-port'>
+                <Field label={t('setup.port')} htmlFor='db-port' required>
                   <Input
                     id='db-port'
                     value={dbPort}
@@ -451,7 +460,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   />
                 </Field>
               </div>
-              <Field label={t('setup.user')} htmlFor='db-user'>
+              <Field label={t('setup.user')} htmlFor='db-user' required>
                 <Input
                   id='db-user'
                   value={dbUser}
@@ -468,7 +477,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   placeholder={t('setup.passwordOptional')}
                 />
               </Field>
-              <Field label={t('setup.dbName')} htmlFor='db-name'>
+              <Field label={t('setup.dbName')} htmlFor='db-name' required>
                 <Input
                   id='db-name'
                   value={dbName}
@@ -488,7 +497,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
           ) : (
             <>
               <div className='grid grid-cols-2 gap-3'>
-                <Field label={t('setup.host')} htmlFor='db-host'>
+                <Field label={t('setup.host')} htmlFor='db-host' required>
                   <Input
                     id='db-host'
                     value={dbHost}
@@ -496,7 +505,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                     placeholder='127.0.0.1'
                   />
                 </Field>
-                <Field label={t('setup.port')} htmlFor='db-port'>
+                <Field label={t('setup.port')} htmlFor='db-port' required>
                   <Input
                     id='db-port'
                     value={dbPort}
@@ -505,7 +514,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   />
                 </Field>
               </div>
-              <Field label={t('setup.user')} htmlFor='db-user'>
+              <Field label={t('setup.user')} htmlFor='db-user' required>
                 <Input
                   id='db-user'
                   value={dbUser}
@@ -522,7 +531,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   placeholder={t('setup.passwordOptional')}
                 />
               </Field>
-              <Field label={t('setup.dbName')} htmlFor='db-name'>
+              <Field label={t('setup.dbName')} htmlFor='db-name' required>
                 <Input
                   id='db-name'
                   value={dbName}
@@ -610,6 +619,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   : t('setup.dir')
               }
               htmlFor='blob-root'
+              required
             >
               <Input
                 id='blob-root'
@@ -619,7 +629,7 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
             </Field>
           ) : (
             <>
-              <Field label='Endpoint' htmlFor='blob-endpoint'>
+              <Field label='Endpoint' htmlFor='blob-endpoint' required>
                 <Input
                   id='blob-endpoint'
                   value={blobEndpoint}
@@ -634,21 +644,21 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
                   onChange={(e) => setBlobRegion(e.target.value)}
                 />
               </Field>
-              <Field label='Bucket' htmlFor='blob-bucket'>
+              <Field label='Bucket' htmlFor='blob-bucket' required>
                 <Input
                   id='blob-bucket'
                   value={blobBucket}
                   onChange={(e) => setBlobBucket(e.target.value)}
                 />
               </Field>
-              <Field label='Access Key' htmlFor='blob-access'>
+              <Field label='Access Key' htmlFor='blob-access' required>
                 <Input
                   id='blob-access'
                   value={blobAccessKey}
                   onChange={(e) => setBlobAccessKey(e.target.value)}
                 />
               </Field>
-              <Field label='Secret Key' htmlFor='blob-secret'>
+              <Field label='Secret Key' htmlFor='blob-secret' required>
                 <SecretInput
                   id='blob-secret'
                   value={blobSecretKey}
@@ -765,15 +775,20 @@ function WizardCard({
 function Field({
   label,
   htmlFor,
+  required,
   children,
 }: {
   label: string
   htmlFor: string
+  required?: boolean
   children: React.ReactNode
 }) {
   return (
     <ShadcnField className='gap-2'>
-      <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
+      <FieldLabel htmlFor={htmlFor}>
+        {label}
+        {required ? <RequiredBadge /> : null}
+      </FieldLabel>
       {children}
     </ShadcnField>
   )

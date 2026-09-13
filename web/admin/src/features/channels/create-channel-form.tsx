@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { createChannel, type Channel } from '@/lib/api/channels'
 import { queryKeys } from '@/lib/api/query-keys'
 import { Button } from '@/components/ui/button'
+import { RequiredBadge } from '@/components/required-badge'
 import { DialogFooter } from '@/components/ui/dialog'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -56,6 +57,19 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
     <div className='flex flex-1 flex-col gap-4'>
       <FieldGroup className='gap-4'>
         <Field>
+          <FieldLabel htmlFor='channel-name'>
+            {t('channels.name')}
+            <RequiredBadge />
+          </FieldLabel>
+          <Input
+            id='channel-name'
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete='off'
+            required
+          />
+        </Field>
+        <Field>
           <FieldLabel htmlFor='channel-platform'>
             {t('channels.platform')}
           </FieldLabel>
@@ -78,19 +92,11 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
             </SelectContent>
           </Select>
         </Field>
-        <Field>
-          <FieldLabel htmlFor='channel-name'>{t('channels.name')}</FieldLabel>
-          <Input
-            id='channel-name'
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete='off'
-          />
-        </Field>
         {platform === 'telegram' ? (
           <Field>
             <FieldLabel htmlFor='channel-token'>
               {t('channels.token')}
+              <RequiredBadge />
             </FieldLabel>
             <SecretInput
               id='channel-token'
@@ -98,6 +104,7 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
               onChange={(e) => setToken(e.target.value)}
               placeholder='123456:ABC…'
               autoComplete='off'
+              required
             />
           </Field>
         ) : null}

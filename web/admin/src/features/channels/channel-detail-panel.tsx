@@ -27,6 +27,7 @@ import { alignPlatformHealth, resolvedEntityHealth } from '@/lib/api/link-health
 import { queryKeys } from '@/lib/api/query-keys'
 import { listSessions } from '@/lib/api/sessions'
 import { listTasks } from '@/lib/api/tasks'
+import { RequiredBadge } from '@/components/required-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -398,11 +399,15 @@ export function ChannelDetailPanel({ id }: { id: string }) {
           </DialogHeader>
           <FieldGroup className='gap-4'>
             <Field>
-              <FieldLabel>{t('channels.name')}</FieldLabel>
+              <FieldLabel>
+                {t('channels.name')}
+                <RequiredBadge />
+              </FieldLabel>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete='off'
+                required
               />
             </Field>
             {ch.platform === 'mcp' ? null : (
@@ -429,12 +434,7 @@ export function ChannelDetailPanel({ id }: { id: string }) {
               {t('common.cancel')}
             </Button>
             <Button
-              disabled={
-                updateMutation.isPending ||
-                (ch.platform === 'mcp'
-                  ? !name.trim()
-                  : !name.trim() && !token.trim())
-              }
+              disabled={updateMutation.isPending || !name.trim()}
               onClick={() => updateMutation.mutate()}
             >
               {t('common.save')}

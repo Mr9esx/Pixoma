@@ -90,6 +90,13 @@ func TestChannelsHandler_CreateListDetailUpdateDelete(t *testing.T) {
 	}
 	id := m["id"].(string)
 
+	res, m = post(t, srv.URL+"/api/v1/channels", map[string]any{
+		"platform": "telegram", "name": "   ", "token": "1234567890",
+	})
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("empty name status=%d body=%v", res.StatusCode, m)
+	}
+
 	// 非法平台 400
 	res, m = post(t, srv.URL+"/api/v1/channels", map[string]any{
 		"platform": "slack", "name": "x", "token": "t",

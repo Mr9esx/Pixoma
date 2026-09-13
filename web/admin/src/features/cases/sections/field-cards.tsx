@@ -20,6 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   ChevronsUpDown,
+  CircleHelp,
   GripVertical,
   Plus,
   RefreshCw,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { RequiredBadge } from '@/components/required-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -119,6 +121,37 @@ function OutputTypeBadge({
     <Badge data-testid='output-type' variant='secondary'>
       {t(labelKey)}
     </Badge>
+  )
+}
+
+function RequiredColumnLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className='inline-flex items-center gap-1.5'>
+      {children}
+      <RequiredBadge />
+    </span>
+  )
+}
+
+function RequiredHint() {
+  const { t } = useTranslation()
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon'
+          aria-label={t('cases.fieldRequired')}
+          className='size-6 shrink-0 text-muted-foreground hover:text-foreground'
+        >
+          <CircleHelp />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side='top' sideOffset={6} className='max-w-64'>
+        {t('cases.fieldRequiredHint')}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -530,7 +563,9 @@ function InputFieldCard({
         )
       ) : null}
       <div className='flex flex-wrap items-center gap-2'>
-        <span className='text-sm text-foreground'>{t('cases.fieldKey')}</span>
+        <span className='text-sm text-foreground'>
+          <RequiredColumnLabel>{t('cases.fieldKey')}</RequiredColumnLabel>
+        </span>
         <Input
           className={`h-8 w-36 ${hasError ? 'border-destructive focus-visible:ring-destructive/30' : ''}`}
           value={value.key}
@@ -557,7 +592,9 @@ function InputFieldCard({
       </div>
 
       <div>
-        <span className='text-sm text-foreground'>{t('cases.fieldBind')}</span>
+        <span className='text-sm text-foreground'>
+          <RequiredColumnLabel>{t('cases.fieldBind')}</RequiredColumnLabel>
+        </span>
         <BindNodePopover
           mode='input'
           nodes={nodes}
@@ -579,7 +616,9 @@ function InputFieldCard({
       </div>
 
       <div className='flex flex-wrap items-center gap-2'>
-        <span className='text-sm text-foreground'>{t('cases.fieldType')}</span>
+        <span className='text-sm text-foreground'>
+          <RequiredColumnLabel>{t('cases.fieldType')}</RequiredColumnLabel>
+        </span>
         <Select
           value={value.type}
           onValueChange={(type) =>
@@ -657,6 +696,7 @@ function InputFieldCard({
             disabled={disabled}
           />
           {t('cases.fieldRequired')}
+          <RequiredHint />
         </label>
         <RemoveFieldButton
           fieldKey={value.key}
@@ -695,7 +735,9 @@ function OutputFieldCard({
       className='flex flex-col gap-2 rounded-md border p-3'
     >
       <div className='flex flex-wrap items-center gap-2'>
-        <span className='text-sm text-foreground'>{t('cases.fieldKey')}</span>
+        <span className='text-sm text-foreground'>
+          <RequiredColumnLabel>{t('cases.fieldKey')}</RequiredColumnLabel>
+        </span>
         <Input
           className='h-8 w-36'
           value={value.key}
@@ -723,7 +765,9 @@ function OutputFieldCard({
       </div>
 
       <div>
-        <span className='text-sm text-foreground'>{t('cases.fieldBind')}</span>
+        <span className='text-sm text-foreground'>
+          <RequiredColumnLabel>{t('cases.fieldBind')}</RequiredColumnLabel>
+        </span>
         <BindNodePopover
           mode='output'
           nodes={nodes}
@@ -857,7 +901,7 @@ function SortableInputTableRow({
       className={cn(flash && 'flash-highlight', isDragging && 'opacity-50')}
     >
       {!hideActions ? (
-        <TableCell className='w-12'>
+        <TableCell className='w-10'>
           {index === 0 ? (
             <Tooltip open={hintOpen} onOpenChange={onHintOpenChange}>
               <TooltipTrigger asChild>
@@ -895,7 +939,7 @@ function SortableInputTableRow({
         </TableCell>
       ) : null}
       <TableCell>
-        <div className='flex items-center gap-1'>
+        <div className='flex w-full items-center gap-1'>
           <Input
             className={`h-8 min-w-0 flex-1 ${hasError ? 'border-destructive focus-visible:ring-destructive/30' : ''}`}
             value={value.key}
@@ -905,19 +949,11 @@ function SortableInputTableRow({
             aria-label={t('cases.fieldKey')}
             aria-invalid={hasError || undefined}
           />
-          {value.required ? (
-            <span
-              className='shrink-0 text-destructive'
-              aria-label={t('cases.fieldRequired')}
-              title={t('cases.fieldRequired')}
-            >
-              *
-            </span>
-          ) : null}
+          {value.required ? <RequiredBadge /> : null}
         </div>
       </TableCell>
-      <TableCell>
-        <div className='flex items-center gap-1.5'>
+      <TableCell className='w-28'>
+        <div className='flex w-full items-center gap-1.5'>
           <Select
             value={value.type}
             onValueChange={(type) =>
@@ -929,7 +965,7 @@ function SortableInputTableRow({
             disabled={disabled}
             aria-label={t('cases.fieldType')}
           >
-            <SelectTrigger size='sm' className='w-28'>
+            <SelectTrigger size='sm' className='w-full min-w-0'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -957,8 +993,8 @@ function SortableInputTableRow({
           ) : null}
         </div>
       </TableCell>
-      <TableCell>
-        <div className='flex items-center gap-2'>
+      <TableCell className='w-[180px]'>
+        <div className='flex w-full items-center gap-2'>
           <BindNodePopover
             compact
             mode='input'
@@ -980,7 +1016,7 @@ function SortableInputTableRow({
           />
         </div>
       </TableCell>
-      <TableCell className='text-center'>
+      <TableCell className='w-16 text-center'>
         <Checkbox
           checked={value.required}
           onCheckedChange={(v) =>
@@ -991,7 +1027,7 @@ function SortableInputTableRow({
       </TableCell>
       <TableCell>
         <Input
-          className='h-8'
+          className='h-8 w-full min-w-0'
           aria-label={t('cases.fieldDescription')}
           value={value.description ?? ''}
           onChange={(e) =>
@@ -1005,7 +1041,7 @@ function SortableInputTableRow({
         />
       </TableCell>
       {!hideActions ? (
-        <TableCell className='text-right'>
+        <TableCell className='w-10 text-right'>
           <RemoveFieldButton
             compact
             fieldKey={value.key}
@@ -1068,26 +1104,33 @@ export function InputFieldsTable({
   const { t } = useTranslation()
   const { scrollRef, flashIndex } = useNewRowFlash(fields.length)
   return (
-    <div className='overflow-hidden rounded-md border'>
+    <div className='overflow-hidden rounded-md border bg-background'>
       <Table
         data-testid='input-fields-table'
-        className='w-full table-fixed'
+        className='table-fixed'
         wrapperClassName='max-h-[300px] overflow-y-auto'
         wrapperRef={scrollRef}
       >
         <TableHeader className='sticky top-0 z-10 bg-background [&_th]:bg-background'>
           <TableRow>
-            {!hideActions ? <TableHead className='w-12' /> : null}
-            <TableHead className='w-40'>{t('cases.fieldKey')}</TableHead>
-            <TableHead className='w-32'>{t('cases.fieldType')}</TableHead>
-            <TableHead className='w-56'>{t('cases.fieldBind')}</TableHead>
-            <TableHead className='w-12 text-center'>
-              {t('cases.fieldRequired')}
+            {!hideActions ? <TableHead className='w-10' /> : null}
+            <TableHead>
+              <RequiredColumnLabel>{t('cases.fieldKey')}</RequiredColumnLabel>
             </TableHead>
-            <TableHead className='min-w-0'>
-              {t('cases.fieldDescription')}
+            <TableHead className='w-28'>
+              <RequiredColumnLabel>{t('cases.fieldType')}</RequiredColumnLabel>
             </TableHead>
-            {!hideActions ? <TableHead className='w-11' /> : null}
+            <TableHead className='w-[180px]'>
+              <RequiredColumnLabel>{t('cases.fieldBind')}</RequiredColumnLabel>
+            </TableHead>
+            <TableHead className='w-16'>
+              <span className='inline-flex items-center gap-1'>
+                {t('cases.fieldRequired')}
+                <RequiredHint />
+              </span>
+            </TableHead>
+            <TableHead>{t('cases.fieldDescription')}</TableHead>
+            {!hideActions ? <TableHead className='w-10' /> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -1144,21 +1187,23 @@ export function OutputFieldsTable({
   const { t } = useTranslation()
   const { scrollRef, flashIndex } = useNewRowFlash(fields.length)
   return (
-    <div className='overflow-hidden rounded-md border'>
+    <div className='overflow-hidden rounded-md border bg-background'>
       <Table
         data-testid='output-fields-table'
-        className='w-full table-fixed'
+        className='table-fixed'
         wrapperClassName='max-h-[300px] overflow-y-auto'
         wrapperRef={scrollRef}
       >
         <TableHeader className='sticky top-0 z-10 bg-background [&_th]:bg-background'>
           <TableRow>
-            <TableHead className='w-40'>{t('cases.fieldKey')}</TableHead>
-            <TableHead className='w-56'>{t('cases.fieldBind')}</TableHead>
-            <TableHead className='min-w-0'>
-              {t('cases.fieldDescription')}
+            <TableHead>
+              <RequiredColumnLabel>{t('cases.fieldKey')}</RequiredColumnLabel>
             </TableHead>
-            {!hideActions ? <TableHead className='w-11' /> : null}
+            <TableHead className='w-[180px]'>
+              <RequiredColumnLabel>{t('cases.fieldBind')}</RequiredColumnLabel>
+            </TableHead>
+            <TableHead>{t('cases.fieldDescription')}</TableHead>
+            {!hideActions ? <TableHead className='w-10' /> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -1173,7 +1218,7 @@ export function OutputFieldsTable({
               >
                 <TableCell>
                   <Input
-                    className='h-8'
+                    className='h-8 w-full min-w-0'
                     aria-label={t('cases.fieldKey')}
                     value={value.key}
                     onChange={(e) =>
@@ -1183,8 +1228,8 @@ export function OutputFieldsTable({
                     autoComplete='off'
                   />
                 </TableCell>
-                <TableCell>
-                  <div className='flex items-center gap-2'>
+                <TableCell className='w-[180px]'>
+                  <div className='flex w-full items-center gap-2'>
                     <BindNodePopover
                       compact
                       mode='output'
@@ -1212,7 +1257,7 @@ export function OutputFieldsTable({
                 </TableCell>
                 <TableCell>
                   <Input
-                    className='h-8'
+                    className='h-8 w-full min-w-0'
                     aria-label={t('cases.fieldDescription')}
                     value={value.description ?? ''}
                     onChange={(e) =>
@@ -1226,7 +1271,7 @@ export function OutputFieldsTable({
                   />
                 </TableCell>
                 {!hideActions ? (
-                  <TableCell className='text-right'>
+                  <TableCell className='w-10 text-right'>
                     <RemoveFieldButton
                       compact
                       fieldKey={value.key}
@@ -1284,10 +1329,10 @@ function AddFieldButton({
     <Button
       type='button'
       size='sm'
-      variant='secondary'
+      variant='default'
       disabled={disabled || Boolean(lockReason)}
       onClick={onClick}
-      className='gap-1.5'
+      className='w-full gap-1.5'
     >
       <Plus className='size-3.5' />
       {label}
@@ -1299,7 +1344,7 @@ function AddFieldButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className='inline-flex'>{button}</span>
+        <span className='flex w-full'>{button}</span>
       </TooltipTrigger>
       <TooltipContent side='top' sideOffset={6}>
         {lockReason}

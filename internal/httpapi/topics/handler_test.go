@@ -125,6 +125,35 @@ func TestTopics_DuplicateConflict(t *testing.T) {
 	}
 }
 
+func TestTopics_CreateRequiresName(t *testing.T) {
+	repo := &fakeRepo{topics: map[string]topicdomain.Topic{}}
+	r := newTestRouter(repo)
+	for _, body := range []string{
+		`{"key":"fast-gpu"}`,
+		`{"key":"fast-gpu","name":""}`,
+		`{"key":"fast-gpu","name":"   "}`,
+	} {
+		rec := do(t, r, http.MethodPost, "/", body)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("create %s status = %d body=%s", body, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestTopics_UpdateRejectsEmptyName(t *testing.T) {
+	repo := &fakeRepo{topics: map[string]topicdomain.Topic{}}
+	r := newTestRouter(repo)
+	_ = do(t, r, http.MethodPost, "/", `{"key":"k","name":"K"}`)
+	rec := do(t, r, http.MethodPut, "/k", `{"name":"  "}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("update empty name status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	got, _ := repo.Get(context.Background(), "k")
+	if got.Name != "K" {
+		t.Fatalf("name changed: %+v", got)
+	}
+}
+
 func TestTopics_Update(t *testing.T) {
 	repo := &fakeRepo{topics: map[string]topicdomain.Topic{}}
 	r := newTestRouter(repo)

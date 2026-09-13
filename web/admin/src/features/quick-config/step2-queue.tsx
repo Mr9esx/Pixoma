@@ -79,9 +79,6 @@ export function Step2Queue({ shared, next, back }: Props) {
                   )}
                 >
                   <span className='text-sm font-medium'>{topic.name}</span>
-                  <span className='text-xs text-muted-foreground'>
-                    {topic.key}
-                  </span>
                 </Button>
               </li>
             ))}

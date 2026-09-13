@@ -615,11 +615,11 @@ func caseBreakpoints(n *Node, platLocal map[string]localState) []Breakpoint {
 	}
 	for _, down := range n.Downstream {
 		if down.State == HealthPending {
-			out = append(out, bp("node", "runtime", "linkHealth.edgePresenceUnknown", map[string]string{"topic": nodesRefID(down.ID)}, "/edges", "linkHealth.actionManageNodes"))
+			out = append(out, bp("node", "runtime", "linkHealth.edgePresenceUnknown", map[string]string{"topic": down.Name}, "/edges", "linkHealth.actionManageNodes"))
 			continue
 		}
 		if down.State != HealthOK {
-			out = append(out, bp("node", "runtime", "linkHealth.topicNoReadyNode", map[string]string{"topic": nodesRefID(down.ID)}, "/edges", "linkHealth.actionManageNodes"))
+			out = append(out, bp("node", "runtime", "linkHealth.topicNoReadyNode", map[string]string{"topic": down.Name}, "/edges", "linkHealth.actionManageNodes"))
 		}
 	}
 	return out

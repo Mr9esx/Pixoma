@@ -198,7 +198,8 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		id = string(gen)
 	}
 	if name == "" {
-		name = id
+		writeErr(w, http.StatusBadRequest, "name required")
+		return
 	}
 	enabled := true
 	if req.Enabled != nil {

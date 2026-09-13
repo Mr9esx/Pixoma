@@ -13,6 +13,7 @@ import {
   type SetupDraft,
 } from '@/lib/api/setup'
 import { cn } from '@/lib/utils'
+import { RequiredBadge } from '@/components/required-badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -682,6 +683,7 @@ function PasswordForm() {
         <SettingRow
           label={t('settings.fieldCurrentPassword')}
           htmlFor='old-password'
+          required
         >
           <SecretInput
             id='old-password'
@@ -695,6 +697,7 @@ function PasswordForm() {
         <SettingRow
           label={t('settings.fieldNewPassword')}
           htmlFor='new-password'
+          required
         >
           <SecretInput
             id='new-password'
@@ -708,6 +711,7 @@ function PasswordForm() {
         <SettingRow
           label={t('settings.fieldConfirmPassword')}
           htmlFor='confirm-password'
+          required
         >
           <SecretInput
             id='confirm-password'
@@ -760,17 +764,20 @@ function SettingRow({
   label,
   htmlFor,
   hint,
+  required,
   children,
 }: {
   label: string
   htmlFor?: string
   hint?: string
+  required?: boolean
   children: ReactNode
 }) {
   return (
     <Field className='gap-1.5 py-3'>
       <FieldLabel htmlFor={htmlFor} className='text-sm font-medium'>
         {label}
+        {required ? <RequiredBadge /> : null}
       </FieldLabel>
       {children}
       {hint ? (

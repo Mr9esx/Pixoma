@@ -36,6 +36,7 @@ import {
   resolvedEntityHealth,
 } from '@/lib/api/link-health'
 import { queryKeys } from '@/lib/api/query-keys'
+import { listTopics } from '@/lib/api/topics'
 import type { ComfyEdge } from '@/lib/api/types'
 import { scrollAndFlash } from '@/lib/scroll-focus'
 import { Button } from '@/components/ui/button'
@@ -149,6 +150,10 @@ export function EdgeDetailPanel({ id }: Props) {
   const detailQuery = useQuery({
     queryKey: queryKeys.edges.detail(id),
     queryFn: () => getEdge(id),
+  })
+  const topicsQuery = useQuery({
+    queryKey: queryKeys.topics.all,
+    queryFn: listTopics,
   })
   const statsQuery = useQuery({
     queryKey: queryKeys.edges.stats(id),
@@ -556,7 +561,10 @@ export function EdgeDetailPanel({ id }: Props) {
                 </p>
                 <ul className='max-h-32 overflow-auto rounded-md border bg-muted/20 p-3 text-xs'>
                   {(edge.subscribe_topics ?? []).map((tp) => (
-                    <li key={tp}>{tp}</li>
+                    <li key={tp}>
+                      {topicsQuery.data?.find((topic) => topic.key === tp)
+                        ?.name ?? ''}
+                    </li>
                   ))}
                 </ul>
               </div>

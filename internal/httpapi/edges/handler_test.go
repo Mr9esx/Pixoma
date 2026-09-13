@@ -72,6 +72,7 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 
 	body, _ := json.Marshal(map[string]any{
 		"id":      "gpu-2",
+		"name":    "gpu-2",
 		"enabled": true,
 	})
 	res, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))
@@ -144,6 +145,7 @@ func TestHandler_CreateDuplicateIDReturns409(t *testing.T) {
 
 	body, _ := json.Marshal(map[string]any{
 		"id":      "gpu-dup",
+		"name":    "gpu-dup",
 		"enabled": true,
 	})
 	res1, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))
@@ -157,6 +159,7 @@ func TestHandler_CreateDuplicateIDReturns409(t *testing.T) {
 
 	body2, _ := json.Marshal(map[string]any{
 		"id":      "gpu-dup",
+		"name":    "gpu-dup",
 		"enabled": false,
 	})
 	res2, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body2))
@@ -224,6 +227,7 @@ func TestHandler_CreateRefreshesPoolAndDispatchTopicReceivable(t *testing.T) {
 
 	body, _ := json.Marshal(map[string]any{
 		"id":      "gpu-new",
+		"name":    "gpu-new",
 		"enabled": true,
 	})
 	res, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))
@@ -246,6 +250,36 @@ func TestHandler_CreateRefreshesPoolAndDispatchTopicReceivable(t *testing.T) {
 
 func testEncKey() []byte {
 	return bytes.Repeat([]byte("k"), 32)
+}
+
+func TestHandler_CreateRequiresName(t *testing.T) {
+	dsn := "file:comfy_httpapi_name_" + t.Name() + "?mode=memory&cache=shared"
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, &instpersist.EdgeRow{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	h := &edges.Handler{
+		Repo:   instpersist.NewEdgeRepository(gdb),
+		Tasks:  runtimedomain.NewMemoryTaskRepository(),
+		EncKey: testEncKey(),
+	}
+	r := chi.NewRouter()
+	r.Route("/api/v1/edges", h.Mount)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	body, _ := json.Marshal(map[string]any{"description": "夜间出图"})
+	res, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("create empty name status=%d", res.StatusCode)
+	}
 }
 
 func TestHandler_CreateMintsNameAndAgentToken(t *testing.T) {
@@ -371,6 +405,7 @@ func TestHandler_PresenceListsAllInstances(t *testing.T) {
 
 	body, _ := json.Marshal(map[string]any{
 		"id":      "gpu-2",
+		"name":    "gpu-2",
 		"enabled": true,
 	})
 	res, err := http.Post(srv.URL+"/api/v1/edges", "application/json", bytes.NewReader(body))

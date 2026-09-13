@@ -13,14 +13,15 @@ const NEW = read('create-topic-form.tsx')
 const STATS = read('topic-stats-panel.tsx')
 
 describe('topics admin page contract', () => {
-  it('列表：搜索 + key/name + 启用状态 + 默认标记', () => {
+  it('列表：搜索 + 名称 + 启用状态 + 默认标记，不展示 key', () => {
     expect(LIST_PANEL).toContain("data-testid='topics-list-panel'")
     expect(LIST_PANEL).toContain('topics.listSearch')
-    expect(LIST_PANEL).toContain('topic.key')
+    expect(LIST_PANEL).toContain('{topic.name}')
     expect(LIST_PANEL).toContain('topics.enabled')
     expect(LIST_PANEL).toContain('<StatusDot')
     expect(LIST_PANEL).toContain("topic.key === 'default'")
     expect(LIST_PANEL).toContain("to='/topics/$key'")
+    expect(LIST_PANEL).not.toContain('{topic.key}\n')
   })
 
   it('详情：编辑名称 / 启停 / 删除，默认 Topic 禁止停用删除', () => {
@@ -44,6 +45,9 @@ describe('topics admin page contract', () => {
     expect(DETAIL_PANEL).toContain('deleteTopic(topicKey, ackImpact)')
     expect(DETAIL_PANEL).toContain('TopicStatsPanel')
     expect(DETAIL_PANEL).toContain('topics.statsTitle')
+    expect(DETAIL_PANEL).toContain('{ name: name.trim() }')
+    expect(DETAIL_PANEL).not.toContain('name.trim() || undefined')
+    expect(DETAIL_PANEL).toContain('<RequiredBadge />')
   })
 
   it('统计面板：吞吐曲线 + 状态分布 + 错误码 + 耗时', () => {
@@ -77,7 +81,13 @@ describe('topics admin page contract', () => {
     expect(NEW).toContain('KEY_PATTERN')
     expect(NEW).toContain('createTopic')
     expect(NEW).toContain('keyValid')
+    expect(NEW).toContain('nameValid')
     expect(NEW).toContain('canCreate')
+    expect(NEW).toContain('required')
+    expect(NEW).toContain('<RequiredBadge />')
+    expect(NEW).not.toContain('data-invalid={!keyValid}')
+    expect(NEW).not.toContain('data-invalid={!nameValid}')
+    expect(NEW).toMatch(/topic-name[\s\S]*?topic-key/)
   })
 
   it('新建表单：按钮在 DialogFooter', () => {

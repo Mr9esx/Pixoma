@@ -6,6 +6,7 @@ import { queryKeys } from '@/lib/api/query-keys'
 import { createTopic, type Topic } from '@/lib/api/topics'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { RequiredBadge } from '@/components/required-badge'
 import { DialogFooter } from '@/components/ui/dialog'
 import {
   Field,
@@ -29,7 +30,8 @@ export function CreateTopicForm({ onDone, onCancel }: Props) {
   const [name, setName] = useState('')
 
   const keyValid = KEY_PATTERN.test(key.trim())
-  const canCreate = keyValid && Boolean(name.trim())
+  const nameValid = Boolean(name.trim())
+  const canCreate = keyValid && nameValid
 
   const createMutation = useMutation({
     mutationFn: () => createTopic({ key: key.trim(), name: name.trim() }),
@@ -43,28 +45,36 @@ export function CreateTopicForm({ onDone, onCancel }: Props) {
   return (
     <div className='flex flex-1 flex-col gap-4'>
       <FieldGroup className='gap-4'>
-        <Field data-invalid={!keyValid}>
-          <FieldLabel htmlFor='topic-key'>{t('topics.fieldKey')}</FieldLabel>
-          <Input
-            id='topic-key'
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder='fast-gpu'
-            autoComplete='off'
-          />
-          <FieldDescription className='text-xs'>
-            {t('topics.keyHint')}
-          </FieldDescription>
-        </Field>
         <Field>
-          <FieldLabel htmlFor='topic-name'>{t('topics.fieldName')}</FieldLabel>
+          <FieldLabel htmlFor='topic-name'>
+            {t('topics.fieldName')}
+            <RequiredBadge />
+          </FieldLabel>
           <Input
             id='topic-name'
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t('topics.namePlaceholder')}
             autoComplete='off'
+            required
           />
+        </Field>
+        <Field data-invalid={Boolean(key.trim()) && !keyValid}>
+          <FieldLabel htmlFor='topic-key'>
+            {t('topics.fieldKey')}
+            <RequiredBadge />
+          </FieldLabel>
+          <Input
+            id='topic-key'
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder='fast-gpu'
+            autoComplete='off'
+            required
+          />
+          <FieldDescription className='text-xs'>
+            {t('topics.keyHint')}
+          </FieldDescription>
         </Field>
       </FieldGroup>
       {createMutation.error ? (

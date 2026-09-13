@@ -214,6 +214,25 @@ func TestAssemble_NetworkLastCheck_WarnsWithUnreachableBreakpoint(t *testing.T) 
 	}
 }
 
+func TestAssemble_CaseNoReadyNode_UsesTopicName(t *testing.T) {
+	t.Parallel()
+	g := Assemble(liveChain([]ChannelSnap{usablePlatform("tg", "电报")}, false))
+	cs := node(t, g, "case:10")
+	var found bool
+	for _, b := range cs.Breakpoints {
+		if b.Key != "linkHealth.topicNoReadyNode" {
+			continue
+		}
+		found = true
+		if b.Params["topic"] != "出图" {
+			t.Fatalf("topic param=%q, want 出图", b.Params["topic"])
+		}
+	}
+	if !found {
+		t.Fatalf("breakpoints=%+v, want topicNoReadyNode", cs.Breakpoints)
+	}
+}
+
 func TestAssemble_UsablePlatformNoReadyNode_BreakpointsPointToNodes(t *testing.T) {
 	t.Parallel()
 	g := Assemble(liveChain([]ChannelSnap{usablePlatform("tg", "电报")}, false))

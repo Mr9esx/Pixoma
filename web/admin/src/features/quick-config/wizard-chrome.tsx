@@ -81,7 +81,7 @@ export function WizardChrome({
         </div>
       </div>
 
-      <div className='min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-background p-5'>
+      <div className='min-h-0 flex-1 overflow-auto rounded-xl bg-[color-mix(in_oklch,var(--muted)_35%,var(--background))] p-5'>
         {children}
       </div>
 

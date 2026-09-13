@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api/client'
 import { loginAdmin, type SetupStatus } from '@/lib/api/setup'
 import { useTheme } from '@/context/theme-provider'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { RequiredBadge } from '@/components/required-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -87,7 +88,10 @@ export function LoginPage({
           <form onSubmit={onSubmit}>
             <FieldGroup className='gap-4'>
               <Field>
-                <FieldLabel htmlFor='username'>{t('auth.username')}</FieldLabel>
+                <FieldLabel htmlFor='username'>
+                  {t('auth.username')}
+                  <RequiredBadge />
+                </FieldLabel>
                 <Input
                   id='username'
                   value={username}
@@ -96,7 +100,10 @@ export function LoginPage({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor='password'>{t('auth.password')}</FieldLabel>
+                <FieldLabel htmlFor='password'>
+                  {t('auth.password')}
+                  <RequiredBadge />
+                </FieldLabel>
                 <PasswordInput
                   id='password'
                   value={password}

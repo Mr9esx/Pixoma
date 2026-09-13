@@ -12,33 +12,10 @@ const MENU_PUCK = join(here, 'menu-puck-editor.tsx')
 const PUCK_CONFIG = join(here, 'puck-config.tsx')
 
 const V2_KEYS = [
-  'tabOutline',
-  'tabLibrary',
-  'structure',
   'preview',
-  'editorEmptyHint',
-  'workflowSingleHint',
-  'addMenuItem',
-  'newCard',
-  'newCardTitle',
-  'newCardName',
-  'newCardText',
-  'newCardConfirm',
-  'deleteCard',
-  'deleteKey',
   'deleteButton',
-  'keyName',
-  'addMedia',
-  'previewNotSaved',
   'actionGroupWorkflow',
   'actionGroupTg',
-  'libraryPinUsed',
-  'libraryPinFree',
-  'libraryBtnCount',
-  'libraryNoText',
-  'libraryReferrer',
-  'outlineEmptyHint',
-  'cardName',
   'cardText',
   'cardMedia',
   'cardButtons',
@@ -52,10 +29,6 @@ const V2_KEYS = [
   'actionOpenUrl',
   'actionCopyText',
   'actionListTasks',
-  'menuItemLabel',
-  'menuItemAction',
-  'targetCard',
-  'pickExistingCard',
   'workflowList',
   'saveValidation',
   'errLabel',
@@ -63,47 +36,14 @@ const V2_KEYS = [
   'errWorkflow',
   'errUrl',
   'errMedia',
-  'unsavedCount',
   'untitled',
   'editMenu',
   'editMenuTitle',
-  'editMenuHint',
-  'menuItemCount',
-  'detailTitle',
-  'detailPickHint',
-  'kind_item',
-  'kind_card',
-  'kind_button',
-  'mapPath',
-  'mapEmpty',
-  'mapOrphans',
-  'mapCountKeys',
-  'mapCountCards',
-  'mapCountWorkflows',
-  'mapOpenCard',
-  'mapStartWorkflow',
-  'mapSendText',
-  'mapSendMedia',
-  'mapOpenUrl',
-  'mapCopyText',
-  'mapListTasks',
-  'mapCardMissing',
   'mapWorkflowMissing',
   'workflowCardView',
-  'mapPayloadWorkflow',
-  'mapPayloadText',
-  'mapPayloadCopy',
-  'mapPayloadMedia',
-  'mapPayloadUrl',
-  'mapThumbImage',
-  'mapThumbVideo',
-  'mapThumbAnimation',
-  'mapCrumbOrphan',
   'mapLoadFailed',
   'columnCount',
-  'addKey',
   'actionRow',
-  'unsaved',
   'discardEdits',
   'discardEditsDesc',
   'discard',
@@ -147,9 +87,6 @@ describe('menu editor i18n (v2)', () => {
       menu: Record<string, string>
     }
     for (const key of REMOVED_V1_KEYS) {
-      // 'newCard' 在 v2 里是新建卡片按钮文案，留着，单独从 removed 列表里剔除
-      if (key === 'newCard' || key === 'mainKeyboard' || key === 'cardList')
-        continue
       expect(zh.menu[key], `zh should not have menu.${key}`).toBeUndefined()
       expect(en.menu[key], `en should not have menu.${key}`).toBeUndefined()
     }
@@ -167,13 +104,8 @@ describe('menu editor i18n (v2)', () => {
       menu: Record<string, string>
     }
     expect(zh.menu.columnCount).toBe('每行')
-    expect(zh.menu.addKey).toBe('+ 加键')
     expect(zh.menu.actionRow).toBe('动作')
-    expect(zh.menu.keyName).toBe('键名')
-    expect(zh.menu.deleteKey).toBe('删这个键')
     expect(zh.menu.deleteButton).toBe('删这个按钮')
-    expect(zh.menu.deleteCard).toBe('删这张卡片')
-    expect(zh.menu.unsaved).toBe('未保存')
     expect(zh.menu.discardEdits).toBe('丢弃修改？')
     expect(zh.menu.discard).toBe('废弃')
     expect(zh.menu.editMenu).toBe('编辑菜单')

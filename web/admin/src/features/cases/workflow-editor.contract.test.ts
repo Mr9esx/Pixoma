@@ -19,13 +19,9 @@ const REQUIRED_KEYS = [
   'importDropHint',
   'importValid',
   'importNodesCount',
-  'importReimport',
   'viewDiagram',
   'viewSource',
   'importFailed',
-  'importReasonNotComfy',
-  'importReasonOldExport',
-  'importReasonBroken',
   'importInvalidJson',
   'importNotObject',
   'importNotApiFormat',
@@ -34,9 +30,7 @@ const REQUIRED_KEYS = [
   'outputsHeading',
   'processingPill',
   'processingHeading',
-  'fieldFromNode',
   'fieldEnumOptions',
-  'typeAutoSourceOutput',
   'typeString',
   'typeImage',
   'typeAudio',
@@ -48,18 +42,17 @@ const REQUIRED_KEYS = [
   'typeFile',
   'editInfo',
   'editWorkflow',
-  'deleteWorkflow',
   'deleteWorkflowTitle',
   'deleteWorkflowBody',
   'deleteSuccess',
   'deleteFailed',
+  'fieldRequired',
+  'fieldRequiredHint',
   'fieldBind',
   'bindPickPlaceholder',
   'bindNoParams',
   'bindSearchPlaceholder',
   'typeAuto',
-  'typeCustom',
-  'typeRestoreAuto',
   'restoreSuggestedType',
   'typeAutoSource',
   'addInput',
@@ -172,6 +165,27 @@ describe('field cards (table + anchored bind popover)', () => {
     expect(source).toContain('inputKindFor(')
     expect(source).not.toContain('BindNodeDialog')
     expect(source).not.toContain('autoBoundHint')
+    expect(source).toContain('RequiredColumnLabel')
+    expect(source).toContain('CircleHelp')
+    expect(source).toContain('fieldRequiredHint')
+    expect(source).toMatch(
+      /InputFieldsTable[\s\S]*RequiredColumnLabel[\s\S]*fieldKey[\s\S]*fieldType[\s\S]*fieldBind/
+    )
+    expect(source).toContain("from '@/components/ui/table'")
+    expect(source).toContain('<Table')
+    expect(source).toContain('<TableHeader')
+    expect(source).toContain('<TableBody')
+    expect(source).toContain('<TableHead')
+    expect(source).toContain('<TableRow')
+    expect(source).toContain('<TableCell')
+    expect(source).toContain('w-[180px]')
+    expect(source).toContain("className='h-8 w-full min-w-0'")
+    expect(source).toContain("className='table-fixed'")
+    expect(source).not.toContain('INPUT_GRID')
+    expect(source).not.toContain('FieldGridCell')
+    expect(source).toMatch(
+      /OutputFieldsTable[\s\S]*RequiredColumnLabel[\s\S]*fieldKey[\s\S]*fieldBind/
+    )
   })
 
   it('output card binds via popover slots with single-output auto note', () => {
@@ -245,6 +259,9 @@ describe('unified workflow editor assembly', () => {
   it('shows the import requirement on locked add buttons', () => {
     const source = read(FIELD_CARDS)
     expect(source).toContain('function AddFieldButton')
+    expect(source).toContain("variant='default'")
+    expect(source).toContain("className='w-full gap-1.5'")
+    expect(source).toContain("className='flex w-full'")
     expect(source).toContain('<Tooltip>')
     expect(source).toContain("<TooltipContent side='top' sideOffset={6}>")
     expect(source).toContain('lockReason={lockReason}')

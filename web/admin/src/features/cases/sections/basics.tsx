@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { CaseRecord } from '@/lib/api/types'
 import { Alert, AlertTitle } from '@/components/ui/alert'
+import { RequiredBadge } from '@/components/required-badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MultiSelect } from '@/components/ui/multi-select'
@@ -46,11 +47,9 @@ export function BasicsSection({
       <h3 className='text-base font-semibold'>{t('cases.sectionBasics')}</h3>
 
       <div className='flex flex-col gap-2'>
-        <Label htmlFor='case-name'>
+        <Label htmlFor='case-name' className='flex items-center gap-2'>
           {t('cases.fieldName')}
-          <span className='text-destructive' aria-hidden='true'>
-            *
-          </span>
+          <RequiredBadge />
         </Label>
         <Input
           id='case-name'

@@ -19,6 +19,7 @@ import { queryKeys } from '@/lib/api/query-keys'
 import { fetchCurrentUser, fetchPlatformSettings } from '@/lib/api/setup'
 import { getMCPToken, rotateMCPToken } from '@/lib/api/users'
 import { formatDateTime } from '@/lib/format'
+import { RequiredBadge } from '@/components/required-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -257,6 +258,7 @@ export function McpUsersSection({ channelId }: { channelId: string }) {
           <Field>
             <FieldLabel htmlFor='mcp-user-name'>
               {t('channels.mcpUserName')}
+              <RequiredBadge />
             </FieldLabel>
             <div className='flex flex-wrap gap-2'>
               <Input

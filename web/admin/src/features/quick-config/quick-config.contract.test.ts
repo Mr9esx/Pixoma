@@ -76,6 +76,8 @@ describe('quick-create wizard contract', () => {
     expect(STEP2Q).toContain('CreateTopicForm')
     expect(STEP2Q).toContain('DEFAULT_TOPIC_KEY')
     expect(STEP2Q).toContain('topicRequired')
+    expect(STEP2Q).toContain('{topic.name}')
+    expect(STEP2Q).not.toContain('text-muted-foreground')
   })
 
   it('节点步阻断与错误使用区域 Alert', () => {
@@ -90,6 +92,9 @@ describe('quick-create wizard contract', () => {
     expect(STEP4).toContain('leftover-offline')
     expect(STEP4).toContain("variant='warn'")
     expect(STEP4).toContain('goChannels')
+    expect(STEP4).toContain('listTopics')
+    expect(STEP4).toContain('.name')
+    expect(STEP4).not.toContain('shared.topicKey ??')
   })
 
   it('chrome 四步标签', () => {

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { createEdge, getEdge, patchEdge } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { ComfyEdge, EdgeHardwareGPU } from '@/lib/api/types'
+import { RequiredBadge } from '@/components/required-badge'
 import { Button } from '@/components/ui/button'
 import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -189,7 +190,10 @@ export function EdgeForm(props: Props) {
       data-testid='edge-form'
     >
       <div className='flex flex-col gap-2'>
-        <Label htmlFor='edge-name'>{t('edges.fieldName')}</Label>
+        <Label htmlFor='edge-name' className='flex items-center gap-2'>
+          {t('edges.fieldName')}
+          <RequiredBadge />
+        </Label>
         <Input
           id='edge-name'
           value={name}
@@ -343,7 +347,11 @@ export function EdgeForm(props: Props) {
               {t('common.cancel')}
             </Button>
           ) : null}
-          <Button type='submit' form='edge-form' disabled={pending}>
+          <Button
+            type='submit'
+            form='edge-form'
+            disabled={pending || !name.trim()}
+          >
             {props.mode === 'create'
               ? t('edges.createAndContinue')
               : t('common.save')}
@@ -362,7 +370,11 @@ export function EdgeForm(props: Props) {
             {t('common.cancel')}
           </Button>
         ) : null}
-        <Button type='submit' form='edge-form' disabled={pending}>
+        <Button
+          type='submit'
+          form='edge-form'
+          disabled={pending || !name.trim()}
+        >
           {props.mode === 'create'
             ? t('edges.createAndContinue')
             : t('common.save')}

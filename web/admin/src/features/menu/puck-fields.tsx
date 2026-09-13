@@ -2,6 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Trash2 } from 'lucide-react'
 import type { ActionType } from '@/lib/api/channel-menu'
+import { RequiredBadge } from '@/components/required-badge'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -210,7 +211,10 @@ export function ButtonLabelField({
   const { t } = useTranslation()
   return (
     <Field>
-      <FieldLabel>{t('menu.buttonLabel')}</FieldLabel>
+      <FieldLabel>
+        {t('menu.buttonLabel')}
+        <RequiredBadge />
+      </FieldLabel>
       <Input
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}

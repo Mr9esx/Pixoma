@@ -3,6 +3,7 @@ import { useNavigate, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { registerAccount } from '@/lib/api/setup'
+import { RequiredBadge } from '@/components/required-badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -76,6 +77,7 @@ export function RegisterForm() {
               <Field>
                 <FieldLabel htmlFor='register-username'>
                   {t('auth.registerUsername')}
+                  <RequiredBadge />
                 </FieldLabel>
                 <Input
                   id='register-username'
@@ -111,6 +113,7 @@ export function RegisterForm() {
               <Field>
                 <FieldLabel htmlFor='register-password'>
                   {t('auth.registerPassword')}
+                  <RequiredBadge />
                 </FieldLabel>
                 <SecretInput
                   id='register-password'
@@ -122,6 +125,7 @@ export function RegisterForm() {
               <Field>
                 <FieldLabel htmlFor='register-confirm'>
                   {t('auth.registerConfirm')}
+                  <RequiredBadge />
                 </FieldLabel>
                 <SecretInput
                   id='register-confirm'

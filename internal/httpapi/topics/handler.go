@@ -151,7 +151,12 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Name != nil {
-		got.Name = strings.TrimSpace(*req.Name)
+		name := strings.TrimSpace(*req.Name)
+		if name == "" {
+			writeErr(w, http.StatusBadRequest, "name required")
+			return
+		}
+		got.Name = name
 	}
 	if req.Enabled != nil {
 		if key == topicdomain.DefaultKey && !*req.Enabled {

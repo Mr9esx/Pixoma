@@ -5,6 +5,7 @@ import { TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listEdges, listPresence } from '@/lib/api/edges'
 import { queryKeys } from '@/lib/api/query-keys'
+import { listTopics } from '@/lib/api/topics'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { isEdgeOnline } from '@/features/task-flow/lib/topic-binding'
@@ -25,6 +26,13 @@ export function Step4Next({ shared }: Props) {
     queryKey: queryKeys.edges.presence,
     queryFn: listPresence,
   })
+  const topicsQuery = useQuery({
+    queryKey: queryKeys.topics.all,
+    queryFn: listTopics,
+  })
+  const topicName =
+    topicsQuery.data?.find((topic) => topic.key === shared.topicKey)?.name ??
+    ''
 
   const offline = useMemo(() => {
     const topic = shared.topicKey
@@ -57,7 +65,7 @@ export function Step4Next({ shared }: Props) {
           {t('quickConfig.leftoverTitle')}
         </h3>
         <p className='text-sm text-muted-foreground'>
-          {t('quickConfig.leftoverHint', { topic: shared.topicKey ?? '' })}
+          {t('quickConfig.leftoverHint', { topic: topicName })}
         </p>
         {offline ? (
           <Alert

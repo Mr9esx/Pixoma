@@ -11,6 +11,7 @@ import {
   type AdminUser,
 } from '@/lib/api/admin-users'
 import { queryKeys } from '@/lib/api/query-keys'
+import { RequiredBadge } from '@/components/required-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -326,7 +327,10 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
         </DialogHeader>
         <FieldGroup className='gap-4'>
           <Field>
-            <FieldLabel htmlFor='admin-user-username'>账号名</FieldLabel>
+            <FieldLabel htmlFor='admin-user-username'>
+              账号名
+              <RequiredBadge />
+            </FieldLabel>
             <Input
               id='admin-user-username'
               value={username}
@@ -356,6 +360,7 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
           <Field>
             <FieldLabel htmlFor='admin-user-password'>
               密码（至少 8 位）
+              <RequiredBadge />
             </FieldLabel>
             <SecretInput
               id='admin-user-password'
@@ -419,6 +424,7 @@ function ResetPasswordDialog({
           <Field>
             <FieldLabel htmlFor='admin-reset-password'>
               新密码（至少 8 位）
+              <RequiredBadge />
             </FieldLabel>
             <SecretInput
               id='admin-reset-password'

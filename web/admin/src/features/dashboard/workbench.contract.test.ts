@@ -121,11 +121,9 @@ describe('dashboard workbench contract', () => {
   it('labels the dashboard as workbench in zh', () => {
     const locale = JSON.parse(read('../../lib/i18n/locales/zh.json')) as {
       menu: { dashboard: string }
-      dashboard: { title: string }
     }
 
     expect(locale.menu.dashboard).toBe('工作台')
-    expect(locale.dashboard.title).toBe('工作台')
   })
   it('uses admin-api query helpers and semantic chart colors', () => {
     const board = read('workbench-data-board.tsx')

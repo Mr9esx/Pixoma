@@ -68,7 +68,8 @@ export function NodeTopicPicker({
   const resolvedLabel = label ?? t('edges.subscribeTopics')
   const resolvedHint = hint ?? t('edges.subscribeTopicsHint')
   const selectedLabels = value
-    .map((key) => topics.find((tp) => tp.key === key)?.name || key)
+    .map((key) => topics.find((tp) => tp.key === key)?.name ?? '')
+    .filter(Boolean)
     .join(', ')
 
   function toggle(key: string) {
@@ -116,7 +117,7 @@ export function NodeTopicPicker({
                   return (
                     <CommandItem
                       key={tp.key}
-                      value={tp.key}
+                      value={tp.name}
                       onSelect={() => toggle(tp.key)}
                     >
                       <div
@@ -129,14 +130,7 @@ export function NodeTopicPicker({
                       >
                         <CheckIcon className='size-3 text-background' />
                       </div>
-                      <span className='truncate font-medium'>
-                        {tp.name || tp.key}
-                      </span>
-                      {tp.name ? (
-                        <span className='truncate text-xs text-muted-foreground'>
-                          {tp.key}
-                        </span>
-                      ) : null}
+                      <span className='truncate font-medium'>{tp.name}</span>
                     </CommandItem>
                   )
                 })}

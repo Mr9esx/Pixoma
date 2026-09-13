@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { queryKeys } from '@/lib/api/query-keys'
 import { taskActionErrorMessage } from '@/lib/api/task-errors'
 import { cancelTask, getTask } from '@/lib/api/tasks'
+import { listTopics } from '@/lib/api/topics'
 import { formatDateTime, formatUserLabel } from '@/lib/format'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -39,6 +40,10 @@ export function TaskDetailPanel({ id, onOpenRelated }: Props) {
   const detailQuery = useQuery({
     queryKey: queryKeys.tasks.detail(id),
     queryFn: () => getTask(id),
+  })
+  const topicsQuery = useQuery({
+    queryKey: queryKeys.topics.all,
+    queryFn: listTopics,
   })
 
   const cancelMut = useMutation({
@@ -213,7 +218,11 @@ export function TaskDetailPanel({ id, onOpenRelated }: Props) {
             {task.dispatch_topic ? (
               <RelatedChip
                 label={t('tasks.fieldTopic')}
-                value={task.dispatch_topic}
+                value={
+                  topicsQuery.data?.find(
+                    (topic) => topic.key === task.dispatch_topic
+                  )?.name ?? ''
+                }
                 to='/topics/$key'
                 params={{ key: task.dispatch_topic }}
               />

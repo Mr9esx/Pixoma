@@ -160,6 +160,11 @@ describe('channel layout aligned with compute nodes', () => {
     expect(form).toMatch(/platform === 'mcp'/)
     expect(form).toMatch(/platform === 'telegram'/)
     expect(form).not.toMatch(/platform: 'telegram', name, token/)
+    expect(form).toContain('<RequiredBadge />')
+    expect(form).toMatch(/channel-name[\s\S]*?required/)
+    expect(form).toMatch(
+      /channel-name[\s\S]*?channel-platform[\s\S]*?channel-token/
+    )
   })
 
   it('mcp channel detail has user tokens and no bot token field', () => {

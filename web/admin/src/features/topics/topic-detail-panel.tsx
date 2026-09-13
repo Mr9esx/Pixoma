@@ -25,6 +25,7 @@ import { listTasks } from '@/lib/api/tasks'
 import { deleteTopic, getTopic, updateTopic } from '@/lib/api/topics'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { RequiredBadge } from '@/components/required-badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
@@ -82,7 +83,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
   }
 
   const updateMutation = useMutation({
-    mutationFn: () => updateTopic(topicKey, { name: name.trim() || undefined }),
+    mutationFn: () => updateTopic(topicKey, { name: name.trim() }),
     onSuccess: () => {
       setEditOpen(false)
       setName('')
@@ -329,7 +330,7 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
           />
         ) : healthQuery.isSuccess ? (
           <LinkHealthAlert
-            name={name || topicKey}
+            name={topic.name}
             health={topicRefs.health}
             anchorTo='#link-health-section'
           />
@@ -370,12 +371,14 @@ export function TopicDetailPanel({ topicKey }: { topicKey: string }) {
             <Field>
               <FieldLabel htmlFor='topic-name'>
                 {t('topics.fieldName')}
+                <RequiredBadge />
               </FieldLabel>
               <Input
                 id='topic-name'
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete='off'
+                required
               />
             </Field>
           </FieldGroup>

@@ -95,19 +95,20 @@ export function TopicListPanel({
                   )}
                 >
                   <div className='flex items-center justify-between gap-2'>
-                    <span className='truncate font-medium'>{topic.name}</span>
+                    <span className='flex min-w-0 items-center gap-1.5'>
+                      <span className='truncate font-medium'>{topic.name}</span>
+                      {topic.key === 'default' ? (
+                        <span className='shrink-0 text-xs text-muted-foreground'>
+                          {t('topics.defaultBadge')}
+                        </span>
+                      ) : null}
+                    </span>
                     <StatusDot
                       problems={problems}
                       label={
                         problems === 0 ? t('topics.enabled') : t('status.issue')
                       }
                     />
-                  </div>
-                  <div className='mt-0.5 truncate text-xs text-muted-foreground'>
-                    {topic.key}
-                    {topic.key === 'default'
-                      ? ` · ${t('topics.defaultBadge')}`
-                      : ''}
                   </div>
                 </Link>
               </li>

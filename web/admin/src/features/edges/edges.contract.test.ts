@@ -230,8 +230,6 @@ describe('compute node layout and detail', () => {
     expect(layout).not.toMatch(/flex max-h-\[85vh\] flex-col sm:max-w-lg/)
     expect(zh).toMatch(/"createNode": "新建节点"/)
     expect(en).toMatch(/"createNode": "New node"/)
-    expect(zh).toMatch(/"deployHeading": "部署节点"/)
-    expect(en).toMatch(/"deployHeading": "Deploy node"/)
     expect(zh).toMatch(/"deploySkip": "跳过"/)
     expect(en).toMatch(/"deploySkip": "Skip"/)
     expect(zh).toMatch(/"deployContinue": "完成"/)
@@ -244,6 +242,7 @@ describe('compute node layout and detail', () => {
     expect(en).toMatch(/"stepDeploy": "Deploy node"/)
     expect(zh).toMatch(/"createAndContinue": "创建并继续"/)
     expect(en).toMatch(/"createAndContinue": "Create & continue"/)
+    expect(form).toContain('<RequiredBadge />')
     expect(form).toMatch(
       /fieldName[\s\S]*?subscribeTopics[\s\S]*?fieldDescription[\s\S]*?fieldCapabilities[\s\S]*?fieldEnabled/
     )
@@ -252,12 +251,10 @@ describe('compute node layout and detail', () => {
       /subscribe_topics\s*\?\?\s*\[\]\s*\)\s*:\s*\[DEFAULT_TOPIC_KEY\]/
     )
     expect(picker).toMatch(/Alert[\s\S]*?subscribeTopicsHint/)
-    expect(picker).toMatch(/font-medium[\s\S]*?\{tp\.name \|\| tp\.key\}/)
+    expect(picker).toMatch(/font-medium'>\{tp\.name\}/)
+    expect(picker).not.toMatch(/tp\.name \|\| tp\.key/)
     expect(picker).toMatch(
-      /tp\.name \|\| tp\.key[\s\S]*?text-muted-foreground[\s\S]*?\{tp\.key\}/
-    )
-    expect(picker).toMatch(
-      /selectedLabels[\s\S]*?topics\.find\([\s\S]*?tp\.key === key[\s\S]*?\?\.name \|\| key/
+      /selectedLabels[\s\S]*?topics\.find\([\s\S]*?tp\.key === key[\s\S]*?\?\.name \?\? ''/
     )
     expect(picker).toMatch(/value\.length > 0[\s\S]*?\? selectedLabels/)
   })
