@@ -153,7 +153,7 @@ export function EdgeDetailPanel({ id }: Props) {
   })
   const topicsQuery = useQuery({
     queryKey: queryKeys.topics.all,
-    queryFn: listTopics,
+    queryFn: () => listTopics(),
   })
   const statsQuery = useQuery({
     queryKey: queryKeys.edges.stats(id),

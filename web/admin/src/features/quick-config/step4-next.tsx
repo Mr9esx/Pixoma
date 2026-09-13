@@ -28,7 +28,7 @@ export function Step4Next({ shared }: Props) {
   })
   const topicsQuery = useQuery({
     queryKey: queryKeys.topics.all,
-    queryFn: listTopics,
+    queryFn: () => listTopics(),
   })
   const topicName =
     topicsQuery.data?.find((topic) => topic.key === shared.topicKey)?.name ??

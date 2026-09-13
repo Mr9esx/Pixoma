@@ -43,7 +43,7 @@ export function TaskDetailPanel({ id, onOpenRelated }: Props) {
   })
   const topicsQuery = useQuery({
     queryKey: queryKeys.topics.all,
-    queryFn: listTopics,
+    queryFn: () => listTopics(),
   })
 
   const cancelMut = useMutation({
