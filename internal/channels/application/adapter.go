@@ -23,6 +23,8 @@ type ChannelSnapshot struct {
 	ID             string
 	Platform       string
 	Credential     string // decrypted credential (memory-resident for adapter creation)
+	AppID          string // Feishu App ID (platform-scoped, no secret)
+	AppSecret      string // Feishu App Secret (memory-resident)
 	CredentialHash string
 	Enabled        bool
 	UpdatedAt      time.Time

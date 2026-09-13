@@ -8,7 +8,9 @@ import (
 
 // Credential is the platform-specific credential payload (JSON-encrypted at rest).
 type Credential struct {
-	BotToken string `json:"bot_token,omitempty"`
+	BotToken  string `json:"bot_token,omitempty"`
+	AppID     string `json:"app_id,omitempty"`
+	AppSecret string `json:"app_secret,omitempty"`
 }
 
 // EncryptCredential serializes and encrypts a credential with the given key.
@@ -42,4 +44,16 @@ func MaskedToken(token string) string {
 		return "****"
 	}
 	return token[:4] + "****" + token[len(token)-4:]
+}
+
+// Masked renders the sensitive portion of the credential for display:
+// bot tokens and App Secrets are masked; App IDs are non-secret.
+func (c Credential) Masked() string {
+	if c.BotToken != "" {
+		return MaskedToken(c.BotToken)
+	}
+	if c.AppSecret != "" {
+		return MaskedToken(c.AppSecret)
+	}
+	return "****"
 }

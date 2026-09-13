@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select'
 import { SecretInput } from '@/components/secret-input'
 
-type Platform = 'telegram' | 'mcp'
+type Platform = 'telegram' | 'mcp' | 'feishu'
 
 type Props = {
   onDone: (channel: Channel) => void
@@ -32,13 +32,17 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
   const [platform, setPlatform] = useState<Platform>('telegram')
   const [name, setName] = useState('')
   const [token, setToken] = useState('')
+  const [appId, setAppId] = useState('')
+  const [appSecret, setAppSecret] = useState('')
 
   const createMutation = useMutation({
     mutationFn: () =>
       createChannel(
         platform === 'mcp'
           ? { platform, name: name.trim() }
-          : { platform, name: name.trim(), token }
+          : platform === 'feishu'
+            ? { platform, name: name.trim(), appId: appId.trim(), appSecret }
+            : { platform, name: name.trim(), token }
       ),
     onSuccess: (ch) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.channels.all })
@@ -50,7 +54,10 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
 
   const canSubmit =
     name.trim() !== '' &&
-    (platform === 'mcp' || token.trim() !== '') &&
+    (platform === 'mcp' ||
+      (platform === 'feishu'
+        ? appId.trim() !== '' && appSecret.trim() !== ''
+        : token.trim() !== '')) &&
     !createMutation.isPending
 
   return (
@@ -88,6 +95,9 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
                 <SelectItem value='mcp'>
                   {t('channels.platformMCP')}
                 </SelectItem>
+                <SelectItem value='feishu'>
+                  {t('channels.platformFeishu')}
+                </SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -107,6 +117,39 @@ export function CreateChannelForm({ onDone, onCancel }: Props) {
               required
             />
           </Field>
+        ) : platform === 'feishu' ? (
+          <>
+            <Field>
+              <FieldLabel htmlFor='channel-app-id'>
+                {t('channels.appId')}
+                <RequiredBadge />
+              </FieldLabel>
+              <Input
+                id='channel-app-id'
+                value={appId}
+                onChange={(e) => setAppId(e.target.value)}
+                placeholder='cli_…'
+                autoComplete='off'
+                required
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor='channel-app-secret'>
+                {t('channels.appSecret')}
+                <RequiredBadge />
+              </FieldLabel>
+              <SecretInput
+                id='channel-app-secret'
+                value={appSecret}
+                onChange={(e) => setAppSecret(e.target.value)}
+                autoComplete='off'
+                required
+              />
+              <p className='text-sm text-muted-foreground'>
+                {t('channels.appIdHint')}
+              </p>
+            </Field>
+          </>
         ) : null}
       </FieldGroup>
       <DialogFooter className='shrink-0'>

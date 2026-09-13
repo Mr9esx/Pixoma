@@ -248,3 +248,74 @@ func TestService_CreateRejectsInvalidExtraInfo(t *testing.T) {
 		t.Fatal("want error for invalid extra_info")
 	}
 }
+
+func TestService_CreateFeishuEncryptsAndMasks(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{Store: store, Key: make([]byte, 32)}
+	ch, err := svc.CreateWithCredential(context.Background(), "fs-default", domain.PlatformFeishu, "飞书助手", domain.Credential{AppID: "cli_abcdef012345", AppSecret: "supersecretvalue1234567"}, "")
+	if err != nil {
+		t.Fatalf("create feishu: %v", err)
+	}
+	if ch.Platform != string(domain.PlatformFeishu) {
+		t.Fatalf("platform = %q", ch.Platform)
+	}
+	cred, err := domain.DecryptCredential(svc.Key, ch.CredentialCiphertext)
+	if err != nil {
+		t.Fatalf("decrypt: %v", err)
+	}
+	if cred.AppID != "cli_abcdef012345" || cred.AppSecret != "supersecretvalue1234567" {
+		t.Fatalf("credential not round-tripped: %+v", cred)
+	}
+	masked, err := svc.Masked(context.Background(), ch.ID)
+	if err != nil {
+		t.Fatalf("masked: %v", err)
+	}
+	if masked == "supersecretvalue1234567" || masked == "" {
+		t.Fatalf("masked leaks secret: %q", masked)
+	}
+}
+
+func TestService_CreateFeishuRequiresAppIDAndSecret(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{Store: store, Key: make([]byte, 32)}
+	if _, err := svc.CreateWithCredential(context.Background(), "fs-x", domain.PlatformFeishu, "x", domain.Credential{AppID: "cli_1", AppSecret: ""}, ""); err == nil {
+		t.Fatal("expected error for missing app_secret")
+	}
+	if _, err := svc.CreateWithCredential(context.Background(), "fs-x", domain.PlatformFeishu, "x", domain.Credential{AppID: "", AppSecret: "s"}, ""); err == nil {
+		t.Fatal("expected error for missing app_id")
+	}
+}
+
+func TestService_CheckReachabilityFeishuNeverUsesTelegram(t *testing.T) {
+	store := &memStore{rows: map[string]domain.Channel{}}
+	svc := &Service{Store: store, Key: make([]byte, 32)}
+	if _, err := svc.CreateWithCredential(context.Background(), "fs-1", domain.PlatformFeishu, "f", domain.Credential{AppID: "cli_1", AppSecret: "secretsecretsecret"}, ""); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	var tgCalled bool
+	svc.CheckTelegram = func(_ context.Context, _ string) (ReachabilityResult, error) {
+		tgCalled = true
+		return ReachabilityResult{OK: true, Kind: ReachabilityOK}, nil
+	}
+	svc.CheckFeishu = func(_ context.Context, appID, _ string) (ReachabilityResult, error) {
+		if appID != "cli_1" {
+			t.Fatalf("appID = %q", appID)
+		}
+		return ReachabilityResult{OK: true, Kind: ReachabilityOK}, nil
+	}
+	res, err := svc.CheckReachability(context.Background(), "fs-1")
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok, got %+v", res)
+	}
+	if tgCalled {
+		t.Fatal("feishu reachability must not call telegram getMe")
+	}
+	// last_check persisted on the channel
+	got, _ := svc.Get(context.Background(), "fs-1")
+	if got.LastCheckKind != string(ReachabilityOK) {
+		t.Fatalf("last_check_kind = %q", got.LastCheckKind)
+	}
+}

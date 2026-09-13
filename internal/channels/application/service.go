@@ -33,6 +33,8 @@ type Service struct {
 	DeleteWithCleanup func(ctx context.Context, channelID string) ([]sharedkernel.ChatID, error)
 	// CheckTelegram overrides the default getMe probe (tests).
 	CheckTelegram func(ctx context.Context, token string) (ReachabilityResult, error)
+	// CheckFeishu overrides the default Feishu tenant-access probe (tests).
+	CheckFeishu func(ctx context.Context, appID, appSecret string) (ReachabilityResult, error)
 	// FetchTelegram overrides the default getMe identity fetch (tests).
 	FetchTelegram func(ctx context.Context, token string) (json.RawMessage, error)
 	// AdapterStatus reports the background adapter state for a channel
@@ -49,6 +51,12 @@ func (s *Service) nowFn() func() time.Time {
 }
 
 func (s *Service) Create(ctx context.Context, id string, platform domain.Platform, name, token string, extraInfo string) (domain.Channel, error) {
+	return s.CreateWithCredential(ctx, id, platform, name, domain.Credential{BotToken: token}, extraInfo)
+}
+
+// CreateWithCredential creates a channel with a platform-specific credential.
+// Telegram stores the bot token; Feishu stores App ID + App Secret.
+func (s *Service) CreateWithCredential(ctx context.Context, id string, platform domain.Platform, name string, cred domain.Credential, extraInfo string) (domain.Channel, error) {
 	if !domain.ValidPlatform(platform) {
 		return domain.Channel{}, fmt.Errorf("channel: unsupported platform %q", platform)
 	}
@@ -58,11 +66,11 @@ func (s *Service) Create(ctx context.Context, id string, platform domain.Platfor
 	if platform == domain.PlatformMCP && strings.TrimSpace(name) == "" {
 		return domain.Channel{}, fmt.Errorf("channel: name required")
 	}
-	if platform != domain.PlatformMCP && token == "" {
-		return domain.Channel{}, fmt.Errorf("channel: id/token required")
+	if err := validateCredential(platform, cred); err != nil {
+		return domain.Channel{}, err
 	}
 	if extraInfo == "" && platform == domain.PlatformTelegram {
-		if info, err := s.FetchBotInfo(ctx, token); err == nil {
+		if info, err := s.FetchBotInfo(ctx, cred.BotToken); err == nil {
 			extraInfo = string(info)
 			if strings.TrimSpace(name) == "" {
 				name = telegramBotDisplayName(info)
@@ -74,7 +82,7 @@ func (s *Service) Create(ctx context.Context, id string, platform domain.Platfor
 	if strings.TrimSpace(name) == "" {
 		return domain.Channel{}, fmt.Errorf("channel: name required")
 	}
-	ct, err := domain.EncryptCredential(s.Key, domain.Credential{BotToken: token})
+	ct, err := domain.EncryptCredential(s.Key, cred)
 	if err != nil {
 		return domain.Channel{}, err
 	}
@@ -87,6 +95,30 @@ func (s *Service) Create(ctx context.Context, id string, platform domain.Platfor
 		return domain.Channel{}, err
 	}
 	return ch, nil
+}
+
+// validateCredential enforces the per-platform credential shape.
+func validateCredential(platform domain.Platform, cred domain.Credential) error {
+	switch platform {
+	case domain.PlatformMCP:
+		return nil
+	case domain.PlatformTelegram:
+		if strings.TrimSpace(cred.BotToken) == "" {
+			return fmt.Errorf("channel: id/credential required")
+		}
+		return nil
+	case domain.PlatformFeishu:
+		if strings.TrimSpace(cred.AppID) == "" || strings.TrimSpace(cred.AppSecret) == "" {
+			return fmt.Errorf("channel: feishu app_id/app_secret required")
+		}
+		return nil
+	default:
+		// wecom/dingtalk reserved; require a non-empty secret.
+		if cred.BotToken == "" && cred.AppSecret == "" {
+			return fmt.Errorf("channel: id/credential required")
+		}
+		return nil
+	}
 }
 
 // FetchBotInfo probes the Telegram Bot API with a raw token and returns the
@@ -116,11 +148,12 @@ func (s *Service) Masked(ctx context.Context, id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return domain.MaskedToken(cred.BotToken), nil
+	return cred.Masked(), nil
 }
 
-// CheckReachability probes the Telegram Bot API once with the channel token
-// and classifies the result (ok / network / auth / other).
+// CheckReachability probes the platform identity endpoint once and classifies
+// the result (ok / network / auth / other). Telegram uses getMe; Feishu probes
+// tenant_access_token; unprobeable platforms report ok without network calls.
 func (s *Service) CheckReachability(ctx context.Context, id string) (ReachabilityResult, error) {
 	ch, err := s.Store.Get(ctx, id)
 	if err != nil {
@@ -133,11 +166,23 @@ func (s *Service) CheckReachability(ctx context.Context, id string) (Reachabilit
 	if err != nil {
 		return ReachabilityResult{}, err
 	}
-	probe := s.CheckTelegram
-	if probe == nil {
-		probe = checkTelegramReachability
+	var res ReachabilityResult
+	switch domain.Platform(ch.Platform) {
+	case domain.PlatformFeishu:
+		probe := s.CheckFeishu
+		if probe == nil {
+			probe = checkFeishuReachability
+		}
+		res, err = probe(ctx, cred.AppID, cred.AppSecret)
+	case domain.PlatformTelegram:
+		probe := s.CheckTelegram
+		if probe == nil {
+			probe = checkTelegramReachability
+		}
+		res, err = probe(ctx, cred.BotToken)
+	default:
+		res = ReachabilityResult{OK: true, Kind: ReachabilityOK, Message: "probe not implemented"}
 	}
-	res, err := probe(ctx, cred.BotToken)
 	if err != nil {
 		return ReachabilityResult{}, err
 	}
@@ -157,6 +202,17 @@ func (s *Service) List(ctx context.Context) ([]domain.Channel, error) {
 }
 
 func (s *Service) Update(ctx context.Context, id, name string, token *string) (domain.Channel, error) {
+	var cred *domain.Credential
+	if token != nil && *token != "" {
+		cred = &domain.Credential{BotToken: *token}
+	}
+	return s.UpdateCredential(ctx, id, name, cred)
+}
+
+// UpdateCredential updates a channel's name and/or credential. The credential
+// is replaced wholesale for the platform; every call bumps UpdatedAt and clears
+// the last-check so the assembler notices the change.
+func (s *Service) UpdateCredential(ctx context.Context, id, name string, cred *domain.Credential) (domain.Channel, error) {
 	ch, err := s.Store.Get(ctx, id)
 	if err != nil {
 		return domain.Channel{}, err
@@ -164,16 +220,16 @@ func (s *Service) Update(ctx context.Context, id, name string, token *string) (d
 	if name != "" {
 		ch.Name = name
 	}
-	if token != nil && *token != "" {
-		ct, err := domain.EncryptCredential(s.Key, domain.Credential{BotToken: *token})
+	if cred != nil {
+		ct, err := domain.EncryptCredential(s.Key, *cred)
 		if err != nil {
 			return domain.Channel{}, err
 		}
 		ch.CredentialCiphertext = ct
-		ch.LastCheckKind = ""
-		ch.LastCheckMessage = ""
-		ch.LastCheckAt = nil
 	}
+	ch.LastCheckKind = ""
+	ch.LastCheckMessage = ""
+	ch.LastCheckAt = nil
 	ch.UpdatedAt = s.nowFn()().UTC()
 	if err := s.Store.Update(ctx, ch); err != nil {
 		return domain.Channel{}, err

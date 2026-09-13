@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -353,5 +354,33 @@ func TestChannelsHandler_CreateStoresExtraInfo(t *testing.T) {
 	}
 	if extra["username"] != "demo_bot" {
 		t.Fatalf("username=%v", extra["username"])
+	}
+}
+
+func TestChannelsHandler_CreateFeishuNoSecretLeak(t *testing.T) {
+	srv, _ := openChannelsServer(t)
+	secret := "superS3cret_appSecret_1234567890"
+	res, m := post(t, srv.URL+"/api/v1/channels", map[string]any{
+		"platform":   "feishu",
+		"name":       "飞书助手",
+		"app_id":     "cli_abcdef",
+		"app_secret": secret,
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, body = %v", res.StatusCode, m)
+	}
+	if m["platform"] != "feishu" {
+		t.Fatalf("platform = %v", m["platform"])
+	}
+	if m["app_id"] != "cli_abcdef" {
+		t.Fatalf("app_id = %v", m["app_id"])
+	}
+	raw, _ := json.Marshal(m)
+	if strings.Contains(string(raw), secret) {
+		t.Fatal("response leaked app_secret plaintext")
+	}
+	masked, _ := m["token_masked"].(string)
+	if masked == secret || masked == "" {
+		t.Fatalf("token_masked = %q", masked)
 	}
 }

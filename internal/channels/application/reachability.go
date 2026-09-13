@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -153,4 +154,55 @@ func checkTelegramReachability(ctx context.Context, token string) (ReachabilityR
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 	return classifyGetMeError(resp.StatusCode, nil), nil
+}
+
+// feishuTenantTokenEnvelope mirrors the tenant_access_token response.
+// code == 0 means the App ID/Secret pair authenticated successfully.
+type feishuTenantTokenEnvelope struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+}
+
+// checkFeishuReachability validates Feishu credentials by requesting a
+// tenant_access_token from the open platform. It never touches Telegram.
+func checkFeishuReachability(ctx context.Context, appID, appSecret string) (ReachabilityResult, error) {
+	if appID == "" || appSecret == "" {
+		return ReachabilityResult{OK: false, Kind: ReachabilityAuth, Message: "app_id/app_secret required"}, nil
+	}
+	payload, err := json.Marshal(map[string]string{"app_id": appID, "app_secret": appSecret})
+	if err != nil {
+		return ReachabilityResult{}, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, reachabilityTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		"https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+		bytes.NewReader(payload))
+	if err != nil {
+		return ReachabilityResult{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if isNetworkError(err) {
+			return ReachabilityResult{OK: false, Kind: ReachabilityNetwork, Message: err.Error()}, nil
+		}
+		return ReachabilityResult{OK: false, Kind: ReachabilityOther, Message: err.Error()}, nil
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return ReachabilityResult{}, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return ReachabilityResult{OK: false, Kind: ReachabilityAuth, Message: fmt.Sprintf("feishu api status %d", resp.StatusCode)}, nil
+	}
+	var env feishuTenantTokenEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return ReachabilityResult{OK: false, Kind: ReachabilityOther, Message: "feishu tenant token decode failed"}, nil
+	}
+	if env.Code != 0 {
+		return ReachabilityResult{OK: false, Kind: ReachabilityAuth, Message: env.Msg}, nil
+	}
+	return ReachabilityResult{OK: true, Kind: ReachabilityOK}, nil
 }

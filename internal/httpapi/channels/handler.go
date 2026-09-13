@@ -52,6 +52,7 @@ type channelDTO struct {
 	ID               string          `json:"id"`
 	Platform         string          `json:"platform"`
 	Name             string          `json:"name"`
+	AppID            string          `json:"app_id,omitempty"`
 	ExtraInfo        json.RawMessage `json:"extra_info"`
 	TokenMasked      string          `json:"token_masked"`
 	Enabled          bool            `json:"enabled"`
@@ -82,6 +83,11 @@ func (h *Handler) toDTO(ctx *http.Request, ch domain.Channel) (channelDTO, error
 		LastCheckMessage: ch.LastCheckMessage,
 		LastCheckAt:      ch.LastCheckAt,
 	}
+	if ch.Platform == string(domain.PlatformFeishu) && h.Svc != nil {
+		if cred, derr := domain.DecryptCredential(h.Svc.Key, ch.CredentialCiphertext); derr == nil {
+			dto.AppID = cred.AppID
+		}
+	}
 	if h.Svc != nil && h.Svc.AdapterStatus != nil {
 		if state, lastErr, found := h.Svc.AdapterStatus(ctx.Context(), ch.ID); found {
 			dto.AdapterState = state
@@ -96,6 +102,8 @@ type createBody struct {
 	Platform  string `json:"platform"`
 	Name      string `json:"name"`
 	Token     string `json:"token"`
+	AppID     string `json:"app_id"`
+	AppSecret string `json:"app_secret"`
 	ExtraInfo string `json:"extra_info"`
 }
 
@@ -113,7 +121,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if id == "" {
 		id = uuid.NewString()
 	}
-	ch, err := h.Svc.Create(r.Context(), id, domain.Platform(body.Platform), body.Name, body.Token, body.ExtraInfo)
+	platform := domain.Platform(body.Platform)
+	cred := domain.Credential{BotToken: body.Token}
+	if platform == domain.PlatformFeishu {
+		cred = domain.Credential{AppID: body.AppID, AppSecret: body.AppSecret}
+	}
+	ch, err := h.Svc.CreateWithCredential(r.Context(), id, platform, body.Name, cred, body.ExtraInfo)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
@@ -173,8 +186,9 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateBody struct {
-	Name  string  `json:"name"`
-	Token *string `json:"token"`
+	Name      string  `json:"name"`
+	Token     *string `json:"token"`
+	AppSecret *string `json:"app_secret"`
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
@@ -184,7 +198,31 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	ch, err := h.Svc.Update(r.Context(), id, body.Name, body.Token)
+	current, err := h.Svc.Get(r.Context(), id)
+	if errors.Is(err, domain.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "channel not found")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	var ch domain.Channel
+	if domain.Platform(current.Platform) == domain.PlatformFeishu {
+		// Feishu rotates the App Secret in place; App ID is immutable.
+		var updCred *domain.Credential
+		if body.AppSecret != nil && *body.AppSecret != "" {
+			cred := domain.Credential{}
+			if cur, derr := domain.DecryptCredential(h.Svc.Key, current.CredentialCiphertext); derr == nil {
+				cred = cur
+			}
+			cred.AppSecret = *body.AppSecret
+			updCred = &cred
+		}
+		ch, err = h.Svc.UpdateCredential(r.Context(), id, body.Name, updCred)
+	} else {
+		ch, err = h.Svc.Update(r.Context(), id, body.Name, body.Token)
+	}
 	if errors.Is(err, domain.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "channel not found")
 		return

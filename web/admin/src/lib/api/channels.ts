@@ -45,6 +45,8 @@ export function createChannel(body: {
   platform: string
   name: string
   token?: string
+  appId?: string
+  appSecret?: string
 }) {
   return apiFetch<Channel>('/api/v1/channels', {
     method: 'POST',
