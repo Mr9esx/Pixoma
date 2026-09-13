@@ -1,6 +1,6 @@
 workflow: full
 language: zh-CN
-phase: open
+phase: archive
 context_compression: off
 build_mode: null
 build_pause: null
@@ -13,11 +13,11 @@ auto_transition: true
 base_ref: ba47d3fe8696b5bde330f0d05c26a5b7fb45f52e
 design_doc: null
 plan: null
-verify_result: pending
-verify_failures: 0
-verification_report: null
-branch_status: pending
+verify_result: fail
+verify_failures: 9
+verification_report: docs/superpowers/reports/2026-09-13-workflow-editor-refactor-verify.md
+branch_status: handled
 created_at: 2026-08-26
-verified_at: null
-archive_confirmation: null
-archived: false
+verified_at: 2026-09-13
+archive_confirmation: done
+archived: true
