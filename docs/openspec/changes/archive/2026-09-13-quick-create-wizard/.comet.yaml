@@ -16,11 +16,11 @@ plan: docs/superpowers/plans/2026-08-30-quick-create-wizard.md
 verify_result: pending
 verify_failures: 0
 verification_report: null
-branch_status: pending
+branch_status: handled
 created_at: 2026-08-30
 verified_at: null
-archive_confirmation: null
-archived: false
+archive_confirmation: done
+archived: true
 bound_branch: feat-init
 direct_override: null
 handoff_context: docs/openspec/changes/quick-create-wizard/.comet/handoff/design-context.json
