@@ -12,6 +12,7 @@ import (
 
 	texttpl "github.com/Mr9esx/Pixoma/internal/channels/domain/templates"
 	"github.com/Mr9esx/Pixoma/internal/channels/protocol"
+	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
@@ -42,6 +43,11 @@ type CallbackCodec interface {
 	Back(target string) string
 }
 
+// MenuReader reads the configured menu tree for one channel.
+type MenuReader interface {
+	GetTree(ctx context.Context) (mcdomain.MenuTree, error)
+}
+
 // Controller owns capability invocation and one-shot action tokens.
 type Controller struct {
 	channelID string
@@ -54,6 +60,8 @@ type Controller struct {
 	Blob          blob.Store
 	Texts         texttpl.Renderer
 	Notifications *NotificationStore
+	Menu          MenuReader
+	Back          *BackStack
 	// Users resolves an external platform user to Pixoma's internal identity.
 	// It is optional so pure protocol tests need no persistence dependency.
 	Users protocol.IdentityResolver
@@ -78,6 +86,7 @@ func NewWithActionStore(channelID string, invoker Invoker, renderer Renderer, ac
 		renderer:      renderer,
 		actions:       actions,
 		Notifications: NewNotificationStore(),
+		Back:          NewBackStack(),
 	}
 }
 
@@ -98,6 +107,115 @@ func (c *Controller) HandleText(ctx context.Context, in Inbound, text string) er
 		CapabilityID: "open_case",
 		Params:       map[string]any{"step": "text", "text": text},
 	})
+}
+
+// SendMainMenu renders the configured root menu.
+func (c *Controller) SendMainMenu(ctx context.Context, in Inbound) error {
+	if c == nil || c.Outbound == nil {
+		return fmt.Errorf("conversation: menu renderer not configured")
+	}
+	menu := c.loadMenu(ctx)
+	items := make([]protocol.MenuEntry, 0, len(menu.Items))
+	for _, item := range menu.Items {
+		items = append(items, protocol.MenuEntry{ID: item.ID, Label: item.Label})
+	}
+	return c.Outbound.SendMenu(ctx, in.Addr, c.renderText(ctx, texttpl.KeyWelcome, nil), items)
+}
+
+// HandleMenuAction resolves a configured menu action without interpreting a
+// platform event or callback payload.
+func (c *Controller) HandleMenuAction(ctx context.Context, in Inbound, button mcdomain.TreeButton, backCtx string) error {
+	if c == nil || c.Outbound == nil {
+		return fmt.Errorf("conversation: menu renderer not configured")
+	}
+	action := button.Action
+	switch action.Type {
+	case "open_card":
+		card := action.Card
+		if card == nil {
+			compiled := mcdomain.Compile(c.loadMenu(ctx))
+			if found, ok := compiled.CardByOpenerID[button.ID]; ok {
+				card = &found
+			}
+		}
+		if card == nil {
+			return c.Outbound.SendText(ctx, in.Addr, "卡片不存在或已删除")
+		}
+		c.Back.Push(sharedkernel.FormatChatID(in.Addr), backCtx)
+		return c.SendCard(ctx, in, *card, button.ID, backCtx)
+	case "open_workflow":
+		return c.invoke(ctx, in, protocol.CapabilityInvoke{CapabilityID: "open_case", Params: map[string]any{"step": "preview", "case_id": action.WorkflowID}, Nav: protocol.Nav{Back: backCtx}})
+	case "list_tasks":
+		return c.invoke(ctx, in, protocol.CapabilityInvoke{CapabilityID: "list_tasks", Params: map[string]any{}, Nav: protocol.Nav{Back: backCtx}})
+	case "send_text", "copy_text":
+		return c.Outbound.SendText(ctx, in.Addr, action.Text)
+	case "send_media":
+		for _, media := range action.Media {
+			if err := c.Outbound.SendMediaURL(ctx, in.Addr, media.URL, mediaKindToMIME(media.Kind), action.Text, nil); err != nil {
+				return err
+			}
+		}
+		if action.Text != "" && len(action.Media) == 0 {
+			return c.Outbound.SendText(ctx, in.Addr, action.Text)
+		}
+		return nil
+	case "open_url":
+		return c.Outbound.SendText(ctx, in.Addr, action.URL)
+	default:
+		return c.Outbound.SendText(ctx, in.Addr, "菜单配置无效")
+	}
+}
+
+// SendCard renders media and one-shot action buttons for a menu card.
+func (c *Controller) SendCard(ctx context.Context, in Inbound, card mcdomain.TreeCard, openerID, backCtx string) error {
+	if c == nil || c.Outbound == nil || c.Callbacks == nil {
+		return fmt.Errorf("conversation: card renderer not configured")
+	}
+	for _, media := range card.Media {
+		if err := c.Outbound.SendMediaURL(ctx, in.Addr, media.URL, mediaKindToMIME(media.Kind), card.Text, nil); err != nil {
+			return err
+		}
+	}
+	if len(card.Buttons) == 0 {
+		if card.Text != "" {
+			return c.Outbound.SendText(ctx, in.Addr, card.Text)
+		}
+		return nil
+	}
+	base := c.prepare(ctx, in, protocol.CapabilityInvoke{})
+	rows := make([][]protocol.Button, 0, len(card.Buttons)+1)
+	for _, button := range card.Buttons {
+		inv := base
+		inv.Params = map[string]any{"button_id": button.ID}
+		inv.Nav = protocol.Nav{Back: openerID}
+		rows = append(rows, []protocol.Button{{Text: button.Label, Data: c.Callbacks.Invoke(c.actions.Put(inv))}})
+	}
+	rows = append(rows, []protocol.Button{{Text: "返回", Data: c.Callbacks.Back(backCtx)}})
+	return c.Outbound.SendList(ctx, in.Addr, card.Text, rows)
+}
+
+// HandleBack follows a card navigation target or returns to the main menu.
+func (c *Controller) HandleBack(ctx context.Context, in Inbound, target string) error {
+	if c == nil || c.Back == nil {
+		return fmt.Errorf("conversation: navigation state not configured")
+	}
+	chat := sharedkernel.FormatChatID(in.Addr)
+	if target == "root" {
+		c.Back.Clear(chat)
+		return c.SendMainMenu(ctx, in)
+	}
+	if _, ok := c.Back.Pop(chat); !ok {
+		return c.SendMainMenu(ctx, in)
+	}
+	card, found := mcdomain.Compile(c.loadMenu(ctx)).CardByOpenerID[target]
+	if !found {
+		return c.SendMainMenu(ctx, in)
+	}
+	source := "root"
+	if top, ok := c.Back.Top(chat); ok {
+		source = top
+	}
+	return c.SendCard(ctx, in, card, target, source)
 }
 
 // RememberAction stores a capability invocation and returns its opaque token.
@@ -256,10 +374,40 @@ func mediaExtras(text string, rows [][]protocol.Button, first bool) (string, [][
 	return text, rows
 }
 
+func (c *Controller) loadMenu(ctx context.Context) mcdomain.MenuTree {
+	if c != nil && c.Menu != nil {
+		menu, err := c.Menu.GetTree(ctx)
+		if err == nil {
+			return menu
+		}
+		slog.Error("conversation menu load failed; using default", "err", err, "channel_id", c.channelID)
+	}
+	return mcdomain.DefaultMenuTree("default")
+}
+
+func mediaKindToMIME(kind string) string {
+	switch kind {
+	case "image":
+		return "image/jpeg"
+	case "animation":
+		return "image/gif"
+	case "video":
+		return "video/mp4"
+	default:
+		return ""
+	}
+}
+
 func (c *Controller) invoke(ctx context.Context, in Inbound, inv protocol.CapabilityInvoke) error {
 	if c == nil || c.invoker == nil {
 		return fmt.Errorf("conversation: capability invoker not configured")
 	}
+	inv = c.prepare(ctx, in, inv)
+	_, err := c.invoker.Invoke(ctx, inv)
+	return err
+}
+
+func (c *Controller) prepare(ctx context.Context, in Inbound, inv protocol.CapabilityInvoke) protocol.CapabilityInvoke {
 	inv.Account.ChannelID = c.channelID
 	inv.Account.ExternalUserID = in.ExternalUserID
 	if c.Users != nil {
@@ -276,6 +424,5 @@ func (c *Controller) invoke(ctx context.Context, in Inbound, inv protocol.Capabi
 	if inv.Nav.Back == "" {
 		inv.Nav.Back = "root"
 	}
-	_, err := c.invoker.Invoke(ctx, inv)
-	return err
+	return inv
 }

@@ -149,6 +149,8 @@ func (a *Adapter) controller() *conversation.Controller {
 	ctl.Blob = a.Blob
 	ctl.Texts = a.Texts
 	ctl.Notifications = a.notifications
+	ctl.Menu = a.Menu
+	ctl.Back = a.back
 	return ctl
 }
 
@@ -253,106 +255,15 @@ func (a *Adapter) openCaseStep(ctx context.Context, chatID sharedkernel.ChatID, 
 }
 
 func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID, addr sharedkernel.ChannelAddr, btn mcdomain.TreeButton, backCtx string) error {
-	action := btn.Action
-	switch action.Type {
-	case "open_card":
-		card := action.Card
-		if card == nil {
-			compiled := mcdomain.Compile(a.loadMenu(ctx))
-			if c, ok := compiled.CardByOpenerID[btn.ID]; ok {
-				card = &c
-			}
-		}
-		if card == nil {
-			return a.Out.SendText(ctx, addr, "卡片不存在或已删除")
-		}
-		a.back.Push(string(chatID), backCtx)
-		return a.sendCard(ctx, addr, *card, btn.ID, backCtx)
-	case "open_workflow":
-		inv, err := a.baseInvoke(ctx, chatID)
-		if err != nil {
-			return err
-		}
-		inv.CapabilityID = "open_case"
-		inv.Params = map[string]any{"step": "preview", "case_id": action.WorkflowID}
-		inv.Nav = protocol.Nav{Back: backCtx}
-		return a.dispatchInvoke(ctx, chatID, inv)
-	case "list_tasks":
-		inv, err := a.baseInvoke(ctx, chatID)
-		if err != nil {
-			return err
-		}
-		inv.CapabilityID = "list_tasks"
-		inv.Params = map[string]any{}
-		inv.Nav = protocol.Nav{Back: backCtx}
-		return a.dispatchInvoke(ctx, chatID, inv)
-	case "send_text", "copy_text":
-		return a.Out.SendText(ctx, addr, action.Text)
-	case "send_media":
-		for _, m := range action.Media {
-			if err := a.Out.SendMediaURL(ctx, addr, m.URL, mediaKindToMIME(m.Kind), action.Text, nil); err != nil {
-				return err
-			}
-		}
-		if action.Text != "" && len(action.Media) == 0 {
-			return a.Out.SendText(ctx, addr, action.Text)
-		}
-		return nil
-	case "open_url":
-		return a.Out.SendText(ctx, addr, action.URL)
-	default:
-		return a.Out.SendText(ctx, addr, "菜单配置无效")
-	}
+	return a.controller().HandleMenuAction(ctx, conversation.Inbound{Addr: addr, ExternalUserID: addr.ExternalChatID}, btn, backCtx)
 }
 
 func (a *Adapter) sendCard(ctx context.Context, addr sharedkernel.ChannelAddr, card mcdomain.TreeCard, openerID, backCtx string) error {
-	for _, m := range card.Media {
-		if err := a.Out.SendMediaURL(ctx, addr, m.URL, mediaKindToMIME(m.Kind), card.Text, nil); err != nil {
-			return err
-		}
-	}
-	if len(card.Buttons) == 0 {
-		if card.Text != "" {
-			return a.Out.SendText(ctx, addr, card.Text)
-		}
-		return nil
-	}
-	base, err := a.baseInvoke(ctx, sharedkernel.ChatID(sharedkernel.FormatChatID(addr)))
-	if err != nil {
-		return err
-	}
-	rows := make([][]protocol.Button, 0, len(card.Buttons)+1)
-	for _, b := range card.Buttons {
-		inv := base
-		inv.CapabilityID = ""
-		inv.Params = map[string]any{"button_id": b.ID}
-		inv.Nav = protocol.Nav{Back: openerID}
-		rows = append(rows, []protocol.Button{{Text: b.Label, Data: CBInvoke + a.store.Put(inv)}})
-	}
-	backData := CBMenuBack + backCtx
-	rows = append(rows, []protocol.Button{{Text: "返回", Data: backData}})
-	return a.Out.SendList(ctx, addr, card.Text, rows)
+	return a.controller().SendCard(ctx, conversation.Inbound{Addr: addr, ExternalUserID: addr.ExternalChatID}, card, openerID, backCtx)
 }
 
 func (a *Adapter) handleBack(ctx context.Context, chatID sharedkernel.ChatID, addr sharedkernel.ChannelAddr, target string) error {
-	if target == "root" {
-		a.back.Clear(string(chatID))
-		return a.sendMainMenu(ctx, addr)
-	}
-	_, ok := a.back.Pop(string(chatID))
-	if !ok {
-		return a.sendMainMenu(ctx, addr)
-	}
-	compiled := mcdomain.Compile(a.loadMenu(ctx))
-	card, found := compiled.CardByOpenerID[target]
-	if !found {
-		return a.sendMainMenu(ctx, addr)
-	}
-	source := "root"
-	if top, ok := a.back.Top(string(chatID)); ok {
-		source = top
-	}
-	return a.sendCard(ctx, addr, card, target, source)
+	return a.controller().HandleBack(ctx, conversation.Inbound{Addr: addr, ExternalUserID: addr.ExternalChatID}, target)
 }
 
 func (a *Adapter) dispatchInvoke(ctx context.Context, chatID sharedkernel.ChatID, inv protocol.CapabilityInvoke) error {
@@ -379,12 +290,7 @@ func (a *Adapter) renderResult(ctx context.Context, addr sharedkernel.ChannelAdd
 }
 
 func (a *Adapter) sendMainMenu(ctx context.Context, addr sharedkernel.ChannelAddr) error {
-	menu := a.loadMenu(ctx)
-	items := make([]protocol.MenuEntry, 0, len(menu.Items))
-	for _, it := range menu.Items {
-		items = append(items, protocol.MenuEntry{ID: it.ID, Label: it.Label})
-	}
-	return a.Out.SendMenu(ctx, addr, a.renderText(ctx, texttpl.KeyWelcome, nil), items)
+	return a.controller().SendMainMenu(ctx, conversation.Inbound{Addr: addr, ExternalUserID: addr.ExternalChatID})
 }
 
 func (a *Adapter) appSessionExists(ctx context.Context, chatID sharedkernel.ChatID) (bool, error) {

@@ -152,7 +152,7 @@ Run: `go test ./internal/channels/conversation -run 'TestController_(SubmitsImag
 
 Expected: FAIL，因为 `conversation` 包不存在。
 
-- [ ] **Step 3: 实现最小核心并迁移 Telegram 的状态容器**
+- [x] **Step 3: 实现最小核心并迁移 Telegram 的状态容器**
 
 ```go
 type Inbound struct {
