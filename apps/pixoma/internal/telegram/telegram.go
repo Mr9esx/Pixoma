@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/channels/application/capability"
 	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
 	templates "github.com/Mr9esx/Pixoma/internal/channels/domain/templates"
+	"github.com/Mr9esx/Pixoma/internal/channels/feishu"
 	"github.com/Mr9esx/Pixoma/internal/channels/tg"
 	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
 	mencardpersist "github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
@@ -190,11 +192,18 @@ func (s *channelSnapshotStore) ListChannels(ctx context.Context) ([]channelapp.C
 			slog.Error("channel credential decrypt", "err", err, "channel", ch.ID)
 			continue
 		}
-		sum := sha256.Sum256([]byte(cred.BotToken))
+		credentialBytes, err := json.Marshal(cred)
+		if err != nil {
+			slog.Error("channel credential hash", "err", err, "channel", ch.ID)
+			continue
+		}
+		sum := sha256.Sum256(credentialBytes)
 		out = append(out, channelapp.ChannelSnapshot{
 			ID:             ch.ID,
 			Platform:       ch.Platform,
 			Credential:     cred.BotToken,
+			AppID:          cred.AppID,
+			AppSecret:      cred.AppSecret,
 			CredentialHash: hex.EncodeToString(sum[:]),
 			Enabled:        ch.Enabled,
 			UpdatedAt:      ch.UpdatedAt,
@@ -242,9 +251,19 @@ func newCapabilityRegistry(facade *botapp.Facade, texts templates.Renderer, user
 }
 
 func (f *tgChannelFactory) Create(snap channelapp.ChannelSnapshot) (channelapp.Adapter, error) {
-	if snap.Platform == string(channeldomain.PlatformMCP) {
+	switch channeldomain.Platform(snap.Platform) {
+	case channeldomain.PlatformTelegram:
+		return f.newTelegram(snap)
+	case channeldomain.PlatformFeishu:
+		return f.newFeishu(snap)
+	case channeldomain.PlatformMCP:
 		return nil, fmt.Errorf("channel: mcp has no IM adapter")
+	default:
+		return nil, fmt.Errorf("channel: unsupported IM platform %q", snap.Platform)
 	}
+}
+
+func (f *tgChannelFactory) newTelegram(snap channelapp.ChannelSnapshot) (channelapp.Adapter, error) {
 	menuReader := channelMenuReader{cards: f.deps.MenuCards, channelID: snap.ID}
 	// Skip getMe here: bot.New's default 5s probe would hold assembler
 	// restart under Telegram RTT. Reachability belongs to ReachabilityProbe.
@@ -274,6 +293,15 @@ func (f *tgChannelFactory) Create(snap channelapp.ChannelSnapshot) (channelapp.A
 	}, nil
 }
 
+func (f *tgChannelFactory) newFeishu(snap channelapp.ChannelSnapshot) (channelapp.Adapter, error) {
+	adapter := feishu.NewAdapter(snap, feishu.NewIMClient(snap.AppID, snap.AppSecret), feishu.AdapterDeps{
+		Capabilities: f.caps,
+		Users:        identityResolver{users: f.deps.Users},
+		Blob:         f.deps.Blob,
+	})
+	return &feishuAdapterWrapper{adapter: adapter, registry: f.registry, channelID: snap.ID}, nil
+}
+
 type tgBotWrapper struct {
 	adapter   *tg.Adapter
 	registry  *notifyRegistry
@@ -282,6 +310,28 @@ type tgBotWrapper struct {
 	mu        sync.Mutex
 	cancel    context.CancelFunc
 	done      chan struct{}
+}
+
+type feishuAdapterWrapper struct {
+	adapter   *feishu.FeishuAdapter
+	registry  *notifyRegistry
+	channelID string
+}
+
+func (w *feishuAdapterWrapper) Start(ctx context.Context) error {
+	if err := w.adapter.Start(ctx); err != nil {
+		return err
+	}
+	w.registry.set(w.channelID, w.adapter)
+	return nil
+}
+
+func (w *feishuAdapterWrapper) Stop(ctx context.Context) error {
+	if err := w.adapter.Stop(ctx); err != nil {
+		return err
+	}
+	w.registry.unset(w.channelID)
+	return nil
 }
 
 func (w *tgBotWrapper) Start(ctx context.Context) error {

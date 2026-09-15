@@ -36,12 +36,32 @@ func TestTgChannelFactory_CreateDoesNotCallGetMe(t *testing.T) {
 	}
 
 	f := &tgChannelFactory{registry: &notifyRegistry{handlers: map[string]channelapp.NotifyHandler{}}}
-	_, err := f.Create(channelapp.ChannelSnapshot{ID: "c1", Credential: "1:token"})
+	_, err := f.Create(channelapp.ChannelSnapshot{ID: "c1", Platform: string(channeldomain.PlatformTelegram), Credential: "1:token"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	if n := hits.Load(); n != 0 {
 		t.Fatalf("Create called Telegram %d times; adapter start must skip getMe", n)
+	}
+}
+
+func TestTgChannelFactory_CreatesFeishuWithoutTelegramBot(t *testing.T) {
+	orig := newTelegramBot
+	t.Cleanup(func() { newTelegramBot = orig })
+	newTelegramBot = func(string, ...bot.Option) (*telegramBot, error) {
+		t.Fatal("feishu factory path created a Telegram Bot")
+		return nil, nil
+	}
+
+	f := &tgChannelFactory{registry: &notifyRegistry{handlers: map[string]channelapp.NotifyHandler{}}}
+	ad, err := f.Create(channelapp.ChannelSnapshot{
+		ID: "fs-1", Platform: string(channeldomain.PlatformFeishu), AppID: "cli_1", AppSecret: "secret-12345678",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if _, ok := ad.(*feishuAdapterWrapper); !ok {
+		t.Fatalf("adapter = %T, want *feishuAdapterWrapper", ad)
 	}
 }
 
