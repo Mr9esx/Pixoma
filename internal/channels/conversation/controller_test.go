@@ -48,6 +48,21 @@ func TestController_SubmitsImageOnlyForActiveImageStep(t *testing.T) {
 	}
 }
 
+func TestController_SubmitsTextForActiveWorkflow(t *testing.T) {
+	invoker := &recordingInvoker{}
+	ctl := New("tg-1", invoker, &recordingRenderer{})
+	err := ctl.HandleText(context.Background(), Inbound{
+		Addr:           sharedkernel.ChannelAddr{ChannelID: "tg-1", ExternalChatID: "123"},
+		ExternalUserID: "123",
+	}, "一只猫")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if invoker.last.CapabilityID != "open_case" || invoker.last.Params["step"] != "text" || invoker.last.Params["text"] != "一只猫" {
+		t.Fatalf("invoke = %#v", invoker.last)
+	}
+}
+
 func TestController_ExpiredActionReturnsReselectEffect(t *testing.T) {
 	renderer := &recordingRenderer{}
 	ctl := New("tg-1", &recordingInvoker{}, renderer)

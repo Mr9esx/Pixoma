@@ -6,11 +6,13 @@ package conversation
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"sync"
 
 	"github.com/Mr9esx/Pixoma/internal/channels/protocol"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
 )
 
 // Inbound is the platform-neutral identity of one user interaction.
@@ -35,6 +37,9 @@ type Controller struct {
 	channelID string
 	invoker   Invoker
 	renderer  Renderer
+	// Users resolves an external platform user to Pixoma's internal identity.
+	// It is optional so pure protocol tests need no persistence dependency.
+	Users protocol.IdentityResolver
 
 	mu      sync.Mutex
 	seq     uint64
@@ -59,6 +64,14 @@ func (c *Controller) HandleMedia(ctx context.Context, in Inbound, ref sharedkern
 			"step": "media",
 			"blob": map[string]any{"key": ref.Key, "mime": ref.MIME},
 		},
+	})
+}
+
+// HandleText submits a text input to the active workflow.
+func (c *Controller) HandleText(ctx context.Context, in Inbound, text string) error {
+	return c.invoke(ctx, in, protocol.CapabilityInvoke{
+		CapabilityID: "open_case",
+		Params:       map[string]any{"step": "text", "text": text},
 	})
 }
 
@@ -96,6 +109,16 @@ func (c *Controller) invoke(ctx context.Context, in Inbound, inv protocol.Capabi
 	}
 	inv.Account.ChannelID = c.channelID
 	inv.Account.ExternalUserID = in.ExternalUserID
+	if c.Users != nil {
+		id, err := c.Users.Resolve(ctx, in.Addr, identitydomain.UpsertFrom{
+			ChannelID: c.channelID, ExternalUserID: in.ExternalUserID,
+		})
+		if err != nil {
+			slog.Error("conversation resolve account", "err", err, "channel_id", c.channelID)
+		} else {
+			inv.Account.InternalUserID = id
+		}
+	}
 	inv.ChatID = sharedkernel.FormatChatID(in.Addr)
 	if inv.Nav.Back == "" {
 		inv.Nav.Back = "root"

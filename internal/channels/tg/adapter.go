@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Mr9esx/Pixoma/internal/channels/application/capability"
+	"github.com/Mr9esx/Pixoma/internal/channels/conversation"
 	texttpl "github.com/Mr9esx/Pixoma/internal/channels/domain/templates"
 	protocol "github.com/Mr9esx/Pixoma/internal/channels/protocol"
 	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
@@ -88,10 +89,6 @@ func (a *Adapter) HandleUserMedia(ctx context.Context, chatID sharedkernel.ChatI
 	if active, _ := a.appSessionExists(ctx, chatID); !active {
 		return a.sendMainMenu(ctx, addr0)
 	}
-	inv, err := a.baseInvoke(ctx, chatID)
-	if err != nil {
-		return err
-	}
 	if a.Media == nil || a.Blob == nil {
 		return a.Out.SendText(ctx, mustAddr(chatID), "无法处理图片：未配置媒体桥")
 	}
@@ -109,12 +106,7 @@ func (a *Adapter) HandleUserMedia(ctx context.Context, chatID sharedkernel.ChatI
 	if err != nil {
 		return a.Out.SendText(ctx, addr, "保存图片失败: "+err.Error())
 	}
-	inv.CapabilityID = "open_case"
-	inv.Params = map[string]any{
-		"step": "media",
-		"blob": map[string]any{"key": ref.Key, "mime": mime},
-	}
-	return a.dispatchInvoke(ctx, chatID, inv)
+	return a.controller().HandleMedia(ctx, conversation.Inbound{Addr: addr, ExternalUserID: addr.ExternalChatID}, ref)
 }
 
 func (a *Adapter) HandleText(ctx context.Context, chatID sharedkernel.ChatID, text, _ string) error {
@@ -126,12 +118,7 @@ func (a *Adapter) HandleText(ctx context.Context, chatID sharedkernel.ChatID, te
 
 	if !a.isMenuCommand(ctx, text) {
 		if active, err := a.appSessionExists(ctx, chatID); err == nil && active {
-			inv, ierr := a.baseInvoke(ctx, chatID)
-			if ierr == nil {
-				inv.CapabilityID = "open_case"
-				inv.Params = map[string]any{"step": "text", "text": text}
-				return a.dispatchInvoke(ctx, chatID, inv)
-			}
+			return a.controller().HandleText(ctx, conversation.Inbound{Addr: addr, ExternalUserID: addr.ExternalChatID}, text)
 		}
 	}
 
@@ -155,6 +142,34 @@ func (a *Adapter) HandleText(ctx context.Context, chatID sharedkernel.ChatID, te
 		}
 		return a.sendMainMenu(ctx, addr)
 	}
+}
+
+func (a *Adapter) controller() *conversation.Controller {
+	ctl := conversation.New(a.ChannelID, tgInvokeDispatcher{adapter: a}, tgTextRenderer{out: a.Out})
+	ctl.Users = a.Users
+	return ctl
+}
+
+type tgInvokeDispatcher struct {
+	adapter *Adapter
+}
+
+func (d tgInvokeDispatcher) Invoke(ctx context.Context, inv protocol.CapabilityInvoke) (protocol.Result, error) {
+	if d.adapter == nil {
+		return protocol.Result{}, fmt.Errorf("tg: adapter not configured")
+	}
+	return protocol.Result{}, d.adapter.dispatchInvoke(ctx, sharedkernel.ChatID(inv.ChatID), inv)
+}
+
+type tgTextRenderer struct {
+	out protocol.Outbound
+}
+
+func (r tgTextRenderer) SendText(ctx context.Context, addr sharedkernel.ChannelAddr, text string) error {
+	if r.out == nil {
+		return nil
+	}
+	return r.out.SendText(ctx, addr, text)
 }
 
 func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID, messageID int, data string, _ string) error {
