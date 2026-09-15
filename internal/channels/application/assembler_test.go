@@ -13,10 +13,11 @@ type fakeAdapter struct {
 	id      string
 	started int
 	stopped int
+	stopErr error
 }
 
 func (f *fakeAdapter) Start(context.Context) error { f.started++; return nil }
-func (f *fakeAdapter) Stop(context.Context) error  { f.stopped++; return nil }
+func (f *fakeAdapter) Stop(context.Context) error  { f.stopped++; return f.stopErr }
 
 type fakeFactory struct {
 	mu       sync.Mutex
@@ -129,6 +130,25 @@ func TestAssembler_StartStopRestartDelete(t *testing.T) {
 	runOnce(as, ctx)
 	if factory.adapters["token-b"].started != 1 {
 		t.Fatalf("deleted channel must not restart: %+v", factory.adapters["token-b"])
+	}
+}
+
+func TestAssembler_CredentialChangeDoesNotStartReplacementWhenStopFails(t *testing.T) {
+	store := newMemStore()
+	store.upsert("wc-1", "old-secret", true)
+	factory := newFakeFactory()
+	as := &Assembler{Store: store, Factory: factory}
+	runOnce(as, context.Background())
+	factory.adapters["old-secret"].stopErr = errFakeStart
+
+	store.upsert("wc-1", "new-secret", true)
+	runOnce(as, context.Background())
+	if factory.created["new-secret"] != 0 {
+		t.Fatal("replacement started after stop failure")
+	}
+	st := as.Status()["wc-1"]
+	if st.State != stateError || st.LastErr == nil {
+		t.Fatalf("status = %#v", st)
 	}
 }
 

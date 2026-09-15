@@ -37,6 +37,11 @@ type startJob struct {
 	snap ChannelSnapshot
 }
 
+type stopJob struct {
+	id      string
+	adapter Adapter
+}
+
 // Assembler reconciles channel snapshots with running adapters (hot reload).
 type Assembler struct {
 	Store    SnapshotStore
@@ -112,7 +117,7 @@ func (a *Assembler) reconcile(ctx context.Context) error {
 	}
 
 	var starts []startJob
-	var toStop []Adapter
+	var toStop []stopJob
 
 	a.mu.Lock()
 	if a.halted {
@@ -136,13 +141,13 @@ func (a *Assembler) reconcile(ctx context.Context) error {
 		switch {
 		case !needsAdapter:
 			if ad := detachIfActive(ma); ad != nil {
-				toStop = append(toStop, ad)
+				toStop = append(toStop, stopJob{id: snap.ID, adapter: ad})
 			}
 			ma.state = stateAbsent
 			ma.lastErr = nil
 		case credChanged || ma.state == stateError || ma.state == stateAbsent:
 			if ad := detachIfActive(ma); ad != nil {
-				toStop = append(toStop, ad)
+				toStop = append(toStop, stopJob{id: snap.ID, adapter: ad})
 			}
 			ma.state = stateStarting
 			ma.lastErr = nil
@@ -152,22 +157,40 @@ func (a *Assembler) reconcile(ctx context.Context) error {
 	for id, ma := range a.adapters {
 		if _, ok := seen[id]; !ok {
 			if ad := detachIfActive(ma); ad != nil {
-				toStop = append(toStop, ad)
+				toStop = append(toStop, stopJob{id: id, adapter: ad})
 			}
 			delete(a.adapters, id)
 		}
 	}
 	a.mu.Unlock()
 
-	for _, ad := range toStop {
-		if err := ad.Stop(ctx); err != nil {
+	stopFailed := make(map[string]struct{})
+	for _, job := range toStop {
+		if err := job.adapter.Stop(ctx); err != nil {
 			slog.Error("channel adapter stop", "err", err)
+			a.finishStopError(job.id, err)
+			stopFailed[job.id] = struct{}{}
 		}
 	}
 	for _, job := range starts {
+		if _, failed := stopFailed[job.id]; failed {
+			continue
+		}
 		a.startOne(ctx, job.id, job.snap)
 	}
 	return nil
+}
+
+func (a *Assembler) finishStopError(id string, err error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	ma, ok := a.adapters[id]
+	if !ok {
+		return
+	}
+	ma.adapter = nil
+	ma.state = stateError
+	ma.lastErr = err
 }
 
 func detachIfActive(ma *managedAdapter) Adapter {
