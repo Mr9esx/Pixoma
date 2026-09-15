@@ -129,7 +129,7 @@ GIT_AUTHOR_NAME='李卓洲' GIT_AUTHOR_EMAIL='1138099359@qq.com' GIT_COMMITTER_N
 - Produces: `HandleText`、`HandleMedia`、`HandleAction`、`HandleNotify`，全部以 `sharedkernel.ChannelAddr` 和平台无关事件输入工作。
 - Consumes: `protocol.Result`、`protocol.Outbound`、`protocol.MediaBridge`。
 
-- [ ] **Step 1: 用 Telegram 既有场景写共享核心失败测试**
+- [x] **Step 1: 用 Telegram 既有场景写共享核心失败测试**
 
 ```go
 func TestController_SubmitsImageOnlyForActiveImageStep(t *testing.T) {
@@ -146,7 +146,7 @@ func TestController_ExpiredActionReturnsReselectEffect(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认 RED**
+- [x] **Step 2: 运行测试确认 RED**
 
 Run: `go test ./internal/channels/conversation -run 'TestController_(SubmitsImageOnlyForActiveImageStep|ExpiredActionReturnsReselectEffect)' -count=1`
 
