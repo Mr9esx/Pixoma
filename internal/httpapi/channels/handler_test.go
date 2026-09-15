@@ -384,3 +384,48 @@ func TestChannelsHandler_CreateFeishuNoSecretLeak(t *testing.T) {
 		t.Fatalf("token_masked = %q", masked)
 	}
 }
+
+func TestChannelsHandler_CreateAndUpdateWeComWithoutSecretLeak(t *testing.T) {
+	srv, _ := openChannelsServer(t)
+	secret := "wecom-secret-1234567890"
+	res, created := post(t, srv.URL+"/api/v1/channels", map[string]any{
+		"platform":   "wecom",
+		"name":       "企微助手",
+		"bot_id":     "aibot_1",
+		"bot_secret": secret,
+		"ws_url":     "wss://private.example/ws",
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create status = %d, body = %v", res.StatusCode, created)
+	}
+	if created["bot_id"] != "aibot_1" || created["ws_url"] != "wss://private.example/ws" {
+		t.Fatalf("create body = %v", created)
+	}
+	raw, _ := json.Marshal(created)
+	if strings.Contains(string(raw), secret) {
+		t.Fatal("create response leaked bot secret")
+	}
+
+	update, _ := json.Marshal(map[string]any{"bot_secret": "new-wecom-secret-1234567890", "ws_url": "wss://next.example/ws"})
+	req, err := http.NewRequest(http.MethodPut, srv.URL+"/api/v1/channels/"+created["id"].(string), bytes.NewReader(update))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	updatedRes, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer updatedRes.Body.Close()
+	var updated map[string]any
+	if err := json.NewDecoder(updatedRes.Body).Decode(&updated); err != nil {
+		t.Fatal(err)
+	}
+	if updatedRes.StatusCode != http.StatusOK || updated["bot_id"] != "aibot_1" || updated["ws_url"] != "wss://next.example/ws" {
+		t.Fatalf("update status=%d body=%v", updatedRes.StatusCode, updated)
+	}
+	updatedRaw, _ := json.Marshal(updated)
+	if strings.Contains(string(updatedRaw), "new-wecom-secret-1234567890") {
+		t.Fatal("update response leaked bot secret")
+	}
+}

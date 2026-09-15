@@ -17,6 +17,28 @@ func TestCredentialRoundTrip(t *testing.T) {
 	}
 }
 
+func TestCredentialRoundTripWeCom(t *testing.T) {
+	key := make([]byte, 32)
+	ct, err := EncryptCredential(key, Credential{
+		WeComBotID:  "aibot_1",
+		WeComSecret: "secret-12345678",
+		WeComWSURL:  "wss://private.example/ws",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := DecryptCredential(key, ct)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.WeComBotID != "aibot_1" || got.WeComSecret != "secret-12345678" || got.WeComWSURL != "wss://private.example/ws" {
+		t.Fatalf("credential = %#v", got)
+	}
+	if got.Masked() == got.WeComSecret {
+		t.Fatal("masked credential leaked WeCom secret")
+	}
+}
+
 func TestDecryptCredentialWrongKey(t *testing.T) {
 	key := make([]byte, 32)
 	ct, err := EncryptCredential(key, Credential{BotToken: "x"})

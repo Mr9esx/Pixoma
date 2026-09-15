@@ -53,6 +53,8 @@ type channelDTO struct {
 	Platform         string          `json:"platform"`
 	Name             string          `json:"name"`
 	AppID            string          `json:"app_id,omitempty"`
+	BotID            string          `json:"bot_id,omitempty"`
+	WSURL            string          `json:"ws_url,omitempty"`
 	ExtraInfo        json.RawMessage `json:"extra_info"`
 	TokenMasked      string          `json:"token_masked"`
 	Enabled          bool            `json:"enabled"`
@@ -88,6 +90,12 @@ func (h *Handler) toDTO(ctx *http.Request, ch domain.Channel) (channelDTO, error
 			dto.AppID = cred.AppID
 		}
 	}
+	if ch.Platform == string(domain.PlatformWeCom) && h.Svc != nil {
+		if cred, derr := domain.DecryptCredential(h.Svc.Key, ch.CredentialCiphertext); derr == nil {
+			dto.BotID = cred.WeComBotID
+			dto.WSURL = cred.WeComWSURL
+		}
+	}
 	if h.Svc != nil && h.Svc.AdapterStatus != nil {
 		if state, lastErr, found := h.Svc.AdapterStatus(ctx.Context(), ch.ID); found {
 			dto.AdapterState = state
@@ -104,6 +112,9 @@ type createBody struct {
 	Token     string `json:"token"`
 	AppID     string `json:"app_id"`
 	AppSecret string `json:"app_secret"`
+	BotID     string `json:"bot_id"`
+	BotSecret string `json:"bot_secret"`
+	WSURL     string `json:"ws_url"`
 	ExtraInfo string `json:"extra_info"`
 }
 
@@ -123,8 +134,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	platform := domain.Platform(body.Platform)
 	cred := domain.Credential{BotToken: body.Token}
-	if platform == domain.PlatformFeishu {
+	switch platform {
+	case domain.PlatformFeishu:
 		cred = domain.Credential{AppID: body.AppID, AppSecret: body.AppSecret}
+	case domain.PlatformWeCom:
+		cred = domain.Credential{WeComBotID: body.BotID, WeComSecret: body.BotSecret, WeComWSURL: body.WSURL}
 	}
 	ch, err := h.Svc.CreateWithCredential(r.Context(), id, platform, body.Name, cred, body.ExtraInfo)
 	if err != nil {
@@ -189,6 +203,9 @@ type updateBody struct {
 	Name      string  `json:"name"`
 	Token     *string `json:"token"`
 	AppSecret *string `json:"app_secret"`
+	BotID     *string `json:"bot_id"`
+	BotSecret *string `json:"bot_secret"`
+	WSURL     *string `json:"ws_url"`
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
@@ -208,7 +225,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var ch domain.Channel
-	if domain.Platform(current.Platform) == domain.PlatformFeishu {
+	switch domain.Platform(current.Platform) {
+	case domain.PlatformFeishu:
 		// Feishu rotates the App Secret in place; App ID is immutable.
 		var updCred *domain.Credential
 		if body.AppSecret != nil && *body.AppSecret != "" {
@@ -220,7 +238,27 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 			updCred = &cred
 		}
 		ch, err = h.Svc.UpdateCredential(r.Context(), id, body.Name, updCred)
-	} else {
+	case domain.PlatformWeCom:
+		var updCred *domain.Credential
+		if (body.BotID != nil && *body.BotID != "") || (body.BotSecret != nil && *body.BotSecret != "") || (body.WSURL != nil && *body.WSURL != "") {
+			cred, derr := domain.DecryptCredential(h.Svc.Key, current.CredentialCiphertext)
+			if derr != nil {
+				writeErr(w, http.StatusInternalServerError, derr.Error())
+				return
+			}
+			if body.BotID != nil && *body.BotID != "" {
+				cred.WeComBotID = *body.BotID
+			}
+			if body.BotSecret != nil && *body.BotSecret != "" {
+				cred.WeComSecret = *body.BotSecret
+			}
+			if body.WSURL != nil && *body.WSURL != "" {
+				cred.WeComWSURL = *body.WSURL
+			}
+			updCred = &cred
+		}
+		ch, err = h.Svc.UpdateCredential(r.Context(), id, body.Name, updCred)
+	default:
 		ch, err = h.Svc.Update(r.Context(), id, body.Name, body.Token)
 	}
 	if errors.Is(err, domain.ErrNotFound) {
