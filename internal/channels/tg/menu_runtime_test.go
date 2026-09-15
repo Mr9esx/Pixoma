@@ -218,7 +218,7 @@ func TestBackChainTracksSources(t *testing.T) {
 	}
 	_ = ad.actionDispatch(context.Background(), sharedkernel.ChatID(chat), addr, outer, "root")
 	_ = ad.actionDispatch(context.Background(), sharedkernel.ChatID(chat), addr, innerBtn, "c1")
-	if top, ok := ad.back.top(chat); !ok || top != "c1" {
+	if top, ok := ad.back.Top(chat); !ok || top != "c1" {
 		t.Fatalf("top=%q ok=%v", top, ok)
 	}
 }

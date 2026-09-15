@@ -32,19 +32,19 @@ func TestTranslateMenuCallback(t *testing.T) {
 func TestInvokeStorePutGet(t *testing.T) {
 	s := newInvokeStore()
 	inv := protocol.CapabilityInvoke{CapabilityID: "open_case", Params: map[string]any{"step": "preview", "case_id": "c1"}}
-	token := s.put(inv)
+	token := s.Put(inv)
 	if token == "" {
 		t.Fatal("empty token")
 	}
-	got, ok := s.get(token)
+	got, ok := s.Get(token)
 	if !ok || got.CapabilityID != "open_case" {
 		t.Fatalf("get: %+v %v", got, ok)
 	}
-	if _, ok := s.get(token); !ok {
+	if _, ok := s.Get(token); !ok {
 		t.Fatal("get must keep token until consume")
 	}
-	s.consume(token)
-	if _, ok := s.get(token); ok {
+	s.Consume(token)
+	if _, ok := s.Get(token); ok {
 		t.Fatal("consumed token must be gone")
 	}
 }

@@ -5,10 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Mr9esx/Pixoma/internal/channels/application/capability"
@@ -32,20 +30,19 @@ type Adapter struct {
 	Blob      blob.Store
 	ChannelID string
 	// Texts resolves configurable copy templates; nil falls back to built-ins.
-	Texts    texttpl.Renderer
-	back     *backStack
-	mu       sync.Mutex
-	notified map[string]struct{}
-	store    *invokeStore
+	Texts         texttpl.Renderer
+	back          *conversation.BackStack
+	notifications *conversation.NotificationStore
+	store         *conversation.ActionStore
 }
 
 func New(out protocol.Outbound) *Adapter {
 	return &Adapter{
-		Out:      out,
-		Texts:    texttpl.StaticRenderer{},
-		notified: map[string]struct{}{},
-		store:    newInvokeStore(),
-		back:     newBackStack(),
+		Out:           out,
+		Texts:         texttpl.StaticRenderer{},
+		notifications: conversation.NewNotificationStore(),
+		store:         conversation.NewActionStore(),
+		back:          conversation.NewBackStack(),
 	}
 }
 
@@ -145,8 +142,13 @@ func (a *Adapter) HandleText(ctx context.Context, chatID sharedkernel.ChatID, te
 }
 
 func (a *Adapter) controller() *conversation.Controller {
-	ctl := conversation.New(a.ChannelID, tgInvokeDispatcher{adapter: a}, tgTextRenderer{out: a.Out})
+	ctl := conversation.NewWithActionStore(a.ChannelID, tgInvokeDispatcher{adapter: a}, tgTextRenderer{out: a.Out}, a.store)
 	ctl.Users = a.Users
+	ctl.Outbound = a.Out
+	ctl.Callbacks = tgCallbackCodec{}
+	ctl.Blob = a.Blob
+	ctl.Texts = a.Texts
+	ctl.Notifications = a.notifications
 	return ctl
 }
 
@@ -172,6 +174,12 @@ func (r tgTextRenderer) SendText(ctx context.Context, addr sharedkernel.ChannelA
 	return r.out.SendText(ctx, addr, text)
 }
 
+type tgCallbackCodec struct{}
+
+func (tgCallbackCodec) Invoke(token string) string { return CBInvoke + token }
+func (tgCallbackCodec) MainMenu() string           { return CBMenu }
+func (tgCallbackCodec) Back(target string) string  { return CBMenuBack + target }
+
 func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID, messageID int, data string, _ string) error {
 	addr, err := addrOf(chatID)
 	if err != nil {
@@ -184,24 +192,20 @@ func (a *Adapter) HandleCallback(ctx context.Context, chatID sharedkernel.ChatID
 	}
 	if strings.HasPrefix(data, CBInvoke) {
 		token := strings.TrimPrefix(data, CBInvoke)
-		inv, ok := a.store.get(token)
+		inv, ok := a.store.Get(token)
 		if !ok {
 			return a.Out.SendText(ctx, addr, "操作已过期，重新选择。")
 		}
 		if inv.CapabilityID == "" {
 			if id, ok := inv.Params["button_id"].(string); ok {
 				if btn, found := mcdomain.FindButtonByID(a.loadMenu(ctx), id); found {
-					a.store.consume(token)
+					a.store.Consume(token)
 					return a.actionDispatch(ctx, chatID, addr, btn, inv.Nav.Back)
 				}
 			}
 			return a.Out.SendText(ctx, addr, "未知操作")
 		}
-		err := a.dispatchInvoke(ctx, chatID, inv)
-		if err == nil {
-			a.store.consume(token)
-		}
-		return err
+		return a.controller().HandleAction(ctx, conversation.Inbound{Addr: addr, ExternalUserID: addr.ExternalChatID}, token)
 	}
 	nav, err := TranslateMenuCallback(data)
 	if err != nil {
@@ -227,76 +231,7 @@ func (a *Adapter) renderText(ctx context.Context, key string, vars map[string]st
 }
 
 func (a *Adapter) HandleUserNotify(ctx context.Context, n sharedkernel.UserNotify) error {
-	key := string(n.TaskID) + ":" + n.Kind
-	a.mu.Lock()
-	if _, ok := a.notified[key]; ok {
-		a.mu.Unlock()
-		return nil
-	}
-	a.notified[key] = struct{}{}
-	a.mu.Unlock()
-
-	addr, err := addrOf(n.ChatID)
-	if err != nil {
-		return err
-	}
-	if n.Kind == "task_succeeded" {
-		if len(n.Outputs) > 0 {
-			for i, ref := range n.Outputs {
-				caption := ""
-				if i == 0 {
-					caption = a.renderText(ctx, texttpl.KeyWorkflowDone, map[string]string{"task_id": string(n.TaskID)})
-				}
-				if strings.HasPrefix(ref.MIME, "text/") {
-					if a.Blob == nil {
-						continue
-					}
-					rc, err := a.Blob.Get(ctx, ref)
-					if err != nil {
-						return err
-					}
-					raw, readErr := io.ReadAll(rc)
-					rc.Close()
-					if readErr != nil {
-						return readErr
-					}
-					if err := a.Out.SendText(ctx, addr, string(raw)); err != nil {
-						return err
-					}
-					continue
-				}
-				if err := a.Out.SendMedia(ctx, addr, ref, caption, nil); err != nil {
-					return err
-				}
-			}
-		} else {
-			if err := a.Out.SendText(ctx, addr, a.renderText(ctx, texttpl.KeyWorkflowDone, map[string]string{"task_id": string(n.TaskID)})); err != nil {
-				return err
-			}
-		}
-		return a.Out.SendMenu(ctx, addr, a.renderText(ctx, texttpl.KeyWorkflowDoneFollowp, nil), nil)
-	}
-	if n.Kind == "session_terminated" {
-		msg := a.renderText(ctx, texttpl.KeySessionTerminated, map[string]string{"error_msg": n.ErrorMsg})
-		return a.Out.SendText(ctx, addr, msg)
-	}
-	if n.Kind == "task_failed" || n.Kind == "task_cancelled" {
-		key := texttpl.KeyTaskFailed
-		if n.Kind == "task_cancelled" {
-			key = texttpl.KeyTaskCancelled
-		}
-		vars := map[string]string{
-			"task_id":   string(n.TaskID),
-			"status":    strings.TrimPrefix(n.Kind, "task_"),
-			"error_msg": n.ErrorMsg,
-		}
-		return a.Out.SendText(ctx, addr, a.renderText(ctx, key, vars))
-	}
-	msg := fmt.Sprintf("任务 %s: %s", n.TaskID, n.Kind)
-	if n.ErrorMsg != "" {
-		msg += " — " + n.ErrorMsg
-	}
-	return a.Out.SendText(ctx, addr, msg)
+	return a.controller().HandleNotify(ctx, n)
 }
 
 // HandleNotify satisfies channel runtime NotifyHandler.
@@ -331,7 +266,7 @@ func (a *Adapter) actionDispatch(ctx context.Context, chatID sharedkernel.ChatID
 		if card == nil {
 			return a.Out.SendText(ctx, addr, "卡片不存在或已删除")
 		}
-		a.back.push(string(chatID), backCtx)
+		a.back.Push(string(chatID), backCtx)
 		return a.sendCard(ctx, addr, *card, btn.ID, backCtx)
 	case "open_workflow":
 		inv, err := a.baseInvoke(ctx, chatID)
@@ -392,7 +327,7 @@ func (a *Adapter) sendCard(ctx context.Context, addr sharedkernel.ChannelAddr, c
 		inv.CapabilityID = ""
 		inv.Params = map[string]any{"button_id": b.ID}
 		inv.Nav = protocol.Nav{Back: openerID}
-		rows = append(rows, []protocol.Button{{Text: b.Label, Data: CBInvoke + a.store.put(inv)}})
+		rows = append(rows, []protocol.Button{{Text: b.Label, Data: CBInvoke + a.store.Put(inv)}})
 	}
 	backData := CBMenuBack + backCtx
 	rows = append(rows, []protocol.Button{{Text: "返回", Data: backData}})
@@ -401,10 +336,10 @@ func (a *Adapter) sendCard(ctx context.Context, addr sharedkernel.ChannelAddr, c
 
 func (a *Adapter) handleBack(ctx context.Context, chatID sharedkernel.ChatID, addr sharedkernel.ChannelAddr, target string) error {
 	if target == "root" {
-		a.back.clear(string(chatID))
+		a.back.Clear(string(chatID))
 		return a.sendMainMenu(ctx, addr)
 	}
-	_, ok := a.back.pop(string(chatID))
+	_, ok := a.back.Pop(string(chatID))
 	if !ok {
 		return a.sendMainMenu(ctx, addr)
 	}
@@ -414,7 +349,7 @@ func (a *Adapter) handleBack(ctx context.Context, chatID sharedkernel.ChatID, ad
 		return a.sendMainMenu(ctx, addr)
 	}
 	source := "root"
-	if top, ok := a.back.top(string(chatID)); ok {
+	if top, ok := a.back.Top(string(chatID)); ok {
 		source = top
 	}
 	return a.sendCard(ctx, addr, card, target, source)
@@ -440,57 +375,7 @@ func (a *Adapter) dispatchInvoke(ctx context.Context, chatID sharedkernel.ChatID
 }
 
 func (a *Adapter) renderResult(ctx context.Context, addr sharedkernel.ChannelAddr, chatID sharedkernel.ChatID, base protocol.CapabilityInvoke, res protocol.Result) error {
-	var rows [][]protocol.Button
-	if len(res.Options) > 0 {
-		for _, opt := range res.Options {
-			next := base
-			next.Params = opt.Value
-			rows = append(rows, []protocol.Button{{Text: opt.Label, Data: CBInvoke + a.store.put(next)}})
-		}
-		rows = append(rows, a.backButton(base.Nav))
-	}
-	hasMedia := len(res.Media) > 0 || len(res.MediaURLs) > 0
-	first := true
-	for _, m := range res.Media {
-		caption, buttons := mediaExtras(res.Text, rows, first)
-		first = false
-		if err := a.Out.SendMedia(ctx, addr, sharedkernel.BlobRef{Key: m.Key, MIME: m.MIME}, caption, buttons); err != nil {
-			return err
-		}
-	}
-	for _, u := range res.MediaURLs {
-		caption, buttons := mediaExtras(res.Text, rows, first)
-		first = false
-		if err := a.Out.SendMediaURL(ctx, addr, u, "", caption, buttons); err != nil {
-			return err
-		}
-	}
-	if hasMedia {
-		return nil
-	}
-	if len(rows) > 0 {
-		return a.Out.SendList(ctx, addr, res.Text, rows)
-	}
-	if res.Text != "" {
-		return a.Out.SendText(ctx, addr, res.Text)
-	}
-	return nil
-}
-
-func mediaExtras(text string, rows [][]protocol.Button, first bool) (caption string, buttons [][]protocol.Button) {
-	if !first {
-		return "", nil
-	}
-	return text, rows
-}
-
-func (a *Adapter) backButton(nav protocol.Nav) []protocol.Button {
-	switch nav.Back {
-	case "", "root":
-		return []protocol.Button{{Text: "返回主菜单", Data: CBMenu}}
-	default:
-		return []protocol.Button{{Text: "返回", Data: CBMenuBack + nav.Back}}
-	}
+	return a.controller().RenderResult(ctx, conversation.Inbound{Addr: addr, ExternalUserID: addr.ExternalChatID}, base, res)
 }
 
 func (a *Adapter) sendMainMenu(ctx context.Context, addr sharedkernel.ChannelAddr) error {
