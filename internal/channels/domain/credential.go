@@ -8,12 +8,9 @@ import (
 
 // Credential is the platform-specific credential payload (JSON-encrypted at rest).
 type Credential struct {
-	BotToken    string `json:"bot_token,omitempty"`
-	AppID       string `json:"app_id,omitempty"`
-	AppSecret   string `json:"app_secret,omitempty"`
-	WeComBotID  string `json:"wecom_bot_id,omitempty"`
-	WeComSecret string `json:"wecom_secret,omitempty"`
-	WeComWSURL  string `json:"wecom_ws_url,omitempty"`
+	BotToken  string `json:"bot_token,omitempty"`
+	AppID     string `json:"app_id,omitempty"`
+	AppSecret string `json:"app_secret,omitempty"`
 }
 
 // EncryptCredential serializes and encrypts a credential with the given key.
@@ -57,9 +54,6 @@ func (c Credential) Masked() string {
 	}
 	if c.AppSecret != "" {
 		return MaskedToken(c.AppSecret)
-	}
-	if c.WeComSecret != "" {
-		return MaskedToken(c.WeComSecret)
 	}
 	return "****"
 }

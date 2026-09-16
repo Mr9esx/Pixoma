@@ -16,7 +16,6 @@ type Platform string
 const (
 	PlatformTelegram Platform = "telegram"
 	PlatformFeishu   Platform = "feishu"
-	PlatformWeCom    Platform = "wecom"
 	PlatformDingTalk Platform = "dingtalk"
 	PlatformMCP      Platform = "mcp"
 )
@@ -24,7 +23,7 @@ const (
 // ValidPlatform reports whether p is a supported platform.
 func ValidPlatform(p Platform) bool {
 	switch p {
-	case PlatformTelegram, PlatformFeishu, PlatformWeCom, PlatformDingTalk, PlatformMCP:
+	case PlatformTelegram, PlatformFeishu, PlatformDingTalk, PlatformMCP:
 		return true
 	default:
 		return false

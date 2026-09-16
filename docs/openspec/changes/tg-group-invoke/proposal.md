@@ -13,7 +13,7 @@ Telegram 今天按私聊写：把聊天 ID 当成操作者，群里一人开工�
 ### 非目标
 
 - 不做群里完整底下键盘菜单。
-- 不做飞书、企微、MCP（见同批 `feishu-channel` / `wecom-aibot-channel` / `mcp-call-workflow`）。
+- 不做飞书、MCP 或其他消息平台。
 - 不改 Task 调度/Comfy 执行。
 - 不做群白名单管理后台（若实现期需要最小「忽略未知群」开关，不得做成完整运营产品）。
 

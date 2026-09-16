@@ -286,65 +286,6 @@ func TestService_CreateFeishuRequiresAppIDAndSecret(t *testing.T) {
 	}
 }
 
-func TestService_CreateWeComEncryptsAndMasks(t *testing.T) {
-	store := &memStore{rows: map[string]domain.Channel{}}
-	svc := &Service{Store: store, Key: make([]byte, 32)}
-	ch, err := svc.CreateWithCredential(context.Background(), "wc-default", domain.PlatformWeCom, "企微助手", domain.Credential{
-		WeComBotID: "aibot_1", WeComSecret: "secret-12345678", WeComWSURL: "wss://private.example/ws",
-	}, "")
-	if err != nil {
-		t.Fatalf("create wecom: %v", err)
-	}
-	cred, err := domain.DecryptCredential(svc.Key, ch.CredentialCiphertext)
-	if err != nil {
-		t.Fatalf("decrypt: %v", err)
-	}
-	if cred.WeComBotID != "aibot_1" || cred.WeComSecret != "secret-12345678" || cred.WeComWSURL != "wss://private.example/ws" {
-		t.Fatalf("credential = %#v", cred)
-	}
-	masked, err := svc.Masked(context.Background(), ch.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if masked == cred.WeComSecret || masked == "" {
-		t.Fatalf("masked = %q", masked)
-	}
-}
-
-func TestService_CreateWeComRequiresBotIDAndSecret(t *testing.T) {
-	svc := &Service{Store: &memStore{rows: map[string]domain.Channel{}}, Key: make([]byte, 32)}
-	if _, err := svc.CreateWithCredential(context.Background(), "wc-1", domain.PlatformWeCom, "企微助手", domain.Credential{WeComBotID: "aibot_1"}, ""); err == nil {
-		t.Fatal("want error for missing WeCom secret")
-	}
-	if _, err := svc.CreateWithCredential(context.Background(), "wc-1", domain.PlatformWeCom, "企微助手", domain.Credential{WeComSecret: "secret-12345678"}, ""); err == nil {
-		t.Fatal("want error for missing WeCom bot ID")
-	}
-}
-
-func TestService_CheckReachabilityWeComUsesAdapterStatus(t *testing.T) {
-	store := &memStore{rows: map[string]domain.Channel{}}
-	svc := &Service{
-		Store: store,
-		Key:   make([]byte, 32),
-		AdapterStatus: func(_ context.Context, id string) (string, string, bool) {
-			if id != "wc-1" {
-				t.Fatalf("adapter status channel = %q", id)
-			}
-			return "running", "", true
-		},
-	}
-	if _, err := svc.CreateWithCredential(context.Background(), "wc-1", domain.PlatformWeCom, "企微助手", domain.Credential{WeComBotID: "aibot_1", WeComSecret: "secret-12345678"}, ""); err != nil {
-		t.Fatal(err)
-	}
-	got, err := svc.CheckReachability(context.Background(), "wc-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !got.OK || got.Kind != ReachabilityOK {
-		t.Fatalf("reachability = %#v", got)
-	}
-}
-
 func TestService_CheckReachabilityFeishuNeverUsesTelegram(t *testing.T) {
 	store := &memStore{rows: map[string]domain.Channel{}}
 	svc := &Service{Store: store, Key: make([]byte, 32)}

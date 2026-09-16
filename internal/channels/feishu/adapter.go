@@ -94,13 +94,14 @@ func (a *FeishuAdapter) Start(ctx context.Context) error {
 		return err
 	}
 	rctx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
 	a.cancel = cancel
-	a.done = make(chan struct{})
+	a.done = done
 	a.started = true
 	a.mu.Unlock()
 
 	go func() {
-		defer close(a.done)
+		defer close(done)
 		if err := conn.Start(rctx); err != nil && rctx.Err() == nil {
 			slog.Error("feishu long conn stopped", "channel", a.ChannelID, "err", err)
 		}

@@ -55,8 +55,7 @@ func (s *Service) Create(ctx context.Context, id string, platform domain.Platfor
 }
 
 // CreateWithCredential creates a channel with a platform-specific credential.
-// Telegram stores the bot token; Feishu stores App ID + App Secret; WeCom
-// stores its intelligent-bot ID, Secret, and optional WSS URL.
+// Telegram stores the bot token; Feishu stores App ID + App Secret.
 func (s *Service) CreateWithCredential(ctx context.Context, id string, platform domain.Platform, name string, cred domain.Credential, extraInfo string) (domain.Channel, error) {
 	if !domain.ValidPlatform(platform) {
 		return domain.Channel{}, fmt.Errorf("channel: unsupported platform %q", platform)
@@ -113,13 +112,8 @@ func validateCredential(platform domain.Platform, cred domain.Credential) error 
 			return fmt.Errorf("channel: feishu app_id/app_secret required")
 		}
 		return nil
-	case domain.PlatformWeCom:
-		if strings.TrimSpace(cred.WeComBotID) == "" || strings.TrimSpace(cred.WeComSecret) == "" {
-			return fmt.Errorf("channel: wecom bot_id/secret required")
-		}
-		return nil
 	default:
-		// wecom/dingtalk reserved; require a non-empty secret.
+		// Reserved platforms require a non-empty credential.
 		if cred.BotToken == "" && cred.AppSecret == "" {
 			return fmt.Errorf("channel: id/credential required")
 		}
@@ -159,8 +153,7 @@ func (s *Service) Masked(ctx context.Context, id string) (string, error) {
 
 // CheckReachability probes the platform identity endpoint once and classifies
 // the result (ok / network / auth / other). Telegram uses getMe; Feishu probes
-// tenant_access_token; WeCom reuses its running adapter state and never dials a
-// second WSS connection; unprobeable platforms report ok without network calls.
+// tenant_access_token; unprobeable platforms report ok without network calls.
 func (s *Service) CheckReachability(ctx context.Context, id string) (ReachabilityResult, error) {
 	ch, err := s.Store.Get(ctx, id)
 	if err != nil {
@@ -175,8 +168,6 @@ func (s *Service) CheckReachability(ctx context.Context, id string) (Reachabilit
 	}
 	var res ReachabilityResult
 	switch domain.Platform(ch.Platform) {
-	case domain.PlatformWeCom:
-		res = wecomAdapterReachability(ctx, s.AdapterStatus, ch.ID)
 	case domain.PlatformFeishu:
 		probe := s.CheckFeishu
 		if probe == nil {
@@ -247,23 +238,6 @@ func (s *Service) UpdateCredential(ctx context.Context, id, name string, cred *d
 		return domain.Channel{}, err
 	}
 	return ch, nil
-}
-
-func wecomAdapterReachability(ctx context.Context, adapterStatus func(context.Context, string) (state string, lastErr string, found bool), id string) ReachabilityResult {
-	if adapterStatus == nil {
-		return ReachabilityResult{Kind: ReachabilityOther, Message: "wecom adapter status unavailable"}
-	}
-	state, lastErr, found := adapterStatus(ctx, id)
-	if found && state == "running" {
-		return ReachabilityResult{OK: true, Kind: ReachabilityOK}
-	}
-	if strings.TrimSpace(lastErr) != "" {
-		return ReachabilityResult{Kind: ReachabilityOther, Message: lastErr}
-	}
-	if !found {
-		return ReachabilityResult{Kind: ReachabilityOther, Message: "wecom adapter not found"}
-	}
-	return ReachabilityResult{Kind: ReachabilityOther, Message: "wecom adapter " + state}
 }
 
 func (s *Service) Disable(ctx context.Context, id string) error {

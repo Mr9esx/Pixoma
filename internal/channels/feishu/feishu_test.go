@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime"
 	"testing"
 
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
@@ -169,6 +170,27 @@ func TestStartStopLifecycle(t *testing.T) {
 	}
 	if err := a.Stop(context.Background()); err != nil {
 		t.Fatalf("stop: %v", err)
+	}
+}
+
+func TestStopClosesTheRunChannelCapturedAtStart(t *testing.T) {
+	previous := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(previous)
+	for i := 0; i < 100; i++ {
+		a := &FeishuAdapter{
+			ChannelID: "ch-fs",
+			appID:     "cli_1",
+			appSecret: "s",
+			NewLongConn: func(_, _ string, _ func(context.Context, *larkim.P2MessageReceiveV1)) (LongConn, error) {
+				return stubLongConn{}, nil
+			},
+		}
+		if err := a.Start(context.Background()); err != nil {
+			t.Fatalf("start: %v", err)
+		}
+		if err := a.Stop(context.Background()); err != nil {
+			t.Fatalf("stop: %v", err)
+		}
 	}
 }
 
