@@ -4,7 +4,7 @@
 TBD - created by archiving change workflow-engine-core. Update Purpose after archive.
 ## Requirements
 ### Requirement: 每聊天最多一个进行中的填表会话
-系统 MUST 以 Telegram `chat_id` 为键，保证同一时刻最多一个非终态 Dialog Session。浏览菜单与 Case 列表 MUST NOT 创建 Session。仅 `StartCase` 成功后进入 `collecting` 并上锁。
+系统 MUST 为每个会话作用域保证同一时刻最多一个非终态 Dialog Session。私聊的作用域 MUST 为该 chat；group / supergroup 的作用域 MUST 为该 chat 加上操作者用户 id。浏览菜单与 Case 列表 MUST NOT 创建 Session。仅 `StartCase` 成功后进入 `collecting` 并上锁。
 
 #### Scenario: 浏览菜单不创建会话
 - **WHEN** 用户仅打开菜单或 Case 列表
@@ -13,6 +13,10 @@ TBD - created by archiving change workflow-engine-core. Update Purpose after arc
 #### Scenario: StartCase 上锁
 - **WHEN** 用户对某 active Case 执行 StartCase 且当前无进行中 Session
 - **THEN** 系统创建 `collecting` 会话并禁止再次 StartCase，直至退出或提交
+
+#### Scenario: 同群两人互不抢锁
+- **WHEN** 群成员 A 已在 collecting，群成员 B 在同一群 StartCase
+- **THEN** 系统为 B 创建独立会话，A 的会话保持不变
 
 ### Requirement: 上锁期间拦截新 Case 并提供退出
 当 Session 处于 `collecting` 或 `confirming` 时，系统 MUST 拒绝新的 StartCase，并返回当前 Case 摘要及「继续 / 退出并重选」类选项语义。用户执行 ExitSession 后，会话 MUST 进入 `exited`（或等价清除），允许新开 Case。
@@ -30,7 +34,7 @@ ConfirmRun 成功创建 Task 后，系统 MUST 结束填表 Session（`submitted
 
 #### Scenario: 提交后解锁
 - **WHEN** ConfirmRun 成功
-- **THEN** 该 chat 不再处于填表锁，可 StartCase
+- **THEN** 该会话作用域不再处于填表锁，同一作用域可再次 StartCase
 
 #### Scenario: 生成中可开新 Case
 - **WHEN** 用户已有 running Task 且无填表 Session
@@ -46,4 +50,3 @@ ConfirmRun 成功创建 Task 后，系统 MUST 结束填表 Session（`submitted
 #### Scenario: 跳过可选图片字段
 - **WHEN** 当前键为非必填且允许跳过的图片字段，用户选择跳过
 - **THEN** 会话不要求该 Blob，并前进到下一输入或 confirming
-
