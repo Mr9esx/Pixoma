@@ -165,7 +165,7 @@ func TestActionDispatchOpenCardSendsCard(t *testing.T) {
 			},
 		},
 	}
-	if err := ad.actionDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), addr, btn, "root"); err != nil {
+	if err := ad.actionDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), addr, "", btn, "root"); err != nil {
 		t.Fatal(err)
 	}
 	texts, data := srv.LastInlineKeyboardTexts(), srv.LastInlineKeyboardData()
@@ -186,7 +186,7 @@ func TestActionDispatchSendText(t *testing.T) {
 	ad := New(&BotMessenger{Bot: b})
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
 	btn := mcdomain.TreeButton{ID: "t", Label: "x", Action: mcdomain.TreeAction{Type: "send_text", Text: "即将上线"}}
-	if err := ad.actionDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), addr, btn, "root"); err != nil {
+	if err := ad.actionDispatch(context.Background(), sharedkernel.ChatID("tg-default:1"), addr, "", btn, "root"); err != nil {
 		t.Fatal(err)
 	}
 	texts := srv.SendMessageTexts()
@@ -216,8 +216,8 @@ func TestBackChainTracksSources(t *testing.T) {
 		ID: "c2", Label: "二",
 		Action: mcdomain.TreeAction{Type: "open_card", Card: inner},
 	}
-	_ = ad.actionDispatch(context.Background(), sharedkernel.ChatID(chat), addr, outer, "root")
-	_ = ad.actionDispatch(context.Background(), sharedkernel.ChatID(chat), addr, innerBtn, "c1")
+	_ = ad.actionDispatch(context.Background(), sharedkernel.ChatID(chat), addr, "", outer, "root")
+	_ = ad.actionDispatch(context.Background(), sharedkernel.ChatID(chat), addr, "", innerBtn, "c1")
 	if top, ok := ad.back.Top(chat); !ok || top != "c1" {
 		t.Fatalf("top=%q ok=%v", top, ok)
 	}
@@ -235,7 +235,7 @@ func (recordOpenCase) ParamsSchema() json.RawMessage {
 func (recordOpenCase) Render(string, map[string]any) (protocol.RenderDecl, error) {
 	return protocol.RenderDecl{}, nil
 }
-func (r *recordOpenCase) Invoke(_ context.Context, _ protocol.AccountCtx, _ protocol.Nav, _ sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
+func (r *recordOpenCase) Invoke(_ context.Context, _ protocol.AccountCtx, _ protocol.Nav, _, _ sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
 	r.params = params
 	return protocol.Result{
 		Text:    "📎 图片 B",
@@ -254,7 +254,7 @@ func TestActionDispatchOpenWorkflowPreviews(t *testing.T) {
 	ad.ChannelID = "tg-default"
 	ad.Registry = reg
 	addr := sharedkernel.ChannelAddr{ChannelID: "tg-default", ExternalChatID: "1"}
-	err := ad.actionDispatch(context.Background(), "tg-default:1", addr, mcdomain.TreeButton{
+	err := ad.actionDispatch(context.Background(), "tg-default:1", addr, "", mcdomain.TreeButton{
 		ID: "w", Label: "流", Action: mcdomain.TreeAction{Type: "open_workflow", WorkflowID: "10"},
 	}, "root")
 	if err != nil {

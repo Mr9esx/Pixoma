@@ -49,7 +49,7 @@ func (ListTasks) Render(_ string, override map[string]any) (protocol.RenderDecl,
 	}, override), nil
 }
 
-func (l ListTasks) Invoke(ctx context.Context, acct protocol.AccountCtx, _ protocol.Nav, chatID sharedkernel.ChatID, _ map[string]any) (protocol.Result, error) {
+func (l ListTasks) Invoke(ctx context.Context, acct protocol.AccountCtx, _ protocol.Nav, chatID, _ sharedkernel.ChatID, _ map[string]any) (protocol.Result, error) {
 	now := time.Now()
 	if l.Now != nil {
 		now = l.Now()

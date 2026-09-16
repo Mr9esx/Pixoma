@@ -10,12 +10,12 @@ import (
 
 	domain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	"github.com/Mr9esx/Pixoma/internal/cases/infrastructure/validation"
-	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
 	"github.com/Mr9esx/Pixoma/internal/packaging/botapp"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue"
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 type memCases struct {
@@ -146,6 +146,59 @@ func TestConfirmRun_WritesSessionID(t *testing.T) {
 	}
 	if sess.ChatID != "tg:100" {
 		t.Fatalf("chat via session: %s", sess.ChatID)
+	}
+}
+
+func TestConfirmRunKeepsGroupDeliveryAddress(t *testing.T) {
+	ctx := context.Background()
+	cases := &memCases{}
+	if err := cases.Create(ctx, &domain.Case{Document: sampleDoc(), Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	sessRepo := convdomain.NewMemoryRepository()
+	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "sess-group" }, func() time.Time {
+		return time.Unix(10, 0).UTC()
+	})
+	group := sharedkernel.ChatID("tg:-100123")
+	sessionKey := sharedkernel.ChatID("tg:-100123:42")
+	if _, err := sessSvc.StartCaseForConversation(ctx, group, sessionKey, "user-42", 1, []string{"prompt"}); err != nil {
+		t.Fatal(err)
+	}
+	prompt := "a cat"
+	if _, err := sessSvc.SubmitInput(ctx, sessionKey, convdomain.DraftValue{Text: &prompt}); err != nil {
+		t.Fatal(err)
+	}
+
+	pub := &capturePub{}
+	facade := &botapp.Facade{
+		Cases:        cases,
+		Validator:    validation.New(),
+		Sessions:     sessSvc,
+		SessionStore: sessRepo,
+		Tasks:        runtimedomain.NewMemoryTaskRepository(),
+		Publisher:    pub,
+		NewTaskID:    func() sharedkernel.TaskID { return "task-group" },
+		Now:          func() time.Time { return time.Unix(20, 0).UTC() },
+	}
+
+	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{SessionKey: sessionKey})
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := facade.Tasks.Get(ctx, res.TaskID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.ChatID != group {
+		t.Fatalf("task chat ID = %q, want group %q", task.ChatID, group)
+	}
+	var event sharedkernel.TaskCreated
+	if err := json.Unmarshal(pub.msgs[0].Payload, &event); err != nil {
+		t.Fatal(err)
+	}
+	if event.ChatID != group {
+		t.Fatalf("task event chat ID = %q, want group %q", event.ChatID, group)
 	}
 }
 

@@ -91,7 +91,10 @@ func stringOf(v any) string {
 	}
 }
 
-func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav protocol.Nav, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
+func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav protocol.Nav, chatID, sessionKey sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
+	if sessionKey == "" {
+		sessionKey = chatID
+	}
 	step, _ := params["step"].(string)
 	if step == "" {
 		step = "preview"
@@ -102,7 +105,7 @@ func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav prot
 		if o.App == nil {
 			return protocol.Result{Text: "none"}, nil
 		}
-		if _, err := o.App.GetSession(ctx, chatID); err != nil {
+		if _, err := o.App.GetSession(ctx, sessionKey); err != nil {
 			return protocol.Result{Text: "none"}, nil
 		}
 		return protocol.Result{Text: "active"}, nil
@@ -118,20 +121,20 @@ func (o OpenCase) Invoke(ctx context.Context, acct protocol.AccountCtx, nav prot
 	case "preview":
 		return o.preview(ctx, channelID, params)
 	case "start":
-		return o.start(ctx, channelID, acct, chatID, params)
+		return o.start(ctx, channelID, acct, chatID, sessionKey, params)
 	case "skip":
-		return o.skip(ctx, channelID, chatID)
+		return o.skip(ctx, channelID, sessionKey)
 	case "text":
-		return o.submitText(ctx, channelID, chatID, params)
+		return o.submitText(ctx, channelID, sessionKey, params)
 	case "media":
-		return o.submitMedia(ctx, channelID, chatID, params)
+		return o.submitMedia(ctx, channelID, sessionKey, params)
 	case "confirm":
-		return o.confirm(ctx, channelID, chatID)
+		return o.confirm(ctx, channelID, sessionKey)
 	case "exit":
 		if o.App == nil {
 			return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 		}
-		if err := o.App.ExitSession(ctx, chatID); err != nil {
+		if err := o.App.ExitSession(ctx, sessionKey); err != nil {
 			if !errors.Is(err, convdomain.ErrNoActiveSession) && !errors.Is(err, convdomain.ErrNotFound) {
 				return protocol.Result{}, err
 			}
@@ -306,7 +309,7 @@ func previewMediaRef(preview string) (key string, mime string, ok bool) {
 	return p, m, true
 }
 
-func (o OpenCase) start(ctx context.Context, channelID string, acct protocol.AccountCtx, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
+func (o OpenCase) start(ctx context.Context, channelID string, acct protocol.AccountCtx, chatID, sessionKey sharedkernel.ChatID, params map[string]any) (protocol.Result, error) {
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
@@ -319,7 +322,7 @@ func (o OpenCase) start(ctx context.Context, channelID string, acct protocol.Acc
 		return protocol.Result{}, fmt.Errorf("open_case: invalid case_id")
 	}
 	view, err := o.App.StartCase(ctx, botapp.StartCaseCmd{
-		ChatID: chatID, UserID: acct.InternalUserID, CaseID: caseID,
+		ChatID: chatID, SessionKey: sessionKey, UserID: acct.InternalUserID, CaseID: caseID,
 	})
 	if err != nil {
 		if errors.Is(err, convdomain.ErrSessionLocked) {
@@ -346,11 +349,11 @@ func (o OpenCase) skip(ctx context.Context, channelID string, chatID sharedkerne
 	return renderSession(ctx, channelID, o, view)
 }
 
-func (o OpenCase) confirm(ctx context.Context, channelID string, chatID sharedkernel.ChatID) (protocol.Result, error) {
+func (o OpenCase) confirm(ctx context.Context, channelID string, sessionKey sharedkernel.ChatID) (protocol.Result, error) {
 	if o.App == nil {
 		return protocol.Result{}, fmt.Errorf("open_case: app not configured")
 	}
-	res, err := o.App.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: chatID})
+	res, err := o.App.ConfirmRun(ctx, botapp.ConfirmRunCmd{SessionKey: sessionKey})
 	if err != nil {
 		return protocol.Result{}, err
 	}

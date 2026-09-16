@@ -278,6 +278,7 @@ func (f *tgChannelFactory) newTelegram(snap channelapp.ChannelSnapshot) (channel
 	}
 	adapter := tg.New(messenger)
 	adapter.Registry = f.caps
+	adapter.Cases = f.deps.Cases
 	adapter.Texts = f.deps.Texts
 	adapter.Blob = f.deps.Blob
 	adapter.Media = tg.NewMediaBridge(botInst)

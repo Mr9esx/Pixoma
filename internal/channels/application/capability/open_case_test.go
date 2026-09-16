@@ -145,7 +145,7 @@ func TestOpenCase_ConfigurableWorkflowStages(t *testing.T) {
 		Users: accessUserRepository{"": identitydomain.UserAccessAlwaysAllowed},
 	}
 
-	preview, err := capability.Invoke(ctx, protocol.AccountCtx{ChannelID: "tg-custom"}, protocol.Nav{}, "tg-custom:1", map[string]any{"step": "preview", "case_id": "1"})
+	preview, err := capability.Invoke(ctx, protocol.AccountCtx{ChannelID: "tg-custom"}, protocol.Nav{}, "tg-custom:1", "tg-custom:1", map[string]any{"step": "preview", "case_id": "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestOpenCase_ConfigurableWorkflowStages(t *testing.T) {
 		t.Fatalf("number error not configurable: %q", number.Text)
 	}
 
-	input, err := capability.start(ctx, "tg-custom", protocol.AccountCtx{InternalUserID: "u1"}, "tg-custom:1", map[string]any{"case_id": "1"})
+	input, err := capability.start(ctx, "tg-custom", protocol.AccountCtx{InternalUserID: "u1"}, "tg-custom:1", "tg-custom:1", map[string]any{"case_id": "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +287,7 @@ func TestOpenCase_DeniedOrPaidUserCannotStartCase(t *testing.T) {
 		identitydomain.UserAccessPaid,
 	} {
 		capability.Users = accessUserRepository{"u1": access}
-		res, err := capability.Invoke(ctx, protocol.AccountCtx{InternalUserID: "u1"}, protocol.Nav{}, "tg-default:1", map[string]any{
+		res, err := capability.Invoke(ctx, protocol.AccountCtx{InternalUserID: "u1"}, protocol.Nav{}, "tg-default:1", "tg-default:1", map[string]any{
 			"step": "start", "case_id": "1",
 		})
 		if err != nil {
@@ -305,7 +305,7 @@ func TestOpenCase_AlwaysAllowedUserCanStartCase(t *testing.T) {
 		App:   fakeCaseService{},
 		Users: accessUserRepository{"u1": identitydomain.UserAccessAlwaysAllowed},
 	}
-	res, err := capability.Invoke(ctx, protocol.AccountCtx{InternalUserID: "u1"}, protocol.Nav{}, "tg-default:1", map[string]any{
+	res, err := capability.Invoke(ctx, protocol.AccountCtx{InternalUserID: "u1"}, protocol.Nav{}, "tg-default:1", "tg-default:1", map[string]any{
 		"step": "start", "case_id": "1",
 	})
 	if err != nil {
@@ -327,7 +327,7 @@ func TestOpenCase_ExitWithoutActiveSession(t *testing.T) {
 		App:   exitMissingService{},
 		Users: accessUserRepository{"": identitydomain.UserAccessAlwaysAllowed},
 	}
-	res, err := cap.Invoke(context.Background(), protocol.AccountCtx{}, protocol.Nav{}, "tg-default:1", map[string]any{"step": "exit"})
+	res, err := cap.Invoke(context.Background(), protocol.AccountCtx{}, protocol.Nav{}, "tg-default:1", "tg-default:1", map[string]any{"step": "exit"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,16 +9,17 @@ import (
 	"time"
 
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
-	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue"
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
 )
 
 type ConfirmRunCmd struct {
-	ChatID sharedkernel.ChatID
+	ChatID     sharedkernel.ChatID
+	SessionKey sharedkernel.ChatID
 }
 
 type ConfirmRunResult struct {
@@ -45,7 +46,11 @@ func (f *Facade) ConfirmRun(ctx context.Context, cmd ConfirmRunCmd) (*ConfirmRun
 	}
 	now := f.now()
 
-	sess, err := f.Sessions.Get(ctx, cmd.ChatID)
+	sessionKey := cmd.SessionKey
+	if sessionKey == "" {
+		sessionKey = cmd.ChatID
+	}
+	sess, err := f.Sessions.Get(ctx, sessionKey)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +81,7 @@ func (f *Facade) ConfirmRun(ctx context.Context, cmd ConfirmRunCmd) (*ConfirmRun
 
 	task := runtimedomain.NewPending(taskID, sess.ID, sess.CaseID, inputPrefix, now)
 	// Optional ChatID cache for Memory ListByChat; notify prefers Session join.
-	task.ChatID = cmd.ChatID
+	task.ChatID = sess.ChatID
 	if err := f.Tasks.Create(ctx, task); err != nil {
 		return nil, err
 	}
@@ -90,7 +95,7 @@ func (f *Facade) ConfirmRun(ctx context.Context, cmd ConfirmRunCmd) (*ConfirmRun
 
 	payload, err := json.Marshal(sharedkernel.TaskCreated{
 		TaskID:    taskID,
-		ChatID:    cmd.ChatID,
+		ChatID:    sess.ChatID,
 		CaseID:    sess.CaseID,
 		CreatedAt: now,
 	})

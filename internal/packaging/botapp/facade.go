@@ -5,15 +5,16 @@ import (
 
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 type StartCaseCmd struct {
-	ChatID    sharedkernel.ChatID
-	UserID    string
-	CaseID    sharedkernel.CaseID
-	InputKeys []string
+	ChatID     sharedkernel.ChatID
+	SessionKey sharedkernel.ChatID
+	UserID     string
+	CaseID     sharedkernel.CaseID
+	InputKeys  []string
 }
 
 type SessionView struct {
@@ -38,7 +39,7 @@ func (f *Facade) StartCase(ctx context.Context, cmd StartCaseCmd) (*SessionView,
 			keys = append(keys, in.Key)
 		}
 	}
-	s, err := f.Sessions.StartCase(ctx, cmd.ChatID, cmd.UserID, cmd.CaseID, keys)
+	s, err := f.Sessions.StartCaseForConversation(ctx, cmd.ChatID, cmd.SessionKey, cmd.UserID, cmd.CaseID, keys)
 	if err != nil {
 		return nil, err
 	}

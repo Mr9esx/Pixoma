@@ -18,7 +18,7 @@ func (stubCap) ParamsSchema() json.RawMessage { return json.RawMessage(`{"type":
 func (stubCap) Render(_ string, override map[string]any) (protocol.RenderDecl, error) {
 	return MergeRender(protocol.RenderDecl{Entry: "root", Config: map[string]any{"columns": 2}}, override), nil
 }
-func (stubCap) Invoke(context.Context, protocol.AccountCtx, protocol.Nav, sharedkernel.ChatID, map[string]any) (protocol.Result, error) {
+func (stubCap) Invoke(context.Context, protocol.AccountCtx, protocol.Nav, sharedkernel.ChatID, sharedkernel.ChatID, map[string]any) (protocol.Result, error) {
 	return protocol.Result{Text: "stub ok"}, nil
 }
 

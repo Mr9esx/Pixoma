@@ -83,7 +83,11 @@ func (r *Registry) Invoke(ctx context.Context, inv protocol.CapabilityInvoke) (p
 	if err := schema.Validate(inv.Params); err != nil {
 		return protocol.Result{}, fmt.Errorf("capability %q: invalid params: %w", inv.CapabilityID, err)
 	}
-	return c.Invoke(ctx, inv.Account, inv.Nav, sharedkernel.ChatID(inv.ChatID), inv.Params)
+	sessionKey := inv.SessionKey
+	if sessionKey == "" {
+		sessionKey = inv.ChatID
+	}
+	return c.Invoke(ctx, inv.Account, inv.Nav, sharedkernel.ChatID(inv.ChatID), sharedkernel.ChatID(sessionKey), inv.Params)
 }
 
 // ValidateParams validates params against a capability's compiled JSON Schema.

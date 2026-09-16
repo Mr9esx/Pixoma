@@ -31,8 +31,18 @@ func RegisterHandlers(b *bot.Bot, ad *Adapter) {
 		mb.dl = telegramDownloader(b)
 	}
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
-		return update.Message != nil && update.Message.Text != ""
+		return update.Message != nil && update.Message.Text != "" && couldAddressBot(update.Message, ad.BotUsername)
 	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
+		if ad.BotUsername == "" && isGroupChat(update.Message.Chat.Type) && strings.Contains(update.Message.Text, "@") {
+			if me, err := b.GetMe(ctx); err == nil {
+				ad.BotUsername = me.Username
+			} else {
+				slog.Warn("tg resolve bot username", "err", err)
+			}
+		}
+		if !acceptInboundText(string(update.Message.Chat.Type), update.Message.Text, repliesToBot(update.Message), ad.BotUsername) {
+			return
+		}
 		userID := resolveUser(ctx, ad, update.Message.From)
 		chatID := formatChatID(ad, update.Message.Chat.ID)
 		if err := ad.HandleText(ctx, chatID, update.Message.Text, userID); err != nil {
@@ -40,23 +50,23 @@ func RegisterHandlers(b *bot.Bot, ad *Adapter) {
 		}
 	})
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
-		return update.Message != nil && len(update.Message.Photo) > 0
+		return update.Message != nil && len(update.Message.Photo) > 0 && acceptInboundMedia(string(update.Message.Chat.Type), repliesToBot(update.Message))
 	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
-		_ = resolveUser(ctx, ad, update.Message.From)
+		userID := resolveUser(ctx, ad, update.Message.From)
 		chatID := formatChatID(ad, update.Message.Chat.ID)
 		photos := update.Message.Photo
 		best := photos[len(photos)-1]
-		if err := ad.HandleUserMedia(ctx, chatID, best.FileID, "image/jpeg"); err != nil {
+		if err := ad.HandleUserMedia(ctx, chatID, best.FileID, "image/jpeg", userID); err != nil {
 			slog.Error("tg handle photo", "err", err, "chat_id", chatID)
 		}
 	})
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
-		return update.Message != nil && isImageDocument(update.Message.Document)
+		return update.Message != nil && isImageDocument(update.Message.Document) && acceptInboundMedia(string(update.Message.Chat.Type), repliesToBot(update.Message))
 	}, func(ctx context.Context, _ *bot.Bot, update *models.Update) {
-		_ = resolveUser(ctx, ad, update.Message.From)
+		userID := resolveUser(ctx, ad, update.Message.From)
 		chatID := formatChatID(ad, update.Message.Chat.ID)
 		doc := update.Message.Document
-		if err := ad.HandleUserMedia(ctx, chatID, doc.FileID, documentMIME(doc)); err != nil {
+		if err := ad.HandleUserMedia(ctx, chatID, doc.FileID, documentMIME(doc), userID); err != nil {
 			slog.Error("tg handle document", "err", err, "chat_id", chatID)
 		}
 	})
@@ -72,6 +82,20 @@ func RegisterHandlers(b *bot.Bot, ad *Adapter) {
 			slog.Error("tg handle callback", "err", err)
 		}
 	})
+}
+
+func couldAddressBot(message *models.Message, botUsername string) bool {
+	if message == nil || message.Text == "" {
+		return false
+	}
+	if acceptInboundText(string(message.Chat.Type), message.Text, repliesToBot(message), botUsername) {
+		return true
+	}
+	return isGroupChat(message.Chat.Type) && strings.Contains(message.Text, "@")
+}
+
+func isGroupChat(chatType models.ChatType) bool {
+	return chatType == models.ChatTypeGroup || chatType == models.ChatTypeSupergroup
 }
 
 func handleCallbackUpdate(ctx context.Context, ad *Adapter, cq *models.CallbackQuery, answerCallback func(context.Context, string) error) error {
@@ -116,7 +140,7 @@ func resolveUser(ctx context.Context, ad *Adapter, from *models.User) string {
 		profile = nil
 	}
 	externalID := strconv.FormatInt(from.ID, 10)
-	id, err := ad.Users.Resolve(ctx, sharedkernel.ChannelAddr{
+	_, err = ad.Users.Resolve(ctx, sharedkernel.ChannelAddr{
 		ChannelID:      ad.ChannelID,
 		ExternalChatID: externalID,
 	}, identitydomain.UpsertFrom{
@@ -132,7 +156,38 @@ func resolveUser(ctx context.Context, ad *Adapter, from *models.User) string {
 		slog.Error("tg resolve user", "err", err, "tg_user_id", from.ID)
 		return ""
 	}
-	return id
+	return externalID
+}
+
+func acceptInboundText(chatType, text string, replyToBot bool, botUsername string) bool {
+	switch chatType {
+	case string(models.ChatTypePrivate):
+		return true
+	case string(models.ChatTypeGroup), string(models.ChatTypeSupergroup):
+		text = strings.TrimSpace(text)
+		if strings.HasPrefix(text, "/") || replyToBot {
+			return true
+		}
+		username := strings.TrimPrefix(strings.TrimSpace(botUsername), "@")
+		return username != "" && strings.Contains(strings.ToLower(text), "@"+strings.ToLower(username))
+	default:
+		return false
+	}
+}
+
+func acceptInboundMedia(chatType string, replyToBot bool) bool {
+	switch chatType {
+	case string(models.ChatTypePrivate):
+		return true
+	case string(models.ChatTypeGroup), string(models.ChatTypeSupergroup):
+		return replyToBot
+	default:
+		return false
+	}
+}
+
+func repliesToBot(message *models.Message) bool {
+	return message != nil && message.ReplyToMessage != nil && message.ReplyToMessage.From != nil && message.ReplyToMessage.From.IsBot
 }
 
 func telegramDownloader(b *bot.Bot) FileDownloader {

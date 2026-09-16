@@ -22,6 +22,9 @@ import (
 type Inbound struct {
 	Addr           sharedkernel.ChannelAddr
 	ExternalUserID string
+	// SessionKey identifies the active workflow session. It defaults to Addr so
+	// channels with one user per chat retain their existing behavior.
+	SessionKey string
 }
 
 // Invoker is implemented by the capability registry.
@@ -421,6 +424,10 @@ func (c *Controller) prepare(ctx context.Context, in Inbound, inv protocol.Capab
 		}
 	}
 	inv.ChatID = sharedkernel.FormatChatID(in.Addr)
+	inv.SessionKey = in.SessionKey
+	if inv.SessionKey == "" {
+		inv.SessionKey = inv.ChatID
+	}
 	if inv.Nav.Back == "" {
 		inv.Nav.Back = "root"
 	}

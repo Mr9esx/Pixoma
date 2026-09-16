@@ -69,7 +69,18 @@ sequenceDiagram
 - **卡片**：`open_card` 的子节点 `card` 作为消息 + inline 按钮；callback 用树节点 id。
 - **返回**：`mb:root` 回主键盘；`mb:<opener_id>` 回到打开该卡的按钮对应卡片。
 
-### 1.2 MCP 调用（无 IM 填表）
+### 1.2 Telegram 群组调用
+
+Telegram 入站将消息地址和操作者身份分开处理：`ChatID` 是投递地址，`from.id` 是账户身份。私聊两者通常相同；群聊必须保留差异。
+
+- 私聊保持原有 `/start`、主键盘和填表流程。
+- 群聊仅处理 `/命令`、`@bot` 和回复 bot 的消息；普通闲聊与频道消息忽略。
+- 群入口为 `/run <工作流名>`、`/run@bot <工作流名>` 或 `@bot <工作流名>`。仅精确匹配已启用的工作流。
+- 会话键为 `channel_id + group_chat_id + from.id`。因此同群成员的填表状态互不影响。
+- Session 和 Task 保存真实群 ChatID。ConfirmRun、终态通知及媒体投递始终回到发起群，不改投操作者私聊。
+- 群聊不发送 ReplyKeyboard。填表回复只接受发起人对 bot 的回复或再次 @bot；其他成员的无关输入静默。
+
+### 1.3 MCP 调用（无 IM 填表）
 
 MCP 挂在控制面同一 `http.Server`：`/mcp` Streamable HTTP，`/sse` 旧 HTTP+SSE。不占用主进程 stdin。身份是 `platform=mcp` 渠道上的 `channel_users`，每用户一把 Bearer（`mcp_user_tokens`）。管理员 cookie 不能代替 Bearer；渠道停用后该渠道全部 401。
 

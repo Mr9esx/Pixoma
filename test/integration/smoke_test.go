@@ -10,21 +10,21 @@ import (
 
 	domain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	"github.com/Mr9esx/Pixoma/internal/cases/infrastructure/validation"
-	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/static"
 	"github.com/Mr9esx/Pixoma/internal/packaging/botapp"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
-	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
-	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/static"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue/memory"
+	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	"github.com/Mr9esx/Pixoma/internal/tasks/application/orchestrator"
 	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
 	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/actuator"
 	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/comfyui"
 	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/comfyui/comfyuitest"
-	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type memCases struct{ c *domain.Case }
@@ -84,9 +84,9 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	orch.Cases = caseDocReader{cases: cases}
 	orch.Condition = condition.NewRegistry()
 	worker := &actuator.Worker{
-		EdgeID:    "local",
-		Comfy:     mock,
-		Blob:      store,
+		EdgeID: "local",
+		Comfy:  mock,
+		Blob:   store,
 		Status: bus,
 		Now:    func() time.Time { return now },
 	}
@@ -140,9 +140,11 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 
 	sessRepo := convdomain.NewMemoryRepository()
 	sessSvc := convdomain.NewService(sessRepo, func() sharedkernel.SessionID { return "s1" }, func() time.Time { return now })
-	_, _ = sessSvc.StartCase(ctx, "tg:42", "user-smoke", sharedkernel.CaseID(4), []string{"prompt"})
+	groupChat := sharedkernel.ChatID("tg:-10042")
+	sessionKey := sharedkernel.ChatID("tg:-10042:42")
+	_, _ = sessSvc.StartCaseForConversation(ctx, groupChat, sessionKey, "user-smoke", sharedkernel.CaseID(4), []string{"prompt"})
 	p := "cat"
-	_, _ = sessSvc.SubmitInput(ctx, "tg:42", convdomain.DraftValue{Text: &p})
+	_, _ = sessSvc.SubmitInput(ctx, sessionKey, convdomain.DraftValue{Text: &p})
 
 	facade := &botapp.Facade{
 		Cases: cases, Validator: validation.New(), Sessions: sessSvc, SessionStore: sessRepo,
@@ -150,7 +152,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 		NewTaskID: func() sharedkernel.TaskID { return "task-smoke" },
 		Now:       func() time.Time { return now },
 	}
-	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{ChatID: "tg:42"})
+	res, err := facade.ConfirmRun(ctx, botapp.ConfirmRunCmd{SessionKey: sessionKey})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +166,7 @@ func TestMemoryAllInOneText2Img(t *testing.T) {
 	if got.DispatchTopic != "default" {
 		t.Fatalf("dispatch_topic = %q, want explicit default routing", got.DispatchTopic)
 	}
-	if n.last == nil || n.last.Kind != "task_succeeded" {
+	if n.last == nil || n.last.Kind != "task_succeeded" || n.last.ChatID != groupChat {
 		t.Fatalf("notify=%+v", n.last)
 	}
 	node, _ := submitted["1"].(map[string]any)
@@ -218,9 +220,9 @@ func TestMemoryAllInOneImageAndPrompt(t *testing.T) {
 	orch.Cases = caseDocReader{cases: cases}
 	orch.Condition = condition.NewRegistry()
 	worker := &actuator.Worker{
-		EdgeID:    "local",
-		Comfy:     mock,
-		Blob:      store,
+		EdgeID: "local",
+		Comfy:  mock,
+		Blob:   store,
 		Status: bus,
 		Now:    func() time.Time { return now },
 	}

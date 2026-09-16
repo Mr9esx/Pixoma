@@ -36,7 +36,10 @@ func (m *BotMessenger) SendMenu(ctx context.Context, addr sharedkernel.ChannelAd
 	if err != nil {
 		return err
 	}
-	kb := m.replyKeyboard(ctx)
+	var kb *models.ReplyKeyboardMarkup
+	if chatID > 0 {
+		kb = m.replyKeyboard(ctx)
+	}
 	_, err = m.Bot.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatID,
 		Text:        truncateTGText(title, maxTGTextRunes),

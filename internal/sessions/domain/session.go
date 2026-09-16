@@ -39,9 +39,12 @@ type DraftValue struct {
 }
 
 type Session struct {
-	ID                sharedkernel.SessionID
-	UserID            string
-	ChannelID         string
+	ID        sharedkernel.SessionID
+	UserID    string
+	ChannelID string
+	// SessionKey is the active-session lookup key. ChatID remains the message
+	// delivery address so asynchronous results return to the originating chat.
+	SessionKey        sharedkernel.ChatID
 	ChatID            sharedkernel.ChatID
 	CaseID            sharedkernel.CaseID
 	Status            Status
@@ -53,15 +56,25 @@ type Session struct {
 }
 
 func NewCollecting(id sharedkernel.SessionID, chat sharedkernel.ChatID, caseID sharedkernel.CaseID, inputKeys []string, now time.Time) *Session {
+	return NewCollectingForConversation(id, chat, chat, caseID, inputKeys, now)
+}
+
+// NewCollectingForConversation creates a session whose lookup key can differ
+// from the message delivery address (for example, a Telegram group member).
+func NewCollectingForConversation(id sharedkernel.SessionID, chat, sessionKey sharedkernel.ChatID, caseID sharedkernel.CaseID, inputKeys []string, now time.Time) *Session {
+	if sessionKey == "" {
+		sessionKey = chat
+	}
 	return &Session{
-		ID:        id,
-		ChatID:    chat,
-		CaseID:    caseID,
-		Status:    StatusCollecting,
-		InputKeys: append([]string(nil), inputKeys...),
-		Draft:     map[string]DraftValue{},
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:         id,
+		ChatID:     chat,
+		SessionKey: sessionKey,
+		CaseID:     caseID,
+		Status:     StatusCollecting,
+		InputKeys:  append([]string(nil), inputKeys...),
+		Draft:      map[string]DraftValue{},
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 }
 

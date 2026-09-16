@@ -24,6 +24,7 @@ type CapabilityInvoke struct {
 	Account      AccountCtx     `json:"account"`
 	Nav          Nav            `json:"nav"`
 	ChatID       string         `json:"chat_id"` // channel chat address (e.g. "tg-default:123")
+	SessionKey   string         `json:"session_key,omitempty"`
 }
 
 // Option is a selectable choice rendered by adapters as buttons/cards.

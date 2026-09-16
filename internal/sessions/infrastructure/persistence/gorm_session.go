@@ -20,6 +20,7 @@ type SessionRow struct {
 	UserID            string    `gorm:"size:36;index;not null"`
 	ChannelID         string    `gorm:"size:128;not null;default:'';index:idx_chat_active"`
 	ChatExternalID    string    `gorm:"size:256;not null;default:'';index:idx_chat_active"`
+	SessionKey        string    `gorm:"size:512;not null;default:'';index:idx_session_active"`
 	Status            string    `gorm:"size:32;not null;index:idx_chat_active"`
 	CaseID            uint64    `gorm:"not null"`
 	CurrentInputIndex int       `gorm:"not null;default:0"`
@@ -48,7 +49,7 @@ func (r *SessionRepository) GetActiveByChat(ctx context.Context, chatID sharedke
 	}
 	var row SessionRow
 	err = r.db.WithContext(ctx).
-		Where("channel_id = ? AND chat_external_id = ? AND status IN ?", addr.ChannelID, addr.ExternalChatID, []string{
+		Where("(session_key = ? OR (session_key = '' AND channel_id = ? AND chat_external_id = ?)) AND status IN ?", chatID, addr.ChannelID, addr.ExternalChatID, []string{
 			string(domain.StatusCollecting),
 			string(domain.StatusConfirming),
 		}).
@@ -170,7 +171,7 @@ func (r *SessionRepository) ClearActive(ctx context.Context, chatID sharedkernel
 	// Do not physically delete; mark active rows exited so Task can still join by id.
 	now := time.Now().UTC()
 	return r.db.WithContext(ctx).Model(&SessionRow{}).
-		Where("channel_id = ? AND chat_external_id = ? AND status IN ?", addr.ChannelID, addr.ExternalChatID, []string{
+		Where("(session_key = ? OR (session_key = '' AND channel_id = ? AND chat_external_id = ?)) AND status IN ?", chatID, addr.ChannelID, addr.ExternalChatID, []string{
 			string(domain.StatusCollecting),
 			string(domain.StatusConfirming),
 		}).
@@ -214,6 +215,7 @@ func toRow(s *domain.Session) (*SessionRow, error) {
 		UserID:            s.UserID,
 		ChannelID:         addr.ChannelID,
 		ChatExternalID:    addr.ExternalChatID,
+		SessionKey:        string(sessionKeyOf(s)),
 		CaseID:            uint64(s.CaseID),
 		Status:            string(s.Status),
 		CurrentInputIndex: s.CurrentInputIndex,
@@ -237,11 +239,17 @@ func fromRow(row SessionRow) (*domain.Session, error) {
 			return nil, fmt.Errorf("conversation: decode draft: %w", err)
 		}
 	}
+	sessionKey := sharedkernel.ChatID(row.SessionKey)
+	chatID := sharedkernel.ChatID(sharedkernel.FormatChatID(sharedkernel.ChannelAddr{ChannelID: row.ChannelID, ExternalChatID: row.ChatExternalID}))
+	if sessionKey == "" {
+		sessionKey = chatID
+	}
 	return &domain.Session{
 		ID:                sharedkernel.SessionID(row.ID),
 		UserID:            row.UserID,
 		ChannelID:         row.ChannelID,
-		ChatID:            sharedkernel.ChatID(sharedkernel.FormatChatID(sharedkernel.ChannelAddr{ChannelID: row.ChannelID, ExternalChatID: row.ChatExternalID})),
+		ChatID:            chatID,
+		SessionKey:        sessionKey,
 		CaseID:            sharedkernel.CaseID(row.CaseID),
 		Status:            domain.Status(row.Status),
 		CurrentInputIndex: row.CurrentInputIndex,
@@ -250,4 +258,11 @@ func fromRow(row SessionRow) (*domain.Session, error) {
 		CreatedAt:         row.CreatedAt,
 		UpdatedAt:         row.UpdatedAt,
 	}, nil
+}
+
+func sessionKeyOf(s *domain.Session) sharedkernel.ChatID {
+	if s.SessionKey != "" {
+		return s.SessionKey
+	}
+	return s.ChatID
 }

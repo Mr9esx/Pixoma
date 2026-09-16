@@ -128,7 +128,7 @@ func TestListTasksInvoke(t *testing.T) {
 		Now:   func() time.Time { return now },
 		Loc:   loc,
 	}
-	res, err := cap.Invoke(context.Background(), protocol.AccountCtx{}, protocol.Nav{}, "tg-default:1", nil)
+	res, err := cap.Invoke(context.Background(), protocol.AccountCtx{}, protocol.Nav{}, "tg-default:1", "tg-default:1", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func (s stubTexts) Render(_ context.Context, _, key string, vars map[string]stri
 
 func TestListTasksUsesTextTemplates(t *testing.T) {
 	cap := ListTasks{Texts: stubTexts{tpl: "任务清单\n\n{{ current }}{{ recent }}"}}
-	res, err := cap.Invoke(context.Background(), protocol.AccountCtx{ChannelID: "tg-default"}, protocol.Nav{}, "tg-default:1", nil)
+	res, err := cap.Invoke(context.Background(), protocol.AccountCtx{ChannelID: "tg-default"}, protocol.Nav{}, "tg-default:1", "tg-default:1", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

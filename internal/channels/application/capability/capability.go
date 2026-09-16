@@ -16,7 +16,7 @@ type Capability interface {
 	DisplayName() string
 	ParamsSchema() json.RawMessage // JSON Schema (draft-07 subset)
 	Render(channelID string, override map[string]any) (protocol.RenderDecl, error)
-	Invoke(ctx context.Context, acct protocol.AccountCtx, nav protocol.Nav, chatID sharedkernel.ChatID, params map[string]any) (protocol.Result, error)
+	Invoke(ctx context.Context, acct protocol.AccountCtx, nav protocol.Nav, chatID, sessionKey sharedkernel.ChatID, params map[string]any) (protocol.Result, error)
 }
 
 // MergeRender applies a menu-item render override onto a capability's base

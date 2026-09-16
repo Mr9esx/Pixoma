@@ -66,6 +66,36 @@ func TestStartCaseWritesUserID(t *testing.T) {
 	}
 }
 
+func TestStartCaseForConversationKeepsGroupMembersInSeparateSessions(t *testing.T) {
+	svc := newSvc()
+	ctx := context.Background()
+	group := sharedkernel.ChatID("tg-default:-100123")
+	aliceKey := sharedkernel.ChatID("tg-default:-100123:42")
+	bobKey := sharedkernel.ChatID("tg-default:-100123:43")
+
+	alice, err := svc.StartCaseForConversation(ctx, group, aliceKey, "user-alice", 1, []string{"prompt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, err := svc.StartCaseForConversation(ctx, group, bobKey, "user-bob", 2, []string{"prompt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if alice.ChatID != group || bob.ChatID != group {
+		t.Fatalf("delivery chats = %q, %q; want group %q", alice.ChatID, bob.ChatID, group)
+	}
+	if alice.SessionKey != aliceKey || bob.SessionKey != bobKey {
+		t.Fatalf("session keys = %q, %q", alice.SessionKey, bob.SessionKey)
+	}
+	if got, err := svc.Get(ctx, aliceKey); err != nil || got.ID != alice.ID {
+		t.Fatalf("alice session = %+v, %v", got, err)
+	}
+	if got, err := svc.Get(ctx, bobKey); err != nil || got.ID != bob.ID {
+		t.Fatalf("bob session = %+v, %v", got, err)
+	}
+}
+
 func TestStartCaseRejectsEmptyUserID(t *testing.T) {
 	svc := newSvc()
 	_, err := svc.StartCase(context.Background(), "tg:1", "", 1, []string{"a"})

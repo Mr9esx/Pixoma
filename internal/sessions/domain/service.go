@@ -43,7 +43,7 @@ type Repository interface {
 // Inactive sessions are retained by ID (no physical delete) for Task join.
 type MemoryRepository struct {
 	mu     sync.Mutex
-	byChat map[sharedkernel.ChatID]*Session // active index only
+	byChat map[sharedkernel.ChatID]*Session // active session-key index only
 	byID   map[sharedkernel.SessionID]*Session
 }
 
@@ -146,9 +146,9 @@ func (r *MemoryRepository) Save(_ context.Context, s *Session) error {
 	cp := cloneSession(s)
 	r.byID[s.ID] = cp
 	if s.Status.IsActive() {
-		r.byChat[s.ChatID] = cp
+		r.byChat[sessionKeyOf(s)] = cp
 	} else {
-		delete(r.byChat, s.ChatID)
+		delete(r.byChat, sessionKeyOf(s))
 	}
 	return nil
 }
@@ -169,6 +169,13 @@ func cloneSession(s *Session) *Session {
 		cp.InputKeys = append([]string(nil), s.InputKeys...)
 	}
 	return &cp
+}
+
+func sessionKeyOf(s *Session) sharedkernel.ChatID {
+	if s.SessionKey != "" {
+		return s.SessionKey
+	}
+	return s.ChatID
 }
 
 func copyDraft(in map[string]DraftValue) map[string]DraftValue {
@@ -197,10 +204,19 @@ func NewService(repo Repository, idGen IDGen, now Clock) *Service {
 }
 
 func (svc *Service) StartCase(ctx context.Context, chatID sharedkernel.ChatID, userID string, caseID sharedkernel.CaseID, inputKeys []string) (*Session, error) {
+	return svc.StartCaseForConversation(ctx, chatID, chatID, userID, caseID, inputKeys)
+}
+
+// StartCaseForConversation starts a session using sessionKey for locking while
+// retaining chatID as the delivery address for task notifications.
+func (svc *Service) StartCaseForConversation(ctx context.Context, chatID, sessionKey sharedkernel.ChatID, userID string, caseID sharedkernel.CaseID, inputKeys []string) (*Session, error) {
 	if userID == "" {
 		return nil, ErrEmptyUserID
 	}
-	if cur, err := svc.repo.GetActiveByChat(ctx, chatID); err == nil && cur.Status.IsActive() {
+	if sessionKey == "" {
+		sessionKey = chatID
+	}
+	if cur, err := svc.repo.GetActiveByChat(ctx, sessionKey); err == nil && cur.Status.IsActive() {
 		// 用户重新开启新会话时，旧会话自动退出，避免被锁住报错。
 		if err := cur.Exit(svc.now()); err != nil {
 			return nil, err
@@ -211,7 +227,7 @@ func (svc *Service) StartCase(ctx context.Context, chatID sharedkernel.ChatID, u
 	} else if err != nil && err != ErrNoActiveSession {
 		return nil, err
 	}
-	s := NewCollecting(svc.idGen(), chatID, caseID, inputKeys, svc.now())
+	s := NewCollectingForConversation(svc.idGen(), chatID, sessionKey, caseID, inputKeys, svc.now())
 	s.UserID = userID
 	if err := svc.repo.Save(ctx, s); err != nil {
 		return nil, err
