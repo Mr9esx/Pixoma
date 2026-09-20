@@ -134,7 +134,7 @@
 
         <rect x="48" y="38" width="1104" height="130" rx="12" fill="none" stroke="#22d3ee" stroke-width="1.2" stroke-dasharray="8 4"/><text x="66" y="61" fill="#22d3ee" font-size="9">FRONTEND · WEB/ADMIN</text>
         <g>
-          <rect x="135" y="82" width="260" height="65" rx="6" fill="#0f172a"/><rect x="135" y="82" width="260" height="65" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="265" y="106" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">assistant-ui + AG-UI Runtime</text><text x="265" y="127" fill="#94a3b8" font-size="9" text-anchor="middle">Chat / Composer / Tool UI</text>
+          <rect x="135" y="82" width="260" height="65" rx="6" fill="#0f172a"/><rect x="135" y="82" width="260" height="65" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="265" y="106" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">assistant-ui + AG-UI Runtime</text><text x="265" y="127" fill="#94a3b8" font-size="9" text-anchor="middle">Chat 行为 + Pixoma 视觉</text>
           <rect x="470" y="82" width="260" height="65" rx="6" fill="#0f172a"/><rect x="470" y="82" width="260" height="65" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="600" y="106" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">React Flow Workbench</text><text x="600" y="127" fill="#94a3b8" font-size="9" text-anchor="middle">可编辑 Road / Assets / Node Detail</text>
           <rect x="805" y="82" width="260" height="65" rx="6" fill="#0f172a"/><rect x="805" y="82" width="260" height="65" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="935" y="106" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">TanStack Query + Router</text><text x="935" y="127" fill="#94a3b8" font-size="9" text-anchor="middle">Snapshot / Resume / Navigation</text>
         </g>
@@ -186,7 +186,7 @@
     </section>
 
     <div class="summary-grid">
-      <div class="card"><div class="card-header"><span class="card-dot cyan"></span><h3>前端策略</h3></div><ul><li>• assistant-ui 负责标准 Chat 交互</li><li>• React Flow 负责可编辑创作 Road</li><li>• Trace 抽屉呈现真实执行历史</li></ul></div>
+      <div class="card"><div class="card-header"><span class="card-dot cyan"></span><h3>前端策略</h3></div><ul><li>• 现有 shadcn/ui 与 Pixoma 令牌负责视觉</li><li>• assistant-ui 只负责标准 Chat 行为</li><li>• React Flow 负责可编辑创作 Road</li></ul></div>
       <div class="card"><div class="card-header"><span class="card-dot green"></span><h3>领域边界</h3></div><ul><li>• Studio 不复用旧 Bot / MCP 内部实现</li><li>• Workflow 与 MCP 仅通过 Adapter 接入</li><li>• Model / Agent / Skill / MCP 配置独立版本化</li></ul></div>
       <div class="card"><div class="card-header"><span class="card-dot violet"></span><h3>可靠性原则</h3></div><ul><li>• Run 在服务端持久化并后台执行</li><li>• 事件有序、幂等、可重放</li><li>• 资产固定版本，历史输入不漂移</li></ul></div>
     </div>

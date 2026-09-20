@@ -203,12 +203,37 @@ Undo/Redo 在拖动开始、删除、连线和程序化修改前保存快照，�
 
 ### 5.4 UI 组件
 
-- 现有 shadcn/ui 优先。
-- Chat/Flow 使用 ResizablePanel。
-- Trace 使用 Sheet/Drawer。
-- 模型、Skill、资产选择使用 Command/Popover。
-- 设置页使用现有 Settings Shell 与二级导航。
-- 所有样式只使用 Pixoma 语义令牌。
+- 基础组件只从 `web/admin/src/components/ui` 引用，不在 Studio 目录复制 Button、Form、Dialog、Select、Toast 等实现。
+- 现有组件覆盖不了时，先用 `pnpm dlx shadcn@latest add` 加入同一组件目录，再按 Pixoma 设计系统校正；不安装第二套通用 UI 库。
+- Studio Shell 复用 Sidebar、Button、ScrollArea、Avatar、Tooltip 和现有后台布局模式。
+- Chat 使用 assistant-ui primitives 和 AG-UI Runtime；Button、附件外壳、菜单、审批卡片、错误提示和 Composer 装饰层使用 Pixoma 组件与令牌。
+- Chat 与 Flow 的分栏使用 shadcn Resizable；项目尚未安装时通过 shadcn CLI 添加。
+- Trace 使用 Sheet；危险确认使用 AlertDialog；详情与创建使用 Dialog。
+- 模型、Skill、Session 资产和资产库选择使用 Command + Popover。
+- 运行反馈使用 Progress、Skeleton、Alert、Empty 和 Sonner。
+- 设置页复用现有 Settings Shell、Field/Form、Input、Select、Switch、Table 和 Tabs。
+- Flow 使用现有 `@xyflow/react`，自定义节点内部使用 Card、Badge、Button、Tooltip 和 DropdownMenu。
+- 图标统一使用项目现有 `lucide-react`，不使用 emoji 或另一套图标库。
+- 所有样式只使用 Pixoma 语义令牌；表面无投影，浮层才允许投影。
+
+assistant-ui 作为 Chat 行为层，不拥有最终视觉：
+
+- 不直接引入与 Pixoma 冲突的 assistant-ui 默认主题。
+- 用 Pixoma 类名和语义令牌实现 Message、Composer、Attachment、Tool Call、Reasoning 和 Interrupt 的所有状态。
+- assistant-ui 升级不得改变平台全局 Button、Input、Popover 或字体规则。
+
+### 5.5 生产级前端约束
+
+本期前端按完整产品功能交付，不设置“先做能跑、再补 UI”的阶段。
+
+- 所有数据请求具备 loading、empty、error、retry、stale 和 permission denied 处理。
+- 所有 Mutation 具备 pending、幂等防重、成功反馈、失败恢复和必要的乐观更新回滚。
+- Session、消息、资产和 Flow 的大列表采用分页、增量加载或虚拟化，不能因数据增长明显阻塞主线程。
+- Chat、Flow 和设置页按路由或功能切分；重型编辑器和 Flow 画布按需加载。
+- 切换 Session 时取消过期请求，防止旧响应覆盖新页面。
+- 不在生产代码保留 mock、静态假数据、未接线控件、TODO UI、`console.log` 或吞错分支。
+- TypeScript 类型、API Schema 和运行时校验保持一致，不用 `any` 绕过核心领域数据。
+- 文案走现有 i18n，默认中文，并符合 Pixoma Voice。
 
 ## 6. Eino Runtime
 
@@ -948,6 +973,19 @@ Tool Step created
 - 文本资产新版本。
 - Trace Drawer。
 - 设置四页的权限、健康状态和密钥掩码。
+- 现有 Pixoma shadcn/ui 组件复用检查；不得出现重复基础组件。
+- assistant-ui 默认样式隔离与 Pixoma 主题一致性。
+- 亮色、暗色、920px 断点和无页面级横向滚动。
+- loading、empty、error、permission denied、offline、reconnecting、stale 和 retry 状态。
+- hover、focus、active、selected、disabled、dragging 和 reduced-motion。
+- 键盘导航、焦点管理、读屏名称、表单错误关联和 WCAG 2.1 AA 对比度。
+- 长文本、多附件、大量消息、大量资产和大型 Flow 的性能与布局压力测试。
+
+前端合并门槛：
+
+- TypeScript、ESLint、单元测试、组件测试和生产构建全部通过。
+- 不存在未接线按钮、演示数据、临时 TODO、控制台错误和未处理 Promise rejection。
+- 对照 UX 第 16 节逐项验收，本期范围内不得以“后续补齐”关闭缺口。
 
 ## 24. 开发前 Spike
 

@@ -21,12 +21,20 @@ Flow 不承担 Trace 职责。Flow 面向创作和组织，Trace 面向执行事
 
 ## 2. 设计系统约束
 
-- 使用 Pixoma 设计系统语义令牌，不新增裸色值。
-- 组件优先使用现有 shadcn/ui：Button、Tabs、Dialog、Drawer、Sheet、Select、DropdownMenu、Tooltip、ScrollArea、ResizablePanel、Command、Card、Badge、Input 和 Textarea。
+- Studio 必须看起来是 Pixoma 后台的一部分，不制作独立主题或“AI 产品风格皮肤”。
+- 使用 Pixoma 设计系统语义令牌，不新增裸色值，不复制主题变量。
+- 组件优先使用 `web/admin/src/components/ui` 已有的 shadcn/ui：Button、Tabs、Dialog、Sheet、Select、DropdownMenu、Tooltip、ScrollArea、Command、Card、Badge、Input、Textarea、Field、Form、Alert、Empty、Progress、Skeleton 和 Sonner。
+- 现有组件无法覆盖时，通过项目 shadcn CLI 添加到同一目录；禁止引入第二套通用 UI 组件库。
+- Chat 内部使用 assistant-ui 的 Thread、Message、Composer、Attachment、Tool UI 和流式状态能力，但外观必须由 Pixoma 令牌与组件承载，不能使用 assistant-ui 默认主题直接上线。
+- Flow 画布使用 `@xyflow/react`，节点内容、工具栏、菜单、弹层和状态仍复用 Pixoma 组件。
+- 表面无投影，只有 Dialog、DropdownMenu、Popover、Sheet 和 Select 等浮层使用投影。
+- 单屏只保留一个主 CTA；陶土色只作有限点缀，不作为大面积 AI 装饰色。
 - 状态结果统一由领域状态计算；健康状态遵循绿色/黄色两档规则。
 - 状态文案使用「已启用 / 已停用」，动作使用「启用 / 停用」。
 - 不用大面积渐变、玻璃拟态和装饰性营销组件。
 - 图标按钮必须有 Tooltip 和 `aria-label`。
+
+高保真原型用于确认信息架构和交互流转，不是生产 CSS 来源。正式实现必须重新使用真实平台组件组合，不复制原型中的独立样式实现。
 
 ## 3. 导航与路由
 
@@ -492,3 +500,48 @@ Tool 命中审批规则
 - 风险文案不恐吓，但明确说明影响范围。
 - 后台运行使用「任务会继续运行，可以离开此页面」。
 - 保存到资产库使用「保存到资产库」，不使用“发布”或“同步”。
+
+## 16. 生产级完成标准
+
+“100% 完成度”指本期承诺范围内不存在半成品路径，不代表无限扩展范围。每个页面和组件必须同时覆盖以下内容。
+
+### 16.1 状态完整性
+
+- 初始、加载、流式输出、后台运行、等待批准、等待补充输入、成功、失败、取消和重连。
+- 空 Session、无历史、无资产、无搜索结果、无权限和资源不存在。
+- 模型不可用、工作流失败、MCP 超时、资产读取失败、Revision 冲突和网络离线。
+- 按钮处理中、禁用、防重复提交和操作后的成功或失败反馈。
+
+错误界面必须写清对象、影响和恢复动作，不能只显示 Toast 或通用“出错了”。
+
+### 16.2 视觉完整性
+
+- 亮色和暗色主题都使用平台语义令牌。
+- 页面壳、层级、字号、间距、圆角、边框、图标和动效与现有后台一致。
+- hover、focus、active、selected、disabled 和 dragging 状态齐全。
+- 长标题、长文件名、大段 Markdown、多附件、大量历史和大画布不破坏布局。
+- 不使用占位图标、emoji、临时渐变、无意义装饰、重复主按钮和表面投影。
+
+### 16.3 交互完整性
+
+- 鼠标、键盘和触屏可完成同一核心任务。
+- 弹层具备正确焦点管理、Esc 关闭、返回焦点和危险操作确认。
+- 页面刷新、路由切换、浏览器前后台切换后恢复当前 Session、Run、Tab、Flow 视口和未处理审批。
+- 拖动、连线、撤销、重做、停止、批准和保存操作都有即时反馈与失败恢复。
+
+### 16.4 响应式与无障碍
+
+- 920px 以下按 Pixoma 断点重排，不产生页面级横向滚动。
+- 触屏目标不小于 44px。
+- 所有图标按钮有可访问名称，表单错误关联字段，状态变化可被读屏识别。
+- 文本和交互元素满足 WCAG 2.1 AA 对比度；可见聚焦环不可删除。
+- `prefers-reduced-motion` 下关闭非必要动效。
+
+### 16.5 不接受的交付
+
+- 静态假数据代替真实 API。
+- 只有主流程，没有错误和空态。
+- 按钮存在但未接线。
+- 用 TODO、临时弹窗或控制台输出代替界面反馈。
+- 复制第三方默认主题，与 Pixoma 页面产生视觉割裂。
+- 为赶进度降低组件质量，再承诺后续统一修复。

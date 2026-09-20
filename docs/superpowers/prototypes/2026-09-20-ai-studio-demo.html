@@ -70,7 +70,7 @@
     .brand-mark { width: 24px; height: 24px; display: grid; place-items: center; color: white; border-radius: 7px; background: var(--foreground); font-size: 11px; font-weight: 800; }
     .side-actions { display: grid; gap: 7px; margin-top: 10px; }
     .side-actions .btn { width: 100%; justify-content: flex-start; }
-    .side-actions .active { background: var(--background); box-shadow: inset 0 0 0 1px var(--border); }
+    .side-actions .active { border-color: var(--input); background: var(--background); }
     .side-search { padding: 12px 12px 5px; }
     .field { width: 100%; min-height: 36px; padding: 7px 10px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); }
     .history-label { padding: 12px 14px 6px; color: var(--muted-foreground); font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
@@ -110,7 +110,7 @@
     .composer-shell { flex: 0 0 auto; padding: 10px max(16px, 6%) 16px; border-top: 1px solid var(--border); }
     .context-pills { max-width: 760px; margin: 0 auto 7px; display: flex; gap: 6px; overflow-x: auto; }
     .context-pill { flex: 0 0 auto; display: flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 11px; }
-    .composer { max-width: 760px; margin: 0 auto; padding: 9px; border: 1px solid var(--input); border-radius: 12px; background: var(--background); box-shadow: 0 1px 4px color-mix(in oklch, var(--foreground) 5%, transparent); }
+    .composer { max-width: 760px; margin: 0 auto; padding: 9px; border: 1px solid var(--input); border-radius: 12px; background: var(--background); }
     .composer textarea { width: 100%; min-height: 52px; max-height: 130px; resize: vertical; padding: 2px 3px; border: 0; outline: 0; background: transparent; }
     .composer-foot { display: flex; align-items: center; gap: 5px; }
     .composer-select { min-height: 30px; max-width: 145px; padding: 4px 26px 4px 8px; border: 0; border-radius: 7px; background: var(--muted); font-size: 11px; }
@@ -128,7 +128,7 @@
     .flow-intro h3 { margin: 0; font-size: 14px; }
     .flow-intro p { margin: 3px 0 0; color: var(--muted-foreground); font-size: 11px; }
     .stage-road { min-width: 920px; display: flex; align-items: flex-start; gap: 28px; padding: 24px 30px 80px; }
-    .stage { width: 272px; flex: 0 0 auto; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in oklch, var(--background) 94%, transparent); box-shadow: 0 5px 18px color-mix(in oklch, var(--foreground) 6%, transparent); }
+    .stage { width: 272px; flex: 0 0 auto; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in oklch, var(--background) 94%, transparent); }
     .stage.dragging, .road-node.dragging { opacity: .45; }
     .stage.drag-over, .road-node.drag-over { border-color: var(--brand); }
     .stage-head { display: flex; align-items: flex-start; gap: 9px; padding: 3px 3px 10px; cursor: grab; }
@@ -142,7 +142,7 @@
     .node-kicker { color: var(--muted-foreground); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     .node-name { margin-top: 4px; font-size: 12px; font-weight: 650; }
     .node-meta { margin-top: 7px; display: flex; justify-content: space-between; color: var(--muted-foreground); font-size: 10px; }
-    .node-thumb { height: 70px; margin-top: 8px; display: grid; place-items: center; overflow: hidden; border-radius: 7px; background: linear-gradient(145deg, var(--muted), var(--brand-soft)); color: var(--muted-foreground); font-size: 10px; }
+    .node-thumb { height: 70px; margin-top: 8px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--border); border-radius: 7px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; }
     .flow-arrow { width: 28px; flex: 0 0 auto; align-self: center; color: var(--muted-foreground); text-align: center; }
     .flow-note { position: sticky; left: 18px; bottom: 16px; width: max-content; max-width: 540px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in oklch, var(--background) 92%, transparent); color: var(--muted-foreground); font-size: 10px; backdrop-filter: blur(8px); }
     .asset-pane { position: absolute; inset: 0; overflow: auto; padding: 18px; }
@@ -153,7 +153,7 @@
     .asset-card:hover { border-color: color-mix(in oklch, var(--foreground) 38%, var(--border)); }
     .asset-preview { height: 104px; margin-bottom: 9px; display: grid; place-items: center; overflow: hidden; border-radius: 7px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; }
     .comic-grid { width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 4px; background: var(--background); }
-    .comic-cell { display: grid; place-items: center; border: 1px solid var(--border); background: linear-gradient(145deg, var(--muted), var(--brand-soft)); }
+    .comic-cell { display: grid; place-items: center; border: 1px solid var(--border); background: var(--muted); }
     .asset-name { overflow: hidden; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
     .asset-meta { margin-top: 3px; color: var(--muted-foreground); font-size: 10px; }
 
@@ -202,7 +202,7 @@
     .admin-content { max-width: 1240px; margin: 0 auto; padding: 28px 32px 60px; }
     .setting-tabs { display: flex; gap: 4px; margin-top: 22px; padding: 4px; border-radius: 10px; background: var(--muted); width: max-content; }
     .setting-tab { min-height: 32px; padding: 5px 11px; border: 0; border-radius: 7px; color: var(--muted-foreground); background: transparent; }
-    .setting-tab.active { color: var(--foreground); background: var(--background); box-shadow: 0 1px 3px color-mix(in oklch, var(--foreground) 8%, transparent); }
+    .setting-tab.active { color: var(--foreground); background: var(--background); }
     .settings-grid { display: grid; gap: 12px; margin-top: 20px; }
     .setting-card { padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
     .setting-card h3 { margin: 0; font-size: 14px; }
@@ -259,7 +259,7 @@
       <div class="side-search"><input class="field" id="sessionSearch" placeholder="搜索对话" /></div>
       <div class="history-label">最近对话</div>
       <div class="session-list" id="sessionList"></div>
-      <div class="user-card"><span class="avatar">LZ</span><div class="grow"><div style="font-size:12px;font-weight:650">李卓洲</div><div class="muted" style="font-size:10px">个人空间</div></div><button class="btn btn-ghost btn-icon" title="设置" data-action="open-settings">⚙</button></div>
+      <div class="user-card"><span class="avatar">LZ</span><div class="grow"><div style="font-size:12px;font-weight:650">李卓洲</div><div class="muted" style="font-size:10px">个人空间</div></div><button class="btn btn-ghost btn-sm" aria-label="打开 AI 设置" title="AI 设置" data-action="open-settings">设置</button></div>
     </aside>
 
     <main class="workspace">
@@ -322,9 +322,9 @@
     <aside class="admin-side">
       <div class="admin-logo"><span class="brand-mark">PX</span> Pixoma</div>
       <div class="menu-label">工作区</div>
-      <button class="menu-item">⌂ 概览</button><button class="menu-item">◇ 工作流</button><button class="menu-item active" data-action="enter-studio">✦ 创作 Studio</button>
+      <button class="menu-item">概览</button><button class="menu-item">工作流</button><button class="menu-item active" data-action="enter-studio">创作 Studio</button>
       <div class="menu-label">系统</div>
-      <button class="menu-item" data-action="open-settings">⚙ AI 设置</button><button class="menu-item">◉ 系统设置</button>
+      <button class="menu-item" data-action="open-settings">AI 设置</button><button class="menu-item">系统设置</button>
     </aside>
     <main class="admin-main">
       <header class="admin-head"><strong id="adminHeader">Pixoma 后台</strong></header>
@@ -437,7 +437,7 @@
     function renderMessages() {
       document.getElementById("messages").innerHTML = state.messages.map((m, index) => m.role === "user" ? `
         <div class="message message-user"><div class="user-bubble">${escapeHTML(m.text)}</div></div>` : `
-        <div class="message"><div class="assistant-head"><span class="assistant-avatar">✦</span>Pixoma Agent</div><div class="assistant-copy">${escapeHTML(m.text)}</div>
+        <div class="message"><div class="assistant-head"><span class="assistant-avatar">AI</span>Pixoma Agent</div><div class="assistant-copy">${escapeHTML(m.text)}</div>
           ${m.reasoning ? `<details class="reasoning"><summary>思考过程 · 已折叠</summary><p>${escapeHTML(m.reasoning)}</p></details>` : ""}
           ${m.asset ? `<div class="inline-card"><div class="inline-head asset-file"><span class="file-mark">MD</span><div class="grow"><strong>${escapeHTML(m.asset)}</strong><div class="muted" style="font-size:11px">Session 资产 · v1</div></div><button class="btn btn-sm" data-action="open-asset" data-asset="a1">查看</button></div></div>` : ""}
           ${m.approval && state.run.status === "approval" ? `<div class="inline-card approval-card"><div class="inline-head"><span class="dot warn"></span><strong>需要批准：调用生图模型</strong></div><div class="inline-body">将使用故事设定中的角色描述生成三视图，预计产生 1 个图片资产。<div class="approval-actions"><button class="btn btn-primary btn-sm" data-action="approve">批准并继续</button><button class="btn btn-sm" data-action="reject">拒绝</button><button class="btn btn-sm" data-action="open-trace">查看详情</button></div></div></div>` : ""}
@@ -519,7 +519,7 @@
       const content = document.getElementById("adminContent");
       if (state.view === "admin") {
         document.getElementById("adminHeader").textContent = "Pixoma 后台";
-        content.innerHTML = `<h1 class="page-title">欢迎回来</h1><div class="page-subtitle">从工作流管理业务能力，或进入创作 Studio 与 Agent 协作。</div><div class="settings-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))"><button class="setting-card" style="text-align:left" data-action="enter-studio"><div class="badge badge-brand">NEW</div><h3 style="margin-top:12px">✦ 创作 Studio</h3><p>通过自然语言创建资产、调用工作流，并把创作过程整理为可编辑的资产 Road。</p></button><button class="setting-card" style="text-align:left" data-action="open-settings"><h3>⚙ AI 设置</h3><p>配置 Agent 可用的模型、系统指令、Skills 与 MCP 连接器。</p></button></div>`;
+        content.innerHTML = `<h1 class="page-title">欢迎回来</h1><div class="page-subtitle">从工作流管理业务能力，或进入创作 Studio 与 Agent 协作。</div><div class="settings-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))"><button class="setting-card" style="text-align:left" data-action="enter-studio"><div class="badge badge-brand">NEW</div><h3 style="margin-top:12px">创作 Studio</h3><p>通过自然语言创建资产、调用工作流，并把创作过程整理为可编辑的资产 Road。</p></button><button class="setting-card" style="text-align:left" data-action="open-settings"><h3>AI 设置</h3><p>配置 Agent 可用的模型、系统指令、Skills 与 MCP 连接器。</p></button></div>`;
         return;
       }
       document.getElementById("adminHeader").textContent = "AI 设置";
