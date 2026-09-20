@@ -37,6 +37,8 @@ export default defineConfig({
       'src/lib/api/users.test.ts',
       'src/lib/api/admin-users.test.ts',
       'src/lib/api/sessions.test.ts',
+      'src/lib/api/studio.test.ts',
+      'src/features/studio/studio-workspace.contract.test.ts',
       'src/features/sessions/list-panel.contract.test.ts',
       'src/features/users/list-panel.contract.test.ts',
       'src/lib/api/query-keys.test.ts',

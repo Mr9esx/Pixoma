@@ -20,6 +20,9 @@
     "test:browser:install": "playwright install chromium --with-deps"
   },
   "dependencies": {
+    "@ag-ui/client": "0.0.59",
+    "@assistant-ui/react": "0.15.21",
+    "@assistant-ui/react-ag-ui": "0.0.60",
     "@base-ui/react": "^1.7.0",
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/language": "^6.12.4",

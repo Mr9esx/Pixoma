@@ -9,6 +9,7 @@ import {
   Settings,
   Waypoints,
   Zap,
+  WandSparkles,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -26,6 +27,12 @@ type MenuGroup = {
 }
 
 const ITEMS: readonly MenuItem[] = [
+  {
+    id: 'studio',
+    titleKey: 'menu.studio',
+    path: '/studio',
+    icon: WandSparkles,
+  },
   {
     id: 'dashboard',
     titleKey: 'menu.dashboard',
@@ -59,21 +66,22 @@ const ITEMS: readonly MenuItem[] = [
 ] as const
 
 export const MENU_GROUPS: readonly MenuGroup[] = [
-  { id: 'overview', items: [ITEMS[0], ITEMS[1]] },
+  { id: 'studio', items: [ITEMS[0]] },
+  { id: 'overview', items: [ITEMS[1], ITEMS[2]] },
   {
     id: 'config',
     titleKey: 'menu.groupConfig',
-    items: [ITEMS[2], ITEMS[3], ITEMS[4], ITEMS[5]],
+    items: [ITEMS[3], ITEMS[4], ITEMS[5], ITEMS[6]],
   },
   {
     id: 'operations',
     titleKey: 'menu.groupOperations',
-    items: [ITEMS[6], ITEMS[7], ITEMS[8]],
+    items: [ITEMS[7], ITEMS[8], ITEMS[9]],
   },
   {
     id: 'system',
     titleKey: 'menu.groupSystem',
-    items: [ITEMS[9]],
+    items: [ITEMS[10]],
   },
 ] as const
 

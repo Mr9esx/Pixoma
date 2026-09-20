@@ -28,7 +28,9 @@ type Handler struct {
 }
 
 func (h *Handler) Mount(r chi.Router) {
+	r.Post("/agui", h.streamAGUI)
 	r.Get("/sessions", h.listSessions)
+	r.Post("/sessions", h.createSession)
 	r.Get("/sessions/{sessionID}", h.getSession)
 	r.Post("/messages", h.sendMessage)
 	r.Get("/runs/{runID}", h.getRun)
@@ -150,6 +152,19 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 		out = append(out, toSessionView(session))
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	session, err := h.Service.CreateSession(r.Context(), accountID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, toSessionView(session))
 }
 
 func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {

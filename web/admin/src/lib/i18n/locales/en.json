@@ -1,5 +1,6 @@
 {
   "menu": {
+    "studio": "Creation Studio",
     "dashboard": "Dashboard",
     "quickConfig": "Quick create",
     "edges": "Compute nodes",

@@ -120,6 +120,28 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 	}
 }
 
+func TestCreateStudioSessionAPI(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	response := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	if response.Code != http.StatusCreated {
+		t.Fatalf("POST /sessions status=%d body=%s", response.Code, response.Body.String())
+	}
+	var session struct {
+		ID    string `json:"id"`
+		Title string `json:"title"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+	if session.ID == "" || session.Title != domain.DefaultSessionTitle {
+		t.Fatalf("session = %#v", session)
+	}
+}
+
 func TestStudioAPIRejectsCrossAccountRead(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)
@@ -165,6 +187,53 @@ func TestStudioEventsResumeAfterCursor(t *testing.T) {
 	}
 	if len(events) == 0 || events[0].Sequence <= 2 {
 		t.Fatalf("events = %#v", events)
+	}
+}
+
+func TestStudioAGUIStreamsStandardEvents(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+
+	response := request(t, router, http.MethodPost, "/agui", map[string]any{
+		"threadId": session.ID,
+		"runId":    "browser-run-1",
+		"messages": []map[string]any{{
+			"id": "user-message-1", "role": "user", "content": "为雨夜侦探生成漫画分镜",
+		}},
+		"forwardedProps": map[string]any{
+			"runConfig": map[string]any{"permissionMode": domain.PermissionFullAccess},
+		},
+	}, "account-a")
+	if response.Code != http.StatusOK {
+		t.Fatalf("POST /agui status=%d body=%s", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/event-stream") {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	body := response.Body.String()
+	for _, want := range []string{
+		`"type":"RUN_STARTED"`,
+		`"threadId":"` + session.ID + `"`,
+		`"type":"TEXT_MESSAGE_CONTENT"`,
+		`"messageId":`,
+		`"type":"TOOL_CALL_START"`,
+		`"toolCallName":"分镜生成"`,
+		`"type":"RUN_FINISHED"`,
+		`"outcome":{"type":"success"}`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("SSE body does not contain %q:\n%s", want, body)
+		}
 	}
 }
 

@@ -1,5 +1,6 @@
 {
   "menu": {
+    "studio": "创作 Studio",
     "dashboard": "工作台",
     "quickConfig": "快速新建",
     "edges": "计算节点",

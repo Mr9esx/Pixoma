@@ -27,17 +27,17 @@ type ModelConfigService struct {
 }
 
 type CreateModelConfigInput struct {
-	AccountID    string
-	Name         string
-	Protocol     domain.ModelProtocol
-	BaseURL      string
-	Model        string
-	APIKey       string
-	Enabled      bool
-	AgentEnabled bool
-	Default      bool
-	Thinking     domain.ThinkingConfig
-	Capabilities domain.ModelCapabilities
+	AccountID    string                   `json:"-"`
+	Name         string                   `json:"name"`
+	Protocol     domain.ModelProtocol     `json:"protocol"`
+	BaseURL      string                   `json:"base_url"`
+	Model        string                   `json:"model"`
+	APIKey       string                   `json:"api_key"`
+	Enabled      bool                     `json:"enabled"`
+	AgentEnabled bool                     `json:"agent_enabled"`
+	Default      bool                     `json:"default"`
+	Thinking     domain.ThinkingConfig    `json:"thinking"`
+	Capabilities domain.ModelCapabilities `json:"capabilities"`
 }
 
 type ModelConfigView struct {

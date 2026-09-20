@@ -48,6 +48,20 @@ type SendMessageResult struct {
 	Run     *domain.Run
 }
 
+func (s *Service) CreateSession(ctx context.Context, accountID string) (*domain.Session, error) {
+	if s == nil || s.Repo == nil {
+		return nil, fmt.Errorf("studio: repository is required")
+	}
+	session, err := domain.NewSession(s.nextID(), strings.TrimSpace(accountID), s.now())
+	if err != nil {
+		return nil, err
+	}
+	if err := s.Repo.CreateSession(ctx, session); err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
 type messagePart struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
@@ -134,6 +148,13 @@ func (s *Service) resolveSession(ctx context.Context, input SendMessageInput, no
 		if err != nil {
 			return nil, false, err
 		}
+		needsUpdate := false
+		if session.Title == domain.DefaultSessionTitle {
+			if err := session.Rename(s.generateTitle(ctx, input.Text), now); err != nil {
+				return nil, false, err
+			}
+			needsUpdate = true
+		}
 		if input.PermissionMode.Valid() || input.ModelConfigID != "" {
 			mode := session.PermissionMode
 			if input.PermissionMode.Valid() {
@@ -146,6 +167,9 @@ func (s *Service) resolveSession(ctx context.Context, input SendMessageInput, no
 			if err := session.Configure(modelID, mode, now); err != nil {
 				return nil, false, err
 			}
+			needsUpdate = true
+		}
+		if needsUpdate {
 			if err := s.Repo.UpdateSession(ctx, session); err != nil {
 				return nil, false, err
 			}
