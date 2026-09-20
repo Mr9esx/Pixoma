@@ -44,15 +44,31 @@
 - **THEN** 页面以分段表单展示基础信息、输入输出与绑定等字段，提交后数据经 admin-api 持久化
 
 ### Requirement: User / Session / Task 运维页
-控制台 MUST 提供 User、Session、Task 的列表与详情页；Task 页 MUST 支持取消等已由 API 提供的运维动作。
+控制台 MUST 提供 User、Session、Task 的列表与详情页；Task 页 MUST 仅对可取消状态（pending / queued）提供取消动作。三类详情 Modal MUST 使用与计算节点新建 Modal 一致的宽度与内边距。Task 列表 MUST 展示消息平台、关联用户和关联 Session；Session 列表 MUST 展示消息平台；User 列表 MUST 展示消息平台和统一的「用户信息」列，且 MUST NOT 展示 Telegram 专用 ID 列或专用筛选字段。
 
 #### Scenario: 查看用户与会话详情
 - **WHEN** 运维从列表进入某 User 或 Session 详情
-- **THEN** 页面展示 admin-api 返回的关键字段
+- **THEN** 页面展示 admin-api 返回的关键字段、消息平台来源和用户信息
+
+#### Scenario: 识别任务上下文
+- **WHEN** 运维在 Task 列表查看某条任务
+- **THEN** 页面展示该任务的消息平台、关联用户和关联 Session，且这些字段可读且可直接用于排障
+
+#### Scenario: 识别会话来源
+- **WHEN** 运维在 Session 列表查看某条会话
+- **THEN** 页面展示该会话的消息平台来源
+
+#### Scenario: 用户列表不绑定单一消息平台
+- **WHEN** 运维在 User 列表查看或搜索用户
+- **THEN** 页面展示消息平台和统一的用户信息列，单一搜索框覆盖内部 ID、通用外部用户标识和用户资料，不出现 Telegram 专用 ID 字段
 
 #### Scenario: 从 UI 取消任务
-- **WHEN** 运维在 Task 详情对可取消任务执行取消
+- **WHEN** 运维在 Task 详情对 pending 或 queued 任务执行取消
 - **THEN** UI 反映取消结果或明确错误
+
+#### Scenario: 统一详情容器
+- **WHEN** 运维打开 Task、Session 或 User 详情
+- **THEN** Modal 宽度与内边距沿用同一套资源详情规则，并与计算节点新建 Modal 对齐
 
 ### Requirement: Dashboard 中等总览
 控制台 MUST 提供 Dashboard 页：数字卡片与简单状态/占比分布；任务相关统计 MUST 来自专用统计接口（`/api/v1/stats/tasks/*`），为全量按天聚合，不再受列表接口 limit 样本限制；实例与 Case 汇总仍可来自既有列表类接口。
@@ -112,4 +128,34 @@ Case 详情 MUST 展示该 Case 出现在主键盘中的路径列表（只读）
 #### Scenario: Network 指向 admin-api
 - **WHEN** 运维加载主键盘页或带挂载信息的 Case 详情
 - **THEN** 浏览器请求前缀为配置的 admin-api 基址
+
+### Requirement: 工作台展示配置拓扑卡片
+控制台工作台 MUST 在左栏数据大盘中展示配置拓扑卡片（卡片内为只读画布）。该卡片 MUST 与既有贡献图、概览卡、区间图表一样失败隔离。详细拓扑行为见 `config-topology-overview`。
+
+#### Scenario: 工作台左栏含拓扑卡片
+- **WHEN** 运维打开工作台首页
+- **THEN** 左栏可见配置拓扑卡片
+
+### Requirement: 四类详情提供拓扑入口
+工作流、消息平台、任务队列、计算节点详情页 MUST 各提供一个打开配置拓扑弹窗的按钮。MUST NOT 用该弹窗替换既有链路健康与上下游引用区块。
+
+#### Scenario: 工作流详情可打开拓扑
+- **WHEN** 运维打开某工作流详情
+- **THEN** 可见打开拓扑的按钮；点开后出现以该工作流为焦点的拓扑弹窗
+
+#### Scenario: 消息平台详情可打开拓扑
+- **WHEN** 运维打开某消息平台详情
+- **THEN** 可见打开拓扑的按钮；点开后出现以该平台为焦点的拓扑弹窗
+
+#### Scenario: 任务队列详情可打开拓扑
+- **WHEN** 运维打开某任务队列详情
+- **THEN** 可见打开拓扑的按钮；点开后出现以该队列为焦点的拓扑弹窗
+
+#### Scenario: 计算节点详情可打开拓扑
+- **WHEN** 运维打开某计算节点详情
+- **THEN** 可见打开拓扑的按钮；点开后出现以该节点为焦点的拓扑弹窗
+
+#### Scenario: 健康区块仍在
+- **WHEN** 运维打开上述任一详情页
+- **THEN** 链路健康与上下游引用仍按原样展示
 
