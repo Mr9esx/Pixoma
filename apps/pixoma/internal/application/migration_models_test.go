@@ -21,6 +21,7 @@ func TestApplicationModelsIncludeStudioSchema(t *testing.T) {
 		&studiopersist.LibraryAssetRow{},
 		&studiopersist.FlowNodeRow{},
 		&studiopersist.FlowEdgeRow{},
+		&studiopersist.ModelConfigRow{},
 	}
 	for _, expected := range want {
 		if !containsModelType(models, expected) {

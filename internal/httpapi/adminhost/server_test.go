@@ -15,6 +15,7 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/httpapi/adminhost"
 	channelsapi "github.com/Mr9esx/Pixoma/internal/httpapi/channels"
 	statsapi "github.com/Mr9esx/Pixoma/internal/httpapi/stats"
+	studioapi "github.com/Mr9esx/Pixoma/internal/httpapi/studio"
 	mencardpersist "github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
@@ -63,6 +64,16 @@ func TestStatsRouteMounted(t *testing.T) {
 	}
 }
 
+func TestStudioRouteMounted(t *testing.T) {
+	handler := adminhost.NewHandler(adminhost.Options{Studio: &studioapi.Handler{}})
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/studio/sessions", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("studio route status=%d, want 401", response.Code)
+	}
+}
+
 func TestChannelDetailRouteNotShadowedByMenuMount(t *testing.T) {
 	gdb, err := db.Open(db.Options{DSN: "file:adminhost_ch_" + t.Name() + "?mode=memory&cache=shared"})
 	if err != nil {
@@ -88,7 +99,7 @@ func TestChannelDetailRouteNotShadowedByMenuMount(t *testing.T) {
 	menuCardsAPI := channelsapi.NewMenuHandler(mencardpersist.NewGormCardRepository(gdb))
 
 	h := adminhost.NewHandler(adminhost.Options{
-		Channels:  chAPI,
+		Channels:    chAPI,
 		MenuHandler: menuCardsAPI,
 	})
 	srv := httptest.NewServer(h)

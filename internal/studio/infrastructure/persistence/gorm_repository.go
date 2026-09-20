@@ -171,7 +171,7 @@ func Models() []any {
 	return []any{
 		&SessionRow{}, &MessageRow{}, &RunRow{}, &EventRow{}, &ApprovalRow{},
 		&AssetRow{}, &AssetVersionRow{}, &LibraryFolderRow{}, &LibraryAssetRow{},
-		&FlowNodeRow{}, &FlowEdgeRow{},
+		&FlowNodeRow{}, &FlowEdgeRow{}, &ModelConfigRow{},
 	}
 }
 

@@ -43,6 +43,7 @@ import (
 	sessionsapi "github.com/Mr9esx/Pixoma/internal/httpapi/sessions"
 	setupapi "github.com/Mr9esx/Pixoma/internal/httpapi/setup"
 	statsapi "github.com/Mr9esx/Pixoma/internal/httpapi/stats"
+	studioapi "github.com/Mr9esx/Pixoma/internal/httpapi/studio"
 	tasksapi "github.com/Mr9esx/Pixoma/internal/httpapi/tasks"
 	topicsapi "github.com/Mr9esx/Pixoma/internal/httpapi/topics"
 	usersapi "github.com/Mr9esx/Pixoma/internal/httpapi/users"
@@ -60,6 +61,7 @@ import (
 	settingsinfra "github.com/Mr9esx/Pixoma/internal/settings/infrastructure"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	taskstatspersist "github.com/Mr9esx/Pixoma/internal/stats/infrastructure/persistence"
+	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	studiopersist "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/tasks/application/orchestrator"
 	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
@@ -246,6 +248,20 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	if err != nil {
 		return err
 	}
+	studioRepo := studiopersist.NewGormRepository(gdb)
+	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
+		Repo: studioRepo, Blob: blobStore, Engine: studioapp.NewMockEngine(),
+	})
+	studioRunner := studioapp.NewBackgroundRunner(studioRepo, studioExecutor, studioapp.RunnerOptions{})
+	defer studioRunner.Close()
+	if recovered, recoverErr := studioRunner.Recover(ctx); recoverErr != nil {
+		return recoverErr
+	} else if recovered > 0 {
+		slog.Info("recovered studio runs", "count", recovered)
+	}
+	studioService := &studioapp.Service{Repo: studioRepo, Queue: studioRunner}
+	studioApprovalService := &studioapp.ApprovalService{Repo: studioRepo, Queue: studioRunner}
+	studioModelService := &studioapp.ModelConfigService{Repo: studioRepo, EncryptionKey: encKey}
 
 	instRepo := instpersist.NewEdgeRepository(gdb)
 	if err := edgedomain.EnsureAgentTokens(ctx, instRepo, encKey); err != nil {
@@ -353,6 +369,10 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		Sessions:   &sessionsapi.Handler{Repo: sessionRepo, Channels: channelStore, Context: sesspersist.NewSessionAdminProjection(gdb)},
 		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Cancel: orch, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
+		Studio: &studioapi.Handler{
+			Repo: studioRepo, Service: studioService, Runner: studioRunner,
+			Approvals: studioApprovalService, Models: studioModelService, Blob: blobStore,
+		},
 		Channels: &channelsapi.Handler{
 			Svc: chSvc,
 			OnCreated: func(ctx context.Context, id string) error {

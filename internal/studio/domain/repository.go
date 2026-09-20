@@ -44,4 +44,9 @@ type Repository interface {
 	SaveFlowNode(ctx context.Context, node *FlowNode) error
 	SaveFlowEdge(ctx context.Context, edge *FlowEdge) error
 	GetFlow(ctx context.Context, accountID, sessionID string) ([]*FlowNode, []*FlowEdge, error)
+
+	CreateModelConfig(ctx context.Context, config *ModelConfig) error
+	UpdateModelConfig(ctx context.Context, config *ModelConfig) error
+	GetModelConfig(ctx context.Context, accountID, configID string) (*ModelConfig, error)
+	ListModelConfigs(ctx context.Context, accountID string) ([]*ModelConfig, error)
 }

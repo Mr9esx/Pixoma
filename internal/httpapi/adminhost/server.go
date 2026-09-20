@@ -16,6 +16,7 @@ import (
 	routingapi "github.com/Mr9esx/Pixoma/internal/httpapi/routing"
 	sessionsapi "github.com/Mr9esx/Pixoma/internal/httpapi/sessions"
 	statsapi "github.com/Mr9esx/Pixoma/internal/httpapi/stats"
+	studioapi "github.com/Mr9esx/Pixoma/internal/httpapi/studio"
 	tasksapi "github.com/Mr9esx/Pixoma/internal/httpapi/tasks"
 	topicsapi "github.com/Mr9esx/Pixoma/internal/httpapi/topics"
 	usersapi "github.com/Mr9esx/Pixoma/internal/httpapi/users"
@@ -32,6 +33,7 @@ type Options struct {
 	Sessions    *sessionsapi.Handler
 	Tasks       *tasksapi.Handler
 	Stats       *statsapi.Handler
+	Studio      *studioapi.Handler
 	Channels    *channelapi.Handler
 	MenuHandler *channelsapi.MenuHandler
 	Topics      *topicsapi.Handler
@@ -97,6 +99,11 @@ func NewHandler(opts Options) http.Handler {
 	r.Route("/api/v1/stats", func(r chi.Router) {
 		if opts.Stats != nil {
 			opts.Stats.Mount(r)
+		}
+	})
+	r.Route("/api/v1/studio", func(r chi.Router) {
+		if opts.Studio != nil {
+			opts.Studio.Mount(r)
 		}
 	})
 	r.Route("/api/v1/channels", func(r chi.Router) {
