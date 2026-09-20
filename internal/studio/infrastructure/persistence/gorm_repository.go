@@ -70,7 +70,7 @@ func (EventRow) TableName() string { return "studio_events" }
 
 type ApprovalRow struct {
 	ID         string `gorm:"primaryKey;size:64"`
-	RunID      string `gorm:"size:64;not null;index"`
+	RunID      string `gorm:"size:64;not null;index;uniqueIndex:idx_studio_approvals_run_tool"`
 	SessionID  string `gorm:"size:64;not null;index"`
 	AccountID  string `gorm:"size:64;not null;index"`
 	ToolCallID string `gorm:"size:128;not null;uniqueIndex:idx_studio_approvals_run_tool"`
@@ -233,6 +233,18 @@ func (r *GormRepository) AppendMessage(ctx context.Context, message *domain.Mess
 	return translateCreateError(r.db.WithContext(ctx).Create(messageToRow(message)).Error)
 }
 
+func (r *GormRepository) GetMessage(ctx context.Context, accountID, messageID string) (*domain.Message, error) {
+	var row MessageRow
+	err := r.db.WithContext(ctx).Where("account_id = ? AND id = ?", accountID, messageID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return messageFromRow(row), nil
+}
+
 func (r *GormRepository) ListMessages(ctx context.Context, accountID, sessionID string, limit int) ([]*domain.Message, error) {
 	var rows []MessageRow
 	err := r.db.WithContext(ctx).Where("account_id = ? AND session_id = ?", accountID, sessionID).
@@ -273,6 +285,21 @@ func (r *GormRepository) GetRun(ctx context.Context, accountID, runID string) (*
 		return nil, err
 	}
 	return runFromRow(row), nil
+}
+
+func (r *GormRepository) ListRecoverableRuns(ctx context.Context, limit int) ([]*domain.Run, error) {
+	var rows []RunRow
+	err := r.db.WithContext(ctx).
+		Where("status IN ?", []string{string(domain.RunQueued), string(domain.RunRunning)}).
+		Order("created_at ASC, id ASC").Limit(normalizeLimit(limit)).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Run, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, runFromRow(row))
+	}
+	return out, nil
 }
 
 func (r *GormRepository) AppendEvent(ctx context.Context, event *domain.Event) error {
@@ -328,6 +355,19 @@ func (r *GormRepository) GetApproval(ctx context.Context, accountID, approvalID 
 		return nil, err
 	}
 	return approvalFromRow(row), nil
+}
+
+func (r *GormRepository) ListApprovals(ctx context.Context, accountID, runID string) ([]*domain.Approval, error) {
+	var rows []ApprovalRow
+	if err := r.db.WithContext(ctx).Where("account_id = ? AND run_id = ?", accountID, runID).
+		Order("created_at ASC, id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Approval, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, approvalFromRow(row))
+	}
+	return out, nil
 }
 
 func (r *GormRepository) CreateAsset(ctx context.Context, asset *domain.Asset) error {

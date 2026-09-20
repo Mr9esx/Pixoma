@@ -19,17 +19,20 @@ type Repository interface {
 	ListSessions(ctx context.Context, accountID string, query SessionListQuery) ([]*Session, error)
 
 	AppendMessage(ctx context.Context, message *Message) error
+	GetMessage(ctx context.Context, accountID, messageID string) (*Message, error)
 	ListMessages(ctx context.Context, accountID, sessionID string, limit int) ([]*Message, error)
 
 	CreateRun(ctx context.Context, run *Run) error
 	UpdateRun(ctx context.Context, run *Run) error
 	GetRun(ctx context.Context, accountID, runID string) (*Run, error)
+	ListRecoverableRuns(ctx context.Context, limit int) ([]*Run, error)
 	AppendEvent(ctx context.Context, event *Event) error
 	ListEventsAfter(ctx context.Context, accountID, runID string, after uint64, limit int) ([]*Event, error)
 
 	CreateApproval(ctx context.Context, approval *Approval) error
 	UpdateApproval(ctx context.Context, approval *Approval) error
 	GetApproval(ctx context.Context, accountID, approvalID string) (*Approval, error)
+	ListApprovals(ctx context.Context, accountID, runID string) ([]*Approval, error)
 
 	CreateAsset(ctx context.Context, asset *Asset) error
 	AppendAssetVersion(ctx context.Context, assetID, accountID string, version AssetVersion) error

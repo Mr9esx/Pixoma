@@ -1,0 +1,211 @@
+package application
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
+
+	"github.com/Mr9esx/Pixoma/internal/studio/domain"
+)
+
+type TitleGenerator interface {
+	GenerateTitle(ctx context.Context, firstMessage string) (string, error)
+}
+
+type RunRef struct {
+	AccountID string
+	RunID     string
+}
+
+type RunQueue interface {
+	Enqueue(ref RunRef) error
+}
+
+type Service struct {
+	Repo   domain.Repository
+	IDs    func() string
+	Now    func() time.Time
+	Titles TitleGenerator
+	Queue  RunQueue
+}
+
+type SendMessageInput struct {
+	AccountID      string
+	SessionID      string
+	Text           string
+	ModelConfigID  string
+	PermissionMode domain.PermissionMode
+}
+
+type SendMessageResult struct {
+	Session *domain.Session
+	Message *domain.Message
+	Run     *domain.Run
+}
+
+type messagePart struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*SendMessageResult, error) {
+	if s == nil || s.Repo == nil {
+		return nil, fmt.Errorf("studio: repository is required")
+	}
+	input.AccountID = strings.TrimSpace(input.AccountID)
+	input.Text = strings.TrimSpace(input.Text)
+	if input.AccountID == "" || input.Text == "" {
+		return nil, fmt.Errorf("%w: account and message text are required", domain.ErrInvalid)
+	}
+	now := s.now()
+
+	session, created, err := s.resolveSession(ctx, input, now)
+	if err != nil {
+		return nil, err
+	}
+	content, err := json.Marshal([]messagePart{{Type: "text", Text: input.Text}})
+	if err != nil {
+		return nil, err
+	}
+	message := &domain.Message{
+		ID: s.nextID(), SessionID: session.ID, AccountID: input.AccountID,
+		Role: domain.MessageRoleUser, ContentJSON: content, CreatedAt: now,
+	}
+	run, err := domain.NewRun(s.nextID(), session.ID, input.AccountID, message.ID, now)
+	if err != nil {
+		return nil, err
+	}
+	run.ModelConfigID = session.ModelConfigID
+	message.RunID = run.ID
+
+	if err := s.Repo.AppendMessage(ctx, message); err != nil {
+		return nil, err
+	}
+	if err := s.Repo.CreateRun(ctx, run); err != nil {
+		return nil, err
+	}
+	if s.Queue == nil {
+		return nil, fmt.Errorf("studio: run queue is required")
+	}
+	if err := s.Queue.Enqueue(RunRef{AccountID: input.AccountID, RunID: run.ID}); err != nil {
+		_ = run.Fail("enqueue_failed", err.Error(), s.now())
+		_ = s.Repo.UpdateRun(context.WithoutCancel(ctx), run)
+		return nil, err
+	}
+	_ = created // retained to make the create-vs-existing lifecycle explicit.
+	return &SendMessageResult{Session: session, Message: message, Run: run}, nil
+}
+
+func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domain.Run, error) {
+	if s == nil || s.Repo == nil || s.Queue == nil {
+		return nil, fmt.Errorf("studio: service is not configured")
+	}
+	previous, err := s.Repo.GetRun(ctx, accountID, runID)
+	if err != nil {
+		return nil, err
+	}
+	if !previous.Status.Terminal() || previous.Status == domain.RunSucceeded {
+		return nil, domain.ErrInvalidTransition
+	}
+	retried, err := domain.NewRun(s.nextID(), previous.SessionID, previous.AccountID, previous.TriggerMessageID, s.now())
+	if err != nil {
+		return nil, err
+	}
+	retried.ModelConfigID = previous.ModelConfigID
+	if err := s.Repo.CreateRun(ctx, retried); err != nil {
+		return nil, err
+	}
+	if err := s.Queue.Enqueue(RunRef{AccountID: accountID, RunID: retried.ID}); err != nil {
+		_ = retried.Fail("enqueue_failed", err.Error(), s.now())
+		_ = s.Repo.UpdateRun(context.WithoutCancel(ctx), retried)
+		return nil, err
+	}
+	return retried, nil
+}
+
+func (s *Service) resolveSession(ctx context.Context, input SendMessageInput, now time.Time) (*domain.Session, bool, error) {
+	if input.SessionID != "" {
+		session, err := s.Repo.GetSession(ctx, input.AccountID, input.SessionID)
+		if err != nil {
+			return nil, false, err
+		}
+		if input.PermissionMode.Valid() || input.ModelConfigID != "" {
+			mode := session.PermissionMode
+			if input.PermissionMode.Valid() {
+				mode = input.PermissionMode
+			}
+			modelID := session.ModelConfigID
+			if input.ModelConfigID != "" {
+				modelID = input.ModelConfigID
+			}
+			if err := session.Configure(modelID, mode, now); err != nil {
+				return nil, false, err
+			}
+			if err := s.Repo.UpdateSession(ctx, session); err != nil {
+				return nil, false, err
+			}
+		}
+		return session, false, nil
+	}
+
+	session, err := domain.NewSession(s.nextID(), input.AccountID, now)
+	if err != nil {
+		return nil, false, err
+	}
+	mode := session.PermissionMode
+	if input.PermissionMode.Valid() {
+		mode = input.PermissionMode
+	}
+	if err := session.Configure(input.ModelConfigID, mode, now); err != nil {
+		return nil, false, err
+	}
+	title := s.generateTitle(ctx, input.Text)
+	if err := session.Rename(title, now); err != nil {
+		return nil, false, err
+	}
+	if err := s.Repo.CreateSession(ctx, session); err != nil {
+		return nil, false, err
+	}
+	return session, true, nil
+}
+
+func (s *Service) generateTitle(ctx context.Context, text string) string {
+	if s.Titles != nil {
+		if title, err := s.Titles.GenerateTitle(ctx, text); err == nil {
+			if normalized := normalizeTitle(title); normalized != "" {
+				return normalized
+			}
+		}
+	}
+	return normalizeTitle(text)
+}
+
+func normalizeTitle(value string) string {
+	value = strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+	if value == "" {
+		return domain.DefaultSessionTitle
+	}
+	if utf8.RuneCountInString(value) <= 20 {
+		return value
+	}
+	return string([]rune(value)[:20])
+}
+
+func (s *Service) nextID() string {
+	if s.IDs != nil {
+		return s.IDs()
+	}
+	return uuid.NewString()
+}
+
+func (s *Service) now() time.Time {
+	if s.Now != nil {
+		return s.Now().UTC()
+	}
+	return time.Now().UTC()
+}
