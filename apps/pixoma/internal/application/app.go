@@ -60,6 +60,7 @@ import (
 	settingsinfra "github.com/Mr9esx/Pixoma/internal/settings/infrastructure"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	taskstatspersist "github.com/Mr9esx/Pixoma/internal/stats/infrastructure/persistence"
+	studiopersist "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/tasks/application/orchestrator"
 	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
 	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/actuator"
@@ -206,23 +207,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		Driver:       cfg.DBDriver,
 		DSN:          cfg.DBDSN,
 		MigrateEdges: true,
-		Models: []any{
-			&casepersist.CaseRow{},
-			&userpersist.UserRow{},
-			&userpersist.UserExternalIdentityRow{},
-			&consolepersist.ConsoleUserRow{},
-			&sesspersist.SessionRow{},
-			&taskpersist.TaskRow{},
-			&taskstatspersist.DailyStatsRow{},
-			&taskstatspersist.EdgeDailyStatsRow{},
-			&taskstatspersist.ErrorDailyStatsRow{},
-			&taskstatspersist.CaseDailyStatsRow{},
-			&topicpersist.TopicRow{},
-			&channelpersist.ChannelRow{},
-			&pixmcp.TokenRow{},
-			&mencardpersist.MainMenuRow{},
-			&mencardpersist.CardRow{},
-		},
+		Models:       applicationModels(),
 	})
 	if err != nil {
 		return err
@@ -459,6 +444,27 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		waitChannelRuntime(botRT)
 		return err
 	}
+}
+
+func applicationModels() []any {
+	models := []any{
+		&casepersist.CaseRow{},
+		&userpersist.UserRow{},
+		&userpersist.UserExternalIdentityRow{},
+		&consolepersist.ConsoleUserRow{},
+		&sesspersist.SessionRow{},
+		&taskpersist.TaskRow{},
+		&taskstatspersist.DailyStatsRow{},
+		&taskstatspersist.EdgeDailyStatsRow{},
+		&taskstatspersist.ErrorDailyStatsRow{},
+		&taskstatspersist.CaseDailyStatsRow{},
+		&topicpersist.TopicRow{},
+		&channelpersist.ChannelRow{},
+		&pixmcp.TokenRow{},
+		&mencardpersist.MainMenuRow{},
+		&mencardpersist.CardRow{},
+	}
+	return append(models, studiopersist.Models()...)
 }
 
 func finishReload(srv *http.Server, runCancel context.CancelFunc, rt *telegram.BotRuntime) error {
