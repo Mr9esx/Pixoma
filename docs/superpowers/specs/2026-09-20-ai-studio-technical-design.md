@@ -1,527 +1,996 @@
 ---
-status: draft-for-review
+status: ready-for-pre-build-review
 product: Pixoma Studio
 role: technical-design
-date: 2026-09-20
+created: 2026-09-20
+updated: 2026-09-21
 ---
 
 # Pixoma Studio 技术设计
 
-## 1. 总体架构
+## 1. 设计原则
+
+1. Studio 是独立限界上下文，不复用现有 Bot Session、Conversation 或 MCP Server 的业务模型。
+2. 只通过稳定 Port 接入现有工作流、Blob、Crypto 和后台用户能力。
+3. Eino 负责 Agent 推理循环；Pixoma 负责 Session、资产、Flow、权限、后台执行和持久化。
+4. AG-UI 是 Agent 与前端的事件协议，不是数据库和领域模型。
+5. Session Flow 与 Run Trace 分表、分服务、分权限语义。
+6. 所有可能跨连接和跨进程的状态必须持久化，不能依赖浏览器或 goroutine 生命周期。
+
+## 2. 总体架构
 
 ```text
-React Admin
-├── assistant-ui + react-ag-ui
-├── Studio Shell
-├── React Flow
-└── Asset Library UI
-        │ AG-UI / REST
+Web Admin
+├─ Studio Shell
+├─ assistant-ui + @assistant-ui/react-ag-ui
+├─ @xyflow/react
+└─ AI 设置页
+        │
+        │ REST + AG-UI/SSE
         ▼
-Agent HTTP Boundary
-├── AG-UI Run Endpoint
-├── Session API
-├── Asset API
-└── Model / Tool Catalog API
+HTTP Boundary
+├─ Studio REST API
+├─ AG-UI Run Endpoint
+├─ SSE Replay / Attach Endpoint
+└─ AI Admin API
         │
         ▼
-Agent Application
-├── Session Service
-├── Run Service
-├── Context Builder
-├── Policy Engine
-├── Asset Service
-└── Trace Projector
+Studio Application
+├─ Session Service
+├─ Asset Service
+├─ Flow Service
+├─ Run Coordinator
+├─ Approval Service
+└─ AI Config Service
         │
         ▼
-Eino Runtime
-├── ReAct Agent
-├── Model Adapter Registry
-└── Tool Registry
-    ├── Workflow Tool Adapter
-    ├── Model Generation Adapter
-    ├── Skill Adapter
-    ├── MCP Client Adapter
-    └── Asset Tool Adapter
+Agent Runtime
+├─ Context Compiler
+├─ AgentEngine Port
+├─ Capability Registry
+├─ Policy Engine
+├─ Checkpoint / Resume
+└─ AG-UI Bridge
+        │
+        ▼
+Adapters
+├─ Eino ADK
+├─ Model Providers
+├─ Workflow Runner
+├─ MCP Client
+├─ Skill Backend
+└─ Asset / Flow Tools
+        │
+        ▼
+Infrastructure
+├─ GORM Database
+├─ Blob Storage
+├─ Secret Crypto
+├─ Background Worker
+└─ Event Notifier
 ```
 
-Eino 负责推理循环；AG-UI 负责 Agent 与前端通信；Pixoma 负责 Session、Run、权限、资产、Trace 和持久化。
-
-## 2. Go 模块
+## 3. Go 模块边界
 
 建议新增：
 
 ```text
-internal/agent/
-├── domain/
-│   ├── session.go
-│   ├── message.go
-│   ├── run.go
-│   ├── trace.go
-│   ├── model_connection.go
-│   └── tool.go
-├── application/
-│   ├── session_service.go
-│   ├── run_service.go
-│   ├── context_builder.go
-│   ├── policy.go
-│   └── title_service.go
-├── infrastructure/
-│   ├── eino/
-│   ├── agui/
-│   ├── models/
-│   ├── persistence/
-│   └── tools/
-└── protocol/
-    ├── dto.go
-    └── state.go
-
-internal/assets/
-├── domain/
-├── application/
-└── infrastructure/
+internal/studio/
+├─ domain/
+│  ├─ session/
+│  ├─ run/
+│  ├─ asset/
+│  ├─ flow/
+│  └─ config/
+├─ application/
+│  ├─ session/
+│  ├─ run/
+│  ├─ asset/
+│  ├─ flow/
+│  ├─ approval/
+│  └─ admin/
+├─ infrastructure/
+│  ├─ persistence/
+│  ├─ eino/
+│  ├─ agui/
+│  ├─ models/
+│  ├─ mcpclient/
+│  ├─ skills/
+│  └─ workflow/
+└─ worker/
 
 internal/httpapi/studio/
+internal/httpapi/aiconfig/
 ```
 
-现有 `internal/mcp` 继续作为 Pixoma 对外 MCP Server。Studio 的 MCP 能力使用独立 MCP Client Adapter，不反向依赖该 Server 包。
+不复用 `internal/sessions`：该模块服务现有 Bot/工作流输入收集，生命周期与 Studio Session 不同。
 
-## 3. 领域接口
+不反向依赖 `internal/mcp`：现有模块继续作为 Pixoma 对外 MCP Server；Studio 使用独立 MCP Client Adapter。
+
+允许复用的平台能力：
+
+- `internal/platform/blob`
+- `internal/platform/crypto`
+- `internal/platform/db`
+- 后台身份与 RBAC 中间件
+- 现有 Task/Case Application Port
+
+## 4. 核心 Port
 
 ```go
-type AgentRuntime interface {
-    Run(ctx context.Context, input RunInput, sink EventSink) error
-    Resume(ctx context.Context, input ResumeInput, sink EventSink) error
-    Cancel(ctx context.Context, runID RunID) error
+type AgentEngine interface {
+    Start(ctx context.Context, input EngineInput) (EventStream, error)
+    Resume(ctx context.Context, input ResumeInput) (EventStream, error)
 }
 
-type ModelRegistry interface {
-    ListAvailable(ctx context.Context, actor Actor) ([]ModelProfile, error)
-    Resolve(ctx context.Context, connectionID string) (ModelAdapter, error)
+type ChatModel interface {
+    Generate(ctx context.Context, req ModelRequest) (ModelResponse, error)
+    Stream(ctx context.Context, req ModelRequest) (ModelStream, error)
 }
 
-type ToolRegistry interface {
-    List(ctx context.Context, scope ToolScope) ([]ToolDefinition, error)
-    Resolve(ctx context.Context, name string) (Tool, error)
-}
-
-type WorkflowExecutor interface {
-    Describe(ctx context.Context, workflowID string) (WorkflowDefinition, error)
+type WorkflowRunner interface {
+    Describe(ctx context.Context, caseID uint64) (WorkflowDefinition, error)
     Start(ctx context.Context, cmd WorkflowRunCommand) (WorkflowRunRef, error)
     Get(ctx context.Context, ref WorkflowRunRef) (WorkflowRunStatus, error)
     Cancel(ctx context.Context, ref WorkflowRunRef) error
 }
 
-type AssetService interface {
-    Create(ctx context.Context, cmd CreateAssetCommand) (*AssetVersion, error)
-    CreateVersion(ctx context.Context, cmd CreateVersionCommand) (*AssetVersion, error)
-    AttachToSession(ctx context.Context, sessionID SessionID, ref AssetVersionRef, role AssetRole) error
-    SaveToLibrary(ctx context.Context, ref AssetVersionRef, folderIDs []FolderID) error
+type MCPClient interface {
+    Discover(ctx context.Context, connection MCPConnection) (MCPCatalog, error)
+    CallTool(ctx context.Context, call MCPToolCall) (MCPToolResult, error)
+    ReadResource(ctx context.Context, ref MCPResourceRef) (MCPResource, error)
+    GetPrompt(ctx context.Context, ref MCPPromptRef) (MCPPrompt, error)
+}
+
+type SkillBackend interface {
+    ListSummaries(ctx context.Context) ([]SkillSummary, error)
+    LoadVersion(ctx context.Context, ref SkillVersionRef) (SkillPackage, error)
+}
+
+type EventSink interface {
+    Append(ctx context.Context, event RunEvent) error
 }
 ```
 
-Workflow Tool 只依赖 `WorkflowExecutor`，不直接依赖 `botapp.Facade`。适配器可以复用现有 Task 调度和 Blob 能力。
+领域层和 Application 层不能出现 Eino、AG-UI、OpenAI、Anthropic 或 MCP SDK 类型。
 
-## 4. 核心数据结构
+## 5. 前端架构
+
+### 5.1 Chat
+
+使用：
+
+- `@assistant-ui/react`
+- `@assistant-ui/react-ag-ui`
+- `@ag-ui/client`
+
+assistant-ui 官方 AG-UI Runtime 负责消息、文本流、Tool Call、Reasoning 和 Interrupt 的 UI 状态。Pixoma 提供 Attachment、History 和错误处理 Adapter。
+
+不依赖实验性的 Thread List Adapter。Session 历史、切换和路由由 Pixoma + TanStack Query/Router 管理。
+
+### 5.2 后台 Run 重连
+
+AG-UI `HttpAgent` 当前没有完整的 HTTP SSE 游标重连能力。实现薄的 `PixomaHttpAgent`：
+
+- 初次 Run 仍发送标准 `RunAgentInput`。
+- 记录服务端 `run_id` 和最新 `sequence`。
+- 页面恢复时调用 Attach Endpoint。
+- 按 `after_sequence` 重放，再继续实时订阅。
+- 事件载荷保持标准 AG-UI Schema。
+
+这只是 Transport 扩展，不创建 Pixoma 私有 Chat 协议。
+
+### 5.3 Flow
+
+使用 `@xyflow/react` v12+：
+
+- 自定义 Stage、Plan、Operation 和 Asset 节点。
+- 受控 Nodes/Edges。
+- NodeTypes/EdgeTypes 使用稳定引用。
+- 节点内交互元素使用 `nodrag`，滚动区使用 `nowheel`。
+- 多 Handle 使用稳定唯一 ID。
+- 不用 `display:none` 隐藏 Handle。
+
+Flow 客户端状态分为：
+
+- Durable：节点业务数据、坐标、尺寸、边和视口，保存到服务端。
+- Ephemeral：拖动中、选中、弹层和 Hover，只保留本地。
+- Computed：React Flow 测量尺寸，不保存。
+
+本期不引入 ELK 等大布局依赖。采用确定性布局：阶段自上而下排列，阶段内部按资产 → 操作 → 资产布局。用户手动移动后标记 `user_positioned`。
+
+Undo/Redo 在拖动开始、删除、连线和程序化修改前保存快照，不记录每个 Drag Move。
+
+### 5.4 UI 组件
+
+- 现有 shadcn/ui 优先。
+- Chat/Flow 使用 ResizablePanel。
+- Trace 使用 Sheet/Drawer。
+- 模型、Skill、资产选择使用 Command/Popover。
+- 设置页使用现有 Settings Shell 与二级导航。
+- 所有样式只使用 Pixoma 语义令牌。
+
+## 6. Eino Runtime
+
+### 6.1 选择
+
+本期使用 Eino ADK `ChatModelAgent`，实现 ReAct 语义，不采用预制 DeepAgent。
+
+原因：
+
+- 单 Agent 足够覆盖当前需求。
+- 可复用 Eino Tool、Middleware、Interrupt/Resume 和 Checkpoint。
+- Session、资产和权限继续由 Pixoma 控制。
+
+审批和补充输入复用 Eino ADK Human-in-the-Loop 的 Interrupt/Resume 语义；Pixoma 负责把 Checkpoint、审批记录和恢复令牌持久化，并转换为 AG-UI Interrupt Outcome。
+
+Eino 通过 `AgentEngine` Port 隔离，便于升级或替换。
+
+### 6.2 Middleware 顺序
+
+```text
+Session Context
+→ Prompt Compiler
+→ Skill Loader
+→ Capability Discovery
+→ Policy / Approval
+→ Trace
+→ Checkpoint
+→ Asset / Flow Projection
+```
+
+### 6.3 单 Run 生命周期
+
+```text
+保存用户消息
+→ 创建 queued Run
+→ Worker Claim
+→ 编译上下文
+→ Eino ReAct
+→ 模型或 Tool Event
+→ 持久化 Message / Step / Event / Checkpoint
+→ 转换为 AG-UI Event
+→ 更新 Asset / Flow
+→ completed / waiting / failed / cancelled
+```
+
+## 7. Model Adapter
+
+### 7.1 协议适配
+
+- OpenAI Responses：使用 `instructions`、Item 和原生 Tool Call。
+- OpenAI Chat Completions 兼容：使用 System/User/Assistant/Tool Messages。
+- Anthropic Messages：系统提示词放顶层 `system`，不能伪造 `system` role message。
+
+统一内部请求表达：
+
+- System Instructions。
+- 多模态 Messages。
+- Tool Definitions。
+- Reasoning Config。
+- Output Constraints。
+- Usage / Finish Reason。
+
+### 7.2 能力判定
+
+模型可用能力取以下交集：
+
+```text
+管理员声明 ∩ 能力测试成功 ∩ 协议适配器支持
+```
+
+未验证 Tool Calling 的模型不能作为主 Agent 模型。图片生成是独立能力，不根据模型名称猜测。
+
+### 7.3 密钥
+
+- 使用现有 Crypto 基础设施加密。
+- 前端只收到掩码与 `has_secret`。
+- 更新时空值表示保持原密钥，显式动作才清除。
+- Run 快照不保存密钥和完整认证 Header。
+
+## 8. Prompt 与上下文编译
+
+### 8.1 层级
+
+每次 Run 按以下顺序构建：
+
+1. Pixoma 内置运行契约。
+2. 当前 Agent 配置版本。
+3. 权限模式和 Tool Policy。
+4. 显式选择或自动命中的 Skill。
+5. Session 历史摘要。
+6. 最近消息。
+7. 当前 Flow 语义摘要。
+8. Session 资产索引。
+9. 本轮引用资产内容。
+10. 当前可用 Tool Schema。
+11. 当前用户消息。
+
+优先级：
+
+```text
+平台运行契约
+> 管理员 Agent 指令
+> 权限和安全策略
+> Skill 指令
+> 用户请求
+> MCP Resource / 外部文件内容
+```
+
+Skill、MCP、资产和外部页面均作为不可信内容封装，不能生成高优先级指令。
+
+### 8.2 上下文预算
+
+- 保留当前消息、最近消息、未完成约束和 Flow 摘要。
+- 旧消息生成版本化 Session Summary。
+- Trace 不进入模型上下文。
+- 资产索引常驻，内容按需读取。
+- 大文本按段读取。
+- 图片仅在模型支持视觉且本轮需要时注入。
+- Context Snapshot 保存版本 ID、Hash 和摘要，不复制全部大内容。
+
+## 9. Tool Registry
+
+### 9.1 内置 Tool
+
+- `list_session_assets`
+- `read_asset`
+- `create_text_asset`
+- `update_text_asset`
+- `generate_image`
+- `edit_session_flow`
+- `search_capabilities`
+- `load_skill`
+
+“保存到资产库”不是 Agent Tool。
+
+### 9.2 工作流 Tool
+
+工作流 Tool Definition 从现有 Case 构建：
+
+- 名称：根据 Case ID 生成稳定内部名称。
+- 描述：复用 `CaseDocument.Name` 和 `Description`。
+- Input Schema：复用 `InputSchema`。
+- 字段说明：复用 `Inputs.Description`。
+- 输入资产类型：从 `Inputs.Type` 推导。
+- 输出资产类型：从 `Outputs.Type` 和 `MediaType` 推导。
+
+Case 进入 Tool Catalog 的条件：
+
+```text
+case.Enabled && case.AgentCallable
+```
+
+不向模型暴露 Comfy Workflow JSON 和 Binding 内部结构。
+
+工作流较多时，先通过 `search_capabilities` 搜索候选，再按需加载 Tool Schema。
+
+### 9.3 Tool 幂等
+
+- 每个 Tool Step 使用稳定 `idempotency_key`。
+- 恢复时先查询 Step 状态，完成的 Tool 不重复执行。
+- 只读、声明幂等的 Tool 可自动重试。
+- 外部写 Tool 默认不自动重试。
+
+## 10. Skill
+
+### 10.1 Runtime 选择
+
+复用 Eino ADK 官方 Skill Middleware，不自行实现 Skill 发现与加载循环。Pixoma 实现其 `Backend` 接口，将数据库中的 SkillVersion 映射为 `List` 与 `Get`。
+
+本期只使用 Inline 模式：
+
+- 不提供 `AgentHub` 与 `ModelHub`。
+- 不接受 `context: fork` 或 `fork_with_context`。
+- 不接受 Skill 内的 Agent 或模型覆盖。
+- 不向 Skill 暴露文件执行器、Shell 或脚本 Tool。
+- Skill 仍通过同一个 ChatModelAgent 和统一 Tool Registry 执行。
+
+这能复用 Eino 官方渐进式加载能力，同时保持单 Agent 和轻量 Skill 边界。
+
+### 10.2 数据与包
+
+Skill 元数据保存在数据库，版本包存数据库文本与 Blob：
+
+```text
+SKILL.md
+references/
+assets/
+```
+
+不支持 `scripts/`。不建立 `skill_dependencies`。
+
+### 10.3 渐进式加载
+
+1. 初始 Context 只注入启用 Skill 的名称和描述。
+2. 用户显式选择或模型匹配后调用 `load_skill`。
+3. Runtime 加载固定版本的完整 `SKILL.md`。
+4. References 和 Assets 按需读取。
+5. Run Snapshot 记录实际 SkillVersion ID。
+
+Skill 中的能力名称只能作为检索提示，不能绕过 Tool Registry 和 Policy Engine。
+
+## 11. MCP Client
+
+### 11.1 Transport
+
+本期实现 `streamable_http`。领域类型预留 `stdio`，但：
+
+- 不实现进程执行器。
+- Admin API 拒绝创建该类型。
+- UI 不展示该选项。
+
+### 11.2 凭据
+
+本期支持系统级：
+
+- None。
+- Bearer Token。
+- Custom Headers。
+- OAuth 2.1 系统授权。
+
+数据模型预留 `credential_owner_type=user`，本期 API 拒绝用户级授权。
+
+### 11.3 能力语义
+
+- Tools：模型控制，调用前经过 Policy Engine。
+- Resources：应用或用户选择后作为不可信上下文读取。
+- Prompts：显式使用，不作为系统提示词覆盖层。
+
+发现结果保存为快照，并支持 Tool/Resource/Prompt 单项启停。MCP Tool 使用连接器命名空间，避免名称冲突。
+
+### 11.4 网络安全
+
+- 仅允许 HTTP/HTTPS。
+- 限制重定向次数。
+- 默认拒绝云元数据地址和 Link-local 地址。
+- 私网和本地地址需要管理员显式允许。
+- DNS 解析与实际连接目标都做检查，避免 DNS Rebinding。
+- 请求与响应设大小、超时和并发限制。
+
+## 12. 审批与策略
+
+### 12.1 模式
 
 ```go
-type Session struct {
-    ID                SessionID
-    OwnerUserID       string
-    Title             string
-    ModelConnectionID string
-    Status            SessionStatus
-    CreatedAt         time.Time
-    UpdatedAt         time.Time
-}
+type ApprovalMode string
 
-type Run struct {
-    ID             RunID
-    SessionID      SessionID
-    TriggerMessage MessageID
-    Status         RunStatus
-    IdempotencyKey string
-    ModelSnapshot  ModelSnapshot
-    LastSequence   int64
-    StartedAt      time.Time
-    CompletedAt    *time.Time
-    Error          *RunError
-}
+const (
+    ApprovalAsk       ApprovalMode = "ask"
+    ApprovalAutoReview ApprovalMode = "auto_review"
+    ApprovalFullAccess ApprovalMode = "full_access"
+)
+```
 
-type TraceEvent struct {
-    ID        int64
-    RunID     RunID
-    Sequence  int64
-    Type      string
-    Payload   json.RawMessage
-    CreatedAt time.Time
-}
+Policy Engine 输出：
 
-type Asset struct {
-    ID              AssetID
-    OwnerUserID     string
-    OriginSessionID *SessionID
-    Visibility      AssetVisibility
-    Kind            AssetKind
-    Source          AssetSource
-    CurrentVersion int
-    CreatedAt       time.Time
-    UpdatedAt       time.Time
-}
+```text
+allow
+deny
+require_approval
+auto_review
+```
 
-type AssetVersion struct {
-    AssetID       AssetID
-    Version       int
-    Name          string
-    MIME          string
-    Size          int64
-    BlobRef       string
-    TextContent   *string
-    SourceRunID   *RunID
-    SourceStepID  *string
-    CreatedBy     string
-    CreatedAt     time.Time
-}
+### 12.2 恢复
 
-type ToolDefinition struct {
-    Name          string
-    Kind          ToolKind
-    Description   string
-    InputSchema   json.RawMessage
-    OutputSchema  json.RawMessage
-    Risk          RiskLevel
-    PolicyKey     string
-    AssetMappings []AssetMapping
-}
+需要审批时：
 
-type RunStep struct {
-    ID            StepID
-    RunID         RunID
-    ParentStepID  *StepID
-    Type          StepType
-    Name          string
-    Status        StepStatus
-    InputSummary  json.RawMessage
-    OutputSummary json.RawMessage
+1. 保存 Run Step。
+2. 保存 Eino Checkpoint。
+3. 创建 Approval。
+4. 发出 AG-UI Interrupt。
+5. Run 进入 `waiting_approval`。
+6. 用户或 Reviewer 决策。
+7. 从同一 Checkpoint 恢复。
+8. 使用原 Step 幂等键执行 Tool。
+
+Auto Review 使用独立 Reviewer 模型。模型不可用、超时、解析失败或策略不确定时失败关闭。
+
+Full Access 跳过审批提示，但不能绕过 Deny、RBAC、Schema、连接器禁用和所有权检查。
+
+## 13. Session Flow
+
+### 13.1 与 Trace 分离
+
+- Flow：用户可编辑的创作状态。
+- Trace：不可变的运行事实。
+- Operation Node 可选保存 `source_run_step_id`，只用于跳转。
+- 删除或重排 Flow 不修改 Run、Step 和 Event。
+
+### 13.2 Agent 命令
+
+`edit_session_flow` 只接受语义命令，不接受绝对坐标：
+
+```json
+{
+  "operations": [
+    {"type": "create_stage", "title": "排好分镜"},
+    {"type": "attach_asset", "asset_version_id": "...", "stage_id": "..."},
+    {"type": "connect_nodes", "edge_type": "input", "source": "...", "target": "..."}
+  ]
 }
 ```
 
-`OriginSessionID` 表达资产从哪里产生，`Visibility` 表达当前可从哪里访问。Session 内生成的资产初始为 `session` 可见；保存到资产库后变为 `library` 可见，但来源 Session 和版本血缘不变。资产库资产引入 Session 时创建 `agent_session_assets` 固定版本引用，不复制 Asset。
+服务端创建默认位置。前端用户移动使用 Flow REST API 写入坐标和 `user_positioned=true`。
 
-## 5. 数据库表
+### 13.3 Revision
 
-### 5.1 Agent
+- `studio_session_flows.revision` 单调递增。
+- PATCH 请求携带 `base_revision`。
+- 服务端事务内校验并应用批量操作。
+- 冲突返回最新 Revision 和 Snapshot。
+- 本期不做多人合并；同一用户多 Tab 使用后写失败提示。
 
-`agent_sessions`
+## 14. Asset
+
+### 14.1 身份与版本
+
+- Asset 表示内容身份。
+- AssetVersion 表示不可变内容版本。
+- 文本可内联保存，媒体与大文件使用 BlobRef。
+- `content_hash` 用于完整性与可选去重，不作为用户可见身份。
+
+### 14.2 Session 与 Library
+
+- `studio_session_assets` 固定 Session 使用的 AssetVersion。
+- `studio_library_assets` 指向 Asset 与当前版本。
+- 保存到资产库只新增 LibraryRef，不复制 Blob。
+- Flow Asset Node 固定 AssetVersion ID。
+
+### 14.3 上传安全
+
+- 复用现有 `media_max_bytes` 限制，并允许 AI 配置进一步收紧。
+- 校验声明 MIME、探测 MIME 和扩展名。
+- 可执行文件不作为可预览资产。
+- 预览使用受控 Content-Type 和 Content-Disposition。
+- 为后续病毒扫描预留状态，不在本期承诺扫描服务。
+
+## 15. 数据库
+
+所有 JSON 字段在 GORM 层使用文本存储和显式序列化，保持现有数据库驱动兼容。
+
+### 15.1 Session 与 Run
+
+`studio_sessions`
 
 | 字段 | 说明 |
 |---|---|
-| `id` | Session ID |
-| `owner_user_id` | 后台用户 ID |
-| `title` | AI 生成或备用标题 |
-| `model_connection_id` | 当前模型连接 |
-| `status` | idle / running / waiting_approval / failed |
+| `id` | UUID/ULID |
+| `owner_user_id` | ConsoleUser ID |
+| `title` | 标题 |
+| `preferred_model_profile_id` | Session 主模型偏好 |
+| `approval_mode` | 三档权限模式 |
+| `active_run_id` | 活跃 Run，可空 |
+| `last_message_at` | 历史排序 |
+| `unread_result_count` | 未查看结果数 |
+| `version` | CAS 版本 |
 | `created_at` / `updated_at` | 时间 |
 
-`agent_messages`
+`studio_messages`
 
 | 字段 | 说明 |
 |---|---|
 | `id` | Message ID |
-| `session_id` | Session ID |
-| `run_id` | 可空，所属 Run |
-| `role` | user / assistant / system / tool |
-| `content_json` | 完整多模态消息 |
-| `created_at` | 时间 |
+| `session_id` | Session |
+| `run_id` | 所属 Run，可空 |
+| `role` | user / assistant / tool / reasoning |
+| `content_json` | 结构化 Parts |
+| `status` | streaming / complete / error / cancelled |
+| `sequence` | Session 内顺序 |
+| `model_snapshot_json` | 可空，不含密钥 |
+| `created_at` / `completed_at` | 时间 |
 
-`agent_runs`
+`studio_runs`
 
 | 字段 | 说明 |
 |---|---|
 | `id` | Run ID |
-| `session_id` | Session ID |
-| `trigger_message_id` | 触发消息 |
-| `status` | queued / running / waiting_approval / waiting_external / succeeded / failed / cancelled |
-| `model_snapshot_json` | 连接与模型快照，不含密钥 |
-| `idempotency_key` | 客户端重试去重键，同一 Session 内唯一 |
-| `worker_id` / `lease_expires_at` | 后台执行租约 |
-| `last_sequence` | 已持久化事件的最新序号 |
-| `version` | 状态 CAS 版本 |
-| `error_json` | 错误信息 |
-| `started_at` / `completed_at` | 时间 |
+| `session_id` | Session |
+| `user_message_id` | 触发消息 |
+| `status` | queued / running / waiting_* / completed / failed / cancelled |
+| `agent_config_version_id` | 固定 Agent 配置 |
+| `model_snapshot_json` | 固定模型与能力 |
+| `approval_mode` | 本 Run 权限模式 |
+| `reasoning_visibility` | 本 Run 展示模式 |
+| `context_snapshot_json` | 上下文版本与 Hash |
+| `lease_owner` / `lease_until` | Worker 租约 |
+| `attempt` | 恢复次数 |
+| `last_sequence` | 最新事件序号 |
+| `error_code` / `error_message` | 失败摘要 |
+| `started_at` / `completed_at` / `created_at` | 时间 |
 
-`agent_run_steps`
+`studio_run_steps`
 
-- Run 内 Flow 节点的查询投影，不作为执行真相源。
-- 字段包括 `id`、`run_id`、`parent_step_id`、`step_type`、`name`、`status`、`input_summary_json`、`output_summary_json`、`started_at`、`completed_at`。
-- `step_type` 支持 message / model / tool / workflow / approval / asset。
+- `id`、`run_id`、`parent_step_id`。
+- `kind`、`capability_name`、`status`。
+- `input_json`、`output_json`。
+- `idempotency_key`、`external_task_id`。
+- `started_at`、`completed_at`。
 
-`agent_tool_calls`
+`studio_run_events`
 
-- Tool 调用的结构化索引，字段包括 Tool 类型、名称、参数摘要、结果摘要、风险等级、审批 ID、外部任务 ID、状态和耗时。
-- 完整原始事件仍进入 `agent_trace_events`；索引表用于 Flow、筛选和运营查询。
+- `id` 单调主键。
+- `session_id`、`run_id`、`sequence`。
+- `event_type`、`payload_json`、`created_at`。
+- `(run_id, sequence)` 唯一索引。
 
-`agent_trace_events`
+`studio_run_checkpoints`
 
-| 字段 | 说明 |
+- `run_id`、`checkpoint_version`、`checkpoint_data`、`created_at`。
+
+`studio_approvals`
+
+- `id`、`run_id`、`step_id`、`status`。
+- `request_json`、`reviewer_type`、`review_model_snapshot_json`。
+- `decision_json`、`decided_by`、`expires_at`、时间。
+
+`studio_session_summaries`
+
+- `id`、`session_id`、`through_message_sequence`。
+- `summary`、`model_snapshot_json`、`created_at`。
+
+### 15.2 Asset 与 Library
+
+`studio_assets`
+
+- `id`、`owner_user_id`、`kind`、`name`。
+- `source_type`、`source_ref`、时间。
+
+`studio_asset_versions`
+
+- `id`、`asset_id`、`version`。
+- `media_type`、`blob_ref`、`text_content`。
+- `metadata_json`、`content_hash`、`created_by`、`created_at`。
+- `(asset_id, version)` 唯一。
+
+`studio_session_assets`
+
+- `session_id`、`asset_id`、`asset_version_id`、`source`、`added_at`。
+
+`studio_library_folders`
+
+- `id`、`owner_user_id`、`parent_id`、`name`、`sort_order`、时间。
+- `(owner_user_id, parent_id, name)` 唯一。
+
+`studio_library_assets`
+
+- `id`、`owner_user_id`、`folder_id`、`asset_id`、`current_version_id`、时间。
+
+### 15.3 Flow
+
+`studio_session_flows`
+
+- `session_id` 主键。
+- `revision`。
+- `viewport_json`。
+- `updated_at`。
+
+`studio_flow_nodes`
+
+- `id`、`session_id`、`type`、`parent_id`。
+- `title`、`description`、`status`、`sort_order`。
+- `position_x`、`position_y`、`width`、`height`。
+- `asset_version_id`。
+- `operation_type`、`operation_ref`、`source_run_step_id`。
+- `user_positioned`、`created_by`、时间。
+
+`studio_flow_edges`
+
+- `id`、`session_id`、`type`。
+- `source_node_id`、`target_node_id`。
+- `source_handle`、`target_handle`、`created_at`。
+
+### 15.4 AI 配置
+
+`ai_model_connections`
+
+- 协议、Base URL、加密凭据、自定义 Header、健康状态和时间。
+
+`ai_model_profiles`
+
+- 连接、模型 ID、显示名称、能力 JSON。
+- `enabled`、`agent_enabled`、默认 Reasoning Effort、测试结果。
+
+`ai_agent_config_versions`
+
+- 版本、管理员指令、各用途模型、权限设置、Reasoning 和运行限制。
+- `active`、创建者和时间。
+
+`ai_skills`
+
+- 名称、描述、启停、当前版本和时间。
+
+`ai_skill_versions`
+
+- Skill、版本、`SKILL.md`、Package Manifest、创建者和时间。
+
+`ai_mcp_connections`
+
+- Transport、Endpoint、认证密文、健康状态、启停和时间。
+
+`ai_mcp_items`
+
+- 连接、类型、远端名称、Schema/Metadata 快照。
+- 启停和调用策略。
+
+现有 `cases` 增加：
+
+```text
+agent_callable boolean not null default false
+```
+
+该字段属于 Case 可用性，不放进 CaseDocument。
+
+## 16. API
+
+### 16.1 Session 与 Run
+
+```text
+POST   /api/v1/studio/sessions
+GET    /api/v1/studio/sessions
+GET    /api/v1/studio/sessions/{id}
+PATCH  /api/v1/studio/sessions/{id}
+GET    /api/v1/studio/sessions/{id}/snapshot
+
+POST   /api/v1/studio/agent
+GET    /api/v1/studio/runs/{id}/events?after_sequence=
+POST   /api/v1/studio/runs/{id}/cancel
+GET    /api/v1/studio/runs/{id}/trace
+```
+
+`/studio/agent` 接收标准 AG-UI `RunAgentInput`：
+
+- `threadId` 对应 Session ID。
+- `runId` 用作幂等 ID。
+- `messages` 只接受本轮新增用户消息。
+- `state` 接受已验证的模型、权限模式、资产引用和 Skill 选择。
+- `resume` 用于 Interrupt 恢复。
+
+后端按 Session ID 从数据库重建历史，不信任客户端上传的 System/Assistant 历史。
+
+### 16.2 Flow
+
+```text
+GET   /api/v1/studio/sessions/{id}/flow
+PATCH /api/v1/studio/sessions/{id}/flow
+```
+
+PATCH 使用 `base_revision + operations[]`，事务内原子执行。
+
+### 16.3 资产
+
+```text
+GET  /api/v1/studio/sessions/{id}/assets
+POST /api/v1/studio/sessions/{id}/assets/text
+POST /api/v1/studio/sessions/{id}/assets/upload
+GET  /api/v1/studio/assets/{id}
+GET  /api/v1/studio/assets/{id}/versions/{versionId}
+POST /api/v1/studio/assets/{id}/versions
+POST /api/v1/studio/assets/{id}/save-to-library
+
+GET   /api/v1/studio/library/folders
+POST  /api/v1/studio/library/folders
+PATCH /api/v1/studio/library/folders/{id}
+GET   /api/v1/studio/library/assets
+POST  /api/v1/studio/library/assets
+GET   /api/v1/studio/library/assets/{id}
+PATCH /api/v1/studio/library/assets/{id}
+POST  /api/v1/studio/sessions/{id}/library-assets/{assetId}/attach
+```
+
+### 16.4 AI 设置
+
+```text
+/api/v1/ai/model-connections
+/api/v1/ai/model-profiles
+/api/v1/ai/agent-config
+/api/v1/ai/skills
+/api/v1/ai/mcp-connections
+```
+
+关键动作：
+
+```text
+POST /model-connections/{id}/test
+POST /model-connections/{id}/discover-models
+POST /model-profiles/{id}/test-capabilities
+POST /agent-config/test
+POST /skills/{id}/test
+POST /skills/{id}/publish
+POST /mcp-connections/{id}/test
+POST /mcp-connections/{id}/discover
+PATCH /mcp-connections/{id}/items/{itemId}
+PATCH /api/v1/cases/{id}/agent-access
+```
+
+所有 Mutating API 支持 Idempotency-Key 或领域版本校验。
+
+## 17. AG-UI 映射
+
+| Pixoma 事件 | AG-UI Event |
 |---|---|
-| `id` | 单调主键 |
-| `run_id` | Run ID |
-| `sequence` | Run 内顺序，唯一索引 |
-| `event_type` | AG-UI 或 Pixoma 投影事件类型 |
-| `payload_json` | 原始事件数据 |
-| `created_at` | 时间 |
-
-`agent_event_outbox`
-
-- 与领域状态、Trace Event 在同一事务写入。
-- Dispatcher 按 `run_id + sequence` 发布 AG-UI 事件，记录投递状态与重试次数。
-- 客户端按 Sequence 去重；投递可以至少一次，状态变化必须幂等。
-
-`agent_approvals`
-
-| 字段 | 说明 |
-|---|---|
-| `id` | Approval ID |
-| `run_id` | Run ID |
-| `tool_call_id` | Tool Call ID |
-| `policy_key` | 权限策略键 |
-| `request_json` | 展示信息 |
-| `decision` | pending / allow_once / allow_session / deny |
-| `decided_by` / `decided_at` | 处理人和时间 |
-
-### 5.2 模型与 Tool
-
-`agent_model_connections`
-
-- 名称、provider、base URL、模型能力、密钥密文、是否默认、是否启用。
-- 密钥使用现有加密基础设施。
-
-`agent_session_permissions`
-
-- Session 内已允许的策略键与范围。
-
-Skill 与 MCP 的配置表按后续连接器设计细化；Tool Registry 对调用方提供统一定义。
-
-### 5.3 资产
-
-`assets`
-
-- ID、所有者、来源 Session、可见范围、类型、来源、当前版本、时间。
-- `visibility` 为 session / library；来源 Session 与可见范围不能互相替代。
-
-`asset_versions`
-
-- `(asset_id, version)` 联合主键。
-- 名称、MIME、大小、BlobRef、可选文本内容、来源 Run/Step、创建者和时间。
-
-`agent_session_assets`
-
-- Session、Asset、固定版本、角色、是否固定上下文、关联时间。
-
-`asset_lineage_edges`
-
-- `from_asset_id/version`、`to_asset_id/version`、关系类型、Run、Step。
-
-`asset_library_entries`
-
-- Asset、保存人、保存时间；表示资产进入资产库。
-
-`asset_folders`
-
-- ID、父文件夹、名称、所有者和时间。
-
-`asset_folder_memberships`
-
-- Folder 与 Asset 多对多关系。
-
-### 5.4 约束、索引与事务
-
-- `agent_trace_events(run_id, sequence)` 唯一，确保事件可按 Run 有序重放。
-- `agent_runs(session_id, idempotency_key)` 唯一，避免发送重试创建重复 Run。
-- `agent_runs(status, lease_expires_at)` 建 Worker 领取索引。
-- `agent_messages(session_id, created_at, id)`、`agent_run_steps(run_id, started_at)` 建历史查询索引。
-- `asset_versions(asset_id, version)` 唯一；新版本号在事务内分配。
-- `agent_session_assets(session_id, asset_id, asset_version, role)` 唯一，引用必须指向已存在版本。
-- `asset_folders(owner_user_id, parent_id, name)` 唯一，文件夹成员关系删除不级联删除 Asset。
-- Run 状态、Trace Event 和 Outbox 必须在同一事务提交；Blob 上传先写临时对象，元数据提交后再确认，失败对象由清理任务回收。
-
-## 6. AG-UI 映射
-
-| Pixoma 事实 | AG-UI |
-|---|---|
-| Run 开始/结束/失败 | `RUN_STARTED` / `RUN_FINISHED` / `RUN_ERROR` |
-| Agent 流式回答 | `TEXT_MESSAGE_*` |
+| Run 开始 | `RUN_STARTED` |
+| Assistant 文本 | `TEXT_MESSAGE_*` |
+| Thinking | `THINKING_*` |
+| Reasoning | `REASONING_*` |
 | Tool 调用 | `TOOL_CALL_*` |
 | Tool 结果 | `TOOL_CALL_RESULT` |
-| Flow、资产与 Session 状态 | `STATE_SNAPSHOT` / `STATE_DELTA` |
-| 运行进度 | `ACTIVITY_SNAPSHOT` / `ACTIVITY_DELTA` |
-| 审批 | Interrupt + Resume |
-| 特殊扩展 | 命名空间 `CUSTOM` 事件 |
+| Flow/资产变化 | `STATE_SNAPSHOT` / `STATE_DELTA` |
+| 审批 | `RUN_FINISHED` + Interrupt Outcome |
+| 完成 | `RUN_FINISHED` |
+| 失败 | `RUN_ERROR` |
+| 取消 | `RUN_CANCELLED` |
 
-协议边界以 AG-UI 官方事件 Schema 为准。Go 侧 SDK 只放在 `infrastructure/agui`，即使更换社区 SDK 或改为自行序列化，也不影响领域层、Eino Runtime 和前端事件语义。必须增加官方 Schema 样例的兼容性测试，避免 SDK 版本差异变成 Pixoma 私有协议。
-
-### 6.1 AG-UI 使用边界与风险
-
-| 风险 | 影响 | 设计处理 |
-|---|---|---|
-| Go SDK 成熟度低于 TypeScript SDK | 事件字段或升级节奏可能不一致 | 领域层不依赖 SDK；用官方 Schema 做契约测试 |
-| 标准 Run 流偏向连接内流式交互 | Pixoma 的工作流可能运行数分钟并跨页面 | Run 生命周期服务端化；重连仍发送标准事件，只扩展 cursor 传输 |
-| `STATE_DELTA` 不是数据库 | 断线或前端重载不能只依赖内存状态 | 服务端保存 Snapshot、Trace 和最新 Sequence |
-| 大媒体进入事件流 | SSE 体积、内存和重放成本失控 | AG-UI 只传资产元数据、预览 URL 与固定版本引用 |
-| assistant-ui 与右侧 Flow 状态各自维护 | Chat 与 Flow 可能出现不同口径 | 两者订阅同一服务端 State；Flow 不从 Chat DOM 推断状态 |
-| Eino Interrupt 与 AG-UI Resume 语义不同 | 审批后可能错误地新建 Run | 保存 Eino checkpoint 和 resume token，由同一 Run 恢复 |
-
-因此采用“AG-UI-first，但不是 AG-UI-only”：对话、Tool、状态、活动和中断使用标准事件；Session 列表、资产管理、Trace 查询和后台任务控制继续使用普通领域 API。
-
-建议 AG-UI State：
+State 只包含轻量引用：
 
 ```json
 {
-  "session": {"id": "...", "title": "...", "model": "..."},
-  "run": {"id": "...", "status": "running"},
-  "flow": {"nodes": [], "edges": []},
-  "assets": [],
-  "pendingApprovals": []
+  "flow_revision": 18,
+  "flow_patch": [],
+  "asset_refs": [],
+  "active_run": {},
+  "pending_approval": null
 }
 ```
 
-State 只包含资产元数据和引用，不包含大文件正文。敏感模型参数和密钥不进入事件流。
+AG-UI 不携带 Blob、完整 Trace、密钥和大文本正文。
 
-## 7. HTTP 接口
+## 18. 后台 Worker 与恢复
 
-### 7.1 Agent 与 Session
+### 18.1 Claim
 
-```text
-POST /api/v1/studio/sessions
-GET  /api/v1/studio/sessions
-GET  /api/v1/studio/sessions/{id}
-POST /api/v1/studio/sessions/{id}/runs        AG-UI Run
-POST /api/v1/studio/runs/{id}/resume          审批或补充输入后恢复
-POST /api/v1/studio/runs/{id}/cancel
-GET  /api/v1/studio/runs/{id}/events?after=   AG-UI 事件重连
-GET  /api/v1/studio/runs/{id}/trace
-GET  /api/v1/studio/runs/{id}/state
-```
+- Worker 通过 Run 状态、Session `active_run_id`、CAS Version 和 Lease 领取。
+- 同一 Run 只有一个有效 Lease Owner。
+- Lease 过期后其他 Worker 可以恢复。
+- 所有 Step 在执行副作用前持久化幂等键。
 
-`runs` 端点接收 AG-UI Run 输入并创建服务端 Run；初次连接与重连均输出标准 AG-UI 事件。`events` 只补充后台运行所需的 cursor 传输能力，不引入新的事件格式。Session 列表、资产与 Trace 查询继续使用普通 JSON API。
-
-### 7.2 资产
+### 18.2 外部工作流
 
 ```text
-GET  /api/v1/assets
-POST /api/v1/assets
-GET  /api/v1/assets/{id}
-POST /api/v1/assets/{id}/versions
-POST /api/v1/assets/{id}/library
-GET  /api/v1/asset-folders
-POST /api/v1/asset-folders
-PATCH /api/v1/asset-folders/{id}
-POST /api/v1/asset-folders/{id}/assets
-DELETE /api/v1/asset-folders/{id}/assets/{assetId}
+Tool Step created
+→ WorkflowRunner.Start
+→ 保存 external_task_id
+→ Run waiting_external
+→ 释放 Worker Lease
+→ Poll/Callback 发现 Task 终态
+→ Run 重新 queued
+→ 读取 Checkpoint Resume
 ```
 
-本期不提供 Session 归档和删除 API。
+不得用单个 goroutine 等待数分钟工作流。
 
-## 8. 后台运行模型
+### 18.3 Event Replay
 
-用户请求创建 Run 后，HTTP 连接只负责订阅，不拥有执行生命周期：
+- Domain 状态和 Run Event 在同一事务更新。
+- In-process Notifier 只负责唤醒订阅者，不是事实来源。
+- SSE 首先查询 `sequence > after_sequence`，再订阅新事件。
+- 客户端按 `(run_id, sequence)` 去重。
+- 发现序号缺口时重新拉取 Session Snapshot。
 
-```text
-Create Run
-→ 持久化 queued
-→ 后台 Worker 领取
-→ Eino ReAct 执行
-→ Trace/Event 持久化
-→ AG-UI 广播
-→ 浏览器断开不取消
-```
+## 19. 停止、失败与重试
 
-同一 Run 只允许一个执行持有者。使用 lease 或数据库 CAS 防止重复执行。客户端重连时：
+- 模型网络错误可在未发生副作用前自动重试。
+- 只读幂等 Tool 可以自动重试。
+- 外部写 Tool 默认不自动重试。
+- 停止 Run 后取消模型流和可取消 Tool。
+- 外部工作流不能立即取消时进入 `cancel_requested`。
+- 取消后到达的产物仍保存，但不自动成为 Flow 有效输出。
+- Run 失败不删除已生成资产。
+- Chat 显示可理解错误；Trace 保存分类、原始错误摘要和恢复动作。
 
-1. 读取 Run 状态与最新 State Snapshot。
-2. 从已知 Sequence 后订阅增量事件。
-3. 检测缺口时重新获取 Snapshot。
+## 20. 标题与总结
 
-Worker 在执行外部 Workflow Tool 时只持久化外部 Task 引用，不用 goroutine 等待整个任务。轮询或回调处理器把 Task 状态转换为新的 Trace Event；Run 进入 `waiting_external`，Task 完成后重新入队恢复 Eino。这样进程重启不会丢失等待中的工作流。
+- 标题任务与主 Run 分开执行，不占用 Session 活跃 Run。
+- 优先使用配置的标题模型，未配置则复用主模型。
+- 失败时使用确定性截断，不重试到阻塞用户。
+- Session Summary 使用配置的总结模型，未配置则复用主模型。
+- Summary 固定 `through_message_sequence`，不覆盖旧版本。
 
-## 9. Trace 与可观测性
+## 21. 权限与安全
 
-Trace 至少记录：
+- 所有 Studio 查询强制 `owner_user_id = current_console_user`。
+- AI 配置接口要求系统管理员角色。
+- Tool 参数通过 JSON Schema 校验。
+- 模型、MCP、Skill、工作流在每次调用前检查启用状态。
+- 外部内容按 Prompt Injection 风险处理。
+- Trace 与日志执行字段级脱敏和大小限制。
+- Prompt、文件、Tool 参数和结果默认视为敏感数据，不导出到非配置的遥测系统。
+- Session 权限模式不能提升后台用户 RBAC。
 
-- Run 生命周期。
-- 模型连接与模型标识。
-- 模型调用耗时、Token 用量与结束原因。
-- Tool Call 名称、参数摘要、结果摘要和耗时。
-- 工作流 Task ID 和状态。
-- 审批请求与决策。
-- 资产输入、输出和版本。
-- 错误分类和恢复动作。
+## 22. 用量与资源护栏
 
-不记录明文密钥，不向前端展示原始 Chain of Thought。敏感 Tool 参数按定义做字段级脱敏。
+- Agent Config 保存最大 ReAct 步数、Run 超时、每用户并发和最大并行 Tool 数。
+- 记录 Input/Output Token、Cache Token、Reasoning Token（提供方支持时）、图片数和工作流调用次数。
+- 费用为估算值，模型价格缺失时显示“不可估算”，不按零费用处理。
+- 本期不实现余额扣减和金额硬配额。
 
-## 10. 上下文构建
+## 23. 测试策略
 
-Context Builder 按以下顺序构建模型输入：
+### 23.1 后端单元与契约
 
-1. 系统规则与 Agent 角色。
-2. Tool 定义与权限。
-3. Session 摘要。
-4. 最近消息。
-5. 固定的 Session Asset。
-6. 本次消息 Asset。
-7. 必要的历史 Tool 结果摘要。
+- OpenAI Responses、Chat Completions 和 Anthropic Messages 请求转换。
+- Anthropic 顶层 `system`。
+- 能力声明与测试结果交集。
+- Context 优先级、摘要和资产按需加载。
+- Workflow CaseDocument 到 Tool Schema 转换。
+- Skill 渐进加载和版本固定。
+- MCP 名称空间、Schema、凭据和策略。
+- 三档审批及 Auto Review 失败关闭。
+- Tool 幂等、Checkpoint 和 Resume。
+- AssetVersion 不可变与 LibraryRef。
+- Flow Revision、语义操作和 Trace 隔离。
+- RBAC、Owner Scope、密钥脱敏和 SSRF 防护。
 
-大资产只注入文本摘要、元数据或可读取引用。上下文超限时先压缩历史，不静默删除本次输入资产。
+### 23.2 AG-UI 契约
 
-## 11. 安全
+- 使用官方 Schema 样例验证 Go 序列化结果。
+- 文本、Thinking、Reasoning、Tool、State、Interrupt 和错误顺序。
+- `RUN_FINISHED` Interrupt Outcome。
+- SSE 中断、重连、重复事件和 Sequence 缺口。
+- assistant-ui History 恢复审批元数据。
 
-- 模型密钥只在服务端解密。
-- MCP 凭据按连接器隔离。
-- Tool 参数必须通过 Schema 校验。
-- Asset 读取按所有者和后台角色授权。
-- 外部 URL、MCP 返回和用户文件视为不可信内容。
-- 高风险 Tool 由 Policy Engine 中断，不依赖模型自行判断。
-- AG-UI State 和 Trace Payload 做大小限制和字段脱敏。
+### 23.3 Worker 集成
 
-## 12. 测试
+- 浏览器断开后继续执行。
+- 进程重启、Lease 过期和另一个 Worker 恢复。
+- 工作流 Task 完成后重新入队。
+- 同一 Tool 不因恢复执行两次。
+- Cancel 与延迟到达的外部结果。
 
-### 12.1 后端
+### 23.4 前端
 
-- Session 首消息、标题异步生成和备用标题。
-- Run 持久化、后台执行和浏览器断开继续运行。
-- AG-UI 文本、Tool、State、Activity、Interrupt 事件顺序。
-- 重连 Snapshot + Sequence 增量恢复。
-- 审批一次、Session 允许和拒绝。
-- Workflow Tool 任务关联与状态同步。
-- 资产版本、Session 引用、保存到资产库和血缘。
-- 模型切换与 Run 模型快照。
-- Trace 脱敏和完整性。
-- AG-UI 官方 Schema 样例与 Go 序列化结果的契约测试。
-- Worker lease 过期、进程重启和外部 Workflow Task 完成后的恢复。
+- 单入口 Studio 路由。
+- Session 与资产库模式切换。
+- Composer 模型和权限选择。
+- assistant-ui AG-UI 消息与审批渲染。
+- Flow 拖动、连线、Revision 冲突、Undo/Redo。
+- 删除节点不删除资产。
+- 文本资产新版本。
+- Trace Drawer。
+- 设置四页的权限、健康状态和密钥掩码。
 
-### 12.2 前端
+## 24. 开发前 Spike
 
-- Studio Shell 三栏和窄屏切换。
-- Session 历史与自动恢复。
-- assistant-ui AG-UI Runtime 消息、Tool 和审批渲染。
-- Flow 与资产 Tab 的双向联动。
-- 文本资产编辑与版本保存。
-- 页面切换后后台 Run 状态恢复。
-- 资产库文件夹、筛选和关联 Session。
+### Spike A：Eino → AG-UI
 
-## 13. 演进边界
+验收：
 
-- 内部领域模型不依赖 assistant-ui。
-- AG-UI 适配集中在 `infrastructure/agui`。
-- Eino 适配集中在 `infrastructure/eino`。
-- Workflow Tool 通过端口复用执行能力，不复用 MCP Server 或 Bot 对话逻辑。
-- 资产服务可独立于 Agent 被其他后台模块复用。
+- 文本和 Tool 流事件顺序正确。
+- Interrupt 保存 Checkpoint。
+- Resume 不新建业务 Run、不重复 Tool。
 
-## 14. 技术依据
+### Spike B：assistant-ui 后台恢复
 
-- [Eino ReAct Agent](https://github.com/cloudwego/eino/blob/main/flow/agent/react/react.go)
-- [Eino 项目说明](https://github.com/cloudwego/eino/blob/main/README.md)
-- [AG-UI 事件](https://github.com/ag-ui-protocol/ag-ui/blob/main/docs/concepts/events.mdx)
-- [AG-UI 状态同步](https://github.com/ag-ui-protocol/ag-ui/blob/main/docs/concepts/state.mdx)
-- [AG-UI Go SDK](https://github.com/ag-ui-protocol/ag-ui/blob/main/docs/sdk/go/overview.mdx)
+验收：
+
+- 关闭页面时服务端 Run 继续。
+- 重新打开后先恢复 History/Snapshot，再从 Sequence 续接。
+- 不重复渲染 Message 和 Tool Call。
+
+### Spike C：现有工作流恢复
+
+验收：
+
+- Agent Run 保存现有 Task ID 后释放 Worker。
+- Task 成功、失败、取消都能恢复 Agent。
+- 输出映射为 AssetVersion，并建立 Flow Input/Output Edge。
+
+Spike 未通过前不进入大规模页面和业务开发。
+
+## 25. 技术依据
+
+- [Eino ADK ChatModelAgent](https://www.cloudwego.io/docs/eino/core_modules/eino_adk/agent_implementation/chat_model/)
+- [Eino ADK Human-in-the-Loop](https://www.cloudwego.io/docs/eino/core_modules/eino_adk/agent_hitl/)
+- [Eino ADK Skill Middleware](https://www.cloudwego.io/docs/eino/core_modules/eino_adk/eino_adk_chatmodelagentmiddleware/middleware_skill/)
+- [Eino Tool 组件](https://github.com/cloudwego/eino/blob/main/components/tool/doc.go)
+- [AG-UI 协议](https://github.com/ag-ui-protocol/ag-ui/blob/main/docs/ag_ui.md)
 - [assistant-ui AG-UI Runtime](https://www.assistant-ui.com/docs/runtimes/ag-ui/overview)
+- [assistant-ui AG-UI Runtime Options](https://www.assistant-ui.com/docs/runtimes/ag-ui/runtime-options)
+- [AG-UI HttpAgent 重连缺口](https://github.com/ag-ui-protocol/ag-ui/issues/1852)
+- [AG-UI HttpAgent 当前实现](https://github.com/ag-ui-protocol/ag-ui/blob/main/sdks/typescript/packages/client/src/agent/http.ts)
+- [Eino AG-UI 适配提案](https://github.com/cloudwego/eino-ext/issues/881)
+- [OpenAI Agent 审批与安全](https://learn.chatgpt.com/docs/agent-approvals-security?translationFallback=zh-Hans)
+- [Anthropic Messages API](https://platform.claude.com/docs/en/api/messages/create)
+- [MCP Tools](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
+- [MCP Resources](https://modelcontextprotocol.io/specification/2025-06-18/server/resources)
+- [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts)
