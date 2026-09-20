@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pixoma Studio · AI 创作交互原型</title>
+  <style>
+    :root {
+      --background: oklch(1 0 0);
+      --foreground: oklch(0.145 0 0);
+      --card: oklch(1 0 0);
+      --card-foreground: oklch(0.145 0 0);
+      --popover: oklch(1 0 0);
+      --popover-foreground: oklch(0.145 0 0);
+      --primary: oklch(0.205 0 0);
+      --primary-foreground: oklch(0.985 0 0);
+      --secondary: oklch(0.97 0 0);
+      --secondary-foreground: oklch(0.205 0 0);
+      --muted: oklch(0.97 0 0);
+      --muted-foreground: oklch(0.556 0 0);
+      --accent: oklch(0.97 0 0);
+      --accent-foreground: oklch(0.205 0 0);
+      --border: oklch(0.922 0 0);
+      --input: oklch(0.922 0 0);
+      --ring: oklch(0.708 0 0);
+      --accent-brand: oklch(0.646 0.222 41.116);
+      --accent-brand-foreground: oklch(0.985 0 0);
+      --accent-brand-soft: color-mix(in oklch, var(--accent-brand) 12%, transparent);
+      --success: oklch(0.6 0.118 184.704);
+      --warning: oklch(0.769 0.188 70.08);
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 10px;
+      --shadow-float: 0 12px 32px color-mix(in oklch, var(--foreground) 14%, transparent);
+      --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; overflow: hidden; font: 14px/1.5 var(--font); color: var(--foreground); background: var(--background); }
+    button, input, textarea, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+    .hidden { display: none !important; }
+    .muted { color: var(--muted-foreground); }
+    .mono { font-family: var(--mono); }
+    .icon { width: 18px; height: 18px; flex: 0 0 auto; }
+    .icon-sm { width: 15px; height: 15px; }
+    .row { display: flex; align-items: center; }
+    .gap-6 { gap: 6px; }
+    .gap-8 { gap: 8px; }
+    .gap-12 { gap: 12px; }
+    .grow { flex: 1; min-width: 0; }
+
+    .btn { min-height: 36px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--background); padding: 7px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
+    .btn:hover { background: var(--accent); }
+    .btn-primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+    .btn-primary:hover { background: color-mix(in oklch, var(--primary) 88%, white); }
+    .btn-brand { background: var(--accent-brand); color: var(--accent-brand-foreground); border-color: var(--accent-brand); }
+    .btn-brand:hover { background: color-mix(in oklch, var(--accent-brand) 88%, black); }
+    .btn-ghost { border-color: transparent; background: transparent; }
+    .btn-sm { min-height: 30px; padding: 4px 9px; font-size: 12px; }
+    .btn-icon { width: 36px; padding: 0; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 11px; line-height: 18px; background: var(--background); }
+    .badge-warn { border-color: color-mix(in oklch, var(--warning) 55%, var(--border)); background: color-mix(in oklch, var(--warning) 12%, var(--background)); }
+    .badge-brand { color: color-mix(in oklch, var(--accent-brand) 74%, black); border-color: color-mix(in oklch, var(--accent-brand) 34%, var(--border)); background: var(--accent-brand-soft); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-foreground); }
+    .dot-running { background: var(--accent-brand); animation: pulse 1.2s ease-in-out infinite; }
+    .dot-done { background: var(--success); }
+    .dot-warn { background: var(--warning); }
+    @keyframes pulse { 50% { opacity: .35; transform: scale(.84); } }
+
+    /* Studio 三栏 */
+    #studioView { height: 100%; display: grid; grid-template-columns: 236px minmax(390px, 1fr) minmax(440px, 46vw); }
+    .studio-nav { border-right: 1px solid var(--border); background: color-mix(in oklch, var(--muted) 58%, var(--background)); display: flex; flex-direction: column; min-width: 0; }
+    .nav-top { padding: 12px; border-bottom: 1px solid var(--border); }
+    .brand { height: 40px; display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -.01em; }
+    .brand-mark { width: 24px; height: 24px; border-radius: 7px; background: var(--foreground); color: var(--background); display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+    .nav-actions { display: grid; gap: 7px; margin-top: 10px; }
+    .nav-actions .btn { justify-content: flex-start; width: 100%; }
+    .session-search { padding: 12px 12px 4px; }
+    .input-wrap { position: relative; }
+    .input-wrap svg { position: absolute; left: 10px; top: 10px; color: var(--muted-foreground); }
+    .text-input { width: 100%; height: 36px; border: 1px solid var(--input); border-radius: var(--radius-md); padding: 7px 10px 7px 34px; background: var(--background); }
+    .history-title { padding: 12px 14px 6px; font-size: 11px; font-weight: 650; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .08em; }
+    .session-list { overflow: auto; padding: 0 8px 12px; display: grid; gap: 3px; }
+    .session-item { width: 100%; border: 0; border-radius: var(--radius-md); background: transparent; text-align: left; padding: 9px 10px; }
+    .session-item:hover { background: var(--accent); }
+    .session-item.active { background: var(--background); box-shadow: inset 0 0 0 1px var(--border); }
+    .session-name { font-size: 13px; font-weight: 570; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .session-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11px; color: var(--muted-foreground); }
+    .user-card { margin-top: auto; border-top: 1px solid var(--border); padding: 12px; display: flex; align-items: center; gap: 9px; }
+    .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: var(--primary-foreground); display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+
+    .chat-panel { min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--background); }
+    .chat-header { height: 64px; border-bottom: 1px solid var(--border); padding: 0 18px; display: flex; align-items: center; gap: 12px; }
+    .chat-title { font-size: 15px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chat-status { font-size: 11px; color: var(--muted-foreground); display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+    .model-select { border: 1px solid var(--border); background: var(--background); height: 32px; border-radius: var(--radius-md); padding: 0 28px 0 9px; font-size: 12px; max-width: 138px; }
+    .messages { flex: 1; overflow: auto; padding: 24px max(20px, 6%); scroll-behavior: smooth; }
+    .message { max-width: 760px; margin: 0 auto 20px; }
+    .message-user { display: flex; justify-content: flex-end; }
+    .user-bubble { max-width: 84%; border-radius: 14px 14px 3px 14px; padding: 10px 13px; background: var(--primary); color: var(--primary-foreground); }
+    .assistant-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 12px; font-weight: 650; }
+    .assistant-avatar { width: 24px; height: 24px; border-radius: 7px; background: var(--accent-brand-soft); color: var(--accent-brand); display: grid; place-items: center; font-weight: 800; }
+    .assistant-copy { font-size: 14px; line-height: 1.65; }
+    .plan-card, .tool-card, .approval-card, .asset-inline { border: 1px solid var(--border); border-radius: var(--radius-lg); margin-top: 12px; background: var(--card); }
+    .card-head { padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+    .card-title { font-size: 13px; font-weight: 620; }
+    .card-body { border-top: 1px solid var(--border); padding: 11px 12px; font-size: 12px; color: var(--muted-foreground); }
+    .plan-step { display: flex; gap: 9px; padding: 5px 0; align-items: flex-start; }
+    .step-num { width: 18px; height: 18px; border-radius: 50%; background: var(--muted); color: var(--muted-foreground); display: grid; place-items: center; font-size: 10px; flex: 0 0 auto; }
+    .asset-inline { display: flex; align-items: center; padding: 10px; gap: 10px; }
+    .file-icon { width: 38px; height: 38px; border-radius: 8px; background: var(--secondary); display: grid; place-items: center; font-family: var(--mono); font-size: 10px; font-weight: 700; }
+    .approval-card { border-color: color-mix(in oklch, var(--warning) 45%, var(--border)); }
+    .approval-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+    .composer-shell { border-top: 1px solid var(--border); padding: 12px max(16px, 6%) 16px; }
+    .context-pills { max-width: 760px; margin: 0 auto 8px; display: flex; gap: 6px; overflow-x: auto; }
+    .context-pill { flex: 0 0 auto; border: 1px solid var(--border); background: var(--background); border-radius: 999px; padding: 3px 8px; font-size: 11px; display: flex; align-items: center; gap: 5px; }
+    .composer { max-width: 760px; margin: 0 auto; border: 1px solid var(--input); border-radius: 12px; background: var(--background); padding: 9px; }
+    .composer textarea { width: 100%; min-height: 54px; max-height: 130px; resize: vertical; border: 0; outline: 0; padding: 2px 3px; background: transparent; }
+    .composer-foot { display: flex; align-items: center; gap: 5px; }
+    .save-hint { margin-left: auto; font-size: 11px; color: var(--muted-foreground); }
+
+    .workbench { min-width: 0; display: flex; flex-direction: column; background: color-mix(in oklch, var(--muted) 44%, var(--background)); }
+    .workbench-head { height: 64px; background: var(--background); border-bottom: 1px solid var(--border); display: flex; align-items: flex-end; justify-content: space-between; padding: 0 14px; }
+    .tabs { display: flex; align-items: flex-end; height: 100%; gap: 18px; }
+    .tab { height: 100%; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 0 2px; color: var(--muted-foreground); }
+    .tab.active { color: var(--foreground); border-bottom-color: var(--foreground); font-weight: 620; }
+    .workbench-tools { padding-bottom: 13px; }
+    .workbench-body { flex: 1; min-height: 0; position: relative; }
+    .flow-canvas { position: absolute; inset: 0; overflow: auto; background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 18px 18px; }
+    .flow-inner { min-width: 760px; min-height: 720px; position: relative; padding: 34px; }
+    .edge { position: absolute; z-index: 0; height: 2px; background: var(--border); transform-origin: 0 0; }
+    .edge::after { content: ""; position: absolute; right: -1px; top: -3px; border-left: 6px solid var(--border); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+    .flow-node { position: absolute; z-index: 1; width: 176px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); padding: 10px; text-align: left; }
+    .flow-node:hover { border-color: var(--ring); }
+    .flow-node.selected { border-color: var(--foreground); box-shadow: 0 0 0 2px color-mix(in oklch, var(--foreground) 8%, transparent); }
+    .node-type { text-transform: uppercase; letter-spacing: .08em; font-size: 9px; color: var(--muted-foreground); }
+    .node-name { margin-top: 4px; font-size: 12px; font-weight: 650; }
+    .node-foot { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--muted-foreground); }
+    .node-input { left: 42px; top: 56px; }
+    .node-agent { left: 292px; top: 56px; }
+    .node-story { left: 540px; top: 56px; }
+    .node-imagegen { left: 42px; top: 218px; }
+    .node-roleasset { left: 42px; top: 374px; }
+    .node-approval { left: 292px; top: 218px; }
+    .node-workflow { left: 292px; top: 374px; }
+    .node-output { left: 540px; top: 374px; }
+    .edge-e1 { left: 218px; top: 99px; width: 74px; }
+    .edge-e2 { left: 468px; top: 99px; width: 72px; }
+    .edge-e3 { left: 380px; top: 135px; width: 84px; transform: rotate(90deg); }
+    .edge-e4 { left: 380px; top: 296px; width: 78px; transform: rotate(90deg); }
+    .edge-e5 { left: 468px; top: 418px; width: 72px; }
+    .edge-e6 { left: 130px; top: 135px; width: 83px; transform: rotate(90deg); }
+    .edge-e7 { left: 130px; top: 296px; width: 78px; transform: rotate(90deg); }
+    .edge-e8 { left: 218px; top: 418px; width: 74px; }
+    .minimap { position: absolute; right: 14px; bottom: 14px; width: 112px; height: 70px; border: 1px solid var(--border); background: color-mix(in oklch, var(--background) 88%, transparent); border-radius: 8px; padding: 8px; font-size: 9px; color: var(--muted-foreground); }
+    .flow-detail { position: absolute; z-index: 4; right: 0; top: 0; bottom: 0; width: min(340px, 82%); border-left: 1px solid var(--border); background: var(--background); box-shadow: var(--shadow-float); display: flex; flex-direction: column; }
+    .detail-head { height: 56px; border-bottom: 1px solid var(--border); padding: 0 14px; display: flex; align-items: center; gap: 9px; }
+    .detail-body { padding: 16px; overflow: auto; }
+    .kv { display: grid; grid-template-columns: 74px 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .code-box { margin-top: 12px; border-radius: 8px; background: var(--muted); padding: 10px; font: 11px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .asset-pane { position: absolute; inset: 0; overflow: auto; padding: 18px; }
+    .asset-section { margin-bottom: 22px; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+    .section-title { font-size: 12px; font-weight: 650; }
+    .asset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .asset-card { border: 1px solid var(--border); border-radius: 10px; background: var(--background); padding: 10px; min-width: 0; text-align: left; }
+    .asset-card:hover { border-color: var(--ring); }
+    .asset-preview { height: 92px; border-radius: 7px; background: var(--muted); margin-bottom: 9px; display: grid; place-items: center; overflow: hidden; }
+    .comic-grid { width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 4px; background: var(--background); }
+    .comic-cell { border: 1px solid var(--border); display: grid; place-items: center; font-size: 9px; color: var(--muted-foreground); background: linear-gradient(145deg, var(--secondary), color-mix(in oklch, var(--accent-brand) 13%, var(--background))); }
+    .asset-name { font-size: 12px; font-weight: 620; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .asset-meta { margin-top: 3px; font-size: 10px; color: var(--muted-foreground); }
+
+    /* 后台与资产库 */
+    #adminView { height: 100%; display: grid; grid-template-columns: 224px 1fr; }
+    .admin-side { border-right: 1px solid var(--border); padding: 14px 10px; background: color-mix(in oklch, var(--muted) 52%, var(--background)); }
+    .menu-group { margin-top: 18px; }
+    .menu-label { padding: 0 10px 7px; font-size: 10px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .1em; }
+    .menu-item { width: 100%; height: 38px; border: 0; border-radius: 8px; background: transparent; display: flex; align-items: center; gap: 9px; padding: 0 10px; text-align: left; }
+    .menu-item:hover, .menu-item.active { background: var(--background); }
+    .admin-main { overflow: auto; }
+    .admin-head { height: 64px; border-bottom: 1px solid var(--border); padding: 0 28px; display: flex; align-items: center; }
+    .library { padding: 26px 28px 48px; max-width: 1440px; margin: 0 auto; }
+    .page-title { font-size: 24px; font-weight: 680; letter-spacing: -.025em; }
+    .page-subtitle { color: var(--muted-foreground); margin-top: 3px; }
+    .library-toolbar { margin-top: 22px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .library-search { width: min(360px, 100%); }
+    .library-layout { display: grid; grid-template-columns: 210px 1fr; gap: 20px; margin-top: 20px; }
+    .folder-panel { border: 1px solid var(--border); border-radius: 10px; background: var(--background); padding: 8px; align-self: start; }
+    .folder { width: 100%; border: 0; border-radius: 7px; background: transparent; display: flex; align-items: center; gap: 8px; padding: 8px; text-align: left; }
+    .folder:hover, .folder.active { background: var(--muted); }
+    .folder-count { margin-left: auto; color: var(--muted-foreground); font-size: 11px; }
+    .library-grid { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px; }
+    .library-card { border: 1px solid var(--border); border-radius: 10px; background: var(--background); overflow: hidden; text-align: left; }
+    .library-card:hover { border-color: var(--ring); }
+    .library-card .asset-preview { height: 150px; border-radius: 0; margin: 0; }
+    .library-card-info { padding: 12px; }
+    .progress-strip { position: fixed; left: 236px; right: 0; bottom: 0; height: 42px; border-top: 1px solid var(--border); background: color-mix(in oklch, var(--background) 94%, transparent); backdrop-filter: blur(10px); display: flex; align-items: center; padding: 0 18px; gap: 10px; z-index: 10; }
+    .progress-line { flex: 1; max-width: 220px; height: 5px; background: var(--muted); border-radius: 999px; overflow: hidden; }
+    .progress-line > i { display: block; height: 100%; width: 0; background: var(--accent-brand); transition: width .4s ease; }
+
+    /* 浮层 */
+    .modal-backdrop { position: fixed; inset: 0; z-index: 30; background: color-mix(in oklch, var(--foreground) 28%, transparent); display: grid; place-items: center; padding: 20px; }
+    .modal { width: min(660px, 100%); max-height: min(760px, 90vh); overflow: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--popover); box-shadow: var(--shadow-float); }
+    .modal-head { height: 58px; border-bottom: 1px solid var(--border); padding: 0 16px; display: flex; align-items: center; gap: 10px; }
+    .modal-body { padding: 16px; }
+    .modal-foot { border-top: 1px solid var(--border); padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; }
+    .editor { width: 100%; min-height: 310px; resize: vertical; border: 1px solid var(--input); border-radius: 8px; padding: 12px; background: var(--background); font: 13px/1.7 var(--mono); }
+    .toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 50; display: grid; gap: 8px; }
+    .toast { min-width: 260px; max-width: 360px; border: 1px solid var(--border); border-radius: 9px; background: var(--popover); box-shadow: var(--shadow-float); padding: 10px 12px; animation: toast-in .18s ease-out; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } }
+
+    @media (max-width: 1100px) {
+      #studioView { grid-template-columns: 210px minmax(360px, 1fr) minmax(380px, 44vw); }
+      .asset-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 920px) {
+      #studioView { display: block; }
+      .studio-nav { position: fixed; z-index: 20; inset: 0 auto 0 0; width: 280px; transform: translateX(-100%); transition: transform .2s ease; box-shadow: var(--shadow-float); }
+      .studio-nav.open { transform: translateX(0); }
+      .chat-panel, .workbench { height: 100%; border: 0; }
+      .workbench { display: none; }
+      body.mobile-workbench .chat-panel { display: none; }
+      body.mobile-workbench .workbench { display: flex; }
+      .mobile-only { display: inline-flex !important; }
+      #adminView { grid-template-columns: 1fr; }
+      .admin-side { display: none; }
+      .library-layout { grid-template-columns: 1fr; }
+      .folder-panel { display: flex; overflow: auto; }
+      .folder { width: auto; flex: 0 0 auto; }
+      .library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .progress-strip { left: 0; }
+    }
+    @media (min-width: 921px) { .mobile-only { display: none !important; } }
+    @media (max-width: 620px) {
+      .library { padding: 20px 16px 48px; }
+      .library-grid { grid-template-columns: 1fr; }
+      .chat-header { padding: 0 10px; }
+      .model-select { max-width: 112px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute">
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M19 12H5m6 6-6-6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m4 5 16 7-16 7 3-7-3-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 12h13" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m9 17 7.5-7.5a3 3 0 0 0-4.2-4.2l-8 8a5 5 0 0 0 7.1 7.1l8-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5h6l2-2h9v13h-17z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3.5h8l4 4v13H6z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-trace" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 6h4a3 3 0 0 1 3 3v6a3 3 0 0 0 3 3M6 8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  </svg>
+
+  <main id="studioView">
+    <aside class="studio-nav" id="studioNav">
+      <div class="nav-top">
+        <div class="brand"><span class="brand-mark">P</span><span>Pixoma Studio</span></div>
+        <div class="nav-actions">
+          <button class="btn btn-ghost" data-action="admin"><svg class="icon"><use href="#i-arrow"/></svg>返回后台</button>
+          <button class="btn btn-primary" data-action="new-session"><svg class="icon"><use href="#i-plus"/></svg>新对话</button>
+        </div>
+      </div>
+      <div class="session-search">
+        <label class="input-wrap"><svg class="icon-sm"><use href="#i-search"/></svg><input class="text-input" id="sessionSearch" placeholder="搜索对话" /></label>
+      </div>
+      <div class="history-title">最近对话</div>
+      <div class="session-list" id="sessionList"></div>
+      <div class="user-card"><span class="avatar">LZ</span><div class="grow"><div style="font-weight:620;font-size:12px">李卓洲</div><div class="muted" style="font-size:10px">工作区管理员</div></div><button class="btn btn-sm btn-ghost" data-action="reset-demo" title="恢复原型初始状态">重置</button></div>
+    </aside>
+
+    <section class="chat-panel">
+      <header class="chat-header">
+        <button class="btn btn-icon btn-ghost mobile-only" data-action="toggle-nav" aria-label="打开对话列表"><svg class="icon"><use href="#i-menu"/></svg></button>
+        <div class="grow"><div class="chat-title" id="chatTitle">复古未来城市漫画创作</div><div class="chat-status"><span class="dot" id="chatStatusDot"></span><span id="chatStatusText">已自动保存</span></div></div>
+        <select class="model-select" aria-label="选择模型"><option>火山方舟 · Doubao</option><option>OpenAI · GPT</option><option>本地 · Qwen</option></select>
+        <button class="btn btn-sm mobile-only" data-action="mobile-workbench">执行流</button>
+      </header>
+      <div class="messages" id="messages"></div>
+      <footer class="composer-shell">
+        <div class="context-pills" id="contextPills"></div>
+        <div class="composer">
+          <textarea id="composerInput" placeholder="描述你想完成的创作任务…"></textarea>
+          <div class="composer-foot">
+            <button class="btn btn-icon btn-ghost" data-action="attach-file" aria-label="上传文件" title="上传文件"><svg class="icon"><use href="#i-paperclip"/></svg></button>
+            <button class="btn btn-sm btn-ghost" data-action="pick-library"><svg class="icon-sm"><use href="#i-grid"/></svg>资产库</button>
+            <span class="save-hint" id="saveHint">所有内容会自动保存</span>
+            <button class="btn btn-icon btn-primary" data-action="send" aria-label="发送"><svg class="icon"><use href="#i-send"/></svg></button>
+          </div>
+        </div>
+      </footer>
+    </section>
+
+    <section class="workbench">
+      <header class="workbench-head">
+        <div class="tabs"><button class="tab active" data-tab="flow">执行流</button><button class="tab" data-tab="assets">资产 <span id="assetCount">1</span></button></div>
+        <div class="workbench-tools"><button class="btn btn-sm" data-action="trace"><svg class="icon-sm"><use href="#i-trace"/></svg>Trace</button><button class="btn btn-sm mobile-only" data-action="mobile-chat">对话</button></div>
+      </header>
+      <div class="workbench-body">
+        <div class="flow-canvas" id="flowPane">
+          <div class="flow-inner">
+            <div class="edge edge-e1"></div><div class="edge edge-e2"></div><div class="edge edge-e3"></div><div class="edge edge-e4"></div><div class="edge edge-e5"></div><div class="edge edge-e6"></div><div class="edge edge-e7"></div><div class="edge edge-e8"></div>
+            <button class="flow-node node-input" data-node="input"><div class="node-type">Message</div><div class="node-name">漫画创作需求</div><div class="node-foot"><span>输入</span><span class="dot dot-done"></span></div></button>
+            <button class="flow-node node-agent" data-node="agent"><div class="node-type">Model</div><div class="node-name">构思故事与角色</div><div class="node-foot"><span>3.2 秒</span><span class="dot dot-done"></span></div></button>
+            <button class="flow-node node-story" data-node="story"><div class="node-type">Asset</div><div class="node-name">story.md <span id="storyVersionNode">v1</span></div><div class="node-foot"><span>Markdown</span><span class="dot dot-done"></span></div></button>
+            <button class="flow-node node-imagegen" data-node="imagegen"><div class="node-type">Model Generation</div><div class="node-name">角色概念图生成</div><div class="node-foot"><span>提示词 → 图片</span><span class="dot dot-done"></span></div></button>
+            <button class="flow-node node-roleasset" data-node="roleasset"><div class="node-type">Asset</div><div class="node-name">角色概念图</div><div class="node-foot"><span>PNG · 2048²</span><span class="dot dot-done"></span></div></button>
+            <button class="flow-node node-approval" data-node="approval" id="approvalNode"><div class="node-type">Approval</div><div class="node-name">运行分镜工作流</div><div class="node-foot"><span id="approvalNodeText">等待确认</span><span class="dot dot-warn" id="approvalNodeDot"></span></div></button>
+            <button class="flow-node node-workflow" data-node="workflow" id="workflowNode"><div class="node-type">Workflow</div><div class="node-name">漫画分镜生成</div><div class="node-foot"><span id="workflowText">尚未开始</span><span class="dot" id="workflowDot"></span></div></button>
+            <button class="flow-node node-output" data-node="output" id="outputNode"><div class="node-type">Asset</div><div class="node-name">分镜图组</div><div class="node-foot"><span id="outputText">等待输出</span><span class="dot" id="outputDot"></span></div></button>
+          </div>
+          <div class="minimap">执行流缩略图<br><span class="mono">7 steps · 3 assets</span></div>
+          <aside class="flow-detail hidden" id="flowDetail"><div class="detail-head"><strong class="grow" id="detailTitle">节点详情</strong><button class="btn btn-icon btn-ghost" data-action="close-detail" aria-label="关闭"><svg class="icon"><use href="#i-x"/></svg></button></div><div class="detail-body" id="detailBody"></div></aside>
+        </div>
+        <div class="asset-pane hidden" id="assetPane"></div>
+      </div>
+    </section>
+  </main>
+
+  <main id="adminView" class="hidden">
+    <aside class="admin-side">
+      <div class="brand" style="padding:0 8px"><span class="brand-mark">P</span><span>Pixoma</span></div>
+      <div class="menu-group"><div class="menu-label">工作台</div><button class="menu-item">概览</button><button class="menu-item">工作流</button></div>
+      <div class="menu-group"><div class="menu-label">Studio</div><button class="menu-item" data-action="studio">✦ AI 创作</button><button class="menu-item active" data-action="library"><svg class="icon-sm"><use href="#i-grid"/></svg>资产库</button></div>
+      <div class="menu-group"><div class="menu-label">配置</div><button class="menu-item">模型连接</button><button class="menu-item">MCP 连接器</button><button class="menu-item">Skills</button></div>
+    </aside>
+    <section class="admin-main">
+      <header class="admin-head"><div class="grow muted">Pixoma / Studio / 资产库</div><span class="avatar">LZ</span></header>
+      <div class="library">
+        <div class="row"><div class="grow"><div class="page-title">资产库</div><div class="page-subtitle">管理跨对话复用的创作素材与产物</div></div><button class="btn" data-action="create-folder"><svg class="icon-sm"><use href="#i-folder"/></svg>新建文件夹</button><button class="btn" data-action="library-upload"><svg class="icon-sm"><use href="#i-paperclip"/></svg>上传资产</button><button class="btn btn-primary" data-action="create-asset"><svg class="icon-sm"><use href="#i-plus"/></svg>创建资产</button></div>
+        <div class="library-toolbar"><label class="input-wrap library-search"><svg class="icon-sm"><use href="#i-search"/></svg><input class="text-input" placeholder="搜索名称、标签或来源" /></label><button class="btn">全部类型⌄</button><button class="btn">全部来源⌄</button><span class="grow"></span><span class="muted" id="libraryCount">3 个资产</span></div>
+        <div class="library-layout"><div class="folder-panel" id="folderPanel"></div><div class="library-grid" id="libraryGrid"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="progress-strip hidden" id="backgroundProgress"><span class="dot dot-running"></span><strong style="font-size:12px">漫画分镜生成</strong><span class="muted" id="backgroundLabel" style="font-size:11px">后台运行中 · 0%</span><div class="progress-line"><i id="backgroundBar"></i></div><button class="btn btn-sm" data-action="studio">查看</button></div>
+  <div id="modalRoot"></div><div class="toast-stack" id="toastStack"></div>
+
+  <script>
+    const STORAGE_KEY = 'pixoma-studio-prototype-v2';
+    const defaultState = {
+      view: 'studio', sessionId: 'comic', title: '复古未来城市漫画创作', stage: 2,
+      storyVersion: 1, storyText: '# 雾港邮差\n\n在永夜城市“雾港”，记忆被制作成可寄送的胶片。少年邮差阿澈接到一封来自十年后自己的信，必须在黎明前送到已经消失的旧城区。\n\n## 角色\n\n- 阿澈：沉默、敏锐，随身携带机械信鸽。\n- 弥夏：旧城区最后的灯塔维护员。\n\n## 视觉基调\n\n复古未来主义、潮湿霓虹、暖色灯光与蓝灰雨幕。',
+      progress: 0, approvedSession: false, outputReady: false, savedToLibrary: false,
+      folders: ['全部资产', '漫画项目', '品牌素材', '参考资料'], customAssets: [], lastTick: Date.now()
+    };
+    let state = loadState();
+    if (state.stage === 3) {
+      state.progress = Math.min(100, state.progress + Math.floor((Date.now() - state.lastTick) / 650));
+      if (state.progress >= 100) { state.stage = 4; state.outputReady = true; }
+    }
+    function loadState() { try { return { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') }; } catch { return { ...defaultState }; } }
+    function persist() { state.lastTick = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function icon(id, cls='icon-sm') { return `<svg class="${cls}"><use href="#${id}"/></svg>`; }
+    function esc(value) { return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+    function toast(message) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = message; document.querySelector('#toastStack').append(el); setTimeout(() => el.remove(), 2800); }
+    function statusInfo() {
+      if (state.stage === 3) return ['running', `后台运行中 · ${state.progress}%`];
+      if (state.stage === 2) return ['warn', '等待确认 · 已自动保存'];
+      if (state.stage === 1) return ['running', '正在理解需求 · 已自动保存'];
+      return ['done', state.stage >= 4 ? '运行完成 · 已自动保存' : '已自动保存'];
+    }
+
+    function render() {
+      document.querySelector('#studioView').classList.toggle('hidden', state.view !== 'studio');
+      document.querySelector('#adminView').classList.toggle('hidden', state.view !== 'library');
+      document.querySelector('#chatTitle').textContent = state.title;
+      const [status, label] = statusInfo();
+      document.querySelector('#chatStatusText').textContent = label;
+      document.querySelector('#chatStatusDot').className = `dot dot-${status}`;
+      renderSessions(); renderMessages(); renderFlow(); renderAssets(); renderLibrary(); renderBackground();
+      persist();
+    }
+
+    function renderSessions() {
+      const sessions = [
+        {id:'comic', name: state.title, meta: state.stage === 3 ? '运行中' : state.stage === 2 ? '等待确认' : '刚刚更新', assets: state.outputReady ? 3 : 2},
+        {id:'poster', name:'秋季发布会主视觉探索', meta:'昨天', assets:6},
+        {id:'video', name:'产品介绍短片脚本', meta:'9 月 18 日', assets:3},
+        {id:'workflow', name:'电商主图工作流调试', meta:'9 月 16 日', assets:12}
+      ];
+      const q = document.querySelector('#sessionSearch').value.trim();
+      document.querySelector('#sessionList').innerHTML = sessions.filter(s => !q || s.name.includes(q)).map(s => `<button class="session-item ${s.id === state.sessionId ? 'active' : ''}" data-session="${s.id}"><div class="session-name">${esc(s.name)}</div><div class="session-meta">${s.id === 'comic' && state.stage === 3 ? '<span class="dot dot-running"></span>' : s.id === 'comic' && state.stage === 2 ? '<span class="dot dot-warn"></span>' : ''}<span>${s.meta}</span><span>·</span><span>${s.assets} 个资产</span></div></button>`).join('');
+    }
+
+    function renderMessages() {
+      const root = document.querySelector('#messages');
+      if (state.sessionId !== 'comic' || state.stage === 0) {
+        root.innerHTML = `<div class="message" style="text-align:center;margin-top:18vh"><div class="assistant-avatar" style="margin:0 auto 12px;width:40px;height:40px">P</div><h2 style="font-size:19px;margin:0 0 6px">开始一次创作</h2><p class="muted" style="margin:0">描述目标，或引入资产作为上下文。</p></div>`;
+        return;
+      }
+      let html = `<div class="message message-user"><div class="user-bubble">我想画一篇 6 格短篇漫画，复古未来城市背景，主角是一名能寄送记忆的少年邮差。先帮我构思故事，再执行分镜工作流。</div></div>
+      <div class="message"><div class="assistant-head"><span class="assistant-avatar">P</span>Pixoma Agent</div><div class="assistant-copy">我会先整理故事、角色和视觉基调，生成一份可编辑的故事文档；你确认后，我再把它作为输入运行分镜工作流。</div>
+      <div class="plan-card"><div class="card-head"><span class="dot dot-done"></span><div class="card-title">执行计划</div><span class="grow"></span><span class="badge">4 个步骤</span></div><div class="card-body"><div class="plan-step"><span class="step-num">1</span><span>构思完整故事并生成 Markdown 资产</span></div><div class="plan-step"><span class="step-num">2</span><span>直接调用生图模型生成角色概念图</span></div><div class="plan-step"><span class="step-num">3</span><span>使用故事和角色图运行「漫画分镜生成」工作流</span></div><div class="plan-step"><span class="step-num">4</span><span>整理分镜图并加入本次对话资产</span></div></div></div>`;
+      if (state.stage >= 2) html += `<button class="asset-inline" data-action="edit-story" style="width:100%;text-align:left"><span class="file-icon">MD</span><span class="grow"><span class="card-title">story.md</span><br><span class="muted" style="font-size:11px">故事文档 · v${state.storyVersion} · 1.2 KB</span></span><span class="btn btn-sm">查看与编辑</span></button><button class="asset-inline" data-node-jump="roleasset" style="width:100%;text-align:left"><span class="file-icon">IMG</span><span class="grow"><span class="card-title">角色概念图.png</span><br><span class="muted" style="font-size:11px">模型原生生成 · 提示词 → 图片</span></span><span class="btn btn-sm">查看来源</span></button>`;
+      if (state.stage === 2) html += `<div class="approval-card"><div class="card-head"><span class="dot dot-warn"></span><div><div class="card-title">需要确认</div><div class="muted" style="font-size:11px">工作流将消耗约 120 点额度，预计运行 1–2 分钟</div></div></div><div class="card-body"><div><strong style="color:var(--foreground)">漫画分镜生成</strong></div><div style="margin-top:5px">输入：story.md v${state.storyVersion}、角色概念图 v1 · 输出：6 张分镜图</div><div class="approval-actions"><button class="btn btn-primary btn-sm" data-action="approve-once">允许一次</button><button class="btn btn-sm" data-action="approve-session">本次对话内允许</button><button class="btn btn-sm" data-action="reject">拒绝</button></div></div></div>`;
+      if (state.stage === 3) html += `<div class="tool-card"><div class="card-head"><span class="dot dot-running"></span><div class="card-title">漫画分镜生成</div><span class="grow"></span><span class="mono muted">${state.progress}%</span></div><div class="card-body">任务已转入后台。你可以离开此页面，完成后资产会自动回到本次对话。</div></div>`;
+      if (state.stage >= 4) html += `<div class="tool-card"><div class="card-head"><span class="dot dot-done"></span><div class="card-title">漫画分镜生成</div><span class="grow"></span><span class="badge">已完成</span></div><div class="card-body">已生成 6 张分镜图。我保留了工作流输入、输出和运行 Trace，你可以继续修改故事或选择分镜进行下一轮。</div></div><button class="asset-inline" data-tab-jump="assets" style="width:100%;text-align:left"><span class="file-icon">6×</span><span class="grow"><span class="card-title">分镜图组</span><br><span class="muted" style="font-size:11px">图片 · 6 个文件 · 工作流输出</span></span><span class="btn btn-sm">查看资产</span></button>`;
+      html += `</div>`;
+      root.innerHTML = html;
+      setTimeout(() => { root.scrollTop = root.scrollHeight; }, 0);
+    }
+
+    function renderFlow() {
+      document.querySelector('#storyVersionNode').textContent = `v${state.storyVersion}`;
+      const approval = state.stage === 2 ? ['等待确认','dot-warn'] : state.stage >= 3 ? ['已允许','dot-done'] : ['等待',''];
+      document.querySelector('#approvalNodeText').textContent = approval[0];
+      document.querySelector('#approvalNodeDot').className = `dot ${approval[1]}`;
+      const workflow = state.stage === 3 ? [`运行中 · ${state.progress}%`,'dot-running'] : state.stage >= 4 ? ['已完成 · 68 秒','dot-done'] : ['尚未开始',''];
+      document.querySelector('#workflowText').textContent = workflow[0];
+      document.querySelector('#workflowDot').className = `dot ${workflow[1]}`;
+      document.querySelector('#outputText').textContent = state.outputReady ? '6 张图片' : '等待输出';
+      document.querySelector('#outputDot').className = `dot ${state.outputReady ? 'dot-done' : ''}`;
+      document.querySelector('#approvalNode').style.opacity = state.stage < 2 ? .45 : 1;
+      document.querySelector('#workflowNode').style.opacity = state.stage < 3 ? .45 : 1;
+      document.querySelector('#outputNode').style.opacity = state.stage < 4 ? .45 : 1;
+    }
+
+    function renderAssets() {
+      const output = state.outputReady ? `<div class="asset-section"><div class="section-head"><span class="section-title">本次输出</span><span class="muted" style="font-size:10px">6 个文件</span></div><div class="asset-grid"><button class="asset-card" data-asset="storyboard"><div class="asset-preview"><div class="comic-grid"><div class="comic-cell">01 雾港</div><div class="comic-cell">02 来信</div><div class="comic-cell">03 追逐</div><div class="comic-cell">04 灯塔</div></div></div><div class="asset-name">分镜图组</div><div class="asset-meta">工作流输出 · 6 张图片</div></button><button class="asset-card" data-action="save-library"><div class="asset-preview">${state.savedToLibrary ? '✓ 已保存' : '+ 保存到资产库'}</div><div class="asset-name">跨对话复用</div><div class="asset-meta">${state.savedToLibrary ? '漫画项目 / 分镜图组' : '保留当前固定版本与来源'}</div></button></div></div>` : '';
+      document.querySelector('#assetPane').innerHTML = `<div class="asset-section"><div class="section-head"><span class="section-title">上下文资产</span><span class="muted" style="font-size:10px">后续对话默认可见</span></div><div class="asset-grid"><button class="asset-card" data-action="edit-story"><div class="asset-preview"><span class="file-icon">MD</span></div><div class="asset-name">story.md</div><div class="asset-meta">v${state.storyVersion} · Agent 生成 · 已固定</div></button><button class="asset-card" data-node-jump="roleasset"><div class="asset-preview"><div class="comic-grid"><div class="comic-cell" style="grid-column:1 / -1">阿澈 · 角色概念图</div><div class="comic-cell">机械信鸽</div><div class="comic-cell">邮差装备</div></div></div><div class="asset-name">角色概念图.png</div><div class="asset-meta">模型原生生成 · 已固定</div></button></div></div>${output}<div class="asset-section"><div class="section-head"><span class="section-title">资产规则</span></div><div class="muted" style="font-size:11px">普通聊天文本不会自动成为资产。文档、图片、音视频、结构化结果和手动创建内容会保留版本与来源。</div></div>`;
+      document.querySelector('#assetCount').textContent = state.outputReady ? '3' : '2';
+      document.querySelector('#contextPills').innerHTML = state.stage >= 2 ? `<span class="context-pill">${icon('i-file')}story.md · v${state.storyVersion}<button class="btn-ghost" style="border:0;padding:0" aria-label="取消固定">×</button></span><span class="context-pill">${icon('i-grid')}角色概念图 · v1</span>` : '';
+    }
+
+    function renderLibrary() {
+      const assets = [
+        ...(state.savedToLibrary ? [{name:'分镜图组', type:'图片 · 6 个文件', source:'来自对话：复古未来城市漫画创作', kind:'comic'}] : []),
+        {name:'品牌视觉规范.md', type:'Markdown · v3', source:'用户创建', kind:'md'},
+        {name:'夜景城市参考', type:'图片 · 12 个文件', source:'用户上传', kind:'comic'},
+        {name:'产品发布会脚本', type:'Markdown · v2', source:'来自对话：产品介绍短片脚本', kind:'md'},
+        ...state.customAssets.map(a => typeof a === 'string' ? {name:a, type:'Markdown · v1', source:'用户创建', kind:'md'} : a)
+      ];
+      document.querySelector('#folderPanel').innerHTML = state.folders.map((f,i) => `<button class="folder ${i===0?'active':''}">${icon('i-folder')}<span>${esc(f)}</span><span class="folder-count">${i===0?assets.length:i===1?(state.savedToLibrary?1:0):0}</span></button>`).join('');
+      document.querySelector('#libraryGrid').innerHTML = assets.map((a,i) => `<button class="library-card" data-library-index="${i}"><div class="asset-preview">${a.kind === 'comic' ? '<div class="comic-grid"><div class="comic-cell">01</div><div class="comic-cell">02</div><div class="comic-cell">03</div><div class="comic-cell">04</div></div>' : '<span class="file-icon">MD</span>'}</div><div class="library-card-info"><div class="asset-name">${esc(a.name)}</div><div class="asset-meta">${esc(a.type)}</div><div class="asset-meta" style="margin-top:8px">${esc(a.source)}</div></div></button>`).join('');
+      document.querySelector('#libraryCount').textContent = `${assets.length} 个资产`;
+    }
+
+    function renderBackground() {
+      const active = state.stage === 3 && state.view === 'library';
+      document.querySelector('#backgroundProgress').classList.toggle('hidden', !active);
+      document.querySelector('#backgroundLabel').textContent = `后台运行中 · ${state.progress}%`;
+      document.querySelector('#backgroundBar').style.width = `${state.progress}%`;
+    }
+
+    function setTab(tab) {
+      document.querySelectorAll('[data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+      document.querySelector('#flowPane').classList.toggle('hidden', tab !== 'flow');
+      document.querySelector('#assetPane').classList.toggle('hidden', tab !== 'assets');
+    }
+
+    function showNode(id) {
+      const detail = {
+        input:['漫画创作需求','Message','用户消息','“创作 6 格复古未来城市漫画…”','作为本次 Run 的目标与上下文起点。'],
+        agent:['构思故事与角色','Model','火山方舟 · Doubao','输入 426 tokens · 输出 892 tokens','生成面向用户的计划与故事文档，不展示隐藏思维过程。'],
+        story:['story.md','Asset',`Markdown · v${state.storyVersion}`,'来源：Agent 生成','输入：用户目标；被「漫画分镜生成」工作流消费。'],
+        imagegen:['角色概念图生成','Model Generation','已完成 · 18.4 秒','输入：生图提示词','该图片由当前模型原生生成，没有调用 Pixoma 工作流。'],
+        roleasset:['角色概念图.png','Asset','PNG · 2048 × 2048','来源：模型原生生成','记录完整提示词、模型快照和派生关系，并作为分镜工作流输入。'],
+        approval:['运行分镜工作流','Approval',state.stage === 2 ? '等待用户确认' : '已允许','策略：额度消耗超过自动执行阈值','选项：允许一次 / 本次对话内允许 / 拒绝。'],
+        workflow:['漫画分镜生成','Workflow',state.stage === 3 ? `运行中 ${state.progress}%` : state.stage >= 4 ? '已完成' : '尚未开始',`输入：story.md v${state.storyVersion}`,'后台任务拥有独立 lease；断开页面不会取消执行。'],
+        output:['分镜图组','Asset',state.outputReady ? '6 张图片 · 已完成' : '等待输出','来源：漫画分镜生成','保留输入版本、工作流任务和派生血缘。']
+      }[id];
+      document.querySelectorAll('.flow-node').forEach(n => n.classList.toggle('selected', n.dataset.node === id));
+      document.querySelector('#detailTitle').textContent = detail[0];
+      document.querySelector('#detailBody').innerHTML = `<span class="badge">${detail[1]}</span><div class="kv"><span class="muted">状态</span><strong>${detail[2]}</strong></div><div class="kv"><span class="muted">运行信息</span><span>${detail[3]}</span></div><div class="code-box">${detail[4]}</div><div style="margin-top:16px"><button class="btn btn-sm" data-action="trace">查看完整 Trace</button></div>`;
+      document.querySelector('#flowDetail').classList.remove('hidden');
+    }
+
+    function showTrace() {
+      const events = [
+        ['09:41:02.114','RUN_STARTED','run_comic_01'],['09:41:02.309','TEXT_MESSAGE_CONTENT','已接收创作目标'],['09:41:05.518','ASSET_CREATED',`story.md v${state.storyVersion}`],['09:41:05.612','TOOL_CALL_START','model.generate_image'],['09:41:24.012','ASSET_CREATED','角色概念图.png'],['09:41:24.104','RUN_PAUSED','approval.workflow.cost'],
+        ...(state.stage >= 3 ? [['09:42:18.920','RUN_RESUMED','approved_once'],['09:42:19.103','TOOL_CALL_START','workflow.storyboard']] : []),
+        ...(state.stage === 3 ? [[new Date().toLocaleTimeString('zh-CN',{hour12:false})+'.000','ACTIVITY_DELTA',`progress=${state.progress}`]] : []),
+        ...(state.stage >= 4 ? [['09:43:27.824','TOOL_CALL_END','task_8fa2 · success'],['09:43:28.001','ASSET_CREATED','storyboards × 6'],['09:43:28.110','RUN_FINISHED','success']] : [])
+      ];
+      modal('本次运行 Trace', `<p class="muted" style="margin-top:0">Trace 与对话历史同时自动保存，用于恢复页面、解释执行过程和定位问题。</p><div class="code-box">${events.map(e => `${e[0]}  ${e[1].padEnd(22)}  ${e[2]}`).join('\n')}</div>`, '关闭');
+    }
+
+    function editStory() {
+      modal(`编辑 story.md · v${state.storyVersion}`, `<textarea class="editor" id="storyEditor">${esc(state.storyText)}</textarea><p class="muted" style="font-size:11px;margin-bottom:0">保存会创建新版本；历史运行仍引用当时的固定版本。</p>`, '取消', `<button class="btn btn-primary" data-action="save-story">保存为新版本</button>`);
+    }
+
+    function assetDetail(name, source) {
+      modal(name, `<div class="asset-preview" style="height:220px"><div class="comic-grid"><div class="comic-cell">01 · 雾港全景</div><div class="comic-cell">02 · 未来来信</div><div class="comic-cell">03 · 雨夜追逐</div><div class="comic-cell">04 · 灯塔重逢</div></div></div><div class="kv"><span class="muted">来源</span><span>${esc(source)}</span></div><div class="kv"><span class="muted">关联对话</span><button class="btn btn-sm" data-action="studio">复古未来城市漫画创作</button></div><div class="kv"><span class="muted">版本</span><span>v1 · 固定版本</span></div>`, '关闭');
+    }
+
+    function modal(title, body, closeLabel='关闭', extra='') {
+      document.querySelector('#modalRoot').innerHTML = `<div class="modal-backdrop"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><strong class="grow">${esc(title)}</strong><button class="btn btn-icon btn-ghost" data-action="close-modal"><svg class="icon"><use href="#i-x"/></svg></button></div><div class="modal-body">${body}</div><div class="modal-foot"><button class="btn" data-action="close-modal">${closeLabel}</button>${extra}</div></section></div>`;
+    }
+
+    function sendMessage() {
+      const input = document.querySelector('#composerInput');
+      if (!input.value.trim()) { input.focus(); toast('先描述你想完成的创作任务'); return; }
+      state.sessionId = 'comic'; state.stage = 1; state.title = '正在生成标题…'; state.view = 'studio'; persist(); render();
+      setTimeout(() => { state.title = input.value.includes('漫画') ? '复古未来城市漫画创作' : input.value.slice(0,18); state.stage = 2; input.value = ''; render(); toast('标题与故事资产已自动保存'); }, 1300);
+    }
+
+    function approve(sessionWide=false) {
+      state.stage = 3; state.progress = Math.max(state.progress, 6); state.approvedSession = sessionWide; state.lastTick = Date.now(); render(); toast(sessionWide ? '本次对话内已允许该工作流' : '已允许一次，任务转入后台');
+    }
+
+    function tick() {
+      if (state.stage !== 3) return;
+      const inc = Math.max(2, Math.round((Date.now() - state.lastTick) / 650));
+      state.progress = Math.min(100, state.progress + inc); state.lastTick = Date.now();
+      if (state.progress >= 100) { state.stage = 4; state.outputReady = true; toast('漫画分镜已生成，6 张图片已加入对话资产'); }
+      render();
+    }
+
+    document.addEventListener('click', (event) => {
+      const target = event.target.closest('button,[data-tab-jump]'); if (!target) return;
+      const action = target.dataset.action;
+      if (target.dataset.tab) setTab(target.dataset.tab);
+      if (target.dataset.tabJump) setTab(target.dataset.tabJump);
+      if (target.dataset.node) showNode(target.dataset.node);
+      if (target.dataset.nodeJump) { setTab('flow'); showNode(target.dataset.nodeJump); }
+      if (target.dataset.session) { if (target.dataset.session !== 'comic') toast('原型重点演示“复古未来城市漫画创作”'); else { state.sessionId='comic'; render(); } }
+      if (action === 'admin' || action === 'library') { state.view='library'; render(); }
+      if (action === 'studio') { state.view='studio'; document.querySelector('#modalRoot').innerHTML=''; render(); }
+      if (action === 'new-session') { state.sessionId='new'; state.title='新对话'; state.stage=0; state.view='studio'; render(); document.querySelector('#composerInput').focus(); }
+      if (action === 'reset-demo') { localStorage.removeItem(STORAGE_KEY); state={...defaultState,folders:[...defaultState.folders],customAssets:[],lastTick:Date.now()}; render(); setTab('flow'); toast('已恢复原型初始状态'); }
+      if (action === 'send') sendMessage();
+      if (action === 'approve-once') approve(false);
+      if (action === 'approve-session') approve(true);
+      if (action === 'reject') { toast('已拒绝执行，故事资产仍保留在本次对话'); }
+      if (action === 'edit-story') editStory();
+      if (action === 'save-story') { const editor=document.querySelector('#storyEditor'); state.storyText=editor.value; state.storyVersion += 1; document.querySelector('#modalRoot').innerHTML=''; render(); toast(`已保存 story.md v${state.storyVersion}`); }
+      if (action === 'save-library') { state.savedToLibrary=true; render(); toast('已保存到资产库 / 漫画项目'); }
+      if (action === 'trace') showTrace();
+      if (action === 'close-modal') document.querySelector('#modalRoot').innerHTML='';
+      if (action === 'close-detail') { document.querySelector('#flowDetail').classList.add('hidden'); document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('selected')); }
+      if (action === 'pick-library') { state.view='library'; render(); toast('选择资产后可将固定版本引入当前对话'); }
+      if (action === 'attach-file') toast('原型模拟：文件会先上传并作为本次消息资产附加');
+      if (action === 'library-upload') { state.customAssets.push({name:'新上传的参考图.png',type:'PNG · 2.4 MB',source:'用户上传',kind:'comic'}); render(); toast('已上传资产，来源标记为“用户上传”'); }
+      if (action === 'create-folder') modal('新建文件夹', '<label>文件夹名称<input class="text-input" id="folderName" style="padding-left:10px;margin-top:6px" placeholder="例如：角色设定" /></label>', '取消', '<button class="btn btn-primary" data-action="save-folder">创建</button>');
+      if (action === 'save-folder') { const v=document.querySelector('#folderName').value.trim(); if(v){state.folders.push(v);document.querySelector('#modalRoot').innerHTML='';render();toast(`已创建文件夹“${v}”`);} }
+      if (action === 'create-asset') modal('创建资产', '<label>资产名称<input class="text-input" id="assetName" style="padding-left:10px;margin-top:6px" placeholder="例如：角色设定.md" /></label><p class="muted" style="font-size:11px">本期支持 Markdown、纯文本、JSON 与文件上传。</p>', '取消', '<button class="btn btn-primary" data-action="save-asset">创建并编辑</button>');
+      if (action === 'save-asset') { const v=document.querySelector('#assetName').value.trim(); if(v){state.customAssets.push({name:v,type:'Markdown · v1',source:'用户创建',kind:'md'});document.querySelector('#modalRoot').innerHTML='';render();toast(`已创建资产“${v}”`);} }
+      if (action === 'toggle-nav') document.querySelector('#studioNav').classList.toggle('open');
+      if (action === 'mobile-workbench') document.body.classList.add('mobile-workbench');
+      if (action === 'mobile-chat') document.body.classList.remove('mobile-workbench');
+      if (target.dataset.asset === 'storyboard') assetDetail('分镜图组','工作流：漫画分镜生成');
+      if (target.dataset.libraryIndex !== undefined) {
+        const source = target.querySelectorAll('.asset-meta')[1]?.textContent || '用户上传';
+        assetDetail(target.querySelector('.asset-name').textContent, source);
+      }
+    });
+    document.querySelector('#sessionSearch').addEventListener('input', renderSessions);
+    document.querySelector('#composerInput').addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') sendMessage(); });
+    setInterval(tick, 900);
+    render(); setTab('flow');
+  </script>
+</body>
+</html>

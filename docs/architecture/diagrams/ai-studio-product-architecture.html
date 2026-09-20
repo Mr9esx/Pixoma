@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pixoma Studio · 产品与技术架构</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: #020617; color: #e2e8f0; font-family: "JetBrains Mono", monospace; }
+    .container { width: min(1280px, calc(100% - 40px)); margin: 0 auto; padding: 36px 0 28px; }
+    header { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 24px; }
+    .title-wrap { flex: 1; }
+    .eyebrow { display: flex; align-items: center; gap: 9px; color: #94a3b8; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; }
+    .pulse { width: 7px; height: 7px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 0 rgba(52,211,153,.4); animation: pulse 1.8s infinite; }
+    @keyframes pulse { 70% { box-shadow: 0 0 0 7px rgba(52,211,153,0); } }
+    h1 { margin: 10px 0 6px; color: #f8fafc; font-size: clamp(22px, 3vw, 34px); letter-spacing: -.04em; }
+    .subtitle { margin: 0; max-width: 820px; color: #94a3b8; font-size: 11px; line-height: 1.7; }
+    .toolbar { position: relative; }
+    .toolbar-toggle, .toolbar-actions button { border: 1px solid #334155; background: #0f172a; color: #cbd5e1; border-radius: 6px; height: 34px; font-family: inherit; cursor: pointer; }
+    .toolbar-toggle { width: 38px; font-size: 18px; }
+    .toolbar-actions { position: absolute; z-index: 5; right: 0; top: 42px; display: none; gap: 6px; padding: 7px; border: 1px solid #334155; border-radius: 8px; background: #0f172a; white-space: nowrap; }
+    .toolbar.open .toolbar-actions { display: flex; }
+    .toolbar-actions button { padding: 0 10px; font-size: 9px; }
+    .toolbar button:hover { border-color: #64748b; color: #fff; }
+    .jump-links { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 18px; }
+    .jump-links a { text-decoration: none; color: #94a3b8; border: 1px solid #1e293b; border-radius: 999px; padding: 6px 11px; font-size: 9px; }
+    .jump-links a:hover { color: #f8fafc; border-color: #475569; }
+    .diagram-card { border: 1px solid #1e293b; border-radius: 12px; background: #020617; overflow: hidden; margin-bottom: 18px; }
+    .section-head { padding: 16px 18px 0; }
+    .section-head h2 { margin: 0; color: #f8fafc; font-size: 14px; }
+    .section-head p { margin: 5px 0 0; color: #64748b; font-size: 9px; }
+    svg { display: block; width: 100%; height: auto; }
+    svg text { font-family: "JetBrains Mono", monospace; }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+    .card { border: 1px solid #1e293b; border-radius: 10px; padding: 15px; background: #0f172a; }
+    .card-header { display: flex; align-items: center; gap: 8px; }
+    .card-dot { width: 8px; height: 8px; border-radius: 2px; }
+    .card h3 { margin: 0; color: #f8fafc; font-size: 11px; }
+    .card ul { list-style: none; padding: 0; margin: 10px 0 0; color: #94a3b8; font-size: 9px; line-height: 1.8; }
+    .cyan { background: #22d3ee; } .green { background: #34d399; } .violet { background: #a78bfa; }
+    footer { margin-top: 20px; padding-top: 14px; border-top: 1px solid #1e293b; display: flex; justify-content: space-between; color: #475569; font-size: 8px; }
+    @media (max-width: 760px) { .container { width: calc(100% - 20px); padding-top: 22px; } .summary-grid { grid-template-columns: 1fr; } header { align-items: flex-start; } .diagram-card { overflow-x: auto; } .diagram-card svg { min-width: 900px; } }
+    @media print { .toolbar { display: none !important; } body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <header>
+      <div class="title-wrap">
+        <div class="eyebrow"><span class="pulse"></span>Product + System Architecture · Draft for Review</div>
+        <h1>Pixoma Studio · AI Chat Agent</h1>
+        <p class="subtitle">Session 是创作工作区，Asset 是可复用上下文与产物，Agent 负责协调模型、工作流、Skill 与 MCP；Flow 负责把执行过程变成可理解、可审批、可恢复的用户界面。</p>
+      </div>
+      <div class="toolbar">
+        <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('open')" aria-label="导出选项">⋯</button>
+        <div class="toolbar-actions"><button onclick="copyAsImage()">📋 复制</button><button onclick="downloadPNG()">🖼️ PNG</button><button onclick="downloadPDF()">📄 PDF</button></div>
+      </div>
+    </header>
+
+    <nav class="jump-links"><a href="#value">01 价值链</a><a href="#capability">02 能力图谱</a><a href="#architecture">03 分层架构</a><a href="#runtime">04 运行时闭环</a></nav>
+
+    <section class="diagram-card" id="value">
+      <div class="section-head"><h2>01 / 产品价值链</h2><p>从自然语言意图到可复用资产，价值不止发生在单次回复。</p></div>
+      <svg viewBox="0 0 1200 310" role="img" aria-label="Pixoma Studio 产品价值链">
+        <defs>
+          <pattern id="grid1" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0L0 0 0 40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern>
+          <marker id="arrow1" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker>
+        </defs>
+        <rect width="1200" height="310" fill="url(#grid1)"/>
+        <g fill="none" stroke="#64748b" stroke-width="1.3" marker-end="url(#arrow1)">
+          <path d="M196 141H258"/><path d="M392 141H454"/><path d="M588 141H650"/><path d="M784 141H846"/><path d="M980 141H1042"/>
+        </g>
+        <g>
+          <rect x="54" y="92" width="142" height="98" rx="6" fill="#0f172a"/><rect x="54" y="92" width="142" height="98" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="125" y="124" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">创作意图</text><text x="125" y="145" fill="#94a3b8" font-size="9" text-anchor="middle">目标 / 约束 / 参考</text><text x="125" y="167" fill="#64748b" font-size="8" text-anchor="middle">自然语言 + 资产</text>
+          <rect x="258" y="92" width="134" height="98" rx="6" fill="#0f172a"/><rect x="258" y="92" width="134" height="98" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+          <text x="325" y="124" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">上下文组织</text><text x="325" y="145" fill="#94a3b8" font-size="9" text-anchor="middle">Session / Memory</text><text x="325" y="167" fill="#22d3ee" font-size="8" text-anchor="middle">固定资产版本</text>
+          <rect x="454" y="92" width="134" height="98" rx="6" fill="#0f172a"/><rect x="454" y="92" width="134" height="98" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+          <text x="521" y="124" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">Agent 规划</text><text x="521" y="145" fill="#94a3b8" font-size="9" text-anchor="middle">Eino ReAct</text><text x="521" y="167" fill="#34d399" font-size="8" text-anchor="middle">能力路由与策略</text>
+          <rect x="650" y="92" width="134" height="98" rx="6" fill="#0f172a"/><rect x="650" y="92" width="134" height="98" rx="6" fill="rgba(251,146,60,.3)" stroke="#fb923c" stroke-width="1.5"/>
+          <text x="717" y="124" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">可控执行</text><text x="717" y="145" fill="#94a3b8" font-size="9" text-anchor="middle">后台 / 审批 / 恢复</text><text x="717" y="167" fill="#fb923c" font-size="8" text-anchor="middle">模型 · Tool · Workflow</text>
+          <rect x="846" y="92" width="134" height="98" rx="6" fill="#0f172a"/><rect x="846" y="92" width="134" height="98" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/>
+          <text x="913" y="124" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">资产产出</text><text x="913" y="145" fill="#94a3b8" font-size="9" text-anchor="middle">文档 / 图片 / 音视频</text><text x="913" y="167" fill="#a78bfa" font-size="8" text-anchor="middle">版本与血缘</text>
+          <rect x="1042" y="92" width="104" height="98" rx="6" fill="#0f172a"/><rect x="1042" y="92" width="104" height="98" rx="6" fill="rgba(120,53,15,.3)" stroke="#fbbf24" stroke-width="1.5"/>
+          <text x="1094" y="124" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">复用增值</text><text x="1094" y="145" fill="#94a3b8" font-size="9" text-anchor="middle">资产库</text><text x="1094" y="167" fill="#fbbf24" font-size="8" text-anchor="middle">跨 Session</text>
+        </g>
+        <path d="M1094 208v42H325v-42" fill="none" stroke="#a78bfa" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow1)"/>
+        <text x="708" y="268" fill="#a78bfa" font-size="8" text-anchor="middle">复用资产回到新的创作上下文，形成持续积累的闭环</text>
+      </svg>
+    </section>
+
+    <section class="diagram-card" id="capability">
+      <div class="section-head"><h2>02 / 能力图谱</h2><p>产品入口保持简单，Agent 将底层异构能力统一成可观察的 Run 与 Asset。</p></div>
+      <svg viewBox="0 0 1200 530" role="img" aria-label="Pixoma Studio 能力图谱">
+        <defs><pattern id="grid2" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0L0 0 0 40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern><marker id="arrow2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker></defs>
+        <rect width="1200" height="530" fill="url(#grid2)"/>
+        <rect x="40" y="34" width="1120" height="430" rx="12" fill="none" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="8 4"/>
+        <text x="58" y="58" fill="#fbbf24" font-size="9">PIXOMA STUDIO DOMAIN</text>
+        <g fill="none" stroke="#64748b" marker-end="url(#arrow2)"><path d="M600 134v40"/><path d="M600 254v40"/><path d="M190 366h65"/><path d="M430 366h65"/><path d="M670 366h65"/><path d="M910 366h65"/></g>
+        <rect x="150" y="78" width="900" height="56" rx="6" fill="#0f172a"/><rect x="150" y="78" width="900" height="56" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="600" y="101" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">体验层 · Studio Shell</text><text x="600" y="119" fill="#94a3b8" font-size="9" text-anchor="middle">对话 / 执行流 / Session 资产 / 资产库 / Trace / 审批</text>
+        <rect x="150" y="174" width="900" height="80" rx="6" fill="#0f172a"/><rect x="150" y="174" width="900" height="80" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="600" y="199" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">Agent 编排层 · Eino ReAct</text><text x="600" y="218" fill="#94a3b8" font-size="9" text-anchor="middle">意图理解 · 计划 · 上下文构建 · Tool 路由 · 审批中断 / 恢复 · 失败恢复</text><text x="600" y="237" fill="#34d399" font-size="8" text-anchor="middle">统一输出 AG-UI Events + Domain Events</text>
+        <rect x="145" y="294" width="910" height="34" rx="4" fill="rgba(251,146,60,.3)" stroke="#fb923c"/><text x="600" y="316" fill="#fb923c" font-size="9" text-anchor="middle">AG-UI RUN / MESSAGE / TOOL / STATE / ACTIVITY / INTERRUPT EVENT BUS</text>
+        <g>
+          <rect x="70" y="342" width="120" height="74" rx="6" fill="#0f172a"/><rect x="70" y="342" width="120" height="74" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/><text x="130" y="369" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">LLM</text><text x="130" y="389" fill="#94a3b8" font-size="8" text-anchor="middle">OpenAI-compatible</text>
+          <rect x="255" y="342" width="175" height="74" rx="6" fill="#0f172a"/><rect x="255" y="342" width="175" height="74" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/><text x="342" y="369" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Pixoma Workflow</text><text x="342" y="389" fill="#94a3b8" font-size="8" text-anchor="middle">任务 / 输入 / 输出 / 进度</text>
+          <rect x="495" y="342" width="175" height="74" rx="6" fill="#0f172a"/><rect x="495" y="342" width="175" height="74" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/><text x="582" y="369" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Skill Runtime</text><text x="582" y="389" fill="#94a3b8" font-size="8" text-anchor="middle">文档 / 媒体 / 领域能力</text>
+          <rect x="735" y="342" width="175" height="74" rx="6" fill="#0f172a"/><rect x="735" y="342" width="175" height="74" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/><text x="822" y="369" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">MCP Client</text><text x="822" y="389" fill="#94a3b8" font-size="8" text-anchor="middle">外部连接器与资源</text>
+          <rect x="975" y="342" width="155" height="74" rx="6" fill="#0f172a"/><rect x="975" y="342" width="155" height="74" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/><text x="1052" y="369" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Asset Tools</text><text x="1052" y="389" fill="#94a3b8" font-size="8" text-anchor="middle">创建 / 版本 / 引用</text>
+        </g>
+        <g font-size="8" text-anchor="middle"><text x="190" y="450" fill="#64748b">文本 / 图像 / 音视频</text><text x="430" y="450" fill="#64748b">稳定业务流程</text><text x="670" y="450" fill="#64748b">可组合专项能力</text><text x="910" y="450" fill="#64748b">第三方系统</text></g>
+      </svg>
+    </section>
+
+    <section class="diagram-card" id="architecture">
+      <div class="section-head"><h2>03 / 分层技术架构</h2><p>Studio 作为独立领域建设；只通过稳定适配器连接现有工作流与 MCP Server。</p></div>
+      <svg viewBox="0 0 1200 830" role="img" aria-label="Pixoma Studio 分层技术架构">
+        <defs><pattern id="grid3" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0L0 0 0 40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern><marker id="arrow3" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker><marker id="arrowRose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fb7185"/></marker></defs>
+        <rect width="1200" height="830" fill="url(#grid3)"/>
+        <!-- arrows first -->
+        <g fill="none" stroke="#64748b" stroke-width="1.3" marker-end="url(#arrow3)">
+          <path d="M265 147v50"/><path d="M600 147v50"/><path d="M935 147v50"/><path d="M600 283v48"/>
+          <path d="M600 401v48"/><path d="M280 531v55"/><path d="M490 531v55"/><path d="M710 531v55"/><path d="M920 531v55"/>
+          <path d="M450 686v44"/><path d="M750 686v44"/>
+        </g>
+        <path d="M1030 260h70v430H965" fill="none" stroke="#fb7185" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#arrowRose)"/>
+
+        <rect x="48" y="38" width="1104" height="130" rx="12" fill="none" stroke="#22d3ee" stroke-width="1.2" stroke-dasharray="8 4"/><text x="66" y="61" fill="#22d3ee" font-size="9">FRONTEND · WEB/ADMIN</text>
+        <g>
+          <rect x="135" y="82" width="260" height="65" rx="6" fill="#0f172a"/><rect x="135" y="82" width="260" height="65" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="265" y="106" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">assistant-ui + AG-UI Runtime</text><text x="265" y="127" fill="#94a3b8" font-size="9" text-anchor="middle">Chat / Composer / Tool UI</text>
+          <rect x="470" y="82" width="260" height="65" rx="6" fill="#0f172a"/><rect x="470" y="82" width="260" height="65" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="600" y="106" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">React Flow Workbench</text><text x="600" y="127" fill="#94a3b8" font-size="9" text-anchor="middle">Flow / Assets / Node Detail</text>
+          <rect x="805" y="82" width="260" height="65" rx="6" fill="#0f172a"/><rect x="805" y="82" width="260" height="65" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="935" y="106" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">TanStack Query + Router</text><text x="935" y="127" fill="#94a3b8" font-size="9" text-anchor="middle">Snapshot / Resume / Navigation</text>
+        </g>
+
+        <rect x="48" y="197" width="1104" height="86" rx="12" fill="none" stroke="#fb923c" stroke-width="1.2" stroke-dasharray="8 4"/><text x="66" y="220" fill="#fb923c" font-size="9">TRANSPORT + PROTOCOL</text>
+        <rect x="160" y="234" width="880" height="29" rx="4" fill="rgba(251,146,60,.3)" stroke="#fb923c"/><text x="600" y="253" fill="#fb923c" font-size="9" text-anchor="middle">REST COMMANDS · AG-UI SSE EVENTS · SNAPSHOT / CURSOR / RECONNECT</text>
+
+        <rect x="48" y="331" width="1104" height="200" rx="12" fill="none" stroke="#34d399" stroke-width="1.2" stroke-dasharray="8 4"/><text x="66" y="354" fill="#34d399" font-size="9">STUDIO APPLICATION + DOMAIN</text>
+        <rect x="125" y="374" width="950" height="61" rx="6" fill="#0f172a"/><rect x="125" y="374" width="950" height="61" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/><text x="600" y="398" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">Agent Application Service · Run Coordinator</text><text x="600" y="418" fill="#94a3b8" font-size="9" text-anchor="middle">Session · Run · Message · Context · Approval · Background Lease · Event Projection</text>
+        <g>
+          <rect x="115" y="449" width="190" height="62" rx="6" fill="#0f172a"/><rect x="115" y="449" width="190" height="62" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="210" y="474" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Context Builder</text><text x="210" y="493" fill="#94a3b8" font-size="8" text-anchor="middle">消息 + 固定资产版本</text>
+          <rect x="335" y="449" width="190" height="62" rx="6" fill="#0f172a"/><rect x="335" y="449" width="190" height="62" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="430" y="474" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Policy Engine</text><text x="430" y="493" fill="#94a3b8" font-size="8" text-anchor="middle">授权边界与审批</text>
+          <rect x="555" y="449" width="190" height="62" rx="6" fill="#0f172a"/><rect x="555" y="449" width="190" height="62" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="650" y="474" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Asset Domain</text><text x="650" y="493" fill="#94a3b8" font-size="8" text-anchor="middle">版本 / 血缘 / 引用</text>
+          <rect x="775" y="449" width="190" height="62" rx="6" fill="#0f172a"/><rect x="775" y="449" width="190" height="62" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="870" y="474" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Trace Projector</text><text x="870" y="493" fill="#94a3b8" font-size="8" text-anchor="middle">AG-UI + Domain Event</text>
+        </g>
+
+        <rect x="48" y="586" width="1104" height="100" rx="12" fill="none" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="8 4"/><text x="66" y="609" fill="#94a3b8" font-size="9">ADAPTERS · ANTI-CORRUPTION BOUNDARY</text>
+        <g>
+          <rect x="110" y="625" width="180" height="61" rx="6" fill="#0f172a"/><rect x="110" y="625" width="180" height="61" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8"/><text x="200" y="649" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Model Adapter</text><text x="200" y="668" fill="#94a3b8" font-size="8" text-anchor="middle">OpenAI-compatible</text>
+          <rect x="330" y="625" width="180" height="61" rx="6" fill="#0f172a"/><rect x="330" y="625" width="180" height="61" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8"/><text x="420" y="649" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Workflow Adapter</text><text x="420" y="668" fill="#94a3b8" font-size="8" text-anchor="middle">现有 Pixoma 能力</text>
+          <rect x="550" y="625" width="180" height="61" rx="6" fill="#0f172a"/><rect x="550" y="625" width="180" height="61" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8"/><text x="640" y="649" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Skill Adapter</text><text x="640" y="668" fill="#94a3b8" font-size="8" text-anchor="middle">独立 Skill Registry</text>
+          <rect x="770" y="625" width="180" height="61" rx="6" fill="#0f172a"/><rect x="770" y="625" width="180" height="61" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8"/><text x="860" y="649" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">MCP Client Adapter</text><text x="860" y="668" fill="#94a3b8" font-size="8" text-anchor="middle">不耦合现有 MCP Server</text>
+          <rect x="990" y="625" width="120" height="61" rx="6" fill="#0f172a"/><rect x="990" y="625" width="120" height="61" rx="6" fill="rgba(136,19,55,.4)" stroke="#fb7185"/><text x="1050" y="649" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">AuthZ</text><text x="1050" y="668" fill="#94a3b8" font-size="8" text-anchor="middle">Policy Gate</text>
+        </g>
+
+        <rect x="48" y="730" width="1104" height="76" rx="12" fill="none" stroke="#a78bfa" stroke-width="1.2" stroke-dasharray="8 4"/><text x="66" y="753" fill="#a78bfa" font-size="9">PERSISTENCE + INFRASTRUCTURE</text>
+        <rect x="170" y="759" width="250" height="34" rx="6" fill="#0f172a"/><rect x="170" y="759" width="250" height="34" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa"/><text x="295" y="780" fill="#fff" font-size="9" text-anchor="middle">PostgreSQL · Session / Event / Asset Metadata</text>
+        <rect x="475" y="759" width="250" height="34" rx="6" fill="#0f172a"/><rect x="475" y="759" width="250" height="34" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa"/><text x="600" y="780" fill="#fff" font-size="9" text-anchor="middle">Object Storage · Asset Blob / Preview</text>
+        <rect x="780" y="759" width="250" height="34" rx="6" fill="#0f172a"/><rect x="780" y="759" width="250" height="34" rx="6" fill="rgba(251,146,60,.3)" stroke="#fb923c"/><text x="905" y="780" fill="#fff" font-size="9" text-anchor="middle">Worker / Queue · Lease / Retry / Resume</text>
+      </svg>
+    </section>
+
+    <section class="diagram-card" id="runtime">
+      <div class="section-head"><h2>04 / 运行时闭环</h2><p>命令写入服务端后立即具备恢复能力；浏览器只订阅状态，不持有任务生命周期。</p></div>
+      <svg viewBox="0 0 1200 390" role="img" aria-label="Agent Run 运行时闭环">
+        <defs><pattern id="grid4" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0L0 0 0 40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern><marker id="arrow4" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker></defs>
+        <rect width="1200" height="390" fill="url(#grid4)"/>
+        <g fill="none" stroke="#64748b" marker-end="url(#arrow4)"><path d="M205 148h55"/><path d="M425 148h55"/><path d="M645 148h55"/><path d="M865 148h55"/><path d="M1000 191v75H610"/><path d="M530 266H200v-75"/></g>
+        <g>
+          <rect x="70" y="106" width="135" height="85" rx="6" fill="#0f172a"/><rect x="70" y="106" width="135" height="85" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="137" y="135" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">1. 写入命令</text><text x="137" y="156" fill="#94a3b8" font-size="8" text-anchor="middle">消息 + 资产引用</text><text x="137" y="174" fill="#22d3ee" font-size="8" text-anchor="middle">commit before run</text>
+          <rect x="260" y="106" width="165" height="85" rx="6" fill="#0f172a"/><rect x="260" y="106" width="165" height="85" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/><text x="342" y="135" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">2. Worker 获取 Lease</text><text x="342" y="156" fill="#94a3b8" font-size="8" text-anchor="middle">CAS / heartbeat / retry</text><text x="342" y="174" fill="#34d399" font-size="8" text-anchor="middle">页面断开不取消</text>
+          <rect x="480" y="106" width="165" height="85" rx="6" fill="#0f172a"/><rect x="480" y="106" width="165" height="85" rx="6" fill="rgba(251,146,60,.3)" stroke="#fb923c" stroke-width="1.5"/><text x="562" y="135" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">3. Eino ReAct 执行</text><text x="562" y="156" fill="#94a3b8" font-size="8" text-anchor="middle">Model / Tool / Interrupt</text><text x="562" y="174" fill="#fb923c" font-size="8" text-anchor="middle">可中断与恢复</text>
+          <rect x="700" y="106" width="165" height="85" rx="6" fill="#0f172a"/><rect x="700" y="106" width="165" height="85" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/><text x="782" y="135" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">4. 原子记录事件</text><text x="782" y="156" fill="#94a3b8" font-size="8" text-anchor="middle">Trace + State + Asset</text><text x="782" y="174" fill="#a78bfa" font-size="8" text-anchor="middle">seq cursor</text>
+          <rect x="920" y="106" width="210" height="85" rx="6" fill="#0f172a"/><rect x="920" y="106" width="210" height="85" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="1025" y="135" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">5. AG-UI 增量投影</text><text x="1025" y="156" fill="#94a3b8" font-size="8" text-anchor="middle">SSE → Chat / Flow / Assets</text><text x="1025" y="174" fill="#22d3ee" font-size="8" text-anchor="middle">断线按 cursor 重放</text>
+        </g>
+        <rect x="530" y="242" width="80" height="49" rx="24" fill="#0f172a" stroke="#fb7185" stroke-width="1.5"/><text x="570" y="263" fill="#fb7185" font-size="8" text-anchor="middle">审批？</text><text x="570" y="278" fill="#94a3b8" font-size="7" text-anchor="middle">resume token</text>
+        <text x="600" y="332" fill="#64748b" font-size="8" text-anchor="middle">Session history = Message projection · Flow = Run projection · Assets = Asset projection · Trace = immutable event history</text>
+      </svg>
+    </section>
+
+    <div class="summary-grid">
+      <div class="card"><div class="card-header"><span class="card-dot cyan"></span><h3>前端策略</h3></div><ul><li>• assistant-ui 负责标准 Chat 交互</li><li>• React Flow 负责 Pixoma 执行可视化</li><li>• 服务端快照是真实状态来源</li></ul></div>
+      <div class="card"><div class="card-header"><span class="card-dot green"></span><h3>领域边界</h3></div><ul><li>• Studio 不复用旧 Bot / MCP 内部实现</li><li>• Workflow 与 MCP 仅通过 Adapter 接入</li><li>• Asset 是独立一等领域对象</li></ul></div>
+      <div class="card"><div class="card-header"><span class="card-dot violet"></span><h3>可靠性原则</h3></div><ul><li>• Run 在服务端持久化并后台执行</li><li>• 事件有序、幂等、可重放</li><li>• 资产固定版本，历史输入不漂移</li></ul></div>
+    </div>
+    <footer><span>PIXOMA STUDIO · AI CREATION PLATFORM</span><span>2026-09-20 · DRAFT FOR REVIEW</span></footer>
+  </div>
+
+  <script>
+    async function captureReport() {
+      const report = document.getElementById('report-container');
+      const rect = report.getBoundingClientRect();
+      const padding = 32;
+      return html2canvas(document.body, {
+        x: Math.max(0, rect.left + window.scrollX - padding),
+        y: Math.max(0, rect.top + window.scrollY - padding),
+        width: rect.width + padding * 2,
+        height: rect.height + padding * 2,
+        scale: 2,
+        backgroundColor: '#020617',
+        useCORS: true,
+        ignoreElements: element => element.classList && element.classList.contains('toolbar')
+      });
+    }
+    async function copyAsImage() {
+      const canvas = await captureReport();
+      canvas.toBlob(async blob => {
+        try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); alert('架构图已复制为 PNG'); }
+        catch { alert('当前环境不支持写入剪贴板，请使用 PNG 下载。'); }
+      }, 'image/png');
+    }
+    async function downloadPNG() {
+      const canvas = await captureReport();
+      const link = document.createElement('a');
+      link.download = 'pixoma-studio-product-architecture.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+    async function downloadPDF() {
+      const canvas = await captureReport();
+      const { jsPDF } = window.jspdf;
+      const width = canvas.width;
+      const height = canvas.height;
+      const pdf = new jsPDF({ orientation: width > height ? 'landscape' : 'portrait', unit: 'px', format: [width, height], hotfixes: ['px_scaling'] });
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, width, height);
+      pdf.save('pixoma-studio-product-architecture.pdf');
+    }
+  </script>
+</body>
+</html>
