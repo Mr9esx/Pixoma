@@ -310,6 +310,21 @@ export function createStudioSkill(input: {
   })
 }
 
+export function updateStudioSkill(input: StudioSkill) {
+  return apiFetch<StudioSkill>(
+    `/api/v1/studio/skills/${encodeURIComponent(input.id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: input.name,
+        description: input.description,
+        prompt: input.prompt,
+        enabled: input.enabled,
+      }),
+    }
+  )
+}
+
 export function listStudioConnectors() {
   return apiFetch<StudioMCPConnector[]>('/api/v1/studio/connectors')
 }
@@ -325,6 +340,23 @@ export function createStudioConnector(input: {
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+export function updateStudioConnector(
+  input: Pick<StudioMCPConnector, 'id' | 'name' | 'url' | 'enabled' | 'policy'>
+) {
+  return apiFetch<StudioMCPConnector>(
+    `/api/v1/studio/connectors/${encodeURIComponent(input.id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: input.name,
+        url: input.url,
+        enabled: input.enabled,
+        policy: input.policy,
+      }),
+    }
+  )
 }
 
 export function listStudioAgentWorkflows() {

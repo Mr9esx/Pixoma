@@ -112,6 +112,45 @@ func TestStudioSkillConfigAPIIsAccountScoped(t *testing.T) {
 	}
 }
 
+func TestStudioCapabilityConfigAPIUpdatesEnabledState(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	skill := request(t, router, http.MethodPost, "/skills", map[string]any{
+		"name": "漫画分镜", "prompt": "先输出镜头表", "enabled": true,
+	}, "account-a")
+	var createdSkill struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(skill.Body.Bytes(), &createdSkill); err != nil || createdSkill.ID == "" {
+		t.Fatalf("created skill = %s, err=%v", skill.Body.String(), err)
+	}
+	updatedSkill := request(t, router, http.MethodPatch, "/skills/"+createdSkill.ID, map[string]any{
+		"name": "漫画分镜", "prompt": "先输出镜头表", "enabled": false,
+	}, "account-a")
+	if updatedSkill.Code != http.StatusOK || !strings.Contains(updatedSkill.Body.String(), "\"enabled\":false") {
+		t.Fatalf("PATCH skill = %d %s", updatedSkill.Code, updatedSkill.Body.String())
+	}
+
+	connector := request(t, router, http.MethodPost, "/connectors", map[string]any{
+		"name": "Reference", "url": "https://mcp.example.com", "credential": "secret", "enabled": true, "policy": "approval",
+	}, "account-a")
+	var createdConnector struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(connector.Body.Bytes(), &createdConnector); err != nil || createdConnector.ID == "" {
+		t.Fatalf("created connector = %s, err=%v", connector.Body.String(), err)
+	}
+	updatedConnector := request(t, router, http.MethodPatch, "/connectors/"+createdConnector.ID, map[string]any{
+		"name": "Reference", "url": "https://mcp.example.com", "enabled": false, "policy": "forbidden",
+	}, "account-a")
+	if updatedConnector.Code != http.StatusOK || !strings.Contains(updatedConnector.Body.String(), "\"enabled\":false") || strings.Contains(updatedConnector.Body.String(), "secret") {
+		t.Fatalf("PATCH connector = %d %s", updatedConnector.Code, updatedConnector.Body.String())
+	}
+}
+
 func TestStudioConnectorConfigAPIStoresMaskedAccountScopedConfiguration(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)

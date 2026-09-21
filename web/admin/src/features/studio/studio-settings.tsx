@@ -22,6 +22,8 @@ import {
   type StudioAgentWorkflow,
   type StudioModel,
   updateStudioAgentWorkflow,
+  updateStudioConnector,
+  updateStudioSkill,
 } from '@/lib/api/studio'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -311,6 +313,12 @@ function ConnectorSettings({
   loading: boolean
   error: boolean
 }) {
+  const queryClient = useQueryClient()
+  const update = useMutation({
+    mutationFn: updateStudioConnector,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] }),
+  })
   return (
     <div className='mx-auto max-w-5xl space-y-5'>
       <div>
@@ -341,9 +349,20 @@ function ConnectorSettings({
                   <span className='flex size-9 items-center justify-center rounded-lg bg-muted'>
                     <Cable className='size-4' />
                   </span>
-                  <Badge variant={connector.enabled ? 'secondary' : 'outline'}>
-                    {connector.enabled ? '已启用' : '已停用'}
-                  </Badge>
+                  <Switch
+                    aria-label={`启用 ${connector.name}`}
+                    checked={connector.enabled}
+                    disabled={update.isPending}
+                    onCheckedChange={(enabled) =>
+                      update.mutate({
+                        id: connector.id,
+                        name: connector.name,
+                        url: connector.url,
+                        enabled,
+                        policy: connector.policy,
+                      })
+                    }
+                  />
                 </div>
                 <CardTitle className='mt-3 text-base'>
                   {connector.name}
@@ -529,6 +548,12 @@ function SkillSettings({
   loading: boolean
   error: boolean
 }) {
+  const queryClient = useQueryClient()
+  const update = useMutation({
+    mutationFn: updateStudioSkill,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['studio', 'skills'] }),
+  })
   return (
     <div className='mx-auto max-w-5xl space-y-5'>
       <div>
@@ -559,9 +584,14 @@ function SkillSettings({
                   <span className='flex size-9 items-center justify-center rounded-lg bg-muted'>
                     <Sparkles className='size-4' />
                   </span>
-                  <Badge variant={skill.enabled ? 'secondary' : 'outline'}>
-                    {skill.enabled ? '已启用' : '已停用'}
-                  </Badge>
+                  <Switch
+                    aria-label={`启用 ${skill.name}`}
+                    checked={skill.enabled}
+                    disabled={update.isPending}
+                    onCheckedChange={(enabled) =>
+                      update.mutate({ ...skill, enabled })
+                    }
+                  />
                 </div>
                 <CardTitle className='mt-3 text-base'>{skill.name}</CardTitle>
                 <CardDescription className='line-clamp-2'>

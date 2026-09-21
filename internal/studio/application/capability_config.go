@@ -48,9 +48,13 @@ type UpdateSkillInput struct {
 	Enabled                                       bool
 }
 type SkillView struct {
-	ID, Name, Description, Prompt string
-	Enabled                       bool
-	CreatedAt, UpdatedAt          time.Time
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Prompt      string    `json:"prompt"`
+	Enabled     bool      `json:"enabled"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 type CreateConnectorInput struct {
 	AccountID, Name, URL, Credential string
@@ -63,12 +67,15 @@ type UpdateConnectorInput struct {
 	Policy                                        domain.ConnectorPolicy
 }
 type MCPConnectorView struct {
-	ID, Name, URL        string
-	Enabled              bool
-	Policy               domain.ConnectorPolicy
-	CredentialMasked     string
-	Tools                []domain.MCPTool
-	CreatedAt, UpdatedAt time.Time
+	ID               string                 `json:"id"`
+	Name             string                 `json:"name"`
+	URL              string                 `json:"url"`
+	Enabled          bool                   `json:"enabled"`
+	Policy           domain.ConnectorPolicy `json:"policy"`
+	CredentialMasked string                 `json:"credential_masked"`
+	Tools            []domain.MCPTool       `json:"tools"`
+	CreatedAt        time.Time              `json:"created_at"`
+	UpdatedAt        time.Time              `json:"updated_at"`
 }
 type AgentWorkflowView struct {
 	ID              string `json:"id"`

@@ -9,6 +9,8 @@ import {
   listStudioConnectors,
   listStudioAgentWorkflows,
   updateStudioAgentWorkflow,
+  updateStudioConnector,
+  updateStudioSkill,
   listStudioSessions,
   sendStudioMessage,
 } from './studio'
@@ -262,5 +264,42 @@ describe('Studio API', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({
       agent_enabled: true,
     })
+  })
+
+  it('updates Skill and connector availability without resending a connector credential', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ id: 'capability-1', enabled: false }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await updateStudioSkill({
+      id: 'skill-1',
+      name: '分镜',
+      description: '',
+      prompt: '输出镜头表',
+      enabled: false,
+    })
+    await updateStudioConnector({
+      id: 'connector-1',
+      name: 'Reference',
+      url: 'https://mcp.example.com',
+      enabled: false,
+      policy: 'forbidden',
+    })
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/skills/skill-1'
+    )
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/connectors/connector-1'
+    )
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[1][1].body))
+    ).not.toHaveProperty('credential')
   })
 })

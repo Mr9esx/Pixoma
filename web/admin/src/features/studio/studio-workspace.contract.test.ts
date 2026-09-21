@@ -43,6 +43,8 @@ describe('Studio production workspace contract', () => {
     const source = read('./studio-settings.tsx')
     expect(source).toContain('listStudioSkills')
     expect(source).toContain('createStudioSkill')
+
+    expect(source).toContain('updateStudioSkill')
     expect(source).toContain('SkillDialog')
     expect(source).not.toContain('<EmptySetting icon={Sparkles}')
   })
@@ -51,6 +53,7 @@ describe('Studio production workspace contract', () => {
     const source = read('./studio-settings.tsx')
     expect(source).toContain('listStudioConnectors')
     expect(source).toContain('createStudioConnector')
+    expect(source).toContain('updateStudioConnector')
     expect(source).toContain('ConnectorDialog')
     expect(source).not.toContain("title='MCP 连接器'")
   })
