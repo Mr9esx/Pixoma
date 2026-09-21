@@ -251,6 +251,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	}
 	studioRepo := studiopersist.NewGormRepository(gdb)
 	studioModelService := &studioapp.ModelConfigService{Repo: studioRepo, EncryptionKey: encKey}
+	studioCapabilityService := &studioapp.CapabilityConfigService{Repo: studioRepo, EncryptionKey: encKey}
 	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
 		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
 			Mock: studioapp.NewMockEngine(), Online: &studioeino.Engine{Models: studioModelService},
@@ -374,7 +375,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
 		Studio: &studioapi.Handler{
 			Repo: studioRepo, Service: studioService, Runner: studioRunner,
-			Approvals: studioApprovalService, Models: studioModelService, Blob: blobStore,
+			Approvals: studioApprovalService, Models: studioModelService, Capabilities: studioCapabilityService, Blob: blobStore,
 		},
 		Channels: &channelsapi.Handler{
 			Svc: chSvc,

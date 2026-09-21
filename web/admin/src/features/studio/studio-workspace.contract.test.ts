@@ -38,4 +38,12 @@ describe('Studio production workspace contract', () => {
     expect(read('../../config/menu.ts')).toContain("id: 'studio'")
     expect(read('../../routes/_app/studio.tsx')).toContain('StudioWorkspace')
   })
+
+  it('provides a connected Skill configuration view', () => {
+    const source = read('./studio-settings.tsx')
+    expect(source).toContain('listStudioSkills')
+    expect(source).toContain('createStudioSkill')
+    expect(source).toContain('SkillDialog')
+    expect(source).not.toContain('<EmptySetting icon={Sparkles}')
+  })
 })

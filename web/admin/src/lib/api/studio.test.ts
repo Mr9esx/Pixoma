@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-	createStudioModel,
-	createStudioSession,
+  createStudioModel,
+  createStudioSession,
+  createStudioSkill,
   getStudioSession,
+  listStudioSkills,
   listStudioSessions,
   sendStudioMessage,
 } from './studio'
@@ -113,16 +115,69 @@ describe('Studio API', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await createStudioModel({
-      name: 'Claude', protocol: 'anthropic_messages_compatible', baseUrl: 'https://api.anthropic.com/v1',
-      model: 'claude-sonnet', apiKey: 'only-in-request', enabled: true, agentEnabled: true, default: false,
+      name: 'Claude',
+      protocol: 'anthropic_messages_compatible',
+      baseUrl: 'https://api.anthropic.com/v1',
+      model: 'claude-sonnet',
+      apiKey: 'only-in-request',
+      enabled: true,
+      agentEnabled: true,
+      default: false,
       thinking: { enabled: true, budget_tokens: 2048 },
-      capabilities: { tools: true, vision: false, image_output: false, streaming: true },
+      capabilities: {
+        tools: true,
+        vision: false,
+        image_output: false,
+        streaming: true,
+      },
     })
 
     const init = fetchMock.mock.calls[0][1] as RequestInit
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:8081/api/v1/studio/models')
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/models'
+    )
     expect(JSON.parse(String(init.body))).toMatchObject({
-      protocol: 'anthropic_messages_compatible', api_key: 'only-in-request', agent_enabled: true,
+      protocol: 'anthropic_messages_compatible',
+      api_key: 'only-in-request',
+      agent_enabled: true,
+    })
+  })
+
+  it('lists and creates account-scoped Studio Skills', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([{ id: 'skill-1', name: '漫画分镜', enabled: true }]),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'skill-2', name: '角色设定' }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const skills = await listStudioSkills()
+    await createStudioSkill({
+      name: '角色设定',
+      description: '保持角色一致',
+      prompt: '锁定角色特征',
+      enabled: true,
+    })
+
+    expect(skills[0].id).toBe('skill-1')
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/skills'
+    )
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toMatchObject({
+      name: '角色设定',
+      enabled: true,
     })
   })
 })

@@ -19,12 +19,13 @@ import (
 )
 
 type Handler struct {
-	Repo      domain.Repository
-	Service   *studioapp.Service
-	Runner    *studioapp.BackgroundRunner
-	Approvals *studioapp.ApprovalService
-	Models    *studioapp.ModelConfigService
-	Blob      blob.Store
+	Repo         domain.Repository
+	Service      *studioapp.Service
+	Runner       *studioapp.BackgroundRunner
+	Approvals    *studioapp.ApprovalService
+	Models       *studioapp.ModelConfigService
+	Capabilities *studioapp.CapabilityConfigService
+	Blob         blob.Store
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -45,6 +46,8 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Get("/library/assets", h.listLibraryAssets)
 	r.Get("/models", h.listModels)
 	r.Post("/models", h.createModel)
+	r.Get("/skills", h.listSkills)
+	r.Post("/skills", h.createSkill)
 }
 
 func (h *Handler) createTextAsset(w http.ResponseWriter, r *http.Request) {
@@ -456,6 +459,46 @@ func (h *Handler) createModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, model)
+}
+
+func (h *Handler) listSkills(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		return
+	}
+	skills, err := h.Capabilities.ListSkills(r.Context(), accountID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, skills)
+}
+
+func (h *Handler) createSkill(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		return
+	}
+	var body studioapp.CreateSkillInput
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	body.AccountID = accountID
+	skill, err := h.Capabilities.CreateSkill(r.Context(), body)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, skill)
 }
 
 func accountID(w http.ResponseWriter, r *http.Request) (string, bool) {

@@ -55,9 +55,32 @@ func newHandler(t *testing.T) (*studioapi.Handler, *studioapp.BackgroundRunner) 
 	service := &studioapp.Service{Repo: repo, IDs: sequence.next, Queue: runner}
 	return &studioapi.Handler{
 		Repo: repo, Service: service, Runner: runner,
-		Approvals: &studioapp.ApprovalService{Repo: repo, Queue: runner, IDs: sequence.next},
-		Blob:      blobs,
+		Approvals:    &studioapp.ApprovalService{Repo: repo, Queue: runner, IDs: sequence.next},
+		Capabilities: &studioapp.CapabilityConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: sequence.next},
+		Blob:         blobs,
 	}, runner
+}
+
+func TestStudioSkillConfigAPIIsAccountScoped(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	created := request(t, router, http.MethodPost, "/skills", map[string]any{
+		"name": "漫画分镜", "description": "把故事拆成镜头", "prompt": "先输出镜头表", "enabled": true,
+	}, "account-a")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("POST /skills status=%d body=%s", created.Code, created.Body.String())
+	}
+	if strings.Contains(created.Body.String(), "account-a") {
+		t.Fatalf("skill response exposes ownership: %s", created.Body.String())
+	}
+
+	foreign := request(t, router, http.MethodGet, "/skills", nil, "account-b")
+	if foreign.Code != http.StatusOK || strings.Contains(foreign.Body.String(), "漫画分镜") {
+		t.Fatalf("GET /skills as another account = %d %s", foreign.Code, foreign.Body.String())
+	}
 }
 
 func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {

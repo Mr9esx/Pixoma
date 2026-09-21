@@ -137,13 +137,21 @@ export type StudioModel = {
   }
 }
 
+export type StudioSkill = {
+  id: string
+  name: string
+  description: string
+  prompt: string
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
 export function listStudioSessions(params?: {
   limit?: number
   offset?: number
 }) {
-  return apiFetch<StudioSession[]>(
-    `/api/v1/studio/sessions${toQuery(params)}`
-  )
+  return apiFetch<StudioSession[]>(`/api/v1/studio/sessions${toQuery(params)}`)
 }
 
 export function createStudioSession() {
@@ -177,9 +185,7 @@ export function sendStudioMessage(input: {
 }
 
 export function getStudioRun(runId: string) {
-  return apiFetch<StudioRun>(
-    `/api/v1/studio/runs/${encodeURIComponent(runId)}`
-  )
+  return apiFetch<StudioRun>(`/api/v1/studio/runs/${encodeURIComponent(runId)}`)
 }
 
 export function resolveStudioApproval(approvalId: string, approved: boolean) {
@@ -261,5 +267,21 @@ export function createStudioModel(input: {
       thinking: input.thinking,
       capabilities: input.capabilities,
     }),
+  })
+}
+
+export function listStudioSkills() {
+  return apiFetch<StudioSkill[]>('/api/v1/studio/skills')
+}
+
+export function createStudioSkill(input: {
+  name: string
+  description: string
+  prompt: string
+  enabled: boolean
+}) {
+  return apiFetch<StudioSkill>('/api/v1/studio/skills', {
+    method: 'POST',
+    body: JSON.stringify(input),
   })
 }
