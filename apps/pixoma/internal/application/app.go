@@ -62,6 +62,7 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	taskstatspersist "github.com/Mr9esx/Pixoma/internal/stats/infrastructure/persistence"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
+	studioeino "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/einoagent"
 	studiopersist "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/tasks/application/orchestrator"
 	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
@@ -249,8 +250,11 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		return err
 	}
 	studioRepo := studiopersist.NewGormRepository(gdb)
+	studioModelService := &studioapp.ModelConfigService{Repo: studioRepo, EncryptionKey: encKey}
 	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
-		Repo: studioRepo, Blob: blobStore, Engine: studioapp.NewMockEngine(),
+		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
+			Mock: studioapp.NewMockEngine(), Online: &studioeino.Engine{Models: studioModelService},
+		},
 	})
 	studioRunner := studioapp.NewBackgroundRunner(studioRepo, studioExecutor, studioapp.RunnerOptions{})
 	defer studioRunner.Close()
@@ -261,7 +265,6 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	}
 	studioService := &studioapp.Service{Repo: studioRepo, Queue: studioRunner}
 	studioApprovalService := &studioapp.ApprovalService{Repo: studioRepo, Queue: studioRunner}
-	studioModelService := &studioapp.ModelConfigService{Repo: studioRepo, EncryptionKey: encKey}
 
 	instRepo := instpersist.NewEdgeRepository(gdb)
 	if err := edgedomain.EnsureAgentTokens(ctx, instRepo, encKey); err != nil {
