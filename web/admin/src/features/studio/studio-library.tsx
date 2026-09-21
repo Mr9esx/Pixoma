@@ -14,10 +14,11 @@ export function StudioLibrary() {
   })
 
   return (
-    <main id='main-content' className='flex min-w-0 flex-1 flex-col bg-background'>
-      <header className='flex min-h-16 flex-wrap items-center justify-between gap-3 border-b px-5 py-3'>
+    <main id='main-content' className='min-h-0 min-w-0 flex-1 bg-muted/30 p-3 sm:p-4'>
+      <section className='flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card'>
+      <header className='flex min-h-16 flex-wrap items-center justify-between gap-3 border-b px-5'>
         <div>
-          <h1 className='text-base font-semibold'>资产库</h1>
+          <h1 className='text-sm font-semibold'>资产库</h1>
           <p className='text-xs text-muted-foreground'>管理跨 Session 复用的创作素材</p>
         </div>
         <div className='flex items-center gap-2'>
@@ -62,6 +63,7 @@ export function StudioLibrary() {
           <LibraryState title='资产库还是空的' description='你可以直接上传资产，也可以在对话中把 Session 资产存到这里。' />
         )}
       </ScrollArea>
+      </section>
     </main>
   )
 }

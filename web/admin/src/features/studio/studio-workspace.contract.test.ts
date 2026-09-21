@@ -49,7 +49,7 @@ describe('Studio production workspace contract', () => {
     const sidebar = read('./studio-sidebar.tsx')
     expect(sidebar).toContain("from '@/components/layout/app-title'")
     expect(sidebar).toContain("from '@/components/layout/nav-user'")
-    expect(sidebar).toContain("<Sidebar collapsible='none' className='p-2'>")
+    expect(sidebar).toContain("<Sidebar collapsible='none' className='bg-muted/30 p-2'>")
     expect(sidebar).toContain('<AppTitle showToggle={false} />')
     expect(sidebar).toContain('<NavUser />')
     expect(sidebar).toContain("to='/'")

@@ -125,7 +125,7 @@ export function StudioWorkspace() {
   )
 
   return (
-    <div className='flex h-svh min-h-0 w-full overflow-hidden bg-background'>
+    <div className='flex h-svh min-h-0 w-full overflow-hidden bg-muted/30'>
       <div className='hidden lg:flex'>
         <StudioSidebar {...sidebarProps} />
       </div>
@@ -136,7 +136,7 @@ export function StudioWorkspace() {
               <Menu />
             </Button>
           </SheetTrigger>
-          <SheetContent side='left' className='w-64 p-0'>
+          <SheetContent side='left' className='w-64 bg-muted/30 p-0'>
             <SheetTitle className='sr-only'>Studio 菜单</SheetTitle>
             <StudioSidebar {...sidebarProps} />
           </SheetContent>
@@ -149,7 +149,7 @@ export function StudioWorkspace() {
         <div className='min-h-0 min-w-0 flex-1 bg-muted/30 p-3 sm:p-4'>
           <section
             data-slot='studio-workbench'
-            className='flex h-full min-h-0 overflow-hidden rounded-2xl bg-card shadow-sm'
+            className='flex h-full min-h-0 overflow-hidden rounded-2xl border bg-card'
           >
             <main id='main-content' className='flex min-w-0 flex-1 flex-col'>
               <header className='flex min-h-16 items-center justify-between gap-3 px-5 pl-16 lg:pl-5'>
@@ -195,7 +195,7 @@ export function StudioWorkspace() {
               )}
             </main>
             {rightOpen ? (
-              <aside className='hidden w-[42%] max-w-2xl min-w-80 shrink-0 bg-muted/20 xl:flex xl:flex-col'>
+              <aside className='hidden w-[42%] max-w-2xl min-w-80 shrink-0 border-s bg-muted/20 xl:flex xl:flex-col'>
                 <Tabs defaultValue='flow' className='min-h-0 flex-1 gap-0'>
                   <div className='flex h-16 items-center px-4'>
                     <TabsList>

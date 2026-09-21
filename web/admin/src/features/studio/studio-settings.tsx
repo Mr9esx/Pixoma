@@ -30,9 +30,6 @@ import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import {
   Dialog,
@@ -53,11 +50,24 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 
+type SettingSection = 'models' | 'skills' | 'mcp' | 'workflows'
+
+const settingSections: Array<{
+  id: SettingSection
+  label: string
+  description: string
+  icon: typeof BrainCircuit
+}> = [
+  { id: 'models', label: '模型', description: '连接与思考配置', icon: BrainCircuit },
+  { id: 'skills', label: 'Skills', description: '可选的专业知识', icon: Sparkles },
+  { id: 'mcp', label: 'MCP 连接器', description: '外部工具与服务', icon: Cable },
+  { id: 'workflows', label: '工作流', description: 'Agent 可调用范围', icon: Workflow },
+]
+
 export function StudioSettings() {
-  const [tab, setTab] = useState('models')
+  const [section, setSection] = useState<SettingSection>('models')
   const [modelDialogOpen, setModelDialogOpen] = useState(false)
   const [skillDialogOpen, setSkillDialogOpen] = useState(false)
   const [connectorDialogOpen, setConnectorDialogOpen] = useState(false)
@@ -80,58 +90,68 @@ export function StudioSettings() {
   return (
     <main
       id='main-content'
-      className='flex min-w-0 flex-1 flex-col bg-background'
+      className='min-h-0 min-w-0 flex-1 bg-muted/30 p-3 sm:p-4'
     >
-      <header className='flex min-h-16 items-center justify-between gap-3 border-b px-5 py-3'>
-        <div>
-          <h1 className='text-base font-semibold'>AI 设置</h1>
-          <p className='text-xs text-muted-foreground'>
-            配置 Agent 可以使用的模型与能力
-          </p>
-        </div>
-        {tab === 'models' ? (
-          <Button size='sm' onClick={() => setModelDialogOpen(true)}>
-            <Plus />
-            添加模型
-          </Button>
-        ) : null}
-        {tab === 'skills' ? (
-          <Button size='sm' onClick={() => setSkillDialogOpen(true)}>
-            <Plus />
-            添加 Skill
-          </Button>
-        ) : null}
-        {tab === 'mcp' ? (
-          <Button size='sm' onClick={() => setConnectorDialogOpen(true)}>
-            <Plus />
-            添加连接器
-          </Button>
-        ) : null}
-      </header>
-      <Tabs value={tab} onValueChange={setTab} className='min-h-0 flex-1 gap-0'>
-        <div className='border-b px-5 py-3'>
-          <TabsList>
-            <TabsTrigger value='models'>
-              <BrainCircuit />
-              模型
-            </TabsTrigger>
-            <TabsTrigger value='skills'>
-              <Sparkles />
-              Skills
-            </TabsTrigger>
-            <TabsTrigger value='mcp'>
-              <Cable />
-              MCP
-            </TabsTrigger>
-            <TabsTrigger value='workflows'>
-              <Workflow />
-              工作流
-            </TabsTrigger>
-          </TabsList>
-        </div>
-        <ScrollArea className='min-h-0 flex-1'>
-          <TabsContent value='models' className='m-0 p-5'>
-            <div className='mx-auto max-w-5xl space-y-4'>
+      <section className='flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card'>
+        <header className='flex min-h-16 items-center gap-3 border-b px-5'>
+          <div>
+            <h1 className='text-sm font-semibold'>AI 设置</h1>
+            <p className='text-xs text-muted-foreground'>配置 Agent 可以使用的模型与能力</p>
+          </div>
+        </header>
+        <div className='flex min-h-0 flex-1 flex-col md:flex-row'>
+          <div className='flex gap-1 overflow-x-auto border-b p-2 md:hidden'>
+            {settingSections.map((item) => {
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.id}
+                  type='button'
+                  onClick={() => setSection(item.id)}
+                  className={`flex min-h-10 shrink-0 items-center gap-2 rounded-md border px-3 text-sm ${section === item.id ? 'border-border bg-muted text-foreground' : 'border-transparent text-muted-foreground'}`}
+                >
+                  <Icon className='size-4' />
+                  {item.label}
+                </button>
+              )
+            })}
+          </div>
+          <nav className='hidden w-56 shrink-0 border-e bg-muted/20 p-3 md:block' aria-label='AI 设置分类'>
+            <p className='px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>Agent 能力</p>
+            <div className='space-y-1'>
+              {settingSections.map((item) => {
+                const Icon = item.icon
+                const active = section === item.id
+                return (
+                  <button
+                    key={item.id}
+                    type='button'
+                    onClick={() => setSection(item.id)}
+                    className={`flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${active ? 'border-border bg-background text-foreground' : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-background/70 hover:text-foreground'}`}
+                  >
+                    <Icon className='mt-0.5 size-4 shrink-0' />
+                    <span className='min-w-0'>
+                      <span className='block text-sm font-medium'>{item.label}</span>
+                      <span className='mt-0.5 block truncate text-xs'>{item.description}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </nav>
+          <div className='flex min-w-0 flex-1 flex-col'>
+            <div className='flex min-h-16 items-center justify-between gap-3 border-b px-5'>
+              <div>
+                <h2 className='text-sm font-semibold'>{settingSections.find((item) => item.id === section)?.label}</h2>
+                <p className='text-xs text-muted-foreground'>{settingSections.find((item) => item.id === section)?.description}</p>
+              </div>
+              {section === 'models' ? <Button size='sm' onClick={() => setModelDialogOpen(true)}><Plus />添加模型</Button> : null}
+              {section === 'skills' ? <Button size='sm' onClick={() => setSkillDialogOpen(true)}><Plus />添加 Skill</Button> : null}
+              {section === 'mcp' ? <Button size='sm' onClick={() => setConnectorDialogOpen(true)}><Plus />添加连接器</Button> : null}
+            </div>
+            <ScrollArea className='min-h-0 flex-1'>
+              {section === 'models' ? <div className='p-5'>
+                <div className='mx-auto max-w-5xl space-y-4'>
               <div>
                 <h2 className='text-sm font-semibold'>模型配置</h2>
                 <p className='mt-1 text-sm text-muted-foreground'>
@@ -143,43 +163,25 @@ export function StudioSettings() {
                 <p className='text-sm text-muted-foreground'>正在读取模型…</p>
               ) : null}
               {models.data?.length ? (
-                <div className='grid gap-3 md:grid-cols-2'>
+                <div className='overflow-hidden rounded-xl border bg-background'>
                   {models.data.map((model) => (
-                    <Card key={model.id}>
-                      <CardHeader className='pb-3'>
-                        <div className='flex items-start justify-between gap-3'>
-                          <span className='flex size-9 items-center justify-center rounded-lg bg-muted'>
-                            <Bot className='size-4' />
-                          </span>
-                          <div className='flex gap-1.5'>
-                            {model.default ? <Badge>默认</Badge> : null}
-                            <Badge
-                              variant={
-                                model.agent_enabled ? 'secondary' : 'outline'
-                              }
-                            >
-                              {model.agent_enabled
-                                ? 'Agent 可用'
-                                : 'Agent 不可用'}
-                            </Badge>
-                          </div>
+                    <div key={model.id} className='flex flex-wrap items-center gap-4 border-b p-4 last:border-b-0'>
+                      <span className='flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted'>
+                        <Bot className='size-4' />
+                      </span>
+                      <div className='min-w-0 flex-1'>
+                        <div className='flex flex-wrap items-center gap-2'>
+                          <p className='text-sm font-medium'>{model.name}</p>
+                          {model.default ? <Badge>默认</Badge> : null}
+                          <Badge variant={model.agent_enabled ? 'secondary' : 'outline'}>{model.agent_enabled ? 'Agent 可用' : 'Agent 不可用'}</Badge>
                         </div>
-                        <CardTitle className='mt-3 text-base'>
-                          {model.name}
-                        </CardTitle>
-                        <CardDescription className='truncate'>
-                          {model.model}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className='space-y-2 text-xs text-muted-foreground'>
-                        <p className='truncate'>{model.base_url}</p>
-                        <div className='flex items-center gap-2'>
-                          <CheckCircle2 className='size-3.5 text-success' />
-                          {model.enabled ? '已启用' : '已停用'} · 密钥{' '}
-                          {model.api_key_masked ?? '未配置'}
-                        </div>
-                      </CardContent>
-                    </Card>
+                        <p className='mt-1 truncate text-xs text-muted-foreground'>{model.model} · {model.base_url}</p>
+                      </div>
+                      <div className='flex shrink-0 items-center gap-2 text-xs text-muted-foreground'>
+                        <CheckCircle2 className='size-3.5 text-success' />
+                        {model.enabled ? '已启用' : '已停用'} · {model.api_key_masked ?? '未配置'}
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : !models.isLoading ? (
@@ -189,37 +191,18 @@ export function StudioSettings() {
                   description='添加一个模型后，用户可以直接在输入框中选择。未配置时仍可使用内置 Mock Agent 验证完整创作流程。'
                 />
               ) : null}
-            </div>
-          </TabsContent>
-          <TabsContent value='skills' className='m-0 p-5'>
-            <SkillSettings
-              skills={skills.data ?? []}
-              loading={skills.isLoading}
-              error={skills.isError}
-            />
-          </TabsContent>
-          <TabsContent value='mcp' className='m-0 p-5'>
-            <ConnectorSettings
-              connectors={connectors.data ?? []}
-              loading={connectors.isLoading}
-              error={connectors.isError}
-            />
-          </TabsContent>
-          <TabsContent value='workflows' className='m-0 p-5'>
-            <WorkflowSettings
-              workflows={workflows.data ?? []}
-              loading={workflows.isLoading}
-              error={workflows.isError}
-            />
-          </TabsContent>
-        </ScrollArea>
-      </Tabs>
-      <ModelDialog open={modelDialogOpen} onOpenChange={setModelDialogOpen} />
-      <SkillDialog open={skillDialogOpen} onOpenChange={setSkillDialogOpen} />
-      <ConnectorDialog
-        open={connectorDialogOpen}
-        onOpenChange={setConnectorDialogOpen}
-      />
+                </div>
+              </div> : null}
+              {section === 'skills' ? <div className='p-5'><SkillSettings skills={skills.data ?? []} loading={skills.isLoading} error={skills.isError} /></div> : null}
+              {section === 'mcp' ? <div className='p-5'><ConnectorSettings connectors={connectors.data ?? []} loading={connectors.isLoading} error={connectors.isError} /></div> : null}
+              {section === 'workflows' ? <div className='p-5'><WorkflowSettings workflows={workflows.data ?? []} loading={workflows.isLoading} error={workflows.isError} /></div> : null}
+            </ScrollArea>
+          </div>
+        </div>
+        <ModelDialog open={modelDialogOpen} onOpenChange={setModelDialogOpen} />
+        <SkillDialog open={skillDialogOpen} onOpenChange={setSkillDialogOpen} />
+        <ConnectorDialog open={connectorDialogOpen} onOpenChange={setConnectorDialogOpen} />
+      </section>
     </main>
   )
 }
@@ -341,42 +324,19 @@ function ConnectorSettings({
         </p>
       ) : null}
       {connectors.length > 0 ? (
-        <div className='grid gap-3 md:grid-cols-2'>
+        <div className='overflow-hidden rounded-xl border bg-background'>
           {connectors.map((connector) => (
-            <Card key={connector.id}>
-              <CardHeader className='pb-3'>
-                <div className='flex items-start justify-between gap-3'>
-                  <span className='flex size-9 items-center justify-center rounded-lg bg-muted'>
-                    <Cable className='size-4' />
-                  </span>
-                  <Switch
-                    aria-label={`启用 ${connector.name}`}
-                    checked={connector.enabled}
-                    disabled={update.isPending}
-                    onCheckedChange={(enabled) =>
-                      update.mutate({
-                        id: connector.id,
-                        name: connector.name,
-                        url: connector.url,
-                        enabled,
-                        policy: connector.policy,
-                      })
-                    }
-                  />
-                </div>
-                <CardTitle className='mt-3 text-base'>
-                  {connector.name}
-                </CardTitle>
-                <CardDescription className='truncate'>
-                  {connector.url}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className='space-y-1 text-xs text-muted-foreground'>
-                <p>调用策略：{connectorPolicyLabel(connector.policy)}</p>
-                <p>凭据：{connector.credential_masked}</p>
-                <p>已发现工具：{connector.tools.length}</p>
-              </CardContent>
-            </Card>
+            <div key={connector.id} className='flex flex-wrap items-center gap-4 border-b p-4 last:border-b-0'>
+              <span className='flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted'>
+                <Cable className='size-4' />
+              </span>
+              <div className='min-w-0 flex-1'>
+                <p className='text-sm font-medium'>{connector.name}</p>
+                <p className='mt-1 truncate text-xs text-muted-foreground'>{connector.url}</p>
+                <p className='mt-1 text-xs text-muted-foreground'>调用策略：{connectorPolicyLabel(connector.policy)} · 凭据：{connector.credential_masked} · 已发现工具：{connector.tools.length}</p>
+              </div>
+              <Switch aria-label={`启用 ${connector.name}`} checked={connector.enabled} disabled={update.isPending} onCheckedChange={(enabled) => update.mutate({ id: connector.id, name: connector.name, url: connector.url, enabled, policy: connector.policy })} />
+            </div>
           ))}
         </div>
       ) : null}
@@ -576,34 +536,19 @@ function SkillSettings({
         </p>
       ) : null}
       {skills.length > 0 ? (
-        <div className='grid gap-3 md:grid-cols-2'>
+        <div className='overflow-hidden rounded-xl border bg-background'>
           {skills.map((skill) => (
-            <Card key={skill.id}>
-              <CardHeader className='pb-3'>
-                <div className='flex items-start justify-between gap-3'>
-                  <span className='flex size-9 items-center justify-center rounded-lg bg-muted'>
-                    <Sparkles className='size-4' />
-                  </span>
-                  <Switch
-                    aria-label={`启用 ${skill.name}`}
-                    checked={skill.enabled}
-                    disabled={update.isPending}
-                    onCheckedChange={(enabled) =>
-                      update.mutate({ ...skill, enabled })
-                    }
-                  />
-                </div>
-                <CardTitle className='mt-3 text-base'>{skill.name}</CardTitle>
-                <CardDescription className='line-clamp-2'>
-                  {skill.description || '未填写说明'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className='line-clamp-2 text-xs leading-5 text-muted-foreground'>
-                  {skill.prompt}
-                </p>
-              </CardContent>
-            </Card>
+            <div key={skill.id} className='flex flex-wrap items-start gap-4 border-b p-4 last:border-b-0'>
+              <span className='flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted'>
+                <Sparkles className='size-4' />
+              </span>
+              <div className='min-w-0 flex-1'>
+                <p className='text-sm font-medium'>{skill.name}</p>
+                <p className='mt-1 text-xs text-muted-foreground'>{skill.description || '未填写说明'}</p>
+                <p className='mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground'>{skill.prompt}</p>
+              </div>
+              <Switch aria-label={`启用 ${skill.name}`} checked={skill.enabled} disabled={update.isPending} onCheckedChange={(enabled) => update.mutate({ ...skill, enabled })} />
+            </div>
           ))}
         </div>
       ) : null}

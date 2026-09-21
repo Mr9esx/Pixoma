@@ -46,7 +46,7 @@ export function StudioSidebar({
   creating,
 }: Props) {
   return (
-    <Sidebar collapsible='none' className='p-2'>
+    <Sidebar collapsible='none' className='bg-muted/30 p-2'>
       <SidebarHeader>
         <AppTitle showToggle={false} />
       </SidebarHeader>
