@@ -263,7 +263,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	}
 	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
 		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
-			Mock: studioapp.NewMockEngine(), Online: &studioeino.Engine{Models: studioModelService},
+			Mock: studioapp.NewMockEngine(), Online: &studioeino.Engine{Models: studioModelService, Capabilities: studioCapabilityService},
 		},
 	})
 	studioRunner := studioapp.NewBackgroundRunner(studioRepo, studioExecutor, studioapp.RunnerOptions{})

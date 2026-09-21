@@ -7,7 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/modelprovider"
@@ -59,4 +61,19 @@ func TestEinoChatModelBindsNativeOpenAIToolsAndReturnsToolCalls(t *testing.T) {
 	if len(message.ToolCalls) != 1 || message.ToolCalls[0].ID != "call-1" || message.ToolCalls[0].Function.Name != "create_outline" {
 		t.Fatalf("tool calls = %#v", message.ToolCalls)
 	}
+}
+
+func TestEinoChatModelHonorsRuntimeToolOptions(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.Len(t, body["tools"], 1)
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已收到创作需求"}}]}`))
+	}))
+	defer server.Close()
+	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL, Model: "test", APIKey: "secret"})
+	message, err := chat.Generate(context.Background(), []*schema.Message{schema.UserMessage("写一个故事")}, model.WithTools([]*schema.ToolInfo{{Name: "search_reference", Desc: "Search reference material"}}))
+	require.NoError(t, err)
+	require.Equal(t, "已收到创作需求", message.Content)
 }

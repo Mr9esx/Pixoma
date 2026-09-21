@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -43,8 +44,9 @@ func (p ConnectorPolicy) Valid() bool {
 }
 
 type MCPTool struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	InputSchema json.RawMessage `json:"input_schema,omitempty"`
 }
 
 type MCPConnector struct {

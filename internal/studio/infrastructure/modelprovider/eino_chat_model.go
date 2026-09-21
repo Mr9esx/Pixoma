@@ -27,7 +27,15 @@ func NewEinoChatModel(client *OpenAICompatibleClient, config domain.ResolvedMode
 	return &EinoChatModel{client: client, config: config}
 }
 
-func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, _ ...model.Option) (*schema.Message, error) {
+func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.Message, error) {
+	options := model.GetCommonOptions(nil, opts...)
+	if options.Tools != nil {
+		bound, err := m.WithTools(options.Tools)
+		if err != nil {
+			return nil, err
+		}
+		return bound.Generate(ctx, input)
+	}
 	messages := make([]ChatMessage, 0, len(input))
 	for _, message := range input {
 		if message == nil {

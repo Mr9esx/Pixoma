@@ -2,6 +2,10 @@ package mcpconnector
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +14,15 @@ import (
 
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 )
+
+const (
+	maxDiscoveredMCPTools       = 100
+	maxDiscoveredToolDescBytes  = 8 << 10
+	maxDiscoveredToolSchemaByte = 64 << 10
+	maxMCPHTTPResponseBytes     = 1 << 20
+)
+
+var errMCPResponseTooLarge = errors.New("studio: MCP response exceeds size limit")
 
 // Prober discovers Streamable HTTP MCP tools with a short-lived client
 // session. The stored credential is forwarded only as a Bearer token and is
@@ -36,12 +49,22 @@ func (p Prober) Probe(ctx context.Context, endpoint, credential string) ([]domai
 	if err != nil {
 		return nil, err
 	}
+	if len(result.Tools) > maxDiscoveredMCPTools {
+		return nil, fmt.Errorf("studio: MCP connector exposes too many tools (%d > %d)", len(result.Tools), maxDiscoveredMCPTools)
+	}
 	tools := make([]domain.MCPTool, 0, len(result.Tools))
 	for _, item := range result.Tools {
 		if item == nil || strings.TrimSpace(item.Name) == "" {
 			continue
 		}
-		tools = append(tools, domain.MCPTool{Name: item.Name, Description: item.Description})
+		inputSchema, err := json.Marshal(item.InputSchema)
+		if err != nil {
+			return nil, err
+		}
+		if len(item.Description) > maxDiscoveredToolDescBytes || len(inputSchema) > maxDiscoveredToolSchemaByte {
+			return nil, fmt.Errorf("studio: MCP tool %s exceeds discovery size limits", item.Name)
+		}
+		tools = append(tools, domain.MCPTool{Name: item.Name, Description: item.Description, InputSchema: inputSchema})
 	}
 	return tools, nil
 }
@@ -65,6 +88,37 @@ func cloneClientWithBearer(client *http.Client, credential string) *http.Client 
 	if base == nil {
 		base = http.DefaultTransport
 	}
-	cloned.Transport = bearerTransport{base: base, credential: credential}
+	cloned.Transport = boundedResponseTransport{base: bearerTransport{base: base, credential: credential}, maxBytes: maxMCPHTTPResponseBytes}
 	return &cloned
+}
+
+type boundedResponseTransport struct {
+	base     http.RoundTripper
+	maxBytes int64
+}
+
+func (t boundedResponseTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	response, err := t.base.RoundTrip(request)
+	if err != nil || response == nil || response.Body == nil {
+		return response, err
+	}
+	response.Body = &boundedReadCloser{ReadCloser: response.Body, remaining: t.maxBytes}
+	return response, nil
+}
+
+type boundedReadCloser struct {
+	io.ReadCloser
+	remaining int64
+}
+
+func (r *boundedReadCloser) Read(p []byte) (int, error) {
+	if r.remaining <= 0 {
+		return 0, errMCPResponseTooLarge
+	}
+	if int64(len(p)) > r.remaining {
+		p = p[:r.remaining]
+	}
+	n, err := r.ReadCloser.Read(p)
+	r.remaining -= int64(n)
+	return n, err
 }

@@ -2,6 +2,7 @@ package application_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -147,14 +148,22 @@ func TestCapabilityConfigUpdatesConnectorWithoutReplacingCredential(t *testing.T
 	if err != nil {
 		t.Fatalf("CreateConnector() error = %v", err)
 	}
+	stored, err := repo.GetMCPConnector(context.Background(), "account-a", created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.DiscoveredTools = []domain.MCPTool{{Name: "search_reference", InputSchema: json.RawMessage(`{"type":"object","properties":{}}`)}}
+	if err := repo.UpdateMCPConnector(context.Background(), stored); err != nil {
+		t.Fatal(err)
+	}
 
 	updated, err := service.UpdateConnector(context.Background(), studioapp.UpdateConnectorInput{
-		AccountID: "account-a", ConnectorID: created.ID, Name: "资料库", URL: "https://mcp.example.test/mcp", Enabled: false, Policy: domain.ConnectorPolicyForbidden,
+		AccountID: "account-a", ConnectorID: created.ID, Name: "资料库", URL: "https://mcp.example.test/updated", Enabled: false, Policy: domain.ConnectorPolicyForbidden,
 	})
 	if err != nil {
 		t.Fatalf("UpdateConnector() error = %v", err)
 	}
-	if updated.Enabled || updated.Policy != domain.ConnectorPolicyForbidden || updated.CredentialMasked == "" {
+	if updated.Enabled || updated.Policy != domain.ConnectorPolicyForbidden || updated.CredentialMasked == "" || len(updated.Tools) != 0 {
 		t.Fatalf("updated = %#v", updated)
 	}
 }
@@ -167,7 +176,7 @@ func TestCapabilityConfigProbeConnectorPersistsSafeToolMetadata(t *testing.T) {
 			if endpoint != "https://mcp.example.test/mcp" || credential != "connector-secret" {
 				t.Fatalf("probe input endpoint=%q credential=%q", endpoint, credential)
 			}
-			return []domain.MCPTool{{Name: "search_reference", Description: "Search reference material"}}, nil
+			return []domain.MCPTool{{Name: "search_reference", Description: "Search reference material", InputSchema: json.RawMessage(`{"type":"object","properties":{}}`)}}, nil
 		}),
 	}
 	created, err := service.CreateConnector(context.Background(), studioapp.CreateConnectorInput{
@@ -179,5 +188,50 @@ func TestCapabilityConfigProbeConnectorPersistsSafeToolMetadata(t *testing.T) {
 	probed, err := service.ProbeConnector(context.Background(), "account-a", created.ID)
 	if err != nil || len(probed.Tools) != 1 || probed.Tools[0].Name != "search_reference" || strings.Contains(fmt.Sprintf("%#v", probed), "connector-secret") {
 		t.Fatalf("ProbeConnector() = %#v, %v", probed, err)
+	}
+}
+
+func TestCapabilityConfigResolvesOnlyCallableMCPConnectorsForAgent(t *testing.T) {
+	repo := openRepository(t)
+	service := &studioapp.CapabilityConfigService{
+		Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: (&idSequence{}).Next,
+	}
+	callable, err := service.CreateConnector(context.Background(), studioapp.CreateConnectorInput{
+		AccountID: "account-a", Name: "Reference", URL: "https://mcp.example.test/mcp", Credential: "connector-secret", Enabled: true, Policy: domain.ConnectorPolicyApproval,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repo.GetMCPConnector(context.Background(), "account-a", callable.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.DiscoveredTools = []domain.MCPTool{{Name: "search_reference", Description: "Search reference material", InputSchema: json.RawMessage(`{"type":"object","properties":{}}`)}}
+	if err := repo.UpdateMCPConnector(context.Background(), stored); err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.CreateConnector(context.Background(), studioapp.CreateConnectorInput{
+		AccountID: "account-a", Name: "Disabled", URL: "https://mcp.example.test/disabled", Credential: "disabled-secret", Enabled: false, Policy: domain.ConnectorPolicyAuto,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.CreateConnector(context.Background(), studioapp.CreateConnectorInput{
+		AccountID: "account-a", Name: "Forbidden", URL: "https://mcp.example.test/forbidden", Credential: "forbidden-secret", Enabled: true, Policy: domain.ConnectorPolicyForbidden,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resolved, err := service.ResolveMCPConnectors(context.Background(), "account-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resolved) != 1 || resolved[0].ID != callable.ID || resolved[0].Credential != "connector-secret" {
+		t.Fatalf("ResolveMCPConnectors() = %#v", resolved)
+	}
+	encoded, err := json.Marshal(resolved[0])
+	if err != nil || strings.Contains(string(encoded), "connector-secret") {
+		t.Fatalf("resolved connector JSON leaked credential: %s, %v", encoded, err)
 	}
 }

@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -46,6 +47,12 @@ type CapabilityConfigService struct {
 	MCPProber       MCPConnectorProber
 }
 
+const (
+	maxRuntimeMCPTools       = 100
+	maxRuntimeToolDescBytes  = 8 << 10
+	maxRuntimeToolSchemaByte = 64 << 10
+)
+
 type CreateSkillInput struct {
 	AccountID, Name, Description, Prompt string
 	Enabled                              bool
@@ -83,6 +90,18 @@ type MCPConnectorView struct {
 	Tools            []domain.MCPTool       `json:"tools"`
 	CreatedAt        time.Time              `json:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at"`
+}
+
+// ResolvedMCPConnector is a short-lived, server-only connector view used by
+// the Agent runtime. It must never be serialized into an HTTP response,
+// persisted in a Run event, or logged because Credential is plaintext.
+type ResolvedMCPConnector struct {
+	ID         string                 `json:"id"`
+	Name       string                 `json:"name"`
+	URL        string                 `json:"url"`
+	Credential string                 `json:"-"`
+	Policy     domain.ConnectorPolicy `json:"policy"`
+	Tools      []domain.MCPTool       `json:"tools"`
 }
 type AgentWorkflowView struct {
 	ID              string `json:"id"`
@@ -175,6 +194,56 @@ func (s *CapabilityConfigService) ListConnectors(ctx context.Context, accountID 
 	return out, nil
 }
 
+// ResolveMCPConnectors returns only connectors that are available to Agent.
+// A connector must be explicitly enabled, have an executable policy, and have
+// completed tool discovery before its encrypted credential is resolved.
+func (s *CapabilityConfigService) ResolveMCPConnectors(ctx context.Context, accountID string) ([]ResolvedMCPConnector, error) {
+	if s == nil || s.Repo == nil {
+		return nil, fmt.Errorf("studio: capability config service is not configured")
+	}
+	connectors, err := s.Repo.ListMCPConnectors(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("studio: list MCP connectors: %w", err)
+	}
+	resolved := make([]ResolvedMCPConnector, 0, len(connectors))
+	for _, connector := range connectors {
+		if connector == nil || !connector.Enabled || connector.Policy == domain.ConnectorPolicyForbidden {
+			continue
+		}
+		tools := runtimeToolSnapshots(connector.DiscoveredTools)
+		if len(tools) == 0 {
+			continue
+		}
+		credential, err := platformcrypto.Decrypt(s.EncryptionKey, connector.CredentialCipher)
+		if err != nil {
+			return nil, fmt.Errorf("studio: decrypt MCP connector %s: %w", connector.ID, err)
+		}
+		resolved = append(resolved, ResolvedMCPConnector{
+			ID: connector.ID, Name: connector.Name, URL: connector.URL,
+			Credential: credential, Policy: connector.Policy,
+			Tools: tools,
+		})
+	}
+	return resolved, nil
+}
+
+func runtimeToolSnapshots(discovered []domain.MCPTool) []domain.MCPTool {
+	tools := make([]domain.MCPTool, 0, len(discovered))
+	for _, tool := range discovered {
+		if len(tools) == maxRuntimeMCPTools {
+			break
+		}
+		if strings.TrimSpace(tool.Name) == "" || len(tool.Description) > maxRuntimeToolDescBytes || len(tool.InputSchema) > maxRuntimeToolSchemaByte || !json.Valid(tool.InputSchema) {
+			continue
+		}
+		tools = append(tools, domain.MCPTool{
+			Name: tool.Name, Description: tool.Description,
+			InputSchema: append([]byte(nil), tool.InputSchema...),
+		})
+	}
+	return tools
+}
+
 func (s *CapabilityConfigService) UpdateConnector(ctx context.Context, input UpdateConnectorInput) (*MCPConnectorView, error) {
 	if s == nil || s.Repo == nil {
 		return nil, fmt.Errorf("studio: capability config service is not configured")
@@ -196,7 +265,9 @@ func (s *CapabilityConfigService) UpdateConnector(ctx context.Context, input Upd
 	}
 	updated.Enabled = input.Enabled
 	updated.CreatedAt = existing.CreatedAt
-	updated.DiscoveredTools = existing.DiscoveredTools
+	if updated.URL == existing.URL && strings.TrimSpace(input.Credential) == "" {
+		updated.DiscoveredTools = existing.DiscoveredTools
+	}
 	if err := s.Repo.UpdateMCPConnector(ctx, updated); err != nil {
 		return nil, err
 	}
