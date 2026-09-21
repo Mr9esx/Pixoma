@@ -57,7 +57,15 @@ describe('Studio production workspace contract', () => {
     expect(sidebar).not.toContain('<Avatar')
     expect(sidebar).toContain("isActive={view === 'chat'}")
     expect(sidebar).toContain("className='min-h-0 flex-1 px-2 py-1'")
-    expect(sidebar).toContain('<span>新建对话</span>')
+    expect(sidebar).toContain("from '@/components/ui/button'")
+    expect(sidebar).toContain("variant='ghost'")
+    expect(sidebar).toContain("size='sm'")
+    expect(sidebar).toContain("className='flex h-8 items-center gap-1 px-2'")
+    expect(sidebar).toContain('<SidebarMenuSub')
+    expect(sidebar).toContain('<SidebarMenuSubButton')
+    expect(sidebar).not.toContain(
+      'SidebarMenuButton\n                  onClick={onNewSession}'
+    )
     expect(sidebar).not.toContain('SidebarGroupAction')
     expect(sidebar).not.toContain("className='inset-e-0 top-1.5'")
     expect(sidebar).not.toContain("className='h-10 w-full")
