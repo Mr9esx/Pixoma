@@ -1,20 +1,19 @@
 import { Link } from '@tanstack/react-router'
 import {
-  ArrowLeft,
-  BookOpen,
   Library,
+  MessageCircle,
   MessageSquarePlus,
   Settings2,
   Sparkles,
 } from 'lucide-react'
 import type { StudioSession } from '@/lib/api/studio'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
@@ -46,41 +45,46 @@ export function StudioSidebar({
 }: Props) {
   return (
     <aside className='flex h-full w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground'>
-      <SidebarHeader className='gap-3 px-3 py-3'>
-        <div className='flex items-center gap-2'>
-          <Button variant='ghost' size='icon' asChild aria-label='返回后台'>
-            <Link to='/'>
-              <ArrowLeft />
-            </Link>
-          </Button>
-          <div className='flex min-w-0 items-center gap-2'>
-            <span className='flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground'>
-              <Sparkles className='size-4' />
-            </span>
-            <div className='min-w-0'>
-              <p className='truncate text-sm font-semibold'>创作 Studio</p>
-              <p className='truncate text-xs text-muted-foreground'>让想法成为作品</p>
-            </div>
-          </div>
-        </div>
-        <Button className='h-10 w-full justify-start' onClick={onNewSession} disabled={creating}>
-          <MessageSquarePlus />
-          {creating ? '正在创建…' : '新对话'}
-        </Button>
+      <SidebarHeader className='p-2'>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip='返回后台'>
+              <Link to='/'>
+                <Sparkles />
+                <span>创作 Studio</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className='gap-3'>
-        <SidebarGroup className='px-2 py-0'>
+      <SidebarContent className='gap-2 px-2'>
+        <SidebarGroup className='p-0'>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton isActive={view === 'library'} onClick={() => onViewChange('library')}>
+                <SidebarMenuButton
+                  isActive={view === 'chat'}
+                  onClick={() => onViewChange('chat')}
+                >
+                  <MessageCircle />
+                  <span>对话</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={view === 'library'}
+                  onClick={() => onViewChange('library')}
+                >
                   <Library />
                   <span>资产库</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton isActive={view === 'settings'} onClick={() => onViewChange('settings')}>
+                <SidebarMenuButton
+                  isActive={view === 'settings'}
+                  onClick={() => onViewChange('settings')}
+                >
                   <Settings2 />
                   <span>AI 设置</span>
                 </SidebarMenuButton>
@@ -89,11 +93,17 @@ export function StudioSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className='min-h-0 flex-1 px-2 py-0'>
-          <SidebarGroupLabel className='flex items-center justify-between px-2'>
-            最近对话
-            <BookOpen className='size-3.5' />
-          </SidebarGroupLabel>
+        <SidebarGroup className='min-h-0 flex-1 p-0'>
+          <SidebarGroupLabel className='pr-8'>最近对话</SidebarGroupLabel>
+          <SidebarGroupAction
+            aria-label='新对话'
+            title='新对话'
+            className='inset-e-0 top-1.5'
+            onClick={onNewSession}
+            disabled={creating}
+          >
+            <MessageSquarePlus />
+          </SidebarGroupAction>
           <SidebarGroupContent className='min-h-0 flex-1'>
             <ScrollArea className='h-full'>
               <SidebarMenu className='pb-2'>
@@ -105,11 +115,13 @@ export function StudioSidebar({
                   sessions.map((session) => (
                     <SidebarMenuItem key={session.id}>
                       <SidebarMenuButton
-                        isActive={view === 'chat' && activeSessionId === session.id}
+                        isActive={
+                          view === 'chat' && activeSessionId === session.id
+                        }
                         onClick={() => onSelectSession(session.id)}
-                        className='h-auto min-h-11 items-start py-2'
                       >
-                        <span className='line-clamp-2 leading-5'>{session.title}</span>
+                        <MessageCircle />
+                        <span>{session.title}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))
@@ -120,16 +132,17 @@ export function StudioSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className='px-3 pb-3'>
-        <div className='flex min-h-11 flex-1 items-center gap-3 rounded-lg px-2'>
-          <Avatar className='size-8'>
-            <AvatarFallback>管</AvatarFallback>
-          </Avatar>
-          <div className='min-w-0 flex-1'>
-            <p className='truncate text-sm font-medium'>管理员</p>
-            <p className='truncate text-xs text-muted-foreground'>Pixoma 工作区</p>
-          </div>
-        </div>
+      <SidebarFooter className='p-2'>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton aria-label='当前用户：管理员'>
+              <Avatar className='size-6 shrink-0 rounded-md'>
+                <AvatarFallback>管</AvatarFallback>
+              </Avatar>
+              <span>管理员</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </aside>
   )

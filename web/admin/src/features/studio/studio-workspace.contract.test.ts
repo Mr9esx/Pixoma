@@ -45,6 +45,16 @@ describe('Studio production workspace contract', () => {
     expect(studioLayout).toContain('<SidebarProvider')
   })
 
+  it('uses one aligned menu rhythm for navigation, sessions, and account', () => {
+    const sidebar = read('./studio-sidebar.tsx')
+    expect(sidebar).toContain("isActive={view === 'chat'}")
+    expect(sidebar).toContain('SidebarGroupAction')
+    expect(sidebar).not.toContain("className='h-10 w-full")
+    expect(sidebar).not.toContain('min-h-11')
+    expect(sidebar).not.toContain('line-clamp-2')
+    expect(sidebar).toContain("<SidebarFooter className='p-2'>")
+  })
+
   it('groups chat and canvas in one padded rounded workbench without structural borders', () => {
     const source = read('./studio-workspace.tsx')
     expect(source).toContain("data-slot='studio-workbench'")
