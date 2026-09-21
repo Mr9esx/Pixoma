@@ -342,8 +342,25 @@ type AssetVersion struct {
 	CreatedAt time.Time
 }
 
+type LibraryFolder struct {
+	ID        string
+	AccountID string
+	ParentID  string
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func NewLibraryFolder(id, accountID, parentID, name string, now time.Time) (*LibraryFolder, error) {
+	if anyBlank(id, accountID, name) {
+		return nil, fmt.Errorf("%w: invalid library folder", ErrInvalid)
+	}
+	now = now.UTC()
+	return &LibraryFolder{ID: id, AccountID: accountID, ParentID: strings.TrimSpace(parentID), Name: strings.TrimSpace(name), CreatedAt: now, UpdatedAt: now}, nil
+}
+
 func NewAsset(id, sessionID, accountID, name string, kind AssetKind, origin AssetOrigin, now time.Time) (*Asset, error) {
-	if anyBlank(id, sessionID, accountID, name) || !kind.Valid() || strings.TrimSpace(string(origin)) == "" {
+	if anyBlank(id, accountID, name) || (!kind.Valid()) || strings.TrimSpace(string(origin)) == "" {
 		return nil, fmt.Errorf("%w: invalid asset", ErrInvalid)
 	}
 	now = now.UTC()

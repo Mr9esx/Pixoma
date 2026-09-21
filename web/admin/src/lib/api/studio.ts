@@ -75,6 +75,14 @@ export type StudioAsset = {
   updated_at: string
 }
 
+export type StudioLibraryFolder = {
+  id: string
+  parent_id?: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
 export type StudioFlowNode = {
   id: string
   type: 'stage' | 'plan' | 'operation' | 'asset'
@@ -241,6 +249,13 @@ export function createStudioTextAsset(input: {
   })
 }
 
+export function uploadStudioAsset(file: File, sessionId?: string) {
+  const body = new FormData()
+  body.append('file', file)
+  if (sessionId) body.append('session_id', sessionId)
+  return apiFetch<StudioAsset>('/api/v1/studio/assets/upload', { method: 'POST', body })
+}
+
 export function updateStudioFlowNodes(
   sessionId: string,
   nodes: Array<{
@@ -259,6 +274,17 @@ export function listStudioLibraryAssets(folderId?: string) {
   return apiFetch<StudioAsset[]>(
     `/api/v1/studio/library/assets${toQuery({ folder_id: folderId })}`
   )
+}
+
+export function listStudioLibraryFolders() {
+  return apiFetch<StudioLibraryFolder[]>('/api/v1/studio/library/folders')
+}
+
+export function createStudioLibraryFolder(input: { name: string; parentId?: string }) {
+  return apiFetch<StudioLibraryFolder>('/api/v1/studio/library/folders', {
+    method: 'POST',
+    body: JSON.stringify({ name: input.name, parent_id: input.parentId ?? '' }),
+  })
 }
 
 export function listStudioModels() {

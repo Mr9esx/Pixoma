@@ -40,6 +40,8 @@ type Repository interface {
 	ListSessionAssets(ctx context.Context, accountID, sessionID string, limit int) ([]*Asset, error)
 	SaveAssetToLibrary(ctx context.Context, accountID, assetID, folderID string, savedAt time.Time) error
 	ListLibraryAssets(ctx context.Context, accountID, folderID string, limit int) ([]*Asset, error)
+	CreateLibraryFolder(ctx context.Context, folder *LibraryFolder) error
+	ListLibraryFolders(ctx context.Context, accountID string) ([]*LibraryFolder, error)
 
 	SaveFlowNode(ctx context.Context, node *FlowNode) error
 	SaveFlowEdge(ctx context.Context, edge *FlowEdge) error

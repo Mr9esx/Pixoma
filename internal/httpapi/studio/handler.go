@@ -42,8 +42,11 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/approvals/{approvalID}", h.resolveApproval)
 	r.Get("/assets/{assetID}/content", h.assetContent)
 	r.Post("/assets/text", h.createTextAsset)
+	r.Post("/assets/upload", h.uploadAsset)
 	r.Post("/assets/{assetID}/save-to-library", h.saveAssetToLibrary)
 	r.Get("/library/assets", h.listLibraryAssets)
+	r.Get("/library/folders", h.listLibraryFolders)
+	r.Post("/library/folders", h.createLibraryFolder)
 	r.Get("/models", h.listModels)
 	r.Post("/models", h.createModel)
 	r.Get("/skills", h.listSkills)
@@ -76,6 +79,36 @@ func (h *Handler) createTextAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	asset, err := h.Service.CreateManualTextAsset(r.Context(), studioapp.CreateManualTextAssetInput{
 		AccountID: accountID, SessionID: body.SessionID, Name: body.Name, Content: body.Content,
+	}, h.Blob)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
+}
+
+func (h *Handler) uploadAsset(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Blob == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "资产存储服务不可用"})
+		return
+	}
+	if err := r.ParseMultipartForm(50 << 20); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "上传文件读取失败"})
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请选择上传文件"})
+		return
+	}
+	defer file.Close()
+	asset, err := h.Service.UploadAsset(r.Context(), studioapp.UploadAssetInput{
+		AccountID: accountID, SessionID: r.FormValue("session_id"), Name: header.Filename,
+		MIMEType: header.Header.Get("Content-Type"), Content: file,
 	}, h.Blob)
 	if err != nil {
 		writeError(w, err)
@@ -191,6 +224,14 @@ type eventView struct {
 	Type      string          `json:"type"`
 	Payload   json.RawMessage `json:"payload"`
 	CreatedAt time.Time       `json:"created_at"`
+}
+
+type libraryFolderView struct {
+	ID        string    `json:"id"`
+	ParentID  string    `json:"parent_id,omitempty"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
@@ -425,6 +466,44 @@ func (h *Handler) listLibraryAssets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, assetsToViews(assets))
+}
+
+func (h *Handler) listLibraryFolders(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	folders, err := h.Service.ListLibraryFolders(r.Context(), accountID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	out := make([]libraryFolderView, 0, len(folders))
+	for _, folder := range folders {
+		out = append(out, libraryFolderView{ID: folder.ID, ParentID: folder.ParentID, Name: folder.Name, CreatedAt: folder.CreatedAt, UpdatedAt: folder.UpdatedAt})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) createLibraryFolder(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		ParentID string `json:"parent_id"`
+		Name     string `json:"name"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	folder, err := h.Service.CreateLibraryFolder(r.Context(), studioapp.CreateLibraryFolderInput{AccountID: accountID, ParentID: body.ParentID, Name: body.Name})
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, libraryFolderView{ID: folder.ID, ParentID: folder.ParentID, Name: folder.Name, CreatedAt: folder.CreatedAt, UpdatedAt: folder.UpdatedAt})
 }
 
 func (h *Handler) listModels(w http.ResponseWriter, r *http.Request) {

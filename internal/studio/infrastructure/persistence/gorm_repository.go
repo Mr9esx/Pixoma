@@ -467,6 +467,28 @@ func (r *GormRepository) ListLibraryAssets(ctx context.Context, accountID, folde
 	return r.assetsFromRows(ctx, rows)
 }
 
+func (r *GormRepository) CreateLibraryFolder(ctx context.Context, folder *domain.LibraryFolder) error {
+	if folder == nil {
+		return fmt.Errorf("%w: nil library folder", domain.ErrInvalid)
+	}
+	return translateCreateError(r.db.WithContext(ctx).Create(&LibraryFolderRow{
+		ID: folder.ID, AccountID: folder.AccountID, ParentID: folder.ParentID, Name: folder.Name,
+		CreatedAt: folder.CreatedAt, UpdatedAt: folder.UpdatedAt,
+	}).Error)
+}
+
+func (r *GormRepository) ListLibraryFolders(ctx context.Context, accountID string) ([]*domain.LibraryFolder, error) {
+	var rows []LibraryFolderRow
+	if err := r.db.WithContext(ctx).Where("account_id = ?", accountID).Order("name ASC, id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.LibraryFolder, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, &domain.LibraryFolder{ID: row.ID, AccountID: row.AccountID, ParentID: row.ParentID, Name: row.Name, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
+	}
+	return out, nil
+}
+
 func (r *GormRepository) SaveFlowNode(ctx context.Context, node *domain.FlowNode) error {
 	if node == nil {
 		return fmt.Errorf("%w: nil flow node", domain.ErrInvalid)

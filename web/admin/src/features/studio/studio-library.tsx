@@ -1,16 +1,37 @@
-import { useQuery } from '@tanstack/react-query'
+import { useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderPlus, Grid2X2, Library, List, Search, Upload } from 'lucide-react'
-import { listStudioLibraryAssets } from '@/lib/api/studio'
+import { createStudioLibraryFolder, listStudioLibraryAssets, listStudioLibraryFolders, uploadStudioAsset } from '@/lib/api/studio'
 import { AssetCard } from './studio-assets'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export function StudioLibrary() {
+  const queryClient = useQueryClient()
+  const [folderId, setFolderId] = useState<string>()
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false)
+  const [folderName, setFolderName] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const folders = useQuery({ queryKey: ['studio', 'library', 'folders'], queryFn: listStudioLibraryFolders })
   const assets = useQuery({
-    queryKey: ['studio', 'library'],
-    queryFn: () => listStudioLibraryAssets(),
+    queryKey: ['studio', 'library', folderId],
+    queryFn: () => listStudioLibraryAssets(folderId),
+  })
+  const createFolder = useMutation({
+    mutationFn: () => createStudioLibraryFolder({ name: folderName.trim() }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['studio', 'library', 'folders'] })
+      setFolderName('')
+      setFolderDialogOpen(false)
+    },
+  })
+  const upload = useMutation({
+    mutationFn: (file: File) => uploadStudioAsset(file),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['studio', 'library'] }),
   })
 
   return (
@@ -22,14 +43,15 @@ export function StudioLibrary() {
           <p className='text-xs text-muted-foreground'>管理跨 Session 复用的创作素材</p>
         </div>
         <div className='flex items-center gap-2'>
-          <Button variant='outline' size='sm'>
+          <Button variant='outline' size='sm' onClick={() => setFolderDialogOpen(true)}>
             <FolderPlus />
             新建文件夹
           </Button>
-          <Button size='sm'>
+          <Button size='sm' disabled={upload.isPending} onClick={() => fileInputRef.current?.click()}>
             <Upload />
-            上传资产
+            {upload.isPending ? '正在上传…' : '上传资产'}
           </Button>
+          <input ref={fileInputRef} type='file' className='sr-only' onChange={(event) => { const file = event.target.files?.[0]; if (file) upload.mutate(file); event.currentTarget.value = '' }} />
         </div>
       </header>
       <div className='flex items-center gap-3 border-b px-5 py-3'>
@@ -43,6 +65,12 @@ export function StudioLibrary() {
         <Button variant='ghost' size='icon-sm' aria-label='列表视图'>
           <List />
         </Button>
+      </div>
+      <div className='flex items-center gap-2 overflow-x-auto border-b px-5 py-2'>
+        <Button variant={folderId ? 'ghost' : 'secondary'} size='sm' onClick={() => setFolderId(undefined)}>全部资产</Button>
+        {folders.data?.map((folder) => (
+          <Button key={folder.id} variant={folderId === folder.id ? 'secondary' : 'ghost'} size='sm' onClick={() => setFolderId(folder.id)}>{folder.name}</Button>
+        ))}
       </div>
       <ScrollArea className='min-h-0 flex-1'>
         {assets.isLoading ? (
@@ -63,6 +91,14 @@ export function StudioLibrary() {
           <LibraryState title='资产库还是空的' description='你可以直接上传资产，也可以在对话中把 Session 资产存到这里。' />
         )}
       </ScrollArea>
+      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <DialogContent className='sm:max-w-md'>
+          <DialogHeader><DialogTitle>新建文件夹</DialogTitle><DialogDescription>文件夹用于整理可跨 Session 复用的资产。</DialogDescription></DialogHeader>
+          <div className='grid gap-2 py-2'><Label htmlFor='studio-folder-name'>文件夹名称</Label><Input id='studio-folder-name' value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder='例如：角色设定' /></div>
+          {createFolder.isError ? <p role='alert' className='text-sm text-destructive'>文件夹创建失败，请重试。</p> : null}
+          <DialogFooter><Button variant='outline' onClick={() => setFolderDialogOpen(false)}>取消</Button><Button disabled={!folderName.trim() || createFolder.isPending} onClick={() => createFolder.mutate()}>{createFolder.isPending ? '正在保存…' : '保存文件夹'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       </section>
     </main>
   )
