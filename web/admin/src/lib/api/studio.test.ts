@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  createStudioSession,
+	createStudioModel,
+	createStudioSession,
   getStudioSession,
   listStudioSessions,
   sendStudioMessage,
@@ -101,5 +102,27 @@ describe('Studio API', () => {
       permission_mode: 'request_approval',
     })
   })
-})
 
+  it('creates an encrypted server-side model configuration', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'model-1', name: 'Claude' }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await createStudioModel({
+      name: 'Claude', protocol: 'anthropic_messages_compatible', baseUrl: 'https://api.anthropic.com/v1',
+      model: 'claude-sonnet', apiKey: 'only-in-request', enabled: true, agentEnabled: true, default: false,
+      thinking: { enabled: true, budget_tokens: 2048 },
+      capabilities: { tools: true, vision: false, image_output: false, streaming: true },
+    })
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:8081/api/v1/studio/models')
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      protocol: 'anthropic_messages_compatible', api_key: 'only-in-request', agent_enabled: true,
+    })
+  })
+})

@@ -234,3 +234,32 @@ export function listStudioLibraryAssets(folderId?: string) {
 export function listStudioModels() {
   return apiFetch<StudioModel[]>('/api/v1/studio/models')
 }
+
+export function createStudioModel(input: {
+  name: string
+  protocol: StudioModel['protocol']
+  baseUrl: string
+  model: string
+  apiKey: string
+  enabled: boolean
+  agentEnabled: boolean
+  default: boolean
+  thinking: StudioModel['thinking']
+  capabilities: StudioModel['capabilities']
+}) {
+  return apiFetch<StudioModel>('/api/v1/studio/models', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: input.name,
+      protocol: input.protocol,
+      base_url: input.baseUrl,
+      model: input.model,
+      api_key: input.apiKey,
+      enabled: input.enabled,
+      agent_enabled: input.agentEnabled,
+      default: input.default,
+      thinking: input.thinking,
+      capabilities: input.capabilities,
+    }),
+  })
+}
