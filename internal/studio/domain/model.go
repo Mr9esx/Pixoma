@@ -130,6 +130,7 @@ type Run struct {
 	TriggerMessageID string
 	Status           RunStatus
 	ModelConfigID    string
+	SkillIDs         []string
 	ErrorCode        string
 	ErrorMessage     string
 	CreatedAt        time.Time

@@ -2,6 +2,7 @@ package studio_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -257,6 +258,51 @@ func TestStudioAGUIStreamsStandardEvents(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Fatalf("SSE body does not contain %q:\n%s", want, body)
 		}
+	}
+}
+
+func TestStudioAGUIStoresSelectedSkillIDsOnRun(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	skill, err := handler.Capabilities.CreateSkill(context.Background(), studioapp.CreateSkillInput{
+		AccountID: "account-a", Name: "漫画分镜", Prompt: "先输出镜头表", Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := chi.NewRouter()
+	handler.Mount(router)
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+
+	response := request(t, router, http.MethodPost, "/agui", map[string]any{
+		"threadId": session.ID, "runId": "browser-run-skills", "messages": []map[string]any{{"id": "user-message", "role": "user", "content": "写分镜"}},
+		"forwardedProps": map[string]any{"runConfig": map[string]any{"permissionMode": domain.PermissionFullAccess, "selectedSkillIds": []string{skill.ID}}},
+	}, "account-a")
+	if response.Code != http.StatusOK {
+		t.Fatalf("POST /agui status=%d body=%s", response.Code, response.Body.String())
+	}
+	var started struct {
+		Metadata struct {
+			StudioRunID string `json:"studioRunId"`
+		} `json:"metadata"`
+	}
+	for _, chunk := range strings.Split(response.Body.String(), "\n\n") {
+		if !strings.Contains(chunk, "RUN_STARTED") {
+			continue
+		}
+		if index := strings.Index(chunk, "data: "); index >= 0 {
+			_ = json.Unmarshal([]byte(chunk[index+6:]), &started)
+		}
+	}
+	run, err := handler.Repo.GetRun(context.Background(), "account-a", started.Metadata.StudioRunID)
+	if err != nil || len(run.SkillIDs) != 1 || run.SkillIDs[0] != skill.ID {
+		t.Fatalf("run = %#v, err = %v", run, err)
 	}
 }
 

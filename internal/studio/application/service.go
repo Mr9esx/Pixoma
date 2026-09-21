@@ -40,6 +40,7 @@ type SendMessageInput struct {
 	Text           string
 	ModelConfigID  string
 	PermissionMode domain.PermissionMode
+	SkillIDs       []string
 }
 
 type SendMessageResult struct {
@@ -95,6 +96,11 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 		return nil, err
 	}
 	run.ModelConfigID = session.ModelConfigID
+	skillIDs, err := s.resolveSkillIDs(ctx, input.AccountID, input.SkillIDs)
+	if err != nil {
+		return nil, err
+	}
+	run.SkillIDs = skillIDs
 	message.RunID = run.ID
 
 	if err := s.Repo.AppendMessage(ctx, message); err != nil {
@@ -131,6 +137,7 @@ func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domai
 		return nil, err
 	}
 	retried.ModelConfigID = previous.ModelConfigID
+	retried.SkillIDs = append([]string(nil), previous.SkillIDs...)
 	if err := s.Repo.CreateRun(ctx, retried); err != nil {
 		return nil, err
 	}
@@ -140,6 +147,37 @@ func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domai
 		return nil, err
 	}
 	return retried, nil
+}
+
+func (s *Service) resolveSkillIDs(ctx context.Context, accountID string, ids []string) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	skills, err := s.Repo.ListSkills(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	available := make(map[string]bool, len(skills))
+	for _, skill := range skills {
+		available[skill.ID] = skill.Enabled
+	}
+	seen := make(map[string]struct{}, len(ids))
+	selected := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if !available[id] {
+			return nil, fmt.Errorf("%w: selected Skill is unavailable", domain.ErrInvalid)
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		selected = append(selected, id)
+	}
+	return selected, nil
 }
 
 func (s *Service) resolveSession(ctx context.Context, input SendMessageInput, now time.Time) (*domain.Session, bool, error) {

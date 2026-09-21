@@ -39,9 +39,16 @@ func (e *Engine) Execute(ctx context.Context, request studioapp.AgentRequest, si
 	if err := sink.Emit(ctx, studioapp.EventRunStarted, map[string]any{"run_id": request.Run.ID, "session_id": request.Session.ID, "engine": "eino"}); err != nil {
 		return err
 	}
+	instruction := "你是 Pixoma 创作 Studio 的单 Agent。以中文协助用户完成创作任务；清晰说明产出及下一步。"
+	if len(request.Skills) > 0 {
+		instruction += "\n\n本轮已选择以下 Skill。只在与其职责相关时遵循其中要求："
+		for _, skill := range request.Skills {
+			instruction += fmt.Sprintf("\n\n【%s】\n%s", skill.Name, skill.Prompt)
+		}
+	}
 	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name: "pixoma_studio", Description: "Pixoma Studio 单 Agent",
-		Instruction: "你是 Pixoma 创作 Studio 的单 Agent。以中文协助用户完成创作任务；清晰说明产出及下一步。",
+		Instruction: instruction,
 		Model:       modelprovider.NewEinoChatModel(e.Client, *config), MaxIterations: 8,
 	})
 	if err != nil {

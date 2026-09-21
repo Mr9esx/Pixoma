@@ -40,6 +40,7 @@ type AgentRequest struct {
 	Run       *domain.Run
 	Session   *domain.Session
 	UserText  string
+	Skills    []domain.Skill
 	Approvals []*domain.Approval
 }
 
@@ -131,7 +132,34 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 			sink.sequence = event.Sequence
 		}
 	}
-	return e.engine.Execute(ctx, AgentRequest{Run: run, Session: session, UserText: text, Approvals: approvals}, sink)
+	skills, err := e.selectedSkills(ctx, run)
+	if err != nil {
+		return err
+	}
+	return e.engine.Execute(ctx, AgentRequest{Run: run, Session: session, UserText: text, Skills: skills, Approvals: approvals}, sink)
+}
+
+func (e *AgentExecutor) selectedSkills(ctx context.Context, run *domain.Run) ([]domain.Skill, error) {
+	if len(run.SkillIDs) == 0 {
+		return nil, nil
+	}
+	available, err := e.repo.ListSkills(ctx, run.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]*domain.Skill, len(available))
+	for _, skill := range available {
+		byID[skill.ID] = skill
+	}
+	selected := make([]domain.Skill, 0, len(run.SkillIDs))
+	for _, id := range run.SkillIDs {
+		skill, ok := byID[id]
+		if !ok {
+			return nil, fmt.Errorf("%w: selected Skill no longer exists", domain.ErrNotFound)
+		}
+		selected = append(selected, *skill)
+	}
+	return selected, nil
 }
 
 type executionWriter struct {

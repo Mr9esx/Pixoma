@@ -46,4 +46,11 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('SkillDialog')
     expect(source).not.toContain('<EmptySetting icon={Sparkles}')
   })
+
+  it('lets the composer forward explicitly selected Skills', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain('SkillPicker')
+    expect(source).toContain('selectedSkillIds')
+    expect(source).toContain('selectedSkillIds: props.selectedSkillIds')
+  })
 })

@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -45,6 +46,7 @@ type RunRow struct {
 	TriggerMessageID string `gorm:"size:64;not null;index"`
 	Status           string `gorm:"size:32;not null;index"`
 	ModelConfigID    string `gorm:"size:64;index"`
+	SkillIDsJSON     []byte `gorm:"type:blob"`
 	ErrorCode        string `gorm:"size:128"`
 	ErrorMessage     string `gorm:"type:text"`
 	CreatedAt        time.Time
@@ -587,11 +589,14 @@ func messageFromRow(row MessageRow) *domain.Message {
 }
 
 func runToRow(value *domain.Run) *RunRow {
-	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
+	skillIDs, _ := json.Marshal(value.SkillIDs)
+	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, SkillIDsJSON: skillIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func runFromRow(row RunRow) *domain.Run {
-	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
+	var skillIDs []string
+	_ = json.Unmarshal(row.SkillIDsJSON, &skillIDs)
+	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func eventToRow(value *domain.Event) *EventRow {

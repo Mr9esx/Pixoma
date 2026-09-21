@@ -92,6 +92,43 @@ func TestMockAgentCompletesConversationWorkflowAndAssets(t *testing.T) {
 	}
 }
 
+func TestAgentExecutorLoadsTheSkillSelectedForRun(t *testing.T) {
+	repo := openRepository(t)
+	blobs, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := &idSequence{}
+	skill, err := domain.NewSkill(ids.Next(), "account-a", "漫画分镜", "拆分镜头", "先输出镜头表", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	skill.Enabled = true
+	if err := repo.CreateSkill(context.Background(), skill); err != nil {
+		t.Fatal(err)
+	}
+	service := &studioapp.Service{Repo: repo, IDs: ids.Next, Now: time.Now, Queue: &queueSpy{}}
+	run, err := service.SendMessage(context.Background(), studioapp.SendMessageInput{AccountID: "account-a", Text: "写分镜", SkillIDs: []string{skill.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	capture := &captureEngine{}
+	executor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{Repo: repo, Blob: blobs, Engine: capture, IDs: ids.Next})
+	if err := executor.Execute(context.Background(), run.Run); err != nil {
+		t.Fatal(err)
+	}
+	if len(capture.request.Skills) != 1 || capture.request.Skills[0].Prompt != skill.Prompt {
+		t.Fatalf("request skills = %#v", capture.request.Skills)
+	}
+}
+
+type captureEngine struct{ request studioapp.AgentRequest }
+
+func (e *captureEngine) Execute(_ context.Context, request studioapp.AgentRequest, _ studioapp.AgentSink) error {
+	e.request = request
+	return nil
+}
+
 func hasEventType(events []*domain.Event, want string) bool {
 	for _, event := range events {
 		if event.Type == want {

@@ -26,8 +26,9 @@ type aguiRunInput struct {
 }
 
 type aguiRunConfig struct {
-	ModelConfigID  string                `json:"modelConfigId"`
-	PermissionMode domain.PermissionMode `json:"permissionMode"`
+	ModelConfigID    string                `json:"modelConfigId"`
+	PermissionMode   domain.PermissionMode `json:"permissionMode"`
+	SelectedSkillIDs []string              `json:"selectedSkillIds"`
 }
 
 func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +54,7 @@ func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.Service.SendMessage(r.Context(), studioapp.SendMessageInput{
 		AccountID: accountID, SessionID: input.ThreadID, Text: text,
-		ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode,
+		ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode, SkillIDs: config.SelectedSkillIDs,
 	})
 	if err != nil {
 		writeError(w, err)

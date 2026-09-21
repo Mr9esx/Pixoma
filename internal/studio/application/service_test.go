@@ -109,6 +109,34 @@ func TestSendMessageCreatesSessionTurnAndAIGeneratedTitle(t *testing.T) {
 	}
 }
 
+func TestSendMessageSnapshotsExplicitlySelectedEnabledSkills(t *testing.T) {
+	repo := openRepository(t)
+	ids := &idSequence{}
+	skill, err := domain.NewSkill(ids.Next(), "account-a", "漫画分镜", "拆分镜头", "先输出镜头表", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	skill.Enabled = true
+	if err := repo.CreateSkill(context.Background(), skill); err != nil {
+		t.Fatal(err)
+	}
+	service := &studioapp.Service{Repo: repo, IDs: ids.Next, Now: time.Now, Queue: &queueSpy{}}
+
+	result, err := service.SendMessage(context.Background(), studioapp.SendMessageInput{
+		AccountID: "account-a", Text: "为角色设计分镜", SkillIDs: []string{skill.ID},
+	})
+	if err != nil {
+		t.Fatalf("SendMessage() error = %v", err)
+	}
+	if len(result.Run.SkillIDs) != 1 || result.Run.SkillIDs[0] != skill.ID {
+		t.Fatalf("run skills = %#v", result.Run.SkillIDs)
+	}
+	persisted, err := repo.GetRun(context.Background(), "account-a", result.Run.ID)
+	if err != nil || len(persisted.SkillIDs) != 1 || persisted.SkillIDs[0] != skill.ID {
+		t.Fatalf("persisted run = %#v, err = %v", persisted, err)
+	}
+}
+
 func TestSendMessageUsesSafeFallbackWhenTitleGenerationFails(t *testing.T) {
 	repo := openRepository(t)
 	ids := &idSequence{}

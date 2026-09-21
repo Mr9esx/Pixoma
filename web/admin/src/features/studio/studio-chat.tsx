@@ -8,17 +8,27 @@ import {
   useAui,
 } from '@assistant-ui/react'
 import { useAgUiRuntime } from '@assistant-ui/react-ag-ui'
-import { Bot, Check, ChevronDown, Send, ShieldCheck, User } from 'lucide-react'
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  User,
+} from 'lucide-react'
+import { baseURL, sessionToken } from '@/lib/api/client'
 import type {
   StudioMessage,
   StudioModel,
   StudioPermissionMode,
+  StudioSkill,
 } from '@/lib/api/studio'
-import { baseURL, sessionToken } from '@/lib/api/client'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -34,13 +44,18 @@ type Props = {
   models: StudioModel[]
   modelConfigId?: string
   permissionMode: StudioPermissionMode
+  skills: StudioSkill[]
+  selectedSkillIds: string[]
   onModelChange: (id: string) => void
   onPermissionChange: (mode: StudioPermissionMode) => void
+  onSkillChange: (ids: string[]) => void
 }
 
 function toAGUIMessages(messages: StudioMessage[]) {
   return messages
-    .filter((message) => message.role === 'user' || message.role === 'assistant')
+    .filter(
+      (message) => message.role === 'user' || message.role === 'assistant'
+    )
     .map((message) => ({
       id: message.id,
       role: message.role,
@@ -72,6 +87,7 @@ export function StudioChat(props: Props) {
           runConfig: {
             modelConfigId: selectedModel?.id ?? '',
             permissionMode: props.permissionMode,
+            selectedSkillIds: props.selectedSkillIds,
           },
         }
         const token = sessionToken()
@@ -87,7 +103,12 @@ export function StudioChat(props: Props) {
         })
       },
     })
-  }, [props.sessionId, selectedModel?.id, props.permissionMode])
+  }, [
+    props.sessionId,
+    selectedModel?.id,
+    props.permissionMode,
+    props.selectedSkillIds,
+  ])
 
   const runtime = useAgUiRuntime({ agent, showThinking: true })
 
@@ -96,7 +117,9 @@ export function StudioChat(props: Props) {
       <ThreadPrimitive.Root className='flex min-h-0 flex-1 flex-col'>
         <ThreadPrimitive.Viewport className='min-h-0 flex-1 overflow-y-auto scroll-smooth'>
           <div className='mx-auto flex min-h-full w-full max-w-3xl flex-col px-5 py-8'>
-            <ThreadPrimitive.Empty><StudioWelcome /></ThreadPrimitive.Empty>
+            <ThreadPrimitive.Empty>
+              <StudioWelcome />
+            </ThreadPrimitive.Empty>
             <ThreadPrimitive.Messages
               components={{
                 UserMessage: StudioUserMessage,
@@ -106,7 +129,7 @@ export function StudioChat(props: Props) {
             <div className='min-h-6 flex-1' />
           </div>
         </ThreadPrimitive.Viewport>
-        <div className='shrink-0 bg-background px-4 pb-5 pt-2'>
+        <div className='shrink-0 bg-background px-4 pt-2 pb-5'>
           <ComposerPrimitive.Root className='mx-auto w-full max-w-3xl rounded-2xl border bg-card p-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20'>
             <ComposerPrimitive.Input
               autoFocus
@@ -121,13 +144,22 @@ export function StudioChat(props: Props) {
                   value={selectedModel?.id}
                   onChange={props.onModelChange}
                 />
+                <SkillPicker
+                  skills={props.skills}
+                  value={props.selectedSkillIds}
+                  onChange={props.onSkillChange}
+                />
                 <PermissionPicker
                   value={props.permissionMode}
                   onChange={props.onPermissionChange}
                 />
               </div>
               <ComposerPrimitive.Send asChild>
-                <Button size='icon' className='rounded-xl' aria-label='发送消息'>
+                <Button
+                  size='icon'
+                  className='rounded-xl'
+                  aria-label='发送消息'
+                >
                   <Send />
                 </Button>
               </ComposerPrimitive.Send>
@@ -142,6 +174,58 @@ export function StudioChat(props: Props) {
   )
 }
 
+function SkillPicker({
+  skills,
+  value,
+  onChange,
+}: {
+  skills: StudioSkill[]
+  value: string[]
+  onChange: (ids: string[]) => void
+}) {
+  const selected = new Set(value)
+  const enabledSkills = skills.filter((skill) => skill.enabled)
+  const toggle = (id: string) =>
+    onChange(
+      selected.has(id)
+        ? value.filter((selectedID) => selectedID !== id)
+        : [...value, id]
+    )
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant='ghost' size='sm' className='rounded-lg'>
+          <Sparkles />
+          {value.length === 0 ? 'Skills' : `Skills · ${value.length}`}
+          <ChevronDown className='size-3.5' />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='start' className='w-72'>
+        <DropdownMenuLabel>本轮使用的 Skills</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {enabledSkills.length === 0 ? (
+          <DropdownMenuItem disabled>没有已启用的 Skill</DropdownMenuItem>
+        ) : null}
+        {enabledSkills.map((skill) => (
+          <DropdownMenuCheckboxItem
+            key={skill.id}
+            checked={selected.has(skill.id)}
+            onSelect={(event) => event.preventDefault()}
+            onCheckedChange={() => toggle(skill.id)}
+          >
+            <span className='min-w-0 flex-1'>
+              <span className='block truncate'>{skill.name}</span>
+              <span className='block truncate text-xs text-muted-foreground'>
+                {skill.description}
+              </span>
+            </span>
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function StudioWelcome() {
   const aui = useAui()
   return (
@@ -151,7 +235,9 @@ function StudioWelcome() {
       </span>
       <h2 className='text-xl font-semibold tracking-tight'>从一个想法开始</h2>
       <p className='mt-2 max-w-md text-sm leading-6 text-muted-foreground'>
-        和 Agent 一起构思内容、生成资产，或让它调用现有工作流。每一项产出都会沉淀在当前 Session 的资产路线中。
+        和 Agent
+        一起构思内容、生成资产，或让它调用现有工作流。每一项产出都会沉淀在当前
+        Session 的资产路线中。
       </p>
       <div className='mt-6 grid w-full max-w-xl gap-2 sm:grid-cols-2'>
         {['为雨夜侦探构思漫画并生成分镜', '根据一张角色图生成三视图'].map(
@@ -198,7 +284,7 @@ function StudioAssistantMessage() {
           <Bot className='size-4' />
         </AvatarFallback>
       </Avatar>
-      <div className='min-w-0 max-w-[88%] pt-1 text-sm leading-7'>
+      <div className='max-w-[88%] min-w-0 pt-1 text-sm leading-7'>
         <MessagePrimitive.Parts />
       </div>
     </MessagePrimitive.Root>
@@ -227,7 +313,9 @@ function ModelPicker({
         <DropdownMenuLabel>本次对话使用的模型</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {models.length === 0 ? (
-          <DropdownMenuItem disabled>未配置在线模型，将使用 Mock Agent</DropdownMenuItem>
+          <DropdownMenuItem disabled>
+            未配置在线模型，将使用 Mock Agent
+          </DropdownMenuItem>
         ) : (
           <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
             {models
