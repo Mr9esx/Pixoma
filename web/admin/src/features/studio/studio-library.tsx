@@ -15,6 +15,8 @@ export function StudioLibrary() {
   const [folderId, setFolderId] = useState<string>()
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
+  const [query, setQuery] = useState('')
+  const [view, setView] = useState<'grid' | 'list'>('grid')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folders = useQuery({ queryKey: ['studio', 'library', 'folders'], queryFn: listStudioLibraryFolders })
   const assets = useQuery({
@@ -32,6 +34,12 @@ export function StudioLibrary() {
   const upload = useMutation({
     mutationFn: (file: File) => uploadStudioAsset(file),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['studio', 'library'] }),
+  })
+  const visibleAssets = (assets.data ?? []).filter((asset) => {
+    const value = query.trim().toLocaleLowerCase()
+    return !value || [asset.name, asset.kind, asset.origin].some((part) =>
+      part.toLocaleLowerCase().includes(value)
+    )
   })
 
   return (
@@ -57,12 +65,12 @@ export function StudioLibrary() {
       <div className='flex items-center gap-3 border-b px-5 py-3'>
         <div className='relative max-w-md flex-1'>
           <Search className='absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground' />
-          <Input className='pl-9' placeholder='搜索资产名称、类型或来源…' />
+          <Input className='pl-9' value={query} onChange={(event) => setQuery(event.target.value)} placeholder='搜索资产名称、类型或来源…' />
         </div>
-        <Button variant='secondary' size='icon-sm' aria-label='网格视图'>
+        <Button variant={view === 'grid' ? 'secondary' : 'ghost'} size='icon-sm' aria-label='网格视图' aria-pressed={view === 'grid'} onClick={() => setView('grid')}>
           <Grid2X2 />
         </Button>
-        <Button variant='ghost' size='icon-sm' aria-label='列表视图'>
+        <Button variant={view === 'list' ? 'secondary' : 'ghost'} size='icon-sm' aria-label='列表视图' aria-pressed={view === 'list'} onClick={() => setView('list')}>
           <List />
         </Button>
       </div>
@@ -81,12 +89,14 @@ export function StudioLibrary() {
           </div>
         ) : assets.isError ? (
           <LibraryState title='资产读取失败' description='请稍后重试，已有资产不会丢失。' />
-        ) : assets.data?.length ? (
-          <div className='grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
-            {assets.data.map((asset) => (
+        ) : visibleAssets.length ? (
+          <div className={view === 'grid' ? 'grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid gap-3 p-5'}>
+            {visibleAssets.map((asset) => (
               <AssetCard key={asset.id} asset={asset} onSaveToLibrary={() => undefined} />
             ))}
           </div>
+        ) : assets.data?.length ? (
+          <LibraryState title='没有匹配的资产' description='换个关键词试试，或清空搜索条件查看全部资产。' />
         ) : (
           <LibraryState title='资产库还是空的' description='你可以直接上传资产，也可以在对话中把 Session 资产存到这里。' />
         )}
