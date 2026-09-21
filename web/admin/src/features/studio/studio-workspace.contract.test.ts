@@ -120,4 +120,12 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('selectedSkillIds')
     expect(source).toContain('selectedSkillIds: props.selectedSkillIds')
   })
+
+  it('lets the composer use both Session assets and reusable library assets', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain('listStudioLibraryAssets')
+    expect(source).toContain('当前 Session')
+    expect(source).toContain('资产库')
+    expect(source).toContain('new Map<string, StudioAsset>')
+  })
 })

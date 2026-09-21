@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { HttpAgent } from '@ag-ui/client'
 import {
   AssistantRuntimeProvider,
@@ -19,12 +20,13 @@ import {
   User,
 } from 'lucide-react'
 import { baseURL, sessionToken } from '@/lib/api/client'
-import type {
-  StudioMessage,
-  StudioAsset,
-  StudioModel,
-  StudioPermissionMode,
-  StudioSkill,
+import {
+  listStudioLibraryAssets,
+  type StudioAsset,
+  type StudioMessage,
+  type StudioModel,
+  type StudioPermissionMode,
+  type StudioSkill,
 } from '@/lib/api/studio'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -156,7 +158,11 @@ export function StudioChat(props: Props) {
                   value={props.selectedSkillIds}
                   onChange={props.onSkillChange}
                 />
-                <AssetPicker assets={props.assets} value={props.selectedAssetIds} onChange={props.onAssetChange} />
+                <AssetPicker
+                  assets={props.assets}
+                  value={props.selectedAssetIds}
+                  onChange={props.onAssetChange}
+                />
                 <PermissionPicker
                   value={props.permissionMode}
                   onChange={props.onPermissionChange}
@@ -182,18 +188,116 @@ export function StudioChat(props: Props) {
   )
 }
 
-function AssetPicker({ assets, value, onChange }: { assets: StudioAsset[]; value: string[]; onChange: (ids: string[]) => void }) {
+function AssetPicker({
+  assets,
+  value,
+  onChange,
+}: {
+  assets: StudioAsset[]
+  value: string[]
+  onChange: (ids: string[]) => void
+}) {
+  const libraryAssets = useQuery({
+    queryKey: ['studio', 'library', 'assets'],
+    queryFn: () => listStudioLibraryAssets(),
+  })
+  const sessionAssetIDs = new Set(assets.map((asset) => asset.id))
+  const assetsByID = new Map<string, StudioAsset>()
+  for (const asset of assets) assetsByID.set(asset.id, asset)
+  for (const asset of libraryAssets.data ?? []) {
+    assetsByID.set(asset.id, asset)
+  }
   const selected = new Set(value)
-  const toggle = (id: string) => onChange(selected.has(id) ? value.filter((item) => item !== id) : [...value, id])
+  const toggle = (id: string) =>
+    onChange(
+      selected.has(id)
+        ? value.filter((item) => item !== id)
+        : [...value, id]
+    )
+  const unavailableSelections = value.filter((id) => !assetsByID.has(id))
+  const currentAssets = assets
+  const reusableAssets = (libraryAssets.data ?? []).filter(
+    (asset) => !sessionAssetIDs.has(asset.id)
+  )
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild><Button variant='ghost' size='sm' className='rounded-lg'><Paperclip />{value.length === 0 ? '资产' : `资产 · ${value.length}`}<ChevronDown className='size-3.5' /></Button></DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>
+        <Button variant='ghost' size='sm' className='rounded-lg'>
+          <Paperclip />
+          {value.length === 0 ? '资产' : `资产 · ${value.length}`}
+          <ChevronDown className='size-3.5' />
+        </Button>
+      </DropdownMenuTrigger>
       <DropdownMenuContent align='start' className='w-72'>
-        <DropdownMenuLabel>本轮使用的资产</DropdownMenuLabel><DropdownMenuSeparator />
-        {assets.length === 0 ? <DropdownMenuItem disabled>当前 Session 还没有资产</DropdownMenuItem> : null}
-        {assets.map((asset) => <DropdownMenuCheckboxItem key={asset.id} checked={selected.has(asset.id)} onSelect={(event) => event.preventDefault()} onCheckedChange={() => toggle(asset.id)}><span className='truncate'>{asset.name}</span></DropdownMenuCheckboxItem>)}
+        <DropdownMenuLabel>本轮使用的资产</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <AssetPickerSection
+          label='当前 Session'
+          assets={currentAssets}
+          selected={selected}
+          onToggle={toggle}
+          emptyText='当前 Session 还没有资产'
+        />
+        <DropdownMenuSeparator />
+        <AssetPickerSection
+          label='资产库'
+          assets={reusableAssets}
+          selected={selected}
+          onToggle={toggle}
+          emptyText={libraryAssets.isLoading ? '正在读取资产库…' : '资产库还没有可复用资产'}
+        />
+        {unavailableSelections.length > 0 ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled>
+              {unavailableSelections.length} 项已选资产不可用
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function AssetPickerSection({
+  label,
+  assets,
+  selected,
+  onToggle,
+  emptyText,
+}: {
+  label: string
+  assets: StudioAsset[]
+  selected: Set<string>
+  onToggle: (id: string) => void
+  emptyText: string
+}) {
+  return (
+    <>
+      <DropdownMenuLabel className='text-xs font-medium text-muted-foreground'>
+        {label}
+      </DropdownMenuLabel>
+      {assets.length === 0 ? (
+        <DropdownMenuItem disabled>{emptyText}</DropdownMenuItem>
+      ) : (
+        assets.map((asset) => (
+          <DropdownMenuCheckboxItem
+            key={asset.id}
+            checked={selected.has(asset.id)}
+            onSelect={(event) => event.preventDefault()}
+            onCheckedChange={() => onToggle(asset.id)}
+          >
+            <span className='min-w-0 flex-1'>
+              <span className='block truncate'>{asset.name}</span>
+              <span className='block text-xs text-muted-foreground'>
+                {asset.kind === 'image' ? '图片' : asset.kind === 'document' ? '文档' : '文件'}
+              </span>
+            </span>
+          </DropdownMenuCheckboxItem>
+        ))
+      )}
+    </>
   )
 }
 
