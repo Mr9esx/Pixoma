@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ListTree, Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import {
@@ -58,7 +58,8 @@ export function StudioWorkspace() {
     queryKey: ['studio', 'skills'],
     queryFn: listStudioSkills,
   })
-  const createSession = useMutation({
+  const { mutate: createSessionMutate, isPending: creatingSession } =
+    useMutation({
     mutationFn: createStudioSession,
     onSuccess: (session) => {
       setActiveSessionId(session.id)
@@ -67,29 +68,35 @@ export function StudioWorkspace() {
       void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
     },
   })
+  const sessionId = activeSessionId ?? sessions.data?.[0]?.id
+  const sessionPermissionMode = activeSessionId
+    ? permissionMode
+    : sessions.data?.[0]?.permission_mode ?? permissionMode
 
   useEffect(() => {
-    if (activeSessionId || sessions.isLoading) return
-    const first = sessions.data?.[0]
-    if (first) {
-      setActiveSessionId(first.id)
-      setPermissionMode(first.permission_mode)
-    } else if (sessions.data && !createSession.isPending) {
-      createSession.mutate()
+    if (
+      sessions.isLoading ||
+      !sessions.data ||
+      sessions.data.length > 0 ||
+      creatingSession
+    ) {
+      return
     }
-  }, [activeSessionId, sessions.data, sessions.isLoading, createSession])
+    createSessionMutate()
+  }, [sessions.data, sessions.isLoading, creatingSession, createSessionMutate])
 
   const detail = useQuery({
-    queryKey: ['studio', 'session', activeSessionId],
-    queryFn: () => getStudioSession(activeSessionId!),
-    enabled: Boolean(activeSessionId) && view === 'chat',
+    queryKey: ['studio', 'session', sessionId],
+    queryFn: () => getStudioSession(sessionId!),
+    enabled: Boolean(sessionId) && view === 'chat',
     refetchInterval: 1500,
   })
 
   const saveAsset = useMutation({
-    mutationFn: (assetId: string) => saveStudioAssetToLibrary(assetId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['studio'] })
+    mutationFn: ({ assetId, folderId }: { assetId: string; folderId?: string }) =>
+      saveStudioAssetToLibrary(assetId, folderId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['studio'] })
     },
   })
   const saveFlowPositions = useMutation({
@@ -99,10 +106,10 @@ export function StudioWorkspace() {
         position: { x: number; y: number }
         sort_order: number
       }>
-    ) => updateStudioFlowNodes(activeSessionId!, nodes),
+    ) => updateStudioFlowNodes(sessionId!, nodes),
     onSettled: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['studio', 'session', activeSessionId],
+        queryKey: ['studio', 'session', sessionId],
       })
     },
   })
@@ -112,71 +119,72 @@ export function StudioWorkspace() {
       title: string
       body?: string
       position: { x: number; y: number }
-    }) => createStudioFlowNode(activeSessionId!, input),
+    }) => createStudioFlowNode(sessionId!, input),
     onSettled: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['studio', 'session', activeSessionId],
+        queryKey: ['studio', 'session', sessionId],
       })
     },
   })
   const deleteFlowNode = useMutation({
-    mutationFn: (nodeId: string) => deleteStudioFlowNode(activeSessionId!, nodeId),
+    mutationFn: (nodeId: string) => deleteStudioFlowNode(sessionId!, nodeId),
     onSettled: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['studio', 'session', activeSessionId],
+        queryKey: ['studio', 'session', sessionId],
       })
     },
   })
   const createFlowEdge = useMutation({
     mutationFn: (input: { source: string; target: string; label?: string }) =>
-      createStudioFlowEdge(activeSessionId!, input),
+      createStudioFlowEdge(sessionId!, input),
     onSettled: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['studio', 'session', activeSessionId],
+        queryKey: ['studio', 'session', sessionId],
       })
     },
   })
   const deleteFlowEdge = useMutation({
-    mutationFn: (edgeId: string) => deleteStudioFlowEdge(activeSessionId!, edgeId),
+    mutationFn: (edgeId: string) => deleteStudioFlowEdge(sessionId!, edgeId),
     onSettled: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['studio', 'session', activeSessionId],
+        queryKey: ['studio', 'session', sessionId],
       })
     },
   })
   const createTextAsset = useMutation({
     mutationFn: (input: { name: string; content: string }) =>
-      createStudioTextAsset({ sessionId: activeSessionId!, ...input }),
+      createStudioTextAsset({ sessionId: sessionId!, ...input }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['studio', 'session', activeSessionId],
+        queryKey: ['studio', 'session', sessionId],
       })
     },
   })
   const uploadAsset = useMutation({
-    mutationFn: (file: File) => uploadStudioAsset(file, activeSessionId),
+    mutationFn: (file: File) => uploadStudioAsset(file, sessionId),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['studio', 'session', activeSessionId],
+        queryKey: ['studio', 'session', sessionId],
       })
     },
   })
 
-  const sidebarProps = useMemo(
-    () => ({
-      sessions: sessions.data ?? [],
-      activeSessionId,
-      view,
-      creating: createSession.isPending,
-      onNewSession: () => createSession.mutate(),
-      onSelectSession: (id: string) => {
-        setActiveSessionId(id)
-        setView('chat' as const)
-      },
-      onViewChange: setView,
-    }),
-    [sessions.data, activeSessionId, view, createSession]
-  )
+  const sidebarProps = {
+    sessions: sessions.data ?? [],
+    activeSessionId: sessionId,
+    view,
+    creating: creatingSession,
+    onNewSession: () => createSessionMutate(),
+    onSelectSession: (id: string) => {
+      setActiveSessionId(id)
+      setPermissionMode(
+        sessions.data?.find((session) => session.id === id)?.permission_mode ??
+          'request_approval'
+      )
+      setView('chat' as const)
+    },
+    onViewChange: setView,
+  }
 
   return (
     <div className='flex h-svh min-h-0 w-full overflow-hidden bg-muted/30'>
@@ -220,7 +228,7 @@ export function StudioWorkspace() {
                   <Button variant='ghost' size='icon' onClick={() => setRightOpen((open) => !open)} aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}>{rightOpen ? <PanelRightClose /> : <PanelRightOpen />}</Button>
                 </div>
               </header>
-              {!activeSessionId || detail.isLoading ? (
+              {!sessionId || detail.isLoading ? (
                 <ChatSkeleton />
               ) : detail.isError || !detail.data ? (
                 <div className='flex flex-1 items-center justify-center text-sm text-muted-foreground'>
@@ -228,20 +236,23 @@ export function StudioWorkspace() {
                 </div>
               ) : (
                 <StudioChat
-                  key={activeSessionId}
-                  sessionId={activeSessionId}
+                  key={sessionId}
+                  sessionId={sessionId}
                   messages={detail.data.messages}
                   models={models.data ?? []}
                   modelConfigId={
                     modelConfigId ?? detail.data.session.model_config_id
                   }
-                  permissionMode={permissionMode}
+                  permissionMode={sessionPermissionMode}
                   skills={skills.data ?? []}
                   assets={detail.data.assets}
                   selectedSkillIds={selectedSkillIds}
                   selectedAssetIds={selectedAssetIds}
                   onModelChange={setModelConfigId}
-                  onPermissionChange={setPermissionMode}
+                  onPermissionChange={(mode) => {
+                    setPermissionMode(mode)
+                    if (sessionId) setActiveSessionId(sessionId)
+                  }}
                   onSkillChange={setSelectedSkillIds}
                   onAssetChange={setSelectedAssetIds}
                 />
@@ -277,7 +288,7 @@ export function StudioWorkspace() {
                   <TabsContent value='assets' className='m-0 min-h-0'>
                     <StudioAssets
                       assets={detail.data?.assets ?? []}
-                      onSaveToLibrary={(id) => saveAsset.mutate(id)}
+                      onSaveToLibrary={(input) => saveAsset.mutateAsync(input)}
                       onCreateTextAsset={(input) =>
                         createTextAsset.mutate(input)
                       }
@@ -294,7 +305,7 @@ export function StudioWorkspace() {
       <Sheet open={traceOpen} onOpenChange={setTraceOpen}>
         <SheetContent side='right' className='flex w-full max-w-3xl flex-col gap-0 p-0 sm:max-w-3xl'>
           <SheetTitle className='sr-only'>执行 Trace</SheetTitle>
-          {activeSessionId ? <StudioTrace sessionId={activeSessionId} /> : null}
+          {sessionId ? <StudioTrace sessionId={sessionId} /> : null}
         </SheetContent>
       </Sheet>
     </div>

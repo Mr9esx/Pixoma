@@ -1,6 +1,11 @@
 import { useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Download, FilePlus2, FileText, ImageIcon, Library, MoreHorizontal, Upload } from 'lucide-react'
-import type { StudioAsset } from '@/lib/api/studio'
+import {
+  listStudioLibraryFolders,
+  type StudioAsset,
+  type StudioLibraryFolder,
+} from '@/lib/api/studio'
 import { baseURL } from '@/lib/api/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,18 +19,31 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
 type Props = {
   assets: StudioAsset[]
-  onSaveToLibrary: (assetId: string) => void
+  onSaveToLibrary: (input: { assetId: string; folderId?: string }) => Promise<void>
   onCreateTextAsset?: (input: { name: string; content: string }) => void
   onUploadAsset?: (file: File) => void
   uploading?: boolean
 }
 
 export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset, onUploadAsset, uploading }: Props) {
+  const [assetToSave, setAssetToSave] = useState<StudioAsset>()
+  const folders = useQuery({
+    queryKey: ['studio', 'library', 'folders'],
+    queryFn: listStudioLibraryFolders,
+  })
   if (assets.length === 0) {
     return (
       <div className='flex h-full flex-col items-center justify-center px-8 text-center'>
@@ -51,10 +69,19 @@ export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset, onUpl
           <AssetCard
             key={asset.id}
             asset={asset}
-            onSaveToLibrary={onSaveToLibrary}
+            onSaveToLibrary={() => setAssetToSave(asset)}
           />
         ))}
       </div>
+      <SaveAssetToLibraryDialog
+        asset={assetToSave}
+        folders={folders.data ?? []}
+        foldersLoading={folders.isLoading}
+        onOpenChange={(open) => {
+          if (!open) setAssetToSave(undefined)
+        }}
+        onSave={onSaveToLibrary}
+      />
     </ScrollArea>
   )
 }
@@ -184,6 +211,85 @@ export function AssetCard({
         </div>
       </div>
     </article>
+  )
+}
+
+function SaveAssetToLibraryDialog({
+  asset,
+  folders,
+  foldersLoading,
+  onOpenChange,
+  onSave,
+}: {
+  asset?: StudioAsset
+  folders: StudioLibraryFolder[]
+  foldersLoading: boolean
+  onOpenChange: (open: boolean) => void
+  onSave: (input: { assetId: string; folderId?: string }) => Promise<void>
+}) {
+  const [folderId, setFolderId] = useState('root')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open && !saving) {
+      setFolderId('root')
+      setError('')
+      onOpenChange(false)
+    }
+  }
+
+  const save = async () => {
+    if (!asset) return
+    setSaving(true)
+    setError('')
+    try {
+      await onSave({
+        assetId: asset.id,
+        folderId: folderId === 'root' ? undefined : folderId,
+      })
+      setFolderId('root')
+      onOpenChange(false)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '资产保存失败，请稍后重试。')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={Boolean(asset)} onOpenChange={handleOpenChange}>
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader>
+          <DialogTitle>存入资产库</DialogTitle>
+          <DialogDescription>
+            选择资产库文件夹。保存后，这个资产可以在其他 Session 中作为输入引用。
+          </DialogDescription>
+        </DialogHeader>
+        <div className='flex flex-col gap-2 py-2'>
+          <Label htmlFor='studio-asset-library-folder'>资产库文件夹</Label>
+          <Select value={folderId} onValueChange={setFolderId} disabled={saving}>
+            <SelectTrigger id='studio-asset-library-folder'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='root'>根目录</SelectItem>
+              {foldersLoading ? (
+                <SelectItem value='loading' disabled>正在读取文件夹…</SelectItem>
+              ) : null}
+              {folders.map((folder) => (
+                <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {error ? <p role='alert' className='text-sm text-destructive'>{error}</p> : null}
+        <DialogFooter>
+          <Button variant='outline' disabled={saving} onClick={() => handleOpenChange(false)}>取消</Button>
+          <Button disabled={saving} onClick={save}>{saving ? '正在保存…' : '存入资产库'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

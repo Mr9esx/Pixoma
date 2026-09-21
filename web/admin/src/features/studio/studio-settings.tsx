@@ -32,9 +32,12 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  Card,
-  CardContent,
-} from '@/components/ui/card'
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import {
   Dialog,
   DialogContent,
@@ -106,54 +109,59 @@ export function StudioSettings() {
           cause instanceof Error ? cause.message : '模型连接失败，请检查配置。',
       }),
   })
+  const activeSection = settingSections.find((item) => item.id === section)!
+
   return (
     <main
       id='main-content'
       className='min-h-0 min-w-0 flex-1 bg-muted/30 p-3 sm:p-4'
     >
       <section className='flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card'>
-        <header className='flex min-h-16 items-center gap-3 border-b px-5'>
-          <div>
+        <header className='flex min-h-16 items-center gap-3 border-b px-5 pl-16 lg:pl-5'>
+          <div className='min-w-0'>
             <h1 className='text-sm font-semibold'>AI 设置</h1>
             <p className='text-xs text-muted-foreground'>配置 Agent 可以使用的模型与能力</p>
           </div>
         </header>
         <div className='flex min-h-0 flex-1 flex-col md:flex-row'>
-          <div className='flex gap-1 overflow-x-auto border-b p-2 md:hidden'>
+          <div className='flex gap-1 overflow-x-auto border-b p-2 md:hidden' aria-label='AI 设置分类'>
             {settingSections.map((item) => {
               const Icon = item.icon
+              const active = section === item.id
               return (
-                <button
+                <Button
                   key={item.id}
-                  type='button'
+                  variant={active ? 'secondary' : 'ghost'}
+                  size='sm'
                   onClick={() => setSection(item.id)}
-                  className={`flex min-h-10 shrink-0 items-center gap-2 rounded-md border px-3 text-sm ${section === item.id ? 'border-border bg-muted text-foreground' : 'border-transparent text-muted-foreground'}`}
+                  className='min-h-10 shrink-0'
                 >
-                  <Icon className='size-4' />
+                  <Icon data-icon='inline-start' />
                   {item.label}
-                </button>
+                </Button>
               )
             })}
           </div>
-          <nav className='hidden w-56 shrink-0 border-e bg-muted/20 p-3 md:block' aria-label='AI 设置分类'>
-            <p className='px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>Agent 能力</p>
-            <div className='space-y-1'>
+          <nav className='hidden w-60 shrink-0 border-e bg-muted/20 p-3 md:block' aria-label='AI 设置分类'>
+            <p className='px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>配置项</p>
+            <div className='flex flex-col gap-1'>
               {settingSections.map((item) => {
                 const Icon = item.icon
                 const active = section === item.id
                 return (
-                  <button
+                  <Button
                     key={item.id}
-                    type='button'
+                    variant={active ? 'secondary' : 'ghost'}
+                    size='default'
                     onClick={() => setSection(item.id)}
-                    className={`flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${active ? 'border-border bg-background text-foreground' : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-background/70 hover:text-foreground'}`}
+                    className='h-auto w-full justify-start px-3 py-2.5 text-left'
                   >
-                    <Icon className='mt-0.5 size-4 shrink-0' />
+                    <Icon className='mt-0.5 shrink-0' data-icon='inline-start' />
                     <span className='min-w-0'>
                       <span className='block text-sm font-medium'>{item.label}</span>
                       <span className='mt-0.5 block truncate text-xs'>{item.description}</span>
                     </span>
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -161,28 +169,24 @@ export function StudioSettings() {
           <div className='flex min-w-0 flex-1 flex-col'>
             <div className='flex min-h-16 items-center justify-between gap-3 border-b px-5'>
               <div>
-                <h2 className='text-sm font-semibold'>{settingSections.find((item) => item.id === section)?.label}</h2>
-                <p className='text-xs text-muted-foreground'>{settingSections.find((item) => item.id === section)?.description}</p>
+                <h2 className='text-sm font-semibold'>{activeSection.label}</h2>
+                <p className='text-xs text-muted-foreground'>{activeSection.description}</p>
               </div>
               {section === 'models' ? <Button size='sm' onClick={() => setModelDialogOpen(true)}><Plus />添加模型</Button> : null}
               {section === 'skills' ? <Button size='sm' onClick={() => setSkillDialogOpen(true)}><Plus />添加 Skill</Button> : null}
               {section === 'mcp' ? <Button size='sm' onClick={() => setConnectorDialogOpen(true)}><Plus />添加连接器</Button> : null}
             </div>
             <ScrollArea className='min-h-0 flex-1'>
-              {section === 'models' ? <div className='p-5'>
-                <div className='mx-auto max-w-5xl space-y-4'>
-              <div>
-                <h2 className='text-sm font-semibold'>模型配置</h2>
-                <p className='mt-1 text-sm text-muted-foreground'>
-                  支持 OpenAI Responses、OpenAI Chat Compatible 与 Anthropic
-                  Messages Compatible。
-                </p>
-              </div>
+              {section === 'models' ? <div className='p-5 sm:p-6'>
+                <div className='mx-auto flex max-w-4xl flex-col gap-4'>
+              <p className='rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground'>
+                支持 OpenAI Responses、OpenAI Chat Compatible 与 Anthropic Messages Compatible。
+              </p>
               {models.isLoading ? (
                 <p className='text-sm text-muted-foreground'>正在读取模型…</p>
               ) : null}
               {models.data?.length ? (
-                <div className='overflow-hidden rounded-xl border bg-background'>
+                <div className='overflow-hidden rounded-lg border bg-background'>
                   {models.data.map((model) => (
                     <div key={model.id} className='flex flex-wrap items-center gap-4 border-b p-4 last:border-b-0'>
                       <span className='flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted'>
@@ -236,7 +240,7 @@ export function StudioSettings() {
                   ))}
                 </div>
               ) : !models.isLoading ? (
-                <EmptySetting
+                <SettingsEmpty
                   icon={BrainCircuit}
                   title='还没有在线模型'
                   description='添加一个模型后，用户可以直接在输入框中选择。未配置时仍可使用内置 Mock Agent 验证完整创作流程。'
@@ -244,9 +248,9 @@ export function StudioSettings() {
               ) : null}
                 </div>
               </div> : null}
-              {section === 'skills' ? <div className='p-5'><SkillSettings skills={skills.data ?? []} loading={skills.isLoading} error={skills.isError} /></div> : null}
-              {section === 'mcp' ? <div className='p-5'><ConnectorSettings connectors={connectors.data ?? []} loading={connectors.isLoading} error={connectors.isError} /></div> : null}
-              {section === 'workflows' ? <div className='p-5'><WorkflowSettings workflows={workflows.data ?? []} loading={workflows.isLoading} error={workflows.isError} /></div> : null}
+              {section === 'skills' ? <div className='p-5 sm:p-6'><SkillSettings skills={skills.data ?? []} loading={skills.isLoading} error={skills.isError} /></div> : null}
+              {section === 'mcp' ? <div className='p-5 sm:p-6'><ConnectorSettings connectors={connectors.data ?? []} loading={connectors.isLoading} error={connectors.isError} /></div> : null}
+              {section === 'workflows' ? <div className='p-5 sm:p-6'><WorkflowSettings workflows={workflows.data ?? []} loading={workflows.isLoading} error={workflows.isError} /></div> : null}
             </ScrollArea>
           </div>
         </div>
@@ -275,14 +279,10 @@ function WorkflowSettings({
       queryClient.invalidateQueries({ queryKey: ['studio', 'workflows'] }),
   })
   return (
-    <div className='mx-auto max-w-5xl space-y-5'>
-      <div>
-        <h2 className='text-sm font-semibold'>Agent 可用工作流</h2>
-        <p className='mt-1 text-sm text-muted-foreground'>
-          这里仅决定当前 Studio Agent
-          是否可调用已有工作流，不影响工作流在平台其他入口的启停。
-        </p>
-      </div>
+    <div className='mx-auto flex max-w-4xl flex-col gap-4'>
+      <p className='rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground'>
+        这里仅决定当前 Studio Agent 是否可调用已有工作流，不影响工作流在平台其他入口的启停。
+      </p>
       {loading ? (
         <p className='text-sm text-muted-foreground'>正在读取工作流…</p>
       ) : null}
@@ -292,15 +292,16 @@ function WorkflowSettings({
         </p>
       ) : null}
       {!loading && !error && workflows.length === 0 ? (
-        <p className='py-12 text-sm text-muted-foreground'>
-          还没有可配置的工作流。请先在平台工作流中创建。
-        </p>
+        <SettingsEmpty
+          icon={Workflow}
+          title='还没有可配置的工作流'
+          description='先在平台工作流中创建，再决定是否交给 Agent 调用。'
+        />
       ) : null}
       {workflows.length > 0 ? (
-        <div className='space-y-2'>
+        <div className='overflow-hidden rounded-lg border bg-background'>
           {workflows.map((workflow) => (
-            <Card key={workflow.id}>
-              <CardContent className='flex items-center justify-between gap-4 p-4'>
+            <div key={workflow.id} className='flex items-center justify-between gap-4 border-b p-4 last:border-b-0'>
                 <div className='min-w-0'>
                   <div className='flex items-center gap-2'>
                     <p className='truncate text-sm font-medium'>
@@ -329,8 +330,7 @@ function WorkflowSettings({
                     update.mutate({ id: workflow.id, agentEnabled })
                   }
                 />
-              </CardContent>
-            </Card>
+            </div>
           ))}
         </div>
       ) : null}
@@ -359,13 +359,10 @@ function ConnectorSettings({
       queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] }),
   })
   return (
-    <div className='mx-auto max-w-5xl space-y-5'>
-      <div>
-        <h2 className='text-sm font-semibold'>MCP 连接器</h2>
-        <p className='mt-1 text-sm text-muted-foreground'>
-          用 Streamable HTTP 接入外部工具。凭据仅加密保存在服务端。
-        </p>
-      </div>
+    <div className='mx-auto flex max-w-4xl flex-col gap-4'>
+      <p className='rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground'>
+        用 Streamable HTTP 接入外部工具。凭据仅加密保存在服务端。
+      </p>
       {loading ? (
         <p className='text-sm text-muted-foreground'>正在读取连接器…</p>
       ) : null}
@@ -375,12 +372,14 @@ function ConnectorSettings({
         </p>
       ) : null}
       {!loading && !error && connectors.length === 0 ? (
-        <p className='py-12 text-sm text-muted-foreground'>
-          还没有 MCP 连接器。添加后可集中管理其可用性和调用策略。
-        </p>
+        <SettingsEmpty
+          icon={Cable}
+          title='还没有 MCP 连接器'
+          description='添加后可集中管理其可用性和调用策略。'
+        />
       ) : null}
       {connectors.length > 0 ? (
-        <div className='overflow-hidden rounded-xl border bg-background'>
+        <div className='overflow-hidden rounded-lg border bg-background'>
           {connectors.map((connector) => (
             <div key={connector.id} className='flex flex-wrap items-center gap-4 border-b p-4 last:border-b-0'>
               <span className='flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted'>
@@ -589,13 +588,10 @@ function SkillSettings({
       queryClient.invalidateQueries({ queryKey: ['studio', 'skills'] }),
   })
   return (
-    <div className='mx-auto max-w-5xl space-y-5'>
-      <div>
-        <h2 className='text-sm font-semibold'>Skills</h2>
-        <p className='mt-1 text-sm text-muted-foreground'>
-          为 Agent 添加本轮可选的专门知识与工作方式。
-        </p>
-      </div>
+    <div className='mx-auto flex max-w-4xl flex-col gap-4'>
+      <p className='rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground'>
+        为 Agent 添加本轮可选的专门知识与工作方式。
+      </p>
       {loading ? (
         <p className='text-sm text-muted-foreground'>正在读取 Skills…</p>
       ) : null}
@@ -605,12 +601,14 @@ function SkillSettings({
         </p>
       ) : null}
       {!loading && !error && skills.length === 0 ? (
-        <p className='py-12 text-sm text-muted-foreground'>
-          还没有 Skill。添加后可在聊天输入框中选择。
-        </p>
+        <SettingsEmpty
+          icon={Sparkles}
+          title='还没有 Skill'
+          description='添加后可在聊天输入框中选择。'
+        />
       ) : null}
       {skills.length > 0 ? (
-        <div className='overflow-hidden rounded-xl border bg-background'>
+        <div className='overflow-hidden rounded-lg border bg-background'>
           {skills.map((skill) => (
             <div key={skill.id} className='flex flex-wrap items-start gap-4 border-b p-4 last:border-b-0'>
               <span className='flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted'>
@@ -996,7 +994,7 @@ function ToggleRow({
   )
 }
 
-function EmptySetting({
+function SettingsEmpty({
   icon: Icon,
   title,
   description,
@@ -1006,14 +1004,14 @@ function EmptySetting({
   description: string
 }) {
   return (
-    <div className='mx-auto flex min-h-80 max-w-xl flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center'>
-      <span className='mb-4 flex size-11 items-center justify-center rounded-xl bg-muted'>
-        <Icon className='size-5 text-muted-foreground' />
-      </span>
-      <h2 className='text-sm font-medium'>{title}</h2>
-      <p className='mt-2 text-sm leading-6 text-muted-foreground'>
-        {description}
-      </p>
-    </div>
+    <Empty className='min-h-72 border bg-muted/10'>
+      <EmptyHeader>
+        <EmptyMedia variant='icon'>
+          <Icon />
+        </EmptyMedia>
+        <EmptyTitle className='text-sm'>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   )
 }

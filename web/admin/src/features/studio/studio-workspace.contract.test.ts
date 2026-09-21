@@ -98,6 +98,9 @@ describe('Studio production workspace contract', () => {
 
   it('provides a connected Skill configuration view', () => {
     const source = read('./studio-settings.tsx')
+    expect(source).toContain("className='hidden w-60 shrink-0 border-e bg-muted/20 p-3 md:block'")
+    expect(source).toContain("aria-label='AI 设置分类'")
+    expect(source).not.toContain("from '@/components/ui/tabs'")
     expect(source).toContain('listStudioSkills')
     expect(source).toContain('createStudioSkill')
 
@@ -145,5 +148,23 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('当前 Session')
     expect(source).toContain('资产库')
     expect(source).toContain('new Map<string, StudioAsset>')
+  })
+
+  it('lets a Session asset choose its library folder before saving', () => {
+    const assets = read('./studio-assets.tsx')
+    const workspace = read('./studio-workspace.tsx')
+
+    expect(assets).toContain('listStudioLibraryFolders')
+    expect(assets).toContain('SaveAssetToLibraryDialog')
+    expect(assets).toContain('选择资产库文件夹')
+    expect(workspace).toContain('saveAsset.mutateAsync')
+  })
+
+  it('derives the initial Studio session from query data without an effect state copy', () => {
+    const source = read('./studio-workspace.tsx')
+
+    expect(source).toContain("const sessionId = activeSessionId ?? sessions.data?.[0]?.id")
+    expect(source).not.toContain('setActiveSessionId(first.id)')
+    expect(source).toContain('[sessions.data, sessions.isLoading, creatingSession, createSessionMutate]')
   })
 })
