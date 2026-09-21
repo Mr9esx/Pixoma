@@ -5,6 +5,7 @@ import {
   BrainCircuit,
   Cable,
   CheckCircle2,
+  CircleAlert,
   Plus,
   Sparkles,
   Workflow,
@@ -17,10 +18,12 @@ import {
   listStudioAgentWorkflows,
   listStudioModels,
   listStudioSkills,
+  testStudioModelConnection,
   type StudioConnectorPolicy,
   type StudioMCPConnector,
   type StudioAgentWorkflow,
   type StudioModel,
+  type StudioModelConnectionTest,
   updateStudioAgentWorkflow,
   updateStudioConnector,
   updateStudioSkill,
@@ -71,6 +74,11 @@ export function StudioSettings() {
   const [modelDialogOpen, setModelDialogOpen] = useState(false)
   const [skillDialogOpen, setSkillDialogOpen] = useState(false)
   const [connectorDialogOpen, setConnectorDialogOpen] = useState(false)
+  const [modelTest, setModelTest] = useState<{
+    modelId: string
+    result?: StudioModelConnectionTest
+    error?: string
+  }>()
   const models = useQuery({
     queryKey: ['studio', 'models'],
     queryFn: listStudioModels,
@@ -86,6 +94,16 @@ export function StudioSettings() {
   const workflows = useQuery({
     queryKey: ['studio', 'workflows'],
     queryFn: listStudioAgentWorkflows,
+  })
+  const testModel = useMutation({
+    mutationFn: testStudioModelConnection,
+    onSuccess: (result, modelId) => setModelTest({ modelId, result }),
+    onError: (cause, modelId) =>
+      setModelTest({
+        modelId,
+        error:
+          cause instanceof Error ? cause.message : '模型连接失败，请检查配置。',
+      }),
   })
   return (
     <main
@@ -178,8 +196,40 @@ export function StudioSettings() {
                         <p className='mt-1 truncate text-xs text-muted-foreground'>{model.model} · {model.base_url}</p>
                       </div>
                       <div className='flex shrink-0 items-center gap-2 text-xs text-muted-foreground'>
-                        <CheckCircle2 className='size-3.5 text-success' />
-                        {model.enabled ? '已启用' : '已停用'} · {model.api_key_masked ?? '未配置'}
+                        {model.enabled && model.agent_enabled && model.has_api_key ? (
+                          <CheckCircle2 className='size-3.5 text-success' />
+                        ) : (
+                          <CircleAlert className='size-3.5 text-warning' />
+                        )}
+                        {model.enabled ? '已启用' : '已停用'} · {model.agent_enabled ? 'Agent 可用' : 'Agent 不可用'}
+                      </div>
+                      <div className='flex items-center gap-2'>
+                        {modelTest?.modelId === model.id ? (
+                          modelTest.result ? (
+                            <span className='flex items-center gap-1 text-xs text-success'>
+                              <CheckCircle2 className='size-3.5' />
+                              连接成功 · {modelTest.result.latency_ms} ms
+                            </span>
+                          ) : modelTest.error ? (
+                            <span className='flex max-w-56 items-center gap-1 text-xs text-warning'>
+                              <CircleAlert className='size-3.5 shrink-0' />
+                              <span className='truncate'>{modelTest.error}</span>
+                            </span>
+                          ) : null
+                        ) : null}
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          disabled={testModel.isPending}
+                          onClick={() => {
+                            setModelTest({ modelId: model.id })
+                            testModel.mutate(model.id)
+                          }}
+                        >
+                          {testModel.isPending && testModel.variables === model.id
+                            ? '正在检测…'
+                            : '测试连接'}
+                        </Button>
                       </div>
                     </div>
                   ))}

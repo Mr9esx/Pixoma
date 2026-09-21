@@ -101,6 +101,13 @@ describe('Studio production workspace contract', () => {
     expect(source).not.toContain('<EmptySetting icon={Sparkles}')
   })
 
+  it('lets administrators validate saved model connections without exposing their keys', () => {
+    const source = read('./studio-settings.tsx')
+    expect(source).toContain('testStudioModelConnection')
+    expect(source).toContain('测试连接')
+    expect(source).toContain('连接成功')
+  })
+
   it('provides a connected MCP connector configuration view', () => {
     const source = read('./studio-settings.tsx')
     expect(source).toContain('listStudioConnectors')

@@ -63,6 +63,7 @@ import (
 	taskstatspersist "github.com/Mr9esx/Pixoma/internal/stats/infrastructure/persistence"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	studioeino "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/einoagent"
+	studiomodelprovider "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/modelprovider"
 	studiopersist "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/tasks/application/orchestrator"
 	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
@@ -251,7 +252,11 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	}
 	caseRepo := casepersist.NewGormRepository(gdb)
 	studioRepo := studiopersist.NewGormRepository(gdb)
-	studioModelService := &studioapp.ModelConfigService{Repo: studioRepo, EncryptionKey: encKey}
+	studioModelService := &studioapp.ModelConfigService{
+		Repo:          studioRepo,
+		EncryptionKey: encKey,
+		Tester:        studiomodelprovider.ConnectionTester{},
+	}
 	studioCapabilityService := &studioapp.CapabilityConfigService{Repo: studioRepo, EncryptionKey: encKey, WorkflowCatalog: caseRepo}
 	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
 		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{

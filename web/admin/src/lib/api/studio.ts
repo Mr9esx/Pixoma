@@ -154,6 +154,11 @@ export type StudioModel = {
   }
 }
 
+export type StudioModelConnectionTest = {
+  success: boolean
+  latency_ms: number
+}
+
 export type StudioSkill = {
   id: string
   name: string
@@ -374,6 +379,13 @@ export function createStudioModel(input: {
       capabilities: input.capabilities,
     }),
   })
+}
+
+export function testStudioModelConnection(modelId: string) {
+  return apiFetch<StudioModelConnectionTest>(
+    `/api/v1/studio/models/${encodeURIComponent(modelId)}/test`,
+    { method: 'POST' }
+  )
 }
 
 export function listStudioSkills() {

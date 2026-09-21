@@ -2,12 +2,19 @@ package application_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 )
+
+type modelConnectionTester func(context.Context, domain.ResolvedModelConfig) error
+
+func (f modelConnectionTester) Test(ctx context.Context, config domain.ResolvedModelConfig) error {
+	return f(ctx, config)
+}
 
 func TestModelConfigEncryptsSecretAndReturnsMaskedView(t *testing.T) {
 	repo := openRepository(t)
@@ -87,5 +94,40 @@ func TestModelConfigDefaultIsUniquePerAccount(t *testing.T) {
 	gotFirst, _ := repo.GetModelConfig(context.Background(), "account-a", first.ID)
 	if gotFirst.Default {
 		t.Fatal("previous default was not cleared")
+	}
+}
+
+func TestModelConfigConnectionTestUsesStoredSecretWithoutLeakingIt(t *testing.T) {
+	repo := openRepository(t)
+	key := []byte(strings.Repeat("k", 32))
+	service := &studioapp.ModelConfigService{
+		Repo:          repo,
+		EncryptionKey: key,
+		IDs:           (&idSequence{}).Next,
+		Tester: modelConnectionTester(func(_ context.Context, config domain.ResolvedModelConfig) error {
+			if config.APIKey != "test-secret" || config.Model != "model-test" {
+				t.Fatalf("connection config = %#v", config)
+			}
+			return nil
+		}),
+	}
+	created, err := service.Create(context.Background(), studioapp.CreateModelConfigInput{
+		AccountID: "account-a", Name: "Test", Protocol: domain.ModelProtocolOpenAIChat,
+		BaseURL: "http://model.test/v1", Model: "model-test", APIKey: "test-secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.TestConnection(context.Background(), "account-a", created.ID)
+	if err != nil || !result.Success || result.LatencyMS < 0 {
+		t.Fatalf("TestConnection() = %#v, %v", result, err)
+	}
+
+	service.Tester = modelConnectionTester(func(_ context.Context, _ domain.ResolvedModelConfig) error {
+		return fmt.Errorf("provider rejected test-secret")
+	})
+	_, err = service.TestConnection(context.Background(), "account-a", created.ID)
+	if err == nil || strings.Contains(err.Error(), "test-secret") {
+		t.Fatalf("connection failure leaked secret: %v", err)
 	}
 }

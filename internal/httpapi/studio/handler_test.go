@@ -32,6 +32,12 @@ type ids struct {
 
 type workflowCatalog struct{ cases []*catalogdomain.Case }
 
+type modelConnectionTester struct{}
+
+func (modelConnectionTester) Test(_ context.Context, _ domain.ResolvedModelConfig) error {
+	return nil
+}
+
 func (c workflowCatalog) List(_ context.Context, _ catalogdomain.ListQuery) ([]*catalogdomain.Case, error) {
 	return c.cases, nil
 }
@@ -65,9 +71,40 @@ func newHandler(t *testing.T) (*studioapi.Handler, *studioapp.BackgroundRunner) 
 	return &studioapi.Handler{
 		Repo: repo, Service: service, Runner: runner,
 		Approvals:    &studioapp.ApprovalService{Repo: repo, Queue: runner, IDs: sequence.next},
+		Models:       &studioapp.ModelConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: sequence.next, Tester: modelConnectionTester{}},
 		Capabilities: &studioapp.CapabilityConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: sequence.next, WorkflowCatalog: workflowCatalog{cases: []*catalogdomain.Case{{Document: catalogdomain.CaseDocument{ID: sharedkernel.CaseID(1), Name: "漫画生成", Description: "生成分镜"}, Enabled: true}}}},
 		Blob:         blobs,
 	}, runner
+}
+
+func TestStudioModelConnectionTestAPIIsAccountScoped(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	created := request(t, router, http.MethodPost, "/models", map[string]any{
+		"name": "Ark DeepSeek", "protocol": "openai_chat_compatible", "base_url": "https://ark.example.test/v3",
+		"model": "deepseek-v4-flash", "api_key": "temporary-secret", "enabled": true, "agent_enabled": true,
+	}, "account-a")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("POST /models = %d %s", created.Code, created.Body.String())
+	}
+	var model struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &model); err != nil || model.ID == "" {
+		t.Fatalf("created model = %s, err=%v", created.Body.String(), err)
+	}
+
+	tested := request(t, router, http.MethodPost, "/models/"+model.ID+"/test", nil, "account-a")
+	if tested.Code != http.StatusOK || !strings.Contains(tested.Body.String(), `"success":true`) || strings.Contains(tested.Body.String(), "temporary-secret") {
+		t.Fatalf("POST /models/{id}/test = %d %s", tested.Code, tested.Body.String())
+	}
+	foreign := request(t, router, http.MethodPost, "/models/"+model.ID+"/test", nil, "account-b")
+	if foreign.Code != http.StatusNotFound {
+		t.Fatalf("foreign model test = %d %s", foreign.Code, foreign.Body.String())
+	}
 }
 
 func TestStudioWorkflowAvailabilityAPIIsAccountScoped(t *testing.T) {

@@ -19,11 +19,24 @@ type ModelConfigRepository interface {
 	ListModelConfigs(ctx context.Context, accountID string) ([]*domain.ModelConfig, error)
 }
 
+// ModelConnectionTester is implemented by a protocol-aware infrastructure
+// client. Keeping the contract here lets configuration stay independent of a
+// specific provider SDK.
+type ModelConnectionTester interface {
+	Test(ctx context.Context, config domain.ResolvedModelConfig) error
+}
+
 type ModelConfigService struct {
 	Repo          ModelConfigRepository
 	EncryptionKey []byte
 	IDs           func() string
 	Now           func() time.Time
+	Tester        ModelConnectionTester
+}
+
+type ModelConnectionTestResult struct {
+	Success   bool  `json:"success"`
+	LatencyMS int64 `json:"latency_ms"`
 }
 
 type CreateModelConfigInput struct {
@@ -111,6 +124,42 @@ func (s *ModelConfigService) Resolve(ctx context.Context, accountID, configID st
 		ID: config.ID, Name: config.Name, Protocol: config.Protocol, BaseURL: config.BaseURL,
 		Model: config.Model, APIKey: apiKey, Thinking: config.Thinking, Capabilities: config.Capabilities,
 	}, nil
+}
+
+// TestConnection validates the stored protocol, endpoint, credentials and
+// model with a minimal request. It intentionally works for disabled models so
+// an administrator can repair a configuration before exposing it to Agent.
+func (s *ModelConfigService) TestConnection(ctx context.Context, accountID, configID string) (*ModelConnectionTestResult, error) {
+	if s == nil || s.Repo == nil || s.Tester == nil {
+		return nil, fmt.Errorf("studio: model connection tester is not configured")
+	}
+	config, err := s.Repo.GetModelConfig(ctx, accountID, configID)
+	if err != nil {
+		return nil, err
+	}
+	apiKey, err := platformcrypto.Decrypt(s.EncryptionKey, config.APIKeyCipher)
+	if err != nil {
+		return nil, err
+	}
+	resolved := domain.ResolvedModelConfig{
+		ID: config.ID, Name: config.Name, Protocol: config.Protocol, BaseURL: config.BaseURL,
+		Model: config.Model, APIKey: apiKey, Thinking: config.Thinking, Capabilities: config.Capabilities,
+	}
+	testContext, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	started := time.Now()
+	if err := s.Tester.Test(testContext, resolved); err != nil {
+		return nil, sanitizeModelTestError(err, apiKey)
+	}
+	return &ModelConnectionTestResult{Success: true, LatencyMS: time.Since(started).Milliseconds()}, nil
+}
+
+func sanitizeModelTestError(err error, apiKey string) error {
+	message := strings.ReplaceAll(err.Error(), apiKey, "[REDACTED]")
+	if len(message) > 512 {
+		message = message[:512]
+	}
+	return fmt.Errorf("model connection test failed: %s", message)
 }
 
 func modelConfigView(config *domain.ModelConfig) *ModelConfigView {

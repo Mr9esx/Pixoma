@@ -35,6 +35,34 @@ type OpenAICompatibleClient struct {
 	client *http.Client
 }
 
+// ConnectionTester adapts the shared protocol client for model configuration
+// health checks. A normal, tiny chat request exercises endpoint, auth and
+// model compatibility without persisting its output.
+type ConnectionTester struct {
+	Client *OpenAICompatibleClient
+}
+
+func (t ConnectionTester) Test(ctx context.Context, config domain.ResolvedModelConfig) error {
+	client := t.Client
+	if client == nil {
+		client = NewOpenAICompatibleClient(nil)
+	}
+	result, err := client.Chat(ctx, ChatRequest{
+		Config: config,
+		Messages: []ChatMessage{{
+			Role:    "user",
+			Content: "Reply with OK.",
+		}},
+	})
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(result.Text) == "" {
+		return fmt.Errorf("model provider: connection test returned no text")
+	}
+	return nil
+}
+
 func NewOpenAICompatibleClient(client *http.Client) *OpenAICompatibleClient {
 	if client == nil {
 		client = &http.Client{Timeout: 90 * time.Second}

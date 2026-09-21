@@ -54,6 +54,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/library/folders", h.createLibraryFolder)
 	r.Get("/models", h.listModels)
 	r.Post("/models", h.createModel)
+	r.Post("/models/{modelID}/test", h.testModelConnection)
 	r.Get("/skills", h.listSkills)
 	r.Post("/skills", h.createSkill)
 	r.Patch("/skills/{skillID}", h.updateSkill)
@@ -631,6 +632,23 @@ func (h *Handler) createModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, model)
+}
+
+func (h *Handler) testModelConnection(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Models == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "模型配置服务不可用"})
+		return
+	}
+	result, err := h.Models.TestConnection(r.Context(), accountID, chi.URLParam(r, "modelID"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) listSkills(w http.ResponseWriter, r *http.Request) {
