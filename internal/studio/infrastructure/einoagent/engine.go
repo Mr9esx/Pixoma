@@ -46,6 +46,12 @@ func (e *Engine) Execute(ctx context.Context, request studioapp.AgentRequest, si
 			instruction += fmt.Sprintf("\n\n【%s】\n%s", skill.Name, skill.Prompt)
 		}
 	}
+	if len(request.Assets) > 0 {
+		instruction += "\n\n本轮已选中的资产上下文："
+		for _, asset := range request.Assets {
+			instruction += fmt.Sprintf("\n- %s（类型：%s，版本：%d）", asset.Name, asset.Kind, asset.CurrentVersion)
+		}
+	}
 	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name: "pixoma_studio", Description: "Pixoma Studio 单 Agent",
 		Instruction: instruction,
