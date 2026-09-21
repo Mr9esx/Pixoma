@@ -35,12 +35,13 @@ type Service struct {
 }
 
 type SendMessageInput struct {
-	AccountID      string
-	SessionID      string
-	Text           string
-	ModelConfigID  string
-	PermissionMode domain.PermissionMode
-	SkillIDs       []string
+	AccountID        string
+	SessionID        string
+	Text             string
+	ModelConfigID    string
+	PermissionMode   domain.PermissionMode
+	SkillIDs         []string
+	SelectedAssetIDs []string
 }
 
 type SendMessageResult struct {
@@ -101,6 +102,11 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 		return nil, err
 	}
 	run.SkillIDs = skillIDs
+	assetIDs, err := s.resolveAssetIDs(ctx, input.AccountID, session.ID, input.SelectedAssetIDs)
+	if err != nil {
+		return nil, err
+	}
+	run.AssetIDs = assetIDs
 	message.RunID = run.ID
 
 	if err := s.Repo.AppendMessage(ctx, message); err != nil {
@@ -121,6 +127,30 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	return &SendMessageResult{Session: session, Message: message, Run: run}, nil
 }
 
+func (s *Service) resolveAssetIDs(ctx context.Context, accountID, sessionID string, ids []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(ids))
+	selected := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		asset, err := s.Repo.GetAsset(ctx, accountID, id)
+		if err != nil {
+			return nil, err
+		}
+		if asset.SessionID != sessionID && asset.LibrarySavedAt.IsZero() {
+			return nil, fmt.Errorf("%w: asset is not available in session", domain.ErrInvalid)
+		}
+		seen[id] = struct{}{}
+		selected = append(selected, id)
+	}
+	return selected, nil
+}
+
 func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domain.Run, error) {
 	if s == nil || s.Repo == nil || s.Queue == nil {
 		return nil, fmt.Errorf("studio: service is not configured")
@@ -138,6 +168,7 @@ func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domai
 	}
 	retried.ModelConfigID = previous.ModelConfigID
 	retried.SkillIDs = append([]string(nil), previous.SkillIDs...)
+	retried.AssetIDs = append([]string(nil), previous.AssetIDs...)
 	if err := s.Repo.CreateRun(ctx, retried); err != nil {
 		return nil, err
 	}

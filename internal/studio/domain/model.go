@@ -131,6 +131,7 @@ type Run struct {
 	Status           RunStatus
 	ModelConfigID    string
 	SkillIDs         []string
+	AssetIDs         []string
 	ErrorCode        string
 	ErrorMessage     string
 	CreatedAt        time.Time

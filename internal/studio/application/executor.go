@@ -41,6 +41,7 @@ type AgentRequest struct {
 	Session   *domain.Session
 	UserText  string
 	Skills    []domain.Skill
+	Assets    []*domain.Asset
 	Approvals []*domain.Approval
 }
 
@@ -136,7 +137,15 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 	if err != nil {
 		return err
 	}
-	return e.engine.Execute(ctx, AgentRequest{Run: run, Session: session, UserText: text, Skills: skills, Approvals: approvals}, sink)
+	assets := make([]*domain.Asset, 0, len(run.AssetIDs))
+	for _, assetID := range run.AssetIDs {
+		asset, err := e.repo.GetAsset(ctx, run.AccountID, assetID)
+		if err != nil {
+			return err
+		}
+		assets = append(assets, asset)
+	}
+	return e.engine.Execute(ctx, AgentRequest{Run: run, Session: session, UserText: text, Skills: skills, Assets: assets, Approvals: approvals}, sink)
 }
 
 func (e *AgentExecutor) selectedSkills(ctx context.Context, run *domain.Run) ([]domain.Skill, error) {

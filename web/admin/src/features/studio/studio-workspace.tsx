@@ -35,6 +35,7 @@ export function StudioWorkspace() {
   const [rightOpen, setRightOpen] = useState(true)
   const [modelConfigId, setModelConfigId] = useState<string>()
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([])
   const [permissionMode, setPermissionMode] =
     useState<StudioPermissionMode>('request_approval')
 
@@ -187,10 +188,13 @@ export function StudioWorkspace() {
                   }
                   permissionMode={permissionMode}
                   skills={skills.data ?? []}
+                  assets={detail.data.assets}
                   selectedSkillIds={selectedSkillIds}
+                  selectedAssetIds={selectedAssetIds}
                   onModelChange={setModelConfigId}
                   onPermissionChange={setPermissionMode}
                   onSkillChange={setSelectedSkillIds}
+                  onAssetChange={setSelectedAssetIds}
                 />
               )}
             </main>

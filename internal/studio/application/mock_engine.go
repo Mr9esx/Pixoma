@@ -31,6 +31,15 @@ func (e *MockEngine) Execute(ctx context.Context, request AgentRequest, sink Age
 	if err != nil {
 		return err
 	}
+	for index, asset := range request.Assets {
+		inputNode, err := sink.CreateFlowNode(ctx, FlowNodeInput{Type: "asset", Title: "输入：" + asset.Name, Body: "本轮对话选中的 Session 资产", AssetID: asset.ID, SortOrder: 15 + index})
+		if err != nil {
+			return err
+		}
+		if _, err := sink.CreateFlowEdge(ctx, inputNode.ID, stage.ID, "作为上下文"); err != nil {
+			return err
+		}
+	}
 	outline := fmt.Sprintf("# 雨夜侦探\n\n## 创作目标\n\n%s\n\n## 故事大纲\n\n侦探在雨夜收到一封没有署名的委托信，循着线索进入旧车站，并在最后一班列车到站前找到真相。\n", request.UserText)
 	outlineAsset, err := sink.CreateAsset(ctx, GeneratedAsset{
 		Name: "故事大纲.md", Kind: "document", Origin: "agent", MIMEType: "text/markdown",

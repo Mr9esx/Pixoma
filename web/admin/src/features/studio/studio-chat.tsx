@@ -12,6 +12,7 @@ import {
   Bot,
   Check,
   ChevronDown,
+  Paperclip,
   Send,
   ShieldCheck,
   Sparkles,
@@ -20,6 +21,7 @@ import {
 import { baseURL, sessionToken } from '@/lib/api/client'
 import type {
   StudioMessage,
+  StudioAsset,
   StudioModel,
   StudioPermissionMode,
   StudioSkill,
@@ -45,10 +47,13 @@ type Props = {
   modelConfigId?: string
   permissionMode: StudioPermissionMode
   skills: StudioSkill[]
+  assets: StudioAsset[]
   selectedSkillIds: string[]
+  selectedAssetIds: string[]
   onModelChange: (id: string) => void
   onPermissionChange: (mode: StudioPermissionMode) => void
   onSkillChange: (ids: string[]) => void
+  onAssetChange: (ids: string[]) => void
 }
 
 function toAGUIMessages(messages: StudioMessage[]) {
@@ -88,6 +93,7 @@ export function StudioChat(props: Props) {
             modelConfigId: selectedModel?.id ?? '',
             permissionMode: props.permissionMode,
             selectedSkillIds: props.selectedSkillIds,
+            selectedAssetIds: props.selectedAssetIds,
           },
         }
         const token = sessionToken()
@@ -108,6 +114,7 @@ export function StudioChat(props: Props) {
     selectedModel?.id,
     props.permissionMode,
     props.selectedSkillIds,
+    props.selectedAssetIds,
   ])
 
   const runtime = useAgUiRuntime({ agent, showThinking: true })
@@ -149,6 +156,7 @@ export function StudioChat(props: Props) {
                   value={props.selectedSkillIds}
                   onChange={props.onSkillChange}
                 />
+                <AssetPicker assets={props.assets} value={props.selectedAssetIds} onChange={props.onAssetChange} />
                 <PermissionPicker
                   value={props.permissionMode}
                   onChange={props.onPermissionChange}
@@ -171,6 +179,21 @@ export function StudioChat(props: Props) {
         </div>
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
+  )
+}
+
+function AssetPicker({ assets, value, onChange }: { assets: StudioAsset[]; value: string[]; onChange: (ids: string[]) => void }) {
+  const selected = new Set(value)
+  const toggle = (id: string) => onChange(selected.has(id) ? value.filter((item) => item !== id) : [...value, id])
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild><Button variant='ghost' size='sm' className='rounded-lg'><Paperclip />{value.length === 0 ? '资产' : `资产 · ${value.length}`}<ChevronDown className='size-3.5' /></Button></DropdownMenuTrigger>
+      <DropdownMenuContent align='start' className='w-72'>
+        <DropdownMenuLabel>本轮使用的资产</DropdownMenuLabel><DropdownMenuSeparator />
+        {assets.length === 0 ? <DropdownMenuItem disabled>当前 Session 还没有资产</DropdownMenuItem> : null}
+        {assets.map((asset) => <DropdownMenuCheckboxItem key={asset.id} checked={selected.has(asset.id)} onSelect={(event) => event.preventDefault()} onCheckedChange={() => toggle(asset.id)}><span className='truncate'>{asset.name}</span></DropdownMenuCheckboxItem>)}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

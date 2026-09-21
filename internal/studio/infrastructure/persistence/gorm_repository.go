@@ -47,6 +47,7 @@ type RunRow struct {
 	Status           string `gorm:"size:32;not null;index"`
 	ModelConfigID    string `gorm:"size:64;index"`
 	SkillIDsJSON     []byte `gorm:"type:blob"`
+	AssetIDsJSON     []byte `gorm:"type:blob"`
 	ErrorCode        string `gorm:"size:128"`
 	ErrorMessage     string `gorm:"type:text"`
 	CreatedAt        time.Time
@@ -612,13 +613,16 @@ func messageFromRow(row MessageRow) *domain.Message {
 
 func runToRow(value *domain.Run) *RunRow {
 	skillIDs, _ := json.Marshal(value.SkillIDs)
-	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, SkillIDsJSON: skillIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
+	assetIDs, _ := json.Marshal(value.AssetIDs)
+	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, SkillIDsJSON: skillIDs, AssetIDsJSON: assetIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func runFromRow(row RunRow) *domain.Run {
 	var skillIDs []string
 	_ = json.Unmarshal(row.SkillIDsJSON, &skillIDs)
-	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
+	var assetIDs []string
+	_ = json.Unmarshal(row.AssetIDsJSON, &assetIDs)
+	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, AssetIDs: assetIDs, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func eventToRow(value *domain.Event) *EventRow {
