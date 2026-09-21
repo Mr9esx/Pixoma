@@ -2,6 +2,7 @@ package application_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -10,6 +11,12 @@ import (
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 )
+
+type connectorProber func(context.Context, string, string) ([]domain.MCPTool, error)
+
+func (f connectorProber) Probe(ctx context.Context, endpoint, credential string) ([]domain.MCPTool, error) {
+	return f(ctx, endpoint, credential)
+}
 
 func TestCapabilityConfigCreatesEnabledSkill(t *testing.T) {
 	repo := openRepository(t)
@@ -149,5 +156,28 @@ func TestCapabilityConfigUpdatesConnectorWithoutReplacingCredential(t *testing.T
 	}
 	if updated.Enabled || updated.Policy != domain.ConnectorPolicyForbidden || updated.CredentialMasked == "" {
 		t.Fatalf("updated = %#v", updated)
+	}
+}
+
+func TestCapabilityConfigProbeConnectorPersistsSafeToolMetadata(t *testing.T) {
+	repo := openRepository(t)
+	service := &studioapp.CapabilityConfigService{
+		Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: (&idSequence{}).Next,
+		MCPProber: connectorProber(func(_ context.Context, endpoint, credential string) ([]domain.MCPTool, error) {
+			if endpoint != "https://mcp.example.test/mcp" || credential != "connector-secret" {
+				t.Fatalf("probe input endpoint=%q credential=%q", endpoint, credential)
+			}
+			return []domain.MCPTool{{Name: "search_reference", Description: "Search reference material"}}, nil
+		}),
+	}
+	created, err := service.CreateConnector(context.Background(), studioapp.CreateConnectorInput{
+		AccountID: "account-a", Name: "Reference", URL: "https://mcp.example.test/mcp", Credential: "connector-secret", Enabled: true, Policy: domain.ConnectorPolicyApproval,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	probed, err := service.ProbeConnector(context.Background(), "account-a", created.ID)
+	if err != nil || len(probed.Tools) != 1 || probed.Tools[0].Name != "search_reference" || strings.Contains(fmt.Sprintf("%#v", probed), "connector-secret") {
+		t.Fatalf("ProbeConnector() = %#v, %v", probed, err)
 	}
 }

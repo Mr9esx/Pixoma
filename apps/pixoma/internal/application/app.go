@@ -63,6 +63,7 @@ import (
 	taskstatspersist "github.com/Mr9esx/Pixoma/internal/stats/infrastructure/persistence"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	studioeino "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/einoagent"
+	studiomcp "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/mcpconnector"
 	studiomodelprovider "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/modelprovider"
 	studiopersist "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/tasks/application/orchestrator"
@@ -257,7 +258,9 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		EncryptionKey: encKey,
 		Tester:        studiomodelprovider.ConnectionTester{},
 	}
-	studioCapabilityService := &studioapp.CapabilityConfigService{Repo: studioRepo, EncryptionKey: encKey, WorkflowCatalog: caseRepo}
+	studioCapabilityService := &studioapp.CapabilityConfigService{
+		Repo: studioRepo, EncryptionKey: encKey, WorkflowCatalog: caseRepo, MCPProber: studiomcp.Prober{},
+	}
 	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
 		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
 			Mock: studioapp.NewMockEngine(), Online: &studioeino.Engine{Models: studioModelService},

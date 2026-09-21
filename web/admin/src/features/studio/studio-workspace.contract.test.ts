@@ -114,6 +114,8 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('createStudioConnector')
     expect(source).toContain('updateStudioConnector')
     expect(source).toContain('ConnectorDialog')
+    expect(source).toContain('probeStudioConnector')
+    expect(source).toContain('发现工具')
     expect(source).not.toContain("title='MCP 连接器'")
   })
 

@@ -453,6 +453,13 @@ export function updateStudioConnector(
   )
 }
 
+export function probeStudioConnector(connectorId: string) {
+  return apiFetch<StudioMCPConnector>(
+    `/api/v1/studio/connectors/${encodeURIComponent(connectorId)}/probe`,
+    { method: 'POST' }
+  )
+}
+
 export function listStudioAgentWorkflows() {
   return apiFetch<StudioAgentWorkflow[]>('/api/v1/studio/workflows')
 }

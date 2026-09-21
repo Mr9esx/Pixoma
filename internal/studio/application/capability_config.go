@@ -31,12 +31,19 @@ type WorkflowCatalog interface {
 	List(context.Context, catalogdomain.ListQuery) ([]*catalogdomain.Case, error)
 }
 
+// MCPConnectorProber performs the authenticated MCP handshake and returns only
+// display-safe tool metadata. Credentials stay inside the infrastructure layer.
+type MCPConnectorProber interface {
+	Probe(ctx context.Context, endpoint, credential string) ([]domain.MCPTool, error)
+}
+
 type CapabilityConfigService struct {
 	Repo            CapabilityConfigRepository
 	EncryptionKey   []byte
 	IDs             func() string
 	Now             func() time.Time
 	WorkflowCatalog WorkflowCatalog
+	MCPProber       MCPConnectorProber
 }
 
 type CreateSkillInput struct {
@@ -194,6 +201,43 @@ func (s *CapabilityConfigService) UpdateConnector(ctx context.Context, input Upd
 		return nil, err
 	}
 	return connectorView(updated), nil
+}
+
+// ProbeConnector discovers the tools published by a configured Streamable HTTP
+// endpoint. It is deliberately available while disabled so an administrator can
+// verify a connector before making it available to Agent.
+func (s *CapabilityConfigService) ProbeConnector(ctx context.Context, accountID, connectorID string) (*MCPConnectorView, error) {
+	if s == nil || s.Repo == nil || s.MCPProber == nil {
+		return nil, fmt.Errorf("studio: MCP connector prober is not configured")
+	}
+	connector, err := s.Repo.GetMCPConnector(ctx, accountID, connectorID)
+	if err != nil {
+		return nil, err
+	}
+	credential, err := platformcrypto.Decrypt(s.EncryptionKey, connector.CredentialCipher)
+	if err != nil {
+		return nil, err
+	}
+	probeContext, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	tools, err := s.MCPProber.Probe(probeContext, connector.URL, credential)
+	if err != nil {
+		return nil, sanitizeConnectorProbeError(err, credential)
+	}
+	connector.DiscoveredTools = tools
+	connector.UpdatedAt = s.now()
+	if err := s.Repo.UpdateMCPConnector(ctx, connector); err != nil {
+		return nil, err
+	}
+	return connectorView(connector), nil
+}
+
+func sanitizeConnectorProbeError(err error, credential string) error {
+	message := strings.ReplaceAll(err.Error(), credential, "[REDACTED]")
+	if len(message) > 512 {
+		message = message[:512]
+	}
+	return fmt.Errorf("MCP connector probe failed: %s", message)
 }
 
 func (s *CapabilityConfigService) ListAgentWorkflows(ctx context.Context, accountID string) ([]*AgentWorkflowView, error) {

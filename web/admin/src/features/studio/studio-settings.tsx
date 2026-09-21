@@ -18,6 +18,7 @@ import {
   listStudioAgentWorkflows,
   listStudioModels,
   listStudioSkills,
+  probeStudioConnector,
   testStudioModelConnection,
   type StudioConnectorPolicy,
   type StudioMCPConnector,
@@ -352,6 +353,11 @@ function ConnectorSettings({
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] }),
   })
+  const probe = useMutation({
+    mutationFn: probeStudioConnector,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] }),
+  })
   return (
     <div className='mx-auto max-w-5xl space-y-5'>
       <div>
@@ -385,10 +391,28 @@ function ConnectorSettings({
                 <p className='mt-1 truncate text-xs text-muted-foreground'>{connector.url}</p>
                 <p className='mt-1 text-xs text-muted-foreground'>调用策略：{connectorPolicyLabel(connector.policy)} · 凭据：{connector.credential_masked} · 已发现工具：{connector.tools.length}</p>
               </div>
-              <Switch aria-label={`启用 ${connector.name}`} checked={connector.enabled} disabled={update.isPending} onCheckedChange={(enabled) => update.mutate({ id: connector.id, name: connector.name, url: connector.url, enabled, policy: connector.policy })} />
+              <div className='flex items-center gap-2'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  disabled={probe.isPending}
+                  onClick={() => probe.mutate(connector.id)}
+                >
+                  {probe.isPending && probe.variables === connector.id
+                    ? '正在发现…'
+                    : '发现工具'}
+                </Button>
+                <Switch aria-label={`启用 ${connector.name}`} checked={connector.enabled} disabled={update.isPending} onCheckedChange={(enabled) => update.mutate({ id: connector.id, name: connector.name, url: connector.url, enabled, policy: connector.policy })} />
+              </div>
             </div>
           ))}
         </div>
+      ) : null}
+      {probe.isError ? (
+        <p role='alert' className='flex items-center gap-1 text-sm text-warning'>
+          <CircleAlert className='size-4' />
+          {probe.error instanceof Error ? probe.error.message : '工具发现失败，请检查服务地址与凭据。'}
+        </p>
       ) : null}
     </div>
   )

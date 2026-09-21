@@ -61,6 +61,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Get("/connectors", h.listConnectors)
 	r.Post("/connectors", h.createConnector)
 	r.Patch("/connectors/{connectorID}", h.updateConnector)
+	r.Post("/connectors/{connectorID}/probe", h.probeConnector)
 	r.Get("/workflows", h.listAgentWorkflows)
 	r.Patch("/workflows/{workflowID}", h.updateAgentWorkflow)
 }
@@ -772,6 +773,23 @@ func (h *Handler) updateConnector(w http.ResponseWriter, r *http.Request) {
 	body.AccountID = accountID
 	body.ConnectorID = chi.URLParam(r, "connectorID")
 	connector, err := h.Capabilities.UpdateConnector(r.Context(), body)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, connector)
+}
+
+func (h *Handler) probeConnector(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		return
+	}
+	connector, err := h.Capabilities.ProbeConnector(r.Context(), accountID, chi.URLParam(r, "connectorID"))
 	if err != nil {
 		writeError(w, err)
 		return
