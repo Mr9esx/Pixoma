@@ -15,7 +15,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
@@ -95,19 +94,21 @@ export function StudioSidebar({
         </SidebarGroup>
 
         <SidebarGroup className='min-h-0 flex-1 px-2 py-1'>
-          <SidebarGroupLabel className='pr-8'>最近对话</SidebarGroupLabel>
-          <SidebarGroupAction
-            aria-label='新对话'
-            title='新对话'
-            className='inset-e-0 top-1.5'
-            onClick={onNewSession}
-            disabled={creating}
-          >
-            <MessageSquarePlus />
-          </SidebarGroupAction>
-          <SidebarGroupContent className='min-h-0 flex-1'>
-            <ScrollArea className='h-full'>
-              <SidebarMenu className='pb-2'>
+          <SidebarGroupLabel>最近对话</SidebarGroupLabel>
+          <SidebarGroupContent className='flex min-h-0 flex-1 flex-col'>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={onNewSession}
+                  disabled={creating}
+                >
+                  <MessageSquarePlus />
+                  <span>新建对话</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+            <ScrollArea className='min-h-0 flex-1'>
+              <SidebarMenu className='pt-1 pb-2'>
                 {sessions.length === 0 ? (
                   <p className='px-2 py-3 text-xs leading-5 text-muted-foreground'>
                     开始一次对话后，会自动保存在这里
