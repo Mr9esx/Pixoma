@@ -16,19 +16,40 @@ import (
 const maxProviderResponseBytes = 4 << 20
 
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+}
+
+type ToolCall struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Function FunctionCall `json:"function"`
+}
+
+type FunctionCall struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type ToolDefinition struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Parameters  map[string]any `json:"parameters"`
 }
 
 type ChatRequest struct {
 	Config   domain.ResolvedModelConfig
 	Messages []ChatMessage
+	Tools    []ToolDefinition
 }
 
 type ChatResult struct {
 	Text         string
 	InputTokens  int
 	OutputTokens int
+	ToolCalls    []ToolCall
 }
 
 type OpenAICompatibleClient struct {
@@ -76,8 +97,14 @@ func (c *OpenAICompatibleClient) Chat(ctx context.Context, input ChatRequest) (*
 	}
 	switch input.Config.Protocol {
 	case domain.ModelProtocolOpenAIResponses:
+		if len(input.Tools) > 0 {
+			return nil, fmt.Errorf("model provider: tool calling is not implemented for OpenAI Responses")
+		}
 		return c.openAIResponses(ctx, input)
 	case domain.ModelProtocolAnthropic:
+		if len(input.Tools) > 0 {
+			return nil, fmt.Errorf("model provider: tool calling is not implemented for Anthropic Messages")
+		}
 		return c.anthropicMessages(ctx, input)
 	case "", domain.ModelProtocolOpenAIChat:
 		return c.openAIChat(ctx, input)
@@ -88,6 +115,14 @@ func (c *OpenAICompatibleClient) Chat(ctx context.Context, input ChatRequest) (*
 
 func (c *OpenAICompatibleClient) openAIChat(ctx context.Context, input ChatRequest) (*ChatResult, error) {
 	body := map[string]any{"model": input.Config.Model, "messages": input.Messages, "stream": false}
+	if len(input.Tools) > 0 {
+		tools := make([]map[string]any, 0, len(input.Tools))
+		for _, definition := range input.Tools {
+			tools = append(tools, map[string]any{"type": "function", "function": definition})
+		}
+		body["tools"] = tools
+		body["tool_choice"] = "auto"
+	}
 	if input.Config.Thinking.Enabled && input.Config.Thinking.Effort != "" {
 		body["reasoning_effort"] = input.Config.Thinking.Effort
 	}
@@ -97,7 +132,10 @@ func (c *OpenAICompatibleClient) openAIChat(ctx context.Context, input ChatReque
 	}
 	var decoded struct {
 		Choices []struct {
-			Message ChatMessage `json:"message"`
+			Message struct {
+				Content   string     `json:"content"`
+				ToolCalls []ToolCall `json:"tool_calls"`
+			} `json:"message"`
 		} `json:"choices"`
 		Usage struct {
 			PromptTokens     int `json:"prompt_tokens"`
@@ -110,7 +148,7 @@ func (c *OpenAICompatibleClient) openAIChat(ctx context.Context, input ChatReque
 	if len(decoded.Choices) == 0 {
 		return nil, fmt.Errorf("model provider: response has no choices")
 	}
-	return &ChatResult{Text: decoded.Choices[0].Message.Content, InputTokens: decoded.Usage.PromptTokens, OutputTokens: decoded.Usage.CompletionTokens}, nil
+	return &ChatResult{Text: decoded.Choices[0].Message.Content, ToolCalls: decoded.Choices[0].Message.ToolCalls, InputTokens: decoded.Usage.PromptTokens, OutputTokens: decoded.Usage.CompletionTokens}, nil
 }
 
 func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input ChatRequest) (*ChatResult, error) {

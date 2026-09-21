@@ -2,6 +2,7 @@ package modelprovider_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -30,5 +31,32 @@ func TestEinoChatModelImplementsEinoGeneration(t *testing.T) {
 	}
 	if message.ResponseMeta == nil || message.ResponseMeta.Usage == nil || message.ResponseMeta.Usage.TotalTokens != 7 {
 		t.Fatalf("usage = %#v", message.ResponseMeta)
+	}
+}
+
+func TestEinoChatModelBindsNativeOpenAIToolsAndReturnsToolCalls(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		tools, ok := body["tools"].([]any)
+		if !ok || len(tools) != 1 {
+			t.Fatalf("tools = %#v", body["tools"])
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call-1","type":"function","function":{"name":"create_outline","arguments":"{}"}}]}}]}`))
+	}))
+	defer server.Close()
+	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL + "/v1", Model: "test", APIKey: "secret"})
+	withTools, err := chat.WithTools([]*schema.ToolInfo{{Name: "create_outline", Desc: "Create a story outline"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	message, err := withTools.Generate(context.Background(), []*schema.Message{schema.UserMessage("创建大纲")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(message.ToolCalls) != 1 || message.ToolCalls[0].ID != "call-1" || message.ToolCalls[0].Function.Name != "create_outline" {
+		t.Fatalf("tool calls = %#v", message.ToolCalls)
 	}
 }
