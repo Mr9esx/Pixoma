@@ -30,6 +30,11 @@ describe('Studio production workspace contract', () => {
     expect(workspace).toContain('StudioFlow')
     expect(workspace).toContain('StudioAssets')
     expect(workspace).toContain('StudioLibrary')
+    expect(workspace).toContain('uploadStudioAsset')
+
+    const assets = read('./studio-assets.tsx')
+    expect(assets).toContain('上传资产')
+    expect(assets).toContain("type='file'")
   })
 
   it('keeps the Studio session sidebar while reusing platform sidebar styles', () => {

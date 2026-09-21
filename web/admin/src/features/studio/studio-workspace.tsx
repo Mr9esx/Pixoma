@@ -13,6 +13,7 @@ import {
   listStudioSkills,
   listStudioSessions,
   saveStudioAssetToLibrary,
+  uploadStudioAsset,
   updateStudioFlowNodes,
   type StudioPermissionMode,
 } from '@/lib/api/studio'
@@ -152,6 +153,14 @@ export function StudioWorkspace() {
       })
     },
   })
+  const uploadAsset = useMutation({
+    mutationFn: (file: File) => uploadStudioAsset(file, activeSessionId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['studio', 'session', activeSessionId],
+      })
+    },
+  })
 
   const sidebarProps = useMemo(
     () => ({
@@ -272,6 +281,8 @@ export function StudioWorkspace() {
                       onCreateTextAsset={(input) =>
                         createTextAsset.mutate(input)
                       }
+                      onUploadAsset={(file) => uploadAsset.mutate(file)}
+                      uploading={uploadAsset.isPending}
                     />
                   </TabsContent>
                 </Tabs>

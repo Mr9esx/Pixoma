@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Download, FilePlus2, FileText, ImageIcon, Library, MoreHorizontal } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Download, FilePlus2, FileText, ImageIcon, Library, MoreHorizontal, Upload } from 'lucide-react'
 import type { StudioAsset } from '@/lib/api/studio'
 import { baseURL } from '@/lib/api/client'
 import { Badge } from '@/components/ui/badge'
@@ -21,9 +21,11 @@ type Props = {
   assets: StudioAsset[]
   onSaveToLibrary: (assetId: string) => void
   onCreateTextAsset?: (input: { name: string; content: string }) => void
+  onUploadAsset?: (file: File) => void
+  uploading?: boolean
 }
 
-export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset }: Props) {
+export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset, onUploadAsset, uploading }: Props) {
   if (assets.length === 0) {
     return (
       <div className='flex h-full flex-col items-center justify-center px-8 text-center'>
@@ -34,7 +36,7 @@ export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset }: Pro
         <p className='mt-1 max-w-xs text-xs leading-5 text-muted-foreground'>
           上传文件、让模型生成内容，或执行工作流后，资产会自动汇总到这里。
         </p>
-        {onCreateTextAsset ? <TextAssetDialog onCreate={onCreateTextAsset} /> : null}
+        <AssetActions onCreateTextAsset={onCreateTextAsset} onUploadAsset={onUploadAsset} uploading={uploading} empty />
       </div>
     )
   }
@@ -42,7 +44,7 @@ export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset }: Pro
     <ScrollArea className='h-full'>
       <div className='flex items-center justify-between gap-3 px-4 pb-1 pt-4'>
         <p className='text-xs text-muted-foreground'>{assets.length} 项资产</p>
-        {onCreateTextAsset ? <TextAssetDialog onCreate={onCreateTextAsset} /> : null}
+        <AssetActions onCreateTextAsset={onCreateTextAsset} onUploadAsset={onUploadAsset} uploading={uploading} />
       </div>
       <div className='grid gap-3 p-4 pt-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'>
         {assets.map((asset) => (
@@ -57,6 +59,43 @@ export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset }: Pro
   )
 }
 
+function AssetActions({
+  onCreateTextAsset,
+  onUploadAsset,
+  uploading,
+  empty,
+}: {
+  onCreateTextAsset?: (input: { name: string; content: string }) => void
+  onUploadAsset?: (file: File) => void
+  uploading?: boolean
+  empty?: boolean
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  return (
+    <div className={empty ? 'mt-4 flex flex-wrap justify-center gap-2' : 'flex items-center gap-2'}>
+      {onUploadAsset ? (
+        <>
+          <Button variant='outline' size='sm' disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+            <Upload />
+            {uploading ? '正在上传…' : '上传资产'}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type='file'
+            className='sr-only'
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) onUploadAsset(file)
+              event.currentTarget.value = ''
+            }}
+          />
+        </>
+      ) : null}
+      {onCreateTextAsset ? <TextAssetDialog onCreate={onCreateTextAsset} /> : null}
+    </div>
+  )
+}
+
 function TextAssetDialog({ onCreate }: { onCreate: (input: { name: string; content: string }) => void }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('创作笔记.md')
@@ -64,7 +103,7 @@ function TextAssetDialog({ onCreate }: { onCreate: (input: { name: string; conte
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant='outline' size='sm' className='mt-4'><FilePlus2 />新建文档</Button>
+        <Button variant='outline' size='sm'><FilePlus2 />新建文档</Button>
       </DialogTrigger>
       <DialogContent className='sm:max-w-xl'>
         <DialogHeader>
