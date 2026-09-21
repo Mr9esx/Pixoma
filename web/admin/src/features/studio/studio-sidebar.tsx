@@ -1,6 +1,13 @@
 import { Link } from '@tanstack/react-router'
-import { ArrowLeft, Library, MessageCircle, Settings2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Library,
+  MessageCircle,
+  MessageSquarePlus,
+  Settings2,
+} from 'lucide-react'
 import type { StudioSession } from '@/lib/api/studio'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sidebar,
@@ -33,8 +40,10 @@ export function StudioSidebar({
   sessions,
   activeSessionId,
   view,
+  onNewSession,
   onSelectSession,
   onViewChange,
+  creating,
 }: Props) {
   return (
     <Sidebar collapsible='none' className='p-2'>
@@ -111,6 +120,14 @@ export function StudioSidebar({
                 )}
               </SidebarMenu>
             </ScrollArea>
+            <Button
+              className='mt-2 w-full'
+              onClick={onNewSession}
+              disabled={creating}
+            >
+              <MessageSquarePlus />
+              <span>新建对话</span>
+            </Button>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
