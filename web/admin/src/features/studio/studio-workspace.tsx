@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, Library, MessageSquarePlus, PanelRightClose, PanelRightOpen, Settings2 } from 'lucide-react'
+import { Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import {
   createStudioSession,
   createStudioTextAsset,
@@ -10,26 +10,17 @@ import {
   saveStudioAssetToLibrary,
   updateStudioFlowNodes,
   type StudioPermissionMode,
-  type StudioSession,
 } from '@/lib/api/studio'
 import { StudioAssets } from './studio-assets'
 import { StudioChat } from './studio-chat'
 import { StudioFlow } from './studio-flow'
 import { StudioLibrary } from './studio-library'
 import { StudioSettings } from './studio-settings'
+import { StudioSidebar, type StudioView } from './studio-sidebar'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-
-type StudioView = 'chat' | 'library' | 'settings'
 
 export function StudioWorkspace() {
   const queryClient = useQueryClient()
@@ -93,26 +84,38 @@ export function StudioWorkspace() {
     },
   })
 
+  const sidebarProps = useMemo(
+    () => ({
+      sessions: sessions.data ?? [],
+      activeSessionId,
+      view,
+      creating: createSession.isPending,
+      onNewSession: () => createSession.mutate(),
+      onSelectSession: (id: string) => {
+        setActiveSessionId(id)
+        setView('chat' as const)
+      },
+      onViewChange: setView,
+    }),
+    [sessions.data, activeSessionId, view, createSession]
+  )
+
   return (
-    <div className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-background'>
-      <StudioContextBar
-        sessions={sessions.data ?? []}
-        activeSessionId={activeSessionId}
-        view={view}
-        creating={createSession.isPending}
-        onNewSession={() => createSession.mutate()}
-        onSelectSession={(id) => {
-          setActiveSessionId(id)
-          setView('chat')
-        }}
-        onViewChange={setView}
-      />
+    <div className='flex h-svh min-h-0 w-full overflow-hidden bg-background'>
+      <div className='hidden lg:flex'><StudioSidebar {...sidebarProps} /></div>
+      <div className='fixed left-3 top-3 z-30 lg:hidden'>
+        <Sheet>
+          <SheetTrigger asChild><Button variant='outline' size='icon' aria-label='打开 Studio 菜单'><Menu /></Button></SheetTrigger>
+          <SheetContent side='left' className='w-72 p-0'><SheetTitle className='sr-only'>Studio 菜单</SheetTitle><StudioSidebar {...sidebarProps} /></SheetContent>
+        </Sheet>
+      </div>
+
       {view === 'library' ? <StudioLibrary /> : null}
       {view === 'settings' ? <StudioSettings /> : null}
       {view === 'chat' ? (
         <>
           <main id='main-content' className='flex min-w-0 flex-1 flex-col'>
-            <header className='flex min-h-16 items-center justify-between gap-3 px-5'>
+            <header className='flex min-h-16 items-center justify-between gap-3 border-b px-5 pl-16 lg:pl-5'>
               <div className='min-w-0'>
                 <h1 className='truncate text-sm font-semibold'>{detail.data?.session.title ?? '新对话'}</h1>
                 <p className='text-xs text-muted-foreground'>自动保存 · 后台运行</p>
@@ -150,64 +153,6 @@ export function StudioWorkspace() {
         </>
       ) : null}
     </div>
-  )
-}
-
-function StudioContextBar({
-  sessions,
-  activeSessionId,
-  view,
-  creating,
-  onNewSession,
-  onSelectSession,
-  onViewChange,
-}: {
-  sessions: StudioSession[]
-  activeSessionId?: string
-  view: StudioView
-  creating: boolean
-  onNewSession: () => void
-  onSelectSession: (id: string) => void
-  onViewChange: (view: StudioView) => void
-}) {
-  const activeSession = sessions.find((session) => session.id === activeSessionId)
-  return (
-    <header className='flex min-h-14 shrink-0 items-center justify-between gap-3 px-5 py-2'>
-      <div className='flex min-w-0 items-center gap-1'>
-        <Button size='sm' onClick={onNewSession} disabled={creating}>
-          <MessageSquarePlus />
-          {creating ? '正在创建…' : '新对话'}
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant='ghost' size='sm' className='max-w-52'>
-              <span className='truncate'>{activeSession?.title ?? '会话历史'}</span>
-              <ChevronDown className='size-3.5' />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align='start' className='w-72'>
-            <DropdownMenuLabel>最近对话</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {sessions.length === 0 ? <DropdownMenuItem disabled>还没有对话记录</DropdownMenuItem> : null}
-            {sessions.map((session) => (
-              <DropdownMenuItem key={session.id} onSelect={() => onSelectSession(session.id)}>
-                <span className='truncate'>{session.title}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <div className='flex shrink-0 items-center gap-1'>
-        <Button variant={view === 'library' ? 'secondary' : 'ghost'} size='sm' onClick={() => onViewChange('library')}>
-          <Library />
-          <span className='hidden sm:inline'>资产库</span>
-        </Button>
-        <Button variant={view === 'settings' ? 'secondary' : 'ghost'} size='sm' onClick={() => onViewChange('settings')}>
-          <Settings2 />
-          <span className='hidden sm:inline'>AI 设置</span>
-        </Button>
-      </div>
-    </header>
   )
 }
 
