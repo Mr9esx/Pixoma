@@ -287,6 +287,45 @@ export function updateStudioFlowNodes(
   )
 }
 
+export function createStudioFlowNode(
+  sessionId: string,
+  input: {
+    type: Exclude<StudioFlowNode['type'], 'asset'>
+    title: string
+    body?: string
+    position: { x: number; y: number }
+  }
+) {
+  return apiFetch<StudioFlowNode>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/flow/nodes`,
+    { method: 'POST', body: JSON.stringify(input) }
+  )
+}
+
+export function deleteStudioFlowNode(sessionId: string, nodeId: string) {
+  return apiFetch<void>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/flow/nodes/${encodeURIComponent(nodeId)}`,
+    { method: 'DELETE' }
+  )
+}
+
+export function createStudioFlowEdge(
+  sessionId: string,
+  input: Pick<StudioFlowEdge, 'source' | 'target' | 'label'>
+) {
+  return apiFetch<StudioFlowEdge>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/flow/edges`,
+    { method: 'POST', body: JSON.stringify(input) }
+  )
+}
+
+export function deleteStudioFlowEdge(sessionId: string, edgeId: string) {
+  return apiFetch<void>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/flow/edges/${encodeURIComponent(edgeId)}`,
+    { method: 'DELETE' }
+  )
+}
+
 export function listStudioLibraryAssets(folderId?: string) {
   return apiFetch<StudioAsset[]>(
     `/api/v1/studio/library/assets${toQuery({ folder_id: folderId })}`

@@ -459,6 +459,36 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	if !strings.Contains(detail.Body.String(), `"x":480`) || !strings.Contains(detail.Body.String(), `"sort_order":99`) {
 		t.Fatalf("flow was not persisted: %s", detail.Body.String())
 	}
+
+	createdNode := request(t, router, http.MethodPost, "/sessions/"+turn.Session.ID+"/flow/nodes", map[string]any{
+		"type": "plan", "title": "确认本话色彩脚本", "body": "根据角色设定补充色彩与情绪。",
+		"position": map[string]float64{"x": 720, "y": 240},
+	}, "account-a")
+	if createdNode.Code != http.StatusCreated {
+		t.Fatalf("POST flow node status=%d body=%s", createdNode.Code, createdNode.Body.String())
+	}
+	var manualNode struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(createdNode.Body.Bytes(), &manualNode); err != nil || manualNode.ID == "" {
+		t.Fatalf("manual node = %#v, err=%v", manualNode, err)
+	}
+
+	createdEdge := request(t, router, http.MethodPost, "/sessions/"+turn.Session.ID+"/flow/edges", map[string]any{
+		"source": payload.Flow.Nodes[0].ID, "target": manualNode.ID, "label": "下一步",
+	}, "account-a")
+	if createdEdge.Code != http.StatusCreated {
+		t.Fatalf("POST flow edge status=%d body=%s", createdEdge.Code, createdEdge.Body.String())
+	}
+
+	removedNode := request(t, router, http.MethodDelete, "/sessions/"+turn.Session.ID+"/flow/nodes/"+manualNode.ID, nil, "account-a")
+	if removedNode.Code != http.StatusNoContent {
+		t.Fatalf("DELETE flow node status=%d body=%s", removedNode.Code, removedNode.Body.String())
+	}
+	detail = request(t, router, http.MethodGet, "/sessions/"+turn.Session.ID, nil, "account-a")
+	if strings.Contains(detail.Body.String(), "确认本话色彩脚本") || strings.Contains(detail.Body.String(), "下一步") {
+		t.Fatalf("deleted flow graph elements remain: %s", detail.Body.String())
+	}
 }
 
 func waitForRun(t *testing.T, router http.Handler, runID, accountID string) {

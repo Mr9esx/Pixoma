@@ -35,6 +35,10 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Get("/sessions/{sessionID}", h.getSession)
 	r.Get("/sessions/{sessionID}/runs", h.listSessionRuns)
 	r.Patch("/sessions/{sessionID}/flow", h.updateFlow)
+	r.Post("/sessions/{sessionID}/flow/nodes", h.createFlowNode)
+	r.Delete("/sessions/{sessionID}/flow/nodes/{nodeID}", h.deleteFlowNode)
+	r.Post("/sessions/{sessionID}/flow/edges", h.createFlowEdge)
+	r.Delete("/sessions/{sessionID}/flow/edges/{edgeID}", h.deleteFlowEdge)
 	r.Post("/messages", h.sendMessage)
 	r.Get("/runs/{runID}", h.getRun)
 	r.Get("/runs/{runID}/events", h.listEvents)
@@ -131,6 +135,66 @@ func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.Service.UpdateFlowNodes(r.Context(), accountID, chi.URLParam(r, "sessionID"), body.Nodes); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) createFlowNode(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body studioapp.CreateFlowNodeInput
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	node, err := h.Service.CreateFlowNode(r.Context(), accountID, chi.URLParam(r, "sessionID"), body)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, flowNodesToViews([]*domain.FlowNode{node})[0])
+}
+
+func (h *Handler) deleteFlowNode(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.Service.DeleteFlowNode(r.Context(), accountID, chi.URLParam(r, "sessionID"), chi.URLParam(r, "nodeID")); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) createFlowEdge(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body studioapp.CreateFlowEdgeInput
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	edge, err := h.Service.CreateFlowEdge(r.Context(), accountID, chi.URLParam(r, "sessionID"), body)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, flowEdgesToViews([]*domain.FlowEdge{edge})[0])
+}
+
+func (h *Handler) deleteFlowEdge(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.Service.DeleteFlowEdge(r.Context(), accountID, chi.URLParam(r, "sessionID"), chi.URLParam(r, "edgeID")); err != nil {
 		writeError(w, err)
 		return
 	}

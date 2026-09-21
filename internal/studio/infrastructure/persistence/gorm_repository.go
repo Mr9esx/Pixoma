@@ -527,6 +527,35 @@ func (r *GormRepository) SaveFlowEdge(ctx context.Context, edge *domain.FlowEdge
 	}).Create(row).Error
 }
 
+func (r *GormRepository) DeleteFlowNode(ctx context.Context, accountID, sessionID, nodeID string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Where("account_id = ? AND session_id = ? AND id = ?", accountID, sessionID, nodeID).Delete(&FlowNodeRow{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrNotFound
+		}
+		return tx.Where(
+			"account_id = ? AND session_id = ? AND (source_node_id = ? OR target_node_id = ?)",
+			accountID, sessionID, nodeID, nodeID,
+		).Delete(&FlowEdgeRow{}).Error
+	})
+}
+
+func (r *GormRepository) DeleteFlowEdge(ctx context.Context, accountID, sessionID, edgeID string) error {
+	result := r.db.WithContext(ctx).Where(
+		"account_id = ? AND session_id = ? AND id = ?", accountID, sessionID, edgeID,
+	).Delete(&FlowEdgeRow{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 func (r *GormRepository) GetFlow(ctx context.Context, accountID, sessionID string) ([]*domain.FlowNode, []*domain.FlowEdge, error) {
 	var nodeRows []FlowNodeRow
 	if err := r.db.WithContext(ctx).Where("account_id = ? AND session_id = ?", accountID, sessionID).

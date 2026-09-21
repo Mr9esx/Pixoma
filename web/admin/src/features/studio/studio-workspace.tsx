@@ -4,6 +4,10 @@ import { ListTree, Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import {
   createStudioSession,
   createStudioTextAsset,
+  createStudioFlowEdge,
+  createStudioFlowNode,
+  deleteStudioFlowEdge,
+  deleteStudioFlowNode,
   getStudioSession,
   listStudioModels,
   listStudioSkills,
@@ -95,7 +99,45 @@ export function StudioWorkspace() {
         sort_order: number
       }>
     ) => updateStudioFlowNodes(activeSessionId!, nodes),
-    onSuccess: () => {
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['studio', 'session', activeSessionId],
+      })
+    },
+  })
+  const createFlowNode = useMutation({
+    mutationFn: (input: {
+      type: 'stage' | 'plan' | 'operation'
+      title: string
+      body?: string
+      position: { x: number; y: number }
+    }) => createStudioFlowNode(activeSessionId!, input),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['studio', 'session', activeSessionId],
+      })
+    },
+  })
+  const deleteFlowNode = useMutation({
+    mutationFn: (nodeId: string) => deleteStudioFlowNode(activeSessionId!, nodeId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['studio', 'session', activeSessionId],
+      })
+    },
+  })
+  const createFlowEdge = useMutation({
+    mutationFn: (input: { source: string; target: string; label?: string }) =>
+      createStudioFlowEdge(activeSessionId!, input),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['studio', 'session', activeSessionId],
+      })
+    },
+  })
+  const deleteFlowEdge = useMutation({
+    mutationFn: (edgeId: string) => deleteStudioFlowEdge(activeSessionId!, edgeId),
+    onSettled: () => {
       void queryClient.invalidateQueries({
         queryKey: ['studio', 'session', activeSessionId],
       })
@@ -214,6 +256,10 @@ export function StudioWorkspace() {
                     <StudioFlow
                       nodes={detail.data?.flow.nodes ?? []}
                       edges={detail.data?.flow.edges ?? []}
+                      onNodeCreate={(input) => createFlowNode.mutateAsync(input)}
+                      onNodeDelete={(id) => deleteFlowNode.mutate(id)}
+                      onEdgeCreate={(input) => createFlowEdge.mutateAsync(input)}
+                      onEdgeDelete={(id) => deleteFlowEdge.mutate(id)}
                       onPositionsChange={(nodes) =>
                         saveFlowPositions.mutate(nodes)
                       }

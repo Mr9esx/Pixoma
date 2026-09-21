@@ -19,6 +19,10 @@ describe('Studio production workspace contract', () => {
     const source = read('./studio-flow.tsx')
     expect(source).toContain("from '@xyflow/react'")
     expect(source).toContain('onNodesChange')
+    expect(source).toContain('onNodesDelete')
+    expect(source).toContain('onEdgesDelete')
+    expect(source).toContain('onConnect')
+    expect(source).toContain('CreateFlowNodeDialog')
     expect(source).toContain('Background')
     expect(source).toContain('Controls')
 
