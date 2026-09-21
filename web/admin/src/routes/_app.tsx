@@ -75,8 +75,10 @@ function AppLayout() {
 function StudioLayout() {
   return (
     <SearchProvider>
-      <SkipToMain />
-      <Outlet />
+      <SidebarProvider>
+        <SkipToMain />
+        <Outlet />
+      </SidebarProvider>
     </SearchProvider>
   )
 }

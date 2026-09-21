@@ -39,6 +39,12 @@ describe('Studio production workspace contract', () => {
     expect(read('../../routes/_app/studio.tsx')).toContain('StudioWorkspace')
   })
 
+  it('mounts the Studio sidebar primitives inside their provider', () => {
+    const layout = read('../../routes/_app.tsx')
+    const studioLayout = layout.slice(layout.indexOf('function StudioLayout'))
+    expect(studioLayout).toContain('<SidebarProvider')
+  })
+
   it('provides a connected Skill configuration view', () => {
     const source = read('./studio-settings.tsx')
     expect(source).toContain('listStudioSkills')
