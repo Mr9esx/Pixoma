@@ -136,7 +136,7 @@ export function StudioWorkspace() {
               <Menu />
             </Button>
           </SheetTrigger>
-          <SheetContent side='left' className='w-72 p-0'>
+          <SheetContent side='left' className='w-64 p-0'>
             <SheetTitle className='sr-only'>Studio 菜单</SheetTitle>
             <StudioSidebar {...sidebarProps} />
           </SheetContent>

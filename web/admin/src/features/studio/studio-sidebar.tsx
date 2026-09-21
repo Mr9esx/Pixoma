@@ -1,15 +1,17 @@
 import { Link } from '@tanstack/react-router'
 import {
+  ArrowLeft,
   Library,
   MessageCircle,
   MessageSquarePlus,
   Settings2,
-  Sparkles,
 } from 'lucide-react'
 import type { StudioSession } from '@/lib/api/studio'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { AppTitle } from '@/components/layout/app-title'
+import { NavUser } from '@/components/layout/nav-user'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
+  Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
@@ -44,24 +46,23 @@ export function StudioSidebar({
   creating,
 }: Props) {
   return (
-    <aside className='flex h-full w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground'>
-      <SidebarHeader className='p-2'>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip='返回后台'>
-              <Link to='/'>
-                <Sparkles />
-                <span>创作 Studio</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+    <Sidebar collapsible='none'>
+      <SidebarHeader>
+        <AppTitle showToggle={false} />
       </SidebarHeader>
 
-      <SidebarContent className='gap-2 px-2'>
-        <SidebarGroup className='p-0'>
+      <SidebarContent className='gap-1'>
+        <SidebarGroup className='px-2 py-1'>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip='返回后台'>
+                  <Link to='/'>
+                    <ArrowLeft />
+                    <span>返回后台</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={view === 'chat'}
@@ -93,7 +94,7 @@ export function StudioSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className='min-h-0 flex-1 p-0'>
+        <SidebarGroup className='min-h-0 flex-1 px-2 py-1'>
           <SidebarGroupLabel className='pr-8'>最近对话</SidebarGroupLabel>
           <SidebarGroupAction
             aria-label='新对话'
@@ -132,18 +133,9 @@ export function StudioSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className='p-2'>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton aria-label='当前用户：管理员'>
-              <Avatar className='size-6 shrink-0 rounded-md'>
-                <AvatarFallback>管</AvatarFallback>
-              </Avatar>
-              <span>管理员</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter>
+        <NavUser />
       </SidebarFooter>
-    </aside>
+    </Sidebar>
   )
 }

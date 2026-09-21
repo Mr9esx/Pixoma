@@ -45,14 +45,22 @@ describe('Studio production workspace contract', () => {
     expect(studioLayout).toContain('<SidebarProvider')
   })
 
-  it('uses one aligned menu rhythm for navigation, sessions, and account', () => {
+  it('composes Studio context with the platform sidebar shell', () => {
     const sidebar = read('./studio-sidebar.tsx')
+    expect(sidebar).toContain("from '@/components/layout/app-title'")
+    expect(sidebar).toContain("from '@/components/layout/nav-user'")
+    expect(sidebar).toContain("<Sidebar collapsible='none'>")
+    expect(sidebar).toContain('<AppTitle showToggle={false} />')
+    expect(sidebar).toContain('<NavUser />')
+    expect(sidebar).toContain("to='/'")
+    expect(sidebar).not.toContain('<aside')
+    expect(sidebar).not.toContain('<Avatar')
     expect(sidebar).toContain("isActive={view === 'chat'}")
     expect(sidebar).toContain('SidebarGroupAction')
+    expect(sidebar).toContain("className='min-h-0 flex-1 px-2 py-1'")
     expect(sidebar).not.toContain("className='h-10 w-full")
     expect(sidebar).not.toContain('min-h-11')
     expect(sidebar).not.toContain('line-clamp-2')
-    expect(sidebar).toContain("<SidebarFooter className='p-2'>")
   })
 
   it('groups chat and canvas in one padded rounded workbench without structural borders', () => {

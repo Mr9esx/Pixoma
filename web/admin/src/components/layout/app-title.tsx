@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/sidebar'
 import { Button } from '../ui/button'
 
-export function AppTitle() {
+export function AppTitle({ showToggle = true }: { showToggle?: boolean }) {
   const { state, isMobile } = useSidebar()
   const { theme } = useTheme()
 
@@ -52,7 +52,7 @@ export function AppTitle() {
                 src='/images/Pixoma.svg'
               />
             </span>
-            <ToggleSidebar />
+            {showToggle ? <ToggleSidebar /> : null}
           </div>
         </SidebarMenuButton>
       </SidebarMenuItem>
