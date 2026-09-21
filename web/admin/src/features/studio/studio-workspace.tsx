@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import {
   createStudioSession,
+  createStudioTextAsset,
   getStudioSession,
   listStudioModels,
   listStudioSessions,
   saveStudioAssetToLibrary,
+  updateStudioFlowNodes,
   type StudioPermissionMode,
 } from '@/lib/api/studio'
 import { StudioAssets } from './studio-assets'
@@ -65,6 +67,20 @@ export function StudioWorkspace() {
     mutationFn: (assetId: string) => saveStudioAssetToLibrary(assetId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['studio'] })
+    },
+  })
+  const saveFlowPositions = useMutation({
+    mutationFn: (nodes: Array<{ id: string; position: { x: number; y: number }; sort_order: number }>) =>
+      updateStudioFlowNodes(activeSessionId!, nodes),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'session', activeSessionId] })
+    },
+  })
+  const createTextAsset = useMutation({
+    mutationFn: (input: { name: string; content: string }) =>
+      createStudioTextAsset({ sessionId: activeSessionId!, ...input }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'session', activeSessionId] })
     },
   })
 
@@ -129,8 +145,8 @@ export function StudioWorkspace() {
             <aside className='hidden min-w-80 w-[42%] max-w-2xl shrink-0 border-l xl:flex xl:flex-col'>
               <Tabs defaultValue='flow' className='min-h-0 flex-1 gap-0'>
                 <div className='flex h-16 items-center border-b px-4'><TabsList><TabsTrigger value='flow'>资产路线</TabsTrigger><TabsTrigger value='assets'>Session 资产 <span className='text-xs text-muted-foreground'>{detail.data?.assets.length ?? 0}</span></TabsTrigger></TabsList></div>
-                <TabsContent value='flow' className='m-0 min-h-0'><StudioFlow nodes={detail.data?.flow.nodes ?? []} edges={detail.data?.flow.edges ?? []} /></TabsContent>
-                <TabsContent value='assets' className='m-0 min-h-0'><StudioAssets assets={detail.data?.assets ?? []} onSaveToLibrary={(id) => saveAsset.mutate(id)} /></TabsContent>
+                <TabsContent value='flow' className='m-0 min-h-0'><StudioFlow nodes={detail.data?.flow.nodes ?? []} edges={detail.data?.flow.edges ?? []} onPositionsChange={(nodes) => saveFlowPositions.mutate(nodes)} /></TabsContent>
+                <TabsContent value='assets' className='m-0 min-h-0'><StudioAssets assets={detail.data?.assets ?? []} onSaveToLibrary={(id) => saveAsset.mutate(id)} onCreateTextAsset={(input) => createTextAsset.mutate(input)} /></TabsContent>
               </Tabs>
             </aside>
           ) : null}

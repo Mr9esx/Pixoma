@@ -237,6 +237,89 @@ func TestStudioAGUIStreamsStandardEvents(t *testing.T) {
 	}
 }
 
+func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	created := request(t, router, http.MethodPost, "/messages", map[string]any{
+		"text": "为雨夜侦探生成漫画分镜", "permission_mode": domain.PermissionFullAccess,
+	}, "account-a")
+	var turn struct {
+		Session struct {
+			ID string `json:"id"`
+		} `json:"session"`
+		Run struct {
+			ID string `json:"id"`
+		} `json:"run"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &turn); err != nil {
+		t.Fatal(err)
+	}
+	waitForRun(t, router, turn.Run.ID, "account-a")
+
+	assetResponse := request(t, router, http.MethodPost, "/assets/text", map[string]any{
+		"session_id": turn.Session.ID, "name": "角色设定.md", "content": "# 主角\n雨夜侦探。",
+	}, "account-a")
+	if assetResponse.Code != http.StatusCreated {
+		t.Fatalf("POST manual asset status=%d body=%s", assetResponse.Code, assetResponse.Body.String())
+	}
+	var asset struct {
+		ID     string             `json:"id"`
+		Origin domain.AssetOrigin `json:"origin"`
+	}
+	if err := json.Unmarshal(assetResponse.Body.Bytes(), &asset); err != nil {
+		t.Fatal(err)
+	}
+	if asset.ID == "" || asset.Origin != domain.AssetOriginUser {
+		t.Fatalf("asset=%#v", asset)
+	}
+
+	detail := request(t, router, http.MethodGet, "/sessions/"+turn.Session.ID, nil, "account-a")
+	var payload struct {
+		Flow struct {
+			Nodes []struct {
+				ID string `json:"id"`
+			} `json:"nodes"`
+		} `json:"flow"`
+	}
+	if err := json.Unmarshal(detail.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Flow.Nodes) == 0 {
+		t.Fatal("expected mock flow nodes")
+	}
+	flowResponse := request(t, router, http.MethodPatch, "/sessions/"+turn.Session.ID+"/flow", map[string]any{
+		"nodes": []map[string]any{{"id": payload.Flow.Nodes[0].ID, "position": map[string]float64{"x": 480, "y": 240}, "sort_order": 99}},
+	}, "account-a")
+	if flowResponse.Code != http.StatusNoContent {
+		t.Fatalf("PATCH flow status=%d body=%s", flowResponse.Code, flowResponse.Body.String())
+	}
+
+	detail = request(t, router, http.MethodGet, "/sessions/"+turn.Session.ID, nil, "account-a")
+	if !strings.Contains(detail.Body.String(), `"x":480`) || !strings.Contains(detail.Body.String(), `"sort_order":99`) {
+		t.Fatalf("flow was not persisted: %s", detail.Body.String())
+	}
+}
+
+func waitForRun(t *testing.T, router http.Handler, runID, accountID string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		response := request(t, router, http.MethodGet, "/runs/"+runID, nil, accountID)
+		var run struct {
+			Status domain.RunStatus `json:"status"`
+		}
+		_ = json.Unmarshal(response.Body.Bytes(), &run)
+		if run.Status == domain.RunSucceeded {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("mock run did not complete")
+}
+
 func request(t *testing.T, handler http.Handler, method, path string, body any, accountID string) *httptest.ResponseRecorder {
 	t.Helper()
 	var raw []byte

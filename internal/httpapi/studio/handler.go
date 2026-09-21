@@ -32,6 +32,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Get("/sessions", h.listSessions)
 	r.Post("/sessions", h.createSession)
 	r.Get("/sessions/{sessionID}", h.getSession)
+	r.Patch("/sessions/{sessionID}/flow", h.updateFlow)
 	r.Post("/messages", h.sendMessage)
 	r.Get("/runs/{runID}", h.getRun)
 	r.Get("/runs/{runID}/events", h.listEvents)
@@ -39,10 +40,58 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/runs/{runID}/retry", h.retryRun)
 	r.Post("/approvals/{approvalID}", h.resolveApproval)
 	r.Get("/assets/{assetID}/content", h.assetContent)
+	r.Post("/assets/text", h.createTextAsset)
 	r.Post("/assets/{assetID}/save-to-library", h.saveAssetToLibrary)
 	r.Get("/library/assets", h.listLibraryAssets)
 	r.Get("/models", h.listModels)
 	r.Post("/models", h.createModel)
+}
+
+func (h *Handler) createTextAsset(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Blob == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "资产存储服务不可用"})
+		return
+	}
+	var body struct {
+		SessionID string `json:"session_id"`
+		Name      string `json:"name"`
+		Content   string `json:"content"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	asset, err := h.Service.CreateManualTextAsset(r.Context(), studioapp.CreateManualTextAssetInput{
+		AccountID: accountID, SessionID: body.SessionID, Name: body.Name, Content: body.Content,
+	}, h.Blob)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
+}
+
+func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Nodes []studioapp.UpdateFlowNodeInput `json:"nodes"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	if err := h.Service.UpdateFlowNodes(r.Context(), accountID, chi.URLParam(r, "sessionID"), body.Nodes); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type sessionView struct {

@@ -196,6 +196,35 @@ export function saveStudioAssetToLibrary(assetId: string, folderId?: string) {
   )
 }
 
+export function createStudioTextAsset(input: {
+  sessionId: string
+  name: string
+  content: string
+}) {
+  return apiFetch<StudioAsset>('/api/v1/studio/assets/text', {
+    method: 'POST',
+    body: JSON.stringify({
+      session_id: input.sessionId,
+      name: input.name,
+      content: input.content,
+    }),
+  })
+}
+
+export function updateStudioFlowNodes(
+  sessionId: string,
+  nodes: Array<{
+    id: string
+    position: { x: number; y: number }
+    sort_order: number
+  }>
+) {
+  return apiFetch<void>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/flow`,
+    { method: 'PATCH', body: JSON.stringify({ nodes }) }
+  )
+}
+
 export function listStudioLibraryAssets(folderId?: string) {
   return apiFetch<StudioAsset[]>(
     `/api/v1/studio/library/assets${toQuery({ folder_id: folderId })}`
@@ -205,4 +234,3 @@ export function listStudioLibraryAssets(folderId?: string) {
 export function listStudioModels() {
   return apiFetch<StudioModel[]>('/api/v1/studio/models')
 }
-

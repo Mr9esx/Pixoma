@@ -8,6 +8,8 @@ import {
   ReactFlow,
   useEdgesState,
   useNodesState,
+  type Node,
+  type NodeChange,
   type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -23,6 +25,9 @@ type Props = {
   nodes: StudioFlowNode[]
   edges: StudioFlowEdge[]
   onAssetOpen?: (assetId: string) => void
+  onPositionsChange?: (
+    nodes: Array<{ id: string; position: { x: number; y: number }; sort_order: number }>
+  ) => void
 }
 
 type FlowData = {
@@ -33,11 +38,13 @@ type FlowData = {
   onAssetOpen?: (assetId: string) => void
 }
 
+type StudioReactNode = Node<FlowData, 'studio'>
+
 const nodeTypes = { studio: StudioNode }
 
-export function StudioFlow({ nodes: sourceNodes, edges: sourceEdges, onAssetOpen }: Props) {
+export function StudioFlow({ nodes: sourceNodes, edges: sourceEdges, onAssetOpen, onPositionsChange }: Props) {
   const initialNodes = useMemo(
-    () =>
+    (): StudioReactNode[] =>
       sourceNodes.map((node, index) => ({
         id: node.id,
         type: 'studio',
@@ -68,11 +75,27 @@ export function StudioFlow({ nodes: sourceNodes, edges: sourceEdges, onAssetOpen
       })),
     [sourceEdges]
   )
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+  const [nodes, setNodes, onNodesChange] = useNodesState<StudioReactNode>(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
   useEffect(() => setNodes(initialNodes), [initialNodes, setNodes])
   useEffect(() => setEdges(initialEdges), [initialEdges, setEdges])
+
+  const handleNodesChange = (changes: NodeChange<StudioReactNode>[]) => {
+    onNodesChange(changes)
+    if (!changes.some((change) => change.type === 'position' && !change.dragging)) return
+    const nextNodes = nodes.map((node, index) => {
+      const positionChange = changes.find(
+        (change) => change.type === 'position' && change.id === node.id && change.position
+      )
+      return {
+        id: node.id,
+        position: positionChange?.type === 'position' && positionChange.position ? positionChange.position : node.position,
+        sort_order: sourceNodes[index]?.sort_order ?? index,
+      }
+    })
+    onPositionsChange?.(nextNodes)
+  }
 
   if (sourceNodes.length === 0) {
     return (
@@ -94,7 +117,7 @@ export function StudioFlow({ nodes: sourceNodes, edges: sourceEdges, onAssetOpen
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         fitView
         fitViewOptions={{ padding: 0.22, maxZoom: 1 }}
