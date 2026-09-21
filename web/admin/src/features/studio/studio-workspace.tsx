@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { ListTree, Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import {
   createStudioSession,
   createStudioTextAsset,
@@ -27,12 +27,14 @@ import { StudioFlow } from './studio-flow'
 import { StudioLibrary } from './studio-library'
 import { StudioSettings } from './studio-settings'
 import { StudioSidebar, type StudioView } from './studio-sidebar'
+import { StudioTrace } from './studio-trace'
 
 export function StudioWorkspace() {
   const queryClient = useQueryClient()
   const [view, setView] = useState<StudioView>('chat')
   const [activeSessionId, setActiveSessionId] = useState<string>()
   const [rightOpen, setRightOpen] = useState(true)
+  const [traceOpen, setTraceOpen] = useState(false)
   const [modelConfigId, setModelConfigId] = useState<string>()
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([])
@@ -162,14 +164,10 @@ export function StudioWorkspace() {
                     自动保存 · 后台运行
                   </p>
                 </div>
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  onClick={() => setRightOpen((open) => !open)}
-                  aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}
-                >
-                  {rightOpen ? <PanelRightClose /> : <PanelRightOpen />}
-                </Button>
+                <div className='flex items-center gap-1'>
+                  <Button variant='ghost' size='sm' onClick={() => setTraceOpen(true)}><ListTree />Trace</Button>
+                  <Button variant='ghost' size='icon' onClick={() => setRightOpen((open) => !open)} aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}>{rightOpen ? <PanelRightClose /> : <PanelRightOpen />}</Button>
+                </div>
               </header>
               {!activeSessionId || detail.isLoading ? (
                 <ChatSkeleton />
@@ -236,6 +234,12 @@ export function StudioWorkspace() {
           </section>
         </div>
       ) : null}
+      <Sheet open={traceOpen} onOpenChange={setTraceOpen}>
+        <SheetContent side='right' className='flex w-full max-w-3xl flex-col gap-0 p-0 sm:max-w-3xl'>
+          <SheetTitle className='sr-only'>执行 Trace</SheetTitle>
+          {activeSessionId ? <StudioTrace sessionId={activeSessionId} /> : null}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

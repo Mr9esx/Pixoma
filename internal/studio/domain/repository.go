@@ -25,6 +25,7 @@ type Repository interface {
 	CreateRun(ctx context.Context, run *Run) error
 	UpdateRun(ctx context.Context, run *Run) error
 	GetRun(ctx context.Context, accountID, runID string) (*Run, error)
+	ListSessionRuns(ctx context.Context, accountID, sessionID string, limit int) ([]*Run, error)
 	ListRecoverableRuns(ctx context.Context, limit int) ([]*Run, error)
 	AppendEvent(ctx context.Context, event *Event) error
 	ListEventsAfter(ctx context.Context, accountID, runID string, after uint64, limit int) ([]*Event, error)

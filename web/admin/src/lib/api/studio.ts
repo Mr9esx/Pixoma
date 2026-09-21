@@ -51,6 +51,15 @@ export type StudioRun = {
   updated_at: string
 }
 
+export type StudioRunEvent = {
+  id: string
+  run_id: string
+  sequence: number
+  type: string
+  payload: Record<string, unknown>
+  created_at: string
+}
+
 export type StudioAssetVersion = {
   id: string
   version: number
@@ -218,6 +227,14 @@ export function sendStudioMessage(input: {
 
 export function getStudioRun(runId: string) {
   return apiFetch<StudioRun>(`/api/v1/studio/runs/${encodeURIComponent(runId)}`)
+}
+
+export function listStudioSessionRuns(sessionId: string) {
+  return apiFetch<StudioRun[]>(`/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/runs`)
+}
+
+export function listStudioRunEvents(runId: string) {
+  return apiFetch<StudioRunEvent[]>(`/api/v1/studio/runs/${encodeURIComponent(runId)}/events`)
 }
 
 export function resolveStudioApproval(approvalId: string, approved: boolean) {

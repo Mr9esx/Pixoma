@@ -291,6 +291,19 @@ func (r *GormRepository) GetRun(ctx context.Context, accountID, runID string) (*
 	return runFromRow(row), nil
 }
 
+func (r *GormRepository) ListSessionRuns(ctx context.Context, accountID, sessionID string, limit int) ([]*domain.Run, error) {
+	var rows []RunRow
+	if err := r.db.WithContext(ctx).Where("account_id = ? AND session_id = ?", accountID, sessionID).
+		Order("created_at DESC, id DESC").Limit(normalizeLimit(limit)).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Run, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, runFromRow(row))
+	}
+	return out, nil
+}
+
 func (r *GormRepository) ListRecoverableRuns(ctx context.Context, limit int) ([]*domain.Run, error) {
 	var rows []RunRow
 	err := r.db.WithContext(ctx).

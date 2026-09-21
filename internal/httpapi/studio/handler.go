@@ -33,6 +33,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Get("/sessions", h.listSessions)
 	r.Post("/sessions", h.createSession)
 	r.Get("/sessions/{sessionID}", h.getSession)
+	r.Get("/sessions/{sessionID}/runs", h.listSessionRuns)
 	r.Patch("/sessions/{sessionID}/flow", h.updateFlow)
 	r.Post("/messages", h.sendMessage)
 	r.Get("/runs/{runID}", h.getRun)
@@ -301,6 +302,28 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 			"edges": flowEdgesToViews(edges),
 		},
 	})
+}
+
+func (h *Handler) listSessionRuns(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	sessionID := chi.URLParam(r, "sessionID")
+	if _, err := h.Repo.GetSession(r.Context(), accountID, sessionID); err != nil {
+		writeError(w, err)
+		return
+	}
+	runs, err := h.Repo.ListSessionRuns(r.Context(), accountID, sessionID, queryInt(r, "limit", 100))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	out := make([]runView, 0, len(runs))
+	for _, run := range runs {
+		out = append(out, toRunView(run))
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
