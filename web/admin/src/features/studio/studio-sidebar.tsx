@@ -1,13 +1,6 @@
 import { Link } from '@tanstack/react-router'
-import {
-  ArrowLeft,
-  Library,
-  MessageCircle,
-  MessageSquarePlus,
-  Settings2,
-} from 'lucide-react'
+import { ArrowLeft, Library, MessageCircle, Settings2 } from 'lucide-react'
 import type { StudioSession } from '@/lib/api/studio'
-import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sidebar,
@@ -20,9 +13,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 import { AppTitle } from '@/components/layout/app-title'
 import { NavUser } from '@/components/layout/nav-user'
@@ -43,10 +33,8 @@ export function StudioSidebar({
   sessions,
   activeSessionId,
   view,
-  onNewSession,
   onSelectSession,
   onViewChange,
-  creating,
 }: Props) {
   return (
     <Sidebar collapsible='none'>
@@ -98,48 +86,30 @@ export function StudioSidebar({
         </SidebarGroup>
 
         <SidebarGroup className='min-h-0 flex-1 px-2 py-1'>
-          <div className='flex h-8 items-center gap-1 px-2'>
-            <SidebarGroupLabel className='h-auto flex-1 px-0'>
-              最近对话
-            </SidebarGroupLabel>
-            <Button
-              variant='ghost'
-              size='sm'
-              className='h-7 gap-1 px-2'
-              onClick={onNewSession}
-              disabled={creating}
-            >
-              <MessageSquarePlus />
-              <span>新建对话</span>
-            </Button>
-          </div>
+          <SidebarGroupLabel>最近对话</SidebarGroupLabel>
           <SidebarGroupContent className='flex min-h-0 flex-1 flex-col'>
             <ScrollArea className='min-h-0 flex-1'>
-              <SidebarMenuSub className='mx-0 translate-x-0 border-s-0 px-0 py-1'>
+              <SidebarMenu className='pb-2'>
                 {sessions.length === 0 ? (
                   <p className='px-2 py-3 text-xs leading-5 text-muted-foreground'>
                     开始一次对话后，会自动保存在这里
                   </p>
                 ) : (
                   sessions.map((session) => (
-                    <SidebarMenuSubItem key={session.id}>
-                      <SidebarMenuSubButton
-                        asChild
+                    <SidebarMenuItem key={session.id}>
+                      <SidebarMenuButton
                         isActive={
                           view === 'chat' && activeSessionId === session.id
                         }
+                        onClick={() => onSelectSession(session.id)}
                       >
-                        <button
-                          type='button'
-                          onClick={() => onSelectSession(session.id)}
-                        >
-                          <span>{session.title}</span>
-                        </button>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
+                        <MessageCircle />
+                        <span>{session.title}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   ))
                 )}
-              </SidebarMenuSub>
+              </SidebarMenu>
             </ScrollArea>
           </SidebarGroupContent>
         </SidebarGroup>
