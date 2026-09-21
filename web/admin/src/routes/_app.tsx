@@ -29,16 +29,7 @@ export const Route = createFileRoute('/_app')({
 
 function AppLayout() {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
-  const { isPending, pathname } = useRouterState({
-    select: (state) => ({
-      isPending: state.status === 'pending',
-      pathname: state.location.pathname,
-    }),
-  })
-
-  if (pathname === '/studio' || pathname.startsWith('/studio/')) {
-    return <StudioLayout />
-  }
+  const isPending = useRouterState({ select: (state) => state.status === 'pending' })
 
   return (
     <SearchProvider>
@@ -68,15 +59,6 @@ function AppLayout() {
           </SidebarInset>
         </SidebarProvider>
       </LayoutProvider>
-    </SearchProvider>
-  )
-}
-
-function StudioLayout() {
-  return (
-    <SearchProvider>
-      <SkipToMain />
-      <Outlet />
     </SearchProvider>
   )
 }

@@ -28,8 +28,11 @@ describe('Studio production workspace contract', () => {
     expect(workspace).toContain('StudioLibrary')
   })
 
-  it('provides the independent Studio shell and the single platform entry', () => {
-    expect(read('../../routes/_app.tsx')).toContain('StudioLayout')
+  it('keeps Studio inside the platform sidebar shell', () => {
+    const appRoute = read('../../routes/_app.tsx')
+    expect(appRoute).toContain('<AppSidebar />')
+    expect(appRoute).not.toContain('StudioLayout')
+    expect(read('./studio-workspace.tsx')).not.toContain('StudioSidebar')
     expect(read('../../config/menu.ts')).toContain("id: 'studio'")
     expect(read('../../routes/_app/studio.tsx')).toContain('StudioWorkspace')
   })
