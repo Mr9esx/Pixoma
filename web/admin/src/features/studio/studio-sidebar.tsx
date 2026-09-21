@@ -37,7 +37,7 @@ export function StudioSidebar({
   onViewChange,
 }: Props) {
   return (
-    <Sidebar collapsible='none'>
+    <Sidebar collapsible='none' className='p-2'>
       <SidebarHeader>
         <AppTitle showToggle={false} />
       </SidebarHeader>
