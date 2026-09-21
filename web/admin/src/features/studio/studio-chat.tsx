@@ -129,7 +129,7 @@ export function StudioChat(props: Props) {
             <div className='min-h-6 flex-1' />
           </div>
         </ThreadPrimitive.Viewport>
-        <div className='shrink-0 bg-background px-4 pt-2 pb-5'>
+        <div className='shrink-0 px-4 pt-2 pb-5'>
           <ComposerPrimitive.Root className='mx-auto w-full max-w-3xl rounded-2xl border bg-card p-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20'>
             <ComposerPrimitive.Input
               autoFocus

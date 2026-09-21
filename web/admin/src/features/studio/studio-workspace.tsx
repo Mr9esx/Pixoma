@@ -146,84 +146,91 @@ export function StudioWorkspace() {
       {view === 'library' ? <StudioLibrary /> : null}
       {view === 'settings' ? <StudioSettings /> : null}
       {view === 'chat' ? (
-        <>
-          <main id='main-content' className='flex min-w-0 flex-1 flex-col'>
-            <header className='flex min-h-16 items-center justify-between gap-3 border-b px-5 pl-16 lg:pl-5'>
-              <div className='min-w-0'>
-                <h1 className='truncate text-sm font-semibold'>
-                  {detail.data?.session.title ?? '新对话'}
-                </h1>
-                <p className='text-xs text-muted-foreground'>
-                  自动保存 · 后台运行
-                </p>
-              </div>
-              <Button
-                variant='ghost'
-                size='icon'
-                onClick={() => setRightOpen((open) => !open)}
-                aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}
-              >
-                {rightOpen ? <PanelRightClose /> : <PanelRightOpen />}
-              </Button>
-            </header>
-            {!activeSessionId || detail.isLoading ? (
-              <ChatSkeleton />
-            ) : detail.isError || !detail.data ? (
-              <div className='flex flex-1 items-center justify-center text-sm text-muted-foreground'>
-                对话读取失败，请稍后重试。
-              </div>
-            ) : (
-              <StudioChat
-                key={activeSessionId}
-                sessionId={activeSessionId}
-                messages={detail.data.messages}
-                models={models.data ?? []}
-                modelConfigId={
-                  modelConfigId ?? detail.data.session.model_config_id
-                }
-                permissionMode={permissionMode}
-                skills={skills.data ?? []}
-                selectedSkillIds={selectedSkillIds}
-                onModelChange={setModelConfigId}
-                onPermissionChange={setPermissionMode}
-                onSkillChange={setSelectedSkillIds}
-              />
-            )}
-          </main>
-          {rightOpen ? (
-            <aside className='hidden w-[42%] max-w-2xl min-w-80 shrink-0 border-l xl:flex xl:flex-col'>
-              <Tabs defaultValue='flow' className='min-h-0 flex-1 gap-0'>
-                <div className='flex h-16 items-center border-b px-4'>
-                  <TabsList>
-                    <TabsTrigger value='flow'>资产路线</TabsTrigger>
-                    <TabsTrigger value='assets'>
-                      Session 资产{' '}
-                      <span className='text-xs text-muted-foreground'>
-                        {detail.data?.assets.length ?? 0}
-                      </span>
-                    </TabsTrigger>
-                  </TabsList>
+        <div className='min-h-0 min-w-0 flex-1 bg-muted/30 p-3 sm:p-4'>
+          <section
+            data-slot='studio-workbench'
+            className='flex h-full min-h-0 overflow-hidden rounded-2xl bg-card shadow-sm'
+          >
+            <main id='main-content' className='flex min-w-0 flex-1 flex-col'>
+              <header className='flex min-h-16 items-center justify-between gap-3 px-5 pl-16 lg:pl-5'>
+                <div className='min-w-0'>
+                  <h1 className='truncate text-sm font-semibold'>
+                    {detail.data?.session.title ?? '新对话'}
+                  </h1>
+                  <p className='text-xs text-muted-foreground'>
+                    自动保存 · 后台运行
+                  </p>
                 </div>
-                <TabsContent value='flow' className='m-0 min-h-0'>
-                  <StudioFlow
-                    nodes={detail.data?.flow.nodes ?? []}
-                    edges={detail.data?.flow.edges ?? []}
-                    onPositionsChange={(nodes) =>
-                      saveFlowPositions.mutate(nodes)
-                    }
-                  />
-                </TabsContent>
-                <TabsContent value='assets' className='m-0 min-h-0'>
-                  <StudioAssets
-                    assets={detail.data?.assets ?? []}
-                    onSaveToLibrary={(id) => saveAsset.mutate(id)}
-                    onCreateTextAsset={(input) => createTextAsset.mutate(input)}
-                  />
-                </TabsContent>
-              </Tabs>
-            </aside>
-          ) : null}
-        </>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={() => setRightOpen((open) => !open)}
+                  aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}
+                >
+                  {rightOpen ? <PanelRightClose /> : <PanelRightOpen />}
+                </Button>
+              </header>
+              {!activeSessionId || detail.isLoading ? (
+                <ChatSkeleton />
+              ) : detail.isError || !detail.data ? (
+                <div className='flex flex-1 items-center justify-center text-sm text-muted-foreground'>
+                  对话读取失败，请稍后重试。
+                </div>
+              ) : (
+                <StudioChat
+                  key={activeSessionId}
+                  sessionId={activeSessionId}
+                  messages={detail.data.messages}
+                  models={models.data ?? []}
+                  modelConfigId={
+                    modelConfigId ?? detail.data.session.model_config_id
+                  }
+                  permissionMode={permissionMode}
+                  skills={skills.data ?? []}
+                  selectedSkillIds={selectedSkillIds}
+                  onModelChange={setModelConfigId}
+                  onPermissionChange={setPermissionMode}
+                  onSkillChange={setSelectedSkillIds}
+                />
+              )}
+            </main>
+            {rightOpen ? (
+              <aside className='hidden w-[42%] max-w-2xl min-w-80 shrink-0 bg-muted/20 xl:flex xl:flex-col'>
+                <Tabs defaultValue='flow' className='min-h-0 flex-1 gap-0'>
+                  <div className='flex h-16 items-center px-4'>
+                    <TabsList>
+                      <TabsTrigger value='flow'>资产路线</TabsTrigger>
+                      <TabsTrigger value='assets'>
+                        Session 资产{' '}
+                        <span className='text-xs text-muted-foreground'>
+                          {detail.data?.assets.length ?? 0}
+                        </span>
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+                  <TabsContent value='flow' className='m-0 min-h-0'>
+                    <StudioFlow
+                      nodes={detail.data?.flow.nodes ?? []}
+                      edges={detail.data?.flow.edges ?? []}
+                      onPositionsChange={(nodes) =>
+                        saveFlowPositions.mutate(nodes)
+                      }
+                    />
+                  </TabsContent>
+                  <TabsContent value='assets' className='m-0 min-h-0'>
+                    <StudioAssets
+                      assets={detail.data?.assets ?? []}
+                      onSaveToLibrary={(id) => saveAsset.mutate(id)}
+                      onCreateTextAsset={(input) =>
+                        createTextAsset.mutate(input)
+                      }
+                    />
+                  </TabsContent>
+                </Tabs>
+              </aside>
+            ) : null}
+          </section>
+        </div>
       ) : null}
     </div>
   )

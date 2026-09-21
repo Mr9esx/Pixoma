@@ -45,6 +45,19 @@ describe('Studio production workspace contract', () => {
     expect(studioLayout).toContain('<SidebarProvider')
   })
 
+  it('groups chat and canvas in one padded rounded workbench without structural borders', () => {
+    const source = read('./studio-workspace.tsx')
+    expect(source).toContain("data-slot='studio-workbench'")
+    expect(source).toContain('rounded-2xl')
+    expect(source).not.toContain('max-w-2xl min-w-80 shrink-0 border-l')
+  })
+
+  it('keeps the composer as the chat boundary without a full-width chrome strip', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain("className='shrink-0 px-4 pt-2 pb-5'")
+    expect(source).not.toContain("className='shrink-0 bg-background")
+  })
+
   it('provides a connected Skill configuration view', () => {
     const source = read('./studio-settings.tsx')
     expect(source).toContain('listStudioSkills')
