@@ -49,4 +49,14 @@ type Repository interface {
 	UpdateModelConfig(ctx context.Context, config *ModelConfig) error
 	GetModelConfig(ctx context.Context, accountID, configID string) (*ModelConfig, error)
 	ListModelConfigs(ctx context.Context, accountID string) ([]*ModelConfig, error)
+
+	CreateSkill(ctx context.Context, skill *Skill) error
+	UpdateSkill(ctx context.Context, skill *Skill) error
+	GetSkill(ctx context.Context, accountID, skillID string) (*Skill, error)
+	ListSkills(ctx context.Context, accountID string) ([]*Skill, error)
+
+	CreateMCPConnector(ctx context.Context, connector *MCPConnector) error
+	UpdateMCPConnector(ctx context.Context, connector *MCPConnector) error
+	GetMCPConnector(ctx context.Context, accountID, connectorID string) (*MCPConnector, error)
+	ListMCPConnectors(ctx context.Context, accountID string) ([]*MCPConnector, error)
 }

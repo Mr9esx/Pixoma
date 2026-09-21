@@ -1,0 +1,191 @@
+package application
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	platformcrypto "github.com/Mr9esx/Pixoma/internal/platform/crypto"
+	"github.com/Mr9esx/Pixoma/internal/studio/domain"
+)
+
+type CapabilityConfigRepository interface {
+	CreateSkill(context.Context, *domain.Skill) error
+	UpdateSkill(context.Context, *domain.Skill) error
+	GetSkill(context.Context, string, string) (*domain.Skill, error)
+	ListSkills(context.Context, string) ([]*domain.Skill, error)
+	CreateMCPConnector(context.Context, *domain.MCPConnector) error
+	UpdateMCPConnector(context.Context, *domain.MCPConnector) error
+	GetMCPConnector(context.Context, string, string) (*domain.MCPConnector, error)
+	ListMCPConnectors(context.Context, string) ([]*domain.MCPConnector, error)
+}
+
+type CapabilityConfigService struct {
+	Repo          CapabilityConfigRepository
+	EncryptionKey []byte
+	IDs           func() string
+	Now           func() time.Time
+}
+
+type CreateSkillInput struct {
+	AccountID, Name, Description, Prompt string
+	Enabled                              bool
+}
+type UpdateSkillInput struct {
+	AccountID, SkillID, Name, Description, Prompt string
+	Enabled                                       bool
+}
+type SkillView struct {
+	ID, Name, Description, Prompt string
+	Enabled                       bool
+	CreatedAt, UpdatedAt          time.Time
+}
+type CreateConnectorInput struct {
+	AccountID, Name, URL, Credential string
+	Enabled                          bool
+	Policy                           domain.ConnectorPolicy
+}
+type UpdateConnectorInput struct {
+	AccountID, ConnectorID, Name, URL, Credential string
+	Enabled                                       bool
+	Policy                                        domain.ConnectorPolicy
+}
+type MCPConnectorView struct {
+	ID, Name, URL        string
+	Enabled              bool
+	Policy               domain.ConnectorPolicy
+	CredentialMasked     string
+	Tools                []domain.MCPTool
+	CreatedAt, UpdatedAt time.Time
+}
+
+func (s *CapabilityConfigService) CreateSkill(ctx context.Context, input CreateSkillInput) (*SkillView, error) {
+	if s == nil || s.Repo == nil {
+		return nil, fmt.Errorf("studio: capability config service is not configured")
+	}
+	skill, err := domain.NewSkill(s.nextID(), input.AccountID, input.Name, input.Description, input.Prompt, s.now())
+	if err != nil {
+		return nil, err
+	}
+	skill.Enabled = input.Enabled
+	if err := s.Repo.CreateSkill(ctx, skill); err != nil {
+		return nil, err
+	}
+	return skillView(skill), nil
+}
+
+func (s *CapabilityConfigService) ListSkills(ctx context.Context, accountID string) ([]*SkillView, error) {
+	skills, err := s.Repo.ListSkills(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*SkillView, 0, len(skills))
+	for _, skill := range skills {
+		out = append(out, skillView(skill))
+	}
+	return out, nil
+}
+
+func (s *CapabilityConfigService) UpdateSkill(ctx context.Context, input UpdateSkillInput) (*SkillView, error) {
+	if s == nil || s.Repo == nil {
+		return nil, fmt.Errorf("studio: capability config service is not configured")
+	}
+	existing, err := s.Repo.GetSkill(ctx, input.AccountID, input.SkillID)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := domain.NewSkill(existing.ID, existing.AccountID, input.Name, input.Description, input.Prompt, s.now())
+	if err != nil {
+		return nil, err
+	}
+	updated.Enabled = input.Enabled
+	updated.CreatedAt = existing.CreatedAt
+	if err := s.Repo.UpdateSkill(ctx, updated); err != nil {
+		return nil, err
+	}
+	return skillView(updated), nil
+}
+
+func (s *CapabilityConfigService) CreateConnector(ctx context.Context, input CreateConnectorInput) (*MCPConnectorView, error) {
+	if s == nil || s.Repo == nil {
+		return nil, fmt.Errorf("studio: capability config service is not configured")
+	}
+	if strings.TrimSpace(input.Credential) == "" {
+		return nil, fmt.Errorf("%w: connector credential is required", domain.ErrInvalid)
+	}
+	cipherText, err := platformcrypto.Encrypt(s.EncryptionKey, input.Credential)
+	if err != nil {
+		return nil, err
+	}
+	connector, err := domain.NewMCPConnector(s.nextID(), input.AccountID, input.Name, input.URL, cipherText, input.Policy, s.now())
+	if err != nil {
+		return nil, err
+	}
+	connector.Enabled = input.Enabled
+	if err := s.Repo.CreateMCPConnector(ctx, connector); err != nil {
+		return nil, err
+	}
+	return connectorView(connector), nil
+}
+
+func (s *CapabilityConfigService) ListConnectors(ctx context.Context, accountID string) ([]*MCPConnectorView, error) {
+	connectors, err := s.Repo.ListMCPConnectors(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*MCPConnectorView, 0, len(connectors))
+	for _, connector := range connectors {
+		out = append(out, connectorView(connector))
+	}
+	return out, nil
+}
+
+func (s *CapabilityConfigService) UpdateConnector(ctx context.Context, input UpdateConnectorInput) (*MCPConnectorView, error) {
+	if s == nil || s.Repo == nil {
+		return nil, fmt.Errorf("studio: capability config service is not configured")
+	}
+	existing, err := s.Repo.GetMCPConnector(ctx, input.AccountID, input.ConnectorID)
+	if err != nil {
+		return nil, err
+	}
+	cipherText := existing.CredentialCipher
+	if strings.TrimSpace(input.Credential) != "" {
+		cipherText, err = platformcrypto.Encrypt(s.EncryptionKey, input.Credential)
+		if err != nil {
+			return nil, err
+		}
+	}
+	updated, err := domain.NewMCPConnector(existing.ID, existing.AccountID, input.Name, input.URL, cipherText, input.Policy, s.now())
+	if err != nil {
+		return nil, err
+	}
+	updated.Enabled = input.Enabled
+	updated.CreatedAt = existing.CreatedAt
+	updated.DiscoveredTools = existing.DiscoveredTools
+	if err := s.Repo.UpdateMCPConnector(ctx, updated); err != nil {
+		return nil, err
+	}
+	return connectorView(updated), nil
+}
+
+func skillView(skill *domain.Skill) *SkillView {
+	return &SkillView{ID: skill.ID, Name: skill.Name, Description: skill.Description, Prompt: skill.Prompt, Enabled: skill.Enabled, CreatedAt: skill.CreatedAt, UpdatedAt: skill.UpdatedAt}
+}
+func connectorView(connector *domain.MCPConnector) *MCPConnectorView {
+	return &MCPConnectorView{ID: connector.ID, Name: connector.Name, URL: connector.URL, Enabled: connector.Enabled, Policy: connector.Policy, CredentialMasked: "••••••••", Tools: connector.DiscoveredTools, CreatedAt: connector.CreatedAt, UpdatedAt: connector.UpdatedAt}
+}
+func (s *CapabilityConfigService) nextID() string {
+	if s.IDs != nil {
+		return s.IDs()
+	}
+	return uuid.NewString()
+}
+func (s *CapabilityConfigService) now() time.Time {
+	if s.Now != nil {
+		return s.Now().UTC()
+	}
+	return time.Now().UTC()
+}

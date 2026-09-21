@@ -172,6 +172,7 @@ func Models() []any {
 		&SessionRow{}, &MessageRow{}, &RunRow{}, &EventRow{}, &ApprovalRow{},
 		&AssetRow{}, &AssetVersionRow{}, &LibraryFolderRow{}, &LibraryAssetRow{},
 		&FlowNodeRow{}, &FlowEdgeRow{}, &ModelConfigRow{},
+		&SkillRow{}, &MCPConnectorRow{},
 	}
 }
 
