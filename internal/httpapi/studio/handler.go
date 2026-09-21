@@ -48,6 +48,10 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/models", h.createModel)
 	r.Get("/skills", h.listSkills)
 	r.Post("/skills", h.createSkill)
+	r.Get("/connectors", h.listConnectors)
+	r.Post("/connectors", h.createConnector)
+	r.Get("/workflows", h.listAgentWorkflows)
+	r.Patch("/workflows/{workflowID}", h.updateAgentWorkflow)
 }
 
 func (h *Handler) createTextAsset(w http.ResponseWriter, r *http.Request) {
@@ -499,6 +503,87 @@ func (h *Handler) createSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, skill)
+}
+
+func (h *Handler) listConnectors(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		return
+	}
+	connectors, err := h.Capabilities.ListConnectors(r.Context(), accountID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, connectors)
+}
+
+func (h *Handler) createConnector(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		return
+	}
+	var body studioapp.CreateConnectorInput
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	body.AccountID = accountID
+	connector, err := h.Capabilities.CreateConnector(r.Context(), body)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, connector)
+}
+
+func (h *Handler) listAgentWorkflows(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		return
+	}
+	workflows, err := h.Capabilities.ListAgentWorkflows(r.Context(), accountID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, workflows)
+}
+
+func (h *Handler) updateAgentWorkflow(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		return
+	}
+	var body struct {
+		AgentEnabled *bool `json:"agent_enabled"`
+	}
+	if err := decodeJSON(r, &body); err != nil || body.AgentEnabled == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	workflow, err := h.Capabilities.SetAgentWorkflowEnabled(r.Context(), accountID, chi.URLParam(r, "workflowID"), *body.AgentEnabled)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, workflow)
 }
 
 func accountID(w http.ResponseWriter, r *http.Request) (string, bool) {

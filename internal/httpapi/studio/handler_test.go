@@ -14,10 +14,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	setupapi "github.com/Mr9esx/Pixoma/internal/httpapi/setup"
 	studioapi "github.com/Mr9esx/Pixoma/internal/httpapi/studio"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
 	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/persistence"
@@ -26,6 +28,12 @@ import (
 type ids struct {
 	mu sync.Mutex
 	n  int
+}
+
+type workflowCatalog struct{ cases []*catalogdomain.Case }
+
+func (c workflowCatalog) List(_ context.Context, _ catalogdomain.ListQuery) ([]*catalogdomain.Case, error) {
+	return c.cases, nil
 }
 
 func (i *ids) next() string {
@@ -57,9 +65,29 @@ func newHandler(t *testing.T) (*studioapi.Handler, *studioapp.BackgroundRunner) 
 	return &studioapi.Handler{
 		Repo: repo, Service: service, Runner: runner,
 		Approvals:    &studioapp.ApprovalService{Repo: repo, Queue: runner, IDs: sequence.next},
-		Capabilities: &studioapp.CapabilityConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: sequence.next},
+		Capabilities: &studioapp.CapabilityConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: sequence.next, WorkflowCatalog: workflowCatalog{cases: []*catalogdomain.Case{{Document: catalogdomain.CaseDocument{ID: sharedkernel.CaseID(1), Name: "漫画生成", Description: "生成分镜"}, Enabled: true}}}},
 		Blob:         blobs,
 	}, runner
+}
+
+func TestStudioWorkflowAvailabilityAPIIsAccountScoped(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	list := request(t, router, http.MethodGet, "/workflows", nil, "account-a")
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), "\"agent_enabled\":false") {
+		t.Fatalf("GET /workflows = %d %s", list.Code, list.Body.String())
+	}
+	updated := request(t, router, http.MethodPatch, "/workflows/1", map[string]any{"agent_enabled": true}, "account-a")
+	if updated.Code != http.StatusOK || !strings.Contains(updated.Body.String(), "\"agent_enabled\":true") {
+		t.Fatalf("PATCH /workflows/1 = %d %s", updated.Code, updated.Body.String())
+	}
+	foreign := request(t, router, http.MethodGet, "/workflows", nil, "account-b")
+	if foreign.Code != http.StatusOK || strings.Contains(foreign.Body.String(), "\"agent_enabled\":true") {
+		t.Fatalf("GET /workflows as another account = %d %s", foreign.Code, foreign.Body.String())
+	}
 }
 
 func TestStudioSkillConfigAPIIsAccountScoped(t *testing.T) {
@@ -81,6 +109,28 @@ func TestStudioSkillConfigAPIIsAccountScoped(t *testing.T) {
 	foreign := request(t, router, http.MethodGet, "/skills", nil, "account-b")
 	if foreign.Code != http.StatusOK || strings.Contains(foreign.Body.String(), "漫画分镜") {
 		t.Fatalf("GET /skills as another account = %d %s", foreign.Code, foreign.Body.String())
+	}
+}
+
+func TestStudioConnectorConfigAPIStoresMaskedAccountScopedConfiguration(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	created := request(t, router, http.MethodPost, "/connectors", map[string]any{
+		"name": "Reference tools", "url": "https://mcp.example.com", "credential": "secret-token", "enabled": true, "policy": "approval",
+	}, "account-a")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("POST /connectors status=%d body=%s", created.Code, created.Body.String())
+	}
+	if strings.Contains(created.Body.String(), "secret-token") || !strings.Contains(created.Body.String(), "••••••••") {
+		t.Fatalf("connector response must mask its credential: %s", created.Body.String())
+	}
+
+	foreign := request(t, router, http.MethodGet, "/connectors", nil, "account-b")
+	if foreign.Code != http.StatusOK || strings.Contains(foreign.Body.String(), "Reference tools") {
+		t.Fatalf("GET /connectors as another account = %d %s", foreign.Code, foreign.Body.String())
 	}
 }
 

@@ -60,6 +60,15 @@ type MCPConnector struct {
 	UpdatedAt        time.Time
 }
 
+// AgentWorkflowSetting controls whether a catalog workflow is exposed to one
+// Studio account. It never changes the workflow's global enabled state.
+type AgentWorkflowSetting struct {
+	AccountID    string
+	WorkflowID   string
+	AgentEnabled bool
+	UpdatedAt    time.Time
+}
+
 func NewMCPConnector(id, accountID, name, rawURL, credentialCipher string, policy ConnectorPolicy, now time.Time) (*MCPConnector, error) {
 	if anyBlank(id, accountID, name, rawURL, credentialCipher) || !policy.Valid() {
 		return nil, fmt.Errorf("%w: invalid MCP connector", ErrInvalid)

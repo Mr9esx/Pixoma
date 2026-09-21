@@ -11,10 +11,17 @@ import {
 } from 'lucide-react'
 import {
   createStudioModel,
+  createStudioConnector,
   createStudioSkill,
+  listStudioConnectors,
+  listStudioAgentWorkflows,
   listStudioModels,
   listStudioSkills,
+  type StudioConnectorPolicy,
+  type StudioMCPConnector,
+  type StudioAgentWorkflow,
   type StudioModel,
+  updateStudioAgentWorkflow,
 } from '@/lib/api/studio'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -51,6 +58,7 @@ export function StudioSettings() {
   const [tab, setTab] = useState('models')
   const [modelDialogOpen, setModelDialogOpen] = useState(false)
   const [skillDialogOpen, setSkillDialogOpen] = useState(false)
+  const [connectorDialogOpen, setConnectorDialogOpen] = useState(false)
   const models = useQuery({
     queryKey: ['studio', 'models'],
     queryFn: listStudioModels,
@@ -58,6 +66,14 @@ export function StudioSettings() {
   const skills = useQuery({
     queryKey: ['studio', 'skills'],
     queryFn: listStudioSkills,
+  })
+  const connectors = useQuery({
+    queryKey: ['studio', 'connectors'],
+    queryFn: listStudioConnectors,
+  })
+  const workflows = useQuery({
+    queryKey: ['studio', 'workflows'],
+    queryFn: listStudioAgentWorkflows,
   })
   return (
     <main
@@ -81,6 +97,12 @@ export function StudioSettings() {
           <Button size='sm' onClick={() => setSkillDialogOpen(true)}>
             <Plus />
             添加 Skill
+          </Button>
+        ) : null}
+        {tab === 'mcp' ? (
+          <Button size='sm' onClick={() => setConnectorDialogOpen(true)}>
+            <Plus />
+            添加连接器
           </Button>
         ) : null}
       </header>
@@ -175,24 +197,326 @@ export function StudioSettings() {
             />
           </TabsContent>
           <TabsContent value='mcp' className='m-0 p-5'>
-            <EmptySetting
-              icon={Cable}
-              title='MCP 连接器'
-              description='通过 Streamable HTTP 接入外部工具，凭据由系统统一管理。'
+            <ConnectorSettings
+              connectors={connectors.data ?? []}
+              loading={connectors.isLoading}
+              error={connectors.isError}
             />
           </TabsContent>
           <TabsContent value='workflows' className='m-0 p-5'>
-            <EmptySetting
-              icon={Workflow}
-              title='Agent 可用工作流'
-              description='复用现有工作流名称、说明和输入输出定义，只需决定是否允许 Agent 调用。'
+            <WorkflowSettings
+              workflows={workflows.data ?? []}
+              loading={workflows.isLoading}
+              error={workflows.isError}
             />
           </TabsContent>
         </ScrollArea>
       </Tabs>
       <ModelDialog open={modelDialogOpen} onOpenChange={setModelDialogOpen} />
       <SkillDialog open={skillDialogOpen} onOpenChange={setSkillDialogOpen} />
+      <ConnectorDialog
+        open={connectorDialogOpen}
+        onOpenChange={setConnectorDialogOpen}
+      />
     </main>
+  )
+}
+
+function WorkflowSettings({
+  workflows,
+  loading,
+  error,
+}: {
+  workflows: StudioAgentWorkflow[]
+  loading: boolean
+  error: boolean
+}) {
+  const queryClient = useQueryClient()
+  const update = useMutation({
+    mutationFn: ({ id, agentEnabled }: { id: string; agentEnabled: boolean }) =>
+      updateStudioAgentWorkflow(id, agentEnabled),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['studio', 'workflows'] }),
+  })
+  return (
+    <div className='mx-auto max-w-5xl space-y-5'>
+      <div>
+        <h2 className='text-sm font-semibold'>Agent 可用工作流</h2>
+        <p className='mt-1 text-sm text-muted-foreground'>
+          这里仅决定当前 Studio Agent
+          是否可调用已有工作流，不影响工作流在平台其他入口的启停。
+        </p>
+      </div>
+      {loading ? (
+        <p className='text-sm text-muted-foreground'>正在读取工作流…</p>
+      ) : null}
+      {error ? (
+        <p role='alert' className='text-sm text-destructive'>
+          工作流读取失败，刷新后重试。
+        </p>
+      ) : null}
+      {!loading && !error && workflows.length === 0 ? (
+        <p className='py-12 text-sm text-muted-foreground'>
+          还没有可配置的工作流。请先在平台工作流中创建。
+        </p>
+      ) : null}
+      {workflows.length > 0 ? (
+        <div className='space-y-2'>
+          {workflows.map((workflow) => (
+            <Card key={workflow.id}>
+              <CardContent className='flex items-center justify-between gap-4 p-4'>
+                <div className='min-w-0'>
+                  <div className='flex items-center gap-2'>
+                    <p className='truncate text-sm font-medium'>
+                      {workflow.name}
+                    </p>
+                    <Badge
+                      variant={
+                        workflow.workflow_enabled ? 'secondary' : 'outline'
+                      }
+                    >
+                      {workflow.workflow_enabled
+                        ? '工作流已启用'
+                        : '工作流已停用'}
+                    </Badge>
+                  </div>
+                  <p className='mt-1 line-clamp-1 text-xs text-muted-foreground'>
+                    {workflow.description || '未填写说明'} · {workflow.inputs}{' '}
+                    个输入 / {workflow.outputs} 个输出
+                  </p>
+                </div>
+                <Switch
+                  aria-label={`允许 Agent 调用 ${workflow.name}`}
+                  checked={workflow.agent_enabled}
+                  disabled={!workflow.workflow_enabled || update.isPending}
+                  onCheckedChange={(agentEnabled) =>
+                    update.mutate({ id: workflow.id, agentEnabled })
+                  }
+                />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ConnectorSettings({
+  connectors,
+  loading,
+  error,
+}: {
+  connectors: StudioMCPConnector[]
+  loading: boolean
+  error: boolean
+}) {
+  return (
+    <div className='mx-auto max-w-5xl space-y-5'>
+      <div>
+        <h2 className='text-sm font-semibold'>MCP 连接器</h2>
+        <p className='mt-1 text-sm text-muted-foreground'>
+          用 Streamable HTTP 接入外部工具。凭据仅加密保存在服务端。
+        </p>
+      </div>
+      {loading ? (
+        <p className='text-sm text-muted-foreground'>正在读取连接器…</p>
+      ) : null}
+      {error ? (
+        <p role='alert' className='text-sm text-destructive'>
+          连接器读取失败，刷新后重试。
+        </p>
+      ) : null}
+      {!loading && !error && connectors.length === 0 ? (
+        <p className='py-12 text-sm text-muted-foreground'>
+          还没有 MCP 连接器。添加后可集中管理其可用性和调用策略。
+        </p>
+      ) : null}
+      {connectors.length > 0 ? (
+        <div className='grid gap-3 md:grid-cols-2'>
+          {connectors.map((connector) => (
+            <Card key={connector.id}>
+              <CardHeader className='pb-3'>
+                <div className='flex items-start justify-between gap-3'>
+                  <span className='flex size-9 items-center justify-center rounded-lg bg-muted'>
+                    <Cable className='size-4' />
+                  </span>
+                  <Badge variant={connector.enabled ? 'secondary' : 'outline'}>
+                    {connector.enabled ? '已启用' : '已停用'}
+                  </Badge>
+                </div>
+                <CardTitle className='mt-3 text-base'>
+                  {connector.name}
+                </CardTitle>
+                <CardDescription className='truncate'>
+                  {connector.url}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className='space-y-1 text-xs text-muted-foreground'>
+                <p>调用策略：{connectorPolicyLabel(connector.policy)}</p>
+                <p>凭据：{connector.credential_masked}</p>
+                <p>已发现工具：{connector.tools.length}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function connectorPolicyLabel(policy: StudioConnectorPolicy) {
+  switch (policy) {
+    case 'auto':
+      return '自动执行'
+    case 'approval':
+      return '请求确认'
+    case 'forbidden':
+      return '禁止调用'
+  }
+}
+
+function ConnectorDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const queryClient = useQueryClient()
+  const [form, setForm] = useState({
+    name: '',
+    url: '',
+    credential: '',
+    enabled: true,
+    policy: 'approval' as StudioConnectorPolicy,
+  })
+  const [error, setError] = useState('')
+  const create = useMutation({
+    mutationFn: () =>
+      createStudioConnector({
+        ...form,
+        name: form.name.trim(),
+        url: form.url.trim(),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['studio', 'connectors'],
+      })
+      setForm({
+        name: '',
+        url: '',
+        credential: '',
+        enabled: true,
+        policy: 'approval',
+      })
+      setError('')
+      onOpenChange(false)
+    },
+    onError: (cause) =>
+      setError(
+        cause instanceof Error ? cause.message : '添加连接器失败，请稍后重试。'
+      ),
+  })
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className='sm:max-w-xl'>
+        <DialogHeader>
+          <DialogTitle>添加 MCP 连接器</DialogTitle>
+          <DialogDescription>
+            使用 Streamable HTTP 地址。凭据创建后不会再次显示。
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className='grid gap-4'
+          onSubmit={(event) => {
+            event.preventDefault()
+            setError('')
+            create.mutate()
+          }}
+        >
+          <div className='grid gap-2'>
+            <Label htmlFor='studio-connector-name'>名称</Label>
+            <Input
+              id='studio-connector-name'
+              required
+              value={form.name}
+              onChange={(event) =>
+                setForm({ ...form, name: event.target.value })
+              }
+              placeholder='例如：内部知识库'
+            />
+          </div>
+          <div className='grid gap-2'>
+            <Label htmlFor='studio-connector-url'>服务地址</Label>
+            <Input
+              id='studio-connector-url'
+              required
+              type='url'
+              value={form.url}
+              onChange={(event) =>
+                setForm({ ...form, url: event.target.value })
+              }
+              placeholder='https://mcp.example.com'
+            />
+          </div>
+          <div className='grid gap-2'>
+            <Label htmlFor='studio-connector-credential'>访问凭据</Label>
+            <Input
+              id='studio-connector-credential'
+              required
+              type='password'
+              autoComplete='new-password'
+              value={form.credential}
+              onChange={(event) =>
+                setForm({ ...form, credential: event.target.value })
+              }
+            />
+          </div>
+          <div className='grid gap-2'>
+            <Label>调用策略</Label>
+            <Select
+              value={form.policy}
+              onValueChange={(policy: StudioConnectorPolicy) =>
+                setForm({ ...form, policy })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='approval'>请求确认</SelectItem>
+                <SelectItem value='auto'>自动执行</SelectItem>
+                <SelectItem value='forbidden'>禁止调用</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <ToggleRow
+            label='启用连接器'
+            description='关闭后 Agent 不会调用此连接器。'
+            checked={form.enabled}
+            onCheckedChange={(enabled) => setForm({ ...form, enabled })}
+          />
+          {error ? (
+            <p role='alert' className='text-sm text-destructive'>
+              {error}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => onOpenChange(false)}
+            >
+              取消
+            </Button>
+            <Button type='submit' disabled={create.isPending}>
+              {create.isPending ? '正在保存…' : '保存连接器'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 

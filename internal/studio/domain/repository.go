@@ -59,4 +59,7 @@ type Repository interface {
 	UpdateMCPConnector(ctx context.Context, connector *MCPConnector) error
 	GetMCPConnector(ctx context.Context, accountID, connectorID string) (*MCPConnector, error)
 	ListMCPConnectors(ctx context.Context, accountID string) ([]*MCPConnector, error)
+
+	UpsertAgentWorkflowSetting(ctx context.Context, setting *AgentWorkflowSetting) error
+	ListAgentWorkflowSettings(ctx context.Context, accountID string) ([]*AgentWorkflowSetting, error)
 }

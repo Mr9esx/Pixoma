@@ -47,6 +47,22 @@ describe('Studio production workspace contract', () => {
     expect(source).not.toContain('<EmptySetting icon={Sparkles}')
   })
 
+  it('provides a connected MCP connector configuration view', () => {
+    const source = read('./studio-settings.tsx')
+    expect(source).toContain('listStudioConnectors')
+    expect(source).toContain('createStudioConnector')
+    expect(source).toContain('ConnectorDialog')
+    expect(source).not.toContain("title='MCP 连接器'")
+  })
+
+  it('lists existing workflows and lets an admin set Agent availability', () => {
+    const source = read('./studio-settings.tsx')
+    expect(source).toContain('listStudioAgentWorkflows')
+    expect(source).toContain('updateStudioAgentWorkflow')
+    expect(source).toContain('WorkflowSettings')
+    expect(source).not.toContain("title='Agent 可用工作流'")
+  })
+
   it('lets the composer forward explicitly selected Skills', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain('SkillPicker')

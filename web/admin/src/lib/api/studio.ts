@@ -147,6 +147,30 @@ export type StudioSkill = {
   updated_at: string
 }
 
+export type StudioConnectorPolicy = 'auto' | 'approval' | 'forbidden'
+
+export type StudioMCPConnector = {
+  id: string
+  name: string
+  url: string
+  enabled: boolean
+  policy: StudioConnectorPolicy
+  credential_masked: string
+  tools: Array<{ name: string; description: string }>
+  created_at: string
+  updated_at: string
+}
+
+export type StudioAgentWorkflow = {
+  id: string
+  name: string
+  description: string
+  workflow_enabled: boolean
+  agent_enabled: boolean
+  inputs: number
+  outputs: number
+}
+
 export function listStudioSessions(params?: {
   limit?: number
   offset?: number
@@ -284,4 +308,32 @@ export function createStudioSkill(input: {
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+export function listStudioConnectors() {
+  return apiFetch<StudioMCPConnector[]>('/api/v1/studio/connectors')
+}
+
+export function createStudioConnector(input: {
+  name: string
+  url: string
+  credential: string
+  enabled: boolean
+  policy: StudioConnectorPolicy
+}) {
+  return apiFetch<StudioMCPConnector>('/api/v1/studio/connectors', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function listStudioAgentWorkflows() {
+  return apiFetch<StudioAgentWorkflow[]>('/api/v1/studio/workflows')
+}
+
+export function updateStudioAgentWorkflow(id: string, agentEnabled: boolean) {
+  return apiFetch<StudioAgentWorkflow>(
+    `/api/v1/studio/workflows/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify({ agent_enabled: agentEnabled }) }
+  )
 }

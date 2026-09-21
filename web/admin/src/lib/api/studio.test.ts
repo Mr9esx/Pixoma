@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createStudioModel,
+  createStudioConnector,
   createStudioSession,
   createStudioSkill,
   getStudioSession,
   listStudioSkills,
+  listStudioConnectors,
+  listStudioAgentWorkflows,
+  updateStudioAgentWorkflow,
   listStudioSessions,
   sendStudioMessage,
 } from './studio'
@@ -178,6 +182,85 @@ describe('Studio API', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toMatchObject({
       name: '角色设定',
       enabled: true,
+    })
+  })
+
+  it('lists and creates Studio MCP connectors without retaining browser-side credentials', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            { id: 'connector-1', name: 'Reference', enabled: true },
+          ]),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ id: 'connector-2', credential_masked: '••••••••' }),
+          {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const connectors = await listStudioConnectors()
+    await createStudioConnector({
+      name: 'Reference',
+      url: 'https://mcp.example.com',
+      credential: 'request-only-secret',
+      enabled: true,
+      policy: 'approval',
+    })
+
+    expect(connectors[0].id).toBe('connector-1')
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/connectors'
+    )
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toMatchObject({
+      url: 'https://mcp.example.com',
+      credential: 'request-only-secret',
+      policy: 'approval',
+    })
+  })
+
+  it('lists existing workflows and saves only their Agent availability', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            { id: '12', name: '角色三视图', agent_enabled: false },
+          ]),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: '12', agent_enabled: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const workflows = await listStudioAgentWorkflows()
+    await updateStudioAgentWorkflow('12', true)
+
+    expect(workflows[0].id).toBe('12')
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/workflows'
+    )
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/workflows/12'
+    )
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({
+      agent_enabled: true,
     })
   })
 })

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 )
@@ -37,6 +39,35 @@ func TestCapabilityConfigCreatesEnabledSkill(t *testing.T) {
 	}
 	if len(listed) != 1 || listed[0].ID != skill.ID {
 		t.Fatalf("listed = %#v", listed)
+	}
+}
+
+type workflowCatalog struct{ cases []*catalogdomain.Case }
+
+func (c workflowCatalog) List(_ context.Context, _ catalogdomain.ListQuery) ([]*catalogdomain.Case, error) {
+	return c.cases, nil
+}
+
+func TestCapabilityConfigPersistsAgentWorkflowAvailability(t *testing.T) {
+	repo := openRepository(t)
+	service := &studioapp.CapabilityConfigService{
+		Repo: repo,
+		WorkflowCatalog: workflowCatalog{cases: []*catalogdomain.Case{{
+			Document: catalogdomain.CaseDocument{ID: sharedkernel.CaseID(12), Name: "角色三视图", Description: "生成角色设定图"}, Enabled: true,
+		}}},
+	}
+
+	workflows, err := service.ListAgentWorkflows(context.Background(), "account-a")
+	if err != nil || len(workflows) != 1 || workflows[0].AgentEnabled {
+		t.Fatalf("initial workflows = %#v, err=%v", workflows, err)
+	}
+	updated, err := service.SetAgentWorkflowEnabled(context.Background(), "account-a", "12", true)
+	if err != nil || !updated.AgentEnabled {
+		t.Fatalf("SetAgentWorkflowEnabled() = %#v, err=%v", updated, err)
+	}
+	workflows, err = service.ListAgentWorkflows(context.Background(), "account-a")
+	if err != nil || !workflows[0].AgentEnabled {
+		t.Fatalf("persisted workflows = %#v, err=%v", workflows, err)
 	}
 }
 

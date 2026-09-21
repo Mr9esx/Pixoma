@@ -249,9 +249,10 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	if err != nil {
 		return err
 	}
+	caseRepo := casepersist.NewGormRepository(gdb)
 	studioRepo := studiopersist.NewGormRepository(gdb)
 	studioModelService := &studioapp.ModelConfigService{Repo: studioRepo, EncryptionKey: encKey}
-	studioCapabilityService := &studioapp.CapabilityConfigService{Repo: studioRepo, EncryptionKey: encKey}
+	studioCapabilityService := &studioapp.CapabilityConfigService{Repo: studioRepo, EncryptionKey: encKey, WorkflowCatalog: caseRepo}
 	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
 		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
 			Mock: studioapp.NewMockEngine(), Online: &studioeino.Engine{Models: studioModelService},
@@ -279,7 +280,6 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	if err := pool.Refresh(ctx); err != nil {
 		return err
 	}
-	caseRepo := casepersist.NewGormRepository(gdb)
 	userRepo := userpersist.NewUserRepository(gdb)
 	userRepo.SetDefaultAccess(func() identitydomain.UserAccess {
 		return identitydomain.NormalizeUserAccess(cfg.DefaultUserAccess)

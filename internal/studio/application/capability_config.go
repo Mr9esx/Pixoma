@@ -3,11 +3,13 @@ package application
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	platformcrypto "github.com/Mr9esx/Pixoma/internal/platform/crypto"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 )
@@ -21,13 +23,20 @@ type CapabilityConfigRepository interface {
 	UpdateMCPConnector(context.Context, *domain.MCPConnector) error
 	GetMCPConnector(context.Context, string, string) (*domain.MCPConnector, error)
 	ListMCPConnectors(context.Context, string) ([]*domain.MCPConnector, error)
+	UpsertAgentWorkflowSetting(context.Context, *domain.AgentWorkflowSetting) error
+	ListAgentWorkflowSettings(context.Context, string) ([]*domain.AgentWorkflowSetting, error)
+}
+
+type WorkflowCatalog interface {
+	List(context.Context, catalogdomain.ListQuery) ([]*catalogdomain.Case, error)
 }
 
 type CapabilityConfigService struct {
-	Repo          CapabilityConfigRepository
-	EncryptionKey []byte
-	IDs           func() string
-	Now           func() time.Time
+	Repo            CapabilityConfigRepository
+	EncryptionKey   []byte
+	IDs             func() string
+	Now             func() time.Time
+	WorkflowCatalog WorkflowCatalog
 }
 
 type CreateSkillInput struct {
@@ -60,6 +69,15 @@ type MCPConnectorView struct {
 	CredentialMasked     string
 	Tools                []domain.MCPTool
 	CreatedAt, UpdatedAt time.Time
+}
+type AgentWorkflowView struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	WorkflowEnabled bool   `json:"workflow_enabled"`
+	AgentEnabled    bool   `json:"agent_enabled"`
+	Inputs          int    `json:"inputs"`
+	Outputs         int    `json:"outputs"`
 }
 
 func (s *CapabilityConfigService) CreateSkill(ctx context.Context, input CreateSkillInput) (*SkillView, error) {
@@ -169,6 +187,58 @@ func (s *CapabilityConfigService) UpdateConnector(ctx context.Context, input Upd
 		return nil, err
 	}
 	return connectorView(updated), nil
+}
+
+func (s *CapabilityConfigService) ListAgentWorkflows(ctx context.Context, accountID string) ([]*AgentWorkflowView, error) {
+	if s == nil || s.Repo == nil || s.WorkflowCatalog == nil {
+		return nil, fmt.Errorf("studio: workflow catalog is not configured")
+	}
+	cases, err := s.WorkflowCatalog.List(ctx, catalogdomain.ListQuery{})
+	if err != nil {
+		return nil, err
+	}
+	settings, err := s.Repo.ListAgentWorkflowSettings(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	enabled := make(map[string]bool, len(settings))
+	for _, setting := range settings {
+		enabled[setting.WorkflowID] = setting.AgentEnabled
+	}
+	workflows := make([]*AgentWorkflowView, 0, len(cases))
+	for _, workflow := range cases {
+		if workflow == nil {
+			continue
+		}
+		id := strconv.FormatUint(uint64(workflow.Document.ID), 10)
+		workflows = append(workflows, &AgentWorkflowView{ID: id, Name: workflow.Document.Name, Description: workflow.Document.Description, WorkflowEnabled: workflow.Enabled, AgentEnabled: enabled[id], Inputs: len(workflow.Document.Inputs), Outputs: len(workflow.Document.Outputs)})
+	}
+	return workflows, nil
+}
+
+func (s *CapabilityConfigService) SetAgentWorkflowEnabled(ctx context.Context, accountID, workflowID string, agentEnabled bool) (*AgentWorkflowView, error) {
+	if s == nil || s.Repo == nil || s.WorkflowCatalog == nil {
+		return nil, fmt.Errorf("studio: workflow catalog is not configured")
+	}
+	workflowID = strings.TrimSpace(workflowID)
+	if accountID == "" || workflowID == "" {
+		return nil, fmt.Errorf("%w: workflow id is required", domain.ErrInvalid)
+	}
+	workflows, err := s.ListAgentWorkflows(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	for _, workflow := range workflows {
+		if workflow.ID != workflowID {
+			continue
+		}
+		if err := s.Repo.UpsertAgentWorkflowSetting(ctx, &domain.AgentWorkflowSetting{AccountID: accountID, WorkflowID: workflowID, AgentEnabled: agentEnabled, UpdatedAt: s.now()}); err != nil {
+			return nil, err
+		}
+		workflow.AgentEnabled = agentEnabled
+		return workflow, nil
+	}
+	return nil, domain.ErrNotFound
 }
 
 func skillView(skill *domain.Skill) *SkillView {

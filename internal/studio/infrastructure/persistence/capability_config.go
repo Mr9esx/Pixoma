@@ -39,6 +39,15 @@ type MCPConnectorRow struct {
 
 func (MCPConnectorRow) TableName() string { return "studio_mcp_connectors" }
 
+type AgentWorkflowSettingRow struct {
+	AccountID    string    `gorm:"primaryKey;size:64"`
+	WorkflowID   string    `gorm:"primaryKey;size:64"`
+	AgentEnabled bool      `gorm:"not null;default:false"`
+	UpdatedAt    time.Time `gorm:"not null"`
+}
+
+func (AgentWorkflowSettingRow) TableName() string { return "studio_agent_workflow_settings" }
+
 func (r *GormRepository) CreateSkill(ctx context.Context, skill *domain.Skill) error {
 	if skill == nil {
 		return domain.ErrInvalid
@@ -123,6 +132,26 @@ func (r *GormRepository) ListMCPConnectors(ctx context.Context, accountID string
 			return nil, err
 		}
 		out = append(out, connector)
+	}
+	return out, nil
+}
+
+func (r *GormRepository) UpsertAgentWorkflowSetting(ctx context.Context, setting *domain.AgentWorkflowSetting) error {
+	if setting == nil || setting.AccountID == "" || setting.WorkflowID == "" {
+		return domain.ErrInvalid
+	}
+	row := AgentWorkflowSettingRow{AccountID: setting.AccountID, WorkflowID: setting.WorkflowID, AgentEnabled: setting.AgentEnabled, UpdatedAt: setting.UpdatedAt}
+	return r.db.WithContext(ctx).Save(&row).Error
+}
+
+func (r *GormRepository) ListAgentWorkflowSettings(ctx context.Context, accountID string) ([]*domain.AgentWorkflowSetting, error) {
+	var rows []AgentWorkflowSettingRow
+	if err := r.db.WithContext(ctx).Where("account_id = ?", accountID).Order("workflow_id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.AgentWorkflowSetting, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, &domain.AgentWorkflowSetting{AccountID: row.AccountID, WorkflowID: row.WorkflowID, AgentEnabled: row.AgentEnabled, UpdatedAt: row.UpdatedAt})
 	}
 	return out, nil
 }
