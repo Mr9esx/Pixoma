@@ -32,7 +32,11 @@ func (e *MockEngine) Execute(ctx context.Context, request AgentRequest, sink Age
 		return err
 	}
 	for index, asset := range request.Assets {
-		inputNode, err := sink.CreateFlowNode(ctx, FlowNodeInput{Type: "asset", Title: "输入：" + asset.Name, Body: "本轮对话选中的 Session 资产", AssetID: asset.ID, SortOrder: 15 + index})
+		inputVersionID := ""
+		if len(asset.Versions) > 0 {
+			inputVersionID = asset.Versions[len(asset.Versions)-1].ID
+		}
+		inputNode, err := sink.CreateFlowNode(ctx, FlowNodeInput{Type: "asset", Title: "输入：" + asset.Name, Body: "本轮对话选中的 Session 资产", AssetID: asset.ID, AssetVersionID: inputVersionID, SortOrder: 15 + index})
 		if err != nil {
 			return err
 		}
@@ -48,7 +52,7 @@ func (e *MockEngine) Execute(ctx context.Context, request AgentRequest, sink Age
 	if err != nil {
 		return err
 	}
-	outlineNode, err := sink.CreateFlowNode(ctx, FlowNodeInput{Type: "asset", Title: "故事大纲", Body: "Agent 生成的 Markdown 故事大纲", AssetID: outlineAsset.ID, SortOrder: 20})
+	outlineNode, err := sink.CreateFlowNode(ctx, FlowNodeInput{Type: "asset", Title: "故事大纲", Body: "Agent 生成的 Markdown 故事大纲", AssetID: outlineAsset.ID, AssetVersionID: outlineAsset.Versions[0].ID, SortOrder: 20})
 	if err != nil {
 		return err
 	}
@@ -75,7 +79,7 @@ func (e *MockEngine) Execute(ctx context.Context, request AgentRequest, sink Age
 	if err != nil {
 		return err
 	}
-	imageNode, err := sink.CreateFlowNode(ctx, FlowNodeInput{Type: "asset", Title: "分镜预览", Body: "Mock 分镜工作流输出", AssetID: imageAsset.ID, SortOrder: 40})
+	imageNode, err := sink.CreateFlowNode(ctx, FlowNodeInput{Type: "asset", Title: "分镜预览", Body: "Mock 分镜工作流输出", AssetID: imageAsset.ID, AssetVersionID: imageAsset.Versions[0].ID, SortOrder: 40})
 	if err != nil {
 		return err
 	}

@@ -577,7 +577,10 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	var payload struct {
 		Flow struct {
 			Nodes []struct {
-				ID string `json:"id"`
+				ID             string `json:"id"`
+				AssetID        string `json:"asset_id"`
+				AssetVersionID string `json:"asset_version_id"`
+				AssetVersion   int    `json:"asset_version"`
 			} `json:"nodes"`
 		} `json:"flow"`
 	}
@@ -586,6 +589,11 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	}
 	if len(payload.Flow.Nodes) == 0 {
 		t.Fatal("expected mock flow nodes")
+	}
+	for _, node := range payload.Flow.Nodes {
+		if node.AssetID != "" && (node.AssetVersionID == "" || node.AssetVersion <= 0) {
+			t.Fatalf("asset flow node must pin an asset version: %#v", node)
+		}
 	}
 	flowResponse := request(t, router, http.MethodPatch, "/sessions/"+turn.Session.ID+"/flow", map[string]any{
 		"nodes": []map[string]any{{"id": payload.Flow.Nodes[0].ID, "position": map[string]float64{"x": 480, "y": 240}, "sort_order": 99}},

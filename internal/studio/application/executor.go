@@ -55,11 +55,12 @@ type GeneratedAsset struct {
 }
 
 type FlowNodeInput struct {
-	Type      domain.FlowNodeType
-	Title     string
-	Body      string
-	AssetID   string
-	SortOrder int
+	Type           domain.FlowNodeType
+	Title          string
+	Body           string
+	AssetID        string
+	AssetVersionID string
+	SortOrder      int
 }
 
 type AgentSink interface {
@@ -290,6 +291,24 @@ func (w *executionWriter) CreateFlowNode(ctx context.Context, input FlowNodeInpu
 	}
 	node.Body = input.Body
 	node.AssetID = input.AssetID
+	node.AssetVersionID = input.AssetVersionID
+	if node.AssetID != "" {
+		asset, err := w.executor.repo.GetAsset(ctx, w.run.AccountID, node.AssetID)
+		if err != nil {
+			return nil, err
+		}
+		if len(asset.Versions) == 0 {
+			return nil, fmt.Errorf("%w: flow asset has no versions", domain.ErrInvalid)
+		}
+		if node.AssetVersionID == "" {
+			node.AssetVersionID = asset.Versions[len(asset.Versions)-1].ID
+		}
+		assetVersion, ok := assetVersionByID(asset, node.AssetVersionID)
+		if !ok {
+			return nil, fmt.Errorf("%w: flow asset version is not available", domain.ErrInvalid)
+		}
+		node.AssetVersion = assetVersion.Version
+	}
 	node.RunID = w.run.ID
 	if err := w.executor.repo.SaveFlowNode(ctx, node); err != nil {
 		return nil, err
@@ -298,6 +317,15 @@ func (w *executionWriter) CreateFlowNode(ctx context.Context, input FlowNodeInpu
 		return nil, err
 	}
 	return node, nil
+}
+
+func assetVersionByID(asset *domain.Asset, versionID string) (domain.AssetVersion, bool) {
+	for _, version := range asset.Versions {
+		if version.ID == versionID {
+			return version, true
+		}
+	}
+	return domain.AssetVersion{}, false
 }
 
 func (w *executionWriter) CreateFlowEdge(ctx context.Context, sourceNodeID, targetNodeID, label string) (*domain.FlowEdge, error) {

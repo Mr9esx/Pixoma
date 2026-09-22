@@ -414,19 +414,21 @@ func (t FlowNodeType) Valid() bool {
 }
 
 type FlowNode struct {
-	ID        string
-	SessionID string
-	AccountID string
-	Type      FlowNodeType
-	Title     string
-	Body      string
-	AssetID   string
-	RunID     string
-	PositionX float64
-	PositionY float64
-	SortOrder int
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID             string
+	SessionID      string
+	AccountID      string
+	Type           FlowNodeType
+	Title          string
+	Body           string
+	AssetID        string
+	AssetVersionID string
+	AssetVersion   int
+	RunID          string
+	PositionX      float64
+	PositionY      float64
+	SortOrder      int
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func NewFlowNode(id, sessionID, accountID string, nodeType FlowNodeType, title string, sortOrder int, now time.Time) (*FlowNode, error) {

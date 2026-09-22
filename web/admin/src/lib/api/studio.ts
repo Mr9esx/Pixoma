@@ -98,6 +98,8 @@ export type StudioFlowNode = {
   title: string
   body?: string
   asset_id?: string
+  asset_version_id?: string
+  asset_version?: number
   run_id?: string
   position: { x: number; y: number }
   sort_order: number

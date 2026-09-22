@@ -60,6 +60,7 @@ type FlowData = {
   body?: string
   kind: StudioFlowNode['type']
   assetId?: string
+	assetVersion?: number
   onAssetOpen?: (assetId: string) => void
 }
 
@@ -91,6 +92,7 @@ export function StudioFlow({
           body: node.body,
           kind: node.type,
           assetId: node.asset_id,
+		  assetVersion: node.asset_version,
           onAssetOpen,
         } satisfies FlowData,
       })),
@@ -347,7 +349,7 @@ function StudioNode({ data, selected }: NodeProps) {
             <p className='truncate text-sm font-medium'>{value.title}</p>
             {value.kind === 'asset' ? (
               <Badge variant='secondary' className='px-1.5 text-[10px]'>
-                资产
+                {value.assetVersion ? `v${value.assetVersion}` : '已固定'}
               </Badge>
             ) : null}
           </div>

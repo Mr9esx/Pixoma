@@ -159,19 +159,21 @@ type LibraryAssetRow struct {
 func (LibraryAssetRow) TableName() string { return "studio_library_assets" }
 
 type FlowNodeRow struct {
-	ID        string `gorm:"primaryKey;size:64"`
-	SessionID string `gorm:"size:64;not null;index:idx_studio_flow_nodes_session_order"`
-	AccountID string `gorm:"size:64;not null;index"`
-	Type      string `gorm:"size:32;not null"`
-	Title     string `gorm:"size:512;not null"`
-	Body      string `gorm:"type:text"`
-	AssetID   string `gorm:"size:64;index"`
-	RunID     string `gorm:"size:64;index"`
-	PositionX float64
-	PositionY float64
-	SortOrder int `gorm:"not null;index:idx_studio_flow_nodes_session_order"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID             string `gorm:"primaryKey;size:64"`
+	SessionID      string `gorm:"size:64;not null;index:idx_studio_flow_nodes_session_order"`
+	AccountID      string `gorm:"size:64;not null;index"`
+	Type           string `gorm:"size:32;not null"`
+	Title          string `gorm:"size:512;not null"`
+	Body           string `gorm:"type:text"`
+	AssetID        string `gorm:"size:64;index"`
+	AssetVersionID string `gorm:"size:64;index"`
+	AssetVersion   int
+	RunID          string `gorm:"size:64;index"`
+	PositionX      float64
+	PositionY      float64
+	SortOrder      int `gorm:"not null;index:idx_studio_flow_nodes_session_order"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (FlowNodeRow) TableName() string { return "studio_flow_nodes" }
@@ -855,11 +857,11 @@ func assetVersionFromRow(row AssetVersionRow) domain.AssetVersion {
 }
 
 func flowNodeToRow(value *domain.FlowNode) *FlowNodeRow {
-	return &FlowNodeRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, Type: string(value.Type), Title: value.Title, Body: value.Body, AssetID: value.AssetID, RunID: value.RunID, PositionX: value.PositionX, PositionY: value.PositionY, SortOrder: value.SortOrder, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
+	return &FlowNodeRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, Type: string(value.Type), Title: value.Title, Body: value.Body, AssetID: value.AssetID, AssetVersionID: value.AssetVersionID, AssetVersion: value.AssetVersion, RunID: value.RunID, PositionX: value.PositionX, PositionY: value.PositionY, SortOrder: value.SortOrder, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func flowNodeFromRow(row FlowNodeRow) *domain.FlowNode {
-	return &domain.FlowNode{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, Type: domain.FlowNodeType(row.Type), Title: row.Title, Body: row.Body, AssetID: row.AssetID, RunID: row.RunID, PositionX: row.PositionX, PositionY: row.PositionY, SortOrder: row.SortOrder, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return &domain.FlowNode{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, Type: domain.FlowNodeType(row.Type), Title: row.Title, Body: row.Body, AssetID: row.AssetID, AssetVersionID: row.AssetVersionID, AssetVersion: row.AssetVersion, RunID: row.RunID, PositionX: row.PositionX, PositionY: row.PositionY, SortOrder: row.SortOrder, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func flowEdgeToRow(value *domain.FlowEdge) *FlowEdgeRow {

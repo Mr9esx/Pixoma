@@ -82,6 +82,11 @@ func (r *WorkflowReconciler) adoptSucceeded(ctx context.Context, execution *doma
 			return err
 		}
 		node.AssetID = asset.ID
+		if len(asset.Versions) == 0 {
+			return fmt.Errorf("studio: workflow output asset has no version")
+		}
+		node.AssetVersionID = asset.Versions[len(asset.Versions)-1].ID
+		node.AssetVersion = asset.Versions[len(asset.Versions)-1].Version
 		node.RunID = execution.RunID
 		if err := r.Repo.SaveFlowNode(ctx, node); err != nil {
 			return fmt.Errorf("studio: save workflow output node: %w", err)

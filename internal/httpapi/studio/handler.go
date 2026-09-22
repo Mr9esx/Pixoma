@@ -289,15 +289,17 @@ type assetView struct {
 }
 
 type flowNodeView struct {
-	ID        string              `json:"id"`
-	Type      domain.FlowNodeType `json:"type"`
-	Title     string              `json:"title"`
-	Body      string              `json:"body,omitempty"`
-	AssetID   string              `json:"asset_id,omitempty"`
-	RunID     string              `json:"run_id,omitempty"`
-	Position  positionView        `json:"position"`
-	SortOrder int                 `json:"sort_order"`
-	UpdatedAt time.Time           `json:"updated_at"`
+	ID             string              `json:"id"`
+	Type           domain.FlowNodeType `json:"type"`
+	Title          string              `json:"title"`
+	Body           string              `json:"body,omitempty"`
+	AssetID        string              `json:"asset_id,omitempty"`
+	AssetVersionID string              `json:"asset_version_id,omitempty"`
+	AssetVersion   int                 `json:"asset_version,omitempty"`
+	RunID          string              `json:"run_id,omitempty"`
+	Position       positionView        `json:"position"`
+	SortOrder      int                 `json:"sort_order"`
+	UpdatedAt      time.Time           `json:"updated_at"`
 }
 
 type positionView struct {
@@ -958,7 +960,7 @@ func assetsToViews(assets []*domain.Asset) []assetView {
 func flowNodesToViews(nodes []*domain.FlowNode) []flowNodeView {
 	out := make([]flowNodeView, 0, len(nodes))
 	for _, node := range nodes {
-		out = append(out, flowNodeView{ID: node.ID, Type: node.Type, Title: node.Title, Body: node.Body, AssetID: node.AssetID, RunID: node.RunID, Position: positionView{X: node.PositionX, Y: node.PositionY}, SortOrder: node.SortOrder, UpdatedAt: node.UpdatedAt})
+		out = append(out, flowNodeView{ID: node.ID, Type: node.Type, Title: node.Title, Body: node.Body, AssetID: node.AssetID, AssetVersionID: node.AssetVersionID, AssetVersion: node.AssetVersion, RunID: node.RunID, Position: positionView{X: node.PositionX, Y: node.PositionY}, SortOrder: node.SortOrder, UpdatedAt: node.UpdatedAt})
 	}
 	return out
 }
