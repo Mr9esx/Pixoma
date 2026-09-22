@@ -13,6 +13,7 @@ import {
   updateStudioSkill,
   listStudioSessions,
   sendStudioMessage,
+  importStudioLibraryAsset,
   updateStudioTextAsset,
 } from './studio'
 
@@ -131,6 +132,18 @@ describe('Studio API', () => {
     expect(JSON.parse(String(init.body))).toEqual({
       content: '# 雨夜侦探\n补充旧案线索。',
     })
+  })
+
+  it('imports a pinned library asset into the active session', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'asset-imported' }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await importStudioLibraryAsset('session-1', 'asset-library', 'version-2')
+
+    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:8081/api/v1/studio/sessions/session-1/assets/import')
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(String(init.body))).toEqual({ asset_id: 'asset-library', asset_version_id: 'version-2' })
   })
 
   it('creates an encrypted server-side model configuration', async () => {
