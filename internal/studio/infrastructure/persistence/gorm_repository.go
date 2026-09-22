@@ -87,6 +87,24 @@ type ApprovalRow struct {
 
 func (ApprovalRow) TableName() string { return "studio_approvals" }
 
+type WorkflowExecutionRow struct {
+	ID              string    `gorm:"primaryKey;size:64"`
+	AccountID       string    `gorm:"size:64;not null;index"`
+	SessionID       string    `gorm:"size:64;not null;index"`
+	RunID           string    `gorm:"size:64;not null;uniqueIndex:idx_studio_workflow_executions_run_tool;index"`
+	ToolCallID      string    `gorm:"size:128;not null;uniqueIndex:idx_studio_workflow_executions_run_tool"`
+	TaskID          string    `gorm:"size:128;not null;uniqueIndex;index"`
+	WorkflowID      string    `gorm:"size:64;not null;index"`
+	OperationNodeID string    `gorm:"size:64;not null;index"`
+	Status          string    `gorm:"size:32;not null;index"`
+	ErrorMessage    string    `gorm:"type:text"`
+	CreatedAt       time.Time `gorm:"index"`
+	UpdatedAt       time.Time `gorm:"index"`
+	CompletedAt     time.Time
+}
+
+func (WorkflowExecutionRow) TableName() string { return "studio_workflow_executions" }
+
 type AssetRow struct {
 	ID             string `gorm:"primaryKey;size:64"`
 	SessionID      string `gorm:"size:64;not null;index"`
@@ -173,6 +191,7 @@ func (FlowEdgeRow) TableName() string { return "studio_flow_edges" }
 func Models() []any {
 	return []any{
 		&SessionRow{}, &MessageRow{}, &RunRow{}, &EventRow{}, &ApprovalRow{},
+		&WorkflowExecutionRow{},
 		&AssetRow{}, &AssetVersionRow{}, &LibraryFolderRow{}, &LibraryAssetRow{},
 		&FlowNodeRow{}, &FlowEdgeRow{}, &ModelConfigRow{},
 		&SkillRow{}, &MCPConnectorRow{}, &AgentWorkflowSettingRow{},
@@ -383,6 +402,48 @@ func (r *GormRepository) ListApprovals(ctx context.Context, accountID, runID str
 	out := make([]*domain.Approval, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, approvalFromRow(row))
+	}
+	return out, nil
+}
+
+func (r *GormRepository) CreateWorkflowExecution(ctx context.Context, execution *domain.WorkflowExecution) error {
+	if execution == nil {
+		return fmt.Errorf("%w: nil workflow execution", domain.ErrInvalid)
+	}
+	return translateCreateError(r.db.WithContext(ctx).Create(workflowExecutionToRow(execution)).Error)
+}
+
+func (r *GormRepository) UpdateWorkflowExecution(ctx context.Context, execution *domain.WorkflowExecution) error {
+	if execution == nil {
+		return fmt.Errorf("%w: nil workflow execution", domain.ErrInvalid)
+	}
+	result := r.db.WithContext(ctx).Model(&WorkflowExecutionRow{}).
+		Where("id = ? AND account_id = ?", execution.ID, execution.AccountID).
+		Updates(workflowExecutionToRow(execution))
+	return resultError(result)
+}
+
+func (r *GormRepository) GetWorkflowExecutionByTask(ctx context.Context, accountID, taskID string) (*domain.WorkflowExecution, error) {
+	var row WorkflowExecutionRow
+	err := r.db.WithContext(ctx).Where("account_id = ? AND task_id = ?", accountID, taskID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return workflowExecutionFromRow(row), nil
+}
+
+func (r *GormRepository) ListPendingWorkflowExecutions(ctx context.Context, limit int) ([]*domain.WorkflowExecution, error) {
+	var rows []WorkflowExecutionRow
+	if err := r.db.WithContext(ctx).Where("status = ?", string(domain.WorkflowExecutionSubmitted)).
+		Order("created_at ASC, id ASC").Limit(normalizeLimit(limit)).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.WorkflowExecution, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, workflowExecutionFromRow(row))
 	}
 	return out, nil
 }
@@ -681,6 +742,14 @@ func approvalToRow(value *domain.Approval) *ApprovalRow {
 
 func approvalFromRow(row ApprovalRow) *domain.Approval {
 	return &domain.Approval{ID: row.ID, RunID: row.RunID, SessionID: row.SessionID, AccountID: row.AccountID, ToolCallID: row.ToolCallID, Action: row.Action, Status: domain.ApprovalStatus(row.Status), ResolvedBy: row.ResolvedBy, CreatedAt: row.CreatedAt, ResolvedAt: row.ResolvedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func workflowExecutionToRow(value *domain.WorkflowExecution) *WorkflowExecutionRow {
+	return &WorkflowExecutionRow{ID: value.ID, AccountID: value.AccountID, SessionID: value.SessionID, RunID: value.RunID, ToolCallID: value.ToolCallID, TaskID: value.TaskID, WorkflowID: value.WorkflowID, OperationNodeID: value.OperationNodeID, Status: string(value.Status), ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt, CompletedAt: value.CompletedAt}
+}
+
+func workflowExecutionFromRow(row WorkflowExecutionRow) *domain.WorkflowExecution {
+	return &domain.WorkflowExecution{ID: row.ID, AccountID: row.AccountID, SessionID: row.SessionID, RunID: row.RunID, ToolCallID: row.ToolCallID, TaskID: row.TaskID, WorkflowID: row.WorkflowID, OperationNodeID: row.OperationNodeID, Status: domain.WorkflowExecutionStatus(row.Status), ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, CompletedAt: row.CompletedAt}
 }
 
 func assetToRow(value *domain.Asset) *AssetRow {

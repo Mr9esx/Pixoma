@@ -177,3 +177,29 @@ func TestFlowRoundTripKeepsUserOrder(t *testing.T) {
 		t.Fatalf("cross-account GetFlow() = (%#v, %#v, %v)", nodes, edges, err)
 	}
 }
+
+func TestWorkflowExecutionIsIdempotentAndAccountScoped(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC)
+	execution := &domain.WorkflowExecution{
+		ID: "workflow-execution-1", AccountID: "account-a", SessionID: "session-1", RunID: "run-1",
+		ToolCallID: "tool-call-1", TaskID: "task-1", WorkflowID: "12", OperationNodeID: "operation-1",
+		Status: domain.WorkflowExecutionSubmitted, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateWorkflowExecution(ctx, execution); err != nil {
+		t.Fatalf("CreateWorkflowExecution() error = %v", err)
+	}
+	duplicate := *execution
+	duplicate.ID = "workflow-execution-2"
+	if err := repo.CreateWorkflowExecution(ctx, &duplicate); !errors.Is(err, domain.ErrAlreadyExists) {
+		t.Fatalf("duplicate CreateWorkflowExecution() error = %v, want ErrAlreadyExists", err)
+	}
+	got, err := repo.GetWorkflowExecutionByTask(ctx, "account-a", "task-1")
+	if err != nil || got.ID != execution.ID || got.Status != domain.WorkflowExecutionSubmitted {
+		t.Fatalf("GetWorkflowExecutionByTask() = (%#v, %v)", got, err)
+	}
+	if _, err := repo.GetWorkflowExecutionByTask(ctx, "account-b", "task-1"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("cross-account GetWorkflowExecutionByTask() error = %v, want ErrNotFound", err)
+	}
+}

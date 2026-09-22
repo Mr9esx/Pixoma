@@ -35,6 +35,11 @@ type Repository interface {
 	GetApproval(ctx context.Context, accountID, approvalID string) (*Approval, error)
 	ListApprovals(ctx context.Context, accountID, runID string) ([]*Approval, error)
 
+	CreateWorkflowExecution(ctx context.Context, execution *WorkflowExecution) error
+	UpdateWorkflowExecution(ctx context.Context, execution *WorkflowExecution) error
+	GetWorkflowExecutionByTask(ctx context.Context, accountID, taskID string) (*WorkflowExecution, error)
+	ListPendingWorkflowExecutions(ctx context.Context, limit int) ([]*WorkflowExecution, error)
+
 	CreateAsset(ctx context.Context, asset *Asset) error
 	AppendAssetVersion(ctx context.Context, assetID, accountID string, version AssetVersion) error
 	GetAsset(ctx context.Context, accountID, assetID string) (*Asset, error)
