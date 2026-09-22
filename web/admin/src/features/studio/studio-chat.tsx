@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   AssistantRuntimeProvider,
   ExportedMessageRepository,
+  type AssistantState,
   type ThreadHistoryAdapter,
   useAuiState,
   useAui,
@@ -560,11 +561,18 @@ function StudioWelcome({ onSelect }: { onSelect: (prompt: string) => void }) {
   )
 }
 
+type StudioThreadMessage = AssistantState['thread']['messages'][number]
+
+type StudioToolCallPart = Extract<
+  StudioThreadMessage['parts'][number],
+  { type: 'tool-call' }
+>
+
 function StudioMessage({
   message,
   isRunning,
 }: {
-  message: ReturnType<typeof useAuiState>['thread']['messages'][number]
+  message: StudioThreadMessage
   isRunning: boolean
 }) {
   if (message.role !== 'user' && message.role !== 'assistant') return null
@@ -605,16 +613,7 @@ function StudioMessage({
   )
 }
 
-function StudioToolCall({
-  part,
-}: {
-  part: Extract<
-    ReturnType<
-      typeof useAuiState
-    >['thread']['messages'][number]['parts'][number],
-    { type: 'tool-call' }
-  >
-}) {
+function StudioToolCall({ part }: { part: StudioToolCallPart }) {
   const state = part.isError
     ? 'output-error'
     : part.result !== undefined
