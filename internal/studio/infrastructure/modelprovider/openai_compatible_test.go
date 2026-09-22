@@ -149,6 +149,9 @@ func TestChatUsesResponsesFunctionToolsAndParsesFunctionCall(t *testing.T) {
 		if !ok || tool["type"] != "function" || tool["name"] != "create_outline" {
 			t.Fatalf("tool = %#v", tools[0])
 		}
+		if store, ok := body["store"].(bool); !ok || store {
+			t.Fatalf("store = %#v, want false", body["store"])
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"output":[{"type":"function_call","call_id":"call_outline_01","name":"create_outline","arguments":"{\"genre\":\"noir\"}"}]}`))
 	}))

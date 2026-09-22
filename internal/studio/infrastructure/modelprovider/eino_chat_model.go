@@ -20,6 +20,8 @@ type EinoChatModel struct {
 	tools  []ToolDefinition
 }
 
+const responsesOutputExtraKey = "pixoma.responses_output"
+
 func NewEinoChatModel(client *OpenAICompatibleClient, config domain.ResolvedModelConfig) *EinoChatModel {
 	if client == nil {
 		client = NewOpenAICompatibleClient(nil)
@@ -52,7 +54,7 @@ func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, o
 				Function: FunctionCall{Name: call.Function.Name, Arguments: call.Function.Arguments},
 			})
 		}
-		messages = append(messages, ChatMessage{Role: role, Content: message.Content, ToolCallID: message.ToolCallID, ToolCalls: toolCalls})
+		messages = append(messages, ChatMessage{Role: role, Content: message.Content, ToolCallID: message.ToolCallID, ToolCalls: toolCalls, ResponsesOutput: responsesOutputFromExtra(message.Extra)})
 	}
 	result, err := m.client.Chat(ctx, ChatRequest{Config: m.config, Messages: messages, Tools: m.tools})
 	if err != nil {
@@ -68,7 +70,19 @@ func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, o
 			Function: schema.FunctionCall{Name: call.Function.Name, Arguments: call.Function.Arguments},
 		})
 	}
-	return &schema.Message{Role: schema.Assistant, Content: result.Text, ToolCalls: toolCalls, ResponseMeta: &schema.ResponseMeta{Usage: &schema.TokenUsage{PromptTokens: result.InputTokens, CompletionTokens: result.OutputTokens, TotalTokens: result.InputTokens + result.OutputTokens}}}, nil
+	message := &schema.Message{Role: schema.Assistant, Content: result.Text, ToolCalls: toolCalls, ResponseMeta: &schema.ResponseMeta{Usage: &schema.TokenUsage{PromptTokens: result.InputTokens, CompletionTokens: result.OutputTokens, TotalTokens: result.InputTokens + result.OutputTokens}}}
+	if len(result.ResponsesOutput) > 0 {
+		message.Extra = map[string]any{responsesOutputExtraKey: result.ResponsesOutput}
+	}
+	return message, nil
+}
+
+func responsesOutputFromExtra(extra map[string]any) []json.RawMessage {
+	if extra == nil {
+		return nil
+	}
+	output, _ := extra[responsesOutputExtraKey].([]json.RawMessage)
+	return cloneResponsesOutput(output)
 }
 
 func (m *EinoChatModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {

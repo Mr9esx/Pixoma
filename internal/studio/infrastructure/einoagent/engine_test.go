@@ -182,12 +182,12 @@ func TestEngineInvokesMCPToolThroughResponsesProtocol(t *testing.T) {
 		writer.Header().Set("Content-Type", "application/json")
 		if calls == 1 {
 			require.Len(t, body["tools"], 1)
-			_, _ = writer.Write([]byte(`{"output":[{"type":"function_call","call_id":"call_01","name":"mcp_connector_01_search_reference","arguments":"{\"query\":\"rain\"}"}]}`))
+			_, _ = writer.Write([]byte(`{"output":[{"type":"reasoning","id":"rs_01","encrypted_content":"opaque-reasoning"},{"type":"function_call","call_id":"call_01","name":"mcp_connector_01_search_reference","arguments":"{\"query\":\"rain\"}"}]}`))
 			return
 		}
 		input, ok := body["input"].([]any)
 		require.True(t, ok)
-		require.True(t, responsesInputIncludesToolResult(input, "call_01", "result for rain"), "input = %#v", input)
+		require.True(t, responsesInputIncludesToolRound(input, "rs_01", "opaque-reasoning", "call_01", "mcp_connector_01_search_reference", `{"query":"rain"}`, "result for rain"), "input = %#v", input)
 		_, _ = writer.Write([]byte(`{"output":[{"type":"message","content":[{"type":"output_text","text":"已检索到参考资料。"}]}]}`))
 	}))
 	defer modelEndpoint.Close()
@@ -217,13 +217,24 @@ func TestEngineInvokesMCPToolThroughResponsesProtocol(t *testing.T) {
 	require.Equal(t, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallEnd, studioapp.EventRunFinished}, output.events)
 }
 
-func responsesInputIncludesToolResult(input []any, callID, result string) bool {
-	for _, item := range input {
-		value, ok := item.(map[string]any)
-		if !ok || value["type"] != "function_call_output" || value["call_id"] != callID {
+func responsesInputIncludesToolRound(input []any, reasoningID, encryptedReasoning, callID, name, arguments, result string) bool {
+	for index := 0; index+2 < len(input); index++ {
+		reasoning, reasoningOK := input[index].(map[string]any)
+		functionCall, functionCallOK := input[index+1].(map[string]any)
+		functionOutput, functionOutputOK := input[index+2].(map[string]any)
+		if !reasoningOK || !functionCallOK || !functionOutputOK {
 			continue
 		}
-		output, _ := value["output"].(string)
+		if reasoning["type"] != "reasoning" || reasoning["id"] != reasoningID || reasoning["encrypted_content"] != encryptedReasoning {
+			continue
+		}
+		if functionCall["type"] != "function_call" || functionCall["call_id"] != callID || functionCall["name"] != name || functionCall["arguments"] != arguments {
+			continue
+		}
+		if functionOutput["type"] != "function_call_output" || functionOutput["call_id"] != callID {
+			continue
+		}
+		output, _ := functionOutput["output"].(string)
 		if strings.Contains(output, result) {
 			return true
 		}

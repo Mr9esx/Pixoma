@@ -16,10 +16,11 @@ import (
 const maxProviderResponseBytes = 4 << 20
 
 type ChatMessage struct {
-	Role       string     `json:"role"`
-	Content    string     `json:"content"`
-	ToolCallID string     `json:"tool_call_id,omitempty"`
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	Role            string            `json:"role"`
+	Content         string            `json:"content"`
+	ToolCallID      string            `json:"tool_call_id,omitempty"`
+	ToolCalls       []ToolCall        `json:"tool_calls,omitempty"`
+	ResponsesOutput []json.RawMessage `json:"-"`
 }
 
 type ToolCall struct {
@@ -46,10 +47,11 @@ type ChatRequest struct {
 }
 
 type ChatResult struct {
-	Text         string
-	InputTokens  int
-	OutputTokens int
-	ToolCalls    []ToolCall
+	Text            string
+	InputTokens     int
+	OutputTokens    int
+	ToolCalls       []ToolCall
+	ResponsesOutput []json.RawMessage
 }
 
 type OpenAICompatibleClient struct {
@@ -149,7 +151,11 @@ func (c *OpenAICompatibleClient) openAIChat(ctx context.Context, input ChatReque
 }
 
 func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input ChatRequest) (*ChatResult, error) {
-	body := map[string]any{"model": input.Config.Model, "input": responsesInput(input.Messages), "stream": false}
+	responseInput, err := responsesInput(input.Messages)
+	if err != nil {
+		return nil, err
+	}
+	body := map[string]any{"model": input.Config.Model, "input": responseInput, "stream": false, "store": false}
 	if len(input.Tools) > 0 {
 		tools := make([]map[string]any, 0, len(input.Tools))
 		for _, definition := range input.Tools {
@@ -168,17 +174,8 @@ func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input Chat
 		return nil, err
 	}
 	var decoded struct {
-		Output []struct {
-			Type      string `json:"type"`
-			CallID    string `json:"call_id"`
-			Name      string `json:"name"`
-			Arguments string `json:"arguments"`
-			Content   []struct {
-				Type string `json:"type"`
-				Text string `json:"text"`
-			} `json:"content"`
-		} `json:"output"`
-		OutputText string `json:"output_text"`
+		Output     []json.RawMessage `json:"output"`
+		OutputText string            `json:"output_text"`
 		Usage      struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`
@@ -187,35 +184,63 @@ func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input Chat
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		return nil, fmt.Errorf("model provider: decode Responses response: %w", err)
 	}
+	type outputItem struct {
+		Type      string `json:"type"`
+		CallID    string `json:"call_id"`
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+		Content   []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	output := make([]outputItem, 0, len(decoded.Output))
+	for _, rawOutput := range decoded.Output {
+		var item outputItem
+		if err := json.Unmarshal(rawOutput, &item); err != nil {
+			return nil, fmt.Errorf("model provider: decode Responses output item: %w", err)
+		}
+		output = append(output, item)
+	}
 	text := strings.TrimSpace(decoded.OutputText)
 	if text == "" {
-		for _, output := range decoded.Output {
-			for _, item := range output.Content {
-				if item.Type == "output_text" || item.Type == "text" {
-					text += item.Text
+		for _, item := range output {
+			for _, content := range item.Content {
+				if content.Type == "output_text" || content.Type == "text" {
+					text += content.Text
 				}
 			}
 		}
 	}
 	toolCalls := make([]ToolCall, 0)
-	for _, output := range decoded.Output {
-		if output.Type != "function_call" || strings.TrimSpace(output.CallID) == "" || strings.TrimSpace(output.Name) == "" {
+	for _, item := range output {
+		if item.Type != "function_call" || strings.TrimSpace(item.CallID) == "" || strings.TrimSpace(item.Name) == "" {
 			continue
 		}
 		toolCalls = append(toolCalls, ToolCall{
-			ID: output.CallID, Type: "function",
-			Function: FunctionCall{Name: output.Name, Arguments: output.Arguments},
+			ID: item.CallID, Type: "function",
+			Function: FunctionCall{Name: item.Name, Arguments: item.Arguments},
 		})
 	}
 	if strings.TrimSpace(text) == "" && len(toolCalls) == 0 {
 		return nil, fmt.Errorf("model provider: Responses response has no text output")
 	}
-	return &ChatResult{Text: text, ToolCalls: toolCalls, InputTokens: decoded.Usage.InputTokens, OutputTokens: decoded.Usage.OutputTokens}, nil
+	return &ChatResult{Text: text, ToolCalls: toolCalls, ResponsesOutput: cloneResponsesOutput(decoded.Output), InputTokens: decoded.Usage.InputTokens, OutputTokens: decoded.Usage.OutputTokens}, nil
 }
 
-func responsesInput(messages []ChatMessage) []any {
+func responsesInput(messages []ChatMessage) ([]any, error) {
 	input := make([]any, 0, len(messages))
 	for _, message := range messages {
+		if len(message.ResponsesOutput) > 0 {
+			for _, rawOutput := range message.ResponsesOutput {
+				var item map[string]any
+				if err := json.Unmarshal(rawOutput, &item); err != nil {
+					return nil, fmt.Errorf("model provider: invalid saved Responses output: %w", err)
+				}
+				input = append(input, append(json.RawMessage(nil), rawOutput...))
+			}
+			continue
+		}
 		if message.Role == "tool" {
 			input = append(input, map[string]string{"type": "function_call_output", "call_id": message.ToolCallID, "output": message.Content})
 			continue
@@ -234,7 +259,15 @@ func responsesInput(messages []ChatMessage) []any {
 		}
 		input = append(input, map[string]any{"role": role, "content": []map[string]string{{"type": "input_text", "text": message.Content}}})
 	}
-	return input
+	return input, nil
+}
+
+func cloneResponsesOutput(output []json.RawMessage) []json.RawMessage {
+	cloned := make([]json.RawMessage, 0, len(output))
+	for _, item := range output {
+		cloned = append(cloned, append(json.RawMessage(nil), item...))
+	}
+	return cloned
 }
 
 func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input ChatRequest) (*ChatResult, error) {
