@@ -13,6 +13,7 @@ import {
   updateStudioSkill,
   listStudioSessions,
   sendStudioMessage,
+  updateStudioTextAsset,
 } from './studio'
 
 afterEach(() => {
@@ -108,6 +109,27 @@ describe('Studio API', () => {
       text: '生成分镜',
       model_config_id: 'model-1',
       permission_mode: 'request_approval',
+    })
+  })
+
+  it('updates a text asset by appending a new immutable version', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'asset-1', current_version: 2 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await updateStudioTextAsset('asset-1', '# 雨夜侦探\n补充旧案线索。')
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/assets/asset-1/text'
+    )
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(String(init.body))).toEqual({
+      content: '# 雨夜侦探\n补充旧案线索。',
     })
   })
 

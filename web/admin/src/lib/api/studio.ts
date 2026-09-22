@@ -271,6 +271,17 @@ export function createStudioTextAsset(input: {
   })
 }
 
+export function updateStudioTextAsset(assetId: string, content: string) {
+  return apiFetch<StudioAsset>(
+    `/api/v1/studio/assets/${encodeURIComponent(assetId)}/text`,
+    { method: 'PATCH', body: JSON.stringify({ content }) }
+  )
+}
+
+export function getStudioTextAssetContent(contentURL: string) {
+  return apiFetch<string>(contentURL)
+}
+
 export function uploadStudioAsset(file: File, sessionId?: string) {
   const body = new FormData()
   body.append('file', file)

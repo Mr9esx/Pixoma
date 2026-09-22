@@ -20,6 +20,12 @@ type CreateManualTextAssetInput struct {
 	Content   string
 }
 
+type UpdateManualTextAssetInput struct {
+	AccountID string
+	AssetID   string
+	Content   string
+}
+
 // CreateManualTextAsset records a user-authored Markdown document as a real
 // session asset. It intentionally does not create a run: this is a Studio
 // capability, not a workflow side effect.
@@ -59,6 +65,45 @@ func (s *Service) CreateManualTextAsset(ctx context.Context, input CreateManualT
 		return nil, err
 	}
 	if err := s.Repo.CreateAsset(ctx, asset); err != nil {
+		return nil, err
+	}
+	return asset, nil
+}
+
+// UpdateManualTextAsset appends an immutable Markdown version to a
+// user-authored document. Existing Session and library references keep their
+// original version identity rather than being overwritten.
+func (s *Service) UpdateManualTextAsset(ctx context.Context, input UpdateManualTextAssetInput, blobs blob.Store) (*domain.Asset, error) {
+	if s == nil || s.Repo == nil || blobs == nil {
+		return nil, fmt.Errorf("studio: asset service is not configured")
+	}
+	input.AccountID = strings.TrimSpace(input.AccountID)
+	input.AssetID = strings.TrimSpace(input.AssetID)
+	if input.AccountID == "" || input.AssetID == "" || strings.TrimSpace(input.Content) == "" {
+		return nil, fmt.Errorf("%w: asset content is required", domain.ErrInvalid)
+	}
+	if len([]byte(input.Content)) > maxManualTextAssetBytes {
+		return nil, fmt.Errorf("%w: text asset exceeds 1 MiB", domain.ErrInvalid)
+	}
+	asset, err := s.Repo.GetAsset(ctx, input.AccountID, input.AssetID)
+	if err != nil {
+		return nil, err
+	}
+	if asset.Kind != domain.AssetDocument || asset.SessionID == "" {
+		return nil, fmt.Errorf("%w: only Session documents can be edited", domain.ErrInvalid)
+	}
+	now := s.now()
+	versionNumber := asset.CurrentVersion + 1
+	key := filepath.ToSlash(filepath.Join("studio", input.AccountID, asset.SessionID, asset.ID, fmt.Sprintf("v%d.md", versionNumber)))
+	ref, err := blobs.Put(ctx, key, bytes.NewReader([]byte(input.Content)), blob.PutOptions{MIME: "text/markdown"})
+	if err != nil {
+		return nil, fmt.Errorf("studio: save updated text asset: %w", err)
+	}
+	version, err := asset.AppendVersion(s.nextID(), "text/markdown", ref.Key, ref.Size, now)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.Repo.AppendAssetVersion(ctx, asset.ID, input.AccountID, version); err != nil {
 		return nil, err
 	}
 	return asset, nil

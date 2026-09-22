@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +48,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/approvals/{approvalID}", h.resolveApproval)
 	r.Get("/assets/{assetID}/content", h.assetContent)
 	r.Post("/assets/text", h.createTextAsset)
+	r.Patch("/assets/{assetID}/text", h.updateTextAsset)
 	r.Post("/assets/upload", h.uploadAsset)
 	r.Post("/assets/{assetID}/save-to-library", h.saveAssetToLibrary)
 	r.Get("/library/assets", h.listLibraryAssets)
@@ -92,6 +94,32 @@ func (h *Handler) createTextAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
+}
+
+func (h *Handler) updateTextAsset(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Blob == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "资产存储服务不可用"})
+		return
+	}
+	var body struct {
+		Content string `json:"content"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	asset, err := h.Service.UpdateManualTextAsset(r.Context(), studioapp.UpdateManualTextAssetInput{
+		AccountID: accountID, AssetID: chi.URLParam(r, "assetID"), Content: body.Content,
+	}, h.Blob)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, assetsToViews([]*domain.Asset{asset})[0])
 }
 
 func (h *Handler) uploadAsset(w http.ResponseWriter, r *http.Request) {
@@ -512,6 +540,20 @@ func (h *Handler) assetContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	version := asset.Versions[len(asset.Versions)-1]
+	if versionID := strings.TrimSpace(r.URL.Query().Get("version_id")); versionID != "" {
+		found := false
+		for _, candidate := range asset.Versions {
+			if candidate.ID == versionID {
+				version = candidate
+				found = true
+				break
+			}
+		}
+		if !found {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "资产版本不存在"})
+			return
+		}
+	}
 	reader, err := h.Blob.Get(r.Context(), sharedkernel.BlobRef{Key: version.BlobKey, MIME: version.MIMEType, Size: version.SizeBytes})
 	if err != nil {
 		writeError(w, err)
@@ -906,7 +948,7 @@ func assetsToViews(assets []*domain.Asset) []assetView {
 	for _, asset := range assets {
 		versions := make([]assetVersionView, 0, len(asset.Versions))
 		for _, version := range asset.Versions {
-			versions = append(versions, assetVersionView{ID: version.ID, Version: version.Version, MIMEType: version.MIMEType, SizeBytes: version.SizeBytes, Metadata: version.Metadata, ContentURL: "/api/v1/studio/assets/" + asset.ID + "/content", CreatedAt: version.CreatedAt})
+			versions = append(versions, assetVersionView{ID: version.ID, Version: version.Version, MIMEType: version.MIMEType, SizeBytes: version.SizeBytes, Metadata: version.Metadata, ContentURL: "/api/v1/studio/assets/" + asset.ID + "/content?version_id=" + url.QueryEscape(version.ID), CreatedAt: version.CreatedAt})
 		}
 		out = append(out, assetView{ID: asset.ID, SessionID: asset.SessionID, Name: asset.Name, Kind: asset.Kind, Origin: asset.Origin, SourceRunID: asset.SourceRunID, CurrentVersion: asset.CurrentVersion, SavedToLibrary: !asset.LibrarySavedAt.IsZero(), Versions: versions, CreatedAt: asset.CreatedAt, UpdatedAt: asset.UpdatedAt})
 	}

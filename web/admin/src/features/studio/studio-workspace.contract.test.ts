@@ -160,6 +160,16 @@ describe('Studio production workspace contract', () => {
     expect(workspace).toContain('saveAsset.mutateAsync')
   })
 
+  it('edits Session documents by appending an asset version', () => {
+    const assets = read('./studio-assets.tsx')
+    const workspace = read('./studio-workspace.tsx')
+
+    expect(assets).toContain('TextAssetEditDialog')
+    expect(assets).toContain('编辑文档')
+    expect(workspace).toContain('updateStudioTextAsset')
+    expect(workspace).toContain('updateTextAsset.mutate')
+  })
+
   it('derives the initial Studio session from query data without an effect state copy', () => {
     const source = read('./studio-workspace.tsx')
 

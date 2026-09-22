@@ -14,6 +14,7 @@ import {
   listStudioSessions,
   saveStudioAssetToLibrary,
   uploadStudioAsset,
+  updateStudioTextAsset,
   updateStudioFlowNodes,
   type StudioPermissionMode,
 } from '@/lib/api/studio'
@@ -160,6 +161,15 @@ export function StudioWorkspace() {
       })
     },
   })
+  const updateTextAsset = useMutation({
+    mutationFn: (input: { assetId: string; content: string }) =>
+      updateStudioTextAsset(input.assetId, input.content),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['studio', 'session', sessionId],
+      })
+    },
+  })
   const uploadAsset = useMutation({
     mutationFn: (file: File) => uploadStudioAsset(file, sessionId),
     onSuccess: () => {
@@ -292,6 +302,7 @@ export function StudioWorkspace() {
                       onCreateTextAsset={(input) =>
                         createTextAsset.mutate(input)
                       }
+                      onUpdateTextAsset={(input) => updateTextAsset.mutateAsync(input)}
                       onUploadAsset={(file) => uploadAsset.mutate(file)}
                       uploading={uploadAsset.isPending}
                     />

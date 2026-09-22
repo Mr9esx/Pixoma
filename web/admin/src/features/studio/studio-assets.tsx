@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Download, FilePlus2, FileText, ImageIcon, Library, MoreHorizontal, Upload } from 'lucide-react'
+import { Download, FilePlus2, FileText, ImageIcon, Library, Pencil, Upload } from 'lucide-react'
 import {
+  getStudioTextAssetContent,
   listStudioLibraryFolders,
   type StudioAsset,
   type StudioLibraryFolder,
@@ -29,16 +30,18 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 type Props = {
   assets: StudioAsset[]
   onSaveToLibrary: (input: { assetId: string; folderId?: string }) => Promise<void>
   onCreateTextAsset?: (input: { name: string; content: string }) => void
+  onUpdateTextAsset?: (input: { assetId: string; content: string }) => Promise<unknown>
   onUploadAsset?: (file: File) => void
   uploading?: boolean
 }
 
-export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset, onUploadAsset, uploading }: Props) {
+export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset, onUpdateTextAsset, onUploadAsset, uploading }: Props) {
   const [assetToSave, setAssetToSave] = useState<StudioAsset>()
   const folders = useQuery({
     queryKey: ['studio', 'library', 'folders'],
@@ -70,6 +73,7 @@ export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset, onUpl
             key={asset.id}
             asset={asset}
             onSaveToLibrary={() => setAssetToSave(asset)}
+            onUpdateTextAsset={onUpdateTextAsset}
           />
         ))}
       </div>
@@ -153,9 +157,11 @@ function TextAssetDialog({ onCreate }: { onCreate: (input: { name: string; conte
 export function AssetCard({
   asset,
   onSaveToLibrary,
+  onUpdateTextAsset,
 }: {
   asset: StudioAsset
   onSaveToLibrary: (assetId: string) => void
+  onUpdateTextAsset?: (input: { assetId: string; content: string }) => Promise<unknown>
 }) {
   const version = asset.versions[asset.versions.length - 1]
   const contentURL = version ? `${baseURL()}${version.content_url}` : undefined
@@ -205,12 +211,94 @@ export function AssetCard({
           >
             <Library />
           </Button>
-          <Button variant='ghost' size='icon-sm' aria-label='更多操作'>
-            <MoreHorizontal />
-          </Button>
+          {asset.kind === 'document' && onUpdateTextAsset ? (
+            <TextAssetEditDialog asset={asset} onSave={onUpdateTextAsset} />
+          ) : null}
         </div>
       </div>
     </article>
+  )
+}
+
+function TextAssetEditDialog({
+  asset,
+  onSave,
+}: {
+  asset: StudioAsset
+  onSave: (input: { assetId: string; content: string }) => Promise<unknown>
+}) {
+  const [open, setOpen] = useState(false)
+  const [content, setContent] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const version = asset.versions[asset.versions.length - 1]
+
+  useEffect(() => {
+    if (!open || !version) return
+    let active = true
+    setLoading(true)
+    setError('')
+    void getStudioTextAssetContent(version.content_url)
+      .then((value) => {
+        if (active) setContent(value)
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : '读取文档失败')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [open, version])
+
+  const save = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      await onSave({ assetId: asset.id, content })
+      setOpen(false)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '保存新版本失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DialogTrigger asChild>
+            <Button variant='outline' size='icon-sm' aria-label={`编辑文档 ${asset.name}`}>
+              <Pencil />
+            </Button>
+          </DialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent side='top' sideOffset={6}>编辑文档</TooltipContent>
+      </Tooltip>
+      <DialogContent className='sm:max-w-xl'>
+        <DialogHeader>
+          <DialogTitle>编辑文档</DialogTitle>
+          <DialogDescription>保存后追加一个新版本，已引用的旧版本不会变化。</DialogDescription>
+        </DialogHeader>
+        <Textarea
+          aria-label='文档内容'
+          value={content}
+          onChange={(event) => setContent(event.target.value)}
+          disabled={loading || saving}
+          placeholder={loading ? '读取文档中…' : '写下新的内容…'}
+          className='min-h-64 font-mono text-sm leading-6'
+        />
+        {error ? <p role='alert' className='text-sm text-destructive'>{error}</p> : null}
+        <DialogFooter>
+          <Button variant='outline' disabled={saving} onClick={() => setOpen(false)}>取消</Button>
+          <Button disabled={loading || saving || !content.trim()} onClick={save}>{saving ? '保存中…' : '保存新版本'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -470,6 +470,25 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	if asset.ID == "" || asset.Origin != domain.AssetOriginUser {
 		t.Fatalf("asset=%#v", asset)
 	}
+	updatedAsset := request(t, router, http.MethodPatch, "/assets/"+asset.ID+"/text", map[string]any{
+		"content": "# 主角\n雨夜侦探，携带旧案卷宗。",
+	}, "account-a")
+	if updatedAsset.Code != http.StatusOK || !strings.Contains(updatedAsset.Body.String(), `"current_version":2`) {
+		t.Fatalf("PATCH manual asset status=%d body=%s", updatedAsset.Code, updatedAsset.Body.String())
+	}
+	var updated struct {
+		Versions []struct {
+			ID         string `json:"id"`
+			ContentURL string `json:"content_url"`
+		} `json:"versions"`
+	}
+	if err := json.Unmarshal(updatedAsset.Body.Bytes(), &updated); err != nil || len(updated.Versions) != 2 {
+		t.Fatalf("updated asset = %s, err=%v", updatedAsset.Body.String(), err)
+	}
+	oldContent := request(t, router, http.MethodGet, strings.TrimPrefix(updated.Versions[0].ContentURL, "/api/v1/studio"), nil, "account-a")
+	if oldContent.Code != http.StatusOK || !strings.Contains(oldContent.Body.String(), "雨夜侦探。") || strings.Contains(oldContent.Body.String(), "旧案卷宗") {
+		t.Fatalf("old asset content status=%d body=%s", oldContent.Code, oldContent.Body.String())
+	}
 
 	detail := request(t, router, http.MethodGet, "/sessions/"+turn.Session.ID, nil, "account-a")
 	var payload struct {
