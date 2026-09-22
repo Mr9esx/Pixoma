@@ -64,6 +64,11 @@ func (e *MockEngine) Execute(ctx context.Context, request AgentRequest, sink Age
 	}); err != nil {
 		return err
 	}
+	if err := sink.Emit(ctx, EventToolCallArgs, map[string]any{
+		"tool_call_id": "mock-storyboard", "delta": fmt.Sprintf(`{"input_asset_ids":[%q]}`, outlineAsset.ID),
+	}); err != nil {
+		return err
+	}
 	operation, err := sink.CreateFlowNode(ctx, FlowNodeInput{Type: "operation", Title: "分镜工作流", Body: "使用故事大纲生成分镜预览", SortOrder: 30})
 	if err != nil {
 		return err
@@ -84,6 +89,11 @@ func (e *MockEngine) Execute(ctx context.Context, request AgentRequest, sink Age
 		return err
 	}
 	if _, err := sink.CreateFlowEdge(ctx, operation.ID, imageNode.ID, "输出"); err != nil {
+		return err
+	}
+	if err := sink.Emit(ctx, EventToolCallResult, map[string]any{
+		"tool_call_id": "mock-storyboard", "content": fmt.Sprintf("已生成分镜预览资产：%s", imageAsset.ID), "is_error": false,
+	}); err != nil {
 		return err
 	}
 	if err := sink.Emit(ctx, EventToolCallEnd, map[string]any{

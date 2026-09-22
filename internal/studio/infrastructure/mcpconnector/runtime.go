@@ -106,9 +106,20 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 	}); err != nil {
 		return "", err
 	}
+	if err := t.emit(ctx, studioapp.EventToolCallArgs, map[string]any{
+		"tool_call_id": action, "delta": redactConnectorText(arguments, t.connector.Credential),
+	}); err != nil {
+		return "", err
+	}
 
 	result, err := callRemoteTool(ctx, t.connector, t.remoteToolName, argumentsValue)
 	if err != nil {
+		safeError := redactConnectorText(err.Error(), t.connector.Credential)
+		if emitErr := t.emit(ctx, studioapp.EventToolCallResult, map[string]any{
+			"tool_call_id": action, "content": safeError, "is_error": true,
+		}); emitErr != nil {
+			return "", emitErr
+		}
 		if emitErr := t.emit(ctx, studioapp.EventToolCallEnd, map[string]any{
 			"tool_call_id": action, "tool_name": t.info.Name, "connector_id": t.connector.ID,
 			"result_bytes": 0, "is_error": true,
@@ -122,6 +133,11 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 		return "", fmt.Errorf("studio: encode MCP tool result %s: %w", t.info.Name, err)
 	}
 	safeOutput := sanitizeToolOutput(output, t.connector.Credential)
+	if err := t.emit(ctx, studioapp.EventToolCallResult, map[string]any{
+		"tool_call_id": action, "content": safeOutput, "is_error": result.IsError,
+	}); err != nil {
+		return "", err
+	}
 	if err := t.emit(ctx, studioapp.EventToolCallEnd, map[string]any{
 		"tool_call_id": action, "tool_name": t.info.Name, "connector_id": t.connector.ID,
 		"result_bytes": len(safeOutput), "is_error": result.IsError,

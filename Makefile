@@ -1,4 +1,8 @@
 DATA_DIR ?= data
+PORT ?= 30808
+HTTP_ADDR ?= 0.0.0.0:$(PORT)
+
+export PORT HTTP_ADDR
 
 .PHONY: build test run run-livedemo embed-admin clean dev
 

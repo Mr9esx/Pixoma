@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudwego/eino/schema"
 	"github.com/google/uuid"
 
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
@@ -17,17 +18,28 @@ import (
 )
 
 const (
-	EventRunStarted         = "RUN_STARTED"
-	EventTextMessageStart   = "TEXT_MESSAGE_START"
-	EventTextMessageContent = "TEXT_MESSAGE_CONTENT"
-	EventTextMessageEnd     = "TEXT_MESSAGE_END"
-	EventToolCallStart      = "TOOL_CALL_START"
-	EventToolCallEnd        = "TOOL_CALL_END"
-	EventAssetCreated       = "ASSET_CREATED"
-	EventFlowUpdated        = "FLOW_UPDATED"
-	EventApprovalRequired   = "APPROVAL_REQUIRED"
-	EventApprovalResolved   = "APPROVAL_RESOLVED"
-	EventRunFinished        = "RUN_FINISHED"
+	EventRunStarted              = "RUN_STARTED"
+	EventTextMessageStart        = "TEXT_MESSAGE_START"
+	EventTextMessageContent      = "TEXT_MESSAGE_CONTENT"
+	EventTextMessageEnd          = "TEXT_MESSAGE_END"
+	EventReasoningStart          = "REASONING_START"
+	EventReasoningMessageStart   = "REASONING_MESSAGE_START"
+	EventReasoningMessageContent = "REASONING_MESSAGE_CONTENT"
+	EventReasoningMessageEnd     = "REASONING_MESSAGE_END"
+	EventReasoningEnd            = "REASONING_END"
+	EventToolCallStart           = "TOOL_CALL_START"
+	EventToolCallArgs            = "TOOL_CALL_ARGS"
+	EventToolCallEnd             = "TOOL_CALL_END"
+	EventToolCallResult          = "TOOL_CALL_RESULT"
+	EventModelRequestStarted     = "MODEL_REQUEST_STARTED"
+	EventModelFirstToken         = "MODEL_FIRST_TOKEN"
+	EventModelRequestFinished    = "MODEL_REQUEST_FINISHED"
+	EventModelRequestFailed      = "MODEL_REQUEST_FAILED"
+	EventAssetCreated            = "ASSET_CREATED"
+	EventFlowUpdated             = "FLOW_UPDATED"
+	EventApprovalRequired        = "APPROVAL_REQUIRED"
+	EventApprovalResolved        = "APPROVAL_RESOLVED"
+	EventRunFinished             = "RUN_FINISHED"
 )
 
 var ErrApprovalRequired = errors.New("studio: approval required")
@@ -37,12 +49,19 @@ type AgentRepository interface {
 }
 
 type AgentRequest struct {
-	Run       *domain.Run
-	Session   *domain.Session
-	UserText  string
-	Skills    []domain.Skill
-	Assets    []*domain.Asset
-	Approvals []*domain.Approval
+	Run      *domain.Run
+	Session  *domain.Session
+	UserText string
+	History  []*schema.Message
+	// HistoryMessageIDs is aligned with History. Each entry is the last
+	// durable message that may safely be summarized before that model message;
+	// event-only tool messages inherit their run trigger boundary.
+	HistoryMessageIDs  []string
+	ContextSummary     string
+	SaveContextSummary func(context.Context, string, string) error
+	Skills             []domain.Skill
+	Assets             []*domain.Asset
+	Approvals          []*domain.Approval
 }
 
 type GeneratedAsset struct {
@@ -70,6 +89,15 @@ type AgentSink interface {
 	CreateFlowNode(ctx context.Context, input FlowNodeInput) (*domain.FlowNode, error)
 	CreateFlowEdge(ctx context.Context, sourceNodeID, targetNodeID, label string) (*domain.FlowEdge, error)
 	RequestApproval(ctx context.Context, toolCallID, action string) (*domain.Approval, error)
+}
+
+// AssistantStreamSink is optional so existing workflow/test sinks can keep the
+// small AgentSink contract while the production persistence writer can publish
+// text deltas without creating one database message per delta.
+type AssistantStreamSink interface {
+	BeginAssistantMessage(ctx context.Context) (string, error)
+	AppendAssistantMessage(ctx context.Context, messageID, delta string) error
+	EndAssistantMessage(ctx context.Context, messageID, text string) (*domain.Message, error)
 }
 
 type AgentEngine interface {
@@ -116,6 +144,20 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 	if err != nil {
 		return err
 	}
+	transcriptData, err := e.repo.ListSessionTranscript(ctx, run.AccountID, run.SessionID)
+	if err != nil {
+		return err
+	}
+	history, err := ProjectModelHistoryWithBoundaries(
+		transcriptData.Messages,
+		transcriptData.Runs,
+		transcriptData.Events,
+		session.ContextSummaryThroughMessageID,
+		run.TriggerMessageID,
+	)
+	if err != nil {
+		return err
+	}
 	text, err := messageText(message.ContentJSON)
 	if err != nil {
 		return err
@@ -158,7 +200,18 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 		}
 		assets = append(assets, asset)
 	}
-	return e.engine.Execute(ctx, AgentRequest{Run: run, Session: session, UserText: text, Skills: skills, Assets: assets, Approvals: approvals}, sink)
+	saveSummary := func(summaryCtx context.Context, throughMessageID, summary string) error {
+		if err := session.UpdateContextSummary(summary, throughMessageID, e.now()); err != nil {
+			return err
+		}
+		return e.repo.UpdateSession(summaryCtx, session)
+	}
+	return e.engine.Execute(ctx, AgentRequest{
+		Run: run, Session: session, UserText: text,
+		History: history.Messages, HistoryMessageIDs: history.BoundaryMessageIDs,
+		ContextSummary: session.ContextSummary, SaveContextSummary: saveSummary,
+		Skills: skills, Assets: assets, Approvals: approvals,
+	}, sink)
 }
 
 func retainAssetVersion(asset *domain.Asset, versionID string) error {
@@ -223,25 +276,49 @@ func (w *executionWriter) AssistantMessage(ctx context.Context, text string) (*d
 	if text == "" {
 		return nil, fmt.Errorf("%w: assistant text is required", domain.ErrInvalid)
 	}
+	messageID, err := w.BeginAssistantMessage(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := w.AppendAssistantMessage(ctx, messageID, text); err != nil {
+		return nil, err
+	}
+	return w.EndAssistantMessage(ctx, messageID, text)
+}
+
+func (w *executionWriter) BeginAssistantMessage(ctx context.Context) (string, error) {
+	messageID := w.executor.ids()
+	if err := w.Emit(ctx, EventTextMessageStart, map[string]any{"message_id": messageID, "role": "assistant"}); err != nil {
+		return "", err
+	}
+	return messageID, nil
+}
+
+func (w *executionWriter) AppendAssistantMessage(ctx context.Context, messageID, delta string) error {
+	if strings.TrimSpace(delta) == "" {
+		return nil
+	}
+	return w.Emit(ctx, EventTextMessageContent, map[string]any{"message_id": messageID, "delta": delta})
+}
+
+func (w *executionWriter) EndAssistantMessage(ctx context.Context, messageID, text string) (*domain.Message, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil, fmt.Errorf("%w: assistant text is required", domain.ErrInvalid)
+	}
 	content, err := json.Marshal([]messagePart{{Type: "text", Text: text}})
 	if err != nil {
 		return nil, err
 	}
 	message := &domain.Message{
-		ID: w.executor.ids(), SessionID: w.run.SessionID, AccountID: w.run.AccountID,
+		ID: messageID, SessionID: w.run.SessionID, AccountID: w.run.AccountID,
 		RunID: w.run.ID, Role: domain.MessageRoleAssistant, ContentJSON: content,
 		CreatedAt: w.executor.now().UTC(),
 	}
 	if err := w.executor.repo.AppendMessage(ctx, message); err != nil {
 		return nil, err
 	}
-	if err := w.Emit(ctx, EventTextMessageStart, map[string]any{"message_id": message.ID, "role": "assistant"}); err != nil {
-		return nil, err
-	}
-	if err := w.Emit(ctx, EventTextMessageContent, map[string]any{"message_id": message.ID, "delta": text}); err != nil {
-		return nil, err
-	}
-	if err := w.Emit(ctx, EventTextMessageEnd, map[string]any{"message_id": message.ID}); err != nil {
+	if err := w.Emit(ctx, EventTextMessageEnd, map[string]any{"message_id": messageID}); err != nil {
 		return nil, err
 	}
 	return message, nil
@@ -380,6 +457,58 @@ func messageText(raw json.RawMessage) (string, error) {
 		}
 	}
 	return text.String(), nil
+}
+
+func historyBeforeMessage(messages []*domain.Message, currentMessageID, summaryThroughMessageID string) ([]*schema.Message, []string, error) {
+	history := make([]*schema.Message, 0, len(messages))
+	ids := make([]string, 0, len(messages))
+	boundaryFound := strings.TrimSpace(summaryThroughMessageID) == ""
+	for _, message := range messages {
+		if message == nil {
+			continue
+		}
+		if !boundaryFound {
+			if message.ID == summaryThroughMessageID {
+				boundaryFound = true
+			}
+			continue
+		}
+		if message.ID == currentMessageID {
+			break
+		}
+		converted, err := schemaMessageFromDomain(message)
+		if err != nil {
+			return nil, nil, err
+		}
+		if converted == nil {
+			continue
+		}
+		history = append(history, converted)
+		ids = append(ids, message.ID)
+	}
+	return history, ids, nil
+}
+
+func schemaMessageFromDomain(message *domain.Message) (*schema.Message, error) {
+	text, err := messageText(message.ContentJSON)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(text) == "" {
+		return nil, nil
+	}
+	role := schema.User
+	switch message.Role {
+	case domain.MessageRoleAssistant:
+		role = schema.Assistant
+	case domain.MessageRoleSystem:
+		role = schema.System
+	case domain.MessageRoleUser:
+		role = schema.User
+	default:
+		return nil, nil
+	}
+	return &schema.Message{Role: role, Content: text}, nil
 }
 
 func extensionForMIME(mime string) string {

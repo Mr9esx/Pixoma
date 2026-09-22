@@ -15,14 +15,16 @@ import (
 )
 
 type SessionRow struct {
-	ID             string `gorm:"primaryKey;size:64"`
-	AccountID      string `gorm:"size:64;not null;index:idx_studio_sessions_account_updated"`
-	Title          string `gorm:"size:256;not null"`
-	PermissionMode string `gorm:"size:32;not null"`
-	ModelConfigID  string `gorm:"size:64;index"`
-	Status         string `gorm:"size:32;not null"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time `gorm:"index:idx_studio_sessions_account_updated"`
+	ID                             string `gorm:"primaryKey;size:64"`
+	AccountID                      string `gorm:"size:64;not null;index:idx_studio_sessions_account_updated"`
+	Title                          string `gorm:"size:256;not null"`
+	PermissionMode                 string `gorm:"size:32;not null"`
+	ModelConfigID                  string `gorm:"size:64;index"`
+	ContextSummary                 string `gorm:"type:text"`
+	ContextSummaryThroughMessageID string `gorm:"size:64;index"`
+	Status                         string `gorm:"size:32;not null"`
+	CreatedAt                      time.Time
+	UpdatedAt                      time.Time `gorm:"index:idx_studio_sessions_account_updated"`
 }
 
 func (SessionRow) TableName() string { return "studio_sessions" }
@@ -283,6 +285,42 @@ func (r *GormRepository) ListMessages(ctx context.Context, accountID, sessionID 
 		out = append(out, messageFromRow(row))
 	}
 	return out, nil
+}
+
+func (r *GormRepository) ListSessionTranscript(ctx context.Context, accountID, sessionID string) (*domain.SessionTranscriptData, error) {
+	var messageRows []MessageRow
+	if err := r.db.WithContext(ctx).
+		Where("account_id = ? AND session_id = ?", accountID, sessionID).
+		Order("created_at ASC, id ASC").Find(&messageRows).Error; err != nil {
+		return nil, err
+	}
+	var runRows []RunRow
+	if err := r.db.WithContext(ctx).
+		Where("account_id = ? AND session_id = ?", accountID, sessionID).
+		Order("created_at ASC, id ASC").Find(&runRows).Error; err != nil {
+		return nil, err
+	}
+	var eventRows []EventRow
+	if err := r.db.WithContext(ctx).
+		Where("account_id = ? AND session_id = ?", accountID, sessionID).
+		Order("created_at ASC, id ASC").Find(&eventRows).Error; err != nil {
+		return nil, err
+	}
+	data := &domain.SessionTranscriptData{
+		Messages: make([]*domain.Message, 0, len(messageRows)),
+		Runs:     make([]*domain.Run, 0, len(runRows)),
+		Events:   make([]*domain.Event, 0, len(eventRows)),
+	}
+	for _, row := range messageRows {
+		data.Messages = append(data.Messages, messageFromRow(row))
+	}
+	for _, row := range runRows {
+		data.Runs = append(data.Runs, runFromRow(row))
+	}
+	for _, row := range eventRows {
+		data.Events = append(data.Events, eventFromRow(row))
+	}
+	return data, nil
 }
 
 func (r *GormRepository) CreateRun(ctx context.Context, run *domain.Run) error {
@@ -777,11 +815,11 @@ func translateCreateError(err error) error {
 }
 
 func sessionToRow(value *domain.Session) *SessionRow {
-	return &SessionRow{ID: value.ID, AccountID: value.AccountID, Title: value.Title, PermissionMode: string(value.PermissionMode), ModelConfigID: value.ModelConfigID, Status: string(value.Status), CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
+	return &SessionRow{ID: value.ID, AccountID: value.AccountID, Title: value.Title, PermissionMode: string(value.PermissionMode), ModelConfigID: value.ModelConfigID, ContextSummary: value.ContextSummary, ContextSummaryThroughMessageID: value.ContextSummaryThroughMessageID, Status: string(value.Status), CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func sessionFromRow(row SessionRow) *domain.Session {
-	return &domain.Session{ID: row.ID, AccountID: row.AccountID, Title: row.Title, PermissionMode: domain.PermissionMode(row.PermissionMode), ModelConfigID: row.ModelConfigID, Status: domain.SessionStatus(row.Status), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return &domain.Session{ID: row.ID, AccountID: row.AccountID, Title: row.Title, PermissionMode: domain.PermissionMode(row.PermissionMode), ModelConfigID: row.ModelConfigID, ContextSummary: row.ContextSummary, ContextSummaryThroughMessageID: row.ContextSummaryThroughMessageID, Status: domain.SessionStatus(row.Status), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func messageToRow(value *domain.Message) *MessageRow {

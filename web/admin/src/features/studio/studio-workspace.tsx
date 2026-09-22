@@ -93,7 +93,6 @@ export function StudioWorkspace() {
     queryKey: ['studio', 'session', sessionId],
     queryFn: () => getStudioSession(sessionId!),
     enabled: Boolean(sessionId) && view === 'chat',
-    refetchInterval: 1500,
   })
 
   const saveAsset = useMutation({
@@ -259,6 +258,7 @@ export function StudioWorkspace() {
                   key={sessionId}
                   sessionId={sessionId}
                   messages={detail.data.messages}
+                  transcript={detail.data.transcript}
                   models={models.data ?? []}
                   modelConfigId={
                     modelConfigId ?? detail.data.session.model_config_id
@@ -276,6 +276,9 @@ export function StudioWorkspace() {
                   onSkillChange={setSelectedSkillIds}
                   onAssetChange={setSelectedAssets}
 				  onImportLibraryAsset={(selection) => importLibraryAsset.mutateAsync(selection)}
+				  onRunFinished={() => {
+					  void queryClient.invalidateQueries({ queryKey: ['studio', 'session', sessionId] })
+				  }}
                 />
               )}
             </main>

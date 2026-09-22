@@ -346,8 +346,12 @@ Skill、MCP、资产和外部页面均作为不可信内容封装，不能生成
 
 ### 8.2 上下文预算
 
+- 每个 Agent 模型必须配置 `context_window_tokens`、`max_input_tokens` 和 `max_output_tokens`；Agent 模型缺失或非法时拒绝保存/运行，不根据模型名猜测限制。
+- 会话对话预算为 `floor((min(max_input_tokens, context_window_tokens - max_output_tokens) - reserved_tokens) × 0.9)`；`reserved_tokens` 包含 System Prompt 和 Tool Schema。
+- 本地 Token 估算是保守启发式，不承诺与提供方 tokenizer 一致；提供方返回上下文过长错误时，Agent 会强制缩短消息并重试一次。
 - 保留当前消息、最近消息、未完成约束和 Flow 摘要。
 - 旧消息生成版本化 Session Summary。
+- 压缩按“旧读/查工具结果清理 → LLM 摘要 → 最近轮次窗口 → 保留当前消息的硬截断”降级，Tool 消息必须与对应的 Assistant Tool Call 成对存在。
 - Trace 不进入模型上下文。
 - 资产索引常驻，内容按需读取。
 - 大文本按段读取。

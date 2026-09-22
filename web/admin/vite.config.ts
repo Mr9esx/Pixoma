@@ -6,6 +6,12 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { playwright } from '@vitest/browser-playwright'
 
+function proxyTarget(): string {
+  const addr = process.env.HTTP_ADDR || `127.0.0.1:${process.env.PORT || '8082'}`
+  const port = addr.slice(addr.lastIndexOf(':') + 1)
+  return `http://127.0.0.1:${port}`
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [
@@ -29,8 +35,9 @@ export default defineConfig(({ command }) => ({
     host: '127.0.0.1',
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8082',
+        target: proxyTarget(),
         changeOrigin: true,
+        ws: true,
       },
     },
   },

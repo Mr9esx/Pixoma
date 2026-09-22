@@ -23,7 +23,7 @@ func TestEinoChatModelImplementsEinoGeneration(t *testing.T) {
 		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已收到创作需求"}}],"usage":{"prompt_tokens":3,"completion_tokens":4}}`))
 	}))
 	defer server.Close()
-	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL + "/v1", Model: "test", APIKey: "secret"})
+	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL + "/v1/chat/completions", Model: "test", APIKey: "secret"})
 	message, err := chat.Generate(context.Background(), []*schema.Message{schema.UserMessage("写一个故事")})
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +49,7 @@ func TestEinoChatModelBindsNativeOpenAIToolsAndReturnsToolCalls(t *testing.T) {
 		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call-1","type":"function","function":{"name":"create_outline","arguments":"{}"}}]}}]}`))
 	}))
 	defer server.Close()
-	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL + "/v1", Model: "test", APIKey: "secret"})
+	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL + "/v1/chat/completions", Model: "test", APIKey: "secret"})
 	withTools, err := chat.WithTools([]*schema.ToolInfo{{Name: "create_outline", Desc: "Create a story outline"}})
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +72,7 @@ func TestEinoChatModelHonorsRuntimeToolOptions(t *testing.T) {
 		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已收到创作需求"}}]}`))
 	}))
 	defer server.Close()
-	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL, Model: "test", APIKey: "secret"})
+	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL + "/v1/chat/completions", Model: "test", APIKey: "secret"})
 	message, err := chat.Generate(context.Background(), []*schema.Message{schema.UserMessage("写一个故事")}, model.WithTools([]*schema.ToolInfo{{Name: "search_reference", Desc: "Search reference material"}}))
 	require.NoError(t, err)
 	require.Equal(t, "已收到创作需求", message.Content)

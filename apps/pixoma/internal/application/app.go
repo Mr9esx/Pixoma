@@ -81,12 +81,22 @@ import (
 // OptionsFromEnv reads process env into production server options.
 func OptionsFromEnv() Options {
 	dataDir := envOr("DATA_DIR", "data")
-	addr := envOr("HTTP_ADDR", "127.0.0.1:8082")
+	addr := httpAddrFromEnv()
 	return Options{
 		DataDir:   dataDir,
 		HTTPAddr:  addr,
 		PublicURL: envOr("PUBLIC_URL", "http://"+addr),
 	}
+}
+
+func httpAddrFromEnv() string {
+	if addr := os.Getenv("HTTP_ADDR"); addr != "" {
+		return addr
+	}
+	if port := os.Getenv("PORT"); port != "" {
+		return "127.0.0.1:" + port
+	}
+	return "127.0.0.1:8082"
 }
 
 // Options configures a production Pixoma server run.
@@ -106,7 +116,7 @@ func Run(ctx context.Context, opts Options) error {
 		opts.DataDir = envOr("DATA_DIR", "data")
 	}
 	if opts.HTTPAddr == "" {
-		opts.HTTPAddr = envOr("HTTP_ADDR", "127.0.0.1:8082")
+		opts.HTTPAddr = httpAddrFromEnv()
 	}
 	if opts.PublicURL == "" {
 		opts.PublicURL = "http://" + opts.HTTPAddr

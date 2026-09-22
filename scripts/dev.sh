@@ -8,16 +8,15 @@ if [[ ! -d web/admin/node_modules ]]; then
   pnpm --dir web/admin install
 fi
 
-# 控制面默认监听局域网，供远程 Edge 主动连入（HTTP_ADDR 可覆盖）。
-# PUBLIC_URL 仅用于启动横幅展示；未设置时自动取本机局域网 IP。
+# 控制面默认监听局域网，端口由 PORT 统一传入；HTTP_ADDR 可覆盖完整监听地址。
+# PUBLIC_URL 未设置时自动使用本机局域网 IP（或回环地址）和同一端口。
 LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
-export HTTP_ADDR="${HTTP_ADDR:-0.0.0.0:8082}"
-if [[ -n "$LAN_IP" ]]; then
-  export PUBLIC_URL="${PUBLIC_URL:-http://$LAN_IP:8082}"
-fi
+export HTTP_ADDR="${HTTP_ADDR:-0.0.0.0:${PORT:-30808}}"
+HTTP_PORT="${HTTP_ADDR##*:}"
+export PUBLIC_URL="${PUBLIC_URL:-http://${LAN_IP:-127.0.0.1}:$HTTP_PORT}"
 
 echo "管理页面: http://127.0.0.1:5173"
-echo "后台接口: ${PUBLIC_URL:-http://127.0.0.1:8082}"
+echo "后台接口: $PUBLIC_URL"
 
 start_pixoma() {
   go run ./apps/pixoma/cmd/pixoma &

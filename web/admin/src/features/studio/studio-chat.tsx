@@ -1,25 +1,34 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { HttpAgent } from '@ag-ui/client'
 import {
   AssistantRuntimeProvider,
   ComposerPrimitive,
+  ExportedMessageRepository,
   MessagePrimitive,
+  type ThreadHistoryAdapter,
   ThreadPrimitive,
+  useAuiState,
+  useMessagePartReasoning,
+  useMessagePartText,
   useAui,
 } from '@assistant-ui/react'
-import { useAgUiRuntime } from '@assistant-ui/react-ag-ui'
+import { fromAgUiMessages, useAgUiRuntime } from '@assistant-ui/react-ag-ui'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   Bot,
   Check,
   ChevronDown,
+  LoaderCircle,
   Paperclip,
   Send,
   ShieldCheck,
   Sparkles,
+  Square,
   User,
 } from 'lucide-react'
-import { baseURL, sessionToken } from '@/lib/api/client'
+import { baseURL } from '@/lib/api/client'
+import { StudioWebSocketAgent } from '@/lib/agui-websocket-agent'
 import {
   listStudioLibraryAssets,
   type StudioAsset,
@@ -27,6 +36,7 @@ import {
   type StudioModel,
   type StudioPermissionMode,
   type StudioSkill,
+  type StudioTranscript,
 } from '@/lib/api/studio'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -45,6 +55,7 @@ import {
 type Props = {
   sessionId: string
   messages: StudioMessage[]
+  transcript?: StudioTranscript
   models: StudioModel[]
   modelConfigId?: string
   permissionMode: StudioPermissionMode
@@ -57,9 +68,11 @@ type Props = {
   onSkillChange: (ids: string[]) => void
   onAssetChange: (assets: SelectedAsset[]) => void
 	 onImportLibraryAsset: (asset: SelectedAsset) => Promise<StudioAsset>
+	 onRunFinished?: () => void
 }
 
 type SelectedAsset = { assetId: string; assetVersionId: string }
+
 
 function toAGUIMessages(messages: StudioMessage[]) {
   return messages
@@ -76,7 +89,20 @@ function toAGUIMessages(messages: StudioMessage[]) {
     }))
 }
 
+function toTranscriptAGUIMessages(transcript?: StudioTranscript) {
+  if (!transcript?.messages?.length) return undefined
+  return transcript.messages.map((message) => ({
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    ...(message.toolCalls ? { toolCalls: message.toolCalls } : {}),
+    ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
+    ...(message.isError !== undefined ? { isError: message.isError } : {}),
+  }))
+}
+
 export function StudioChat(props: Props) {
+  const [runError, setRunError] = useState<string>()
   const availableModels = props.models.filter(
     (model) => model.enabled && model.agent_enabled
   )
@@ -85,37 +111,20 @@ export function StudioChat(props: Props) {
     availableModels.find((model) => model.default) ??
     availableModels[0]
   const modelReady = Boolean(selectedModel)
-
   const agent = useMemo(() => {
-    return new HttpAgent({
-      url: `${baseURL()}/api/v1/studio/agui`,
+    const endpoint = `${baseURL()}/api/v1/studio/agui/ws`
+    const httpURL = new URL(endpoint, window.location.origin)
+    httpURL.protocol = httpURL.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsURL = httpURL.toString()
+    return new StudioWebSocketAgent({
+      url: wsURL,
       threadId: props.sessionId,
-      initialMessages: toAGUIMessages(props.messages) as never[],
-      fetch: async (url, init) => {
-        const body = JSON.parse(String(init.body ?? '{}')) as Record<
-          string,
-          unknown
-        >
-        body.forwardedProps = {
-          ...((body.forwardedProps as Record<string, unknown>) ?? {}),
-          runConfig: {
-            modelConfigId: selectedModel?.id ?? '',
-            permissionMode: props.permissionMode,
-            selectedSkillIds: props.selectedSkillIds,
-            selectedAssets: props.selectedAssets,
-          },
-        }
-        const token = sessionToken()
-        return fetch(url, {
-          ...init,
-          credentials: 'include',
-          headers: {
-            ...((init.headers as Record<string, string>) ?? {}),
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(body),
-        })
+      initialMessages: (toTranscriptAGUIMessages(props.transcript) ?? toAGUIMessages(props.messages)) as never[],
+      runConfig: {
+        modelConfigId: selectedModel?.id ?? '',
+        permissionMode: props.permissionMode,
+        selectedSkillIds: props.selectedSkillIds,
+        selectedAssets: props.selectedAssets,
       },
     })
   }, [
@@ -124,12 +133,39 @@ export function StudioChat(props: Props) {
     props.permissionMode,
     props.selectedSkillIds,
     props.selectedAssets,
+    props.transcript,
   ])
 
-  const runtime = useAgUiRuntime({ agent, showThinking: true })
+  const history = useMemo<ThreadHistoryAdapter>(() => {
+    const messages = fromAgUiMessages(
+      toTranscriptAGUIMessages(props.transcript) ?? toAGUIMessages(props.messages),
+      { showThinking: true },
+    )
+
+    return {
+      async load() {
+        return ExportedMessageRepository.fromArray(messages)
+      },
+      async append() {
+        // The backend persists messages as part of the AG-UI run. History is
+        // read from the session endpoint when a thread is opened.
+      },
+    }
+  }, [props.sessionId, props.messages, props.transcript])
+
+  const runtime = useAgUiRuntime({
+    agent,
+    showThinking: true,
+    onError: (error) => setRunError(error.message),
+    adapters: { history },
+  })
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
+      <StudioRunCompletionWatcher
+        onRunStarted={() => setRunError(undefined)}
+        onRunFinished={props.onRunFinished}
+      />
       <ThreadPrimitive.Root className='flex min-h-0 flex-1 flex-col'>
         <ThreadPrimitive.Viewport className='min-h-0 flex-1 overflow-y-auto scroll-smooth'>
           <div className='mx-auto flex min-h-full w-full max-w-3xl flex-col px-5 py-8'>
@@ -142,6 +178,25 @@ export function StudioChat(props: Props) {
                 AssistantMessage: StudioAssistantMessage,
               }}
             />
+            {runError ? (
+              <div
+                role='alert'
+                className='mb-6 ml-11 max-w-[88%] rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm leading-6 text-destructive'
+              >
+                {runError}
+              </div>
+            ) : null}
+            <ThreadPrimitive.If running>
+              <div className='mt-1 flex items-center gap-2 pl-11 text-xs font-medium text-muted-foreground'>
+                <LoaderCircle className='size-3.5 animate-spin text-primary' />
+                <span>正在生成</span>
+                <span className='flex gap-0.5' aria-hidden='true'>
+                  <span className='size-1 animate-pulse rounded-full bg-primary [animation-delay:-300ms]' />
+                  <span className='size-1 animate-pulse rounded-full bg-primary [animation-delay:-150ms]' />
+                  <span className='size-1 animate-pulse rounded-full bg-primary' />
+                </span>
+              </div>
+            </ThreadPrimitive.If>
             <div className='min-h-6 flex-1' />
           </div>
         </ThreadPrimitive.Viewport>
@@ -181,16 +236,25 @@ export function StudioChat(props: Props) {
                   onChange={props.onPermissionChange}
                 />
               </div>
-              <ComposerPrimitive.Send asChild>
-                <Button
-                  size='icon'
-                  className='rounded-xl'
-                  aria-label='发送消息'
-                  disabled={!modelReady}
-                >
-                  <Send />
-                </Button>
-              </ComposerPrimitive.Send>
+              <ThreadPrimitive.If running>
+                <ComposerPrimitive.Cancel asChild>
+                  <Button size='icon' variant='outline' className='rounded-xl' aria-label='停止生成'>
+                    <Square className='fill-current' />
+                  </Button>
+                </ComposerPrimitive.Cancel>
+              </ThreadPrimitive.If>
+              <ThreadPrimitive.If running={false}>
+                <ComposerPrimitive.Send asChild>
+                  <Button
+                    size='icon'
+                    className='rounded-xl'
+                    aria-label='发送消息'
+                    disabled={!modelReady}
+                  >
+                    <Send />
+                  </Button>
+                </ComposerPrimitive.Send>
+              </ThreadPrimitive.If>
             </div>
           </ComposerPrimitive.Root>
           <p className='mx-auto mt-2 max-w-3xl text-center text-xs text-muted-foreground'>
@@ -202,6 +266,28 @@ export function StudioChat(props: Props) {
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
   )
+}
+
+function StudioRunCompletionWatcher({
+  onRunStarted,
+  onRunFinished,
+}: {
+  onRunStarted?: () => void
+  onRunFinished?: () => void
+}) {
+  const isRunning = useAuiState((state) => state.thread.isRunning)
+  const wasRunning = useRef(false)
+
+  useEffect(() => {
+    if (!wasRunning.current && isRunning) {
+      onRunStarted?.()
+    }
+    if (wasRunning.current && !isRunning) {
+      onRunFinished?.()
+    }
+    wasRunning.current = isRunning
+  }, [isRunning, onRunStarted, onRunFinished])
+  return null
 }
 
 function AssetPicker({
@@ -449,9 +535,82 @@ function StudioAssistantMessage() {
         </AvatarFallback>
       </Avatar>
       <div className='max-w-[88%] min-w-0 pt-1 text-sm leading-7'>
-        <MessagePrimitive.Parts />
+        <MessagePrimitive.Parts
+          components={{ Text: StudioMarkdown, Reasoning: StudioReasoning }}
+        />
       </div>
     </MessagePrimitive.Root>
+  )
+}
+
+function StudioMarkdown() {
+  const text = useMessagePartText().text
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: ({ children }) => (
+          <h1 className='mb-3 text-xl font-semibold leading-tight'>{children}</h1>
+        ),
+        h2: ({ children }) => (
+          <h2 className='mb-2 mt-4 text-lg font-semibold leading-tight'>{children}</h2>
+        ),
+        h3: ({ children }) => (
+          <h3 className='mb-2 mt-3 font-semibold leading-tight'>{children}</h3>
+        ),
+        p: ({ children }) => <p className='mb-3 last:mb-0'>{children}</p>,
+        ul: ({ children }) => (
+          <ul className='mb-3 list-disc space-y-1 pl-5'>{children}</ul>
+        ),
+        ol: ({ children }) => (
+          <ol className='mb-3 list-decimal space-y-1 pl-5'>{children}</ol>
+        ),
+        blockquote: ({ children }) => (
+          <blockquote className='mb-3 border-s-2 ps-3 text-muted-foreground'>
+            {children}
+          </blockquote>
+        ),
+        pre: ({ children }) => (
+          <pre className='mb-3 overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-5'>
+            {children}
+          </pre>
+        ),
+        code: ({ children, className }) =>
+          className ? (
+            <code className='font-mono'>{children}</code>
+          ) : (
+            <code className='rounded bg-muted px-1.5 py-0.5 font-mono text-[0.9em]'>
+              {children}
+            </code>
+          ),
+        a: ({ children, href }) => (
+          <a
+            href={href}
+            target='_blank'
+            rel='noreferrer'
+            className='text-primary underline underline-offset-4'
+          >
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  )
+}
+
+function StudioReasoning() {
+  const reasoning = useMessagePartReasoning()
+  if (!reasoning.text.trim()) return null
+  const running = reasoning.status.type === 'running'
+  return (
+    <details open={running} className='mb-3 rounded-xl border bg-muted/30 px-3 py-2 text-xs leading-5'>
+      <summary className='cursor-pointer select-none font-medium text-muted-foreground'>
+        {running ? '正在思考' : '思考过程'}
+      </summary>
+      <p className='mt-2 whitespace-pre-wrap text-muted-foreground'>{reasoning.text}</p>
+    </details>
   )
 }
 

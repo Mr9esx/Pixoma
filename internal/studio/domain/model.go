@@ -43,14 +43,16 @@ const (
 // Session is an AI Studio conversation and is always owned by one console
 // account. It deliberately does not reuse the messaging-channel Session.
 type Session struct {
-	ID             string
-	AccountID      string
-	Title          string
-	PermissionMode PermissionMode
-	ModelConfigID  string
-	Status         SessionStatus
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                             string
+	AccountID                      string
+	Title                          string
+	PermissionMode                 PermissionMode
+	ModelConfigID                  string
+	ContextSummary                 string
+	ContextSummaryThroughMessageID string
+	Status                         SessionStatus
+	CreatedAt                      time.Time
+	UpdatedAt                      time.Time
 }
 
 func NewSession(id, accountID string, now time.Time) (*Session, error) {
@@ -85,6 +87,23 @@ func (s *Session) Configure(modelConfigID string, mode PermissionMode, now time.
 	}
 	s.ModelConfigID = strings.TrimSpace(modelConfigID)
 	s.PermissionMode = mode
+	s.UpdatedAt = now.UTC()
+	return nil
+}
+
+// UpdateContextSummary records the oldest message represented by a compacted
+// summary. The boundary is deliberately a message id instead of an array
+// offset, because new turns can be appended while an Agent run is executing.
+func (s *Session) UpdateContextSummary(summary, throughMessageID string, now time.Time) error {
+	if strings.TrimSpace(summary) == "" || strings.TrimSpace(throughMessageID) == "" {
+		return fmt.Errorf("%w: context summary and boundary are required", ErrInvalid)
+	}
+	trimmedSummary := strings.TrimSpace(summary)
+	if len([]rune(trimmedSummary)) > 12000 {
+		trimmedSummary = string([]rune(trimmedSummary)[:12000])
+	}
+	s.ContextSummary = trimmedSummary
+	s.ContextSummaryThroughMessageID = strings.TrimSpace(throughMessageID)
 	s.UpdatedAt = now.UTC()
 	return nil
 }

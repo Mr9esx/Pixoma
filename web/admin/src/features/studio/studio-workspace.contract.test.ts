@@ -7,9 +7,10 @@ const read = (path: string) =>
 describe('Studio production workspace contract', () => {
   it('uses the official assistant-ui AG-UI runtime and Pixoma primitives', () => {
     const source = read('./studio-chat.tsx')
+    const transport = read('../../lib/agui-websocket-agent.ts')
     expect(source).toContain("from '@assistant-ui/react-ag-ui'")
     expect(source).toContain("from '@assistant-ui/react'")
-    expect(source).toContain("from '@ag-ui/client'")
+    expect(transport).toContain("from '@ag-ui/client'")
     expect(source).toContain('ComposerPrimitive.Input')
     expect(source).toContain('ThreadPrimitive.Messages')
     expect(source).toContain('@/components/ui/button')
@@ -58,7 +59,9 @@ describe('Studio production workspace contract', () => {
     const sidebar = read('./studio-sidebar.tsx')
     expect(sidebar).toContain("from '@/components/layout/app-title'")
     expect(sidebar).toContain("from '@/components/layout/nav-user'")
-    expect(sidebar).toContain("<Sidebar collapsible='none' className='bg-muted/30 p-2'>")
+    expect(sidebar).toContain(
+      "<Sidebar collapsible='none' className='bg-muted/30 p-2'>"
+    )
     expect(sidebar).toContain('<AppTitle showToggle={false} />')
     expect(sidebar).toContain('<NavUser />')
     expect(sidebar).toContain("to='/'")
@@ -98,7 +101,9 @@ describe('Studio production workspace contract', () => {
 
   it('provides a connected Skill configuration view', () => {
     const source = read('./studio-settings.tsx')
-    expect(source).toContain("className='hidden w-60 shrink-0 border-e bg-muted/20 p-3 md:block'")
+    expect(source).toContain(
+      "className='hidden w-60 shrink-0 border-e bg-muted/20 p-3 md:block'"
+    )
     expect(source).toContain("aria-label='AI 设置分类'")
     expect(source).not.toContain("from '@/components/ui/tabs'")
     expect(source).toContain('listStudioSkills')
@@ -114,6 +119,25 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('testStudioModelConnection')
     expect(source).toContain('测试连接')
     expect(source).toContain('连接成功')
+    expect(source).toContain("import { toast } from 'sonner'")
+    expect(source).toContain('toast.error')
+  })
+
+  it('lets administrators test the unsaved add-model form from the dialog footer', () => {
+    const source = read('./studio-settings.tsx')
+    expect(source).toContain('testStudioModelConfig')
+    expect(source).toContain('测试配置')
+    expect(source).toContain('正在测试…')
+    expect(source).toContain('DialogFooter')
+    expect(source).toContain('reportValidity')
+  })
+
+  it('provides an edit entry for saved models and reuses the model dialog', () => {
+    const source = read('./studio-settings.tsx')
+    expect(source).toContain('updateStudioModel')
+    expect(source).toContain('编辑')
+    expect(source).toContain('editingModel')
+    expect(source).toContain('ModelDialog')
   })
 
   it('provides a connected MCP connector configuration view', () => {
@@ -140,6 +164,20 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('SkillPicker')
     expect(source).toContain('selectedSkillIds')
     expect(source).toContain('selectedSkillIds: props.selectedSkillIds')
+  })
+
+  it('renders assistant text as Markdown', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain("from 'react-markdown'")
+    expect(source).toContain("from 'remark-gfm'")
+    expect(source).toContain('Text: StudioMarkdown')
+  })
+
+  it('renders AG-UI run errors in the conversation instead of dropping them', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain('onError: (error) => setRunError(error.message)')
+    expect(source).toContain('runError')
+    expect(source).toContain('role=\'alert\'')
   })
 
   it('lets the composer use both Session assets and reusable library assets', () => {
@@ -173,8 +211,12 @@ describe('Studio production workspace contract', () => {
   it('derives the initial Studio session from query data without an effect state copy', () => {
     const source = read('./studio-workspace.tsx')
 
-    expect(source).toContain("const sessionId = activeSessionId ?? sessions.data?.[0]?.id")
+    expect(source).toContain(
+      'const sessionId = activeSessionId ?? sessions.data?.[0]?.id'
+    )
     expect(source).not.toContain('setActiveSessionId(first.id)')
-    expect(source).toContain('[sessions.data, sessions.isLoading, creatingSession, createSessionMutate]')
+    expect(source).toContain(
+      '[sessions.data, sessions.isLoading, creatingSession, createSessionMutate]'
+    )
   })
 })

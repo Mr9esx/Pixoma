@@ -45,6 +45,24 @@ func TestNewSessionRejectsMissingOwnership(t *testing.T) {
 	}
 }
 
+func TestSessionContextSummaryKeepsMessageBoundary(t *testing.T) {
+	now := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
+	session, err := NewSession("session-1", "account-1", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updatedAt := now.Add(time.Minute)
+	if err := session.UpdateContextSummary("用户要做一部悬疑漫画", "message-7", updatedAt); err != nil {
+		t.Fatal(err)
+	}
+	if session.ContextSummary != "用户要做一部悬疑漫画" || session.ContextSummaryThroughMessageID != "message-7" || !session.UpdatedAt.Equal(updatedAt) {
+		t.Fatalf("summary state = %#v", session)
+	}
+	if err := session.UpdateContextSummary("", "message-8", updatedAt); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("empty summary error = %v, want ErrInvalid", err)
+	}
+}
+
 func TestRunLifecycle(t *testing.T) {
 	now := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
 	run, err := NewRun("run-1", "session-1", "account-1", "message-1", now)

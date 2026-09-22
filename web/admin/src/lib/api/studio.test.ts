@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createStudioModel,
+  testStudioModelConfig,
+  updateStudioModel,
   createStudioConnector,
   createStudioSession,
   createStudioSkill,
@@ -135,15 +137,25 @@ describe('Studio API', () => {
   })
 
   it('imports a pinned library asset into the active session', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'asset-imported' }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'asset-imported' }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     await importStudioLibraryAsset('session-1', 'asset-library', 'version-2')
 
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:8081/api/v1/studio/sessions/session-1/assets/import')
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/sessions/session-1/assets/import'
+    )
     const init = fetchMock.mock.calls[0][1] as RequestInit
     expect(init.method).toBe('POST')
-    expect(JSON.parse(String(init.body))).toEqual({ asset_id: 'asset-library', asset_version_id: 'version-2' })
+    expect(JSON.parse(String(init.body))).toEqual({
+      asset_id: 'asset-library',
+      asset_version_id: 'version-2',
+    })
   })
 
   it('creates an encrypted server-side model configuration', async () => {
@@ -182,6 +194,112 @@ describe('Studio API', () => {
       api_key: 'only-in-request',
       agent_enabled: true,
     })
+  })
+
+  it('tests an unsaved model configuration without using a model id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, latency_ms: 42 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await testStudioModelConfig({
+      name: 'Claude',
+      protocol: 'anthropic_messages_compatible',
+      baseUrl: 'https://api.anthropic.com/v1',
+      model: 'claude-sonnet',
+      apiKey: 'only-in-request',
+      enabled: true,
+      agentEnabled: true,
+      default: false,
+      thinking: { enabled: false },
+      capabilities: {
+        tools: true,
+        vision: false,
+        image_output: false,
+        streaming: true,
+      },
+    })
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/models/test'
+    )
+    expect(
+      JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))
+    ).toMatchObject({
+      model: 'claude-sonnet',
+      api_key: 'only-in-request',
+    })
+  })
+
+  it('can test edited fields with the saved model key without sending that key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, latency_ms: 12 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await testStudioModelConfig({
+      name: 'Edited',
+      protocol: 'openai_chat_compatible',
+      baseUrl: 'https://api.example.com/v1',
+      model: 'model-edited',
+      apiKey: '',
+      existingModelId: 'model-1',
+      enabled: true,
+      agentEnabled: true,
+      default: false,
+      thinking: { enabled: false },
+      capabilities: {
+        tools: true,
+        vision: false,
+        image_output: false,
+        streaming: true,
+      },
+    })
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body)
+    )
+    expect(body.existing_model_id).toBe('model-1')
+    expect(body).not.toHaveProperty('api_key')
+  })
+
+  it('updates a saved model without requiring the existing API key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'model-1', name: 'Updated' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await updateStudioModel('model-1', {
+      name: 'Updated',
+      protocol: 'openai_chat_compatible',
+      baseUrl: 'https://api.example.com/v1',
+      model: 'model-updated',
+      apiKey: '',
+      enabled: true,
+      agentEnabled: true,
+      default: false,
+      thinking: { enabled: false },
+      capabilities: {
+        tools: true,
+        vision: false,
+        image_output: false,
+        streaming: true,
+      },
+    })
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://127.0.0.1:8081/api/v1/studio/models/model-1'
+    )
+    expect((fetchMock.mock.calls[0][1] as RequestInit).method).toBe('PATCH')
   })
 
   it('lists and creates account-scoped Studio Skills', async () => {

@@ -43,6 +43,12 @@ func TestSessionAndMessagesAreAccountScoped(t *testing.T) {
 	if err := repo.CreateSession(ctx, session); err != nil {
 		t.Fatalf("CreateSession() error = %v", err)
 	}
+	if err := session.UpdateContextSummary("历史摘要", "message-7", now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.UpdateSession(ctx, session); err != nil {
+		t.Fatalf("UpdateSession() with context summary error = %v", err)
+	}
 	if err := repo.CreateSession(ctx, session); !errors.Is(err, domain.ErrAlreadyExists) {
 		t.Fatalf("duplicate CreateSession() error = %v, want ErrAlreadyExists", err)
 	}
@@ -53,6 +59,9 @@ func TestSessionAndMessagesAreAccountScoped(t *testing.T) {
 	}
 	if got.Title != domain.DefaultSessionTitle {
 		t.Fatalf("Title = %q", got.Title)
+	}
+	if got.ContextSummary != "历史摘要" || got.ContextSummaryThroughMessageID != "message-7" {
+		t.Fatalf("context summary = %#v", got)
 	}
 	if _, err := repo.GetSession(ctx, "account-b", session.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("cross-account GetSession() error = %v, want ErrNotFound", err)
@@ -109,6 +118,49 @@ func TestRunEventsAreOrderedAndIdempotent(t *testing.T) {
 	events, err = repo.ListEventsAfter(ctx, "account-a", run.ID, 1, 100)
 	if err != nil || len(events) != 1 || events[0].Sequence != 2 {
 		t.Fatalf("events after 1 = (%#v, %v)", events, err)
+	}
+}
+
+func TestSessionTranscriptReadsEveryOwnedMessageRunAndEvent(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC)
+	session, err := domain.NewSession("session-transcript", "account-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatal(err)
+	}
+	message := &domain.Message{ID: "message-transcript", SessionID: session.ID, AccountID: session.AccountID, Role: domain.MessageRoleUser, ContentJSON: json.RawMessage(`[{"type":"text","text":"hello"}]`), CreatedAt: now}
+	if err := repo.AppendMessage(ctx, message); err != nil {
+		t.Fatal(err)
+	}
+	run, err := domain.NewRun("run-transcript", session.ID, session.AccountID, message.ID, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	for sequence := uint64(1); sequence <= 205; sequence++ {
+		if err := repo.AppendEvent(ctx, &domain.Event{ID: fmt.Sprintf("event-transcript-%03d", sequence), RunID: run.ID, SessionID: session.ID, AccountID: session.AccountID, Sequence: sequence, Type: "CUSTOM", Payload: json.RawMessage(`{"sequence":1}`), CreatedAt: now.Add(time.Duration(sequence) * time.Second)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, err := repo.ListSessionTranscript(ctx, session.AccountID, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(data.Messages) != 1 || len(data.Runs) != 1 || len(data.Events) != 205 || data.Events[0].Sequence != 1 || data.Events[204].Sequence != 205 {
+		t.Fatalf("transcript = messages=%d runs=%d events=%d", len(data.Messages), len(data.Runs), len(data.Events))
+	}
+	foreign, err := repo.ListSessionTranscript(ctx, "account-b", session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(foreign.Messages) != 0 || len(foreign.Runs) != 0 || len(foreign.Events) != 0 {
+		t.Fatalf("cross-account transcript = %#v", foreign)
 	}
 }
 

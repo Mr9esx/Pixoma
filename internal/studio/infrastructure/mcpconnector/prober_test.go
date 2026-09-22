@@ -101,7 +101,7 @@ func TestRuntimeToolsInvokeDiscoveredMCPToolWithBearer(t *testing.T) {
 	output, err := invokable.InvokableRun(context.Background(), `{"query":"rain"}`)
 	require.NoError(t, err)
 	require.Contains(t, output, "result for rain")
-	require.Equal(t, []string{studioapp.EventToolCallStart, studioapp.EventToolCallEnd}, events)
+	require.Equal(t, []string{studioapp.EventToolCallStart, studioapp.EventToolCallArgs, studioapp.EventToolCallResult, studioapp.EventToolCallEnd}, events)
 }
 
 func TestRuntimeToolsRequestsApprovalBeforeInvokingProtectedTool(t *testing.T) {
@@ -171,7 +171,7 @@ func TestRuntimeToolsCloseToolEventAfterRemoteFailure(t *testing.T) {
 	require.True(t, ok)
 	_, err = invokable.InvokableRun(context.Background(), `{}`)
 	require.Error(t, err)
-	require.Equal(t, []string{studioapp.EventToolCallStart, studioapp.EventToolCallEnd}, events)
+	require.Equal(t, []string{studioapp.EventToolCallStart, studioapp.EventToolCallArgs, studioapp.EventToolCallResult, studioapp.EventToolCallEnd}, events)
 }
 
 func TestRuntimeToolsRedactConnectorCredentialFromToolResult(t *testing.T) {

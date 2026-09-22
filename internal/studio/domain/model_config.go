@@ -30,6 +30,28 @@ type ThinkingConfig struct {
 	BudgetTokens int    `json:"budget_tokens,omitempty"`
 }
 
+// ModelLimits describes the provider limits needed to build a safe Agent
+// context budget. They are configured per model because compatible endpoints
+// do not expose a reliable common limit contract.
+type ModelLimits struct {
+	ContextWindowTokens int `json:"context_window_tokens"`
+	MaxInputTokens      int `json:"max_input_tokens"`
+	MaxOutputTokens     int `json:"max_output_tokens"`
+}
+
+func (l ModelLimits) Validate() error {
+	if l.ContextWindowTokens <= 0 || l.MaxInputTokens <= 0 || l.MaxOutputTokens <= 0 {
+		return fmt.Errorf("%w: model token limits must be positive", ErrInvalid)
+	}
+	if l.MaxInputTokens > l.ContextWindowTokens {
+		return fmt.Errorf("%w: max input tokens exceed context window", ErrInvalid)
+	}
+	if l.MaxOutputTokens > l.ContextWindowTokens {
+		return fmt.Errorf("%w: max output tokens exceed context window", ErrInvalid)
+	}
+	return nil
+}
+
 type ModelCapabilities struct {
 	Tools       bool `json:"tools"`
 	Vision      bool `json:"vision"`
@@ -49,6 +71,7 @@ type ModelConfig struct {
 	AgentEnabled bool
 	Default      bool
 	Thinking     ThinkingConfig
+	Limits       ModelLimits
 	Capabilities ModelCapabilities
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -62,10 +85,12 @@ type ResolvedModelConfig struct {
 	Model        string
 	APIKey       string
 	Thinking     ThinkingConfig
+	Limits       ModelLimits
 	Capabilities ModelCapabilities
 }
 
 func NewModelConfig(id, accountID, name string, protocol ModelProtocol, baseURL, model, apiKeyCipher string, now time.Time) (*ModelConfig, error) {
+	baseURL = strings.TrimSpace(baseURL)
 	if anyBlank(id, accountID, name, baseURL, model, apiKeyCipher) || !protocol.Valid() {
 		return nil, fmt.Errorf("%w: invalid model config", ErrInvalid)
 	}
@@ -76,7 +101,7 @@ func NewModelConfig(id, accountID, name string, protocol ModelProtocol, baseURL,
 	now = now.UTC()
 	return &ModelConfig{
 		ID: id, AccountID: accountID, Name: strings.TrimSpace(name), Protocol: protocol,
-		BaseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"), Model: strings.TrimSpace(model),
+		BaseURL: baseURL, Model: strings.TrimSpace(model),
 		APIKeyCipher: apiKeyCipher, CreatedAt: now, UpdatedAt: now,
 	}, nil
 }

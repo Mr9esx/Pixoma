@@ -3,6 +3,7 @@ package studiotool
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -14,9 +15,22 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 )
 
-type toolSink struct{}
+type toolEvent struct {
+	typ     string
+	payload map[string]any
+}
 
-func (*toolSink) Emit(context.Context, string, any) error                           { return nil }
+type toolSink struct {
+	events []toolEvent
+}
+
+func (s *toolSink) Emit(_ context.Context, typ string, value any) error {
+	raw, _ := json.Marshal(value)
+	var payload map[string]any
+	_ = json.Unmarshal(raw, &payload)
+	s.events = append(s.events, toolEvent{typ: typ, payload: payload})
+	return nil
+}
 func (*toolSink) AssistantMessage(context.Context, string) (*domain.Message, error) { return nil, nil }
 func (*toolSink) CreateAsset(context.Context, studioapp.GeneratedAsset) (*domain.Asset, error) {
 	return nil, nil
@@ -47,7 +61,8 @@ func TestReadAssetToolReadsOnlyThePinnedSelectedVersion(t *testing.T) {
 	if _, err := asset.AppendVersion("version-1", "text/markdown", ref.Key, ref.Size, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	tools, err := NewRuntimeTools(ToolAccess{Sink: &toolSink{}, Blob: store, Assets: []*domain.Asset{asset}})
+	sink := &toolSink{}
+	tools, err := NewRuntimeTools(ToolAccess{Sink: sink, Blob: store, Assets: []*domain.Asset{asset}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,5 +79,14 @@ func TestReadAssetToolReadsOnlyThePinnedSelectedVersion(t *testing.T) {
 	}
 	if result == "" || !bytes.Contains([]byte(result), []byte("雨夜侦探")) {
 		t.Fatalf("result = %q", result)
+	}
+	if len(sink.events) == 0 {
+		t.Fatal("tool events are empty")
+	}
+	if sink.events[0].typ != studioapp.EventToolCallStart || sink.events[0].payload["tool_call_id"] == nil {
+		t.Fatalf("tool start event = %#v", sink.events[0])
+	}
+	if len(sink.events) < 3 || sink.events[1].typ != studioapp.EventToolCallArgs || sink.events[2].typ != studioapp.EventToolCallResult || sink.events[2].payload["content"] == nil {
+		t.Fatalf("tool transcript events = %#v", sink.events)
 	}
 }

@@ -3,6 +3,7 @@ package modelprovider_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -39,7 +40,7 @@ func TestOpenAICompatibleChatUsesConfiguredBaseURLAndSecret(t *testing.T) {
 
 	client := modelprovider.NewOpenAICompatibleClient(server.Client())
 	result, err := client.Chat(context.Background(), modelprovider.ChatRequest{
-		Config:   domain.ResolvedModelConfig{BaseURL: server.URL + "/v1", Model: "deepseek-v4-flash", APIKey: "test-secret"},
+		Config:   domain.ResolvedModelConfig{BaseURL: server.URL + "/v1/chat/completions", Model: "deepseek-v4-flash", APIKey: "test-secret"},
 		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "你好"}},
 	})
 	if err != nil {
@@ -50,6 +51,100 @@ func TestOpenAICompatibleChatUsesConfiguredBaseURLAndSecret(t *testing.T) {
 	}
 	if result.Text != "你好，我是 Pixoma" || result.InputTokens != 2 || result.OutputTokens != 5 {
 		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestOpenAICompatibleChatEmitsDurableRequestTrace(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Request-ID", "provider-request-1")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已完成"}}],"usage":{"prompt_tokens":7,"completion_tokens":3}}`))
+	}))
+	defer server.Close()
+	traces := make([]modelprovider.TraceEvent, 0, 2)
+	result, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
+		Config:   domain.ResolvedModelConfig{BaseURL: server.URL, Model: "trace-test", APIKey: "test-secret"},
+		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "追踪请求"}},
+		Trace: func(_ context.Context, event modelprovider.TraceEvent) error {
+			traces = append(traces, event)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("Chat() error = %v", err)
+	}
+	if result.InputTokens != 7 || result.OutputTokens != 3 {
+		t.Fatalf("result = %#v", result)
+	}
+	if len(traces) != 2 || traces[0].Phase != modelprovider.TraceRequestStarted || traces[1].Phase != modelprovider.TraceRequestFinished {
+		t.Fatalf("traces = %#v", traces)
+	}
+	if traces[0].RequestBody == nil || strings.Contains(string(traces[0].RequestBody), "test-secret") {
+		t.Fatalf("request trace = %#v", traces[0])
+	}
+	if traces[1].StatusCode != http.StatusOK || traces[1].ProviderRequestID != "provider-request-1" || traces[1].InputTokens != 7 || traces[1].OutputTokens != 3 || traces[1].Elapsed <= 0 {
+		t.Fatalf("finish trace = %#v", traces[1])
+	}
+}
+
+func TestOpenAICompatibleStreamEmitsFirstTokenAndFinishTrace(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("X-Request-ID", "stream-request-1")
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"第一个字\"}}]}\n\n"))
+		_, _ = w.Write([]byte("data: {\"choices\":[],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2}}\n\n"))
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	}))
+	defer server.Close()
+	traces := make([]modelprovider.TraceEvent, 0, 3)
+	stream, err := modelprovider.NewOpenAICompatibleClient(server.Client()).StreamChat(context.Background(), modelprovider.ChatRequest{
+		Config:   domain.ResolvedModelConfig{BaseURL: server.URL, Model: "trace-stream", APIKey: "test-secret"},
+		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "流式追踪"}},
+		Trace: func(_ context.Context, event modelprovider.TraceEvent) error {
+			traces = append(traces, event)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("StreamChat() error = %v", err)
+	}
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(traces) != 3 || traces[0].Phase != modelprovider.TraceRequestStarted || traces[1].Phase != modelprovider.TraceFirstToken || traces[2].Phase != modelprovider.TraceRequestFinished {
+		t.Fatalf("traces = %#v", traces)
+	}
+	if traces[1].Elapsed <= 0 || traces[2].ProviderRequestID != "stream-request-1" || traces[2].InputTokens != 8 || traces[2].OutputTokens != 2 {
+		t.Fatalf("stream trace = %#v", traces)
+	}
+}
+
+func TestOpenAICompatibleChatEmitsFailedTraceForInvalidProviderResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":`))
+	}))
+	defer server.Close()
+	traces := make([]modelprovider.TraceEvent, 0, 2)
+	_, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
+		Config:   domain.ResolvedModelConfig{BaseURL: server.URL, Model: "trace-invalid", APIKey: "test-secret"},
+		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "坏响应"}},
+		Trace: func(_ context.Context, event modelprovider.TraceEvent) error {
+			traces = append(traces, event)
+			return nil
+		},
+	})
+	if err == nil {
+		t.Fatal("Chat() error = nil")
+	}
+	if len(traces) != 2 || traces[0].Phase != modelprovider.TraceRequestStarted || traces[1].Phase != modelprovider.TraceRequestFailed || !strings.Contains(traces[1].Error, "decode response") {
+		t.Fatalf("traces = %#v", traces)
 	}
 }
 
@@ -94,7 +189,7 @@ func TestChatUsesOpenAIResponsesProtocolAndThinking(t *testing.T) {
 	defer server.Close()
 
 	result, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
-		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: server.URL + "/v1", Model: "gpt-test", APIKey: "test-secret", Thinking: domain.ThinkingConfig{Enabled: true, Effort: "high"}},
+		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: server.URL + "/v1/responses", Model: "gpt-test", APIKey: "test-secret", Thinking: domain.ThinkingConfig{Enabled: true, Effort: "high"}},
 		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "你好"}},
 	})
 	if err != nil {
@@ -123,7 +218,7 @@ func TestChatParsesResponsesOutputAfterReasoningItem(t *testing.T) {
 	defer server.Close()
 
 	result, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
-		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: server.URL + "/api/v3", Model: "deepseek-v4-1-flash-260910", APIKey: "test-secret"},
+		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: server.URL + "/api/v3/responses", Model: "deepseek-v4-1-flash-260910", APIKey: "test-secret"},
 		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "Reply with OK."}},
 	})
 	if err != nil {
@@ -158,7 +253,7 @@ func TestChatUsesResponsesFunctionToolsAndParsesFunctionCall(t *testing.T) {
 	defer server.Close()
 
 	result, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
-		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: server.URL + "/v1", Model: "gpt-test", APIKey: "test-secret"},
+		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: server.URL + "/v1/responses", Model: "gpt-test", APIKey: "test-secret"},
 		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "创建黑色电影大纲"}},
 		Tools: []modelprovider.ToolDefinition{{
 			Name: "create_outline", Description: "Create a story outline",
@@ -193,7 +288,7 @@ func TestChatUsesAnthropicMessagesProtocolAndThinking(t *testing.T) {
 	defer server.Close()
 
 	result, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
-		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolAnthropic, BaseURL: server.URL + "/v1", Model: "claude-test", APIKey: "anthropic-secret", Thinking: domain.ThinkingConfig{Enabled: true, BudgetTokens: 2048}},
+		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolAnthropic, BaseURL: server.URL + "/v1/messages", Model: "claude-test", APIKey: "anthropic-secret", Thinking: domain.ThinkingConfig{Enabled: true, BudgetTokens: 2048}},
 		Messages: []modelprovider.ChatMessage{{Role: "system", Content: "你是助手"}, {Role: "user", Content: "你好"}},
 	})
 	if err != nil {
@@ -208,5 +303,42 @@ func requireNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestConfiguredMaxOutputTokensAreSentToEachProtocol(t *testing.T) {
+	protocols := []struct {
+		name     string
+		protocol domain.ModelProtocol
+		response string
+		field    string
+	}{
+		{name: "openai chat", protocol: domain.ModelProtocolOpenAIChat, response: `{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`, field: "max_tokens"},
+		{name: "openai responses", protocol: domain.ModelProtocolOpenAIResponses, response: `{"output_text":"ok","output":[]}`, field: "max_output_tokens"},
+		{name: "anthropic", protocol: domain.ModelProtocolAnthropic, response: `{"content":[{"type":"text","text":"ok"}]}`, field: "max_tokens"},
+	}
+	for _, tt := range protocols {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				requireNoError(t, json.NewDecoder(r.Body).Decode(&body))
+				if got, ok := body[tt.field].(float64); !ok || got != 1234 {
+					t.Fatalf("%s = %#v, want 1234", tt.field, body[tt.field])
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tt.response))
+			}))
+			defer server.Close()
+			_, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
+				Config: domain.ResolvedModelConfig{
+					Protocol: tt.protocol, BaseURL: server.URL, Model: "test", APIKey: "secret",
+					Limits: domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1234},
+				},
+				Messages: []modelprovider.ChatMessage{{Role: "user", Content: "hello"}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

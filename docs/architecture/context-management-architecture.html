@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixoma Context Management Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'JetBrains Mono', monospace; background: #020617; min-height: 100vh; padding: 2rem; color: white; }
+    .container { max-width: 1280px; margin: 0 auto; }
+    .header { margin-bottom: 1.5rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: .5rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #22d3ee; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.025em; }
+    .subtitle { color: #94a3b8; font-size: .95rem; margin-left: 1.75rem; }
+    .diagram-container { background: rgba(15,23,42,.5); border-radius: 1rem; border: 1px solid #1e293b; padding: 1rem; overflow-x: auto; }
+    svg { width: 100%; min-width: 1080px; display: block; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 1rem; margin-top: 1.5rem; }
+    .card { background: rgba(15,23,42,.5); border-radius: .75rem; border: 1px solid #1e293b; padding: 1.1rem; }
+    .card-header { display: flex; align-items: center; gap: .5rem; margin-bottom: .7rem; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.cyan { background: #22d3ee; } .card-dot.emerald { background: #34d399; } .card-dot.violet { background: #a78bfa; }
+    .card h3 { font-size: .95rem; font-weight: 600; } .card ul { list-style: none; color: #94a3b8; font-size: .82rem; }
+    .card li { margin-bottom: .35rem; line-height: 1.45; }
+    .footer { text-align: center; margin-top: 1.2rem; color: #475569; font-size: .72rem; }
+    .toolbar { display:flex; gap:.5rem; margin-left:auto; flex-shrink:0; align-items:center; }
+    .toolbar-toggle { background:transparent; border:none; color:#475569; cursor:pointer; font-size:1.25rem; line-height:1; padding:.25rem .5rem; border-radius:.375rem; }
+    .toolbar-toggle:hover { color:#94a3b8; background:rgba(30,41,59,.5); }
+    .toolbar-actions { display:none; gap:.5rem; } .toolbar.expanded .toolbar-actions { display:flex; }
+    .toolbar-actions button { background:rgba(30,41,59,.8); border:1px solid #334155; color:#94a3b8; padding:.375rem .75rem; border-radius:.375rem; font-family:inherit; font-size:.72rem; cursor:pointer; white-space:nowrap; }
+    .toolbar-actions button:hover { background:rgba(51,65,85,.8); color:white; border-color:#475569; }
+    @media print { body { background:#020617; padding:1rem; } .toolbar { display:none!important; } }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>Pixoma Context Management Architecture</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="downloadPNG(this)">🖼️ PNG</button>
+            <button onclick="downloadPDF(this)">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">只保存一次 · 统一回放 · 超限压缩 · 失败可恢复</p>
+    </div>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1200 760" role="img" aria-label="生产级上下文管理架构图">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker>
+          <marker id="arrowCyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#22d3ee"/></marker>
+          <marker id="arrowOrange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fb923c"/></marker>
+          <marker id="arrowRose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fb7185"/></marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0L0 0 0 40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)"/>
+
+        <!-- Arrows first so they stay behind the large, readable modules. -->
+        <line x1="212" y1="155" x2="302" y2="155" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrowCyan)"/>
+        <line x1="488" y1="155" x2="578" y2="155" stroke="#fb923c" stroke-width="2" marker-end="url(#arrowOrange)"/>
+        <line x1="764" y1="155" x2="854" y2="155" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <line x1="990" y1="205" x2="990" y2="300" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrowCyan)"/>
+        <line x1="600" y1="245" x2="600" y2="300" stroke="#34d399" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <line x1="405" y1="380" x2="490" y2="380" stroke="#fb923c" stroke-width="2" marker-end="url(#arrowOrange)"/>
+        <line x1="710" y1="380" x2="795" y2="380" stroke="#fb7185" stroke-width="2" marker-end="url(#arrowRose)"/>
+        <line x1="1015" y1="430" x2="1015" y2="500" stroke="#fbbf24" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <path d="M795 430 L795 555 Q795 575 775 575 L710 575" fill="none" stroke="#fb7185" stroke-width="2" stroke-dasharray="6,5" marker-end="url(#arrowRose)"/>
+        <path d="M600 500 L600 575" fill="none" stroke="#fb923c" stroke-width="2" stroke-dasharray="6,5" marker-end="url(#arrowOrange)"/>
+        <path d="M490 625 L405 625" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+
+        <!-- Main boundary -->
+        <rect x="22" y="22" width="1156" height="650" rx="14" fill="rgba(251,191,36,.025)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="42" y="50" fill="#fbbf24" font-size="13" font-weight="600">Pixoma Studio：上下文管理</text>
+        <text x="42" y="75" fill="#94a3b8" font-size="10">一句话：所有历史只保存一次，所有使用方都从同一份历史重新构造。</text>
+
+        <!-- Main flow -->
+        <rect x="42" y="105" width="170" height="100" rx="8" fill="#0f172a"/>
+        <rect x="42" y="105" width="170" height="100" rx="8" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="2"/>
+        <text x="127" y="140" fill="white" font-size="15" font-weight="600" text-anchor="middle">用户界面</text>
+        <text x="127" y="165" fill="#cbd5e1" font-size="11" text-anchor="middle">聊天 / Trace</text>
+        <text x="127" y="186" fill="#94a3b8" font-size="9" text-anchor="middle">只负责展示和输入</text>
+
+        <rect x="302" y="105" width="186" height="100" rx="8" fill="#0f172a"/>
+        <rect x="302" y="105" width="186" height="100" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="2"/>
+        <text x="395" y="140" fill="white" font-size="15" font-weight="600" text-anchor="middle">事件写入器</text>
+        <text x="395" y="165" fill="#cbd5e1" font-size="11" text-anchor="middle">按顺序追加事件</text>
+        <text x="395" y="186" fill="#94a3b8" font-size="9" text-anchor="middle">写入前脱敏</text>
+
+        <rect x="578" y="105" width="186" height="100" rx="8" fill="#0f172a"/>
+        <rect x="578" y="105" width="186" height="100" rx="8" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="2"/>
+        <text x="671" y="140" fill="white" font-size="15" font-weight="600" text-anchor="middle">会话账本</text>
+        <text x="671" y="165" fill="#cbd5e1" font-size="11" text-anchor="middle">消息 + 工具 + 运行事件</text>
+        <text x="671" y="186" fill="#a78bfa" font-size="9" text-anchor="middle">原始事实，不覆盖</text>
+
+        <rect x="854" y="105" width="276" height="100" rx="8" fill="#0f172a"/>
+        <rect x="854" y="105" width="276" height="100" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="2"/>
+        <text x="992" y="140" fill="white" font-size="15" font-weight="600" text-anchor="middle">上下文编译器</text>
+        <text x="992" y="165" fill="#cbd5e1" font-size="11" text-anchor="middle">把历史变成模型能读的消息</text>
+        <text x="992" y="186" fill="#94a3b8" font-size="9" text-anchor="middle">唯一的 Agent 历史入口</text>
+
+        <!-- Shared replay -->
+        <rect x="790" y="300" width="400" height="130" rx="8" fill="#0f172a"/>
+        <rect x="790" y="300" width="400" height="130" rx="8" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="2"/>
+        <text x="990" y="335" fill="white" font-size="15" font-weight="600" text-anchor="middle">统一回放</text>
+        <text x="990" y="362" fill="#cbd5e1" font-size="11" text-anchor="middle">同一份历史，三种用途</text>
+        <text x="815" y="390" fill="#cbd5e1" font-size="10">聊天</text><text x="880" y="390" fill="#94a3b8" font-size="10">恢复对话</text>
+        <text x="815" y="410" fill="#cbd5e1" font-size="10">Trace</text><text x="880" y="410" fill="#94a3b8" font-size="10">查看原始事件</text>
+        <text x="1010" y="390" fill="#cbd5e1" font-size="10">Agent</text><text x="1075" y="390" fill="#94a3b8" font-size="10">继续对话</text>
+        <text x="1010" y="410" fill="#cbd5e1" font-size="10">API</text><text x="1075" y="410" fill="#94a3b8" font-size="10">分页读取</text>
+
+        <!-- Compaction and runtime -->
+        <rect x="42" y="300" width="363" height="130" rx="8" fill="#0f172a"/>
+        <rect x="42" y="300" width="363" height="130" rx="8" fill="rgba(251,146,60,.3)" stroke="#fb923c" stroke-width="2"/>
+        <text x="223" y="335" fill="white" font-size="15" font-weight="600" text-anchor="middle">预算检查</text>
+        <text x="223" y="362" fill="#cbd5e1" font-size="11" text-anchor="middle">没超限：原样发送</text>
+        <text x="223" y="389" fill="#cbd5e1" font-size="11" text-anchor="middle">超限：选择安全切点并压缩</text>
+        <text x="223" y="412" fill="#94a3b8" font-size="9" text-anchor="middle">不拆散工具调用和结果</text>
+
+        <rect x="490" y="300" width="220" height="130" rx="8" fill="#0f172a"/>
+        <rect x="490" y="300" width="220" height="130" rx="8" fill="rgba(251,113,133,.14)" stroke="#fb7185" stroke-width="2"/>
+        <text x="600" y="335" fill="#fb7185" font-size="15" font-weight="600" text-anchor="middle">压缩记录</text>
+        <text x="600" y="362" fill="#cbd5e1" font-size="11" text-anchor="middle">摘要 + 保留边界</text>
+        <text x="600" y="389" fill="#cbd5e1" font-size="11" text-anchor="middle">成功后才追加</text>
+        <text x="600" y="412" fill="#94a3b8" font-size="9" text-anchor="middle">失败不污染历史</text>
+
+        <rect x="42" y="500" width="363" height="125" rx="8" fill="#0f172a"/>
+        <rect x="42" y="500" width="363" height="125" rx="8" fill="rgba(251,113,133,.12)" stroke="#fb7185" stroke-width="2" stroke-dasharray="5,4"/>
+        <text x="223" y="535" fill="#fb7185" font-size="15" font-weight="600" text-anchor="middle">失败保护</text>
+        <text x="223" y="562" fill="#cbd5e1" font-size="11" text-anchor="middle">摘要失败 → 机械降级</text>
+        <text x="223" y="588" fill="#cbd5e1" font-size="11" text-anchor="middle">数据库失败 → 保留旧边界</text>
+        <text x="223" y="612" fill="#94a3b8" font-size="9" text-anchor="middle">任何失败都不能静默清空上下文</text>
+
+        <rect x="490" y="500" width="220" height="125" rx="8" fill="#0f172a"/>
+        <rect x="490" y="500" width="220" height="125" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="2"/>
+        <text x="600" y="535" fill="white" font-size="15" font-weight="600" text-anchor="middle">模型运行器</text>
+        <text x="600" y="562" fill="#cbd5e1" font-size="11" text-anchor="middle">Eino Agent</text>
+        <text x="600" y="588" fill="#cbd5e1" font-size="11" text-anchor="middle">每次调用前重算上下文</text>
+        <text x="600" y="612" fill="#94a3b8" font-size="9" text-anchor="middle">超长时最多重试一次</text>
+
+        <rect x="795" y="500" width="395" height="125" rx="8" fill="#0f172a"/>
+        <rect x="795" y="500" width="395" height="125" rx="8" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="2"/>
+        <text x="992" y="535" fill="white" font-size="15" font-weight="600" text-anchor="middle">模型供应商</text>
+        <text x="992" y="562" fill="#cbd5e1" font-size="11" text-anchor="middle">OpenAI / Anthropic 兼容接口</text>
+        <text x="992" y="588" fill="#cbd5e1" font-size="11" text-anchor="middle">提供真实 Token 用量</text>
+        <text x="992" y="612" fill="#94a3b8" font-size="9" text-anchor="middle">返回超长错误时触发压缩重试</text>
+
+        <!-- Legend outside the main boundary -->
+        <text x="42" y="710" fill="white" font-size="12" font-weight="600">图例</text>
+        <rect x="92" y="700" width="18" height="12" rx="2" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1"/><text x="118" y="711" fill="#94a3b8" font-size="10">界面 / 回放</text>
+        <rect x="235" y="700" width="18" height="12" rx="2" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1"/><text x="261" y="711" fill="#94a3b8" font-size="10">后端 / 编译</text>
+        <rect x="390" y="700" width="18" height="12" rx="2" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1"/><text x="416" y="711" fill="#94a3b8" font-size="10">持久化</text>
+        <rect x="505" y="700" width="18" height="12" rx="2" fill="rgba(251,146,60,.3)" stroke="#fb923c" stroke-width="1"/><text x="531" y="711" fill="#94a3b8" font-size="10">预算 / 压缩</text>
+        <rect x="650" y="700" width="18" height="12" rx="2" fill="rgba(251,113,133,.14)" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/><text x="676" y="711" fill="#94a3b8" font-size="10">失败保护</text>
+      </svg>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-header"><div class="card-dot violet"></div><h3>不可变事实层</h3></div><ul>
+        <li>• 原始消息、工具组、Run 事件永久保留</li>
+        <li>• Compaction 只追加记录，不覆盖历史</li>
+        <li>• 每条记录有稳定顺序和边界 ID</li>
+      </ul></div>
+      <div class="card"><div class="card-header"><div class="card-dot emerald"></div><h3>模型上下文层</h3></div><ul>
+        <li>• Context Compiler 是 Agent 唯一入口</li>
+        <li>• 摘要覆盖全部被移除内容</li>
+        <li>• 切点只落在完整轮次或工具组</li>
+      </ul></div>
+      <div class="card"><div class="card-header"><div class="card-dot cyan"></div><h3>可恢复性</h3></div><ul>
+        <li>• 超长、摘要失败、数据库失败都有状态</li>
+        <li>• 失败不产生半成品 compaction</li>
+        <li>• UI、Trace、Agent 使用同一回放语义</li>
+      </ul></div>
+    </div>
+    <p class="footer">Pixoma · Production-grade context management proposal · 2026-09-22</p>
+  </div>
+
+  <script>
+    async function capture(btn) {
+      const orig = btn.textContent; btn.textContent = '⏳ ...';
+      const el = document.getElementById('report-container'); const r = el.getBoundingClientRect(); const pad = 32;
+      const canvas = await html2canvas(document.body, { backgroundColor:'#020617', scale:2, useCORS:true, ignoreElements:e=>e.classList&&e.classList.contains('toolbar'), x:r.left+scrollX-pad, y:r.top+scrollY-pad, width:r.width+pad*2, height:r.height+pad*2 });
+      return { canvas, orig };
+    }
+    async function copyAsImage(btn) { try { const {canvas,orig}=await capture(btn); const blob=await new Promise(r=>canvas.toBlob(r,'image/png')); await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent=orig,2000); } catch(e) { btn.textContent='✗ Failed'; setTimeout(()=>btn.textContent='📋 Copy',2000); } }
+    async function downloadPNG(btn) { try { const {canvas,orig}=await capture(btn); const link=document.createElement('a'); link.download='pixoma-context-management.png'; link.href=canvas.toDataURL('image/png'); link.click(); btn.textContent='✓ Done!'; setTimeout(()=>btn.textContent=orig,2000); } catch(e) { btn.textContent='✗ Failed'; setTimeout(()=>btn.textContent='🖼️ PNG',2000); } }
+    async function downloadPDF(btn) { try { const {canvas,orig}=await capture(btn); const img=canvas.toDataURL('image/png'); const {jsPDF}=window.jspdf; const orientation=canvas.width>canvas.height?'landscape':'portrait'; const pdf=new jsPDF({orientation,unit:'px',format:[canvas.width,canvas.height],hotfixes:['px_scaling']}); pdf.addImage(img,'PNG',0,0,canvas.width,canvas.height); pdf.save('pixoma-context-management.pdf'); btn.textContent='✓ Done!'; setTimeout(()=>btn.textContent=orig,2000); } catch(e) { btn.textContent='✗ Failed'; setTimeout(()=>btn.textContent='📄 PDF',2000); } }
+  </script>
+</body>
+</html>

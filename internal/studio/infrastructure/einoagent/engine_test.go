@@ -23,6 +23,8 @@ type resolver struct {
 	config *domain.ResolvedModelConfig
 }
 
+var testModelLimits = domain.ModelLimits{ContextWindowTokens: 128000, MaxInputTokens: 120000, MaxOutputTokens: 4096}
+
 type connectorResolver struct {
 	connectors []studioapp.ResolvedMCPConnector
 }
@@ -52,14 +54,16 @@ func (r resolver) Resolve(_ context.Context, _ string, _ string) (*domain.Resolv
 type sink struct {
 	mu        sync.Mutex
 	events    []string
+	payloads  []any
 	responses []string
 	assets    []studioapp.GeneratedAsset
 }
 
-func (s *sink) Emit(_ context.Context, eventType string, _ any) error {
+func (s *sink) Emit(_ context.Context, eventType string, payload any) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.events = append(s.events, eventType)
+	s.payloads = append(s.payloads, payload)
 	return nil
 }
 
@@ -106,8 +110,8 @@ func TestEngineExecutesOneEinoAgentTurn(t *testing.T) {
 
 	engine := &einoagent.Engine{
 		Models: resolver{config: &domain.ResolvedModelConfig{
-			ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: server.URL,
-			Model: "test-model", APIKey: "test-key",
+			ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: server.URL + "/chat/completions",
+			Model: "test-model", APIKey: "test-key", Limits: testModelLimits,
 		}},
 		Client: modelprovider.NewOpenAICompatibleClient(server.Client()),
 	}
@@ -121,7 +125,39 @@ func TestEngineExecutesOneEinoAgentTurn(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"已生成创作建议。"}, output.responses)
-	require.Equal(t, []string{studioapp.EventRunStarted, studioapp.EventRunFinished}, output.events)
+	requireEventSubsequence(t, output.events, []string{studioapp.EventRunStarted, studioapp.EventRunFinished})
+}
+
+func TestEngineEmitsProviderRequestTrace(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		writer.Header().Set("X-Request-ID", "provider-01")
+		_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已生成"}}],"usage":{"prompt_tokens":9,"completion_tokens":4}}`))
+	}))
+	defer server.Close()
+	engine := &einoagent.Engine{
+		Models: resolver{config: &domain.ResolvedModelConfig{ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: server.URL, Model: "test-model", APIKey: "test-key", Limits: testModelLimits}},
+		Client: modelprovider.NewOpenAICompatibleClient(server.Client()),
+	}
+	output := &sink{}
+	err := engine.Execute(context.Background(), studioapp.AgentRequest{
+		Run: &domain.Run{ID: "run_01", AccountID: "account_01", SessionID: "session_01", ModelConfigID: "model_01"}, Session: &domain.Session{ID: "session_01"}, UserText: "给我一个开头",
+	}, output)
+	require.NoError(t, err)
+	require.Contains(t, output.events, "MODEL_REQUEST_STARTED")
+	require.Contains(t, output.events, "MODEL_REQUEST_FINISHED")
+	var started map[string]any
+	for index, eventType := range output.events {
+		if eventType == "MODEL_REQUEST_STARTED" {
+			started, _ = output.payloads[index].(map[string]any)
+			break
+		}
+	}
+	require.NotNil(t, started)
+	require.Equal(t, "run_01", started["run_id"])
+	require.NotEmpty(t, started["attempt_id"])
+	require.NotEmpty(t, started["request_body"])
 }
 
 func TestEngineInvokesAllowedMCPToolAndReturnsFollowUp(t *testing.T) {
@@ -159,8 +195,8 @@ func TestEngineInvokesAllowedMCPToolAndReturnsFollowUp(t *testing.T) {
 
 	engine := &einoagent.Engine{
 		Models: resolver{config: &domain.ResolvedModelConfig{
-			ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: modelEndpoint.URL,
-			Model: "test-model", APIKey: "test-key",
+			ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: modelEndpoint.URL + "/chat/completions",
+			Model: "test-model", APIKey: "test-key", Limits: testModelLimits,
 		}},
 		Capabilities: connectorResolver{connectors: []studioapp.ResolvedMCPConnector{{
 			ID: "connector-01", Name: "Reference", URL: mcpEndpoint.URL, Credential: "connector-secret", Policy: domain.ConnectorPolicyAuto,
@@ -179,7 +215,7 @@ func TestEngineInvokesAllowedMCPToolAndReturnsFollowUp(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, calls)
 	require.Equal(t, []string{"已检索到参考资料。"}, output.responses)
-	require.Equal(t, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallEnd, studioapp.EventRunFinished}, output.events)
+	requireEventSubsequence(t, output.events, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallArgs, studioapp.EventToolCallResult, studioapp.EventToolCallEnd, studioapp.EventRunFinished})
 }
 
 func TestEngineCreatesMarkdownAssetWithBuiltInTool(t *testing.T) {
@@ -201,7 +237,7 @@ func TestEngineCreatesMarkdownAssetWithBuiltInTool(t *testing.T) {
 	}))
 	defer modelEndpoint.Close()
 	engine := &einoagent.Engine{
-		Models: resolver{config: &domain.ResolvedModelConfig{ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: modelEndpoint.URL, Model: "test-model", APIKey: "test-key"}},
+		Models: resolver{config: &domain.ResolvedModelConfig{ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: modelEndpoint.URL + "/chat/completions", Model: "test-model", APIKey: "test-key", Limits: testModelLimits}},
 		Client: modelprovider.NewOpenAICompatibleClient(modelEndpoint.Client()),
 	}
 	output := &sink{}
@@ -214,7 +250,7 @@ func TestEngineCreatesMarkdownAssetWithBuiltInTool(t *testing.T) {
 	require.Len(t, output.assets, 1)
 	require.Equal(t, "story.md", output.assets[0].Name)
 	require.Equal(t, "# 雨夜侦探", string(output.assets[0].Content))
-	require.Equal(t, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallEnd, studioapp.EventRunFinished}, output.events)
+	requireEventSubsequence(t, output.events, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallArgs, studioapp.EventToolCallResult, studioapp.EventToolCallEnd, studioapp.EventRunFinished})
 }
 
 func toolNames(tools []any) []string {
@@ -246,6 +282,19 @@ func hasToolNamed(raw any, expected string) bool {
 	return false
 }
 
+func requireEventSubsequence(t *testing.T, actual, expected []string) {
+	t.Helper()
+	index := 0
+	for _, eventType := range actual {
+		if index < len(expected) && eventType == expected[index] {
+			index++
+		}
+	}
+	if index != len(expected) {
+		t.Fatalf("events = %#v, expected ordered subsequence %#v", actual, expected)
+	}
+}
+
 func TestEngineInvokesEnabledWorkflowToolAndReturnsSubmission(t *testing.T) {
 	t.Parallel()
 	var calls int
@@ -269,8 +318,8 @@ func TestEngineInvokesEnabledWorkflowToolAndReturnsSubmission(t *testing.T) {
 	var started studioapp.WorkflowStartInput
 	engine := &einoagent.Engine{
 		Models: resolver{config: &domain.ResolvedModelConfig{
-			ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: modelEndpoint.URL,
-			Model: "test-model", APIKey: "test-key",
+			ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: modelEndpoint.URL + "/chat/completions",
+			Model: "test-model", APIKey: "test-key", Limits: testModelLimits,
 		}},
 		Workflows: workflowResolver{workflows: []studioapp.ResolvedWorkflow{{
 			ID: "12", ToolName: "studio_workflow_12", Name: "分镜工作流", Description: "根据故事生成分镜",
@@ -296,7 +345,7 @@ func TestEngineInvokesEnabledWorkflowToolAndReturnsSubmission(t *testing.T) {
 	require.Equal(t, "run_01", started.RunID)
 	require.Equal(t, map[string]any{"prompt": "rain"}, started.Inputs)
 	require.Equal(t, []string{"已提交分镜工作流。"}, output.responses)
-	require.Equal(t, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallEnd, studioapp.EventRunFinished}, output.events)
+	requireEventSubsequence(t, output.events, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallArgs, studioapp.EventToolCallResult, studioapp.EventToolCallEnd, studioapp.EventRunFinished})
 }
 
 func TestEngineInvokesMCPToolThroughResponsesProtocol(t *testing.T) {
@@ -335,8 +384,8 @@ func TestEngineInvokesMCPToolThroughResponsesProtocol(t *testing.T) {
 
 	engine := &einoagent.Engine{
 		Models: resolver{config: &domain.ResolvedModelConfig{
-			ID: "model_01", Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: modelEndpoint.URL,
-			Model: "test-model", APIKey: "test-key",
+			ID: "model_01", Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: modelEndpoint.URL + "/responses",
+			Model: "test-model", APIKey: "test-key", Limits: testModelLimits,
 		}},
 		Capabilities: connectorResolver{connectors: []studioapp.ResolvedMCPConnector{{
 			ID: "connector-01", Name: "Reference", URL: mcpEndpoint.URL, Credential: "connector-secret", Policy: domain.ConnectorPolicyAuto,
@@ -355,7 +404,7 @@ func TestEngineInvokesMCPToolThroughResponsesProtocol(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, calls)
 	require.Equal(t, []string{"已检索到参考资料。"}, output.responses)
-	require.Equal(t, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallEnd, studioapp.EventRunFinished}, output.events)
+	requireEventSubsequence(t, output.events, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallArgs, studioapp.EventToolCallResult, studioapp.EventToolCallEnd, studioapp.EventRunFinished})
 }
 
 func responsesInputIncludesToolRound(input []any, reasoningID, encryptedReasoning, callID, name, arguments, result string) bool {

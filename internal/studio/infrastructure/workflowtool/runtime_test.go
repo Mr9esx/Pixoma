@@ -76,5 +76,5 @@ func TestWorkflowToolCreatesOperationAndStartsTask(t *testing.T) {
 	require.Len(t, sink.nodes, 1)
 	require.Equal(t, domain.FlowNodeOperation, sink.nodes[0].Type)
 	require.Equal(t, "角色三视图", sink.nodes[0].Title)
-	require.Equal(t, []string{studioapp.EventToolCallStart, studioapp.EventToolCallEnd}, sink.events)
+	require.Equal(t, []string{studioapp.EventToolCallStart, studioapp.EventToolCallArgs, studioapp.EventToolCallResult, studioapp.EventToolCallEnd}, sink.events)
 }

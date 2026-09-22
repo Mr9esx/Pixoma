@@ -10,6 +10,15 @@ type SessionListQuery struct {
 	Offset int
 }
 
+// SessionTranscriptData is the complete persisted read set for replaying a
+// Studio session. It intentionally has no caller-provided limit: truncating
+// any one of these collections would make historical replay lossy.
+type SessionTranscriptData struct {
+	Messages []*Message
+	Runs     []*Run
+	Events   []*Event
+}
+
 // Repository persists Studio aggregates. Every read API requires accountID so
 // ownership is enforced at the data-access boundary, not only by HTTP handlers.
 type Repository interface {
@@ -21,6 +30,7 @@ type Repository interface {
 	AppendMessage(ctx context.Context, message *Message) error
 	GetMessage(ctx context.Context, accountID, messageID string) (*Message, error)
 	ListMessages(ctx context.Context, accountID, sessionID string, limit int) ([]*Message, error)
+	ListSessionTranscript(ctx context.Context, accountID, sessionID string) (*SessionTranscriptData, error)
 
 	CreateRun(ctx context.Context, run *Run) error
 	UpdateRun(ctx context.Context, run *Run) error

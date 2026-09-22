@@ -320,7 +320,7 @@ make clean      # 清空 DATA_DIR，下次启动重新走向导
 `make dev` 启动后：
 
 - 管理页：`http://127.0.0.1:5173`
-- 控制面：`http://127.0.0.1:8082`（`HTTP_ADDR` 可覆盖；开发脚本默认 `0.0.0.0:8082`）
+- 控制面：`http://127.0.0.1:30808`（`make dev PORT=...` 可同时修改前后端端口；二进制也支持 `PORT` 或 `HTTP_ADDR`）
 
 架构说明见 [`docs/architecture/`](docs/architecture/)。
 

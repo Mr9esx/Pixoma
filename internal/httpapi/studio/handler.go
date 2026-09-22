@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -31,6 +32,7 @@ type Handler struct {
 
 func (h *Handler) Mount(r chi.Router) {
 	r.Post("/agui", h.streamAGUI)
+	r.Get("/agui/ws", h.streamAGUIWebSocket)
 	r.Get("/sessions", h.listSessions)
 	r.Post("/sessions", h.createSession)
 	r.Get("/sessions/{sessionID}", h.getSession)
@@ -57,6 +59,8 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/library/folders", h.createLibraryFolder)
 	r.Get("/models", h.listModels)
 	r.Post("/models", h.createModel)
+	r.Post("/models/test", h.testModelConfig)
+	r.Patch("/models/{modelID}", h.updateModel)
 	r.Post("/models/{modelID}/test", h.testModelConnection)
 	r.Get("/skills", h.listSkills)
 	r.Post("/skills", h.createSkill)
@@ -375,7 +379,7 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	messages, err := h.Repo.ListMessages(r.Context(), accountID, sessionID, 200)
+	transcriptData, err := h.Repo.ListSessionTranscript(r.Context(), accountID, sessionID)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -390,10 +394,18 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	eventsByRun := make(map[string][]*domain.Event)
+	for _, event := range transcriptData.Events {
+		if event != nil {
+			eventsByRun[event.RunID] = append(eventsByRun[event.RunID], event)
+		}
+	}
+	transcript := studioapp.ProjectSessionTranscript(transcriptData.Messages, transcriptData.Runs, eventsByRun)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"session":  toSessionView(session),
-		"messages": messagesToViews(messages),
-		"assets":   assetsToViews(assets),
+		"session":    toSessionView(session),
+		"messages":   messagesToViews(transcriptData.Messages),
+		"transcript": transcript,
+		"assets":     assetsToViews(assets),
 		"flow": map[string]any{
 			"nodes": flowNodesToViews(nodes),
 			"edges": flowEdgesToViews(edges),
@@ -712,6 +724,63 @@ func (h *Handler) testModelConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.Models.TestConnection(r.Context(), accountID, chi.URLParam(r, "modelID"))
 	if err != nil {
+		slog.Error("studio model connection test failed",
+			"account_id", accountID,
+			"model_id", chi.URLParam(r, "modelID"),
+			"path", r.URL.Path,
+			"err", err,
+		)
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) updateModel(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Models == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "模型配置服务不可用"})
+		return
+	}
+	var body studioapp.UpdateModelConfigInput
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	model, err := h.Models.Update(r.Context(), accountID, chi.URLParam(r, "modelID"), body)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, model)
+}
+
+func (h *Handler) testModelConfig(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Models == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "模型配置服务不可用"})
+		return
+	}
+	var body studioapp.CreateModelConfigInput
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	body.AccountID = accountID
+	result, err := h.Models.TestConnectionConfig(r.Context(), body)
+	if err != nil {
+		slog.Error("studio model config test failed",
+			"account_id", accountID,
+			"model_id", body.ExistingModelID,
+			"path", r.URL.Path,
+			"err", err,
+		)
 		writeError(w, err)
 		return
 	}
@@ -927,6 +996,8 @@ func writeError(w http.ResponseWriter, err error) {
 		status, message = http.StatusNotFound, "内容不存在或无权访问"
 	case errors.Is(err, domain.ErrAlreadyExists):
 		status, message = http.StatusConflict, "内容已存在"
+	case errors.Is(err, studioapp.ErrModelConnectionTest):
+		status, message = http.StatusBadGateway, err.Error()
 	case errors.Is(err, domain.ErrInvalid), errors.Is(err, domain.ErrInvalidTransition):
 		status, message = http.StatusBadRequest, err.Error()
 	}

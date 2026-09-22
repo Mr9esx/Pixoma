@@ -97,6 +97,9 @@ func (t *createTextAssetTool) InvokableRun(ctx context.Context, arguments string
 	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallStart, map[string]any{"tool_call_id": action, "tool_name": t.info.Name, "argument_bytes": len(arguments)}); err != nil {
 		return "", err
 	}
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallArgs, map[string]any{"tool_call_id": action, "delta": arguments}); err != nil {
+		return "", err
+	}
 	asset, err := t.access.Sink.CreateAsset(ctx, studioapp.GeneratedAsset{Name: input.Name, Kind: domain.AssetDocument, Origin: domain.AssetOriginAgent, MIMEType: "text/markdown", Content: []byte(input.Content)})
 	if err != nil {
 		return "", t.finish(ctx, action, err)
@@ -108,13 +111,20 @@ func (t *createTextAssetTool) InvokableRun(ctx context.Context, arguments string
 	if _, err := t.access.Sink.CreateFlowNode(ctx, studioapp.FlowNodeInput{Type: domain.FlowNodeAsset, Title: asset.Name, Body: "Agent 创建的 Markdown 文档", AssetID: asset.ID, AssetVersionID: version.ID, SortOrder: 500}); err != nil {
 		return "", t.finish(ctx, action, err)
 	}
+	output := fmt.Sprintf("已创建 Markdown 资产「%s」（v%d）。", asset.Name, version.Version)
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallResult, map[string]any{"tool_call_id": action, "content": output, "is_error": false}); err != nil {
+		return "", err
+	}
 	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": action, "tool_name": t.info.Name, "asset_id": asset.ID, "asset_version_id": version.ID, "is_error": false}); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("已创建 Markdown 资产「%s」（v%d）。", asset.Name, version.Version), nil
+	return output, nil
 }
 
 func (t *createTextAssetTool) finish(ctx context.Context, action string, cause error) error {
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallResult, map[string]any{"tool_call_id": action, "content": cause.Error(), "is_error": true}); err != nil {
+		return err
+	}
 	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": action, "tool_name": t.info.Name, "is_error": true}); err != nil {
 		return err
 	}
@@ -149,7 +159,11 @@ func (t *readAssetTool) InvokableRun(ctx context.Context, arguments string, _ ..
 		if !strings.HasPrefix(version.MIMEType, "text/") && version.MIMEType != "application/json" {
 			return "", fmt.Errorf("studio: read_asset only supports text assets")
 		}
-		if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallStart, map[string]any{"tool_call_id": "asset.read." + asset.ID + "." + version.ID, "tool_name": t.info.Name}); err != nil {
+		toolCallID := "asset.read." + asset.ID + "." + version.ID
+		if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallStart, map[string]any{"tool_call_id": toolCallID, "tool_name": t.info.Name}); err != nil {
+			return "", err
+		}
+		if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallArgs, map[string]any{"tool_call_id": toolCallID, "delta": arguments}); err != nil {
 			return "", err
 		}
 		reader, err := t.access.Blob.Get(ctx, sharedkernel.BlobRef{Key: version.BlobKey, MIME: version.MIMEType, Size: version.SizeBytes})
@@ -169,7 +183,10 @@ func (t *readAssetTool) InvokableRun(ctx context.Context, arguments string, _ ..
 		if truncated {
 			output += "\n\n[内容已截断]"
 		}
-		if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": "asset.read." + asset.ID + "." + version.ID, "tool_name": t.info.Name, "result_bytes": len(output), "is_error": false}); err != nil {
+		if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallResult, map[string]any{"tool_call_id": toolCallID, "content": output, "is_error": false}); err != nil {
+			return "", err
+		}
+		if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": toolCallID, "tool_name": t.info.Name, "result_bytes": len(output), "is_error": false}); err != nil {
 			return "", err
 		}
 		return output, nil
@@ -178,7 +195,11 @@ func (t *readAssetTool) InvokableRun(ctx context.Context, arguments string, _ ..
 }
 
 func (t *readAssetTool) finish(ctx context.Context, asset *domain.Asset, version domain.AssetVersion, cause error) error {
-	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": "asset.read." + asset.ID + "." + version.ID, "tool_name": t.info.Name, "is_error": true}); err != nil {
+	toolCallID := "asset.read." + asset.ID + "." + version.ID
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallResult, map[string]any{"tool_call_id": toolCallID, "content": cause.Error(), "is_error": true}); err != nil {
+		return err
+	}
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": toolCallID, "tool_name": t.info.Name, "is_error": true}); err != nil {
 		return err
 	}
 	return cause

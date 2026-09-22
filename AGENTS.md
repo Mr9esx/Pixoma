@@ -17,6 +17,10 @@
 - 需要新组件时用项目包管理器运行 shadcn CLI 添加（本项目用 pnpm：`pnpm dlx shadcn@latest`）。
 - 遵循 shadcn 规则：用语义类名、内置 variants、`flex` + `gap`，不写裸色值/手写 `dark:`。
 
+## 前端文案约定（用户偏好，永久生效）
+
+- 不要擅自在表单或页面增加背景解释、实现说明或重复提示文案；除非用户明确要求，优先只使用字段标签、placeholder 和必要的错误反馈表达信息。
+
 ## Admin 状态显示规范（用户偏好，永久生效）
 
 后台前端的状态展示必须遵循 `docs/frontend/admin-status-rules.md`：

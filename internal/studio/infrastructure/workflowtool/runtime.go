@@ -90,6 +90,11 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 	}); err != nil {
 		return "", err
 	}
+	if err := t.emit(ctx, studioapp.EventToolCallArgs, map[string]any{
+		"tool_call_id": toolCallID, "delta": arguments,
+	}); err != nil {
+		return "", err
+	}
 	node, err := t.access.Sink.CreateFlowNode(ctx, studioapp.FlowNodeInput{
 		Type: domain.FlowNodeOperation, Title: t.workflow.Name,
 		Body: "已提交，正在后台执行工作流。", SortOrder: 1000,
@@ -107,16 +112,24 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 	if err != nil {
 		return "", t.finish(ctx, toolCallID, err)
 	}
+	var output string
+	if result.Reused {
+		output = fmt.Sprintf("工作流「%s」已在后台运行，任务编号：%s。", t.workflow.Name, result.TaskID)
+	} else {
+		output = fmt.Sprintf("已提交工作流「%s」，任务编号：%s，正在后台运行。", t.workflow.Name, result.TaskID)
+	}
+	if err := t.emit(ctx, studioapp.EventToolCallResult, map[string]any{
+		"tool_call_id": toolCallID, "content": output, "is_error": false,
+	}); err != nil {
+		return "", err
+	}
 	if err := t.emit(ctx, studioapp.EventToolCallEnd, map[string]any{
 		"tool_call_id": toolCallID, "tool_name": t.info.Name, "workflow_id": t.workflow.ID,
 		"task_id": result.TaskID, "is_error": false,
 	}); err != nil {
 		return "", err
 	}
-	if result.Reused {
-		return fmt.Sprintf("工作流「%s」已在后台运行，任务编号：%s。", t.workflow.Name, result.TaskID), nil
-	}
-	return fmt.Sprintf("已提交工作流「%s」，任务编号：%s，正在后台运行。", t.workflow.Name, result.TaskID), nil
+	return output, nil
 }
 
 func (t *runtimeTool) requiresApproval() bool {
@@ -124,6 +137,11 @@ func (t *runtimeTool) requiresApproval() bool {
 }
 
 func (t *runtimeTool) finish(ctx context.Context, toolCallID string, callErr error) error {
+	if err := t.emit(ctx, studioapp.EventToolCallResult, map[string]any{
+		"tool_call_id": toolCallID, "content": callErr.Error(), "is_error": true,
+	}); err != nil {
+		return err
+	}
 	if emitErr := t.emit(ctx, studioapp.EventToolCallEnd, map[string]any{
 		"tool_call_id": toolCallID, "tool_name": t.info.Name, "workflow_id": t.workflow.ID, "is_error": true,
 	}); emitErr != nil {

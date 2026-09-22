@@ -16,10 +16,39 @@ export type StudioSession = {
 }
 
 export type StudioMessagePart = {
-  type: 'text' | 'image' | 'file'
+  type: 'text' | 'image' | 'file' | 'reasoning'
   text?: string
   url?: string
   name?: string
+}
+
+export type StudioTranscriptToolCall = {
+  id: string
+  type: 'function'
+  function: { name: string; arguments: string }
+}
+
+export type StudioTranscriptMessage = {
+  id: string
+  role: 'user' | 'assistant' | 'reasoning' | 'tool'
+  content: string
+  toolCalls?: StudioTranscriptToolCall[]
+  toolCallId?: string
+  isError?: boolean
+}
+
+export type StudioTranscriptEvent = {
+  id: string
+  runId: string
+  sequence: number
+  type: string
+  payload: Record<string, unknown>
+  createdAt: string
+}
+
+export type StudioTranscript = {
+  messages: StudioTranscriptMessage[]
+  events: StudioTranscriptEvent[]
 }
 
 export type StudioMessage = {
@@ -116,6 +145,7 @@ export type StudioFlowEdge = {
 export type StudioSessionDetail = {
   session: StudioSession
   messages: StudioMessage[]
+  transcript: StudioTranscript
   assets: StudioAsset[]
   flow: {
     nodes: StudioFlowNode[]
@@ -143,6 +173,11 @@ export type StudioModel = {
   enabled: boolean
   agent_enabled: boolean
   default: boolean
+  limits: {
+    context_window_tokens: number
+    max_input_tokens: number
+    max_output_tokens: number
+  }
   thinking: {
     enabled: boolean
     effort?: string
@@ -237,11 +272,15 @@ export function getStudioRun(runId: string) {
 }
 
 export function listStudioSessionRuns(sessionId: string) {
-  return apiFetch<StudioRun[]>(`/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/runs`)
+  return apiFetch<StudioRun[]>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/runs`
+  )
 }
 
 export function listStudioRunEvents(runId: string) {
-  return apiFetch<StudioRunEvent[]>(`/api/v1/studio/runs/${encodeURIComponent(runId)}/events`)
+  return apiFetch<StudioRunEvent[]>(
+    `/api/v1/studio/runs/${encodeURIComponent(runId)}/events`
+  )
 }
 
 export function resolveStudioApproval(approvalId: string, approved: boolean) {
@@ -258,10 +297,21 @@ export function saveStudioAssetToLibrary(assetId: string, folderId?: string) {
   )
 }
 
-export function importStudioLibraryAsset(sessionId: string, assetId: string, assetVersionId: string) {
-  return apiFetch<StudioAsset>(`/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/assets/import`, {
-    method: 'POST', body: JSON.stringify({ asset_id: assetId, asset_version_id: assetVersionId }),
-  })
+export function importStudioLibraryAsset(
+  sessionId: string,
+  assetId: string,
+  assetVersionId: string
+) {
+  return apiFetch<StudioAsset>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/assets/import`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        asset_id: assetId,
+        asset_version_id: assetVersionId,
+      }),
+    }
+  )
 }
 
 export function createStudioTextAsset(input: {
@@ -294,7 +344,10 @@ export function uploadStudioAsset(file: File, sessionId?: string) {
   const body = new FormData()
   body.append('file', file)
   if (sessionId) body.append('session_id', sessionId)
-  return apiFetch<StudioAsset>('/api/v1/studio/assets/upload', { method: 'POST', body })
+  return apiFetch<StudioAsset>('/api/v1/studio/assets/upload', {
+    method: 'POST',
+    body,
+  })
 }
 
 export function updateStudioFlowNodes(
@@ -360,7 +413,10 @@ export function listStudioLibraryFolders() {
   return apiFetch<StudioLibraryFolder[]>('/api/v1/studio/library/folders')
 }
 
-export function createStudioLibraryFolder(input: { name: string; parentId?: string }) {
+export function createStudioLibraryFolder(input: {
+  name: string
+  parentId?: string
+}) {
   return apiFetch<StudioLibraryFolder>('/api/v1/studio/library/folders', {
     method: 'POST',
     body: JSON.stringify({ name: input.name, parent_id: input.parentId ?? '' }),
@@ -371,18 +427,22 @@ export function listStudioModels() {
   return apiFetch<StudioModel[]>('/api/v1/studio/models')
 }
 
-export function createStudioModel(input: {
+export type StudioModelConfigInput = {
   name: string
   protocol: StudioModel['protocol']
   baseUrl: string
   model: string
   apiKey: string
+  existingModelId?: string
   enabled: boolean
   agentEnabled: boolean
   default: boolean
+  limits: StudioModel['limits']
   thinking: StudioModel['thinking']
   capabilities: StudioModel['capabilities']
-}) {
+}
+
+export function createStudioModel(input: StudioModelConfigInput) {
   return apiFetch<StudioModel>('/api/v1/studio/models', {
     method: 'POST',
     body: JSON.stringify({
@@ -394,6 +454,54 @@ export function createStudioModel(input: {
       enabled: input.enabled,
       agent_enabled: input.agentEnabled,
       default: input.default,
+      limits: input.limits,
+      thinking: input.thinking,
+      capabilities: input.capabilities,
+    }),
+  })
+}
+
+export function updateStudioModel(
+  modelId: string,
+  input: StudioModelConfigInput
+) {
+  return apiFetch<StudioModel>(
+    `/api/v1/studio/models/${encodeURIComponent(modelId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: input.name,
+        protocol: input.protocol,
+        base_url: input.baseUrl,
+        model: input.model,
+        api_key: input.apiKey,
+        enabled: input.enabled,
+        agent_enabled: input.agentEnabled,
+        default: input.default,
+        limits: input.limits,
+        thinking: input.thinking,
+        capabilities: input.capabilities,
+      }),
+    }
+  )
+}
+
+export function testStudioModelConfig(input: StudioModelConfigInput) {
+  return apiFetch<StudioModelConnectionTest>('/api/v1/studio/models/test', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: input.name,
+      protocol: input.protocol,
+      base_url: input.baseUrl,
+      model: input.model,
+      ...(input.apiKey ? { api_key: input.apiKey } : {}),
+      ...(input.existingModelId
+        ? { existing_model_id: input.existingModelId }
+        : {}),
+      enabled: input.enabled,
+      agent_enabled: input.agentEnabled,
+      default: input.default,
+      limits: input.limits,
       thinking: input.thinking,
       capabilities: input.capabilities,
     }),

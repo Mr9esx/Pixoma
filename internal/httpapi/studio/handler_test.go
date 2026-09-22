@@ -4,15 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/websocket"
 
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	setupapi "github.com/Mr9esx/Pixoma/internal/httpapi/setup"
@@ -36,6 +39,12 @@ type modelConnectionTester struct{}
 
 func (modelConnectionTester) Test(_ context.Context, _ domain.ResolvedModelConfig) error {
 	return nil
+}
+
+type failingModelConnectionTester struct{}
+
+func (failingModelConnectionTester) Test(_ context.Context, _ domain.ResolvedModelConfig) error {
+	return errors.New("provider rejected temporary-secret")
 }
 
 func (c workflowCatalog) List(_ context.Context, _ catalogdomain.ListQuery) ([]*catalogdomain.Case, error) {
@@ -83,9 +92,22 @@ func TestStudioModelConnectionTestAPIIsAccountScoped(t *testing.T) {
 	router := chi.NewRouter()
 	handler.Mount(router)
 
+	transient := request(t, router, http.MethodPost, "/models/test", map[string]any{
+		"name": "Transient", "protocol": "openai_chat_compatible", "base_url": "https://model.example.test/v1",
+		"model": "model-test", "api_key": "temporary-secret", "enabled": true, "agent_enabled": true,
+	}, "account-a")
+	if transient.Code != http.StatusOK || !strings.Contains(transient.Body.String(), `"success":true`) || strings.Contains(transient.Body.String(), "temporary-secret") {
+		t.Fatalf("POST /models/test = %d %s", transient.Code, transient.Body.String())
+	}
+	listed := request(t, router, http.MethodGet, "/models", nil, "account-a")
+	if listed.Code != http.StatusOK || listed.Body.String() != "[]\n" {
+		t.Fatalf("transient test persisted model: %d %s", listed.Code, listed.Body.String())
+	}
+
 	created := request(t, router, http.MethodPost, "/models", map[string]any{
 		"name": "Ark DeepSeek", "protocol": "openai_chat_compatible", "base_url": "https://ark.example.test/v3",
 		"model": "deepseek-v4-flash", "api_key": "temporary-secret", "enabled": true, "agent_enabled": true,
+		"limits": map[string]any{"context_window_tokens": 131072, "max_input_tokens": 120000, "max_output_tokens": 8192},
 	}, "account-a")
 	if created.Code != http.StatusCreated {
 		t.Fatalf("POST /models = %d %s", created.Code, created.Body.String())
@@ -96,6 +118,14 @@ func TestStudioModelConnectionTestAPIIsAccountScoped(t *testing.T) {
 	if err := json.Unmarshal(created.Body.Bytes(), &model); err != nil || model.ID == "" {
 		t.Fatalf("created model = %s, err=%v", created.Body.String(), err)
 	}
+	updated := request(t, router, http.MethodPatch, "/models/"+model.ID, map[string]any{
+		"name": "Ark DeepSeek Updated", "protocol": "openai_chat_compatible", "base_url": "https://ark.example.test/v4",
+		"model": "deepseek-v4-flash-updated", "enabled": true, "agent_enabled": true, "default": true,
+		"limits": map[string]any{"context_window_tokens": 131072, "max_input_tokens": 120000, "max_output_tokens": 8192},
+	}, "account-a")
+	if updated.Code != http.StatusOK || !strings.Contains(updated.Body.String(), "Ark DeepSeek Updated") {
+		t.Fatalf("PATCH /models/{id} = %d %s", updated.Code, updated.Body.String())
+	}
 
 	tested := request(t, router, http.MethodPost, "/models/"+model.ID+"/test", nil, "account-a")
 	if tested.Code != http.StatusOK || !strings.Contains(tested.Body.String(), `"success":true`) || strings.Contains(tested.Body.String(), "temporary-secret") {
@@ -104,6 +134,11 @@ func TestStudioModelConnectionTestAPIIsAccountScoped(t *testing.T) {
 	foreign := request(t, router, http.MethodPost, "/models/"+model.ID+"/test", nil, "account-b")
 	if foreign.Code != http.StatusNotFound {
 		t.Fatalf("foreign model test = %d %s", foreign.Code, foreign.Body.String())
+	}
+	handler.Models.Tester = failingModelConnectionTester{}
+	failed := request(t, router, http.MethodPost, "/models/"+model.ID+"/test", nil, "account-a")
+	if failed.Code != http.StatusBadGateway || !strings.Contains(failed.Body.String(), "provider rejected") || strings.Contains(failed.Body.String(), "temporary-secret") {
+		t.Fatalf("provider failure = %d %s", failed.Code, failed.Body.String())
 	}
 }
 
@@ -255,9 +290,15 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 		t.Fatalf("GET session status=%d body=%s", response.Code, response.Body.String())
 	}
 	var detail struct {
-		Messages []json.RawMessage `json:"messages"`
-		Assets   []json.RawMessage `json:"assets"`
-		Flow     struct {
+		Messages   []json.RawMessage `json:"messages"`
+		Transcript struct {
+			Messages []json.RawMessage `json:"messages"`
+			Events   []struct {
+				Type string `json:"type"`
+			} `json:"events"`
+		} `json:"transcript"`
+		Assets []json.RawMessage `json:"assets"`
+		Flow   struct {
 			Nodes []json.RawMessage `json:"nodes"`
 			Edges []json.RawMessage `json:"edges"`
 		} `json:"flow"`
@@ -265,7 +306,7 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &detail); err != nil {
 		t.Fatal(err)
 	}
-	if len(detail.Messages) < 2 || len(detail.Assets) != 2 || len(detail.Flow.Nodes) != 4 || len(detail.Flow.Edges) != 3 {
+	if len(detail.Messages) < 2 || len(detail.Transcript.Messages) < 2 || len(detail.Transcript.Events) == 0 || len(detail.Assets) != 2 || len(detail.Flow.Nodes) != 4 || len(detail.Flow.Edges) != 3 {
 		t.Fatalf("detail counts: messages=%d assets=%d nodes=%d edges=%d body=%s", len(detail.Messages), len(detail.Assets), len(detail.Flow.Nodes), len(detail.Flow.Edges), response.Body.String())
 	}
 }
@@ -355,8 +396,12 @@ func TestStudioAGUIStreamsStandardEvents(t *testing.T) {
 	}
 
 	response := request(t, router, http.MethodPost, "/agui", map[string]any{
-		"threadId": session.ID,
-		"runId":    "browser-run-1",
+		"threadId":   session.ID,
+		"runId":      "browser-run-1",
+		"tools":      []any{},
+		"context":    []any{},
+		"state":      nil,
+		"extensions": map[string]any{"futureField": true},
 		"messages": []map[string]any{{
 			"id": "user-message-1", "role": "user", "content": "为雨夜侦探生成漫画分镜",
 		}},
@@ -383,6 +428,61 @@ func TestStudioAGUIStreamsStandardEvents(t *testing.T) {
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("SSE body does not contain %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestStudioAGUIWebSocketStreamsStandardEvents(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(setupapi.WithAccount(r.Context(), setupapi.AccountSession{AccountID: "account-a", Username: "account-a", Role: "admin"}))
+		router.ServeHTTP(w, r)
+	}))
+	t.Cleanup(server.Close)
+	wsURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wsURL.Scheme = "ws"
+	wsURL.Path = "/agui/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(map[string]any{
+		"threadId": session.ID, "runId": "browser-ws-run",
+		"messages":       []map[string]any{{"id": "user-message", "role": "user", "content": "写分镜"}},
+		"forwardedProps": map[string]any{"runConfig": map[string]any{"permissionMode": domain.PermissionFullAccess}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for {
+		var event map[string]any
+		if err := conn.ReadJSON(&event); err != nil {
+			t.Fatal(err)
+		}
+		if kind, ok := event["type"].(string); ok {
+			seen[kind] = true
+			if kind == "RUN_FINISHED" {
+				break
+			}
+		}
+	}
+	for _, kind := range []string{"RUN_STARTED", "TEXT_MESSAGE_CONTENT", "RUN_FINISHED"} {
+		if !seen[kind] {
+			t.Fatalf("websocket events missing %s: %#v", kind, seen)
 		}
 	}
 }

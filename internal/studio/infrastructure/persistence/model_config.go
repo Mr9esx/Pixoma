@@ -12,20 +12,23 @@ import (
 )
 
 type ModelConfigRow struct {
-	ID               string `gorm:"primaryKey;size:64"`
-	AccountID        string `gorm:"size:64;not null;index"`
-	Name             string `gorm:"size:256;not null"`
-	Protocol         string `gorm:"size:64;not null;index"`
-	BaseURL          string `gorm:"type:text;not null"`
-	Model            string `gorm:"size:256;not null"`
-	APIKeyCipher     string `gorm:"type:text;not null"`
-	Enabled          bool   `gorm:"not null;default:true"`
-	AgentEnabled     bool   `gorm:"not null;default:true;index"`
-	IsDefault        bool   `gorm:"not null;default:false;index"`
-	ThinkingJSON     []byte `gorm:"type:blob;not null"`
-	CapabilitiesJSON []byte `gorm:"type:blob;not null"`
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID                  string `gorm:"primaryKey;size:64"`
+	AccountID           string `gorm:"size:64;not null;index"`
+	Name                string `gorm:"size:256;not null"`
+	Protocol            string `gorm:"size:64;not null;index"`
+	BaseURL             string `gorm:"type:text;not null"`
+	Model               string `gorm:"size:256;not null"`
+	APIKeyCipher        string `gorm:"type:text;not null"`
+	Enabled             bool   `gorm:"not null;default:true"`
+	AgentEnabled        bool   `gorm:"not null;default:true;index"`
+	IsDefault           bool   `gorm:"not null;default:false;index"`
+	ContextWindowTokens int    `gorm:"not null;default:0"`
+	MaxInputTokens      int    `gorm:"not null;default:0"`
+	MaxOutputTokens     int    `gorm:"not null;default:0"`
+	ThinkingJSON        []byte `gorm:"type:blob;not null"`
+	CapabilitiesJSON    []byte `gorm:"type:blob;not null"`
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 func (ModelConfigRow) TableName() string { return "studio_model_configs" }
@@ -111,7 +114,10 @@ func modelConfigToRow(config *domain.ModelConfig) (*ModelConfigRow, error) {
 		ID: config.ID, AccountID: config.AccountID, Name: config.Name, Protocol: string(config.Protocol),
 		BaseURL: config.BaseURL, Model: config.Model, APIKeyCipher: config.APIKeyCipher,
 		Enabled: config.Enabled, AgentEnabled: config.AgentEnabled, IsDefault: config.Default,
-		ThinkingJSON: thinking, CapabilitiesJSON: capabilities,
+		ContextWindowTokens: config.Limits.ContextWindowTokens,
+		MaxInputTokens:      config.Limits.MaxInputTokens,
+		MaxOutputTokens:     config.Limits.MaxOutputTokens,
+		ThinkingJSON:        thinking, CapabilitiesJSON: capabilities,
 		CreatedAt: config.CreatedAt, UpdatedAt: config.UpdatedAt,
 	}, nil
 }
@@ -121,6 +127,11 @@ func modelConfigFromRow(row ModelConfigRow) (*domain.ModelConfig, error) {
 		ID: row.ID, AccountID: row.AccountID, Name: row.Name, Protocol: domain.ModelProtocol(row.Protocol),
 		BaseURL: row.BaseURL, Model: row.Model, APIKeyCipher: row.APIKeyCipher,
 		Enabled: row.Enabled, AgentEnabled: row.AgentEnabled, Default: row.IsDefault,
+		Limits: domain.ModelLimits{
+			ContextWindowTokens: row.ContextWindowTokens,
+			MaxInputTokens:      row.MaxInputTokens,
+			MaxOutputTokens:     row.MaxOutputTokens,
+		},
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 	if err := json.Unmarshal(row.ThinkingJSON, &config.Thinking); err != nil {
