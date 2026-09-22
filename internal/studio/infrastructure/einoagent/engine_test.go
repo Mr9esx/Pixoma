@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
@@ -52,6 +53,7 @@ type sink struct {
 	mu        sync.Mutex
 	events    []string
 	responses []string
+	assets    []studioapp.GeneratedAsset
 }
 
 func (s *sink) Emit(_ context.Context, eventType string, _ any) error {
@@ -68,8 +70,16 @@ func (s *sink) AssistantMessage(_ context.Context, text string) (*domain.Message
 	return &domain.Message{ID: "message_01"}, nil
 }
 
-func (*sink) CreateAsset(context.Context, studioapp.GeneratedAsset) (*domain.Asset, error) {
-	return nil, nil
+func (s *sink) CreateAsset(_ context.Context, asset studioapp.GeneratedAsset) (*domain.Asset, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.assets = append(s.assets, asset)
+	created, err := domain.NewAsset("asset_01", "session_01", "account_01", asset.Name, asset.Kind, asset.Origin, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	_, err = created.AppendVersion("version_01", asset.MIMEType, "studio/asset_01/v1", int64(len(asset.Content)), time.Now())
+	return created, err
 }
 func (*sink) CreateFlowNode(context.Context, studioapp.FlowNodeInput) (*domain.FlowNode, error) {
 	return &domain.FlowNode{ID: "node_01"}, nil
@@ -136,7 +146,7 @@ func TestEngineInvokesAllowedMCPToolAndReturnsFollowUp(t *testing.T) {
 		require.NoError(t, json.NewDecoder(request.Body).Decode(&body))
 		writer.Header().Set("Content-Type", "application/json")
 		if calls == 1 {
-			require.Len(t, body["tools"], 1)
+			require.True(t, hasToolNamed(body["tools"], "mcp_connector_01_search_reference"))
 			_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call_01","type":"function","function":{"name":"mcp_connector_01_search_reference","arguments":"{\"query\":\"rain\"}"}}]}}]}`))
 			return
 		}
@@ -172,6 +182,70 @@ func TestEngineInvokesAllowedMCPToolAndReturnsFollowUp(t *testing.T) {
 	require.Equal(t, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallEnd, studioapp.EventRunFinished}, output.events)
 }
 
+func TestEngineCreatesMarkdownAssetWithBuiltInTool(t *testing.T) {
+	t.Parallel()
+	var calls int
+	modelEndpoint := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		calls++
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+		writer.Header().Set("Content-Type", "application/json")
+		if calls == 1 {
+			tools, ok := body["tools"].([]any)
+			require.True(t, ok)
+			require.Contains(t, toolNames(tools), "create_text_asset")
+			_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call_01","type":"function","function":{"name":"create_text_asset","arguments":"{\"name\":\"story.md\",\"content\":\"# 雨夜侦探\"}"}}]}}]}`))
+			return
+		}
+		_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已创建故事大纲。"}}]}`))
+	}))
+	defer modelEndpoint.Close()
+	engine := &einoagent.Engine{
+		Models: resolver{config: &domain.ResolvedModelConfig{ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: modelEndpoint.URL, Model: "test-model", APIKey: "test-key"}},
+		Client: modelprovider.NewOpenAICompatibleClient(modelEndpoint.Client()),
+	}
+	output := &sink{}
+	err := engine.Execute(context.Background(), studioapp.AgentRequest{
+		Run:     &domain.Run{ID: "run_01", AccountID: "account_01", SessionID: "session_01", ModelConfigID: "model_01"},
+		Session: &domain.Session{ID: "session_01", PermissionMode: domain.PermissionFullAccess}, UserText: "把故事大纲写成 Markdown 文件",
+	}, output)
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	require.Len(t, output.assets, 1)
+	require.Equal(t, "story.md", output.assets[0].Name)
+	require.Equal(t, "# 雨夜侦探", string(output.assets[0].Content))
+	require.Equal(t, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallEnd, studioapp.EventRunFinished}, output.events)
+}
+
+func toolNames(tools []any) []string {
+	names := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		value, _ := tool.(map[string]any)
+		function, _ := value["function"].(map[string]any)
+		name, _ := function["name"].(string)
+		names = append(names, name)
+	}
+	return names
+}
+
+func hasToolNamed(raw any, expected string) bool {
+	tools, ok := raw.([]any)
+	if !ok {
+		return false
+	}
+	for _, tool := range tools {
+		value, _ := tool.(map[string]any)
+		if name, _ := value["name"].(string); name == expected {
+			return true
+		}
+		function, _ := value["function"].(map[string]any)
+		if name, _ := function["name"].(string); name == expected {
+			return true
+		}
+	}
+	return false
+}
+
 func TestEngineInvokesEnabledWorkflowToolAndReturnsSubmission(t *testing.T) {
 	t.Parallel()
 	var calls int
@@ -181,7 +255,7 @@ func TestEngineInvokesEnabledWorkflowToolAndReturnsSubmission(t *testing.T) {
 		require.NoError(t, json.NewDecoder(request.Body).Decode(&body))
 		writer.Header().Set("Content-Type", "application/json")
 		if calls == 1 {
-			require.Len(t, body["tools"], 1)
+			require.True(t, hasToolNamed(body["tools"], "studio_workflow_12"))
 			_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call_01","type":"function","function":{"name":"studio_workflow_12","arguments":"{\"prompt\":\"rain\"}"}}]}}]}`))
 			return
 		}
@@ -248,7 +322,7 @@ func TestEngineInvokesMCPToolThroughResponsesProtocol(t *testing.T) {
 		require.NoError(t, json.NewDecoder(request.Body).Decode(&body))
 		writer.Header().Set("Content-Type", "application/json")
 		if calls == 1 {
-			require.Len(t, body["tools"], 1)
+			require.True(t, hasToolNamed(body["tools"], "mcp_connector_01_search_reference"))
 			_, _ = writer.Write([]byte(`{"output":[{"type":"reasoning","id":"rs_01","encrypted_content":"opaque-reasoning"},{"type":"function_call","call_id":"call_01","name":"mcp_connector_01_search_reference","arguments":"{\"query\":\"rain\"}"}]}`))
 			return
 		}

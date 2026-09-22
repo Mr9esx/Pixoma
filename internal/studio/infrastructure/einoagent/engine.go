@@ -14,6 +14,7 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/mcpconnector"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/modelprovider"
+	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/studiotool"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/workflowtool"
 )
 
@@ -124,6 +125,14 @@ func (e *Engine) resolveTools(ctx context.Context, request studioapp.AgentReques
 		return err
 	}
 	tools := make([]einotool.BaseTool, 0)
+	builtInTools, err := studiotool.NewRuntimeTools(studiotool.ToolAccess{
+		PermissionMode: request.Session.PermissionMode, IsApproved: authorizer.Consume,
+		RequestApproval: requestApproval, Sink: sink,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("studio: create built-in Agent tools: %w", err)
+	}
+	tools = append(tools, builtInTools...)
 	if e.Capabilities != nil {
 		connectors, err := e.Capabilities.ResolveMCPConnectors(ctx, request.Run.AccountID)
 		if err != nil {
