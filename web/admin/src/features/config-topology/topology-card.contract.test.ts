@@ -12,10 +12,11 @@ const board = readFileSync(
 )
 
 describe('topology card contract', () => {
-  it('sits at the top of the workbench data board', () => {
+  it('sits at the bottom of the workbench data board', () => {
     expect(board).toContain('TopologyCard')
-    expect(board.indexOf('<TopologyCard')).toBeLessThan(
-      board.indexOf('<WorkbenchContribution')
+    // cd2d00d2 起拓扑卡片位于数据面板末尾，排在统计图表之后。
+    expect(board.indexOf('<TopologyCard')).toBeGreaterThan(
+      board.indexOf('<WorkbenchChartPairs')
     )
   })
 
