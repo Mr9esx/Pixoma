@@ -13,6 +13,7 @@ import {
   listStudioSkills,
   listStudioSessions,
   saveStudioAssetToLibrary,
+  importStudioLibraryAsset,
   uploadStudioAsset,
   updateStudioTextAsset,
   updateStudioFlowNodes,
@@ -172,6 +173,13 @@ export function StudioWorkspace() {
       })
     },
   })
+	const importLibraryAsset = useMutation({
+		mutationFn: ({ assetId, assetVersionId }: SelectedAsset) => {
+			if (!sessionId) throw new Error('请先创建或选择一个对话')
+			return importStudioLibraryAsset(sessionId, assetId, assetVersionId)
+		},
+		onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['studio', 'session', sessionId] }),
+	})
   const uploadAsset = useMutation({
     mutationFn: (file: File) => uploadStudioAsset(file, sessionId),
     onSuccess: () => {
@@ -266,7 +274,8 @@ export function StudioWorkspace() {
                     if (sessionId) setActiveSessionId(sessionId)
                   }}
                   onSkillChange={setSelectedSkillIds}
-				  onAssetChange={setSelectedAssets}
+                  onAssetChange={setSelectedAssets}
+				  onImportLibraryAsset={(selection) => importLibraryAsset.mutateAsync(selection)}
                 />
               )}
             </main>

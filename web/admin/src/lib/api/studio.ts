@@ -258,6 +258,12 @@ export function saveStudioAssetToLibrary(assetId: string, folderId?: string) {
   )
 }
 
+export function importStudioLibraryAsset(sessionId: string, assetId: string, assetVersionId: string) {
+  return apiFetch<StudioAsset>(`/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/assets/import`, {
+    method: 'POST', body: JSON.stringify({ asset_id: assetId, asset_version_id: assetVersionId }),
+  })
+}
+
 export function createStudioTextAsset(input: {
   sessionId: string
   name: string

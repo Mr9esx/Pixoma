@@ -56,6 +56,7 @@ type Props = {
   onPermissionChange: (mode: StudioPermissionMode) => void
   onSkillChange: (ids: string[]) => void
   onAssetChange: (assets: SelectedAsset[]) => void
+	 onImportLibraryAsset: (asset: SelectedAsset) => Promise<StudioAsset>
 }
 
 type SelectedAsset = { assetId: string; assetVersionId: string }
@@ -164,6 +165,7 @@ export function StudioChat(props: Props) {
                   assets={props.assets}
                   value={props.selectedAssets}
                   onChange={props.onAssetChange}
+				  onImportLibraryAsset={props.onImportLibraryAsset}
                 />
                 <PermissionPicker
                   value={props.permissionMode}
@@ -194,10 +196,12 @@ function AssetPicker({
   assets,
   value,
   onChange,
+	 onImportLibraryAsset,
 }: {
   assets: StudioAsset[]
   value: SelectedAsset[]
   onChange: (assets: SelectedAsset[]) => void
+	 onImportLibraryAsset: (asset: SelectedAsset) => Promise<StudioAsset>
 }) {
   const libraryAssets = useQuery({
     queryKey: ['studio', 'library', 'assets'],
@@ -210,16 +214,23 @@ function AssetPicker({
     assetsByID.set(asset.id, asset)
   }
   const selected = new Map(value.map((item) => [item.assetId, item.assetVersionId]))
-  const toggle = (asset: StudioAsset) => {
+  const toggle = async (asset: StudioAsset, fromLibrary = false) => {
     const version = asset.versions[asset.versions.length - 1]
     if (!version) return
     if (selected.get(asset.id) === version.id) {
       onChange(value.filter((item) => item.assetId !== asset.id))
       return
     }
+    let next = { assetId: asset.id, assetVersionId: version.id }
+    if (fromLibrary) {
+      const imported = await onImportLibraryAsset(next)
+      const importedVersion = imported.versions[imported.versions.length - 1]
+      if (!importedVersion) return
+      next = { assetId: imported.id, assetVersionId: importedVersion.id }
+    }
     onChange([
       ...value.filter((item) => item.assetId !== asset.id),
-      { assetId: asset.id, assetVersionId: version.id },
+      next,
     ])
   }
   const unavailableSelections = value.filter((selection) => {
@@ -255,7 +266,7 @@ function AssetPicker({
           label='资产库'
           assets={reusableAssets}
           selected={selected}
-          onToggle={toggle}
+		  onToggle={(asset) => void toggle(asset, true)}
           emptyText={libraryAssets.isLoading ? '正在读取资产库…' : '资产库还没有可复用资产'}
         />
         {unavailableSelections.length > 0 ? (
@@ -281,7 +292,7 @@ function AssetPickerSection({
   label: string
   assets: StudioAsset[]
   selected: Map<string, string>
-  onToggle: (asset: StudioAsset) => void
+  onToggle: (asset: StudioAsset) => void | Promise<void>
   emptyText: string
 }) {
   return (
@@ -299,7 +310,7 @@ function AssetPickerSection({
               key={asset.id}
               checked={selected.get(asset.id) === version?.id}
               onSelect={(event) => event.preventDefault()}
-              onCheckedChange={() => onToggle(asset)}
+			  onCheckedChange={() => void onToggle(asset)}
             >
               <span className='min-w-0 flex-1'>
                 <span className='block truncate'>{asset.name}</span>
