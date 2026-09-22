@@ -132,12 +132,21 @@ type Run struct {
 	ModelConfigID    string
 	SkillIDs         []string
 	AssetIDs         []string
+	AssetReferences  []AssetReference
 	ErrorCode        string
 	ErrorMessage     string
 	CreatedAt        time.Time
 	StartedAt        time.Time
 	CompletedAt      time.Time
 	UpdatedAt        time.Time
+}
+
+// AssetReference identifies the immutable asset version consumed by a Run.
+// AssetID is retained separately on Run for compatibility with historical
+// records created before version snapshots were introduced.
+type AssetReference struct {
+	AssetID        string `json:"asset_id"`
+	AssetVersionID string `json:"asset_version_id"`
 }
 
 func NewRun(id, sessionID, accountID, triggerMessageID string, now time.Time) (*Run, error) {

@@ -793,6 +793,9 @@ func messageFromRow(row MessageRow) *domain.Message {
 func runToRow(value *domain.Run) *RunRow {
 	skillIDs, _ := json.Marshal(value.SkillIDs)
 	assetIDs, _ := json.Marshal(value.AssetIDs)
+	if len(value.AssetReferences) > 0 {
+		assetIDs, _ = json.Marshal(value.AssetReferences)
+	}
 	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, SkillIDsJSON: skillIDs, AssetIDsJSON: assetIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
 }
 
@@ -800,8 +803,15 @@ func runFromRow(row RunRow) *domain.Run {
 	var skillIDs []string
 	_ = json.Unmarshal(row.SkillIDsJSON, &skillIDs)
 	var assetIDs []string
-	_ = json.Unmarshal(row.AssetIDsJSON, &assetIDs)
-	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, AssetIDs: assetIDs, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
+	var assetReferences []domain.AssetReference
+	if err := json.Unmarshal(row.AssetIDsJSON, &assetReferences); err == nil && len(assetReferences) > 0 {
+		for _, reference := range assetReferences {
+			assetIDs = append(assetIDs, reference.AssetID)
+		}
+	} else {
+		_ = json.Unmarshal(row.AssetIDsJSON, &assetIDs)
+	}
+	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, AssetIDs: assetIDs, AssetReferences: assetReferences, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func eventToRow(value *domain.Event) *EventRow {

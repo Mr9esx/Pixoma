@@ -35,6 +35,8 @@ import { StudioSettings } from './studio-settings'
 import { StudioSidebar, type StudioView } from './studio-sidebar'
 import { StudioTrace } from './studio-trace'
 
+type SelectedAsset = { assetId: string; assetVersionId: string }
+
 export function StudioWorkspace() {
   const queryClient = useQueryClient()
   const [view, setView] = useState<StudioView>('chat')
@@ -43,7 +45,7 @@ export function StudioWorkspace() {
   const [traceOpen, setTraceOpen] = useState(false)
   const [modelConfigId, setModelConfigId] = useState<string>()
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
-  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([])
+	const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([])
   const [permissionMode, setPermissionMode] =
     useState<StudioPermissionMode>('request_approval')
 
@@ -257,14 +259,14 @@ export function StudioWorkspace() {
                   skills={skills.data ?? []}
                   assets={detail.data.assets}
                   selectedSkillIds={selectedSkillIds}
-                  selectedAssetIds={selectedAssetIds}
+				  selectedAssets={selectedAssets}
                   onModelChange={setModelConfigId}
                   onPermissionChange={(mode) => {
                     setPermissionMode(mode)
                     if (sessionId) setActiveSessionId(sessionId)
                   }}
                   onSkillChange={setSelectedSkillIds}
-                  onAssetChange={setSelectedAssetIds}
+				  onAssetChange={setSelectedAssets}
                 />
               )}
             </main>

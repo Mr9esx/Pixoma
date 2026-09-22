@@ -42,6 +42,7 @@ type SendMessageInput struct {
 	PermissionMode   domain.PermissionMode
 	SkillIDs         []string
 	SelectedAssetIDs []string
+	SelectedAssets   []domain.AssetReference
 }
 
 type SendMessageResult struct {
@@ -102,11 +103,12 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 		return nil, err
 	}
 	run.SkillIDs = skillIDs
-	assetIDs, err := s.resolveAssetIDs(ctx, input.AccountID, session.ID, input.SelectedAssetIDs)
+	assetReferences, err := s.resolveAssetReferences(ctx, input.AccountID, session.ID, input.SelectedAssets, input.SelectedAssetIDs)
 	if err != nil {
 		return nil, err
 	}
-	run.AssetIDs = assetIDs
+	run.AssetReferences = assetReferences
+	run.AssetIDs = assetIDsFromReferences(assetReferences)
 	message.RunID = run.ID
 
 	if err := s.Repo.AppendMessage(ctx, message); err != nil {
@@ -127,28 +129,61 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	return &SendMessageResult{Session: session, Message: message, Run: run}, nil
 }
 
-func (s *Service) resolveAssetIDs(ctx context.Context, accountID, sessionID string, ids []string) ([]string, error) {
-	seen := make(map[string]struct{}, len(ids))
-	selected := make([]string, 0, len(ids))
-	for _, id := range ids {
-		id = strings.TrimSpace(id)
-		if id == "" {
+func (s *Service) resolveAssetReferences(ctx context.Context, accountID, sessionID string, references []domain.AssetReference, legacyIDs []string) ([]domain.AssetReference, error) {
+	if len(references) == 0 {
+		references = make([]domain.AssetReference, 0, len(legacyIDs))
+		for _, assetID := range legacyIDs {
+			references = append(references, domain.AssetReference{AssetID: assetID})
+		}
+	}
+	seen := make(map[string]struct{}, len(references))
+	selected := make([]domain.AssetReference, 0, len(references))
+	for _, reference := range references {
+		reference.AssetID = strings.TrimSpace(reference.AssetID)
+		reference.AssetVersionID = strings.TrimSpace(reference.AssetVersionID)
+		if reference.AssetID == "" {
 			continue
 		}
-		if _, ok := seen[id]; ok {
+		if _, ok := seen[reference.AssetID]; ok {
 			continue
 		}
-		asset, err := s.Repo.GetAsset(ctx, accountID, id)
+		asset, err := s.Repo.GetAsset(ctx, accountID, reference.AssetID)
 		if err != nil {
 			return nil, err
 		}
 		if asset.SessionID != sessionID && asset.LibrarySavedAt.IsZero() {
 			return nil, fmt.Errorf("%w: asset is not available in session", domain.ErrInvalid)
 		}
-		seen[id] = struct{}{}
-		selected = append(selected, id)
+		if len(asset.Versions) == 0 {
+			return nil, fmt.Errorf("%w: asset has no versions", domain.ErrInvalid)
+		}
+		if reference.AssetVersionID == "" {
+			reference.AssetVersionID = asset.Versions[len(asset.Versions)-1].ID
+		}
+		if !assetHasVersion(asset, reference.AssetVersionID) {
+			return nil, fmt.Errorf("%w: asset version is not available", domain.ErrInvalid)
+		}
+		seen[reference.AssetID] = struct{}{}
+		selected = append(selected, reference)
 	}
 	return selected, nil
+}
+
+func assetHasVersion(asset *domain.Asset, versionID string) bool {
+	for _, version := range asset.Versions {
+		if version.ID == versionID {
+			return true
+		}
+	}
+	return false
+}
+
+func assetIDsFromReferences(references []domain.AssetReference) []string {
+	assetIDs := make([]string, 0, len(references))
+	for _, reference := range references {
+		assetIDs = append(assetIDs, reference.AssetID)
+	}
+	return assetIDs
 }
 
 func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domain.Run, error) {
@@ -169,6 +204,7 @@ func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domai
 	retried.ModelConfigID = previous.ModelConfigID
 	retried.SkillIDs = append([]string(nil), previous.SkillIDs...)
 	retried.AssetIDs = append([]string(nil), previous.AssetIDs...)
+	retried.AssetReferences = append([]domain.AssetReference(nil), previous.AssetReferences...)
 	if err := s.Repo.CreateRun(ctx, retried); err != nil {
 		return nil, err
 	}

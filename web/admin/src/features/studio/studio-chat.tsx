@@ -51,12 +51,14 @@ type Props = {
   skills: StudioSkill[]
   assets: StudioAsset[]
   selectedSkillIds: string[]
-  selectedAssetIds: string[]
+  selectedAssets: SelectedAsset[]
   onModelChange: (id: string) => void
   onPermissionChange: (mode: StudioPermissionMode) => void
   onSkillChange: (ids: string[]) => void
-  onAssetChange: (ids: string[]) => void
+  onAssetChange: (assets: SelectedAsset[]) => void
 }
+
+type SelectedAsset = { assetId: string; assetVersionId: string }
 
 function toAGUIMessages(messages: StudioMessage[]) {
   return messages
@@ -95,7 +97,7 @@ export function StudioChat(props: Props) {
             modelConfigId: selectedModel?.id ?? '',
             permissionMode: props.permissionMode,
             selectedSkillIds: props.selectedSkillIds,
-            selectedAssetIds: props.selectedAssetIds,
+            selectedAssets: props.selectedAssets,
           },
         }
         const token = sessionToken()
@@ -116,7 +118,7 @@ export function StudioChat(props: Props) {
     selectedModel?.id,
     props.permissionMode,
     props.selectedSkillIds,
-    props.selectedAssetIds,
+    props.selectedAssets,
   ])
 
   const runtime = useAgUiRuntime({ agent, showThinking: true })
@@ -160,7 +162,7 @@ export function StudioChat(props: Props) {
                 />
                 <AssetPicker
                   assets={props.assets}
-                  value={props.selectedAssetIds}
+                  value={props.selectedAssets}
                   onChange={props.onAssetChange}
                 />
                 <PermissionPicker
@@ -194,8 +196,8 @@ function AssetPicker({
   onChange,
 }: {
   assets: StudioAsset[]
-  value: string[]
-  onChange: (ids: string[]) => void
+  value: SelectedAsset[]
+  onChange: (assets: SelectedAsset[]) => void
 }) {
   const libraryAssets = useQuery({
     queryKey: ['studio', 'library', 'assets'],
@@ -207,14 +209,23 @@ function AssetPicker({
   for (const asset of libraryAssets.data ?? []) {
     assetsByID.set(asset.id, asset)
   }
-  const selected = new Set(value)
-  const toggle = (id: string) =>
-    onChange(
-      selected.has(id)
-        ? value.filter((item) => item !== id)
-        : [...value, id]
-    )
-  const unavailableSelections = value.filter((id) => !assetsByID.has(id))
+  const selected = new Map(value.map((item) => [item.assetId, item.assetVersionId]))
+  const toggle = (asset: StudioAsset) => {
+    const version = asset.versions[asset.versions.length - 1]
+    if (!version) return
+    if (selected.get(asset.id) === version.id) {
+      onChange(value.filter((item) => item.assetId !== asset.id))
+      return
+    }
+    onChange([
+      ...value.filter((item) => item.assetId !== asset.id),
+      { assetId: asset.id, assetVersionId: version.id },
+    ])
+  }
+  const unavailableSelections = value.filter((selection) => {
+    const asset = assetsByID.get(selection.assetId)
+    return !asset || !asset.versions.some((version) => version.id === selection.assetVersionId)
+  })
   const currentAssets = assets
   const reusableAssets = (libraryAssets.data ?? []).filter(
     (asset) => !sessionAssetIDs.has(asset.id)
@@ -269,8 +280,8 @@ function AssetPickerSection({
 }: {
   label: string
   assets: StudioAsset[]
-  selected: Set<string>
-  onToggle: (id: string) => void
+  selected: Map<string, string>
+  onToggle: (asset: StudioAsset) => void
   emptyText: string
 }) {
   return (
@@ -281,21 +292,24 @@ function AssetPickerSection({
       {assets.length === 0 ? (
         <DropdownMenuItem disabled>{emptyText}</DropdownMenuItem>
       ) : (
-        assets.map((asset) => (
-          <DropdownMenuCheckboxItem
-            key={asset.id}
-            checked={selected.has(asset.id)}
-            onSelect={(event) => event.preventDefault()}
-            onCheckedChange={() => onToggle(asset.id)}
-          >
-            <span className='min-w-0 flex-1'>
-              <span className='block truncate'>{asset.name}</span>
-              <span className='block text-xs text-muted-foreground'>
-                {asset.kind === 'image' ? '图片' : asset.kind === 'document' ? '文档' : '文件'}
+        assets.map((asset) => {
+          const version = asset.versions[asset.versions.length - 1]
+          return (
+            <DropdownMenuCheckboxItem
+              key={asset.id}
+              checked={selected.get(asset.id) === version?.id}
+              onSelect={(event) => event.preventDefault()}
+              onCheckedChange={() => onToggle(asset)}
+            >
+              <span className='min-w-0 flex-1'>
+                <span className='block truncate'>{asset.name}</span>
+                <span className='block text-xs text-muted-foreground'>
+                  {asset.kind === 'image' ? '图片' : asset.kind === 'document' ? '文档' : '文件'}{version ? ` · v${version.version}` : ''}
+                </span>
               </span>
-            </span>
-          </DropdownMenuCheckboxItem>
-        ))
+            </DropdownMenuCheckboxItem>
+          )
+        })
       )}
     </>
   )

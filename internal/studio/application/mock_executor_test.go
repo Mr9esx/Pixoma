@@ -122,6 +122,55 @@ func TestAgentExecutorLoadsTheSkillSelectedForRun(t *testing.T) {
 	}
 }
 
+func TestAgentExecutorUsesTheAssetVersionSnapshottedWhenTheRunWasCreated(t *testing.T) {
+	repo := openRepository(t)
+	blobs, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	asset, err := domain.NewAsset("asset-1", "session-1", "account-a", "故事大纲.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := asset.AppendVersion("version-1", "text/markdown", "studio/account-a/asset-1/v1.md", 128, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateAsset(context.Background(), asset); err != nil {
+		t.Fatal(err)
+	}
+	session, err := domain.NewSession("session-1", "account-a", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateSession(context.Background(), session); err != nil {
+		t.Fatal(err)
+	}
+	ids := &idSequence{}
+	service := &studioapp.Service{Repo: repo, IDs: ids.Next, Now: time.Now, Queue: &queueSpy{}}
+	result, err := service.SendMessage(context.Background(), studioapp.SendMessageInput{
+		AccountID: "account-a", SessionID: "session-1", Text: "基于故事大纲生成分镜", SelectedAssetIDs: []string{asset.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := asset.AppendVersion("version-2", "text/markdown", "studio/account-a/asset-1/v2.md", 256, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.AppendAssetVersion(context.Background(), asset.ID, "account-a", second); err != nil {
+		t.Fatal(err)
+	}
+	capture := &captureEngine{}
+	executor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{Repo: repo, Blob: blobs, Engine: capture, IDs: ids.Next})
+	if err := executor.Execute(context.Background(), result.Run); err != nil {
+		t.Fatal(err)
+	}
+	if len(capture.request.Assets) != 1 || capture.request.Assets[0].CurrentVersion != first.Version || len(capture.request.Assets[0].Versions) != 1 || capture.request.Assets[0].Versions[0].ID != first.ID {
+		t.Fatalf("request asset must retain v1, got %#v", capture.request.Assets)
+	}
+}
+
 type captureEngine struct{ request studioapp.AgentRequest }
 
 func (e *captureEngine) Execute(_ context.Context, request studioapp.AgentRequest, _ studioapp.AgentSink) error {

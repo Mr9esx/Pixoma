@@ -432,6 +432,65 @@ func TestStudioAGUIStoresSelectedSkillIDsOnRun(t *testing.T) {
 	}
 }
 
+func TestStudioAGUIStoresSelectedAssetVersionOnRun(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+	assetResponse := request(t, router, http.MethodPost, "/assets/text", map[string]any{
+		"session_id": session.ID, "name": "故事.md", "content": "# 雨夜侦探",
+	}, "account-a")
+	var asset struct {
+		ID       string `json:"id"`
+		Versions []struct {
+			ID string `json:"id"`
+		} `json:"versions"`
+	}
+	if assetResponse.Code != http.StatusCreated || json.Unmarshal(assetResponse.Body.Bytes(), &asset) != nil || len(asset.Versions) != 1 {
+		t.Fatalf("created asset = status=%d body=%s", assetResponse.Code, assetResponse.Body.String())
+	}
+	response := request(t, router, http.MethodPost, "/agui", map[string]any{
+		"threadId": session.ID, "runId": "browser-run-assets", "messages": []map[string]any{{"id": "user-message", "role": "user", "content": "根据故事生成分镜"}},
+		"forwardedProps": map[string]any{"runConfig": map[string]any{"permissionMode": domain.PermissionFullAccess, "selectedAssets": []map[string]string{{"assetId": asset.ID, "assetVersionId": asset.Versions[0].ID}}}},
+	}, "account-a")
+	if response.Code != http.StatusOK {
+		t.Fatalf("POST /agui status=%d body=%s", response.Code, response.Body.String())
+	}
+	studioRunID := studioRunIDFromSSE(t, response.Body.String())
+	run, err := handler.Repo.GetRun(context.Background(), "account-a", studioRunID)
+	if err != nil || len(run.AssetReferences) != 1 || run.AssetReferences[0].AssetID != asset.ID || run.AssetReferences[0].AssetVersionID != asset.Versions[0].ID {
+		t.Fatalf("run = %#v, err = %v", run, err)
+	}
+}
+
+func studioRunIDFromSSE(t *testing.T, body string) string {
+	t.Helper()
+	var started struct {
+		Metadata struct {
+			StudioRunID string `json:"studioRunId"`
+		} `json:"metadata"`
+	}
+	for _, chunk := range strings.Split(body, "\n\n") {
+		if !strings.Contains(chunk, "RUN_STARTED") {
+			continue
+		}
+		if index := strings.Index(chunk, "data: "); index >= 0 {
+			_ = json.Unmarshal([]byte(chunk[index+6:]), &started)
+		}
+	}
+	if started.Metadata.StudioRunID == "" {
+		t.Fatalf("RUN_STARTED missing studio run id: %s", body)
+	}
+	return started.Metadata.StudioRunID
+}
+
 func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)

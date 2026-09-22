@@ -30,6 +30,12 @@ type aguiRunConfig struct {
 	PermissionMode   domain.PermissionMode `json:"permissionMode"`
 	SelectedSkillIDs []string              `json:"selectedSkillIds"`
 	SelectedAssetIDs []string              `json:"selectedAssetIds"`
+	SelectedAssets   []aguiAssetReference  `json:"selectedAssets"`
+}
+
+type aguiAssetReference struct {
+	AssetID        string `json:"assetId"`
+	AssetVersionID string `json:"assetVersionId"`
 }
 
 func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +61,7 @@ func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.Service.SendMessage(r.Context(), studioapp.SendMessageInput{
 		AccountID: accountID, SessionID: input.ThreadID, Text: text,
-		ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode, SkillIDs: config.SelectedSkillIDs, SelectedAssetIDs: config.SelectedAssetIDs,
+		ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode, SkillIDs: config.SelectedSkillIDs, SelectedAssetIDs: config.SelectedAssetIDs, SelectedAssets: toAssetReferences(config.SelectedAssets),
 	})
 	if err != nil {
 		writeError(w, err)
@@ -142,6 +148,17 @@ func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
 		case <-ticker.C:
 		}
 	}
+}
+
+func toAssetReferences(values []aguiAssetReference) []domain.AssetReference {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]domain.AssetReference, 0, len(values))
+	for _, value := range values {
+		out = append(out, domain.AssetReference{AssetID: value.AssetID, AssetVersionID: value.AssetVersionID})
+	}
+	return out
 }
 
 func lastAGUIUserText(messages []aguiMessage) string {

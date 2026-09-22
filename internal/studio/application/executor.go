@@ -137,15 +137,38 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 	if err != nil {
 		return err
 	}
-	assets := make([]*domain.Asset, 0, len(run.AssetIDs))
-	for _, assetID := range run.AssetIDs {
-		asset, err := e.repo.GetAsset(ctx, run.AccountID, assetID)
+	assetReferences := run.AssetReferences
+	if len(assetReferences) == 0 {
+		assetReferences = make([]domain.AssetReference, 0, len(run.AssetIDs))
+		for _, assetID := range run.AssetIDs {
+			assetReferences = append(assetReferences, domain.AssetReference{AssetID: assetID})
+		}
+	}
+	assets := make([]*domain.Asset, 0, len(assetReferences))
+	for _, reference := range assetReferences {
+		asset, err := e.repo.GetAsset(ctx, run.AccountID, reference.AssetID)
 		if err != nil {
 			return err
+		}
+		if reference.AssetVersionID != "" {
+			if err := retainAssetVersion(asset, reference.AssetVersionID); err != nil {
+				return err
+			}
 		}
 		assets = append(assets, asset)
 	}
 	return e.engine.Execute(ctx, AgentRequest{Run: run, Session: session, UserText: text, Skills: skills, Assets: assets, Approvals: approvals}, sink)
+}
+
+func retainAssetVersion(asset *domain.Asset, versionID string) error {
+	for _, version := range asset.Versions {
+		if version.ID == versionID {
+			asset.CurrentVersion = version.Version
+			asset.Versions = []domain.AssetVersion{version}
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: run asset version is no longer available", domain.ErrNotFound)
 }
 
 func (e *AgentExecutor) selectedSkills(ctx context.Context, run *domain.Run) ([]domain.Skill, error) {
