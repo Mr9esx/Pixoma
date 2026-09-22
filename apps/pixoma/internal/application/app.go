@@ -378,7 +378,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
 			Mock: studioapp.NewMockEngine(), Online: &studioeino.Engine{
 				Models: studioModelService, Capabilities: studioCapabilityService,
-				Workflows: studioCapabilityService, WorkflowStarter: studioWorkflowStarter,
+				Workflows: studioCapabilityService, WorkflowStarter: studioWorkflowStarter, Blob: blobStore,
 			},
 		},
 	})

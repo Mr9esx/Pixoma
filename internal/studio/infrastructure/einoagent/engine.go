@@ -10,6 +10,7 @@ import (
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/mcpconnector"
@@ -40,6 +41,7 @@ type Engine struct {
 	Workflows       WorkflowResolver
 	WorkflowStarter workflowtool.Starter
 	Client          *modelprovider.OpenAICompatibleClient
+	Blob            blob.Store
 }
 
 func (e *Engine) Execute(ctx context.Context, request studioapp.AgentRequest, sink studioapp.AgentSink) error {
@@ -127,7 +129,7 @@ func (e *Engine) resolveTools(ctx context.Context, request studioapp.AgentReques
 	tools := make([]einotool.BaseTool, 0)
 	builtInTools, err := studiotool.NewRuntimeTools(studiotool.ToolAccess{
 		PermissionMode: request.Session.PermissionMode, IsApproved: authorizer.Consume,
-		RequestApproval: requestApproval, Sink: sink,
+		RequestApproval: requestApproval, Sink: sink, Blob: e.Blob, Assets: request.Assets,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("studio: create built-in Agent tools: %w", err)

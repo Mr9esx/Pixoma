@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	einotool "github.com/cloudwego/eino/components/tool"
@@ -12,9 +13,13 @@ import (
 	einojsonschema "github.com/eino-contrib/jsonschema"
 	"github.com/google/uuid"
 
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 )
+
+const maxReadAssetBytes = 64 << 10
 
 // ToolAccess binds built-in Studio capabilities to one audited Agent run.
 type ToolAccess struct {
@@ -22,6 +27,8 @@ type ToolAccess struct {
 	IsApproved      func(action string) bool
 	RequestApproval func(context.Context, string, string) error
 	Sink            studioapp.AgentSink
+	Blob            blob.Store
+	Assets          []*domain.Asset
 }
 
 // NewRuntimeTools returns local authoring capabilities. They intentionally use
@@ -35,13 +42,23 @@ func NewRuntimeTools(access ToolAccess) ([]einotool.BaseTool, error) {
 	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["name","content"],"properties":{"name":{"type":"string","description":"Markdown 文件名，例如 story.md"},"content":{"type":"string","description":"完整 Markdown 内容"}}}`), &rawSchema); err != nil {
 		return nil, err
 	}
-	return []einotool.BaseTool{&createTextAssetTool{
+	tools := []einotool.BaseTool{&createTextAssetTool{
 		info: &schema.ToolInfo{
 			Name: "create_text_asset", Desc: "在当前 Session 创建一个可编辑、可版本化的 Markdown 资产，并加入创作 Flow。",
 			ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&rawSchema),
 		},
 		access: access,
-	}}, nil
+	}}
+	if access.Blob != nil && len(access.Assets) > 0 {
+		tools = append(tools, &readAssetTool{info: &schema.ToolInfo{Name: "read_asset", Desc: "读取本次 Run 已选择且固定版本的文本资产内容。", ParamsOneOf: assetIDParams()}, access: access})
+	}
+	return tools, nil
+}
+
+func assetIDParams() *schema.ParamsOneOf {
+	var raw einojsonschema.Schema
+	_ = json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["asset_id"],"properties":{"asset_id":{"type":"string","description":"当前 Run 已选择资产的 ID"}}}`), &raw)
+	return schema.NewParamsOneOfByJSONSchema(&raw)
 }
 
 type createTextAssetTool struct {
@@ -109,4 +126,63 @@ func createTextAssetAction(name, content string) string {
 	return fmt.Sprintf("asset.create_text.%x", sum)
 }
 
+type readAssetTool struct {
+	info   *schema.ToolInfo
+	access ToolAccess
+}
+
+func (t *readAssetTool) Info(context.Context) (*schema.ToolInfo, error) { return t.info, nil }
+
+func (t *readAssetTool) InvokableRun(ctx context.Context, arguments string, _ ...einotool.Option) (string, error) {
+	var input struct {
+		AssetID string `json:"asset_id"`
+	}
+	if err := json.Unmarshal([]byte(arguments), &input); err != nil {
+		return "", fmt.Errorf("studio: invalid read_asset arguments: %w", err)
+	}
+	input.AssetID = strings.TrimSpace(input.AssetID)
+	for _, asset := range t.access.Assets {
+		if asset == nil || asset.ID != input.AssetID || len(asset.Versions) != 1 {
+			continue
+		}
+		version := asset.Versions[0]
+		if !strings.HasPrefix(version.MIMEType, "text/") && version.MIMEType != "application/json" {
+			return "", fmt.Errorf("studio: read_asset only supports text assets")
+		}
+		if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallStart, map[string]any{"tool_call_id": "asset.read." + asset.ID + "." + version.ID, "tool_name": t.info.Name}); err != nil {
+			return "", err
+		}
+		reader, err := t.access.Blob.Get(ctx, sharedkernel.BlobRef{Key: version.BlobKey, MIME: version.MIMEType, Size: version.SizeBytes})
+		if err != nil {
+			return "", t.finish(ctx, asset, version, err)
+		}
+		raw, readErr := io.ReadAll(io.LimitReader(reader, maxReadAssetBytes+1))
+		_ = reader.Close()
+		if readErr != nil {
+			return "", t.finish(ctx, asset, version, readErr)
+		}
+		truncated := len(raw) > maxReadAssetBytes
+		if truncated {
+			raw = raw[:maxReadAssetBytes]
+		}
+		output := string(raw)
+		if truncated {
+			output += "\n\n[内容已截断]"
+		}
+		if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": "asset.read." + asset.ID + "." + version.ID, "tool_name": t.info.Name, "result_bytes": len(output), "is_error": false}); err != nil {
+			return "", err
+		}
+		return output, nil
+	}
+	return "", fmt.Errorf("studio: asset is not available in this run")
+}
+
+func (t *readAssetTool) finish(ctx context.Context, asset *domain.Asset, version domain.AssetVersion, cause error) error {
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": "asset.read." + asset.ID + "." + version.ID, "tool_name": t.info.Name, "is_error": true}); err != nil {
+		return err
+	}
+	return cause
+}
+
 var _ einotool.InvokableTool = (*createTextAssetTool)(nil)
+var _ einotool.InvokableTool = (*readAssetTool)(nil)
