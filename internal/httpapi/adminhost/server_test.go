@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -56,7 +57,7 @@ func TestStatsRouteMounted(t *testing.T) {
 	var body struct {
 		Days []any `json:"days"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(resp)).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
 	if len(body.Days) != 2 {
@@ -120,7 +121,7 @@ func TestChannelDetailRouteNotShadowedByMenuMount(t *testing.T) {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	if err := json.NewDecoder(createResp.Body).Decode(&created); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(createResp)).Decode(&created); err != nil {
 		t.Fatal(err)
 	}
 	createResp.Body.Close()
@@ -140,7 +141,7 @@ func TestChannelDetailRouteNotShadowedByMenuMount(t *testing.T) {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	if err := json.NewDecoder(getResp.Body).Decode(&got); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(getResp)).Decode(&got); err != nil {
 		t.Fatal(err)
 	}
 	if got.ID != created.ID || got.Name != created.Name {
@@ -192,7 +193,7 @@ func TestChannelReachabilityRouteMounted(t *testing.T) {
 	var created struct {
 		ID string `json:"id"`
 	}
-	if err := json.NewDecoder(createResp.Body).Decode(&created); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(createResp)).Decode(&created); err != nil {
 		t.Fatal(err)
 	}
 	createResp.Body.Close()

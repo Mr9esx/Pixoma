@@ -17,10 +17,12 @@ import (
 	"gorm.io/gorm"
 
 	consoledomain "github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob/factory"
 	"github.com/Mr9esx/Pixoma/internal/platform/bootstrap"
 	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	settingsdomain "github.com/Mr9esx/Pixoma/internal/settings/domain"
 	settingsinfra "github.com/Mr9esx/Pixoma/internal/settings/infrastructure"
 )
@@ -86,7 +88,7 @@ type statusDTO struct {
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	acct, ok := h.Sessions.LookupAccount(TokenFromRequest(r))
 	if !ok {
-		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		response.Fail(w, apierr.ErrSetupSessionUnauthorized, "unauthorized")
 		return
 	}
 	nickname := acct.Username
@@ -115,7 +117,7 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 			nickname, email, avatarURL = pn, pe, pa
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"username":   acct.Username,
 		"nickname":   nickname,
 		"role":       role,
@@ -126,7 +128,7 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	user, authed := h.user(r)
-	writeJSON(w, http.StatusOK, statusDTO{
+	response.OKStatus(w, http.StatusOK, statusDTO{
 		Initialized:        h.Boot.Initialized(),
 		Authenticated:      authed,
 		MustChangePassword: h.Boot.MustChangePassword(),
@@ -143,13 +145,13 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		Remember bool   `json:"remember"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrSetupLoginInvalidJSON, "invalid json")
 		return
 	}
 	limiter := h.loginLimiter()
 	loginKey := clientKey(r, strings.TrimSpace(body.Username))
 	if !limiter.Allowed(loginKey) {
-		writeErr(w, http.StatusTooManyRequests, "too many login attempts")
+		response.Fail(w, apierr.ErrSetupLoginTooManyRequests, "too many login attempts")
 		return
 	}
 	initialized := h.Boot.Initialized()
@@ -159,17 +161,17 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		u, err := h.ConsoleUsers.GetByUsername(r.Context(), body.Username)
 		if err != nil {
 			limiter.Record(loginKey)
-			writeErr(w, http.StatusUnauthorized, "invalid credentials")
+			response.Fail(w, apierr.ErrSetupLoginUnauthorized, "invalid credentials")
 			return
 		}
 		if !u.Enabled {
 			limiter.Record(loginKey)
-			writeErr(w, http.StatusForbidden, "account disabled")
+			response.Fail(w, apierr.ErrSetupAccountDisabled, "account disabled")
 			return
 		}
 		if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(body.Password)); err != nil {
 			limiter.Record(loginKey)
-			writeErr(w, http.StatusUnauthorized, "invalid credentials")
+			response.Fail(w, apierr.ErrSetupLoginUnauthorized, "invalid credentials")
 			return
 		}
 		limiter.Reset(loginKey)
@@ -180,31 +182,31 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		}
 		tok, err = h.Sessions.IssueAccount(u.Username, u.ID, u.Role, body.Remember)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrSetupLoginFailed, err)
 			return
 		}
 		body.Username = u.Username
 	} else {
 		ok, err := h.Boot.VerifyPassword(body.Username, body.Password)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrSetupLoginFailed, err)
 			return
 		}
 		if !ok {
 			limiter.Record(loginKey)
-			writeErr(w, http.StatusUnauthorized, "invalid credentials")
+			response.Fail(w, apierr.ErrSetupLoginUnauthorized, "invalid credentials")
 			return
 		}
 		limiter.Reset(loginKey)
 		tok, err = h.Sessions.Issue(body.Username, body.Remember)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrSetupLoginFailed, err)
 			return
 		}
 		mustChange = h.Boot.MustChangePassword()
 	}
 	SetCookie(w, r, tok, body.Remember)
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"ok":                   true,
 		"token":                tok,
 		"username":             body.Username,
@@ -216,7 +218,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	h.Sessions.Revoke(TokenFromRequest(r))
 	ClearCookie(w, r)
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	response.OKStatus(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
@@ -229,7 +231,7 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 		NewPassword string `json:"new_password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrSetupLoginInvalidJSON, "invalid json")
 		return
 	}
 	initialized := h.Boot.Initialized()
@@ -246,18 +248,18 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		if errors.Is(err, bootstrap.ErrInvalidCredentials) {
-			writeErr(w, http.StatusUnauthorized, err.Error())
+			response.FailErr(w, apierr.ErrSetupSessionUnauthorized, err)
 			return
 		}
 		if errors.Is(err, bootstrap.ErrWeakPassword) {
-			writeErr(w, http.StatusBadRequest, "password must be at least 8 characters")
+			response.Fail(w, apierr.ErrSetupChangePasswordPasswordTooShort, "password must be at least 8 characters")
 			return
 		}
 		if errors.Is(err, bootstrap.ErrPasswordAlreadySet) {
-			writeErr(w, http.StatusBadRequest, "password already set")
+			response.Fail(w, apierr.ErrSetupChangePasswordPasswordAlreadySet, "password already set")
 			return
 		}
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSetupChangePasswordFailed, err)
 		return
 	}
 	// 未走 console 分支（如初始化向导改密）时，bootstrap 是唯一密码源，
@@ -275,7 +277,7 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request) {
 		// 仅记录，不阻断响应。
 		_ = err
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "must_change_password": false})
+	response.OKStatus(w, http.StatusOK, map[string]any{"ok": true, "must_change_password": false})
 }
 
 func (h *Handler) database(w http.ResponseWriter, r *http.Request) {
@@ -287,7 +289,7 @@ func (h *Handler) database(w http.ResponseWriter, r *http.Request) {
 		DSN    string `json:"dsn"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrSetupLoginInvalidJSON, "invalid json")
 		return
 	}
 	driver := strings.ToLower(strings.TrimSpace(body.Driver))
@@ -296,37 +298,37 @@ func (h *Handler) database(w http.ResponseWriter, r *http.Request) {
 	}
 	dsn := strings.TrimSpace(body.DSN)
 	if dsn == "" {
-		writeErr(w, http.StatusBadRequest, "dsn required")
+		response.Fail(w, apierr.ErrSetupTestDatabaseDSNRequired, "dsn required")
 		return
 	}
 	if driver == settingsdomain.DriverSQLite {
 		if err := os.MkdirAll(filepath.Dir(dsn), 0o755); err != nil && filepath.Dir(dsn) != "." {
-			writeErr(w, http.StatusBadRequest, err.Error())
+			response.FailErr(w, apierr.ErrSetupTestDatabaseOpenFailed, err)
 			return
 		}
 	}
 	gdb, err := h.openDB(driver, dsn)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "database unreachable: "+err.Error())
+		response.Fail(w, apierr.ErrSetupTestDatabaseUnreachable, "database unreachable: "+err.Error())
 		return
 	}
 	sqlDB, err := gdb.DB()
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupTestDatabaseOpenFailed, err)
 		return
 	}
 	if err := sqlDB.Ping(); err != nil {
 		_ = sqlDB.Close()
-		writeErr(w, http.StatusBadRequest, "database ping failed: "+err.Error())
+		response.Fail(w, apierr.ErrSetupTestDatabasePingFailed, "database ping failed: "+err.Error())
 		return
 	}
 	_ = sqlDB.Close()
 	if err := h.Boot.SetAppDB(driver, dsn); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSetupTestDatabaseFailed, err)
 		return
 	}
 	_ = h.Boot.SetWizardStep("placement")
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "driver": driver})
+	response.OKStatus(w, http.StatusOK, map[string]any{"ok": true, "driver": driver})
 }
 
 func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
@@ -335,12 +337,12 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 	}
 	var body settingsdomain.Settings
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrSetupLoginInvalidJSON, "invalid json")
 		return
 	}
 	driver, dsn, err := h.Boot.AppDB()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSetupSaveDraftFailed, err)
 		return
 	}
 	if strings.TrimSpace(dsn) == "" {
@@ -350,15 +352,15 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 		}
 		dbDSN := strings.TrimSpace(body.DBDSN)
 		if dbDSN == "" {
-			writeErr(w, http.StatusBadRequest, "configure database first")
+			response.Fail(w, apierr.ErrSetupSaveDraftDatabaseNotConfigured, "configure database first")
 			return
 		}
 		if err := db.EnsureDatabase(d, dbDSN); err != nil {
-			writeErr(w, http.StatusBadRequest, "database unreachable: "+err.Error())
+			response.Fail(w, apierr.ErrSetupTestDatabaseUnreachable, "database unreachable: "+err.Error())
 			return
 		}
 		if err := h.Boot.SetAppDB(d, dbDSN); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrSetupSaveDraftFailed, err)
 			return
 		}
 		driver, dsn = d, dbDSN
@@ -370,17 +372,17 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 		body.DBDSN = dsn
 	}
 	if err := body.Validate(); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupSaveDraftInvalid, err)
 		return
 	}
 	st, cleanup, err := h.settingsStore(driver, dsn)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupSaveDraftInvalid, err)
 		return
 	}
 	defer func() { _ = cleanup() }()
 	if err := st.Save(body); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupSaveDraftInvalid, err)
 		return
 	}
 	step := "storage"
@@ -388,7 +390,7 @@ func (h *Handler) draft(w http.ResponseWriter, r *http.Request) {
 		step = "edge"
 	}
 	_ = h.Boot.SetWizardStep(step)
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"ok":        true,
 		"placement": body.Placement,
 	})
@@ -409,7 +411,7 @@ func (h *Handler) blobTest(w http.ResponseWriter, r *http.Request) {
 		AutoCreateBucket bool   `json:"auto_create_bucket"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrSetupLoginInvalidJSON, "invalid json")
 		return
 	}
 	driver := strings.ToLower(strings.TrimSpace(body.BlobDriver))
@@ -431,7 +433,7 @@ func (h *Handler) blobTest(w http.ResponseWriter, r *http.Request) {
 		ComfyUIBaseURL: "http://127.0.0.1:8188",
 	}
 	if err := cfg.Validate(); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupTestBlobConfigInvalid, err)
 		return
 	}
 	opts := factory.CheckOptions{
@@ -445,21 +447,17 @@ func (h *Handler) blobTest(w http.ResponseWriter, r *http.Request) {
 	}
 	err := factory.Check(r.Context(), opts)
 	if errors.Is(err, blob.ErrBucketNotFound) && !body.AutoCreateBucket {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"ok":     false,
-			"code":   "bucket_not_found",
-			"bucket": body.BlobBucket,
-		})
+		response.Fail(w, apierr.ErrSetupBlobBucketMissing, body.BlobBucket)
 		return
 	}
 	if errors.Is(err, blob.ErrBucketNotFound) {
 		err = factory.EnsureBucket(r.Context(), opts)
 	}
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "blob check failed: "+err.Error())
+		response.Fail(w, apierr.ErrSetupTestBlobCheckFailed, "blob check failed: "+err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	response.OKStatus(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
@@ -468,21 +466,21 @@ func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	driver, dsn, err := h.Boot.AppDB()
 	if err != nil || strings.TrimSpace(dsn) == "" {
-		writeJSON(w, http.StatusOK, map[string]any{"configured": false, "public_url": h.PublicURL})
+		response.OKStatus(w, http.StatusOK, map[string]any{"configured": false, "public_url": h.PublicURL})
 		return
 	}
 	st, cleanup, err := h.settingsStore(driver, dsn)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupLoadSettingsInvalid, err)
 		return
 	}
 	defer func() { _ = cleanup() }()
 	got, err := st.Load()
 	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"configured": false, "public_url": h.PublicURL})
+		response.OKStatus(w, http.StatusOK, map[string]any{"configured": false, "public_url": h.PublicURL})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"configured": true,
 		"settings":   got,
 		"public_url": h.PublicURL,
@@ -494,28 +492,28 @@ func (h *Handler) putSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !h.Boot.Initialized() {
-		writeErr(w, http.StatusBadRequest, "finalize setup first")
+		response.Fail(w, apierr.ErrSetupSaveSettingsSetupNotFinalized, "finalize setup first")
 		return
 	}
 	var body settingsdomain.Settings
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrSetupLoginInvalidJSON, "invalid json")
 		return
 	}
 	driver, dsn, err := h.Boot.AppDB()
 	if err != nil || strings.TrimSpace(dsn) == "" {
-		writeErr(w, http.StatusBadRequest, "configure database first")
+		response.Fail(w, apierr.ErrSetupSaveDraftDatabaseNotConfigured, "configure database first")
 		return
 	}
 	st, cleanup, err := h.settingsStore(driver, dsn)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupSaveSettingsInvalid, err)
 		return
 	}
 	defer func() { _ = cleanup() }()
 	existing, err := st.Load()
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "save settings first")
+		response.Fail(w, apierr.ErrSetupSaveSettingsSettingsNotSaved, "save settings first")
 		return
 	}
 	merged := mergePlatformSettings(existing, body)
@@ -526,18 +524,18 @@ func (h *Handler) putSettings(w http.ResponseWriter, r *http.Request) {
 	merged.DBDriver = driver
 	merged.DBDSN = dsn
 	if err := merged.Validate(); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupSaveSettingsInvalid, err)
 		return
 	}
 	if err := st.Save(merged); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupSaveSettingsInvalid, err)
 		return
 	}
 	if err := h.Boot.SetRestartRequired(true); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSetupSaveSettingsFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"ok":               true,
 		"restart_required": true,
 		"restarting":       h.Restart != nil,
@@ -582,39 +580,39 @@ func (h *Handler) finalize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Boot.MustChangePassword() {
-		writeErr(w, http.StatusBadRequest, "change default password first")
+		response.Fail(w, apierr.ErrSetupFinalizeDefaultPasswordUnchanged, "change default password first")
 		return
 	}
 	driver, dsn, err := h.Boot.AppDB()
 	if err != nil || strings.TrimSpace(dsn) == "" {
-		writeErr(w, http.StatusBadRequest, "configure database first")
+		response.Fail(w, apierr.ErrSetupSaveDraftDatabaseNotConfigured, "configure database first")
 		return
 	}
 	st, cleanup, err := h.settingsStore(driver, dsn)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupFinalizeInvalid, err)
 		return
 	}
 	defer func() { _ = cleanup() }()
 	cfg, err := st.Load()
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "save settings first")
+		response.Fail(w, apierr.ErrSetupSaveSettingsSettingsNotSaved, "save settings first")
 		return
 	}
 	if err := cfg.Validate(); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSetupFinalizeInvalid, err)
 		return
 	}
 	if err := h.Boot.MarkInitialized(); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSetupFinalizeFailed, err)
 		return
 	}
 	if err := h.Boot.SetRestartRequired(true); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSetupFinalizeFailed, err)
 		return
 	}
 	_ = h.Boot.SetWizardStep("done")
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"ok":               true,
 		"initialized":      true,
 		"restart_required": true,
@@ -646,7 +644,7 @@ func (h *Handler) user(r *http.Request) (string, bool) {
 func (h *Handler) requireSession(w http.ResponseWriter, r *http.Request) (string, bool) {
 	user, ok := h.user(r)
 	if !ok {
-		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		response.Fail(w, apierr.ErrSetupSessionUnauthorized, "unauthorized")
 		return "", false
 	}
 	return user, true
@@ -753,16 +751,16 @@ func (h *Handler) profile(w http.ResponseWriter, r *http.Request) {
 		AvatarURL string `json:"avatar_url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrSetupLoginInvalidJSON, "invalid json")
 		return
 	}
 	body.Email = strings.TrimSpace(body.Email)
 	if body.Email != "" && !validEmail(body.Email) {
-		writeErr(w, http.StatusBadRequest, "invalid email")
+		response.Fail(w, apierr.ErrSetupSaveProfileInvalidEmail, "invalid email")
 		return
 	}
 	if err := h.Boot.SetAdminProfile(body.Nickname, body.Email, body.AvatarURL); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSetupSaveProfileFailed, err)
 		return
 	}
 	if h.ConsoleUsers != nil {
@@ -777,17 +775,17 @@ func (h *Handler) profile(w http.ResponseWriter, r *http.Request) {
 	if !h.Boot.Initialized() {
 		_ = h.Boot.SetWizardStep("database")
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	response.OKStatus(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 // registrationStatus reports whether public self-registration is currently on.
 func (h *Handler) registrationStatus(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]bool{"enabled": h.selfRegistrationEnabled()})
+	response.OKStatus(w, http.StatusOK, map[string]bool{"enabled": h.selfRegistrationEnabled()})
 }
 
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 	if !h.selfRegistrationEnabled() {
-		writeErr(w, http.StatusConflict, "registration disabled")
+		response.Fail(w, apierr.ErrSetupRegisterRegistrationDisabled, "registration disabled")
 		return
 	}
 	var body struct {
@@ -797,35 +795,35 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrSetupLoginInvalidJSON, "invalid json")
 		return
 	}
 	limiter := h.registrationLimiter()
 	registrationKey := clientKey(r, "")
 	if !limiter.Allowed(registrationKey) {
-		writeErr(w, http.StatusTooManyRequests, "too many registrations")
+		response.Fail(w, apierr.ErrSetupRegisterTooManyRequests, "too many registrations")
 		return
 	}
 	limiter.Record(registrationKey)
 	body.Username = strings.TrimSpace(body.Username)
 	body.Email = strings.TrimSpace(body.Email)
 	if body.Username == "" {
-		writeErr(w, http.StatusBadRequest, "账号名不能为空")
+		response.Fail(w, apierr.ErrSetupRegisterAccountNameRequired, "账号名不能为空")
 		return
 	}
 	if len(body.Password) < 8 {
-		writeErr(w, http.StatusBadRequest, "password must be at least 8 characters")
+		response.Fail(w, apierr.ErrSetupChangePasswordPasswordTooShort, "password must be at least 8 characters")
 		return
 	}
 	if body.Email != "" && !validEmail(body.Email) {
-		writeErr(w, http.StatusBadRequest, "invalid email")
+		response.Fail(w, apierr.ErrSetupSaveProfileInvalidEmail, "invalid email")
 		return
 	}
 	var newUser *consoledomain.ConsoleUser
 	if h.ConsoleUsers != nil {
 		hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "failed to hash password")
+			response.Fail(w, apierr.ErrSetupRegisterHashPasswordFailed, "failed to hash password")
 			return
 		}
 		newUser = &consoledomain.ConsoleUser{
@@ -838,23 +836,23 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := h.ConsoleUsers.Create(r.Context(), newUser); err != nil {
 			if errors.Is(err, consoledomain.ErrDuplicate) {
-				writeErr(w, http.StatusConflict, "username or email already taken")
+				response.Fail(w, apierr.ErrSetupRegisterAlreadyTaken, "username or email already taken")
 				return
 			}
-			writeErr(w, http.StatusInternalServerError, "create failed")
+			response.Fail(w, apierr.ErrSetupRegisterCreateFailed, "create failed")
 			return
 		}
 	} else {
-		writeErr(w, http.StatusInternalServerError, "unavailable")
+		response.Fail(w, apierr.ErrSetupRegisterServiceUnavailable, "unavailable")
 		return
 	}
 	tok, err := h.Sessions.IssueAccount(newUser.Username, newUser.ID, newUser.Role, false)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSetupRegisterFailed, err)
 		return
 	}
 	SetCookie(w, r, tok, false)
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"ok": true, "token": tok, "username": newUser.Username, "role": newUser.Role,
 	})
 }
@@ -900,13 +898,3 @@ func validEmail(email string) bool {
 }
 
 const maskedSecret = "********"
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
-}

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 	"github.com/gorilla/websocket"
@@ -75,14 +77,14 @@ func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
 	var input aguiRunInput
 	if err := decodeAGUIJSON(r, &input); err != nil {
 		slog.Warn("studio agui request decode failed", "path", r.URL.Path, "err", err)
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	input.ThreadID = strings.TrimSpace(input.ThreadID)
 	input.RunID = strings.TrimSpace(input.RunID)
 	text := lastAGUIUserText(input.Messages)
 	if input.ThreadID == "" || input.RunID == "" || text == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "会话、运行和用户消息不能为空"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIMissingFields, "会话、运行和用户消息不能为空")
 		return
 	}
 	config := decodeAGUIRunConfig(input.ForwardedProps)
@@ -94,13 +96,15 @@ func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
 		ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode, SkillIDs: config.SelectedSkillIDs, SelectedAssetIDs: config.SelectedAssetIDs, SelectedAssets: toAssetReferences(config.SelectedAssets),
 	})
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
+	history, events, unsubscribe := h.subscribeAGUIEvents(result.Run.ID)
+	defer unsubscribe()
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "当前连接不支持流式响应"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIFailed, "当前连接不支持流式响应")
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
@@ -115,7 +119,7 @@ func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
 	var after uint64
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
-	h.pumpAGUI(r.Context(), accountID, result.Run.ID, input, after, ticker.C, func(sequence uint64, event map[string]any) error {
+	h.pumpAGUI(r.Context(), accountID, result.Run.ID, input, after, history, events, ticker.C, func(sequence uint64, event map[string]any) error {
 		writeAGUIEvent(w, flusher, sequence, event)
 		return nil
 	})
@@ -156,6 +160,8 @@ func (h *Handler) streamAGUIWebSocket(w http.ResponseWriter, r *http.Request) {
 		_ = conn.WriteJSON(aguiRunError(input, err.Error()))
 		return
 	}
+	history, events, unsubscribe := h.subscribeAGUIEvents(result.Run.ID)
+	defer unsubscribe()
 	if err := conn.WriteJSON(map[string]any{
 		"type": "RUN_STARTED", "threadId": input.ThreadID, "runId": input.RunID,
 		"protocolVersion": "1.0", "metadata": map[string]any{"studioRunId": result.Run.ID},
@@ -164,12 +170,30 @@ func (h *Handler) streamAGUIWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
-	_ = h.pumpAGUI(r.Context(), accountID, result.Run.ID, input, 0, ticker.C, func(_ uint64, event map[string]any) error {
+	_ = h.pumpAGUI(r.Context(), accountID, result.Run.ID, input, 0, history, events, ticker.C, func(_ uint64, event map[string]any) error {
 		return conn.WriteJSON(event)
 	})
 }
 
-func (h *Handler) pumpAGUI(ctx context.Context, accountID, studioRunID string, input aguiRunInput, after uint64, ticks <-chan time.Time, emit func(uint64, map[string]any) error) error {
+func (h *Handler) subscribeAGUIEvents(runID string) ([]studioapp.LiveEvent, <-chan studioapp.LiveEvent, func()) {
+	if h.Events == nil {
+		return []studioapp.LiveEvent{}, nil, func() {}
+	}
+	return h.Events.Subscribe(runID)
+}
+
+func (h *Handler) pumpAGUI(ctx context.Context, accountID, studioRunID string, input aguiRunInput, after uint64, history []studioapp.LiveEvent, liveEvents <-chan studioapp.LiveEvent, ticks <-chan time.Time, emit func(uint64, map[string]any) error) error {
+	if liveEvents != nil {
+		for _, event := range history {
+			if err := emitLiveAGUIEvent(event, input, emit); err != nil {
+				return err
+			}
+			if event.Type == studioapp.EventRunFinished {
+				return nil
+			}
+		}
+		return h.pumpLiveAGUI(ctx, accountID, studioRunID, input, liveEvents, ticks, emit)
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -236,6 +260,69 @@ func (h *Handler) pumpAGUI(ctx context.Context, accountID, studioRunID string, i
 		case <-ticks:
 		}
 	}
+}
+
+func emitLiveAGUIEvent(event studioapp.LiveEvent, input aguiRunInput, emit func(uint64, map[string]any) error) error {
+	mapped := mapStudioEventToAGUI(event.Type, event.Payload, input.ThreadID, input.RunID)
+	if mapped == nil {
+		return nil
+	}
+	return emit(event.Sequence, mapped)
+}
+
+func (h *Handler) pumpLiveAGUI(ctx context.Context, accountID, studioRunID string, input aguiRunInput, liveEvents <-chan studioapp.LiveEvent, ticks <-chan time.Time, emit func(uint64, map[string]any) error) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case event := <-liveEvents:
+			if err := emitLiveAGUIEvent(event, input, emit); err != nil {
+				return err
+			}
+			if event.Type == studioapp.EventRunFinished {
+				return nil
+			}
+		case <-ticks:
+			run, err := h.Repo.GetRun(ctx, accountID, studioRunID)
+			if err != nil {
+				return emit(0, aguiRunError(input, "读取运行状态失败"))
+			}
+			switch run.Status {
+			case domain.RunWaitingApproval:
+				approvals, _ := h.Repo.ListApprovals(ctx, accountID, run.ID)
+				interrupts := pendingAGUIInterrupts(approvals)
+				if len(interrupts) == 0 {
+					continue
+				}
+				return emit(0, map[string]any{
+					"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID,
+					"outcome": map[string]any{"type": "interrupt", "interrupts": interrupts},
+				})
+			case domain.RunFailed:
+				return emit(0, aguiRunError(input, run.ErrorMessage))
+			case domain.RunCancelled:
+				return emit(0, map[string]any{
+					"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID,
+					"outcome": map[string]any{"type": "cancelled"},
+				})
+			}
+		}
+	}
+}
+
+func pendingAGUIInterrupts(approvals []*domain.Approval) []map[string]any {
+	interrupts := make([]map[string]any, 0, len(approvals))
+	for _, approval := range approvals {
+		if approval.Status != domain.ApprovalPending {
+			continue
+		}
+		interrupts = append(interrupts, map[string]any{
+			"id": approval.ID, "reason": "tool_approval", "message": "需要批准后继续执行",
+			"toolCallId":     approval.ToolCallID,
+			"responseSchema": map[string]any{"type": "boolean"},
+		})
+	}
+	return interrupts
 }
 
 // AG-UI is an external protocol and may add fields that Pixoma does not use

@@ -15,13 +15,23 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/comfyui/comfyuitest"
 )
 
+// writeOK 按控制面的统一封装写出成功响应。
+func writeOK(w http.ResponseWriter, data any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"message": "success",
+		"code":    2000000,
+		"data":    data,
+	})
+}
+
 func TestReporter_FakeComfyReportsRunning(t *testing.T) {
 	var running any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		running = body["comfy_running"]
-		w.WriteHeader(http.StatusNoContent)
+		writeOK(w, nil)
 	}))
 	t.Cleanup(srv.Close)
 	comfy := &comfyuitest.Fake{}
@@ -45,7 +55,7 @@ func TestReporter_SendsStartedAtAndComfyVersion(t *testing.T) {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		startedAt = body["started_at"]
 		version = body["comfy_version"]
-		w.WriteHeader(http.StatusNoContent)
+		writeOK(w, nil)
 	}))
 	t.Cleanup(srv.Close)
 	comfy := &comfyuitest.Fake{}
@@ -77,7 +87,7 @@ func TestReporter_UnreachableComfyReportsFalse(t *testing.T) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		running = body["comfy_running"]
-		w.WriteHeader(http.StatusNoContent)
+		writeOK(w, nil)
 	}))
 	t.Cleanup(srv.Close)
 
@@ -105,11 +115,10 @@ func TestReporter_SendsHardwareFirstThenOmits(t *testing.T) {
 		bodies = append(bodies, body)
 		n++
 		if n == 1 {
-			_ = json.NewEncoder(w).Encode(map[string]any{"refresh_hardware": false})
+			writeOK(w, map[string]any{"refresh_hardware": false})
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]any{"refresh_hardware": false})
+		writeOK(w, map[string]any{"refresh_hardware": false})
 	}))
 	t.Cleanup(srv.Close)
 	r := &presence.Reporter{
@@ -145,7 +154,7 @@ func TestReporter_ResendsHardwareWhenRefreshRequested(t *testing.T) {
 		bodies = append(bodies, body)
 		n++
 		refresh := n == 1
-		_ = json.NewEncoder(w).Encode(map[string]any{"refresh_hardware": refresh})
+		writeOK(w, map[string]any{"refresh_hardware": refresh})
 	}))
 	t.Cleanup(srv.Close)
 	r := &presence.Reporter{
@@ -175,7 +184,7 @@ func TestReporter_MetricsCadence(t *testing.T) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		bodies = append(bodies, body)
-		_ = json.NewEncoder(w).Encode(map[string]any{"refresh_hardware": false})
+		writeOK(w, map[string]any{"refresh_hardware": false})
 	}))
 	t.Cleanup(srv.Close)
 	r := &presence.Reporter{
@@ -206,7 +215,7 @@ func TestReporter_FirstSampleImmediate(t *testing.T) {
 	// 首次上报（lastMetrics 零值）必须立即采样；且 since 传零值
 	var gotSince time.Time
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
+		writeOK(w, nil)
 	}))
 	t.Cleanup(srv.Close)
 	r := &presence.Reporter{

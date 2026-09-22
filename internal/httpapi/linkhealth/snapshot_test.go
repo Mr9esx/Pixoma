@@ -11,10 +11,10 @@ import (
 	channelapp "github.com/Mr9esx/Pixoma/internal/channels/application"
 	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
 	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
 	linkhealthapi "github.com/Mr9esx/Pixoma/internal/httpapi/linkhealth"
 	mencardpersist "github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/platform/db"
-	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
 	topicpersist "github.com/Mr9esx/Pixoma/internal/topics/infrastructure/persistence"
 )
 

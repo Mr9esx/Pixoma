@@ -1,11 +1,12 @@
 package routing
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
 )
 
@@ -21,15 +22,9 @@ func (h *Handler) Mount(r chi.Router) {
 
 func (h *Handler) attributes(w http.ResponseWriter, _ *http.Request) {
 	if h.Registry == nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "registry not configured"})
+		response.Fail(w, apierr.ErrRoutingAttributesNotConfigured, "registry not configured")
 		return
 	}
 	attrs := h.Registry.Attributes()
-	writeJSON(w, http.StatusOK, map[string]any{"attributes": attrs})
-}
-
-func writeJSON(w http.ResponseWriter, code int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(v)
+	response.OKStatus(w, http.StatusOK, map[string]any{"attributes": attrs})
 }

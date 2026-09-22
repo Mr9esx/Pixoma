@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -52,7 +53,7 @@ func TestUploadPNGAndServe(t *testing.T) {
 		t.Fatalf("upload status = %d, body=%s", rec.Code, rec.Body.String())
 	}
 	var resp uploadResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if !strings.HasPrefix(resp.Key, "previews/") {
@@ -87,7 +88,7 @@ func TestUploadVideoWebM(t *testing.T) {
 		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
 	}
 	var resp uploadResponse
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	_ = json.Unmarshal(apitest.DataBytes(rec), &resp)
 	if resp.MIME != "video/webm" {
 		t.Fatalf("mime = %q", resp.MIME)
 	}

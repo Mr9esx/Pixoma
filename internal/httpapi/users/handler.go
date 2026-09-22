@@ -10,10 +10,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
 	edgedomain "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	"github.com/Mr9esx/Pixoma/internal/httpapi/setup"
 	pixmcp "github.com/Mr9esx/Pixoma/internal/mcp"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	domain "github.com/Mr9esx/Pixoma/internal/users/domain"
 )
 
@@ -76,16 +78,16 @@ func toDTO(u *domain.User) userDTO {
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	q, err := parseListQuery(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrUserListInvalidQuery, err)
 		return
 	}
 	list, err := h.Repo.List(r.Context(), q)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserListFailed, err)
 		return
 	}
 	if err := h.attachChannelNames(r.Context(), list); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserListFailed, err)
 		return
 	}
 	out := make([]userDTO, 0, len(list))
@@ -95,25 +97,25 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, toDTO(u))
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	u, err := h.Repo.GetByID(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "user not found")
+		response.Fail(w, apierr.ErrUserGetNotFound, "user not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserListFailed, err)
 		return
 	}
 	if err := h.attachChannelNames(r.Context(), []*domain.User{u}); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserListFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(u))
+	response.OKStatus(w, http.StatusOK, toDTO(u))
 }
 
 func (h *Handler) attachChannelNames(ctx context.Context, users []*domain.User) error {
@@ -152,24 +154,24 @@ func (h *Handler) updateAccess(w http.ResponseWriter, r *http.Request) {
 		Access string `json:"access"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrUserUpdateAccessInvalidJSON, "invalid json")
 		return
 	}
 	access := domain.NormalizeUserAccess(body.Access)
 	if body.Access != string(access) {
-		writeErr(w, http.StatusBadRequest, "invalid access")
+		response.Fail(w, apierr.ErrUserUpdateAccessInvalidAccess, "invalid access")
 		return
 	}
 	u, err := h.Repo.SetAccess(r.Context(), id, access)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "user not found")
+		response.Fail(w, apierr.ErrUserGetNotFound, "user not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserUpdateAccessFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(u))
+	response.OKStatus(w, http.StatusOK, toDTO(u))
 }
 
 func parseListQuery(r *http.Request) (domain.ListQuery, error) {
@@ -224,17 +226,17 @@ func (h *Handler) GetMCPToken(w http.ResponseWriter, r *http.Request) {
 	if canRevealMCPToken(r) {
 		plain, err := pixmcp.DecryptToken(h.Key, rec.TokenCipher)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrUserGetMCPTokenFailed, err)
 			return
 		}
 		out["token"] = plain
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) RotateMCPToken(w http.ResponseWriter, r *http.Request) {
 	if !canRevealMCPToken(r) {
-		writeErr(w, http.StatusForbidden, "forbidden")
+		response.Fail(w, apierr.ErrUserRotateMCPTokenForbidden, "forbidden")
 		return
 	}
 	u, _, ok := h.loadMCPToken(w, r)
@@ -243,50 +245,50 @@ func (h *Handler) RotateMCPToken(w http.ResponseWriter, r *http.Request) {
 	}
 	plain, err := edgedomain.MintToken()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserRotateMCPTokenFailed, err)
 		return
 	}
 	cipher, err := pixmcp.EncryptToken(h.Key, plain)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserRotateMCPTokenFailed, err)
 		return
 	}
 	if err := h.Tokens.Put(r.Context(), pixmcp.TokenRecord{
 		UserID: u.ID, TokenHash: pixmcp.HashToken(plain), TokenCipher: cipher,
 	}); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserRotateMCPTokenFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"token": plain})
+	response.OKStatus(w, http.StatusOK, map[string]any{"token": plain})
 }
 
 func (h *Handler) loadMCPToken(w http.ResponseWriter, r *http.Request) (*domain.User, pixmcp.TokenRecord, bool) {
 	if h == nil || h.Repo == nil || h.Tokens == nil || h.ChannelGet == nil {
-		writeErr(w, http.StatusInternalServerError, "mcp token not configured")
+		response.Fail(w, apierr.ErrUserLoadMCPTokenNotConfigured, "mcp token not configured")
 		return nil, pixmcp.TokenRecord{}, false
 	}
 	id := chi.URLParam(r, "id")
 	u, err := h.Repo.GetByID(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "user not found")
+		response.Fail(w, apierr.ErrUserGetNotFound, "user not found")
 		return nil, pixmcp.TokenRecord{}, false
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserGetMCPTokenFailed, err)
 		return nil, pixmcp.TokenRecord{}, false
 	}
 	ch, err := h.ChannelGet.Get(r.Context(), u.ChannelID)
 	if err != nil || ch.Platform != string(channeldomain.PlatformMCP) {
-		writeErr(w, http.StatusNotFound, "mcp token not found")
+		response.Fail(w, apierr.ErrUserLoadMCPTokenNotFound, "mcp token not found")
 		return nil, pixmcp.TokenRecord{}, false
 	}
 	rec, err := h.Tokens.GetByUserID(r.Context(), u.ID)
 	if errors.Is(err, pixmcp.ErrTokenNotFound) {
-		writeErr(w, http.StatusNotFound, "mcp token not found")
+		response.Fail(w, apierr.ErrUserLoadMCPTokenNotFound, "mcp token not found")
 		return nil, pixmcp.TokenRecord{}, false
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrUserGetMCPTokenFailed, err)
 		return nil, pixmcp.TokenRecord{}, false
 	}
 	return u, rec, true
@@ -298,14 +300,4 @@ func canRevealMCPToken(r *http.Request) bool {
 		return false
 	}
 	return acct.Role == "admin" || acct.Role == "operator"
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
 }

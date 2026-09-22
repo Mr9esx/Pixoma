@@ -206,7 +206,7 @@ export function StudioWorkspace() {
   }
 
   return (
-    <div className='flex h-svh min-h-0 w-full overflow-hidden bg-muted/30'>
+    <div className='flex h-svh min-h-0 w-full overflow-hidden'>
       <div className='hidden lg:flex'>
         <StudioSidebar {...sidebarProps} />
       </div>
@@ -227,7 +227,7 @@ export function StudioWorkspace() {
       {view === 'library' ? <StudioLibrary /> : null}
       {view === 'settings' ? <StudioSettings /> : null}
       {view === 'chat' ? (
-        <div className='min-h-0 min-w-0 flex-1 bg-muted/30 p-3 sm:p-4'>
+        <div className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>
           <section
             data-slot='studio-workbench'
             className='flex h-full min-h-0 overflow-hidden rounded-2xl border bg-card'

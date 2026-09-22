@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/apierr"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -27,6 +29,20 @@ import (
 	settingsdomain "github.com/Mr9esx/Pixoma/internal/settings/domain"
 	settingsinfra "github.com/Mr9esx/Pixoma/internal/settings/infrastructure"
 )
+
+// wantGateCode 断言响应封装里的业务错误码。
+func wantGateCode(t *testing.T, rec *httptest.ResponseRecorder, want int) {
+	t.Helper()
+	var body struct {
+		Code int `json:"code"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode gate body: %v %s", err, rec.Body.String())
+	}
+	if body.Code != want {
+		t.Fatalf("want code %d, got %s", want, rec.Body.String())
+	}
+}
 
 func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 	dir := t.TempDir()
@@ -56,9 +72,7 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("uninitialized business API: %d %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "not_initialized") {
-		t.Fatalf("want not_initialized, got %s", rec.Body.String())
-	}
+	wantGateCode(t, rec, apierr.ErrSetupNotInitialized.Code)
 
 	loginBody, _ := json.Marshal(map[string]string{
 		"username": creds.Username,
@@ -73,7 +87,7 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 		Token              string `json:"token"`
 		MustChangePassword bool   `json:"must_change_password"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &loginResp); err != nil {
 		t.Fatal(err)
 	}
 	if loginResp.Token == "" || !loginResp.MustChangePassword {
@@ -160,16 +174,18 @@ func TestWizard_GateAndSQLiteRoundTrip(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/cases", nil))
-	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "restart_required") {
+	if rec.Code != http.StatusForbidden {
 		t.Fatalf("after finalize without restart: %d %s", rec.Code, rec.Body.String())
 	}
+	wantGateCode(t, rec, apierr.ErrSetupRestartRequired.Code)
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/cases", nil)
 	auth(req)
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "restart_required") {
+	if rec.Code != http.StatusForbidden {
 		t.Fatalf("session still blocked until restart: %d %s", rec.Code, rec.Body.String())
 	}
+	wantGateCode(t, rec, apierr.ErrSetupRestartRequired.Code)
 
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/setup/settings", nil)
 	auth(req)
@@ -212,7 +228,7 @@ func TestPutSettings_RequiresInitialized(t *testing.T) {
 	var loginResp struct {
 		Token string `json:"token"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &loginResp); err != nil {
 		t.Fatal(err)
 	}
 
@@ -438,7 +454,7 @@ func completeWizard(t *testing.T) *wizardEnv {
 	var loginResp struct {
 		Token string `json:"token"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &loginResp); err != nil {
 		t.Fatal(err)
 	}
 	auth := func(req *http.Request) {
@@ -531,7 +547,7 @@ func envWithoutDB(t *testing.T) *wizardEnv {
 	var loginResp struct {
 		Token string `json:"token"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &loginResp); err != nil {
 		t.Fatal(err)
 	}
 	auth := func(req *http.Request) {
@@ -638,8 +654,25 @@ func TestBlobTest_BucketNotFoundAndCreate(t *testing.T) {
 	env.auth(req)
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)
-	if !strings.Contains(rec.Body.String(), `"bucket_not_found"`) {
-		t.Fatalf("want bucket_not_found, got %d %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("want 404 for a missing bucket, got %d %s", rec.Code, rec.Body.String())
+	}
+	var envelope struct {
+		Code        int    `json:"code"`
+		Data        any    `json:"data"`
+		ErrorDetail string `json:"error_detail"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode envelope: %v", err)
+	}
+	if envelope.Code != 4040101 {
+		t.Fatalf("want code 4040101, got %d", envelope.Code)
+	}
+	if envelope.Data != nil {
+		t.Fatalf("want null data, got %v", envelope.Data)
+	}
+	if envelope.ErrorDetail != "pixoma-new" {
+		t.Fatalf("want the bucket name as error_detail, got %q", envelope.ErrorDetail)
 	}
 
 	cfg["auto_create_bucket"] = true
@@ -737,7 +770,7 @@ func TestLogin_ConsoleAccount(t *testing.T) {
 	var resp struct {
 		Token string `json:"token"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || resp.Token == "" {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &resp); err != nil || resp.Token == "" {
 		t.Fatalf("resp: %v body=%s", err, rec.Body.String())
 	}
 	acct, ok := h.Sessions.LookupAccount(resp.Token)
@@ -856,7 +889,7 @@ func TestRegister_EnabledCreatesViewerAndSignsIn(t *testing.T) {
 		Username string `json:"username"`
 		Role     string `json:"role"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if resp.Username != "newuser" || resp.Role != "viewer" || resp.Token == "" {
@@ -894,7 +927,7 @@ func TestProfile_SavesAdminProfileUninitialized(t *testing.T) {
 	var loginResp struct {
 		Token string `json:"token"`
 	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &loginResp)
+	_ = json.Unmarshal(apitest.DataBytes(rec), &loginResp)
 
 	// Invalid email rejected.
 	bad, _ := json.Marshal(map[string]string{"nickname": "小P", "email": "not-an-email"})
@@ -946,7 +979,7 @@ func TestRegistrationStatus_ExposesSetting(t *testing.T) {
 		t.Fatalf("registration on status: %d %s", rec.Code, rec.Body.String())
 	}
 	var got map[string]bool
-	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	_ = json.Unmarshal(apitest.DataBytes(rec), &got)
 	if !got["enabled"] {
 		t.Fatalf("expected enabled=true, got %s", rec.Body.String())
 	}
@@ -957,7 +990,7 @@ func TestRegistrationStatus_ExposesSetting(t *testing.T) {
 	r = chi.NewRouter()
 	r.Route("/api/v1/auth", hOff.MountAuth)
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/auth/registration", nil))
-	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	_ = json.Unmarshal(apitest.DataBytes(rec), &got)
 	if got["enabled"] {
 		t.Fatalf("expected enabled=false, got %s", rec.Body.String())
 	}
@@ -985,7 +1018,7 @@ func TestMe_ReturnsBootstrapAdminProfile(t *testing.T) {
 	var loginResp struct {
 		Token string `json:"token"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &loginResp); err != nil {
 		t.Fatal(err)
 	}
 	auth := func(req *http.Request) {
@@ -1004,7 +1037,7 @@ func TestMe_ReturnsBootstrapAdminProfile(t *testing.T) {
 		Nickname string `json:"nickname"`
 		Role     string `json:"role"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &me); err != nil {
 		t.Fatal(err)
 	}
 	if me.Username != username || me.Nickname != username || me.Role != "admin" {
@@ -1027,7 +1060,7 @@ func TestMe_ReturnsBootstrapAdminProfile(t *testing.T) {
 	auth(req)
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
-	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &me); err != nil {
 		t.Fatal(err)
 	}
 	if me.Nickname != "小黑" {
@@ -1079,7 +1112,7 @@ func TestPassword_Uninitialized_SyncsConsoleAccount(t *testing.T) {
 	var loginResp struct {
 		Token string `json:"token"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &loginResp); err != nil {
 		t.Fatal(err)
 	}
 	auth := func(req *http.Request) {
@@ -1136,7 +1169,7 @@ func TestMe_UpgradesBootstrapSession(t *testing.T) {
 	var me struct {
 		Role string `json:"role"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &me); err != nil {
 		t.Fatal(err)
 	}
 	if me.Role != "admin" {

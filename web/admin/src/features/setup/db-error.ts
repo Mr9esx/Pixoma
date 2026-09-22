@@ -1,3 +1,5 @@
+import { apiErrorDetail } from '../../lib/api/error-copy'
+
 export type AlertCopy = {
   key: string
   detail: string
@@ -131,7 +133,9 @@ const DB_ERROR_PATTERNS: Array<{ pattern: RegExp; key: string }> = [
 ]
 
 export function setupErrorCopy(err: unknown): AlertCopy {
-  const detail = err instanceof Error ? err.message : String(err)
+  // 统一封装后，err.message 是给用户看的文案，原始技术原因在 error_detail。
+  // 这些模式匹配的是数据库驱动的原文，所以优先看 error_detail。
+  const detail = apiErrorDetail(err) || (err instanceof Error ? err.message : String(err))
   const matched = DB_ERROR_PATTERNS.find(({ pattern }) => pattern.test(detail))
   return {
     key: matched?.key ?? 'setup.errGeneric',

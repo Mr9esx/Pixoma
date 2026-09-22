@@ -2,14 +2,15 @@ package linkhealth_test
 
 import (
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
 	linkhealthapi "github.com/Mr9esx/Pixoma/internal/httpapi/linkhealth"
 	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
 	"github.com/Mr9esx/Pixoma/internal/packaging/linkhealth"
-	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
 )
 
 func TestHandlerGetAssemblesWithoutProbing(t *testing.T) {
@@ -62,7 +63,7 @@ func TestHandlerGetAssemblesWithoutProbing(t *testing.T) {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	var g linkhealth.Graph
-	if err := json.Unmarshal(rec.Body.Bytes(), &g); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &g); err != nil {
 		t.Fatal(err)
 	}
 	health := map[string]linkhealth.Health{}

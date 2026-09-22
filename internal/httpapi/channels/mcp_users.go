@@ -11,41 +11,43 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	"github.com/Mr9esx/Pixoma/internal/channels/domain"
 	edgedomain "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	pixmcp "github.com/Mr9esx/Pixoma/internal/mcp"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
 )
 
 func (h *Handler) CreateMCPUser(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.Svc == nil || h.Users == nil || h.Tokens == nil {
-		writeErr(w, http.StatusInternalServerError, "mcp users not configured")
+		response.Fail(w, apierr.ErrChannelCreateMCPUserNotConfigured, "mcp users not configured")
 		return
 	}
 	id := chi.URLParam(r, "id")
 	ch, err := h.Svc.Get(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "channel not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelCreateMCPUserFailed, err)
 		return
 	}
 	if ch.Platform != string(domain.PlatformMCP) {
-		writeErr(w, http.StatusBadRequest, "channel is not mcp")
+		response.Fail(w, apierr.ErrChannelCreateMCPUserNotMCP, "channel is not mcp")
 		return
 	}
 	var body struct {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrChannelCreateInvalidJSON, "invalid json")
 		return
 	}
 	name := strings.TrimSpace(body.Name)
 	if name == "" {
-		writeErr(w, http.StatusBadRequest, "name required")
+		response.Fail(w, apierr.ErrChannelCreateMCPUserNameRequired, "name required")
 		return
 	}
 	now := time.Now().UTC()
@@ -56,21 +58,21 @@ func (h *Handler) CreateMCPUser(w http.ResponseWriter, r *http.Request) {
 		LastSeenAt:     now,
 	})
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelCreateMCPUserFailed, err)
 		return
 	}
 	u, err = h.Users.SetAccess(r.Context(), u.ID, identitydomain.UserAccessAlwaysAllowed)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelCreateMCPUserFailed, err)
 		return
 	}
 	plain, err := mintAndStoreMCPToken(r.Context(), h.Tokens, h.Key, u.ID)
 	if err != nil {
 		_ = h.Users.Delete(r.Context(), u.ID)
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelCreateMCPUserFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{
+	response.OKStatus(w, http.StatusCreated, map[string]any{
 		"user":  mcpUserDTO(u),
 		"token": plain,
 	})
@@ -78,26 +80,26 @@ func (h *Handler) CreateMCPUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListMCPUsers(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.Users == nil {
-		writeErr(w, http.StatusInternalServerError, "mcp users not configured")
+		response.Fail(w, apierr.ErrChannelCreateMCPUserNotConfigured, "mcp users not configured")
 		return
 	}
 	id := chi.URLParam(r, "id")
 	ch, err := h.Svc.Get(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "channel not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelListMCPUsersFailed, err)
 		return
 	}
 	if ch.Platform != string(domain.PlatformMCP) {
-		writeErr(w, http.StatusBadRequest, "channel is not mcp")
+		response.Fail(w, apierr.ErrChannelCreateMCPUserNotMCP, "channel is not mcp")
 		return
 	}
 	list, err := h.Users.List(r.Context(), identitydomain.ListQuery{ChannelID: &id, Limit: 200})
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelListMCPUsersFailed, err)
 		return
 	}
 	out := make([]map[string]any, 0, len(list))
@@ -107,55 +109,55 @@ func (h *Handler) ListMCPUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, mcpUserDTO(u))
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) DeleteMCPUser(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.Svc == nil || h.Users == nil || h.Tokens == nil {
-		writeErr(w, http.StatusInternalServerError, "mcp users not configured")
+		response.Fail(w, apierr.ErrChannelCreateMCPUserNotConfigured, "mcp users not configured")
 		return
 	}
 	chID := chi.URLParam(r, "id")
 	userID := chi.URLParam(r, "userId")
 	ch, err := h.Svc.Get(r.Context(), chID)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "channel not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelDeleteMCPUserFailed, err)
 		return
 	}
 	if ch.Platform != string(domain.PlatformMCP) {
-		writeErr(w, http.StatusBadRequest, "channel is not mcp")
+		response.Fail(w, apierr.ErrChannelCreateMCPUserNotMCP, "channel is not mcp")
 		return
 	}
 	u, err := h.Users.GetByID(r.Context(), userID)
 	if errors.Is(err, identitydomain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "user not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "user not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelDeleteMCPUserFailed, err)
 		return
 	}
 	if u.ChannelID != ch.ID {
-		writeErr(w, http.StatusNotFound, "user not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "user not found")
 		return
 	}
 	if err := h.Tokens.DeleteByUserID(r.Context(), u.ID); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelDeleteMCPUserFailed, err)
 		return
 	}
 	if err := h.Users.Delete(r.Context(), u.ID); err != nil {
 		if errors.Is(err, identitydomain.ErrNotFound) {
-			writeErr(w, http.StatusNotFound, "user not found")
+			response.Fail(w, apierr.ErrChannelGetNotFound, "user not found")
 			return
 		}
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelDeleteMCPUserFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	response.OKStatus(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
 func mintAndStoreMCPToken(ctx context.Context, store pixmcp.TokenStore, key []byte, userID string) (string, error) {

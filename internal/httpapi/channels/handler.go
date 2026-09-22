@@ -11,9 +11,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	"github.com/Mr9esx/Pixoma/internal/channels/application"
 	"github.com/Mr9esx/Pixoma/internal/channels/domain"
 	pixmcp "github.com/Mr9esx/Pixoma/internal/mcp"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
 )
 
@@ -109,12 +111,12 @@ type createBody struct {
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.Svc == nil {
-		writeErr(w, http.StatusInternalServerError, "channel service not configured")
+		response.Fail(w, apierr.ErrChannelCreateNotConfigured, "channel service not configured")
 		return
 	}
 	var body createBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrChannelCreateInvalidJSON, "invalid json")
 		return
 	}
 	id := body.ID
@@ -129,7 +131,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	ch, err := h.Svc.CreateWithCredential(r.Context(), id, platform, body.Name, cred, body.ExtraInfo)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrChannelCreateInvalid, err)
 		return
 	}
 	if h.OnCreated != nil {
@@ -139,51 +141,51 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	dto, err := h.toDTO(r, ch)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelCreateFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, dto)
+	response.OKStatus(w, http.StatusOK, dto)
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.Svc == nil {
-		writeErr(w, http.StatusInternalServerError, "channel service not configured")
+		response.Fail(w, apierr.ErrChannelCreateNotConfigured, "channel service not configured")
 		return
 	}
 	chs, err := h.Svc.List(r.Context())
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelListFailed, err)
 		return
 	}
 	out := make([]channelDTO, 0, len(chs))
 	for _, ch := range chs {
 		dto, err := h.toDTO(r, ch)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrChannelListFailed, err)
 			return
 		}
 		out = append(out, dto)
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ch, err := h.Svc.Get(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "channel not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelListFailed, err)
 		return
 	}
 	dto, err := h.toDTO(r, ch)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelListFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, dto)
+	response.OKStatus(w, http.StatusOK, dto)
 }
 
 type updateBody struct {
@@ -196,16 +198,16 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var body updateBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrChannelCreateInvalidJSON, "invalid json")
 		return
 	}
 	current, err := h.Svc.Get(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "channel not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelUpdateFailed, err)
 		return
 	}
 	var ch domain.Channel
@@ -226,46 +228,46 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		ch, err = h.Svc.Update(r.Context(), id, body.Name, body.Token)
 	}
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "channel not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelUpdateFailed, err)
 		return
 	}
 	dto, err := h.toDTO(r, ch)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelUpdateFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, dto)
+	response.OKStatus(w, http.StatusOK, dto)
 }
 
 func (h *Handler) Disable(w http.ResponseWriter, r *http.Request) {
 	if err := h.Svc.Disable(r.Context(), chi.URLParam(r, "id")); errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "channel not found")
 		return
 	} else if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelDisableFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
+	response.OKStatus(w, http.StatusOK, map[string]bool{"enabled": false})
 }
 
 func (h *Handler) Enable(w http.ResponseWriter, r *http.Request) {
 	if err := h.Svc.Enable(r.Context(), chi.URLParam(r, "id")); errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "channel not found")
 		return
 	} else if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelEnableFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"enabled": true})
+	response.OKStatus(w, http.StatusOK, map[string]bool{"enabled": true})
 }
 
 func (h *Handler) KickProbe(w http.ResponseWriter, r *http.Request) {
 	if h == nil {
-		writeErr(w, http.StatusInternalServerError, "channel service not configured")
+		response.Fail(w, apierr.ErrChannelCreateNotConfigured, "channel service not configured")
 		return
 	}
 	if h.Probe != nil {
@@ -279,28 +281,18 @@ func (h *Handler) KickProbe(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 	}
-	w.WriteHeader(http.StatusAccepted)
+	response.OKStatus(w, http.StatusAccepted, nil)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	err := h.Svc.Delete(r.Context(), chi.URLParam(r, "id"))
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "channel not found")
+		response.Fail(w, apierr.ErrChannelGetNotFound, "channel not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelDeleteFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+	response.OKStatus(w, http.StatusOK, map[string]bool{"deleted": true})
 }

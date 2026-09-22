@@ -20,6 +20,7 @@ import (
 	tasksapi "github.com/Mr9esx/Pixoma/internal/httpapi/tasks"
 	topicsapi "github.com/Mr9esx/Pixoma/internal/httpapi/topics"
 	usersapi "github.com/Mr9esx/Pixoma/internal/httpapi/users"
+	"github.com/Mr9esx/Pixoma/internal/response"
 )
 
 // Options configures the admin-api HTTP handler.
@@ -53,8 +54,7 @@ func NewHandler(opts Options) http.Handler {
 	r.Use(corsMiddleware(opts.CORSOrigins))
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		response.OK(w, map[string]string{"status": "ok"})
 	})
 
 	r.Route("/api/v1/edges", func(r chi.Router) {

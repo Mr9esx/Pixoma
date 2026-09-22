@@ -134,7 +134,7 @@ export function StudioSettings() {
   return (
     <main
       id='main-content'
-      className='min-h-0 min-w-0 flex-1 bg-muted/30 p-3 sm:p-4'
+      className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'
     >
       <section className='flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card'>
         <header className='flex min-h-16 items-center gap-3 border-b px-5 pl-16 lg:pl-5'>

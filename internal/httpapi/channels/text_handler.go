@@ -10,8 +10,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	templates "github.com/Mr9esx/Pixoma/internal/channels/domain/templates"
 	textpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/response"
 )
 
 // Handler serves both the platform-default templates and per-channel overrides.
@@ -59,7 +61,7 @@ func (h *TextHandler) list(w http.ResponseWriter, r *http.Request, channelID str
 		var err error
 		stored, err = h.Store.Load(r.Context(), channelID)
 		if err != nil {
-			textWriteErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrChannelListFailed, err)
 			return
 		}
 	}
@@ -75,7 +77,7 @@ func (h *TextHandler) list(w http.ResponseWriter, r *http.Request, channelID str
 			Variables:   s.Variables,
 		})
 	}
-	textWriteJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 type saveRequest struct {
@@ -84,20 +86,20 @@ type saveRequest struct {
 
 func (h *TextHandler) save(w http.ResponseWriter, r *http.Request, channelID string) {
 	if h.Store == nil {
-		textWriteErr(w, http.StatusServiceUnavailable, "text templates unavailable")
+		response.Fail(w, apierr.ErrChannelSaveUnavailable, "text templates unavailable")
 		return
 	}
 	var req saveRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		textWriteErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrChannelCreateInvalidJSON, "invalid json")
 		return
 	}
 	if req.Templates == nil {
-		textWriteErr(w, http.StatusBadRequest, "templates required")
+		response.Fail(w, apierr.ErrChannelPutMenuInvalid, "templates required")
 		return
 	}
 	if err := h.Store.Save(r.Context(), channelID, req.Templates); err != nil {
-		textWriteErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelGetMenuFailed, err)
 		return
 	}
 	h.list(w, r, channelID)
@@ -109,27 +111,17 @@ type resetRequest struct {
 
 func (h *TextHandler) reset(w http.ResponseWriter, r *http.Request, channelID string) {
 	if h.Store == nil {
-		textWriteErr(w, http.StatusServiceUnavailable, "text templates unavailable")
+		response.Fail(w, apierr.ErrChannelSaveUnavailable, "text templates unavailable")
 		return
 	}
 	var req resetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		textWriteErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrChannelCreateInvalidJSON, "invalid json")
 		return
 	}
 	if err := h.Store.Reset(r.Context(), channelID, req.Keys); err != nil {
-		textWriteErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelGetMenuFailed, err)
 		return
 	}
 	h.list(w, r, channelID)
-}
-
-func textWriteJSON(w http.ResponseWriter, code int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func textWriteErr(w http.ResponseWriter, code int, msg string) {
-	textWriteJSON(w, code, map[string]string{"error": msg})
 }

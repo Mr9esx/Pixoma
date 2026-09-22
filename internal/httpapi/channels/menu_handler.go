@@ -8,8 +8,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
 	"github.com/Mr9esx/Pixoma/internal/menus/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/response"
 )
 
 // Handler serves menu tree management under /api/v1/channels/{id}.
@@ -35,44 +37,44 @@ func (h *MenuHandler) getMenu(w http.ResponseWriter, r *http.Request) {
 	channelID := chi.URLParam(r, "id")
 	tree, err := h.Repo.GetTree(r.Context(), channelID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		menuWriteJSON(w, http.StatusOK, mcdomain.DefaultMenuTree(channelID))
+		response.OKStatus(w, http.StatusOK, mcdomain.DefaultMenuTree(channelID))
 		return
 	}
 	if err != nil {
-		menuWriteErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelGetMenuFailed, err)
 		return
 	}
-	menuWriteJSON(w, http.StatusOK, tree)
+	response.OKStatus(w, http.StatusOK, tree)
 }
 
 func (h *MenuHandler) putMenu(w http.ResponseWriter, r *http.Request) {
 	channelID := chi.URLParam(r, "id")
 	var tree mcdomain.MenuTree
 	if err := json.NewDecoder(r.Body).Decode(&tree); err != nil {
-		menuWriteErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrChannelCreateInvalidJSON, "invalid json")
 		return
 	}
 	tree.ID = channelID
 	if err := mcdomain.ValidateTree(tree, nil); err != nil {
-		menuWriteErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrChannelPutMenuInvalid, err)
 		return
 	}
 	if err := h.Repo.PutTree(r.Context(), channelID, tree); err != nil {
-		menuWriteErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelGetMenuFailed, err)
 		return
 	}
-	menuWriteJSON(w, http.StatusOK, tree)
+	response.OKStatus(w, http.StatusOK, tree)
 }
 
 func (h *MenuHandler) goneCards(w http.ResponseWriter, r *http.Request) {
-	menuWriteErr(w, http.StatusGone, "cards are nested in the menu tree")
+	response.Fail(w, apierr.ErrChannelGoneCardsUnknown, "cards are nested in the menu tree")
 }
 
 // ListWorkflowPlacements returns where a workflow is referenced in menu trees.
 func (h *MenuHandler) ListWorkflowPlacements(w http.ResponseWriter, r *http.Request) {
 	placements, err := h.Repo.WorkflowPlacements(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		menuWriteErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrChannelGetMenuFailed, err)
 		return
 	}
 	type step struct {
@@ -103,15 +105,5 @@ func (h *MenuHandler) ListWorkflowPlacements(w http.ResponseWriter, r *http.Requ
 			Path:        path,
 		})
 	}
-	menuWriteJSON(w, http.StatusOK, out)
-}
-
-func menuWriteJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func menuWriteErr(w http.ResponseWriter, status int, msg string) {
-	menuWriteJSON(w, status, map[string]string{"error": msg})
+	response.OKStatus(w, http.StatusOK, out)
 }

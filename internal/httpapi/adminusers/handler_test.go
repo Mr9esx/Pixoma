@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -70,7 +71,7 @@ func TestCreate_ListAndNoPasswordLeak(t *testing.T) {
 		t.Fatalf("list: %d", rec.Code)
 	}
 	var got []map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &got); err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 1 || got[0]["username"] != "newbie" {

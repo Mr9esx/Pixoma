@@ -3,6 +3,7 @@ package tasks_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,17 +13,17 @@ import (
 
 	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
 	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
-	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
-	sesspersist "github.com/Mr9esx/Pixoma/internal/sessions/infrastructure/persistence"
 	tasksapi "github.com/Mr9esx/Pixoma/internal/httpapi/tasks"
-	userdomain "github.com/Mr9esx/Pixoma/internal/users/domain"
-	userpersist "github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	"github.com/Mr9esx/Pixoma/internal/platform/notify"
+	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	sesspersist "github.com/Mr9esx/Pixoma/internal/sessions/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	"github.com/Mr9esx/Pixoma/internal/tasks/application/orchestrator"
 	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	taskpersist "github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/persistence"
-	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	userdomain "github.com/Mr9esx/Pixoma/internal/users/domain"
+	userpersist "github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
 )
 
 func TestTasksHandler_ListGetCancel(t *testing.T) {
@@ -57,7 +58,7 @@ func TestTasksHandler_ListGetCancel(t *testing.T) {
 		t.Fatalf("list status=%d", res.StatusCode)
 	}
 	var list []map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&list); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
 	if len(list) != 1 || list[0]["id"] != "t-pending" {
@@ -85,7 +86,7 @@ func TestTasksHandler_ListGetCancel(t *testing.T) {
 		t.Fatalf("dispatch filter status=%d", resQ.StatusCode)
 	}
 	var qList []map[string]any
-	if err := json.NewDecoder(resQ.Body).Decode(&qList); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(resQ)).Decode(&qList); err != nil {
 		t.Fatal(err)
 	}
 	if len(qList) != 1 || qList[0]["id"] != "t-q" {
@@ -101,7 +102,7 @@ func TestTasksHandler_ListGetCancel(t *testing.T) {
 		t.Fatalf("cancel pending status=%d", cres.StatusCode)
 	}
 	var cancelled map[string]any
-	if err := json.NewDecoder(cres.Body).Decode(&cancelled); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(cres)).Decode(&cancelled); err != nil {
 		t.Fatal(err)
 	}
 	if cancelled["status"] != string(sharedkernel.TaskCancelled) {
@@ -186,7 +187,7 @@ func TestTasksHandler_FilterByChannel(t *testing.T) {
 		t.Fatalf("status=%d", res.StatusCode)
 	}
 	var list []map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&list); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
 	if len(list) != 1 || list[0]["id"] != "t1" {
@@ -246,7 +247,7 @@ func TestTasksHandler_ContextProjection(t *testing.T) {
 	}
 	defer res.Body.Close()
 	var list []map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&list); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
 	byID := map[string]map[string]any{}
@@ -282,7 +283,7 @@ func TestTasksHandler_ContextProjection(t *testing.T) {
 	}
 	defer res2.Body.Close()
 	var detail map[string]any
-	if err := json.NewDecoder(res2.Body).Decode(&detail); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res2)).Decode(&detail); err != nil {
 		t.Fatal(err)
 	}
 	if detail["channel_id"] != "tg-default" || detail["user_id"] != user.ID {

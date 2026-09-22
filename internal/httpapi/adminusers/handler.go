@@ -12,6 +12,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	consoledomain "github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	"github.com/Mr9esx/Pixoma/internal/apierr"
+	"github.com/Mr9esx/Pixoma/internal/response"
 )
 
 // Handler serves console user administration under /api/v1/adminusers.
@@ -63,14 +65,14 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	if v := r.URL.Query().Get("limit"); v != "" {
 		var n int
 		if _, err := scanInt(v, &n); err != nil {
-			writeErr(w, http.StatusBadRequest, "invalid limit")
+			response.Fail(w, apierr.ErrAdminUserListInvalidLimit, "invalid limit")
 			return
 		}
 		q.Limit = n
 	}
 	users, err := h.Repo.List(r.Context(), q)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "list failed")
+		response.Fail(w, apierr.ErrAdminUserListListFailed, "list failed")
 		return
 	}
 	out := make([]consoleUserDTO, 0, len(users))
@@ -79,7 +81,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 			out = append(out, toDTO(u))
 		}
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 type createRequest struct {
@@ -92,26 +94,26 @@ type createRequest struct {
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	var body createRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrAdminUserCreateInvalidJSON, "invalid json")
 		return
 	}
 	body.Username = strings.TrimSpace(body.Username)
 	body.Email = strings.TrimSpace(body.Email)
 	if body.Username == "" {
-		writeErr(w, http.StatusBadRequest, "账号名不能为空")
+		response.Fail(w, apierr.ErrAdminUserCreateAccountNameRequired, "账号名不能为空")
 		return
 	}
 	if len(body.Password) < 8 {
-		writeErr(w, http.StatusBadRequest, "password must be at least 8 characters")
+		response.Fail(w, apierr.ErrAdminUserCreatePasswordTooShort, "password must be at least 8 characters")
 		return
 	}
 	if body.Email != "" && !validEmail(body.Email) {
-		writeErr(w, http.StatusBadRequest, "invalid email")
+		response.Fail(w, apierr.ErrAdminUserCreateInvalidEmail, "invalid email")
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "failed to hash password")
+		response.Fail(w, apierr.ErrAdminUserCreateHashPasswordFailed, "failed to hash password")
 		return
 	}
 	u := &consoledomain.ConsoleUser{
@@ -126,7 +128,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		writeCreateError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, toDTO(u))
+	response.OKStatus(w, http.StatusCreated, toDTO(u))
 }
 
 type patchRequest struct {
@@ -147,15 +149,15 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 	}
 	var body patchRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrAdminUserCreateInvalidJSON, "invalid json")
 		return
 	}
 	if body.Email != nil && (*body.Email != "" && !validEmail(*body.Email)) {
-		writeErr(w, http.StatusBadRequest, "invalid email")
+		response.Fail(w, apierr.ErrAdminUserCreateInvalidEmail, "invalid email")
 		return
 	}
 	if body.Role != nil && !validRole(*body.Role) {
-		writeErr(w, http.StatusBadRequest, "invalid role")
+		response.Fail(w, apierr.ErrAdminUserUpdateInvalidRole, "invalid role")
 		return
 	}
 	// Refuse to disable or demote the last enabled Admin.
@@ -163,11 +165,11 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 		((body.Enabled != nil && !*body.Enabled) || (body.Role != nil && *body.Role != consoledomain.RoleAdmin)) {
 		n, err := h.Repo.CountAdmins(r.Context())
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "count admins failed")
+			response.Fail(w, apierr.ErrAdminUserUpdateCountAdminsFailed, "count admins failed")
 			return
 		}
 		if n <= 1 {
-			writeErr(w, http.StatusConflict, "cannot remove the last admin")
+			response.Fail(w, apierr.ErrAdminUserUpdateLastAdmin, "cannot remove the last admin")
 			return
 		}
 	}
@@ -186,7 +188,7 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 	if body.Password != nil && len(*body.Password) >= 8 {
 		hash, err := bcrypt.GenerateFromPassword([]byte(*body.Password), bcrypt.DefaultCost)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "failed to hash password")
+			response.Fail(w, apierr.ErrAdminUserCreateHashPasswordFailed, "failed to hash password")
 			return
 		}
 		u.PasswordHash = string(hash)
@@ -196,7 +198,7 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 		writeUpdateError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(u))
+	response.OKStatus(w, http.StatusOK, toDTO(u))
 }
 
 func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
@@ -209,19 +211,19 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	if u.Role == consoledomain.RoleAdmin {
 		n, err := h.Repo.CountAdmins(r.Context())
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "count admins failed")
+			response.Fail(w, apierr.ErrAdminUserUpdateCountAdminsFailed, "count admins failed")
 			return
 		}
 		if n <= 1 {
-			writeErr(w, http.StatusConflict, "cannot delete the last admin")
+			response.Fail(w, apierr.ErrAdminUserDeleteLastAdmin, "cannot delete the last admin")
 			return
 		}
 	}
 	if err := h.Repo.Delete(r.Context(), id); err != nil {
-		writeErr(w, http.StatusInternalServerError, "delete failed")
+		response.Fail(w, apierr.ErrAdminUserDeleteDeleteFailed, "delete failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	response.OKStatus(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func validRole(role string) bool {
@@ -239,26 +241,26 @@ func validEmail(email string) bool {
 
 func writeUserErr(w http.ResponseWriter, err error) {
 	if errors.Is(err, consoledomain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "user not found")
+		response.Fail(w, apierr.ErrAdminUserNotFound, "user not found")
 		return
 	}
-	writeErr(w, http.StatusInternalServerError, "load failed")
+	response.Fail(w, apierr.ErrAdminUserLoadFailed, "load failed")
 }
 
 func writeCreateError(w http.ResponseWriter, err error) {
 	if errors.Is(err, consoledomain.ErrDuplicate) {
-		writeErr(w, http.StatusConflict, "username or email already taken")
+		response.Fail(w, apierr.ErrAdminUserAlreadyTaken, "username or email already taken")
 		return
 	}
-	writeErr(w, http.StatusInternalServerError, "create failed")
+	response.Fail(w, apierr.ErrAdminUserCreateFailed, "create failed")
 }
 
 func writeUpdateError(w http.ResponseWriter, err error) {
 	if errors.Is(err, consoledomain.ErrDuplicate) {
-		writeErr(w, http.StatusConflict, "username or email already taken")
+		response.Fail(w, apierr.ErrAdminUserAlreadyTaken, "username or email already taken")
 		return
 	}
-	writeErr(w, http.StatusInternalServerError, "update failed")
+	response.Fail(w, apierr.ErrAdminUserUpdateFailed, "update failed")
 }
 
 func scanInt(s string, n *int) (int, error) {
@@ -271,14 +273,4 @@ func scanInt(s string, n *int) (int, error) {
 	}
 	*n = i
 	return i, nil
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
 }

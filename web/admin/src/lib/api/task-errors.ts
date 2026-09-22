@@ -1,4 +1,5 @@
 import { ApiError } from './client'
+import { apiErrorMessage } from './error-copy'
 
 /** Map cancel / detail API errors to i18n keys or backend message. */
 export function taskActionErrorMessage(
@@ -8,8 +9,6 @@ export function taskActionErrorMessage(
   if (err instanceof ApiError) {
     if (err.status === 409) return t('tasks.cannotCancel')
     if (err.status === 404) return t('tasks.notFound')
-    if (err.message) return err.message
   }
-  if (err instanceof Error && err.message) return err.message
-  return t('common.errorGeneric')
+  return apiErrorMessage(err, t)
 }

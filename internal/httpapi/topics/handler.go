@@ -12,10 +12,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/apierr"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	topicapp "github.com/Mr9esx/Pixoma/internal/topics/application"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
 )
 
 // KeyPattern is the shared topic key format.
@@ -66,14 +68,14 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	list, err := h.Repo.List(r.Context(), enabled)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTopicListFailed, err)
 		return
 	}
 	out := make([]topicDTO, 0, len(list))
 	for _, t := range list {
 		out = append(out, toDTO(t))
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 type createRequest struct {
@@ -84,16 +86,16 @@ type createRequest struct {
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrTopicCreateInvalidJSON, "invalid json")
 		return
 	}
 	req.Key = strings.TrimSpace(req.Key)
 	if !KeyPattern.MatchString(req.Key) {
-		writeErr(w, http.StatusBadRequest, "invalid topic key (lowercase letters/digits/hyphens)")
+		response.Fail(w, apierr.ErrTopicCreateInvalid, "invalid topic key (lowercase letters/digits/hyphens)")
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
-		writeErr(w, http.StatusBadRequest, "name required")
+		response.Fail(w, apierr.ErrTopicCreateNameRequired, "name required")
 		return
 	}
 	now := time.Now().UTC()
@@ -105,18 +107,18 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: now,
 	}); err != nil {
 		if errors.Is(err, topicdomain.ErrTopicConflict) {
-			writeErr(w, http.StatusConflict, "topic key already exists")
+			response.Fail(w, apierr.ErrTopicCreateAlreadyExists, "topic key already exists")
 			return
 		}
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTopicCreateFailed, err)
 		return
 	}
 	got, err := h.Repo.Get(r.Context(), req.Key)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTopicCreateFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, toDTO(*got))
+	response.OKStatus(w, http.StatusCreated, toDTO(*got))
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
@@ -124,13 +126,13 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	got, err := h.Repo.Get(r.Context(), key)
 	if err != nil {
 		if errors.Is(err, topicdomain.ErrTopicNotFound) {
-			writeErr(w, http.StatusNotFound, "topic not found")
+			response.Fail(w, apierr.ErrTopicGetNotFound, "topic not found")
 			return
 		}
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTopicListFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(*got))
+	response.OKStatus(w, http.StatusOK, toDTO(*got))
 }
 
 type updateRequest struct {
@@ -142,35 +144,35 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 	var req updateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrTopicCreateInvalidJSON, "invalid json")
 		return
 	}
 	got, err := h.Repo.Get(r.Context(), key)
 	if err != nil {
-		writeErr(w, http.StatusNotFound, "topic not found")
+		response.Fail(w, apierr.ErrTopicGetNotFound, "topic not found")
 		return
 	}
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
 		if name == "" {
-			writeErr(w, http.StatusBadRequest, "name required")
+			response.Fail(w, apierr.ErrTopicCreateNameRequired, "name required")
 			return
 		}
 		got.Name = name
 	}
 	if req.Enabled != nil {
 		if key == topicdomain.DefaultKey && !*req.Enabled {
-			writeErr(w, http.StatusConflict, "default topic cannot be disabled")
+			response.Fail(w, apierr.ErrTopicUpdateDefaultProtected, "default topic cannot be disabled")
 			return
 		}
 		got.Enabled = *req.Enabled
 	}
 	got.UpdatedAt = time.Now().UTC()
 	if err := h.Repo.Update(r.Context(), *got); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTopicUpdateFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(*got))
+	response.OKStatus(w, http.StatusOK, toDTO(*got))
 }
 
 func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
@@ -180,28 +182,27 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	if h.DeleteWithCleanup == nil {
-		writeErr(w, http.StatusInternalServerError, "delete cleanup not configured")
+		response.Fail(w, apierr.ErrTopicDeleteNotConfigured, "delete cleanup not configured")
 		return
 	}
 	summary, err := h.DeleteWithCleanup(r.Context(), key, body.AckReferences)
 	if errors.Is(err, topicapp.ErrDefaultProtected) {
-		writeErrCode(w, http.StatusConflict, "topic_default_protected", "default topic cannot be deleted")
+		response.Fail(w, apierr.ErrTopicDeleteDefaultProtected, "default topic cannot be deleted")
 		return
 	}
 	if errors.Is(err, topicapp.ErrNeedsAck) {
-		writeErrCode(w, http.StatusConflict, "topic_delete_needs_ack",
-			"topic is referenced by cases or edges; confirm with ack_references to remove references")
+		response.Fail(w, apierr.ErrTopicDeleteConflict, "topic is referenced by cases or edges; confirm with ack_references to remove references")
 		return
 	}
 	if errors.Is(err, topicdomain.ErrTopicNotFound) {
-		writeErr(w, http.StatusNotFound, "topic not found")
+		response.Fail(w, apierr.ErrTopicGetNotFound, "topic not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTopicDeleteFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"deleted":                    true,
 		"removed_case_rules":         summary.RemovedCaseRules,
 		"removed_edge_subscriptions": summary.RemovedEdgeSubs,
@@ -242,14 +243,14 @@ func (h *Handler) stats(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 	if _, err := h.Repo.Get(r.Context(), key); err != nil {
 		if errors.Is(err, topicdomain.ErrTopicNotFound) {
-			writeErr(w, http.StatusNotFound, "topic not found")
+			response.Fail(w, apierr.ErrTopicGetNotFound, "topic not found")
 			return
 		}
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTopicStatsFailed, err)
 		return
 	}
 	if h.Tasks == nil {
-		writeJSON(w, http.StatusOK, topicStatsDTO{
+		response.OKStatus(w, http.StatusOK, topicStatsDTO{
 			Status:     map[string]int{},
 			ErrorCodes: []errorCodeCountDTO{},
 			Throughput: []throughputPointDTO{},
@@ -263,10 +264,10 @@ func (h *Handler) stats(w http.ResponseWriter, r *http.Request) {
 		Limit:       100000,
 	})
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTopicStatsFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, aggregateTopicStats(list, from, to))
+	response.OKStatus(w, http.StatusOK, aggregateTopicStats(list, from, to))
 }
 
 func statsWindow(r *http.Request) (time.Time, time.Time) {
@@ -416,22 +417,4 @@ func throughputSeries(tasks []*runtimedomain.Task, from, to time.Time) []through
 		out = append(out, throughputPointDTO{Ts: from.Add(time.Duration(i) * bucket), Count: c})
 	}
 	return out
-}
-
-func writeJSON(w http.ResponseWriter, code int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, code int, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
-}
-
-func writeErrCode(w http.ResponseWriter, code int, errCode, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg, "code": errCode})
 }

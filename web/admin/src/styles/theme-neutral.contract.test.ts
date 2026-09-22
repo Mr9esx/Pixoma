@@ -57,6 +57,40 @@ describe('admin theme neutral base color', () => {
   it('source has no hardcoded slate color utilities', () => {
     expect(collectSlateHits(SRC_ROOT)).toEqual([])
   })
+
+  it('light --background is the studio canvas gray', () => {
+    const root = read(THEME_CSS).match(/:root\s*\{([\s\S]*?)\n\}/)
+    expect(root, 'expected :root { ... } block in theme.css').toBeTruthy()
+    const match = root![1].match(/--background:\s*([^;]+);/)
+    expect(match, 'expected --background in :root').toBeTruthy()
+    expect(match![1].trim()).toBe('oklch(0.988 0 0)')
+  })
+
+  it('the shell leaves the page background in charge', () => {
+    const layout = read(join(adminRoot, 'src/routes/_app.tsx'))
+    expect(layout).not.toContain('bg-canvas')
+    const base = read(join(adminRoot, 'src/styles/index.css'))
+    expect(base).toMatch(/has-\[div\[data-variant='inset'\]\]:bg-sidebar/)
+  })
+
+  it('studio shell inherits the page background instead of re-tinting it', () => {
+    // 半透明叠层会让实际颜色随页面底色漂移，外壳直接吃 --background。
+    for (const rel of [
+      'src/features/studio/studio-workspace.tsx',
+      'src/features/studio/studio-library.tsx',
+      'src/features/studio/studio-settings.tsx',
+      'src/features/studio/studio-sidebar.tsx',
+    ]) {
+      const source = read(join(adminRoot, rel))
+      for (const forbidden of [
+        'overflow-hidden bg-muted/30',
+        'flex-1 bg-muted/30',
+        "'bg-muted/30 p-2'",
+      ]) {
+        expect(source, `${rel} 仍在外壳上叠 ${forbidden}`).not.toContain(forbidden)
+      }
+    }
+  })
 })
 
 function extractFunction(source: string, name: string): string {

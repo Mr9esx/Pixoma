@@ -10,8 +10,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	caseapp "github.com/Mr9esx/Pixoma/internal/cases/application"
 	domain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
@@ -143,12 +145,12 @@ func toDTO(c *domain.Case) caseDTO {
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	q, err := parseListQuery(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrCaseListInvalidQuery, err)
 		return
 	}
 	list, err := h.Repo.List(r.Context(), q)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseListFailed, err)
 		return
 	}
 	out := make([]caseDTO, 0, len(list))
@@ -158,17 +160,17 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, toDTO(c))
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	var body writeBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrCaseCreateInvalidJSON, "invalid json")
 		return
 	}
 	if err := h.validate(body.CaseDocument); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrCaseCreateInvalid, err)
 		return
 	}
 	enabled := true
@@ -177,18 +179,18 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	c := &domain.Case{Document: body.CaseDocument, Enabled: enabled}
 	if err := h.Repo.Create(r.Context(), c); errors.Is(err, domain.ErrAlreadyExists) {
-		writeErr(w, http.StatusConflict, "case already exists")
+		response.Fail(w, apierr.ErrCaseCreateAlreadyExists, "case already exists")
 		return
 	} else if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseCreateFailed, err)
 		return
 	}
 	got, err := h.Repo.Get(r.Context(), c.Document.ID)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseCreateFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, toDTO(got))
+	response.OKStatus(w, http.StatusCreated, toDTO(got))
 }
 
 func parseCaseID(s string) (sharedkernel.CaseID, error) {
@@ -202,19 +204,19 @@ func parseCaseID(s string) (sharedkernel.CaseID, error) {
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	id, err := parseCaseID(chi.URLParam(r, "id"))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid case id")
+		response.Fail(w, apierr.ErrCaseGetInvalidCaseID, "invalid case id")
 		return
 	}
 	c, err := h.Repo.Get(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "case not found")
+		response.Fail(w, apierr.ErrCaseGetNotFound, "case not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseListFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(c))
+	response.OKStatus(w, http.StatusOK, toDTO(c))
 }
 
 // delete removes a case with cleanup: pending tasks are failed with a recorded
@@ -224,7 +226,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseCaseID(chi.URLParam(r, "id"))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid case id")
+		response.Fail(w, apierr.ErrCaseGetInvalidCaseID, "invalid case id")
 		return
 	}
 	var body struct {
@@ -232,24 +234,23 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	if h.DeleteWithCleanup == nil {
-		writeErr(w, http.StatusInternalServerError, "delete cleanup not configured")
+		response.Fail(w, apierr.ErrCaseDeleteNotConfigured, "delete cleanup not configured")
 		return
 	}
 	summary, err := h.DeleteWithCleanup(r.Context(), id, body.AckReferences)
 	if errors.Is(err, caseapp.ErrNeedsAck) {
-		writeErrCode(w, http.StatusConflict, "case_delete_needs_ack",
-			"case is referenced by menu or card entries; confirm with ack_references to remove references")
+		response.Fail(w, apierr.ErrCaseDeleteConflict, "case is referenced by menu or card entries; confirm with ack_references to remove references")
 		return
 	}
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "case not found")
+		response.Fail(w, apierr.ErrCaseGetNotFound, "case not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseDeleteFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"deleted":             true,
 		"removed_placements":  summary.RemovedPlacements,
 		"failed_tasks":        summary.FailedTasks,
@@ -260,21 +261,21 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 	id, err := parseCaseID(chi.URLParam(r, "id"))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid case id")
+		response.Fail(w, apierr.ErrCaseGetInvalidCaseID, "invalid case id")
 		return
 	}
 	existing, err := h.Repo.Get(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "case not found")
+		response.Fail(w, apierr.ErrCaseGetNotFound, "case not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseUpdateFailed, err)
 		return
 	}
 	var body writeBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrCaseCreateInvalidJSON, "invalid json")
 		return
 	}
 	doc := mergeDocument(existing.Document, body.CaseDocument)
@@ -283,7 +284,7 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 	}
 	doc.ID = id
 	if err := h.validate(doc); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrCaseUpdateInvalid, err)
 		return
 	}
 	existing.Document = doc
@@ -291,57 +292,57 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 		existing.Enabled = *body.Enabled
 	}
 	if err := h.Repo.Save(r.Context(), existing); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseUpdateFailed, err)
 		return
 	}
 	got, err := h.Repo.Get(r.Context(), id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseUpdateFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(got))
+	response.OKStatus(w, http.StatusOK, toDTO(got))
 }
 
 func (h *Handler) disable(w http.ResponseWriter, r *http.Request) {
 	id, err := parseCaseID(chi.URLParam(r, "id"))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid case id")
+		response.Fail(w, apierr.ErrCaseGetInvalidCaseID, "invalid case id")
 		return
 	}
 	if err := h.Repo.Disable(r.Context(), id); errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "case not found")
+		response.Fail(w, apierr.ErrCaseGetNotFound, "case not found")
 		return
 	} else if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseDisableFailed, err)
 		return
 	}
 	got, err := h.Repo.Get(r.Context(), id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseDisableFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(got))
+	response.OKStatus(w, http.StatusOK, toDTO(got))
 }
 
 func (h *Handler) enable(w http.ResponseWriter, r *http.Request) {
 	id, err := parseCaseID(chi.URLParam(r, "id"))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid case id")
+		response.Fail(w, apierr.ErrCaseGetInvalidCaseID, "invalid case id")
 		return
 	}
 	if err := h.Repo.Enable(r.Context(), id); errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "case not found")
+		response.Fail(w, apierr.ErrCaseGetNotFound, "case not found")
 		return
 	} else if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseEnableFailed, err)
 		return
 	}
 	got, err := h.Repo.Get(r.Context(), id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrCaseEnableFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(got))
+	response.OKStatus(w, http.StatusOK, toDTO(got))
 }
 
 func (h *Handler) validate(doc domain.CaseDocument) error {
@@ -407,18 +408,4 @@ func parseBoolQuery(v string) (bool, error) {
 	default:
 		return false, errors.New("invalid enabled")
 	}
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
-}
-
-func writeErrCode(w http.ResponseWriter, status int, code, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg, "code": code})
 }

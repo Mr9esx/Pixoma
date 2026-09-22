@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 func TestAggregateTopicStats(t *testing.T) {

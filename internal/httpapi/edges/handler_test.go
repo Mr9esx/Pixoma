@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,15 +16,15 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	edgeapp "github.com/Mr9esx/Pixoma/internal/edge/application"
-	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
-	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue/memory"
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 func TestHandler_CreateListAndTasksFilter(t *testing.T) {
@@ -93,7 +94,7 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 		t.Fatalf("list status=%d", listRes.StatusCode)
 	}
 	var list []map[string]any
-	if err := json.NewDecoder(listRes.Body).Decode(&list); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(listRes)).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
 	found := false
@@ -116,7 +117,7 @@ func TestHandler_CreateListAndTasksFilter(t *testing.T) {
 		t.Fatalf("tasks status=%d", tasksRes.StatusCode)
 	}
 	var taskList []map[string]any
-	if err := json.NewDecoder(tasksRes.Body).Decode(&taskList); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(tasksRes)).Decode(&taskList); err != nil {
 		t.Fatal(err)
 	}
 	if len(taskList) != 1 || taskList[0]["id"] != "t-queued" {
@@ -315,7 +316,7 @@ func TestHandler_CreateMintsNameAndAgentToken(t *testing.T) {
 		t.Fatalf("create status=%d", res.StatusCode)
 	}
 	var created map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&created); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&created); err != nil {
 		t.Fatal(err)
 	}
 	id, _ := created["id"].(string)
@@ -336,7 +337,7 @@ func TestHandler_CreateMintsNameAndAgentToken(t *testing.T) {
 	}
 	defer getRes.Body.Close()
 	var got map[string]any
-	if err := json.NewDecoder(getRes.Body).Decode(&got); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(getRes)).Decode(&got); err != nil {
 		t.Fatal(err)
 	}
 	if got["agent_token"] != tok {
@@ -349,7 +350,7 @@ func TestHandler_CreateMintsNameAndAgentToken(t *testing.T) {
 	}
 	defer listRes.Body.Close()
 	var list []map[string]any
-	if err := json.NewDecoder(listRes.Body).Decode(&list); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(listRes)).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
 	if len(list) != 1 {
@@ -368,7 +369,7 @@ func TestHandler_CreateMintsNameAndAgentToken(t *testing.T) {
 		t.Fatalf("rotate status=%d", rotate.StatusCode)
 	}
 	var rotated map[string]any
-	if err := json.NewDecoder(rotate.Body).Decode(&rotated); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(rotate)).Decode(&rotated); err != nil {
 		t.Fatal(err)
 	}
 	next, _ := rotated["agent_token"].(string)
@@ -426,7 +427,7 @@ func TestHandler_PresenceListsAllInstances(t *testing.T) {
 		t.Fatalf("unreported presence status=%d", presRes.StatusCode)
 	}
 	var unreported []map[string]any
-	if err := json.NewDecoder(presRes.Body).Decode(&unreported); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(presRes)).Decode(&unreported); err != nil {
 		t.Fatal(err)
 	}
 	row := presenceRow(t, unreported, "gpu-2")
@@ -444,7 +445,7 @@ func TestHandler_PresenceListsAllInstances(t *testing.T) {
 		t.Fatalf("reported presence status=%d", presRes2.StatusCode)
 	}
 	var reported []map[string]any
-	if err := json.NewDecoder(presRes2.Body).Decode(&reported); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(presRes2)).Decode(&reported); err != nil {
 		t.Fatal(err)
 	}
 	row = presenceRow(t, reported, "gpu-2")
@@ -459,7 +460,7 @@ func TestHandler_PresenceListsAllInstances(t *testing.T) {
 	}
 	defer presRes3.Body.Close()
 	var stale []map[string]any
-	if err := json.NewDecoder(presRes3.Body).Decode(&stale); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(presRes3)).Decode(&stale); err != nil {
 		t.Fatal(err)
 	}
 	row = presenceRow(t, stale, "gpu-2")
@@ -526,7 +527,7 @@ func TestHandler_PatchHardwareAndRefreshFlag(t *testing.T) {
 		t.Fatalf("patch hardware status=%d", res.StatusCode)
 	}
 	var dto map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&dto); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&dto); err != nil {
 		t.Fatal(err)
 	}
 	hw, _ := dto["hardware"].(map[string]any)
@@ -619,7 +620,7 @@ func TestHandler_Stats(t *testing.T) {
 		t.Fatalf("stats status=%d", res.StatusCode)
 	}
 	var dto map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&dto); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&dto); err != nil {
 		t.Fatal(err)
 	}
 	if dto["task_count"] != float64(4) {
@@ -688,7 +689,7 @@ func TestHandler_MetricsEndpoint(t *testing.T) {
 		Latest *edge.Metrics  `json:"latest"`
 		Series []edge.Metrics `json:"series"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.Series) != 60 || out.Latest == nil || out.Latest.CPUUsagePercent != 20 {
@@ -756,7 +757,7 @@ func TestHandler_MetricsEmptySeries(t *testing.T) {
 		t.Fatalf("status=%d", res.StatusCode)
 	}
 	var out map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
 	if out["latest"] != nil {
@@ -814,7 +815,7 @@ func TestHandler_MetricsCustomRange(t *testing.T) {
 		Latest *edge.Metrics  `json:"latest"`
 		Series []edge.Metrics `json:"series"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.Series) != 30 {
@@ -919,7 +920,7 @@ func TestEdge_GetIncludesStartedAtAndComfyVersion(t *testing.T) {
 		t.Fatalf("status=%d", res.StatusCode)
 	}
 	var out map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
 	if out["comfy_version"] != "v0.1.0" {
@@ -981,7 +982,7 @@ func TestHandler_DeleteCleanup(t *testing.T) {
 		t.Fatalf("ack status=%d", res.StatusCode)
 	}
 	var body map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
 	res.Body.Close()

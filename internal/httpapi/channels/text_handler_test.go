@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -54,7 +55,7 @@ func TestList_ReturnsFullCatalog(t *testing.T) {
 		t.Fatalf("status: %d body=%s", rr.Code, rr.Body.String())
 	}
 	var items []dto
-	if err := json.Unmarshal(rr.Body.Bytes(), &items); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rr), &items); err != nil {
 		t.Fatal(err)
 	}
 	var found *dto
@@ -96,7 +97,7 @@ func TestSave_UpdatesAndResets(t *testing.T) {
 		t.Fatalf("save status: %d body=%s", rr.Code, rr.Body.String())
 	}
 	var items []dto
-	if err := json.Unmarshal(rr.Body.Bytes(), &items); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rr), &items); err != nil {
 		t.Fatal(err)
 	}
 	byKey := map[string]dto{}

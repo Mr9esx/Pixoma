@@ -1,14 +1,15 @@
 package stats
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
 )
 
@@ -59,7 +60,7 @@ type dailyResp struct {
 	} `json:"summary"`
 }
 
-func (h *Handler) parseRange(r *http.Request) (from, to string, code int, msg string) {
+func (h *Handler) parseRange(r *http.Request) (from, to string, err *apierr.Error) {
 	today := time.Now().In(h.Loc).Format(dateLayout)
 	to = r.URL.Query().Get("to")
 	if to == "" {
@@ -72,26 +73,26 @@ func (h *Handler) parseRange(r *http.Request) (from, to string, code int, msg st
 	tf, err1 := time.ParseInLocation(dateLayout, from, h.Loc)
 	tt, err2 := time.ParseInLocation(dateLayout, to, h.Loc)
 	if err1 != nil || err2 != nil {
-		return "", "", http.StatusBadRequest, "invalid from/to: expected YYYY-MM-DD"
+		return "", "", apierr.ErrStatsInvalidRange
 	}
 	if tf.After(tt) {
-		return "", "", http.StatusBadRequest, "from must not be after to"
+		return "", "", apierr.ErrStatsRangeReversed
 	}
 	if int(tt.Sub(tf).Hours()/24)+1 > maxRangeDays {
-		return "", "", http.StatusBadRequest, "range exceeds 365 days"
+		return "", "", apierr.ErrStatsRangeTooLong
 	}
-	return from, to, 0, ""
+	return from, to, nil
 }
 
 func (h *Handler) daily(w http.ResponseWriter, r *http.Request) {
-	from, to, code, msg := h.parseRange(r)
-	if code != 0 {
-		writeErr(w, code, msg)
+	from, to, rangeErr := h.parseRange(r)
+	if rangeErr != nil {
+		response.Fail(w, rangeErr, "")
 		return
 	}
 	rows, err := h.Repo.ListDaily(r.Context(), from, to)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrStatsDailyFailed, err)
 		return
 	}
 	byDate := make(map[string]statsdomain.DailyRow, len(rows))
@@ -131,27 +132,27 @@ func (h *Handler) daily(w http.ResponseWriter, r *http.Request) {
 		rate := float64(resp.Summary.Succeeded) / float64(den)
 		resp.Summary.SuccessRate = &rate
 	}
-	writeJSON(w, http.StatusOK, resp)
+	response.OKStatus(w, http.StatusOK, resp)
 }
 
 func (h *Handler) errors(w http.ResponseWriter, r *http.Request) {
-	from, to, code, msg := h.parseRange(r)
-	if code != 0 {
-		writeErr(w, code, msg)
+	from, to, rangeErr := h.parseRange(r)
+	if rangeErr != nil {
+		response.Fail(w, rangeErr, "")
 		return
 	}
 	limit := 10
 	if v := r.URL.Query().Get("limit"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 || n > 100 {
-			writeErr(w, http.StatusBadRequest, "invalid limit: must be 1..100")
+			response.Fail(w, apierr.ErrStatsErrorsInvalidLimit, "invalid limit: must be 1..100")
 			return
 		}
 		limit = n
 	}
 	rows, err := h.Repo.ListErrors(r.Context(), from, to, limit)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrStatsErrorsFailed, err)
 		return
 	}
 	type item struct {
@@ -162,18 +163,18 @@ func (h *Handler) errors(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		items = append(items, item{ErrorCode: row.ErrorCode, Count: row.Count})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	response.OKStatus(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func (h *Handler) edges(w http.ResponseWriter, r *http.Request) {
-	from, to, code, msg := h.parseRange(r)
-	if code != 0 {
-		writeErr(w, code, msg)
+	from, to, rangeErr := h.parseRange(r)
+	if rangeErr != nil {
+		response.Fail(w, rangeErr, "")
 		return
 	}
 	rows, err := h.Repo.ListEdges(r.Context(), from, to)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrStatsEdgesFailed, err)
 		return
 	}
 	type item struct {
@@ -194,27 +195,27 @@ func (h *Handler) edges(w http.ResponseWriter, r *http.Request) {
 		items = append(items, it)
 		total += row.Count
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
+	response.OKStatus(w, http.StatusOK, map[string]any{"items": items, "total": total})
 }
 
 func (h *Handler) casesTop(w http.ResponseWriter, r *http.Request) {
-	from, to, code, msg := h.parseRange(r)
-	if code != 0 {
-		writeErr(w, code, msg)
+	from, to, rangeErr := h.parseRange(r)
+	if rangeErr != nil {
+		response.Fail(w, rangeErr, "")
 		return
 	}
 	limit := 5
 	if v := r.URL.Query().Get("limit"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 || n > 20 {
-			writeErr(w, http.StatusBadRequest, "invalid limit: must be 1..20")
+			response.Fail(w, apierr.ErrStatsCasesTopInvalidLimit, "invalid limit: must be 1..20")
 			return
 		}
 		limit = n
 	}
 	rows, err := h.Repo.ListCases(r.Context(), from, to, limit)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrStatsCasesTopFailed, err)
 		return
 	}
 	type item struct {
@@ -232,18 +233,18 @@ func (h *Handler) casesTop(w http.ResponseWriter, r *http.Request) {
 		}
 		items = append(items, it)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	response.OKStatus(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func (h *Handler) fleet(w http.ResponseWriter, r *http.Request) {
 	if h.Metrics == nil {
-		writeErr(w, http.StatusInternalServerError, "metrics not configured")
+		response.Fail(w, apierr.ErrStatsFleetNotConfigured, "metrics not configured")
 		return
 	}
 	since := time.Now().UTC().Add(-24 * time.Hour)
 	latest, err := h.Metrics.LatestAll(r.Context(), since)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrStatsFleetFailed, err)
 		return
 	}
 	type node struct {
@@ -306,7 +307,7 @@ func (h *Handler) fleet(w http.ResponseWriter, r *http.Request) {
 	if hottest != nil {
 		out["hottest"] = map[string]any{"edge_id": hottest.EdgeID, "cpu_usage_percent": hottest.CPUUsagePercent}
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func avg(sum float64, n int) float64 {
@@ -314,14 +315,4 @@ func avg(sum float64, n int) float64 {
 		return 0
 	}
 	return sum / float64(n)
-}
-
-func writeJSON(w http.ResponseWriter, code int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, code int, msg string) {
-	writeJSON(w, code, map[string]string{"error": msg})
 }

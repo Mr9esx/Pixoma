@@ -1,6 +1,11 @@
 package adminhost
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/Mr9esx/Pixoma/internal/apierr"
+	"github.com/Mr9esx/Pixoma/internal/response"
+)
 
 func CORS(origins []string) func(http.Handler) http.Handler {
 	return corsMiddleware(origins)
@@ -50,7 +55,7 @@ func RequestBodyLimit(maxBytes int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if maxBytes > 0 && r.ContentLength > maxBytes {
-				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				response.Fail(w, apierr.ErrCommonRequestBodyTooLarge, "")
 				return
 			}
 			if maxBytes > 0 {

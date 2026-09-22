@@ -6,54 +6,22 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 describe('apiFetch', () => {
-  it('throws ApiError with backend error message', async () => {
+  it('unwraps data from the success envelope', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ error: 'case not found' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      )
-    )
-    await expect(apiFetch('/api/v1/cases/missing')).rejects.toMatchObject({
-      status: 404,
-      message: 'case not found',
-    } satisfies Partial<ApiError>)
-  })
-
-  it('throws ApiError with backend error code', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            error: 'case is referenced',
-            code: 'case_delete_needs_ack',
-          }),
-          {
-            status: 409,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        )
-      )
-    )
-    await expect(
-      apiFetch('/api/v1/cases/1', { method: 'DELETE' })
-    ).rejects.toMatchObject({
-      status: 409,
-      code: 'case_delete_needs_ack',
-    } satisfies Partial<ApiError>)
-  })
-
-  it('returns parsed JSON on 2xx', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify([{ id: 'gpu-1' }]), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
+        jsonResponse({
+          message: 'success',
+          code: 2000000,
+          data: [{ id: 'gpu-1' }],
         })
       )
     )
@@ -61,14 +29,73 @@ describe('apiFetch', () => {
     expect(data[0].id).toBe('gpu-1')
   })
 
+  it('returns null data as-is', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({ message: 'success', code: 2000000, data: null })
+      )
+    )
+    await expect(apiFetch('/api/v1/cases/1', { method: 'DELETE' })).resolves.toBeNull()
+  })
+
+  it('passes through responses that are not enveloped', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('data: {"sequence":1}\n\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        })
+      )
+    )
+    await expect(apiFetch('/api/v1/studio/agui')).resolves.toBe(
+      'data: {"sequence":1}\n\n'
+    )
+  })
+
+  it('throws ApiError carrying message, code and error_detail', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            message: '创建用例失败。检查请求参数后重试。',
+            code: 4000602,
+            data: null,
+            error_detail: 'name is required',
+          },
+          400
+        )
+      )
+    )
+    await expect(apiFetch('/api/v1/cases', { method: 'POST' })).rejects.toMatchObject({
+      status: 400,
+      message: '创建用例失败。检查请求参数后重试。',
+      code: 4000602,
+      detail: 'name is required',
+    } satisfies Partial<ApiError>)
+  })
+
+  it('falls back to a generic message when the envelope has none', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ code: 5000005, data: null }, 500))
+    )
+    await expect(apiFetch('/api/v1/edges')).rejects.toMatchObject({
+      status: 500,
+      code: 5000005,
+      message: '请求失败（500）',
+    } satisfies Partial<ApiError>)
+  })
+
   it('uses a relative /api path when VITE_ADMIN_API_BASE is empty', async () => {
     vi.stubEnv('VITE_ADMIN_API_BASE', '')
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ initialized: false }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    )
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ message: 'success', code: 2000000, data: { initialized: false } })
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     await apiFetch('/api/v1/setup/status')
@@ -100,10 +127,7 @@ describe('apiFetch', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: 'unauthorized' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        jsonResponse({ message: '登录已失效。重新登录。', code: 4010107, data: null }, 401)
       )
       .mockResolvedValue(new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)

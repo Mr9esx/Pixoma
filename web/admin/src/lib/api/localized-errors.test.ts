@@ -8,8 +8,8 @@ import {
 const t = (key: string) => `[${key}]`
 
 describe('caseDeleteErrorMessage', () => {
-  it('maps case_delete_needs_ack to i18n key', () => {
-    const err = new ApiError(409, 'case is referenced', 'case_delete_needs_ack')
+  it('maps the case delete-conflict code to an i18n key', () => {
+    const err = new ApiError(409, 'case is referenced', 4090604)
     expect(caseDeleteErrorMessage(err, t)).toBe('[cases.deleteNeedsAck]')
   })
 
@@ -20,13 +20,13 @@ describe('caseDeleteErrorMessage', () => {
 })
 
 describe('topicDeleteErrorMessage', () => {
-  it('maps topic_delete_needs_ack to i18n key', () => {
-    const err = new ApiError(409, 'referenced', 'topic_delete_needs_ack')
+  it('maps the topic delete-conflict code to an i18n key', () => {
+    const err = new ApiError(409, 'referenced', 4090904)
     expect(topicDeleteErrorMessage(err, t)).toBe('[topics.deleteNeedsAck]')
   })
 
-  it('maps topic_default_protected to i18n key', () => {
-    const err = new ApiError(409, 'default', 'topic_default_protected')
+  it('maps the protected default topic code to an i18n key', () => {
+    const err = new ApiError(409, 'default', 4090913)
     expect(topicDeleteErrorMessage(err, t)).toBe(
       '[topics.deleteDefaultProtected]'
     )

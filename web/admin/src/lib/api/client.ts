@@ -1,12 +1,24 @@
 export class ApiError extends Error {
   status: number
-  code?: string
-  constructor(status: number, message: string, code?: string) {
+  /** 业务错误码，7 位整数。网络层失败时为 0。 */
+  code: number
+  /** 后端给出的原始技术原因，已脱敏，可直接展示。 */
+  detail?: string
+  constructor(status: number, message: string, code = 0, detail?: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.detail = detail
   }
+}
+
+/** 后端所有 JSON 接口的统一响应封装。 */
+type Envelope<T> = {
+  message?: string
+  code?: number
+  data?: T
+  error_detail?: string
 }
 
 export function baseURL(): string {
@@ -93,29 +105,29 @@ export async function apiFetch<T>(
     }
   }
 
+  const envelope: Envelope<T> =
+    typeof body === 'object' && body !== null ? (body as Envelope<T>) : {}
+
   if (!res.ok) {
     if (res.status === 401 && !PUBLIC_AUTH_PATHS.includes(path)) {
       redirectToLogin()
       throw new ApiError(res.status, '登录已失效，请重新登录')
     }
-    const msg =
-      typeof body === 'object' &&
-      body !== null &&
-      'error' in body &&
-      typeof (body as { error: unknown }).error === 'string'
-        ? (body as { error: string }).error
-        : `Request failed (${res.status})`
-    const code =
-      typeof body === 'object' &&
-      body !== null &&
-      'code' in body &&
-      typeof (body as { code: unknown }).code === 'string'
-        ? (body as { code: string }).code
-        : undefined
-    throw new ApiError(res.status, msg, code)
+    const message =
+      typeof envelope.message === 'string' && envelope.message
+        ? envelope.message
+        : `请求失败（${res.status}）`
+    const code = typeof envelope.code === 'number' ? envelope.code : 0
+    const detail =
+      typeof envelope.error_detail === 'string' ? envelope.error_detail : undefined
+    throw new ApiError(res.status, message, code, detail)
   }
 
-  return body as T
+  // 非封装响应（二进制预览、SSE 等）原样返回。
+  if (typeof envelope.code !== 'number' || !('data' in envelope)) {
+    return body as T
+  }
+  return envelope.data as T
 }
 
 export function toQuery(

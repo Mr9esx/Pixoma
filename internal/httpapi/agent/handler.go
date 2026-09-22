@@ -12,10 +12,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 const defaultLease = 90 * time.Second
@@ -83,11 +85,11 @@ func (h *Handler) authorize(r *http.Request, edgeID sharedkernel.EdgeID) bool {
 func (h *Handler) claim(w http.ResponseWriter, r *http.Request) {
 	edgeID := sharedkernel.EdgeID(strings.TrimSpace(r.URL.Query().Get("edge_id")))
 	if edgeID == "" {
-		writeErr(w, http.StatusBadRequest, "edge_id required")
+		response.Fail(w, apierr.ErrAgentClaimEdgeIDRequired, "edge_id required")
 		return
 	}
 	if !h.authorize(r, edgeID) {
-		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		response.Fail(w, apierr.ErrAgentClaimUnauthorized, "unauthorized")
 		return
 	}
 	wait := parseWait(r.URL.Query().Get("wait"))
@@ -103,11 +105,11 @@ func (h *Handler) claim(w http.ResponseWriter, r *http.Request) {
 		_, _ = h.Tasks.RequeueExpiredLeases(r.Context(), h.now())
 		claimed, err := h.Tasks.ClaimNextWithLease(r.Context(), edgeID, topics, h.lease(), h.now())
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrAgentClaimFailed, err)
 			return
 		}
 		if claimed != nil {
-			writeJSON(w, http.StatusOK, map[string]any{
+			response.OKStatus(w, http.StatusOK, map[string]any{
 				"task_id":     string(claimed.ID),
 				"edge_id":     string(claimed.EdgeID),
 				"job_ref":     claimed.JobRef,
@@ -116,12 +118,12 @@ func (h *Handler) claim(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if wait <= 0 || !h.now().Before(deadline) {
-			w.WriteHeader(http.StatusNoContent)
+			response.OK(w, nil)
 			return
 		}
 		select {
 		case <-r.Context().Done():
-			writeErr(w, http.StatusRequestTimeout, "canceled")
+			response.Fail(w, apierr.ErrAgentClaimCanceled, "canceled")
 			return
 		case <-time.After(200 * time.Millisecond):
 		}
@@ -134,34 +136,34 @@ func (h *Handler) heartbeat(w http.ResponseWriter, r *http.Request) {
 		EdgeID string `json:"edge_id"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrAgentHeartbeatInvalidJSON, "invalid json")
 		return
 	}
 	edgeID := sharedkernel.EdgeID(strings.TrimSpace(body.EdgeID))
 	if edgeID == "" {
-		writeErr(w, http.StatusBadRequest, "edge_id required")
+		response.Fail(w, apierr.ErrAgentClaimEdgeIDRequired, "edge_id required")
 		return
 	}
 	if !h.authorize(r, edgeID) {
-		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		response.Fail(w, apierr.ErrAgentClaimUnauthorized, "unauthorized")
 		return
 	}
 	ok, err := h.Tasks.HeartbeatLease(r.Context(), id, edgeID, h.lease(), h.now())
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrAgentHeartbeatFailed, err)
 		return
 	}
 	if !ok {
-		writeErr(w, http.StatusConflict, "heartbeat rejected")
+		response.Fail(w, apierr.ErrAgentHeartbeatHeartbeatRejected, "heartbeat rejected")
 		return
 	}
 	h.touch(edgeID)
-	w.WriteHeader(http.StatusNoContent)
+	response.OK(w, nil)
 }
 
 func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 	if h.Presence == nil {
-		writeErr(w, http.StatusInternalServerError, "presence not configured")
+		response.Fail(w, apierr.ErrAgentPresenceNotConfigured, "presence not configured")
 		return
 	}
 	var body struct {
@@ -173,22 +175,22 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 		Metrics      *edge.Metrics  `json:"metrics"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrAgentPresenceInvalidJSON, "invalid json")
 		return
 	}
 	edgeID := sharedkernel.EdgeID(strings.TrimSpace(body.EdgeID))
 	if edgeID == "" {
-		writeErr(w, http.StatusBadRequest, "edge_id required")
+		response.Fail(w, apierr.ErrAgentClaimEdgeIDRequired, "edge_id required")
 		return
 	}
 	if !h.authorize(r, edgeID) {
-		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		response.Fail(w, apierr.ErrAgentClaimUnauthorized, "unauthorized")
 		return
 	}
 	h.Presence.Report(edgeID, body.ComfyRunning)
 	if h.Metrics != nil && body.Metrics != nil && !body.Metrics.CollectedAt.IsZero() {
 		if err := h.Metrics.Append(r.Context(), edgeID, *body.Metrics); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrAgentPresenceFailed, err)
 			return
 		}
 	}
@@ -197,13 +199,13 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 	if h.Edges != nil {
 		rec, err := h.Edges.Get(r.Context(), edgeID)
 		if err != nil && !errors.Is(err, edge.ErrNotFound) {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrAgentPresenceFailed, err)
 			return
 		}
 		if rec != nil {
 			if body.Hardware != nil && edge.ShouldWriteHardware(rec.Hardware, rec.HardwareRefreshRequested) {
 				if err := h.Edges.UpdateHardware(r.Context(), edgeID, *body.Hardware); err != nil {
-					writeErr(w, http.StatusInternalServerError, err.Error())
+					response.FailErr(w, apierr.ErrAgentPresenceFailed, err)
 					return
 				}
 			}
@@ -214,7 +216,7 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 					body.StartedAt,
 					body.ComfyVersion,
 				); err != nil {
-					writeErr(w, http.StatusInternalServerError, err.Error())
+					response.FailErr(w, apierr.ErrAgentPresenceFailed, err)
 					return
 				}
 			}
@@ -224,7 +226,7 @@ func (h *Handler) presence(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"refresh_hardware": refresh,
 		"consuming":        consuming,
 	})
@@ -239,7 +241,7 @@ func (h *Handler) touch(id sharedkernel.EdgeID) {
 
 func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	if h.Status == nil {
-		writeErr(w, http.StatusInternalServerError, "status not configured")
+		response.Fail(w, apierr.ErrAgentStatusNotConfigured, "status not configured")
 		return
 	}
 	id := sharedkernel.TaskID(chi.URLParam(r, "id"))
@@ -252,24 +254,24 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		ErrorMsg  string                 `json:"error_msg"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 4<<20)).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrAgentHeartbeatInvalidJSON, "invalid json")
 		return
 	}
 	if strings.TrimSpace(body.EdgeID) == "" {
-		writeErr(w, http.StatusBadRequest, "edge_id required")
+		response.Fail(w, apierr.ErrAgentClaimEdgeIDRequired, "edge_id required")
 		return
 	}
 	if !h.authorize(r, sharedkernel.EdgeID(body.EdgeID)) {
-		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		response.Fail(w, apierr.ErrAgentClaimUnauthorized, "unauthorized")
 		return
 	}
 	cur, err := h.Tasks.Get(r.Context(), id)
 	if err != nil {
-		writeErr(w, http.StatusConflict, "task not found")
+		response.Fail(w, apierr.ErrAgentStatusTaskNotFound, "task not found")
 		return
 	}
 	if cur.EdgeID == "" || cur.EdgeID != sharedkernel.EdgeID(body.EdgeID) {
-		writeErr(w, http.StatusConflict, "stale holder")
+		response.Fail(w, apierr.ErrAgentStatusStaleHolder, "stale holder")
 		return
 	}
 	ev := sharedkernel.TaskStatusEvent{
@@ -283,10 +285,10 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		At:        h.now(),
 	}
 	if err := h.Status.OnStatus(r.Context(), ev); err != nil {
-		writeErr(w, http.StatusConflict, err.Error())
+		response.FailErr(w, apierr.ErrAgentStatusConflict, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	response.OK(w, nil)
 }
 
 func parseWait(raw string) time.Duration {
@@ -302,14 +304,4 @@ func parseWait(raw string) time.Duration {
 		return 60 * time.Second
 	}
 	return d
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
 }

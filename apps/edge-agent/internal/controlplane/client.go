@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -59,9 +58,6 @@ func (c *Client) Claim(ctx context.Context, wait time.Duration) (*Job, error) {
 		return nil, err
 	}
 	defer res.Body.Close()
-	if res.StatusCode == http.StatusNoContent {
-		return nil, nil
-	}
 	if res.StatusCode == http.StatusUnauthorized {
 		return nil, fmt.Errorf("pull: unauthorized")
 	}
@@ -69,8 +65,16 @@ func (c *Client) Claim(ctx context.Context, wait time.Duration) (*Job, error) {
 		body, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
 		return nil, fmt.Errorf("pull: claim status %d: %s", res.StatusCode, body)
 	}
+	data, err := decodeEnvelope(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		// data 为 null 表示这一轮没有领到任务。
+		return nil, nil
+	}
 	var job Job
-	if err := json.NewDecoder(res.Body).Decode(&job); err != nil {
+	if err := json.Unmarshal(data, &job); err != nil {
 		return nil, fmt.Errorf("pull: decode claim: %w", err)
 	}
 	if job.TaskID == "" || job.JobRef.Key == "" {
@@ -95,11 +99,12 @@ func (c *Client) Heartbeat(ctx context.Context, taskID sharedkernel.TaskID) erro
 	if res.StatusCode == http.StatusUnauthorized {
 		return fmt.Errorf("pull: unauthorized")
 	}
-	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
 		return fmt.Errorf("pull: heartbeat status %d: %s", res.StatusCode, raw)
 	}
-	return nil
+	_, err = decodeEnvelope(res.Body)
+	return err
 }
 
 func (c *Client) ReportPresence(
@@ -144,18 +149,23 @@ func (c *Client) ReportPresence(
 	if res.StatusCode == http.StatusUnauthorized {
 		return false, false, fmt.Errorf("pull: unauthorized")
 	}
-	if res.StatusCode == http.StatusNoContent {
-		return false, false, nil
-	}
 	if res.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
 		return false, false, fmt.Errorf("pull: presence status %d: %s", res.StatusCode, raw)
+	}
+	data, err := decodeEnvelope(res.Body)
+	if err != nil {
+		return false, false, err
+	}
+	if data == nil {
+		// data 为 null 表示服务端没有要下发的指令。
+		return false, false, nil
 	}
 	var out struct {
 		RefreshHardware bool `json:"refresh_hardware"`
 		Consuming       bool `json:"consuming"`
 	}
-	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&out); err != nil && !errors.Is(err, io.EOF) {
+	if err := json.Unmarshal(data, &out); err != nil {
 		return false, false, fmt.Errorf("pull: decode presence: %w", err)
 	}
 	return out.RefreshHardware, out.Consuming, nil
@@ -191,11 +201,12 @@ func (c *Client) ReportStatus(ctx context.Context, ev sharedkernel.TaskStatusEve
 	if res.StatusCode == http.StatusUnauthorized {
 		return fmt.Errorf("pull: unauthorized")
 	}
-	if res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
 		return fmt.Errorf("pull: status report %d: %s", res.StatusCode, raw)
 	}
-	return nil
+	_, err = decodeEnvelope(res.Body)
+	return err
 }
 
 func (c *Client) auth(req *http.Request) {

@@ -2,7 +2,6 @@ package media
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -11,7 +10,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
@@ -68,12 +69,12 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	reader, err := r.MultipartReader()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "请求格式错误：需 multipart/form-data")
+		response.Fail(w, apierr.ErrMediaUploadInvalidContentType, "请求格式错误：需 multipart/form-data")
 		return
 	}
 	part, err := reader.NextPart()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "缺少上传文件")
+		response.Fail(w, apierr.ErrMediaUploadFileMissing, "缺少上传文件")
 		return
 	}
 	defer part.Close()
@@ -81,29 +82,29 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	n, err := io.Copy(&buf, io.LimitReader(part, max+1))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "读取上传文件失败")
+		response.Fail(w, apierr.ErrMediaUploadFileReadFailed, "读取上传文件失败")
 		return
 	}
 	if n > max {
-		writeError(w, http.StatusRequestEntityTooLarge, "文件超过大小上限")
+		response.Fail(w, apierr.ErrMediaUploadTooLarge, "文件超过大小上限")
 		return
 	}
 
 	ext := extOf(part.FileName())
 	contentType := extToMIME[ext]
 	if contentType == "" {
-		writeError(w, http.StatusBadRequest, "不支持的文件类型，仅支持图片（png/jpeg/webp/gif）与视频（mp4/webm）")
+		response.Fail(w, apierr.ErrMediaUploadFileTypeUnsupported, "不支持的文件类型，仅支持图片（png/jpeg/webp/gif）与视频（mp4/webm）")
 		return
 	}
 
 	key := mediaPrefix + uuid.NewString() + "." + ext
 	ref, err := h.Blob.Put(r.Context(), key, bytes.NewReader(buf.Bytes()), blob.PutOptions{MIME: contentType})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "媒体保存失败")
+		response.Fail(w, apierr.ErrMediaUploadFailed, "媒体保存失败")
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, uploadResponse{
+	response.OKStatus(w, http.StatusCreated, uploadResponse{
 		Key:  ref.Key,
 		URL:  "/api/v1/media/" + ref.Key,
 		MIME: ref.MIME,
@@ -116,7 +117,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ServePreview(w http.ResponseWriter, r *http.Request) {
 	file := chi.URLParam(r, "file")
 	if file == "" || strings.Contains(file, "/") || strings.Contains(file, "..") {
-		writeError(w, http.StatusNotFound, "媒体不存在")
+		response.Fail(w, apierr.ErrMediaServePreviewNotFound, "媒体不存在")
 		return
 	}
 	ext := extOf(file)
@@ -127,7 +128,7 @@ func (h *Handler) ServePreview(w http.ResponseWriter, r *http.Request) {
 
 	rc, err := h.Blob.Get(r.Context(), sharedkernel.BlobRef{Key: mediaPrefix + file})
 	if err != nil {
-		writeError(w, http.StatusNotFound, "媒体不存在")
+		response.Fail(w, apierr.ErrMediaServePreviewNotFound, "媒体不存在")
 		return
 	}
 	defer rc.Close()
@@ -136,16 +137,6 @@ func (h *Handler) ServePreview(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "inline")
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, rc)
-}
-
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
-}
-
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
 }
 
 // MIMETypeFor returns the allow-listed content type for an extension, or ""

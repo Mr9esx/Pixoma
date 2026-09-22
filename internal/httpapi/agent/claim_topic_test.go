@@ -4,19 +4,20 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Mr9esx/Pixoma/internal/httpapi/agent"
-	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/agent"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 func TestAgent_ConcurrentClaimTopicSingleTask(t *testing.T) {
@@ -63,6 +64,10 @@ func TestAgent_ConcurrentClaimTopicSingleTask(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer tok")
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, req)
+		// 统一封装后空领取也是 200，用 data 是否为空区分有没有领到任务。
+		if rec.Code == http.StatusOK && strings.Contains(rec.Body.String(), `"data":null`) {
+			return http.StatusNoContent
+		}
 		return rec.Code
 	}
 
@@ -126,7 +131,7 @@ func TestAgent_ClaimWithoutTopicBindingDoesNotConsume(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer tok")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"data":null`) {
 		t.Fatalf("unbound edge must not consume: status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	got, err := tasks.Get(context.Background(), "t-default")

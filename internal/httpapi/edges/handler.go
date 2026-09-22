@@ -12,12 +12,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	edgeapp "github.com/Mr9esx/Pixoma/internal/edge/application"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
-	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
-	"github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
 )
 
 // Handler serves /api/v1/edges CRUD and observation endpoints.
@@ -148,7 +150,7 @@ func (h *Handler) mintAndStoreToken(rec *edge.Record) (string, error) {
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	list, err := h.Repo.List(r.Context())
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeListFailed, err)
 		return
 	}
 	out := make([]instanceDTO, 0, len(list))
@@ -158,13 +160,13 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, toDTO(rec, ""))
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) listPresence(w http.ResponseWriter, r *http.Request) {
 	list, err := h.Repo.List(r.Context())
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeListPresenceFailed, err)
 		return
 	}
 	out := make([]presence.Snapshot, 0, len(list))
@@ -178,13 +180,13 @@ func (h *Handler) listPresence(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, h.Presence.Snapshot(rec.ID))
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrEdgeCreateInvalidJSON, "invalid json")
 		return
 	}
 	name := strings.TrimSpace(req.Name)
@@ -192,13 +194,13 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	if id == "" {
 		gen, err := edge.NewID()
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrEdgeCreateFailed, err)
 			return
 		}
 		id = string(gen)
 	}
 	if name == "" {
-		writeErr(w, http.StatusBadRequest, "name required")
+		response.Fail(w, apierr.ErrEdgeCreateNameRequired, "name required")
 		return
 	}
 	enabled := true
@@ -216,51 +218,51 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:    now,
 	}
 	if _, err := h.Repo.Get(r.Context(), rec.ID); err == nil {
-		writeErr(w, http.StatusConflict, "instance already exists")
+		response.Fail(w, apierr.ErrEdgeCreateAlreadyExists, "instance already exists")
 		return
 	} else if !errors.Is(err, edge.ErrNotFound) {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeCreateFailed, err)
 		return
 	}
 	plain, err := h.mintAndStoreToken(rec)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeCreateFailed, err)
 		return
 	}
 	if err := h.Repo.Upsert(r.Context(), rec); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeCreateFailed, err)
 		return
 	}
 	if err := h.refreshPool(r); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeCreateFailed, err)
 		return
 	}
 	got, err := h.Repo.Get(r.Context(), rec.ID)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeCreateFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, toDTO(got, plain))
+	response.OKStatus(w, http.StatusCreated, toDTO(got, plain))
 }
 
 func (h *Handler) writeInstance(w http.ResponseWriter, status int, rec *edge.Record) {
 	tok, err := h.decryptToken(rec)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeWriteFailed, err)
 		return
 	}
-	writeJSON(w, status, toDTO(rec, tok))
+	response.OKStatus(w, status, toDTO(rec, tok))
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	id := sharedkernel.EdgeID(chi.URLParam(r, "id"))
 	rec, err := h.Repo.Get(r.Context(), id)
 	if errors.Is(err, edge.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "instance not found")
+		response.Fail(w, apierr.ErrEdgeGetNotFound, "instance not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeListFailed, err)
 		return
 	}
 	h.writeInstance(w, http.StatusOK, rec)
@@ -270,46 +272,46 @@ func (h *Handler) rotateToken(w http.ResponseWriter, r *http.Request) {
 	id := sharedkernel.EdgeID(chi.URLParam(r, "id"))
 	rec, err := h.Repo.Get(r.Context(), id)
 	if errors.Is(err, edge.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "instance not found")
+		response.Fail(w, apierr.ErrEdgeGetNotFound, "instance not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeRotateTokenFailed, err)
 		return
 	}
 	plain, err := h.mintAndStoreToken(rec)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeRotateTokenFailed, err)
 		return
 	}
 	if err := h.Repo.UpdateAgentTokenEnc(r.Context(), rec.ID, rec.AgentTokenEnc); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeRotateTokenFailed, err)
 		return
 	}
 	rec.UpdatedAt = time.Now().UTC()
-	writeJSON(w, http.StatusOK, toDTO(rec, plain))
+	response.OKStatus(w, http.StatusOK, toDTO(rec, plain))
 }
 
 func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 	id := sharedkernel.EdgeID(chi.URLParam(r, "id"))
 	rec, err := h.Repo.Get(r.Context(), id)
 	if errors.Is(err, edge.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "instance not found")
+		response.Fail(w, apierr.ErrEdgeGetNotFound, "instance not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeUpdateFailed, err)
 		return
 	}
 	var req patchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
+		response.Fail(w, apierr.ErrEdgeCreateInvalidJSON, "invalid json")
 		return
 	}
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
 		if name == "" {
-			writeErr(w, http.StatusBadRequest, "name required")
+			response.Fail(w, apierr.ErrEdgeCreateNameRequired, "name required")
 			return
 		}
 		rec.Name = name
@@ -326,13 +328,13 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 	if req.SubscribeTopics != nil {
 		topics := topicdomain.NormalizeTopics(req.SubscribeTopics)
 		if h.Topics == nil {
-			writeErr(w, http.StatusInternalServerError, "topics repository not configured")
+			response.Fail(w, apierr.ErrEdgeUpdateNotConfigured, "topics repository not configured")
 			return
 		}
 		for _, key := range topics {
 			got, err := h.Topics.Get(r.Context(), key)
 			if err != nil || !got.Enabled {
-				writeErr(w, http.StatusBadRequest, "unknown or disabled topic: "+key)
+				response.Fail(w, apierr.ErrEdgeUpdateTopicUnknown, "unknown or disabled topic: "+key)
 				return
 			}
 		}
@@ -345,34 +347,34 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 	}
 	rec.UpdatedAt = time.Now().UTC()
 	if err := h.Repo.Upsert(r.Context(), rec); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeUpdateFailed, err)
 		return
 	}
 	if req.Hardware != nil {
 		if err := h.Repo.UpdateHardware(r.Context(), rec.ID, rec.Hardware); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrEdgeUpdateFailed, err)
 			return
 		}
 	}
 	if req.SubscribeTopics != nil {
 		if err := h.Repo.UpdateSubscribeTopics(r.Context(), rec.ID, rec.SubscribeTopics); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrEdgeUpdateFailed, err)
 			return
 		}
 	}
 	if req.RefreshHardware != nil {
 		if err := h.Repo.SetHardwareRefreshRequested(r.Context(), rec.ID, *req.RefreshHardware); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrEdgeUpdateFailed, err)
 			return
 		}
 	}
 	if err := h.refreshPool(r); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeUpdateFailed, err)
 		return
 	}
 	got, err := h.Repo.Get(r.Context(), id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeUpdateFailed, err)
 		return
 	}
 	h.writeInstance(w, http.StatusOK, got)
@@ -385,31 +387,30 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	if h.DeleteWithCleanup == nil {
-		writeErr(w, http.StatusInternalServerError, "delete cleanup not configured")
+		response.Fail(w, apierr.ErrEdgeDeleteNotConfigured, "delete cleanup not configured")
 		return
 	}
 	summary, err := h.DeleteWithCleanup(r.Context(), id, body.AckReferences)
 	if errors.Is(err, edgeapp.ErrNeedsAck) {
-		writeErrCode(w, http.StatusConflict, "edge_delete_needs_ack",
-			"edge has running tasks; confirm with ack_references to mark them failed")
+		response.Fail(w, apierr.ErrEdgeDeleteConflict, "edge has running tasks; confirm with ack_references to mark them failed")
 		return
 	}
 	if errors.Is(err, edge.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "instance not found")
+		response.Fail(w, apierr.ErrEdgeGetNotFound, "instance not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeDeleteFailed, err)
 		return
 	}
 	if h.Presence != nil {
 		h.Presence.Remove(id)
 	}
 	if err := h.refreshPool(r); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeDeleteFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"deleted":      true,
 		"failed_tasks": summary.FailedTasks,
 	})
@@ -418,10 +419,10 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listTasks(w http.ResponseWriter, r *http.Request) {
 	id := sharedkernel.EdgeID(chi.URLParam(r, "id"))
 	if _, err := h.Repo.Get(r.Context(), id); errors.Is(err, edge.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "instance not found")
+		response.Fail(w, apierr.ErrEdgeGetNotFound, "instance not found")
 		return
 	} else if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeListTasksFailed, err)
 		return
 	}
 	q := domain.ListByInstanceQuery{}
@@ -431,7 +432,7 @@ func (h *Handler) listTasks(w http.ResponseWriter, r *http.Request) {
 	if v := r.URL.Query().Get("limit"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
-			writeErr(w, http.StatusBadRequest, "invalid limit")
+			response.Fail(w, apierr.ErrEdgeListTasksInvalidLimit, "invalid limit")
 			return
 		}
 		q.Limit = n
@@ -439,14 +440,14 @@ func (h *Handler) listTasks(w http.ResponseWriter, r *http.Request) {
 	if v := r.URL.Query().Get("offset"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
-			writeErr(w, http.StatusBadRequest, "invalid offset")
+			response.Fail(w, apierr.ErrEdgeListTasksInvalidOffset, "invalid offset")
 			return
 		}
 		q.Offset = n
 	}
 	list, err := h.Tasks.ListByInstance(r.Context(), id, q)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeListTasksFailed, err)
 		return
 	}
 	out := make([]taskDTO, 0, len(list))
@@ -467,7 +468,7 @@ func (h *Handler) listTasks(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:    t.UpdatedAt,
 		})
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 type statsDTO struct {
@@ -479,20 +480,20 @@ type statsDTO struct {
 func (h *Handler) stats(w http.ResponseWriter, r *http.Request) {
 	id := sharedkernel.EdgeID(chi.URLParam(r, "id"))
 	if _, err := h.Repo.Get(r.Context(), id); errors.Is(err, edge.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "instance not found")
+		response.Fail(w, apierr.ErrEdgeGetNotFound, "instance not found")
 		return
 	} else if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeStatsFailed, err)
 		return
 	}
 	out := statsDTO{}
 	if h.Tasks == nil {
-		writeJSON(w, http.StatusOK, out)
+		response.OKStatus(w, http.StatusOK, out)
 		return
 	}
 	list, err := h.Tasks.ListByInstance(r.Context(), id, domain.ListByInstanceQuery{})
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeStatsFailed, err)
 		return
 	}
 	var okN, failN int
@@ -520,7 +521,7 @@ func (h *Handler) stats(w http.ResponseWriter, r *http.Request) {
 		rate := float64(okN) / float64(den)
 		out.SuccessRate = &rate
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) refreshPool(r *http.Request) error {
@@ -533,24 +534,24 @@ func (h *Handler) refreshPool(r *http.Request) error {
 func (h *Handler) metrics(w http.ResponseWriter, r *http.Request) {
 	id := sharedkernel.EdgeID(chi.URLParam(r, "id"))
 	if h.Metrics == nil {
-		writeErr(w, http.StatusInternalServerError, "metrics not configured")
+		response.Fail(w, apierr.ErrEdgeMetricsNotConfigured, "metrics not configured")
 		return
 	}
 	if _, err := h.Repo.Get(r.Context(), id); errors.Is(err, edge.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "instance not found")
+		response.Fail(w, apierr.ErrEdgeGetNotFound, "instance not found")
 		return
 	} else if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeMetricsFailed, err)
 		return
 	}
 	since, until, err := parseMetricsRange(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrEdgeMetricsInvalidQuery, err)
 		return
 	}
 	series, err := h.Metrics.ListSince(r.Context(), id, since, 100000)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrEdgeMetricsFailed, err)
 		return
 	}
 	var latest *edge.Metrics
@@ -562,7 +563,7 @@ func (h *Handler) metrics(w http.ResponseWriter, r *http.Request) {
 	if filled == nil {
 		filled = []edge.Metrics{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"latest": latest, "series": filled})
+	response.OKStatus(w, http.StatusOK, map[string]any{"latest": latest, "series": filled})
 }
 
 const maxMetricsRange = 90 * 24 * time.Hour
@@ -673,18 +674,4 @@ func fillMetricsGaps(series []edge.Metrics, since, until time.Time, bucket time.
 		out = append(out, *sample)
 	}
 	return out
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
-}
-
-func writeErrCode(w http.ResponseWriter, status int, code, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg, "code": code})
 }

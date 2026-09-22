@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/apierr"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -71,13 +73,16 @@ func validCaseBody(id uint64, name string) map[string]any {
 	}
 }
 
+// decodeErr 取出错误响应里的 message。错误响应没有 data，要读封装本身。
 func decodeErr(t *testing.T, res *http.Response) string {
 	t.Helper()
-	var body map[string]string
+	var body struct {
+		Message string `json:"message"`
+	}
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode error body: %v", err)
 	}
-	return body["error"]
+	return body.Message
 }
 
 func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
@@ -96,7 +101,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 		t.Fatalf("create status=%d body=%s", res.StatusCode, raw)
 	}
 	var created map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&created); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&created); err != nil {
 		t.Fatal(err)
 	}
 	if created["id"] != float64(1) || created["enabled"] != true {
@@ -119,7 +124,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 		t.Fatalf("create with id=0 status=%d body=%s", autoRes.StatusCode, raw)
 	}
 	var autoCreated map[string]any
-	if err := json.NewDecoder(autoRes.Body).Decode(&autoCreated); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(autoRes)).Decode(&autoCreated); err != nil {
 		t.Fatal(err)
 	}
 	autoID, ok := autoCreated["id"].(float64)
@@ -157,7 +162,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 		t.Fatalf("list status=%d", listRes.StatusCode)
 	}
 	var list []map[string]any
-	if err := json.NewDecoder(listRes.Body).Decode(&list); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(listRes)).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
 	if len(list) != 1 || list[0]["id"] != float64(1) {
@@ -191,7 +196,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 		t.Fatalf("patch status=%d body=%s", patchRes.StatusCode, raw)
 	}
 	var patched map[string]any
-	if err := json.NewDecoder(patchRes.Body).Decode(&patched); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(patchRes)).Decode(&patched); err != nil {
 		t.Fatal(err)
 	}
 	if patched["name"] != "Alpha Updated" {
@@ -208,7 +213,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 		t.Fatalf("disable status=%d", disRes.StatusCode)
 	}
 	var disabled map[string]any
-	if err := json.NewDecoder(disRes.Body).Decode(&disabled); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(disRes)).Decode(&disabled); err != nil {
 		t.Fatal(err)
 	}
 	if disabled["enabled"] != false {
@@ -232,7 +237,7 @@ func TestCasesHandler_CRUDEnableDisable(t *testing.T) {
 		t.Fatalf("enable status=%d", enRes.StatusCode)
 	}
 	var enabled map[string]any
-	if err := json.NewDecoder(enRes.Body).Decode(&enabled); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(enRes)).Decode(&enabled); err != nil {
 		t.Fatal(err)
 	}
 	if enabled["enabled"] != true {
@@ -360,7 +365,7 @@ func TestCasesHandler_SerializesMissingCollectionsAsArrays(t *testing.T) {
 		Bindings    any   `json:"bindings"`
 		InputSchema any   `json:"input_schema"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
 	if body.Inputs == nil || body.Outputs == nil || body.Bindings == nil || body.InputSchema == nil {
@@ -377,13 +382,16 @@ func TestCasesHandler_SerializesMissingCollectionsAsArrays(t *testing.T) {
 	}
 }
 
-func decodeErrCode(t *testing.T, res *http.Response) string {
+// decodeErrCode 取出错误响应里的业务错误码。错误响应没有 data，要读封装本身。
+func decodeErrCode(t *testing.T, res *http.Response) int {
 	t.Helper()
-	var body map[string]string
+	var body struct {
+		Code int `json:"code"`
+	}
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode error body: %v", err)
 	}
-	return body["code"]
+	return body.Code
 }
 
 func TestCasesHandler_DeleteCleanup(t *testing.T) {
@@ -429,8 +437,8 @@ func TestCasesHandler_DeleteCleanup(t *testing.T) {
 
 	res = do("10", "")
 	code := decodeErrCode(t, res)
-	if res.StatusCode != http.StatusConflict || code != "case_delete_needs_ack" {
-		t.Fatalf("no-ack status=%d code=%q", res.StatusCode, code)
+	if res.StatusCode != http.StatusConflict || code != apierr.ErrCaseDeleteConflict.Code {
+		t.Fatalf("no-ack status=%d code=%d", res.StatusCode, code)
 	}
 	res.Body.Close()
 
@@ -439,7 +447,7 @@ func TestCasesHandler_DeleteCleanup(t *testing.T) {
 		t.Fatalf("ack status=%d", res.StatusCode)
 	}
 	var body map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
 	res.Body.Close()

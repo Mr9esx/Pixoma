@@ -1,13 +1,17 @@
 import { ApiError } from './client'
 
-/** Backend delete-conflict error codes → i18n keys. */
-const CASE_DELETE_ERROR_CODES: Record<string, string> = {
-  case_delete_needs_ack: 'cases.deleteNeedsAck',
+/**
+ * 删除冲突的业务错误码 → i18n 词条。
+ *
+ * 后端返回 409 时，前端把「同时清理引用」这个交互选项讲清楚。
+ */
+const CASE_DELETE_ERROR_CODES: Record<number, string> = {
+  4090604: 'cases.deleteNeedsAck',
 }
 
-const TOPIC_DELETE_ERROR_CODES: Record<string, string> = {
-  topic_delete_needs_ack: 'topics.deleteNeedsAck',
-  topic_default_protected: 'topics.deleteDefaultProtected',
+const TOPIC_DELETE_ERROR_CODES: Record<number, string> = {
+  4090904: 'topics.deleteNeedsAck',
+  4090913: 'topics.deleteDefaultProtected',
 }
 
 /** Translate a case-delete error into localized guidance, if recognised. */
@@ -16,7 +20,7 @@ export function caseDeleteErrorMessage(
   t: (key: string) => string
 ): string | undefined {
   if (!(err instanceof ApiError)) return undefined
-  const key = err.code ? CASE_DELETE_ERROR_CODES[err.code] : undefined
+  const key = CASE_DELETE_ERROR_CODES[err.code]
   return key ? t(key) : undefined
 }
 
@@ -26,6 +30,6 @@ export function topicDeleteErrorMessage(
   t: (key: string) => string
 ): string | undefined {
   if (!(err instanceof ApiError)) return undefined
-  const key = err.code ? TOPIC_DELETE_ERROR_CODES[err.code] : undefined
+  const key = TOPIC_DELETE_ERROR_CODES[err.code]
   return key ? t(key) : undefined
 }

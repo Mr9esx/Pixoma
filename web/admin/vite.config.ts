@@ -7,7 +7,8 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { playwright } from '@vitest/browser-playwright'
 
 function proxyTarget(): string {
-  const addr = process.env.HTTP_ADDR || `127.0.0.1:${process.env.PORT || '8082'}`
+  const addr =
+    process.env.HTTP_ADDR || `127.0.0.1:${process.env.PORT || '8082'}`
   const port = addr.slice(addr.lastIndexOf(':') + 1)
   return `http://127.0.0.1:${port}`
 }
@@ -42,6 +43,7 @@ export default defineConfig(({ command }) => ({
     },
   },
   test: {
+    include: ['src/**/*.test.ts', 'src/features/studio/studio-chat.test.tsx'],
     silent: 'passed-only',
     unstubEnvs: true,
     browser: {

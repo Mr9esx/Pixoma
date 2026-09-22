@@ -38,6 +38,7 @@ import {
 import { AvatarUpload } from '@/components/avatar-upload'
 import { SecretInput } from '@/components/secret-input'
 import { AuthShell } from './auth-shell'
+import { ApiError } from '@/lib/api/client'
 import { blobErrorCopy } from './blob-error'
 import { buildMySQLDSN, buildPostgresDSN, buildSqliteDSN } from './db-dsn'
 import { setupErrorCopy, type AlertCopy } from './db-error'
@@ -185,20 +186,21 @@ export function SetupWizard({ status }: { status: SetupStatus }) {
     setPending(true)
     setError(null)
     try {
-      const res = await testBlob({
+      await testBlob({
         ...blobConfig(),
         auto_create_bucket: autoCreateBucket,
       })
-      if (!res.ok && res.code === 'bucket_not_found' && !autoCreateBucket) {
-        setBlobMissingBucket(res.bucket ?? blobBucket)
-        setBlobPromptCreate(true)
-        setBlobTested(false)
-        return
-      }
       setBlobPromptCreate(false)
       lastTestedBlob.current = blobKey
       setBlobTested(true)
     } catch (err) {
+      // bucket 缺失时后端返回 404，这里转成「要不要自动创建」的确认。
+      if (err instanceof ApiError && err.code === 4040101 && !autoCreateBucket) {
+        setBlobMissingBucket(blobBucket)
+        setBlobPromptCreate(true)
+        setBlobTested(false)
+        return
+      }
       setError(blobErrorCopy(err))
     } finally {
       setPending(false)

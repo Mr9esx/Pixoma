@@ -3,6 +3,7 @@ package sessions_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,12 +13,12 @@ import (
 
 	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
 	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
+	sessionsapi "github.com/Mr9esx/Pixoma/internal/httpapi/sessions"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	"github.com/Mr9esx/Pixoma/internal/sessions/domain"
 	"github.com/Mr9esx/Pixoma/internal/sessions/infrastructure/persistence"
-	sessionsapi "github.com/Mr9esx/Pixoma/internal/httpapi/sessions"
 	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
 	identitypersist "github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
-	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func openSessionsHandler(t *testing.T) (*persistence.SessionRepository, *identitydomain.User, *httptest.Server) {
@@ -90,7 +91,7 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 		t.Fatalf("list status=%d", res.StatusCode)
 	}
 	var list []map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&list); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
 	if len(list) != 1 || list[0]["id"] != "sess-a" {
@@ -106,7 +107,7 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 		t.Fatalf("list case_id status=%d", resCase.StatusCode)
 	}
 	var byCase []map[string]any
-	if err := json.NewDecoder(resCase.Body).Decode(&byCase); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(resCase)).Decode(&byCase); err != nil {
 		t.Fatal(err)
 	}
 	if len(byCase) != 1 || byCase[0]["id"] != "sess-a" {
@@ -122,7 +123,7 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 		t.Fatalf("list channel_id status=%d", resChan.StatusCode)
 	}
 	var byChannel []map[string]any
-	if err := json.NewDecoder(resChan.Body).Decode(&byChannel); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(resChan)).Decode(&byChannel); err != nil {
 		t.Fatal(err)
 	}
 	if len(byChannel) != 2 {
@@ -134,7 +135,7 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 	}
 	defer resChan2.Body.Close()
 	var byIg []map[string]any
-	if err := json.NewDecoder(resChan2.Body).Decode(&byIg); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(resChan2)).Decode(&byIg); err != nil {
 		t.Fatal(err)
 	}
 	if len(byIg) != 1 || byIg[0]["id"] != "sess-c" {
@@ -150,7 +151,7 @@ func TestSessionsHandler_ListGetReadOnly(t *testing.T) {
 		t.Fatalf("get status=%d", res2.StatusCode)
 	}
 	var detail map[string]any
-	if err := json.NewDecoder(res2.Body).Decode(&detail); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res2)).Decode(&detail); err != nil {
 		t.Fatal(err)
 	}
 	draft, ok := detail["draft"].(map[string]any)

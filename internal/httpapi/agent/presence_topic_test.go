@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,13 +12,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Mr9esx/Pixoma/internal/httpapi/agent"
-	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/agent"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 func TestAgent_PresenceDoesNotCarryTopicBinding(t *testing.T) {
@@ -50,7 +51,7 @@ func TestAgent_PresenceDoesNotCarryTopicBinding(t *testing.T) {
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, req)
 		var out map[string]any
-		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		_ = json.Unmarshal(apitest.DataBytes(rec), &out)
 		return rec.Code, out
 	}
 

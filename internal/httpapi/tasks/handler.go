@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -10,8 +9,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/apierr"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 // Canceller cancels a task using runtime domain rules (e.g. orchestrator.RequestCancel).
@@ -110,13 +111,13 @@ func toContextDTO(context *runtimedomain.TaskAdminContext) taskDTO {
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	q, err := parseAdminListQuery(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrTaskListInvalidQuery, err)
 		return
 	}
 	if h.Context != nil {
 		contexts, err := h.Context.List(r.Context(), q)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrTaskListFailed, err)
 			return
 		}
 		out := make([]taskDTO, 0, len(contexts))
@@ -126,12 +127,12 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 			}
 			out = append(out, toContextDTO(context))
 		}
-		writeJSON(w, http.StatusOK, out)
+		response.OKStatus(w, http.StatusOK, out)
 		return
 	}
 	list, err := h.Tasks.List(r.Context(), q)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTaskListFailed, err)
 		return
 	}
 	out := make([]taskDTO, 0, len(list))
@@ -141,7 +142,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, toDTO(t))
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
@@ -149,53 +150,53 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	if h.Context != nil {
 		context, err := h.Context.Get(r.Context(), id)
 		if errors.Is(err, runtimedomain.ErrTaskNotFound) {
-			writeErr(w, http.StatusNotFound, "task not found")
+			response.Fail(w, apierr.ErrTaskGetNotFound, "task not found")
 			return
 		}
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrTaskListFailed, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, toContextDTO(context))
+		response.OKStatus(w, http.StatusOK, toContextDTO(context))
 		return
 	}
 	t, err := h.Tasks.Get(r.Context(), id)
 	if errors.Is(err, runtimedomain.ErrTaskNotFound) {
-		writeErr(w, http.StatusNotFound, "task not found")
+		response.Fail(w, apierr.ErrTaskGetNotFound, "task not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTaskListFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(t))
+	response.OKStatus(w, http.StatusOK, toDTO(t))
 }
 
 func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
 	if h.Cancel == nil {
-		writeErr(w, http.StatusInternalServerError, "cancel not configured")
+		response.Fail(w, apierr.ErrTaskCancelNotConfigured, "cancel not configured")
 		return
 	}
 	id := sharedkernel.TaskID(chi.URLParam(r, "id"))
 	err := h.Cancel.RequestCancel(r.Context(), id)
 	if errors.Is(err, runtimedomain.ErrTaskNotFound) {
-		writeErr(w, http.StatusNotFound, "task not found")
+		response.Fail(w, apierr.ErrTaskGetNotFound, "task not found")
 		return
 	}
 	if errors.Is(err, runtimedomain.ErrCancelNotAllowed) {
-		writeErr(w, http.StatusConflict, "cancel not allowed")
+		response.Fail(w, apierr.ErrTaskCancelCancelNotAllowed, "cancel not allowed")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTaskCancelFailed, err)
 		return
 	}
 	t, err := h.Tasks.Get(r.Context(), id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrTaskCancelFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDTO(t))
+	response.OKStatus(w, http.StatusOK, toDTO(t))
 }
 
 func parseAdminListQuery(r *http.Request) (runtimedomain.AdminListQuery, error) {
@@ -255,14 +256,4 @@ func parseAdminListQuery(r *http.Request) (runtimedomain.AdminListQuery, error) 
 		q.Offset = n
 	}
 	return q, nil
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
 }

@@ -45,6 +45,8 @@ describe('Master–Detail shell + feedback primitives', () => {
     expect(source).toContain('md:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]')
     expect(source).toContain('min-h-0')
     expect(source).toContain('flex-1')
+    // 面板要用卡片表面色，不能透出页面底色，暗色下才与 Studio 一致。
+    expect(source).toContain('bg-card')
     expect(source).not.toContain('100vh-5rem')
     expect(source).not.toContain("t('common.selectItem')")
     expect(source).toMatch(/t\('common\.backToList'/)

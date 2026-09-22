@@ -28,12 +28,6 @@ type MenuGroup = {
 
 const ITEMS: readonly MenuItem[] = [
   {
-    id: 'studio',
-    titleKey: 'menu.studio',
-    path: '/studio',
-    icon: WandSparkles,
-  },
-  {
     id: 'dashboard',
     titleKey: 'menu.dashboard',
     path: '/',
@@ -44,6 +38,12 @@ const ITEMS: readonly MenuItem[] = [
     titleKey: 'menu.quickConfig',
     path: '/quick-config',
     icon: Zap,
+  },
+  {
+    id: 'studio',
+    titleKey: 'menu.studio',
+    path: '/studio',
+    icon: WandSparkles,
   },
   { id: 'cases', titleKey: 'menu.cases', path: '/cases', icon: Boxes },
   { id: 'channels', titleKey: 'menu.channels', path: '/channels', icon: Radio },
@@ -65,23 +65,32 @@ const ITEMS: readonly MenuItem[] = [
   },
 ] as const
 
+/** 按 id 取出菜单项。分组只声明顺序，规则写在 MENU_GROUPS 里。 */
+function item(id: string): MenuItem {
+  const found = ITEMS.find((entry) => entry.id === id)
+  if (!found) throw new Error(`菜单项 ${id} 未定义`)
+  return found
+}
+
 export const MENU_GROUPS: readonly MenuGroup[] = [
-  { id: 'studio', items: [ITEMS[0]] },
-  { id: 'overview', items: [ITEMS[1], ITEMS[2]] },
+  {
+    id: 'overview',
+    items: [item('dashboard'), item('quick-config'), item('studio')],
+  },
   {
     id: 'config',
     titleKey: 'menu.groupConfig',
-    items: [ITEMS[3], ITEMS[4], ITEMS[5], ITEMS[6]],
+    items: [item('cases'), item('channels'), item('topics'), item('edges')],
   },
   {
     id: 'operations',
     titleKey: 'menu.groupOperations',
-    items: [ITEMS[7], ITEMS[8], ITEMS[9]],
+    items: [item('tasks'), item('sessions'), item('users')],
   },
   {
     id: 'system',
     titleKey: 'menu.groupSystem',
-    items: [ITEMS[10]],
+    items: [item('settings')],
   },
 ] as const
 

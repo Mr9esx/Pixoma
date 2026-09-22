@@ -108,6 +108,7 @@ type AgentExecutorOptions struct {
 	Repo   AgentRepository
 	Blob   blob.Store
 	Engine AgentEngine
+	Events EventStream
 	IDs    func() string
 	Now    func() time.Time
 }
@@ -116,6 +117,7 @@ type AgentExecutor struct {
 	repo   AgentRepository
 	blob   blob.Store
 	engine AgentEngine
+	events EventStream
 	ids    func() string
 	now    func() time.Time
 }
@@ -129,7 +131,7 @@ func NewAgentExecutor(options AgentExecutorOptions) *AgentExecutor {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	return &AgentExecutor{repo: options.Repo, blob: options.Blob, engine: options.Engine, ids: ids, now: now}
+	return &AgentExecutor{repo: options.Repo, blob: options.Blob, engine: options.Engine, events: options.Events, ids: ids, now: now}
 }
 
 func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
@@ -162,7 +164,7 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 	if err != nil {
 		return err
 	}
-	sink := &executionWriter{executor: e, run: run}
+	sink := &executionWriter{executor: e, run: run, events: e.events}
 	approvals, err := e.repo.ListApprovals(ctx, run.AccountID, run.ID)
 	if err != nil {
 		return err
@@ -251,6 +253,7 @@ func (e *AgentExecutor) selectedSkills(ctx context.Context, run *domain.Run) ([]
 type executionWriter struct {
 	executor *AgentExecutor
 	run      *domain.Run
+	events   EventStream
 	sequence uint64
 }
 
@@ -268,7 +271,15 @@ func (w *executionWriter) Emit(ctx context.Context, eventType string, payload an
 		AccountID: w.run.AccountID, Sequence: w.sequence, Type: eventType,
 		Payload: raw, CreatedAt: w.executor.now().UTC(),
 	}
-	return w.executor.repo.AppendEvent(ctx, event)
+	if err := w.executor.repo.AppendEvent(ctx, event); err != nil {
+		return err
+	}
+	if w.events == nil {
+		return nil
+	}
+	return w.events.Publish(ctx, LiveEvent{
+		RunID: w.run.ID, Sequence: event.Sequence, Type: event.Type, Payload: raw,
+	})
 }
 
 func (w *executionWriter) AssistantMessage(ctx context.Context, text string) (*domain.Message, error) {
@@ -298,7 +309,16 @@ func (w *executionWriter) AppendAssistantMessage(ctx context.Context, messageID,
 	if strings.TrimSpace(delta) == "" {
 		return nil
 	}
-	return w.Emit(ctx, EventTextMessageContent, map[string]any{"message_id": messageID, "delta": delta})
+	if w.events == nil {
+		return nil
+	}
+	payload, err := json.Marshal(map[string]any{"message_id": messageID, "delta": delta})
+	if err != nil {
+		return err
+	}
+	return w.events.Publish(ctx, LiveEvent{
+		RunID: w.run.ID, Type: EventTextMessageContent, Payload: payload,
+	})
 }
 
 func (w *executionWriter) EndAssistantMessage(ctx context.Context, messageID, text string) (*domain.Message, error) {
@@ -318,7 +338,10 @@ func (w *executionWriter) EndAssistantMessage(ctx context.Context, messageID, te
 	if err := w.executor.repo.AppendMessage(ctx, message); err != nil {
 		return nil, err
 	}
-	if err := w.Emit(ctx, EventTextMessageEnd, map[string]any{"message_id": messageID}); err != nil {
+	if err := w.Emit(ctx, EventTextMessageEnd, map[string]any{
+		"message_id": messageID,
+		"content":    text,
+	}); err != nil {
 		return nil, err
 	}
 	return message, nil

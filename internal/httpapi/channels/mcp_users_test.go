@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -113,7 +114,7 @@ func TestMCPUser_MintAndRotate(t *testing.T) {
 		t.Fatalf("list after delete status=%d body=%s", listRec.Code, listRec.Body.Bytes())
 	}
 	var listed []map[string]any
-	if err := json.Unmarshal(listRec.Body.Bytes(), &listed); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(listRec), &listed); err != nil {
 		t.Fatalf("list json: %v body=%s", err, listRec.Body.Bytes())
 	}
 	for _, item := range listed {
@@ -183,7 +184,7 @@ func TestMCPUser_MintFailureRollsBackUser(t *testing.T) {
 		t.Fatalf("list status=%d body=%s", listRec.Code, listRec.Body.Bytes())
 	}
 	var listed []map[string]any
-	if err := json.Unmarshal(listRec.Body.Bytes(), &listed); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(listRec), &listed); err != nil {
 		t.Fatalf("list json: %v", err)
 	}
 	if len(listed) != 0 {
@@ -225,6 +226,6 @@ func serveJSON(t *testing.T, h http.Handler, method, path string, body any, role
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	var m map[string]any
-	_ = json.Unmarshal(rec.Body.Bytes(), &m)
+	_ = json.Unmarshal(apitest.DataBytes(rec), &m)
 	return rec.Code, m
 }

@@ -1,6 +1,7 @@
 import { AxiosError } from 'axios'
 import { toast } from 'sonner'
-import { ApiError } from './api/client'
+import { i18n } from './i18n'
+import { apiErrorText } from './api/error-copy'
 
 export function handleServerError(error: unknown) {
   if (import.meta.env.DEV) {
@@ -8,27 +9,13 @@ export function handleServerError(error: unknown) {
     console.log(error)
   }
 
-  let errMsg = 'Something went wrong!'
-
-  if (error instanceof ApiError) {
-    errMsg = error.message
-  }
-
-  if (
-    error &&
-    typeof error === 'object' &&
-    'status' in error &&
-    Number(error.status) === 204
-  ) {
-    errMsg = 'No content.'
-  }
-
   if (error instanceof AxiosError) {
     const title = error.response?.data?.title
     if (typeof title === 'string' && title.length > 0) {
-      errMsg = title
+      toast.error(title)
+      return
     }
   }
 
-  toast.error(errMsg)
+  toast.error(apiErrorText(error, (key) => i18n.t(key)))
 }

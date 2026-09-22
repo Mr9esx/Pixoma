@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -70,7 +71,7 @@ func post(t *testing.T, url string, body any) (*http.Response, map[string]any) {
 	}
 	defer res.Body.Close()
 	var m map[string]any
-	_ = json.NewDecoder(res.Body).Decode(&m)
+	_ = json.NewDecoder(apitest.DataReader(res)).Decode(&m)
 	return res, m
 }
 
@@ -112,7 +113,7 @@ func TestChannelsHandler_CreateListDetailUpdateDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	var list []map[string]any
-	_ = json.NewDecoder(listRes.Body).Decode(&list)
+	_ = json.NewDecoder(apitest.DataReader(listRes)).Decode(&list)
 	listRes.Body.Close()
 	if len(list) != 1 {
 		t.Fatalf("list len=%d", len(list))
@@ -124,7 +125,7 @@ func TestChannelsHandler_CreateListDetailUpdateDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	var detail map[string]any
-	_ = json.NewDecoder(detailRes.Body).Decode(&detail)
+	_ = json.NewDecoder(apitest.DataReader(detailRes)).Decode(&detail)
 	detailRes.Body.Close()
 	if detail["name"] != "主机器人" {
 		t.Fatalf("detail=%v", detail)
@@ -138,7 +139,7 @@ func TestChannelsHandler_CreateListDetailUpdateDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	var upd map[string]any
-	_ = json.NewDecoder(updRes.Body).Decode(&upd)
+	_ = json.NewDecoder(apitest.DataReader(updRes)).Decode(&upd)
 	updRes.Body.Close()
 	if upd["name"] != "新名字" || upd["token_masked"] != "1234****7890" {
 		t.Fatalf("update=%v", upd)
@@ -254,7 +255,7 @@ func TestChannelsHandler_ListDetailExposeAdapterState(t *testing.T) {
 		t.Fatal(err)
 	}
 	var list []map[string]any
-	_ = json.NewDecoder(listRes.Body).Decode(&list)
+	_ = json.NewDecoder(apitest.DataReader(listRes)).Decode(&list)
 	listRes.Body.Close()
 	if len(list) != 1 {
 		t.Fatalf("list len=%d", len(list))
@@ -268,7 +269,7 @@ func TestChannelsHandler_ListDetailExposeAdapterState(t *testing.T) {
 		t.Fatal(err)
 	}
 	var detail map[string]any
-	_ = json.NewDecoder(detailRes.Body).Decode(&detail)
+	_ = json.NewDecoder(apitest.DataReader(detailRes)).Decode(&detail)
 	detailRes.Body.Close()
 	if detail["adapter_state"] != "error" || detail["adapter_error"] != "dial timeout" {
 		t.Fatalf("detail adapter=%v", detail)

@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -10,6 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	"github.com/Mr9esx/Pixoma/internal/sessions/domain"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
@@ -108,13 +109,13 @@ func (h *Handler) toDTO(ctx context.Context, s *domain.Session) (sessionDTO, err
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	q, err := parseListQuery(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		response.FailErr(w, apierr.ErrSessionListInvalidQuery, err)
 		return
 	}
 	if h.Context != nil {
 		contexts, err := h.Context.List(r.Context(), q)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrSessionListFailed, err)
 			return
 		}
 		out := make([]sessionDTO, 0, len(contexts))
@@ -124,17 +125,17 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 			}
 			dto, err := h.toContextDTO(r.Context(), context)
 			if err != nil {
-				writeErr(w, http.StatusInternalServerError, err.Error())
+				response.FailErr(w, apierr.ErrSessionListFailed, err)
 				return
 			}
 			out = append(out, dto)
 		}
-		writeJSON(w, http.StatusOK, out)
+		response.OKStatus(w, http.StatusOK, out)
 		return
 	}
 	list, err := h.Repo.List(r.Context(), q)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSessionListFailed, err)
 		return
 	}
 	out := make([]sessionDTO, 0, len(list))
@@ -144,12 +145,12 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		}
 		dto, err := h.toDTO(r.Context(), s)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrSessionListFailed, err)
 			return
 		}
 		out = append(out, dto)
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
@@ -157,40 +158,40 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	if h.Context != nil {
 		context, err := h.Context.Get(r.Context(), id)
 		if errors.Is(err, domain.ErrNotFound) {
-			writeErr(w, http.StatusNotFound, "session not found")
+			response.Fail(w, apierr.ErrSessionGetNotFound, "session not found")
 			return
 		}
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrSessionListFailed, err)
 			return
 		}
 		if context == nil || context.Session == nil {
-			writeErr(w, http.StatusNotFound, "session not found")
+			response.Fail(w, apierr.ErrSessionGetNotFound, "session not found")
 			return
 		}
 		dto, err := h.toContextDTO(r.Context(), context)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			response.FailErr(w, apierr.ErrSessionListFailed, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, dto)
+		response.OKStatus(w, http.StatusOK, dto)
 		return
 	}
 	s, err := h.Repo.GetByID(r.Context(), id)
 	if errors.Is(err, domain.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "session not found")
+		response.Fail(w, apierr.ErrSessionGetNotFound, "session not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSessionListFailed, err)
 		return
 	}
 	dto, err := h.toDTO(r.Context(), s)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		response.FailErr(w, apierr.ErrSessionListFailed, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, dto)
+	response.OKStatus(w, http.StatusOK, dto)
 }
 
 func (h *Handler) toContextDTO(ctx context.Context, context *domain.SessionAdminContext) (sessionDTO, error) {
@@ -266,14 +267,4 @@ func parseListQuery(r *http.Request) (domain.ListQuery, error) {
 		q.Offset = n
 	}
 	return q, nil
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
 }

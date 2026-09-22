@@ -149,13 +149,10 @@ export function testBlob(input: {
   blob_secret_key?: string
   auto_create_bucket?: boolean
 }) {
-  return apiFetch<{ ok: boolean; code?: string; bucket?: string }>(
-    '/api/v1/setup/blob-test',
-    {
-      method: 'POST',
-      body: JSON.stringify(input),
-    }
-  )
+  return apiFetch<{ ok: boolean }>('/api/v1/setup/blob-test', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }
 
 export function saveSetupDraft(draft: SetupDraft) {

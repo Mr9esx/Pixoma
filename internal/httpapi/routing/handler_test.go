@@ -2,6 +2,7 @@ package routing_test
 
 import (
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,7 +29,7 @@ func TestAttributesCatalog(t *testing.T) {
 	var body struct {
 		Attributes []map[string]any `json:"attributes"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if len(body.Attributes) != 0 {

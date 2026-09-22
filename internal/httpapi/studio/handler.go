@@ -13,8 +13,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	setupapi "github.com/Mr9esx/Pixoma/internal/httpapi/setup"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
+	"github.com/Mr9esx/Pixoma/internal/response"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
@@ -28,6 +30,7 @@ type Handler struct {
 	Models       *studioapp.ModelConfigService
 	Capabilities *studioapp.CapabilityConfigService
 	Blob         blob.Store
+	Events       studioapp.EventStream
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -79,7 +82,7 @@ func (h *Handler) createTextAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Blob == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "资产存储服务不可用"})
+		response.Fail(w, apierr.ErrStudioCreateTextAssetUnavailable, "资产存储服务不可用")
 		return
 	}
 	var body struct {
@@ -88,17 +91,17 @@ func (h *Handler) createTextAsset(w http.ResponseWriter, r *http.Request) {
 		Content   string `json:"content"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	asset, err := h.Service.CreateManualTextAsset(r.Context(), studioapp.CreateManualTextAssetInput{
 		AccountID: accountID, SessionID: body.SessionID, Name: body.Name, Content: body.Content,
 	}, h.Blob)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
+	response.OKStatus(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
 }
 
 func (h *Handler) updateTextAsset(w http.ResponseWriter, r *http.Request) {
@@ -107,24 +110,24 @@ func (h *Handler) updateTextAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Blob == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "资产存储服务不可用"})
+		response.Fail(w, apierr.ErrStudioCreateTextAssetUnavailable, "资产存储服务不可用")
 		return
 	}
 	var body struct {
 		Content string `json:"content"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	asset, err := h.Service.UpdateManualTextAsset(r.Context(), studioapp.UpdateManualTextAssetInput{
 		AccountID: accountID, AssetID: chi.URLParam(r, "assetID"), Content: body.Content,
 	}, h.Blob)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, assetsToViews([]*domain.Asset{asset})[0])
+	response.OKStatus(w, http.StatusOK, assetsToViews([]*domain.Asset{asset})[0])
 }
 
 func (h *Handler) uploadAsset(w http.ResponseWriter, r *http.Request) {
@@ -133,16 +136,16 @@ func (h *Handler) uploadAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Blob == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "资产存储服务不可用"})
+		response.Fail(w, apierr.ErrStudioCreateTextAssetUnavailable, "资产存储服务不可用")
 		return
 	}
 	if err := r.ParseMultipartForm(50 << 20); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "上传文件读取失败"})
+		response.Fail(w, apierr.ErrStudioUploadAssetFileReadFailed, "上传文件读取失败")
 		return
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请选择上传文件"})
+		response.Fail(w, apierr.ErrStudioUploadAssetFileMissing, "请选择上传文件")
 		return
 	}
 	defer file.Close()
@@ -151,10 +154,10 @@ func (h *Handler) uploadAsset(w http.ResponseWriter, r *http.Request) {
 		MIMEType: header.Header.Get("Content-Type"), Content: file,
 	}, h.Blob)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
+	response.OKStatus(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
 }
 
 func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
@@ -166,14 +169,14 @@ func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
 		Nodes []studioapp.UpdateFlowNodeInput `json:"nodes"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	if err := h.Service.UpdateFlowNodes(r.Context(), accountID, chi.URLParam(r, "sessionID"), body.Nodes); err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	response.OK(w, nil)
 }
 
 func (h *Handler) createFlowNode(w http.ResponseWriter, r *http.Request) {
@@ -183,15 +186,15 @@ func (h *Handler) createFlowNode(w http.ResponseWriter, r *http.Request) {
 	}
 	var body studioapp.CreateFlowNodeInput
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	node, err := h.Service.CreateFlowNode(r.Context(), accountID, chi.URLParam(r, "sessionID"), body)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, flowNodesToViews([]*domain.FlowNode{node})[0])
+	response.OKStatus(w, http.StatusCreated, flowNodesToViews([]*domain.FlowNode{node})[0])
 }
 
 func (h *Handler) deleteFlowNode(w http.ResponseWriter, r *http.Request) {
@@ -200,10 +203,10 @@ func (h *Handler) deleteFlowNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.Service.DeleteFlowNode(r.Context(), accountID, chi.URLParam(r, "sessionID"), chi.URLParam(r, "nodeID")); err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	response.OK(w, nil)
 }
 
 func (h *Handler) createFlowEdge(w http.ResponseWriter, r *http.Request) {
@@ -213,15 +216,15 @@ func (h *Handler) createFlowEdge(w http.ResponseWriter, r *http.Request) {
 	}
 	var body studioapp.CreateFlowEdgeInput
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	edge, err := h.Service.CreateFlowEdge(r.Context(), accountID, chi.URLParam(r, "sessionID"), body)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, flowEdgesToViews([]*domain.FlowEdge{edge})[0])
+	response.OKStatus(w, http.StatusCreated, flowEdgesToViews([]*domain.FlowEdge{edge})[0])
 }
 
 func (h *Handler) deleteFlowEdge(w http.ResponseWriter, r *http.Request) {
@@ -230,10 +233,10 @@ func (h *Handler) deleteFlowEdge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.Service.DeleteFlowEdge(r.Context(), accountID, chi.URLParam(r, "sessionID"), chi.URLParam(r, "edgeID")); err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	response.OK(w, nil)
 }
 
 type sessionView struct {
@@ -345,14 +348,14 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 	offset := queryInt(r, "offset", 0)
 	sessions, err := h.Repo.ListSessions(r.Context(), accountID, domain.SessionListQuery{Limit: limit, Offset: offset})
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	out := make([]sessionView, 0, len(sessions))
 	for _, session := range sessions {
 		out = append(out, toSessionView(session))
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
@@ -362,10 +365,10 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 	}
 	session, err := h.Service.CreateSession(r.Context(), accountID)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, toSessionView(session))
+	response.OKStatus(w, http.StatusCreated, toSessionView(session))
 }
 
 func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
@@ -376,22 +379,22 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := chi.URLParam(r, "sessionID")
 	session, err := h.Repo.GetSession(r.Context(), accountID, sessionID)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	transcriptData, err := h.Repo.ListSessionTranscript(r.Context(), accountID, sessionID)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	assets, err := h.Repo.ListSessionAssets(r.Context(), accountID, sessionID, 200)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	nodes, edges, err := h.Repo.GetFlow(r.Context(), accountID, sessionID)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	eventsByRun := make(map[string][]*domain.Event)
@@ -401,7 +404,7 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	transcript := studioapp.ProjectSessionTranscript(transcriptData.Messages, transcriptData.Runs, eventsByRun)
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.OKStatus(w, http.StatusOK, map[string]any{
 		"session":    toSessionView(session),
 		"messages":   messagesToViews(transcriptData.Messages),
 		"transcript": transcript,
@@ -420,19 +423,19 @@ func (h *Handler) listSessionRuns(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID := chi.URLParam(r, "sessionID")
 	if _, err := h.Repo.GetSession(r.Context(), accountID, sessionID); err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	runs, err := h.Repo.ListSessionRuns(r.Context(), accountID, sessionID, queryInt(r, "limit", 100))
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	out := make([]runView, 0, len(runs))
 	for _, run := range runs {
 		out = append(out, toRunView(run))
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
@@ -447,7 +450,7 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 		PermissionMode domain.PermissionMode `json:"permission_mode"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	result, err := h.Service.SendMessage(r.Context(), studioapp.SendMessageInput{
@@ -455,10 +458,10 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 		ModelConfigID: body.ModelConfigID, PermissionMode: body.PermissionMode,
 	})
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusAccepted, map[string]any{
+	response.OKStatus(w, http.StatusAccepted, map[string]any{
 		"session": toSessionView(result.Session),
 		"message": toMessageView(result.Message),
 		"run":     toRunView(result.Run),
@@ -472,10 +475,10 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 	}
 	run, err := h.Repo.GetRun(r.Context(), accountID, chi.URLParam(r, "runID"))
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toRunView(run))
+	response.OKStatus(w, http.StatusOK, toRunView(run))
 }
 
 func (h *Handler) listEvents(w http.ResponseWriter, r *http.Request) {
@@ -486,14 +489,14 @@ func (h *Handler) listEvents(w http.ResponseWriter, r *http.Request) {
 	after, _ := strconv.ParseUint(r.URL.Query().Get("after"), 10, 64)
 	events, err := h.Repo.ListEventsAfter(r.Context(), accountID, chi.URLParam(r, "runID"), after, queryInt(r, "limit", 200))
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	out := make([]eventView, 0, len(events))
 	for _, event := range events {
 		out = append(out, eventView{ID: event.ID, RunID: event.RunID, Sequence: event.Sequence, Type: event.Type, Payload: event.Payload, CreatedAt: event.CreatedAt})
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) cancelRun(w http.ResponseWriter, r *http.Request) {
@@ -502,10 +505,10 @@ func (h *Handler) cancelRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.Runner.Cancel(r.Context(), accountID, chi.URLParam(r, "runID")); err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	response.OK(w, nil)
 }
 
 func (h *Handler) retryRun(w http.ResponseWriter, r *http.Request) {
@@ -515,10 +518,10 @@ func (h *Handler) retryRun(w http.ResponseWriter, r *http.Request) {
 	}
 	run, err := h.Service.RetryRun(r.Context(), accountID, chi.URLParam(r, "runID"))
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusAccepted, toRunView(run))
+	response.OKStatus(w, http.StatusAccepted, toRunView(run))
 }
 
 func (h *Handler) resolveApproval(w http.ResponseWriter, r *http.Request) {
@@ -530,14 +533,14 @@ func (h *Handler) resolveApproval(w http.ResponseWriter, r *http.Request) {
 		Approved bool `json:"approved"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	if err := h.Approvals.Resolve(r.Context(), studioapp.ResolveApprovalInput{AccountID: accountID, ApprovalID: chi.URLParam(r, "approvalID"), Approved: body.Approved}); err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	response.OK(w, nil)
 }
 
 func (h *Handler) assetContent(w http.ResponseWriter, r *http.Request) {
@@ -547,11 +550,11 @@ func (h *Handler) assetContent(w http.ResponseWriter, r *http.Request) {
 	}
 	asset, err := h.Repo.GetAsset(r.Context(), accountID, chi.URLParam(r, "assetID"))
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	if len(asset.Versions) == 0 || h.Blob == nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "资产内容不存在"})
+		response.Fail(w, apierr.ErrStudioAssetNotFound, "资产内容不存在")
 		return
 	}
 	version := asset.Versions[len(asset.Versions)-1]
@@ -565,13 +568,13 @@ func (h *Handler) assetContent(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !found {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "资产版本不存在"})
+			response.Fail(w, apierr.ErrStudioAssetVersionNotFound, "资产版本不存在")
 			return
 		}
 	}
 	reader, err := h.Blob.Get(r.Context(), sharedkernel.BlobRef{Key: version.BlobKey, MIME: version.MIMEType, Size: version.SizeBytes})
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	defer reader.Close()
@@ -590,15 +593,15 @@ func (h *Handler) saveAssetToLibrary(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.ContentLength > 0 {
 		if err := decodeJSON(r, &body); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+			response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 			return
 		}
 	}
 	if err := h.Repo.SaveAssetToLibrary(r.Context(), accountID, chi.URLParam(r, "assetID"), body.FolderID, time.Now().UTC()); err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	response.OK(w, nil)
 }
 
 func (h *Handler) importLibraryAsset(w http.ResponseWriter, r *http.Request) {
@@ -611,15 +614,15 @@ func (h *Handler) importLibraryAsset(w http.ResponseWriter, r *http.Request) {
 		AssetVersionID string `json:"asset_version_id"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	asset, err := h.Service.ImportLibraryAsset(r.Context(), studioapp.ImportLibraryAssetInput{AccountID: accountID, SessionID: chi.URLParam(r, "sessionID"), SourceAssetID: body.AssetID, SourceVersionID: body.AssetVersionID})
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
+	response.OKStatus(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
 }
 
 func (h *Handler) listLibraryAssets(w http.ResponseWriter, r *http.Request) {
@@ -629,10 +632,10 @@ func (h *Handler) listLibraryAssets(w http.ResponseWriter, r *http.Request) {
 	}
 	assets, err := h.Repo.ListLibraryAssets(r.Context(), accountID, r.URL.Query().Get("folder_id"), queryInt(r, "limit", 100))
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, assetsToViews(assets))
+	response.OKStatus(w, http.StatusOK, assetsToViews(assets))
 }
 
 func (h *Handler) listLibraryFolders(w http.ResponseWriter, r *http.Request) {
@@ -642,14 +645,14 @@ func (h *Handler) listLibraryFolders(w http.ResponseWriter, r *http.Request) {
 	}
 	folders, err := h.Service.ListLibraryFolders(r.Context(), accountID)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
 	out := make([]libraryFolderView, 0, len(folders))
 	for _, folder := range folders {
 		out = append(out, libraryFolderView{ID: folder.ID, ParentID: folder.ParentID, Name: folder.Name, CreatedAt: folder.CreatedAt, UpdatedAt: folder.UpdatedAt})
 	}
-	writeJSON(w, http.StatusOK, out)
+	response.OKStatus(w, http.StatusOK, out)
 }
 
 func (h *Handler) createLibraryFolder(w http.ResponseWriter, r *http.Request) {
@@ -662,15 +665,15 @@ func (h *Handler) createLibraryFolder(w http.ResponseWriter, r *http.Request) {
 		Name     string `json:"name"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	folder, err := h.Service.CreateLibraryFolder(r.Context(), studioapp.CreateLibraryFolderInput{AccountID: accountID, ParentID: body.ParentID, Name: body.Name})
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, libraryFolderView{ID: folder.ID, ParentID: folder.ParentID, Name: folder.Name, CreatedAt: folder.CreatedAt, UpdatedAt: folder.UpdatedAt})
+	response.OKStatus(w, http.StatusCreated, libraryFolderView{ID: folder.ID, ParentID: folder.ParentID, Name: folder.Name, CreatedAt: folder.CreatedAt, UpdatedAt: folder.UpdatedAt})
 }
 
 func (h *Handler) listModels(w http.ResponseWriter, r *http.Request) {
@@ -679,15 +682,15 @@ func (h *Handler) listModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Models == nil {
-		writeJSON(w, http.StatusOK, []any{})
+		response.OKStatus(w, http.StatusOK, []any{})
 		return
 	}
 	models, err := h.Models.List(r.Context(), accountID)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, models)
+	response.OKStatus(w, http.StatusOK, models)
 }
 
 func (h *Handler) createModel(w http.ResponseWriter, r *http.Request) {
@@ -696,21 +699,21 @@ func (h *Handler) createModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Models == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "模型配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioCreateModelUnavailable, "模型配置服务不可用")
 		return
 	}
 	var body studioapp.CreateModelConfigInput
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	body.AccountID = accountID
 	model, err := h.Models.Create(r.Context(), body)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, model)
+	response.OKStatus(w, http.StatusCreated, model)
 }
 
 func (h *Handler) testModelConnection(w http.ResponseWriter, r *http.Request) {
@@ -719,7 +722,7 @@ func (h *Handler) testModelConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Models == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "模型配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioCreateModelUnavailable, "模型配置服务不可用")
 		return
 	}
 	result, err := h.Models.TestConnection(r.Context(), accountID, chi.URLParam(r, "modelID"))
@@ -730,10 +733,10 @@ func (h *Handler) testModelConnection(w http.ResponseWriter, r *http.Request) {
 			"path", r.URL.Path,
 			"err", err,
 		)
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	response.OKStatus(w, http.StatusOK, result)
 }
 
 func (h *Handler) updateModel(w http.ResponseWriter, r *http.Request) {
@@ -742,20 +745,20 @@ func (h *Handler) updateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Models == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "模型配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioCreateModelUnavailable, "模型配置服务不可用")
 		return
 	}
 	var body studioapp.UpdateModelConfigInput
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	model, err := h.Models.Update(r.Context(), accountID, chi.URLParam(r, "modelID"), body)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, model)
+	response.OKStatus(w, http.StatusOK, model)
 }
 
 func (h *Handler) testModelConfig(w http.ResponseWriter, r *http.Request) {
@@ -764,12 +767,12 @@ func (h *Handler) testModelConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Models == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "模型配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioCreateModelUnavailable, "模型配置服务不可用")
 		return
 	}
 	var body studioapp.CreateModelConfigInput
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	body.AccountID = accountID
@@ -781,10 +784,10 @@ func (h *Handler) testModelConfig(w http.ResponseWriter, r *http.Request) {
 			"path", r.URL.Path,
 			"err", err,
 		)
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	response.OKStatus(w, http.StatusOK, result)
 }
 
 func (h *Handler) listSkills(w http.ResponseWriter, r *http.Request) {
@@ -793,15 +796,15 @@ func (h *Handler) listSkills(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Capabilities == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
 		return
 	}
 	skills, err := h.Capabilities.ListSkills(r.Context(), accountID)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, skills)
+	response.OKStatus(w, http.StatusOK, skills)
 }
 
 func (h *Handler) createSkill(w http.ResponseWriter, r *http.Request) {
@@ -810,21 +813,21 @@ func (h *Handler) createSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Capabilities == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
 		return
 	}
 	var body studioapp.CreateSkillInput
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	body.AccountID = accountID
 	skill, err := h.Capabilities.CreateSkill(r.Context(), body)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, skill)
+	response.OKStatus(w, http.StatusCreated, skill)
 }
 
 func (h *Handler) updateSkill(w http.ResponseWriter, r *http.Request) {
@@ -833,22 +836,22 @@ func (h *Handler) updateSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Capabilities == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
 		return
 	}
 	var body studioapp.UpdateSkillInput
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	body.AccountID = accountID
 	body.SkillID = chi.URLParam(r, "skillID")
 	skill, err := h.Capabilities.UpdateSkill(r.Context(), body)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, skill)
+	response.OKStatus(w, http.StatusOK, skill)
 }
 
 func (h *Handler) listConnectors(w http.ResponseWriter, r *http.Request) {
@@ -857,15 +860,15 @@ func (h *Handler) listConnectors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Capabilities == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
 		return
 	}
 	connectors, err := h.Capabilities.ListConnectors(r.Context(), accountID)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, connectors)
+	response.OKStatus(w, http.StatusOK, connectors)
 }
 
 func (h *Handler) createConnector(w http.ResponseWriter, r *http.Request) {
@@ -874,21 +877,21 @@ func (h *Handler) createConnector(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Capabilities == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
 		return
 	}
 	var body studioapp.CreateConnectorInput
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	body.AccountID = accountID
 	connector, err := h.Capabilities.CreateConnector(r.Context(), body)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, connector)
+	response.OKStatus(w, http.StatusCreated, connector)
 }
 
 func (h *Handler) updateConnector(w http.ResponseWriter, r *http.Request) {
@@ -897,22 +900,22 @@ func (h *Handler) updateConnector(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Capabilities == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
 		return
 	}
 	var body studioapp.UpdateConnectorInput
 	if err := decodeJSON(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	body.AccountID = accountID
 	body.ConnectorID = chi.URLParam(r, "connectorID")
 	connector, err := h.Capabilities.UpdateConnector(r.Context(), body)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, connector)
+	response.OKStatus(w, http.StatusOK, connector)
 }
 
 func (h *Handler) probeConnector(w http.ResponseWriter, r *http.Request) {
@@ -921,15 +924,15 @@ func (h *Handler) probeConnector(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Capabilities == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
 		return
 	}
 	connector, err := h.Capabilities.ProbeConnector(r.Context(), accountID, chi.URLParam(r, "connectorID"))
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, connector)
+	response.OKStatus(w, http.StatusOK, connector)
 }
 
 func (h *Handler) listAgentWorkflows(w http.ResponseWriter, r *http.Request) {
@@ -938,15 +941,15 @@ func (h *Handler) listAgentWorkflows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Capabilities == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
 		return
 	}
 	workflows, err := h.Capabilities.ListAgentWorkflows(r.Context(), accountID)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, workflows)
+	response.OKStatus(w, http.StatusOK, workflows)
 }
 
 func (h *Handler) updateAgentWorkflow(w http.ResponseWriter, r *http.Request) {
@@ -955,28 +958,28 @@ func (h *Handler) updateAgentWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Capabilities == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "能力配置服务不可用"})
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
 		return
 	}
 	var body struct {
 		AgentEnabled *bool `json:"agent_enabled"`
 	}
 	if err := decodeJSON(r, &body); err != nil || body.AgentEnabled == nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	workflow, err := h.Capabilities.SetAgentWorkflowEnabled(r.Context(), accountID, chi.URLParam(r, "workflowID"), *body.AgentEnabled)
 	if err != nil {
-		writeError(w, err)
+		failFromError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, workflow)
+	response.OKStatus(w, http.StatusOK, workflow)
 }
 
 func accountID(w http.ResponseWriter, r *http.Request) (string, bool) {
 	account, ok := setupapi.AccountFromContext(r.Context())
 	if !ok || strings.TrimSpace(account.AccountID) == "" {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "登录状态已失效"})
+		response.Fail(w, apierr.ErrStudioAccountUnauthorized, "登录状态已失效")
 		return "", false
 	}
 	return account.AccountID, true
@@ -988,26 +991,23 @@ func decodeJSON(r *http.Request, out any) error {
 	return decoder.Decode(out)
 }
 
-func writeError(w http.ResponseWriter, err error) {
-	status := http.StatusInternalServerError
-	message := "服务暂时不可用"
+// failFromError 把工作台领域错误归类成对外错误码。
+//
+// 工作台的领域错误种类多，所以在这里集中归类一次，
+// 调用点只写 failFromError(w, err)。
+func failFromError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
-		status, message = http.StatusNotFound, "内容不存在或无权访问"
+		response.Fail(w, apierr.ErrStudioNotFound, "")
 	case errors.Is(err, domain.ErrAlreadyExists):
-		status, message = http.StatusConflict, "内容已存在"
+		response.Fail(w, apierr.ErrStudioAlreadyExists, "")
 	case errors.Is(err, studioapp.ErrModelConnectionTest):
-		status, message = http.StatusBadGateway, err.Error()
+		response.FailErr(w, apierr.ErrStudioModelConnectionTest, err)
 	case errors.Is(err, domain.ErrInvalid), errors.Is(err, domain.ErrInvalidTransition):
-		status, message = http.StatusBadRequest, err.Error()
+		response.FailErr(w, apierr.ErrStudioInvalidBody, err)
+	default:
+		response.FailErr(w, apierr.ErrStudioUnavailable, err)
 	}
-	writeJSON(w, status, map[string]string{"error": message})
-}
-
-func writeJSON(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
 }
 
 func queryInt(r *http.Request, key string, fallback int) int {

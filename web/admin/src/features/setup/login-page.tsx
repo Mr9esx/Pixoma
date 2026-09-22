@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '@/lib/api/client'
+import { apiErrorMessage } from '@/lib/api/error-copy'
 import { loginAdmin, type SetupStatus } from '@/lib/api/setup'
 import { useTheme } from '@/context/theme-provider'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -53,7 +54,7 @@ export function LoginPage({
       }
       await navigate({ to: '/' })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('auth.loginFailed'))
+      setError(err instanceof ApiError ? apiErrorMessage(err, t) : t('auth.loginFailed'))
     } finally {
       setPending(false)
     }

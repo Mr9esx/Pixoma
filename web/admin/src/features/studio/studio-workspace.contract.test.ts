@@ -5,14 +5,20 @@ const read = (path: string) =>
   readFileSync(new URL(path, import.meta.url), 'utf8')
 
 describe('Studio production workspace contract', () => {
-  it('uses the official assistant-ui AG-UI runtime and Pixoma primitives', () => {
+  it('uses the AG-UI runtime bridge with AI Elements as the chat presentation layer', () => {
     const source = read('./studio-chat.tsx')
     const transport = read('../../lib/agui-websocket-agent.ts')
     expect(source).toContain("from '@assistant-ui/react-ag-ui'")
     expect(source).toContain("from '@assistant-ui/react'")
     expect(transport).toContain("from '@ag-ui/client'")
-    expect(source).toContain('ComposerPrimitive.Input')
-    expect(source).toContain('ThreadPrimitive.Messages')
+    expect(source).toContain("from '@/components/ai-elements/conversation'")
+    expect(source).toContain("from '@/components/ai-elements/message'")
+    expect(source).toContain("from '@/components/ai-elements/prompt-input'")
+    expect(source).toContain('ConversationContent')
+    expect(source).toContain('MessageResponse')
+    expect(source).toContain('PromptInputTextarea')
+    expect(source).not.toContain('ComposerPrimitive.Input')
+    expect(source).not.toContain('ThreadPrimitive.Messages')
     expect(source).toContain('@/components/ui/button')
   })
 
@@ -59,9 +65,7 @@ describe('Studio production workspace contract', () => {
     const sidebar = read('./studio-sidebar.tsx')
     expect(sidebar).toContain("from '@/components/layout/app-title'")
     expect(sidebar).toContain("from '@/components/layout/nav-user'")
-    expect(sidebar).toContain(
-      "<Sidebar collapsible='none' className='bg-muted/30 p-2'>"
-    )
+    expect(sidebar).toContain("<Sidebar collapsible='none' className='p-2'>")
     expect(sidebar).toContain('<AppTitle showToggle={false} />')
     expect(sidebar).toContain('<NavUser />')
     expect(sidebar).toContain("to='/'")
@@ -166,18 +170,18 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('selectedSkillIds: props.selectedSkillIds')
   })
 
-  it('renders assistant text as Markdown', () => {
+  it('renders assistant text, reasoning and tool calls with AI Elements', () => {
     const source = read('./studio-chat.tsx')
-    expect(source).toContain("from 'react-markdown'")
-    expect(source).toContain("from 'remark-gfm'")
-    expect(source).toContain('Text: StudioMarkdown')
+    expect(source).toContain('MessageResponse')
+    expect(source).toContain('ReasoningContent')
+    expect(source).toContain('ToolHeader')
   })
 
   it('renders AG-UI run errors in the conversation instead of dropping them', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain('onError: (error) => setRunError(error.message)')
     expect(source).toContain('runError')
-    expect(source).toContain('role=\'alert\'')
+    expect(source).toContain("role='alert'")
   })
 
   it('lets the composer use both Session assets and reusable library assets', () => {

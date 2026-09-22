@@ -1,3 +1,4 @@
+import { apiErrorDetail } from '../../lib/api/error-copy'
 import type { AlertCopy } from './db-error'
 
 const BLOB_ERROR_PATTERNS: Array<{ pattern: RegExp; key: string }> = [
@@ -20,7 +21,8 @@ const BLOB_ERROR_PATTERNS: Array<{ pattern: RegExp; key: string }> = [
 ]
 
 export function blobErrorCopy(err: unknown): AlertCopy {
-  const detail = err instanceof Error ? err.message : String(err)
+  // 与 setupErrorCopy 一致：模式匹配原始技术原因。
+  const detail = apiErrorDetail(err) || (err instanceof Error ? err.message : String(err))
   const matched = BLOB_ERROR_PATTERNS.find(({ pattern }) => pattern.test(detail))
   return {
     key: matched?.key ?? 'setup.errBlobGeneric',

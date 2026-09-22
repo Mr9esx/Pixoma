@@ -3,6 +3,7 @@ package stats_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,10 +11,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Mr9esx/Pixoma/internal/httpapi/stats"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
-	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/stats"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
 )
 
 type fakeRepo struct {
@@ -82,7 +83,7 @@ func TestDailyZeroFillAndSummary(t *testing.T) {
 			SuccessRate *float64 `json:"success_rate"`
 		} `json:"summary"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if len(resp.Days) != 3 || resp.Days[0].Processed != 0 || resp.Days[1].Processed != 3 ||
@@ -116,7 +117,7 @@ func TestDailyEmptyRange(t *testing.T) {
 			SuccessRate *float64 `json:"success_rate"`
 		} `json:"summary"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if resp.Summary.SuccessRate != nil {
@@ -151,7 +152,7 @@ func TestErrorsTopN(t *testing.T) {
 			Count     int    `json:"count"`
 		} `json:"items"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if len(resp.Items) != 2 || resp.Items[0].ErrorCode != "timeout" {
@@ -186,7 +187,7 @@ func TestEdgesTotal(t *testing.T) {
 		} `json:"items"`
 		Total int `json:"total"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if len(resp.Items) != 2 || resp.Items[0].EdgeID != "gpu-1" || resp.Total != 4 ||
@@ -217,7 +218,7 @@ func TestCasesTop(t *testing.T) {
 			AvgDurationMS *int64 `json:"avg_duration_ms"`
 		} `json:"items"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if len(resp.Items) != 2 || resp.Items[0].CaseID != 1 || resp.Items[0].CaseName != "Portrait" || resp.Items[0].Count != 3 ||
@@ -261,7 +262,7 @@ func TestFleetAggregates(t *testing.T) {
 			CPU    float64 `json:"cpu_usage_percent"`
 		} `json:"nodes"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if resp.Online != 2 || resp.AvgCPU != 64 || resp.VRAMUsedBytes != 12<<30 || resp.VRAMTotalBytes != 24<<30 ||

@@ -384,6 +384,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 			}
 		}
 	}()
+	studioEvents := studioapp.NewEventHub()
 	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
 		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
 			Online: &studioeino.Engine{
@@ -391,6 +392,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 				Workflows: studioCapabilityService, WorkflowStarter: studioWorkflowStarter, Blob: blobStore,
 			},
 		},
+		Events: studioEvents,
 	})
 	studioRunner := studioapp.NewBackgroundRunner(studioRepo, studioExecutor, studioapp.RunnerOptions{})
 	defer studioRunner.Close()
@@ -419,7 +421,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
 		Studio: &studioapi.Handler{
 			Repo: studioRepo, Service: studioService, Runner: studioRunner,
-			Approvals: studioApprovalService, Models: studioModelService, Capabilities: studioCapabilityService, Blob: blobStore,
+			Approvals: studioApprovalService, Models: studioModelService, Capabilities: studioCapabilityService, Blob: blobStore, Events: studioEvents,
 		},
 		Channels: &channelsapi.Handler{
 			Svc: chSvc,

@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	consoledomain "github.com/Mr9esx/Pixoma/internal/adminusers/domain"
+	"github.com/Mr9esx/Pixoma/internal/apierr"
 	"github.com/Mr9esx/Pixoma/internal/platform/bootstrap"
+	"github.com/Mr9esx/Pixoma/internal/response"
 )
 
 type accountCtxKey struct{}
@@ -56,11 +58,11 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 		}
 		if strings.HasPrefix(path, "/api/v1/setup/") && !g.Boot.Initialized() {
 			if g.Sessions == nil {
-				writeErr(w, http.StatusUnauthorized, "unauthorized")
+				response.Fail(w, apierr.ErrSetupSessionUnauthorized, "unauthorized")
 				return
 			}
 			if _, ok := g.Sessions.Lookup(TokenFromRequest(r)); !ok {
-				writeErr(w, http.StatusUnauthorized, "unauthorized")
+				response.Fail(w, apierr.ErrSetupSessionUnauthorized, "unauthorized")
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -71,48 +73,40 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 		// initialized, requests fall through to the account auth below.
 		if strings.HasPrefix(path, "/api/v1/media/") && !g.Boot.Initialized() {
 			if g.Sessions == nil {
-				writeErr(w, http.StatusUnauthorized, "unauthorized")
+				response.Fail(w, apierr.ErrSetupSessionUnauthorized, "unauthorized")
 				return
 			}
 			if _, ok := g.Sessions.Lookup(TokenFromRequest(r)); !ok {
-				writeErr(w, http.StatusUnauthorized, "unauthorized")
+				response.Fail(w, apierr.ErrSetupSessionUnauthorized, "unauthorized")
 				return
 			}
 			next.ServeHTTP(w, r)
 			return
 		}
 		if !g.Boot.Initialized() {
-			code := "not_initialized"
-			msg := "platform not initialized"
-			writeJSON(w, http.StatusForbidden, map[string]string{
-				"error": msg,
-				"code":  code,
-			})
+			response.Fail(w, apierr.ErrSetupNotInitialized, "platform not initialized")
 			return
 		}
 		if g.Boot.RestartRequired() && !strings.HasPrefix(path, "/api/v1/setup/") {
-			writeJSON(w, http.StatusForbidden, map[string]string{
-				"error": "settings saved; restart pixoma for them to take effect",
-				"code":  "restart_required",
-			})
+			response.Fail(w, apierr.ErrSetupRestartRequired, "settings saved; restart pixoma for them to take effect")
 			return
 		}
 		if g.Sessions == nil {
-			writeErr(w, http.StatusUnauthorized, "unauthorized")
+			response.Fail(w, apierr.ErrSetupSessionUnauthorized, "unauthorized")
 			return
 		}
 		acct, ok := resolveAccount(r.Context(), g.Sessions, g.ConsoleUsers, TokenFromRequest(r))
 		if !ok {
-			writeErr(w, http.StatusUnauthorized, "unauthorized")
+			response.Fail(w, apierr.ErrSetupSessionUnauthorized, "unauthorized")
 			return
 		}
 		if isSetupAdministration(path) && acct.Role != consoledomain.RoleAdmin {
-			writeErr(w, http.StatusForbidden, "forbidden")
+			response.Fail(w, apierr.ErrSetupSessionForbidden, "forbidden")
 			return
 		}
 		if !isSetupSelfService(path) && isWriteMethod(r.Method) &&
 			acct.Role != consoledomain.RoleAdmin && acct.Role != consoledomain.RoleOperator {
-			writeErr(w, http.StatusForbidden, "forbidden")
+			response.Fail(w, apierr.ErrSetupSessionForbidden, "forbidden")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(WithAccount(r.Context(), acct)))

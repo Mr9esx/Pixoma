@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,8 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Mr9esx/Pixoma/internal/httpapi/topics"
-	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
 	topicapp "github.com/Mr9esx/Pixoma/internal/topics/application"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
 )
 
 type fakeRepo struct {
@@ -96,7 +97,7 @@ func TestTopics_CreateAndList(t *testing.T) {
 	}
 	rec = do(t, r, http.MethodGet, "/", "")
 	var list []map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &list); err != nil {
 		t.Fatalf("list decode: %v", err)
 	}
 	if len(list) != 1 || list[0]["key"] != "fast-gpu" {
@@ -217,7 +218,7 @@ func TestTopics_DeleteCleanup(t *testing.T) {
 		t.Fatalf("delete ack status = %d", rec.Code)
 	}
 	var body map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(rec), &body); err != nil {
 		t.Fatal(err)
 	}
 	if body["removed_case_rules"] != float64(1) || body["failed_tasks"] != float64(3) {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -74,7 +75,8 @@ func newHandler(t *testing.T) (*studioapi.Handler, *studioapp.BackgroundRunner) 
 		t.Fatal(err)
 	}
 	sequence := &ids{}
-	executor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{Repo: repo, Blob: blobs, Engine: studioapp.NewMockEngine(), IDs: sequence.next})
+	events := studioapp.NewEventHub()
+	executor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{Repo: repo, Blob: blobs, Engine: studioapp.NewMockEngine(), Events: events, IDs: sequence.next})
 	runner := studioapp.NewBackgroundRunner(repo, executor, studioapp.RunnerOptions{Workers: 1})
 	service := &studioapp.Service{Repo: repo, IDs: sequence.next, Queue: runner}
 	return &studioapi.Handler{
@@ -83,6 +85,7 @@ func newHandler(t *testing.T) (*studioapi.Handler, *studioapp.BackgroundRunner) 
 		Models:       &studioapp.ModelConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: sequence.next, Tester: modelConnectionTester{}},
 		Capabilities: &studioapp.CapabilityConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: sequence.next, WorkflowCatalog: workflowCatalog{cases: []*catalogdomain.Case{{Document: catalogdomain.CaseDocument{ID: sharedkernel.CaseID(1), Name: "漫画生成", Description: "生成分镜"}, Enabled: true}}}},
 		Blob:         blobs,
+		Events:       events,
 	}, runner
 }
 
@@ -100,7 +103,11 @@ func TestStudioModelConnectionTestAPIIsAccountScoped(t *testing.T) {
 		t.Fatalf("POST /models/test = %d %s", transient.Code, transient.Body.String())
 	}
 	listed := request(t, router, http.MethodGet, "/models", nil, "account-a")
-	if listed.Code != http.StatusOK || listed.Body.String() != "[]\n" {
+	var listedModels []map[string]any
+	if err := json.Unmarshal(apitest.DataBytes(listed), &listedModels); err != nil {
+		t.Fatalf("decode /models: %v %s", err, listed.Body.String())
+	}
+	if listed.Code != http.StatusOK || len(listedModels) != 0 {
 		t.Fatalf("transient test persisted model: %d %s", listed.Code, listed.Body.String())
 	}
 
@@ -115,7 +122,7 @@ func TestStudioModelConnectionTestAPIIsAccountScoped(t *testing.T) {
 	var model struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(created.Body.Bytes(), &model); err != nil || model.ID == "" {
+	if err := json.Unmarshal(apitest.DataBytes(created), &model); err != nil || model.ID == "" {
 		t.Fatalf("created model = %s, err=%v", created.Body.String(), err)
 	}
 	updated := request(t, router, http.MethodPatch, "/models/"+model.ID, map[string]any{
@@ -196,7 +203,7 @@ func TestStudioCapabilityConfigAPIUpdatesEnabledState(t *testing.T) {
 	var createdSkill struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(skill.Body.Bytes(), &createdSkill); err != nil || createdSkill.ID == "" {
+	if err := json.Unmarshal(apitest.DataBytes(skill), &createdSkill); err != nil || createdSkill.ID == "" {
 		t.Fatalf("created skill = %s, err=%v", skill.Body.String(), err)
 	}
 	updatedSkill := request(t, router, http.MethodPatch, "/skills/"+createdSkill.ID, map[string]any{
@@ -212,7 +219,7 @@ func TestStudioCapabilityConfigAPIUpdatesEnabledState(t *testing.T) {
 	var createdConnector struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(connector.Body.Bytes(), &createdConnector); err != nil || createdConnector.ID == "" {
+	if err := json.Unmarshal(apitest.DataBytes(connector), &createdConnector); err != nil || createdConnector.ID == "" {
 		t.Fatalf("created connector = %s, err=%v", connector.Body.String(), err)
 	}
 	updatedConnector := request(t, router, http.MethodPatch, "/connectors/"+createdConnector.ID, map[string]any{
@@ -266,7 +273,7 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"run"`
 	}
-	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(response), &created); err != nil {
 		t.Fatal(err)
 	}
 	if created.Session.ID == "" || created.Run.ID == "" {
@@ -279,7 +286,7 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 		var run struct {
 			Status domain.RunStatus `json:"status"`
 		}
-		_ = json.Unmarshal(response.Body.Bytes(), &run)
+		_ = json.Unmarshal(apitest.DataBytes(response), &run)
 		if run.Status == domain.RunSucceeded {
 			break
 		}
@@ -303,7 +310,7 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 			Edges []json.RawMessage `json:"edges"`
 		} `json:"flow"`
 	}
-	if err := json.Unmarshal(response.Body.Bytes(), &detail); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(response), &detail); err != nil {
 		t.Fatal(err)
 	}
 	if len(detail.Messages) < 2 || len(detail.Transcript.Messages) < 2 || len(detail.Transcript.Events) == 0 || len(detail.Assets) != 2 || len(detail.Flow.Nodes) != 4 || len(detail.Flow.Edges) != 3 {
@@ -325,7 +332,7 @@ func TestCreateStudioSessionAPI(t *testing.T) {
 		ID    string `json:"id"`
 		Title string `json:"title"`
 	}
-	if err := json.Unmarshal(response.Body.Bytes(), &session); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(response), &session); err != nil {
 		t.Fatal(err)
 	}
 	if session.ID == "" || session.Title != domain.DefaultSessionTitle {
@@ -344,7 +351,7 @@ func TestStudioAPIRejectsCrossAccountRead(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"session"`
 	}
-	_ = json.Unmarshal(created.Body.Bytes(), &payload)
+	_ = json.Unmarshal(apitest.DataBytes(created), &payload)
 
 	response := request(t, router, http.MethodGet, "/sessions/"+payload.Session.ID, nil, "account-b")
 	if response.Code != http.StatusNotFound {
@@ -363,7 +370,7 @@ func TestStudioEventsResumeAfterCursor(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"run"`
 	}
-	_ = json.Unmarshal(created.Body.Bytes(), &payload)
+	_ = json.Unmarshal(apitest.DataBytes(created), &payload)
 	time.Sleep(100 * time.Millisecond)
 
 	response := request(t, router, http.MethodGet, "/runs/"+payload.Run.ID+"/events?after=2", nil, "account-a")
@@ -373,7 +380,7 @@ func TestStudioEventsResumeAfterCursor(t *testing.T) {
 	var events []struct {
 		Sequence uint64 `json:"sequence"`
 	}
-	if err := json.Unmarshal(response.Body.Bytes(), &events); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(response), &events); err != nil {
 		t.Fatal(err)
 	}
 	if len(events) == 0 || events[0].Sequence <= 2 {
@@ -391,7 +398,7 @@ func TestStudioAGUIStreamsStandardEvents(t *testing.T) {
 	var session struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &session); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
 		t.Fatal(err)
 	}
 
@@ -441,7 +448,7 @@ func TestStudioAGUIWebSocketStreamsStandardEvents(t *testing.T) {
 	var session struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &session); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -502,7 +509,7 @@ func TestStudioAGUIStoresSelectedSkillIDsOnRun(t *testing.T) {
 	var session struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &session); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
 		t.Fatal(err)
 	}
 
@@ -541,7 +548,7 @@ func TestStudioAGUIStoresSelectedAssetVersionOnRun(t *testing.T) {
 	var session struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &session); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
 		t.Fatal(err)
 	}
 	assetResponse := request(t, router, http.MethodPost, "/assets/text", map[string]any{
@@ -553,7 +560,7 @@ func TestStudioAGUIStoresSelectedAssetVersionOnRun(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"versions"`
 	}
-	if assetResponse.Code != http.StatusCreated || json.Unmarshal(assetResponse.Body.Bytes(), &asset) != nil || len(asset.Versions) != 1 {
+	if assetResponse.Code != http.StatusCreated || json.Unmarshal(apitest.DataBytes(assetResponse), &asset) != nil || len(asset.Versions) != 1 {
 		t.Fatalf("created asset = status=%d body=%s", assetResponse.Code, assetResponse.Body.String())
 	}
 	response := request(t, router, http.MethodPost, "/agui", map[string]any{
@@ -608,7 +615,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"run"`
 	}
-	if err := json.Unmarshal(created.Body.Bytes(), &turn); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(created), &turn); err != nil {
 		t.Fatal(err)
 	}
 	waitForRun(t, router, turn.Run.ID, "account-a")
@@ -623,7 +630,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 		ID     string             `json:"id"`
 		Origin domain.AssetOrigin `json:"origin"`
 	}
-	if err := json.Unmarshal(assetResponse.Body.Bytes(), &asset); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(assetResponse), &asset); err != nil {
 		t.Fatal(err)
 	}
 	if asset.ID == "" || asset.Origin != domain.AssetOriginUser {
@@ -641,7 +648,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 			ContentURL string `json:"content_url"`
 		} `json:"versions"`
 	}
-	if err := json.Unmarshal(updatedAsset.Body.Bytes(), &updated); err != nil || len(updated.Versions) != 2 {
+	if err := json.Unmarshal(apitest.DataBytes(updatedAsset), &updated); err != nil || len(updated.Versions) != 2 {
 		t.Fatalf("updated asset = %s, err=%v", updatedAsset.Body.String(), err)
 	}
 	oldContent := request(t, router, http.MethodGet, strings.TrimPrefix(updated.Versions[0].ContentURL, "/api/v1/studio"), nil, "account-a")
@@ -649,7 +656,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 		t.Fatalf("old asset content status=%d body=%s", oldContent.Code, oldContent.Body.String())
 	}
 	saved := request(t, router, http.MethodPost, "/assets/"+asset.ID+"/save-to-library", nil, "account-a")
-	if saved.Code != http.StatusNoContent {
+	if saved.Code != http.StatusOK || !strings.Contains(saved.Body.String(), `"data":null`) {
 		t.Fatalf("save asset status=%d body=%s", saved.Code, saved.Body.String())
 	}
 	imported := request(t, router, http.MethodPost, "/sessions/"+turn.Session.ID+"/assets/import", map[string]any{"asset_id": asset.ID, "asset_version_id": updated.Versions[1].ID}, "account-a")
@@ -669,7 +676,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 			ContentURL string `json:"content_url"`
 		} `json:"versions"`
 	}
-	if library.Code != http.StatusOK || json.Unmarshal(library.Body.Bytes(), &libraryAssets) != nil || len(libraryAssets) != 1 || libraryAssets[0].CurrentVersion != 2 || len(libraryAssets[0].Versions) != 1 {
+	if library.Code != http.StatusOK || json.Unmarshal(apitest.DataBytes(library), &libraryAssets) != nil || len(libraryAssets) != 1 || libraryAssets[0].CurrentVersion != 2 || len(libraryAssets[0].Versions) != 1 {
 		t.Fatalf("library asset = status=%d body=%s", library.Code, library.Body.String())
 	}
 	libraryContent := request(t, router, http.MethodGet, strings.TrimPrefix(libraryAssets[0].Versions[0].ContentURL, "/api/v1/studio"), nil, "account-a")
@@ -688,7 +695,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 			} `json:"nodes"`
 		} `json:"flow"`
 	}
-	if err := json.Unmarshal(detail.Body.Bytes(), &payload); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(detail), &payload); err != nil {
 		t.Fatal(err)
 	}
 	if len(payload.Flow.Nodes) == 0 {
@@ -702,7 +709,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	flowResponse := request(t, router, http.MethodPatch, "/sessions/"+turn.Session.ID+"/flow", map[string]any{
 		"nodes": []map[string]any{{"id": payload.Flow.Nodes[0].ID, "position": map[string]float64{"x": 480, "y": 240}, "sort_order": 99}},
 	}, "account-a")
-	if flowResponse.Code != http.StatusNoContent {
+	if flowResponse.Code != http.StatusOK || !strings.Contains(flowResponse.Body.String(), `"data":null`) {
 		t.Fatalf("PATCH flow status=%d body=%s", flowResponse.Code, flowResponse.Body.String())
 	}
 
@@ -721,7 +728,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	var manualNode struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(createdNode.Body.Bytes(), &manualNode); err != nil || manualNode.ID == "" {
+	if err := json.Unmarshal(apitest.DataBytes(createdNode), &manualNode); err != nil || manualNode.ID == "" {
 		t.Fatalf("manual node = %#v, err=%v", manualNode, err)
 	}
 
@@ -733,7 +740,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	}
 
 	removedNode := request(t, router, http.MethodDelete, "/sessions/"+turn.Session.ID+"/flow/nodes/"+manualNode.ID, nil, "account-a")
-	if removedNode.Code != http.StatusNoContent {
+	if removedNode.Code != http.StatusOK || !strings.Contains(removedNode.Body.String(), `"data":null`) {
 		t.Fatalf("DELETE flow node status=%d body=%s", removedNode.Code, removedNode.Body.String())
 	}
 	detail = request(t, router, http.MethodGet, "/sessions/"+turn.Session.ID, nil, "account-a")
@@ -750,7 +757,7 @@ func waitForRun(t *testing.T, router http.Handler, runID, accountID string) {
 		var run struct {
 			Status domain.RunStatus `json:"status"`
 		}
-		_ = json.Unmarshal(response.Body.Bytes(), &run)
+		_ = json.Unmarshal(apitest.DataBytes(response), &run)
 		if run.Status == domain.RunSucceeded {
 			return
 		}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,14 +13,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Mr9esx/Pixoma/internal/httpapi/agent"
-	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
-	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
 	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
-	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/agent"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 type statusSpy struct {
@@ -269,7 +270,7 @@ func TestAgent_ClaimReturnsJob(t *testing.T) {
 		t.Fatalf("status=%d body=%s", res.StatusCode, body)
 	}
 	var body map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
 	if body["task_id"] != "t1" {
@@ -623,7 +624,7 @@ func TestAgent_PresenceWritesHardwareOnceUntilRefresh(t *testing.T) {
 			t.Fatalf("get status=%d", res.StatusCode)
 		}
 		var dto map[string]any
-		if err := json.NewDecoder(res.Body).Decode(&dto); err != nil {
+		if err := json.NewDecoder(apitest.DataReader(res)).Decode(&dto); err != nil {
 			t.Fatal(err)
 		}
 		hw, _ := dto["hardware"].(map[string]any)

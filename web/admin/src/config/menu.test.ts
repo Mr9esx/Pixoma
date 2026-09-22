@@ -4,8 +4,7 @@ import { MENU_GROUPS, MENU_ITEMS, filterMenuGroupsForDemo } from './menu'
 describe('MENU_GROUPS', () => {
   it('keeps required group and item order', () => {
     expect(MENU_GROUPS.map((g) => g.items.map((m) => m.id))).toEqual([
-      ['studio'],
-      ['dashboard', 'quick-config'],
+      ['dashboard', 'quick-config', 'studio'],
       ['cases', 'channels', 'topics', 'edges'],
       ['tasks', 'sessions', 'users'],
       ['settings'],
@@ -14,7 +13,6 @@ describe('MENU_GROUPS', () => {
 
   it('labels only grouped sections', () => {
     expect(MENU_GROUPS.map((g) => g.titleKey)).toEqual([
-      undefined,
       undefined,
       'menu.groupConfig',
       'menu.groupOperations',
@@ -26,9 +24,9 @@ describe('MENU_GROUPS', () => {
 describe('MENU_ITEMS', () => {
   it('flattens all items in order', () => {
     expect(MENU_ITEMS.map((m) => m.id)).toEqual([
-      'studio',
       'dashboard',
       'quick-config',
+      'studio',
       'cases',
       'channels',
       'topics',
@@ -39,9 +37,9 @@ describe('MENU_ITEMS', () => {
       'settings',
     ])
     expect(MENU_ITEMS.map((m) => m.path)).toEqual([
-      '/studio',
       '/',
       '/quick-config',
+      '/studio',
       '/cases',
       '/channels',
       '/topics',
@@ -62,8 +60,7 @@ describe('filterMenuGroupsForDemo', () => {
         items: group.items.map((item) => item.id),
       })),
     ).toEqual([
-      { titleKey: undefined, items: ['studio'] },
-      { titleKey: undefined, items: ['dashboard', 'quick-config'] },
+      { titleKey: undefined, items: ['dashboard', 'quick-config', 'studio'] },
       { titleKey: 'menu.groupConfig', items: ['cases', 'channels', 'topics', 'edges'] },
       { titleKey: 'menu.groupOperations', items: ['tasks', 'sessions', 'users'] },
     ])

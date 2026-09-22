@@ -85,12 +85,60 @@ func TestMockAgentCompletesConversationWorkflowAndAssets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantEventTypes := []string{"RUN_STARTED", "TEXT_MESSAGE_CONTENT", "TOOL_CALL_START", "TOOL_CALL_END", "RUN_FINISHED"}
+	wantEventTypes := []string{"RUN_STARTED", "TEXT_MESSAGE_END", "TOOL_CALL_START", "TOOL_CALL_END", "RUN_FINISHED"}
 	for _, eventType := range wantEventTypes {
 		if !hasEventType(events, eventType) {
 			t.Errorf("events missing %q: %#v", eventType, events)
 		}
 	}
+}
+
+func TestAgentExecutorPersistsFinalAssistantTextWithoutDeltaEvents(t *testing.T) {
+	repo := openRepository(t)
+	blobs, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := &idSequence{}
+	service := &studioapp.Service{
+		Repo: repo, IDs: ids.Next, Now: time.Now, Queue: &queueSpy{},
+	}
+	turn, err := service.SendMessage(context.Background(), studioapp.SendMessageInput{
+		AccountID: "account-a", Text: "写一段文本",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	executor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
+		Repo: repo, Blob: blobs, Engine: &streamingEngine{}, IDs: ids.Next,
+	})
+	if err := executor.Execute(context.Background(), turn.Run); err != nil {
+		t.Fatal(err)
+	}
+
+	events, err := repo.ListEventsAfter(context.Background(), "account-a", turn.Run.ID, 0, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasEventType(events, studioapp.EventTextMessageContent) {
+		t.Fatalf("durable events contain text deltas: %#v", events)
+	}
+	for _, event := range events {
+		if event.Type != studioapp.EventTextMessageEnd {
+			continue
+		}
+		var payload struct {
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Content != "第一段第二段" {
+			t.Fatalf("final text = %q, want %q", payload.Content, "第一段第二段")
+		}
+		return
+	}
+	t.Fatal("TEXT_MESSAGE_END event missing")
 }
 
 func TestAgentExecutorLoadsTheSkillSelectedForRun(t *testing.T) {
@@ -233,6 +281,27 @@ type captureEngine struct{ request studioapp.AgentRequest }
 func (e *captureEngine) Execute(_ context.Context, request studioapp.AgentRequest, _ studioapp.AgentSink) error {
 	e.request = request
 	return nil
+}
+
+type streamingEngine struct{}
+
+func (*streamingEngine) Execute(ctx context.Context, _ studioapp.AgentRequest, sink studioapp.AgentSink) error {
+	stream, ok := sink.(studioapp.AssistantStreamSink)
+	if !ok {
+		return nil
+	}
+	messageID, err := stream.BeginAssistantMessage(ctx)
+	if err != nil {
+		return err
+	}
+	if err := stream.AppendAssistantMessage(ctx, messageID, "第一段"); err != nil {
+		return err
+	}
+	if err := stream.AppendAssistantMessage(ctx, messageID, "第二段"); err != nil {
+		return err
+	}
+	_, err = stream.EndAssistantMessage(ctx, messageID, "第一段第二段")
+	return err
 }
 
 func hasEventType(events []*domain.Event, want string) bool {

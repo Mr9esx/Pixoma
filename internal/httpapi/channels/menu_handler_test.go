@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -77,7 +78,7 @@ func TestPutGetMenuTree(t *testing.T) {
 		t.Fatalf("get default status=%v err=%v", get.StatusCode, err)
 	}
 	var def mcdomain.MenuTree
-	_ = json.NewDecoder(get.Body).Decode(&def)
+	_ = json.NewDecoder(apitest.DataReader(get)).Decode(&def)
 	get.Body.Close()
 	if def.ID != "ch1" || len(def.Items) != 2 {
 		t.Fatalf("default=%+v", def)
@@ -101,7 +102,7 @@ func TestPutGetMenuTree(t *testing.T) {
 		t.Fatal(err)
 	}
 	var got mcdomain.MenuTree
-	_ = json.NewDecoder(get2.Body).Decode(&got)
+	_ = json.NewDecoder(apitest.DataReader(get2)).Decode(&got)
 	get2.Body.Close()
 	if len(got.Items) != 1 || got.Items[0].Action.WorkflowID != "10" {
 		t.Fatalf("got=%+v", got)
@@ -112,7 +113,7 @@ func TestPutGetMenuTree(t *testing.T) {
 		t.Fatalf("placements status=%v err=%v", wf.StatusCode, err)
 	}
 	var placements []map[string]any
-	_ = json.NewDecoder(wf.Body).Decode(&placements)
+	_ = json.NewDecoder(apitest.DataReader(wf)).Decode(&placements)
 	wf.Body.Close()
 	if len(placements) != 1 || placements[0]["kind"] != "keyboard" {
 		t.Fatalf("placements=%v", placements)

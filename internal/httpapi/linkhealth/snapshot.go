@@ -8,12 +8,12 @@ import (
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	channelapp "github.com/Mr9esx/Pixoma/internal/channels/application"
 	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
-	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
-	"github.com/Mr9esx/Pixoma/internal/packaging/linkhealth"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/presence"
-	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
+	mcdomain "github.com/Mr9esx/Pixoma/internal/menus/domain"
+	"github.com/Mr9esx/Pixoma/internal/packaging/linkhealth"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
 	"gorm.io/gorm"
 )
 

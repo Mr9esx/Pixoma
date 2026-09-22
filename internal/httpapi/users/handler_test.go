@@ -3,6 +3,7 @@ package users_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,9 +14,9 @@ import (
 	channeldomain "github.com/Mr9esx/Pixoma/internal/channels/domain"
 	channelpersist "github.com/Mr9esx/Pixoma/internal/channels/infrastructure/persistence"
 	usersapi "github.com/Mr9esx/Pixoma/internal/httpapi/users"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	domain "github.com/Mr9esx/Pixoma/internal/users/domain"
 	"github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
-	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 func openUsersHandler(t *testing.T) (*persistence.UserRepository, *httptest.Server) {
@@ -73,7 +74,7 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 		t.Fatalf("list status=%d", res.StatusCode)
 	}
 	var list []map[string]any
-	if err := json.NewDecoder(res.Body).Decode(&list); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res)).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
 	found := false
@@ -112,7 +113,7 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 	}
 	defer resSearch.Body.Close()
 	var searchByID []map[string]any
-	if err := json.NewDecoder(resSearch.Body).Decode(&searchByID); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(resSearch)).Decode(&searchByID); err != nil {
 		t.Fatal(err)
 	}
 	if len(searchByID) != 1 || searchByID[0]["id"] != bob.ID {
@@ -125,7 +126,7 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 	}
 	defer resSearch2.Body.Close()
 	var searchByName []map[string]any
-	if err := json.NewDecoder(resSearch2.Body).Decode(&searchByName); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(resSearch2)).Decode(&searchByName); err != nil {
 		t.Fatal(err)
 	}
 	if len(searchByName) != 1 || searchByName[0]["id"] != bob.ID {
@@ -141,7 +142,7 @@ func TestUsersHandler_ListGetReadOnly(t *testing.T) {
 		t.Fatalf("get status=%d", res2.StatusCode)
 	}
 	var detail map[string]any
-	if err := json.NewDecoder(res2.Body).Decode(&detail); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(res2)).Decode(&detail); err != nil {
 		t.Fatal(err)
 	}
 	if detail["channel_id"] != "tg-default" || detail["external_user_id"] != "9001" {
@@ -198,7 +199,7 @@ func TestUsersHandler_UpdateAccess(t *testing.T) {
 		t.Fatalf("update status=%d", response.StatusCode)
 	}
 	var updated map[string]any
-	if err := json.NewDecoder(response.Body).Decode(&updated); err != nil {
+	if err := json.NewDecoder(apitest.DataReader(response)).Decode(&updated); err != nil {
 		t.Fatal(err)
 	}
 	if updated["access"] != string(domain.UserAccessAlwaysAllowed) {

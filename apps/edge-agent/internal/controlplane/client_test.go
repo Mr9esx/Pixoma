@@ -20,6 +20,16 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/comfyui/comfyuitest"
 )
 
+// writeOK 按控制面的统一封装写出成功响应。
+func writeOK(w http.ResponseWriter, data any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"message": "success",
+		"code":    2000000,
+		"data":    data,
+	})
+}
+
 func TestClient_ClaimUnauthorized(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -38,7 +48,7 @@ func TestClient_ClaimEmpty(t *testing.T) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		writeOK(w, nil)
 	}))
 	t.Cleanup(srv.Close)
 	c := controlplane.NewClient(srv.URL, "tok", "gpu-1")
@@ -64,11 +74,11 @@ func TestLoop_ClaimExecuteReportStatus(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/agent/v1/jobs/claim":
 			if claimed.Load() {
-				w.WriteHeader(http.StatusNoContent)
+				writeOK(w, nil)
 				return
 			}
 			claimed.Store(true)
-			_ = json.NewEncoder(w).Encode(map[string]any{
+			writeOK(w, map[string]any{
 				"task_id": "t-edge",
 				"edge_id": "gpu-1",
 				"job_ref": map[string]any{"key": "jobs/t-edge/job.json"},
@@ -79,9 +89,9 @@ func TestLoop_ClaimExecuteReportStatus(t *testing.T) {
 			if s, ok := body["status"].(string); ok {
 				statuses = append(statuses, s)
 			}
-			w.WriteHeader(http.StatusNoContent)
+			writeOK(w, nil)
 		case r.Method == http.MethodPost && r.URL.Path == "/agent/v1/jobs/t-edge/heartbeat":
-			w.WriteHeader(http.StatusNoContent)
+			writeOK(w, nil)
 		default:
 			http.NotFound(w, r)
 		}
@@ -145,11 +155,11 @@ func TestLoop_DefaultClaimWait(t *testing.T) {
 		}
 		gotWait = r.URL.Query().Get("wait")
 		if requests.Add(1) == 1 {
-			w.WriteHeader(http.StatusNoContent)
+			writeOK(w, nil)
 			cancel()
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		writeOK(w, nil)
 	}))
 	t.Cleanup(srv.Close)
 
@@ -178,7 +188,7 @@ func TestClient_ReportPresence(t *testing.T) {
 			return
 		}
 		_ = json.NewDecoder(r.Body).Decode(&got)
-		w.WriteHeader(http.StatusNoContent)
+		writeOK(w, nil)
 	}))
 	t.Cleanup(srv.Close)
 	c := controlplane.NewClient(srv.URL, "tok", "gpu-1")
@@ -201,7 +211,7 @@ func TestClient_ReportPresence_SendsHardwareAndReadsRefresh(t *testing.T) {
 	var got map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&got)
-		_ = json.NewEncoder(w).Encode(map[string]any{"refresh_hardware": true})
+		writeOK(w, map[string]any{"refresh_hardware": true})
 	}))
 	t.Cleanup(srv.Close)
 	c := controlplane.NewClient(srv.URL, "tok", "gpu-1")
@@ -223,7 +233,7 @@ func TestClient_ReportPresence_SendsMetrics(t *testing.T) {
 	var got map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&got)
-		w.WriteHeader(http.StatusNoContent)
+		writeOK(w, nil)
 	}))
 	t.Cleanup(srv.Close)
 	c := controlplane.NewClient(srv.URL, "tok", "gpu-1")
@@ -248,7 +258,7 @@ func TestClient_ReportPresence_SendsStartedAtAndComfyVersion(t *testing.T) {
 	var got map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&got)
-		w.WriteHeader(http.StatusNoContent)
+		writeOK(w, nil)
 	}))
 	t.Cleanup(srv.Close)
 	c := controlplane.NewClient(srv.URL, "tok", "gpu-1")
@@ -277,7 +287,7 @@ func TestClient_ReportPresence_SendsStartedAtAndComfyVersion(t *testing.T) {
 
 func TestClient_ReportPresence_ReadsConsuming(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		writeOK(w, map[string]any{
 			"refresh_hardware": true,
 			"consuming":        false,
 		})

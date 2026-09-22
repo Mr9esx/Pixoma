@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,12 +12,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
-	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
-	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/edges"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	topicdomain "github.com/Mr9esx/Pixoma/internal/topics/domain"
 )
 
 type fakeTopicRepo struct {
@@ -39,9 +40,18 @@ func (f *fakeTopicRepo) Get(_ context.Context, key string) (*topicdomain.Topic, 
 	return &t, nil
 }
 
-func (f *fakeTopicRepo) Create(_ context.Context, t topicdomain.Topic) error { f.topics[t.Key] = t; return nil }
-func (f *fakeTopicRepo) Update(_ context.Context, t topicdomain.Topic) error { f.topics[t.Key] = t; return nil }
-func (f *fakeTopicRepo) Delete(_ context.Context, key string) error    { delete(f.topics, key); return nil }
+func (f *fakeTopicRepo) Create(_ context.Context, t topicdomain.Topic) error {
+	f.topics[t.Key] = t
+	return nil
+}
+func (f *fakeTopicRepo) Update(_ context.Context, t topicdomain.Topic) error {
+	f.topics[t.Key] = t
+	return nil
+}
+func (f *fakeTopicRepo) Delete(_ context.Context, key string) error {
+	delete(f.topics, key)
+	return nil
+}
 
 func TestEdges_PatchSubscribeTopics(t *testing.T) {
 	dsn := "file:edge_binding_test_" + t.Name() + "?mode=memory&cache=shared"
@@ -57,9 +67,9 @@ func TestEdges_PatchSubscribeTopics(t *testing.T) {
 	_ = repo.Upsert(context.Background(), &edge.Record{ID: "gpu-1", Name: "gpu-1", Enabled: true, CreatedAt: now, UpdatedAt: now})
 
 	topicsRepo := &fakeTopicRepo{topics: map[string]topicdomain.Topic{
-		"default":   {Key: "default", Name: "Default", Enabled: true},
-		"fast-gpu":  {Key: "fast-gpu", Name: "Fast", Enabled: true},
-		"disabled":  {Key: "disabled", Name: "D", Enabled: false},
+		"default":  {Key: "default", Name: "Default", Enabled: true},
+		"fast-gpu": {Key: "fast-gpu", Name: "Fast", Enabled: true},
+		"disabled": {Key: "disabled", Name: "D", Enabled: false},
 	}}
 	h := &edges.Handler{Repo: repo, Topics: topicsRepo}
 	r := chi.NewRouter()
@@ -78,7 +88,7 @@ func TestEdges_PatchSubscribeTopics(t *testing.T) {
 		t.Fatalf("patch status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	var dto map[string]any
-	_ = json.Unmarshal(rec.Body.Bytes(), &dto)
+	_ = json.Unmarshal(apitest.DataBytes(rec), &dto)
 	if dto["subscribe_topics"] == nil || len(dto["subscribe_topics"].([]any)) != 2 {
 		t.Fatalf("dto subscribe_topics = %v", dto["subscribe_topics"])
 	}

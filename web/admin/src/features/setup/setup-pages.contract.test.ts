@@ -240,7 +240,8 @@ describe('login and setup pages', () => {
   it('tests blob connectivity and offers bucket creation', () => {
     const wizard = read('src/features/setup/setup-wizard.tsx')
     expect(wizard).toMatch(/testBlob\(/)
-    expect(wizard).toMatch(/bucket_not_found/)
+    // bucket 缺失时后端返回 404 与业务码，前端据此弹出「自动创建」确认。
+    expect(wizard).toMatch(/4040101/)
     expect(wizard).toMatch(/setup\.bucketMissing/)
     expect(wizard).toMatch(/auto_create_bucket/)
     expect(wizard).toMatch(/Alert variant='info'/)
