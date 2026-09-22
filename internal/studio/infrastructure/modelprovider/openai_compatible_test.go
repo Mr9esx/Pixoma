@@ -105,6 +105,35 @@ func TestChatUsesOpenAIResponsesProtocolAndThinking(t *testing.T) {
 	}
 }
 
+func TestChatParsesResponsesOutputAfterReasoningItem(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/responses" {
+			t.Fatalf("path = %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"status":"completed",
+			"output":[
+				{"type":"reasoning","summary":[]},
+				{"type":"message","content":[{"type":"output_text","text":"OK."}]}
+			],
+			"usage":{"input_tokens":11,"output_tokens":2}
+		}`))
+	}))
+	defer server.Close()
+
+	result, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
+		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: server.URL + "/api/v3", Model: "deepseek-v4-1-flash-260910", APIKey: "test-secret"},
+		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "Reply with OK."}},
+	})
+	if err != nil {
+		t.Fatalf("Chat() error = %v", err)
+	}
+	if result.Text != "OK." || result.InputTokens != 11 || result.OutputTokens != 2 {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
 func TestChatUsesAnthropicMessagesProtocolAndThinking(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/messages" {
