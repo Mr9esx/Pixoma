@@ -489,6 +489,30 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	if oldContent.Code != http.StatusOK || !strings.Contains(oldContent.Body.String(), "雨夜侦探。") || strings.Contains(oldContent.Body.String(), "旧案卷宗") {
 		t.Fatalf("old asset content status=%d body=%s", oldContent.Code, oldContent.Body.String())
 	}
+	saved := request(t, router, http.MethodPost, "/assets/"+asset.ID+"/save-to-library", nil, "account-a")
+	if saved.Code != http.StatusNoContent {
+		t.Fatalf("save asset status=%d body=%s", saved.Code, saved.Body.String())
+	}
+	thirdVersion := request(t, router, http.MethodPatch, "/assets/"+asset.ID+"/text", map[string]any{
+		"content": "# 主角\n雨夜侦探，携带旧案卷宗，并决定重查旧案。",
+	}, "account-a")
+	if thirdVersion.Code != http.StatusOK || !strings.Contains(thirdVersion.Body.String(), `"current_version":3`) {
+		t.Fatalf("PATCH third asset version status=%d body=%s", thirdVersion.Code, thirdVersion.Body.String())
+	}
+	library := request(t, router, http.MethodGet, "/library/assets", nil, "account-a")
+	var libraryAssets []struct {
+		CurrentVersion int `json:"current_version"`
+		Versions       []struct {
+			ContentURL string `json:"content_url"`
+		} `json:"versions"`
+	}
+	if library.Code != http.StatusOK || json.Unmarshal(library.Body.Bytes(), &libraryAssets) != nil || len(libraryAssets) != 1 || libraryAssets[0].CurrentVersion != 2 || len(libraryAssets[0].Versions) != 1 {
+		t.Fatalf("library asset = status=%d body=%s", library.Code, library.Body.String())
+	}
+	libraryContent := request(t, router, http.MethodGet, strings.TrimPrefix(libraryAssets[0].Versions[0].ContentURL, "/api/v1/studio"), nil, "account-a")
+	if libraryContent.Code != http.StatusOK || !strings.Contains(libraryContent.Body.String(), "旧案卷宗") || strings.Contains(libraryContent.Body.String(), "重查旧案") {
+		t.Fatalf("library content status=%d body=%s", libraryContent.Code, libraryContent.Body.String())
+	}
 
 	detail := request(t, router, http.MethodGet, "/sessions/"+turn.Session.ID, nil, "account-a")
 	var payload struct {

@@ -147,12 +147,13 @@ type LibraryFolderRow struct {
 func (LibraryFolderRow) TableName() string { return "studio_library_folders" }
 
 type LibraryAssetRow struct {
-	ID        uint64 `gorm:"primaryKey;autoIncrement"`
-	AccountID string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index"`
-	AssetID   string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index"`
-	FolderID  string `gorm:"size:64;index"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID             uint64 `gorm:"primaryKey;autoIncrement"`
+	AccountID      string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index"`
+	AssetID        string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index"`
+	AssetVersionID string `gorm:"size:64;not null"`
+	FolderID       string `gorm:"size:64;index"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (LibraryAssetRow) TableName() string { return "studio_library_assets" }
@@ -526,32 +527,95 @@ func (r *GormRepository) ListSessionAssets(ctx context.Context, accountID, sessi
 
 func (r *GormRepository) SaveAssetToLibrary(ctx context.Context, accountID, assetID, folderID string, savedAt time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&AssetRow{}).Where("id = ? AND account_id = ?", assetID, accountID).
-			Update("library_saved_at", savedAt.UTC())
-		if err := resultError(result); err != nil {
+		var asset AssetRow
+		if err := tx.Where("id = ? AND account_id = ?", assetID, accountID).First(&asset).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrNotFound
+			}
 			return err
 		}
-		row := &LibraryAssetRow{AccountID: accountID, AssetID: assetID, FolderID: folderID, CreatedAt: savedAt.UTC(), UpdatedAt: savedAt.UTC()}
+		var version AssetVersionRow
+		if err := tx.Where("asset_id = ? AND account_id = ? AND version = ?", assetID, accountID, asset.CurrentVersion).First(&version).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("%w: asset has no current version", domain.ErrInvalid)
+			}
+			return err
+		}
+		if err := resultError(tx.Model(&AssetRow{}).Where("id = ? AND account_id = ?", assetID, accountID).
+			Update("library_saved_at", savedAt.UTC())); err != nil {
+			return err
+		}
+		row := &LibraryAssetRow{AccountID: accountID, AssetID: assetID, AssetVersionID: version.ID, FolderID: folderID, CreatedAt: savedAt.UTC(), UpdatedAt: savedAt.UTC()}
 		return tx.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "account_id"}, {Name: "asset_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"folder_id", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"asset_version_id", "folder_id", "updated_at"}),
 		}).Create(row).Error
 	})
 }
 
 func (r *GormRepository) ListLibraryAssets(ctx context.Context, accountID, folderID string, limit int) ([]*domain.Asset, error) {
-	query := r.db.WithContext(ctx).Table("studio_assets AS a").
-		Select("a.*").
-		Joins("JOIN studio_library_assets AS l ON l.asset_id = a.id AND l.account_id = a.account_id").
-		Where("a.account_id = ?", accountID)
+	referenceQuery := r.db.WithContext(ctx).Where("account_id = ?", accountID)
 	if folderID != "" {
-		query = query.Where("l.folder_id = ?", folderID)
+		referenceQuery = referenceQuery.Where("folder_id = ?", folderID)
 	}
-	var rows []AssetRow
-	if err := query.Order("l.updated_at DESC, a.id DESC").Limit(normalizeLimit(limit)).Scan(&rows).Error; err != nil {
+	var references []LibraryAssetRow
+	if err := referenceQuery.Order("updated_at DESC, asset_id DESC").Limit(normalizeLimit(limit)).Find(&references).Error; err != nil {
 		return nil, err
 	}
-	return r.assetsFromRows(ctx, rows)
+	if len(references) == 0 {
+		return []*domain.Asset{}, nil
+	}
+	assetIDs := make([]string, 0, len(references))
+	for _, reference := range references {
+		assetIDs = append(assetIDs, reference.AssetID)
+	}
+	query := r.db.WithContext(ctx).Table("studio_assets AS a").
+		Select("a.*").
+		Where("a.account_id = ? AND a.id IN ?", accountID, assetIDs)
+	var rows []AssetRow
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	assets, err := r.assetsFromRows(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
+	assetsByID := make(map[string]*domain.Asset, len(assets))
+	for _, asset := range assets {
+		assetsByID[asset.ID] = asset
+	}
+	ordered := make([]*domain.Asset, 0, len(references))
+	for _, reference := range references {
+		asset := assetsByID[reference.AssetID]
+		if asset == nil {
+			continue
+		}
+		if err := keepLibraryVersion(asset, reference.AssetVersionID); err != nil {
+			return nil, err
+		}
+		ordered = append(ordered, asset)
+	}
+	return ordered, nil
+}
+
+func keepLibraryVersion(asset *domain.Asset, versionID string) error {
+	if asset == nil || len(asset.Versions) == 0 {
+		return fmt.Errorf("%w: library asset has no versions", domain.ErrInvalid)
+	}
+	if versionID == "" {
+		// References created before version pinning retain the version that was
+		// current when this migration first reads them. Newly saved references
+		// always persist an explicit version ID.
+		versionID = asset.Versions[len(asset.Versions)-1].ID
+	}
+	for _, version := range asset.Versions {
+		if version.ID == versionID {
+			asset.Versions = []domain.AssetVersion{version}
+			asset.CurrentVersion = version.Version
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: library asset references a missing version", domain.ErrInvalid)
 }
 
 func (r *GormRepository) CreateLibraryFolder(ctx context.Context, folder *domain.LibraryFolder) error {

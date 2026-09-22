@@ -129,17 +129,27 @@ func TestAssetVersionAndLibraryReferenceRoundTrip(t *testing.T) {
 	if err := repo.SaveAssetToLibrary(ctx, "account-a", asset.ID, "folder-story", now.Add(time.Second)); err != nil {
 		t.Fatalf("SaveAssetToLibrary() error = %v", err)
 	}
+	second, err := asset.AppendVersion("version-2", "text/markdown", "studio/account-a/asset-1/v2.md", 256, now.Add(2*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.AppendAssetVersion(ctx, asset.ID, "account-a", second); err != nil {
+		t.Fatalf("AppendAssetVersion() error = %v", err)
+	}
 
 	got, err := repo.GetAsset(ctx, "account-a", asset.ID)
 	if err != nil {
 		t.Fatalf("GetAsset() error = %v", err)
 	}
-	if got.CurrentVersion != 1 || len(got.Versions) != 1 || got.Versions[0].BlobKey != "studio/account-a/asset-1/v1.md" {
+	if got.CurrentVersion != 2 || len(got.Versions) != 2 || got.Versions[1].BlobKey != "studio/account-a/asset-1/v2.md" {
 		t.Fatalf("asset = %#v", got)
 	}
 	items, err := repo.ListLibraryAssets(ctx, "account-a", "folder-story", 100)
 	if err != nil || len(items) != 1 || items[0].ID != asset.ID {
 		t.Fatalf("ListLibraryAssets() = (%#v, %v)", items, err)
+	}
+	if items[0].CurrentVersion != 1 || len(items[0].Versions) != 1 || items[0].Versions[0].ID != "version-1" {
+		t.Fatalf("library asset must retain saved v1, got %#v", items[0])
 	}
 	if _, err := repo.GetAsset(ctx, "account-b", asset.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("cross-account GetAsset() error = %v, want ErrNotFound", err)
