@@ -552,6 +552,10 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	if saved.Code != http.StatusNoContent {
 		t.Fatalf("save asset status=%d body=%s", saved.Code, saved.Body.String())
 	}
+	imported := request(t, router, http.MethodPost, "/sessions/"+turn.Session.ID+"/assets/import", map[string]any{"asset_id": asset.ID, "asset_version_id": updated.Versions[1].ID}, "account-a")
+	if imported.Code != http.StatusCreated || !strings.Contains(imported.Body.String(), `"origin":"library"`) || !strings.Contains(imported.Body.String(), `"current_version":1`) {
+		t.Fatalf("imported asset status=%d body=%s", imported.Code, imported.Body.String())
+	}
 	thirdVersion := request(t, router, http.MethodPatch, "/assets/"+asset.ID+"/text", map[string]any{
 		"content": "# 主角\n雨夜侦探，携带旧案卷宗，并决定重查旧案。",
 	}, "account-a")
