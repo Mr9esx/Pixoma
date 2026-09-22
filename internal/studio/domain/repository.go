@@ -38,6 +38,7 @@ type Repository interface {
 	CreateWorkflowExecution(ctx context.Context, execution *WorkflowExecution) error
 	UpdateWorkflowExecution(ctx context.Context, execution *WorkflowExecution) error
 	GetWorkflowExecutionByTask(ctx context.Context, accountID, taskID string) (*WorkflowExecution, error)
+	GetWorkflowExecutionByRunTool(ctx context.Context, accountID, runID, toolCallID string) (*WorkflowExecution, error)
 	ListPendingWorkflowExecutions(ctx context.Context, limit int) ([]*WorkflowExecution, error)
 
 	CreateAsset(ctx context.Context, asset *Asset) error

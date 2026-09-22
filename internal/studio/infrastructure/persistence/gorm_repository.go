@@ -435,6 +435,18 @@ func (r *GormRepository) GetWorkflowExecutionByTask(ctx context.Context, account
 	return workflowExecutionFromRow(row), nil
 }
 
+func (r *GormRepository) GetWorkflowExecutionByRunTool(ctx context.Context, accountID, runID, toolCallID string) (*domain.WorkflowExecution, error) {
+	var row WorkflowExecutionRow
+	err := r.db.WithContext(ctx).Where("account_id = ? AND run_id = ? AND tool_call_id = ?", accountID, runID, toolCallID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return workflowExecutionFromRow(row), nil
+}
+
 func (r *GormRepository) ListPendingWorkflowExecutions(ctx context.Context, limit int) ([]*domain.WorkflowExecution, error) {
 	var rows []WorkflowExecutionRow
 	if err := r.db.WithContext(ctx).Where("status = ?", string(domain.WorkflowExecutionSubmitted)).

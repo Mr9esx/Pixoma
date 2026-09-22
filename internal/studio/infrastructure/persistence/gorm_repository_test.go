@@ -199,6 +199,10 @@ func TestWorkflowExecutionIsIdempotentAndAccountScoped(t *testing.T) {
 	if err != nil || got.ID != execution.ID || got.Status != domain.WorkflowExecutionSubmitted {
 		t.Fatalf("GetWorkflowExecutionByTask() = (%#v, %v)", got, err)
 	}
+	got, err = repo.GetWorkflowExecutionByRunTool(ctx, "account-a", "run-1", "tool-call-1")
+	if err != nil || got.TaskID != "task-1" {
+		t.Fatalf("GetWorkflowExecutionByRunTool() = (%#v, %v)", got, err)
+	}
 	if _, err := repo.GetWorkflowExecutionByTask(ctx, "account-b", "task-1"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("cross-account GetWorkflowExecutionByTask() error = %v, want ErrNotFound", err)
 	}
