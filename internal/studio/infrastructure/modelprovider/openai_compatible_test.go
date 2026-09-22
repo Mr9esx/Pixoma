@@ -134,6 +134,42 @@ func TestChatParsesResponsesOutputAfterReasoningItem(t *testing.T) {
 	}
 }
 
+func TestChatUsesResponsesFunctionToolsAndParsesFunctionCall(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("path = %q", r.URL.Path)
+		}
+		var body map[string]any
+		requireNoError(t, json.NewDecoder(r.Body).Decode(&body))
+		tools, ok := body["tools"].([]any)
+		if !ok || len(tools) != 1 {
+			t.Fatalf("tools = %#v", body["tools"])
+		}
+		tool, ok := tools[0].(map[string]any)
+		if !ok || tool["type"] != "function" || tool["name"] != "create_outline" {
+			t.Fatalf("tool = %#v", tools[0])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"output":[{"type":"function_call","call_id":"call_outline_01","name":"create_outline","arguments":"{\"genre\":\"noir\"}"}]}`))
+	}))
+	defer server.Close()
+
+	result, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
+		Config:   domain.ResolvedModelConfig{Protocol: domain.ModelProtocolOpenAIResponses, BaseURL: server.URL + "/v1", Model: "gpt-test", APIKey: "test-secret"},
+		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "创建黑色电影大纲"}},
+		Tools: []modelprovider.ToolDefinition{{
+			Name: "create_outline", Description: "Create a story outline",
+			Parameters: map[string]any{"type": "object", "properties": map[string]any{"genre": map[string]any{"type": "string"}}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Chat() error = %v", err)
+	}
+	if len(result.ToolCalls) != 1 || result.ToolCalls[0].ID != "call_outline_01" || result.ToolCalls[0].Function.Name != "create_outline" || result.ToolCalls[0].Function.Arguments != `{"genre":"noir"}` {
+		t.Fatalf("tool calls = %#v", result.ToolCalls)
+	}
+}
+
 func TestChatUsesAnthropicMessagesProtocolAndThinking(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/messages" {

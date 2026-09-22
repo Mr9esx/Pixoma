@@ -97,9 +97,6 @@ func (c *OpenAICompatibleClient) Chat(ctx context.Context, input ChatRequest) (*
 	}
 	switch input.Config.Protocol {
 	case domain.ModelProtocolOpenAIResponses:
-		if len(input.Tools) > 0 {
-			return nil, fmt.Errorf("model provider: tool calling is not implemented for OpenAI Responses")
-		}
 		return c.openAIResponses(ctx, input)
 	case domain.ModelProtocolAnthropic:
 		if len(input.Tools) > 0 {
@@ -152,11 +149,17 @@ func (c *OpenAICompatibleClient) openAIChat(ctx context.Context, input ChatReque
 }
 
 func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input ChatRequest) (*ChatResult, error) {
-	content := make([]map[string]string, 0, len(input.Messages))
-	for _, message := range input.Messages {
-		content = append(content, map[string]string{"type": "input_text", "text": message.Content})
+	body := map[string]any{"model": input.Config.Model, "input": responsesInput(input.Messages), "stream": false}
+	if len(input.Tools) > 0 {
+		tools := make([]map[string]any, 0, len(input.Tools))
+		for _, definition := range input.Tools {
+			tools = append(tools, map[string]any{
+				"type": "function", "name": definition.Name, "description": definition.Description, "parameters": definition.Parameters,
+			})
+		}
+		body["tools"] = tools
+		body["tool_choice"] = "auto"
 	}
-	body := map[string]any{"model": input.Config.Model, "input": content, "stream": false}
 	if input.Config.Thinking.Enabled && input.Config.Thinking.Effort != "" {
 		body["reasoning"] = map[string]string{"effort": input.Config.Thinking.Effort}
 	}
@@ -166,8 +169,11 @@ func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input Chat
 	}
 	var decoded struct {
 		Output []struct {
-			Type    string `json:"type"`
-			Content []struct {
+			Type      string `json:"type"`
+			CallID    string `json:"call_id"`
+			Name      string `json:"name"`
+			Arguments string `json:"arguments"`
+			Content   []struct {
 				Type string `json:"type"`
 				Text string `json:"text"`
 			} `json:"content"`
@@ -191,10 +197,44 @@ func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input Chat
 			}
 		}
 	}
-	if strings.TrimSpace(text) == "" {
+	toolCalls := make([]ToolCall, 0)
+	for _, output := range decoded.Output {
+		if output.Type != "function_call" || strings.TrimSpace(output.CallID) == "" || strings.TrimSpace(output.Name) == "" {
+			continue
+		}
+		toolCalls = append(toolCalls, ToolCall{
+			ID: output.CallID, Type: "function",
+			Function: FunctionCall{Name: output.Name, Arguments: output.Arguments},
+		})
+	}
+	if strings.TrimSpace(text) == "" && len(toolCalls) == 0 {
 		return nil, fmt.Errorf("model provider: Responses response has no text output")
 	}
-	return &ChatResult{Text: text, InputTokens: decoded.Usage.InputTokens, OutputTokens: decoded.Usage.OutputTokens}, nil
+	return &ChatResult{Text: text, ToolCalls: toolCalls, InputTokens: decoded.Usage.InputTokens, OutputTokens: decoded.Usage.OutputTokens}, nil
+}
+
+func responsesInput(messages []ChatMessage) []any {
+	input := make([]any, 0, len(messages))
+	for _, message := range messages {
+		if message.Role == "tool" {
+			input = append(input, map[string]string{"type": "function_call_output", "call_id": message.ToolCallID, "output": message.Content})
+			continue
+		}
+		if len(message.ToolCalls) > 0 {
+			for _, call := range message.ToolCalls {
+				input = append(input, map[string]string{"type": "function_call", "call_id": call.ID, "name": call.Function.Name, "arguments": call.Function.Arguments})
+			}
+		}
+		if strings.TrimSpace(message.Content) == "" {
+			continue
+		}
+		role := message.Role
+		if role == "" {
+			role = "user"
+		}
+		input = append(input, map[string]any{"role": role, "content": []map[string]string{{"type": "input_text", "text": message.Content}}})
+	}
+	return input
 }
 
 func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input ChatRequest) (*ChatResult, error) {
