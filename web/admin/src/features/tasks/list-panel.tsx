@@ -294,6 +294,7 @@ export function TaskListPanel({
       {!isLoading && !isError ? (
         <Reveal>
           <DataTable
+            surface='card'
             table={table}
             emptyState={
               <EmptyState className='py-8' message={t('tasks.empty')} />

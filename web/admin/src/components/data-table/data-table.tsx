@@ -23,6 +23,13 @@ type DataTableProps<TData> = React.ComponentProps<'div'> & {
   getRowId?: (original: TData) => string
   /** 行数较少时隐藏分页器（默认关闭）。 */
   hidePagination?: boolean
+  /**
+   * 表格容器的表面色。
+   *
+   * `page` 取页面底色，表格与页面齐平，适合嵌在卡片里的用法；
+   * `card` 取卡片表面色，适合表格本身就是页面主体的用法。
+   */
+  surface?: 'page' | 'card'
 }
 
 export function DataTable<TData>({
@@ -33,6 +40,7 @@ export function DataTable<TData>({
   selectedRowId,
   getRowId,
   hidePagination = false,
+  surface = 'page',
   className,
   children,
   ...props
@@ -45,7 +53,12 @@ export function DataTable<TData>({
       {...props}
     >
       {children ? <div className='px-1 first:pt-1'>{children}</div> : null}
-      <div className='overflow-hidden rounded-lg border bg-background'>
+      <div
+        className={cn(
+          'overflow-hidden rounded-lg border',
+          surface === 'card' ? 'bg-card' : 'bg-background'
+        )}
+      >
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

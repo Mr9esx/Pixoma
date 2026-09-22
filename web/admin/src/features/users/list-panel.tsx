@@ -290,6 +290,7 @@ export function UserListPanel({
       {!isLoading && !isError ? (
         <Reveal>
           <DataTable
+            surface='card'
             table={table}
             emptyState={
               <EmptyState className='py-8' message={t('users.empty')} />

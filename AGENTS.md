@@ -30,6 +30,16 @@
 - 列表、详情头部和健康告警必须使用同一套健康结果；健康数据未就绪时不得显示绿色。
 - 状态统一使用 `StatusDot` 和语义令牌，状态文案用「已启用 / 已停用」，动作文案用「启用 / 停用」。
 
+## Admin 表面层级规范（用户偏好，永久生效）
+
+后台前端的底色必须遵循 `docs/frontend/admin-surface-tiers.md`：
+
+- 底色按层级选：页面主体用内容表面色，主体内部的一块用次级表面色或者凹陷色。
+- 页面主体内容（`Card`、Master–Detail 面板、页面级表格、Studio 工作台）用 `--card`。
+- 代码块、JSON 预览、输入框用 `--background`；卡片内部的说明条、侧栏用 `--muted` / `--secondary`。
+- 浮层用 `--popover` 并配 `shadow-md` 以上；浮层是唯一允许投影的层级。
+- 带边框的面板必须保留 `border`，亮色下层级主要靠它表达。
+
 ## 后台设计体系 skill（用户偏好，永久生效）
 
 `pixoma-design-system` 是本项目的设计体系，已安装在 `.agents/skills/pixoma-design-system-skill`。所有后台前端、交互相关的需求，都必须先加载并遵循该 skill：
