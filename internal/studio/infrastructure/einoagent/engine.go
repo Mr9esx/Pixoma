@@ -14,6 +14,7 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/mcpconnector"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/modelprovider"
+	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/workflowtool"
 )
 
 type ModelResolver interface {
@@ -24,14 +25,20 @@ type CapabilityResolver interface {
 	ResolveMCPConnectors(ctx context.Context, accountID string) ([]studioapp.ResolvedMCPConnector, error)
 }
 
+type WorkflowResolver interface {
+	ResolveWorkflows(ctx context.Context, accountID string) ([]studioapp.ResolvedWorkflow, error)
+}
+
 // Engine is the single-agent Eino ReAct entrypoint for configured online
 // models. MockEngine remains independently injectable for deterministic local
 // workflow verification; production dispatch chooses this engine only when a
 // session selected an Agent-enabled model.
 type Engine struct {
-	Models       ModelResolver
-	Capabilities CapabilityResolver
-	Client       *modelprovider.OpenAICompatibleClient
+	Models          ModelResolver
+	Capabilities    CapabilityResolver
+	Workflows       WorkflowResolver
+	WorkflowStarter workflowtool.Starter
+	Client          *modelprovider.OpenAICompatibleClient
 }
 
 func (e *Engine) Execute(ctx context.Context, request studioapp.AgentRequest, sink studioapp.AgentSink) error {
@@ -111,25 +118,43 @@ func (e *Engine) Execute(ctx context.Context, request studioapp.AgentRequest, si
 }
 
 func (e *Engine) resolveTools(ctx context.Context, request studioapp.AgentRequest, sink studioapp.AgentSink) ([]einotool.BaseTool, error) {
-	if e.Capabilities == nil {
-		return nil, nil
-	}
-	connectors, err := e.Capabilities.ResolveMCPConnectors(ctx, request.Run.AccountID)
-	if err != nil {
-		return nil, fmt.Errorf("studio: resolve Agent MCP connectors: %w", err)
-	}
 	authorizer := newApprovalAuthorizer(request.Approvals)
-	tools, err := mcpconnector.NewRuntimeTools(ctx, connectors, mcpconnector.ToolAccess{
-		PermissionMode: request.Session.PermissionMode,
-		IsApproved:     authorizer.Consume,
-		RequestApproval: func(ctx context.Context, toolCallID, action string) error {
-			_, err := sink.RequestApproval(ctx, toolCallID, action)
-			return err
-		},
-		Emit: sink.Emit,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("studio: create Agent MCP tools: %w", err)
+	requestApproval := func(ctx context.Context, toolCallID, action string) error {
+		_, err := sink.RequestApproval(ctx, toolCallID, action)
+		return err
+	}
+	tools := make([]einotool.BaseTool, 0)
+	if e.Capabilities != nil {
+		connectors, err := e.Capabilities.ResolveMCPConnectors(ctx, request.Run.AccountID)
+		if err != nil {
+			return nil, fmt.Errorf("studio: resolve Agent MCP connectors: %w", err)
+		}
+		mcpTools, err := mcpconnector.NewRuntimeTools(ctx, connectors, mcpconnector.ToolAccess{
+			PermissionMode: request.Session.PermissionMode, IsApproved: authorizer.Consume,
+			RequestApproval: requestApproval, Emit: sink.Emit,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("studio: create Agent MCP tools: %w", err)
+		}
+		tools = append(tools, mcpTools...)
+	}
+	if e.Workflows != nil {
+		if e.WorkflowStarter == nil {
+			return nil, fmt.Errorf("studio: workflow starter is not configured")
+		}
+		workflows, err := e.Workflows.ResolveWorkflows(ctx, request.Run.AccountID)
+		if err != nil {
+			return nil, fmt.Errorf("studio: resolve Agent workflows: %w", err)
+		}
+		workflowTools, err := workflowtool.NewRuntimeTools(workflows, workflowtool.ToolAccess{
+			AccountID: request.Run.AccountID, SessionID: request.Session.ID, RunID: request.Run.ID,
+			PermissionMode: request.Session.PermissionMode, IsApproved: authorizer.Consume,
+			RequestApproval: requestApproval, Sink: sink, Starter: e.WorkflowStarter,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("studio: create Agent workflow tools: %w", err)
+		}
+		tools = append(tools, workflowTools...)
 	}
 	return tools, nil
 }

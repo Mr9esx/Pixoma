@@ -1,16 +1,22 @@
 package application_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
+	"time"
 
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
+	"github.com/Mr9esx/Pixoma/internal/platform/queue"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 type connectorProber func(context.Context, string, string) ([]domain.MCPTool, error)
@@ -56,6 +62,28 @@ func (c workflowCatalog) List(_ context.Context, _ catalogdomain.ListQuery) ([]*
 	return c.cases, nil
 }
 
+func (c workflowCatalog) Get(_ context.Context, id sharedkernel.CaseID) (*catalogdomain.Case, error) {
+	for _, item := range c.cases {
+		if item != nil && item.Document.ID == id {
+			return item, nil
+		}
+	}
+	return nil, catalogdomain.ErrNotFound
+}
+
+type inputValidator func(catalogdomain.CaseDocument, []catalogdomain.InputValue) error
+
+func (f inputValidator) ValidateInputs(document catalogdomain.CaseDocument, values []catalogdomain.InputValue) error {
+	return f(document, values)
+}
+
+type taskPublisher struct{ messages []queue.Message }
+
+func (p *taskPublisher) Publish(_ context.Context, message queue.Message) error {
+	p.messages = append(p.messages, message)
+	return nil
+}
+
 func TestCapabilityConfigPersistsAgentWorkflowAvailability(t *testing.T) {
 	repo := openRepository(t)
 	service := &studioapp.CapabilityConfigService{
@@ -76,6 +104,102 @@ func TestCapabilityConfigPersistsAgentWorkflowAvailability(t *testing.T) {
 	workflows, err = service.ListAgentWorkflows(context.Background(), "account-a")
 	if err != nil || !workflows[0].AgentEnabled {
 		t.Fatalf("persisted workflows = %#v, err=%v", workflows, err)
+	}
+}
+
+func TestResolveWorkflowsIncludesOnlyEnabledAgentCases(t *testing.T) {
+	repo := openRepository(t)
+	service := &studioapp.CapabilityConfigService{
+		Repo: repo,
+		WorkflowCatalog: workflowCatalog{cases: []*catalogdomain.Case{
+			{Document: catalogdomain.CaseDocument{
+				ID: sharedkernel.CaseID(12), Name: "角色三视图", Description: "生成角色设定图",
+				InputSchema: map[string]any{"type": "object", "properties": map[string]any{"prompt": map[string]any{"type": "string"}}},
+			}, Enabled: true},
+			{Document: catalogdomain.CaseDocument{ID: sharedkernel.CaseID(13), Name: "已停用工作流", InputSchema: map[string]any{"type": "object"}}, Enabled: false},
+			{Document: catalogdomain.CaseDocument{ID: sharedkernel.CaseID(14), Name: "未授权工作流", InputSchema: map[string]any{"type": "object"}}, Enabled: true},
+		}},
+	}
+	if _, err := service.SetAgentWorkflowEnabled(context.Background(), "account-a", "12", true); err != nil {
+		t.Fatalf("SetAgentWorkflowEnabled() error = %v", err)
+	}
+	if _, err := service.SetAgentWorkflowEnabled(context.Background(), "account-a", "13", true); err != nil {
+		t.Fatalf("SetAgentWorkflowEnabled() error = %v", err)
+	}
+
+	workflows, err := service.ResolveWorkflows(context.Background(), "account-a")
+	if err != nil {
+		t.Fatalf("ResolveWorkflows() error = %v", err)
+	}
+	if len(workflows) != 1 {
+		t.Fatalf("workflow count = %d, workflows = %#v", len(workflows), workflows)
+	}
+	workflow := workflows[0]
+	if workflow.ID != "12" || workflow.ToolName != "studio_workflow_12" || workflow.Name != "角色三视图" || workflow.Description != "生成角色设定图" {
+		t.Fatalf("workflow = %#v", workflow)
+	}
+	if string(workflow.InputSchema) != `{"properties":{"prompt":{"type":"string"}},"type":"object"}` {
+		t.Fatalf("input schema = %s", workflow.InputSchema)
+	}
+}
+
+func TestStartWorkflowCreatesOneTaskForOneToolCall(t *testing.T) {
+	repo := openRepository(t)
+	store, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	publisher := &taskPublisher{}
+	ids := &idSequence{}
+	starter := &studioapp.WorkflowStarter{
+		StudioRepo: repo,
+		Catalog: workflowCatalog{cases: []*catalogdomain.Case{{
+			Document: catalogdomain.CaseDocument{
+				ID: sharedkernel.CaseID(12), Name: "角色三视图",
+				Inputs: []catalogdomain.InputField{{Key: "prompt", Type: "string", Required: true}},
+			},
+			Enabled: true,
+		}}},
+		Validator: inputValidator(func(_ catalogdomain.CaseDocument, values []catalogdomain.InputValue) error {
+			if len(values) != 1 || values[0].Key != "prompt" || values[0].Text == nil || *values[0].Text != "rain" {
+				t.Fatalf("values = %#v", values)
+			}
+			return nil
+		}),
+		Tasks:     runtimedomain.NewMemoryTaskRepository(),
+		Blob:      store,
+		Publisher: publisher,
+		NewID:     ids.Next,
+		NewTaskID: func() sharedkernel.TaskID { return sharedkernel.TaskID("task-1") },
+		Now:       func() time.Time { return time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC) },
+	}
+	input := studioapp.WorkflowStartInput{
+		AccountID: "account-a", SessionID: "session-1", RunID: "run-1", ToolCallID: "call-1", WorkflowID: "12", OperationNodeID: "node-1",
+		Inputs: map[string]any{"prompt": "rain"},
+	}
+	first, err := starter.Start(context.Background(), input)
+	if err != nil {
+		t.Fatalf("first Start() error = %v", err)
+	}
+	second, err := starter.Start(context.Background(), input)
+	if err != nil {
+		t.Fatalf("second Start() error = %v", err)
+	}
+	if first.TaskID != "task-1" || second.TaskID != first.TaskID || len(publisher.messages) != 1 {
+		t.Fatalf("results = %#v, %#v; messages = %#v", first, second, publisher.messages)
+	}
+	var created sharedkernel.TaskCreated
+	if err := json.Unmarshal(publisher.messages[0].Payload, &created); err != nil || created.TaskID != "task-1" || created.ChatID != "" {
+		t.Fatalf("task event = %#v, err = %v", created, err)
+	}
+	reader, err := store.Get(context.Background(), sharedkernel.BlobRef{Key: "studio-workflow-inputs/task-1/prompt.txt"})
+	if err != nil {
+		t.Fatalf("staged input: %v", err)
+	}
+	defer reader.Close()
+	staged, err := io.ReadAll(reader)
+	if err != nil || !bytes.Equal(staged, []byte("rain")) {
+		t.Fatalf("staged input = %q, err = %v", staged, err)
 	}
 }
 

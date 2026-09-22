@@ -15,6 +15,7 @@ func TestApplicationModelsIncludeStudioSchema(t *testing.T) {
 		&studiopersist.RunRow{},
 		&studiopersist.EventRow{},
 		&studiopersist.ApprovalRow{},
+		&studiopersist.WorkflowExecutionRow{},
 		&studiopersist.AssetRow{},
 		&studiopersist.AssetVersionRow{},
 		&studiopersist.LibraryFolderRow{},

@@ -4,19 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
-	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	"github.com/Mr9esx/Pixoma/internal/platform/notify"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue"
+	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	statsdomain "github.com/Mr9esx/Pixoma/internal/stats/domain"
 	"github.com/Mr9esx/Pixoma/internal/tasks/application/routing"
 	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
-	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 // ErrStaleHolder is returned when a status report is not from the current claim holder.
@@ -276,6 +277,13 @@ func (s *Service) publishNotify(ctx context.Context, t *runtimedomain.Task) erro
 			return fmt.Errorf("notify chat via session: %w", err)
 		}
 		chatID = sess.ChatID
+	}
+	// Studio tasks deliberately have no Bot chat/session. Publishing an empty
+	// recipient is neither actionable nor safe for channel adapters; Studio's
+	// own workflow reconciler surfaces status in the Session Road instead.
+	if chatID == "" && strings.HasPrefix(string(t.SessionID), "studio-session-") {
+		s.notified[key] = struct{}{}
+		return nil
 	}
 	kind := "task_" + string(t.Status)
 	n := sharedkernel.UserNotify{

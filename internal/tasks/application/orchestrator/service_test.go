@@ -8,15 +8,15 @@ import (
 	"time"
 
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
-	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	"github.com/Mr9esx/Pixoma/internal/edge/infrastructure/static"
 	"github.com/Mr9esx/Pixoma/internal/platform/notify"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue"
+	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	"github.com/Mr9esx/Pixoma/internal/tasks/application/orchestrator"
 	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	"github.com/Mr9esx/Pixoma/internal/tasks/domain/condition"
-	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type memNotify struct {
@@ -183,6 +183,26 @@ func TestNotify_JoinsSessionChatID(t *testing.T) {
 	}
 	if n.items[0].ChatID != "tg:100" {
 		t.Fatalf("chat_id=%s want tg:100 (via session join)", n.items[0].ChatID)
+	}
+}
+
+func TestNotifySkipsStudioTaskWithoutBotChat(t *testing.T) {
+	ctx := context.Background()
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Now()
+	task := runtimedomain.NewPending("studio-task", "studio-session-session-1", 12, "inputs/studio-task", now)
+	_ = task.MarkQueued("local", now)
+	_ = task.MarkRunning("prompt", now)
+	if err := tasks.Create(ctx, task); err != nil {
+		t.Fatal(err)
+	}
+	notifier := &memNotify{}
+	svc := orchestrator.New(tasks, static.New(), &captureBus{}, notifier)
+	if err := svc.OnStatus(ctx, sharedkernel.TaskStatusEvent{TaskID: task.ID, Status: sharedkernel.TaskSucceeded, At: now}); err != nil {
+		t.Fatal(err)
+	}
+	if len(notifier.items) != 0 {
+		t.Fatalf("studio task should not publish Bot notification: %#v", notifier.items)
 	}
 }
 

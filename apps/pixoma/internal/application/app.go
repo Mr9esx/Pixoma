@@ -261,20 +261,6 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	studioCapabilityService := &studioapp.CapabilityConfigService{
 		Repo: studioRepo, EncryptionKey: encKey, WorkflowCatalog: caseRepo, MCPProber: studiomcp.Prober{},
 	}
-	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
-		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
-			Mock: studioapp.NewMockEngine(), Online: &studioeino.Engine{Models: studioModelService, Capabilities: studioCapabilityService},
-		},
-	})
-	studioRunner := studioapp.NewBackgroundRunner(studioRepo, studioExecutor, studioapp.RunnerOptions{})
-	defer studioRunner.Close()
-	if recovered, recoverErr := studioRunner.Recover(ctx); recoverErr != nil {
-		return recoverErr
-	} else if recovered > 0 {
-		slog.Info("recovered studio runs", "count", recovered)
-	}
-	studioService := &studioapp.Service{Repo: studioRepo, Queue: studioRunner}
-	studioApprovalService := &studioapp.ApprovalService{Repo: studioRepo, Queue: studioRunner}
 
 	instRepo := instpersist.NewEdgeRepository(gdb)
 	if err := edgedomain.EnsureAgentTokens(ctx, instRepo, encKey); err != nil {
@@ -365,6 +351,46 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	orch.Stats = statsRepo
 
 	validator := validation.New()
+	studioWorkflowStarter := &studioapp.WorkflowStarter{
+		StudioRepo: studioRepo, Catalog: caseRepo, Validator: validator, Tasks: taskRepo,
+		Blob: blobStore, Publisher: bus,
+		NewTaskID: func() sharedkernel.TaskID { return sharedkernel.TaskID(uuid.NewString()) },
+	}
+	studioWorkflowReconciler := &studioapp.WorkflowReconciler{Repo: studioRepo, Tasks: taskRepo}
+	if err := studioWorkflowReconciler.ReconcileOnce(ctx, 100); err != nil {
+		return err
+	}
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-runCtx.Done():
+				return
+			case <-ticker.C:
+				if err := studioWorkflowReconciler.ReconcileOnce(runCtx, 100); err != nil && !errors.Is(err, context.Canceled) {
+					slog.Error("reconcile studio workflow outputs", "error", err)
+				}
+			}
+		}
+	}()
+	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
+		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
+			Mock: studioapp.NewMockEngine(), Online: &studioeino.Engine{
+				Models: studioModelService, Capabilities: studioCapabilityService,
+				Workflows: studioCapabilityService, WorkflowStarter: studioWorkflowStarter,
+			},
+		},
+	})
+	studioRunner := studioapp.NewBackgroundRunner(studioRepo, studioExecutor, studioapp.RunnerOptions{})
+	defer studioRunner.Close()
+	if recovered, recoverErr := studioRunner.Recover(ctx); recoverErr != nil {
+		return recoverErr
+	} else if recovered > 0 {
+		slog.Info("recovered studio runs", "count", recovered)
+	}
+	studioService := &studioapp.Service{Repo: studioRepo, Queue: studioRunner}
+	studioApprovalService := &studioapp.ApprovalService{Repo: studioRepo, Queue: studioRunner}
 	menuRepo := mencardpersist.NewGormCardRepository(gdb)
 	caseDeleteSvc := caseapp.NewService(gdb, botRT.Notify)
 	adminH := adminhost.NewHandler(adminhost.Options{
