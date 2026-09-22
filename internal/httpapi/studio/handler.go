@@ -51,6 +51,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Patch("/assets/{assetID}/text", h.updateTextAsset)
 	r.Post("/assets/upload", h.uploadAsset)
 	r.Post("/assets/{assetID}/save-to-library", h.saveAssetToLibrary)
+	r.Post("/sessions/{sessionID}/assets/import", h.importLibraryAsset)
 	r.Get("/library/assets", h.listLibraryAssets)
 	r.Get("/library/folders", h.listLibraryFolders)
 	r.Post("/library/folders", h.createLibraryFolder)
@@ -586,6 +587,27 @@ func (h *Handler) saveAssetToLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) importLibraryAsset(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		AssetID        string `json:"asset_id"`
+		AssetVersionID string `json:"asset_version_id"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求内容格式不正确"})
+		return
+	}
+	asset, err := h.Service.ImportLibraryAsset(r.Context(), studioapp.ImportLibraryAssetInput{AccountID: accountID, SessionID: chi.URLParam(r, "sessionID"), SourceAssetID: body.AssetID, SourceVersionID: body.AssetVersionID})
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
 }
 
 func (h *Handler) listLibraryAssets(w http.ResponseWriter, r *http.Request) {

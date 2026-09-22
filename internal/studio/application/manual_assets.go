@@ -26,6 +26,52 @@ type UpdateManualTextAssetInput struct {
 	Content   string
 }
 
+type ImportLibraryAssetInput struct {
+	AccountID       string
+	SessionID       string
+	SourceAssetID   string
+	SourceVersionID string
+}
+
+func (s *Service) ImportLibraryAsset(ctx context.Context, input ImportLibraryAssetInput) (*domain.Asset, error) {
+	if s == nil || s.Repo == nil {
+		return nil, fmt.Errorf("studio: asset service is not configured")
+	}
+	if _, err := s.Repo.GetSession(ctx, input.AccountID, input.SessionID); err != nil {
+		return nil, err
+	}
+	source, err := s.Repo.GetAsset(ctx, input.AccountID, input.SourceAssetID)
+	if err != nil {
+		return nil, err
+	}
+	if source.LibrarySavedAt.IsZero() {
+		return nil, fmt.Errorf("%w: asset is not in the library", domain.ErrInvalid)
+	}
+	var version domain.AssetVersion
+	for _, candidate := range source.Versions {
+		if candidate.ID == input.SourceVersionID {
+			version = candidate
+			break
+		}
+	}
+	if version.ID == "" {
+		return nil, fmt.Errorf("%w: library asset version is not available", domain.ErrInvalid)
+	}
+	now := s.now()
+	asset, err := domain.NewAsset(s.nextID(), input.SessionID, input.AccountID, source.Name, source.Kind, domain.AssetOriginLibrary, now)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := asset.AppendVersion(s.nextID(), version.MIMEType, version.BlobKey, version.SizeBytes, now); err != nil {
+		return nil, err
+	}
+	asset.Versions[0].Metadata = append([]byte(nil), version.Metadata...)
+	if err := s.Repo.CreateAsset(ctx, asset); err != nil {
+		return nil, err
+	}
+	return asset, nil
+}
+
 // CreateManualTextAsset records a user-authored Markdown document as a real
 // session asset. It intentionally does not create a run: this is a Studio
 // capability, not a workflow side effect.
