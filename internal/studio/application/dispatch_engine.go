@@ -6,20 +6,16 @@ import (
 	"strings"
 )
 
-// DispatchEngine keeps the deterministic Mock workflow isolated from the
-// configured Eino single Agent. A run selects the online path only when the
-// user explicitly chose an Agent-enabled model for its session.
+// DispatchEngine runs the configured Eino single Agent. A Studio run is never
+// allowed to silently fall back to a deterministic local agent: a model choice
+// is required before a conversation can execute.
 type DispatchEngine struct {
-	Mock   AgentEngine
 	Online AgentEngine
 }
 
 func (e DispatchEngine) Execute(ctx context.Context, request AgentRequest, sink AgentSink) error {
 	if strings.TrimSpace(request.Run.ModelConfigID) == "" {
-		if e.Mock == nil {
-			return fmt.Errorf("studio: mock engine is not configured")
-		}
-		return e.Mock.Execute(ctx, request, sink)
+		return fmt.Errorf("studio: model is required before starting an Agent run")
 	}
 	if e.Online == nil {
 		return fmt.Errorf("studio: online agent engine is not configured")

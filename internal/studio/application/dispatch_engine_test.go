@@ -19,30 +19,26 @@ func (e *recordingEngine) Execute(_ context.Context, _ studioapp.AgentRequest, _
 	return nil
 }
 
-func TestDispatchEngineUsesMockWithoutConfiguredModel(t *testing.T) {
+func TestDispatchEngineRejectsRunWithoutConfiguredModel(t *testing.T) {
 	t.Parallel()
-	mock := &recordingEngine{}
 	online := &recordingEngine{}
 
-	err := (studioapp.DispatchEngine{Mock: mock, Online: online}).Execute(context.Background(), studioapp.AgentRequest{
+	err := (studioapp.DispatchEngine{Online: online}).Execute(context.Background(), studioapp.AgentRequest{
 		Run: &domain.Run{},
 	}, nil)
 
-	require.NoError(t, err)
-	require.Equal(t, 1, mock.calls)
+	require.ErrorContains(t, err, "model is required")
 	require.Zero(t, online.calls)
 }
 
 func TestDispatchEngineUsesOnlineWithConfiguredModel(t *testing.T) {
 	t.Parallel()
-	mock := &recordingEngine{}
 	online := &recordingEngine{}
 
-	err := (studioapp.DispatchEngine{Mock: mock, Online: online}).Execute(context.Background(), studioapp.AgentRequest{
+	err := (studioapp.DispatchEngine{Online: online}).Execute(context.Background(), studioapp.AgentRequest{
 		Run: &domain.Run{ModelConfigID: "model_01"},
 	}, nil)
 
 	require.NoError(t, err)
-	require.Zero(t, mock.calls)
 	require.Equal(t, 1, online.calls)
 }

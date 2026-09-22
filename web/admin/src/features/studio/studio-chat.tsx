@@ -77,10 +77,14 @@ function toAGUIMessages(messages: StudioMessage[]) {
 }
 
 export function StudioChat(props: Props) {
+  const availableModels = props.models.filter(
+    (model) => model.enabled && model.agent_enabled
+  )
   const selectedModel =
-    props.models.find((model) => model.id === props.modelConfigId) ??
-    props.models.find((model) => model.default) ??
-    props.models[0]
+    availableModels.find((model) => model.id === props.modelConfigId) ??
+    availableModels.find((model) => model.default) ??
+    availableModels[0]
+  const modelReady = Boolean(selectedModel)
 
   const agent = useMemo(() => {
     return new HttpAgent({
@@ -145,14 +149,19 @@ export function StudioChat(props: Props) {
           <ComposerPrimitive.Root className='mx-auto w-full max-w-3xl rounded-2xl border bg-card p-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20'>
             <ComposerPrimitive.Input
               autoFocus
+              disabled={!modelReady}
               rows={3}
-              placeholder='描述你想创作的内容，或让 Agent 调用工作流…'
+              placeholder={
+                modelReady
+                  ? '描述你想创作的内容，或让 Agent 调用工作流…'
+                  : '先在 AI 设置中添加并启用模型'
+              }
               className='max-h-40 min-h-20 w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground'
             />
             <div className='flex flex-wrap items-center justify-between gap-2 px-1 pb-1'>
               <div className='flex flex-wrap items-center gap-1'>
                 <ModelPicker
-                  models={props.models}
+                  models={availableModels}
                   value={selectedModel?.id}
                   onChange={props.onModelChange}
                 />
@@ -177,6 +186,7 @@ export function StudioChat(props: Props) {
                   size='icon'
                   className='rounded-xl'
                   aria-label='发送消息'
+                  disabled={!modelReady}
                 >
                   <Send />
                 </Button>
@@ -184,7 +194,9 @@ export function StudioChat(props: Props) {
             </div>
           </ComposerPrimitive.Root>
           <p className='mx-auto mt-2 max-w-3xl text-center text-xs text-muted-foreground'>
-            Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。
+            {modelReady
+              ? 'Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。'
+              : '没有可用模型时，无法发起 Agent 对话。'}
           </p>
         </div>
       </ThreadPrimitive.Root>
@@ -457,7 +469,7 @@ function ModelPicker({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant='ghost' size='sm' className='max-w-52 rounded-lg'>
-          <span className='truncate'>{selected?.name ?? 'Mock Agent'}</span>
+          <span className='truncate'>{selected?.name ?? '未选择模型'}</span>
           <ChevronDown className='size-3.5' />
         </Button>
       </DropdownMenuTrigger>
@@ -466,13 +478,11 @@ function ModelPicker({
         <DropdownMenuSeparator />
         {models.length === 0 ? (
           <DropdownMenuItem disabled>
-            未配置在线模型，将使用 Mock Agent
+            还没有可用模型
           </DropdownMenuItem>
         ) : (
           <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-            {models
-              .filter((model) => model.enabled && model.agent_enabled)
-              .map((model) => (
+            {models.map((model) => (
                 <DropdownMenuRadioItem key={model.id} value={model.id}>
                   <span className='min-w-0 flex-1 truncate'>{model.name}</span>
                   {model.default ? <Check className='size-3.5' /> : null}
