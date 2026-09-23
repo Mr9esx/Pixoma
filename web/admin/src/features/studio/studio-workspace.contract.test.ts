@@ -110,7 +110,7 @@ describe('Studio production workspace contract', () => {
     expect(sidebar).not.toContain('<Avatar')
     expect(sidebar).toContain("<Sidebar collapsible='none' className='p-2'>")
     expect(sidebar).toContain("isActive={view === 'chat'}")
-    expect(sidebar).toContain("className='min-h-0 flex-1 ps-2 pe-0 py-1'")
+    expect(sidebar).toContain("className='min-h-0 flex-1 px-2 py-1'")
     expect(sidebar).toContain('<SidebarGroupLabel>最近对话</SidebarGroupLabel>')
     expect(sidebar).toContain(
       "<SidebarMenu className='w-full min-w-0 self-stretch pb-2'>"

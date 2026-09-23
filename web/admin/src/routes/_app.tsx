@@ -29,14 +29,21 @@ export const Route = createFileRoute('/_app')({
 
 function AppLayout() {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
-  const { isPending, pathname } = useRouterState({
-    select: (state) => ({
-      isPending: state.status === 'pending',
-      pathname: state.location.pathname,
-    }),
+  const { isPending, isStudio } = useRouterState({
+    select: (state) => {
+      const activeMatch = state.matches[state.matches.length - 1]
+      return {
+        isPending: state.status === 'pending',
+        isStudio: Boolean(
+          activeMatch &&
+            (activeMatch.pathname === '/studio' ||
+              activeMatch.pathname.startsWith('/studio/'))
+        ),
+      }
+    },
   })
 
-  if (pathname === '/studio' || pathname.startsWith('/studio/')) {
+  if (isStudio) {
     return <StudioLayout />
   }
 
@@ -58,7 +65,7 @@ function AppLayout() {
             <div
               className={cn(
                 contentRegionClassName,
-                'p-4',
+                'p-4 md:p-2 md:pl-4',
                 isPending &&
                   'flex flex-col [&>[role=status]]:h-full [&>[role=status]]:min-h-0 [&>[role=status]]:flex-1'
               )}

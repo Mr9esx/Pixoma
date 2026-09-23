@@ -112,7 +112,7 @@ export function StudioSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className='min-h-0 flex-1 ps-2 pe-0 py-1'>
+        <SidebarGroup className='min-h-0 flex-1 px-2 py-1'>
           <SidebarGroupLabel>最近对话</SidebarGroupLabel>
           <SidebarGroupContent className='flex min-h-0 w-full min-w-0 flex-1 flex-col self-stretch'>
             <ScrollArea className='min-h-0 w-full min-w-0 flex-1 self-stretch'>

@@ -110,4 +110,11 @@ describe('admin shell layout (sidebar footer + no content header)', () => {
       'mx-auto w-full max-w-[1440px] has-[>[data-layout=fixed]]:flex has-[>[data-layout=fixed]]:flex-col has-[>[data-layout=fixed]]:overflow-hidden'
     )
   })
+
+  it('picks the Studio shell from the matched route so the two sidebars never share a frame', () => {
+    const source = read(APP_LAYOUT)
+    expect(source).toContain('state.matches[state.matches.length - 1]')
+    expect(source).toContain("activeMatch.pathname === '/studio'")
+    expect(source).not.toContain('state.location.pathname')
+  })
 })
