@@ -58,6 +58,14 @@
 - 组件形状照 `ui_kits/app/components.html` 与 `ui_kits/app/components/*.css`，布局照 `ui_kits/app/surfaces.html`；组件本身仍优先复用 shadcn/ui。
 - 文案照 `build/source-examples/voice-profile.md`；交付前过一遍 `DESIGN.md` 第 11 节 10 条验收。
 
+## 代码精简约定（用户偏好，永久生效）
+
+`ponytail` 已安装在 `~/.agents/skills/ponytail`。任何涉及代码编写、修改、审查、选择依赖的任务，都必须先用 `skill` 工具加载它，再按其规则执行：
+
+- 默认强度 `full`；只有我在当次任务里明确指定 `lite` 或 `ultra` 时才切换。
+- 加载后在当前会话持续生效，直到我说「stop ponytail」或「normal mode」。
+- 它用来拦掉过度工程化：用不上的抽象、只有一个实现的接口、永远不会变化的配置项、为了以后预留的脚手架、重新实现已有的工具或依赖。
+
 ## Git 提交作者（用户偏好，永久生效）
 
 所有 commit 的 author 和 committer 必须是用户本人（`李卓洲 <1138099359@qq.com>`），禁止写成 Cursor / Cursor Agent。提交时用环境变量显式指定 `GIT_AUTHOR_*` 与 `GIT_COMMITTER_*`，不要加 `Co-authored-by: Cursor`。
