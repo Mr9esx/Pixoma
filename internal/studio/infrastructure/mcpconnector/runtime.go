@@ -35,7 +35,7 @@ const (
 type ToolAccess struct {
 	PermissionMode  domain.PermissionMode
 	IsApproved      func(action string) bool
-	RequestApproval func(ctx context.Context, toolCallID, action string) error
+	RequestApproval func(ctx context.Context, toolCallID, action, description string) error
 	Emit            func(ctx context.Context, eventType string, payload any) error
 }
 
@@ -96,7 +96,7 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 		if t.access.RequestApproval == nil {
 			return "", fmt.Errorf("studio: approval handler is not configured")
 		}
-		if err := t.access.RequestApproval(ctx, approvalToolCallID(action), action); err != nil {
+		if err := t.access.RequestApproval(ctx, approvalToolCallID(action), action, fmt.Sprintf("调用连接器「%s」的 %s", t.connector.Name, t.remoteToolName)); err != nil {
 			return "", err
 		}
 		return "", compose.Interrupt(ctx, action)

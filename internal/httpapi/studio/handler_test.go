@@ -624,6 +624,7 @@ func TestStudioAGUIResumesWaitingApproval(t *testing.T) {
 		t.Fatalf("initial approval stream = %d %s", first.Code, first.Body.String())
 	}
 	approvalID := ""
+	approvalMessage := ""
 	for _, line := range strings.Split(first.Body.String(), "\n") {
 		line = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 		if line == "" {
@@ -632,17 +633,22 @@ func TestStudioAGUIResumesWaitingApproval(t *testing.T) {
 		var event struct {
 			Outcome struct {
 				Interrupts []struct {
-					ID string `json:"id"`
+					ID      string `json:"id"`
+					Message string `json:"message"`
 				} `json:"interrupts"`
 			} `json:"outcome"`
 		}
 		if json.Unmarshal([]byte(line), &event) == nil && len(event.Outcome.Interrupts) > 0 {
 			approvalID = event.Outcome.Interrupts[0].ID
+			approvalMessage = event.Outcome.Interrupts[0].Message
 			break
 		}
 	}
 	if approvalID == "" {
 		t.Fatalf("approval interrupt missing: %s", first.Body.String())
+	}
+	if approvalMessage != "执行工作流「分镜生成」" {
+		t.Fatalf("approval interrupt message = %q", approvalMessage)
 	}
 	resumed := request(t, router, http.MethodPost, "/agui", map[string]any{
 		"threadId": session.ID,

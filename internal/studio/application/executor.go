@@ -91,7 +91,7 @@ type AgentSink interface {
 	CreateAsset(ctx context.Context, input GeneratedAsset) (*domain.Asset, error)
 	CreateFlowNode(ctx context.Context, input FlowNodeInput) (*domain.FlowNode, error)
 	CreateFlowEdge(ctx context.Context, sourceNodeID, targetNodeID, label string) (*domain.FlowEdge, error)
-	RequestApproval(ctx context.Context, toolCallID, action string) (*domain.Approval, error)
+	RequestApproval(ctx context.Context, toolCallID, action, description string) (*domain.Approval, error)
 }
 
 // AssistantStreamSink is optional so existing workflow/test sinks can keep the
@@ -671,10 +671,10 @@ func (w *executionWriter) CreateFlowEdge(ctx context.Context, sourceNodeID, targ
 	return edge, nil
 }
 
-func (w *executionWriter) RequestApproval(ctx context.Context, toolCallID, action string) (*domain.Approval, error) {
+func (w *executionWriter) RequestApproval(ctx context.Context, toolCallID, action, description string) (*domain.Approval, error) {
 	approval, err := domain.NewApproval(
 		w.executor.ids(), w.run.ID, w.run.SessionID, w.run.AccountID,
-		toolCallID, action, w.executor.now(),
+		toolCallID, action, description, w.executor.now(),
 	)
 	if err != nil {
 		return nil, err
@@ -683,7 +683,7 @@ func (w *executionWriter) RequestApproval(ctx context.Context, toolCallID, actio
 		return nil, err
 	}
 	if err := w.Emit(ctx, EventApprovalRequired, map[string]any{
-		"approval_id": approval.ID, "tool_call_id": toolCallID, "action": action,
+		"approval_id": approval.ID, "tool_call_id": toolCallID, "action": action, "description": description,
 	}); err != nil {
 		return nil, err
 	}

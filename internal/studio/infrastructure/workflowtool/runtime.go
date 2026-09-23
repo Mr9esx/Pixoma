@@ -30,7 +30,7 @@ type ToolAccess struct {
 	RunID           string
 	PermissionMode  domain.PermissionMode
 	IsApproved      func(action string) bool
-	RequestApproval func(ctx context.Context, toolCallID, action string) error
+	RequestApproval func(ctx context.Context, toolCallID, action, description string) error
 	Sink            studioapp.AgentSink
 	Starter         Starter
 }
@@ -79,7 +79,7 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 		if t.access.RequestApproval == nil {
 			return "", fmt.Errorf("studio: workflow approval handler is not configured")
 		}
-		if err := t.access.RequestApproval(ctx, action+"."+uuid.NewString(), action); err != nil {
+		if err := t.access.RequestApproval(ctx, action+"."+uuid.NewString(), action, fmt.Sprintf("执行工作流「%s」", t.workflow.Name)); err != nil {
 			return "", err
 		}
 		return "", compose.Interrupt(ctx, action)

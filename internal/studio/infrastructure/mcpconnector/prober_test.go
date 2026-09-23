@@ -116,13 +116,15 @@ func TestRuntimeToolsRequestsApprovalBeforeInvokingProtectedTool(t *testing.T) {
 	defer endpoint.Close()
 
 	approvalActions := make([]string, 0, 1)
+	approvalDescriptions := make([]string, 0, 1)
 	tools, err := mcpconnector.NewRuntimeTools(context.Background(), []studioapp.ResolvedMCPConnector{{
 		ID: "connector-01", Name: "Reference", URL: endpoint.URL, Credential: "connector-secret", Policy: domain.ConnectorPolicyAuto,
 		Tools: []domain.MCPTool{discoveredTool("search_reference", "Search reference material")},
 	}}, mcpconnector.ToolAccess{
 		PermissionMode: domain.PermissionRequestApproval,
-		RequestApproval: func(_ context.Context, toolCallID, action string) error {
+		RequestApproval: func(_ context.Context, toolCallID, action, description string) error {
 			approvalActions = append(approvalActions, toolCallID+":"+action)
+			approvalDescriptions = append(approvalDescriptions, description)
 			return nil
 		},
 	})
@@ -145,6 +147,7 @@ func TestRuntimeToolsRequestsApprovalBeforeInvokingProtectedTool(t *testing.T) {
 	require.True(t, strings.HasPrefix(first[0], first[1]+"."))
 	require.True(t, strings.HasPrefix(second[0], second[1]+"."))
 	require.NotEqual(t, first[0], second[0])
+	require.Equal(t, []string{"调用连接器「Reference」的 search_reference", "调用连接器「Reference」的 search_reference"}, approvalDescriptions)
 	require.Zero(t, remoteCalls)
 }
 

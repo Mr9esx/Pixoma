@@ -282,27 +282,28 @@ const (
 )
 
 type Approval struct {
-	ID         string
-	RunID      string
-	SessionID  string
-	AccountID  string
-	ToolCallID string
-	Action     string
-	Status     ApprovalStatus
-	ResolvedBy string
-	CreatedAt  time.Time
-	ResolvedAt time.Time
-	UpdatedAt  time.Time
+	ID          string
+	RunID       string
+	SessionID   string
+	AccountID   string
+	ToolCallID  string
+	Action      string
+	Description string
+	Status      ApprovalStatus
+	ResolvedBy  string
+	CreatedAt   time.Time
+	ResolvedAt  time.Time
+	UpdatedAt   time.Time
 }
 
-func NewApproval(id, runID, sessionID, accountID, toolCallID, action string, now time.Time) (*Approval, error) {
-	if anyBlank(id, runID, sessionID, accountID, toolCallID, action) {
+func NewApproval(id, runID, sessionID, accountID, toolCallID, action, description string, now time.Time) (*Approval, error) {
+	if anyBlank(id, runID, sessionID, accountID, toolCallID, action, description) {
 		return nil, fmt.Errorf("%w: approval fields are required", ErrInvalid)
 	}
 	now = now.UTC()
 	return &Approval{
 		ID: id, RunID: runID, SessionID: sessionID, AccountID: accountID,
-		ToolCallID: toolCallID, Action: action, Status: ApprovalPending,
+		ToolCallID: toolCallID, Action: action, Description: description, Status: ApprovalPending,
 		CreatedAt: now, UpdatedAt: now,
 	}, nil
 }

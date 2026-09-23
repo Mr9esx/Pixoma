@@ -26,7 +26,7 @@ const maxReadAssetBytes = 64 << 10
 type ToolAccess struct {
 	PermissionMode  domain.PermissionMode
 	IsApproved      func(action string) bool
-	RequestApproval func(context.Context, string, string) error
+	RequestApproval func(context.Context, string, string, string) error
 	Sink            studioapp.AgentSink
 	Blob            blob.Store
 	Assets          []*domain.Asset
@@ -90,7 +90,7 @@ func (t *createTextAssetTool) InvokableRun(ctx context.Context, arguments string
 		if t.access.RequestApproval == nil {
 			return "", fmt.Errorf("studio: built-in tool approval handler is not configured")
 		}
-		if err := t.access.RequestApproval(ctx, action+"."+uuid.NewString(), action); err != nil {
+		if err := t.access.RequestApproval(ctx, action+"."+uuid.NewString(), action, fmt.Sprintf("创建资产「%s」", input.Name)); err != nil {
 			return "", err
 		}
 		return "", compose.Interrupt(ctx, action)

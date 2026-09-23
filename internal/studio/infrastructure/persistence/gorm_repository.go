@@ -99,17 +99,18 @@ type EventRow struct {
 func (EventRow) TableName() string { return "studio_events" }
 
 type ApprovalRow struct {
-	ID         string `gorm:"primaryKey;size:64"`
-	RunID      string `gorm:"size:64;not null;index;uniqueIndex:idx_studio_approvals_run_tool"`
-	SessionID  string `gorm:"size:64;not null;index"`
-	AccountID  string `gorm:"size:64;not null;index"`
-	ToolCallID string `gorm:"size:128;not null;uniqueIndex:idx_studio_approvals_run_tool"`
-	Action     string `gorm:"size:128;not null"`
-	Status     string `gorm:"size:32;not null;index"`
-	ResolvedBy string `gorm:"size:64"`
-	CreatedAt  time.Time
-	ResolvedAt time.Time
-	UpdatedAt  time.Time
+	ID          string `gorm:"primaryKey;size:64"`
+	RunID       string `gorm:"size:64;not null;index;uniqueIndex:idx_studio_approvals_run_tool"`
+	SessionID   string `gorm:"size:64;not null;index"`
+	AccountID   string `gorm:"size:64;not null;index"`
+	ToolCallID  string `gorm:"size:128;not null;uniqueIndex:idx_studio_approvals_run_tool"`
+	Action      string `gorm:"size:128;not null"`
+	Description string `gorm:"size:256;not null"`
+	Status      string `gorm:"size:32;not null;index"`
+	ResolvedBy  string `gorm:"size:64"`
+	CreatedAt   time.Time
+	ResolvedAt  time.Time
+	UpdatedAt   time.Time
 }
 
 func (ApprovalRow) TableName() string { return "studio_approvals" }
@@ -1160,11 +1161,11 @@ func eventFromRow(row EventRow) *domain.Event {
 }
 
 func approvalToRow(value *domain.Approval) *ApprovalRow {
-	return &ApprovalRow{ID: value.ID, RunID: value.RunID, SessionID: value.SessionID, AccountID: value.AccountID, ToolCallID: value.ToolCallID, Action: value.Action, Status: string(value.Status), ResolvedBy: value.ResolvedBy, CreatedAt: value.CreatedAt, ResolvedAt: value.ResolvedAt, UpdatedAt: value.UpdatedAt}
+	return &ApprovalRow{ID: value.ID, RunID: value.RunID, SessionID: value.SessionID, AccountID: value.AccountID, ToolCallID: value.ToolCallID, Action: value.Action, Description: value.Description, Status: string(value.Status), ResolvedBy: value.ResolvedBy, CreatedAt: value.CreatedAt, ResolvedAt: value.ResolvedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func approvalFromRow(row ApprovalRow) *domain.Approval {
-	return &domain.Approval{ID: row.ID, RunID: row.RunID, SessionID: row.SessionID, AccountID: row.AccountID, ToolCallID: row.ToolCallID, Action: row.Action, Status: domain.ApprovalStatus(row.Status), ResolvedBy: row.ResolvedBy, CreatedAt: row.CreatedAt, ResolvedAt: row.ResolvedAt, UpdatedAt: row.UpdatedAt}
+	return &domain.Approval{ID: row.ID, RunID: row.RunID, SessionID: row.SessionID, AccountID: row.AccountID, ToolCallID: row.ToolCallID, Action: row.Action, Description: row.Description, Status: domain.ApprovalStatus(row.Status), ResolvedBy: row.ResolvedBy, CreatedAt: row.CreatedAt, ResolvedAt: row.ResolvedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func workflowExecutionToRow(value *domain.WorkflowExecution) *WorkflowExecutionRow {

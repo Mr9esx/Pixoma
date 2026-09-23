@@ -40,8 +40,36 @@ func (s *workflowSink) CreateFlowNode(_ context.Context, input studioapp.FlowNod
 func (*workflowSink) CreateFlowEdge(context.Context, string, string, string) (*domain.FlowEdge, error) {
 	return nil, nil
 }
-func (*workflowSink) RequestApproval(context.Context, string, string) (*domain.Approval, error) {
+func (*workflowSink) RequestApproval(context.Context, string, string, string) (*domain.Approval, error) {
 	return nil, nil
+}
+
+func TestWorkflowToolRequestsApprovalWithWorkflowName(t *testing.T) {
+	t.Parallel()
+	sink := &workflowSink{}
+	requested := ""
+	tools, err := workflowtool.NewRuntimeTools([]studioapp.ResolvedWorkflow{{
+		ID: "12", ToolName: "studio_workflow_12", Name: "角色三视图", Description: "生成角色设定图",
+		InputSchema: []byte(`{"type":"object","properties":{"prompt":{"type":"string"}},"required":["prompt"]}`),
+	}}, workflowtool.ToolAccess{
+		PermissionMode: domain.PermissionRequestApproval,
+		IsApproved:     func(string) bool { return false },
+		RequestApproval: func(_ context.Context, _, _, description string) error {
+			requested = description
+			return nil
+		},
+		Sink: sink,
+		Starter: workflowStarter(func(context.Context, studioapp.WorkflowStartInput) (*studioapp.WorkflowStartResult, error) {
+			return &studioapp.WorkflowStartResult{TaskID: "task-1", WorkflowID: "12"}, nil
+		}),
+	})
+	require.NoError(t, err)
+	invokable, ok := tools[0].(einotool.InvokableTool)
+	require.True(t, ok)
+	_, err = invokable.InvokableRun(context.Background(), `{"prompt":"雨夜侦探"}`)
+	require.Error(t, err)
+	require.Equal(t, "执行工作流「角色三视图」", requested)
+	require.Empty(t, sink.nodes)
 }
 
 func TestWorkflowToolCreatesOperationAndStartsTask(t *testing.T) {

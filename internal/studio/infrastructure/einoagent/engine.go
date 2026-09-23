@@ -589,8 +589,8 @@ func emitReasoning(ctx context.Context, sink studioapp.AgentSink, reasoning stri
 
 func (e *Engine) resolveTools(ctx context.Context, request studioapp.AgentRequest, sink studioapp.AgentSink) ([]einotool.BaseTool, error) {
 	authorizer := newApprovalAuthorizer(request.Approvals)
-	requestApproval := func(ctx context.Context, toolCallID, action string) error {
-		_, err := sink.RequestApproval(ctx, toolCallID, action)
+	requestApproval := func(ctx context.Context, toolCallID, action, description string) error {
+		_, err := sink.RequestApproval(ctx, toolCallID, action, description)
 		return err
 	}
 	tools := make([]einotool.BaseTool, 0)

@@ -19,7 +19,7 @@ func (e *MockEngine) Execute(ctx context.Context, request AgentRequest, sink Age
 		return err
 	}
 	if request.Session.PermissionMode == "request_approval" && !hasApprovedAction(request.Approvals, "workflow.execute") {
-		if _, err := sink.RequestApproval(ctx, "mock-storyboard", "workflow.execute"); err != nil {
+		if _, err := sink.RequestApproval(ctx, "mock-storyboard", "workflow.execute", "执行工作流「分镜生成」"); err != nil {
 			return err
 		}
 		return ErrApprovalRequired

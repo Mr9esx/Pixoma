@@ -319,8 +319,12 @@ func pendingAGUIInterrupts(approvals []*domain.Approval) []map[string]any {
 		if approval.Status != domain.ApprovalPending {
 			continue
 		}
+		description := strings.TrimSpace(approval.Description)
+		if description == "" {
+			description = "需要批准后继续执行"
+		}
 		interrupts = append(interrupts, map[string]any{
-			"id": approval.ID, "reason": "tool_approval", "message": "需要批准后继续执行",
+			"id": approval.ID, "reason": "tool_approval", "message": description,
 			"toolCallId":     approval.ToolCallID,
 			"responseSchema": map[string]any{"type": "boolean"},
 		})

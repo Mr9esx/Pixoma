@@ -76,8 +76,8 @@ type approvalCapturingSink struct {
 	approval *domain.Approval
 }
 
-func (s *approvalCapturingSink) RequestApproval(_ context.Context, toolCallID, action string) (*domain.Approval, error) {
-	approval, err := domain.NewApproval("approval-1", "run_01", "session_01", "account_01", toolCallID, action, time.Now())
+func (s *approvalCapturingSink) RequestApproval(_ context.Context, toolCallID, action, description string) (*domain.Approval, error) {
+	approval, err := domain.NewApproval("approval-1", "run_01", "session_01", "account_01", toolCallID, action, description, time.Now())
 	s.approval = approval
 	return approval, err
 }
@@ -112,6 +112,7 @@ func TestResumeAfterApprovalUsesCheckpointWithoutRepeatingModelCall(t *testing.T
 	err := engine.Execute(context.Background(), request, output)
 	require.ErrorIs(t, err, studioapp.ErrApprovalRequired)
 	require.NotNil(t, output.approval)
+	require.Equal(t, "创建资产「story.md」", output.approval.Description)
 	_, exists, err := checkpoints.Get(context.Background(), request.Run.ID)
 	require.NoError(t, err)
 	require.True(t, exists)
@@ -159,7 +160,7 @@ func (*sink) CreateFlowNode(context.Context, studioapp.FlowNodeInput) (*domain.F
 func (*sink) CreateFlowEdge(context.Context, string, string, string) (*domain.FlowEdge, error) {
 	return nil, nil
 }
-func (*sink) RequestApproval(context.Context, string, string) (*domain.Approval, error) {
+func (*sink) RequestApproval(context.Context, string, string, string) (*domain.Approval, error) {
 	return nil, nil
 }
 

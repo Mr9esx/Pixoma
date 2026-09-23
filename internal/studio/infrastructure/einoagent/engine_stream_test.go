@@ -38,7 +38,7 @@ func (*reasoningStreamSink) CreateFlowEdge(context.Context, string, string, stri
 	return nil, nil
 }
 
-func (*reasoningStreamSink) RequestApproval(context.Context, string, string) (*domain.Approval, error) {
+func (*reasoningStreamSink) RequestApproval(context.Context, string, string, string) (*domain.Approval, error) {
 	return nil, nil
 }
 

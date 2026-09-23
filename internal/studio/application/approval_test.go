@@ -28,7 +28,7 @@ func TestApprovalSequenceContinuesAfterTwoHundredEvents(t *testing.T) {
 	if err := repo.CreateRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	approval, err := domain.NewApproval("approval-long", run.ID, run.SessionID, run.AccountID, "tool-long", "asset.create", now)
+	approval, err := domain.NewApproval("approval-long", run.ID, run.SessionID, run.AccountID, "tool-long", "asset.create", "创建资产「分镜.md」", now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestResolveApprovalWithoutCheckpointInterruptsLegacyRun(t *testing.T) {
 	if err := repo.CreateRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	approval, err := domain.NewApproval("legacy-approval", run.ID, run.SessionID, run.AccountID, "tool-1", "asset.create", now)
+	approval, err := domain.NewApproval("legacy-approval", run.ID, run.SessionID, run.AccountID, "tool-1", "asset.create", "创建资产「分镜.md」", now)
 	if err != nil {
 		t.Fatal(err)
 	}

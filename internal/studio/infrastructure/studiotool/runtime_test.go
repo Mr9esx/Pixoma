@@ -41,7 +41,7 @@ func (*toolSink) CreateFlowNode(context.Context, studioapp.FlowNodeInput) (*doma
 func (*toolSink) CreateFlowEdge(context.Context, string, string, string) (*domain.FlowEdge, error) {
 	return nil, nil
 }
-func (*toolSink) RequestApproval(context.Context, string, string) (*domain.Approval, error) {
+func (*toolSink) RequestApproval(context.Context, string, string, string) (*domain.Approval, error) {
 	return nil, nil
 }
 

@@ -108,12 +108,15 @@ func TestRunLifecycle(t *testing.T) {
 
 func TestApprovalCanOnlyBeResolvedOnce(t *testing.T) {
 	now := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
-	approval, err := NewApproval("approval-1", "run-1", "session-1", "account-1", "tool-call-1", "workflow.execute", now)
+	approval, err := NewApproval("approval-1", "run-1", "session-1", "account-1", "tool-call-1", "workflow.execute", "执行工作流「雨夜侦探」", now)
 	if err != nil {
 		t.Fatalf("NewApproval() error = %v", err)
 	}
 	if approval.Status != ApprovalPending {
 		t.Fatalf("status = %q, want %q", approval.Status, ApprovalPending)
+	}
+	if approval.Description != "执行工作流「雨夜侦探」" {
+		t.Fatalf("description = %q", approval.Description)
 	}
 	if err := approval.Approve("account-1", now.Add(time.Second)); err != nil {
 		t.Fatalf("Approve() error = %v", err)
