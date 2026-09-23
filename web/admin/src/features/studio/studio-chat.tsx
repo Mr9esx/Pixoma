@@ -358,7 +358,6 @@ function StudioChatSurface({
         />
         <div className='bg-card'>
           <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
-            <StudioActionArea />
             <div className='pointer-events-auto relative z-10 pb-5'>
               <PromptInput
                 inputGroupClassName='bg-background'
@@ -436,6 +435,7 @@ function StudioChatSurface({
           </div>
         </div>
       </div>
+      <StudioActionArea />
     </div>
   )
 }
@@ -487,13 +487,13 @@ export function StudioActionPanel({
   return (
     <section
       aria-label='操作区'
-      className='pointer-events-auto relative z-0 -mb-4 flex flex-col gap-2 px-2 pt-2'
+      className='absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-card px-5 py-6'
     >
       {actions.map((action) => (
         <Confirmation
           key={action.id}
           approval={{ id: action.id }}
-          className='px-4 pt-4 pb-8'
+          className='w-full max-w-3xl'
           state='approval-requested'
           variant='warn'
         >

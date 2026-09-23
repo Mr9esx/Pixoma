@@ -170,10 +170,33 @@ describe('StudioChat', () => {
     expect(getComputedStyle(group).borderTopLeftRadius).toBe('8px')
   })
 
-  it('tucks the approval alert behind the composer input', async () => {
+  it('covers the whole chat with the approval actions while the agent waits', async () => {
     const responded: Array<[string, boolean]> = []
     const screen = await render(
-      <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
+      <div
+        data-testid='chat'
+        className='relative flex h-96 min-h-0 w-full flex-col'
+      >
+        <div className='min-h-0 flex-1 bg-background' />
+        <div
+          data-slot='studio-composer'
+          className='pointer-events-none absolute inset-x-0 bottom-0 z-20'
+        >
+          <div className='bg-card'>
+            <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
+              <div className='pointer-events-auto relative z-10 pb-5'>
+                <PromptInput
+                  inputGroupClassName='bg-background'
+                  onSubmit={() => {}}
+                >
+                  <PromptInputBody>
+                    <PromptInputTextarea aria-label='输入' />
+                  </PromptInputBody>
+                </PromptInput>
+              </div>
+            </div>
+          </div>
+        </div>
         <StudioActionPanel
           actions={[
             {
@@ -184,28 +207,39 @@ describe('StudioChat', () => {
           ]}
           onRespond={(id, approved) => responded.push([id, approved])}
         />
-        <div className='pointer-events-auto relative z-10 pb-5'>
-          <PromptInput inputGroupClassName='bg-background' onSubmit={() => {}}>
-            <PromptInputBody>
-              <PromptInputTextarea aria-label='输入' />
-            </PromptInputBody>
-          </PromptInput>
-        </div>
       </div>
     )
 
+    const chat = document.querySelector('[data-testid="chat"]') as HTMLElement
     const panel = document.querySelector('[aria-label="操作区"]') as HTMLElement
     const alert = screen.getByRole('alert').element()
+    const composer = document.querySelector(
+      '[data-slot="studio-composer"]'
+    ) as HTMLElement
     const group = document.querySelector(
       '[data-slot="input-group"]'
     ) as HTMLElement
+    const chatBox = chat.getBoundingClientRect()
+    const panelBox = panel.getBoundingClientRect()
     const alertBox = alert.getBoundingClientRect()
     const groupBox = group.getBoundingClientRect()
 
-    expect(getComputedStyle(panel).marginBottom).toBe('-16px')
-    expect(groupBox.top - alertBox.bottom).toBe(-16)
-    expect(alertBox.left - groupBox.left).toBe(8)
-    expect(groupBox.right - alertBox.right).toBe(8)
+    expect(panelBox.left).toBe(chatBox.left)
+    expect(panelBox.top).toBe(chatBox.top)
+    expect(panelBox.right).toBe(chatBox.right)
+    expect(panelBox.bottom).toBe(chatBox.bottom)
+    expect(Number(getComputedStyle(panel).zIndex)).toBeGreaterThan(
+      Number(getComputedStyle(composer).zIndex)
+    )
+    expect(
+      panel.contains(
+        document.elementFromPoint(groupBox.left + 5, groupBox.top + 5)
+      )
+    ).toBe(true)
+    expect(alertBox.left - panelBox.left).toBeCloseTo(
+      panelBox.right - alertBox.right,
+      0
+    )
 
     const title = alert.querySelector(
       '[data-slot="alert-title"]'
@@ -226,14 +260,6 @@ describe('StudioChat', () => {
     expect(descriptionBox.right).toBeLessThan(approveBox.left)
     expect(descriptionBox.top).toBeLessThan(approveBox.bottom)
     expect(approveBox.top).toBeLessThan(descriptionBox.bottom)
-    for (const [side, value] of [
-      ['paddingTop', '16px'],
-      ['paddingRight', '16px'],
-      ['paddingBottom', '32px'],
-      ['paddingLeft', '16px'],
-    ] as const) {
-      expect(getComputedStyle(alert)[side]).toBe(value)
-    }
 
     await expect
       .element(screen.getByRole('button', { name: /^批准$/ }))
@@ -246,9 +272,19 @@ describe('StudioChat', () => {
     ])
   })
 
+  it('leaves the chat uncovered when no action is waiting', async () => {
+    await render(
+      <div className='relative flex h-96 min-h-0 w-full flex-col'>
+        <StudioActionPanel actions={[]} onRespond={() => {}} />
+      </div>
+    )
+
+    expect(document.querySelector('[aria-label="操作区"]')).toBeNull()
+  })
+
   it('keeps the approval buttons beside a long pending action', async () => {
     const screen = await render(
-      <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
+      <div className='relative flex h-96 min-h-0 w-full flex-col'>
         <StudioActionPanel
           actions={[
             {
