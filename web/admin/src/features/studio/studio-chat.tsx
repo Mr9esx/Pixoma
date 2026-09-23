@@ -347,7 +347,7 @@ function StudioChatSurface({
         </ConversationContent>
         <ConversationScrollButton
           aria-label='跳转至最新消息'
-          className='bottom-44'
+          className='bottom-48'
         />
       </Conversation>
       <div
@@ -379,10 +379,6 @@ function StudioChatSurface({
                 </PromptInputBody>
                 <PromptInputFooter>
                   <PromptInputTools>
-                    <PermissionPicker
-                      value={props.permissionMode}
-                      onChange={props.onPermissionChange}
-                    />
                     <SkillPicker
                       skills={props.skills}
                       value={props.selectedSkillIds}
@@ -393,6 +389,10 @@ function StudioChatSurface({
                       value={props.selectedAssets}
                       onChange={props.onAssetChange}
                       onImportLibraryAsset={props.onImportLibraryAsset}
+                    />
+                    <PermissionPicker
+                      value={props.permissionMode}
+                      onChange={props.onPermissionChange}
                     />
                   </PromptInputTools>
                   <PromptInputTools>
@@ -904,7 +904,7 @@ function ModelPicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <PromptInputButton className='max-w-52'>
+        <PromptInputButton className='max-w-52 font-normal'>
           <span className='truncate'>{selected?.name ?? '未选择模型'}</span>
           <ChevronDown className='size-3.5' />
         </PromptInputButton>
@@ -945,6 +945,7 @@ function PermissionPicker({
       <DropdownMenuTrigger asChild>
         <PromptInputButton
           aria-label={`Agent 操作权限：${permissionLabels[value]}`}
+          className='font-normal'
         >
           <ShieldCheck />
           {permissionLabels[value]}

@@ -243,12 +243,19 @@ describe('StudioChat', () => {
     const assetButton = screen
       .getByRole('button', { name: '选择资产，已选 1 项' })
       .element()
+    const permissionButton = screen
+      .getByRole('button', { name: 'Agent 操作权限：请求批准' })
+      .element()
     const leftGroup = footer.firstElementChild as HTMLElement
-    expect(leftGroup.contains(skillButton)).toBe(true)
-    expect(leftGroup.contains(assetButton)).toBe(true)
+    expect(leftGroup.children[0]).toBe(skillButton)
+    expect(leftGroup.children[1]).toBe(assetButton)
+    expect(leftGroup.children[2]).toBe(permissionButton)
     for (const button of [skillButton, assetButton]) {
       expect(button.textContent).toBe('')
       expect(getComputedStyle(button).borderTopLeftRadius).toBe(inputRadius)
+    }
+    for (const button of [modelButton, permissionButton]) {
+      expect(getComputedStyle(button).fontWeight).toBe('400')
     }
 
     await screen.getByRole('button', { name: '选择 Skills，已选 1 项' }).hover()

@@ -145,6 +145,9 @@ describe('Studio production workspace contract', () => {
     )
     expect(source).toContain('bg-gradient-to-t from-card to-transparent')
     expect(source).toContain('pb-44')
+    expect(source).toContain("aria-label='跳转至最新消息'")
+    expect(source).toContain("className='bottom-48'")
+    expect(source).not.toContain("className='bottom-44'")
     expect(source).not.toContain("className='shrink-0 px-4 pt-2 pb-5'")
   })
 
@@ -193,6 +196,12 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain("tooltip={value.length === 0 ? '资产'")
   })
 
+  it('keeps the copy inside the composer input at normal weight', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain("className='max-w-52 font-normal'")
+    expect(source).toContain("className='font-normal'")
+  })
+
   it('groups the model switcher with the send button on the right of the footer', () => {
     const source = read('./studio-chat.tsx')
     const leftTools = source.slice(
@@ -203,6 +212,9 @@ describe('Studio production workspace contract', () => {
     expect(leftTools).toContain('<AssetPicker')
     expect(leftTools).toContain('<PermissionPicker')
     expect(leftTools).not.toContain('<ModelPicker')
+    expect(leftTools.indexOf('<AssetPicker')).toBeLessThan(
+      leftTools.indexOf('<PermissionPicker')
+    )
     const rightTools = source.slice(source.lastIndexOf('<PromptInputTools>'))
     expect(rightTools).toContain('<ModelPicker')
     expect(rightTools).toContain('<PromptInputSubmit')
