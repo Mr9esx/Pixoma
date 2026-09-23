@@ -40,9 +40,9 @@
 
 **Interfaces:** `AppendRunEvent(ctx context.Context, event *domain.Event) (*domain.Event, error)` 分配并返回事件序号；`ListEventsAfter(ctx, accountID, runID string, after uint64, limit int)` 保持现有分页签名。
 
-- [ ] **Step 1: 写失败测试。** 向同一 Run 写入 385 条事件，再由审批服务和执行器各追加一条，断言查询结果为 387 条、序号严格连续；并发写入同一 Run 时也不得覆盖。测试期待实际事件内容，而非只检查方法调用次数。
-- [ ] **Step 2: 运行红灯。** `go test ./internal/studio/infrastructure/persistence ./internal/studio/application -run 'EventSequence|ApprovalSequence' -count=1`；预期在第 201 条之后发现序号重复或事件缺失。
-- [ ] **Step 3: 实施最小修复。** 在事务中以数据库真实最大值分配下一序号并写入；冲突返回错误。执行器和审批服务不再自行读取首 200 条。调用形式固定为：
+- [x] **Step 1: 写失败测试。** 向同一 Run 写入 385 条事件，再由审批服务和执行器各追加一条，断言查询结果为 387 条、序号严格连续；并发写入同一 Run 时也不得覆盖。测试期待实际事件内容，而非只检查方法调用次数。
+- [x] **Step 2: 运行红灯。** `go test ./internal/studio/infrastructure/persistence ./internal/studio/application -run 'EventSequence|ApprovalSequence' -count=1`；预期在第 201 条之后发现序号重复或事件缺失。
+- [x] **Step 3: 实施最小修复。** 在事务中以数据库真实最大值分配下一序号并写入；冲突返回错误。执行器和审批服务不再自行读取首 200 条。调用形式固定为：
 
 ```go
 stored, err := repo.AppendRunEvent(ctx, &domain.Event{RunID: run.ID, Type: eventType, Payload: raw})
@@ -50,7 +50,7 @@ if err != nil { return err }
 publish(stored.Sequence)
 ```
 
-- [ ] **Step 4: 运行绿灯与回归。** 执行本 Task 的定向测试，再执行 `go test ./internal/studio/application ./internal/studio/infrastructure/persistence ./internal/httpapi/studio -count=1`。
+- [x] **Step 4: 运行绿灯与回归。** 执行本 Task 的定向测试，再执行 `go test ./internal/studio/application ./internal/studio/infrastructure/persistence ./internal/httpapi/studio -count=1`。
 
 ### Task 2：把所有可见增量纳入持久事件日志
 
