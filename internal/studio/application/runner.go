@@ -14,6 +14,7 @@ type RunStore interface {
 	GetRun(ctx context.Context, accountID, runID string) (*domain.Run, error)
 	UpdateRun(ctx context.Context, run *domain.Run) error
 	ListRecoverableRuns(ctx context.Context, limit int) ([]*domain.Run, error)
+	ListRecoverableRunsAfter(ctx context.Context, afterID string, limit int) ([]*domain.Run, error)
 }
 
 type Executor interface {
@@ -102,25 +103,40 @@ func (r *BackgroundRunner) Cancel(ctx context.Context, accountID, runID string) 
 	return nil
 }
 
-// Recover enqueues runs that were queued or running when the previous process
-// stopped. Runs retain their event history and continue from the persisted
-// state instead of being tied to the HTTP request that created them.
+// Recover only requeues work that never started. A running Eino run without a
+// safe checkpoint cannot be replayed after process restart: doing so could
+// repeat model calls and side-effecting tools.
 func (r *BackgroundRunner) Recover(ctx context.Context) (int, error) {
 	if r == nil || r.store == nil {
 		return 0, fmt.Errorf("studio: background runner is not configured")
 	}
-	runs, err := r.store.ListRecoverableRuns(ctx, 200)
-	if err != nil {
-		return 0, err
-	}
 	count := 0
-	for _, run := range runs {
-		if err := r.Enqueue(RunRef{AccountID: run.AccountID, RunID: run.ID}); err != nil {
+	afterID := ""
+	for {
+		runs, err := r.store.ListRecoverableRunsAfter(ctx, afterID, 200)
+		if err != nil {
 			return count, err
 		}
-		count++
+		for _, run := range runs {
+			afterID = run.ID
+			if run.Status == domain.RunRunning {
+				if err := run.Fail("interrupted_on_restart", "运行因服务重启中断，请手动重试", r.now()); err != nil {
+					return count, err
+				}
+				if err := r.store.UpdateRun(ctx, run); err != nil {
+					return count, err
+				}
+				continue
+			}
+			if err := r.Enqueue(RunRef{AccountID: run.AccountID, RunID: run.ID}); err != nil {
+				return count, err
+			}
+			count++
+		}
+		if len(runs) < 200 {
+			return count, nil
+		}
 	}
-	return count, nil
 }
 
 func (r *BackgroundRunner) Close() {

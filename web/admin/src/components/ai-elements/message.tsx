@@ -1,9 +1,11 @@
 'use client'
 
-import type { ComponentProps, HTMLAttributes, ReactElement } from 'react'
 import {
   createContext,
   memo,
+  type ComponentProps,
+  type HTMLAttributes,
+  type ReactElement,
   useCallback,
   useContext,
   useEffect,
@@ -11,9 +13,7 @@ import {
   useState,
 } from 'react'
 import { cjk } from '@streamdown/cjk'
-import { code } from '@streamdown/code'
 import { math } from '@streamdown/math'
-import { mermaid } from '@streamdown/mermaid'
 import type { UIMessage } from 'ai'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { Streamdown } from 'streamdown'
@@ -318,15 +318,17 @@ export const MessageBranchPage = ({
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>
 
-const streamdownPlugins = { cjk, code, math, mermaid }
+const streamdownPlugins = { cjk, math }
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
+  ({ className, isAnimating, animated, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn(
         'size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
         className
       )}
+      animated={animated ?? (isAnimating ? true : undefined)}
+      isAnimating={isAnimating}
       plugins={streamdownPlugins}
       {...props}
     />

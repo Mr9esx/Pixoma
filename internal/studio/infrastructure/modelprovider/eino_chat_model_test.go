@@ -3,6 +3,7 @@ package modelprovider_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -76,4 +77,42 @@ func TestEinoChatModelHonorsRuntimeToolOptions(t *testing.T) {
 	message, err := chat.Generate(context.Background(), []*schema.Message{schema.UserMessage("写一个故事")}, model.WithTools([]*schema.ToolInfo{{Name: "search_reference", Desc: "Search reference material"}}))
 	require.NoError(t, err)
 	require.Equal(t, "已收到创作需求", message.Content)
+}
+
+func TestEinoChatModelStreamsWithTools(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.Len(t, body["tools"], 1)
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(`data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"create_outline","arguments":"{\"genre\":\""}}]}}]}
+
+`))
+		_, _ = w.Write([]byte(`data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"noir\"}"}}]}}]}
+
+`))
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	}))
+	defer server.Close()
+
+	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL, Model: "test", APIKey: "secret"})
+	stream, err := chat.Stream(context.Background(), []*schema.Message{schema.UserMessage("创建大纲")}, model.WithTools([]*schema.ToolInfo{{Name: "create_outline", Desc: "Create a story outline"}}))
+	require.NoError(t, err)
+	defer stream.Close()
+
+	var toolMessage *schema.Message
+	for {
+		message, recvErr := stream.Recv()
+		if recvErr == io.EOF {
+			break
+		}
+		require.NoError(t, recvErr)
+		if len(message.ToolCalls) > 0 {
+			toolMessage = message
+		}
+	}
+	require.NotNil(t, toolMessage)
+	require.Len(t, toolMessage.ToolCalls, 1)
+	require.Equal(t, "create_outline", toolMessage.ToolCalls[0].Function.Name)
+	require.Equal(t, `{"genre":"noir"}`, toolMessage.ToolCalls[0].Function.Arguments)
 }

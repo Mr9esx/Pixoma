@@ -109,6 +109,93 @@ func TestSendMessageCreatesSessionTurnAndAIGeneratedTitle(t *testing.T) {
 	}
 }
 
+func TestIdempotentSendKeepsOneTurnAndRejectsConcurrentDifferentRequest(t *testing.T) {
+	repo := openRepository(t)
+	queue := &queueSpy{}
+	service := &studioapp.Service{Repo: repo, IDs: (&idSequence{}).Next, Queue: queue}
+	ctx := context.Background()
+	session, err := service.CreateSession(ctx, "account-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := service.SendMessage(ctx, studioapp.SendMessageInput{
+		AccountID: "account-a", SessionID: session.ID, RequestID: "request-1", Text: "第一个问题",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repeated, err := service.SendMessage(ctx, studioapp.SendMessageInput{
+		AccountID: "account-a", SessionID: session.ID, RequestID: "request-1", Text: "第一个问题",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repeated.Run.ID != first.Run.ID || repeated.Message.ID != first.Message.ID {
+		t.Fatalf("repeat created another turn: first=%s second=%s", first.Run.ID, repeated.Run.ID)
+	}
+	if _, err := service.SendMessage(ctx, studioapp.SendMessageInput{
+		AccountID: "account-a", SessionID: session.ID, RequestID: "request-1", Text: "不同内容",
+	}); err == nil {
+		t.Fatal("same request id with different content was accepted")
+	}
+	if _, err := service.SendMessage(ctx, studioapp.SendMessageInput{
+		AccountID: "account-a", SessionID: session.ID, RequestID: "request-2", Text: "第二个问题",
+	}); err == nil {
+		t.Fatal("concurrent different request was accepted")
+	}
+	messages, err := repo.ListMessages(ctx, "account-a", session.ID, 10)
+	if err != nil || len(messages) != 1 {
+		t.Fatalf("messages = (%d, %v), want one", len(messages), err)
+	}
+	if len(queue.items) != 1 {
+		t.Fatalf("queue items = %d, want one", len(queue.items))
+	}
+}
+
+func TestIdempotentSendConcurrentRetriesReturnOneRun(t *testing.T) {
+	repo := openRepository(t)
+	queue := &queueSpy{}
+	service := &studioapp.Service{Repo: repo, IDs: (&idSequence{}).Next, Queue: queue}
+	ctx := context.Background()
+	session, err := service.CreateSession(ctx, "account-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Rename("并发测试", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.UpdateSession(ctx, session); err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	results := make([]*studioapp.SendMessageResult, 4)
+	errors := make([]error, 4)
+	start := make(chan struct{})
+	for i := range results {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			<-start
+			results[index], errors[index] = service.SendMessage(ctx, studioapp.SendMessageInput{
+				AccountID: "account-a", SessionID: session.ID, RequestID: "same-request", Text: "问题",
+			})
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	for i, err := range errors {
+		if err != nil {
+			t.Fatalf("send[%d]: %v", i, err)
+		}
+		if results[i].Run.ID != results[0].Run.ID {
+			t.Fatalf("send[%d] run = %s, want %s", i, results[i].Run.ID, results[0].Run.ID)
+		}
+	}
+	if len(queue.items) != 1 {
+		t.Fatalf("queue items = %d, want one", len(queue.items))
+	}
+}
+
 func TestSendMessageSnapshotsExplicitlySelectedEnabledSkills(t *testing.T) {
 	repo := openRepository(t)
 	ids := &idSequence{}
@@ -216,11 +303,11 @@ func TestBackgroundRunnerRecoversPersistedRuns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Recover() error = %v", err)
 	}
-	if count != 2 {
-		t.Fatalf("Recover() count = %d, want 2", count)
+	if count != 1 {
+		t.Fatalf("Recover() count = %d, want 1", count)
 	}
 	waitRunStatusForAccount(t, repo, "account-a", queued.ID, domain.RunSucceeded)
-	waitRunStatusForAccount(t, repo, "account-b", running.ID, domain.RunSucceeded)
+	waitRunStatusForAccount(t, repo, "account-b", running.ID, domain.RunFailed)
 }
 
 type countingExecutor struct{}

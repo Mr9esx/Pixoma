@@ -171,6 +171,47 @@ func TestOpenAICompatibleFailedTraceRedactsEchoedCredential(t *testing.T) {
 	}
 }
 
+func TestOpenAICompatibleStreamSupportsTools(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		tools, ok := body["tools"].([]any)
+		if !ok || len(tools) != 1 {
+			t.Fatalf("tools = %#v", body["tools"])
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"第一段\"}}]}\n\n"))
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"第二段\"}}]}\n\n"))
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	}))
+	defer server.Close()
+
+	stream, err := modelprovider.NewOpenAICompatibleClient(server.Client()).StreamChat(context.Background(), modelprovider.ChatRequest{
+		Config:   domain.ResolvedModelConfig{BaseURL: server.URL, Model: "stream-tools", APIKey: "test-secret"},
+		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "继续"}},
+		Tools:    []modelprovider.ToolDefinition{{Name: "read_asset", Description: "读取资产", Parameters: map[string]any{"type": "object"}}},
+	})
+	if err != nil {
+		t.Fatalf("StreamChat() error = %v", err)
+	}
+	var chunks []string
+	for {
+		message, recvErr := stream.Recv()
+		if recvErr == io.EOF {
+			break
+		}
+		if recvErr != nil {
+			t.Fatal(recvErr)
+		}
+		chunks = append(chunks, message.Content)
+	}
+	if strings.Join(chunks, "") != "第一段第二段" || len(chunks) != 2 {
+		t.Fatalf("stream chunks = %#v", chunks)
+	}
+}
+
 func TestOpenAICompatibleChatEmitsFailedTraceForInvalidProviderResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

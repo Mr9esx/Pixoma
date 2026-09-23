@@ -11,6 +11,7 @@ export type StudioSession = {
   permission_mode: StudioPermissionMode
   model_config_id?: string
   status: 'active'
+  latest_run?: StudioRun | null
   created_at: string
   updated_at: string
 }
@@ -30,6 +31,7 @@ export type StudioTranscriptToolCall = {
 
 export type StudioTranscriptMessage = {
   id: string
+  runId?: string
   role: 'user' | 'assistant' | 'reasoning' | 'tool'
   content: string
   toolCalls?: StudioTranscriptToolCall[]
@@ -77,6 +79,23 @@ export type StudioRun = {
   created_at: string
   started_at?: string
   completed_at?: string
+  updated_at: string
+}
+
+export type StudioRunProgress = {
+  run_id: string
+  session_id: string
+  assistant_message_id?: string
+  assistant_text?: string
+  reasoning_text?: string
+  tool_calls?: Record<string, {
+    id: string
+    name: string
+    args?: string
+    result?: string
+    is_error?: boolean
+  }>
+  last_sequence: number
   updated_at: string
 }
 
@@ -176,6 +195,7 @@ export type StudioFlowEdge = {
 
 export type StudioSessionDetail = {
   session: StudioSession
+  run_progress?: StudioRunProgress | null
   messages: StudioMessage[]
   transcript: StudioTranscript
   assets: StudioAsset[]
@@ -301,6 +321,12 @@ export function sendStudioMessage(input: {
 
 export function getStudioRun(runId: string) {
   return apiFetch<StudioRun>(`/api/v1/studio/runs/${encodeURIComponent(runId)}`)
+}
+
+export function cancelStudioRun(runId: string) {
+  return apiFetch<void>(`/api/v1/studio/runs/${encodeURIComponent(runId)}/cancel`, {
+    method: 'POST',
+  })
 }
 
 export function listStudioSessionRuns(sessionId: string) {

@@ -4,11 +4,18 @@ import {
   AssistantRuntimeProvider,
   ExportedMessageRepository,
   type AssistantState,
+  type ChatModelRunOptions,
   type ThreadHistoryAdapter,
   useAuiState,
   useAui,
 } from '@assistant-ui/react'
-import { fromAgUiMessages, useAgUiRuntime } from '@assistant-ui/react-ag-ui'
+import {
+  fromAgUiMessages,
+  useAgUiInterrupts,
+  useAgUiRuntime,
+  useAgUiSubmitInterruptResponses,
+  type AgUiInterrupt,
+} from '@assistant-ui/react-ag-ui'
 import {
   Bot,
   Check,
@@ -18,13 +25,17 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { StudioWebSocketAgent } from '@/lib/agui-websocket-agent'
+import { StudioRunConnection } from '@/lib/studio-run-connection'
 import { baseURL } from '@/lib/api/client'
 import {
+  cancelStudioRun,
   listStudioLibraryAssets,
   type StudioAsset,
   type StudioMessage,
   type StudioModel,
   type StudioPermissionMode,
+  type StudioRun,
+  type StudioRunProgress,
   type StudioSkill,
   type StudioTranscript,
 } from '@/lib/api/studio'
@@ -40,6 +51,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Confirmation,
+  ConfirmationAccepted,
+  ConfirmationAction,
+  ConfirmationActions,
+  ConfirmationRejected,
+  ConfirmationRequest,
+  ConfirmationTitle,
+} from '@/components/ai-elements/confirmation'
 import {
   Conversation,
   ConversationContent,
@@ -89,6 +109,8 @@ type Props = {
   sessionId: string
   messages: StudioMessage[]
   transcript?: StudioTranscript
+  latestRun?: StudioRun | null
+  runProgress?: StudioRunProgress | null
   models: StudioModel[]
   modelConfigId?: string
   permissionMode: StudioPermissionMode
@@ -102,6 +124,7 @@ type Props = {
   onAssetChange: (assets: SelectedAsset[]) => void
   onImportLibraryAsset: (asset: SelectedAsset) => Promise<StudioAsset>
   onRunFinished?: () => void
+  onRuntimeStateChange?: (running: boolean) => void
 }
 
 type SelectedAsset = { assetId: string; assetVersionId: string }
@@ -121,9 +144,11 @@ function toAGUIMessages(messages: StudioMessage[]) {
     }))
 }
 
-function toTranscriptAGUIMessages(transcript?: StudioTranscript) {
+function toTranscriptAGUIMessages(transcript?: StudioTranscript, excludeRunId?: string) {
   if (!transcript?.messages?.length) return undefined
-  return transcript.messages.map((message) => ({
+  return transcript.messages
+    .filter((message) => !excludeRunId || message.role === 'user' || message.runId !== excludeRunId)
+    .map((message) => ({
     id: message.id,
     role: message.role,
     content: message.content,
@@ -143,6 +168,20 @@ export function StudioChat(props: Props) {
     availableModels.find((model) => model.default) ??
     availableModels[0]
   const modelReady = Boolean(selectedModel)
+  const runConfig = useMemo(
+    () => ({
+      modelConfigId: selectedModel?.id ?? '',
+      permissionMode: props.permissionMode,
+      selectedSkillIds: props.selectedSkillIds,
+      selectedAssets: props.selectedAssets,
+    }),
+    [
+      selectedModel?.id,
+      props.permissionMode,
+      props.selectedSkillIds,
+      props.selectedAssets,
+    ]
+  )
   const agent = useMemo(() => {
     const endpoint = `${baseURL()}/api/v1/studio/agui/ws`
     const httpURL = new URL(endpoint, window.location.origin)
@@ -153,39 +192,81 @@ export function StudioChat(props: Props) {
       threadId: props.sessionId,
       initialMessages: (toTranscriptAGUIMessages(props.transcript) ??
         toAGUIMessages(props.messages)) as never[],
-      runConfig: {
-        modelConfigId: selectedModel?.id ?? '',
-        permissionMode: props.permissionMode,
-        selectedSkillIds: props.selectedSkillIds,
-        selectedAssets: props.selectedAssets,
-      },
+      runConfig,
     })
-  }, [
-    props.sessionId,
-    selectedModel?.id,
-    props.permissionMode,
-    props.selectedSkillIds,
-    props.selectedAssets,
-    props.transcript,
-  ])
+    // A runtime owns the active connection. Replacing the agent when a
+    // transcript query refreshes would silently abandon that connection.
+    // Session changes are isolated by StudioWorkspace's keyed mount.
+  // Deliberately only depend on sessionId: refreshing transcript data must
+  // not replace the live agent instance underneath an active run.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.sessionId])
+
+  useEffect(() => {
+    agent.updateRunConfig(runConfig)
+  }, [agent, runConfig])
 
   const history = useMemo<ThreadHistoryAdapter>(() => {
+    const activeRunId =
+      props.latestRun &&
+      ['queued', 'running', 'waiting_approval'].includes(props.latestRun.status)
+        ? props.latestRun.id
+        : undefined
+    const activeMessageIDs = new Set(
+      props.messages
+        .filter((message) => message.run_id === activeRunId && message.role !== 'user')
+        .map((message) => message.id)
+    )
     const messages = fromAgUiMessages(
-      toTranscriptAGUIMessages(props.transcript) ??
-        toAGUIMessages(props.messages),
+      (toTranscriptAGUIMessages(props.transcript, activeRunId) ??
+        toAGUIMessages(props.messages)).filter(
+        (message) => !activeMessageIDs.has(message.id)
+      ),
       { showThinking: true }
     )
 
+    const endpoint = `${baseURL()}/api/v1/studio/agui/ws`
+    const httpURL = new URL(endpoint, window.location.origin)
+    httpURL.protocol = httpURL.protocol === 'https:' ? 'wss:' : 'ws:'
+    const connection =
+      props.latestRun &&
+      (props.latestRun.status === 'queued' ||
+        props.latestRun.status === 'running' ||
+        props.latestRun.status === 'waiting_approval')
+        ? new StudioRunConnection({
+            url: httpURL.toString(),
+            threadId: props.sessionId,
+            studioRunId: props.latestRun.id,
+            afterSequence: 0,
+          })
+        : undefined
+
     return {
       async load() {
-        return ExportedMessageRepository.fromArray(messages)
+        return {
+          ...ExportedMessageRepository.fromArray(messages),
+          unstable_resume: Boolean(connection),
+        }
+      },
+      async *resume(options: ChatModelRunOptions) {
+        if (!connection) return
+        yield* connection.resume(options)
       },
       async append() {
         // The backend persists messages as part of the AG-UI run. History is
         // read from the session endpoint when a thread is opened.
       },
     }
-  }, [props.sessionId, props.messages, props.transcript])
+  // The run id/status/sequence are the attach identity; object identity from
+  // a Query refresh must not restart history loading by itself.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    props.messages,
+    props.transcript,
+    props.sessionId,
+    props.latestRun?.id,
+    props.latestRun?.status,
+  ])
 
   const runtime = useAgUiRuntime({
     agent,
@@ -199,8 +280,11 @@ export function StudioChat(props: Props) {
       <StudioRunCompletionWatcher
         onRunStarted={() => setRunError(undefined)}
         onRunFinished={props.onRunFinished}
+        onRuntimeStateChange={props.onRuntimeStateChange}
       />
       <StudioChatSurface
+        agent={agent}
+        onRunError={setRunError}
         availableModels={availableModels}
         modelReady={modelReady}
         selectedModel={selectedModel}
@@ -216,19 +300,27 @@ function StudioChatSurface({
   modelReady,
   selectedModel,
   runError,
+  agent,
+  onRunError,
   ...props
 }: Props & {
   availableModels: StudioModel[]
   modelReady: boolean
   selectedModel?: StudioModel
   runError?: string
+  agent: StudioWebSocketAgent
+  onRunError: (message: string) => void
 }) {
   const aui = useAui()
   const messages = useAuiState((state) => state.thread.messages)
   const isRunning = useAuiState((state) => state.thread.isRunning)
   const isEmpty = useAuiState((state) => state.thread.isEmpty)
+  const serverRunning =
+    props.latestRun?.status === 'queued' || props.latestRun?.status === 'running'
+  const runActive = isRunning || serverRunning || props.latestRun?.status === 'waiting_approval'
+  const isStreaming = isRunning || serverRunning
   const send = (text: string) => {
-    if (!modelReady || isRunning || !text.trim()) return
+    if (!modelReady || runActive || !text.trim()) return
     const composer = aui.thread.composer()
     composer.setText(text)
     composer.send()
@@ -246,6 +338,7 @@ function StudioChatSurface({
               isRunning={isRunning}
             />
           ))}
+          <StudioApprovalPrompt />
           {runError ? (
             <div
               role='alert'
@@ -297,10 +390,24 @@ function StudioChatSurface({
               />
             </PromptInputTools>
             <PromptInputSubmit
-              aria-label={isRunning ? '停止生成' : '发送消息'}
-              disabled={!modelReady}
-              onStop={() => aui.thread.cancelRun()}
-              status={isRunning ? 'streaming' : undefined}
+              aria-label={isStreaming ? '停止生成' : '发送消息'}
+              disabled={!modelReady || (runActive && !isStreaming)}
+              onStop={() => {
+                const runID = agent.activeStudioRunId() ?? props.latestRun?.id
+                if (!runID) {
+                  onRunError('运行正在建立连接，请稍后再试')
+                  return
+                }
+                void cancelStudioRun(runID)
+                  .then(() => {
+                    aui.thread.cancelRun()
+                    props.onRunFinished?.()
+                  })
+                  .catch((error: unknown) => {
+                    onRunError(error instanceof Error ? error.message : '停止运行失败')
+                  })
+              }}
+              status={isStreaming ? 'streaming' : undefined}
             />
           </PromptInputFooter>
         </PromptInput>
@@ -314,12 +421,64 @@ function StudioChatSurface({
   )
 }
 
+function StudioApprovalPrompt() {
+  const interrupts = useAgUiInterrupts()
+  const submitInterruptResponses = useAgUiSubmitInterruptResponses()
+
+  if (interrupts.length === 0) return null
+
+  const respond = (interrupt: AgUiInterrupt, approved: boolean) => {
+    void submitInterruptResponses([
+      {
+        interruptId: interrupt.id,
+        status: approved ? 'resolved' : 'cancelled',
+        ...(approved ? { payload: true } : {}),
+      },
+    ])
+  }
+
+  return (
+    <div className='flex w-full max-w-[95%] flex-col gap-3'>
+      {interrupts.map((interrupt) => (
+        <Confirmation
+          key={interrupt.id}
+          approval={{ id: interrupt.id }}
+          className='border-warning/40 bg-warning/5'
+          role='alert'
+          state='approval-requested'
+        >
+          <ConfirmationTitle>
+            {interrupt.message ?? '需要批准后继续执行'}
+          </ConfirmationTitle>
+          <ConfirmationRequest>
+            <ConfirmationActions>
+              <ConfirmationAction
+                variant='outline'
+                onClick={() => respond(interrupt, false)}
+              >
+                拒绝
+              </ConfirmationAction>
+              <ConfirmationAction onClick={() => respond(interrupt, true)}>
+                批准
+              </ConfirmationAction>
+            </ConfirmationActions>
+          </ConfirmationRequest>
+          <ConfirmationAccepted>已批准</ConfirmationAccepted>
+          <ConfirmationRejected>已拒绝</ConfirmationRejected>
+        </Confirmation>
+      ))}
+    </div>
+  )
+}
+
 function StudioRunCompletionWatcher({
   onRunStarted,
   onRunFinished,
+  onRuntimeStateChange,
 }: {
   onRunStarted?: () => void
   onRunFinished?: () => void
+  onRuntimeStateChange?: (running: boolean) => void
 }) {
   const isRunning = useAuiState((state) => state.thread.isRunning)
   const wasRunning = useRef(false)
@@ -327,12 +486,14 @@ function StudioRunCompletionWatcher({
   useEffect(() => {
     if (!wasRunning.current && isRunning) {
       onRunStarted?.()
+      onRuntimeStateChange?.(true)
     }
     if (wasRunning.current && !isRunning) {
       onRunFinished?.()
+      onRuntimeStateChange?.(false)
     }
     wasRunning.current = isRunning
-  }, [isRunning, onRunStarted, onRunFinished])
+  }, [isRunning, onRunStarted, onRunFinished, onRuntimeStateChange])
   return null
 }
 

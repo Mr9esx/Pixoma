@@ -1,21 +1,19 @@
 'use client'
 
-import type {
-  ChangeEvent,
-  ChangeEventHandler,
-  ClipboardEventHandler,
-  ComponentProps,
-  FormEvent,
-  FormEventHandler,
-  HTMLAttributes,
-  KeyboardEventHandler,
-  PropsWithChildren,
-  ReactNode,
-  RefObject,
-} from 'react'
 import {
   Children,
+  type ChangeEvent,
+  type ChangeEventHandler,
+  type ClipboardEventHandler,
+  type ComponentProps,
   createContext,
+  type FormEvent,
+  type FormEventHandler,
+  type HTMLAttributes,
+  type KeyboardEventHandler,
+  type PropsWithChildren,
+  type ReactNode,
+  type RefObject,
   useCallback,
   useContext,
   useEffect,
@@ -155,7 +153,7 @@ const captureScreenshot = async (): Promise<File | null> => {
 
     const timestamp = new Date()
       .toISOString()
-      .replaceAll(/[:.]/g, '-')
+      .replace(/[:.]/g, '-')
       .replace('T', '_')
       .replace('Z', '')
 
@@ -996,7 +994,7 @@ export const PromptInputTextarea = ({
         attachments.files.length > 0
       ) {
         e.preventDefault()
-        const lastAttachment = attachments.files.at(-1)
+        const lastAttachment = attachments.files[attachments.files.length - 1]
         if (lastAttachment) {
           attachments.remove(lastAttachment.id)
         }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	einotool "github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	einojsonschema "github.com/eino-contrib/jsonschema"
 	"github.com/google/uuid"
@@ -81,7 +82,7 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 		if err := t.access.RequestApproval(ctx, action+"."+uuid.NewString(), action); err != nil {
 			return "", err
 		}
-		return "", studioapp.ErrApprovalRequired
+		return "", compose.Interrupt(ctx, action)
 	}
 	toolCallID := action
 	if err := t.emit(ctx, studioapp.EventToolCallStart, map[string]any{
@@ -96,7 +97,8 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 		return "", err
 	}
 	node, err := t.access.Sink.CreateFlowNode(ctx, studioapp.FlowNodeInput{
-		Type: domain.FlowNodeOperation, Title: t.workflow.Name,
+		ActionID: action + ".operation",
+		Type:     domain.FlowNodeOperation, Title: t.workflow.Name,
 		Body: "已提交，正在后台执行工作流。", SortOrder: 1000,
 	})
 	if err != nil {

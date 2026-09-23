@@ -144,6 +144,7 @@ func (s RunStatus) Terminal() bool {
 
 type Run struct {
 	ID               string
+	RequestID        string
 	SessionID        string
 	AccountID        string
 	TriggerMessageID string
@@ -158,6 +159,21 @@ type Run struct {
 	StartedAt        time.Time
 	CompletedAt      time.Time
 	UpdatedAt        time.Time
+}
+
+// RunProgress is the latest recoverable snapshot for a non-terminal Run.
+// It complements the durable event ledger: high-frequency stream deltas can
+// be restored without writing one database row per token.
+type RunProgress struct {
+	RunID              string
+	SessionID          string
+	AccountID          string
+	AssistantMessageID string
+	AssistantText      string
+	ReasoningText      string
+	ToolCallsJSON      json.RawMessage
+	LastSequence       uint64
+	UpdatedAt          time.Time
 }
 
 // AssetReference identifies the immutable asset version consumed by a Run.

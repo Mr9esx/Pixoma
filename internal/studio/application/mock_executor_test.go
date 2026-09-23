@@ -120,8 +120,8 @@ func TestAgentExecutorPersistsFinalAssistantTextWithoutDeltaEvents(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hasEventType(events, studioapp.EventTextMessageContent) {
-		t.Fatalf("durable events contain text deltas: %#v", events)
+	if !hasEventType(events, studioapp.EventTextMessageContent) {
+		t.Fatalf("durable events omit text deltas: %#v", events)
 	}
 	for _, event := range events {
 		if event.Type != studioapp.EventTextMessageEnd {
@@ -253,6 +253,15 @@ func TestAgentExecutorReplaysCompletedHistoricalToolCalls(t *testing.T) {
 		if err := repo.AppendEvent(context.Background(), event); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err := first.Run.Start(now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Run.Succeed(now.Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.UpdateRun(context.Background(), first.Run); err != nil {
+		t.Fatal(err)
 	}
 	clock = now.Add(2 * time.Second)
 	second, err := service.SendMessage(context.Background(), studioapp.SendMessageInput{AccountID: "account-a", SessionID: first.Session.ID, Text: "基于资料继续"})

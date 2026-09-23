@@ -47,6 +47,7 @@ type Engine struct {
 	WorkflowStarter workflowtool.Starter
 	Client          *modelprovider.OpenAICompatibleClient
 	Blob            blob.Store
+	Checkpoints     adk.CheckPointStore
 }
 
 func (e *Engine) Execute(ctx context.Context, request studioapp.AgentRequest, sink studioapp.AgentSink) error {
@@ -122,7 +123,19 @@ func (e *Engine) Execute(ctx context.Context, request studioapp.AgentRequest, si
 	}
 	initialMessages := append([]*schema.Message(nil), request.History...)
 	initialMessages = append(initialMessages, schema.UserMessage(request.UserText))
-	iterator := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true}).Run(ctx, initialMessages)
+	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true, CheckPointStore: e.Checkpoints})
+	var iterator *adk.AsyncIterator[*adk.AgentEvent]
+	if hasApprovedApproval(request.Approvals) {
+		if e.Checkpoints == nil {
+			return fmt.Errorf("studio: approval checkpoint store is not configured")
+		}
+		iterator, err = runner.Resume(ctx, request.Run.ID)
+		if err != nil {
+			return fmt.Errorf("studio: resume approved run: %w", err)
+		}
+	} else {
+		iterator = runner.Run(ctx, initialMessages, adk.WithCheckPointID(request.Run.ID))
+	}
 	responded := false
 	for {
 		event, ok := iterator.Next()
@@ -135,15 +148,27 @@ func (e *Engine) Execute(ctx context.Context, request studioapp.AgentRequest, si
 		if event.Err != nil {
 			return event.Err
 		}
+		if event.Action != nil && event.Action.Interrupted != nil {
+			if e.Checkpoints == nil {
+				return fmt.Errorf("studio: approval checkpoint store is not configured")
+			}
+			if _, exists, checkpointErr := e.Checkpoints.Get(ctx, request.Run.ID); checkpointErr != nil {
+				return checkpointErr
+			} else if !exists {
+				return fmt.Errorf("studio: approval checkpoint was not persisted")
+			}
+			return studioapp.ErrApprovalRequired
+		}
 		if event.Output == nil || event.Output.MessageOutput == nil {
 			continue
 		}
 		if event.Output.MessageOutput.IsStreaming && event.Output.MessageOutput.MessageStream != nil {
 			if streamSink, ok := sink.(studioapp.AssistantStreamSink); ok {
-				if err := consumeAssistantStream(ctx, sink, streamSink, event.Output.MessageOutput.MessageStream); err != nil {
+				streamResponded, err := consumeAssistantStream(ctx, sink, streamSink, event.Output.MessageOutput.MessageStream)
+				if err != nil {
 					return err
 				}
-				responded = true
+				responded = responded || streamResponded
 				continue
 			}
 		}
@@ -168,6 +193,15 @@ func (e *Engine) Execute(ctx context.Context, request studioapp.AgentRequest, si
 		return fmt.Errorf("studio: model returned no assistant message")
 	}
 	return sink.Emit(ctx, studioapp.EventRunFinished, map[string]any{"run_id": request.Run.ID, "status": "succeeded"})
+}
+
+func hasApprovedApproval(approvals []*domain.Approval) bool {
+	for _, approval := range approvals {
+		if approval != nil && approval.Status == domain.ApprovalApproved {
+			return true
+		}
+	}
+	return false
 }
 
 type modelTraceEmitter struct {
@@ -436,33 +470,75 @@ func compactableToolResult(message *schema.Message) bool {
 	return false
 }
 
-func consumeAssistantStream(ctx context.Context, sink studioapp.AgentSink, streamSink studioapp.AssistantStreamSink, stream *schema.StreamReader[*schema.Message]) error {
+func consumeAssistantStream(ctx context.Context, sink studioapp.AgentSink, streamSink studioapp.AssistantStreamSink, stream *schema.StreamReader[*schema.Message]) (bool, error) {
 	defer stream.Close()
 	first, err := stream.Recv()
 	if err == io.EOF {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	if first == nil {
-		return nil
+		return false, nil
+	}
+	var reasoningMessageID string
+	beginReasoning := func() error {
+		if reasoningMessageID != "" {
+			return nil
+		}
+		reasoningMessageID = fmt.Sprintf("reasoning-%d", time.Now().UnixNano())
+		if err := sink.Emit(ctx, studioapp.EventReasoningStart, map[string]any{}); err != nil {
+			return err
+		}
+		return sink.Emit(ctx, studioapp.EventReasoningMessageStart, map[string]any{"message_id": reasoningMessageID})
+	}
+	appendReasoning := func(value string) error {
+		if strings.TrimSpace(value) == "" {
+			return nil
+		}
+		if err := beginReasoning(); err != nil {
+			return err
+		}
+		return sink.Emit(ctx, studioapp.EventReasoningMessageContent, map[string]any{"message_id": reasoningMessageID, "delta": value})
+	}
+	finishReasoning := func() error {
+		if reasoningMessageID == "" {
+			return nil
+		}
+		messageID := reasoningMessageID
+		reasoningMessageID = ""
+		if err := sink.Emit(ctx, studioapp.EventReasoningMessageEnd, map[string]any{"message_id": messageID}); err != nil {
+			return err
+		}
+		return sink.Emit(ctx, studioapp.EventReasoningEnd, map[string]any{})
 	}
 	if value, _ := first.Extra["pixoma.reasoning"].(string); strings.TrimSpace(value) != "" {
-		if err := emitReasoning(ctx, sink, value); err != nil {
-			return err
+		if err := appendReasoning(value); err != nil {
+			return false, err
 		}
 	}
-	messageID, err := streamSink.BeginAssistantMessage(ctx)
-	if err != nil {
-		return err
-	}
+	var messageID string
 	var full strings.Builder
-	if first.Content != "" {
-		full.WriteString(first.Content)
-		if err := streamSink.AppendAssistantMessage(ctx, messageID, first.Content); err != nil {
+	appendContent := func(content string) error {
+		if content == "" {
+			return nil
+		}
+		if err := finishReasoning(); err != nil {
 			return err
 		}
+		if messageID == "" {
+			var err error
+			messageID, err = streamSink.BeginAssistantMessage(ctx)
+			if err != nil {
+				return err
+			}
+		}
+		full.WriteString(content)
+		return streamSink.AppendAssistantMessage(ctx, messageID, content)
+	}
+	if err := appendContent(first.Content); err != nil {
+		return false, err
 	}
 	for {
 		chunk, recvErr := stream.Recv()
@@ -470,26 +546,28 @@ func consumeAssistantStream(ctx context.Context, sink studioapp.AgentSink, strea
 			break
 		}
 		if recvErr != nil {
-			return recvErr
+			return false, recvErr
 		}
 		if chunk == nil {
 			continue
 		}
 		if value, _ := chunk.Extra["pixoma.reasoning"].(string); strings.TrimSpace(value) != "" {
-			if err := emitReasoning(ctx, sink, value); err != nil {
-				return err
+			if err := appendReasoning(value); err != nil {
+				return false, err
 			}
 		}
-		if chunk.Content == "" {
-			continue
-		}
-		full.WriteString(chunk.Content)
-		if err := streamSink.AppendAssistantMessage(ctx, messageID, chunk.Content); err != nil {
-			return err
+		if err := appendContent(chunk.Content); err != nil {
+			return false, err
 		}
 	}
+	if err := finishReasoning(); err != nil {
+		return false, err
+	}
+	if messageID == "" {
+		return false, nil
+	}
 	_, err = streamSink.EndAssistantMessage(ctx, messageID, full.String())
-	return err
+	return true, err
 }
 
 func emitReasoning(ctx context.Context, sink studioapp.AgentSink, reasoning string) error {

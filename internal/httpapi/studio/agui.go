@@ -25,14 +25,24 @@ type aguiMessage struct {
 }
 
 type aguiRunInput struct {
-	ThreadID        string          `json:"threadId"`
-	RunID           string          `json:"runId"`
-	ProtocolVersion string          `json:"protocolVersion"`
-	Messages        []aguiMessage   `json:"messages"`
-	ForwardedProps  json.RawMessage `json:"forwardedProps"`
-	Tools           json.RawMessage `json:"tools"`
-	Context         json.RawMessage `json:"context"`
-	State           json.RawMessage `json:"state"`
+	ThreadID        string            `json:"threadId"`
+	RunID           string            `json:"runId"`
+	RequestID       string            `json:"requestId"`
+	AttachRunID     string            `json:"attachRunId"`
+	AfterSequence   uint64            `json:"afterSequence"`
+	ProtocolVersion string            `json:"protocolVersion"`
+	Messages        []aguiMessage     `json:"messages"`
+	ForwardedProps  json.RawMessage   `json:"forwardedProps"`
+	Tools           json.RawMessage   `json:"tools"`
+	Context         json.RawMessage   `json:"context"`
+	State           json.RawMessage   `json:"state"`
+	Resume          []aguiResumeEntry `json:"resume"`
+}
+
+type aguiResumeEntry struct {
+	InterruptID string          `json:"interruptId"`
+	Status      string          `json:"status"`
+	Payload     json.RawMessage `json:"payload"`
 }
 
 type aguiRunConfig struct {
@@ -82,24 +92,18 @@ func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
 	}
 	input.ThreadID = strings.TrimSpace(input.ThreadID)
 	input.RunID = strings.TrimSpace(input.RunID)
+	input.AttachRunID = strings.TrimSpace(input.AttachRunID)
 	text := lastAGUIUserText(input.Messages)
-	if input.ThreadID == "" || input.RunID == "" || text == "" {
+	if input.ThreadID == "" || input.RunID == "" || (text == "" && len(input.Resume) == 0 && input.AttachRunID == "") {
 		response.Fail(w, apierr.ErrStudioStreamAGUIMissingFields, "会话、运行和用户消息不能为空")
 		return
 	}
-	config := decodeAGUIRunConfig(input.ForwardedProps)
-	if !config.PermissionMode.Valid() {
-		config.PermissionMode = domain.PermissionRequestApproval
-	}
-	result, err := h.Service.SendMessage(r.Context(), studioapp.SendMessageInput{
-		AccountID: accountID, SessionID: input.ThreadID, Text: text,
-		ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode, SkillIDs: config.SelectedSkillIDs, SelectedAssetIDs: config.SelectedAssetIDs, SelectedAssets: toAssetReferences(config.SelectedAssets),
-	})
+	studioRunID, after, err := h.prepareAGUIRun(r.Context(), accountID, input, text)
 	if err != nil {
 		failFromError(w, err)
 		return
 	}
-	history, events, unsubscribe := h.subscribeAGUIEvents(result.Run.ID)
+	_, events, unsubscribe := h.subscribeAGUIEventsAfter(studioRunID, after)
 	defer unsubscribe()
 
 	flusher, ok := w.(http.Flusher)
@@ -113,13 +117,12 @@ func (h *Handler) streamAGUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 	writeAGUIEvent(w, flusher, 0, map[string]any{
 		"type": "RUN_STARTED", "threadId": input.ThreadID, "runId": input.RunID,
-		"protocolVersion": "1.0", "metadata": map[string]any{"studioRunId": result.Run.ID},
+		"protocolVersion": "1.0", "metadata": map[string]any{"studioRunId": studioRunID},
 	})
 
-	var after uint64
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
-	h.pumpAGUI(r.Context(), accountID, result.Run.ID, input, after, history, events, ticker.C, func(sequence uint64, event map[string]any) error {
+	h.pumpAGUI(r.Context(), accountID, studioRunID, input, after, events, ticker.C, func(sequence uint64, event map[string]any) error {
 		writeAGUIEvent(w, flusher, sequence, event)
 		return nil
 	})
@@ -143,169 +146,169 @@ func (h *Handler) streamAGUIWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	input.ThreadID = strings.TrimSpace(input.ThreadID)
 	input.RunID = strings.TrimSpace(input.RunID)
+	input.AttachRunID = strings.TrimSpace(input.AttachRunID)
 	text := lastAGUIUserText(input.Messages)
-	if input.ThreadID == "" || input.RunID == "" || text == "" {
+	if input.ThreadID == "" || input.RunID == "" || (text == "" && len(input.Resume) == 0 && input.AttachRunID == "") {
 		_ = conn.WriteJSON(aguiRunError(input, "会话、运行和用户消息不能为空"))
 		return
 	}
-	config := decodeAGUIRunConfig(input.ForwardedProps)
-	if !config.PermissionMode.Valid() {
-		config.PermissionMode = domain.PermissionRequestApproval
-	}
-	result, err := h.Service.SendMessage(r.Context(), studioapp.SendMessageInput{
-		AccountID: accountID, SessionID: input.ThreadID, Text: text,
-		ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode, SkillIDs: config.SelectedSkillIDs, SelectedAssetIDs: config.SelectedAssetIDs, SelectedAssets: toAssetReferences(config.SelectedAssets),
-	})
+	studioRunID, after, err := h.prepareAGUIRun(r.Context(), accountID, input, text)
 	if err != nil {
 		_ = conn.WriteJSON(aguiRunError(input, err.Error()))
 		return
 	}
-	history, events, unsubscribe := h.subscribeAGUIEvents(result.Run.ID)
+	_, events, unsubscribe := h.subscribeAGUIEventsAfter(studioRunID, after)
 	defer unsubscribe()
 	if err := conn.WriteJSON(map[string]any{
 		"type": "RUN_STARTED", "threadId": input.ThreadID, "runId": input.RunID,
-		"protocolVersion": "1.0", "metadata": map[string]any{"studioRunId": result.Run.ID},
+		"protocolVersion": "1.0", "metadata": map[string]any{"studioRunId": studioRunID},
 	}); err != nil {
 		return
 	}
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
-	_ = h.pumpAGUI(r.Context(), accountID, result.Run.ID, input, 0, history, events, ticker.C, func(_ uint64, event map[string]any) error {
+	_ = h.pumpAGUI(r.Context(), accountID, studioRunID, input, after, events, ticker.C, func(sequence uint64, event map[string]any) error {
+		if sequence > 0 {
+			event["sequence"] = sequence
+		}
 		return conn.WriteJSON(event)
 	})
 }
 
-func (h *Handler) subscribeAGUIEvents(runID string) ([]studioapp.LiveEvent, <-chan studioapp.LiveEvent, func()) {
+func (h *Handler) subscribeAGUIEventsAfter(runID string, after uint64) ([]studioapp.LiveEvent, <-chan studioapp.LiveEvent, func()) {
 	if h.Events == nil {
 		return []studioapp.LiveEvent{}, nil, func() {}
+	}
+	if stream, ok := h.Events.(studioapp.EventStreamAfter); ok {
+		return stream.SubscribeAfter(runID, after)
 	}
 	return h.Events.Subscribe(runID)
 }
 
-func (h *Handler) pumpAGUI(ctx context.Context, accountID, studioRunID string, input aguiRunInput, after uint64, history []studioapp.LiveEvent, liveEvents <-chan studioapp.LiveEvent, ticks <-chan time.Time, emit func(uint64, map[string]any) error) error {
-	if liveEvents != nil {
-		for _, event := range history {
-			if err := emitLiveAGUIEvent(event, input, emit); err != nil {
-				return err
-			}
-			if event.Type == studioapp.EventRunFinished {
-				return nil
-			}
+func (h *Handler) prepareAGUIRun(ctx context.Context, accountID string, input aguiRunInput, text string) (string, uint64, error) {
+	if input.AttachRunID != "" {
+		run, err := h.Repo.GetRun(ctx, accountID, input.AttachRunID)
+		if err != nil {
+			return "", 0, err
 		}
-		return h.pumpLiveAGUI(ctx, accountID, studioRunID, input, liveEvents, ticks, emit)
+		if run.SessionID != input.ThreadID {
+			return "", 0, fmt.Errorf("%w: attached run does not belong to thread", domain.ErrInvalid)
+		}
+		persistedSequence, err := h.Repo.LastRunEventSequence(ctx, accountID, run.ID)
+		if err != nil {
+			return "", 0, err
+		}
+		if input.AfterSequence > persistedSequence {
+			return "", 0, fmt.Errorf("%w: invalid attach cursor", domain.ErrInvalid)
+		}
+		return run.ID, input.AfterSequence, nil
 	}
+	if len(input.Resume) == 0 {
+		requestID := strings.TrimSpace(input.RequestID)
+		if requestID == "" {
+			requestID = input.RunID
+		}
+		config := decodeAGUIRunConfig(input.ForwardedProps)
+		if !config.PermissionMode.Valid() {
+			config.PermissionMode = domain.PermissionRequestApproval
+		}
+		result, err := h.Service.SendMessage(ctx, studioapp.SendMessageInput{
+			AccountID: accountID, SessionID: input.ThreadID, RequestID: requestID, Text: text,
+			ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode,
+			SkillIDs: config.SelectedSkillIDs, SelectedAssetIDs: config.SelectedAssetIDs,
+			SelectedAssets: toAssetReferences(config.SelectedAssets),
+		})
+		if err != nil {
+			return "", 0, err
+		}
+		return result.Run.ID, 0, nil
+	}
+	if len(input.Resume) != 1 {
+		return "", 0, fmt.Errorf("studio: only one approval can be resumed at a time")
+	}
+	entry := input.Resume[0]
+	if entry.InterruptID == "" || (entry.Status != "resolved" && entry.Status != "cancelled") {
+		return "", 0, fmt.Errorf("studio: invalid AG-UI resume entry")
+	}
+	approval, err := h.Repo.GetApproval(ctx, accountID, entry.InterruptID)
+	if err != nil {
+		return "", 0, err
+	}
+	after, err := h.Repo.LastRunEventSequence(ctx, accountID, approval.RunID)
+	if err != nil {
+		return "", 0, err
+	}
+	approved := false
+	if entry.Status == "resolved" {
+		if err := json.Unmarshal(entry.Payload, &approved); err != nil {
+			return "", 0, fmt.Errorf("studio: approval response must be boolean: %w", err)
+		}
+	}
+	if h.Approvals == nil {
+		return "", 0, fmt.Errorf("studio: approval service is not configured")
+	}
+	if err := h.Approvals.Resolve(ctx, studioapp.ResolveApprovalInput{
+		AccountID: accountID, ApprovalID: entry.InterruptID, Approved: approved,
+	}); err != nil {
+		return "", 0, err
+	}
+	return approval.RunID, after, nil
+}
+
+func (h *Handler) pumpAGUI(ctx context.Context, accountID, studioRunID string, input aguiRunInput, after uint64, liveEvents <-chan studioapp.LiveEvent, ticks <-chan time.Time, emit func(uint64, map[string]any) error) error {
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		events, err := h.Repo.ListEventsAfter(ctx, accountID, studioRunID, after, 200)
-		if err != nil {
-			return emit(after+1, aguiRunError(input, "读取运行事件失败"))
+		for {
+			page, err := h.Repo.ListEventsAfter(ctx, accountID, studioRunID, after, 200)
+			if err != nil {
+				return emit(0, aguiRunError(input, "读取运行事件失败"))
+			}
+			for _, event := range page {
+				after = event.Sequence
+				mapped := mapStudioEventToAGUI(event.Type, event.Payload, input.ThreadID, input.RunID)
+				if mapped != nil {
+					if err := emit(event.Sequence, mapped); err != nil {
+						return err
+					}
+				}
+				if event.Type == studioapp.EventRunFinished {
+					return nil
+				}
+			}
+			if len(page) < 200 {
+				break
+			}
 		}
-		for _, event := range events {
-			after = event.Sequence
-			mapped := mapStudioEventToAGUI(event.Type, event.Payload, input.ThreadID, input.RunID)
-			if mapped == nil {
-				continue
-			}
-			if err := emit(event.Sequence, mapped); err != nil {
-				return err
-			}
-			if event.Type == studioapp.EventRunFinished {
-				return nil
-			}
-		}
-
 		run, err := h.Repo.GetRun(ctx, accountID, studioRunID)
 		if err != nil {
-			return emit(after+1, aguiRunError(input, "读取运行状态失败"))
+			return emit(0, aguiRunError(input, "读取运行状态失败"))
 		}
 		switch run.Status {
+		case domain.RunSucceeded:
+			return emit(0, map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "success"}})
 		case domain.RunWaitingApproval:
-			approvals, _ := h.Repo.ListApprovals(ctx, accountID, run.ID)
-			interrupts := make([]map[string]any, 0, len(approvals))
-			for _, approval := range approvals {
-				if approval.Status != domain.ApprovalPending {
-					continue
-				}
-				interrupts = append(interrupts, map[string]any{
-					"id": approval.ID, "reason": "tool_approval", "message": "需要批准后继续执行",
-					"toolCallId":     approval.ToolCallID,
-					"responseSchema": map[string]any{"type": "boolean"},
-				})
+			approvals, err := h.Repo.ListApprovals(ctx, accountID, run.ID)
+			if err != nil {
+				return emit(0, aguiRunError(input, "读取批准状态失败"))
 			}
-			if len(interrupts) > 0 {
-				if err := emit(after+1, map[string]any{
-					"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID,
-					"outcome": map[string]any{"type": "interrupt", "interrupts": interrupts},
-				}); err != nil {
-					return err
-				}
-				return nil
+			if interrupts := pendingAGUIInterrupts(approvals); len(interrupts) > 0 {
+				return emit(0, map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "interrupt", "interrupts": interrupts}})
 			}
 		case domain.RunFailed:
-			return emit(after+1, aguiRunError(input, run.ErrorMessage))
+			return emit(0, aguiRunError(input, run.ErrorMessage))
 		case domain.RunCancelled:
-			if err := emit(after+1, map[string]any{
-				"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID,
-				"outcome": map[string]any{"type": "cancelled"},
-			}); err != nil {
-				return err
-			}
-			return nil
+			return emit(0, map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "cancelled"}})
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticks:
-		}
-	}
-}
-
-func emitLiveAGUIEvent(event studioapp.LiveEvent, input aguiRunInput, emit func(uint64, map[string]any) error) error {
-	mapped := mapStudioEventToAGUI(event.Type, event.Payload, input.ThreadID, input.RunID)
-	if mapped == nil {
-		return nil
-	}
-	return emit(event.Sequence, mapped)
-}
-
-func (h *Handler) pumpLiveAGUI(ctx context.Context, accountID, studioRunID string, input aguiRunInput, liveEvents <-chan studioapp.LiveEvent, ticks <-chan time.Time, emit func(uint64, map[string]any) error) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case event := <-liveEvents:
-			if err := emitLiveAGUIEvent(event, input, emit); err != nil {
-				return err
-			}
-			if event.Type == studioapp.EventRunFinished {
-				return nil
+		case _, ok := <-liveEvents:
+			if !ok {
+				liveEvents = nil
 			}
 		case <-ticks:
-			run, err := h.Repo.GetRun(ctx, accountID, studioRunID)
-			if err != nil {
-				return emit(0, aguiRunError(input, "读取运行状态失败"))
-			}
-			switch run.Status {
-			case domain.RunWaitingApproval:
-				approvals, _ := h.Repo.ListApprovals(ctx, accountID, run.ID)
-				interrupts := pendingAGUIInterrupts(approvals)
-				if len(interrupts) == 0 {
-					continue
-				}
-				return emit(0, map[string]any{
-					"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID,
-					"outcome": map[string]any{"type": "interrupt", "interrupts": interrupts},
-				})
-			case domain.RunFailed:
-				return emit(0, aguiRunError(input, run.ErrorMessage))
-			case domain.RunCancelled:
-				return emit(0, map[string]any{
-					"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID,
-					"outcome": map[string]any{"type": "cancelled"},
-				})
-			}
 		}
 	}
 }

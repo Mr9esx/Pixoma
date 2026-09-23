@@ -55,6 +55,39 @@ describe('Studio production workspace contract', () => {
     expect(read('../../routes/_app/studio.tsx')).toContain('StudioWorkspace')
   })
 
+  it('reconciles active runs when the page becomes visible or online again', () => {
+    const workspace = read('./studio-workspace.tsx')
+    const sidebar = read('./studio-sidebar.tsx')
+    expect(workspace).toContain("refetchOnMount: 'always'")
+    expect(workspace).toContain('refetchOnWindowFocus: true')
+    expect(workspace).toContain("addEventListener('visibilitychange'")
+    expect(workspace).toContain("addEventListener('online'")
+    expect(workspace).toContain('onRuntimeStateChange')
+    expect(sidebar).toContain('StatusDot')
+    expect(sidebar).toContain('waiting_approval')
+    expect(sidebar).toContain('succeeded')
+  })
+
+  it('keeps the chat mounted while refreshing and replays a new runtime from event zero', () => {
+    const workspace = read('./studio-workspace.tsx')
+    const chat = read('./studio-chat.tsx')
+    expect(workspace).not.toContain('(detail.isFetching &&')
+    expect(chat).not.toContain('afterSequence: props.runProgress?.last_sequence')
+    expect(chat).toContain('afterSequence: 0')
+  })
+
+  it('sends stop to the Studio backend before ending the local run', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain('cancelStudioRun(runID)')
+    expect(source).toContain('agent.activeStudioRunId()')
+  })
+
+  it('blocks a second send while the server still owns an active run', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain("props.latestRun?.status === 'waiting_approval'")
+    expect(source).toContain('if (!modelReady || runActive || !text.trim()) return')
+  })
+
   it('mounts the Studio sidebar primitives inside their provider', () => {
     const layout = read('../../routes/_app.tsx')
     const studioLayout = layout.slice(layout.indexOf('function StudioLayout'))
@@ -71,10 +104,13 @@ describe('Studio production workspace contract', () => {
     expect(sidebar).toContain("to='/'")
     expect(sidebar).not.toContain('<aside')
     expect(sidebar).not.toContain('<Avatar')
+    expect(sidebar).toContain("<Sidebar collapsible='none' className='p-2'>")
     expect(sidebar).toContain("isActive={view === 'chat'}")
-    expect(sidebar).toContain("className='min-h-0 flex-1 px-2 py-1'")
+    expect(sidebar).toContain("className='min-h-0 flex-1 ps-2 pe-0 py-1'")
     expect(sidebar).toContain('<SidebarGroupLabel>最近对话</SidebarGroupLabel>')
-    expect(sidebar).toContain("<SidebarMenu className='pb-2'>")
+    expect(sidebar).toContain(
+      "<SidebarMenu className='w-full min-w-0 self-stretch pb-2'>"
+    )
     expect(sidebar).toContain("from '@/components/ui/button'")
     expect(sidebar).toContain('MessageSquarePlus')
     expect(sidebar).toContain("className='mt-2 w-full'")
@@ -185,6 +221,27 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('MessageResponse')
     expect(source).toContain('ReasoningContent')
     expect(source).toContain('ToolHeader')
+  })
+
+  it('renders AG-UI approval interrupts with an actionable AI Elements confirmation', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain('useAgUiInterrupts')
+    expect(source).toContain('useAgUiSubmitInterruptResponses')
+    expect(source).toContain("from '@/components/ai-elements/confirmation'")
+    expect(source).toContain('ConfirmationAction')
+    expect(source).toContain("status: approved ? 'resolved' : 'cancelled'")
+  })
+
+  it('enables Streamdown animation for streaming answers and reasoning', () => {
+    const message = read('../../components/ai-elements/message.tsx')
+    const reasoning = read('../../components/ai-elements/reasoning.tsx')
+    expect(message).toContain(
+      'animated={animated ?? (isAnimating ? true : undefined)}'
+    )
+    expect(reasoning).toContain('useReasoning()')
+    expect(reasoning).toContain(
+      'animated={isStreaming ? true : undefined}'
+    )
   })
 
   it('renders AG-UI run errors in the conversation instead of dropping them', () => {

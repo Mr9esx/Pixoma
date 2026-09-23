@@ -52,6 +52,11 @@ func TestProjectSessionTranscriptReplaysReasoningToolsAndTextInOrder(t *testing.
 	if transcript.Messages[4].Role != "assistant" || transcript.Messages[4].Content != "结论如下" {
 		t.Fatalf("assistant message = %#v", transcript.Messages[4])
 	}
+	for i := 1; i < len(transcript.Messages); i++ {
+		if transcript.Messages[i].RunID != run.ID {
+			t.Fatalf("message[%d] run id = %q, want %q", i, transcript.Messages[i].RunID, run.ID)
+		}
+	}
 	if len(transcript.Events) != 9 || transcript.Events[4].Sequence != 5 {
 		t.Fatalf("events = %#v", transcript.Events)
 	}

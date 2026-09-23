@@ -6,7 +6,7 @@ import {
 } from '@ag-ui/client'
 import { Observable } from 'rxjs'
 
-type StudioRunConfig = {
+export type StudioRunConfig = {
   modelConfigId: string
   permissionMode: string
   selectedSkillIds: string[]
@@ -24,8 +24,13 @@ type Config = AgentConfig & {
  */
 export class StudioWebSocketAgent extends AbstractAgent {
   private readonly url: string
-  private readonly runConfig: StudioRunConfig
+  private runConfig: StudioRunConfig
   private socket?: WebSocket
+  private studioRunId?: string
+
+  activeStudioRunId(): string | undefined {
+    return this.studioRunId
+  }
 
   constructor(config: Config) {
     super(config)
@@ -33,45 +38,92 @@ export class StudioWebSocketAgent extends AbstractAgent {
     this.runConfig = config.runConfig
   }
 
+  updateRunConfig(runConfig: StudioRunConfig): void {
+    this.runConfig = runConfig
+  }
+
   run(input: RunAgentInput): Observable<BaseEvent> {
     const forwardedProps = {
       ...(input.forwardedProps ?? {}),
       runConfig: this.runConfig,
     }
-    const request = { ...input, forwardedProps }
+    const request = { ...input, requestId: input.runId, forwardedProps }
     return new Observable<BaseEvent>((subscriber) => {
-      const socket = new WebSocket(this.url)
-      this.socket = socket
-      let closed = false
-
-      socket.onopen = () => {
-        if (!closed) socket.send(JSON.stringify(request))
-      }
-      socket.onmessage = (message) => {
-        try {
-          subscriber.next(JSON.parse(String(message.data)) as BaseEvent)
-        } catch (error) {
-          subscriber.error(
-            error instanceof Error ? error : new Error('无法解析 Agent 事件')
-          )
+      this.studioRunId = undefined
+      let lastSequence = 0
+      let started = false
+      let ended = false
+      let retries = 0
+      let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+      const connect = () => {
+        if (ended) return
+        const socket = new WebSocket(this.url)
+        this.socket = socket
+        let disconnected = false
+        const reconnect = () => {
+          if (ended || disconnected) return
+          disconnected = true
+          if (this.socket === socket) this.socket = undefined
+          reconnectTimer = setTimeout(connect, Math.min(100 * 2 ** retries++, 2000))
         }
+        socket.onopen = () => {
+          if (ended) return
+          socket.send(JSON.stringify(this.studioRunId
+            ? {
+                threadId: input.threadId,
+                runId: input.runId,
+                attachRunId: this.studioRunId,
+                afterSequence: lastSequence,
+                messages: [],
+                protocolVersion: '1.0',
+              }
+            : request))
+        }
+        socket.onmessage = (message) => {
+          try {
+            const event = JSON.parse(String(message.data)) as BaseEvent & {
+              sequence?: number
+              metadata?: { studioRunId?: string }
+            }
+            if (event.type === 'RUN_STARTED') {
+              if (event.metadata?.studioRunId) this.studioRunId = event.metadata.studioRunId
+              if (started) return
+              started = true
+            }
+            if (typeof event.sequence === 'number' && event.sequence > 0) {
+              if (event.sequence <= lastSequence) return
+              lastSequence = event.sequence
+              retries = 0
+            }
+            subscriber.next(event)
+            if (event.type === 'RUN_FINISHED' || event.type === 'RUN_ERROR') {
+              ended = true
+              subscriber.complete()
+            }
+          } catch (error) {
+            ended = true
+            subscriber.error(error instanceof Error ? error : new Error('无法解析 Agent 事件'))
+          }
+        }
+        socket.onerror = () => {
+          reconnect()
+          socket.close()
+        }
+        socket.onclose = reconnect
       }
-      socket.onerror = () => {
-        subscriber.error(new Error('Agent WebSocket 连接失败'))
-      }
-      socket.onclose = () => {
-        if (!closed) subscriber.complete()
-      }
+      connect()
 
       return () => {
-        closed = true
+        ended = true
+        if (reconnectTimer) clearTimeout(reconnectTimer)
+        const socket = this.socket
         if (
-          socket.readyState === WebSocket.OPEN ||
-          socket.readyState === WebSocket.CONNECTING
+          socket && (socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING)
         ) {
           socket.close()
         }
-        if (this.socket === socket) this.socket = undefined
+        this.socket = undefined
       }
     })
   }

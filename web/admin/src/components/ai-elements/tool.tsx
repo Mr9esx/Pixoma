@@ -1,7 +1,6 @@
 'use client'
 
-import type { ComponentProps, ReactNode } from 'react'
-import { isValidElement } from 'react'
+import { type ComponentProps, type ReactNode, isValidElement } from 'react'
 import type { DynamicToolUIPart, ToolUIPart } from 'ai'
 import {
   CheckCircleIcon,
@@ -18,7 +17,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { CodeBlock } from './code-block'
 
 export type ToolProps = ComponentProps<typeof Collapsible>
 
@@ -124,9 +122,9 @@ export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
     <h4 className='text-xs font-medium tracking-wide text-muted-foreground uppercase'>
       参数
     </h4>
-    <div className='rounded-md bg-muted/50'>
-      <CodeBlock code={JSON.stringify(input, null, 2)} language='json' />
-    </div>
+    <pre className='overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-5'>
+      {JSON.stringify(input, null, 2)}
+    </pre>
   </div>
 )
 
@@ -149,10 +147,10 @@ export const ToolOutput = ({
 
   if (typeof output === 'object' && !isValidElement(output)) {
     Output = (
-      <CodeBlock code={JSON.stringify(output, null, 2)} language='json' />
+      <pre className='p-3 font-mono'>{JSON.stringify(output, null, 2)}</pre>
     )
   } else if (typeof output === 'string') {
-    Output = <CodeBlock code={output} language='json' />
+    Output = <pre className='p-3 font-mono'>{output}</pre>
   }
 
   return (

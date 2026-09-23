@@ -42,23 +42,47 @@ type MessageRow struct {
 func (MessageRow) TableName() string { return "studio_messages" }
 
 type RunRow struct {
-	ID               string    `gorm:"primaryKey;size:64;index:idx_studio_runs_trace_page,priority:4"`
-	SessionID        string    `gorm:"size:64;not null;index;index:idx_studio_runs_trace_page,priority:2"`
-	AccountID        string    `gorm:"size:64;not null;index;index:idx_studio_runs_trace_page,priority:1"`
-	TriggerMessageID string    `gorm:"size:64;not null;index"`
-	Status           string    `gorm:"size:32;not null;index"`
-	ModelConfigID    string    `gorm:"size:64;index"`
-	SkillIDsJSON     []byte    `gorm:"type:blob"`
-	AssetIDsJSON     []byte    `gorm:"type:blob"`
-	ErrorCode        string    `gorm:"size:128"`
-	ErrorMessage     string    `gorm:"type:text"`
-	CreatedAt        time.Time `gorm:"index:idx_studio_runs_trace_page,priority:3"`
-	StartedAt        time.Time
-	CompletedAt      time.Time
-	UpdatedAt        time.Time
+	ID                string    `gorm:"primaryKey;size:64;index:idx_studio_runs_trace_page,priority:4"`
+	SessionID         string    `gorm:"size:64;not null;index;uniqueIndex:idx_studio_runs_request;index:idx_studio_runs_trace_page,priority:2"`
+	AccountID         string    `gorm:"size:64;not null;index;uniqueIndex:idx_studio_runs_request;index:idx_studio_runs_trace_page,priority:1"`
+	RequestID         *string   `gorm:"size:128;uniqueIndex:idx_studio_runs_request"`
+	TriggerMessageID  string    `gorm:"size:64;not null;index"`
+	LastEventSequence uint64    `gorm:"not null;default:0"`
+	Status            string    `gorm:"size:32;not null;index"`
+	ModelConfigID     string    `gorm:"size:64;index"`
+	SkillIDsJSON      []byte    `gorm:"type:blob"`
+	AssetIDsJSON      []byte    `gorm:"type:blob"`
+	ErrorCode         string    `gorm:"size:128"`
+	ErrorMessage      string    `gorm:"type:text"`
+	CreatedAt         time.Time `gorm:"index:idx_studio_runs_trace_page,priority:3"`
+	StartedAt         time.Time
+	CompletedAt       time.Time
+	UpdatedAt         time.Time
 }
 
 func (RunRow) TableName() string { return "studio_runs" }
+
+type RunProgressRow struct {
+	RunID              string `gorm:"primaryKey;size:64"`
+	SessionID          string `gorm:"size:64;not null;index"`
+	AccountID          string `gorm:"size:64;not null;index"`
+	AssistantMessageID string `gorm:"size:64"`
+	AssistantText      string `gorm:"type:text"`
+	ReasoningText      string `gorm:"type:text"`
+	ToolCallsJSON      []byte `gorm:"type:blob"`
+	LastSequence       uint64 `gorm:"not null"`
+	UpdatedAt          time.Time
+}
+
+func (RunProgressRow) TableName() string { return "studio_run_progress" }
+
+type CheckpointRow struct {
+	RunID     string `gorm:"primaryKey;size:64"`
+	Data      []byte `gorm:"type:blob;not null"`
+	UpdatedAt time.Time
+}
+
+func (CheckpointRow) TableName() string { return "studio_run_checkpoints" }
 
 type EventRow struct {
 	ID             string `gorm:"primaryKey;size:64"`
@@ -196,7 +220,7 @@ func (FlowEdgeRow) TableName() string { return "studio_flow_edges" }
 
 func Models() []any {
 	return []any{
-		&SessionRow{}, &MessageRow{}, &RunRow{}, &EventRow{}, &ApprovalRow{},
+		&SessionRow{}, &MessageRow{}, &RunRow{}, &RunProgressRow{}, &CheckpointRow{}, &EventRow{}, &ApprovalRow{},
 		&WorkflowExecutionRow{},
 		&AssetRow{}, &AssetVersionRow{}, &LibraryFolderRow{}, &LibraryAssetRow{},
 		&FlowNodeRow{}, &FlowEdgeRow{}, &ModelConfigRow{},
@@ -332,6 +356,72 @@ func (r *GormRepository) CreateRun(ctx context.Context, run *domain.Run) error {
 	return translateCreateError(r.db.WithContext(ctx).Create(runToRow(run)).Error)
 }
 
+func (r *GormRepository) GetRunByRequestID(ctx context.Context, accountID, sessionID, requestID string) (*domain.Run, error) {
+	if requestID == "" {
+		return nil, domain.ErrNotFound
+	}
+	var row RunRow
+	err := r.db.WithContext(ctx).Where("account_id = ? AND session_id = ? AND request_id = ?", accountID, sessionID, requestID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return runFromRow(row), nil
+}
+
+// CreateRunTurn is the only path that creates a user message and its Run. The
+// session row serializes competing sends across processes before active-run
+// and request-id checks, so retries cannot create duplicate user turns.
+func (r *GormRepository) CreateRunTurn(ctx context.Context, message *domain.Message, run *domain.Run) (*domain.Run, bool, error) {
+	if message == nil || run == nil || run.RequestID == "" ||
+		message.RunID != run.ID || message.ID != run.TriggerMessageID ||
+		message.AccountID != run.AccountID || message.SessionID != run.SessionID {
+		return nil, false, fmt.Errorf("%w: invalid run turn", domain.ErrInvalid)
+	}
+	var stored *domain.Run
+	created := false
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		locked := tx.Model(&SessionRow{}).
+			Where("id = ? AND account_id = ?", run.SessionID, run.AccountID).
+			UpdateColumn("updated_at", gorm.Expr("updated_at"))
+		if err := resultError(locked); err != nil {
+			return err
+		}
+		var existing RunRow
+		err := tx.Where("account_id = ? AND session_id = ? AND request_id = ?", run.AccountID, run.SessionID, run.RequestID).First(&existing).Error
+		if err == nil {
+			stored = runFromRow(existing)
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		err = tx.Where("account_id = ? AND session_id = ? AND status IN ?", run.AccountID, run.SessionID,
+			[]string{string(domain.RunQueued), string(domain.RunRunning), string(domain.RunWaitingApproval)}).
+			First(&existing).Error
+		if err == nil {
+			return fmt.Errorf("%w: session has active run %s", domain.ErrInvalidTransition, existing.ID)
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err := tx.Create(messageToRow(message)).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(runToRow(run)).Error; err != nil {
+			return err
+		}
+		stored, created = run, true
+		return nil
+	})
+	if err != nil {
+		return nil, false, translateCreateError(err)
+	}
+	return stored, created, nil
+}
+
 func (r *GormRepository) UpdateRun(ctx context.Context, run *domain.Run) error {
 	if run == nil {
 		return fmt.Errorf("%w: nil run", domain.ErrInvalid)
@@ -420,6 +510,71 @@ func (r *GormRepository) ListRunTraceSummaryEvents(ctx context.Context, accountI
 	return events, nil
 }
 
+func (r *GormRepository) ListLatestSessionRuns(ctx context.Context, accountID string, sessionIDs []string) (map[string]*domain.Run, error) {
+	latest := make(map[string]*domain.Run)
+	if len(sessionIDs) == 0 {
+		return latest, nil
+	}
+
+	var rows []RunRow
+	if err := r.db.WithContext(ctx).
+		Where("account_id = ? AND session_id IN ?", accountID, sessionIDs).
+		Order("session_id ASC, created_at DESC, id DESC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if _, exists := latest[row.SessionID]; exists {
+			continue
+		}
+		latest[row.SessionID] = runFromRow(row)
+	}
+	return latest, nil
+}
+
+func (r *GormRepository) GetRunProgress(ctx context.Context, accountID, runID string) (*domain.RunProgress, error) {
+	var row RunProgressRow
+	err := r.db.WithContext(ctx).Where("account_id = ? AND run_id = ?", accountID, runID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return runProgressFromRow(row), nil
+}
+
+func (r *GormRepository) UpsertRunProgress(ctx context.Context, progress *domain.RunProgress) error {
+	if progress == nil || progress.RunID == "" || progress.SessionID == "" || progress.AccountID == "" {
+		return fmt.Errorf("%w: run progress ownership is required", domain.ErrInvalid)
+	}
+	row := runProgressToRow(progress)
+	var existing RunProgressRow
+	err := r.db.WithContext(ctx).Where("run_id = ? AND account_id = ?", progress.RunID, progress.AccountID).First(&existing).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return translateCreateError(r.db.WithContext(ctx).Create(row).Error)
+	case err != nil:
+		return err
+	default:
+		result := r.db.WithContext(ctx).Model(&RunProgressRow{}).
+			Where("run_id = ? AND account_id = ?", progress.RunID, progress.AccountID).
+			Updates(map[string]any{
+				"session_id":           row.SessionID,
+				"assistant_message_id": row.AssistantMessageID,
+				"assistant_text":       row.AssistantText,
+				"reasoning_text":       row.ReasoningText,
+				"tool_calls_json":      row.ToolCallsJSON,
+				"last_sequence":        row.LastSequence,
+				"updated_at":           row.UpdatedAt,
+			})
+		return resultError(result)
+	}
+}
+
+func (r *GormRepository) DeleteRunProgress(ctx context.Context, accountID, runID string) error {
+	return r.db.WithContext(ctx).Where("account_id = ? AND run_id = ?", accountID, runID).Delete(&RunProgressRow{}).Error
+}
+
 func (r *GormRepository) ListRecoverableRuns(ctx context.Context, limit int) ([]*domain.Run, error) {
 	var rows []RunRow
 	err := r.db.WithContext(ctx).
@@ -435,15 +590,75 @@ func (r *GormRepository) ListRecoverableRuns(ctx context.Context, limit int) ([]
 	return out, nil
 }
 
+func (r *GormRepository) ListRecoverableRunsAfter(ctx context.Context, afterID string, limit int) ([]*domain.Run, error) {
+	var rows []RunRow
+	err := r.db.WithContext(ctx).
+		Where("status IN ? AND id > ?", []string{string(domain.RunQueued), string(domain.RunRunning)}, afterID).
+		Order("id ASC").Limit(normalizeLimit(limit)).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Run, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, runFromRow(row))
+	}
+	return out, nil
+}
+
 func (r *GormRepository) AppendEvent(ctx context.Context, event *domain.Event) error {
 	if event == nil {
 		return fmt.Errorf("%w: nil event", domain.ErrInvalid)
 	}
 	row := eventToRow(event)
-	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "run_id"}, {Name: "sequence"}},
-		DoNothing: true,
-	}).Create(row).Error
+	return r.db.WithContext(ctx).Create(row).Error
+}
+
+// AppendRunEvent allocates a sequence under the Run row lock before inserting
+// the event. MAX(sequence) also accounts for events written before the cursor
+// column existed, including runs that already contain more than 200 events.
+func (r *GormRepository) AppendRunEvent(ctx context.Context, event *domain.Event) (*domain.Event, error) {
+	if event == nil || event.RunID == "" || event.AccountID == "" || event.Sequence != 0 {
+		return nil, fmt.Errorf("%w: run event requires an unnumbered owned run", domain.ErrInvalid)
+	}
+	stored := *event
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&RunRow{}).
+			Where("id = ? AND account_id = ?", event.RunID, event.AccountID).
+			UpdateColumn("last_event_sequence", gorm.Expr(
+				"CASE WHEN last_event_sequence < (SELECT COALESCE(MAX(sequence), 0) FROM studio_events WHERE run_id = ?) THEN (SELECT COALESCE(MAX(sequence), 0) FROM studio_events WHERE run_id = ?) + 1 ELSE last_event_sequence + 1 END",
+				event.RunID, event.RunID,
+			))
+		if err := resultError(result); err != nil {
+			return err
+		}
+		var row RunRow
+		if err := tx.Select("last_event_sequence").Where("id = ? AND account_id = ?", event.RunID, event.AccountID).First(&row).Error; err != nil {
+			return err
+		}
+		stored.Sequence = row.LastEventSequence
+		return tx.Create(eventToRow(&stored)).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &stored, nil
+}
+
+func (r *GormRepository) LastRunEventSequence(ctx context.Context, accountID, runID string) (uint64, error) {
+	var row RunRow
+	if err := r.db.WithContext(ctx).Select("id").Where("id = ? AND account_id = ?", runID, accountID).First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, domain.ErrNotFound
+		}
+		return 0, err
+	}
+	var sequence uint64
+	if err := r.db.WithContext(ctx).Model(&EventRow{}).
+		Where("run_id = ? AND account_id = ?", runID, accountID).
+		Select("COALESCE(MAX(sequence), 0)").Scan(&sequence).Error; err != nil {
+		return 0, err
+	}
+	return sequence, nil
 }
 
 func (r *GormRepository) ListEventsAfter(ctx context.Context, accountID, runID string, after uint64, limit int) ([]*domain.Event, error) {
@@ -892,7 +1107,11 @@ func runToRow(value *domain.Run) *RunRow {
 	if len(value.AssetReferences) > 0 {
 		assetIDs, _ = json.Marshal(value.AssetReferences)
 	}
-	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, SkillIDsJSON: skillIDs, AssetIDsJSON: assetIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
+	var requestID *string
+	if value.RequestID != "" {
+		requestID = &value.RequestID
+	}
+	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, RequestID: requestID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, SkillIDsJSON: skillIDs, AssetIDsJSON: assetIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func runFromRow(row RunRow) *domain.Run {
@@ -907,7 +1126,29 @@ func runFromRow(row RunRow) *domain.Run {
 	} else {
 		_ = json.Unmarshal(row.AssetIDsJSON, &assetIDs)
 	}
-	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, AssetIDs: assetIDs, AssetReferences: assetReferences, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
+	requestID := ""
+	if row.RequestID != nil {
+		requestID = *row.RequestID
+	}
+	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, RequestID: requestID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, AssetIDs: assetIDs, AssetReferences: assetReferences, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func runProgressToRow(value *domain.RunProgress) *RunProgressRow {
+	return &RunProgressRow{
+		RunID: value.RunID, SessionID: value.SessionID, AccountID: value.AccountID,
+		AssistantMessageID: value.AssistantMessageID, AssistantText: value.AssistantText,
+		ReasoningText: value.ReasoningText, ToolCallsJSON: append([]byte(nil), value.ToolCallsJSON...),
+		LastSequence: value.LastSequence, UpdatedAt: value.UpdatedAt,
+	}
+}
+
+func runProgressFromRow(row RunProgressRow) *domain.RunProgress {
+	return &domain.RunProgress{
+		RunID: row.RunID, SessionID: row.SessionID, AccountID: row.AccountID,
+		AssistantMessageID: row.AssistantMessageID, AssistantText: row.AssistantText,
+		ReasoningText: row.ReasoningText, ToolCallsJSON: append([]byte(nil), row.ToolCallsJSON...),
+		LastSequence: row.LastSequence, UpdatedAt: row.UpdatedAt,
+	}
 }
 
 func eventToRow(value *domain.Event) *EventRow {

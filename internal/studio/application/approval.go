@@ -15,14 +15,17 @@ type ApprovalRepository interface {
 	UpdateApproval(ctx context.Context, approval *domain.Approval) error
 	GetRun(ctx context.Context, accountID, runID string) (*domain.Run, error)
 	UpdateRun(ctx context.Context, run *domain.Run) error
-	AppendEvent(ctx context.Context, event *domain.Event) error
+	AppendRunEvent(ctx context.Context, event *domain.Event) (*domain.Event, error)
 }
 
 type ApprovalService struct {
-	Repo  ApprovalRepository
-	Queue RunQueue
-	IDs   func() string
-	Now   func() time.Time
+	Repo        ApprovalRepository
+	Queue       RunQueue
+	Checkpoints interface {
+		Get(context.Context, string) ([]byte, bool, error)
+	}
+	IDs func() string
+	Now func() time.Time
 }
 
 type ResolveApprovalInput struct {
@@ -39,7 +42,29 @@ func (s *ApprovalService) Resolve(ctx context.Context, input ResolveApprovalInpu
 	if err != nil {
 		return err
 	}
+	run, err := s.Repo.GetRun(ctx, input.AccountID, approval.RunID)
+	if err != nil {
+		return err
+	}
+	if run.Status != domain.RunWaitingApproval {
+		return domain.ErrInvalidTransition
+	}
 	now := s.now()
+	if input.Approved && s.Checkpoints != nil {
+		_, exists, checkpointErr := s.Checkpoints.Get(ctx, run.ID)
+		if checkpointErr != nil {
+			return checkpointErr
+		}
+		if !exists {
+			if err := run.Fail("checkpoint_missing", "批准检查点已丢失，请手动重试", now); err != nil {
+				return err
+			}
+			if err := s.Repo.UpdateRun(ctx, run); err != nil {
+				return err
+			}
+			return fmt.Errorf("%w: approval checkpoint missing; run interrupted", domain.ErrInvalidTransition)
+		}
+	}
 	if input.Approved {
 		err = approval.Approve(input.AccountID, now)
 	} else {
@@ -49,10 +74,6 @@ func (s *ApprovalService) Resolve(ctx context.Context, input ResolveApprovalInpu
 		return err
 	}
 	if err := s.Repo.UpdateApproval(ctx, approval); err != nil {
-		return err
-	}
-	run, err := s.Repo.GetRun(ctx, input.AccountID, approval.RunID)
-	if err != nil {
 		return err
 	}
 	if input.Approved {
@@ -65,18 +86,14 @@ func (s *ApprovalService) Resolve(ctx context.Context, input ResolveApprovalInpu
 	if err := s.Repo.UpdateRun(ctx, run); err != nil {
 		return err
 	}
-	events, err := s.nextEventSequence(ctx, input.AccountID, run.ID)
-	if err != nil {
-		return err
-	}
 	status := "rejected"
 	if input.Approved {
 		status = "approved"
 	}
 	payload := []byte(fmt.Sprintf(`{"approval_id":%q,"status":%q}`, approval.ID, status))
-	if err := s.Repo.AppendEvent(ctx, &domain.Event{
+	if _, err := s.Repo.AppendRunEvent(ctx, &domain.Event{
 		ID: s.nextID(), RunID: run.ID, SessionID: run.SessionID, AccountID: run.AccountID,
-		Sequence: events, Type: EventApprovalResolved, Payload: payload, CreatedAt: now,
+		Type: EventApprovalResolved, Payload: payload, CreatedAt: now,
 	}); err != nil {
 		return err
 	}
@@ -84,27 +101,6 @@ func (s *ApprovalService) Resolve(ctx context.Context, input ResolveApprovalInpu
 		return nil
 	}
 	return s.Queue.Enqueue(RunRef{AccountID: input.AccountID, RunID: run.ID})
-}
-
-func (s *ApprovalService) nextEventSequence(ctx context.Context, accountID, runID string) (uint64, error) {
-	type eventLister interface {
-		ListEventsAfter(context.Context, string, string, uint64, int) ([]*domain.Event, error)
-	}
-	repo, ok := s.Repo.(eventLister)
-	if !ok {
-		return 1, nil
-	}
-	events, err := repo.ListEventsAfter(ctx, accountID, runID, 0, 200)
-	if err != nil {
-		return 0, err
-	}
-	var sequence uint64
-	for _, event := range events {
-		if event.Sequence > sequence {
-			sequence = event.Sequence
-		}
-	}
-	return sequence + 1, nil
 }
 
 func (s *ApprovalService) nextID() string {

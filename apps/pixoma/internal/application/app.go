@@ -390,6 +390,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 			Online: &studioeino.Engine{
 				Models: studioModelService, Capabilities: studioCapabilityService,
 				Workflows: studioCapabilityService, WorkflowStarter: studioWorkflowStarter, Blob: blobStore,
+				Checkpoints: studioRepo.Checkpoints(),
 			},
 		},
 		Events: studioEvents,
@@ -402,7 +403,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		slog.Info("recovered studio runs", "count", recovered)
 	}
 	studioService := &studioapp.Service{Repo: studioRepo, Queue: studioRunner}
-	studioApprovalService := &studioapp.ApprovalService{Repo: studioRepo, Queue: studioRunner}
+	studioApprovalService := &studioapp.ApprovalService{Repo: studioRepo, Queue: studioRunner, Checkpoints: studioRepo.Checkpoints()}
 	menuRepo := mencardpersist.NewGormCardRepository(gdb)
 	caseDeleteSvc := caseapp.NewService(gdb, botRT.Notify)
 	adminH := adminhost.NewHandler(adminhost.Options{

@@ -15,6 +15,7 @@ import (
 // layer lets the HTTP and WebSocket paths share the same replay semantics.
 type TranscriptMessage struct {
 	ID         string               `json:"id"`
+	RunID      string               `json:"runId,omitempty"`
 	Role       string               `json:"role"`
 	Content    string               `json:"content"`
 	ToolCalls  []TranscriptToolCall `json:"toolCalls,omitempty"`
@@ -130,7 +131,7 @@ func (t *SessionTranscript) appendRunEvents(events []*domain.Event) {
 			}
 			if _, ok := reasoningIndices[messageID]; !ok {
 				reasoningIndices[messageID] = len(t.Messages)
-				t.Messages = append(t.Messages, TranscriptMessage{ID: messageID, Role: "reasoning"})
+				t.Messages = append(t.Messages, TranscriptMessage{ID: messageID, RunID: event.RunID, Role: "reasoning"})
 			}
 		case EventReasoningMessageContent:
 			if messageID == "" {
@@ -140,7 +141,7 @@ func (t *SessionTranscript) appendRunEvents(events []*domain.Event) {
 			if !ok {
 				index = len(t.Messages)
 				reasoningIndices[messageID] = index
-				t.Messages = append(t.Messages, TranscriptMessage{ID: messageID, Role: "reasoning"})
+				t.Messages = append(t.Messages, TranscriptMessage{ID: messageID, RunID: event.RunID, Role: "reasoning"})
 			}
 			t.Messages[index].Content += payload.stringValue("delta")
 		case EventTextMessageStart:
@@ -149,7 +150,7 @@ func (t *SessionTranscript) appendRunEvents(events []*domain.Event) {
 			}
 			if _, ok := assistantIndices[messageID]; !ok {
 				assistantIndices[messageID] = len(t.Messages)
-				t.Messages = append(t.Messages, TranscriptMessage{ID: messageID, Role: "assistant"})
+				t.Messages = append(t.Messages, TranscriptMessage{ID: messageID, RunID: event.RunID, Role: "assistant"})
 			}
 		case EventTextMessageContent:
 			if messageID == "" {
@@ -159,7 +160,7 @@ func (t *SessionTranscript) appendRunEvents(events []*domain.Event) {
 			if !ok {
 				index = len(t.Messages)
 				assistantIndices[messageID] = index
-				t.Messages = append(t.Messages, TranscriptMessage{ID: messageID, Role: "assistant"})
+				t.Messages = append(t.Messages, TranscriptMessage{ID: messageID, RunID: event.RunID, Role: "assistant"})
 			}
 			t.Messages[index].Content += payload.stringValue("delta")
 		case EventToolCallStart:
@@ -171,7 +172,7 @@ func (t *SessionTranscript) appendRunEvents(events []*domain.Event) {
 				index = len(t.Messages)
 				toolIndices[toolCallID] = index
 				t.Messages = append(t.Messages, TranscriptMessage{
-					ID: event.RunID + ":tool:" + toolCallID, Role: "assistant",
+					ID: event.RunID + ":tool:" + toolCallID, RunID: event.RunID, Role: "assistant",
 					ToolCalls: []TranscriptToolCall{{ID: toolCallID, Type: "function", Function: TranscriptFunctionCall{Name: payload.stringValue("tool_name")}}},
 				})
 			}
@@ -190,7 +191,7 @@ func (t *SessionTranscript) appendRunEvents(events []*domain.Event) {
 			if !ok {
 				index = len(t.Messages)
 				toolResultIndices[toolCallID] = index
-				t.Messages = append(t.Messages, TranscriptMessage{ID: event.RunID + ":tool-result:" + toolCallID, Role: "tool", ToolCallID: toolCallID})
+				t.Messages = append(t.Messages, TranscriptMessage{ID: event.RunID + ":tool-result:" + toolCallID, RunID: event.RunID, Role: "tool", ToolCallID: toolCallID})
 			}
 			if content := payload.stringValue("content"); content != "" {
 				t.Messages[index].Content = content
@@ -232,7 +233,7 @@ func transcriptMessagesFromStored(message *domain.Message) []TranscriptMessage {
 	var out []TranscriptMessage
 	for index, part := range parts {
 		if part.Type == "reasoning" {
-			out = append(out, TranscriptMessage{ID: message.ID + ":reasoning:" + strconv.Itoa(index), Role: "reasoning", Content: part.Text})
+			out = append(out, TranscriptMessage{ID: message.ID + ":reasoning:" + strconv.Itoa(index), RunID: message.RunID, Role: "reasoning", Content: part.Text})
 			continue
 		}
 		if part.Type == "text" {
@@ -240,7 +241,7 @@ func transcriptMessagesFromStored(message *domain.Message) []TranscriptMessage {
 		}
 	}
 	if text.Len() > 0 {
-		out = append(out, TranscriptMessage{ID: message.ID, Role: string(message.Role), Content: text.String()})
+		out = append(out, TranscriptMessage{ID: message.ID, RunID: message.RunID, Role: string(message.Role), Content: text.String()})
 	}
 	return out
 }

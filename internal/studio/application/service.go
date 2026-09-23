@@ -37,6 +37,7 @@ type Service struct {
 type SendMessageInput struct {
 	AccountID        string
 	SessionID        string
+	RequestID        string
 	Text             string
 	ModelConfigID    string
 	PermissionMode   domain.PermissionMode
@@ -76,8 +77,21 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	}
 	input.AccountID = strings.TrimSpace(input.AccountID)
 	input.Text = strings.TrimSpace(input.Text)
+	input.RequestID = strings.TrimSpace(input.RequestID)
 	if input.AccountID == "" || input.Text == "" {
 		return nil, fmt.Errorf("%w: account and message text are required", domain.ErrInvalid)
+	}
+	if input.RequestID == "" {
+		input.RequestID = uuid.NewString()
+	}
+	if input.SessionID != "" {
+		previous, err := s.Repo.GetRunByRequestID(ctx, input.AccountID, input.SessionID, input.RequestID)
+		if err == nil {
+			return s.existingTurn(ctx, previous, input.Text)
+		}
+		if err != domain.ErrNotFound {
+			return nil, err
+		}
 	}
 	now := s.now()
 
@@ -98,6 +112,7 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 		return nil, err
 	}
 	run.ModelConfigID = session.ModelConfigID
+	run.RequestID = input.RequestID
 	skillIDs, err := s.resolveSkillIDs(ctx, input.AccountID, input.SkillIDs)
 	if err != nil {
 		return nil, err
@@ -111,11 +126,12 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	run.AssetIDs = assetIDsFromReferences(assetReferences)
 	message.RunID = run.ID
 
-	if err := s.Repo.AppendMessage(ctx, message); err != nil {
+	stored, createdTurn, err := s.Repo.CreateRunTurn(ctx, message, run)
+	if err != nil {
 		return nil, err
 	}
-	if err := s.Repo.CreateRun(ctx, run); err != nil {
-		return nil, err
+	if !createdTurn {
+		return s.existingTurn(ctx, stored, input.Text)
 	}
 	if s.Queue == nil {
 		return nil, fmt.Errorf("studio: run queue is required")
@@ -126,6 +142,25 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 		return nil, err
 	}
 	_ = created // retained to make the create-vs-existing lifecycle explicit.
+	return &SendMessageResult{Session: session, Message: message, Run: run}, nil
+}
+
+func (s *Service) existingTurn(ctx context.Context, run *domain.Run, requestedText string) (*SendMessageResult, error) {
+	session, err := s.Repo.GetSession(ctx, run.AccountID, run.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	message, err := s.Repo.GetMessage(ctx, run.AccountID, run.TriggerMessageID)
+	if err != nil {
+		return nil, err
+	}
+	storedText, err := messageText(message.ContentJSON)
+	if err != nil {
+		return nil, err
+	}
+	if storedText != requestedText {
+		return nil, fmt.Errorf("%w: request id belongs to a different message", domain.ErrInvalid)
+	}
 	return &SendMessageResult{Session: session, Message: message, Run: run}, nil
 }
 

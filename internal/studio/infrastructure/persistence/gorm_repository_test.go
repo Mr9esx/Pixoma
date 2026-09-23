@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,6 +31,30 @@ func openRepository(t *testing.T) *persistence.GormRepository {
 		t.Fatalf("migrate: %v", err)
 	}
 	return persistence.NewGormRepository(gdb)
+}
+
+func TestApprovalCheckpointSurvivesStoreRecreation(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	first := repo.Checkpoints()
+	if _, exists, err := first.Get(ctx, "run-1"); err != nil || exists {
+		t.Fatalf("missing checkpoint = (%v, %v)", exists, err)
+	}
+	if err := first.Set(ctx, "run-1", []byte("checkpoint-v1")); err != nil {
+		t.Fatal(err)
+	}
+	second := repo.Checkpoints()
+	data, exists, err := second.Get(ctx, "run-1")
+	if err != nil || !exists || string(data) != "checkpoint-v1" {
+		t.Fatalf("restored checkpoint = (%q, %v, %v)", data, exists, err)
+	}
+	if err := second.Set(ctx, "run-1", []byte("checkpoint-v2")); err != nil {
+		t.Fatal(err)
+	}
+	data, exists, err = first.Get(ctx, "run-1")
+	if err != nil || !exists || string(data) != "checkpoint-v2" {
+		t.Fatalf("updated checkpoint = (%q, %v, %v)", data, exists, err)
+	}
 }
 
 func TestSessionAndMessagesAreAccountScoped(t *testing.T) {
@@ -84,7 +109,116 @@ func TestSessionAndMessagesAreAccountScoped(t *testing.T) {
 	}
 }
 
-func TestRunEventsAreOrderedAndIdempotent(t *testing.T) {
+func TestListLatestSessionRunsReturnsNewestOwnedRunPerSession(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	base := time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC)
+	for _, value := range []struct {
+		id string
+	}{
+		{id: "session-latest-a"},
+		{id: "session-latest-b"},
+		{id: "session-latest-empty"},
+	} {
+		session, err := domain.NewSession(value.id, "account-a", base)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.CreateSession(ctx, session); err != nil {
+			t.Fatal(err)
+		}
+	}
+	older, err := domain.NewRun("run-latest-older", "session-latest-a", "account-a", "message-a-1", base.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := older.Start(base.Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := older.Succeed(base.Add(3 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	newer, err := domain.NewRun("run-latest-newer", "session-latest-a", "account-a", "message-a-2", base.Add(4*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := newer.Start(base.Add(5 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	other, err := domain.NewRun("run-latest-other", "session-latest-b", "account-a", "message-b-1", base.Add(6*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := other.Start(base.Add(7 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	for _, run := range []*domain.Run{older, newer, other} {
+		if err := repo.CreateRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := repo.ListLatestSessionRuns(ctx, "account-a", []string{
+		"session-latest-a", "session-latest-b", "session-latest-empty", "missing",
+	})
+	if err != nil {
+		t.Fatalf("ListLatestSessionRuns() error = %v", err)
+	}
+	if got["session-latest-a"] == nil || got["session-latest-a"].ID != newer.ID {
+		t.Fatalf("latest session-a run = %#v, want %s", got["session-latest-a"], newer.ID)
+	}
+	if got["session-latest-b"] == nil || got["session-latest-b"].ID != other.ID {
+		t.Fatalf("latest session-b run = %#v, want %s", got["session-latest-b"], other.ID)
+	}
+	if _, ok := got["session-latest-empty"]; ok {
+		t.Fatalf("empty session returned a run: %#v", got["session-latest-empty"])
+	}
+	if _, ok := got["missing"]; ok {
+		t.Fatalf("unknown session returned a run: %#v", got["missing"])
+	}
+}
+
+func TestRunProgressIsAccountScopedAndUpsertable(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 23, 14, 0, 0, 0, time.UTC)
+	progress := &domain.RunProgress{
+		RunID: "run-progress-1", SessionID: "session-progress-1", AccountID: "account-a",
+		AssistantMessageID: "assistant-progress-1", AssistantText: "已经输出一半",
+		ReasoningText: "先分析需求", ToolCallsJSON: json.RawMessage(`[{"id":"tool-1","name":"search","args":"{}"}]`),
+		LastSequence: 7, UpdatedAt: now,
+	}
+	if err := repo.UpsertRunProgress(ctx, progress); err != nil {
+		t.Fatalf("UpsertRunProgress() error = %v", err)
+	}
+	got, err := repo.GetRunProgress(ctx, "account-a", progress.RunID)
+	if err != nil {
+		t.Fatalf("GetRunProgress() error = %v", err)
+	}
+	if got == nil || got.AssistantText != progress.AssistantText || got.LastSequence != progress.LastSequence || string(got.ToolCallsJSON) != string(progress.ToolCallsJSON) {
+		t.Fatalf("progress = %#v, want %#v", got, progress)
+	}
+	progress.AssistantText = "已经输出更多"
+	progress.LastSequence = 9
+	if err := repo.UpsertRunProgress(ctx, progress); err != nil {
+		t.Fatalf("UpsertRunProgress() update error = %v", err)
+	}
+	got, err = repo.GetRunProgress(ctx, "account-a", progress.RunID)
+	if err != nil || got.AssistantText != "已经输出更多" || got.LastSequence != 9 {
+		t.Fatalf("updated progress = (%#v, %v)", got, err)
+	}
+	if _, err := repo.GetRunProgress(ctx, "account-b", progress.RunID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("cross-account GetRunProgress() error = %v, want ErrNotFound", err)
+	}
+	if err := repo.DeleteRunProgress(ctx, "account-a", progress.RunID); err != nil {
+		t.Fatalf("DeleteRunProgress() error = %v", err)
+	}
+	if _, err := repo.GetRunProgress(ctx, "account-a", progress.RunID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleted progress error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestRunEventsAreOrdered(t *testing.T) {
 	repo := openRepository(t)
 	ctx := context.Background()
 	now := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
@@ -103,11 +237,6 @@ func TestRunEventsAreOrderedAndIdempotent(t *testing.T) {
 			t.Fatalf("AppendEvent(%s) error = %v", event.ID, err)
 		}
 	}
-	duplicate := &domain.Event{ID: "event-2-retry", RunID: run.ID, SessionID: run.SessionID, AccountID: run.AccountID, Sequence: 2, Type: "TEXT_MESSAGE_CONTENT", Payload: json.RawMessage(`{"delta":"好"}`), CreatedAt: now.Add(3 * time.Second)}
-	if err := repo.AppendEvent(ctx, duplicate); err != nil {
-		t.Fatalf("idempotent AppendEvent() error = %v", err)
-	}
-
 	events, err := repo.ListEventsAfter(ctx, "account-a", run.ID, 0, 100)
 	if err != nil {
 		t.Fatalf("ListEventsAfter() error = %v", err)
@@ -168,6 +297,112 @@ func TestSessionTranscriptReadsEveryOwnedMessageRunAndEvent(t *testing.T) {
 	}
 	if len(foreign.Messages) != 0 || len(foreign.Runs) != 0 || len(foreign.Events) != 0 {
 		t.Fatalf("cross-account transcript = %#v", foreign)
+	}
+}
+
+func TestAppendEventRejectsDuplicateSequence(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC)
+	first := &domain.Event{
+		ID: "event-first", RunID: "run-sequence", SessionID: "session-sequence",
+		AccountID: "account-a", Sequence: 201, Type: "TOOL_CALL_START",
+		Payload: json.RawMessage(`{}`), CreatedAt: now,
+	}
+	if err := repo.AppendEvent(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	duplicate := *first
+	duplicate.ID = "event-duplicate"
+	duplicate.Type = "APPROVAL_RESOLVED"
+	if err := repo.AppendEvent(ctx, &duplicate); err == nil {
+		t.Fatal("duplicate sequence was silently accepted")
+	}
+	events, err := repo.ListEventsAfter(ctx, "account-a", first.RunID, 0, 10)
+	if err != nil || len(events) != 1 || events[0].Type != first.Type {
+		t.Fatalf("events after duplicate = (%#v, %v)", events, err)
+	}
+}
+
+func TestAppendRunEventAllocatesSequenceBeyondTwoHundred(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC)
+	run, err := domain.NewRun("run-long-sequence", "session-long-sequence", "account-a", "message-long-sequence", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	for sequence := uint64(1); sequence <= 385; sequence++ {
+		event := &domain.Event{
+			ID: fmt.Sprintf("legacy-event-%d", sequence), RunID: run.ID,
+			SessionID: run.SessionID, AccountID: run.AccountID, Sequence: sequence,
+			Type: "CUSTOM", Payload: json.RawMessage(`{}`), CreatedAt: now,
+		}
+		if err := repo.AppendEvent(ctx, event); err != nil {
+			t.Fatalf("append legacy event %d: %v", sequence, err)
+		}
+	}
+	created, err := repo.AppendRunEvent(ctx, &domain.Event{
+		ID: "next-event", RunID: run.ID, SessionID: run.SessionID,
+		AccountID: run.AccountID, Type: "APPROVAL_RESOLVED",
+		Payload: json.RawMessage(`{}`), CreatedAt: now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Sequence != 386 {
+		t.Fatalf("allocated sequence = %d, want 386", created.Sequence)
+	}
+	events, err := repo.ListEventsAfter(ctx, run.AccountID, run.ID, 385, 10)
+	if err != nil || len(events) != 1 || events[0].ID != "next-event" {
+		t.Fatalf("events after 385 = (%#v, %v)", events, err)
+	}
+}
+
+func TestAppendRunEventConcurrentWritersKeepUniqueSequence(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC)
+	run, err := domain.NewRun("run-concurrent-events", "session-concurrent-events", "account-a", "message-concurrent-events", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	const writers = 12
+	var group sync.WaitGroup
+	errors := make(chan error, writers)
+	for index := range writers {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			_, err := repo.AppendRunEvent(ctx, &domain.Event{
+				ID: fmt.Sprintf("concurrent-event-%d", index), RunID: run.ID,
+				SessionID: run.SessionID, AccountID: run.AccountID,
+				Type: "CUSTOM", Payload: json.RawMessage(`{}`), CreatedAt: now,
+			})
+			errors <- err
+		}()
+	}
+	group.Wait()
+	close(errors)
+	for err := range errors {
+		if err != nil {
+			t.Fatalf("concurrent append: %v", err)
+		}
+	}
+	events, err := repo.ListEventsAfter(ctx, run.AccountID, run.ID, 0, writers)
+	if err != nil || len(events) != writers {
+		t.Fatalf("events = (%d, %v), want %d", len(events), err, writers)
+	}
+	for index, event := range events {
+		if event.Sequence != uint64(index+1) {
+			t.Fatalf("event %d sequence = %d, want %d", index, event.Sequence, index+1)
+		}
 	}
 }
 

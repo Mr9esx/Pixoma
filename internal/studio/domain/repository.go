@@ -33,13 +33,22 @@ type Repository interface {
 	ListSessionTranscript(ctx context.Context, accountID, sessionID string) (*SessionTranscriptData, error)
 
 	CreateRun(ctx context.Context, run *Run) error
+	CreateRunTurn(ctx context.Context, message *Message, run *Run) (*Run, bool, error)
+	GetRunByRequestID(ctx context.Context, accountID, sessionID, requestID string) (*Run, error)
 	UpdateRun(ctx context.Context, run *Run) error
 	GetRun(ctx context.Context, accountID, runID string) (*Run, error)
 	ListSessionRuns(ctx context.Context, accountID, sessionID string, limit int) ([]*Run, error)
 	ListSessionTraceRuns(ctx context.Context, accountID, sessionID string, before time.Time, beforeID string, limit int) ([]*Run, error)
 	CountSessionTraceRuns(ctx context.Context, accountID, sessionID string) (int64, error)
+	ListLatestSessionRuns(ctx context.Context, accountID string, sessionIDs []string) (map[string]*Run, error)
+	GetRunProgress(ctx context.Context, accountID, runID string) (*RunProgress, error)
+	UpsertRunProgress(ctx context.Context, progress *RunProgress) error
+	DeleteRunProgress(ctx context.Context, accountID, runID string) error
 	ListRecoverableRuns(ctx context.Context, limit int) ([]*Run, error)
+	ListRecoverableRunsAfter(ctx context.Context, afterID string, limit int) ([]*Run, error)
 	AppendEvent(ctx context.Context, event *Event) error
+	AppendRunEvent(ctx context.Context, event *Event) (*Event, error)
+	LastRunEventSequence(ctx context.Context, accountID, runID string) (uint64, error)
 	ListEventsAfter(ctx context.Context, accountID, runID string, after uint64, limit int) ([]*Event, error)
 	ListRunTraceEvents(ctx context.Context, accountID, runID string) ([]*Event, error)
 	ListRunTraceSummaryEvents(ctx context.Context, accountID, runID string) ([]*Event, error)

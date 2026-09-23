@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	einotool "github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	einojsonschema "github.com/eino-contrib/jsonschema"
 	"github.com/google/uuid"
@@ -92,7 +93,7 @@ func (t *createTextAssetTool) InvokableRun(ctx context.Context, arguments string
 		if err := t.access.RequestApproval(ctx, action+"."+uuid.NewString(), action); err != nil {
 			return "", err
 		}
-		return "", studioapp.ErrApprovalRequired
+		return "", compose.Interrupt(ctx, action)
 	}
 	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallStart, map[string]any{"tool_call_id": action, "tool_name": t.info.Name, "argument_bytes": len(arguments)}); err != nil {
 		return "", err
@@ -100,7 +101,7 @@ func (t *createTextAssetTool) InvokableRun(ctx context.Context, arguments string
 	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallArgs, map[string]any{"tool_call_id": action, "delta": arguments}); err != nil {
 		return "", err
 	}
-	asset, err := t.access.Sink.CreateAsset(ctx, studioapp.GeneratedAsset{Name: input.Name, Kind: domain.AssetDocument, Origin: domain.AssetOriginAgent, MIMEType: "text/markdown", Content: []byte(input.Content)})
+	asset, err := t.access.Sink.CreateAsset(ctx, studioapp.GeneratedAsset{ActionID: action, Name: input.Name, Kind: domain.AssetDocument, Origin: domain.AssetOriginAgent, MIMEType: "text/markdown", Content: []byte(input.Content)})
 	if err != nil {
 		return "", t.finish(ctx, action, err)
 	}
@@ -108,7 +109,7 @@ func (t *createTextAssetTool) InvokableRun(ctx context.Context, arguments string
 		return "", t.finish(ctx, action, fmt.Errorf("studio: create_text_asset returned no asset version"))
 	}
 	version := asset.Versions[len(asset.Versions)-1]
-	if _, err := t.access.Sink.CreateFlowNode(ctx, studioapp.FlowNodeInput{Type: domain.FlowNodeAsset, Title: asset.Name, Body: "Agent 创建的 Markdown 文档", AssetID: asset.ID, AssetVersionID: version.ID, SortOrder: 500}); err != nil {
+	if _, err := t.access.Sink.CreateFlowNode(ctx, studioapp.FlowNodeInput{ActionID: action + ".flow", Type: domain.FlowNodeAsset, Title: asset.Name, Body: "Agent 创建的 Markdown 文档", AssetID: asset.ID, AssetVersionID: version.ID, SortOrder: 500}); err != nil {
 		return "", t.finish(ctx, action, err)
 	}
 	output := fmt.Sprintf("已创建 Markdown 资产「%s」（v%d）。", asset.Name, version.Version)

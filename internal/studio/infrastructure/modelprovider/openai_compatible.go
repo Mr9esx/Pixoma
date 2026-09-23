@@ -123,10 +123,15 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 	if input.Config.Protocol != "" && input.Config.Protocol != domain.ModelProtocolOpenAIChat {
 		return nil, fmt.Errorf("model provider: streaming is not implemented for protocol %q", input.Config.Protocol)
 	}
-	if len(input.Tools) > 0 {
-		return nil, fmt.Errorf("model provider: streaming tool calls are not implemented")
-	}
 	body := map[string]any{"model": input.Config.Model, "messages": input.Messages, "stream": true, "max_tokens": configuredMaxOutputTokens(input.Config)}
+	if len(input.Tools) > 0 {
+		tools := make([]map[string]any, 0, len(input.Tools))
+		for _, definition := range input.Tools {
+			tools = append(tools, map[string]any{"type": "function", "function": definition})
+		}
+		body["tools"] = tools
+		body["tool_choice"] = "auto"
+	}
 	if input.Config.Thinking.Enabled && input.Config.Thinking.Effort != "" {
 		body["reasoning_effort"] = input.Config.Thinking.Effort
 	}
@@ -160,10 +165,53 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 		return nil, wrapped
 	}
 	if !strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
-		resp.Body.Close()
-		wrapped := fmt.Errorf("model provider: streaming response is not an event stream")
-		_ = attempt.fail(ctx, wrapped)
-		return nil, wrapped
+		defer resp.Body.Close()
+		raw, readErr := io.ReadAll(io.LimitReader(resp.Body, maxProviderResponseBytes))
+		if readErr != nil {
+			wrapped := fmt.Errorf("model provider: read non-streaming response: %w", readErr)
+			_ = attempt.fail(ctx, wrapped)
+			return nil, wrapped
+		}
+		var decoded struct {
+			Choices []struct {
+				Message struct {
+					Content   string     `json:"content"`
+					Reasoning string     `json:"reasoning_content"`
+					ToolCalls []ToolCall `json:"tool_calls"`
+				} `json:"message"`
+			} `json:"choices"`
+			Usage *struct {
+				PromptTokens     int `json:"prompt_tokens"`
+				CompletionTokens int `json:"completion_tokens"`
+			} `json:"usage"`
+		}
+		if err := json.Unmarshal(raw, &decoded); err != nil || len(decoded.Choices) == 0 {
+			if err == nil {
+				err = fmt.Errorf("response contains no choices")
+			}
+			wrapped := fmt.Errorf("model provider: decode non-streaming response: %w", err)
+			_ = attempt.fail(ctx, wrapped)
+			return nil, wrapped
+		}
+		choice := decoded.Choices[0].Message
+		message := &schema.Message{Role: schema.Assistant, Content: choice.Content}
+		for _, call := range choice.ToolCalls {
+			message.ToolCalls = append(message.ToolCalls, schema.ToolCall{
+				ID: call.ID, Type: call.Type,
+				Function: schema.FunctionCall{Name: call.Function.Name, Arguments: call.Function.Arguments},
+			})
+		}
+		if strings.TrimSpace(choice.Reasoning) != "" {
+			message.Extra = map[string]any{reasoningExtraKey: choice.Reasoning}
+		}
+		inputTokens, outputTokens := 0, 0
+		if decoded.Usage != nil {
+			inputTokens, outputTokens = decoded.Usage.PromptTokens, decoded.Usage.CompletionTokens
+		}
+		if err := attempt.finish(ctx, inputTokens, outputTokens, decoded.Usage != nil, raw); err != nil {
+			return nil, fmt.Errorf("model provider: persist request trace: %w", err)
+		}
+		return schema.StreamReaderFromArray([]*schema.Message{message}), nil
 	}
 	reader, writer := schema.Pipe[*schema.Message](16)
 	go func() {
@@ -173,6 +221,7 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 		scanner := bufio.NewScanner(limited)
 		scanner.Buffer(make([]byte, 64*1024), maxProviderResponseBytes)
 		var reasoning strings.Builder
+		toolCalls := make([]schema.ToolCall, 0)
 		firstTokenSeen := false
 		inputTokens, outputTokens := 0, 0
 		usageReported := false
@@ -194,6 +243,15 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 					Delta struct {
 						Content   string `json:"content"`
 						Reasoning string `json:"reasoning_content"`
+						ToolCalls []struct {
+							Index    int    `json:"index"`
+							ID       string `json:"id"`
+							Type     string `json:"type"`
+							Function struct {
+								Name      string `json:"name"`
+								Arguments string `json:"arguments"`
+							} `json:"function"`
+						} `json:"tool_calls"`
 					} `json:"delta"`
 				} `json:"choices"`
 				Usage *struct {
@@ -216,6 +274,26 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 				continue
 			}
 			delta := chunk.Choices[0].Delta
+			for _, call := range delta.ToolCalls {
+				for len(toolCalls) <= call.Index {
+					index := len(toolCalls)
+					toolCalls = append(toolCalls, schema.ToolCall{Index: &index})
+				}
+				toolCall := &toolCalls[call.Index]
+				if toolCall.ID == "" {
+					toolCall.ID = call.ID
+				}
+				if toolCall.Type == "" {
+					toolCall.Type = call.Type
+				}
+				if toolCall.Type == "" {
+					toolCall.Type = "function"
+				}
+				if toolCall.Function.Name == "" {
+					toolCall.Function.Name = call.Function.Name
+				}
+				toolCall.Function.Arguments += call.Function.Arguments
+			}
 			if delta.Reasoning != "" {
 				reasoning.WriteString(delta.Reasoning)
 			}
@@ -224,7 +302,7 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 				message.Extra = map[string]any{reasoningExtraKey: reasoning.String()}
 				reasoning.Reset()
 			}
-			if delta.Content != "" || len(message.Extra) > 0 {
+			if delta.Content != "" || len(message.Extra) > 0 || len(delta.ToolCalls) > 0 {
 				if !firstTokenSeen {
 					if err := attempt.firstToken(ctx); err != nil {
 						writer.Send(nil, fmt.Errorf("model provider: persist first-token trace: %w", err))
@@ -232,8 +310,10 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 					}
 					firstTokenSeen = true
 				}
-				if writer.Send(message, nil) {
-					return
+				if delta.Content != "" || len(message.Extra) > 0 {
+					if writer.Send(message, nil) {
+						return
+					}
 				}
 			}
 		}
@@ -251,6 +331,12 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 		}
 		if err := attempt.finish(ctx, inputTokens, outputTokens, usageReported, nil); err != nil {
 			writer.Send(nil, fmt.Errorf("model provider: persist request trace: %w", err))
+			return
+		}
+		if len(toolCalls) > 0 {
+			if writer.Send(&schema.Message{Role: schema.Assistant, ToolCalls: toolCalls}, nil) {
+				return
+			}
 		}
 	}()
 	return reader, nil

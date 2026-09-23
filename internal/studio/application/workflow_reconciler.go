@@ -180,20 +180,11 @@ func (r *WorkflowReconciler) appendEvent(ctx context.Context, execution *domain.
 	if err != nil {
 		return err
 	}
-	events, err := r.Repo.ListEventsAfter(ctx, execution.AccountID, execution.RunID, 0, 1000)
-	if err != nil {
-		return err
-	}
-	var sequence uint64
-	for _, event := range events {
-		if event.Sequence > sequence {
-			sequence = event.Sequence
-		}
-	}
-	return r.Repo.AppendEvent(ctx, &domain.Event{
+	_, err = r.Repo.AppendRunEvent(ctx, &domain.Event{
 		ID: r.newID(), RunID: execution.RunID, SessionID: execution.SessionID, AccountID: execution.AccountID,
-		Sequence: sequence + 1, Type: eventType, Payload: raw, CreatedAt: r.now(),
+		Type: eventType, Payload: raw, CreatedAt: r.now(),
 	})
+	return err
 }
 
 func (r *WorkflowReconciler) now() time.Time {

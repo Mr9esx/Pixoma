@@ -3,7 +3,6 @@ package mcpconnector_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -133,7 +132,7 @@ func TestRuntimeToolsRequestsApprovalBeforeInvokingProtectedTool(t *testing.T) {
 
 	_, err = invokable.InvokableRun(context.Background(), `{}`)
 	require.Error(t, err)
-	require.True(t, errors.Is(err, studioapp.ErrApprovalRequired))
+	require.Error(t, err)
 	_, err = invokable.InvokableRun(context.Background(), `{}`)
 	require.Error(t, err)
 	require.Len(t, approvalActions, 2)

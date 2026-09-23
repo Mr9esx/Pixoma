@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import type { StudioSession } from '@/lib/api/studio'
 import { Button } from '@/components/ui/button'
+import { StatusDot } from '@/components/status-dot'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sidebar,
@@ -34,6 +35,23 @@ type Props = {
   onSelectSession: (id: string) => void
   onViewChange: (view: StudioView) => void
   creating?: boolean
+}
+
+function sessionStatus(session: StudioSession) {
+  switch (session.latest_run?.status) {
+    case 'queued':
+    case 'running':
+      return { state: 'active' as const, label: '执行中', pulse: true }
+    case 'waiting_approval':
+      return { state: 'warn' as const, label: '等待你的操作', pulse: false }
+    case 'failed':
+    case 'cancelled':
+      return { state: 'warn' as const, label: '本轮未完成', pulse: false }
+    case 'succeeded':
+      return { state: 'ok' as const, label: '本轮已完成', pulse: false }
+    default:
+      return null
+  }
 }
 
 export function StudioSidebar({
@@ -94,26 +112,33 @@ export function StudioSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className='min-h-0 flex-1 px-2 py-1'>
+        <SidebarGroup className='min-h-0 flex-1 ps-2 pe-0 py-1'>
           <SidebarGroupLabel>最近对话</SidebarGroupLabel>
-          <SidebarGroupContent className='flex min-h-0 flex-1 flex-col'>
-            <ScrollArea className='min-h-0 flex-1'>
-              <SidebarMenu className='pb-2'>
+          <SidebarGroupContent className='flex min-h-0 w-full min-w-0 flex-1 flex-col self-stretch'>
+            <ScrollArea className='min-h-0 w-full min-w-0 flex-1 self-stretch'>
+              <SidebarMenu className='w-full min-w-0 self-stretch pb-2'>
                 {sessions.length === 0 ? (
                   <p className='px-2 py-3 text-xs leading-5 text-muted-foreground'>
                     开始一次对话后，会自动保存在这里
                   </p>
                 ) : (
                   sessions.map((session) => (
-                    <SidebarMenuItem key={session.id}>
+                    <SidebarMenuItem key={session.id} className='min-w-0'>
                       <SidebarMenuButton
+                        className='min-w-0'
                         isActive={
                           view === 'chat' && activeSessionId === session.id
                         }
                         onClick={() => onSelectSession(session.id)}
                       >
-                        <MessageCircle />
-                        <span>{session.title}</span>
+                        <span className='min-w-0 flex-1 truncate'>
+                          {session.title}
+                        </span>
+                        {sessionStatus(session) ? (
+                          <div className='ms-auto flex shrink-0 items-center'>
+                            <StatusDot {...sessionStatus(session)!} />
+                          </div>
+                        ) : null}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))

@@ -53,6 +53,7 @@ export function StudioWorkspace() {
   const sessions = useQuery({
     queryKey: ['studio', 'sessions'],
     queryFn: () => listStudioSessions({ limit: 80 }),
+    refetchInterval: 2500,
   })
   const models = useQuery({
     queryKey: ['studio', 'models'],
@@ -94,7 +95,32 @@ export function StudioWorkspace() {
     queryKey: ['studio', 'session', sessionId],
     queryFn: () => getStudioSession(sessionId!),
     enabled: Boolean(sessionId) && view === 'chat',
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   })
+
+  useEffect(() => {
+    const reconcile = () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
+      if (sessionId && view === 'chat') {
+        void queryClient.invalidateQueries({
+          queryKey: ['studio', 'session', sessionId],
+        })
+      }
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') reconcile()
+    }
+    const onOnline = () => reconcile()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('online', onOnline)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('online', onOnline)
+    }
+  }, [queryClient, sessionId, view])
 
   const saveAsset = useMutation({
     mutationFn: ({ assetId, folderId }: { assetId: string; folderId?: string }) =>
@@ -262,6 +288,8 @@ export function StudioWorkspace() {
                   sessionId={sessionId}
                   messages={detail.data.messages}
                   transcript={detail.data.transcript}
+                  latestRun={detail.data.session.latest_run}
+                  runProgress={detail.data.run_progress}
                   models={models.data ?? []}
                   modelConfigId={
                     modelConfigId ?? detail.data.session.model_config_id
@@ -279,9 +307,19 @@ export function StudioWorkspace() {
                   onSkillChange={setSelectedSkillIds}
                   onAssetChange={setSelectedAssets}
 				  onImportLibraryAsset={(selection) => importLibraryAsset.mutateAsync(selection)}
-				  onRunFinished={() => {
-					  void queryClient.invalidateQueries({ queryKey: ['studio', 'session', sessionId] })
-				  }}
+                  onRunFinished={() => {
+                    void queryClient.invalidateQueries({
+                      queryKey: ['studio', 'session', sessionId],
+                    })
+                    void queryClient.invalidateQueries({
+                      queryKey: ['studio', 'sessions'],
+                    })
+                  }}
+                  onRuntimeStateChange={() => {
+                    void queryClient.invalidateQueries({
+                      queryKey: ['studio', 'sessions'],
+                    })
+                  }}
                 />
               )}
             </main>

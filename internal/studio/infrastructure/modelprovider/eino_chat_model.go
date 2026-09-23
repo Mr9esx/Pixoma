@@ -48,24 +48,7 @@ func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, o
 		}
 		return bound.Generate(ctx, input)
 	}
-	messages := make([]ChatMessage, 0, len(input))
-	for _, message := range input {
-		if message == nil {
-			continue
-		}
-		role := string(message.Role)
-		if role == "" {
-			role = "user"
-		}
-		toolCalls := make([]ToolCall, 0, len(message.ToolCalls))
-		for _, call := range message.ToolCalls {
-			toolCalls = append(toolCalls, ToolCall{
-				ID: call.ID, Type: call.Type,
-				Function: FunctionCall{Name: call.Function.Name, Arguments: call.Function.Arguments},
-			})
-		}
-		messages = append(messages, ChatMessage{Role: role, Content: message.Content, ToolCallID: message.ToolCallID, ToolCalls: toolCalls, ResponsesOutput: responsesOutputFromExtra(message.Extra)})
-	}
+	messages := chatMessagesFromSchema(input)
 	result, err := m.client.Chat(ctx, ChatRequest{Config: m.config, Messages: messages, Tools: m.tools, Trace: m.nextTraceSink()})
 	if err != nil {
 		return nil, err
@@ -103,15 +86,17 @@ func responsesOutputFromExtra(extra map[string]any) []json.RawMessage {
 
 func (m *EinoChatModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
 	options := model.GetCommonOptions(nil, opts...)
-	if len(m.tools) == 0 && options.Tools == nil && (m.config.Protocol == "" || m.config.Protocol == domain.ModelProtocolOpenAIChat) {
-		messages := make([]ChatMessage, 0, len(input))
-		for _, message := range input {
-			if message == nil {
-				continue
-			}
-			messages = append(messages, ChatMessage{Role: string(message.Role), Content: message.Content, ToolCallID: message.ToolCallID, ResponsesOutput: responsesOutputFromExtra(message.Extra)})
+	tools := m.tools
+	if options.Tools != nil {
+		var err error
+		tools, err = toolDefinitions(options.Tools)
+		if err != nil {
+			return nil, err
 		}
-		if stream, err := m.client.StreamChat(ctx, ChatRequest{Config: m.config, Messages: messages, Trace: m.nextTraceSink()}); err == nil {
+	}
+	if m.config.Protocol == "" || m.config.Protocol == domain.ModelProtocolOpenAIChat {
+		messages := chatMessagesFromSchema(input)
+		if stream, err := m.client.StreamChat(ctx, ChatRequest{Config: m.config, Messages: messages, Tools: tools, Trace: m.nextTraceSink()}); err == nil {
 			return stream, nil
 		}
 	}
@@ -148,12 +133,44 @@ func (m *EinoChatModel) nextTraceSink() TraceSink {
 	return m.traceFactory()
 }
 
+func chatMessagesFromSchema(input []*schema.Message) []ChatMessage {
+	messages := make([]ChatMessage, 0, len(input))
+	for _, message := range input {
+		if message == nil {
+			continue
+		}
+		role := string(message.Role)
+		if role == "" {
+			role = "user"
+		}
+		toolCalls := make([]ToolCall, 0, len(message.ToolCalls))
+		for _, call := range message.ToolCalls {
+			toolCalls = append(toolCalls, ToolCall{
+				ID: call.ID, Type: call.Type,
+				Function: FunctionCall{Name: call.Function.Name, Arguments: call.Function.Arguments},
+			})
+		}
+		messages = append(messages, ChatMessage{Role: role, Content: message.Content, ToolCallID: message.ToolCallID, ToolCalls: toolCalls, ResponsesOutput: responsesOutputFromExtra(message.Extra)})
+	}
+	return messages
+}
+
 var _ model.BaseChatModel = (*EinoChatModel)(nil)
 
 // WithTools returns an immutable request-scoped model, as required by Eino's
 // ReAct agent. Tool schemas are sent through the native OpenAI function-call
 // contract instead of being interpolated into prompts.
 func (m *EinoChatModel) WithTools(tools []*schema.ToolInfo) (model.ToolCallingChatModel, error) {
+	definitions, err := toolDefinitions(tools)
+	if err != nil {
+		return nil, err
+	}
+	clone := *m
+	clone.tools = definitions
+	return &clone, nil
+}
+
+func toolDefinitions(tools []*schema.ToolInfo) ([]ToolDefinition, error) {
 	definitions := make([]ToolDefinition, 0, len(tools))
 	for _, tool := range tools {
 		if tool == nil || tool.Name == "" {
@@ -175,9 +192,7 @@ func (m *EinoChatModel) WithTools(tools []*schema.ToolInfo) (model.ToolCallingCh
 		}
 		definitions = append(definitions, ToolDefinition{Name: tool.Name, Description: tool.Desc, Parameters: parameters})
 	}
-	clone := *m
-	clone.tools = definitions
-	return &clone, nil
+	return definitions, nil
 }
 
 var _ model.ToolCallingChatModel = (*EinoChatModel)(nil)

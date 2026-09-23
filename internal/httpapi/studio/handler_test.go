@@ -340,6 +340,84 @@ func TestCreateStudioSessionAPI(t *testing.T) {
 	}
 }
 
+func TestListStudioSessionsIncludesLatestRun(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	firstResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	secondResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var first, second struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(firstResponse), &first); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(apitest.DataBytes(secondResponse), &second); err != nil {
+		t.Fatal(err)
+	}
+	base := time.Date(2026, 9, 23, 13, 0, 0, 0, time.UTC)
+	older, err := domain.NewRun("api-latest-older", first.ID, "account-a", "message-older", base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := older.Start(base.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := older.Succeed(base.Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	newer, err := domain.NewRun("api-latest-newer", first.ID, "account-a", "message-newer", base.Add(3*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := newer.Start(base.Add(4 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	for _, run := range []*domain.Run{older, newer} {
+		if err := handler.Repo.CreateRun(context.Background(), run); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	response := request(t, router, http.MethodGet, "/sessions?limit=10", nil, "account-a")
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /sessions status=%d body=%s", response.Code, response.Body.String())
+	}
+	var sessions []struct {
+		ID        string `json:"id"`
+		LatestRun *struct {
+			ID     string           `json:"id"`
+			Status domain.RunStatus `json:"status"`
+		} `json:"latest_run"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(response), &sessions); err != nil {
+		t.Fatal(err)
+	}
+	var firstSession, secondSession *struct {
+		ID        string `json:"id"`
+		LatestRun *struct {
+			ID     string           `json:"id"`
+			Status domain.RunStatus `json:"status"`
+		} `json:"latest_run"`
+	}
+	for index := range sessions {
+		if sessions[index].ID == first.ID {
+			firstSession = &sessions[index]
+		}
+		if sessions[index].ID == second.ID {
+			secondSession = &sessions[index]
+		}
+	}
+	if firstSession == nil || firstSession.LatestRun == nil || firstSession.LatestRun.ID != newer.ID || firstSession.LatestRun.Status != domain.RunRunning {
+		t.Fatalf("first session latest_run = %#v", firstSession)
+	}
+	if secondSession == nil || secondSession.LatestRun != nil {
+		t.Fatalf("second session latest_run = %#v, want nil", secondSession)
+	}
+}
+
 func TestStudioAPIRejectsCrossAccountRead(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)
@@ -390,6 +468,22 @@ func TestSessionTrajectoryIsSessionScopedAndRecordDetailsAreAccountScoped(t *tes
 		return turn.Session.ID, turn.Run.ID, turn.Message.ID
 	}
 	sessionID, firstRun, firstMessage := create("", "first")
+	// 同一会话存在活跃 Run 时新建会被拒，先等第一个 Run 收尾。
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		status := request(t, router, http.MethodGet, "/runs/"+firstRun, nil, "account-a")
+		var run struct {
+			Status domain.RunStatus `json:"status"`
+		}
+		_ = json.Unmarshal(apitest.DataBytes(status), &run)
+		if run.Status.Terminal() {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("first run did not settle: %s", run.Status)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	_, secondRun, _ := create(sessionID, "second")
 	response := request(t, router, http.MethodGet, "/sessions/"+sessionID+"/trajectory?limit=1", nil, "account-a")
 	if response.Code != http.StatusOK {
@@ -506,6 +600,64 @@ func TestStudioAGUIStreamsStandardEvents(t *testing.T) {
 	}
 }
 
+func TestStudioAGUIResumesWaitingApproval(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
+		t.Fatal(err)
+	}
+	first := request(t, router, http.MethodPost, "/agui", map[string]any{
+		"threadId": session.ID,
+		"runId":    "browser-run-approval",
+		"messages": []map[string]any{{"id": "user-message", "role": "user", "content": "执行需要确认的工作流"}},
+		"forwardedProps": map[string]any{
+			"runConfig": map[string]any{"permissionMode": domain.PermissionRequestApproval},
+		},
+	}, "account-a")
+	if first.Code != http.StatusOK || !strings.Contains(first.Body.String(), `"type":"interrupt"`) {
+		t.Fatalf("initial approval stream = %d %s", first.Code, first.Body.String())
+	}
+	approvalID := ""
+	for _, line := range strings.Split(first.Body.String(), "\n") {
+		line = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if line == "" {
+			continue
+		}
+		var event struct {
+			Outcome struct {
+				Interrupts []struct {
+					ID string `json:"id"`
+				} `json:"interrupts"`
+			} `json:"outcome"`
+		}
+		if json.Unmarshal([]byte(line), &event) == nil && len(event.Outcome.Interrupts) > 0 {
+			approvalID = event.Outcome.Interrupts[0].ID
+			break
+		}
+	}
+	if approvalID == "" {
+		t.Fatalf("approval interrupt missing: %s", first.Body.String())
+	}
+	resumed := request(t, router, http.MethodPost, "/agui", map[string]any{
+		"threadId": session.ID,
+		"runId":    "browser-run-approval-resume",
+		"resume": []map[string]any{{
+			"interruptId": approvalID,
+			"status":      "resolved",
+			"payload":     true,
+		}},
+	}, "account-a")
+	if resumed.Code != http.StatusOK || !strings.Contains(resumed.Body.String(), `"outcome":{"type":"success"}`) {
+		t.Fatalf("resumed approval stream = %d %s", resumed.Code, resumed.Body.String())
+	}
+}
+
 func TestStudioAGUIWebSocketStreamsStandardEvents(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)
@@ -558,6 +710,178 @@ func TestStudioAGUIWebSocketStreamsStandardEvents(t *testing.T) {
 		if !seen[kind] {
 			t.Fatalf("websocket events missing %s: %#v", kind, seen)
 		}
+	}
+}
+
+func TestStudioAGUIAttachesExistingRunWithoutCreatingNewRun(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	run, err := domain.NewRun("attach-run-1", session.ID, "account-a", "trigger-message", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Start(now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Succeed(now.Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.Repo.CreateRun(context.Background(), run); err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range []studioapp.LiveEvent{
+		{RunID: run.ID, Sequence: 1, Type: studioapp.EventTextMessageStart, Payload: json.RawMessage(`{"message_id":"assistant-1","role":"assistant"}`)},
+		{RunID: run.ID, Sequence: 2, Type: studioapp.EventTextMessageContent, Payload: json.RawMessage(`{"message_id":"assistant-1","delta":"已恢复"}`)},
+		{RunID: run.ID, Sequence: 3, Type: studioapp.EventRunFinished, Payload: json.RawMessage(`{}`)},
+	} {
+		if err := handler.Repo.AppendEvent(context.Background(), &domain.Event{
+			ID: fmt.Sprintf("attach-event-%d", event.Sequence), RunID: run.ID,
+			SessionID: run.SessionID, AccountID: run.AccountID,
+			Sequence: event.Sequence, Type: event.Type, Payload: event.Payload, CreatedAt: now,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	response := request(t, router, http.MethodPost, "/agui", map[string]any{
+		"threadId":    session.ID,
+		"runId":       "attach-client-run",
+		"attachRunId": run.ID,
+	}, "account-a")
+	if response.Code != http.StatusOK {
+		t.Fatalf("POST /agui attach status=%d body=%s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{
+		`"metadata":{"studioRunId":"` + run.ID + `"}`,
+		`"type":"TEXT_MESSAGE_CONTENT"`,
+		`"delta":"已恢复"`,
+		`"type":"RUN_FINISHED"`,
+	} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Fatalf("attach body does not contain %q:\n%s", want, response.Body.String())
+		}
+	}
+	runs, err := handler.Repo.ListSessionRuns(context.Background(), "account-a", session.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runs) != 1 || runs[0].ID != run.ID {
+		t.Fatalf("attached run list = %#v, want one original run", runs)
+	}
+}
+
+func TestStudioAGUIReplayPagesBeyondTwoHundredEvents(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	run, err := domain.NewRun("paged-attach-run", session.ID, "account-a", "trigger-message", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Start(now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Succeed(now.Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.Repo.CreateRun(context.Background(), run); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 385; i++ {
+		_, err := handler.Repo.AppendRunEvent(context.Background(), &domain.Event{
+			ID: fmt.Sprintf("paged-event-%d", i), RunID: run.ID,
+			SessionID: run.SessionID, AccountID: run.AccountID,
+			Type:      studioapp.EventTextMessageContent,
+			Payload:   json.RawMessage(fmt.Sprintf(`{"message_id":"assistant-1","delta":"%d"}`, i)),
+			CreatedAt: now,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	response := request(t, router, http.MethodPost, "/agui", map[string]any{
+		"threadId": session.ID, "runId": "browser-run", "attachRunId": run.ID,
+		"afterSequence": 185,
+	}, "account-a")
+	if response.Code != http.StatusOK {
+		t.Fatalf("attach status=%d body=%s", response.Code, response.Body.String())
+	}
+	var got []int
+	for _, line := range strings.Split(response.Body.String(), "\n") {
+		if !strings.HasPrefix(line, "id: ") {
+			continue
+		}
+		var sequence int
+		if _, err := fmt.Sscanf(line, "id: %d", &sequence); err != nil {
+			t.Fatal(err)
+		}
+		if sequence != 0 {
+			got = append(got, sequence)
+		}
+	}
+	if len(got) != 200 {
+		t.Fatalf("replayed %d events, want 200", len(got))
+	}
+	for i, sequence := range got {
+		if sequence != i+186 {
+			t.Fatalf("sequence[%d]=%d, want %d", i, sequence, i+186)
+		}
+	}
+}
+
+func TestStudioAGUIAttachRejectsForeignRunAndInvalidCursor(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	run, err := domain.NewRun("attach-run-boundary", session.ID, "account-a", "trigger-message", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.Repo.CreateRun(context.Background(), run); err != nil {
+		t.Fatal(err)
+	}
+
+	foreign := request(t, router, http.MethodPost, "/agui", map[string]any{
+		"threadId": session.ID, "runId": "foreign-client", "attachRunId": run.ID,
+	}, "account-b")
+	if foreign.Code != http.StatusNotFound {
+		t.Fatalf("foreign attach status=%d body=%s", foreign.Code, foreign.Body.String())
+	}
+	invalidCursor := request(t, router, http.MethodPost, "/agui", map[string]any{
+		"threadId": session.ID, "runId": "invalid-cursor-client", "attachRunId": run.ID, "afterSequence": 1,
+	}, "account-a")
+	if invalidCursor.Code != http.StatusBadRequest {
+		t.Fatalf("invalid cursor status=%d body=%s", invalidCursor.Code, invalidCursor.Body.String())
 	}
 }
 

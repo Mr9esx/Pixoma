@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	einotool "github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	einojsonschema "github.com/eino-contrib/jsonschema"
 	"github.com/google/uuid"
@@ -98,7 +99,7 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 		if err := t.access.RequestApproval(ctx, approvalToolCallID(action), action); err != nil {
 			return "", err
 		}
-		return "", studioapp.ErrApprovalRequired
+		return "", compose.Interrupt(ctx, action)
 	}
 	if err := t.emit(ctx, studioapp.EventToolCallStart, map[string]any{
 		"tool_call_id": action, "tool_name": t.info.Name, "connector_id": t.connector.ID,

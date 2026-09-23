@@ -59,6 +59,74 @@ type sink struct {
 	assets    []studioapp.GeneratedAsset
 }
 
+type checkpointMemory struct{ data map[string][]byte }
+
+func (s *checkpointMemory) Get(_ context.Context, id string) ([]byte, bool, error) {
+	value, ok := s.data[id]
+	return append([]byte(nil), value...), ok, nil
+}
+
+func (s *checkpointMemory) Set(_ context.Context, id string, value []byte) error {
+	s.data[id] = append([]byte(nil), value...)
+	return nil
+}
+
+type approvalCapturingSink struct {
+	*sink
+	approval *domain.Approval
+}
+
+func (s *approvalCapturingSink) RequestApproval(_ context.Context, toolCallID, action string) (*domain.Approval, error) {
+	approval, err := domain.NewApproval("approval-1", "run_01", "session_01", "account_01", toolCallID, action, time.Now())
+	s.approval = approval
+	return approval, err
+}
+
+func TestResumeAfterApprovalUsesCheckpointWithoutRepeatingModelCall(t *testing.T) {
+	var modelCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		modelCalls++
+		writer.Header().Set("Content-Type", "application/json")
+		if modelCalls == 1 {
+			_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call-1","type":"function","function":{"name":"create_text_asset","arguments":"{\"name\":\"story.md\",\"content\":\"# 故事\"}"}}]}}]}`))
+			return
+		}
+		_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已创建。"}}]}`))
+	}))
+	defer server.Close()
+	checkpoints := &checkpointMemory{data: make(map[string][]byte)}
+	engine := &einoagent.Engine{
+		Models: resolver{config: &domain.ResolvedModelConfig{
+			ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: server.URL + "/chat/completions",
+			Model: "test-model", APIKey: "test-key", Limits: testModelLimits,
+		}},
+		Client:      modelprovider.NewOpenAICompatibleClient(server.Client()),
+		Checkpoints: checkpoints,
+	}
+	output := &approvalCapturingSink{sink: &sink{}}
+	request := studioapp.AgentRequest{
+		Run:      &domain.Run{ID: "run_01", AccountID: "account_01", SessionID: "session_01", ModelConfigID: "model_01"},
+		Session:  &domain.Session{ID: "session_01", PermissionMode: domain.PermissionRequestApproval},
+		UserText: "创建故事文件",
+	}
+	err := engine.Execute(context.Background(), request, output)
+	require.ErrorIs(t, err, studioapp.ErrApprovalRequired)
+	require.NotNil(t, output.approval)
+	_, exists, err := checkpoints.Get(context.Background(), request.Run.ID)
+	require.NoError(t, err)
+	require.True(t, exists)
+	require.Equal(t, 1, modelCalls)
+	require.Empty(t, output.assets)
+
+	require.NoError(t, output.approval.Approve("account_01", time.Now()))
+	request.Approvals = []*domain.Approval{output.approval}
+	err = engine.Execute(context.Background(), request, output)
+	require.NoError(t, err)
+	require.Equal(t, 2, modelCalls)
+	require.Len(t, output.assets, 1)
+	require.Equal(t, []string{"已创建。"}, output.responses)
+}
+
 func (s *sink) Emit(_ context.Context, eventType string, payload any) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

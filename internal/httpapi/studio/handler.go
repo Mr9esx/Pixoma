@@ -248,6 +248,7 @@ type sessionView struct {
 	PermissionMode domain.PermissionMode `json:"permission_mode"`
 	ModelConfigID  string                `json:"model_config_id,omitempty"`
 	Status         domain.SessionStatus  `json:"status"`
+	LatestRun      *runView              `json:"latest_run"`
 	CreatedAt      time.Time             `json:"created_at"`
 	UpdatedAt      time.Time             `json:"updated_at"`
 }
@@ -273,6 +274,17 @@ type runView struct {
 	StartedAt        time.Time        `json:"started_at,omitempty"`
 	CompletedAt      time.Time        `json:"completed_at,omitempty"`
 	UpdatedAt        time.Time        `json:"updated_at"`
+}
+
+type runProgressView struct {
+	RunID              string          `json:"run_id"`
+	SessionID          string          `json:"session_id"`
+	AssistantMessageID string          `json:"assistant_message_id,omitempty"`
+	AssistantText      string          `json:"assistant_text,omitempty"`
+	ReasoningText      string          `json:"reasoning_text,omitempty"`
+	ToolCalls          json.RawMessage `json:"tool_calls,omitempty"`
+	LastSequence       uint64          `json:"last_sequence"`
+	UpdatedAt          time.Time       `json:"updated_at"`
 }
 
 type assetVersionView struct {
@@ -354,9 +366,18 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 		failFromError(w, err)
 		return
 	}
+	sessionIDs := make([]string, 0, len(sessions))
+	for _, session := range sessions {
+		sessionIDs = append(sessionIDs, session.ID)
+	}
+	latestRuns, err := h.Repo.ListLatestSessionRuns(r.Context(), accountID, sessionIDs)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
 	out := make([]sessionView, 0, len(sessions))
 	for _, session := range sessions {
-		out = append(out, toSessionView(session))
+		out = append(out, toSessionView(session, latestRuns[session.ID]))
 	}
 	response.OKStatus(w, http.StatusOK, out)
 }
@@ -371,7 +392,7 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 		failFromError(w, err)
 		return
 	}
-	response.OKStatus(w, http.StatusCreated, toSessionView(session))
+	response.OKStatus(w, http.StatusCreated, toSessionView(session, nil))
 }
 
 func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
@@ -384,6 +405,22 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		failFromError(w, err)
 		return
+	}
+	latestRuns, err := h.Repo.ListLatestSessionRuns(r.Context(), accountID, []string{sessionID})
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	var progress *runProgressView
+	if latestRun := latestRuns[sessionID]; latestRun != nil && !latestRun.Status.Terminal() {
+		value, progressErr := h.Repo.GetRunProgress(r.Context(), accountID, latestRun.ID)
+		if progressErr != nil && !errors.Is(progressErr, domain.ErrNotFound) {
+			failFromError(w, progressErr)
+			return
+		}
+		if value != nil {
+			progress = toRunProgressView(value)
+		}
 	}
 	transcriptData, err := h.Repo.ListSessionTranscript(r.Context(), accountID, sessionID)
 	if err != nil {
@@ -408,10 +445,11 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 	}
 	transcript := studioapp.ProjectSessionTranscript(transcriptData.Messages, transcriptData.Runs, eventsByRun)
 	response.OKStatus(w, http.StatusOK, map[string]any{
-		"session":    toSessionView(session),
-		"messages":   messagesToViews(transcriptData.Messages),
-		"transcript": transcript,
-		"assets":     assetsToViews(assets),
+		"session":      toSessionView(session, latestRuns[sessionID]),
+		"run_progress": progress,
+		"messages":     messagesToViews(transcriptData.Messages),
+		"transcript":   transcript,
+		"assets":       assetsToViews(assets),
 		"flow": map[string]any{
 			"nodes": flowNodesToViews(nodes),
 			"edges": flowEdgesToViews(edges),
@@ -551,6 +589,7 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		SessionID      string                `json:"session_id"`
+		RequestID      string                `json:"request_id"`
 		Text           string                `json:"text"`
 		ModelConfigID  string                `json:"model_config_id"`
 		PermissionMode domain.PermissionMode `json:"permission_mode"`
@@ -560,7 +599,7 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := h.Service.SendMessage(r.Context(), studioapp.SendMessageInput{
-		AccountID: accountID, SessionID: body.SessionID, Text: body.Text,
+		AccountID: accountID, SessionID: body.SessionID, RequestID: body.RequestID, Text: body.Text,
 		ModelConfigID: body.ModelConfigID, PermissionMode: body.PermissionMode,
 	})
 	if err != nil {
@@ -568,7 +607,7 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.OKStatus(w, http.StatusAccepted, map[string]any{
-		"session": toSessionView(result.Session),
+		"session": toSessionView(result.Session, result.Run),
 		"message": toMessageView(result.Message),
 		"run":     toRunView(result.Run),
 	})
@@ -1124,8 +1163,13 @@ func queryInt(r *http.Request, key string, fallback int) int {
 	return value
 }
 
-func toSessionView(session *domain.Session) sessionView {
-	return sessionView{ID: session.ID, Title: session.Title, PermissionMode: session.PermissionMode, ModelConfigID: session.ModelConfigID, Status: session.Status, CreatedAt: session.CreatedAt, UpdatedAt: session.UpdatedAt}
+func toSessionView(session *domain.Session, latestRun *domain.Run) sessionView {
+	view := sessionView{ID: session.ID, Title: session.Title, PermissionMode: session.PermissionMode, ModelConfigID: session.ModelConfigID, Status: session.Status, CreatedAt: session.CreatedAt, UpdatedAt: session.UpdatedAt}
+	if latestRun != nil {
+		run := toRunView(latestRun)
+		view.LatestRun = &run
+	}
+	return view
 }
 
 func toMessageView(message *domain.Message) messageView {
@@ -1142,6 +1186,18 @@ func messagesToViews(messages []*domain.Message) []messageView {
 
 func toRunView(run *domain.Run) runView {
 	return runView{ID: run.ID, SessionID: run.SessionID, TriggerMessageID: run.TriggerMessageID, Status: run.Status, ModelConfigID: run.ModelConfigID, ErrorCode: run.ErrorCode, ErrorMessage: run.ErrorMessage, CreatedAt: run.CreatedAt, StartedAt: run.StartedAt, CompletedAt: run.CompletedAt, UpdatedAt: run.UpdatedAt}
+}
+
+func toRunProgressView(progress *domain.RunProgress) *runProgressView {
+	if progress == nil {
+		return nil
+	}
+	return &runProgressView{
+		RunID: progress.RunID, SessionID: progress.SessionID,
+		AssistantMessageID: progress.AssistantMessageID, AssistantText: progress.AssistantText,
+		ReasoningText: progress.ReasoningText, ToolCalls: append([]byte(nil), progress.ToolCallsJSON...),
+		LastSequence: progress.LastSequence, UpdatedAt: progress.UpdatedAt,
+	}
 }
 
 func assetsToViews(assets []*domain.Asset) []assetView {

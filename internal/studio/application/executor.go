@@ -66,6 +66,7 @@ type AgentRequest struct {
 }
 
 type GeneratedAsset struct {
+	ActionID string
 	Name     string
 	Kind     domain.AssetKind
 	Origin   domain.AssetOrigin
@@ -75,6 +76,7 @@ type GeneratedAsset struct {
 }
 
 type FlowNodeInput struct {
+	ActionID       string
 	Type           domain.FlowNodeType
 	Title          string
 	Body           string
@@ -170,15 +172,6 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 	if err != nil {
 		return err
 	}
-	events, err := e.repo.ListEventsAfter(ctx, run.AccountID, run.ID, 0, 200)
-	if err != nil {
-		return err
-	}
-	for _, event := range events {
-		if event.Sequence > sink.sequence {
-			sink.sequence = event.Sequence
-		}
-	}
 	skills, err := e.selectedSkills(ctx, run)
 	if err != nil {
 		return err
@@ -209,12 +202,24 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 		}
 		return e.repo.UpdateSession(summaryCtx, session)
 	}
-	return e.engine.Execute(ctx, AgentRequest{
+	err = e.engine.Execute(ctx, AgentRequest{
 		Run: run, Session: session, UserText: text,
 		History: history.Messages, HistoryMessageIDs: history.BoundaryMessageIDs,
 		ContextSummary: session.ContextSummary, SaveContextSummary: saveSummary,
 		Skills: skills, Assets: assets, Approvals: approvals,
 	}, sink)
+	if flushErr := sink.FlushOutput(ctx); flushErr != nil {
+		return flushErr
+	}
+	if errors.Is(err, ErrApprovalRequired) {
+		if waitErr := run.WaitForApproval(e.now()); waitErr != nil {
+			return waitErr
+		}
+		if updateErr := e.repo.UpdateRun(ctx, run); updateErr != nil {
+			return updateErr
+		}
+	}
+	return err
 }
 
 func retainAssetVersion(asset *domain.Asset, versionID string) error {
@@ -252,34 +257,70 @@ func (e *AgentExecutor) selectedSkills(ctx context.Context, run *domain.Run) ([]
 }
 
 type executionWriter struct {
-	executor *AgentExecutor
-	run      *domain.Run
-	events   EventStream
-	sequence uint64
+	executor             *AgentExecutor
+	run                  *domain.Run
+	events               EventStream
+	sequence             uint64
+	pendingTextID        string
+	pendingText          string
+	textLastFlushed      time.Time
+	pendingReasoningID   string
+	pendingReasoning     string
+	reasoningLastFlushed time.Time
+	progress             *domain.RunProgress
+	progressLastSaved    time.Time
+	progressDirty        bool
+	progressBytes        int
+	toolCalls            map[string]runProgressToolCall
+}
+
+const runProgressPersistInterval = 200 * time.Millisecond
+const textBatchPersistInterval = 50 * time.Millisecond
+
+type runProgressToolCall struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Args    string `json:"args,omitempty"`
+	Result  string `json:"result,omitempty"`
+	IsError bool   `json:"is_error,omitempty"`
 }
 
 func (w *executionWriter) Emit(ctx context.Context, eventType string, payload any) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if eventType == EventReasoningMessageContent {
+		return w.bufferReasoning(ctx, payload)
+	}
+	if eventType != EventTextMessageContent {
+		if err := w.FlushOutput(ctx); err != nil {
+			return err
+		}
+	}
+	return w.emitStored(ctx, eventType, payload)
+}
+
+func (w *executionWriter) emitStored(ctx context.Context, eventType string, payload any) error {
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	w.sequence++
 	event := &domain.Event{
 		ID: w.executor.ids(), RunID: w.run.ID, SessionID: w.run.SessionID,
-		AccountID: w.run.AccountID, Sequence: w.sequence, Type: eventType,
+		AccountID: w.run.AccountID, Type: eventType,
 		Payload: raw, CreatedAt: w.executor.now().UTC(),
 	}
-	if err := w.executor.repo.AppendEvent(ctx, event); err != nil {
+	stored, err := w.executor.repo.AppendRunEvent(ctx, event)
+	if err != nil {
 		return err
 	}
+	w.sequence = stored.Sequence
+	w.updateProgressFromEvent(ctx, eventType, raw, stored.Sequence)
 	if w.events == nil {
 		return nil
 	}
 	return w.events.Publish(ctx, LiveEvent{
-		RunID: w.run.ID, Sequence: event.Sequence, Type: event.Type, Payload: raw,
+		RunID: w.run.ID, Sequence: stored.Sequence, Type: event.Type, Payload: raw,
 	})
 }
 
@@ -310,22 +351,88 @@ func (w *executionWriter) AppendAssistantMessage(ctx context.Context, messageID,
 	if strings.TrimSpace(delta) == "" {
 		return nil
 	}
-	if w.events == nil {
-		return nil
+	if w.pendingReasoning != "" {
+		if err := w.FlushOutput(ctx); err != nil {
+			return err
+		}
 	}
-	payload, err := json.Marshal(map[string]any{"message_id": messageID, "delta": delta})
+	if w.pendingTextID != "" && w.pendingTextID != messageID {
+		if err := w.FlushOutput(ctx); err != nil {
+			return err
+		}
+	}
+	w.ensureProgress()
+	w.progress.AssistantMessageID = messageID
+	w.progress.AssistantText += delta
+	w.progressDirty = true
+	w.progressBytes += len(delta)
+	w.pendingTextID = messageID
+	w.pendingText += delta
+	if w.textLastFlushed.IsZero() || w.executor.now().Sub(w.textLastFlushed) >= textBatchPersistInterval || len(w.pendingText) >= 1024 {
+		return w.FlushOutput(ctx)
+	}
+	return nil
+}
+
+func (w *executionWriter) FlushOutput(ctx context.Context) error {
+	if w.pendingText != "" {
+		if err := w.emitStored(ctx, EventTextMessageContent, map[string]any{
+			"message_id": w.pendingTextID, "delta": w.pendingText,
+		}); err != nil {
+			return err
+		}
+		w.pendingText = ""
+		w.pendingTextID = ""
+		w.textLastFlushed = w.executor.now()
+	}
+	if w.pendingReasoning != "" {
+		if err := w.emitStored(ctx, EventReasoningMessageContent, map[string]any{
+			"message_id": w.pendingReasoningID, "delta": w.pendingReasoning,
+		}); err != nil {
+			return err
+		}
+		w.pendingReasoning = ""
+		w.pendingReasoningID = ""
+		w.reasoningLastFlushed = w.executor.now()
+	}
+	return nil
+}
+
+func (w *executionWriter) bufferReasoning(ctx context.Context, payload any) error {
+	raw, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	return w.events.Publish(ctx, LiveEvent{
-		RunID: w.run.ID, Type: EventTextMessageContent, Payload: payload,
-	})
+	var value struct {
+		MessageID string `json:"message_id"`
+		Delta     string `json:"delta"`
+	}
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return err
+	}
+	if value.Delta == "" {
+		return nil
+	}
+	if (w.pendingReasoningID != "" && w.pendingReasoningID != value.MessageID) || w.pendingText != "" {
+		if err := w.FlushOutput(ctx); err != nil {
+			return err
+		}
+	}
+	w.pendingReasoningID = value.MessageID
+	w.pendingReasoning += value.Delta
+	if w.reasoningLastFlushed.IsZero() || w.executor.now().Sub(w.reasoningLastFlushed) >= textBatchPersistInterval || len(w.pendingReasoning) >= 1024 {
+		return w.FlushOutput(ctx)
+	}
+	return nil
 }
 
 func (w *executionWriter) EndAssistantMessage(ctx context.Context, messageID, text string) (*domain.Message, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil, fmt.Errorf("%w: assistant text is required", domain.ErrInvalid)
+	}
+	if err := w.FlushOutput(ctx); err != nil {
+		return nil, err
 	}
 	content, err := json.Marshal([]messagePart{{Type: "text", Text: text}})
 	if err != nil {
@@ -345,7 +452,108 @@ func (w *executionWriter) EndAssistantMessage(ctx context.Context, messageID, te
 	}); err != nil {
 		return nil, err
 	}
+	w.deleteProgress(ctx)
 	return message, nil
+}
+
+func (w *executionWriter) ensureProgress() {
+	if w.progress != nil {
+		return
+	}
+	w.progress = &domain.RunProgress{
+		RunID: w.run.ID, SessionID: w.run.SessionID, AccountID: w.run.AccountID,
+	}
+	if w.toolCalls == nil {
+		w.toolCalls = make(map[string]runProgressToolCall)
+	}
+}
+
+func (w *executionWriter) updateProgressFromEvent(ctx context.Context, eventType string, raw json.RawMessage, sequence uint64) {
+	if eventType == EventRunFinished {
+		w.deleteProgress(ctx)
+		return
+	}
+	var value map[string]any
+	if json.Unmarshal(raw, &value) != nil {
+		return
+	}
+	w.ensureProgress()
+	w.progress.LastSequence = sequence
+	switch eventType {
+	case EventTextMessageStart:
+		if messageID, _ := value["message_id"].(string); messageID != "" {
+			w.progress.AssistantMessageID = messageID
+		}
+	case EventReasoningMessageStart:
+		if w.progress.ReasoningText != "" {
+			w.progress.ReasoningText += "\n"
+		}
+	case EventReasoningMessageContent:
+		if delta, _ := value["delta"].(string); delta != "" {
+			w.progress.ReasoningText += delta
+			w.progressBytes += len(delta)
+		}
+	case EventToolCallStart:
+		callID, _ := value["tool_call_id"].(string)
+		if callID != "" {
+			w.toolCalls[callID] = runProgressToolCall{ID: callID, Name: stringValue(value, "tool_name")}
+		}
+	case EventToolCallArgs:
+		callID, _ := value["tool_call_id"].(string)
+		call := w.toolCalls[callID]
+		call.ID = callID
+		call.Args += stringValue(value, "delta")
+		w.toolCalls[callID] = call
+		w.progressBytes += len(stringValue(value, "delta"))
+	case EventToolCallResult:
+		callID, _ := value["tool_call_id"].(string)
+		call := w.toolCalls[callID]
+		call.ID = callID
+		call.Result = stringValue(value, "content")
+		call.IsError, _ = value["is_error"].(bool)
+		w.toolCalls[callID] = call
+	}
+	w.progressDirty = true
+	w.maybePersistProgress(ctx, eventType == EventTextMessageStart || eventType == EventReasoningMessageStart || eventType == EventToolCallStart || eventType == EventToolCallEnd)
+}
+
+func stringValue(value map[string]any, key string) string {
+	result, _ := value[key].(string)
+	return result
+}
+
+func (w *executionWriter) maybePersistProgress(ctx context.Context, force bool) {
+	if w.progress == nil || !w.progressDirty {
+		return
+	}
+	now := w.executor.now().UTC()
+	if !force && !w.progressLastSaved.IsZero() && now.Sub(w.progressLastSaved) < runProgressPersistInterval && w.progressBytes < 1024 {
+		return
+	}
+	if len(w.toolCalls) > 0 {
+		calls, err := json.Marshal(w.toolCalls)
+		if err != nil {
+			return
+		}
+		w.progress.ToolCallsJSON = calls
+	}
+	w.progress.UpdatedAt = now
+	if err := w.executor.repo.UpsertRunProgress(ctx, w.progress); err != nil {
+		return
+	}
+	w.progressLastSaved = now
+	w.progressDirty = false
+	w.progressBytes = 0
+}
+
+func (w *executionWriter) deleteProgress(ctx context.Context) {
+	if w.progress == nil {
+		return
+	}
+	_ = w.executor.repo.DeleteRunProgress(ctx, w.run.AccountID, w.run.ID)
+	w.progress = nil
+	w.progressDirty = false
+	w.progressBytes = 0
 }
 
 func (w *executionWriter) CreateAsset(ctx context.Context, input GeneratedAsset) (*domain.Asset, error) {
@@ -354,6 +562,14 @@ func (w *executionWriter) CreateAsset(ctx context.Context, input GeneratedAsset)
 	}
 	now := w.executor.now().UTC()
 	assetID := w.executor.ids()
+	if input.ActionID != "" {
+		assetID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(w.run.ID+"\x00asset\x00"+input.ActionID)).String()
+		if existing, err := w.executor.repo.GetAsset(ctx, w.run.AccountID, assetID); err == nil {
+			return existing, nil
+		} else if !errors.Is(err, domain.ErrNotFound) {
+			return nil, err
+		}
+	}
 	asset, err := domain.NewAsset(assetID, w.run.SessionID, w.run.AccountID, input.Name, input.Kind, input.Origin, now)
 	if err != nil {
 		return nil, err
@@ -365,7 +581,11 @@ func (w *executionWriter) CreateAsset(ctx context.Context, input GeneratedAsset)
 	if err != nil {
 		return nil, err
 	}
-	version, err := asset.AppendVersion(w.executor.ids(), input.MIMEType, ref.Key, ref.Size, now)
+	versionID := w.executor.ids()
+	if input.ActionID != "" {
+		versionID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(w.run.ID+"\x00version\x00"+input.ActionID)).String()
+	}
+	version, err := asset.AppendVersion(versionID, input.MIMEType, ref.Key, ref.Size, now)
 	if err != nil {
 		return nil, err
 	}
@@ -377,6 +597,9 @@ func (w *executionWriter) CreateAsset(ctx context.Context, input GeneratedAsset)
 		asset.Versions[len(asset.Versions)-1] = version
 	}
 	if err := w.executor.repo.CreateAsset(ctx, asset); err != nil {
+		if input.ActionID != "" && errors.Is(err, domain.ErrAlreadyExists) {
+			return w.executor.repo.GetAsset(ctx, w.run.AccountID, assetID)
+		}
 		return nil, err
 	}
 	if err := w.Emit(ctx, EventAssetCreated, map[string]any{"asset_id": asset.ID, "name": asset.Name, "kind": asset.Kind}); err != nil {
@@ -386,7 +609,11 @@ func (w *executionWriter) CreateAsset(ctx context.Context, input GeneratedAsset)
 }
 
 func (w *executionWriter) CreateFlowNode(ctx context.Context, input FlowNodeInput) (*domain.FlowNode, error) {
-	node, err := domain.NewFlowNode(w.executor.ids(), w.run.SessionID, w.run.AccountID, input.Type, input.Title, input.SortOrder, w.executor.now())
+	nodeID := w.executor.ids()
+	if input.ActionID != "" {
+		nodeID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(w.run.ID+"\x00flow-node\x00"+input.ActionID)).String()
+	}
+	node, err := domain.NewFlowNode(nodeID, w.run.SessionID, w.run.AccountID, input.Type, input.Title, input.SortOrder, w.executor.now())
 	if err != nil {
 		return nil, err
 	}
@@ -453,12 +680,6 @@ func (w *executionWriter) RequestApproval(ctx context.Context, toolCallID, actio
 		return nil, err
 	}
 	if err := w.executor.repo.CreateApproval(ctx, approval); err != nil {
-		return nil, err
-	}
-	if err := w.run.WaitForApproval(w.executor.now()); err != nil {
-		return nil, err
-	}
-	if err := w.executor.repo.UpdateRun(ctx, w.run); err != nil {
 		return nil, err
 	}
 	if err := w.Emit(ctx, EventApprovalRequired, map[string]any{
