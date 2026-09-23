@@ -422,6 +422,17 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 			progress = toRunProgressView(value)
 		}
 	}
+	// 待批准项随会话详情一起返回，切到这个会话时第一帧就能画出操作区，
+	// 不必等恢复运行的流把 interrupt 送过来。
+	pendingApprovals := make([]map[string]any, 0)
+	if latestRun := latestRuns[sessionID]; latestRun != nil && latestRun.Status == domain.RunWaitingApproval {
+		approvals, approvalErr := h.Repo.ListApprovals(r.Context(), accountID, latestRun.ID)
+		if approvalErr != nil {
+			failFromError(w, approvalErr)
+			return
+		}
+		pendingApprovals = pendingAGUIInterrupts(approvals)
+	}
 	transcriptData, err := h.Repo.ListSessionTranscript(r.Context(), accountID, sessionID)
 	if err != nil {
 		failFromError(w, err)
@@ -445,11 +456,12 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 	}
 	transcript := studioapp.ProjectSessionTranscript(transcriptData.Messages, transcriptData.Runs, eventsByRun)
 	response.OKStatus(w, http.StatusOK, map[string]any{
-		"session":      toSessionView(session, latestRuns[sessionID]),
-		"run_progress": progress,
-		"messages":     messagesToViews(transcriptData.Messages),
-		"transcript":   transcript,
-		"assets":       assetsToViews(assets),
+		"session":           toSessionView(session, latestRuns[sessionID]),
+		"run_progress":      progress,
+		"pending_approvals": pendingApprovals,
+		"messages":          messagesToViews(transcriptData.Messages),
+		"transcript":        transcript,
+		"assets":            assetsToViews(assets),
 		"flow": map[string]any{
 			"nodes": flowNodesToViews(nodes),
 			"edges": flowEdgesToViews(edges),

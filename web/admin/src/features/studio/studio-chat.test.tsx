@@ -287,6 +287,68 @@ describe('StudioChat', () => {
     )
   })
 
+  it('shows the pending action that came with the session before interrupts arrive', async () => {
+    const screen = await render(
+      <StudioActionPanel
+        actions={[]}
+        preloadedActions={[
+          {
+            id: 'approval-1',
+            reason: 'tool_approval',
+            message: '创建资产「大纲.md」',
+          },
+        ]}
+        onRespond={() => {}}
+      />
+    )
+
+    await expect.element(screen.getByRole('alert')).toBeVisible()
+    expect(screen.getByRole('alert').element().textContent).toContain(
+      '创建资产「大纲.md」'
+    )
+    // 运行恢复的流还没把 interrupt 送到，此时提交响应不会被 runtime 接受
+    await expect
+      .element(screen.getByRole('button', { name: /^批准$/ }))
+      .toBeDisabled()
+    await expect
+      .element(screen.getByRole('button', { name: /^拒绝$/ }))
+      .toBeDisabled()
+  })
+
+  it('keeps the run interrupts as the source once they arrive', async () => {
+    const responded: [string, boolean][] = []
+    const screen = await render(
+      <StudioActionPanel
+        actions={[
+          {
+            id: 'interrupt-1',
+            reason: 'tool_approval',
+            message: '需要写入 Session 资产',
+          },
+        ]}
+        preloadedActions={[
+          {
+            id: 'approval-1',
+            reason: 'tool_approval',
+            message: '创建资产「大纲.md」',
+          },
+        ]}
+        onRespond={(id, approved) => {
+          responded.push([id, approved])
+        }}
+      />
+    )
+
+    const alerts = document.querySelectorAll('[role="alert"]')
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0].textContent).toContain('需要写入 Session 资产')
+    await expect
+      .element(screen.getByRole('button', { name: /^批准$/ }))
+      .toBeEnabled()
+    await screen.getByRole('button', { name: /^批准$/ }).click()
+    expect(responded).toEqual([['interrupt-1', true]])
+  })
+
   it('keeps a long pending action above its buttons and pushes the chat up', async () => {
     const screen = await render(
       <div

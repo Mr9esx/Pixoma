@@ -31,6 +31,7 @@ import {
   type StudioMessage,
   type StudioModel,
   type StudioPermissionMode,
+  type StudioPendingApproval,
   type StudioRun,
   type StudioRunProgress,
   type StudioSkill,
@@ -95,6 +96,7 @@ type Props = {
   transcript?: StudioTranscript
   latestRun?: StudioRun | null
   runProgress?: StudioRunProgress | null
+  pendingApprovals?: StudioPendingApproval[]
   models: StudioModel[]
   modelConfigId?: string
   permissionMode: StudioPermissionMode
@@ -152,6 +154,7 @@ function toTranscriptAGUIMessages(
 
 export function StudioChat(props: Props) {
   const [runError, setRunError] = useState<string>()
+  const [resumeSettled, setResumeSettled] = useState(false)
   const availableModels = props.models.filter(
     (model) => model.enabled && model.agent_enabled
   )
@@ -244,7 +247,12 @@ export function StudioChat(props: Props) {
       },
       async *resume(options: ChatModelRunOptions) {
         if (!connection) return
-        yield* connection.resume(options)
+        try {
+          yield* connection.resume(options)
+        } finally {
+          // 恢复的流走完后 interrupt 才是完整可信的，之前用会话详情里的待批准项垫着
+          setResumeSettled(true)
+        }
       },
       async append() {
         // The backend persists messages as part of the AG-UI run. History is
@@ -282,6 +290,7 @@ export function StudioChat(props: Props) {
         availableModels={availableModels}
         modelReady={modelReady}
         selectedModel={selectedModel}
+        resumeSettled={resumeSettled}
         runError={runError}
         {...props}
       />
@@ -293,6 +302,7 @@ function StudioChatSurface({
   availableModels,
   modelReady,
   selectedModel,
+  resumeSettled,
   runError,
   agent,
   onRunError,
@@ -301,6 +311,7 @@ function StudioChatSurface({
   availableModels: StudioModel[]
   modelReady: boolean
   selectedModel?: StudioModel
+  resumeSettled: boolean
   runError?: string
   agent: StudioWebSocketAgent
   onRunError: (message: string) => void
@@ -310,6 +321,10 @@ function StudioChatSurface({
   const isRunning = useAuiState((state) => state.thread.isRunning)
   const isEmpty = useAuiState((state) => state.thread.isEmpty)
   const hasPendingAction = useAgUiInterrupts().length > 0
+  // 恢复运行的流走完之前，interrupt 还没到，先用会话详情里的待批准项占住底部这一行，
+  // 免得先画出聊天输入再被操作区替换。
+  const preloadedActions = resumeSettled ? [] : (props.pendingApprovals ?? [])
+  const waitingForDecision = hasPendingAction || preloadedActions.length > 0
   const serverRunning =
     props.latestRun?.status === 'queued' ||
     props.latestRun?.status === 'running'
@@ -329,7 +344,7 @@ function StudioChatSurface({
         <ConversationContent
           className={cn(
             'mx-auto min-h-full w-full max-w-3xl px-5 pt-8',
-            hasPendingAction ? 'pb-5' : 'pb-44'
+            waitingForDecision ? 'pb-5' : 'pb-44'
           )}
         >
           {isEmpty ? <StudioWelcome onSelect={send} /> : null}
@@ -351,15 +366,15 @@ function StudioChatSurface({
         </ConversationContent>
         <ConversationScrollButton
           aria-label='跳转至最新消息'
-          className={hasPendingAction ? 'bottom-5' : 'bottom-48'}
+          className={waitingForDecision ? 'bottom-5' : 'bottom-48'}
         />
       </Conversation>
-      <StudioActionArea />
+      <StudioActionArea preloadedActions={preloadedActions} />
       <div
         data-slot='studio-composer'
         className={cn(
           'pointer-events-none absolute inset-x-0 bottom-0 z-20',
-          hasPendingAction && 'invisible'
+          waitingForDecision && 'invisible'
         )}
       >
         <div
@@ -449,7 +464,11 @@ function StudioChatSurface({
   )
 }
 
-function StudioActionArea() {
+function StudioActionArea({
+  preloadedActions,
+}: {
+  preloadedActions: StudioPendingApproval[]
+}) {
   const interrupts = useAgUiInterrupts()
   const submitInterruptResponses = useAgUiSubmitInterruptResponses()
 
@@ -460,6 +479,7 @@ function StudioActionArea() {
         reason: interrupt.reason,
         message: interrupt.message,
       }))}
+      preloadedActions={preloadedActions}
       onRespond={(id, approved) => {
         void submitInterruptResponses([
           {
@@ -486,17 +506,22 @@ function approvalTitle(reason?: string) {
 
 export function StudioActionPanel({
   actions,
+  preloadedActions = [],
   onRespond,
 }: {
   actions: StudioAction[]
+  preloadedActions?: StudioAction[]
   onRespond: (id: string, approved: boolean) => void
 }) {
-  if (actions.length === 0) return null
+  // interrupt 到了就以它为准，没到之前先用会话详情带过来的待处理项
+  const fromRuntime = actions.length > 0
+  const visibleActions = fromRuntime ? actions : preloadedActions
+  if (visibleActions.length === 0) return null
 
   return (
     <section aria-label='操作区'>
       <div className='mx-auto flex w-full max-w-3xl flex-col gap-2 px-5 pb-5'>
-        {actions.map((action) => (
+        {visibleActions.map((action) => (
           <Confirmation
             key={action.id}
             approval={{ id: action.id }}
@@ -510,11 +535,15 @@ export function StudioActionPanel({
             <ConfirmationActions>
               <ConfirmationAction
                 variant='outline'
+                disabled={!fromRuntime}
                 onClick={() => onRespond(action.id, false)}
               >
                 拒绝
               </ConfirmationAction>
-              <ConfirmationAction onClick={() => onRespond(action.id, true)}>
+              <ConfirmationAction
+                disabled={!fromRuntime}
+                onClick={() => onRespond(action.id, true)}
+              >
                 批准
               </ConfirmationAction>
             </ConfirmationActions>

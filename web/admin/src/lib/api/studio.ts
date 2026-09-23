@@ -193,9 +193,17 @@ export type StudioFlowEdge = {
   label?: string
 }
 
+// 运行处于等待批准时随会话详情返回的待处理事项，形状与 AG-UI interrupt 一致
+export type StudioPendingApproval = {
+  id: string
+  reason?: string
+  message?: string
+}
+
 export type StudioSessionDetail = {
   session: StudioSession
   run_progress?: StudioRunProgress | null
+  pending_approvals?: StudioPendingApproval[]
   messages: StudioMessage[]
   transcript: StudioTranscript
   assets: StudioAsset[]

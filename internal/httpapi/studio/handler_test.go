@@ -650,6 +650,23 @@ func TestStudioAGUIResumesWaitingApproval(t *testing.T) {
 	if approvalMessage != "执行工作流「分镜生成」" {
 		t.Fatalf("approval interrupt message = %q", approvalMessage)
 	}
+	detail := request(t, router, http.MethodGet, "/sessions/"+session.ID, nil, "account-a")
+	var detailBody struct {
+		PendingApprovals []struct {
+			ID      string `json:"id"`
+			Reason  string `json:"reason"`
+			Message string `json:"message"`
+		} `json:"pending_approvals"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(detail), &detailBody); err != nil {
+		t.Fatal(err)
+	}
+	if len(detailBody.PendingApprovals) != 1 ||
+		detailBody.PendingApprovals[0].ID != approvalID ||
+		detailBody.PendingApprovals[0].Reason != "tool_approval" ||
+		detailBody.PendingApprovals[0].Message != approvalMessage {
+		t.Fatalf("session detail pending approvals = %+v", detailBody.PendingApprovals)
+	}
 	resumed := request(t, router, http.MethodPost, "/agui", map[string]any{
 		"threadId": session.ID,
 		"runId":    "browser-run-approval-resume",
@@ -661,6 +678,10 @@ func TestStudioAGUIResumesWaitingApproval(t *testing.T) {
 	}, "account-a")
 	if resumed.Code != http.StatusOK || !strings.Contains(resumed.Body.String(), `"outcome":{"type":"success"}`) {
 		t.Fatalf("resumed approval stream = %d %s", resumed.Code, resumed.Body.String())
+	}
+	settled := request(t, router, http.MethodGet, "/sessions/"+session.ID, nil, "account-a")
+	if !strings.Contains(settled.Body.String(), `"pending_approvals":[]`) {
+		t.Fatalf("session detail after resume = %s", settled.Body.String())
 	}
 }
 

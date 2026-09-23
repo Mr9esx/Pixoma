@@ -290,6 +290,7 @@ export function StudioWorkspace() {
                   transcript={detail.data.transcript}
                   latestRun={detail.data.session.latest_run}
                   runProgress={detail.data.run_progress}
+                  pendingApprovals={detail.data.pending_approvals}
                   models={models.data ?? []}
                   modelConfigId={
                     modelConfigId ?? detail.data.session.model_config_id

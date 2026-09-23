@@ -146,7 +146,7 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('bg-gradient-to-t from-card to-transparent')
     expect(source).toContain('pb-44')
     expect(source).toContain("aria-label='跳转至最新消息'")
-    expect(source).toContain("hasPendingAction ? 'bottom-5' : 'bottom-48'")
+    expect(source).toContain("waitingForDecision ? 'bottom-5' : 'bottom-48'")
     expect(source).not.toContain("className='bottom-44'")
     expect(source).not.toContain("className='shrink-0 px-4 pt-2 pb-5'")
   })
@@ -349,17 +349,39 @@ describe('Studio production workspace contract', () => {
     expect(source).not.toContain('<StudioApprovalPrompt')
     // 操作区是聊天区后面的兄弟节点，排在对话区之后、聊天输入之前
     expect(source.indexOf('</Conversation>')).toBeLessThan(
-      source.indexOf('<StudioActionArea />')
+      source.indexOf('<StudioActionArea preloadedActions={preloadedActions} />')
     )
-    expect(source.indexOf('<StudioActionArea />')).toBeLessThan(
-      source.indexOf("data-slot='studio-composer'")
-    )
-    // 有待处理事项时聊天区让出底部空间，聊天输入整体隐藏
+    expect(
+      source.indexOf('<StudioActionArea preloadedActions={preloadedActions} />')
+    ).toBeLessThan(source.indexOf("data-slot='studio-composer'"))
+    // 恢复运行的流走完之前，会话详情带来的待处理事项先占住底部这一行，
+    // 聊天区让出底部空间，聊天输入整体隐藏
     expect(source).toContain(
-      'const hasPendingAction = useAgUiInterrupts().length > 0'
+      'const preloadedActions = resumeSettled ? [] : (props.pendingApprovals ?? [])'
     )
-    expect(source).toContain("hasPendingAction ? 'pb-5' : 'pb-44'")
-    expect(source).toContain("hasPendingAction && 'invisible'")
+    expect(source).toContain(
+      'const waitingForDecision = hasPendingAction || preloadedActions.length > 0'
+    )
+    expect(source).toContain("waitingForDecision ? 'pb-5' : 'pb-44'")
+    expect(source).toContain("waitingForDecision ? 'bottom-5' : 'bottom-48'")
+    expect(source).toContain("waitingForDecision && 'invisible'")
+    expect(source).toContain('setResumeSettled(true)')
+    expect(source).toContain('const fromRuntime = actions.length > 0')
+    expect(source).toContain(
+      'const visibleActions = fromRuntime ? actions : preloadedActions'
+    )
+    // 会话详情带来的待处理项在 interrupt 到达前先显示，此时按钮不可提交
+    expect(source.match(/disabled={!fromRuntime}/g)).toHaveLength(2)
+  })
+
+  it('carries the pending approvals of the latest run in the session detail', () => {
+    const source = read('../../lib/api/studio.ts')
+    expect(source).toContain('export type StudioPendingApproval = {')
+    expect(source).toContain('pending_approvals?: StudioPendingApproval[]')
+    const workspace = read('./studio-workspace.tsx')
+    expect(workspace).toContain(
+      'pendingApprovals={detail.data.pending_approvals}'
+    )
   })
 
   it('enables Streamdown animation for streaming answers and reasoning', () => {
