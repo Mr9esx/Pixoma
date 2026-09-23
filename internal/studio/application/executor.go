@@ -37,6 +37,7 @@ const (
 	EventModelRequestFailed      = "MODEL_REQUEST_FAILED"
 	EventContextCompacted        = "CONTEXT_COMPACTED"
 	EventAssetCreated            = "ASSET_CREATED"
+	EventAssetUpdated            = "ASSET_UPDATED"
 	EventFlowUpdated             = "FLOW_UPDATED"
 	EventApprovalRequired        = "APPROVAL_REQUIRED"
 	EventApprovalResolved        = "APPROVAL_RESOLVED"
@@ -92,6 +93,13 @@ type AgentSink interface {
 	CreateFlowNode(ctx context.Context, input FlowNodeInput) (*domain.FlowNode, error)
 	CreateFlowEdge(ctx context.Context, sourceNodeID, targetNodeID, label string) (*domain.FlowEdge, error)
 	RequestApproval(ctx context.Context, toolCallID, action, description string) (*domain.Approval, error)
+}
+
+// TextAssetVersionAppender is implemented by the durable Agent execution
+// writer. Built-in tools use it opportunistically so test and third-party
+// sinks do not need to expose mutation capabilities they do not support.
+type TextAssetVersionAppender interface {
+	AppendTextAssetVersion(ctx context.Context, assetID, expectedVersionID, action string, content []byte) (*domain.Asset, domain.AssetVersion, error)
 }
 
 // AssistantStreamSink is optional so existing workflow/test sinks can keep the
@@ -606,6 +614,68 @@ func (w *executionWriter) CreateAsset(ctx context.Context, input GeneratedAsset)
 		return nil, err
 	}
 	return asset, nil
+}
+
+// AppendTextAssetVersion creates a new immutable Markdown version for an
+// existing Session document. The expected version avoids silently deriving
+// from a stale asset the model has not seen; the deterministic version ID
+// makes a resumed Agent tool call idempotent.
+func (w *executionWriter) AppendTextAssetVersion(ctx context.Context, assetID, expectedVersionID, action string, content []byte) (*domain.Asset, domain.AssetVersion, error) {
+	if strings.TrimSpace(assetID) == "" || strings.TrimSpace(expectedVersionID) == "" || strings.TrimSpace(action) == "" || len(content) == 0 {
+		return nil, domain.AssetVersion{}, fmt.Errorf("%w: text asset update is incomplete", domain.ErrInvalid)
+	}
+	asset, err := w.executor.repo.GetAsset(ctx, w.run.AccountID, assetID)
+	if err != nil {
+		return nil, domain.AssetVersion{}, err
+	}
+	if asset.SessionID != w.run.SessionID || asset.Kind != domain.AssetDocument {
+		return nil, domain.AssetVersion{}, fmt.Errorf("%w: only Session documents can be updated", domain.ErrInvalid)
+	}
+	versionID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(w.run.ID+"\x00asset-version\x00"+action)).String()
+	for _, version := range asset.Versions {
+		if version.ID == versionID {
+			return asset, version, nil
+		}
+	}
+	var current domain.AssetVersion
+	for _, version := range asset.Versions {
+		if version.Version == asset.CurrentVersion {
+			current = version
+			break
+		}
+	}
+	if current.ID == "" || current.ID != expectedVersionID {
+		return nil, domain.AssetVersion{}, fmt.Errorf("%w: text asset changed since it was selected", domain.ErrInvalid)
+	}
+	now := w.executor.now().UTC()
+	key := filepath.ToSlash(filepath.Join("studio", w.run.AccountID, w.run.SessionID, asset.ID, versionID+".md"))
+	ref, err := w.executor.blob.Put(ctx, key, bytes.NewReader(content), blob.PutOptions{MIME: "text/markdown"})
+	if err != nil {
+		return nil, domain.AssetVersion{}, fmt.Errorf("studio: save updated text asset: %w", err)
+	}
+	version, err := asset.AppendVersion(versionID, "text/markdown", ref.Key, ref.Size, now)
+	if err != nil {
+		return nil, domain.AssetVersion{}, err
+	}
+	if err := w.executor.repo.AppendAssetVersion(ctx, asset.ID, w.run.AccountID, version); err != nil {
+		if !errors.Is(err, domain.ErrAlreadyExists) {
+			return nil, domain.AssetVersion{}, err
+		}
+		stored, getErr := w.executor.repo.GetAsset(ctx, w.run.AccountID, asset.ID)
+		if getErr != nil {
+			return nil, domain.AssetVersion{}, getErr
+		}
+		for _, storedVersion := range stored.Versions {
+			if storedVersion.ID == versionID {
+				return stored, storedVersion, nil
+			}
+		}
+		return nil, domain.AssetVersion{}, err
+	}
+	if err := w.Emit(ctx, EventAssetUpdated, map[string]any{"asset_id": asset.ID, "asset_version_id": version.ID, "name": asset.Name, "kind": asset.Kind}); err != nil {
+		return nil, domain.AssetVersion{}, err
+	}
+	return asset, version, nil
 }
 
 func (w *executionWriter) CreateFlowNode(ctx context.Context, input FlowNodeInput) (*domain.FlowNode, error) {

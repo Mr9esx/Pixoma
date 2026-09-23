@@ -53,6 +53,9 @@ func NewRuntimeTools(access ToolAccess) ([]einotool.BaseTool, error) {
 	if access.Blob != nil && len(access.Assets) > 0 {
 		tools = append(tools, &readAssetTool{info: &schema.ToolInfo{Name: "read_asset", Desc: "读取本次 Run 已选择且固定版本的文本资产内容。", ParamsOneOf: assetIDParams()}, access: access})
 	}
+	if _, ok := access.Sink.(studioapp.TextAssetVersionAppender); ok && hasPinnedMarkdownAsset(access.Assets) {
+		tools = append(tools, &updateTextAssetTool{info: &schema.ToolInfo{Name: "update_text_asset", Desc: "将本次 Run 选择的 Markdown 资产更新为新版本，并加入创作 Flow。", ParamsOneOf: updateTextAssetParams()}, access: access})
+	}
 	return tools, nil
 }
 
@@ -60,6 +63,21 @@ func assetIDParams() *schema.ParamsOneOf {
 	var raw einojsonschema.Schema
 	_ = json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["asset_id"],"properties":{"asset_id":{"type":"string","description":"当前 Run 已选择资产的 ID"}}}`), &raw)
 	return schema.NewParamsOneOfByJSONSchema(&raw)
+}
+
+func updateTextAssetParams() *schema.ParamsOneOf {
+	var raw einojsonschema.Schema
+	_ = json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["asset_id","content"],"properties":{"asset_id":{"type":"string","description":"当前 Run 已选择的 Markdown 资产 ID"},"content":{"type":"string","description":"更新后的完整 Markdown 内容"}}}`), &raw)
+	return schema.NewParamsOneOfByJSONSchema(&raw)
+}
+
+func hasPinnedMarkdownAsset(assets []*domain.Asset) bool {
+	for _, asset := range assets {
+		if asset != nil && asset.Kind == domain.AssetDocument && len(asset.Versions) == 1 && asset.Versions[0].MIMEType == "text/markdown" {
+			return true
+		}
+	}
+	return false
 }
 
 type createTextAssetTool struct {
@@ -135,6 +153,98 @@ func (t *createTextAssetTool) finish(ctx context.Context, action string, cause e
 func createTextAssetAction(name, content string) string {
 	sum := sha256.Sum256([]byte(name + "\x00" + content))
 	return fmt.Sprintf("asset.create_text.%x", sum)
+}
+
+type updateTextAssetTool struct {
+	info   *schema.ToolInfo
+	access ToolAccess
+}
+
+func (t *updateTextAssetTool) Info(context.Context) (*schema.ToolInfo, error) { return t.info, nil }
+
+func (t *updateTextAssetTool) InvokableRun(ctx context.Context, arguments string, _ ...einotool.Option) (string, error) {
+	var input struct {
+		AssetID string `json:"asset_id"`
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal([]byte(arguments), &input); err != nil {
+		return "", fmt.Errorf("studio: invalid update_text_asset arguments: %w", err)
+	}
+	input.AssetID = strings.TrimSpace(input.AssetID)
+	input.Content = strings.TrimSpace(input.Content)
+	if input.AssetID == "" || input.Content == "" {
+		return "", fmt.Errorf("studio: update_text_asset requires asset_id and content")
+	}
+	asset, version, ok := pinnedMarkdownAsset(t.access.Assets, input.AssetID)
+	if !ok {
+		return "", fmt.Errorf("studio: Markdown asset is not available in this run")
+	}
+	action := updateTextAssetAction(asset.ID, version.ID, input.Content)
+	if t.access.PermissionMode == domain.PermissionRequestApproval && (t.access.IsApproved == nil || !t.access.IsApproved(action)) {
+		if t.access.RequestApproval == nil {
+			return "", fmt.Errorf("studio: built-in tool approval handler is not configured")
+		}
+		if err := t.access.RequestApproval(ctx, action+"."+uuid.NewString(), action, fmt.Sprintf("更新资产「%s」", asset.Name)); err != nil {
+			return "", err
+		}
+		return "", compose.Interrupt(ctx, action)
+	}
+	updater, ok := t.access.Sink.(studioapp.TextAssetVersionAppender)
+	if !ok {
+		return "", fmt.Errorf("studio: text asset update is not configured")
+	}
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallStart, map[string]any{"tool_call_id": action, "tool_name": t.info.Name, "asset_id": asset.ID}); err != nil {
+		return "", err
+	}
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallArgs, map[string]any{"tool_call_id": action, "delta": arguments}); err != nil {
+		return "", err
+	}
+	updated, nextVersion, err := updater.AppendTextAssetVersion(ctx, asset.ID, version.ID, action, []byte(input.Content))
+	if err != nil {
+		return "", t.finish(ctx, action, err)
+	}
+	if updated == nil || nextVersion.ID == "" {
+		return "", t.finish(ctx, action, fmt.Errorf("studio: update_text_asset returned no asset version"))
+	}
+	if _, err := t.access.Sink.CreateFlowNode(ctx, studioapp.FlowNodeInput{ActionID: action + ".flow", Type: domain.FlowNodeAsset, Title: updated.Name, Body: fmt.Sprintf("Agent 更新的 Markdown 文档（v%d）", nextVersion.Version), AssetID: updated.ID, AssetVersionID: nextVersion.ID, SortOrder: 500}); err != nil {
+		return "", t.finish(ctx, action, err)
+	}
+	output := fmt.Sprintf("已更新 Markdown 资产「%s」（v%d）。", updated.Name, nextVersion.Version)
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallResult, map[string]any{"tool_call_id": action, "content": output, "is_error": false}); err != nil {
+		return "", err
+	}
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": action, "tool_name": t.info.Name, "asset_id": updated.ID, "asset_version_id": nextVersion.ID, "is_error": false}); err != nil {
+		return "", err
+	}
+	return output, nil
+}
+
+func pinnedMarkdownAsset(assets []*domain.Asset, assetID string) (*domain.Asset, domain.AssetVersion, bool) {
+	for _, asset := range assets {
+		if asset == nil || asset.ID != assetID || asset.Kind != domain.AssetDocument || len(asset.Versions) != 1 {
+			continue
+		}
+		version := asset.Versions[0]
+		if version.MIMEType == "text/markdown" {
+			return asset, version, true
+		}
+	}
+	return nil, domain.AssetVersion{}, false
+}
+
+func (t *updateTextAssetTool) finish(ctx context.Context, action string, cause error) error {
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallResult, map[string]any{"tool_call_id": action, "content": cause.Error(), "is_error": true}); err != nil {
+		return err
+	}
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": action, "tool_name": t.info.Name, "is_error": true}); err != nil {
+		return err
+	}
+	return cause
+}
+
+func updateTextAssetAction(assetID, versionID, content string) string {
+	sum := sha256.Sum256([]byte(assetID + "\x00" + versionID + "\x00" + content))
+	return fmt.Sprintf("asset.update_text.%x", sum)
 }
 
 type readAssetTool struct {

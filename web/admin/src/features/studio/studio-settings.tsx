@@ -335,7 +335,7 @@ export function StudioSettings() {
                       <SettingsEmpty
                         icon={BrainCircuit}
                         title='还没有在线模型'
-                        description='添加一个模型后，用户可以直接在输入框中选择。未配置时仍可使用内置 Mock Agent 验证完整创作流程。'
+                        description='添加并启用模型后，在对话输入框中选择。'
                       />
                     ) : null}
                   </div>

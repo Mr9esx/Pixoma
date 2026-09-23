@@ -4,16 +4,94 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
 	"github.com/Mr9esx/Pixoma/internal/platform/db"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/persistence"
 )
+
+func TestExecutionWriterAppendsImmutableTextVersion(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:executor_update_text_asset?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if sqlDB, dbErr := gdb.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	if err := db.AutoMigrate(gdb, persistence.Models()...); err != nil {
+		t.Fatal(err)
+	}
+	repo := persistence.NewGormRepository(gdb)
+	blobs, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	now := time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC)
+	run, err := domain.NewRun("update-run", "update-session", "account-a", "message-1", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	asset, err := domain.NewAsset("story-asset", run.SessionID, run.AccountID, "story.md", domain.AssetDocument, domain.AssetOriginUser, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstRef, err := blobs.Put(ctx, "studio/account-a/update-session/story-asset/v1.md", strings.NewReader("# Original"), blob.PutOptions{MIME: "text/markdown"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := asset.AppendVersion("story-v1", "text/markdown", firstRef.Key, firstRef.Size, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateAsset(ctx, asset); err != nil {
+		t.Fatal(err)
+	}
+	i := 0
+	writer := &executionWriter{executor: &AgentExecutor{repo: repo, blob: blobs, ids: func() string { i++; return fmt.Sprintf("update-event-%d", i) }, now: func() time.Time { return now }}, run: run}
+	updated, next, err := writer.AppendTextAssetVersion(ctx, asset.ID, first.ID, "update-story", []byte("# Revised"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.CurrentVersion != 2 || next.Version != 2 || next.ID == first.ID || next.BlobKey == first.BlobKey {
+		t.Fatalf("updated=%#v next=%#v", updated, next)
+	}
+	repeated, same, err := writer.AppendTextAssetVersion(ctx, asset.ID, first.ID, "update-story", []byte("# Revised"))
+	if err != nil || repeated.CurrentVersion != 2 || same.ID != next.ID {
+		t.Fatalf("repeat=(%#v, %#v, %v)", repeated, same, err)
+	}
+	stored, err := repo.GetAsset(ctx, run.AccountID, asset.ID)
+	if err != nil || len(stored.Versions) != 2 {
+		t.Fatalf("stored=(%#v, %v)", stored, err)
+	}
+	for _, check := range []struct{ key, want string }{{first.BlobKey, "# Original"}, {next.BlobKey, "# Revised"}} {
+		reader, getErr := blobs.Get(ctx, sharedkernel.BlobRef{Key: check.key})
+		if getErr != nil {
+			t.Fatal(getErr)
+		}
+		content, readErr := io.ReadAll(reader)
+		_ = reader.Close()
+		if readErr != nil || string(content) != check.want {
+			t.Fatalf("content=(%q, %v), want %q", content, readErr, check.want)
+		}
+	}
+	if _, _, err := writer.AppendTextAssetVersion(ctx, asset.ID, first.ID, "different-action", []byte("# Other")); err == nil {
+		t.Fatal("stale version update succeeded")
+	}
+}
 
 func TestExecutionWriterReusesAssetForStableAction(t *testing.T) {
 	gdb, err := db.Open(db.Options{DSN: "file:executor_asset_action?mode=memory&cache=shared"})
