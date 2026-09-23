@@ -325,7 +325,7 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain(
       '<AlertTitle>{approvalTitle(action.reason)}</AlertTitle>'
     )
-    expect(source).toContain("<div className='flex items-center gap-3'>")
+    expect(source).toContain("<div className='flex w-full items-center gap-3'>")
     expect(source).toContain("<AlertDescription className='flex-1'>")
     expect(source).toContain(
       "<ConfirmationActions className='shrink-0 self-center'>"

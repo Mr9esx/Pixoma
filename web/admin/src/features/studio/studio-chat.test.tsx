@@ -219,6 +219,9 @@ describe('StudioChat', () => {
     const approveBox = approve.getBoundingClientRect()
     expect(title.textContent).toBe('权限审批')
     expect(description.textContent).toBe('需要写入 Session 资产')
+    // 右侧内边距 16px 加上 1px 边框
+    expect(alertBox.right - approveBox.right).toBe(17)
+    expect(descriptionBox.left - alertBox.left).toBe(17)
     expect(titleBox.bottom).toBeLessThan(descriptionBox.top)
     expect(descriptionBox.right).toBeLessThan(approveBox.left)
     expect(descriptionBox.top).toBeLessThan(approveBox.bottom)
@@ -269,9 +272,7 @@ describe('StudioChat', () => {
     const approveBox = approve.getBoundingClientRect()
     expect(descriptionBox.right).toBeLessThanOrEqual(approveBox.left)
     expect(descriptionBox.height).toBeGreaterThan(30)
-    expect(alert.getBoundingClientRect().right).toBeGreaterThanOrEqual(
-      approveBox.right
-    )
+    expect(alert.getBoundingClientRect().right - approveBox.right).toBe(17)
   })
 
   it('groups the model switcher with the send button and keeps Skills and assets as icon buttons', async () => {

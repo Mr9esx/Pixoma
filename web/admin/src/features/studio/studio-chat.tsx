@@ -498,7 +498,7 @@ export function StudioActionPanel({
           variant='warn'
         >
           <AlertTitle>{approvalTitle(action.reason)}</AlertTitle>
-          <div className='flex items-center gap-3'>
+          <div className='flex w-full items-center gap-3'>
             <AlertDescription className='flex-1'>
               {action.message ?? '需要批准后继续执行'}
             </AlertDescription>
