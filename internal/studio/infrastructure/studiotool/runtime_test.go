@@ -29,6 +29,15 @@ type toolSink struct {
 	flowNodes          []studioapp.FlowNodeInput
 }
 
+type sessionAssetSink struct {
+	toolSink
+	assets []*domain.Asset
+}
+
+func (s *sessionAssetSink) ListSessionAssets(context.Context, int) ([]*domain.Asset, error) {
+	return s.assets, nil
+}
+
 func (s *toolSink) Emit(_ context.Context, typ string, value any) error {
 	raw, _ := json.Marshal(value)
 	var payload map[string]any
@@ -149,5 +158,54 @@ func TestUpdateTextAssetToolAppendsVersionToPinnedSelectedAsset(t *testing.T) {
 	}
 	if len(sink.flowNodes) != 1 || sink.flowNodes[0].AssetVersionID != "version-2" {
 		t.Fatalf("flow nodes = %#v", sink.flowNodes)
+	}
+}
+
+func TestListSessionAssetsReturnsVersionMetadataWithoutBlobKeys(t *testing.T) {
+	asset, err := domain.NewAsset("asset-1", "session-1", "account-a", "story.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := asset.AppendVersion("version-1", "text/markdown", "private/blob/key", 12, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	sink := &sessionAssetSink{assets: []*domain.Asset{asset}}
+	tools, err := NewRuntimeTools(ToolAccess{Sink: sink})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var listing einotool.InvokableTool
+	for _, candidate := range tools {
+		info, infoErr := candidate.Info(context.Background())
+		if infoErr == nil && info.Name == "list_session_assets" {
+			listing, _ = candidate.(einotool.InvokableTool)
+			break
+		}
+	}
+	if listing == nil {
+		t.Fatal("list_session_assets tool is missing")
+	}
+	result, err := listing.InvokableRun(context.Background(), `{}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output struct {
+		Assets []struct {
+			ID       string `json:"id"`
+			Name     string `json:"name"`
+			Versions []struct {
+				ID     string `json:"id"`
+				Number int    `json:"number"`
+			} `json:"versions"`
+		} `json:"assets"`
+	}
+	if err := json.Unmarshal([]byte(result), &output); err != nil {
+		t.Fatal(err)
+	}
+	if len(output.Assets) != 1 || output.Assets[0].ID != "asset-1" || output.Assets[0].Name != "story.md" || len(output.Assets[0].Versions) != 1 || output.Assets[0].Versions[0].ID != "version-1" || output.Assets[0].Versions[0].Number != 1 {
+		t.Fatalf("result = %s", result)
+	}
+	if bytes.Contains([]byte(result), []byte("private/blob/key")) {
+		t.Fatalf("result exposed blob key: %s", result)
 	}
 }

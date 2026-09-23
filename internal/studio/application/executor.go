@@ -102,6 +102,12 @@ type TextAssetVersionAppender interface {
 	AppendTextAssetVersion(ctx context.Context, assetID, expectedVersionID, action string, content []byte) (*domain.Asset, domain.AssetVersion, error)
 }
 
+// SessionAssetLister exposes names and version metadata to built-in Agent
+// tools while keeping blob contents behind explicit Run asset selection.
+type SessionAssetLister interface {
+	ListSessionAssets(ctx context.Context, limit int) ([]*domain.Asset, error)
+}
+
 // AssistantStreamSink is optional so existing workflow/test sinks can keep the
 // small AgentSink contract while the production persistence writer can publish
 // text deltas without creating one database message per delta.
@@ -676,6 +682,10 @@ func (w *executionWriter) AppendTextAssetVersion(ctx context.Context, assetID, e
 		return nil, domain.AssetVersion{}, err
 	}
 	return asset, version, nil
+}
+
+func (w *executionWriter) ListSessionAssets(ctx context.Context, limit int) ([]*domain.Asset, error) {
+	return w.executor.repo.ListSessionAssets(ctx, w.run.AccountID, w.run.SessionID, limit)
 }
 
 func (w *executionWriter) CreateFlowNode(ctx context.Context, input FlowNodeInput) (*domain.FlowNode, error) {

@@ -50,6 +50,13 @@ func NewRuntimeTools(access ToolAccess) ([]einotool.BaseTool, error) {
 		},
 		access: access,
 	}}
+	if lister, ok := access.Sink.(studioapp.SessionAssetLister); ok {
+		var listSchema einojsonschema.Schema
+		if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"properties":{}}`), &listSchema); err != nil {
+			return nil, err
+		}
+		tools = append(tools, &listSessionAssetsTool{info: &schema.ToolInfo{Name: "list_session_assets", Desc: "列出当前 Session 的资产名称、类型和版本 ID；读取内容前仍需在本轮对话中选择资产。", ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&listSchema)}, access: access, lister: lister})
+	}
 	if access.Blob != nil && len(access.Assets) > 0 {
 		tools = append(tools, &readAssetTool{info: &schema.ToolInfo{Name: "read_asset", Desc: "读取本次 Run 已选择且固定版本的文本资产内容。", ParamsOneOf: assetIDParams()}, access: access})
 	}
@@ -57,6 +64,74 @@ func NewRuntimeTools(access ToolAccess) ([]einotool.BaseTool, error) {
 		tools = append(tools, &updateTextAssetTool{info: &schema.ToolInfo{Name: "update_text_asset", Desc: "将本次 Run 选择的 Markdown 资产更新为新版本，并加入创作 Flow。", ParamsOneOf: updateTextAssetParams()}, access: access})
 	}
 	return tools, nil
+}
+
+type listSessionAssetsTool struct {
+	info   *schema.ToolInfo
+	access ToolAccess
+	lister studioapp.SessionAssetLister
+}
+
+func (t *listSessionAssetsTool) Info(context.Context) (*schema.ToolInfo, error) { return t.info, nil }
+
+func (t *listSessionAssetsTool) InvokableRun(ctx context.Context, arguments string, _ ...einotool.Option) (string, error) {
+	var input map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(arguments), &input); err != nil {
+		return "", fmt.Errorf("studio: invalid list_session_assets arguments: %w", err)
+	}
+	if len(input) != 0 {
+		return "", fmt.Errorf("studio: list_session_assets takes no arguments")
+	}
+	const limit = 100
+	assets, err := t.lister.ListSessionAssets(ctx, limit+1)
+	if err != nil {
+		return "", err
+	}
+	type versionView struct {
+		ID       string `json:"id"`
+		Number   int    `json:"number"`
+		MIMEType string `json:"mime_type"`
+	}
+	type assetView struct {
+		ID             string             `json:"id"`
+		Name           string             `json:"name"`
+		Kind           domain.AssetKind   `json:"kind"`
+		Origin         domain.AssetOrigin `json:"origin"`
+		CurrentVersion int                `json:"current_version"`
+		Versions       []versionView      `json:"versions"`
+	}
+	view := make([]assetView, 0, min(len(assets), limit))
+	for _, asset := range assets {
+		if asset == nil || len(view) == limit {
+			break
+		}
+		versions := make([]versionView, 0, len(asset.Versions))
+		for _, version := range asset.Versions {
+			versions = append(versions, versionView{ID: version.ID, Number: version.Version, MIMEType: version.MIMEType})
+		}
+		view = append(view, assetView{ID: asset.ID, Name: asset.Name, Kind: asset.Kind, Origin: asset.Origin, CurrentVersion: asset.CurrentVersion, Versions: versions})
+	}
+	output, err := json.Marshal(struct {
+		Assets    []assetView `json:"assets"`
+		Truncated bool        `json:"truncated"`
+	}{Assets: view, Truncated: len(assets) > limit})
+	if err != nil {
+		return "", err
+	}
+	toolCallID := "asset.list"
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallStart, map[string]any{"tool_call_id": toolCallID, "tool_name": t.info.Name}); err != nil {
+		return "", err
+	}
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallArgs, map[string]any{"tool_call_id": toolCallID, "delta": arguments}); err != nil {
+		return "", err
+	}
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallResult, map[string]any{"tool_call_id": toolCallID, "content": string(output), "is_error": false}); err != nil {
+		return "", err
+	}
+	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": toolCallID, "tool_name": t.info.Name, "asset_count": len(view), "is_error": false}); err != nil {
+		return "", err
+	}
+	return string(output), nil
 }
 
 func assetIDParams() *schema.ParamsOneOf {
