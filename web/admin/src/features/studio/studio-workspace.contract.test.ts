@@ -146,7 +146,7 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('bg-gradient-to-t from-card to-transparent')
     expect(source).toContain('pb-44')
     expect(source).toContain("aria-label='跳转至最新消息'")
-    expect(source).toContain("className='bottom-48'")
+    expect(source).toContain("hasPendingAction ? 'bottom-5' : 'bottom-48'")
     expect(source).not.toContain("className='bottom-44'")
     expect(source).not.toContain("className='shrink-0 px-4 pt-2 pb-5'")
   })
@@ -334,32 +334,32 @@ describe('Studio production workspace contract', () => {
     expect(descriptionIndex).toBeLessThan(actionsIndex)
   })
 
-  it('shows the approval actions at the composer input while the agent waits', () => {
+  it('gives a pending approval its own row below the conversation', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain("aria-label='操作区'")
     expect(source).toContain("variant='warn'")
     expect(source).toContain(
-      'absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-card'
+      "<div className='mx-auto flex w-full max-w-3xl flex-col gap-2 px-5 pb-5'>"
     )
     expect(source).not.toContain('flex-1 justify-center')
-    expect(source).toContain(
-      "<div className='pointer-events-auto relative z-10'>"
-    )
     expect(source).toContain(
       "<div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>"
     )
     expect(source).not.toContain('StudioActionDock')
     expect(source).not.toContain('<StudioApprovalPrompt')
-    expect(source.indexOf('<StudioActionArea />')).toBeLessThan(
-      source.indexOf('<PromptInput')
+    // 操作区是聊天区后面的兄弟节点，排在对话区之后、聊天输入之前
+    expect(source.indexOf('</Conversation>')).toBeLessThan(
+      source.indexOf('<StudioActionArea />')
     )
-    // 有待处理事项时输入框连同边框一起隐藏，覆盖层里不会露出下面的控件
+    expect(source.indexOf('<StudioActionArea />')).toBeLessThan(
+      source.indexOf("data-slot='studio-composer'")
+    )
+    // 有待处理事项时聊天区让出底部空间，聊天输入整体隐藏
     expect(source).toContain(
       'const hasPendingAction = useAgUiInterrupts().length > 0'
     )
-    expect(source).toContain(
-      "className={hasPendingAction ? 'invisible' : undefined}"
-    )
+    expect(source).toContain("hasPendingAction ? 'pb-5' : 'pb-44'")
+    expect(source).toContain("hasPendingAction && 'invisible'")
   })
 
   it('enables Streamdown animation for streaming answers and reasoning', () => {

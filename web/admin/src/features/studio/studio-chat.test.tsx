@@ -3,14 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/index.css'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
-import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
-} from '@/components/ai-elements/prompt-input'
 import { StudioActionPanel, StudioChat } from './studio-chat'
 
 vi.mock('@/lib/api/studio', async (importOriginal) => ({
@@ -173,65 +165,56 @@ describe('StudioChat', () => {
     expect(getComputedStyle(group).borderTopLeftRadius).toBe('8px')
   })
 
-  it('covers the composer input with the approval actions while the agent waits', async () => {
+  it('takes the bottom row for a pending approval without covering the chat', async () => {
     const responded: Array<[string, boolean]> = []
     const screen = await render(
-      <div className='bg-card'>
-        <div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>
-          <div className='pointer-events-auto relative z-10'>
-            <StudioActionPanel
-              actions={[
-                {
-                  id: 'interrupt-1',
-                  reason: 'tool_approval',
-                  message: '需要写入 Session 资产',
-                },
-              ]}
-              onRespond={(id, approved) => responded.push([id, approved])}
-            />
-            <PromptInput
-              className='invisible'
-              inputGroupClassName='bg-background'
-              onSubmit={() => {}}
-            >
-              <PromptInputBody>
-                <PromptInputTextarea aria-label='输入' />
-              </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputTools>
-                  <PromptInputSubmit aria-label='发送消息' />
-                </PromptInputTools>
-              </PromptInputFooter>
-            </PromptInput>
+      <div
+        data-testid='chat'
+        className='relative flex h-96 min-h-0 w-full flex-col'
+      >
+        <div
+          data-testid='conversation'
+          className='min-h-0 flex-1 overflow-y-auto bg-background'
+        >
+          <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
+            <div data-testid='message' className='h-8 rounded-md bg-muted' />
           </div>
-          <p className='mt-2 text-center text-xs text-muted-foreground'>
-            Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。
-          </p>
         </div>
+        <StudioActionPanel
+          actions={[
+            {
+              id: 'interrupt-1',
+              reason: 'tool_approval',
+              message: '需要写入 Session 资产',
+            },
+          ]}
+          onRespond={(id, approved) => responded.push([id, approved])}
+        />
       </div>
     )
 
+    const chat = document.querySelector('[data-testid="chat"]') as HTMLElement
+    const conversation = document.querySelector(
+      '[data-testid="conversation"]'
+    ) as HTMLElement
+    const message = document.querySelector(
+      '[data-testid="message"]'
+    ) as HTMLElement
     const panel = document.querySelector('[aria-label="操作区"]') as HTMLElement
     const alert = screen.getByRole('alert').element()
-    const group = document.querySelector(
-      '[data-slot="input-group"]'
-    ) as HTMLElement
-    const hint = document.querySelector(
-      'p.text-muted-foreground'
-    ) as HTMLElement
+    const chatBox = chat.getBoundingClientRect()
+    const conversationBox = conversation.getBoundingClientRect()
+    const messageBox = message.getBoundingClientRect()
     const panelBox = panel.getBoundingClientRect()
     const alertBox = alert.getBoundingClientRect()
-    const groupBox = group.getBoundingClientRect()
-    const hintBox = hint.getBoundingClientRect()
 
-    // 操作区左右与输入框相同、底边贴住输入框底边，高度由提示卡内容决定
-    expect(panelBox.left).toBe(groupBox.left)
-    expect(panelBox.right).toBe(groupBox.right)
-    expect(panelBox.bottom).toBe(groupBox.bottom)
-    expect(panelBox.height).toBe(alertBox.height)
-    // 输入框连同边框和聚焦描边一起隐藏，覆盖层里不会露出下面的控件
-    expect(group.checkVisibility({ checkVisibilityCSS: true })).toBe(false)
-    expect(hintBox.top).toBeGreaterThanOrEqual(panelBox.bottom)
+    // 操作区占底部一行，聊天区让出同样高度，两边不会重叠
+    expect(panelBox.top).toBe(conversationBox.bottom)
+    expect(panelBox.bottom).toBe(chatBox.bottom)
+    expect(alertBox.top).toBe(panelBox.top)
+    // 提示卡与聊天消息在同一列，宽度相同
+    expect(alertBox.left).toBe(messageBox.left)
+    expect(alertBox.right).toBe(messageBox.right)
 
     const title = alert.querySelector(
       '[data-slot="alert-title"]'
@@ -283,45 +266,52 @@ describe('StudioChat', () => {
     ])
   })
 
-  it('leaves the composer input uncovered when no action is waiting', async () => {
+  it('leaves the bottom row to the chat when no action is waiting', async () => {
     await render(
-      <div className='pointer-events-auto relative z-10'>
+      <div
+        data-testid='chat'
+        className='relative flex h-96 min-h-0 w-full flex-col'
+      >
+        <div data-testid='conversation' className='min-h-0 flex-1' />
         <StudioActionPanel actions={[]} onRespond={() => {}} />
       </div>
     )
 
+    const chat = document.querySelector('[data-testid="chat"]') as HTMLElement
+    const conversation = document.querySelector(
+      '[data-testid="conversation"]'
+    ) as HTMLElement
     expect(document.querySelector('[aria-label="操作区"]')).toBeNull()
+    expect(conversation.getBoundingClientRect().height).toBe(
+      chat.getBoundingClientRect().height
+    )
   })
 
-  it('keeps the approval buttons beside a long pending action', async () => {
+  it('keeps a long pending action above its buttons and pushes the chat up', async () => {
     const screen = await render(
-      <div className='bg-card'>
-        <div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>
-          <div className='pointer-events-auto relative z-10'>
-            <StudioActionPanel
-              actions={[
-                {
-                  id: 'interrupt-long',
-                  reason: 'tool_approval',
-                  message:
-                    '把本轮生成的分镜脚本写入资产库，并同步更新故事板里的镜头顺序、角色出场安排与场景标记，覆盖原有的旧版本记录',
-                },
-              ]}
-              onRespond={() => {}}
-            />
-            <PromptInput
-              inputGroupClassName='bg-background'
-              onSubmit={() => {}}
-            >
-              <PromptInputBody>
-                <PromptInputTextarea aria-label='输入' />
-              </PromptInputBody>
-            </PromptInput>
-          </div>
-        </div>
+      <div
+        data-testid='chat'
+        className='relative flex h-96 min-h-0 w-full flex-col'
+      >
+        <div data-testid='conversation' className='min-h-0 flex-1' />
+        <StudioActionPanel
+          actions={[
+            {
+              id: 'interrupt-long',
+              reason: 'tool_approval',
+              message:
+                '把本轮生成的分镜脚本写入资产库，并同步更新故事板里的镜头顺序、角色出场安排与场景标记，覆盖原有的旧版本记录',
+            },
+          ]}
+          onRespond={() => {}}
+        />
       </div>
     )
 
+    const conversation = document.querySelector(
+      '[data-testid="conversation"]'
+    ) as HTMLElement
+    const panel = document.querySelector('[aria-label="操作区"]') as HTMLElement
     const alert = screen.getByRole('alert').element()
     const description = alert.querySelector(
       '[data-slot="alert-description"]'
@@ -329,7 +319,10 @@ describe('StudioChat', () => {
     const approve = screen.getByRole('button', { name: /^批准$/ }).element()
     const descriptionBox = description.getBoundingClientRect()
     const approveBox = approve.getBoundingClientRect()
-    // 长内容换行撑高，按钮行留在下面并靠右
+    // 内容换行把提示卡撑高，聊天区跟着让出高度
+    expect(panel.getBoundingClientRect().top).toBe(
+      conversation.getBoundingClientRect().bottom
+    )
     expect(descriptionBox.bottom).toBeLessThanOrEqual(approveBox.top)
     expect(descriptionBox.height).toBeGreaterThan(30)
     expect(alert.getBoundingClientRect().right - approveBox.right).toBe(17)

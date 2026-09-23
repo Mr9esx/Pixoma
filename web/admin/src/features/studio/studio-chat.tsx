@@ -326,7 +326,12 @@ function StudioChatSurface({
   return (
     <div className='relative flex min-h-0 flex-1 flex-col'>
       <Conversation className='min-h-0 flex-1'>
-        <ConversationContent className='mx-auto min-h-full w-full max-w-3xl px-5 pt-8 pb-44'>
+        <ConversationContent
+          className={cn(
+            'mx-auto min-h-full w-full max-w-3xl px-5 pt-8',
+            hasPendingAction ? 'pb-5' : 'pb-44'
+          )}
+        >
           {isEmpty ? <StudioWelcome onSelect={send} /> : null}
           {messages.map((message) => (
             <StudioMessage
@@ -346,12 +351,16 @@ function StudioChatSurface({
         </ConversationContent>
         <ConversationScrollButton
           aria-label='跳转至最新消息'
-          className='bottom-48'
+          className={hasPendingAction ? 'bottom-5' : 'bottom-48'}
         />
       </Conversation>
+      <StudioActionArea />
       <div
         data-slot='studio-composer'
-        className='pointer-events-none absolute inset-x-0 bottom-0 z-20'
+        className={cn(
+          'pointer-events-none absolute inset-x-0 bottom-0 z-20',
+          hasPendingAction && 'invisible'
+        )}
       >
         <div
           aria-hidden='true'
@@ -359,10 +368,8 @@ function StudioChatSurface({
         />
         <div className='bg-card'>
           <div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>
-            <div className='pointer-events-auto relative z-10'>
-              <StudioActionArea />
+            <div className='pointer-events-auto'>
               <PromptInput
-                className={hasPendingAction ? 'invisible' : undefined}
                 inputGroupClassName='bg-background'
                 onSubmit={({ text }) => send(text)}
               >
@@ -487,34 +494,33 @@ export function StudioActionPanel({
   if (actions.length === 0) return null
 
   return (
-    <section
-      aria-label='操作区'
-      className='absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-card'
-    >
-      {actions.map((action) => (
-        <Confirmation
-          key={action.id}
-          approval={{ id: action.id }}
-          state='approval-requested'
-          variant='warn'
-        >
-          <AlertTitle>{approvalTitle(action.reason)}</AlertTitle>
-          <AlertDescription>
-            {action.message ?? '需要批准后继续执行'}
-          </AlertDescription>
-          <ConfirmationActions>
-            <ConfirmationAction
-              variant='outline'
-              onClick={() => onRespond(action.id, false)}
-            >
-              拒绝
-            </ConfirmationAction>
-            <ConfirmationAction onClick={() => onRespond(action.id, true)}>
-              批准
-            </ConfirmationAction>
-          </ConfirmationActions>
-        </Confirmation>
-      ))}
+    <section aria-label='操作区'>
+      <div className='mx-auto flex w-full max-w-3xl flex-col gap-2 px-5 pb-5'>
+        {actions.map((action) => (
+          <Confirmation
+            key={action.id}
+            approval={{ id: action.id }}
+            state='approval-requested'
+            variant='warn'
+          >
+            <AlertTitle>{approvalTitle(action.reason)}</AlertTitle>
+            <AlertDescription>
+              {action.message ?? '需要批准后继续执行'}
+            </AlertDescription>
+            <ConfirmationActions>
+              <ConfirmationAction
+                variant='outline'
+                onClick={() => onRespond(action.id, false)}
+              >
+                拒绝
+              </ConfirmationAction>
+              <ConfirmationAction onClick={() => onRespond(action.id, true)}>
+                批准
+              </ConfirmationAction>
+            </ConfirmationActions>
+          </Confirmation>
+        ))}
+      </div>
     </section>
   )
 }
