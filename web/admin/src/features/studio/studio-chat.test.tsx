@@ -6,7 +6,10 @@ import { render } from 'vitest-browser-react'
 import {
   PromptInput,
   PromptInputBody,
+  PromptInputFooter,
+  PromptInputSubmit,
   PromptInputTextarea,
+  PromptInputTools,
 } from '@/components/ai-elements/prompt-input'
 import { StudioActionPanel, StudioChat } from './studio-chat'
 
@@ -170,70 +173,69 @@ describe('StudioChat', () => {
     expect(getComputedStyle(group).borderTopLeftRadius).toBe('8px')
   })
 
-  it('covers the whole chat with the approval actions while the agent waits', async () => {
+  it('covers the composer input with the approval actions while the agent waits', async () => {
     const responded: Array<[string, boolean]> = []
     const screen = await render(
-      <div
-        data-testid='chat'
-        className='relative flex h-96 min-h-0 w-full flex-col'
-      >
-        <div className='min-h-0 flex-1 bg-background' />
-        <div
-          data-slot='studio-composer'
-          className='pointer-events-none absolute inset-x-0 bottom-0 z-20'
-        >
-          <div className='bg-card'>
-            <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
-              <div className='pointer-events-auto relative z-10 pb-5'>
-                <PromptInput
-                  inputGroupClassName='bg-background'
-                  onSubmit={() => {}}
-                >
-                  <PromptInputBody>
-                    <PromptInputTextarea aria-label='输入' />
-                  </PromptInputBody>
-                </PromptInput>
-              </div>
-            </div>
+      <div className='bg-card'>
+        <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
+          <div
+            data-testid='input-slot'
+            className='pointer-events-auto relative z-10 pb-5'
+          >
+            <StudioActionPanel
+              actions={[
+                {
+                  id: 'interrupt-1',
+                  reason: 'tool_approval',
+                  message: '需要写入 Session 资产',
+                },
+              ]}
+              onRespond={(id, approved) => responded.push([id, approved])}
+            />
+            <PromptInput
+              inputGroupClassName='bg-background'
+              onSubmit={() => {}}
+            >
+              <PromptInputBody>
+                <PromptInputTextarea aria-label='输入' />
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputTools>
+                  <PromptInputSubmit aria-label='发送消息' />
+                </PromptInputTools>
+              </PromptInputFooter>
+            </PromptInput>
+            <p className='mt-2 text-center text-xs text-muted-foreground'>
+              Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。
+            </p>
           </div>
         </div>
-        <StudioActionPanel
-          actions={[
-            {
-              id: 'interrupt-1',
-              reason: 'tool_approval',
-              message: '需要写入 Session 资产',
-            },
-          ]}
-          onRespond={(id, approved) => responded.push([id, approved])}
-        />
       </div>
     )
 
-    const chat = document.querySelector('[data-testid="chat"]') as HTMLElement
+    const slot = document.querySelector(
+      '[data-testid="input-slot"]'
+    ) as HTMLElement
     const panel = document.querySelector('[aria-label="操作区"]') as HTMLElement
     const alert = screen.getByRole('alert').element()
-    const composer = document.querySelector(
-      '[data-slot="studio-composer"]'
-    ) as HTMLElement
     const group = document.querySelector(
       '[data-slot="input-group"]'
     ) as HTMLElement
-    const chatBox = chat.getBoundingClientRect()
+    const slotBox = slot.getBoundingClientRect()
     const panelBox = panel.getBoundingClientRect()
     const alertBox = alert.getBoundingClientRect()
     const groupBox = group.getBoundingClientRect()
 
-    expect(panelBox.left).toBe(chatBox.left)
-    expect(panelBox.top).toBe(chatBox.top)
-    expect(panelBox.right).toBe(chatBox.right)
-    expect(panelBox.bottom).toBe(chatBox.bottom)
-    expect(Number(getComputedStyle(panel).zIndex)).toBeGreaterThan(
-      Number(getComputedStyle(composer).zIndex)
-    )
+    expect(panelBox.left).toBe(slotBox.left)
+    expect(panelBox.top).toBe(slotBox.top)
+    expect(panelBox.right).toBe(slotBox.right)
+    expect(panelBox.bottom).toBe(slotBox.bottom)
     expect(
       panel.contains(
-        document.elementFromPoint(groupBox.left + 5, groupBox.top + 5)
+        document.elementFromPoint(
+          groupBox.left + groupBox.width / 2,
+          groupBox.top + groupBox.height / 2
+        )
       )
     ).toBe(true)
     expect(alertBox.left - panelBox.left).toBeCloseTo(
@@ -272,9 +274,9 @@ describe('StudioChat', () => {
     ])
   })
 
-  it('leaves the chat uncovered when no action is waiting', async () => {
+  it('leaves the composer input uncovered when no action is waiting', async () => {
     await render(
-      <div className='relative flex h-96 min-h-0 w-full flex-col'>
+      <div className='pointer-events-auto relative z-10 pb-5'>
         <StudioActionPanel actions={[]} onRespond={() => {}} />
       </div>
     )
@@ -284,18 +286,30 @@ describe('StudioChat', () => {
 
   it('keeps the approval buttons beside a long pending action', async () => {
     const screen = await render(
-      <div className='relative flex h-96 min-h-0 w-full flex-col'>
-        <StudioActionPanel
-          actions={[
-            {
-              id: 'interrupt-long',
-              reason: 'tool_approval',
-              message:
-                '把本轮生成的分镜脚本写入资产库，并同步更新故事板里的镜头顺序、角色出场安排与场景标记，覆盖原有的旧版本记录',
-            },
-          ]}
-          onRespond={() => {}}
-        />
+      <div className='bg-card'>
+        <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
+          <div className='pointer-events-auto relative z-10 pb-5'>
+            <StudioActionPanel
+              actions={[
+                {
+                  id: 'interrupt-long',
+                  reason: 'tool_approval',
+                  message:
+                    '把本轮生成的分镜脚本写入资产库，并同步更新故事板里的镜头顺序、角色出场安排与场景标记，覆盖原有的旧版本记录',
+                },
+              ]}
+              onRespond={() => {}}
+            />
+            <PromptInput
+              inputGroupClassName='bg-background'
+              onSubmit={() => {}}
+            >
+              <PromptInputBody>
+                <PromptInputTextarea aria-label='输入' />
+              </PromptInputBody>
+            </PromptInput>
+          </div>
+        </div>
       </div>
     )
 

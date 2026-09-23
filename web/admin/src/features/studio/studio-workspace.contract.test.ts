@@ -333,21 +333,21 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain("{action.message ?? '需要批准后继续执行'}")
   })
 
-  it('covers the chat with the approval actions while the agent waits', () => {
+  it('covers the composer input with the approval actions while the agent waits', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain("aria-label='操作区'")
     expect(source).toContain("variant='warn'")
     expect(source).toContain(
-      'absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-card px-5 py-6'
+      'absolute inset-0 z-10 flex flex-col justify-center gap-2 bg-card px-4'
     )
-    expect(source).toContain("className='w-full max-w-3xl'")
+    expect(source).toContain("className='w-full'")
     expect(source).toContain(
       "<div className='pointer-events-auto relative z-10 pb-5'>"
     )
     expect(source).not.toContain('StudioActionDock')
     expect(source).not.toContain('<StudioApprovalPrompt')
-    expect(source.indexOf("data-slot='studio-composer'")).toBeLessThan(
-      source.indexOf('<StudioActionArea />')
+    expect(source.indexOf('<StudioActionArea />')).toBeLessThan(
+      source.indexOf('<PromptInput')
     )
   })
 
