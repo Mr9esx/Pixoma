@@ -314,7 +314,7 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('reason: interrupt.reason')
   })
 
-  it('titles the approval alert with the request type and shows the pending action as content', () => {
+  it('titles the approval alert with the request type and puts the pending action beside the buttons', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain(
       "import { AlertDescription, AlertTitle } from '@/components/ui/alert'"
@@ -325,7 +325,11 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain(
       '<AlertTitle>{approvalTitle(action.reason)}</AlertTitle>'
     )
-    expect(source).toContain('<AlertDescription>')
+    expect(source).toContain("<div className='flex items-center gap-3'>")
+    expect(source).toContain("<AlertDescription className='flex-1'>")
+    expect(source).toContain(
+      "<ConfirmationActions className='shrink-0 self-center'>"
+    )
     expect(source).toContain("{action.message ?? '需要批准后继续执行'}")
   })
 

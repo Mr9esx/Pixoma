@@ -498,20 +498,22 @@ export function StudioActionPanel({
           variant='warn'
         >
           <AlertTitle>{approvalTitle(action.reason)}</AlertTitle>
-          <AlertDescription>
-            {action.message ?? '需要批准后继续执行'}
-          </AlertDescription>
-          <ConfirmationActions>
-            <ConfirmationAction
-              variant='outline'
-              onClick={() => onRespond(action.id, false)}
-            >
-              拒绝
-            </ConfirmationAction>
-            <ConfirmationAction onClick={() => onRespond(action.id, true)}>
-              批准
-            </ConfirmationAction>
-          </ConfirmationActions>
+          <div className='flex items-center gap-3'>
+            <AlertDescription className='flex-1'>
+              {action.message ?? '需要批准后继续执行'}
+            </AlertDescription>
+            <ConfirmationActions className='shrink-0 self-center'>
+              <ConfirmationAction
+                variant='outline'
+                onClick={() => onRespond(action.id, false)}
+              >
+                拒绝
+              </ConfirmationAction>
+              <ConfirmationAction onClick={() => onRespond(action.id, true)}>
+                批准
+              </ConfirmationAction>
+            </ConfirmationActions>
+          </div>
         </Confirmation>
       ))}
     </section>

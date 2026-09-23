@@ -214,14 +214,15 @@ describe('StudioChat', () => {
       '[data-slot="alert-description"]'
     ) as HTMLElement
     const approve = screen.getByRole('button', { name: /^批准$/ }).element()
+    const titleBox = title.getBoundingClientRect()
+    const descriptionBox = description.getBoundingClientRect()
+    const approveBox = approve.getBoundingClientRect()
     expect(title.textContent).toBe('权限审批')
     expect(description.textContent).toBe('需要写入 Session 资产')
-    expect(title.getBoundingClientRect().bottom).toBeLessThan(
-      description.getBoundingClientRect().top
-    )
-    expect(description.getBoundingClientRect().bottom).toBeLessThan(
-      approve.getBoundingClientRect().top
-    )
+    expect(titleBox.bottom).toBeLessThan(descriptionBox.top)
+    expect(descriptionBox.right).toBeLessThan(approveBox.left)
+    expect(descriptionBox.top).toBeLessThan(approveBox.bottom)
+    expect(approveBox.top).toBeLessThan(descriptionBox.bottom)
     for (const [side, value] of [
       ['paddingTop', '16px'],
       ['paddingRight', '16px'],
@@ -240,6 +241,37 @@ describe('StudioChat', () => {
       ['interrupt-1', true],
       ['interrupt-1', false],
     ])
+  })
+
+  it('keeps the approval buttons beside a long pending action', async () => {
+    const screen = await render(
+      <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
+        <StudioActionPanel
+          actions={[
+            {
+              id: 'interrupt-long',
+              reason: 'tool_approval',
+              message:
+                '把本轮生成的分镜脚本写入资产库，并同步更新故事板里的镜头顺序、角色出场安排与场景标记，覆盖原有的旧版本记录',
+            },
+          ]}
+          onRespond={() => {}}
+        />
+      </div>
+    )
+
+    const alert = screen.getByRole('alert').element()
+    const description = alert.querySelector(
+      '[data-slot="alert-description"]'
+    ) as HTMLElement
+    const approve = screen.getByRole('button', { name: /^批准$/ }).element()
+    const descriptionBox = description.getBoundingClientRect()
+    const approveBox = approve.getBoundingClientRect()
+    expect(descriptionBox.right).toBeLessThanOrEqual(approveBox.left)
+    expect(descriptionBox.height).toBeGreaterThan(30)
+    expect(alert.getBoundingClientRect().right).toBeGreaterThanOrEqual(
+      approveBox.right
+    )
   })
 
   it('groups the model switcher with the send button and keeps Skills and assets as icon buttons', async () => {
