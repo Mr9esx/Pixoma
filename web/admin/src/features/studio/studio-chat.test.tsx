@@ -175,7 +175,13 @@ describe('StudioChat', () => {
     const screen = await render(
       <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
         <StudioActionPanel
-          actions={[{ id: 'interrupt-1', message: '需要写入 Session 资产' }]}
+          actions={[
+            {
+              id: 'interrupt-1',
+              reason: 'tool_approval',
+              message: '需要写入 Session 资产',
+            },
+          ]}
           onRespond={(id, approved) => responded.push([id, approved])}
         />
         <div className='pointer-events-auto relative z-10 pb-5'>
@@ -200,6 +206,22 @@ describe('StudioChat', () => {
     expect(groupBox.top - alertBox.bottom).toBe(-16)
     expect(alertBox.left - groupBox.left).toBe(8)
     expect(groupBox.right - alertBox.right).toBe(8)
+
+    const title = alert.querySelector(
+      '[data-slot="alert-title"]'
+    ) as HTMLElement
+    const description = alert.querySelector(
+      '[data-slot="alert-description"]'
+    ) as HTMLElement
+    const approve = screen.getByRole('button', { name: /^批准$/ }).element()
+    expect(title.textContent).toBe('权限审批')
+    expect(description.textContent).toBe('需要写入 Session 资产')
+    expect(title.getBoundingClientRect().bottom).toBeLessThan(
+      description.getBoundingClientRect().top
+    )
+    expect(description.getBoundingClientRect().bottom).toBeLessThan(
+      approve.getBoundingClientRect().top
+    )
     for (const [side, value] of [
       ['paddingTop', '16px'],
       ['paddingRight', '16px'],

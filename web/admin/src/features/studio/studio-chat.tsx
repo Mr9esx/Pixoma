@@ -38,6 +38,7 @@ import {
 } from '@/lib/api/studio'
 import { StudioRunConnection } from '@/lib/studio-run-connection'
 import { cn } from '@/lib/utils'
+import { AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -53,8 +54,6 @@ import {
   Confirmation,
   ConfirmationAction,
   ConfirmationActions,
-  ConfirmationRequest,
-  ConfirmationTitle,
 } from '@/components/ai-elements/confirmation'
 import {
   Conversation,
@@ -449,6 +448,7 @@ function StudioActionArea() {
     <StudioActionPanel
       actions={interrupts.map((interrupt) => ({
         id: interrupt.id,
+        reason: interrupt.reason,
         message: interrupt.message,
       }))}
       onRespond={(id, approved) => {
@@ -464,7 +464,16 @@ function StudioActionArea() {
   )
 }
 
-export type StudioAction = { id: string; message?: string }
+export type StudioAction = {
+  id: string
+  reason?: string
+  message?: string
+}
+
+// 待处理事项的类型标题，按 AG-UI 中断原因区分
+function approvalTitle(reason?: string) {
+  return reason === 'tool_approval' ? '权限审批' : '需要处理'
+}
 
 export function StudioActionPanel({
   actions,
@@ -488,22 +497,21 @@ export function StudioActionPanel({
           state='approval-requested'
           variant='warn'
         >
-          <ConfirmationTitle>
+          <AlertTitle>{approvalTitle(action.reason)}</AlertTitle>
+          <AlertDescription>
             {action.message ?? '需要批准后继续执行'}
-          </ConfirmationTitle>
-          <ConfirmationRequest>
-            <ConfirmationActions>
-              <ConfirmationAction
-                variant='outline'
-                onClick={() => onRespond(action.id, false)}
-              >
-                拒绝
-              </ConfirmationAction>
-              <ConfirmationAction onClick={() => onRespond(action.id, true)}>
-                批准
-              </ConfirmationAction>
-            </ConfirmationActions>
-          </ConfirmationRequest>
+          </AlertDescription>
+          <ConfirmationActions>
+            <ConfirmationAction
+              variant='outline'
+              onClick={() => onRespond(action.id, false)}
+            >
+              拒绝
+            </ConfirmationAction>
+            <ConfirmationAction onClick={() => onRespond(action.id, true)}>
+              批准
+            </ConfirmationAction>
+          </ConfirmationActions>
         </Confirmation>
       ))}
     </section>

@@ -311,6 +311,22 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain("from '@/components/ai-elements/confirmation'")
     expect(source).toContain('ConfirmationAction')
     expect(source).toContain("status: approved ? 'resolved' : 'cancelled'")
+    expect(source).toContain('reason: interrupt.reason')
+  })
+
+  it('titles the approval alert with the request type and shows the pending action as content', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain(
+      "import { AlertDescription, AlertTitle } from '@/components/ui/alert'"
+    )
+    expect(source).toContain(
+      "reason === 'tool_approval' ? '权限审批' : '需要处理'"
+    )
+    expect(source).toContain(
+      '<AlertTitle>{approvalTitle(action.reason)}</AlertTitle>'
+    )
+    expect(source).toContain('<AlertDescription>')
+    expect(source).toContain("{action.message ?? '需要批准后继续执行'}")
   })
 
   it('docks the approval alert straight onto the composer input', () => {
