@@ -285,32 +285,53 @@ func (h *Handler) pumpAGUI(ctx context.Context, accountID, studioRunID string, i
 		if err != nil {
 			return emit(0, aguiRunError(input, "读取运行状态失败"))
 		}
-		switch run.Status {
-		case domain.RunSucceeded:
-			return emit(0, map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "success"}})
-		case domain.RunWaitingApproval:
-			approvals, err := h.Repo.ListApprovals(ctx, accountID, run.ID)
-			if err != nil {
-				return emit(0, aguiRunError(input, "读取批准状态失败"))
+		terminal := h.aguiTerminalEvent(ctx, accountID, run, input)
+		if terminal == nil {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case _, ok := <-liveEvents:
+				if !ok {
+					liveEvents = nil
+				}
+			case <-ticks:
 			}
-			if interrupts := pendingAGUIInterrupts(approvals); len(interrupts) > 0 {
-				return emit(0, map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "interrupt", "interrupts": interrupts}})
-			}
-		case domain.RunFailed:
-			return emit(0, aguiRunError(input, run.ErrorMessage))
-		case domain.RunCancelled:
-			return emit(0, map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "cancelled"}})
+			continue
 		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case _, ok := <-liveEvents:
-			if !ok {
-				liveEvents = nil
-			}
-		case <-ticks:
+		// 结束状态与最后几条事件可能同时写入：先补齐事件，再发结束事件，
+		// 客户端才不会在消息尚未结束时收到运行结束。
+		latest, err := h.Repo.LastRunEventSequence(ctx, accountID, studioRunID)
+		if err != nil {
+			return emit(0, aguiRunError(input, "读取运行事件游标失败"))
 		}
+		if latest > after {
+			continue
+		}
+		return emit(0, terminal)
 	}
+}
+
+// aguiTerminalEvent 返回运行状态确定后要发送的结束事件，运行仍在进行时返回 nil。
+func (h *Handler) aguiTerminalEvent(ctx context.Context, accountID string, run *domain.Run, input aguiRunInput) map[string]any {
+	switch run.Status {
+	case domain.RunSucceeded:
+		return map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "success"}}
+	case domain.RunWaitingApproval:
+		approvals, err := h.Repo.ListApprovals(ctx, accountID, run.ID)
+		if err != nil {
+			return aguiRunError(input, "读取批准状态失败")
+		}
+		interrupts := pendingAGUIInterrupts(approvals)
+		if len(interrupts) == 0 {
+			return nil
+		}
+		return map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "interrupt", "interrupts": interrupts}}
+	case domain.RunFailed:
+		return aguiRunError(input, run.ErrorMessage)
+	case domain.RunCancelled:
+		return map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "cancelled"}}
+	}
+	return nil
 }
 
 func pendingAGUIInterrupts(approvals []*domain.Approval) []map[string]any {
