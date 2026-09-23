@@ -740,6 +740,70 @@ func TestStudioAGUIWebSocketStreamsStandardEvents(t *testing.T) {
 	}
 }
 
+type disconnectTrackingEvents struct{ unsubscribed chan struct{} }
+
+func (*disconnectTrackingEvents) Publish(context.Context, studioapp.LiveEvent) error { return nil }
+func (e *disconnectTrackingEvents) Subscribe(string) ([]studioapp.LiveEvent, <-chan studioapp.LiveEvent, func()) {
+	return nil, make(chan studioapp.LiveEvent), func() { close(e.unsubscribed) }
+}
+
+func TestStudioAGUIWebSocketDisconnectReleasesRunningSubscription(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	events := &disconnectTrackingEvents{unsubscribed: make(chan struct{})}
+	handler.Events = events
+	router := chi.NewRouter()
+	handler.Mount(router)
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", map[string]any{}, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	run, err := domain.NewRun("disconnect-run", session.ID, "account-a", "trigger-message", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Start(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.Repo.CreateRun(context.Background(), run); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(setupapi.WithAccount(r.Context(), setupapi.AccountSession{AccountID: "account-a", Username: "account-a", Role: "admin"}))
+		router.ServeHTTP(w, r)
+	}))
+	t.Cleanup(server.Close)
+	wsURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wsURL.Scheme = "ws"
+	wsURL.Path = "/agui/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.WriteJSON(map[string]any{"threadId": session.ID, "runId": "browser-run", "attachRunId": run.ID}); err != nil {
+		t.Fatal(err)
+	}
+	var started map[string]any
+	if err := conn.ReadJSON(&started); err != nil || started["type"] != "RUN_STARTED" {
+		t.Fatalf("first event = (%#v, %v)", started, err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-events.unsubscribed:
+	case <-time.After(time.Second):
+		t.Fatal("WebSocket disconnect did not unsubscribe from running Run")
+	}
+}
+
 func TestStudioAGUIAttachesExistingRunWithoutCreatingNewRun(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)

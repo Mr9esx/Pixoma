@@ -165,9 +165,19 @@ func (h *Handler) streamAGUIWebSocket(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		return
 	}
+	streamCtx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	go func() {
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				cancel()
+				return
+			}
+		}
+	}()
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
-	_ = h.pumpAGUI(r.Context(), accountID, studioRunID, input, after, events, ticker.C, func(sequence uint64, event map[string]any) error {
+	_ = h.pumpAGUI(streamCtx, accountID, studioRunID, input, after, events, ticker.C, func(sequence uint64, event map[string]any) error {
 		if sequence > 0 {
 			event["sequence"] = sequence
 		}
