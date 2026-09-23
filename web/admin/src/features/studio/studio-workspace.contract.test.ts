@@ -314,7 +314,7 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('reason: interrupt.reason')
   })
 
-  it('titles the approval alert with the request type and puts the pending action beside the buttons', () => {
+  it('stacks the request type, the pending action and the buttons in the approval alert', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain(
       "import { AlertDescription, AlertTitle } from '@/components/ui/alert'"
@@ -322,25 +322,26 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain(
       "reason === 'tool_approval' ? '权限审批' : '需要处理'"
     )
-    expect(source).toContain(
+    expect(source).toContain("{action.message ?? '需要批准后继续执行'}")
+    // 三行依次是标题、内容、按钮，按钮行用组件默认的靠右布局
+    const titleIndex = source.indexOf(
       '<AlertTitle>{approvalTitle(action.reason)}</AlertTitle>'
     )
-    expect(source).toContain("<div className='flex w-full items-center gap-3'>")
-    expect(source).toContain("<AlertDescription className='flex-1'>")
-    expect(source).toContain(
-      "<ConfirmationActions className='shrink-0 self-center'>"
-    )
-    expect(source).toContain("{action.message ?? '需要批准后继续执行'}")
+    const descriptionIndex = source.indexOf('<AlertDescription>')
+    const actionsIndex = source.indexOf('<ConfirmationActions>')
+    expect(titleIndex).toBeGreaterThan(-1)
+    expect(titleIndex).toBeLessThan(descriptionIndex)
+    expect(descriptionIndex).toBeLessThan(actionsIndex)
   })
 
-  it('covers the composer input with the approval actions while the agent waits', () => {
+  it('shows the approval actions at the composer input while the agent waits', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain("aria-label='操作区'")
     expect(source).toContain("variant='warn'")
     expect(source).toContain(
-      'absolute inset-0 z-10 flex flex-col gap-2 bg-card'
+      'absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-card'
     )
-    expect(source).toContain("className='flex-1 justify-center'")
+    expect(source).not.toContain('flex-1 justify-center')
     expect(source).toContain(
       "<div className='pointer-events-auto relative z-10'>"
     )

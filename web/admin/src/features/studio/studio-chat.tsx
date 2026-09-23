@@ -489,33 +489,30 @@ export function StudioActionPanel({
   return (
     <section
       aria-label='操作区'
-      className='absolute inset-0 z-10 flex flex-col gap-2 bg-card'
+      className='absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-card'
     >
       {actions.map((action) => (
         <Confirmation
           key={action.id}
           approval={{ id: action.id }}
-          className='flex-1 justify-center'
           state='approval-requested'
           variant='warn'
         >
           <AlertTitle>{approvalTitle(action.reason)}</AlertTitle>
-          <div className='flex w-full items-center gap-3'>
-            <AlertDescription className='flex-1'>
-              {action.message ?? '需要批准后继续执行'}
-            </AlertDescription>
-            <ConfirmationActions className='shrink-0 self-center'>
-              <ConfirmationAction
-                variant='outline'
-                onClick={() => onRespond(action.id, false)}
-              >
-                拒绝
-              </ConfirmationAction>
-              <ConfirmationAction onClick={() => onRespond(action.id, true)}>
-                批准
-              </ConfirmationAction>
-            </ConfirmationActions>
-          </div>
+          <AlertDescription>
+            {action.message ?? '需要批准后继续执行'}
+          </AlertDescription>
+          <ConfirmationActions>
+            <ConfirmationAction
+              variant='outline'
+              onClick={() => onRespond(action.id, false)}
+            >
+              拒绝
+            </ConfirmationAction>
+            <ConfirmationAction onClick={() => onRespond(action.id, true)}>
+              批准
+            </ConfirmationAction>
+          </ConfirmationActions>
         </Confirmation>
       ))}
     </section>

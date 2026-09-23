@@ -224,19 +224,11 @@ describe('StudioChat', () => {
     const groupBox = group.getBoundingClientRect()
     const hintBox = hint.getBoundingClientRect()
 
-    // 操作区与输入框完全重合，宽度和高度都跟聊天列一致
-    for (const side of ['left', 'top', 'right', 'bottom'] as const) {
-      expect(panelBox[side]).toBe(groupBox[side])
-      expect(alertBox[side]).toBe(groupBox[side])
-    }
-    expect(
-      panel.contains(
-        document.elementFromPoint(
-          groupBox.left + groupBox.width / 2,
-          groupBox.top + groupBox.height / 2
-        )
-      )
-    ).toBe(true)
+    // 操作区左右与输入框相同、底边贴住输入框底边，高度由提示卡内容决定
+    expect(panelBox.left).toBe(groupBox.left)
+    expect(panelBox.right).toBe(groupBox.right)
+    expect(panelBox.bottom).toBe(groupBox.bottom)
+    expect(panelBox.height).toBe(alertBox.height)
     // 输入框连同边框和聚焦描边一起隐藏，覆盖层里不会露出下面的控件
     expect(group.checkVisibility({ checkVisibilityCSS: true })).toBe(false)
     expect(hintBox.top).toBeGreaterThanOrEqual(panelBox.bottom)
@@ -248,18 +240,37 @@ describe('StudioChat', () => {
       '[data-slot="alert-description"]'
     ) as HTMLElement
     const approve = screen.getByRole('button', { name: /^批准$/ }).element()
+    const actions = approve.parentElement as HTMLElement
     const titleBox = title.getBoundingClientRect()
     const descriptionBox = description.getBoundingClientRect()
+    const actionsBox = actions.getBoundingClientRect()
     const approveBox = approve.getBoundingClientRect()
+    const alertStyle = getComputedStyle(alert)
+    const rowGap = parseFloat(alertStyle.rowGap)
+    const verticalPadding =
+      parseFloat(alertStyle.paddingTop) + parseFloat(alertStyle.paddingBottom)
+    const verticalBorder =
+      parseFloat(alertStyle.borderTopWidth) +
+      parseFloat(alertStyle.borderBottomWidth)
+
     expect(title.textContent).toBe('权限审批')
     expect(description.textContent).toBe('需要写入 Session 资产')
-    // 右侧内边距 16px 加上 1px 边框
+    // 三行依次是标题、内容、按钮
+    expect(titleBox.bottom).toBeLessThanOrEqual(descriptionBox.top)
+    expect(descriptionBox.bottom).toBeLessThanOrEqual(actionsBox.top)
+    // 提示卡高度就是三行内容加行距、内边距和边框，没有被别的容器撑开
+    expect(alertBox.height).toBeCloseTo(
+      titleBox.height +
+        descriptionBox.height +
+        actionsBox.height +
+        rowGap * 2 +
+        verticalPadding +
+        verticalBorder,
+      0
+    )
+    // 按钮行靠右，右侧内边距 16px 加上 1px 边框
     expect(alertBox.right - approveBox.right).toBe(17)
     expect(descriptionBox.left - alertBox.left).toBe(17)
-    expect(titleBox.bottom).toBeLessThan(descriptionBox.top)
-    expect(descriptionBox.right).toBeLessThan(approveBox.left)
-    expect(descriptionBox.top).toBeLessThan(approveBox.bottom)
-    expect(approveBox.top).toBeLessThan(descriptionBox.bottom)
 
     await expect
       .element(screen.getByRole('button', { name: /^批准$/ }))
@@ -318,7 +329,8 @@ describe('StudioChat', () => {
     const approve = screen.getByRole('button', { name: /^批准$/ }).element()
     const descriptionBox = description.getBoundingClientRect()
     const approveBox = approve.getBoundingClientRect()
-    expect(descriptionBox.right).toBeLessThanOrEqual(approveBox.left)
+    // 长内容换行撑高，按钮行留在下面并靠右
+    expect(descriptionBox.bottom).toBeLessThanOrEqual(approveBox.top)
     expect(descriptionBox.height).toBeGreaterThan(30)
     expect(alert.getBoundingClientRect().right - approveBox.right).toBe(17)
   })
