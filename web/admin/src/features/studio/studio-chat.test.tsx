@@ -11,6 +11,94 @@ vi.mock('@/lib/api/studio', async (importOriginal) => ({
 }))
 
 describe('StudioChat', () => {
+  it('shows replayed reasoning before any assistant text after returning to a running chat', async () => {
+    class ReplaySocket {
+      readyState = 0
+      onopen: (() => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onerror: (() => void) | null = null
+      onclose: (() => void) | null = null
+
+      constructor(_url: string) {
+        queueMicrotask(() => {
+          this.readyState = 1
+          this.onopen?.()
+        })
+      }
+
+      send(raw: string) {
+        const request = JSON.parse(raw) as { attachRunId?: string }
+        if (request.attachRunId !== 'run-reasoning')
+          throw new Error('未续接运行中的会话')
+        for (const event of [
+          { type: 'RUN_STARTED', metadata: { studioRunId: 'run-reasoning' } },
+          {
+            type: 'REASONING_MESSAGE_START',
+            messageId: 'reason-1',
+            sequence: 1,
+          },
+          {
+            type: 'REASONING_MESSAGE_CONTENT',
+            messageId: 'reason-1',
+            delta: '仍在分析问题',
+            sequence: 2,
+          },
+        ]) {
+          this.onmessage?.({ data: JSON.stringify(event) })
+        }
+      }
+
+      close() {
+        this.readyState = 3
+      }
+    }
+    vi.stubGlobal('WebSocket', ReplaySocket)
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchInterval: false } },
+    })
+    const chat = () => (
+      <QueryClientProvider client={client}>
+        <StudioChat
+          assets={[]}
+          latestRun={{
+            created_at: '2026-02-12T10:00:00Z',
+            id: 'run-reasoning',
+            session_id: 'session-reasoning',
+            status: 'running',
+            trigger_message_id: 'user-1',
+          }}
+          messages={[]}
+          models={[]}
+          onAssetChange={() => {}}
+          onImportLibraryAsset={async () => {
+            throw new Error('不应导入资产')
+          }}
+          onModelChange={() => {}}
+          onPermissionChange={() => {}}
+          onSkillChange={() => {}}
+          permissionMode='request_approval'
+          selectedAssets={[]}
+          selectedSkillIds={[]}
+          sessionId='session-reasoning'
+          skills={[]}
+          transcript={{
+            events: [],
+            messages: [{ content: '测试问题', id: 'user-1', role: 'user' }],
+          }}
+        />
+      </QueryClientProvider>
+    )
+    try {
+      const screen = await render(chat())
+      await expect
+        .element(screen.getByRole('button', { name: '正在思考' }))
+        .toBeVisible()
+      await expect.element(screen.getByText('仍在分析问题')).toBeVisible()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('uses AI Elements to render transcript Markdown and the chat input', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchInterval: false } },

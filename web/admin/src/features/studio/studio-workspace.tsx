@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ListTree, Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import {
@@ -49,6 +49,7 @@ export function StudioWorkspace() {
 	const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([])
   const [permissionMode, setPermissionMode] =
     useState<StudioPermissionMode>('request_approval')
+  const chatOpenGeneration = useRef(0)
 
   const sessions = useQuery({
     queryKey: ['studio', 'sessions'],
@@ -99,6 +100,19 @@ export function StudioWorkspace() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   })
+
+  const openChatWithFreshDetail = (id: string, onReady: () => void) => {
+    const generation = ++chatOpenGeneration.current
+    // The chat runtime decides whether to resume from its first history load.
+    // Mount it only after the selected session's current run has been fetched.
+    void queryClient.fetchQuery({
+      queryKey: ['studio', 'session', id],
+      queryFn: () => getStudioSession(id),
+      staleTime: 0,
+    }).catch(() => undefined).then(() => {
+      if (chatOpenGeneration.current === generation) onReady()
+    })
+  }
 
   useEffect(() => {
     const reconcile = () => {
@@ -222,14 +236,24 @@ export function StudioWorkspace() {
     creating: creatingSession,
     onNewSession: () => createSessionMutate(),
     onSelectSession: (id: string) => {
-      setActiveSessionId(id)
-      setPermissionMode(
-        sessions.data?.find((session) => session.id === id)?.permission_mode ??
-          'request_approval'
-      )
-      setView('chat' as const)
+      openChatWithFreshDetail(id, () => {
+        setActiveSessionId(id)
+        setPermissionMode(
+          sessions.data?.find((session) => session.id === id)?.permission_mode ??
+            'request_approval'
+        )
+        setView('chat')
+        setTraceOpen(false)
+      })
     },
-    onViewChange: setView,
+    onViewChange: (nextView: StudioView) => {
+      if (nextView === 'chat' && sessionId) {
+        openChatWithFreshDetail(sessionId, () => setView('chat'))
+      } else {
+        ++chatOpenGeneration.current
+        setView(nextView)
+      }
+    },
   }
 
   return (
@@ -270,7 +294,14 @@ export function StudioWorkspace() {
                   </p>
                 </div>
                 <div className='flex items-center gap-1'>
-                  <Button variant={traceOpen ? 'secondary' : 'ghost'} size='sm' onClick={() => setTraceOpen((open) => !open)} aria-pressed={traceOpen}><ListTree />{traceOpen ? '对话' : '轨迹'}</Button>
+                  <Button variant={traceOpen ? 'secondary' : 'ghost'} size='sm' onClick={() => {
+                    if (traceOpen && sessionId) {
+                      openChatWithFreshDetail(sessionId, () => setTraceOpen(false))
+                    } else {
+                      ++chatOpenGeneration.current
+                      setTraceOpen(true)
+                    }
+                  }} aria-pressed={traceOpen}><ListTree />{traceOpen ? '对话' : '轨迹'}</Button>
                   {!traceOpen ? <Button variant='ghost' size='icon' onClick={() => setRightOpen((open) => !open)} aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}>{rightOpen ? <PanelRightClose /> : <PanelRightOpen />}</Button> : null}
                 </div>
               </header>
