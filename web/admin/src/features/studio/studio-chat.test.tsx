@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/index.css'
 import { describe, expect, it, vi } from 'vitest'
@@ -162,6 +162,7 @@ describe('StudioChat', () => {
       '[data-slot="input-group"]'
     ) as HTMLElement
     expect(getComputedStyle(group).backgroundColor).not.toBe('rgba(0, 0, 0, 0)')
+    expect(getComputedStyle(group).borderTopLeftRadius).toBe('8px')
   })
 
   it('peeks the pending approvals above the composer and reveals the choices on demand', async () => {
@@ -201,4 +202,127 @@ describe('StudioChat', () => {
       ['interrupt-1', false],
     ])
   })
+
+  it('groups the model switcher with the send button and keeps Skills and assets as icon buttons', async () => {
+    const onModelChange = vi.fn()
+    const screen = await renderStudioChat({
+      onModelChange,
+      selectedAssets: [{ assetId: 'asset-1', assetVersionId: 'version-1' }],
+      selectedSkillIds: ['skill-1'],
+      skills: [
+        {
+          description: '把大纲写成镜头',
+          enabled: true,
+          id: 'skill-1',
+          name: '分镜草稿',
+        },
+      ],
+    })
+
+    const group = document.querySelector(
+      '[data-slot="input-group"]'
+    ) as HTMLElement
+    const inputRadius = getComputedStyle(group).borderTopLeftRadius
+    expect(inputRadius).toBe('8px')
+
+    const modelButton = screen
+      .getByRole('button', { name: 'Pixoma Chat' })
+      .element()
+    const submit = screen.getByRole('button', { name: '发送消息' }).element()
+    const footer = submit.closest(
+      '[data-slot="input-group-addon"]'
+    ) as HTMLElement
+    const rightGroup = modelButton.parentElement as HTMLElement
+    expect(modelButton.nextElementSibling).toBe(submit)
+    expect(rightGroup).toBe(submit.parentElement)
+    expect(footer.lastElementChild).toBe(rightGroup)
+
+    const skillButton = screen
+      .getByRole('button', { name: '选择 Skills，已选 1 项' })
+      .element()
+    const assetButton = screen
+      .getByRole('button', { name: '选择资产，已选 1 项' })
+      .element()
+    const leftGroup = footer.firstElementChild as HTMLElement
+    expect(leftGroup.contains(skillButton)).toBe(true)
+    expect(leftGroup.contains(assetButton)).toBe(true)
+    for (const button of [skillButton, assetButton]) {
+      expect(button.textContent).toBe('')
+      expect(getComputedStyle(button).borderTopLeftRadius).toBe(inputRadius)
+    }
+
+    await screen.getByRole('button', { name: '选择 Skills，已选 1 项' }).hover()
+    await expect
+      .element(screen.getByRole('tooltip'))
+      .toHaveTextContent('Skills · 1')
+
+    await screen.getByRole('button', { name: 'Pixoma Chat' }).click()
+    await expect.element(screen.getByRole('menu')).toBeVisible()
+    expect(screen.getByRole('dialog').query()).toBeNull()
+    await screen.getByRole('menuitemradio', { name: 'Pixoma Pro' }).click()
+    expect(onModelChange).toHaveBeenCalledWith('model-2')
+  })
 })
+
+const studioModels: ComponentProps<typeof StudioChat>['models'] = [
+  studioModel('model-1', 'Pixoma Chat'),
+  studioModel('model-2', 'Pixoma Pro'),
+]
+
+function studioModel(id: string, name: string) {
+  return {
+    agent_enabled: true,
+    base_url: 'https://example.com',
+    capabilities: {
+      image_output: false,
+      streaming: true,
+      tools: true,
+      vision: false,
+    },
+    default: id === 'model-1',
+    enabled: true,
+    has_api_key: true,
+    id,
+    limits: {
+      context_window_tokens: 128000,
+      max_input_tokens: 32000,
+      max_output_tokens: 8000,
+    },
+    model: id,
+    name,
+    protocol: 'openai_responses' as const,
+    thinking: { enabled: false },
+  }
+}
+
+function renderStudioChat(
+  overrides: Partial<ComponentProps<typeof StudioChat>> = {}
+) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchInterval: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      <StudioChat
+        assets={[]}
+        messages={[]}
+        modelConfigId='model-1'
+        models={studioModels}
+        onAssetChange={() => {}}
+        onImportLibraryAsset={async () => {
+          throw new Error('不应导入资产')
+        }}
+        onModelChange={() => {}}
+        onPermissionChange={() => {}}
+        onSkillChange={() => {}}
+        permissionMode='request_approval'
+        selectedAssets={[]}
+        selectedSkillIds={[]}
+        sessionId='session-1'
+        skills={[]}
+        transcript={{ events: [], messages: [] }}
+        {...overrides}
+      />
+    </QueryClientProvider>
+  )
+}

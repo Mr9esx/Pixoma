@@ -19,7 +19,7 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('PromptInputTextarea')
     expect(source).not.toContain('ComposerPrimitive.Input')
     expect(source).not.toContain('ThreadPrimitive.Messages')
-    expect(source).toContain('@/components/ui/button')
+    expect(source).toContain("from '@/components/ui/dropdown-menu'")
   })
 
   it('renders an editable React Flow asset road and session assets', () => {
@@ -159,6 +159,55 @@ describe('Studio production workspace contract', () => {
     expect(group).not.toContain('ring-[3px]')
     expect(read('../../components/ui/input.tsx')).toContain(
       'focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50'
+    )
+  })
+
+  it('keeps every composer control on the design system radius scale', () => {
+    const group = read('../../components/ui/input-group.tsx')
+    expect(group).toContain('rounded-md')
+    expect(group).not.toContain('rounded-lg')
+    expect(group).not.toContain('rounded-xl')
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain(
+      'overflow-hidden rounded-md border border-warning/40 bg-card'
+    )
+    expect(source).not.toContain('rounded-lg')
+  })
+
+  it('switches the model from a dropdown menu instead of a modal', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).not.toContain('ModelSelector')
+    expect(source).not.toContain('model-selector')
+    const pickup = source.slice(
+      source.indexOf('function ModelPicker'),
+      source.indexOf('const permissionLabels')
+    )
+    expect(pickup).toContain('<DropdownMenu>')
+    expect(pickup).toContain('<DropdownMenuRadioGroup value={value}')
+  })
+
+  it('keeps Skills and assets as icon buttons that explain themselves on hover', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain("size='icon-sm'")
+    expect(source).toContain("tooltip={value.length === 0 ? 'Skills'")
+    expect(source).toContain("tooltip={value.length === 0 ? '资产'")
+  })
+
+  it('groups the model switcher with the send button on the right of the footer', () => {
+    const source = read('./studio-chat.tsx')
+    const leftTools = source.slice(
+      source.indexOf('<PromptInputTools>'),
+      source.lastIndexOf('<PromptInputTools>')
+    )
+    expect(leftTools).toContain('<SkillPicker')
+    expect(leftTools).toContain('<AssetPicker')
+    expect(leftTools).toContain('<PermissionPicker')
+    expect(leftTools).not.toContain('<ModelPicker')
+    const rightTools = source.slice(source.lastIndexOf('<PromptInputTools>'))
+    expect(rightTools).toContain('<ModelPicker')
+    expect(rightTools).toContain('<PromptInputSubmit')
+    expect(rightTools.indexOf('<ModelPicker')).toBeLessThan(
+      rightTools.indexOf('<PromptInputSubmit')
     )
   })
 

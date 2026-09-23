@@ -17,7 +17,6 @@ import {
 } from '@assistant-ui/react-ag-ui'
 import {
   Bot,
-  Check,
   ChevronDown,
   Paperclip,
   ShieldAlert,
@@ -40,7 +39,6 @@ import {
 } from '@/lib/api/studio'
 import { StudioRunConnection } from '@/lib/studio-run-connection'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -70,17 +68,6 @@ import {
   MessageContent,
   MessageResponse,
 } from '@/components/ai-elements/message'
-import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorName,
-  ModelSelectorTrigger,
-} from '@/components/ai-elements/model-selector'
 import {
   PromptInput,
   PromptInputBody,
@@ -392,10 +379,9 @@ function StudioChatSurface({
                 </PromptInputBody>
                 <PromptInputFooter>
                   <PromptInputTools>
-                    <ModelPicker
-                      models={availableModels}
-                      value={selectedModel?.id}
-                      onChange={props.onModelChange}
+                    <PermissionPicker
+                      value={props.permissionMode}
+                      onChange={props.onPermissionChange}
                     />
                     <SkillPicker
                       skills={props.skills}
@@ -408,36 +394,39 @@ function StudioChatSurface({
                       onChange={props.onAssetChange}
                       onImportLibraryAsset={props.onImportLibraryAsset}
                     />
-                    <PermissionPicker
-                      value={props.permissionMode}
-                      onChange={props.onPermissionChange}
+                  </PromptInputTools>
+                  <PromptInputTools>
+                    <ModelPicker
+                      models={availableModels}
+                      value={selectedModel?.id}
+                      onChange={props.onModelChange}
+                    />
+                    <PromptInputSubmit
+                      aria-label={isStreaming ? '停止生成' : '发送消息'}
+                      disabled={!modelReady || (runActive && !isStreaming)}
+                      onStop={() => {
+                        const runID =
+                          agent.activeStudioRunId() ?? props.latestRun?.id
+                        if (!runID) {
+                          onRunError('运行正在建立连接，请稍后再试')
+                          return
+                        }
+                        void cancelStudioRun(runID)
+                          .then(() => {
+                            aui.thread.cancelRun()
+                            props.onRunFinished?.()
+                          })
+                          .catch((error: unknown) => {
+                            onRunError(
+                              error instanceof Error
+                                ? error.message
+                                : '停止运行失败'
+                            )
+                          })
+                      }}
+                      status={isStreaming ? 'streaming' : undefined}
                     />
                   </PromptInputTools>
-                  <PromptInputSubmit
-                    aria-label={isStreaming ? '停止生成' : '发送消息'}
-                    disabled={!modelReady || (runActive && !isStreaming)}
-                    onStop={() => {
-                      const runID =
-                        agent.activeStudioRunId() ?? props.latestRun?.id
-                      if (!runID) {
-                        onRunError('运行正在建立连接，请稍后再试')
-                        return
-                      }
-                      void cancelStudioRun(runID)
-                        .then(() => {
-                          aui.thread.cancelRun()
-                          props.onRunFinished?.()
-                        })
-                        .catch((error: unknown) => {
-                          onRunError(
-                            error instanceof Error
-                              ? error.message
-                              : '停止运行失败'
-                          )
-                        })
-                    }}
-                    status={isStreaming ? 'streaming' : undefined}
-                  />
                 </PromptInputFooter>
               </PromptInput>
               <p className='mt-2 text-center text-xs text-muted-foreground'>
@@ -502,7 +491,7 @@ export function StudioActionDock({
         open ? 'mb-2' : '-mb-2 h-11 overflow-hidden'
       )}
     >
-      <div className='overflow-hidden rounded-xl border border-warning/40 bg-card'>
+      <div className='overflow-hidden rounded-md border border-warning/40 bg-card'>
         <button
           type='button'
           aria-expanded={open}
@@ -637,11 +626,18 @@ function AssetPicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant='ghost' size='sm' className='rounded-lg'>
+        <PromptInputButton
+          aria-label={
+            value.length === 0
+              ? '选择资产'
+              : `选择资产，已选 ${value.length} 项`
+          }
+          className={cn(value.length > 0 && 'bg-accent text-accent-foreground')}
+          size='icon-sm'
+          tooltip={value.length === 0 ? '资产' : `资产 · ${value.length}`}
+        >
           <Paperclip />
-          {value.length === 0 ? '资产' : `资产 · ${value.length}`}
-          <ChevronDown className='size-3.5' />
-        </Button>
+        </PromptInputButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' className='w-72'>
         <DropdownMenuLabel>本轮使用的资产</DropdownMenuLabel>
@@ -747,11 +743,18 @@ function SkillPicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant='ghost' size='sm' className='rounded-lg'>
+        <PromptInputButton
+          aria-label={
+            value.length === 0
+              ? '选择 Skills'
+              : `选择 Skills，已选 ${value.length} 项`
+          }
+          className={cn(value.length > 0 && 'bg-accent text-accent-foreground')}
+          size='icon-sm'
+          tooltip={value.length === 0 ? 'Skills' : `Skills · ${value.length}`}
+        >
           <Sparkles />
-          {value.length === 0 ? 'Skills' : `Skills · ${value.length}`}
-          <ChevronDown className='size-3.5' />
-        </Button>
+        </PromptInputButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' className='w-72'>
         <DropdownMenuLabel>本轮使用的 Skills</DropdownMenuLabel>
@@ -899,32 +902,28 @@ function ModelPicker({
 }) {
   const selected = models.find((model) => model.id === value)
   return (
-    <ModelSelector>
-      <ModelSelectorTrigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <PromptInputButton className='max-w-52'>
           <span className='truncate'>{selected?.name ?? '未选择模型'}</span>
           <ChevronDown className='size-3.5' />
         </PromptInputButton>
-      </ModelSelectorTrigger>
-      <ModelSelectorContent title='选择模型'>
-        <ModelSelectorInput placeholder='筛选模型' />
-        <ModelSelectorList>
-          <ModelSelectorEmpty>没有可用模型</ModelSelectorEmpty>
-          <ModelSelectorGroup heading='可用模型'>
-            {models.map((model) => (
-              <ModelSelectorItem
-                key={model.id}
-                onSelect={() => onChange(model.id)}
-                value={model.name}
-              >
-                <ModelSelectorName>{model.name}</ModelSelectorName>
-                {model.id === value ? <Check className='size-3.5' /> : null}
-              </ModelSelectorItem>
-            ))}
-          </ModelSelectorGroup>
-        </ModelSelectorList>
-      </ModelSelectorContent>
-    </ModelSelector>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='end' className='w-72'>
+        <DropdownMenuLabel>本轮使用的模型</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {models.length === 0 ? (
+          <DropdownMenuItem disabled>没有可用模型</DropdownMenuItem>
+        ) : null}
+        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+          {models.map((model) => (
+            <DropdownMenuRadioItem key={model.id} value={model.id}>
+              <span className='min-w-0 flex-1 truncate'>{model.name}</span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -944,11 +943,13 @@ function PermissionPicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant='ghost' size='sm' className='rounded-lg'>
+        <PromptInputButton
+          aria-label={`Agent 操作权限：${permissionLabels[value]}`}
+        >
           <ShieldCheck />
           {permissionLabels[value]}
           <ChevronDown className='size-3.5' />
-        </Button>
+        </PromptInputButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' className='w-72'>
         <DropdownMenuLabel>Agent 操作权限</DropdownMenuLabel>
