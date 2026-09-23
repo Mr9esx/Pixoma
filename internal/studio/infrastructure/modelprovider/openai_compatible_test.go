@@ -386,6 +386,56 @@ func TestChatUsesAnthropicMessagesProtocolAndThinking(t *testing.T) {
 	}
 }
 
+func TestAnthropicToolRoundTripPreservesThinkingAndGroupsResults(t *testing.T) {
+	requests := make([]map[string]any, 0, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		requireNoError(t, json.NewDecoder(r.Body).Decode(&body))
+		requests = append(requests, body)
+		w.Header().Set("Content-Type", "application/json")
+		if len(requests) == 1 {
+			_, _ = w.Write([]byte(`{"content":[{"type":"thinking","thinking":"先查资产","signature":"sig-1"},{"type":"tool_use","id":"toolu-1","name":"list_session_assets","input":{}},{"type":"tool_use","id":"toolu-2","name":"create_text_asset","input":{"title":"故事"}}],"stop_reason":"tool_use","usage":{"input_tokens":10,"output_tokens":8}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"content":[{"type":"text","text":"已创建故事"}]}`))
+	}))
+	defer server.Close()
+	config := domain.ResolvedModelConfig{Protocol: domain.ModelProtocolAnthropic, BaseURL: server.URL, Model: "claude-test", APIKey: "test-secret", Thinking: domain.ThinkingConfig{Enabled: true}}
+	client := modelprovider.NewOpenAICompatibleClient(server.Client())
+	tools := []modelprovider.ToolDefinition{{Name: "list_session_assets", Parameters: map[string]any{"type": "object"}}, {Name: "create_text_asset", Parameters: map[string]any{"type": "object"}}}
+	first, err := client.Chat(context.Background(), modelprovider.ChatRequest{Config: config, Messages: []modelprovider.ChatMessage{{Role: "user", Content: "写故事"}}, Tools: tools})
+	requireNoError(t, err)
+	if len(first.ToolCalls) != 2 || first.ToolCalls[0].ID != "toolu-1" || first.ToolCalls[1].Function.Arguments != `{"title":"故事"}` {
+		t.Fatalf("tool calls = %#v", first.ToolCalls)
+	}
+	_, err = client.Chat(context.Background(), modelprovider.ChatRequest{Config: config, Messages: []modelprovider.ChatMessage{
+		{Role: "user", Content: "写故事"},
+		{Role: "assistant", ToolCalls: first.ToolCalls, AnthropicContent: first.AnthropicContent},
+		{Role: "tool", ToolCallID: "toolu-1", Content: "[]"},
+		{Role: "tool", ToolCallID: "toolu-2", Content: "created"},
+	}, Tools: tools})
+	requireNoError(t, err)
+	if len(requests) != 2 {
+		t.Fatalf("requests = %d", len(requests))
+	}
+	definitions := requests[0]["tools"].([]any)
+	if definitions[0].(map[string]any)["input_schema"] == nil {
+		t.Fatalf("tools = %#v", definitions)
+	}
+	messages := requests[1]["messages"].([]any)
+	if len(messages) != 3 {
+		t.Fatalf("messages = %#v", messages)
+	}
+	assistantBlocks := messages[1].(map[string]any)["content"].([]any)
+	if assistantBlocks[0].(map[string]any)["signature"] != "sig-1" || assistantBlocks[1].(map[string]any)["type"] != "tool_use" {
+		t.Fatalf("assistant blocks = %#v", assistantBlocks)
+	}
+	results := messages[2].(map[string]any)["content"].([]any)
+	if len(results) != 2 || results[0].(map[string]any)["tool_use_id"] != "toolu-1" || results[1].(map[string]any)["tool_use_id"] != "toolu-2" {
+		t.Fatalf("tool results = %#v", results)
+	}
+}
+
 func requireNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {

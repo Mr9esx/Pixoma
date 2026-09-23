@@ -18,11 +18,12 @@ import (
 const maxProviderResponseBytes = 4 << 20
 
 type ChatMessage struct {
-	Role            string            `json:"role"`
-	Content         string            `json:"content"`
-	ToolCallID      string            `json:"tool_call_id,omitempty"`
-	ToolCalls       []ToolCall        `json:"tool_calls,omitempty"`
-	ResponsesOutput []json.RawMessage `json:"-"`
+	Role             string            `json:"role"`
+	Content          string            `json:"content"`
+	ToolCallID       string            `json:"tool_call_id,omitempty"`
+	ToolCalls        []ToolCall        `json:"tool_calls,omitempty"`
+	ResponsesOutput  []json.RawMessage `json:"-"`
+	AnthropicContent []json.RawMessage `json:"-"`
 }
 
 type ToolCall struct {
@@ -50,12 +51,13 @@ type ChatRequest struct {
 }
 
 type ChatResult struct {
-	Text            string
-	Reasoning       string
-	InputTokens     int
-	OutputTokens    int
-	ToolCalls       []ToolCall
-	ResponsesOutput []json.RawMessage
+	Text             string
+	Reasoning        string
+	InputTokens      int
+	OutputTokens     int
+	ToolCalls        []ToolCall
+	ResponsesOutput  []json.RawMessage
+	AnthropicContent []json.RawMessage
 }
 
 type OpenAICompatibleClient struct {
@@ -105,9 +107,6 @@ func (c *OpenAICompatibleClient) Chat(ctx context.Context, input ChatRequest) (*
 	case domain.ModelProtocolOpenAIResponses:
 		return c.openAIResponses(ctx, input)
 	case domain.ModelProtocolAnthropic:
-		if len(input.Tools) > 0 {
-			return nil, fmt.Errorf("model provider: tool calling is not implemented for Anthropic Messages")
-		}
 		return c.anthropicMessages(ctx, input)
 	case "", domain.ModelProtocolOpenAIChat:
 		return c.openAIChat(ctx, input)
@@ -538,16 +537,53 @@ func cloneResponsesOutput(output []json.RawMessage) []json.RawMessage {
 }
 
 func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input ChatRequest) (*ChatResult, error) {
-	messages := make([]ChatMessage, 0, len(input.Messages))
+	messages := make([]map[string]any, 0, len(input.Messages))
 	system := make([]string, 0, 1)
 	for _, message := range input.Messages {
 		if message.Role == "system" {
 			system = append(system, message.Content)
 			continue
 		}
-		messages = append(messages, message)
+		if message.Role == "tool" {
+			block := map[string]any{"type": "tool_result", "tool_use_id": message.ToolCallID, "content": message.Content}
+			if len(messages) > 0 && messages[len(messages)-1]["role"] == "user" {
+				if blocks, ok := messages[len(messages)-1]["content"].([]any); ok {
+					messages[len(messages)-1]["content"] = append(blocks, block)
+					continue
+				}
+			}
+			messages = append(messages, map[string]any{"role": "user", "content": []any{block}})
+			continue
+		}
+		if message.Role == "assistant" && len(message.AnthropicContent) > 0 {
+			messages = append(messages, map[string]any{"role": "assistant", "content": cloneResponsesOutput(message.AnthropicContent)})
+			continue
+		}
+		if message.Role == "assistant" && len(message.ToolCalls) > 0 {
+			blocks := make([]any, 0, len(message.ToolCalls)+1)
+			if message.Content != "" {
+				blocks = append(blocks, map[string]any{"type": "text", "text": message.Content})
+			}
+			for _, call := range message.ToolCalls {
+				var args any
+				if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
+					return nil, fmt.Errorf("model provider: invalid Anthropic tool arguments: %w", err)
+				}
+				blocks = append(blocks, map[string]any{"type": "tool_use", "id": call.ID, "name": call.Function.Name, "input": args})
+			}
+			messages = append(messages, map[string]any{"role": "assistant", "content": blocks})
+			continue
+		}
+		messages = append(messages, map[string]any{"role": message.Role, "content": message.Content})
 	}
 	body := map[string]any{"model": input.Config.Model, "messages": messages, "max_tokens": configuredMaxOutputTokens(input.Config)}
+	if len(input.Tools) > 0 {
+		definitions := make([]map[string]any, 0, len(input.Tools))
+		for _, tool := range input.Tools {
+			definitions = append(definitions, map[string]any{"name": tool.Name, "description": tool.Description, "input_schema": tool.Parameters})
+		}
+		body["tools"] = definitions
+	}
 	if len(system) > 0 {
 		body["system"] = strings.Join(system, "\n\n")
 	}
@@ -568,9 +604,12 @@ func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input Ch
 	raw := response.raw
 	var decoded struct {
 		Content []struct {
-			Type     string `json:"type"`
-			Text     string `json:"text"`
-			Thinking string `json:"thinking"`
+			Type     string          `json:"type"`
+			Text     string          `json:"text"`
+			Thinking string          `json:"thinking"`
+			ID       string          `json:"id"`
+			Name     string          `json:"name"`
+			Input    json.RawMessage `json:"input"`
 		} `json:"content"`
 		Usage *struct {
 			InputTokens  int `json:"input_tokens"`
@@ -584,6 +623,7 @@ func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input Ch
 	}
 	var texts []string
 	var reasoning []string
+	var calls []ToolCall
 	for _, content := range decoded.Content {
 		if content.Type == "thinking" && strings.TrimSpace(content.Thinking) != "" {
 			reasoning = append(reasoning, content.Thinking)
@@ -591,8 +631,16 @@ func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input Ch
 		if content.Type == "text" && strings.TrimSpace(content.Text) != "" {
 			texts = append(texts, content.Text)
 		}
+		if content.Type == "tool_use" {
+			if content.ID == "" || content.Name == "" || len(content.Input) == 0 || !json.Valid(content.Input) {
+				wrapped := fmt.Errorf("model provider: malformed Anthropic tool_use block")
+				_ = response.trace.failWithBody(ctx, wrapped, raw)
+				return nil, wrapped
+			}
+			calls = append(calls, ToolCall{ID: content.ID, Type: "function", Function: FunctionCall{Name: content.Name, Arguments: string(content.Input)}})
+		}
 	}
-	if len(texts) == 0 {
+	if len(texts) == 0 && len(calls) == 0 {
 		_ = response.trace.failWithBody(ctx, fmt.Errorf("model provider: Anthropic response has no text output"), raw)
 		return nil, fmt.Errorf("model provider: Anthropic response has no text output")
 	}
@@ -603,7 +651,13 @@ func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input Ch
 	if err := response.trace.finish(ctx, inputTokens, outputTokens, decoded.Usage != nil, raw); err != nil {
 		return nil, fmt.Errorf("model provider: persist request trace: %w", err)
 	}
-	return &ChatResult{Text: strings.Join(texts, ""), Reasoning: strings.Join(reasoning, ""), InputTokens: inputTokens, OutputTokens: outputTokens}, nil
+	var original struct {
+		Content []json.RawMessage `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &original); err != nil {
+		return nil, fmt.Errorf("model provider: decode Anthropic content: %w", err)
+	}
+	return &ChatResult{Text: strings.Join(texts, ""), Reasoning: strings.Join(reasoning, ""), InputTokens: inputTokens, OutputTokens: outputTokens, ToolCalls: calls, AnthropicContent: cloneResponsesOutput(original.Content)}, nil
 }
 
 func configuredMaxOutputTokens(config domain.ResolvedModelConfig) int {

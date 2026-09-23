@@ -23,6 +23,7 @@ type EinoChatModel struct {
 }
 
 const responsesOutputExtraKey = "pixoma.responses_output"
+const anthropicContentExtraKey = "pixoma.anthropic_content"
 const reasoningExtraKey = "pixoma.reasoning"
 
 func NewEinoChatModel(client *OpenAICompatibleClient, config domain.ResolvedModelConfig) *EinoChatModel {
@@ -64,10 +65,13 @@ func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, o
 		})
 	}
 	message := &schema.Message{Role: schema.Assistant, Content: result.Text, ToolCalls: toolCalls, ResponseMeta: &schema.ResponseMeta{Usage: &schema.TokenUsage{PromptTokens: result.InputTokens, CompletionTokens: result.OutputTokens, TotalTokens: result.InputTokens + result.OutputTokens}}}
-	if len(result.ResponsesOutput) > 0 || strings.TrimSpace(result.Reasoning) != "" {
+	if len(result.ResponsesOutput) > 0 || len(result.AnthropicContent) > 0 || strings.TrimSpace(result.Reasoning) != "" {
 		message.Extra = map[string]any{}
 		if len(result.ResponsesOutput) > 0 {
 			message.Extra[responsesOutputExtraKey] = result.ResponsesOutput
+		}
+		if len(result.AnthropicContent) > 0 {
+			message.Extra[anthropicContentExtraKey] = result.AnthropicContent
 		}
 		if strings.TrimSpace(result.Reasoning) != "" {
 			message.Extra[reasoningExtraKey] = result.Reasoning
@@ -82,6 +86,14 @@ func responsesOutputFromExtra(extra map[string]any) []json.RawMessage {
 	}
 	output, _ := extra[responsesOutputExtraKey].([]json.RawMessage)
 	return cloneResponsesOutput(output)
+}
+
+func anthropicContentFromExtra(extra map[string]any) []json.RawMessage {
+	if extra == nil {
+		return nil
+	}
+	content, _ := extra[anthropicContentExtraKey].([]json.RawMessage)
+	return cloneResponsesOutput(content)
 }
 
 func (m *EinoChatModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
@@ -150,7 +162,7 @@ func chatMessagesFromSchema(input []*schema.Message) []ChatMessage {
 				Function: FunctionCall{Name: call.Function.Name, Arguments: call.Function.Arguments},
 			})
 		}
-		messages = append(messages, ChatMessage{Role: role, Content: message.Content, ToolCallID: message.ToolCallID, ToolCalls: toolCalls, ResponsesOutput: responsesOutputFromExtra(message.Extra)})
+		messages = append(messages, ChatMessage{Role: role, Content: message.Content, ToolCallID: message.ToolCallID, ToolCalls: toolCalls, ResponsesOutput: responsesOutputFromExtra(message.Extra), AnthropicContent: anthropicContentFromExtra(message.Extra)})
 	}
 	return messages
 }

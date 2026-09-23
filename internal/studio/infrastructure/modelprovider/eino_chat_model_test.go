@@ -64,6 +64,35 @@ func TestEinoChatModelBindsNativeOpenAIToolsAndReturnsToolCalls(t *testing.T) {
 	}
 }
 
+func TestEinoAnthropicToolRoundTripKeepsSignedThinking(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		if requests == 1 {
+			_, _ = w.Write([]byte(`{"content":[{"type":"thinking","thinking":"查一下","signature":"sig-1"},{"type":"tool_use","id":"toolu-1","name":"list_session_assets","input":{}}]}`))
+			return
+		}
+		messages := body["messages"].([]any)
+		assistantBlocks := messages[1].(map[string]any)["content"].([]any)
+		require.Equal(t, "sig-1", assistantBlocks[0].(map[string]any)["signature"])
+		toolResult := messages[2].(map[string]any)["content"].([]any)
+		require.Equal(t, "toolu-1", toolResult[0].(map[string]any)["tool_use_id"])
+		_, _ = w.Write([]byte(`{"content":[{"type":"text","text":"找到了资产"}]}`))
+	}))
+	defer server.Close()
+	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{Protocol: domain.ModelProtocolAnthropic, BaseURL: server.URL, Model: "claude-test", APIKey: "test-secret", Thinking: domain.ThinkingConfig{Enabled: true}})
+	withTools, err := chat.WithTools([]*schema.ToolInfo{{Name: "list_session_assets", Desc: "List assets"}})
+	require.NoError(t, err)
+	first, err := withTools.Generate(context.Background(), []*schema.Message{schema.UserMessage("查资产")})
+	require.NoError(t, err)
+	require.Len(t, first.ToolCalls, 1)
+	second, err := withTools.Generate(context.Background(), []*schema.Message{schema.UserMessage("查资产"), first, {Role: schema.Tool, ToolCallID: "toolu-1", Content: "[]"}})
+	require.NoError(t, err)
+	require.Equal(t, "找到了资产", second.Content)
+}
+
 func TestEinoChatModelHonorsRuntimeToolOptions(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
