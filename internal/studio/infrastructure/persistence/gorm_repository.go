@@ -42,17 +42,17 @@ type MessageRow struct {
 func (MessageRow) TableName() string { return "studio_messages" }
 
 type RunRow struct {
-	ID               string `gorm:"primaryKey;size:64"`
-	SessionID        string `gorm:"size:64;not null;index"`
-	AccountID        string `gorm:"size:64;not null;index"`
-	TriggerMessageID string `gorm:"size:64;not null;index"`
-	Status           string `gorm:"size:32;not null;index"`
-	ModelConfigID    string `gorm:"size:64;index"`
-	SkillIDsJSON     []byte `gorm:"type:blob"`
-	AssetIDsJSON     []byte `gorm:"type:blob"`
-	ErrorCode        string `gorm:"size:128"`
-	ErrorMessage     string `gorm:"type:text"`
-	CreatedAt        time.Time
+	ID               string    `gorm:"primaryKey;size:64;index:idx_studio_runs_trace_page,priority:4"`
+	SessionID        string    `gorm:"size:64;not null;index;index:idx_studio_runs_trace_page,priority:2"`
+	AccountID        string    `gorm:"size:64;not null;index;index:idx_studio_runs_trace_page,priority:1"`
+	TriggerMessageID string    `gorm:"size:64;not null;index"`
+	Status           string    `gorm:"size:32;not null;index"`
+	ModelConfigID    string    `gorm:"size:64;index"`
+	SkillIDsJSON     []byte    `gorm:"type:blob"`
+	AssetIDsJSON     []byte    `gorm:"type:blob"`
+	ErrorCode        string    `gorm:"size:128"`
+	ErrorMessage     string    `gorm:"type:text"`
+	CreatedAt        time.Time `gorm:"index:idx_studio_runs_trace_page,priority:3"`
 	StartedAt        time.Time
 	CompletedAt      time.Time
 	UpdatedAt        time.Time
@@ -61,14 +61,15 @@ type RunRow struct {
 func (RunRow) TableName() string { return "studio_runs" }
 
 type EventRow struct {
-	ID        string `gorm:"primaryKey;size:64"`
-	RunID     string `gorm:"size:64;not null;uniqueIndex:idx_studio_events_run_sequence;index:idx_studio_events_run_sequence_order"`
-	SessionID string `gorm:"size:64;not null;index"`
-	AccountID string `gorm:"size:64;not null;index"`
-	Sequence  uint64 `gorm:"not null;uniqueIndex:idx_studio_events_run_sequence;index:idx_studio_events_run_sequence_order"`
-	Type      string `gorm:"size:96;not null"`
-	Payload   []byte `gorm:"type:blob;not null"`
-	CreatedAt time.Time
+	ID             string `gorm:"primaryKey;size:64"`
+	RunID          string `gorm:"size:64;not null;uniqueIndex:idx_studio_events_run_sequence;index:idx_studio_events_run_sequence_order"`
+	SessionID      string `gorm:"size:64;not null;index"`
+	AccountID      string `gorm:"size:64;not null;index"`
+	Sequence       uint64 `gorm:"not null;uniqueIndex:idx_studio_events_run_sequence;index:idx_studio_events_run_sequence_order"`
+	Type           string `gorm:"size:96;not null"`
+	Payload        []byte `gorm:"type:blob;not null"`
+	SummaryPayload []byte `gorm:"type:blob"`
+	CreatedAt      time.Time
 }
 
 func (EventRow) TableName() string { return "studio_events" }
@@ -303,6 +304,7 @@ func (r *GormRepository) ListSessionTranscript(ctx context.Context, accountID, s
 	var eventRows []EventRow
 	if err := r.db.WithContext(ctx).
 		Where("account_id = ? AND session_id = ?", accountID, sessionID).
+		Not("type IN ?", []string{"MODEL_REQUEST_STARTED", "MODEL_FIRST_TOKEN", "MODEL_REQUEST_FINISHED", "MODEL_REQUEST_FAILED", "CONTEXT_COMPACTED"}).
 		Order("created_at ASC, id ASC").Find(&eventRows).Error; err != nil {
 		return nil, err
 	}
@@ -362,6 +364,60 @@ func (r *GormRepository) ListSessionRuns(ctx context.Context, accountID, session
 		out = append(out, runFromRow(row))
 	}
 	return out, nil
+}
+
+func (r *GormRepository) ListSessionTraceRuns(ctx context.Context, accountID, sessionID string, before time.Time, beforeID string, limit int) ([]*domain.Run, error) {
+	if limit <= 0 || limit > 21 {
+		limit = 21
+	}
+	query := r.db.WithContext(ctx).Where("account_id = ? AND session_id = ?", accountID, sessionID)
+	if !before.IsZero() {
+		query = query.Where("created_at < ? OR (created_at = ? AND id < ?)", before, before, beforeID)
+	}
+	var rows []RunRow
+	if err := query.Order("created_at DESC, id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	runs := make([]*domain.Run, 0, len(rows))
+	for _, row := range rows {
+		runs = append(runs, runFromRow(row))
+	}
+	return runs, nil
+}
+
+func (r *GormRepository) CountSessionTraceRuns(ctx context.Context, accountID, sessionID string) (int64, error) {
+	var total int64
+	err := r.db.WithContext(ctx).Model(&RunRow{}).Where("account_id = ? AND session_id = ?", accountID, sessionID).Count(&total).Error
+	return total, err
+}
+
+func (r *GormRepository) ListRunTraceEvents(ctx context.Context, accountID, runID string) ([]*domain.Event, error) {
+	var rows []EventRow
+	if err := r.db.WithContext(ctx).Where("account_id = ? AND run_id = ?", accountID, runID).Order("sequence ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	events := make([]*domain.Event, 0, len(rows))
+	for _, row := range rows {
+		events = append(events, eventFromRow(row))
+	}
+	return events, nil
+}
+
+// ListRunTraceSummaryEvents returns only the bounded per-event read projection.
+// Historical rows without that projection fall back to their source payload.
+func (r *GormRepository) ListRunTraceSummaryEvents(ctx context.Context, accountID, runID string) ([]*domain.Event, error) {
+	var rows []EventRow
+	if err := r.db.WithContext(ctx).Model(&EventRow{}).
+		Select("id, run_id, session_id, account_id, sequence, type, COALESCE(summary_payload, payload) AS payload, created_at").
+		Where("account_id = ? AND run_id = ?", accountID, runID).
+		Order("sequence ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	events := make([]*domain.Event, 0, len(rows))
+	for _, row := range rows {
+		events = append(events, eventFromRow(row))
+	}
+	return events, nil
 }
 
 func (r *GormRepository) ListRecoverableRuns(ctx context.Context, limit int) ([]*domain.Run, error) {
@@ -855,7 +911,7 @@ func runFromRow(row RunRow) *domain.Run {
 }
 
 func eventToRow(value *domain.Event) *EventRow {
-	return &EventRow{ID: value.ID, RunID: value.RunID, SessionID: value.SessionID, AccountID: value.AccountID, Sequence: value.Sequence, Type: value.Type, Payload: append([]byte(nil), value.Payload...), CreatedAt: value.CreatedAt}
+	return &EventRow{ID: value.ID, RunID: value.RunID, SessionID: value.SessionID, AccountID: value.AccountID, Sequence: value.Sequence, Type: value.Type, Payload: append([]byte(nil), value.Payload...), SummaryPayload: trajectorySummaryPayload(value.Type, value.Payload), CreatedAt: value.CreatedAt}
 }
 
 func eventFromRow(row EventRow) *domain.Event {

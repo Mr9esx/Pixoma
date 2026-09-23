@@ -134,7 +134,7 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 	if err != nil {
 		return nil, err
 	}
-	attempt, err := beginTrace(ctx, input.Trace, encoded)
+	attempt, err := beginTrace(ctx, input.Trace, encoded, input.Config.APIKey)
 	if err != nil {
 		return nil, fmt.Errorf("model provider: persist request trace: %w", err)
 	}
@@ -155,8 +155,8 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		defer resp.Body.Close()
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, maxProviderResponseBytes))
-		wrapped := fmt.Errorf("model provider: HTTP %d: %s", resp.StatusCode, providerErrorMessage(raw))
-		_ = attempt.fail(ctx, wrapped)
+		wrapped := fmt.Errorf("model provider: HTTP %d: %s", resp.StatusCode, providerErrorMessage(raw, input.Config.APIKey))
+		_ = attempt.failWithBody(ctx, wrapped, raw)
 		return nil, wrapped
 	}
 	if !strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
@@ -169,10 +169,13 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 	go func() {
 		defer resp.Body.Close()
 		defer writer.Close()
-		scanner := bufio.NewScanner(io.LimitReader(resp.Body, maxProviderResponseBytes))
+		limited := &io.LimitedReader{R: resp.Body, N: maxProviderResponseBytes + 1}
+		scanner := bufio.NewScanner(limited)
+		scanner.Buffer(make([]byte, 64*1024), maxProviderResponseBytes)
 		var reasoning strings.Builder
 		firstTokenSeen := false
 		inputTokens, outputTokens := 0, 0
+		usageReported := false
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
 			if !strings.HasPrefix(line, "data:") {
@@ -185,6 +188,7 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 			if data == "[DONE]" {
 				break
 			}
+			attempt.recordChunk([]byte(data))
 			var chunk struct {
 				Choices []struct {
 					Delta struct {
@@ -192,7 +196,7 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 						Reasoning string `json:"reasoning_content"`
 					} `json:"delta"`
 				} `json:"choices"`
-				Usage struct {
+				Usage *struct {
 					PromptTokens     int `json:"prompt_tokens"`
 					CompletionTokens int `json:"completion_tokens"`
 				} `json:"usage"`
@@ -203,10 +207,9 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 				writer.Send(nil, wrapped)
 				return
 			}
-			if chunk.Usage.PromptTokens > 0 {
+			if chunk.Usage != nil {
+				usageReported = true
 				inputTokens = chunk.Usage.PromptTokens
-			}
-			if chunk.Usage.CompletionTokens > 0 {
 				outputTokens = chunk.Usage.CompletionTokens
 			}
 			if len(chunk.Choices) == 0 {
@@ -240,7 +243,13 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 			writer.Send(nil, wrapped)
 			return
 		}
-		if err := attempt.finish(ctx, inputTokens, outputTokens); err != nil {
+		if limited.N == 0 {
+			wrapped := fmt.Errorf("model provider: streaming response exceeds %d bytes", maxProviderResponseBytes)
+			_ = attempt.fail(ctx, wrapped)
+			writer.Send(nil, wrapped)
+			return
+		}
+		if err := attempt.finish(ctx, inputTokens, outputTokens, usageReported, nil); err != nil {
 			writer.Send(nil, fmt.Errorf("model provider: persist request trace: %w", err))
 		}
 	}()
@@ -273,24 +282,28 @@ func (c *OpenAICompatibleClient) openAIChat(ctx context.Context, input ChatReque
 				ToolCalls []ToolCall `json:"tool_calls"`
 			} `json:"message"`
 		} `json:"choices"`
-		Usage struct {
+		Usage *struct {
 			PromptTokens     int `json:"prompt_tokens"`
 			CompletionTokens int `json:"completion_tokens"`
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		wrapped := fmt.Errorf("model provider: decode response: %w", err)
-		_ = response.trace.fail(ctx, wrapped)
+		_ = response.trace.failWithBody(ctx, wrapped, raw)
 		return nil, wrapped
 	}
 	if len(decoded.Choices) == 0 {
-		_ = response.trace.fail(ctx, fmt.Errorf("model provider: response has no choices"))
+		_ = response.trace.failWithBody(ctx, fmt.Errorf("model provider: response has no choices"), raw)
 		return nil, fmt.Errorf("model provider: response has no choices")
 	}
-	if err := response.trace.finish(ctx, decoded.Usage.PromptTokens, decoded.Usage.CompletionTokens); err != nil {
+	inputTokens, outputTokens := 0, 0
+	if decoded.Usage != nil {
+		inputTokens, outputTokens = decoded.Usage.PromptTokens, decoded.Usage.CompletionTokens
+	}
+	if err := response.trace.finish(ctx, inputTokens, outputTokens, decoded.Usage != nil, raw); err != nil {
 		return nil, fmt.Errorf("model provider: persist request trace: %w", err)
 	}
-	return &ChatResult{Text: decoded.Choices[0].Message.Content, Reasoning: decoded.Choices[0].Message.Reasoning, ToolCalls: decoded.Choices[0].Message.ToolCalls, InputTokens: decoded.Usage.PromptTokens, OutputTokens: decoded.Usage.CompletionTokens}, nil
+	return &ChatResult{Text: decoded.Choices[0].Message.Content, Reasoning: decoded.Choices[0].Message.Reasoning, ToolCalls: decoded.Choices[0].Message.ToolCalls, InputTokens: inputTokens, OutputTokens: outputTokens}, nil
 }
 
 func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input ChatRequest) (*ChatResult, error) {
@@ -320,14 +333,14 @@ func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input Chat
 	var decoded struct {
 		Output     []json.RawMessage `json:"output"`
 		OutputText string            `json:"output_text"`
-		Usage      struct {
+		Usage      *struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		wrapped := fmt.Errorf("model provider: decode Responses response: %w", err)
-		_ = response.trace.fail(ctx, wrapped)
+		_ = response.trace.failWithBody(ctx, wrapped, raw)
 		return nil, wrapped
 	}
 	type outputItem struct {
@@ -349,7 +362,7 @@ func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input Chat
 		var item outputItem
 		if err := json.Unmarshal(rawOutput, &item); err != nil {
 			wrapped := fmt.Errorf("model provider: decode Responses output item: %w", err)
-			_ = response.trace.fail(ctx, wrapped)
+			_ = response.trace.failWithBody(ctx, wrapped, raw)
 			return nil, wrapped
 		}
 		output = append(output, item)
@@ -383,13 +396,17 @@ func (c *OpenAICompatibleClient) openAIResponses(ctx context.Context, input Chat
 		})
 	}
 	if strings.TrimSpace(text) == "" && len(toolCalls) == 0 {
-		_ = response.trace.fail(ctx, fmt.Errorf("model provider: Responses response has no text output"))
+		_ = response.trace.failWithBody(ctx, fmt.Errorf("model provider: Responses response has no text output"), raw)
 		return nil, fmt.Errorf("model provider: Responses response has no text output")
 	}
-	if err := response.trace.finish(ctx, decoded.Usage.InputTokens, decoded.Usage.OutputTokens); err != nil {
+	inputTokens, outputTokens := 0, 0
+	if decoded.Usage != nil {
+		inputTokens, outputTokens = decoded.Usage.InputTokens, decoded.Usage.OutputTokens
+	}
+	if err := response.trace.finish(ctx, inputTokens, outputTokens, decoded.Usage != nil, raw); err != nil {
 		return nil, fmt.Errorf("model provider: persist request trace: %w", err)
 	}
-	return &ChatResult{Text: text, Reasoning: reasoning.String(), ToolCalls: toolCalls, ResponsesOutput: cloneResponsesOutput(decoded.Output), InputTokens: decoded.Usage.InputTokens, OutputTokens: decoded.Usage.OutputTokens}, nil
+	return &ChatResult{Text: text, Reasoning: reasoning.String(), ToolCalls: toolCalls, ResponsesOutput: cloneResponsesOutput(decoded.Output), InputTokens: inputTokens, OutputTokens: outputTokens}, nil
 }
 
 func responsesInput(messages []ChatMessage) ([]any, error) {
@@ -469,14 +486,14 @@ func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input Ch
 			Text     string `json:"text"`
 			Thinking string `json:"thinking"`
 		} `json:"content"`
-		Usage struct {
+		Usage *struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		wrapped := fmt.Errorf("model provider: decode Anthropic response: %w", err)
-		_ = response.trace.fail(ctx, wrapped)
+		_ = response.trace.failWithBody(ctx, wrapped, raw)
 		return nil, wrapped
 	}
 	var texts []string
@@ -490,13 +507,17 @@ func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input Ch
 		}
 	}
 	if len(texts) == 0 {
-		_ = response.trace.fail(ctx, fmt.Errorf("model provider: Anthropic response has no text output"))
+		_ = response.trace.failWithBody(ctx, fmt.Errorf("model provider: Anthropic response has no text output"), raw)
 		return nil, fmt.Errorf("model provider: Anthropic response has no text output")
 	}
-	if err := response.trace.finish(ctx, decoded.Usage.InputTokens, decoded.Usage.OutputTokens); err != nil {
+	inputTokens, outputTokens := 0, 0
+	if decoded.Usage != nil {
+		inputTokens, outputTokens = decoded.Usage.InputTokens, decoded.Usage.OutputTokens
+	}
+	if err := response.trace.finish(ctx, inputTokens, outputTokens, decoded.Usage != nil, raw); err != nil {
 		return nil, fmt.Errorf("model provider: persist request trace: %w", err)
 	}
-	return &ChatResult{Text: strings.Join(texts, ""), Reasoning: strings.Join(reasoning, ""), InputTokens: decoded.Usage.InputTokens, OutputTokens: decoded.Usage.OutputTokens}, nil
+	return &ChatResult{Text: strings.Join(texts, ""), Reasoning: strings.Join(reasoning, ""), InputTokens: inputTokens, OutputTokens: outputTokens}, nil
 }
 
 func configuredMaxOutputTokens(config domain.ResolvedModelConfig) int {
@@ -516,7 +537,7 @@ func (c *OpenAICompatibleClient) postJSON(ctx context.Context, config domain.Res
 	if err != nil {
 		return nil, err
 	}
-	attempt, err := beginTrace(ctx, trace, encoded)
+	attempt, err := beginTrace(ctx, trace, encoded, config.APIKey)
 	if err != nil {
 		return nil, fmt.Errorf("model provider: persist request trace: %w", err)
 	}
@@ -537,15 +558,20 @@ func (c *OpenAICompatibleClient) postJSON(ctx context.Context, config domain.Res
 	}
 	defer resp.Body.Close()
 	attempt.receivedResponse(resp.StatusCode, providerRequestID(resp.Header))
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxProviderResponseBytes))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxProviderResponseBytes+1))
 	if err != nil {
 		wrapped := fmt.Errorf("model provider: read response: %w", err)
 		_ = attempt.fail(ctx, wrapped)
 		return nil, wrapped
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		wrapped := fmt.Errorf("model provider: HTTP %d: %s", resp.StatusCode, providerErrorMessage(raw))
+	if len(raw) > maxProviderResponseBytes {
+		wrapped := fmt.Errorf("model provider: response exceeds %d bytes", maxProviderResponseBytes)
 		_ = attempt.fail(ctx, wrapped)
+		return nil, wrapped
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		wrapped := fmt.Errorf("model provider: HTTP %d: %s", resp.StatusCode, providerErrorMessage(raw, config.APIKey))
+		_ = attempt.failWithBody(ctx, wrapped, raw)
 		return nil, wrapped
 	}
 	return &providerJSONResponse{raw: raw, trace: attempt}, nil
@@ -560,16 +586,23 @@ func providerRequestID(headers http.Header) string {
 	return ""
 }
 
-func providerErrorMessage(raw []byte) string {
+func providerErrorMessage(raw []byte, credential string) string {
 	var decoded struct {
 		Error struct {
 			Message string `json:"message"`
 		} `json:"error"`
 	}
 	if json.Unmarshal(raw, &decoded) == nil && decoded.Error.Message != "" {
-		return decoded.Error.Message
+		message := decoded.Error.Message
+		if credential != "" {
+			message = strings.ReplaceAll(message, credential, "[REDACTED]")
+		}
+		return message
 	}
 	message := strings.TrimSpace(string(raw))
+	if credential != "" {
+		message = strings.ReplaceAll(message, credential, "[REDACTED]")
+	}
 	if len(message) > 512 {
 		message = message[:512]
 	}

@@ -27,10 +27,12 @@ type TraceEvent struct {
 	At                time.Time
 	Elapsed           time.Duration
 	RequestBody       json.RawMessage
+	ResponseBody      json.RawMessage
 	StatusCode        int
 	ProviderRequestID string
 	InputTokens       int
 	OutputTokens      int
+	UsageReported     bool
 	Error             string
 }
 
@@ -41,16 +43,24 @@ type TraceSink func(context.Context, TraceEvent) error
 type traceAttempt struct {
 	sink        TraceSink
 	startedAt   time.Time
+	credential  string
 	requestBody json.RawMessage
 	statusCode  int
 	requestID   string
+	chunks      []traceChunk
 }
 
-func beginTrace(ctx context.Context, sink TraceSink, body []byte) (*traceAttempt, error) {
+type traceChunk struct {
+	At        time.Time       `json:"at"`
+	ElapsedMS int64           `json:"elapsed_ms"`
+	Data      json.RawMessage `json:"data"`
+}
+
+func beginTrace(ctx context.Context, sink TraceSink, body []byte, credential string) (*traceAttempt, error) {
 	if sink == nil {
 		return nil, nil
 	}
-	attempt := &traceAttempt{sink: sink, startedAt: time.Now().UTC(), requestBody: redactTraceJSON(body)}
+	attempt := &traceAttempt{sink: sink, startedAt: time.Now().UTC(), credential: credential, requestBody: redactTraceJSON(body, credential)}
 	if err := sink(ctx, TraceEvent{Phase: TraceRequestStarted, At: attempt.startedAt, RequestBody: append(json.RawMessage(nil), attempt.requestBody...)}); err != nil {
 		return nil, err
 	}
@@ -73,15 +83,32 @@ func (a *traceAttempt) firstToken(ctx context.Context) error {
 	return a.sink(ctx, TraceEvent{Phase: TraceFirstToken, At: now, Elapsed: now.Sub(a.startedAt), StatusCode: a.statusCode, ProviderRequestID: a.requestID})
 }
 
-func (a *traceAttempt) finish(ctx context.Context, inputTokens, outputTokens int) error {
+func (a *traceAttempt) recordChunk(data []byte) {
+	if a == nil {
+		return
+	}
+	now := time.Now().UTC()
+	a.chunks = append(a.chunks, traceChunk{At: now, ElapsedMS: now.Sub(a.startedAt).Milliseconds(), Data: redactTraceJSON(data, a.credential)})
+}
+
+func (a *traceAttempt) finish(ctx context.Context, inputTokens, outputTokens int, usageReported bool, responseBody []byte) error {
 	if a == nil || a.sink == nil {
 		return nil
 	}
 	now := time.Now().UTC()
-	return a.sink(ctx, TraceEvent{Phase: TraceRequestFinished, At: now, Elapsed: now.Sub(a.startedAt), StatusCode: a.statusCode, ProviderRequestID: a.requestID, InputTokens: inputTokens, OutputTokens: outputTokens})
+	if len(a.chunks) > 0 {
+		responseBody, _ = json.Marshal(map[string]any{"stream": a.chunks})
+	} else if len(responseBody) > 0 {
+		responseBody = redactTraceJSON(responseBody, a.credential)
+	}
+	return a.sink(ctx, TraceEvent{Phase: TraceRequestFinished, At: now, Elapsed: now.Sub(a.startedAt), StatusCode: a.statusCode, ProviderRequestID: a.requestID, InputTokens: inputTokens, OutputTokens: outputTokens, UsageReported: usageReported, ResponseBody: append(json.RawMessage(nil), responseBody...)})
 }
 
 func (a *traceAttempt) fail(ctx context.Context, err error) error {
+	return a.failWithBody(ctx, err, nil)
+}
+
+func (a *traceAttempt) failWithBody(ctx context.Context, err error, body []byte) error {
 	if a == nil || a.sink == nil {
 		return nil
 	}
@@ -93,10 +120,22 @@ func (a *traceAttempt) fail(ctx context.Context, err error) error {
 	if len(message) > 1024 {
 		message = message[:1024]
 	}
-	return a.sink(ctx, TraceEvent{Phase: TraceRequestFailed, At: now, Elapsed: now.Sub(a.startedAt), StatusCode: a.statusCode, ProviderRequestID: a.requestID, Error: message})
+	if a.credential != "" {
+		message = strings.ReplaceAll(message, a.credential, "[REDACTED]")
+	}
+	var responseBody json.RawMessage
+	if len(body) > 0 {
+		responseBody = redactTraceJSON(body, a.credential)
+	} else if len(a.chunks) > 0 {
+		responseBody, _ = json.Marshal(map[string]any{"stream": a.chunks})
+	}
+	return a.sink(ctx, TraceEvent{Phase: TraceRequestFailed, At: now, Elapsed: now.Sub(a.startedAt), StatusCode: a.statusCode, ProviderRequestID: a.requestID, ResponseBody: responseBody, Error: message})
 }
 
-func redactTraceJSON(body []byte) json.RawMessage {
+func redactTraceJSON(body []byte, credential string) json.RawMessage {
+	if credential != "" {
+		body = []byte(strings.ReplaceAll(string(body), credential, "[REDACTED]"))
+	}
 	var value any
 	if json.Unmarshal(body, &value) != nil {
 		return json.RawMessage(`{"redacted":true,"reason":"invalid_json"}`)
@@ -128,5 +167,5 @@ func redactTraceValue(value any) {
 
 func isSensitiveTraceKey(key string) bool {
 	key = strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), " ", "_"))
-	return strings.Contains(key, "password") || strings.Contains(key, "secret") || strings.Contains(key, "api_key") || strings.Contains(key, "authorization") || strings.Contains(key, "access_token") || strings.Contains(key, "refresh_token")
+	return strings.Contains(key, "password") || strings.Contains(key, "secret") || strings.Contains(key, "authorization") || strings.Contains(key, "credential") || key == "token" || strings.HasSuffix(key, "_token") || key == "key" || strings.HasSuffix(key, "_key")
 }

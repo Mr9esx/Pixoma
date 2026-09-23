@@ -48,8 +48,8 @@ type SessionTranscript struct {
 }
 
 // ProjectSessionTranscript rebuilds the visible conversation from persisted
-// user messages and the append-only run events. Events remain in the result so
-// Trace and chat can use the same canonical source without losing details.
+// user messages and conversation events. Provider diagnostics are exposed by
+// the separate trajectory API and must not inflate ordinary chat replay.
 func ProjectSessionTranscript(messages []*domain.Message, runs []*domain.Run, eventsByRun map[string][]*domain.Event) SessionTranscript {
 	orderedRuns := append([]*domain.Run(nil), runs...)
 	sort.SliceStable(orderedRuns, func(i, j int) bool {

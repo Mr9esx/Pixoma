@@ -69,6 +69,7 @@ export function StudioWorkspace() {
       setActiveSessionId(session.id)
       setPermissionMode(session.permission_mode)
       setView('chat')
+      setTraceOpen(false)
       void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
     },
   })
@@ -243,11 +244,13 @@ export function StudioWorkspace() {
                   </p>
                 </div>
                 <div className='flex items-center gap-1'>
-                  <Button variant='ghost' size='sm' onClick={() => setTraceOpen(true)}><ListTree />Trace</Button>
-                  <Button variant='ghost' size='icon' onClick={() => setRightOpen((open) => !open)} aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}>{rightOpen ? <PanelRightClose /> : <PanelRightOpen />}</Button>
+                  <Button variant={traceOpen ? 'secondary' : 'ghost'} size='sm' onClick={() => setTraceOpen((open) => !open)} aria-pressed={traceOpen}><ListTree />{traceOpen ? '对话' : '轨迹'}</Button>
+                  {!traceOpen ? <Button variant='ghost' size='icon' onClick={() => setRightOpen((open) => !open)} aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}>{rightOpen ? <PanelRightClose /> : <PanelRightOpen />}</Button> : null}
                 </div>
               </header>
-              {!sessionId || detail.isLoading ? (
+              {traceOpen && sessionId ? (
+                <StudioTrace key={sessionId} sessionId={sessionId} />
+              ) : !sessionId || detail.isLoading ? (
                 <ChatSkeleton />
               ) : detail.isError || !detail.data ? (
                 <div className='flex flex-1 items-center justify-center text-sm text-muted-foreground'>
@@ -282,7 +285,7 @@ export function StudioWorkspace() {
                 />
               )}
             </main>
-            {rightOpen ? (
+            {rightOpen && !traceOpen ? (
               <aside className='hidden w-[42%] max-w-2xl min-w-80 shrink-0 border-s bg-muted/20 xl:flex xl:flex-col'>
                 <Tabs defaultValue='flow' className='min-h-0 flex-1 gap-0'>
                   <div className='flex h-16 items-center px-4'>
@@ -327,12 +330,6 @@ export function StudioWorkspace() {
           </section>
         </div>
       ) : null}
-      <Sheet open={traceOpen} onOpenChange={setTraceOpen}>
-        <SheetContent side='right' className='flex w-full max-w-3xl flex-col gap-0 p-0 sm:max-w-3xl'>
-          <SheetTitle className='sr-only'>执行 Trace</SheetTitle>
-          {sessionId ? <StudioTrace sessionId={sessionId} /> : null}
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }

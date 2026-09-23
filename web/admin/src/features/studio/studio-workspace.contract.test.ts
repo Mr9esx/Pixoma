@@ -103,6 +103,16 @@ describe('Studio production workspace contract', () => {
     expect(source).not.toContain("className='shrink-0 bg-background")
   })
 
+  it('replaces chat and composer with session trajectory without opening a drawer', () => {
+    const source = read('./studio-workspace.tsx')
+    expect(source).toContain('traceOpen && sessionId')
+    expect(source).toContain(
+      '<StudioTrace key={sessionId} sessionId={sessionId} />'
+    )
+    expect(source).toContain('rightOpen && !traceOpen')
+    expect(source).not.toContain('<Sheet open={traceOpen}')
+  })
+
   it('provides a connected Skill configuration view', () => {
     const source = read('./studio-settings.tsx')
     expect(source).toContain(

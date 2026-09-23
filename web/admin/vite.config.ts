@@ -43,7 +43,11 @@ export default defineConfig(({ command }) => ({
     },
   },
   test: {
-    include: ['src/**/*.test.ts', 'src/features/studio/studio-chat.test.tsx'],
+    include: [
+      'src/**/*.test.ts',
+      'src/features/studio/studio-chat.test.tsx',
+      'src/features/studio/studio-trace.test.tsx',
+    ],
     silent: 'passed-only',
     unstubEnvs: true,
     browser: {

@@ -148,12 +148,19 @@ func TestSessionTranscriptReadsEveryOwnedMessageRunAndEvent(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if err := repo.AppendEvent(ctx, &domain.Event{ID: "event-model-trace", RunID: run.ID, SessionID: session.ID, AccountID: session.AccountID, Sequence: 206, Type: "MODEL_REQUEST_FINISHED", Payload: json.RawMessage(`{"response_body":{"choices":[{"message":{"content":"large raw response"}}]}}`), CreatedAt: now.Add(206 * time.Second)}); err != nil {
+		t.Fatal(err)
+	}
 	data, err := repo.ListSessionTranscript(ctx, session.AccountID, session.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(data.Messages) != 1 || len(data.Runs) != 1 || len(data.Events) != 205 || data.Events[0].Sequence != 1 || data.Events[204].Sequence != 205 {
 		t.Fatalf("transcript = messages=%d runs=%d events=%d", len(data.Messages), len(data.Runs), len(data.Events))
+	}
+	traceEvents, err := repo.ListRunTraceEvents(ctx, session.AccountID, run.ID)
+	if err != nil || len(traceEvents) != 206 {
+		t.Fatalf("full trace events = %d, %v", len(traceEvents), err)
 	}
 	foreign, err := repo.ListSessionTranscript(ctx, "account-b", session.ID)
 	if err != nil {

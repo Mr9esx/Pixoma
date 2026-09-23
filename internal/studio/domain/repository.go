@@ -36,9 +36,13 @@ type Repository interface {
 	UpdateRun(ctx context.Context, run *Run) error
 	GetRun(ctx context.Context, accountID, runID string) (*Run, error)
 	ListSessionRuns(ctx context.Context, accountID, sessionID string, limit int) ([]*Run, error)
+	ListSessionTraceRuns(ctx context.Context, accountID, sessionID string, before time.Time, beforeID string, limit int) ([]*Run, error)
+	CountSessionTraceRuns(ctx context.Context, accountID, sessionID string) (int64, error)
 	ListRecoverableRuns(ctx context.Context, limit int) ([]*Run, error)
 	AppendEvent(ctx context.Context, event *Event) error
 	ListEventsAfter(ctx context.Context, accountID, runID string, after uint64, limit int) ([]*Event, error)
+	ListRunTraceEvents(ctx context.Context, accountID, runID string) ([]*Event, error)
+	ListRunTraceSummaryEvents(ctx context.Context, accountID, runID string) ([]*Event, error)
 
 	CreateApproval(ctx context.Context, approval *Approval) error
 	UpdateApproval(ctx context.Context, approval *Approval) error

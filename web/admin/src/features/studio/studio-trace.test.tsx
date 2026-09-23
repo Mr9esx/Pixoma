@@ -4,94 +4,98 @@ import { render } from 'vitest-browser-react'
 import { StudioTrace } from './studio-trace'
 
 const fixtures = vi.hoisted(() => ({
-  runs: [
+  pages: [
     {
-      id: 'run-1',
-      session_id: 'session-1',
-      trigger_message_id: 'message-1',
-      status: 'succeeded' as const,
-      created_at: '2026-09-22T10:00:00.000Z',
-      updated_at: '2026-09-22T10:00:03.000Z',
-      started_at: '2026-09-22T10:00:00.000Z',
-      completed_at: '2026-09-22T10:00:03.000Z',
-    },
-  ],
-  events: [
-    {
-      id: 'event-1',
-      run_id: 'run-1',
-      sequence: 1,
-      type: 'TEXT_MESSAGE_START',
-      payload: { message_id: 'assistant-1', role: 'assistant' },
-      created_at: '2026-09-22T10:00:00.000Z',
-    },
-    {
-      id: 'event-2',
-      run_id: 'run-1',
-      sequence: 2,
-      type: 'TEXT_MESSAGE_CONTENT',
-      payload: { message_id: 'assistant-1', delta: '第一段' },
-      created_at: '2026-09-22T10:00:01.000Z',
-    },
-    {
-      id: 'event-3',
-      run_id: 'run-1',
-      sequence: 3,
-      type: 'TEXT_MESSAGE_CONTENT',
-      payload: { message_id: 'assistant-1', delta: '第二段' },
-      created_at: '2026-09-22T10:00:02.000Z',
-    },
-    {
-      id: 'event-4',
-      run_id: 'run-1',
-      sequence: 4,
-      type: 'TEXT_MESSAGE_END',
-      payload: { message_id: 'assistant-1', content: '第一段第二段' },
-      created_at: '2026-09-22T10:00:03.000Z',
-    },
-    {
-      id: 'event-5',
-      run_id: 'run-1',
-      sequence: 5,
-      type: 'TOOL_CALL_START',
-      payload: { tool_call_id: 'tool-1', tool_name: '搜索资料' },
-      created_at: '2026-09-22T10:00:03.000Z',
-    },
-    {
-      id: 'event-6',
-      run_id: 'run-1',
-      sequence: 6,
-      type: 'TOOL_CALL_RESULT',
-      payload: { tool_call_id: 'tool-1', content: '找到 3 条资料', is_error: false },
-      created_at: '2026-09-22T10:00:03.200Z',
-    },
-    {
-      id: 'event-7',
-      run_id: 'run-1',
-      sequence: 7,
-      type: 'TOOL_CALL_END',
-      payload: { tool_call_id: 'tool-1', tool_name: '搜索资料' },
-      created_at: '2026-09-22T10:00:03.400Z',
-    },
-    {
-      id: 'event-8',
-      run_id: 'run-1',
-      sequence: 8,
-      type: 'ASSET_CREATED',
-      payload: { asset_id: 'asset-1', name: '资料摘录.md' },
-      created_at: '2026-09-22T10:00:03.500Z',
+      runs: [
+        {
+          run: {
+            id: 'run-2',
+            session_id: 'session-1',
+            status: 'succeeded',
+            trigger_message_id: 'user-2',
+            created_at: '2026-09-22T10:10:00Z',
+            started_at: '2026-09-22T10:10:00Z',
+            completed_at: '2026-09-22T10:10:02Z',
+          },
+          records: [
+            {
+              id: 'model-2',
+              run_id: 'run-2',
+              kind: 'model',
+              title: '模型 B',
+              status: 'done',
+              step: 1,
+              attempt: 1,
+              started_at: '2026-09-22T10:10:00Z',
+            },
+            {
+              id: 'tool-2',
+              run_id: 'run-2',
+              kind: 'tool',
+              title: '搜索资料',
+              status: 'done',
+              step: 1,
+              started_at: '2026-09-22T10:10:01Z',
+            },
+          ],
+        },
+        {
+          run: {
+            id: 'run-1',
+            session_id: 'session-1',
+            status: 'succeeded',
+            trigger_message_id: 'user-1',
+            created_at: '2026-09-22T10:00:00Z',
+            started_at: '2026-09-22T10:00:00Z',
+            completed_at: '2026-09-22T10:00:02Z',
+          },
+          records: [
+            {
+              id: 'model-1',
+              run_id: 'run-1',
+              kind: 'model',
+              title: '模型 A',
+              status: 'done',
+              step: 1,
+              attempt: 1,
+              started_at: '2026-09-22T10:00:00Z',
+            },
+          ],
+        },
+      ],
+      next_cursor: '',
+      has_more: false,
+      total_runs: 2,
     },
   ],
 }))
 
 vi.mock('@/lib/api/studio', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/studio')>()),
-  listStudioSessionRuns: vi.fn(() => Promise.resolve(fixtures.runs)),
-  listStudioRunEvents: vi.fn(() => Promise.resolve(fixtures.events)),
+  getStudioSessionTrajectory: vi.fn(() => Promise.resolve(fixtures.pages[0])),
+  getStudioTrajectoryRecord: vi.fn(
+    (_session: string, run: string, record: string) =>
+      Promise.resolve({
+        record: {
+          id: record,
+          run_id: run,
+          kind: 'model',
+          title: '模型 A',
+          status: 'done',
+          started_at: '2026-09-22T10:00:00Z',
+        },
+        overview: { model: 'test-model' },
+        input: { messages: ['实际请求'] },
+        output: { choices: ['实际响应'] },
+        raw: { messages: ['实际请求'] },
+        usage: { input_tokens: 10, output_tokens: 0, source: 'provider' },
+        timing: { ttft_ms: 100 },
+      })
+  ),
 }))
 
 describe('StudioTrace', () => {
-  it('groups streamed output into one trajectory record with an overview timeline', async () => {
+  it('keeps a call summary when calls are collapsed and can expand them', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchInterval: false } },
     })
@@ -100,10 +104,50 @@ describe('StudioTrace', () => {
         <StudioTrace sessionId='session-1' />
       </QueryClientProvider>
     )
+    await expect.element(screen.getByRole('row', { name: /工具 搜索资料/ })).toBeVisible()
+    await screen.getByRole('button', { name: '收起所有调用' }).click()
+    await expect.element(screen.getByRole('row', { name: /工具 搜索资料/ })).not.toBeInTheDocument()
+    await expect.element(screen.getByRole('button', { name: '展开 1 次工具调用' })).toBeVisible()
+    await screen.getByRole('button', { name: '展开 1 次工具调用' }).click()
+    await expect.element(screen.getByRole('row', { name: /工具 搜索资料/ })).toBeVisible()
+  })
 
-    await expect.element(screen.getByText('轨迹总览')).toBeVisible()
-    await expect.element(screen.getByText('第一段第二段')).toBeVisible()
-    await expect.element(screen.getByText('搜索资料')).toBeVisible()
-    await expect.element(screen.getByText('创建资产')).toBeVisible()
+  it('shows the session across turns and lazy record detail', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchInterval: false } },
+    })
+    const screen = await render(
+      <QueryClientProvider client={client}>
+        <StudioTrace sessionId='session-1' />
+      </QueryClientProvider>
+    )
+    await expect
+      .element(screen.getByRole('toolbar', { name: '轨迹工具栏' }))
+      .toBeVisible()
+    await expect.element(screen.getByLabelText('轨迹时间线')).toBeVisible()
+    await expect
+      .element(screen.getByRole('table', { name: '轨迹账本' }))
+      .toBeVisible()
+    await expect.element(screen.getByText('第 1 轮')).toBeVisible()
+    await expect.element(screen.getByText('第 2 轮')).toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: '选择模型 A' }))
+      .toBeVisible()
+    await screen.getByRole('row', { name: /● 模型 模型 A/ }).click()
+    await expect
+      .element(screen.getByRole('complementary', { name: '事件详情' }))
+      .toBeVisible()
+    await screen.getByRole('tab', { name: '输入' }).click()
+    await expect.element(screen.getByText(/实际请求/)).toBeVisible()
+    await screen.getByRole('tab', { name: '用量' }).click()
+    await expect.element(screen.getByText(/input_tokens/)).toBeVisible()
+    await screen.getByRole('button', { name: '关闭详情' }).click()
+    await expect
+      .element(screen.getByRole('complementary', { name: '事件详情' }))
+      .not.toBeInTheDocument()
+    await screen.getByRole('button', { name: '使用实际时长' }).click()
+    await expect.element(screen.getByRole('button', { name: '使用等宽操作' })).toBeVisible()
+    await screen.getByRole('button', { name: '收起所有轮次' }).click()
+    await expect.element(screen.getByRole('row', { name: /● 模型 模型 A/ })).not.toBeInTheDocument()
   })
 })

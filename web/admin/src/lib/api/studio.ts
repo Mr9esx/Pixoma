@@ -89,6 +89,38 @@ export type StudioRunEvent = {
   created_at: string
 }
 
+export type StudioTrajectoryRecord = {
+  id: string
+  run_id: string
+  kind: string
+  step?: number
+  attempt?: number
+  parent_id?: string
+  title: string
+  preview?: string
+  status: string
+  started_at: string
+  ended_at?: string
+}
+
+export type StudioTrajectoryDetail = {
+  record: StudioTrajectoryRecord
+  overview: Record<string, unknown>
+  input?: unknown
+  output?: unknown
+  raw?: unknown
+  schema?: unknown
+  usage?: Record<string, unknown>
+  timing?: Record<string, unknown>
+}
+
+export type StudioTrajectoryPage = {
+  runs: { run: StudioRun; records: StudioTrajectoryRecord[] }[]
+  next_cursor: string
+  has_more: boolean
+  total_runs: number
+}
+
 export type StudioAssetVersion = {
   id: string
   version: number
@@ -280,6 +312,22 @@ export function listStudioSessionRuns(sessionId: string) {
 export function listStudioRunEvents(runId: string) {
   return apiFetch<StudioRunEvent[]>(
     `/api/v1/studio/runs/${encodeURIComponent(runId)}/events`
+  )
+}
+
+export function getStudioSessionTrajectory(sessionId: string, before?: string) {
+  return apiFetch<StudioTrajectoryPage>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/trajectory${toQuery({ before })}`
+  )
+}
+
+export function getStudioTrajectoryRecord(
+  sessionId: string,
+  runId: string,
+  recordId: string
+) {
+  return apiFetch<StudioTrajectoryDetail>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/trajectory/runs/${encodeURIComponent(runId)}/records/${encodeURIComponent(recordId)}`
   )
 }
 

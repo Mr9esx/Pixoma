@@ -35,6 +35,7 @@ const (
 	EventModelFirstToken         = "MODEL_FIRST_TOKEN"
 	EventModelRequestFinished    = "MODEL_REQUEST_FINISHED"
 	EventModelRequestFailed      = "MODEL_REQUEST_FAILED"
+	EventContextCompacted        = "CONTEXT_COMPACTED"
 	EventAssetCreated            = "ASSET_CREATED"
 	EventFlowUpdated             = "FLOW_UPDATED"
 	EventApprovalRequired        = "APPROVAL_REQUIRED"

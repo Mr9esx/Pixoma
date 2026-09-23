@@ -1,6 +1,7 @@
 package studio
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -40,6 +41,8 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/sessions", h.createSession)
 	r.Get("/sessions/{sessionID}", h.getSession)
 	r.Get("/sessions/{sessionID}/runs", h.listSessionRuns)
+	r.Get("/sessions/{sessionID}/trajectory", h.listSessionTrajectory)
+	r.Get("/sessions/{sessionID}/trajectory/runs/{runID}/records/{recordID}", h.getTrajectoryRecord)
 	r.Patch("/sessions/{sessionID}/flow", h.updateFlow)
 	r.Post("/sessions/{sessionID}/flow/nodes", h.createFlowNode)
 	r.Delete("/sessions/{sessionID}/flow/nodes/{nodeID}", h.deleteFlowNode)
@@ -436,6 +439,109 @@ func (h *Handler) listSessionRuns(w http.ResponseWriter, r *http.Request) {
 		out = append(out, toRunView(run))
 	}
 	response.OKStatus(w, http.StatusOK, out)
+}
+
+type traceCursor struct {
+	CreatedAt time.Time `json:"created_at"`
+	RunID     string    `json:"run_id"`
+}
+
+func (h *Handler) listSessionTrajectory(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	sessionID := chi.URLParam(r, "sessionID")
+	if _, err := h.Repo.GetSession(r.Context(), accountID, sessionID); err != nil {
+		failFromError(w, err)
+		return
+	}
+	var cursor traceCursor
+	if encoded := r.URL.Query().Get("before"); encoded != "" {
+		raw, err := base64.RawURLEncoding.DecodeString(encoded)
+		if err != nil || json.Unmarshal(raw, &cursor) != nil || cursor.CreatedAt.IsZero() || cursor.RunID == "" {
+			response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "轨迹游标无效")
+			return
+		}
+	}
+	limit := queryInt(r, "limit", 10)
+	if limit < 1 || limit > 20 {
+		limit = 10
+	}
+	runs, err := h.Repo.ListSessionTraceRuns(r.Context(), accountID, sessionID, cursor.CreatedAt, cursor.RunID, limit+1)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	totalRuns, err := h.Repo.CountSessionTraceRuns(r.Context(), accountID, sessionID)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	hasMore := len(runs) > limit
+	if hasMore {
+		runs = runs[:limit]
+	}
+	page := make([]map[string]any, 0, len(runs))
+	for _, run := range runs {
+		trigger, err := h.Repo.GetMessage(r.Context(), accountID, run.TriggerMessageID)
+		if err != nil {
+			failFromError(w, err)
+			return
+		}
+		events, err := h.Repo.ListRunTraceSummaryEvents(r.Context(), accountID, run.ID)
+		if err != nil {
+			failFromError(w, err)
+			return
+		}
+		records, _ := studioapp.ProjectRunTrajectory(run, trigger, events)
+		page = append(page, map[string]any{"run": toRunView(run), "records": records})
+	}
+	var nextCursor string
+	if hasMore && len(runs) > 0 {
+		oldest := runs[len(runs)-1]
+		raw, _ := json.Marshal(traceCursor{CreatedAt: oldest.CreatedAt, RunID: oldest.ID})
+		nextCursor = base64.RawURLEncoding.EncodeToString(raw)
+	}
+	response.OKStatus(w, http.StatusOK, map[string]any{"runs": page, "next_cursor": nextCursor, "has_more": hasMore, "total_runs": totalRuns})
+}
+
+func (h *Handler) getTrajectoryRecord(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	sessionID := chi.URLParam(r, "sessionID")
+	if _, err := h.Repo.GetSession(r.Context(), accountID, sessionID); err != nil {
+		failFromError(w, err)
+		return
+	}
+	run, err := h.Repo.GetRun(r.Context(), accountID, chi.URLParam(r, "runID"))
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	if run == nil || run.SessionID != sessionID {
+		failFromError(w, domain.ErrNotFound)
+		return
+	}
+	trigger, err := h.Repo.GetMessage(r.Context(), accountID, run.TriggerMessageID)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	events, err := h.Repo.ListRunTraceEvents(r.Context(), accountID, run.ID)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	_, details := studioapp.ProjectRunTrajectory(run, trigger, events)
+	detail, ok := details[chi.URLParam(r, "recordID")]
+	if !ok {
+		failFromError(w, domain.ErrNotFound)
+		return
+	}
+	response.OKStatus(w, http.StatusOK, detail)
 }
 
 func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {

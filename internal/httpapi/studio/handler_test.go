@@ -359,6 +359,73 @@ func TestStudioAPIRejectsCrossAccountRead(t *testing.T) {
 	}
 }
 
+func TestSessionTrajectoryIsSessionScopedAndRecordDetailsAreAccountScoped(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+	create := func(sessionID, text string) (string, string, string) {
+		body := map[string]any{"text": text, "permission_mode": domain.PermissionFullAccess}
+		if sessionID != "" {
+			body["session_id"] = sessionID
+		}
+		response := request(t, router, http.MethodPost, "/messages", body, "account-a")
+		if response.Code != http.StatusAccepted {
+			t.Fatalf("create turn: %d %s", response.Code, response.Body.String())
+		}
+		var turn struct {
+			Session struct {
+				ID string `json:"id"`
+			} `json:"session"`
+			Message struct {
+				ID string `json:"id"`
+			} `json:"message"`
+			Run struct {
+				ID string `json:"id"`
+			} `json:"run"`
+		}
+		if err := json.Unmarshal(apitest.DataBytes(response), &turn); err != nil {
+			t.Fatal(err)
+		}
+		return turn.Session.ID, turn.Run.ID, turn.Message.ID
+	}
+	sessionID, firstRun, firstMessage := create("", "first")
+	_, secondRun, _ := create(sessionID, "second")
+	response := request(t, router, http.MethodGet, "/sessions/"+sessionID+"/trajectory?limit=1", nil, "account-a")
+	if response.Code != http.StatusOK {
+		t.Fatalf("trajectory: %d %s", response.Code, response.Body.String())
+	}
+	var page struct {
+		Runs []struct {
+			Run struct {
+				ID string `json:"id"`
+			} `json:"run"`
+		} `json:"runs"`
+		NextCursor string `json:"next_cursor"`
+		HasMore    bool   `json:"has_more"`
+		TotalRuns  int    `json:"total_runs"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(response), &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Runs) != 1 || page.Runs[0].Run.ID != secondRun || !page.HasMore || page.NextCursor == "" || page.TotalRuns != 2 {
+		t.Fatalf("first trajectory page = %#v", page)
+	}
+	older := request(t, router, http.MethodGet, "/sessions/"+sessionID+"/trajectory?limit=1&before="+url.QueryEscape(page.NextCursor), nil, "account-a")
+	if err := json.Unmarshal(apitest.DataBytes(older), &page); err != nil || len(page.Runs) != 1 || page.Runs[0].Run.ID != firstRun {
+		t.Fatalf("older trajectory page = %d %s, %v", older.Code, older.Body.String(), err)
+	}
+	detailPath := "/sessions/" + sessionID + "/trajectory/runs/" + firstRun + "/records/" + firstMessage
+	detail := request(t, router, http.MethodGet, detailPath, nil, "account-a")
+	if detail.Code != http.StatusOK || !strings.Contains(detail.Body.String(), "first") {
+		t.Fatalf("detail = %d %s", detail.Code, detail.Body.String())
+	}
+	foreign := request(t, router, http.MethodGet, detailPath, nil, "account-b")
+	if foreign.Code != http.StatusNotFound {
+		t.Fatalf("cross-account detail = %d %s", foreign.Code, foreign.Body.String())
+	}
+}
+
 func TestStudioEventsResumeAfterCursor(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)

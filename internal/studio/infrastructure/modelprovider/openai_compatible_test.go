@@ -58,7 +58,7 @@ func TestOpenAICompatibleChatEmitsDurableRequestTrace(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Request-ID", "provider-request-1")
-		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已完成"}}],"usage":{"prompt_tokens":7,"completion_tokens":3}}`))
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已完成"}}],"usage":{"prompt_tokens":7,"completion_tokens":3},"api_key":"provider-secret","credentials":{"token":"another-secret"}}`))
 	}))
 	defer server.Close()
 	traces := make([]modelprovider.TraceEvent, 0, 2)
@@ -82,8 +82,11 @@ func TestOpenAICompatibleChatEmitsDurableRequestTrace(t *testing.T) {
 	if traces[0].RequestBody == nil || strings.Contains(string(traces[0].RequestBody), "test-secret") {
 		t.Fatalf("request trace = %#v", traces[0])
 	}
-	if traces[1].StatusCode != http.StatusOK || traces[1].ProviderRequestID != "provider-request-1" || traces[1].InputTokens != 7 || traces[1].OutputTokens != 3 || traces[1].Elapsed <= 0 {
+	if traces[1].StatusCode != http.StatusOK || traces[1].ProviderRequestID != "provider-request-1" || traces[1].InputTokens != 7 || traces[1].OutputTokens != 3 || traces[1].Elapsed <= 0 || !traces[1].UsageReported || !strings.Contains(string(traces[1].ResponseBody), "已完成") {
 		t.Fatalf("finish trace = %#v", traces[1])
+	}
+	if strings.Contains(string(traces[1].ResponseBody), "provider-secret") || strings.Contains(string(traces[1].ResponseBody), "another-secret") {
+		t.Fatalf("response trace leaked a credential: %s", traces[1].ResponseBody)
 	}
 }
 
@@ -120,8 +123,51 @@ func TestOpenAICompatibleStreamEmitsFirstTokenAndFinishTrace(t *testing.T) {
 	if len(traces) != 3 || traces[0].Phase != modelprovider.TraceRequestStarted || traces[1].Phase != modelprovider.TraceFirstToken || traces[2].Phase != modelprovider.TraceRequestFinished {
 		t.Fatalf("traces = %#v", traces)
 	}
-	if traces[1].Elapsed <= 0 || traces[2].ProviderRequestID != "stream-request-1" || traces[2].InputTokens != 8 || traces[2].OutputTokens != 2 {
+	if traces[1].Elapsed <= 0 || traces[2].ProviderRequestID != "stream-request-1" || traces[2].InputTokens != 8 || traces[2].OutputTokens != 2 || !traces[2].UsageReported || !strings.Contains(string(traces[2].ResponseBody), "第一个字") {
 		t.Fatalf("stream trace = %#v", traces)
+	}
+}
+
+func TestOpenAICompatibleTraceDoesNotInventProviderUsage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`))
+	}))
+	defer server.Close()
+	var traces []modelprovider.TraceEvent
+	_, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
+		Config:   domain.ResolvedModelConfig{BaseURL: server.URL, Model: "test", APIKey: "secret"},
+		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "hi"}},
+		Trace: func(_ context.Context, event modelprovider.TraceEvent) error {
+			traces = append(traces, event)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(traces) != 2 || traces[1].UsageReported {
+		t.Fatalf("usage should be unknown: %#v", traces)
+	}
+}
+
+func TestOpenAICompatibleFailedTraceRedactsEchoedCredential(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":{"message":"invalid key secret-value"}}`))
+	}))
+	defer server.Close()
+	var traces []modelprovider.TraceEvent
+	_, err := modelprovider.NewOpenAICompatibleClient(server.Client()).Chat(context.Background(), modelprovider.ChatRequest{
+		Config:   domain.ResolvedModelConfig{BaseURL: server.URL, Model: "test", APIKey: "secret-value"},
+		Messages: []modelprovider.ChatMessage{{Role: "user", Content: "hi"}},
+		Trace: func(_ context.Context, event modelprovider.TraceEvent) error {
+			traces = append(traces, event)
+			return nil
+		},
+	})
+	if err == nil || strings.Contains(err.Error(), "secret-value") || len(traces) != 2 || traces[1].Phase != modelprovider.TraceRequestFailed || strings.Contains(traces[1].Error, "secret-value") || strings.Contains(string(traces[1].ResponseBody), "secret-value") {
+		t.Fatalf("failed trace leaked credential: %#v", traces)
 	}
 }
 
@@ -143,7 +189,7 @@ func TestOpenAICompatibleChatEmitsFailedTraceForInvalidProviderResponse(t *testi
 	if err == nil {
 		t.Fatal("Chat() error = nil")
 	}
-	if len(traces) != 2 || traces[0].Phase != modelprovider.TraceRequestStarted || traces[1].Phase != modelprovider.TraceRequestFailed || !strings.Contains(traces[1].Error, "decode response") {
+	if len(traces) != 2 || traces[0].Phase != modelprovider.TraceRequestStarted || traces[1].Phase != modelprovider.TraceRequestFailed || !strings.Contains(traces[1].Error, "decode response") || len(traces[1].ResponseBody) == 0 {
 		t.Fatalf("traces = %#v", traces)
 	}
 }
