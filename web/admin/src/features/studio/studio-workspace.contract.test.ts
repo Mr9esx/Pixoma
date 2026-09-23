@@ -349,23 +349,23 @@ describe('Studio production workspace contract', () => {
     expect(source).not.toContain('<StudioApprovalPrompt')
     // 操作区是聊天区后面的兄弟节点，排在对话区之后、聊天输入之前
     expect(source.indexOf('</Conversation>')).toBeLessThan(
-      source.indexOf('<StudioActionArea preloadedActions={preloadedActions} />')
+      source.indexOf('<StudioActionArea')
     )
-    expect(
-      source.indexOf('<StudioActionArea preloadedActions={preloadedActions} />')
-    ).toBeLessThan(source.indexOf("data-slot='studio-composer'"))
-    // 恢复运行的流走完之前，会话详情带来的待处理事项先占住底部这一行，
-    // 聊天区让出底部空间，聊天输入整体隐藏
-    expect(source).toContain(
-      'const preloadedActions = resumeSettled ? [] : (props.pendingApprovals ?? [])'
+    expect(source.indexOf('<StudioActionArea')).toBeLessThan(
+      source.indexOf("data-slot='studio-composer'")
     )
-    expect(source).toContain(
-      'const waitingForDecision = hasPendingAction || preloadedActions.length > 0'
-    )
+    // interrupt 要等恢复运行的流走完才有；这段时间底部这一行由运行状态和会话详情
+    // 带来的待批准项占着，聊天区让出底部空间，聊天输入整体隐藏
     expect(source).toContain("waitingForDecision ? 'pb-5' : 'pb-44'")
     expect(source).toContain("waitingForDecision ? 'bottom-5' : 'bottom-48'")
     expect(source).toContain("waitingForDecision && 'invisible'")
-    expect(source).toContain('setResumeSettled(true)')
+    expect(source).toContain(
+      "const waitingForDecision =\n    hasPendingAction ||\n    (props.latestRun?.status === 'waiting_approval' && !answered)"
+    )
+    expect(source).toContain(
+      'const preloadedActions = answered ? [] : (props.pendingApprovals ?? [])'
+    )
+    expect(source).toContain('onAnswered={() => setAnswered(true)}')
     expect(source).toContain('const fromRuntime = actions.length > 0')
     expect(source).toContain(
       'const visibleActions = fromRuntime ? actions : preloadedActions'

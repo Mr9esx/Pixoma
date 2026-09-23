@@ -90,6 +90,93 @@ describe('StudioChat', () => {
       .toBeVisible()
   })
 
+  it('keeps the composer hidden while the run waits for a decision', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchInterval: false } },
+    })
+    const screen = await render(
+      <QueryClientProvider client={client}>
+        <StudioChat
+          assets={[]}
+          latestRun={{
+            created_at: '2026-02-12T10:00:00Z',
+            id: 'run-1',
+            session_id: 'session-1',
+            status: 'waiting_approval',
+            trigger_message_id: 'user-1',
+          }}
+          messages={[]}
+          models={[]}
+          onAssetChange={() => {}}
+          onImportLibraryAsset={async () => {
+            throw new Error('不应导入资产')
+          }}
+          onModelChange={() => {}}
+          onPermissionChange={() => {}}
+          onSkillChange={() => {}}
+          pendingApprovals={[
+            {
+              id: 'approval-1',
+              reason: 'tool_approval',
+              message: '创建资产「大纲.md」',
+            },
+          ]}
+          permissionMode='request_approval'
+          selectedAssets={[]}
+          selectedSkillIds={[]}
+          sessionId='session-1'
+          skills={[]}
+        />
+      </QueryClientProvider>
+    )
+
+    await expect.element(screen.getByText('创建资产「大纲.md」')).toBeVisible()
+    const composer = document.querySelector(
+      "[data-slot='studio-composer']"
+    ) as HTMLElement
+    expect(composer.className).toContain('invisible')
+  })
+
+  it('keeps the composer hidden while the run waits and no pending approval has arrived', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchInterval: false } },
+    })
+    await render(
+      <QueryClientProvider client={client}>
+        <StudioChat
+          assets={[]}
+          latestRun={{
+            created_at: '2026-02-12T10:00:00Z',
+            id: 'run-1',
+            session_id: 'session-1',
+            status: 'waiting_approval',
+            trigger_message_id: 'user-1',
+          }}
+          messages={[]}
+          models={[]}
+          onAssetChange={() => {}}
+          onImportLibraryAsset={async () => {
+            throw new Error('不应导入资产')
+          }}
+          onModelChange={() => {}}
+          onPermissionChange={() => {}}
+          onSkillChange={() => {}}
+          permissionMode='request_approval'
+          selectedAssets={[]}
+          selectedSkillIds={[]}
+          sessionId='session-1'
+          skills={[]}
+        />
+      </QueryClientProvider>
+    )
+
+    const composer = document.querySelector(
+      "[data-slot='studio-composer']"
+    ) as HTMLElement
+    expect(composer.className).toContain('invisible')
+    expect(document.querySelector('[aria-label="操作区"]')).toBeNull()
+  })
+
   it('floats the composer over the conversation and reserves room for it', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchInterval: false } },

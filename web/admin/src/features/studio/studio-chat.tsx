@@ -154,7 +154,6 @@ function toTranscriptAGUIMessages(
 
 export function StudioChat(props: Props) {
   const [runError, setRunError] = useState<string>()
-  const [resumeSettled, setResumeSettled] = useState(false)
   const availableModels = props.models.filter(
     (model) => model.enabled && model.agent_enabled
   )
@@ -247,12 +246,7 @@ export function StudioChat(props: Props) {
       },
       async *resume(options: ChatModelRunOptions) {
         if (!connection) return
-        try {
-          yield* connection.resume(options)
-        } finally {
-          // 恢复的流走完后 interrupt 才是完整可信的，之前用会话详情里的待批准项垫着
-          setResumeSettled(true)
-        }
+        yield* connection.resume(options)
       },
       async append() {
         // The backend persists messages as part of the AG-UI run. History is
@@ -290,7 +284,6 @@ export function StudioChat(props: Props) {
         availableModels={availableModels}
         modelReady={modelReady}
         selectedModel={selectedModel}
-        resumeSettled={resumeSettled}
         runError={runError}
         {...props}
       />
@@ -302,7 +295,6 @@ function StudioChatSurface({
   availableModels,
   modelReady,
   selectedModel,
-  resumeSettled,
   runError,
   agent,
   onRunError,
@@ -311,7 +303,6 @@ function StudioChatSurface({
   availableModels: StudioModel[]
   modelReady: boolean
   selectedModel?: StudioModel
-  resumeSettled: boolean
   runError?: string
   agent: StudioWebSocketAgent
   onRunError: (message: string) => void
@@ -320,11 +311,14 @@ function StudioChatSurface({
   const messages = useAuiState((state) => state.thread.messages)
   const isRunning = useAuiState((state) => state.thread.isRunning)
   const isEmpty = useAuiState((state) => state.thread.isEmpty)
+  const [answered, setAnswered] = useState(false)
   const hasPendingAction = useAgUiInterrupts().length > 0
-  // 恢复运行的流走完之前，interrupt 还没到，先用会话详情里的待批准项占住底部这一行，
-  // 免得先画出聊天输入再被操作区替换。
-  const preloadedActions = resumeSettled ? [] : (props.pendingApprovals ?? [])
-  const waitingForDecision = hasPendingAction || preloadedActions.length > 0
+  // interrupt 要等恢复运行的流走完才有，这段时间用会话详情里的运行状态和待批准项撑着，
+  // 底部这一行从第一帧就是操作区，聊天输入不会先画出来。用户回答之后以 interrupt 为准。
+  const waitingForDecision =
+    hasPendingAction ||
+    (props.latestRun?.status === 'waiting_approval' && !answered)
+  const preloadedActions = answered ? [] : (props.pendingApprovals ?? [])
   const serverRunning =
     props.latestRun?.status === 'queued' ||
     props.latestRun?.status === 'running'
@@ -369,7 +363,10 @@ function StudioChatSurface({
           className={waitingForDecision ? 'bottom-5' : 'bottom-48'}
         />
       </Conversation>
-      <StudioActionArea preloadedActions={preloadedActions} />
+      <StudioActionArea
+        preloadedActions={preloadedActions}
+        onAnswered={() => setAnswered(true)}
+      />
       <div
         data-slot='studio-composer'
         className={cn(
@@ -466,8 +463,10 @@ function StudioChatSurface({
 
 function StudioActionArea({
   preloadedActions,
+  onAnswered,
 }: {
-  preloadedActions: StudioPendingApproval[]
+  preloadedActions: StudioAction[]
+  onAnswered: () => void
 }) {
   const interrupts = useAgUiInterrupts()
   const submitInterruptResponses = useAgUiSubmitInterruptResponses()
@@ -481,6 +480,7 @@ function StudioActionArea({
       }))}
       preloadedActions={preloadedActions}
       onRespond={(id, approved) => {
+        onAnswered()
         void submitInterruptResponses([
           {
             interruptId: id,
