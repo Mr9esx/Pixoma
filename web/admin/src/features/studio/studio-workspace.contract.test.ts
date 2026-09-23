@@ -171,9 +171,6 @@ describe('Studio production workspace contract', () => {
     expect(group).not.toContain('rounded-lg')
     expect(group).not.toContain('rounded-xl')
     const source = read('./studio-chat.tsx')
-    expect(source).toContain(
-      'overflow-hidden rounded-md border border-warning/40 bg-card'
-    )
     expect(source).not.toContain('rounded-lg')
   })
 
@@ -316,12 +313,19 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain("status: approved ? 'resolved' : 'cancelled'")
   })
 
-  it('keeps every user decision in the pinned action area above the composer', () => {
+  it('docks the approval alert straight onto the composer input', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain("aria-label='操作区'")
     expect(source).toContain("variant='warn'")
-    expect(source).toContain("open ? 'mb-2' : '-mb-2 h-11 overflow-hidden'")
-    expect(source).toContain('aria-expanded={open}')
+    expect(source).toContain(
+      'pointer-events-auto relative z-0 -mb-4 flex flex-col gap-2 px-4 pt-2'
+    )
+    expect(source).toContain("className='px-4 pt-4 pb-8'")
+    expect(source).toContain(
+      "<div className='pointer-events-auto relative z-10 pb-5'>"
+    )
+    expect(source).not.toContain('aria-expanded={open}')
+    expect(source).not.toContain('StudioActionDock')
     expect(source.indexOf('<StudioActionArea />')).toBeLessThan(
       source.indexOf('<PromptInput')
     )

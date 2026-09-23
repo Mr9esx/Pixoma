@@ -1,9 +1,14 @@
-import { useState, type ComponentProps } from 'react'
+import { type ComponentProps } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/index.css'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
-import { StudioActionDock, StudioChat } from './studio-chat'
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+} from '@/components/ai-elements/prompt-input'
+import { StudioActionPanel, StudioChat } from './studio-chat'
 
 vi.mock('@/lib/api/studio', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/studio')>()),
@@ -165,37 +170,49 @@ describe('StudioChat', () => {
     expect(getComputedStyle(group).borderTopLeftRadius).toBe('8px')
   })
 
-  it('peeks the pending approvals above the composer and reveals the choices on demand', async () => {
+  it('tucks the approval alert behind the composer input', async () => {
     const responded: Array<[string, boolean]> = []
-    function Harness() {
-      const [open, setOpen] = useState(false)
-      return (
-        <StudioActionDock
+    const screen = await render(
+      <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
+        <StudioActionPanel
           actions={[{ id: 'interrupt-1', message: '需要写入 Session 资产' }]}
-          open={open}
-          onToggle={() => setOpen((current) => !current)}
           onRespond={(id, approved) => responded.push([id, approved])}
         />
-      )
-    }
-    const screen = await render(<Harness />)
+        <div className='pointer-events-auto relative z-10 pb-5'>
+          <PromptInput inputGroupClassName='bg-background' onSubmit={() => {}}>
+            <PromptInputBody>
+              <PromptInputTextarea aria-label='输入' />
+            </PromptInputBody>
+          </PromptInput>
+        </div>
+      </div>
+    )
 
-    const dock = screen.getByRole('region', { name: '操作区' }).element()
-    const peek = screen.getByRole('button', { name: /需要你的批准 · 1 项/ })
-    expect(getComputedStyle(dock).height).toBe('44px')
-    expect(getComputedStyle(dock).overflow).toBe('hidden')
-    expect(peek.element().getAttribute('aria-expanded')).toBe('false')
+    const panel = document.querySelector('[aria-label="操作区"]') as HTMLElement
+    const alert = screen.getByRole('alert').element()
+    const group = document.querySelector(
+      '[data-slot="input-group"]'
+    ) as HTMLElement
+    const alertBox = alert.getBoundingClientRect()
+    const groupBox = group.getBoundingClientRect()
+
+    expect(getComputedStyle(panel).marginBottom).toBe('-16px')
+    expect(groupBox.top - alertBox.bottom).toBe(-16)
+    expect(groupBox.left - alertBox.left).toBe(-16)
+    expect(groupBox.right - alertBox.right).toBe(16)
+    for (const [side, value] of [
+      ['paddingTop', '16px'],
+      ['paddingRight', '16px'],
+      ['paddingBottom', '32px'],
+      ['paddingLeft', '16px'],
+    ] as const) {
+      expect(getComputedStyle(alert)[side]).toBe(value)
+    }
+
     await expect
       .element(screen.getByRole('button', { name: /^批准$/ }))
-      .not.toBeInTheDocument()
-
-    await peek.click()
-    expect(peek.element().getAttribute('aria-expanded')).toBe('true')
-    expect(parseFloat(getComputedStyle(dock).height)).toBeGreaterThan(44)
-    expect(screen.getByText('需要写入 Session 资产')).toBeVisible()
+      .toBeVisible()
     await screen.getByRole('button', { name: /^批准$/ }).click()
-    expect(responded).toEqual([['interrupt-1', true]])
-
     await screen.getByRole('button', { name: /^拒绝$/ }).click()
     expect(responded).toEqual([
       ['interrupt-1', true],

@@ -19,7 +19,6 @@ import {
   Bot,
   ChevronDown,
   Paperclip,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react'
@@ -361,7 +360,7 @@ function StudioChatSurface({
         <div className='bg-card'>
           <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
             <StudioActionArea />
-            <div className='pointer-events-auto relative z-10 bg-card pt-2 pb-5'>
+            <div className='pointer-events-auto relative z-10 pb-5'>
               <PromptInput
                 inputGroupClassName='bg-background'
                 onSubmit={({ text }) => send(text)}
@@ -445,16 +444,13 @@ function StudioChatSurface({
 function StudioActionArea() {
   const interrupts = useAgUiInterrupts()
   const submitInterruptResponses = useAgUiSubmitInterruptResponses()
-  const [open, setOpen] = useState(false)
 
   return (
-    <StudioActionDock
+    <StudioActionPanel
       actions={interrupts.map((interrupt) => ({
         id: interrupt.id,
         message: interrupt.message,
       }))}
-      open={open}
-      onToggle={() => setOpen((current) => !current)}
       onRespond={(id, approved) => {
         void submitInterruptResponses([
           {
@@ -470,15 +466,11 @@ function StudioActionArea() {
 
 export type StudioAction = { id: string; message?: string }
 
-export function StudioActionDock({
+export function StudioActionPanel({
   actions,
-  open,
-  onToggle,
   onRespond,
 }: {
   actions: StudioAction[]
-  open: boolean
-  onToggle: () => void
   onRespond: (id: string, approved: boolean) => void
 }) {
   if (actions.length === 0) return null
@@ -486,61 +478,34 @@ export function StudioActionDock({
   return (
     <section
       aria-label='操作区'
-      className={cn(
-        'pointer-events-auto relative z-0',
-        open ? 'mb-2' : '-mb-2 h-11 overflow-hidden'
-      )}
+      className='pointer-events-auto relative z-0 -mb-4 flex flex-col gap-2 px-4 pt-2'
     >
-      <div className='overflow-hidden rounded-md border border-warning/40 bg-card'>
-        <button
-          type='button'
-          aria-expanded={open}
-          onClick={onToggle}
-          className='flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-warning-text hover:bg-warning/10'
+      {actions.map((action) => (
+        <Confirmation
+          key={action.id}
+          approval={{ id: action.id }}
+          className='px-4 pt-4 pb-8'
+          state='approval-requested'
+          variant='warn'
         >
-          <ShieldAlert className='size-4 shrink-0' />
-          <span className='min-w-0 flex-1 truncate'>
-            需要你的批准 · {actions.length} 项
-          </span>
-          <ChevronDown
-            className={cn(
-              'size-4 shrink-0 transition-transform',
-              open && 'rotate-180'
-            )}
-          />
-        </button>
-        {open ? (
-          <div className='flex flex-col gap-2 border-t border-warning/30 p-3'>
-            {actions.map((action) => (
-              <Confirmation
-                key={action.id}
-                approval={{ id: action.id }}
-                state='approval-requested'
-                variant='warn'
+          <ConfirmationTitle>
+            {action.message ?? '需要批准后继续执行'}
+          </ConfirmationTitle>
+          <ConfirmationRequest>
+            <ConfirmationActions>
+              <ConfirmationAction
+                variant='outline'
+                onClick={() => onRespond(action.id, false)}
               >
-                <ConfirmationTitle>
-                  {action.message ?? '需要批准后继续执行'}
-                </ConfirmationTitle>
-                <ConfirmationRequest>
-                  <ConfirmationActions>
-                    <ConfirmationAction
-                      variant='outline'
-                      onClick={() => onRespond(action.id, false)}
-                    >
-                      拒绝
-                    </ConfirmationAction>
-                    <ConfirmationAction
-                      onClick={() => onRespond(action.id, true)}
-                    >
-                      批准
-                    </ConfirmationAction>
-                  </ConfirmationActions>
-                </ConfirmationRequest>
-              </Confirmation>
-            ))}
-          </div>
-        ) : null}
-      </div>
+                拒绝
+              </ConfirmationAction>
+              <ConfirmationAction onClick={() => onRespond(action.id, true)}>
+                批准
+              </ConfirmationAction>
+            </ConfirmationActions>
+          </ConfirmationRequest>
+        </Confirmation>
+      ))}
     </section>
   )
 }
