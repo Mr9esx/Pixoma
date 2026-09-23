@@ -417,6 +417,58 @@ func TestEngineInvokesEnabledWorkflowToolAndReturnsSubmission(t *testing.T) {
 	requireEventSubsequence(t, output.events, []string{studioapp.EventRunStarted, studioapp.EventToolCallStart, studioapp.EventToolCallArgs, studioapp.EventToolCallResult, studioapp.EventToolCallEnd, studioapp.EventRunFinished})
 }
 
+func TestEngineInvokesWorkflowThroughAnthropicMessagesWithThinking(t *testing.T) {
+	t.Parallel()
+	var calls int
+	endpoint := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		calls++
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+		require.Equal(t, "test-key", request.Header.Get("X-Api-Key"))
+		writer.Header().Set("Content-Type", "application/json")
+		if calls == 1 {
+			require.NotEmpty(t, body["tools"])
+			_, _ = writer.Write([]byte(`{"content":[{"type":"thinking","thinking":"先生成分镜","signature":"sig-1"},{"type":"tool_use","id":"toolu-1","name":"studio_workflow_12","input":{"prompt":"rain"}}],"stop_reason":"tool_use"}`))
+			return
+		}
+		messages := body["messages"].([]any)
+		assistant := messages[len(messages)-2].(map[string]any)["content"].([]any)
+		require.Equal(t, "sig-1", assistant[0].(map[string]any)["signature"])
+		results := messages[len(messages)-1].(map[string]any)["content"].([]any)
+		require.Equal(t, "toolu-1", results[0].(map[string]any)["tool_use_id"])
+		require.Contains(t, results[0].(map[string]any)["content"], "task-1")
+		_, _ = writer.Write([]byte(`{"content":[{"type":"text","text":"已提交分镜工作流。"}]}`))
+	}))
+	defer endpoint.Close()
+	var started studioapp.WorkflowStartInput
+	engine := &einoagent.Engine{
+		Models: resolver{config: &domain.ResolvedModelConfig{
+			ID: "model_01", Protocol: domain.ModelProtocolAnthropic, BaseURL: endpoint.URL + "/v1/messages",
+			Model: "test-model", APIKey: "test-key", Limits: testModelLimits,
+			Thinking: domain.ThinkingConfig{Enabled: true},
+		}},
+		Workflows: workflowResolver{workflows: []studioapp.ResolvedWorkflow{{
+			ID: "12", ToolName: "studio_workflow_12", Name: "分镜工作流", Description: "根据故事生成分镜",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"prompt":{"type":"string"}}}`),
+		}}},
+		WorkflowStarter: workflowStarter(func(_ context.Context, input studioapp.WorkflowStartInput) (*studioapp.WorkflowStartResult, error) {
+			started = input
+			return &studioapp.WorkflowStartResult{TaskID: "task-1", WorkflowID: "12"}, nil
+		}),
+		Client: modelprovider.NewOpenAICompatibleClient(endpoint.Client()),
+	}
+	output := &sink{}
+	err := engine.Execute(context.Background(), studioapp.AgentRequest{
+		Run:      &domain.Run{ID: "run_01", AccountID: "account_01", SessionID: "session_01", ModelConfigID: "model_01"},
+		Session:  &domain.Session{ID: "session_01", PermissionMode: domain.PermissionFullAccess},
+		UserText: "根据故事生成分镜",
+	}, output)
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	require.Equal(t, map[string]any{"prompt": "rain"}, started.Inputs)
+	require.Equal(t, []string{"已提交分镜工作流。"}, output.responses)
+}
+
 func TestEngineInvokesMCPToolThroughResponsesProtocol(t *testing.T) {
 	t.Parallel()
 	mcpServer := mcp.NewServer(&mcp.Implementation{Name: "reference", Version: "1.0"}, nil)

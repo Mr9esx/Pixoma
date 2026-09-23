@@ -304,7 +304,7 @@ Session Context
 管理员声明 ∩ 能力测试成功 ∩ 协议适配器支持
 ```
 
-未验证 Tool Calling 的模型不能作为主 Agent 模型。图片生成是独立能力，不根据模型名称猜测。
+未验证 Tool Calling 的模型不能作为主 Agent 模型。图片生成是独立能力，不根据模型名称猜测；纯生图模型与模型直接生图不纳入本期实现。
 
 ### 7.3 密钥
 
@@ -366,7 +366,7 @@ Skill、MCP、资产和外部页面均作为不可信内容封装，不能生成
 - `read_asset`
 - `create_text_asset`
 - `update_text_asset`
-- `generate_image`
+- `generate_image`（后续扩展，本期不注册）
 - `edit_session_flow`
 - `search_capabilities`
 - `load_skill`
