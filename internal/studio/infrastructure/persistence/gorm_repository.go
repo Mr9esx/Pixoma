@@ -105,7 +105,7 @@ type ApprovalRow struct {
 	AccountID   string `gorm:"size:64;not null;index"`
 	ToolCallID  string `gorm:"size:128;not null;uniqueIndex:idx_studio_approvals_run_tool"`
 	Action      string `gorm:"size:128;not null"`
-	Description string `gorm:"size:256;not null"`
+	Description string `gorm:"size:256"`
 	Status      string `gorm:"size:32;not null;index"`
 	ResolvedBy  string `gorm:"size:64"`
 	CreatedAt   time.Time

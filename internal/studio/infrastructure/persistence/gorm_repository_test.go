@@ -33,6 +33,56 @@ func openRepository(t *testing.T) *persistence.GormRepository {
 	return persistence.NewGormRepository(gdb)
 }
 
+type legacyApprovalRow struct {
+	ID         string `gorm:"primaryKey;size:64"`
+	RunID      string `gorm:"size:64;not null;index;uniqueIndex:idx_studio_approvals_run_tool"`
+	SessionID  string `gorm:"size:64;not null;index"`
+	AccountID  string `gorm:"size:64;not null;index"`
+	ToolCallID string `gorm:"size:128;not null;uniqueIndex:idx_studio_approvals_run_tool"`
+	Action     string `gorm:"size:128;not null"`
+	Status     string `gorm:"size:32;not null;index"`
+	ResolvedBy string `gorm:"size:64"`
+	CreatedAt  time.Time
+	ResolvedAt time.Time
+	UpdatedAt  time.Time
+}
+
+func (legacyApprovalRow) TableName() string { return "studio_approvals" }
+
+func TestMigrateAddsApprovalDescriptionToExistingTable(t *testing.T) {
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
+	gdb, err := db.Open(db.Options{DSN: dsn})
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	t.Cleanup(func() {
+		if sqlDB, err := gdb.DB(); err == nil {
+			_ = sqlDB.Close()
+		}
+	})
+	if err := gdb.AutoMigrate(&legacyApprovalRow{}); err != nil {
+		t.Fatalf("create approval table without description: %v", err)
+	}
+	now := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
+	if err := gdb.Create(&legacyApprovalRow{
+		ID: "approval-legacy", RunID: "run-legacy", SessionID: "session-legacy", AccountID: "account-legacy",
+		ToolCallID: "tool-call-legacy", Action: "workflow.execute", Status: string(domain.ApprovalPending),
+		CreatedAt: now, UpdatedAt: now,
+	}).Error; err != nil {
+		t.Fatalf("insert legacy approval: %v", err)
+	}
+	if err := db.AutoMigrate(gdb, persistence.Models()...); err != nil {
+		t.Fatalf("migrate existing approval table: %v", err)
+	}
+	stored, err := persistence.NewGormRepository(gdb).GetApproval(context.Background(), "account-legacy", "approval-legacy")
+	if err != nil {
+		t.Fatalf("GetApproval() error = %v", err)
+	}
+	if stored.Description != "" {
+		t.Fatalf("legacy approval description = %q, want empty", stored.Description)
+	}
+}
+
 func TestApprovalCheckpointSurvivesStoreRecreation(t *testing.T) {
 	repo := openRepository(t)
 	ctx := context.Background()
