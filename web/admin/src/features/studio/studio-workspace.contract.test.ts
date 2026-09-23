@@ -318,7 +318,7 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain("aria-label='操作区'")
     expect(source).toContain("variant='warn'")
     expect(source).toContain(
-      'pointer-events-auto relative z-0 -mb-4 flex flex-col gap-2 px-4 pt-2'
+      'pointer-events-auto relative z-0 -mb-4 flex flex-col gap-2 px-2 pt-2'
     )
     expect(source).toContain("className='px-4 pt-4 pb-8'")
     expect(source).toContain(

@@ -478,7 +478,7 @@ export function StudioActionPanel({
   return (
     <section
       aria-label='操作区'
-      className='pointer-events-auto relative z-0 -mb-4 flex flex-col gap-2 px-4 pt-2'
+      className='pointer-events-auto relative z-0 -mb-4 flex flex-col gap-2 px-2 pt-2'
     >
       {actions.map((action) => (
         <Confirmation

@@ -198,8 +198,8 @@ describe('StudioChat', () => {
 
     expect(getComputedStyle(panel).marginBottom).toBe('-16px')
     expect(groupBox.top - alertBox.bottom).toBe(-16)
-    expect(groupBox.left - alertBox.left).toBe(-16)
-    expect(groupBox.right - alertBox.right).toBe(16)
+    expect(alertBox.left - groupBox.left).toBe(8)
+    expect(groupBox.right - alertBox.right).toBe(8)
     for (const [side, value] of [
       ['paddingTop', '16px'],
       ['paddingRight', '16px'],
