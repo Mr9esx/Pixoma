@@ -352,6 +352,13 @@ describe('Studio production workspace contract', () => {
     expect(source.indexOf('<StudioActionArea />')).toBeLessThan(
       source.indexOf('<PromptInput')
     )
+    // 有待处理事项时输入框连同边框一起隐藏，覆盖层里不会露出下面的控件
+    expect(source).toContain(
+      'const hasPendingAction = useAgUiInterrupts().length > 0'
+    )
+    expect(source).toContain(
+      "className={hasPendingAction ? 'invisible' : undefined}"
+    )
   })
 
   it('enables Streamdown animation for streaming answers and reasoning', () => {

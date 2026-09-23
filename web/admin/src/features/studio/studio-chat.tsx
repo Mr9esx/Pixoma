@@ -309,6 +309,7 @@ function StudioChatSurface({
   const messages = useAuiState((state) => state.thread.messages)
   const isRunning = useAuiState((state) => state.thread.isRunning)
   const isEmpty = useAuiState((state) => state.thread.isEmpty)
+  const hasPendingAction = useAgUiInterrupts().length > 0
   const serverRunning =
     props.latestRun?.status === 'queued' ||
     props.latestRun?.status === 'running'
@@ -361,6 +362,7 @@ function StudioChatSurface({
             <div className='pointer-events-auto relative z-10'>
               <StudioActionArea />
               <PromptInput
+                className={hasPendingAction ? 'invisible' : undefined}
                 inputGroupClassName='bg-background'
                 onSubmit={({ text }) => send(text)}
               >

@@ -190,6 +190,7 @@ describe('StudioChat', () => {
               onRespond={(id, approved) => responded.push([id, approved])}
             />
             <PromptInput
+              className='invisible'
               inputGroupClassName='bg-background'
               onSubmit={() => {}}
             >
@@ -236,6 +237,8 @@ describe('StudioChat', () => {
         )
       )
     ).toBe(true)
+    // 输入框连同边框和聚焦描边一起隐藏，覆盖层里不会露出下面的控件
+    expect(group.checkVisibility({ checkVisibilityCSS: true })).toBe(false)
     expect(hintBox.top).toBeGreaterThanOrEqual(panelBox.bottom)
 
     const title = alert.querySelector(
