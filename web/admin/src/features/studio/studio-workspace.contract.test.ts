@@ -338,11 +338,14 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain("aria-label='操作区'")
     expect(source).toContain("variant='warn'")
     expect(source).toContain(
-      'absolute inset-0 z-10 flex flex-col justify-center gap-2 bg-card px-4'
+      'absolute inset-0 z-10 flex flex-col gap-2 bg-card'
     )
-    expect(source).toContain("className='w-full'")
+    expect(source).toContain("className='flex-1 justify-center'")
     expect(source).toContain(
-      "<div className='pointer-events-auto relative z-10 pb-5'>"
+      "<div className='pointer-events-auto relative z-10'>"
+    )
+    expect(source).toContain(
+      "<div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>"
     )
     expect(source).not.toContain('StudioActionDock')
     expect(source).not.toContain('<StudioApprovalPrompt')

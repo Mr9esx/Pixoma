@@ -177,11 +177,8 @@ describe('StudioChat', () => {
     const responded: Array<[string, boolean]> = []
     const screen = await render(
       <div className='bg-card'>
-        <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
-          <div
-            data-testid='input-slot'
-            className='pointer-events-auto relative z-10 pb-5'
-          >
+        <div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>
+          <div className='pointer-events-auto relative z-10'>
             <StudioActionPanel
               actions={[
                 {
@@ -205,31 +202,32 @@ describe('StudioChat', () => {
                 </PromptInputTools>
               </PromptInputFooter>
             </PromptInput>
-            <p className='mt-2 text-center text-xs text-muted-foreground'>
-              Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。
-            </p>
           </div>
+          <p className='mt-2 text-center text-xs text-muted-foreground'>
+            Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。
+          </p>
         </div>
       </div>
     )
 
-    const slot = document.querySelector(
-      '[data-testid="input-slot"]'
-    ) as HTMLElement
     const panel = document.querySelector('[aria-label="操作区"]') as HTMLElement
     const alert = screen.getByRole('alert').element()
     const group = document.querySelector(
       '[data-slot="input-group"]'
     ) as HTMLElement
-    const slotBox = slot.getBoundingClientRect()
+    const hint = document.querySelector(
+      'p.text-muted-foreground'
+    ) as HTMLElement
     const panelBox = panel.getBoundingClientRect()
     const alertBox = alert.getBoundingClientRect()
     const groupBox = group.getBoundingClientRect()
+    const hintBox = hint.getBoundingClientRect()
 
-    expect(panelBox.left).toBe(slotBox.left)
-    expect(panelBox.top).toBe(slotBox.top)
-    expect(panelBox.right).toBe(slotBox.right)
-    expect(panelBox.bottom).toBe(slotBox.bottom)
+    // 操作区与输入框完全重合，宽度和高度都跟聊天列一致
+    for (const side of ['left', 'top', 'right', 'bottom'] as const) {
+      expect(panelBox[side]).toBe(groupBox[side])
+      expect(alertBox[side]).toBe(groupBox[side])
+    }
     expect(
       panel.contains(
         document.elementFromPoint(
@@ -238,10 +236,7 @@ describe('StudioChat', () => {
         )
       )
     ).toBe(true)
-    expect(alertBox.left - panelBox.left).toBeCloseTo(
-      panelBox.right - alertBox.right,
-      0
-    )
+    expect(hintBox.top).toBeGreaterThanOrEqual(panelBox.bottom)
 
     const title = alert.querySelector(
       '[data-slot="alert-title"]'
@@ -276,7 +271,7 @@ describe('StudioChat', () => {
 
   it('leaves the composer input uncovered when no action is waiting', async () => {
     await render(
-      <div className='pointer-events-auto relative z-10 pb-5'>
+      <div className='pointer-events-auto relative z-10'>
         <StudioActionPanel actions={[]} onRespond={() => {}} />
       </div>
     )
@@ -287,8 +282,8 @@ describe('StudioChat', () => {
   it('keeps the approval buttons beside a long pending action', async () => {
     const screen = await render(
       <div className='bg-card'>
-        <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
-          <div className='pointer-events-auto relative z-10 pb-5'>
+        <div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>
+          <div className='pointer-events-auto relative z-10'>
             <StudioActionPanel
               actions={[
                 {

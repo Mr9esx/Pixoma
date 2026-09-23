@@ -357,8 +357,8 @@ function StudioChatSurface({
           className='h-12 bg-gradient-to-t from-card to-transparent'
         />
         <div className='bg-card'>
-          <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
-            <div className='pointer-events-auto relative z-10 pb-5'>
+          <div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>
+            <div className='pointer-events-auto relative z-10'>
               <StudioActionArea />
               <PromptInput
                 inputGroupClassName='bg-background'
@@ -427,12 +427,12 @@ function StudioChatSurface({
                   </PromptInputTools>
                 </PromptInputFooter>
               </PromptInput>
-              <p className='mt-2 text-center text-xs text-muted-foreground'>
-                {modelReady
-                  ? 'Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。'
-                  : '没有可用模型时，无法发起 Agent 对话。'}
-              </p>
             </div>
+            <p className='mt-2 text-center text-xs text-muted-foreground'>
+              {modelReady
+                ? 'Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。'
+                : '没有可用模型时，无法发起 Agent 对话。'}
+            </p>
           </div>
         </div>
       </div>
@@ -487,13 +487,13 @@ export function StudioActionPanel({
   return (
     <section
       aria-label='操作区'
-      className='absolute inset-0 z-10 flex flex-col justify-center gap-2 bg-card px-4'
+      className='absolute inset-0 z-10 flex flex-col gap-2 bg-card'
     >
       {actions.map((action) => (
         <Confirmation
           key={action.id}
           approval={{ id: action.id }}
-          className='w-full'
+          className='flex-1 justify-center'
           state='approval-requested'
           variant='warn'
         >
