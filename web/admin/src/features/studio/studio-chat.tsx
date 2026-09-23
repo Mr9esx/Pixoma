@@ -14,18 +14,17 @@ import {
   useAgUiInterrupts,
   useAgUiRuntime,
   useAgUiSubmitInterruptResponses,
-  type AgUiInterrupt,
 } from '@assistant-ui/react-ag-ui'
 import {
   Bot,
   Check,
   ChevronDown,
   Paperclip,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react'
 import { StudioWebSocketAgent } from '@/lib/agui-websocket-agent'
-import { StudioRunConnection } from '@/lib/studio-run-connection'
 import { baseURL } from '@/lib/api/client'
 import {
   cancelStudioRun,
@@ -39,6 +38,8 @@ import {
   type StudioSkill,
   type StudioTranscript,
 } from '@/lib/api/studio'
+import { StudioRunConnection } from '@/lib/studio-run-connection'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -53,10 +54,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   Confirmation,
-  ConfirmationAccepted,
   ConfirmationAction,
   ConfirmationActions,
-  ConfirmationRejected,
   ConfirmationRequest,
   ConfirmationTitle,
 } from '@/components/ai-elements/confirmation'
@@ -144,18 +143,26 @@ function toAGUIMessages(messages: StudioMessage[]) {
     }))
 }
 
-function toTranscriptAGUIMessages(transcript?: StudioTranscript, excludeRunId?: string) {
+function toTranscriptAGUIMessages(
+  transcript?: StudioTranscript,
+  excludeRunId?: string
+) {
   if (!transcript?.messages?.length) return undefined
   return transcript.messages
-    .filter((message) => !excludeRunId || message.role === 'user' || message.runId !== excludeRunId)
+    .filter(
+      (message) =>
+        !excludeRunId ||
+        message.role === 'user' ||
+        message.runId !== excludeRunId
+    )
     .map((message) => ({
-    id: message.id,
-    role: message.role,
-    content: message.content,
-    ...(message.toolCalls ? { toolCalls: message.toolCalls } : {}),
-    ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
-    ...(message.isError !== undefined ? { isError: message.isError } : {}),
-  }))
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      ...(message.toolCalls ? { toolCalls: message.toolCalls } : {}),
+      ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
+      ...(message.isError !== undefined ? { isError: message.isError } : {}),
+    }))
 }
 
 export function StudioChat(props: Props) {
@@ -197,9 +204,9 @@ export function StudioChat(props: Props) {
     // A runtime owns the active connection. Replacing the agent when a
     // transcript query refreshes would silently abandon that connection.
     // Session changes are isolated by StudioWorkspace's keyed mount.
-  // Deliberately only depend on sessionId: refreshing transcript data must
-  // not replace the live agent instance underneath an active run.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Deliberately only depend on sessionId: refreshing transcript data must
+    // not replace the live agent instance underneath an active run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.sessionId])
 
   useEffect(() => {
@@ -214,14 +221,16 @@ export function StudioChat(props: Props) {
         : undefined
     const activeMessageIDs = new Set(
       props.messages
-        .filter((message) => message.run_id === activeRunId && message.role !== 'user')
+        .filter(
+          (message) => message.run_id === activeRunId && message.role !== 'user'
+        )
         .map((message) => message.id)
     )
     const messages = fromAgUiMessages(
-      (toTranscriptAGUIMessages(props.transcript, activeRunId) ??
-        toAGUIMessages(props.messages)).filter(
-        (message) => !activeMessageIDs.has(message.id)
-      ),
+      (
+        toTranscriptAGUIMessages(props.transcript, activeRunId) ??
+        toAGUIMessages(props.messages)
+      ).filter((message) => !activeMessageIDs.has(message.id)),
       { showThinking: true }
     )
 
@@ -257,9 +266,9 @@ export function StudioChat(props: Props) {
         // read from the session endpoint when a thread is opened.
       },
     }
-  // The run id/status/sequence are the attach identity; object identity from
-  // a Query refresh must not restart history loading by itself.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The run id/status/sequence are the attach identity; object identity from
+    // a Query refresh must not restart history loading by itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     props.messages,
     props.transcript,
@@ -316,8 +325,10 @@ function StudioChatSurface({
   const isRunning = useAuiState((state) => state.thread.isRunning)
   const isEmpty = useAuiState((state) => state.thread.isEmpty)
   const serverRunning =
-    props.latestRun?.status === 'queued' || props.latestRun?.status === 'running'
-  const runActive = isRunning || serverRunning || props.latestRun?.status === 'waiting_approval'
+    props.latestRun?.status === 'queued' ||
+    props.latestRun?.status === 'running'
+  const runActive =
+    isRunning || serverRunning || props.latestRun?.status === 'waiting_approval'
   const isStreaming = isRunning || serverRunning
   const send = (text: string) => {
     if (!modelReady || runActive || !text.trim()) return
@@ -327,9 +338,9 @@ function StudioChatSurface({
   }
 
   return (
-    <div className='flex min-h-0 flex-1 flex-col'>
+    <div className='relative flex min-h-0 flex-1 flex-col'>
       <Conversation className='min-h-0 flex-1'>
-        <ConversationContent className='mx-auto min-h-full w-full max-w-3xl px-5 py-8'>
+        <ConversationContent className='mx-auto min-h-full w-full max-w-3xl px-5 pt-8 pb-44'>
           {isEmpty ? <StudioWelcome onSelect={send} /> : null}
           {messages.map((message) => (
             <StudioMessage
@@ -338,7 +349,6 @@ function StudioChatSurface({
               isRunning={isRunning}
             />
           ))}
-          <StudioApprovalPrompt />
           {runError ? (
             <div
               role='alert'
@@ -348,126 +358,201 @@ function StudioChatSurface({
             </div>
           ) : null}
         </ConversationContent>
-        <ConversationScrollButton aria-label='跳转至最新消息' />
+        <ConversationScrollButton
+          aria-label='跳转至最新消息'
+          className='bottom-44'
+        />
       </Conversation>
-      <div className='shrink-0 px-4 pt-2 pb-5'>
-        <PromptInput
-          className='mx-auto max-w-3xl'
-          onSubmit={({ text }) => send(text)}
-        >
-          <PromptInputBody>
-            <PromptInputTextarea
-              autoFocus
-              disabled={!modelReady}
-              placeholder={
-                modelReady
-                  ? '描述你想创作的内容，或让 Agent 调用工作流…'
-                  : '先在 AI 设置中添加并启用模型'
-              }
-            />
-          </PromptInputBody>
-          <PromptInputFooter>
-            <PromptInputTools>
-              <ModelPicker
-                models={availableModels}
-                value={selectedModel?.id}
-                onChange={props.onModelChange}
-              />
-              <SkillPicker
-                skills={props.skills}
-                value={props.selectedSkillIds}
-                onChange={props.onSkillChange}
-              />
-              <AssetPicker
-                assets={props.assets}
-                value={props.selectedAssets}
-                onChange={props.onAssetChange}
-                onImportLibraryAsset={props.onImportLibraryAsset}
-              />
-              <PermissionPicker
-                value={props.permissionMode}
-                onChange={props.onPermissionChange}
-              />
-            </PromptInputTools>
-            <PromptInputSubmit
-              aria-label={isStreaming ? '停止生成' : '发送消息'}
-              disabled={!modelReady || (runActive && !isStreaming)}
-              onStop={() => {
-                const runID = agent.activeStudioRunId() ?? props.latestRun?.id
-                if (!runID) {
-                  onRunError('运行正在建立连接，请稍后再试')
-                  return
-                }
-                void cancelStudioRun(runID)
-                  .then(() => {
-                    aui.thread.cancelRun()
-                    props.onRunFinished?.()
-                  })
-                  .catch((error: unknown) => {
-                    onRunError(error instanceof Error ? error.message : '停止运行失败')
-                  })
-              }}
-              status={isStreaming ? 'streaming' : undefined}
-            />
-          </PromptInputFooter>
-        </PromptInput>
-        <p className='mx-auto mt-2 max-w-3xl text-center text-xs text-muted-foreground'>
-          {modelReady
-            ? 'Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。'
-            : '没有可用模型时，无法发起 Agent 对话。'}
-        </p>
+      <div
+        data-slot='studio-composer'
+        className='pointer-events-none absolute inset-x-0 bottom-0 z-20'
+      >
+        <div
+          aria-hidden='true'
+          className='h-12 bg-gradient-to-t from-card to-transparent'
+        />
+        <div className='bg-card'>
+          <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
+            <StudioActionArea />
+            <div className='pointer-events-auto relative z-10 bg-card pt-2 pb-5'>
+              <PromptInput
+                inputGroupClassName='bg-background'
+                onSubmit={({ text }) => send(text)}
+              >
+                <PromptInputBody>
+                  <PromptInputTextarea
+                    autoFocus
+                    disabled={!modelReady}
+                    placeholder={
+                      modelReady
+                        ? '描述你想创作的内容，或让 Agent 调用工作流…'
+                        : '先在 AI 设置中添加并启用模型'
+                    }
+                  />
+                </PromptInputBody>
+                <PromptInputFooter>
+                  <PromptInputTools>
+                    <ModelPicker
+                      models={availableModels}
+                      value={selectedModel?.id}
+                      onChange={props.onModelChange}
+                    />
+                    <SkillPicker
+                      skills={props.skills}
+                      value={props.selectedSkillIds}
+                      onChange={props.onSkillChange}
+                    />
+                    <AssetPicker
+                      assets={props.assets}
+                      value={props.selectedAssets}
+                      onChange={props.onAssetChange}
+                      onImportLibraryAsset={props.onImportLibraryAsset}
+                    />
+                    <PermissionPicker
+                      value={props.permissionMode}
+                      onChange={props.onPermissionChange}
+                    />
+                  </PromptInputTools>
+                  <PromptInputSubmit
+                    aria-label={isStreaming ? '停止生成' : '发送消息'}
+                    disabled={!modelReady || (runActive && !isStreaming)}
+                    onStop={() => {
+                      const runID =
+                        agent.activeStudioRunId() ?? props.latestRun?.id
+                      if (!runID) {
+                        onRunError('运行正在建立连接，请稍后再试')
+                        return
+                      }
+                      void cancelStudioRun(runID)
+                        .then(() => {
+                          aui.thread.cancelRun()
+                          props.onRunFinished?.()
+                        })
+                        .catch((error: unknown) => {
+                          onRunError(
+                            error instanceof Error
+                              ? error.message
+                              : '停止运行失败'
+                          )
+                        })
+                    }}
+                    status={isStreaming ? 'streaming' : undefined}
+                  />
+                </PromptInputFooter>
+              </PromptInput>
+              <p className='mt-2 text-center text-xs text-muted-foreground'>
+                {modelReady
+                  ? 'Agent 可能会调用模型、Skill、连接器和工作流，请核对重要结果。'
+                  : '没有可用模型时，无法发起 Agent 对话。'}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
-function StudioApprovalPrompt() {
+function StudioActionArea() {
   const interrupts = useAgUiInterrupts()
   const submitInterruptResponses = useAgUiSubmitInterruptResponses()
-
-  if (interrupts.length === 0) return null
-
-  const respond = (interrupt: AgUiInterrupt, approved: boolean) => {
-    void submitInterruptResponses([
-      {
-        interruptId: interrupt.id,
-        status: approved ? 'resolved' : 'cancelled',
-        ...(approved ? { payload: true } : {}),
-      },
-    ])
-  }
+  const [open, setOpen] = useState(false)
 
   return (
-    <div className='flex w-full max-w-[95%] flex-col gap-3'>
-      {interrupts.map((interrupt) => (
-        <Confirmation
-          key={interrupt.id}
-          approval={{ id: interrupt.id }}
-          className='border-warning/40 bg-warning/5'
-          role='alert'
-          state='approval-requested'
+    <StudioActionDock
+      actions={interrupts.map((interrupt) => ({
+        id: interrupt.id,
+        message: interrupt.message,
+      }))}
+      open={open}
+      onToggle={() => setOpen((current) => !current)}
+      onRespond={(id, approved) => {
+        void submitInterruptResponses([
+          {
+            interruptId: id,
+            status: approved ? 'resolved' : 'cancelled',
+            ...(approved ? { payload: true } : {}),
+          },
+        ])
+      }}
+    />
+  )
+}
+
+export type StudioAction = { id: string; message?: string }
+
+export function StudioActionDock({
+  actions,
+  open,
+  onToggle,
+  onRespond,
+}: {
+  actions: StudioAction[]
+  open: boolean
+  onToggle: () => void
+  onRespond: (id: string, approved: boolean) => void
+}) {
+  if (actions.length === 0) return null
+
+  return (
+    <section
+      aria-label='操作区'
+      className={cn(
+        'pointer-events-auto relative z-0',
+        open ? 'mb-2' : '-mb-2 h-11 overflow-hidden'
+      )}
+    >
+      <div className='overflow-hidden rounded-xl border border-warning/40 bg-card'>
+        <button
+          type='button'
+          aria-expanded={open}
+          onClick={onToggle}
+          className='flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-warning-text hover:bg-warning/10'
         >
-          <ConfirmationTitle>
-            {interrupt.message ?? '需要批准后继续执行'}
-          </ConfirmationTitle>
-          <ConfirmationRequest>
-            <ConfirmationActions>
-              <ConfirmationAction
-                variant='outline'
-                onClick={() => respond(interrupt, false)}
+          <ShieldAlert className='size-4 shrink-0' />
+          <span className='min-w-0 flex-1 truncate'>
+            需要你的批准 · {actions.length} 项
+          </span>
+          <ChevronDown
+            className={cn(
+              'size-4 shrink-0 transition-transform',
+              open && 'rotate-180'
+            )}
+          />
+        </button>
+        {open ? (
+          <div className='flex flex-col gap-2 border-t border-warning/30 p-3'>
+            {actions.map((action) => (
+              <Confirmation
+                key={action.id}
+                approval={{ id: action.id }}
+                state='approval-requested'
+                variant='warn'
               >
-                拒绝
-              </ConfirmationAction>
-              <ConfirmationAction onClick={() => respond(interrupt, true)}>
-                批准
-              </ConfirmationAction>
-            </ConfirmationActions>
-          </ConfirmationRequest>
-          <ConfirmationAccepted>已批准</ConfirmationAccepted>
-          <ConfirmationRejected>已拒绝</ConfirmationRejected>
-        </Confirmation>
-      ))}
-    </div>
+                <ConfirmationTitle>
+                  {action.message ?? '需要批准后继续执行'}
+                </ConfirmationTitle>
+                <ConfirmationRequest>
+                  <ConfirmationActions>
+                    <ConfirmationAction
+                      variant='outline'
+                      onClick={() => onRespond(action.id, false)}
+                    >
+                      拒绝
+                    </ConfirmationAction>
+                    <ConfirmationAction
+                      onClick={() => onRespond(action.id, true)}
+                    >
+                      批准
+                    </ConfirmationAction>
+                  </ConfirmationActions>
+                </ConfirmationRequest>
+              </Confirmation>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </section>
   )
 }
 

@@ -72,7 +72,9 @@ describe('Studio production workspace contract', () => {
     const workspace = read('./studio-workspace.tsx')
     const chat = read('./studio-chat.tsx')
     expect(workspace).not.toContain('(detail.isFetching &&')
-    expect(chat).not.toContain('afterSequence: props.runProgress?.last_sequence')
+    expect(chat).not.toContain(
+      'afterSequence: props.runProgress?.last_sequence'
+    )
     expect(chat).toContain('afterSequence: 0')
   })
 
@@ -85,7 +87,9 @@ describe('Studio production workspace contract', () => {
   it('blocks a second send while the server still owns an active run', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain("props.latestRun?.status === 'waiting_approval'")
-    expect(source).toContain('if (!modelReady || runActive || !text.trim()) return')
+    expect(source).toContain(
+      'if (!modelReady || runActive || !text.trim()) return'
+    )
   })
 
   it('mounts the Studio sidebar primitives inside their provider', () => {
@@ -133,10 +137,29 @@ describe('Studio production workspace contract', () => {
     expect(source).not.toContain('max-w-2xl min-w-80 shrink-0 border-l')
   })
 
-  it('keeps the composer as the chat boundary without a full-width chrome strip', () => {
+  it('floats the composer over the conversation so messages pass behind it', () => {
     const source = read('./studio-chat.tsx')
-    expect(source).toContain("className='shrink-0 px-4 pt-2 pb-5'")
-    expect(source).not.toContain("className='shrink-0 bg-background")
+    expect(source).toContain("data-slot='studio-composer'")
+    expect(source).toContain(
+      'pointer-events-none absolute inset-x-0 bottom-0 z-20'
+    )
+    expect(source).toContain('bg-gradient-to-t from-card to-transparent')
+    expect(source).toContain('pb-44')
+    expect(source).not.toContain("className='shrink-0 px-4 pt-2 pb-5'")
+  })
+
+  it('keeps the composer focus ring identical to the other admin inputs', () => {
+    const group = read('../../components/ui/input-group.tsx')
+    expect(group).toContain(
+      'has-[[data-slot=input-group-control]:focus-visible]:border-ring'
+    )
+    expect(group).toContain(
+      'has-[[data-slot=input-group-control]:focus-visible]:ring-1'
+    )
+    expect(group).not.toContain('ring-[3px]')
+    expect(read('../../components/ui/input.tsx')).toContain(
+      'focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50'
+    )
   })
 
   it('replaces chat and composer with session trajectory without opening a drawer', () => {
@@ -232,6 +255,18 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain("status: approved ? 'resolved' : 'cancelled'")
   })
 
+  it('keeps every user decision in the pinned action area above the composer', () => {
+    const source = read('./studio-chat.tsx')
+    expect(source).toContain("aria-label='操作区'")
+    expect(source).toContain("variant='warn'")
+    expect(source).toContain("open ? 'mb-2' : '-mb-2 h-11 overflow-hidden'")
+    expect(source).toContain('aria-expanded={open}')
+    expect(source.indexOf('<StudioActionArea />')).toBeLessThan(
+      source.indexOf('<PromptInput')
+    )
+    expect(source).not.toContain('<StudioApprovalPrompt')
+  })
+
   it('enables Streamdown animation for streaming answers and reasoning', () => {
     const message = read('../../components/ai-elements/message.tsx')
     const reasoning = read('../../components/ai-elements/reasoning.tsx')
@@ -239,9 +274,7 @@ describe('Studio production workspace contract', () => {
       'animated={animated ?? (isAnimating ? true : undefined)}'
     )
     expect(reasoning).toContain('useReasoning()')
-    expect(reasoning).toContain(
-      'animated={isStreaming ? true : undefined}'
-    )
+    expect(reasoning).toContain('animated={isStreaming ? true : undefined}')
   })
 
   it('renders AG-UI run errors in the conversation instead of dropping them', () => {
