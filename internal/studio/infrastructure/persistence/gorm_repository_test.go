@@ -553,6 +553,35 @@ func TestFlowRoundTripKeepsUserOrder(t *testing.T) {
 	}
 }
 
+func TestFlowNodeAssetVersionChangesRemainPinnedAfterUpsert(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	node, err := domain.NewFlowNode("asset-node", "session-1", "account-a", domain.FlowNodeAsset, "故事大纲", 10, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node.AssetID = "story-asset"
+	node.AssetVersionID = "version-1"
+	node.AssetVersion = 1
+	if err := repo.SaveFlowNode(ctx, node); err != nil {
+		t.Fatal(err)
+	}
+	node.AssetVersionID = "version-2"
+	node.AssetVersion = 2
+	node.UpdatedAt = now.Add(time.Minute)
+	if err := repo.SaveFlowNode(ctx, node); err != nil {
+		t.Fatal(err)
+	}
+	nodes, _, err := repo.GetFlow(ctx, "account-a", "session-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 || nodes[0].AssetID != "story-asset" || nodes[0].AssetVersionID != "version-2" || nodes[0].AssetVersion != 2 {
+		t.Fatalf("asset version after upsert = %#v", nodes)
+	}
+}
+
 func TestWorkflowExecutionIsIdempotentAndAccountScoped(t *testing.T) {
 	repo := openRepository(t)
 	ctx := context.Background()

@@ -994,7 +994,7 @@ func (r *GormRepository) SaveFlowNode(ctx context.Context, node *domain.FlowNode
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"type", "title", "body", "asset_id", "run_id", "position_x", "position_y", "sort_order", "updated_at",
+			"type", "title", "body", "asset_id", "asset_version_id", "asset_version", "run_id", "position_x", "position_y", "sort_order", "updated_at",
 		}),
 	}).Create(row).Error
 }
