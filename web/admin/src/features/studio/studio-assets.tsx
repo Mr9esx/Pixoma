@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Download, FilePlus2, FileText, ImageIcon, Library, Pencil, Upload } from 'lucide-react'
+import {
+  Download,
+  FilePlus2,
+  FileText,
+  ImageIcon,
+  Library,
+  Pencil,
+  Upload,
+} from 'lucide-react'
+import { baseURL } from '@/lib/api/client'
 import {
   getStudioTextAssetContent,
   listStudioLibraryFolders,
   type StudioAsset,
   type StudioLibraryFolder,
 } from '@/lib/api/studio'
-import { baseURL } from '@/lib/api/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,18 +38,38 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 type Props = {
   assets: StudioAsset[]
-  onSaveToLibrary: (input: { assetId: string; folderId?: string }) => Promise<void>
-  onCreateTextAsset?: (input: { name: string; content: string }) => Promise<unknown>
-  onUpdateTextAsset?: (input: { assetId: string; content: string }) => Promise<unknown>
+  onSaveToLibrary: (input: {
+    assetId: string
+    folderId?: string
+  }) => Promise<void>
+  onCreateTextAsset?: (input: {
+    name: string
+    content: string
+  }) => Promise<unknown>
+  onUpdateTextAsset?: (input: {
+    assetId: string
+    content: string
+  }) => Promise<unknown>
   onUploadAsset?: (file: File) => void
   uploading?: boolean
 }
 
-export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset, onUpdateTextAsset, onUploadAsset, uploading }: Props) {
+export function StudioAssets({
+  assets,
+  onSaveToLibrary,
+  onCreateTextAsset,
+  onUpdateTextAsset,
+  onUploadAsset,
+  uploading,
+}: Props) {
   const [assetToSave, setAssetToSave] = useState<StudioAsset>()
   const folders = useQuery({
     queryKey: ['studio', 'library', 'folders'],
@@ -57,15 +85,24 @@ export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset, onUpd
         <p className='mt-1 max-w-xs text-xs leading-5 text-muted-foreground'>
           上传文件、让模型生成内容，或执行工作流后，资产会自动汇总到这里。
         </p>
-        <AssetActions onCreateTextAsset={onCreateTextAsset} onUploadAsset={onUploadAsset} uploading={uploading} empty />
+        <AssetActions
+          onCreateTextAsset={onCreateTextAsset}
+          onUploadAsset={onUploadAsset}
+          uploading={uploading}
+          empty
+        />
       </div>
     )
   }
   return (
     <ScrollArea className='h-full'>
-      <div className='flex items-center justify-between gap-3 px-4 pb-1 pt-4'>
+      <div className='flex items-center justify-between gap-3 px-4 pt-4 pb-1'>
         <p className='text-xs text-muted-foreground'>{assets.length} 项资产</p>
-        <AssetActions onCreateTextAsset={onCreateTextAsset} onUploadAsset={onUploadAsset} uploading={uploading} />
+        <AssetActions
+          onCreateTextAsset={onCreateTextAsset}
+          onUploadAsset={onUploadAsset}
+          uploading={uploading}
+        />
       </div>
       <div className='grid gap-3 p-4 pt-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'>
         {assets.map((asset) => (
@@ -96,17 +133,31 @@ function AssetActions({
   uploading,
   empty,
 }: {
-  onCreateTextAsset?: (input: { name: string; content: string }) => Promise<unknown>
+  onCreateTextAsset?: (input: {
+    name: string
+    content: string
+  }) => Promise<unknown>
   onUploadAsset?: (file: File) => void
   uploading?: boolean
   empty?: boolean
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   return (
-    <div className={empty ? 'mt-4 flex flex-wrap justify-center gap-2' : 'flex items-center gap-2'}>
+    <div
+      className={
+        empty
+          ? 'mt-4 flex flex-wrap justify-center gap-2'
+          : 'flex items-center gap-2'
+      }
+    >
       {onUploadAsset ? (
         <>
-          <Button variant='outline' size='sm' disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+          <Button
+            variant='outline'
+            size='sm'
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
             <Upload />
             {uploading ? '正在上传…' : '上传资产'}
           </Button>
@@ -122,12 +173,18 @@ function AssetActions({
           />
         </>
       ) : null}
-      {onCreateTextAsset ? <TextAssetDialog onCreate={onCreateTextAsset} /> : null}
+      {onCreateTextAsset ? (
+        <TextAssetDialog onCreate={onCreateTextAsset} />
+      ) : null}
     </div>
   )
 }
 
-function TextAssetDialog({ onCreate }: { onCreate: (input: { name: string; content: string }) => Promise<unknown> }) {
+function TextAssetDialog({
+  onCreate,
+}: {
+  onCreate: (input: { name: string; content: string }) => Promise<unknown>
+}) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('创作笔记.md')
   const [content, setContent] = useState('')
@@ -141,29 +198,69 @@ function TextAssetDialog({ onCreate }: { onCreate: (input: { name: string; conte
       setOpen(false)
       setContent('')
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '创建文档失败，重试保存。')
+      setError(
+        cause instanceof Error ? cause.message : '创建文档失败，重试保存。'
+      )
     } finally {
       setSaving(false)
     }
   }
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => { if (!saving) setOpen(nextOpen) }}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!saving) setOpen(nextOpen)
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant='outline' size='sm'><FilePlus2 />新建文档</Button>
+        <Button variant='outline' size='sm'>
+          <FilePlus2 />
+          新建文档
+        </Button>
       </DialogTrigger>
       <DialogContent className='sm:max-w-xl'>
         <DialogHeader>
           <DialogTitle>新建 Session 文档</DialogTitle>
-          <DialogDescription>文档属于当前 Session，可立即作为下一次对话或工作流的输入。</DialogDescription>
+          <DialogDescription>
+            文档属于当前 Session，可立即作为下一次对话或工作流的输入。
+          </DialogDescription>
         </DialogHeader>
         <div className='space-y-4 py-2'>
-          <Input aria-label='文档名称' value={name} onChange={(event) => setName(event.target.value)} placeholder='例如：角色设定.md' disabled={saving} />
-          <Textarea aria-label='文档内容' value={content} onChange={(event) => setContent(event.target.value)} placeholder='写下故事、角色、提示词或其他创作素材…' className='min-h-56 font-mono text-sm leading-6' disabled={saving} />
+          <Input
+            aria-label='文档名称'
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder='例如：角色设定.md'
+            disabled={saving}
+          />
+          <Textarea
+            aria-label='文档内容'
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            placeholder='写下故事、角色、提示词或其他创作素材…'
+            className='min-h-56 font-mono text-sm leading-6'
+            disabled={saving}
+          />
         </div>
-        {error ? <p role='alert' className='text-sm text-destructive'>{error}</p> : null}
+        {error ? (
+          <p role='alert' className='text-sm text-destructive'>
+            {error}
+          </p>
+        ) : null}
         <DialogFooter>
-          <Button variant='outline' disabled={saving} onClick={() => setOpen(false)}>取消</Button>
-          <Button disabled={!name.trim() || !content.trim() || saving} onClick={() => void save()}>{saving ? '保存中…' : '创建文档'}</Button>
+          <Button
+            variant='outline'
+            disabled={saving}
+            onClick={() => setOpen(false)}
+          >
+            取消
+          </Button>
+          <Button
+            disabled={!name.trim() || !content.trim() || saving}
+            onClick={() => void save()}
+          >
+            {saving ? '保存中…' : '创建文档'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -179,7 +276,10 @@ export function AssetCard({
   asset: StudioAsset
   onSaveToLibrary: (assetId: string) => void
   onOpenDetails?: (asset: StudioAsset) => void
-  onUpdateTextAsset?: (input: { assetId: string; content: string }) => Promise<unknown>
+  onUpdateTextAsset?: (input: {
+    assetId: string
+    content: string
+  }) => Promise<unknown>
 }) {
   const version = asset.versions[asset.versions.length - 1]
   const contentURL = version ? `${baseURL()}${version.content_url}` : undefined
@@ -215,11 +315,22 @@ export function AssetCard({
         </div>
         <div className='flex gap-1'>
           {onOpenDetails ? (
-            <Button variant='outline' size='sm' className='flex-1' onClick={() => onOpenDetails(asset)}>
+            <Button
+              variant='outline'
+              size='sm'
+              className='flex-1'
+              onClick={() => onOpenDetails(asset)}
+            >
               查看
             </Button>
           ) : (
-            <Button variant='outline' size='sm' className='flex-1' asChild disabled={!contentURL}>
+            <Button
+              variant='outline'
+              size='sm'
+              className='flex-1'
+              asChild
+              disabled={!contentURL}
+            >
               <a href={contentURL} target='_blank' rel='noreferrer'>
                 <Download />
                 查看
@@ -266,7 +377,8 @@ function TextAssetEditDialog({
         if (active) setContent(value)
       })
       .catch((cause) => {
-        if (active) setError(cause instanceof Error ? cause.message : '读取文档失败')
+        if (active)
+          setError(cause instanceof Error ? cause.message : '读取文档失败')
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -290,27 +402,38 @@ function TextAssetEditDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => {
-      if (nextOpen) {
-        setLoading(true)
-        setError('')
-      }
-      setOpen(nextOpen)
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) {
+          setLoading(true)
+          setError('')
+        }
+        setOpen(nextOpen)
+      }}
+    >
       <Tooltip>
         <TooltipTrigger asChild>
           <DialogTrigger asChild>
-            <Button variant='outline' size='icon-sm' aria-label={`编辑文档 ${asset.name}`}>
+            <Button
+              variant='outline'
+              size='icon-sm'
+              aria-label={`编辑文档 ${asset.name}`}
+            >
               <Pencil />
             </Button>
           </DialogTrigger>
         </TooltipTrigger>
-        <TooltipContent side='top' sideOffset={6}>编辑文档</TooltipContent>
+        <TooltipContent side='top' sideOffset={6}>
+          编辑文档
+        </TooltipContent>
       </Tooltip>
       <DialogContent className='sm:max-w-xl'>
         <DialogHeader>
           <DialogTitle>编辑文档</DialogTitle>
-          <DialogDescription>保存后追加一个新版本，已引用的旧版本不会变化。</DialogDescription>
+          <DialogDescription>
+            保存后追加一个新版本，已引用的旧版本不会变化。
+          </DialogDescription>
         </DialogHeader>
         <Textarea
           aria-label='文档内容'
@@ -320,10 +443,25 @@ function TextAssetEditDialog({
           placeholder={loading ? '读取文档中…' : '写下新的内容…'}
           className='min-h-64 font-mono text-sm leading-6'
         />
-        {error ? <p role='alert' className='text-sm text-destructive'>{error}</p> : null}
+        {error ? (
+          <p role='alert' className='text-sm text-destructive'>
+            {error}
+          </p>
+        ) : null}
         <DialogFooter>
-          <Button variant='outline' disabled={saving} onClick={() => setOpen(false)}>取消</Button>
-          <Button disabled={loading || saving || !content.trim()} onClick={save}>{saving ? '保存中…' : '保存新版本'}</Button>
+          <Button
+            variant='outline'
+            disabled={saving}
+            onClick={() => setOpen(false)}
+          >
+            取消
+          </Button>
+          <Button
+            disabled={loading || saving || !content.trim()}
+            onClick={save}
+          >
+            {saving ? '保存中…' : '保存新版本'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -367,7 +505,9 @@ function SaveAssetToLibraryDialog({
       setFolderId('root')
       onOpenChange(false)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '资产保存失败，请稍后重试。')
+      setError(
+        cause instanceof Error ? cause.message : '资产保存失败，请稍后重试。'
+      )
     } finally {
       setSaving(false)
     }
@@ -379,30 +519,51 @@ function SaveAssetToLibraryDialog({
         <DialogHeader>
           <DialogTitle>存入资产库</DialogTitle>
           <DialogDescription>
-            选择资产库文件夹。保存后，这个资产可以在其他 Session 中作为输入引用。
+            选择资产库文件夹。保存后，这个资产可以在其他 Session
+            中作为输入引用。
           </DialogDescription>
         </DialogHeader>
         <div className='flex flex-col gap-2 py-2'>
           <Label htmlFor='studio-asset-library-folder'>资产库文件夹</Label>
-          <Select value={folderId} onValueChange={setFolderId} disabled={saving}>
+          <Select
+            value={folderId}
+            onValueChange={setFolderId}
+            disabled={saving}
+          >
             <SelectTrigger id='studio-asset-library-folder'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value='root'>根目录</SelectItem>
               {foldersLoading ? (
-                <SelectItem value='loading' disabled>正在读取文件夹…</SelectItem>
+                <SelectItem value='loading' disabled>
+                  正在读取文件夹…
+                </SelectItem>
               ) : null}
               {folders.map((folder) => (
-                <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
+                <SelectItem key={folder.id} value={folder.id}>
+                  {folder.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        {error ? <p role='alert' className='text-sm text-destructive'>{error}</p> : null}
+        {error ? (
+          <p role='alert' className='text-sm text-destructive'>
+            {error}
+          </p>
+        ) : null}
         <DialogFooter>
-          <Button variant='outline' disabled={saving} onClick={() => handleOpenChange(false)}>取消</Button>
-          <Button disabled={saving} onClick={save}>{saving ? '正在保存…' : '存入资产库'}</Button>
+          <Button
+            variant='outline'
+            disabled={saving}
+            onClick={() => handleOpenChange(false)}
+          >
+            取消
+          </Button>
+          <Button disabled={saving} onClick={save}>
+            {saving ? '正在保存…' : '存入资产库'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -410,9 +571,22 @@ function SaveAssetToLibraryDialog({
 }
 
 function kindLabel(kind: StudioAsset['kind']) {
-  return { document: '文档', image: '图片', video: '视频', audio: '音频', data: '数据', file: '文件' }[kind]
+  return {
+    document: '文档',
+    image: '图片',
+    video: '视频',
+    audio: '音频',
+    data: '数据',
+    file: '文件',
+  }[kind]
 }
 
 function originLabel(origin: StudioAsset['origin']) {
-  return { user: '用户创建', agent: 'Agent 生成', model: '模型生成', workflow: '工作流产出', library: '资产库引用' }[origin]
+  return {
+    user: '用户创建',
+    agent: 'Agent 生成',
+    model: '模型生成',
+    workflow: '工作流产出',
+    library: '资产库引用',
+  }[origin]
 }

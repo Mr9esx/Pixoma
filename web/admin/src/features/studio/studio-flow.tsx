@@ -17,13 +17,10 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Box, FileOutput, ListChecks, Plus, Workflow } from 'lucide-react'
-import type {
-  StudioFlowEdge,
-  StudioFlowNode,
-} from '@/lib/api/studio'
+import type { StudioFlowEdge, StudioFlowNode } from '@/lib/api/studio'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -43,7 +40,11 @@ type Props = {
   edges: StudioFlowEdge[]
   onAssetOpen?: (assetId: string) => void
   onPositionsChange?: (
-    nodes: Array<{ id: string; position: { x: number; y: number }; sort_order: number }>
+    nodes: Array<{
+      id: string
+      position: { x: number; y: number }
+      sort_order: number
+    }>
   ) => Promise<unknown>
   onNodeCreate?: (input: {
     type: 'stage' | 'plan' | 'operation'
@@ -52,7 +53,11 @@ type Props = {
     position: { x: number; y: number }
   }) => Promise<unknown>
   onNodeDelete?: (nodeId: string) => Promise<unknown>
-  onEdgeCreate?: (input: { source: string; target: string; label?: string }) => Promise<unknown>
+  onEdgeCreate?: (input: {
+    source: string
+    target: string
+    label?: string
+  }) => Promise<unknown>
   onEdgeDelete?: (edgeId: string) => Promise<unknown>
 }
 
@@ -61,7 +66,7 @@ type FlowData = {
   body?: string
   kind: StudioFlowNode['type']
   assetId?: string
-	assetVersion?: number
+  assetVersion?: number
   onAssetOpen?: (assetId: string) => void
 }
 
@@ -93,7 +98,7 @@ export function StudioFlow({
           body: node.body,
           kind: node.type,
           assetId: node.asset_id,
-		  assetVersion: node.asset_version,
+          assetVersion: node.asset_version,
           onAssetOpen,
         } satisfies FlowData,
       })),
@@ -112,7 +117,8 @@ export function StudioFlow({
       })),
     [sourceEdges]
   )
-  const [nodes, setNodes, onNodesChange] = useNodesState<StudioReactNode>(initialNodes)
+  const [nodes, setNodes, onNodesChange] =
+    useNodesState<StudioReactNode>(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
   const [flowError, setFlowError] = useState('')
   const [savingPositions, setSavingPositions] = useState(false)
@@ -123,17 +129,25 @@ export function StudioFlow({
   useEffect(() => setEdges(initialEdges), [initialEdges, setEdges])
 
   const handleNodesChange = (changes: NodeChange<StudioReactNode>[]) => {
-    if (savingPositions && changes.some((change) => change.type === 'position')) return
+    if (savingPositions && changes.some((change) => change.type === 'position'))
+      return
     onNodesChange(changes)
-    if (!changes.some((change) => change.type === 'position' && !change.dragging)) return
+    if (
+      !changes.some((change) => change.type === 'position' && !change.dragging)
+    )
+      return
     if (!onPositionsChange) return
     const nextNodes = nodes.map((node, index) => {
       const positionChange = changes.find(
-        (change) => change.type === 'position' && change.id === node.id && change.position
+        (change) =>
+          change.type === 'position' && change.id === node.id && change.position
       )
       return {
         id: node.id,
-        position: positionChange?.type === 'position' && positionChange.position ? positionChange.position : node.position,
+        position:
+          positionChange?.type === 'position' && positionChange.position
+            ? positionChange.position
+            : node.position,
         sort_order: sourceNodes[index]?.sort_order ?? index,
       }
     })
@@ -148,8 +162,20 @@ export function StudioFlow({
   }
 
   const handleConnect = (connection: Connection) => {
-    if (!connection.source || !connection.target || connection.source === connection.target || connecting) return
-    if (edges.some((edge) => edge.source === connection.source && edge.target === connection.target)) return
+    if (
+      !connection.source ||
+      !connection.target ||
+      connection.source === connection.target ||
+      connecting
+    )
+      return
+    if (
+      edges.some(
+        (edge) =>
+          edge.source === connection.source && edge.target === connection.target
+      )
+    )
+      return
     if (!onEdgeCreate) return
     setFlowError('')
     setConnecting(true)
@@ -161,7 +187,10 @@ export function StudioFlow({
               ...connection,
               markerEnd: { type: MarkerType.ArrowClosed },
               style: { stroke: 'var(--color-border)' },
-              labelStyle: { fill: 'var(--color-muted-foreground)', fontSize: 11 },
+              labelStyle: {
+                fill: 'var(--color-muted-foreground)',
+                fontSize: 11,
+              },
             },
             current
           )
@@ -179,7 +208,9 @@ export function StudioFlow({
         </span>
         <p className='text-sm font-medium'>资产路线还没有节点</p>
         <p className='mt-1 max-w-xs text-xs leading-5 text-muted-foreground'>
-          和 Agent 对话后，计划、操作和产出会按时间顺序出现在这里。你也可以先手动搭好 SOP。
+          和 Agent
+          对话后，计划、操作和产出会按时间顺序出现在这里。你也可以先手动搭好
+          SOP。
         </p>
         {onNodeCreate ? (
           <CreateFlowNodeDialog onCreate={onNodeCreate} nodeCount={0} />
@@ -196,7 +227,10 @@ export function StudioFlow({
         nodeTypes={nodeTypes}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
-        onBeforeDelete={async ({ nodes: deletingNodes, edges: deletingEdges }) => {
+        onBeforeDelete={async ({
+          nodes: deletingNodes,
+          edges: deletingEdges,
+        }) => {
           if (deleting) return false
           setFlowError('')
           setDeleting(true)
@@ -207,20 +241,35 @@ export function StudioFlow({
             }
             const removedNodeIDs = new Set(deletingNodes.map((node) => node.id))
             for (const edge of deletingEdges) {
-              if (removedNodeIDs.has(edge.source) || removedNodeIDs.has(edge.target)) continue
+              if (
+                removedNodeIDs.has(edge.source) ||
+                removedNodeIDs.has(edge.target)
+              )
+                continue
               if (!onEdgeDelete) return false
               await onEdgeDelete(edge.id)
             }
             return true
           } catch {
-            setFlowError(deletingNodes.length ? '节点删除失败，资产路线未全部更新。' : '连线删除失败，资产路线未更新。')
+            setFlowError(
+              deletingNodes.length
+                ? '节点删除失败，资产路线未全部更新。'
+                : '连线删除失败，资产路线未更新。'
+            )
             return false
           } finally {
             setDeleting(false)
           }
         }}
         onConnect={handleConnect}
-        isValidConnection={(connection) => connection.source !== connection.target && !edges.some((edge) => edge.source === connection.source && edge.target === connection.target)}
+        isValidConnection={(connection) =>
+          connection.source !== connection.target &&
+          !edges.some(
+            (edge) =>
+              edge.source === connection.source &&
+              edge.target === connection.target
+          )
+        }
         nodesDraggable={!savingPositions}
         nodesConnectable={!connecting}
         deleteKeyCode={deleting ? null : ['Backspace', 'Delete']}
@@ -231,7 +280,17 @@ export function StudioFlow({
         proOptions={{ hideAttribution: true }}
       >
         <Background color='var(--color-border)' gap={20} size={1} />
-        {flowError ? <Panel position='bottom-left'><Alert role='alert' variant='destructive' className='max-w-xs bg-card'><AlertTitle>{flowError}</AlertTitle></Alert></Panel> : null}
+        {flowError ? (
+          <Panel position='bottom-left'>
+            <Alert
+              role='alert'
+              variant='destructive'
+              className='max-w-xs bg-card'
+            >
+              <AlertTitle>{flowError}</AlertTitle>
+            </Alert>
+          </Panel>
+        ) : null}
         <Panel position='top-left'>
           <div className='flex items-center gap-2 rounded-lg border bg-card p-1.5'>
             {onNodeCreate ? (
@@ -313,11 +372,13 @@ function CreateFlowNodeDialog({
           <div className='space-y-2'>
             <Label>节点类型</Label>
             <div className='flex flex-wrap gap-2'>
-              {([
-                ['stage', '阶段'],
-                ['plan', '计划'],
-                ['operation', '操作'],
-              ] as const).map(([value, label]) => (
+              {(
+                [
+                  ['stage', '阶段'],
+                  ['plan', '计划'],
+                  ['operation', '操作'],
+                ] as const
+              ).map(([value, label]) => (
                 <Button
                   key={value}
                   type='button'
@@ -349,11 +410,20 @@ function CreateFlowNodeDialog({
               className='min-h-24'
             />
           </div>
-          {error ? <p role='alert' className='text-sm text-destructive'>{error}</p> : null}
+          {error ? (
+            <p role='alert' className='text-sm text-destructive'>
+              {error}
+            </p>
+          ) : null}
         </div>
         <DialogFooter>
-          <Button variant='outline' onClick={() => setOpen(false)}>取消</Button>
-          <Button disabled={!title.trim() || submitting} onClick={() => void submit()}>
+          <Button variant='outline' onClick={() => setOpen(false)}>
+            取消
+          </Button>
+          <Button
+            disabled={!title.trim() || submitting}
+            onClick={() => void submit()}
+          >
             {submitting ? '正在添加…' : '添加节点'}
           </Button>
         </DialogFooter>
@@ -383,7 +453,11 @@ function StudioNode({ data, selected }: NodeProps) {
         selected ? 'border-ring ring-3 ring-ring/15' : 'hover:border-ring/60'
       )}
     >
-      <Handle type='target' position={Position.Left} className='!bg-muted-foreground' />
+      <Handle
+        type='target'
+        position={Position.Left}
+        className='!bg-muted-foreground'
+      />
       <div className='flex items-start gap-2.5'>
         <span className='flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted'>
           <Icon className='size-4 text-muted-foreground' />
@@ -404,7 +478,11 @@ function StudioNode({ data, selected }: NodeProps) {
           ) : null}
         </div>
       </div>
-      <Handle type='source' position={Position.Right} className='!bg-muted-foreground' />
+      <Handle
+        type='source'
+        position={Position.Right}
+        className='!bg-muted-foreground'
+      />
     </button>
   )
 }

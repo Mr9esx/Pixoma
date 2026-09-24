@@ -104,12 +104,20 @@ describe('StudioTrace', () => {
         <StudioTrace sessionId='session-1' />
       </QueryClientProvider>
     )
-    await expect.element(screen.getByRole('row', { name: /工具 搜索资料/ })).toBeVisible()
+    await expect
+      .element(screen.getByRole('row', { name: /工具 搜索资料/ }))
+      .toBeVisible()
     await screen.getByRole('button', { name: '收起所有调用' }).click()
-    await expect.element(screen.getByRole('row', { name: /工具 搜索资料/ })).not.toBeInTheDocument()
-    await expect.element(screen.getByRole('button', { name: '展开 1 次工具调用' })).toBeVisible()
+    await expect
+      .element(screen.getByRole('row', { name: /工具 搜索资料/ }))
+      .not.toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('button', { name: '展开 1 次工具调用' }))
+      .toBeVisible()
     await screen.getByRole('button', { name: '展开 1 次工具调用' }).click()
-    await expect.element(screen.getByRole('row', { name: /工具 搜索资料/ })).toBeVisible()
+    await expect
+      .element(screen.getByRole('row', { name: /工具 搜索资料/ }))
+      .toBeVisible()
   })
 
   it('shows the session across turns and lazy record detail', async () => {
@@ -146,8 +154,12 @@ describe('StudioTrace', () => {
       .element(screen.getByRole('complementary', { name: '事件详情' }))
       .not.toBeInTheDocument()
     await screen.getByRole('button', { name: '使用实际时长' }).click()
-    await expect.element(screen.getByRole('button', { name: '使用等宽操作' })).toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: '使用等宽操作' }))
+      .toBeVisible()
     await screen.getByRole('button', { name: '收起所有轮次' }).click()
-    await expect.element(screen.getByRole('row', { name: /● 模型 模型 A/ })).not.toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('row', { name: /● 模型 模型 A/ }))
+      .not.toBeInTheDocument()
   })
 })

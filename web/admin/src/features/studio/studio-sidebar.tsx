@@ -8,7 +8,6 @@ import {
 } from 'lucide-react'
 import type { StudioSession } from '@/lib/api/studio'
 import { Button } from '@/components/ui/button'
-import { StatusDot } from '@/components/status-dot'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sidebar,
@@ -24,6 +23,7 @@ import {
 } from '@/components/ui/sidebar'
 import { AppTitle } from '@/components/layout/app-title'
 import { NavUser } from '@/components/layout/nav-user'
+import { StatusDot } from '@/components/status-dot'
 
 export type StudioView = 'chat' | 'library' | 'settings'
 
