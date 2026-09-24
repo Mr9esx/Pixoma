@@ -281,6 +281,7 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(3 * time.Second)
+	completed := false
 	for time.Now().Before(deadline) {
 		response = request(t, router, http.MethodGet, "/runs/"+created.Run.ID, nil, "account-a")
 		var run struct {
@@ -288,9 +289,13 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 		}
 		_ = json.Unmarshal(apitest.DataBytes(response), &run)
 		if run.Status == domain.RunSucceeded {
+			completed = true
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+	if !completed {
+		t.Fatal("mock workflow run did not succeed")
 	}
 	response = request(t, router, http.MethodGet, "/sessions/"+created.Session.ID, nil, "account-a")
 	if response.Code != http.StatusOK {
@@ -304,9 +309,23 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 				Type string `json:"type"`
 			} `json:"events"`
 		} `json:"transcript"`
-		Assets []json.RawMessage `json:"assets"`
-		Flow   struct {
-			Nodes []json.RawMessage `json:"nodes"`
+		Assets []struct {
+			ID       string             `json:"id"`
+			Name     string             `json:"name"`
+			Kind     domain.AssetKind   `json:"kind"`
+			Origin   domain.AssetOrigin `json:"origin"`
+			Versions []struct {
+				ID         string `json:"id"`
+				MIMEType   string `json:"mime_type"`
+				ContentURL string `json:"content_url"`
+			} `json:"versions"`
+		} `json:"assets"`
+		Flow struct {
+			Nodes []struct {
+				Type           domain.FlowNodeType `json:"type"`
+				AssetID        string              `json:"asset_id"`
+				AssetVersionID string              `json:"asset_version_id"`
+			} `json:"nodes"`
 			Edges []json.RawMessage `json:"edges"`
 		} `json:"flow"`
 	}
@@ -315,6 +334,31 @@ func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 	}
 	if len(detail.Messages) < 2 || len(detail.Transcript.Messages) < 2 || len(detail.Transcript.Events) == 0 || len(detail.Assets) != 2 || len(detail.Flow.Nodes) != 4 || len(detail.Flow.Edges) != 3 {
 		t.Fatalf("detail counts: messages=%d assets=%d nodes=%d edges=%d body=%s", len(detail.Messages), len(detail.Assets), len(detail.Flow.Nodes), len(detail.Flow.Edges), response.Body.String())
+	}
+	contents := map[domain.AssetKind]string{}
+	for _, asset := range detail.Assets {
+		if len(asset.Versions) != 1 || asset.Versions[0].ID == "" {
+			t.Fatalf("asset has no pinned output version: %#v", asset)
+		}
+		content := request(t, router, http.MethodGet, strings.TrimPrefix(asset.Versions[0].ContentURL, "/api/v1/studio"), nil, "account-a")
+		if content.Code != http.StatusOK {
+			t.Fatalf("read %s status=%d body=%s", asset.Name, content.Code, content.Body.String())
+		}
+		contents[asset.Kind] = content.Body.String()
+		pinned := false
+		for _, node := range detail.Flow.Nodes {
+			if node.Type == domain.FlowNodeAsset && node.AssetID == asset.ID && node.AssetVersionID == asset.Versions[0].ID {
+				pinned = true
+			}
+		}
+		if !pinned {
+			t.Fatalf("asset %s is not pinned in Flow", asset.Name)
+		}
+	}
+	if !strings.Contains(contents[domain.AssetDocument], "为雨夜侦探生成漫画分镜") ||
+		!strings.Contains(contents[domain.AssetImage], "<svg") ||
+		!strings.Contains(contents[domain.AssetImage], "</svg>") {
+		t.Fatalf("mock outputs were not readable: document=%q image=%q", contents[domain.AssetDocument], contents[domain.AssetImage])
 	}
 }
 
