@@ -35,7 +35,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 type Props = {
   assets: StudioAsset[]
   onSaveToLibrary: (input: { assetId: string; folderId?: string }) => Promise<void>
-  onCreateTextAsset?: (input: { name: string; content: string }) => void
+  onCreateTextAsset?: (input: { name: string; content: string }) => Promise<unknown>
   onUpdateTextAsset?: (input: { assetId: string; content: string }) => Promise<unknown>
   onUploadAsset?: (file: File) => void
   uploading?: boolean
@@ -96,7 +96,7 @@ function AssetActions({
   uploading,
   empty,
 }: {
-  onCreateTextAsset?: (input: { name: string; content: string }) => void
+  onCreateTextAsset?: (input: { name: string; content: string }) => Promise<unknown>
   onUploadAsset?: (file: File) => void
   uploading?: boolean
   empty?: boolean
@@ -127,12 +127,27 @@ function AssetActions({
   )
 }
 
-function TextAssetDialog({ onCreate }: { onCreate: (input: { name: string; content: string }) => void }) {
+function TextAssetDialog({ onCreate }: { onCreate: (input: { name: string; content: string }) => Promise<unknown> }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('创作笔记.md')
   const [content, setContent] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const save = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      await onCreate({ name, content })
+      setOpen(false)
+      setContent('')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '创建文档失败，重试保存。')
+    } finally {
+      setSaving(false)
+    }
+  }
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!saving) setOpen(nextOpen) }}>
       <DialogTrigger asChild>
         <Button variant='outline' size='sm'><FilePlus2 />新建文档</Button>
       </DialogTrigger>
@@ -142,12 +157,13 @@ function TextAssetDialog({ onCreate }: { onCreate: (input: { name: string; conte
           <DialogDescription>文档属于当前 Session，可立即作为下一次对话或工作流的输入。</DialogDescription>
         </DialogHeader>
         <div className='space-y-4 py-2'>
-          <Input aria-label='文档名称' value={name} onChange={(event) => setName(event.target.value)} placeholder='例如：角色设定.md' />
-          <Textarea aria-label='文档内容' value={content} onChange={(event) => setContent(event.target.value)} placeholder='写下故事、角色、提示词或其他创作素材…' className='min-h-56 font-mono text-sm leading-6' />
+          <Input aria-label='文档名称' value={name} onChange={(event) => setName(event.target.value)} placeholder='例如：角色设定.md' disabled={saving} />
+          <Textarea aria-label='文档内容' value={content} onChange={(event) => setContent(event.target.value)} placeholder='写下故事、角色、提示词或其他创作素材…' className='min-h-56 font-mono text-sm leading-6' disabled={saving} />
         </div>
+        {error ? <p role='alert' className='text-sm text-destructive'>{error}</p> : null}
         <DialogFooter>
-          <Button variant='outline' onClick={() => setOpen(false)}>取消</Button>
-          <Button disabled={!content.trim()} onClick={() => { onCreate({ name, content }); setOpen(false); setContent('') }}>创建文档</Button>
+          <Button variant='outline' disabled={saving} onClick={() => setOpen(false)}>取消</Button>
+          <Button disabled={!name.trim() || !content.trim() || saving} onClick={() => void save()}>{saving ? '保存中…' : '创建文档'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -237,8 +253,6 @@ function TextAssetEditDialog({
   useEffect(() => {
     if (!open || !version) return
     let active = true
-    setLoading(true)
-    setError('')
     void getStudioTextAssetContent(version.content_url)
       .then((value) => {
         if (active) setContent(value)
@@ -268,7 +282,13 @@ function TextAssetEditDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (nextOpen) {
+        setLoading(true)
+        setError('')
+      }
+      setOpen(nextOpen)
+    }}>
       <Tooltip>
         <TooltipTrigger asChild>
           <DialogTrigger asChild>

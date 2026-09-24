@@ -387,7 +387,7 @@ export function StudioWorkspace() {
                       assets={detail.data?.assets ?? []}
                       onSaveToLibrary={(input) => saveAsset.mutateAsync(input)}
                       onCreateTextAsset={(input) =>
-                        createTextAsset.mutate(input)
+                        createTextAsset.mutateAsync(input)
                       }
                       onUpdateTextAsset={(input) => updateTextAsset.mutateAsync(input)}
                       onUploadAsset={(file) => uploadAsset.mutate(file)}
