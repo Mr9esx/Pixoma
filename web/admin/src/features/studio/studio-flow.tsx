@@ -23,6 +23,7 @@ import type {
 } from '@/lib/api/studio'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -43,16 +44,16 @@ type Props = {
   onAssetOpen?: (assetId: string) => void
   onPositionsChange?: (
     nodes: Array<{ id: string; position: { x: number; y: number }; sort_order: number }>
-  ) => void
+  ) => Promise<unknown>
   onNodeCreate?: (input: {
     type: 'stage' | 'plan' | 'operation'
     title: string
     body?: string
     position: { x: number; y: number }
   }) => Promise<unknown>
-  onNodeDelete?: (nodeId: string) => void
+  onNodeDelete?: (nodeId: string) => Promise<unknown>
   onEdgeCreate?: (input: { source: string; target: string; label?: string }) => Promise<unknown>
-  onEdgeDelete?: (edgeId: string) => void
+  onEdgeDelete?: (edgeId: string) => Promise<unknown>
 }
 
 type FlowData = {
@@ -113,13 +114,19 @@ export function StudioFlow({
   )
   const [nodes, setNodes, onNodesChange] = useNodesState<StudioReactNode>(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [flowError, setFlowError] = useState('')
+  const [savingPositions, setSavingPositions] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => setNodes(initialNodes), [initialNodes, setNodes])
   useEffect(() => setEdges(initialEdges), [initialEdges, setEdges])
 
   const handleNodesChange = (changes: NodeChange<StudioReactNode>[]) => {
+    if (savingPositions && changes.some((change) => change.type === 'position')) return
     onNodesChange(changes)
     if (!changes.some((change) => change.type === 'position' && !change.dragging)) return
+    if (!onPositionsChange) return
     const nextNodes = nodes.map((node, index) => {
       const positionChange = changes.find(
         (change) => change.type === 'position' && change.id === node.id && change.position
@@ -130,26 +137,38 @@ export function StudioFlow({
         sort_order: sourceNodes[index]?.sort_order ?? index,
       }
     })
-    onPositionsChange?.(nextNodes)
+    setFlowError('')
+    setSavingPositions(true)
+    void onPositionsChange(nextNodes)
+      .catch(() => {
+        setNodes(initialNodes)
+        setFlowError('节点位置保存失败，已恢复原位置。')
+      })
+      .finally(() => setSavingPositions(false))
   }
 
   const handleConnect = (connection: Connection) => {
-    if (!connection.source || !connection.target) return
+    if (!connection.source || !connection.target || connection.source === connection.target || connecting) return
     if (edges.some((edge) => edge.source === connection.source && edge.target === connection.target)) return
     if (!onEdgeCreate) return
-    void onEdgeCreate({ source: connection.source, target: connection.target }).then(() => {
-      setEdges((current) =>
-        addEdge(
-          {
-            ...connection,
-            markerEnd: { type: MarkerType.ArrowClosed },
-            style: { stroke: 'var(--color-border)' },
-            labelStyle: { fill: 'var(--color-muted-foreground)', fontSize: 11 },
-          },
-          current
+    setFlowError('')
+    setConnecting(true)
+    void onEdgeCreate({ source: connection.source, target: connection.target })
+      .then(() => {
+        setEdges((current) =>
+          addEdge(
+            {
+              ...connection,
+              markerEnd: { type: MarkerType.ArrowClosed },
+              style: { stroke: 'var(--color-border)' },
+              labelStyle: { fill: 'var(--color-muted-foreground)', fontSize: 11 },
+            },
+            current
+          )
         )
-      )
-    })
+      })
+      .catch(() => setFlowError('连线创建失败，重新连接节点。'))
+      .finally(() => setConnecting(false))
   }
 
   if (sourceNodes.length === 0) {
@@ -177,10 +196,34 @@ export function StudioFlow({
         nodeTypes={nodeTypes}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
-        onNodesDelete={(deleted) => deleted.forEach((node) => onNodeDelete?.(node.id))}
-        onEdgesDelete={(deleted) => deleted.forEach((edge) => onEdgeDelete?.(edge.id))}
+        onBeforeDelete={async ({ nodes: deletingNodes, edges: deletingEdges }) => {
+          if (deleting) return false
+          setFlowError('')
+          setDeleting(true)
+          try {
+            for (const node of deletingNodes) {
+              if (!onNodeDelete) return false
+              await onNodeDelete(node.id)
+            }
+            const removedNodeIDs = new Set(deletingNodes.map((node) => node.id))
+            for (const edge of deletingEdges) {
+              if (removedNodeIDs.has(edge.source) || removedNodeIDs.has(edge.target)) continue
+              if (!onEdgeDelete) return false
+              await onEdgeDelete(edge.id)
+            }
+            return true
+          } catch {
+            setFlowError(deletingNodes.length ? '节点删除失败，资产路线未全部更新。' : '连线删除失败，资产路线未更新。')
+            return false
+          } finally {
+            setDeleting(false)
+          }
+        }}
         onConnect={handleConnect}
-        deleteKeyCode={['Backspace', 'Delete']}
+        isValidConnection={(connection) => connection.source !== connection.target && !edges.some((edge) => edge.source === connection.source && edge.target === connection.target)}
+        nodesDraggable={!savingPositions}
+        nodesConnectable={!connecting}
+        deleteKeyCode={deleting ? null : ['Backspace', 'Delete']}
         fitView
         fitViewOptions={{ padding: 0.22, maxZoom: 1 }}
         minZoom={0.35}
@@ -188,6 +231,7 @@ export function StudioFlow({
         proOptions={{ hideAttribution: true }}
       >
         <Background color='var(--color-border)' gap={20} size={1} />
+        {flowError ? <Panel position='bottom-left'><Alert role='alert' variant='destructive' className='max-w-xs bg-card'><AlertTitle>{flowError}</AlertTitle></Alert></Panel> : null}
         <Panel position='top-left'>
           <div className='flex items-center gap-2 rounded-lg border bg-card p-1.5'>
             {onNodeCreate ? (

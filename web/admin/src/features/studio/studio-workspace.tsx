@@ -381,11 +381,11 @@ export function StudioWorkspace() {
                       nodes={detail.data?.flow.nodes ?? []}
                       edges={detail.data?.flow.edges ?? []}
                       onNodeCreate={(input) => createFlowNode.mutateAsync(input)}
-                      onNodeDelete={(id) => deleteFlowNode.mutate(id)}
+                      onNodeDelete={(id) => deleteFlowNode.mutateAsync(id)}
                       onEdgeCreate={(input) => createFlowEdge.mutateAsync(input)}
-                      onEdgeDelete={(id) => deleteFlowEdge.mutate(id)}
+                      onEdgeDelete={(id) => deleteFlowEdge.mutateAsync(id)}
                       onPositionsChange={(nodes) =>
-                        saveFlowPositions.mutate(nodes)
+                        saveFlowPositions.mutateAsync(nodes)
                       }
                     />
                   </TabsContent>
