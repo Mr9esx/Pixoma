@@ -70,6 +70,32 @@ const detail = (id: string, status?: 'running'): StudioSessionDetail => ({
 })
 
 describe('StudioWorkspace', () => {
+  it('recovers from a failed session list without leaving the chat skeleton indefinitely', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchInterval: false } },
+    })
+    const session = detail('session-after-retry')
+    const api = await import('@/lib/api/studio')
+    let connected = false
+    vi.mocked(api.listStudioSessions).mockImplementation(async () => {
+      if (!connected) throw new Error('network unavailable')
+      return [session.session]
+    })
+    vi.mocked(getStudioSession).mockResolvedValue(session)
+
+    const screen = await render(
+      <QueryClientProvider client={client}>
+        <StudioWorkspace />
+      </QueryClientProvider>
+    )
+    await expect.element(screen.getByText('对话列表读取失败')).toBeVisible()
+    connected = true
+    await screen.getByRole('button', { name: '重试读取对话' }).click()
+    await expect
+      .element(screen.getByTestId('chat-state'))
+      .toHaveTextContent('session-after-retry:idle')
+  })
+
   it('lets a failed conversation read retry and restores the chat', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchInterval: false } },

@@ -350,7 +350,29 @@ export function StudioWorkspace() {
         />
       ) : null}
       {view === 'settings' ? <StudioSettings /> : null}
-      {view === 'chat' ? (
+      {view === 'chat' && sessions.isError && !sessions.data ? (
+        <main id='main-content' className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>
+          <div className='flex h-full rounded-2xl border bg-card'>
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>对话列表读取失败</EmptyTitle>
+                <EmptyDescription>检查连接后重试。</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  variant='outline'
+                  className='min-h-11'
+                  disabled={sessions.isFetching}
+                  onClick={() => void sessions.refetch()}
+                >
+                  重试读取对话
+                </Button>
+              </EmptyContent>
+            </Empty>
+          </div>
+        </main>
+      ) : null}
+      {view === 'chat' && (!sessions.isError || sessions.data) ? (
         <div className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>
           <section
             data-slot='studio-workbench'
