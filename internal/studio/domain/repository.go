@@ -69,6 +69,7 @@ type Repository interface {
 	GetAsset(ctx context.Context, accountID, assetID string) (*Asset, error)
 	ListSessionAssets(ctx context.Context, accountID, sessionID string, limit int) ([]*Asset, error)
 	SaveAssetToLibrary(ctx context.Context, accountID, assetID, folderID string, savedAt time.Time) error
+	MoveLibraryAsset(ctx context.Context, accountID, assetID, folderID string, movedAt time.Time) error
 	ListLibraryAssets(ctx context.Context, accountID, folderID string, limit int) ([]*Asset, error)
 	CreateLibraryFolder(ctx context.Context, folder *LibraryFolder) error
 	ListLibraryFolders(ctx context.Context, accountID string) ([]*LibraryFolder, error)

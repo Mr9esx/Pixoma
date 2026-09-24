@@ -59,6 +59,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Patch("/assets/{assetID}/text", h.updateTextAsset)
 	r.Post("/assets/upload", h.uploadAsset)
 	r.Post("/assets/{assetID}/save-to-library", h.saveAssetToLibrary)
+	r.Patch("/library/assets/{assetID}/folder", h.moveLibraryAsset)
 	r.Post("/sessions/{sessionID}/assets/import", h.importLibraryAsset)
 	r.Get("/library/assets", h.listLibraryAssets)
 	r.Get("/library/folders", h.listLibraryFolders)
@@ -755,6 +756,25 @@ func (h *Handler) saveAssetToLibrary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := h.Repo.SaveAssetToLibrary(r.Context(), accountID, chi.URLParam(r, "assetID"), body.FolderID, time.Now().UTC()); err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OK(w, nil)
+}
+
+func (h *Handler) moveLibraryAsset(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		FolderID string `json:"folder_id"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
+		return
+	}
+	if err := h.Repo.MoveLibraryAsset(r.Context(), accountID, chi.URLParam(r, "assetID"), body.FolderID, time.Now().UTC()); err != nil {
 		failFromError(w, err)
 		return
 	}

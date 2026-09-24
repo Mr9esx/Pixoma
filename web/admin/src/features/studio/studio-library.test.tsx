@@ -15,14 +15,29 @@ const asset: StudioAsset = {
 
 vi.mock('@/lib/api/studio', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/studio')>()),
-  listStudioLibraryFolders: vi.fn(async () => []),
+  listStudioLibraryFolders: vi.fn(async () => [{ id: 'folder-1', name: '角色设定', parent_id: '', created_at: '', updated_at: '' }]),
   listStudioLibraryAssets: vi.fn(async () => [asset]),
   getStudioSession: vi.fn(async () => ({ session: { id: 'session-1', title: '雨夜侦探漫画' } }) as StudioSessionDetail),
   getStudioTextAssetContent: vi.fn(async () => '# 雨夜侦探'),
   uploadStudioAsset: vi.fn(async () => { throw new Error('网络已断开') }),
+  moveStudioLibraryAsset: vi.fn(async () => undefined),
 }))
 
 describe('StudioLibrary', () => {
+  it('moves a saved asset into a folder', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const screen = await render(
+      <QueryClientProvider client={client}>
+        <StudioLibrary onOpenSession={() => {}} />
+      </QueryClientProvider>,
+    )
+    await screen.getByRole('button', { name: '查看' }).click()
+    await screen.getByRole('button', { name: '移动到文件夹' }).click()
+    await screen.getByRole('combobox', { name: '目标文件夹' }).click()
+    await screen.getByRole('option', { name: '角色设定' }).click()
+    await screen.getByRole('button', { name: '移动资产' }).click()
+    expect(studioApi.moveStudioLibraryAsset).toHaveBeenCalledWith('asset-1', 'folder-1')
+  })
   it('opens a saved asset with its content and source conversation', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const onOpenSession = vi.fn()

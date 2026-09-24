@@ -379,6 +379,13 @@ export function saveStudioAssetToLibrary(assetId: string, folderId?: string) {
   )
 }
 
+export function moveStudioLibraryAsset(assetId: string, folderId?: string) {
+  return apiFetch<void>(
+    `/api/v1/studio/library/assets/${encodeURIComponent(assetId)}/folder`,
+    { method: 'PATCH', body: JSON.stringify({ folder_id: folderId ?? '' }) }
+  )
+}
+
 export function importStudioLibraryAsset(
   sessionId: string,
   assetId: string,

@@ -839,6 +839,9 @@ func (r *GormRepository) ListSessionAssets(ctx context.Context, accountID, sessi
 
 func (r *GormRepository) SaveAssetToLibrary(ctx context.Context, accountID, assetID, folderID string, savedAt time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateLibraryFolder(tx, accountID, folderID); err != nil {
+			return err
+		}
 		var asset AssetRow
 		if err := tx.Where("id = ? AND account_id = ?", assetID, accountID).First(&asset).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -863,6 +866,37 @@ func (r *GormRepository) SaveAssetToLibrary(ctx context.Context, accountID, asse
 			DoUpdates: clause.AssignmentColumns([]string{"asset_version_id", "folder_id", "updated_at"}),
 		}).Create(row).Error
 	})
+}
+
+func (r *GormRepository) MoveLibraryAsset(ctx context.Context, accountID, assetID, folderID string, movedAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateLibraryFolder(tx, accountID, folderID); err != nil {
+			return err
+		}
+		result := tx.Model(&LibraryAssetRow{}).Where("account_id = ? AND asset_id = ?", accountID, assetID).
+			Updates(map[string]any{"folder_id": folderID, "updated_at": movedAt.UTC()})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrNotFound
+		}
+		return nil
+	})
+}
+
+func validateLibraryFolder(tx *gorm.DB, accountID, folderID string) error {
+	if folderID == "" {
+		return nil
+	}
+	var folder LibraryFolderRow
+	if err := tx.Where("account_id = ? AND id = ?", accountID, folderID).First(&folder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *GormRepository) ListLibraryAssets(ctx context.Context, accountID, folderID string, limit int) ([]*domain.Asset, error) {

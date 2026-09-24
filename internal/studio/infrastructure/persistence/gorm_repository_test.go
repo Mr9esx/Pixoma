@@ -470,6 +470,16 @@ func TestAssetVersionAndLibraryReferenceRoundTrip(t *testing.T) {
 	if err := repo.CreateAsset(ctx, asset); err != nil {
 		t.Fatalf("CreateAsset() error = %v", err)
 	}
+	folder, err := domain.NewLibraryFolder("folder-story", "account-a", "", "故事", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateLibraryFolder(ctx, folder); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveAssetToLibrary(ctx, "account-a", asset.ID, "missing-folder", now); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("save to missing folder error = %v", err)
+	}
 	if err := repo.SaveAssetToLibrary(ctx, "account-a", asset.ID, "folder-story", now.Add(time.Second)); err != nil {
 		t.Fatalf("SaveAssetToLibrary() error = %v", err)
 	}
@@ -494,6 +504,17 @@ func TestAssetVersionAndLibraryReferenceRoundTrip(t *testing.T) {
 	}
 	if items[0].CurrentVersion != 1 || len(items[0].Versions) != 1 || items[0].Versions[0].ID != "version-1" {
 		t.Fatalf("library asset must retain saved v1, got %#v", items[0])
+	}
+	if err := repo.MoveLibraryAsset(ctx, "account-a", asset.ID, "", now.Add(3*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	items, err = repo.ListLibraryAssets(ctx, "account-a", "folder-story", 100)
+	if err != nil || len(items) != 0 {
+		t.Fatalf("old folder items = (%#v, %v)", items, err)
+	}
+	items, err = repo.ListLibraryAssets(ctx, "account-a", "", 100)
+	if err != nil || len(items) != 1 || items[0].CurrentVersion != 1 || items[0].Versions[0].ID != "version-1" {
+		t.Fatalf("moved asset changed pinned version: (%#v, %v)", items, err)
 	}
 	if _, err := repo.GetAsset(ctx, "account-b", asset.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("cross-account GetAsset() error = %v, want ErrNotFound", err)

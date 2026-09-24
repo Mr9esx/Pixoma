@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderPlus, Grid2X2, Library, List, Search, Upload } from 'lucide-react'
-import { createStudioLibraryFolder, getStudioSession, getStudioTextAssetContent, listStudioLibraryAssets, listStudioLibraryFolders, uploadStudioAsset, type StudioAsset } from '@/lib/api/studio'
+import { createStudioLibraryFolder, getStudioSession, getStudioTextAssetContent, listStudioLibraryAssets, listStudioLibraryFolders, moveStudioLibraryAsset, uploadStudioAsset, type StudioAsset, type StudioLibraryFolder } from '@/lib/api/studio'
 import { baseURL } from '@/lib/api/client'
 import { AssetCard } from './studio-assets'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export function StudioLibrary({ onOpenSession }: { onOpenSession: (sessionId: string) => void }) {
@@ -125,6 +126,7 @@ export function StudioLibrary({ onOpenSession }: { onOpenSession: (sessionId: st
       {selectedAsset ? (
         <LibraryAssetDetails
           asset={selectedAsset}
+          folders={folders.data ?? []}
           onClose={() => setSelectedAsset(undefined)}
           onOpenSession={(sessionId) => {
             setSelectedAsset(undefined)
@@ -145,11 +147,22 @@ export function StudioLibrary({ onOpenSession }: { onOpenSession: (sessionId: st
   )
 }
 
-function LibraryAssetDetails({ asset, onClose, onOpenSession }: {
+function LibraryAssetDetails({ asset, folders, onClose, onOpenSession }: {
   asset: StudioAsset
+  folders: StudioLibraryFolder[]
   onClose: () => void
   onOpenSession: (sessionId: string) => void
 }) {
+  const queryClient = useQueryClient()
+  const [moving, setMoving] = useState(false)
+  const [targetFolder, setTargetFolder] = useState('root')
+  const move = useMutation({
+    mutationFn: () => moveStudioLibraryAsset(asset.id, targetFolder === 'root' ? undefined : targetFolder),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['studio', 'library'] })
+      setMoving(false)
+    },
+  })
   const version = asset.versions.find((item) => item.version === asset.current_version) ?? asset.versions.at(-1)
   const contentURL = version ? `${baseURL()}${version.content_url}` : undefined
   const source = useQuery({
@@ -197,6 +210,7 @@ function LibraryAssetDetails({ asset, onClose, onOpenSession }: {
             )}
           </div>
           <div className='flex flex-wrap gap-2'>
+            <Button variant='outline' size='sm' onClick={() => setMoving((value) => !value)}>移动到文件夹</Button>
             {asset.session_id ? (
               <Button variant='outline' size='sm' onClick={() => onOpenSession(asset.session_id)}>打开来源对话</Button>
             ) : null}
@@ -207,6 +221,22 @@ function LibraryAssetDetails({ asset, onClose, onOpenSession }: {
             ) : null}
           </div>
         </div>
+        {moving ? (
+          <div className='flex flex-wrap items-end gap-3 rounded-lg border bg-muted/30 p-3'>
+            <div className='flex min-w-44 flex-1 flex-col gap-2'>
+              <Label htmlFor='studio-library-target-folder'>目标文件夹</Label>
+              <Select value={targetFolder} onValueChange={setTargetFolder}>
+                <SelectTrigger id='studio-library-target-folder' className='w-full' aria-label='目标文件夹'><SelectValue /></SelectTrigger>
+                <SelectContent><SelectGroup>
+                  <SelectItem value='root'>未分类</SelectItem>
+                  {folders.map((folder) => <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>)}
+                </SelectGroup></SelectContent>
+              </Select>
+            </div>
+            <Button size='sm' disabled={move.isPending} onClick={() => move.mutate()}>{move.isPending ? '移动中…' : '移动资产'}</Button>
+            {move.isError ? <p role='alert' className='w-full text-sm text-destructive'>移动资产失败，重试移动。</p> : null}
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   )

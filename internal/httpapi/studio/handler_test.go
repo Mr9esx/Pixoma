@@ -1275,6 +1275,75 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	}
 }
 
+func TestStudioLibraryMoveKeepsPinnedVersionAndRejectsForeignFolder(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+	sessionResponse := request(t, router, http.MethodPost, "/sessions", nil, "account-a")
+	var session struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(sessionResponse), &session); err != nil {
+		t.Fatal(err)
+	}
+	created := request(t, router, http.MethodPost, "/assets/text", map[string]any{"session_id": session.ID, "name": "故事.md", "content": "# 第一版"}, "account-a")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("asset status=%d body=%s", created.Code, created.Body.String())
+	}
+	var asset struct {
+		ID       string `json:"id"`
+		Versions []struct {
+			ID string `json:"id"`
+		} `json:"versions"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(created), &asset); err != nil {
+		t.Fatal(err)
+	}
+	saved := request(t, router, http.MethodPost, "/assets/"+asset.ID+"/save-to-library", nil, "account-a")
+	if saved.Code != http.StatusOK {
+		t.Fatalf("save status=%d body=%s", saved.Code, saved.Body.String())
+	}
+	updated := request(t, router, http.MethodPatch, "/assets/"+asset.ID+"/text", map[string]any{"content": "# 第二版"}, "account-a")
+	if updated.Code != http.StatusOK {
+		t.Fatalf("update status=%d body=%s", updated.Code, updated.Body.String())
+	}
+	foreignFolder := request(t, router, http.MethodPost, "/library/folders", map[string]any{"name": "他人文件夹"}, "account-b")
+	var foreign struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(foreignFolder), &foreign); err != nil {
+		t.Fatal(err)
+	}
+	denied := request(t, router, http.MethodPatch, "/library/assets/"+asset.ID+"/folder", map[string]any{"folder_id": foreign.ID}, "account-a")
+	if denied.Code != http.StatusNotFound {
+		t.Fatalf("foreign folder status=%d body=%s", denied.Code, denied.Body.String())
+	}
+	folder := request(t, router, http.MethodPost, "/library/folders", map[string]any{"name": "故事"}, "account-a")
+	var own struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(folder), &own); err != nil {
+		t.Fatal(err)
+	}
+	moved := request(t, router, http.MethodPatch, "/library/assets/"+asset.ID+"/folder", map[string]any{"folder_id": own.ID}, "account-a")
+	if moved.Code != http.StatusOK {
+		t.Fatalf("move status=%d body=%s", moved.Code, moved.Body.String())
+	}
+	listed := request(t, router, http.MethodGet, "/library/assets?folder_id="+own.ID, nil, "account-a")
+	var items []struct {
+		Versions []struct {
+			ID string `json:"id"`
+		} `json:"versions"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(listed), &items); err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || len(items[0].Versions) != 1 || items[0].Versions[0].ID != asset.Versions[0].ID {
+		t.Fatalf("moved library version changed: %s", listed.Body.String())
+	}
+}
+
 func waitForRun(t *testing.T, router http.Handler, runID, accountID string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
