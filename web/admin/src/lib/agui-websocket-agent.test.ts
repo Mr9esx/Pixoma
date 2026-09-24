@@ -7,6 +7,54 @@ afterEach(() => {
 })
 
 describe('StudioWebSocketAgent', () => {
+  it('keeps the replacement run alive when the previous subscription is released', async () => {
+    const sockets: Array<{
+      readyState: number
+      close(): void
+    }> = []
+    class FakeSocket {
+      static OPEN = 1
+      static CONNECTING = 0
+      readyState = 1
+      onopen: (() => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: (() => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(_url: string) {
+        sockets.push(this)
+      }
+      send(_data: string) {}
+      close() {
+        this.readyState = 3
+        this.onclose?.()
+      }
+    }
+    globalThis.WebSocket = FakeSocket as never
+    const agent = new StudioWebSocketAgent({
+      url: 'wss://studio.test/agui',
+      threadId: 'session-1',
+      runConfig: {
+        modelConfigId: 'model-1',
+        permissionMode: 'full_access',
+        selectedSkillIds: [],
+        selectedAssets: [],
+      },
+    })
+    const oldRun = agent
+      .run({ threadId: 'session-1', runId: 'old', messages: [] } as never)
+      .subscribe()
+    const newRun = agent
+      .run({ threadId: 'session-1', runId: 'new', messages: [] } as never)
+      .subscribe()
+
+    oldRun.unsubscribe()
+    expect(sockets[0].readyState).toBe(3)
+    expect(sockets[1].readyState).toBe(1)
+    agent.abortRun()
+    expect(sockets[1].readyState).toBe(3)
+    newRun.unsubscribe()
+  })
+
   it('does not reconnect after an intentional abort', async () => {
     let connections = 0
     class FakeSocket {

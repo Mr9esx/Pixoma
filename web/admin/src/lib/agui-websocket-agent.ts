@@ -25,7 +25,6 @@ type Config = AgentConfig & {
 export class StudioWebSocketAgent extends AbstractAgent {
   private readonly url: string
   private runConfig: StudioRunConfig
-  private socket?: WebSocket
   private studioRunId?: string
   private stopActiveRun?: () => void
 
@@ -56,10 +55,11 @@ export class StudioWebSocketAgent extends AbstractAgent {
       let ended = false
       let retries = 0
       let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+      let activeSocket: WebSocket | undefined
       const stop = () => {
         ended = true
         if (reconnectTimer) clearTimeout(reconnectTimer)
-        const socket = this.socket
+        const socket = activeSocket
         if (
           socket &&
           (socket.readyState === WebSocket.OPEN ||
@@ -67,21 +67,22 @@ export class StudioWebSocketAgent extends AbstractAgent {
         ) {
           socket.close()
         }
-        this.socket = undefined
+        activeSocket = undefined
       }
-      this.stopActiveRun = () => {
+      const stopActiveRun = () => {
         stop()
         subscriber.complete()
       }
+      this.stopActiveRun = stopActiveRun
       const connect = () => {
         if (ended) return
         const socket = new WebSocket(this.url)
-        this.socket = socket
+        activeSocket = socket
         let disconnected = false
         const reconnect = () => {
           if (ended || disconnected) return
           disconnected = true
-          if (this.socket === socket) this.socket = undefined
+          if (activeSocket === socket) activeSocket = undefined
           reconnectTimer = setTimeout(
             connect,
             Math.min(100 * 2 ** retries++, 2000)
@@ -142,7 +143,7 @@ export class StudioWebSocketAgent extends AbstractAgent {
       connect()
 
       return () => {
-        if (this.stopActiveRun) this.stopActiveRun = undefined
+        if (this.stopActiveRun === stopActiveRun) this.stopActiveRun = undefined
         stop()
       }
     })
