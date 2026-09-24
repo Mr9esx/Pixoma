@@ -51,6 +51,7 @@ type RunRow struct {
 	Status            string    `gorm:"size:32;not null;index"`
 	ModelConfigID     string    `gorm:"size:64;index"`
 	SkillIDsJSON      []byte    `gorm:"type:blob"`
+	SkillSnapshotJSON []byte    `gorm:"type:blob"`
 	AssetIDsJSON      []byte    `gorm:"type:blob"`
 	ErrorCode         string    `gorm:"size:128"`
 	ErrorMessage      string    `gorm:"type:text"`
@@ -1104,6 +1105,7 @@ func messageFromRow(row MessageRow) *domain.Message {
 
 func runToRow(value *domain.Run) *RunRow {
 	skillIDs, _ := json.Marshal(value.SkillIDs)
+	skillSnapshot, _ := json.Marshal(value.SkillSnapshot)
 	assetIDs, _ := json.Marshal(value.AssetIDs)
 	if len(value.AssetReferences) > 0 {
 		assetIDs, _ = json.Marshal(value.AssetReferences)
@@ -1112,12 +1114,14 @@ func runToRow(value *domain.Run) *RunRow {
 	if value.RequestID != "" {
 		requestID = &value.RequestID
 	}
-	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, RequestID: requestID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, SkillIDsJSON: skillIDs, AssetIDsJSON: assetIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
+	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, RequestID: requestID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, SkillIDsJSON: skillIDs, SkillSnapshotJSON: skillSnapshot, AssetIDsJSON: assetIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func runFromRow(row RunRow) *domain.Run {
 	var skillIDs []string
 	_ = json.Unmarshal(row.SkillIDsJSON, &skillIDs)
+	var skillSnapshot []domain.RunSkill
+	_ = json.Unmarshal(row.SkillSnapshotJSON, &skillSnapshot)
 	var assetIDs []string
 	var assetReferences []domain.AssetReference
 	if err := json.Unmarshal(row.AssetIDsJSON, &assetReferences); err == nil && len(assetReferences) > 0 {
@@ -1131,7 +1135,7 @@ func runFromRow(row RunRow) *domain.Run {
 	if row.RequestID != nil {
 		requestID = *row.RequestID
 	}
-	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, RequestID: requestID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, AssetIDs: assetIDs, AssetReferences: assetReferences, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
+	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, RequestID: requestID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, SkillSnapshot: skillSnapshot, AssetIDs: assetIDs, AssetReferences: assetReferences, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func runProgressToRow(value *domain.RunProgress) *RunProgressRow {

@@ -5,12 +5,14 @@ import {
   type RunAgentInput,
 } from '@ag-ui/client'
 import { Observable } from 'rxjs'
+import type { StudioComposerPart } from '@/lib/api/studio'
 
 export type StudioRunConfig = {
   modelConfigId: string
   permissionMode: string
   selectedSkillIds: string[]
   selectedAssets: Array<{ assetId: string; assetVersionId: string }>
+  messageParts?: StudioComposerPart[]
 }
 
 type Config = AgentConfig & {
@@ -25,6 +27,7 @@ type Config = AgentConfig & {
 export class StudioWebSocketAgent extends AbstractAgent {
   private readonly url: string
   private runConfig: StudioRunConfig
+  private nextRunConfig?: StudioRunConfig
   private socket?: WebSocket
   private studioRunId?: string
 
@@ -42,10 +45,16 @@ export class StudioWebSocketAgent extends AbstractAgent {
     this.runConfig = runConfig
   }
 
+  prepareNextRun(runConfig: StudioRunConfig): void {
+    this.nextRunConfig = runConfig
+  }
+
   run(input: RunAgentInput): Observable<BaseEvent> {
+    const runConfig = this.nextRunConfig ?? this.runConfig
+    this.nextRunConfig = undefined
     const forwardedProps = {
       ...(input.forwardedProps ?? {}),
-      runConfig: this.runConfig,
+      runConfig,
     }
     const request = { ...input, requestId: input.runId, forwardedProps }
     return new Observable<BaseEvent>((subscriber) => {

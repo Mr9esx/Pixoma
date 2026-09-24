@@ -84,7 +84,7 @@ export function StudioLibrary() {
         {assets.isLoading ? (
           <div className='grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
             {Array.from({ length: 8 }).map((_, index) => (
-              <Skeleton key={index} className='aspect-[4/3] rounded-xl' />
+              <Skeleton key={index} className='aspect-[4/3] rounded-lg' />
             ))}
           </div>
         ) : assets.isError ? (

@@ -39,7 +39,7 @@ export function WizardChrome({
       className='flex h-full min-h-0 flex-col gap-4'
       data-testid='quick-config-chrome'
     >
-      <div className='flex shrink-0 items-center justify-center rounded-xl border border-border bg-background px-4 py-3'>
+      <div className='flex shrink-0 items-center justify-center rounded-lg border border-border bg-background px-4 py-3'>
         <div className='flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-2'>
           {[1, 2, 3, 4].map((i) => (
             <Fragment key={i}>
@@ -81,12 +81,12 @@ export function WizardChrome({
         </div>
       </div>
 
-      <div className='min-h-0 flex-1 overflow-auto rounded-xl bg-[color-mix(in_oklch,var(--muted)_35%,var(--background))] p-5'>
+      <div className='min-h-0 flex-1 overflow-auto rounded-lg bg-[color-mix(in_oklch,var(--muted)_35%,var(--background))] p-5'>
         {children}
       </div>
 
       {hideFooter ? null : (
-        <div className='flex shrink-0 items-center justify-between rounded-xl border border-border bg-background px-4 py-3'>
+        <div className='flex shrink-0 items-center justify-between rounded-lg border border-border bg-background px-4 py-3'>
           {onBack ? (
             <Button type='button' variant='outline' onClick={onBack}>
               <ArrowLeft className='size-4' />

@@ -69,7 +69,7 @@ export function AuthShell({
         style={DOT_MASK_GRADIENT}
       />
       <div className='relative hidden h-full flex-col p-3 lg:flex'>
-        <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl'>
+        <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl'>
           {ambient === 'dither' ? (
             <div aria-hidden className='absolute inset-0'>
               <Dither
@@ -146,7 +146,7 @@ export function AuthShell({
           ) : (
             <div className='flex flex-col items-center justify-center gap-1 lg:hidden'>
               <div className='flex items-center justify-center'>
-                <Logo className='me-2 rounded-md' />
+                <Logo className='me-2 rounded-sm' />
                 <h1 className='text-xl font-medium'>Pixoma</h1>
               </div>
               <p className='text-xs text-muted-foreground'>{t('auth.quote')}</p>

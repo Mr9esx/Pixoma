@@ -33,6 +33,7 @@ import { Route as AppCasesRouteRouteImport } from './routes/_app/cases/route'
 import { Route as AppUsersIndexRouteImport } from './routes/_app/users/index'
 import { Route as AppTopicsIndexRouteImport } from './routes/_app/topics/index'
 import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
+import { Route as AppStudioIndexRouteImport } from './routes/_app/studio.index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSessionsIndexRouteImport } from './routes/_app/sessions/index'
 import { Route as AppEdgesIndexRouteImport } from './routes/_app/edges/index'
@@ -41,11 +42,16 @@ import { Route as AppCasesIndexRouteImport } from './routes/_app/cases/index'
 import { Route as AppUsersUserIdRouteImport } from './routes/_app/users/$userId'
 import { Route as AppTopicsKeyRouteImport } from './routes/_app/topics/$key'
 import { Route as AppTasksTaskIdRouteImport } from './routes/_app/tasks/$taskId'
+import { Route as AppStudioLibraryRouteImport } from './routes/_app/studio.library'
 import { Route as AppSessionsSessionIdRouteImport } from './routes/_app/sessions/$sessionId'
 import { Route as AppEdgesEdgeIdRouteImport } from './routes/_app/edges/$edgeId'
 import { Route as AppChannelsIdRouteImport } from './routes/_app/channels/$id'
 import { Route as AppCasesCaseIdRouteImport } from './routes/_app/cases/$caseId'
+import { Route as AppStudioSettingsIndexRouteImport } from './routes/_app/studio.settings.index'
+import { Route as AppStudioSettingsSectionRouteImport } from './routes/_app/studio.settings.$section'
+import { Route as AppStudioSessionsSessionIdRouteImport } from './routes/_app/studio.sessions.$sessionId'
 import { Route as AppChannelsIdMenuRouteImport } from './routes/_app/channels/$id.menu'
+import { Route as AppStudioSessionsSessionIdTraceRouteImport } from './routes/_app/studio.sessions.$sessionId.trace'
 
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
@@ -166,6 +172,11 @@ const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppTasksRouteRoute,
 } as any)
+const AppStudioIndexRoute = AppStudioIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppStudioRoute,
+} as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
@@ -206,6 +217,11 @@ const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
   path: '/$taskId',
   getParentRoute: () => AppTasksRouteRoute,
 } as any)
+const AppStudioLibraryRoute = AppStudioLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => AppStudioRoute,
+} as any)
 const AppSessionsSessionIdRoute = AppSessionsSessionIdRouteImport.update({
   id: '/$sessionId',
   path: '/$sessionId',
@@ -226,11 +242,34 @@ const AppCasesCaseIdRoute = AppCasesCaseIdRouteImport.update({
   path: '/$caseId',
   getParentRoute: () => AppCasesRouteRoute,
 } as any)
+const AppStudioSettingsIndexRoute = AppStudioSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AppStudioRoute,
+} as any)
+const AppStudioSettingsSectionRoute =
+  AppStudioSettingsSectionRouteImport.update({
+    id: '/settings/$section',
+    path: '/settings/$section',
+    getParentRoute: () => AppStudioRoute,
+  } as any)
+const AppStudioSessionsSessionIdRoute =
+  AppStudioSessionsSessionIdRouteImport.update({
+    id: '/sessions/$sessionId',
+    path: '/sessions/$sessionId',
+    getParentRoute: () => AppStudioRoute,
+  } as any)
 const AppChannelsIdMenuRoute = AppChannelsIdMenuRouteImport.update({
   id: '/menu',
   path: '/menu',
   getParentRoute: () => AppChannelsIdRoute,
 } as any)
+const AppStudioSessionsSessionIdTraceRoute =
+  AppStudioSessionsSessionIdTraceRouteImport.update({
+    id: '/trace',
+    path: '/trace',
+    getParentRoute: () => AppStudioSessionsSessionIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
@@ -251,12 +290,13 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/quick-config': typeof AppQuickConfigRoute
-  '/studio': typeof AppStudioRoute
+  '/studio': typeof AppStudioRouteWithChildren
   '/visual-config': typeof AppVisualConfigRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/channels/$id': typeof AppChannelsIdRouteWithChildren
   '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
+  '/studio/library': typeof AppStudioLibraryRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/topics/$key': typeof AppTopicsKeyRoute
   '/users/$userId': typeof AppUsersUserIdRoute
@@ -265,10 +305,15 @@ export interface FileRoutesByFullPath {
   '/edges/': typeof AppEdgesIndexRoute
   '/sessions/': typeof AppSessionsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/studio/': typeof AppStudioIndexRoute
   '/tasks/': typeof AppTasksIndexRoute
   '/topics/': typeof AppTopicsIndexRoute
   '/users/': typeof AppUsersIndexRoute
   '/channels/$id/menu': typeof AppChannelsIdMenuRoute
+  '/studio/sessions/$sessionId': typeof AppStudioSessionsSessionIdRouteWithChildren
+  '/studio/settings/$section': typeof AppStudioSettingsSectionRoute
+  '/studio/settings/': typeof AppStudioSettingsIndexRoute
+  '/studio/sessions/$sessionId/trace': typeof AppStudioSessionsSessionIdTraceRoute
 }
 export interface FileRoutesByTo {
   '/$': typeof SplatRoute
@@ -281,13 +326,13 @@ export interface FileRoutesByTo {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/quick-config': typeof AppQuickConfigRoute
-  '/studio': typeof AppStudioRoute
   '/visual-config': typeof AppVisualConfigRoute
   '/': typeof AppIndexRoute
   '/cases/$caseId': typeof AppCasesCaseIdRoute
   '/channels/$id': typeof AppChannelsIdRouteWithChildren
   '/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/sessions/$sessionId': typeof AppSessionsSessionIdRoute
+  '/studio/library': typeof AppStudioLibraryRoute
   '/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/topics/$key': typeof AppTopicsKeyRoute
   '/users/$userId': typeof AppUsersUserIdRoute
@@ -296,10 +341,15 @@ export interface FileRoutesByTo {
   '/edges': typeof AppEdgesIndexRoute
   '/sessions': typeof AppSessionsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/studio': typeof AppStudioIndexRoute
   '/tasks': typeof AppTasksIndexRoute
   '/topics': typeof AppTopicsIndexRoute
   '/users': typeof AppUsersIndexRoute
   '/channels/$id/menu': typeof AppChannelsIdMenuRoute
+  '/studio/sessions/$sessionId': typeof AppStudioSessionsSessionIdRouteWithChildren
+  '/studio/settings/$section': typeof AppStudioSettingsSectionRoute
+  '/studio/settings': typeof AppStudioSettingsIndexRoute
+  '/studio/sessions/$sessionId/trace': typeof AppStudioSessionsSessionIdTraceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -321,13 +371,14 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_app/quick-config': typeof AppQuickConfigRoute
-  '/_app/studio': typeof AppStudioRoute
+  '/_app/studio': typeof AppStudioRouteWithChildren
   '/_app/visual-config': typeof AppVisualConfigRoute
   '/_app/': typeof AppIndexRoute
   '/_app/cases/$caseId': typeof AppCasesCaseIdRoute
   '/_app/channels/$id': typeof AppChannelsIdRouteWithChildren
   '/_app/edges/$edgeId': typeof AppEdgesEdgeIdRoute
   '/_app/sessions/$sessionId': typeof AppSessionsSessionIdRoute
+  '/_app/studio/library': typeof AppStudioLibraryRoute
   '/_app/tasks/$taskId': typeof AppTasksTaskIdRoute
   '/_app/topics/$key': typeof AppTopicsKeyRoute
   '/_app/users/$userId': typeof AppUsersUserIdRoute
@@ -336,10 +387,15 @@ export interface FileRoutesById {
   '/_app/edges/': typeof AppEdgesIndexRoute
   '/_app/sessions/': typeof AppSessionsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/studio/': typeof AppStudioIndexRoute
   '/_app/tasks/': typeof AppTasksIndexRoute
   '/_app/topics/': typeof AppTopicsIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
   '/_app/channels/$id/menu': typeof AppChannelsIdMenuRoute
+  '/_app/studio/sessions/$sessionId': typeof AppStudioSessionsSessionIdRouteWithChildren
+  '/_app/studio/settings/$section': typeof AppStudioSettingsSectionRoute
+  '/_app/studio/settings/': typeof AppStudioSettingsIndexRoute
+  '/_app/studio/sessions/$sessionId/trace': typeof AppStudioSessionsSessionIdTraceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -368,6 +424,7 @@ export interface FileRouteTypes {
     | '/channels/$id'
     | '/edges/$edgeId'
     | '/sessions/$sessionId'
+    | '/studio/library'
     | '/tasks/$taskId'
     | '/topics/$key'
     | '/users/$userId'
@@ -376,10 +433,15 @@ export interface FileRouteTypes {
     | '/edges/'
     | '/sessions/'
     | '/settings/'
+    | '/studio/'
     | '/tasks/'
     | '/topics/'
     | '/users/'
     | '/channels/$id/menu'
+    | '/studio/sessions/$sessionId'
+    | '/studio/settings/$section'
+    | '/studio/settings/'
+    | '/studio/sessions/$sessionId/trace'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$'
@@ -392,13 +454,13 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/quick-config'
-    | '/studio'
     | '/visual-config'
     | '/'
     | '/cases/$caseId'
     | '/channels/$id'
     | '/edges/$edgeId'
     | '/sessions/$sessionId'
+    | '/studio/library'
     | '/tasks/$taskId'
     | '/topics/$key'
     | '/users/$userId'
@@ -407,10 +469,15 @@ export interface FileRouteTypes {
     | '/edges'
     | '/sessions'
     | '/settings'
+    | '/studio'
     | '/tasks'
     | '/topics'
     | '/users'
     | '/channels/$id/menu'
+    | '/studio/sessions/$sessionId'
+    | '/studio/settings/$section'
+    | '/studio/settings'
+    | '/studio/sessions/$sessionId/trace'
   id:
     | '__root__'
     | '/$'
@@ -438,6 +505,7 @@ export interface FileRouteTypes {
     | '/_app/channels/$id'
     | '/_app/edges/$edgeId'
     | '/_app/sessions/$sessionId'
+    | '/_app/studio/library'
     | '/_app/tasks/$taskId'
     | '/_app/topics/$key'
     | '/_app/users/$userId'
@@ -446,10 +514,15 @@ export interface FileRouteTypes {
     | '/_app/edges/'
     | '/_app/sessions/'
     | '/_app/settings/'
+    | '/_app/studio/'
     | '/_app/tasks/'
     | '/_app/topics/'
     | '/_app/users/'
     | '/_app/channels/$id/menu'
+    | '/_app/studio/sessions/$sessionId'
+    | '/_app/studio/settings/$section'
+    | '/_app/studio/settings/'
+    | '/_app/studio/sessions/$sessionId/trace'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -635,6 +708,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksIndexRouteImport
       parentRoute: typeof AppTasksRouteRoute
     }
+    '/_app/studio/': {
+      id: '/_app/studio/'
+      path: '/'
+      fullPath: '/studio/'
+      preLoaderRoute: typeof AppStudioIndexRouteImport
+      parentRoute: typeof AppStudioRoute
+    }
     '/_app/settings/': {
       id: '/_app/settings/'
       path: '/settings'
@@ -691,6 +771,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksTaskIdRouteImport
       parentRoute: typeof AppTasksRouteRoute
     }
+    '/_app/studio/library': {
+      id: '/_app/studio/library'
+      path: '/library'
+      fullPath: '/studio/library'
+      preLoaderRoute: typeof AppStudioLibraryRouteImport
+      parentRoute: typeof AppStudioRoute
+    }
     '/_app/sessions/$sessionId': {
       id: '/_app/sessions/$sessionId'
       path: '/$sessionId'
@@ -719,12 +806,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCasesCaseIdRouteImport
       parentRoute: typeof AppCasesRouteRoute
     }
+    '/_app/studio/settings/': {
+      id: '/_app/studio/settings/'
+      path: '/settings'
+      fullPath: '/studio/settings/'
+      preLoaderRoute: typeof AppStudioSettingsIndexRouteImport
+      parentRoute: typeof AppStudioRoute
+    }
+    '/_app/studio/settings/$section': {
+      id: '/_app/studio/settings/$section'
+      path: '/settings/$section'
+      fullPath: '/studio/settings/$section'
+      preLoaderRoute: typeof AppStudioSettingsSectionRouteImport
+      parentRoute: typeof AppStudioRoute
+    }
+    '/_app/studio/sessions/$sessionId': {
+      id: '/_app/studio/sessions/$sessionId'
+      path: '/sessions/$sessionId'
+      fullPath: '/studio/sessions/$sessionId'
+      preLoaderRoute: typeof AppStudioSessionsSessionIdRouteImport
+      parentRoute: typeof AppStudioRoute
+    }
     '/_app/channels/$id/menu': {
       id: '/_app/channels/$id/menu'
       path: '/menu'
       fullPath: '/channels/$id/menu'
       preLoaderRoute: typeof AppChannelsIdMenuRouteImport
       parentRoute: typeof AppChannelsIdRoute
+    }
+    '/_app/studio/sessions/$sessionId/trace': {
+      id: '/_app/studio/sessions/$sessionId/trace'
+      path: '/trace'
+      fullPath: '/studio/sessions/$sessionId/trace'
+      preLoaderRoute: typeof AppStudioSessionsSessionIdTraceRouteImport
+      parentRoute: typeof AppStudioSessionsSessionIdRoute
     }
   }
 }
@@ -837,6 +952,40 @@ const AppUsersRouteRouteWithChildren = AppUsersRouteRoute._addFileChildren(
   AppUsersRouteRouteChildren,
 )
 
+interface AppStudioSessionsSessionIdRouteChildren {
+  AppStudioSessionsSessionIdTraceRoute: typeof AppStudioSessionsSessionIdTraceRoute
+}
+
+const AppStudioSessionsSessionIdRouteChildren: AppStudioSessionsSessionIdRouteChildren =
+  {
+    AppStudioSessionsSessionIdTraceRoute: AppStudioSessionsSessionIdTraceRoute,
+  }
+
+const AppStudioSessionsSessionIdRouteWithChildren =
+  AppStudioSessionsSessionIdRoute._addFileChildren(
+    AppStudioSessionsSessionIdRouteChildren,
+  )
+
+interface AppStudioRouteChildren {
+  AppStudioLibraryRoute: typeof AppStudioLibraryRoute
+  AppStudioIndexRoute: typeof AppStudioIndexRoute
+  AppStudioSessionsSessionIdRoute: typeof AppStudioSessionsSessionIdRouteWithChildren
+  AppStudioSettingsSectionRoute: typeof AppStudioSettingsSectionRoute
+  AppStudioSettingsIndexRoute: typeof AppStudioSettingsIndexRoute
+}
+
+const AppStudioRouteChildren: AppStudioRouteChildren = {
+  AppStudioLibraryRoute: AppStudioLibraryRoute,
+  AppStudioIndexRoute: AppStudioIndexRoute,
+  AppStudioSessionsSessionIdRoute: AppStudioSessionsSessionIdRouteWithChildren,
+  AppStudioSettingsSectionRoute: AppStudioSettingsSectionRoute,
+  AppStudioSettingsIndexRoute: AppStudioSettingsIndexRoute,
+}
+
+const AppStudioRouteWithChildren = AppStudioRoute._addFileChildren(
+  AppStudioRouteChildren,
+)
+
 interface AppRouteChildren {
   AppCasesRouteRoute: typeof AppCasesRouteRouteWithChildren
   AppChannelsRouteRoute: typeof AppChannelsRouteRouteWithChildren
@@ -846,7 +995,7 @@ interface AppRouteChildren {
   AppTopicsRouteRoute: typeof AppTopicsRouteRouteWithChildren
   AppUsersRouteRoute: typeof AppUsersRouteRouteWithChildren
   AppQuickConfigRoute: typeof AppQuickConfigRoute
-  AppStudioRoute: typeof AppStudioRoute
+  AppStudioRoute: typeof AppStudioRouteWithChildren
   AppVisualConfigRoute: typeof AppVisualConfigRoute
   AppIndexRoute: typeof AppIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
@@ -861,7 +1010,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTopicsRouteRoute: AppTopicsRouteRouteWithChildren,
   AppUsersRouteRoute: AppUsersRouteRouteWithChildren,
   AppQuickConfigRoute: AppQuickConfigRoute,
-  AppStudioRoute: AppStudioRoute,
+  AppStudioRoute: AppStudioRouteWithChildren,
   AppVisualConfigRoute: AppVisualConfigRoute,
   AppIndexRoute: AppIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,

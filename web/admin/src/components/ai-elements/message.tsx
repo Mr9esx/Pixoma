@@ -324,7 +324,7 @@ export const MessageResponse = memo(
   ({ className, isAnimating, animated, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn(
-        'size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
+        'size-full space-y-2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-3 [&_h4]:mt-3 [&_h5]:mt-3 [&_h6]:mt-3',
         className
       )}
       animated={animated ?? (isAnimating ? true : undefined)}

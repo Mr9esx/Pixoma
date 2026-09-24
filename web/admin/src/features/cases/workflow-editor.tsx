@@ -784,7 +784,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             {processingSection}
           </div>
           <div className='w-full shrink-0 lg:w-80 xl:w-[25rem]'>
-            <div className='rounded-xl border border-border bg-card p-5'>
+            <div className='rounded-lg border border-border bg-card p-5'>
               {basicsSection}
             </div>
           </div>

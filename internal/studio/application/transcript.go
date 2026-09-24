@@ -18,6 +18,7 @@ type TranscriptMessage struct {
 	RunID      string               `json:"runId,omitempty"`
 	Role       string               `json:"role"`
 	Content    string               `json:"content"`
+	Parts      []MessagePart        `json:"parts,omitempty"`
 	ToolCalls  []TranscriptToolCall `json:"toolCalls,omitempty"`
 	ToolCallID string               `json:"toolCallId,omitempty"`
 	IsError    bool                 `json:"isError,omitempty"`
@@ -225,7 +226,7 @@ func transcriptMessagesFromStored(message *domain.Message) []TranscriptMessage {
 	if message == nil {
 		return nil
 	}
-	var parts []messagePart
+	var parts []MessagePart
 	if err := json.Unmarshal(message.ContentJSON, &parts); err != nil {
 		return nil
 	}
@@ -236,12 +237,20 @@ func transcriptMessagesFromStored(message *domain.Message) []TranscriptMessage {
 			out = append(out, TranscriptMessage{ID: message.ID + ":reasoning:" + strconv.Itoa(index), RunID: message.RunID, Role: "reasoning", Content: part.Text})
 			continue
 		}
-		if part.Type == "text" {
-			text.WriteString(part.Text)
+		if part.Type == "text" || part.Type == "skill_ref" || part.Type == "asset_ref" {
+			projected, err := messagePartsText([]MessagePart{part})
+			if err != nil {
+				return nil
+			}
+			text.WriteString(projected)
 		}
 	}
 	if text.Len() > 0 {
-		out = append(out, TranscriptMessage{ID: message.ID, RunID: message.RunID, Role: string(message.Role), Content: text.String()})
+		item := TranscriptMessage{ID: message.ID, RunID: message.RunID, Role: string(message.Role), Content: text.String()}
+		if message.Role == domain.MessageRoleUser {
+			item.Parts = parts
+		}
+		out = append(out, item)
 	}
 	return out
 }

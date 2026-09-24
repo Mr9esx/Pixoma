@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Bot,
@@ -26,6 +26,7 @@ import {
   type StudioAgentWorkflow,
   type StudioModel,
   type StudioModelConfigInput,
+  type StudioSkill,
   updateStudioAgentWorkflow,
   updateStudioConnector,
   updateStudioModel,
@@ -62,7 +63,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { StatusDot } from '@/components/status-dot'
 
-type SettingSection = 'models' | 'skills' | 'mcp' | 'workflows'
+export type SettingSection = 'models' | 'skills' | 'mcp' | 'workflows'
 
 const settingSections: Array<{
   id: SettingSection
@@ -96,11 +97,17 @@ const settingSections: Array<{
   },
 ]
 
-export function StudioSettings() {
-  const [section, setSection] = useState<SettingSection>('models')
+export function StudioSettings({
+  section,
+  onSectionChange,
+}: {
+  section: SettingSection
+  onSectionChange: (section: SettingSection) => void
+}) {
   const [modelDialogOpen, setModelDialogOpen] = useState(false)
   const [editingModel, setEditingModel] = useState<StudioModel>()
   const [skillDialogOpen, setSkillDialogOpen] = useState(false)
+  const [editingSkill, setEditingSkill] = useState<StudioSkill>()
   const [connectorDialogOpen, setConnectorDialogOpen] = useState(false)
   const models = useQuery({
     queryKey: ['studio', 'models'],
@@ -132,10 +139,7 @@ export function StudioSettings() {
   const activeSection = settingSections.find((item) => item.id === section)!
 
   return (
-    <main
-      id='main-content'
-      className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'
-    >
+    <main id='main-content' className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>
       <section className='flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card'>
         <header className='flex min-h-16 items-center gap-3 border-b px-5 pl-16 lg:pl-5'>
           <div className='min-w-0'>
@@ -158,7 +162,7 @@ export function StudioSettings() {
                   key={item.id}
                   variant={active ? 'secondary' : 'ghost'}
                   size='sm'
-                  onClick={() => setSection(item.id)}
+                  onClick={() => onSectionChange(item.id)}
                   className='min-h-10 shrink-0'
                 >
                   <Icon data-icon='inline-start' />
@@ -183,7 +187,7 @@ export function StudioSettings() {
                     key={item.id}
                     variant={active ? 'secondary' : 'ghost'}
                     size='default'
-                    onClick={() => setSection(item.id)}
+                    onClick={() => onSectionChange(item.id)}
                     className='h-auto w-full justify-start px-3 py-2.5 text-left'
                   >
                     <Icon
@@ -224,7 +228,13 @@ export function StudioSettings() {
                 </Button>
               ) : null}
               {section === 'skills' ? (
-                <Button size='sm' onClick={() => setSkillDialogOpen(true)}>
+                <Button
+                  size='sm'
+                  onClick={() => {
+                    setEditingSkill(undefined)
+                    setSkillDialogOpen(true)
+                  }}
+                >
                   <Plus />
                   添加 Skill
                 </Button>
@@ -347,6 +357,10 @@ export function StudioSettings() {
                     skills={skills.data ?? []}
                     loading={skills.isLoading}
                     error={skills.isError}
+                    onEdit={(skill) => {
+                      setEditingSkill(skill)
+                      setSkillDialogOpen(true)
+                    }}
                   />
                 </div>
               ) : null}
@@ -371,15 +385,26 @@ export function StudioSettings() {
             </ScrollArea>
           </div>
         </div>
-        <ModelDialog
-          model={editingModel}
-          open={modelDialogOpen}
-          onOpenChange={(open) => {
-            setModelDialogOpen(open)
-            if (!open) setEditingModel(undefined)
-          }}
-        />
-        <SkillDialog open={skillDialogOpen} onOpenChange={setSkillDialogOpen} />
+        {modelDialogOpen ? (
+          <ModelDialog
+            model={editingModel}
+            open={modelDialogOpen}
+            onOpenChange={(open) => {
+              setModelDialogOpen(open)
+              if (!open) setEditingModel(undefined)
+            }}
+          />
+        ) : null}
+        {skillDialogOpen ? (
+          <SkillDialog
+            skill={editingSkill}
+            open={skillDialogOpen}
+            onOpenChange={(open) => {
+              setSkillDialogOpen(open)
+              if (!open) setEditingSkill(undefined)
+            }}
+          />
+        ) : null}
         <ConnectorDialog
           open={connectorDialogOpen}
           onOpenChange={setConnectorDialogOpen}
@@ -734,10 +759,12 @@ function SkillSettings({
   skills,
   loading,
   error,
+  onEdit,
 }: {
   skills: Awaited<ReturnType<typeof listStudioSkills>>
   loading: boolean
   error: boolean
+  onEdit: (skill: StudioSkill) => void
 }) {
   const queryClient = useQueryClient()
   const update = useMutation({
@@ -784,6 +811,9 @@ function SkillSettings({
                   {skill.prompt}
                 </p>
               </div>
+              <Button size='sm' variant='outline' onClick={() => onEdit(skill)}>
+                编辑
+              </Button>
               <Switch
                 aria-label={`启用 ${skill.name}`}
                 checked={skill.enabled}
@@ -801,32 +831,40 @@ function SkillSettings({
 }
 
 function SkillDialog({
+  skill,
   open,
   onOpenChange,
 }: {
+  skill?: StudioSkill
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    prompt: '',
-    enabled: true,
-  })
+  const [form, setForm] = useState(() =>
+    skill
+      ? {
+          name: skill.name,
+          description: skill.description,
+          prompt: skill.prompt,
+          enabled: skill.enabled,
+        }
+      : { name: '', description: '', prompt: '', enabled: true }
+  )
   const [error, setError] = useState('')
-  const create = useMutation({
-    mutationFn: () =>
-      createStudioSkill({
+  const save = useMutation({
+    mutationFn: () => {
+      const input = {
         ...form,
         name: form.name.trim(),
         description: form.description.trim(),
         prompt: form.prompt.trim(),
-      }),
+      }
+      return skill
+        ? updateStudioSkill({ ...skill, ...input })
+        : createStudioSkill(input)
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['studio', 'skills'] })
-      setForm({ name: '', description: '', prompt: '', enabled: true })
-      setError('')
       onOpenChange(false)
     },
     onError: (cause) =>
@@ -838,7 +876,7 @@ function SkillDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-xl'>
         <DialogHeader>
-          <DialogTitle>添加 Skill</DialogTitle>
+          <DialogTitle>{skill ? '编辑 Skill' : '添加 Skill'}</DialogTitle>
           <DialogDescription>
             启用后，创作输入框可以按需选择它。
           </DialogDescription>
@@ -848,7 +886,7 @@ function SkillDialog({
           onSubmit={(event) => {
             event.preventDefault()
             setError('')
-            create.mutate()
+            save.mutate()
           }}
         >
           <div className='grid gap-2'>
@@ -867,6 +905,7 @@ function SkillDialog({
             <Label htmlFor='studio-skill-description'>说明</Label>
             <Input
               id='studio-skill-description'
+              required
               value={form.description}
               onChange={(event) =>
                 setForm({ ...form, description: event.target.value })
@@ -905,8 +944,8 @@ function SkillDialog({
             >
               取消
             </Button>
-            <Button type='submit' disabled={create.isPending}>
-              {create.isPending ? '正在保存…' : '保存 Skill'}
+            <Button type='submit' disabled={save.isPending}>
+              {save.isPending ? '正在保存…' : '保存 Skill'}
             </Button>
           </DialogFooter>
         </form>
@@ -930,6 +969,10 @@ const initialModel = {
   thinkingEnabled: false,
   thinkingEffort: 'medium',
   thinkingBudget: '2048',
+  tools: true,
+  vision: false,
+  imageOutput: false,
+  streaming: true,
 }
 
 function modelConfigInput(form: typeof initialModel): StudioModelConfigInput {
@@ -955,10 +998,10 @@ function modelConfigInput(form: typeof initialModel): StudioModelConfigInput {
         }
       : { enabled: false },
     capabilities: {
-      tools: true,
-      vision: false,
-      image_output: false,
-      streaming: true,
+      tools: form.tools,
+      vision: form.vision,
+      image_output: form.imageOutput,
+      streaming: form.streaming,
     },
   }
 }
@@ -979,6 +1022,10 @@ function modelToForm(model: StudioModel) {
     thinkingEnabled: model.thinking.enabled,
     thinkingEffort: model.thinking.effort ?? 'medium',
     thinkingBudget: String(model.thinking.budget_tokens ?? 2048),
+    tools: model.capabilities.tools,
+    vision: model.capabilities.vision,
+    imageOutput: model.capabilities.image_output,
+    streaming: model.capabilities.streaming,
   }
 }
 
@@ -993,11 +1040,9 @@ function ModelDialog({
 }) {
   const queryClient = useQueryClient()
   const formRef = useRef<HTMLFormElement>(null)
-  const [form, setForm] = useState(initialModel)
-  useEffect(() => {
-    if (!open) return
-    setForm(model ? modelToForm(model) : initialModel)
-  }, [model, open])
+  const [form, setForm] = useState(() =>
+    model ? modelToForm(model) : initialModel
+  )
   const updateForm = (patch: Partial<typeof initialModel>) => {
     setForm((current) => ({ ...current, ...patch }))
   }
@@ -1016,7 +1061,6 @@ function ModelDialog({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['studio', 'models'] })
-      setForm(initialModel)
       onOpenChange(false)
       toast.success(model ? '模型已更新' : '模型已添加')
     },
@@ -1054,13 +1098,11 @@ function ModelDialog({
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl'>
+      <DialogContent className='max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-[776px]'>
         <DialogHeader>
           <DialogTitle>{model ? '编辑模型' : '添加模型'}</DialogTitle>
-          <DialogDescription>
-            {model
-              ? '修改配置时 API Key 可留空；留空会保留当前密钥。'
-              : '密钥仅加密保存于服务端，创建后不会再次展示。'}
+          <DialogDescription className='sr-only'>
+            配置模型连接信息
           </DialogDescription>
         </DialogHeader>
         <form ref={formRef} className='grid gap-4' onSubmit={submit}>
@@ -1074,40 +1116,44 @@ function ModelDialog({
               placeholder='例如：我的 Claude'
             />
           </div>
-          <div className='grid gap-2'>
-            <Label>接口协议</Label>
-            <Select
-              value={form.protocol}
-              onValueChange={(protocol: StudioModel['protocol']) =>
-                updateForm({ protocol })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='openai_chat_compatible'>
-                  OpenAI Chat Compatible
-                </SelectItem>
-                <SelectItem value='openai_responses'>
-                  OpenAI Responses
-                </SelectItem>
-                <SelectItem value='anthropic_messages_compatible'>
-                  Anthropic Messages Compatible
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className='grid gap-2'>
-            <Label htmlFor='studio-model-url'>接口地址</Label>
-            <Input
-              id='studio-model-url'
-              required
-              type='url'
-              value={form.baseUrl}
-              onChange={(event) => updateForm({ baseUrl: event.target.value })}
-              placeholder={endpointPlaceholder}
-            />
+          <div className='grid gap-4 md:grid-cols-[17rem_minmax(0,1fr)]'>
+            <div className='grid min-w-0 gap-2'>
+              <Label>接口协议</Label>
+              <Select
+                value={form.protocol}
+                onValueChange={(protocol: StudioModel['protocol']) =>
+                  updateForm({ protocol })
+                }
+              >
+                <SelectTrigger className='w-full'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='openai_chat_compatible'>
+                    OpenAI Chat Compatible
+                  </SelectItem>
+                  <SelectItem value='openai_responses'>
+                    OpenAI Responses
+                  </SelectItem>
+                  <SelectItem value='anthropic_messages_compatible'>
+                    Anthropic Messages Compatible
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className='grid min-w-0 gap-2'>
+              <Label htmlFor='studio-model-url'>接口地址</Label>
+              <Input
+                id='studio-model-url'
+                required
+                type='url'
+                value={form.baseUrl}
+                onChange={(event) =>
+                  updateForm({ baseUrl: event.target.value })
+                }
+                placeholder={endpointPlaceholder}
+              />
+            </div>
           </div>
           <div className='grid gap-2'>
             <Label htmlFor='studio-model-id'>模型 ID</Label>
@@ -1123,11 +1169,16 @@ function ModelDialog({
             <Label htmlFor='studio-model-key'>API Key</Label>
             <Input
               id='studio-model-key'
-              required={!model}
+              required={!model?.has_api_key}
               type='password'
               autoComplete='new-password'
               value={form.apiKey}
               onChange={(event) => updateForm({ apiKey: event.target.value })}
+              placeholder={
+                model?.has_api_key
+                  ? '已保存 API Key；留空保持不变'
+                  : '请输入 API Key'
+              }
             />
           </div>
           <div className='grid gap-3 sm:grid-cols-3'>
@@ -1177,6 +1228,12 @@ function ModelDialog({
             </div>
           </div>
           <div className='grid gap-3 rounded-lg border bg-muted/30 p-3'>
+            <ToggleRow
+              label='支持图片输入'
+              description='开启后，模型可以接收图片输入。目前支持 JPEG、PNG、GIF、WebP 格式。'
+              checked={form.vision}
+              onCheckedChange={(vision) => updateForm({ vision })}
+            />
             <ToggleRow
               label='允许 Agent 使用'
               description='关闭后不会出现在创作输入框中。'
@@ -1268,7 +1325,7 @@ function ToggleRow({
   onCheckedChange,
 }: {
   label: string
-  description: string
+  description?: string
   checked: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
@@ -1276,7 +1333,9 @@ function ToggleRow({
     <div className='flex items-center justify-between gap-3'>
       <div>
         <p className='text-sm font-medium'>{label}</p>
-        <p className='text-xs text-muted-foreground'>{description}</p>
+        {description ? (
+          <p className='text-xs text-muted-foreground'>{description}</p>
+        ) : null}
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>

@@ -104,22 +104,38 @@ func Manage(ctx context.Context, input []*schema.Message, options Options) (Resu
 	if recentRounds <= 0 {
 		recentRounds = defaultRecentRounds
 	}
-	if options.Summarize != nil && messageTokens >= threshold {
-		early, recent, split := splitByRounds(result.Messages, recentRounds)
-		if len(early) > 0 {
-			summary, err := options.Summarize(ctx, early)
-			if err == nil && strings.TrimSpace(summary) != "" {
-				result.Summary = strings.TrimSpace(summary)
-				result.Messages = sanitizeToolMessages(recent)
-				result.Compressed = true
-				result.AutoCompactApplied = true
-				result.ActiveLayer = "auto_compact"
-				result.RetainedFrom = split
-				if EstimateTokens(result.Messages) <= budget {
-					return result, nil
-				}
-			}
+	if options.Summarize != nil {
+		if messageTokens <= budget && messageTokens < threshold {
+			return result, nil
 		}
+		for _, rounds := range windowCandidates(recentRounds) {
+			early, recent, split := splitByRounds(result.Messages, rounds)
+			if len(early) == 0 {
+				continue
+			}
+			summary, err := options.Summarize(ctx, early)
+			if err != nil {
+				return Result{}, fmt.Errorf("studio: summarize model context: %w", err)
+			}
+			if strings.TrimSpace(summary) == "" {
+				return Result{}, fmt.Errorf("studio: model context summary is empty")
+			}
+			retained := sanitizeToolMessages(recent)
+			if EstimateTokens(retained)+estimateStringTokens(summary)+8 > budget {
+				continue
+			}
+			result.Summary = strings.TrimSpace(summary)
+			result.Messages = retained
+			result.Compressed = true
+			result.AutoCompactApplied = true
+			result.ActiveLayer = "auto_compact"
+			result.RetainedFrom = split
+			return result, nil
+		}
+		if messageTokens <= budget {
+			return result, nil
+		}
+		return Result{}, fmt.Errorf("studio: conversation exceeds the model context after summarization")
 	}
 
 	for _, rounds := range windowCandidates(recentRounds) {

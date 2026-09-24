@@ -39,6 +39,7 @@ type SendMessageInput struct {
 	SessionID        string
 	RequestID        string
 	Text             string
+	Parts            []MessagePart
 	ModelConfigID    string
 	PermissionMode   domain.PermissionMode
 	SkillIDs         []string
@@ -66,9 +67,51 @@ func (s *Service) CreateSession(ctx context.Context, accountID string) (*domain.
 	return session, nil
 }
 
-type messagePart struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+type MessagePart struct {
+	Type           string `json:"type"`
+	Text           string `json:"text,omitempty"`
+	SkillID        string `json:"skill_id,omitempty"`
+	AssetID        string `json:"asset_id,omitempty"`
+	AssetVersionID string `json:"asset_version_id,omitempty"`
+	Name           string `json:"name,omitempty"`
+}
+
+func normalizeMessageInput(input SendMessageInput) (SendMessageInput, error) {
+	if len(input.Parts) == 0 {
+		return input, nil
+	}
+	text, err := messagePartsText(input.Parts)
+	if err != nil {
+		return input, err
+	}
+	if strings.TrimSpace(input.Text) != strings.TrimSpace(text) {
+		return input, fmt.Errorf("%w: message text and references differ", domain.ErrInvalid)
+	}
+	input.Text = strings.TrimSpace(text)
+	input.SkillIDs = nil
+	input.SelectedAssetIDs = nil
+	input.SelectedAssets = nil
+	seenSkills := make(map[string]bool)
+	seenAssets := make(map[string]string)
+	for _, part := range input.Parts {
+		switch part.Type {
+		case "skill_ref":
+			if !seenSkills[part.SkillID] {
+				input.SkillIDs = append(input.SkillIDs, part.SkillID)
+				seenSkills[part.SkillID] = true
+			}
+		case "asset_ref":
+			if version, exists := seenAssets[part.AssetID]; exists {
+				if version != part.AssetVersionID {
+					return input, fmt.Errorf("%w: one asset has multiple selected versions", domain.ErrInvalid)
+				}
+				continue
+			}
+			seenAssets[part.AssetID] = part.AssetVersionID
+			input.SelectedAssets = append(input.SelectedAssets, domain.AssetReference{AssetID: part.AssetID, AssetVersionID: part.AssetVersionID})
+		}
+	}
+	return input, nil
 }
 
 func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*SendMessageResult, error) {
@@ -78,6 +121,11 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	input.AccountID = strings.TrimSpace(input.AccountID)
 	input.Text = strings.TrimSpace(input.Text)
 	input.RequestID = strings.TrimSpace(input.RequestID)
+	var err error
+	input, err = normalizeMessageInput(input)
+	if err != nil {
+		return nil, err
+	}
 	if input.AccountID == "" || input.Text == "" {
 		return nil, fmt.Errorf("%w: account and message text are required", domain.ErrInvalid)
 	}
@@ -99,7 +147,11 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	if err != nil {
 		return nil, err
 	}
-	content, err := json.Marshal([]messagePart{{Type: "text", Text: input.Text}})
+	parts := input.Parts
+	if len(parts) == 0 {
+		parts = []MessagePart{{Type: "text", Text: input.Text}}
+	}
+	content, err := json.Marshal(parts)
 	if err != nil {
 		return nil, err
 	}
@@ -113,11 +165,16 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	}
 	run.ModelConfigID = session.ModelConfigID
 	run.RequestID = input.RequestID
-	skillIDs, err := s.resolveSkillIDs(ctx, input.AccountID, input.SkillIDs)
+	skillSnapshot, err := s.snapshotSkills(ctx, input.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	skillIDs, err := resolveSkillIDs(input.SkillIDs, skillSnapshot)
 	if err != nil {
 		return nil, err
 	}
 	run.SkillIDs = skillIDs
+	run.SkillSnapshot = skillSnapshot
 	assetReferences, err := s.resolveAssetReferences(ctx, input.AccountID, session.ID, input.SelectedAssets, input.SelectedAssetIDs)
 	if err != nil {
 		return nil, err
@@ -238,6 +295,9 @@ func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domai
 	}
 	retried.ModelConfigID = previous.ModelConfigID
 	retried.SkillIDs = append([]string(nil), previous.SkillIDs...)
+	if previous.SkillSnapshot != nil {
+		retried.SkillSnapshot = append([]domain.RunSkill{}, previous.SkillSnapshot...)
+	}
 	retried.AssetIDs = append([]string(nil), previous.AssetIDs...)
 	retried.AssetReferences = append([]domain.AssetReference(nil), previous.AssetReferences...)
 	if err := s.Repo.CreateRun(ctx, retried); err != nil {
@@ -251,17 +311,26 @@ func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domai
 	return retried, nil
 }
 
-func (s *Service) resolveSkillIDs(ctx context.Context, accountID string, ids []string) ([]string, error) {
-	if len(ids) == 0 {
-		return nil, nil
-	}
+func (s *Service) snapshotSkills(ctx context.Context, accountID string) ([]domain.RunSkill, error) {
 	skills, err := s.Repo.ListSkills(ctx, accountID)
 	if err != nil {
 		return nil, err
 	}
-	available := make(map[string]bool, len(skills))
+	snapshot := make([]domain.RunSkill, 0, len(skills))
 	for _, skill := range skills {
-		available[skill.ID] = skill.Enabled
+		if skill.Enabled {
+			snapshot = append(snapshot, domain.RunSkill{
+				ID: skill.ID, Name: skill.Name, Description: skill.Description, Prompt: skill.Prompt,
+			})
+		}
+	}
+	return snapshot, nil
+}
+
+func resolveSkillIDs(ids []string, snapshot []domain.RunSkill) ([]string, error) {
+	available := make(map[string]bool, len(snapshot))
+	for _, skill := range snapshot {
+		available[skill.ID] = true
 	}
 	seen := make(map[string]struct{}, len(ids))
 	selected := make([]string, 0, len(ids))

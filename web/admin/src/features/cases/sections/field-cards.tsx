@@ -231,7 +231,7 @@ function BindNodePopover({
     return (
       <span className='flex items-center gap-1.5'>
         <span
-          className={`grid size-5 shrink-0 place-items-center rounded-md ${className}`}
+          className={`grid size-5 shrink-0 place-items-center rounded-sm ${className}`}
         >
           <Icon className='size-3' />
         </span>
@@ -267,7 +267,7 @@ function BindNodePopover({
                     const { Icon, className } = nodeVisualFor(node.class_type)
                     return (
                       <span
-                        className={`grid size-5 shrink-0 place-items-center rounded-md ${className}`}
+                        className={`grid size-5 shrink-0 place-items-center rounded-sm ${className}`}
                       >
                         <Icon className='size-3' />
                       </span>
@@ -344,7 +344,7 @@ function BindNodePopover({
                             className='text-sm'
                           >
                             <span className='font-mono'>{i}</span>
-                            <span className='ms-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground'>
+                            <span className='ms-auto shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground'>
                               {t(TYPE_LABEL_KEYS[outputKindFor(n.class_type)])}
                             </span>
                           </CommandItem>
@@ -377,7 +377,7 @@ function BindNodePopover({
                           <span className='min-w-0 flex-1 truncate font-mono'>
                             {p.name}
                           </span>
-                          <span className='ms-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground'>
+                          <span className='ms-auto shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground'>
                             {t(TYPE_LABEL_KEYS[p.kind] ?? 'cases.typeString')}
                           </span>
                         </CommandItem>
@@ -1104,7 +1104,7 @@ export function InputFieldsTable({
   const { t } = useTranslation()
   const { scrollRef, flashIndex } = useNewRowFlash(fields.length)
   return (
-    <div className='overflow-hidden rounded-md border bg-background'>
+    <div className='overflow-hidden rounded-lg border bg-background'>
       <Table
         data-testid='input-fields-table'
         className='table-fixed'
@@ -1187,7 +1187,7 @@ export function OutputFieldsTable({
   const { t } = useTranslation()
   const { scrollRef, flashIndex } = useNewRowFlash(fields.length)
   return (
-    <div className='overflow-hidden rounded-md border bg-background'>
+    <div className='overflow-hidden rounded-lg border bg-background'>
       <Table
         data-testid='output-fields-table'
         className='table-fixed'

@@ -228,6 +228,44 @@ func TestListLatestSessionRunsReturnsNewestOwnedRunPerSession(t *testing.T) {
 	}
 }
 
+func TestRunSkillSnapshotRoundTrip(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 24, 9, 0, 0, 0, time.UTC)
+	run, err := domain.NewRun("run-skill-snapshot", "session-skill-snapshot", "account-a", "message-skill-snapshot", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.SkillIDs = []string{"skill-a"}
+	run.SkillSnapshot = []domain.RunSkill{
+		{ID: "skill-a", Name: "分镜", Description: "编排镜头", Prompt: "输出镜头表"},
+		{ID: "skill-b", Name: "文案", Description: "撰写文案", Prompt: "输出文案"},
+	}
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repo.GetRun(ctx, "account-a", run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.SkillSnapshot) != 2 || stored.SkillSnapshot[0] != run.SkillSnapshot[0] || stored.SkillSnapshot[1] != run.SkillSnapshot[1] {
+		t.Fatalf("Skill snapshot = %#v", stored.SkillSnapshot)
+	}
+	if err := stored.Start(now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.UpdateRun(ctx, stored); err != nil {
+		t.Fatal(err)
+	}
+	resumed, err := repo.GetRun(ctx, "account-a", run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resumed.SkillSnapshot) != 2 || resumed.SkillSnapshot[0] != run.SkillSnapshot[0] || resumed.SkillSnapshot[1] != run.SkillSnapshot[1] {
+		t.Fatalf("Skill snapshot after Run update = %#v", resumed.SkillSnapshot)
+	}
+}
+
 func TestRunProgressIsAccountScopedAndUpsertable(t *testing.T) {
 	repo := openRepository(t)
 	ctx := context.Background()

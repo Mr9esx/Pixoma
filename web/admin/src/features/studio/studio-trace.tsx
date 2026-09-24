@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { recordPositions, systemPromptFromRequest } from './studio-trace-data'
 
 type RunGroup = {
   run: StudioRun
@@ -21,6 +22,7 @@ type RunGroup = {
 type FractionRange = { start: number; end: number }
 type Tab =
   | 'overview'
+  | 'system'
   | 'preview'
   | 'raw'
   | 'input'
@@ -30,6 +32,7 @@ type Tab =
   | 'timing'
 const tabs: { id: Tab; title: string }[] = [
   { id: 'overview', title: '概述' },
+  { id: 'system', title: '系统提示词' },
   { id: 'preview', title: '预览' },
   { id: 'raw', title: '原始内容' },
   { id: 'input', title: '输入' },
@@ -234,7 +237,7 @@ export function StudioTrace({ sessionId }: { sessionId: string }) {
         >
           {callsCollapsed ? '⊞' : '⊟'} 调用
         </Button>
-        <label className='ml-auto flex h-6 w-40 items-center gap-1 rounded border bg-muted/40 px-1.5 text-muted-foreground focus-within:border-ring'>
+        <label className='ml-auto flex h-6 w-40 items-center gap-1 rounded-sm border bg-muted/40 px-1.5 text-muted-foreground focus-within:border-ring'>
           <Search className='size-3' />
           <input
             type='search'
@@ -865,6 +868,7 @@ function RecordDetails({
     (tab) =>
       tab.id === 'overview' ||
       tab.id === 'raw' ||
+      (tab.id === 'system' && record.kind === 'model') ||
       (tab.id === 'preview' &&
         (record.kind === 'assistant' ||
           record.kind === 'reasoning' ||
@@ -1031,19 +1035,21 @@ function InspectorContent({
     )
   }
   const value =
-    tab === 'preview'
-      ? (detail.output ?? detail.input ?? detail.record.preview)
-      : tab === 'raw'
-        ? (detail.raw ?? detail.output)
-        : tab === 'input'
-          ? detail.input
-          : tab === 'output'
-            ? detail.output
-            : tab === 'schema'
-              ? detail.schema
-              : tab === 'usage'
-                ? detail.usage
-                : detail.timing
+    tab === 'system'
+      ? systemPromptFromRequest(detail.input)
+      : tab === 'preview'
+        ? (detail.output ?? detail.input ?? detail.record.preview)
+        : tab === 'raw'
+          ? (detail.raw ?? detail.output)
+          : tab === 'input'
+            ? detail.input
+            : tab === 'output'
+              ? detail.output
+              : tab === 'schema'
+                ? detail.schema
+                : tab === 'usage'
+                  ? detail.usage
+                  : detail.timing
   if (value === undefined || value === null || value === '')
     return <p className='py-4 text-xs text-muted-foreground'>未记录</p>
   if (tab === 'preview' && typeof value === 'string')
@@ -1059,46 +1065,6 @@ function InspectorContent({
   )
 }
 
-function recordPositions(
-  records: StudioTrajectoryRecord[],
-  actualDuration: boolean
-) {
-  let minimum = Number.POSITIVE_INFINITY
-  let maximum = Number.NEGATIVE_INFINITY
-  for (const record of records) {
-    const start = Date.parse(record.started_at)
-    const end = record.ended_at ? Date.parse(record.ended_at) : start
-    if (Number.isFinite(start)) minimum = Math.min(minimum, start)
-    if (Number.isFinite(end)) maximum = Math.max(maximum, end)
-  }
-  if (!Number.isFinite(minimum)) minimum = 0
-  if (!Number.isFinite(maximum)) maximum = minimum + 1
-  const duration = Math.max(1, maximum - minimum)
-  return records.map((record, index) => {
-    const start = actualDuration
-      ? (Date.parse(record.started_at) - minimum) / duration
-      : index / Math.max(1, records.length)
-    const end = !record.ended_at
-      ? start
-      : actualDuration
-        ? (Date.parse(record.ended_at) - minimum) / duration
-        : (index + 1) / Math.max(1, records.length)
-    const lane =
-      record.kind === 'user'
-        ? 0
-        : record.kind === 'model' ||
-            record.kind === 'assistant' ||
-            record.kind === 'reasoning'
-          ? 1
-          : 2
-    return {
-      record,
-      start: Number.isFinite(start) ? start : 0,
-      end: Number.isFinite(end) ? end : start,
-      lane,
-    }
-  })
-}
 function ordered(a: number, b: number): FractionRange {
   return { start: Math.min(a, b), end: Math.max(a, b) }
 }

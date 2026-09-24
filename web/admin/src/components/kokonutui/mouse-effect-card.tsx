@@ -335,7 +335,7 @@ export default function MouseEffectCard({
     <Card
       data-testid={dataTestId}
       className={cn(
-        'relative w-full overflow-hidden rounded-xl border bg-card p-0 text-card-foreground shadow-none',
+        'relative w-full overflow-hidden rounded-lg border bg-card p-0 text-card-foreground shadow-none',
         className
       )}
     >

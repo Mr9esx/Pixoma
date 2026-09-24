@@ -46,11 +46,12 @@ type aguiResumeEntry struct {
 }
 
 type aguiRunConfig struct {
-	ModelConfigID    string                `json:"modelConfigId"`
-	PermissionMode   domain.PermissionMode `json:"permissionMode"`
-	SelectedSkillIDs []string              `json:"selectedSkillIds"`
-	SelectedAssetIDs []string              `json:"selectedAssetIds"`
-	SelectedAssets   []aguiAssetReference  `json:"selectedAssets"`
+	ModelConfigID    string                  `json:"modelConfigId"`
+	PermissionMode   domain.PermissionMode   `json:"permissionMode"`
+	SelectedSkillIDs []string                `json:"selectedSkillIds"`
+	SelectedAssetIDs []string                `json:"selectedAssetIds"`
+	SelectedAssets   []aguiAssetReference    `json:"selectedAssets"`
+	MessageParts     []studioapp.MessagePart `json:"messageParts"`
 }
 
 type aguiAssetReference struct {
@@ -214,6 +215,7 @@ func (h *Handler) prepareAGUIRun(ctx context.Context, accountID string, input ag
 		}
 		result, err := h.Service.SendMessage(ctx, studioapp.SendMessageInput{
 			AccountID: accountID, SessionID: input.ThreadID, RequestID: requestID, Text: text,
+			Parts:         config.MessageParts,
 			ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode,
 			SkillIDs: config.SelectedSkillIDs, SelectedAssetIDs: config.SelectedAssetIDs,
 			SelectedAssets: toAssetReferences(config.SelectedAssets),

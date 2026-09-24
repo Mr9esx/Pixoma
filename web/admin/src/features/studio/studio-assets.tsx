@@ -50,7 +50,7 @@ export function StudioAssets({ assets, onSaveToLibrary, onCreateTextAsset, onUpd
   if (assets.length === 0) {
     return (
       <div className='flex h-full flex-col items-center justify-center px-8 text-center'>
-        <span className='mb-4 flex size-11 items-center justify-center rounded-xl bg-muted'>
+        <span className='mb-4 flex size-11 items-center justify-center rounded-lg bg-muted'>
           <FileText className='size-5 text-muted-foreground' />
         </span>
         <p className='text-sm font-medium'>当前 Session 还没有资产</p>
@@ -166,7 +166,7 @@ export function AssetCard({
   const version = asset.versions[asset.versions.length - 1]
   const contentURL = version ? `${baseURL()}${version.content_url}` : undefined
   return (
-    <article className='group overflow-hidden rounded-xl border bg-card'>
+    <article className='group overflow-hidden rounded-lg border bg-card'>
       <div className='flex aspect-[16/10] items-center justify-center overflow-hidden bg-muted/50'>
         {asset.kind === 'image' && contentURL ? (
           <img

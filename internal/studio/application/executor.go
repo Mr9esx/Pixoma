@@ -61,6 +61,7 @@ type AgentRequest struct {
 	ContextSummary     string
 	SaveContextSummary func(context.Context, string, string) error
 	Skills             []domain.Skill
+	AvailableSkills    []domain.RunSkill
 	Assets             []*domain.Asset
 	Approvals          []*domain.Approval
 }
@@ -206,7 +207,7 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 		Run: run, Session: session, UserText: text,
 		History: history.Messages, HistoryMessageIDs: history.BoundaryMessageIDs,
 		ContextSummary: session.ContextSummary, SaveContextSummary: saveSummary,
-		Skills: skills, Assets: assets, Approvals: approvals,
+		Skills: skills, AvailableSkills: run.SkillSnapshot, Assets: assets, Approvals: approvals,
 	}, sink)
 	if flushErr := sink.FlushOutput(ctx); flushErr != nil {
 		return flushErr
@@ -236,6 +237,21 @@ func retainAssetVersion(asset *domain.Asset, versionID string) error {
 func (e *AgentExecutor) selectedSkills(ctx context.Context, run *domain.Run) ([]domain.Skill, error) {
 	if len(run.SkillIDs) == 0 {
 		return nil, nil
+	}
+	if run.SkillSnapshot != nil {
+		byID := make(map[string]domain.RunSkill, len(run.SkillSnapshot))
+		for _, skill := range run.SkillSnapshot {
+			byID[skill.ID] = skill
+		}
+		selected := make([]domain.Skill, 0, len(run.SkillIDs))
+		for _, id := range run.SkillIDs {
+			skill, ok := byID[id]
+			if !ok {
+				return nil, fmt.Errorf("%w: selected Skill is absent from Run snapshot", domain.ErrNotFound)
+			}
+			selected = append(selected, domain.Skill{ID: skill.ID, AccountID: run.AccountID, Name: skill.Name, Description: skill.Description, Prompt: skill.Prompt, Enabled: true})
+		}
+		return selected, nil
 	}
 	available, err := e.repo.ListSkills(ctx, run.AccountID)
 	if err != nil {
@@ -434,7 +450,7 @@ func (w *executionWriter) EndAssistantMessage(ctx context.Context, messageID, te
 	if err := w.FlushOutput(ctx); err != nil {
 		return nil, err
 	}
-	content, err := json.Marshal([]messagePart{{Type: "text", Text: text}})
+	content, err := json.Marshal([]MessagePart{{Type: "text", Text: text}})
 	if err != nil {
 		return nil, err
 	}
@@ -691,14 +707,32 @@ func (w *executionWriter) RequestApproval(ctx context.Context, toolCallID, actio
 }
 
 func messageText(raw json.RawMessage) (string, error) {
-	var parts []messagePart
+	var parts []MessagePart
 	if err := json.Unmarshal(raw, &parts); err != nil {
 		return "", fmt.Errorf("studio: decode message content: %w", err)
 	}
+	return messagePartsText(parts)
+}
+
+func messagePartsText(parts []MessagePart) (string, error) {
 	var text strings.Builder
 	for _, part := range parts {
-		if part.Type == "text" {
+		switch part.Type {
+		case "text":
 			text.WriteString(part.Text)
+		case "skill_ref":
+			if part.SkillID == "" || part.Name == "" {
+				return "", fmt.Errorf("studio: invalid Skill reference")
+			}
+			text.WriteString("「" + part.Name + "」Skill")
+		case "asset_ref":
+			if part.AssetID == "" || part.AssetVersionID == "" || part.Name == "" {
+				return "", fmt.Errorf("studio: invalid asset reference")
+			}
+			text.WriteString("「" + part.Name + "」资产")
+		case "reasoning", "image", "file":
+		default:
+			return "", fmt.Errorf("studio: unsupported message part %q", part.Type)
 		}
 	}
 	return text.String(), nil

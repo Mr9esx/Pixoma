@@ -150,7 +150,7 @@ function CasesLayout() {
         <div
           data-layout='fixed'
           data-testid='cases-create-page'
-          className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border'
+          className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border'
         >
           <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
             <CaseForm

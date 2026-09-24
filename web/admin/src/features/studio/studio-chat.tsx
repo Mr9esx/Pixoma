@@ -18,6 +18,7 @@ import {
 import {
   Bot,
   ChevronDown,
+  Copy,
   Paperclip,
   ShieldCheck,
   Sparkles,
@@ -28,6 +29,7 @@ import {
   cancelStudioRun,
   listStudioLibraryAssets,
   type StudioAsset,
+  type StudioComposerPart,
   type StudioMessage,
   type StudioModel,
   type StudioPermissionMode,
@@ -42,7 +44,6 @@ import { cn } from '@/lib/utils'
 import { AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -64,6 +65,8 @@ import {
 } from '@/components/ai-elements/conversation'
 import {
   Message,
+  MessageAction,
+  MessageActions,
   MessageContent,
   MessageResponse,
 } from '@/components/ai-elements/message'
@@ -73,7 +76,6 @@ import {
   PromptInputButton,
   PromptInputFooter,
   PromptInputSubmit,
-  PromptInputTextarea,
   PromptInputTools,
 } from '@/components/ai-elements/prompt-input'
 import {
@@ -89,6 +91,9 @@ import {
   ToolInput,
   ToolOutput,
 } from '@/components/ai-elements/tool'
+import { StudioComposer, type StudioComposerHandle, type StudioReference } from './studio-composer'
+import type { StudioComposerValue } from './studio-composer-content'
+import { StudioReferenceBadge } from './studio-reference-badge'
 
 type Props = {
   sessionId: string
@@ -312,6 +317,14 @@ function StudioChatSurface({
   const isRunning = useAuiState((state) => state.thread.isRunning)
   const isEmpty = useAuiState((state) => state.thread.isEmpty)
   const [answered, setAnswered] = useState(false)
+  const composerRef = useRef<StudioComposerHandle>(null)
+  const [composerValue, setComposerValue] = useState<StudioComposerValue>({
+    text: '', parts: [], selectedSkillIds: [], selectedAssets: [],
+  })
+  const [liveMessage, setLiveMessage] = useState<{
+    previousUserMessageId?: string
+    parts: StudioComposerPart[]
+  }>()
   const hasPendingAction = useAgUiInterrupts().length > 0
   // interrupt 要等恢复运行的流走完才有，这段时间用会话详情里的运行状态和待批准项撑着，
   // 底部这一行从第一帧就是操作区，聊天输入不会先画出来。用户回答之后以 interrupt 为准。
@@ -325,19 +338,66 @@ function StudioChatSurface({
   const runActive =
     isRunning || serverRunning || props.latestRun?.status === 'waiting_approval'
   const isStreaming = isRunning || serverRunning
-  const send = (text: string) => {
-    if (!modelReady || runActive || !text.trim()) return
+  const send = (prompt?: string) => {
+    const value = prompt === undefined
+      ? composerRef.current?.serialize()
+      : { text: prompt, parts: [{ type: 'text' as const, text: prompt }], selectedSkillIds: [], selectedAssets: [] }
+    if (!modelReady || runActive || !value?.text.trim()) return
+    agent.prepareNextRun({
+      modelConfigId: selectedModel?.id ?? '',
+      permissionMode: props.permissionMode,
+      selectedSkillIds: value.selectedSkillIds,
+      selectedAssets: value.selectedAssets,
+      messageParts: value.parts,
+    })
     const composer = aui.thread.composer()
-    composer.setText(text)
+    composer.setText(value.text)
     composer.send()
+    setLiveMessage({ previousUserMessageId: latestUserMessageId, parts: value.parts })
+    composerRef.current?.clear()
   }
+
+  const transcriptParts = new Map(
+    props.transcript?.messages.filter((message) => message.role === 'user' && message.parts).map((message) => [message.id, message.parts!]) ?? []
+  )
+  const latestUserMessageId = [...messages].reverse().find((message) => message.role === 'user')?.id
+  const assistantCopyText = new Map<string, string>()
+  let responseText = ''
+  let lastAssistantMessageId: string | undefined
+  for (const message of messages) {
+    if (message.role === 'user') {
+      if (lastAssistantMessageId && responseText) {
+        assistantCopyText.set(lastAssistantMessageId, responseText)
+      }
+      responseText = ''
+      lastAssistantMessageId = undefined
+    } else if (message.role === 'assistant') {
+      const text = message.parts.flatMap((part) => part.type === 'text' ? [part.text] : []).join('')
+      if (text) responseText += `${responseText ? '\n\n' : ''}${text}`
+      lastAssistantMessageId = message.id
+    }
+  }
+  if (lastAssistantMessageId && responseText) {
+    assistantCopyText.set(lastAssistantMessageId, responseText)
+  }
+  const slashItems: StudioReference[] = [
+    ...props.skills.filter((skill) => skill.enabled).map((skill) => ({
+      kind: 'skill' as const, id: skill.id, label: skill.name,
+    })),
+    ...props.assets.flatMap((asset) => {
+      const version = asset.versions[asset.versions.length - 1]
+      return version ? [{
+        kind: 'asset' as const, id: asset.id, label: asset.name, versionId: version.id,
+      }] : []
+    }),
+  ]
 
   return (
     <div className='relative flex min-h-0 flex-1 flex-col'>
       <Conversation className='min-h-0 flex-1'>
         <ConversationContent
           className={cn(
-            'mx-auto min-h-full w-full max-w-3xl px-5 pt-8',
+            'mx-auto min-h-full w-full max-w-3xl gap-5 px-5 pt-8',
             waitingForDecision ? 'pb-5' : 'pb-44'
           )}
         >
@@ -347,12 +407,18 @@ function StudioChatSurface({
               key={message.id}
               message={message}
               isRunning={isRunning}
+              assistantCopyText={assistantCopyText.get(message.id)}
+              referenceParts={transcriptParts.get(message.id) ?? (
+                message.id === latestUserMessageId && message.id !== liveMessage?.previousUserMessageId
+                  ? liveMessage?.parts
+                  : undefined
+              )}
             />
           ))}
           {runError ? (
             <div
               role='alert'
-              className='max-w-[88%] rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm leading-6 text-destructive'
+              className='max-w-[88%] rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm leading-6 text-destructive'
             >
               {runError}
             </div>
@@ -382,13 +448,20 @@ function StudioChatSurface({
           <div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>
             <div className='pointer-events-auto'>
               <PromptInput
-                inputGroupClassName='bg-background'
-                onSubmit={({ text }) => send(text)}
+                inputGroupClassName='h-auto overflow-visible bg-background'
+                onSubmit={() => send()}
               >
                 <PromptInputBody>
-                  <PromptInputTextarea
-                    autoFocus
+                  <StudioComposer
+                    ref={composerRef}
                     disabled={!modelReady}
+                    slashItems={slashItems}
+                    onSubmit={() => send()}
+                    onValueChange={(value) => {
+                      setComposerValue(value)
+                      props.onSkillChange(value.selectedSkillIds)
+                      props.onAssetChange(value.selectedAssets)
+                    }}
                     placeholder={
                       modelReady
                         ? '描述你想创作的内容，或让 Agent 调用工作流…'
@@ -400,13 +473,13 @@ function StudioChatSurface({
                   <PromptInputTools>
                     <SkillPicker
                       skills={props.skills}
-                      value={props.selectedSkillIds}
-                      onChange={props.onSkillChange}
+                      value={composerValue.selectedSkillIds}
+                      onInsert={(skill) => composerRef.current?.insertReference({ kind: 'skill', id: skill.id, label: skill.name })}
                     />
                     <AssetPicker
                       assets={props.assets}
-                      value={props.selectedAssets}
-                      onChange={props.onAssetChange}
+                      value={composerValue.selectedAssets}
+                      onInsert={(asset, versionId) => composerRef.current?.insertReference({ kind: 'asset', id: asset.id, label: asset.name, versionId })}
                       onImportLibraryAsset={props.onImportLibraryAsset}
                     />
                     <PermissionPicker
@@ -583,12 +656,12 @@ function StudioRunCompletionWatcher({
 function AssetPicker({
   assets,
   value,
-  onChange,
+  onInsert,
   onImportLibraryAsset,
 }: {
   assets: StudioAsset[]
   value: SelectedAsset[]
-  onChange: (assets: SelectedAsset[]) => void
+  onInsert: (asset: StudioAsset, versionId: string) => void
   onImportLibraryAsset: (asset: SelectedAsset) => Promise<StudioAsset>
 }) {
   const libraryAssets = useQuery({
@@ -601,24 +674,17 @@ function AssetPicker({
   for (const asset of libraryAssets.data ?? []) {
     assetsByID.set(asset.id, asset)
   }
-  const selected = new Map(
-    value.map((item) => [item.assetId, item.assetVersionId])
-  )
-  const toggle = async (asset: StudioAsset, fromLibrary = false) => {
+  const insert = async (asset: StudioAsset, fromLibrary = false) => {
     const version = asset.versions[asset.versions.length - 1]
     if (!version) return
-    if (selected.get(asset.id) === version.id) {
-      onChange(value.filter((item) => item.assetId !== asset.id))
-      return
-    }
-    let next = { assetId: asset.id, assetVersionId: version.id }
     if (fromLibrary) {
-      const imported = await onImportLibraryAsset(next)
+      const imported = await onImportLibraryAsset({ assetId: asset.id, assetVersionId: version.id })
       const importedVersion = imported.versions[imported.versions.length - 1]
       if (!importedVersion) return
-      next = { assetId: imported.id, assetVersionId: importedVersion.id }
+      onInsert(imported, importedVersion.id)
+      return
     }
-    onChange([...value.filter((item) => item.assetId !== asset.id), next])
+    onInsert(asset, version.id)
   }
   const unavailableSelections = value.filter((selection) => {
     const asset = assetsByID.get(selection.assetId)
@@ -654,16 +720,14 @@ function AssetPicker({
         <AssetPickerSection
           label='当前 Session'
           assets={currentAssets}
-          selected={selected}
-          onToggle={toggle}
+          onSelect={insert}
           emptyText='当前 Session 还没有资产'
         />
         <DropdownMenuSeparator />
         <AssetPickerSection
           label='资产库'
           assets={reusableAssets}
-          selected={selected}
-          onToggle={(asset) => void toggle(asset, true)}
+          onSelect={(asset) => void insert(asset, true)}
           emptyText={
             libraryAssets.isLoading
               ? '正在读取资产库…'
@@ -686,14 +750,12 @@ function AssetPicker({
 function AssetPickerSection({
   label,
   assets,
-  selected,
-  onToggle,
+  onSelect,
   emptyText,
 }: {
   label: string
   assets: StudioAsset[]
-  selected: Map<string, string>
-  onToggle: (asset: StudioAsset) => void | Promise<void>
+  onSelect: (asset: StudioAsset) => void | Promise<void>
   emptyText: string
 }) {
   return (
@@ -707,11 +769,9 @@ function AssetPickerSection({
         assets.map((asset) => {
           const version = asset.versions[asset.versions.length - 1]
           return (
-            <DropdownMenuCheckboxItem
+            <DropdownMenuItem
               key={asset.id}
-              checked={selected.get(asset.id) === version?.id}
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={() => void onToggle(asset)}
+              onSelect={() => void onSelect(asset)}
             >
               <span className='min-w-0 flex-1'>
                 <span className='block truncate'>{asset.name}</span>
@@ -724,7 +784,7 @@ function AssetPickerSection({
                   {version ? ` · v${version.version}` : ''}
                 </span>
               </span>
-            </DropdownMenuCheckboxItem>
+            </DropdownMenuItem>
           )
         })
       )}
@@ -735,20 +795,13 @@ function AssetPickerSection({
 function SkillPicker({
   skills,
   value,
-  onChange,
+  onInsert,
 }: {
   skills: StudioSkill[]
   value: string[]
-  onChange: (ids: string[]) => void
+  onInsert: (skill: StudioSkill) => void
 }) {
-  const selected = new Set(value)
   const enabledSkills = skills.filter((skill) => skill.enabled)
-  const toggle = (id: string) =>
-    onChange(
-      selected.has(id)
-        ? value.filter((selectedID) => selectedID !== id)
-        : [...value, id]
-    )
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -772,11 +825,9 @@ function SkillPicker({
           <DropdownMenuItem disabled>没有已启用的 Skill</DropdownMenuItem>
         ) : null}
         {enabledSkills.map((skill) => (
-          <DropdownMenuCheckboxItem
+          <DropdownMenuItem
             key={skill.id}
-            checked={selected.has(skill.id)}
-            onSelect={(event) => event.preventDefault()}
-            onCheckedChange={() => toggle(skill.id)}
+            onSelect={() => onInsert(skill)}
           >
             <span className='min-w-0 flex-1'>
               <span className='block truncate'>{skill.name}</span>
@@ -784,7 +835,7 @@ function SkillPicker({
                 {skill.description}
               </span>
             </span>
-          </DropdownMenuCheckboxItem>
+          </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -829,15 +880,34 @@ type StudioToolCallPart = Extract<
 function StudioMessage({
   message,
   isRunning,
+  assistantCopyText,
+  referenceParts,
 }: {
   message: StudioThreadMessage
   isRunning: boolean
+  assistantCopyText?: string
+  referenceParts?: StudioComposerPart[]
 }) {
   if (message.role !== 'user' && message.role !== 'assistant') return null
+  const copyText = message.role === 'user'
+    ? message.parts.flatMap((part) => part.type === 'text' ? [part.text] : []).join('')
+    : assistantCopyText
   return (
-    <Message from={message.role}>
-      <MessageContent>
-        {message.parts.map((part, index) => {
+    <Message from={message.role} className={cn('gap-1', message.role === 'assistant' && 'max-w-none')}>
+      <MessageContent className={cn('gap-2', message.role === 'assistant' && 'w-full')}>
+        {message.role === 'user' && referenceParts ? (
+          <span className='whitespace-pre-wrap break-words'>
+            {referenceParts.map((part, index) => part.type === 'text' ? (
+              <span key={index}>{part.text}</span>
+            ) : (
+              <StudioReferenceBadge
+                key={index}
+                kind={part.type === 'skill_ref' ? 'skill' : 'asset'}
+                label={part.name}
+              />
+            ))}
+          </span>
+        ) : message.parts.map((part, index) => {
           if (part.type === 'text') {
             return (
               <MessageResponse
@@ -851,13 +921,13 @@ function StudioMessage({
           if (part.type === 'reasoning' && part.text.trim()) {
             const streaming = part.status.type === 'running'
             return (
-              <Reasoning isStreaming={streaming} key={`${message.id}-${index}`}>
+              <Reasoning className='mb-0' isStreaming={streaming} key={`${message.id}-${index}`}>
                 <ReasoningTrigger
                   getThinkingMessage={(active) =>
                     active ? '正在思考' : '思考过程'
                   }
                 />
-                <ReasoningContent>{part.text}</ReasoningContent>
+                <ReasoningContent className='mt-2'>{part.text}</ReasoningContent>
               </Reasoning>
             )
           }
@@ -867,6 +937,17 @@ function StudioMessage({
           return null
         })}
       </MessageContent>
+      {copyText ? (
+        <MessageActions className={message.role === 'user' ? 'justify-end' : 'justify-start'}>
+          <MessageAction
+            label={message.role === 'user' ? '复制发送消息' : '复制返回消息'}
+            tooltip='复制消息'
+            onClick={() => void navigator.clipboard.writeText(copyText)}
+          >
+            <Copy className='size-4' />
+          </MessageAction>
+        </MessageActions>
+      ) : null}
     </Message>
   )
 }
@@ -880,14 +961,14 @@ function StudioToolCall({ part }: { part: StudioToolCallPart }) {
         ? 'input-available'
         : 'input-streaming'
   return (
-    <Tool defaultOpen={state === 'output-error'}>
+    <Tool className='mb-0' defaultOpen={state === 'output-error'}>
       <ToolHeader
         state={state}
         title={part.toolName}
         toolName={part.toolName}
         type='dynamic-tool'
       />
-      <ToolContent>
+      <ToolContent className='space-y-2'>
         <ToolInput input={part.args} />
         <ToolOutput
           errorText={

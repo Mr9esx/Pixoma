@@ -155,7 +155,7 @@ export function StudioFlow({
   if (sourceNodes.length === 0) {
     return (
       <div className='flex h-full flex-col items-center justify-center px-8 text-center'>
-        <span className='mb-4 flex size-11 items-center justify-center rounded-xl bg-muted'>
+        <span className='mb-4 flex size-11 items-center justify-center rounded-lg bg-muted'>
           <Workflow className='size-5 text-muted-foreground' />
         </span>
         <p className='text-sm font-medium'>资产路线还没有节点</p>
@@ -335,7 +335,7 @@ function StudioNode({ data, selected }: NodeProps) {
         value.assetId ? value.onAssetOpen?.(value.assetId) : undefined
       }
       className={cn(
-        'w-52 rounded-xl border bg-card p-3 text-left transition-colors',
+        'w-52 rounded-lg border bg-card p-3 text-left transition-colors',
         selected ? 'border-ring ring-3 ring-ring/15' : 'hover:border-ring/60'
       )}
     >

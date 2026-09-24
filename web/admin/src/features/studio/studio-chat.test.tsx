@@ -2,6 +2,7 @@ import { type ComponentProps } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/index.css'
 import { describe, expect, it, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { StudioActionPanel, StudioChat } from './studio-chat'
 
@@ -83,11 +84,142 @@ describe('StudioChat', () => {
       .element(screen.getByRole('heading', { name: '创作大纲' }))
       .toBeVisible()
     await expect.element(screen.getByText('思考过程')).toBeVisible()
+    const content = screen.getByRole('heading', { name: '创作大纲' }).element().closest('.is-assistant')?.firstElementChild as HTMLElement
+    const conversationContent = content.closest('.max-w-3xl') as HTMLElement
+    expect(parseFloat(getComputedStyle(conversationContent).rowGap)).toBeLessThanOrEqual(20)
+    expect(parseFloat(getComputedStyle(content).rowGap)).toBeLessThanOrEqual(8)
+    expect(content.getBoundingClientRect().width).toBe(content.parentElement!.getBoundingClientRect().width)
     await expect
-      .element(
-        screen.getByPlaceholder('描述你想创作的内容，或让 Agent 调用工作流…')
-      )
+      .element(screen.getByRole('textbox', { name: '输入消息' }))
       .toBeVisible()
+  })
+
+  it('keeps a tool call at the full message width when closed and open', async () => {
+    const screen = await renderStudioChat({
+      transcript: {
+        events: [],
+        messages: [
+          { id: 'user-1', role: 'user', content: '生成大纲' },
+          {
+            id: 'assistant-1', role: 'assistant', content: '',
+            toolCalls: [{ id: 'call-1', type: 'function', function: { name: 'make_outline', arguments: '{}' } }],
+          },
+          { id: 'tool-1', role: 'tool', toolCallId: 'call-1', content: '完成' },
+          { id: 'assistant-2', role: 'assistant', content: '大纲已生成' },
+        ],
+      },
+    })
+    await expect.element(screen.getByText('make_outline')).toBeVisible()
+    const trigger = screen.getByText('make_outline').element().closest('button')!
+    const tool = trigger.parentElement as HTMLElement
+    const message = tool.closest('.is-assistant') as HTMLElement
+    expect(Math.abs(tool.getBoundingClientRect().width - message.getBoundingClientRect().width)).toBeLessThanOrEqual(1)
+    expect(getComputedStyle(tool).marginBottom).toBe('0px')
+
+    await trigger.click()
+    expect(Math.abs(tool.getBoundingClientRect().width - message.getBoundingClientRect().width)).toBeLessThanOrEqual(1)
+  })
+
+  it('keeps a short sent message at its text width', async () => {
+    const screen = await renderStudioChat({
+      transcript: {
+        events: [],
+        messages: [{ id: 'user-1', role: 'user', content: '你好' }],
+      },
+    })
+    await expect.element(screen.getByText('你好')).toBeVisible()
+    const message = screen.getByText('你好').element().closest('.is-user') as HTMLElement
+    const content = message.firstElementChild as HTMLElement
+    expect(content.getBoundingClientRect().width).toBeLessThan(message.getBoundingClientRect().width / 2)
+    expect(Math.abs(content.getBoundingClientRect().right - message.getBoundingClientRect().right)).toBeLessThanOrEqual(1)
+  })
+
+  it('keeps adjacent reply paragraphs close together', async () => {
+    const screen = await renderStudioChat({
+      transcript: {
+        events: [],
+        messages: [{ id: 'assistant-1', role: 'assistant', content: '第一段\n\n第二段' }],
+      },
+    })
+    await expect.element(screen.getByText('第二段')).toBeVisible()
+    const first = screen.getByText('第一段').element()
+    const second = screen.getByText('第二段').element()
+    expect(second.getBoundingClientRect().top - first.getBoundingClientRect().bottom).toBeLessThanOrEqual(8)
+  })
+
+  it('keeps a reply heading close to the preceding paragraph', async () => {
+    const screen = await renderStudioChat({
+      transcript: {
+        events: [],
+        messages: [{ id: 'assistant-1', role: 'assistant', content: '第一段\n\n## 标题\n\n第二段' }],
+      },
+    })
+    await expect.element(screen.getByRole('heading', { name: '标题' })).toBeVisible()
+    const paragraph = screen.getByText('第一段').element()
+    const heading = screen.getByRole('heading', { name: '标题' }).element()
+    expect(heading.getBoundingClientRect().top - paragraph.getBoundingClientRect().bottom).toBeLessThanOrEqual(12)
+  })
+
+  it('copies sent and returned message text', async () => {
+    const screen = await renderStudioChat({
+      transcript: {
+        events: [],
+        messages: [
+          { id: 'user-1', role: 'user', content: '请写一个大纲' },
+          { id: 'assistant-1', role: 'assistant', content: '这是大纲。' },
+        ],
+      },
+    })
+    await expect.element(screen.getByText('这是大纲。')).toBeVisible()
+    const pasteTarget = document.createElement('textarea')
+    document.body.append(pasteTarget)
+    await screen.getByRole('button', { name: '复制发送消息' }).click()
+    pasteTarget.focus()
+    await userEvent.paste()
+    expect(pasteTarget.value).toBe('请写一个大纲')
+    await screen.getByRole('button', { name: '复制返回消息' }).click()
+    pasteTarget.value = ''
+    pasteTarget.focus()
+    await userEvent.paste()
+    expect(pasteTarget.value).toBe('这是大纲。')
+    pasteTarget.remove()
+  })
+
+  it('copies one complete assistant response across tool calls', async () => {
+    const screen = await renderStudioChat({
+      transcript: {
+        events: [],
+        messages: [
+          { id: 'user-1', role: 'user', content: '创建资产' },
+          { id: 'assistant-1', role: 'assistant', content: '正在整理内容。' },
+          {
+            id: 'assistant-2', role: 'assistant', content: '',
+            toolCalls: [{ id: 'call-1', type: 'function', function: { name: 'create_text_asset', arguments: '{}' } }],
+          },
+          { id: 'tool-1', role: 'tool', toolCallId: 'call-1', content: '创建完成' },
+          { id: 'assistant-3', role: 'assistant', content: '资产已创建。' },
+          { id: 'user-2', role: 'user', content: '下一步' },
+          { id: 'assistant-4', role: 'assistant', content: '可以继续编辑。' },
+        ],
+      },
+    })
+    await expect.element(screen.getByText('可以继续编辑。')).toBeVisible()
+    const buttons = screen.getByRole('button', { name: '复制返回消息' }).all()
+    expect(buttons).toHaveLength(2)
+
+    const pasteTarget = document.createElement('textarea')
+    document.body.append(pasteTarget)
+    await buttons[0].click()
+    pasteTarget.focus()
+    await userEvent.paste()
+    expect(pasteTarget.value).toBe('正在整理内容。\n\n资产已创建。')
+
+    await buttons[1].click()
+    pasteTarget.value = ''
+    pasteTarget.focus()
+    await userEvent.paste()
+    expect(pasteTarget.value).toBe('可以继续编辑。')
+    pasteTarget.remove()
   })
 
   it('keeps the composer hidden while the run waits for a decision', async () => {
@@ -481,8 +613,6 @@ describe('StudioChat', () => {
     const onModelChange = vi.fn()
     const screen = await renderStudioChat({
       onModelChange,
-      selectedAssets: [{ assetId: 'asset-1', assetVersionId: 'version-1' }],
-      selectedSkillIds: ['skill-1'],
       skills: [
         {
           description: '把大纲写成镜头',
@@ -512,10 +642,10 @@ describe('StudioChat', () => {
     expect(footer.lastElementChild).toBe(rightGroup)
 
     const skillButton = screen
-      .getByRole('button', { name: '选择 Skills，已选 1 项' })
+      .getByRole('button', { name: '选择 Skills' })
       .element()
     const assetButton = screen
-      .getByRole('button', { name: '选择资产，已选 1 项' })
+      .getByRole('button', { name: '选择资产' })
       .element()
     const permissionButton = screen
       .getByRole('button', { name: 'Agent 操作权限：请求批准' })
@@ -532,10 +662,10 @@ describe('StudioChat', () => {
       expect(getComputedStyle(button).fontWeight).toBe('400')
     }
 
-    await screen.getByRole('button', { name: '选择 Skills，已选 1 项' }).hover()
+    await screen.getByRole('button', { name: '选择 Skills' }).hover()
     await expect
       .element(screen.getByRole('tooltip'))
-      .toHaveTextContent('Skills · 1')
+      .toHaveTextContent('Skills')
 
     await screen.getByRole('button', { name: 'Pixoma Chat' }).click()
     await expect.element(screen.getByRole('menu')).toBeVisible()

@@ -201,7 +201,7 @@ export function WorkflowGraphViewer({
   return (
     <div
       data-testid='workflow-graph-viewer'
-      className='overflow-hidden rounded-xl border border-border bg-card'
+      className='overflow-hidden rounded-lg border border-border bg-card'
     >
       <header className='flex items-center justify-between gap-3 border-b border-border bg-muted/30 px-3 py-2'>
         <h4 className='min-w-0 truncate text-sm font-medium text-foreground'>

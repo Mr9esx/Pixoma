@@ -46,7 +46,9 @@ export default defineConfig(({ command }) => ({
     include: [
       'src/**/*.test.ts',
       'src/features/studio/studio-chat.test.tsx',
+      'src/features/studio/studio-composer.test.tsx',
       'src/features/studio/studio-trace.test.tsx',
+      'src/features/studio/studio-trace-data.test.ts',
     ],
     silent: 'passed-only',
     unstubEnvs: true,

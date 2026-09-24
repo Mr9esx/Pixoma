@@ -8,7 +8,7 @@ import { resourceDetailBodyClassName } from '@/features/resource-modal'
 import { CopyId } from './copy-id'
 
 const chipClassName =
-  'inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs'
+  'inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border border-border px-2.5 text-xs'
 
 type RelatedChipProps = {
   label: string

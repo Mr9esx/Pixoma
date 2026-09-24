@@ -170,7 +170,7 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
         </div>
       </Card>
 
-      <Card className='min-w-0 gap-4 rounded-md border-border py-4'>
+      <Card className='min-w-0 gap-4 border-border py-4'>
         <CardHeader className='gap-3 px-4'>
           <CardTitle className='text-base font-semibold'>
             {t('topics.statsThroughput')}
@@ -196,7 +196,7 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
         <CardContent className='px-4'>
           <div className='h-[160px] w-full min-w-0'>
             {isChartLoading ? (
-              <Skeleton className='h-[160px] w-full rounded-md' />
+              <Skeleton className='h-[160px] w-full rounded-lg' />
             ) : (
               <ChartContainer
                 config={chartConfig}
@@ -240,7 +240,7 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
       </Card>
 
       <div className='grid gap-4 lg:grid-cols-2'>
-        <Card className='min-w-0 gap-3 rounded-md border-border py-4'>
+        <Card className='min-w-0 gap-3 border-border py-4'>
           <CardHeader className='px-4'>
             <CardTitle className='text-base font-semibold'>
               {t('topics.statsStatus')}
@@ -282,7 +282,7 @@ export function TopicStatsPanel({ topicKey }: { topicKey: string }) {
           </CardContent>
         </Card>
 
-        <Card className='min-w-0 gap-3 rounded-md border-border py-4'>
+        <Card className='min-w-0 gap-3 border-border py-4'>
           <CardHeader className='px-4'>
             <CardTitle className='text-base font-semibold'>
               {t('topics.statsErrors')}

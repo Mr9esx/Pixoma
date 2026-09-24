@@ -4,8 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"net/http"
 	"strings"
@@ -20,9 +24,16 @@ const maxProviderResponseBytes = 4 << 20
 type ChatMessage struct {
 	Role            string            `json:"role"`
 	Content         string            `json:"content"`
+	Images          []ChatImage       `json:"-"`
 	ToolCallID      string            `json:"tool_call_id,omitempty"`
 	ToolCalls       []ToolCall        `json:"tool_calls,omitempty"`
 	ResponsesOutput []json.RawMessage `json:"-"`
+	AnthropicOutput []json.RawMessage `json:"-"`
+}
+
+type ChatImage struct {
+	MIMEType string
+	Data     string
 }
 
 type ToolCall struct {
@@ -56,6 +67,7 @@ type ChatResult struct {
 	OutputTokens    int
 	ToolCalls       []ToolCall
 	ResponsesOutput []json.RawMessage
+	AnthropicOutput []json.RawMessage
 }
 
 type OpenAICompatibleClient struct {
@@ -74,17 +86,25 @@ func (t ConnectionTester) Test(ctx context.Context, config domain.ResolvedModelC
 	if client == nil {
 		client = NewOpenAICompatibleClient(nil)
 	}
-	result, err := client.Chat(ctx, ChatRequest{
-		Config: config,
-		Messages: []ChatMessage{{
-			Role:    "user",
-			Content: "Reply with OK.",
-		}},
-	})
+	message := ChatMessage{Role: "user", Content: "Reply with OK."}
+	if config.Capabilities.Vision {
+		var encoded bytes.Buffer
+		pixel := image.NewRGBA(image.Rect(0, 0, 1, 1))
+		pixel.Set(0, 0, color.White)
+		if err := png.Encode(&encoded, pixel); err != nil {
+			return err
+		}
+		message.Images = []ChatImage{{MIMEType: "image/png", Data: base64.StdEncoding.EncodeToString(encoded.Bytes())}}
+	}
+	request := ChatRequest{Config: config, Messages: []ChatMessage{message}}
+	if config.Capabilities.Tools {
+		request.Tools = []ToolDefinition{{Name: "connection_probe", Description: "Model connection probe", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}}}
+	}
+	result, err := client.Chat(ctx, request)
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(result.Text) == "" {
+	if strings.TrimSpace(result.Text) == "" && len(result.ToolCalls) == 0 {
 		return fmt.Errorf("model provider: connection test returned no text")
 	}
 	return nil
@@ -101,13 +121,13 @@ func (c *OpenAICompatibleClient) Chat(ctx context.Context, input ChatRequest) (*
 	if strings.TrimSpace(input.Config.BaseURL) == "" || strings.TrimSpace(input.Config.Model) == "" || strings.TrimSpace(input.Config.APIKey) == "" {
 		return nil, fmt.Errorf("model provider: incomplete model config")
 	}
+	if err := validateImageCapability(input); err != nil {
+		return nil, err
+	}
 	switch input.Config.Protocol {
 	case domain.ModelProtocolOpenAIResponses:
 		return c.openAIResponses(ctx, input)
 	case domain.ModelProtocolAnthropic:
-		if len(input.Tools) > 0 {
-			return nil, fmt.Errorf("model provider: tool calling is not implemented for Anthropic Messages")
-		}
 		return c.anthropicMessages(ctx, input)
 	case "", domain.ModelProtocolOpenAIChat:
 		return c.openAIChat(ctx, input)
@@ -123,7 +143,14 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 	if input.Config.Protocol != "" && input.Config.Protocol != domain.ModelProtocolOpenAIChat {
 		return nil, fmt.Errorf("model provider: streaming is not implemented for protocol %q", input.Config.Protocol)
 	}
-	body := map[string]any{"model": input.Config.Model, "messages": input.Messages, "stream": true, "max_tokens": configuredMaxOutputTokens(input.Config)}
+	if err := validateImageCapability(input); err != nil {
+		return nil, err
+	}
+	messages, err := openAIChatMessages(input.Messages)
+	if err != nil {
+		return nil, err
+	}
+	body := map[string]any{"model": input.Config.Model, "messages": messages, "stream": true, "max_tokens": configuredMaxOutputTokens(input.Config)}
 	if len(input.Tools) > 0 {
 		tools := make([]map[string]any, 0, len(input.Tools))
 		for _, definition := range input.Tools {
@@ -342,8 +369,56 @@ func (c *OpenAICompatibleClient) StreamChat(ctx context.Context, input ChatReque
 	return reader, nil
 }
 
+func validateImageCapability(input ChatRequest) error {
+	for _, message := range input.Messages {
+		if len(message.Images) > 0 && !input.Config.Capabilities.Vision {
+			return fmt.Errorf("model provider: selected model does not support image input")
+		}
+	}
+	return nil
+}
+
+func imageDataURL(image ChatImage) (string, error) {
+	switch image.MIMEType {
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
+	default:
+		return "", fmt.Errorf("model provider: unsupported image type %q", image.MIMEType)
+	}
+	if image.Data == "" {
+		return "", fmt.Errorf("model provider: image content is empty")
+	}
+	return "data:" + image.MIMEType + ";base64," + image.Data, nil
+}
+
+func openAIChatMessages(messages []ChatMessage) ([]any, error) {
+	output := make([]any, 0, len(messages))
+	for _, message := range messages {
+		if len(message.Images) == 0 {
+			output = append(output, message)
+			continue
+		}
+		if message.Role != "user" {
+			return nil, fmt.Errorf("model provider: images require a user message")
+		}
+		parts := []any{map[string]any{"type": "text", "text": message.Content}}
+		for _, image := range message.Images {
+			url, err := imageDataURL(image)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]string{"url": url}})
+		}
+		output = append(output, map[string]any{"role": "user", "content": parts})
+	}
+	return output, nil
+}
+
 func (c *OpenAICompatibleClient) openAIChat(ctx context.Context, input ChatRequest) (*ChatResult, error) {
-	body := map[string]any{"model": input.Config.Model, "messages": input.Messages, "stream": false, "max_tokens": configuredMaxOutputTokens(input.Config)}
+	messages, err := openAIChatMessages(input.Messages)
+	if err != nil {
+		return nil, err
+	}
+	body := map[string]any{"model": input.Config.Model, "messages": messages, "stream": false, "max_tokens": configuredMaxOutputTokens(input.Config)}
 	if len(input.Tools) > 0 {
 		tools := make([]map[string]any, 0, len(input.Tools))
 		for _, definition := range input.Tools {
@@ -517,14 +592,25 @@ func responsesInput(messages []ChatMessage) ([]any, error) {
 				input = append(input, map[string]string{"type": "function_call", "call_id": call.ID, "name": call.Function.Name, "arguments": call.Function.Arguments})
 			}
 		}
-		if strings.TrimSpace(message.Content) == "" {
+		if strings.TrimSpace(message.Content) == "" && len(message.Images) == 0 {
 			continue
 		}
 		role := message.Role
 		if role == "" {
 			role = "user"
 		}
-		input = append(input, map[string]any{"role": role, "content": []map[string]string{{"type": "input_text", "text": message.Content}}})
+		parts := []any{map[string]string{"type": "input_text", "text": message.Content}}
+		for _, image := range message.Images {
+			if role != "user" {
+				return nil, fmt.Errorf("model provider: images require a user message")
+			}
+			url, err := imageDataURL(image)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, map[string]string{"type": "input_image", "image_url": url})
+		}
+		input = append(input, map[string]any{"role": role, "content": parts})
 	}
 	return input, nil
 }
@@ -538,16 +624,78 @@ func cloneResponsesOutput(output []json.RawMessage) []json.RawMessage {
 }
 
 func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input ChatRequest) (*ChatResult, error) {
-	messages := make([]ChatMessage, 0, len(input.Messages))
+	messages := make([]map[string]any, 0, len(input.Messages))
 	system := make([]string, 0, 1)
+	var toolResults []any
+	flushToolResults := func() {
+		if len(toolResults) > 0 {
+			messages = append(messages, map[string]any{"role": "user", "content": toolResults})
+			toolResults = nil
+		}
+	}
 	for _, message := range input.Messages {
 		if message.Role == "system" {
 			system = append(system, message.Content)
 			continue
 		}
-		messages = append(messages, message)
+		if message.Role == "tool" {
+			if message.ToolCallID == "" {
+				return nil, fmt.Errorf("model provider: Anthropic tool result has no call ID")
+			}
+			toolResults = append(toolResults, map[string]any{"type": "tool_result", "tool_use_id": message.ToolCallID, "content": message.Content})
+			continue
+		}
+		flushToolResults()
+		if message.Role == "assistant" {
+			if len(message.AnthropicOutput) > 0 {
+				blocks := make([]any, 0, len(message.AnthropicOutput))
+				for _, block := range message.AnthropicOutput {
+					blocks = append(blocks, block)
+				}
+				messages = append(messages, map[string]any{"role": "assistant", "content": blocks})
+				continue
+			}
+			blocks := make([]any, 0, len(message.ToolCalls)+1)
+			if message.Content != "" {
+				blocks = append(blocks, map[string]any{"type": "text", "text": message.Content})
+			}
+			for _, call := range message.ToolCalls {
+				var arguments map[string]any
+				if err := json.Unmarshal([]byte(call.Function.Arguments), &arguments); err != nil {
+					return nil, fmt.Errorf("model provider: decode Anthropic tool arguments: %w", err)
+				}
+				blocks = append(blocks, map[string]any{"type": "tool_use", "id": call.ID, "name": call.Function.Name, "input": arguments})
+			}
+			if len(blocks) > 0 {
+				messages = append(messages, map[string]any{"role": "assistant", "content": blocks})
+			}
+			continue
+		}
+		if message.Role != "user" {
+			return nil, fmt.Errorf("model provider: unsupported Anthropic message role %q", message.Role)
+		}
+		if len(message.Images) == 0 {
+			messages = append(messages, map[string]any{"role": "user", "content": message.Content})
+			continue
+		}
+		blocks := []any{map[string]any{"type": "text", "text": message.Content}}
+		for _, image := range message.Images {
+			if _, err := imageDataURL(image); err != nil {
+				return nil, err
+			}
+			blocks = append(blocks, map[string]any{"type": "image", "source": map[string]string{"type": "base64", "media_type": image.MIMEType, "data": image.Data}})
+		}
+		messages = append(messages, map[string]any{"role": "user", "content": blocks})
 	}
+	flushToolResults()
 	body := map[string]any{"model": input.Config.Model, "messages": messages, "max_tokens": configuredMaxOutputTokens(input.Config)}
+	if len(input.Tools) > 0 {
+		tools := make([]map[string]any, 0, len(input.Tools))
+		for _, definition := range input.Tools {
+			tools = append(tools, map[string]any{"name": definition.Name, "description": definition.Description, "input_schema": definition.Parameters})
+		}
+		body["tools"] = tools
+	}
 	if len(system) > 0 {
 		body["system"] = strings.Join(system, "\n\n")
 	}
@@ -567,12 +715,8 @@ func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input Ch
 	}
 	raw := response.raw
 	var decoded struct {
-		Content []struct {
-			Type     string `json:"type"`
-			Text     string `json:"text"`
-			Thinking string `json:"thinking"`
-		} `json:"content"`
-		Usage *struct {
+		Content []json.RawMessage `json:"content"`
+		Usage   *struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
@@ -584,15 +728,33 @@ func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input Ch
 	}
 	var texts []string
 	var reasoning []string
-	for _, content := range decoded.Content {
+	var toolCalls []ToolCall
+	for _, block := range decoded.Content {
+		var content struct {
+			Type     string          `json:"type"`
+			Text     string          `json:"text"`
+			Thinking string          `json:"thinking"`
+			ID       string          `json:"id"`
+			Name     string          `json:"name"`
+			Input    json.RawMessage `json:"input"`
+		}
+		if err := json.Unmarshal(block, &content); err != nil {
+			return nil, fmt.Errorf("model provider: decode Anthropic content block: %w", err)
+		}
 		if content.Type == "thinking" && strings.TrimSpace(content.Thinking) != "" {
 			reasoning = append(reasoning, content.Thinking)
 		}
 		if content.Type == "text" && strings.TrimSpace(content.Text) != "" {
 			texts = append(texts, content.Text)
 		}
+		if content.Type == "tool_use" {
+			if content.ID == "" || content.Name == "" || len(content.Input) == 0 {
+				return nil, fmt.Errorf("model provider: Anthropic tool call is incomplete")
+			}
+			toolCalls = append(toolCalls, ToolCall{ID: content.ID, Type: "function", Function: FunctionCall{Name: content.Name, Arguments: string(content.Input)}})
+		}
 	}
-	if len(texts) == 0 {
+	if len(texts) == 0 && len(toolCalls) == 0 {
 		_ = response.trace.failWithBody(ctx, fmt.Errorf("model provider: Anthropic response has no text output"), raw)
 		return nil, fmt.Errorf("model provider: Anthropic response has no text output")
 	}
@@ -603,7 +765,7 @@ func (c *OpenAICompatibleClient) anthropicMessages(ctx context.Context, input Ch
 	if err := response.trace.finish(ctx, inputTokens, outputTokens, decoded.Usage != nil, raw); err != nil {
 		return nil, fmt.Errorf("model provider: persist request trace: %w", err)
 	}
-	return &ChatResult{Text: strings.Join(texts, ""), Reasoning: strings.Join(reasoning, ""), InputTokens: inputTokens, OutputTokens: outputTokens}, nil
+	return &ChatResult{Text: strings.Join(texts, ""), Reasoning: strings.Join(reasoning, ""), ToolCalls: toolCalls, AnthropicOutput: cloneResponsesOutput(decoded.Content), InputTokens: inputTokens, OutputTokens: outputTokens}, nil
 }
 
 func configuredMaxOutputTokens(config domain.ResolvedModelConfig) int {

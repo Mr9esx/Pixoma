@@ -25,18 +25,31 @@ start_pixoma() {
 
 start_pixoma
 
-export VITE_ADMIN_API_BASE=
-pnpm --dir web/admin dev &
-vite_pid=$!
-
+vite_pid=""
 stopping=0
 cleanup() {
   stopping=1
   trap - INT TERM EXIT
-  kill "$pixoma_pid" "$vite_pid" 2>/dev/null || true
-  wait "$pixoma_pid" "$vite_pid" 2>/dev/null || true
+  kill "$pixoma_pid" 2>/dev/null || true
+  if [[ -n "$vite_pid" ]]; then
+    kill "$vite_pid" 2>/dev/null || true
+    wait "$vite_pid" 2>/dev/null || true
+  fi
+  wait "$pixoma_pid" 2>/dev/null || true
 }
 trap cleanup INT TERM EXIT
+
+until curl -fsS --max-time 1 "http://127.0.0.1:${HTTP_PORT}/healthz" >/dev/null 2>&1; do
+  if ! kill -0 "$pixoma_pid" 2>/dev/null; then
+    echo "pixoma 启动失败" >&2
+    exit 1
+  fi
+  sleep 0.2
+done
+
+export VITE_ADMIN_API_BASE=
+pnpm --dir web/admin dev &
+vite_pid=$!
 
 while kill -0 "$vite_pid" 2>/dev/null; do
   if [[ "$stopping" -eq 1 ]]; then
