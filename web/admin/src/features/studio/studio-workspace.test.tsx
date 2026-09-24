@@ -1,4 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  Outlet,
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
 import '@/styles/index.css'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -105,6 +113,51 @@ const detail = (id: string, status?: 'running'): StudioSessionDetail => ({
   flow: { nodes: [], edges: [] },
 })
 
+async function renderWorkspace(client: QueryClient) {
+  const rootRoute = createRootRoute({ component: Outlet })
+  const studioRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/studio',
+    component: StudioWorkspace,
+  })
+  const libraryRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/studio/library',
+    component: StudioWorkspace,
+  })
+  const settingsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/studio/settings/$section',
+    component: StudioWorkspace,
+  })
+  const sessionRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/studio/sessions/$sessionId',
+    component: StudioWorkspace,
+  })
+  const traceRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/studio/sessions/$sessionId/trace',
+    component: StudioWorkspace,
+  })
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([
+      studioRoute,
+      libraryRoute,
+      settingsRoute,
+      sessionRoute,
+      traceRoute,
+    ]),
+    history: createMemoryHistory({ initialEntries: ['/studio'] }),
+    context: { queryClient: client },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
+}
+
 describe('StudioWorkspace', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -169,11 +222,7 @@ describe('StudioWorkspace', () => {
         .mockResolvedValueOnce(pending)
         .mockResolvedValue(settled)
 
-      const screen = await render(
-        <QueryClientProvider client={client}>
-          <StudioWorkspace />
-        </QueryClientProvider>
-      )
+      const screen = await renderWorkspace(client)
       await expect
         .element(screen.getByTestId('flow-state'))
         .toHaveTextContent('submitted:operation-a')
@@ -202,11 +251,7 @@ describe('StudioWorkspace', () => {
       .mockRejectedValueOnce(new Error('network unavailable'))
       .mockResolvedValueOnce(session.session)
 
-    const screen = await render(
-      <QueryClientProvider client={client}>
-        <StudioWorkspace />
-      </QueryClientProvider>
-    )
+    const screen = await renderWorkspace(client)
     await expect.element(screen.getByText('新建对话失败')).toBeVisible()
     await screen.getByRole('button', { name: '重试新建对话' }).click()
     await expect
@@ -231,11 +276,7 @@ describe('StudioWorkspace', () => {
       .mockRejectedValueOnce(new Error('response lost'))
       .mockResolvedValueOnce(detail('fresh-session').session)
 
-    const screen = await render(
-      <QueryClientProvider client={client}>
-        <StudioWorkspace />
-      </QueryClientProvider>
-    )
+    const screen = await renderWorkspace(client)
     await expect.element(screen.getByText('新建对话失败')).toBeVisible()
     const lostRequestID = vi.mocked(createStudioSession).mock.calls[0][0]
     client.setQueryData(
@@ -283,11 +324,7 @@ describe('StudioWorkspace', () => {
           .mockRejectedValueOnce(new Error('network unavailable'))
           .mockResolvedValueOnce(created.session)
 
-        const screen = await render(
-          <QueryClientProvider client={client}>
-            <StudioWorkspace />
-          </QueryClientProvider>
-        )
+        const screen = await renderWorkspace(client)
         await screen.getByRole('button', { name: openView }).click()
         await expect.element(screen.getByText(pageName)).toBeVisible()
         await screen
@@ -324,11 +361,7 @@ describe('StudioWorkspace', () => {
     })
     vi.mocked(getStudioSession).mockResolvedValue(session)
 
-    const screen = await render(
-      <QueryClientProvider client={client}>
-        <StudioWorkspace />
-      </QueryClientProvider>
-    )
+    const screen = await renderWorkspace(client)
     await expect.element(screen.getByText('对话列表读取失败')).toBeVisible()
     connected = true
     await screen.getByRole('button', { name: '重试读取对话' }).click()
@@ -348,11 +381,7 @@ describe('StudioWorkspace', () => {
       .mockRejectedValueOnce(new Error('network unavailable'))
       .mockResolvedValue(session)
 
-    const screen = await render(
-      <QueryClientProvider client={client}>
-        <StudioWorkspace />
-      </QueryClientProvider>
-    )
+    const screen = await renderWorkspace(client)
     await expect.element(screen.getByText('对话读取失败')).toBeVisible()
     await screen.getByRole('button', { name: '重试读取' }).click()
     await expect
@@ -374,11 +403,7 @@ describe('StudioWorkspace', () => {
     vi.mocked(api.listStudioSessions).mockResolvedValue([session.session])
     vi.mocked(getStudioSession).mockResolvedValue(session)
     try {
-      const screen = await render(
-        <QueryClientProvider client={client}>
-          <StudioWorkspace />
-        </QueryClientProvider>
-      )
+      const screen = await renderWorkspace(client)
       await expect.element(screen.getByTestId('chat-state')).toBeVisible()
       await screen.getByRole('button', { name: '打开创作工作台' }).click()
       const workbench = screen.getByRole('dialog', { name: '创作工作台' })
@@ -413,11 +438,7 @@ describe('StudioWorkspace', () => {
       freshA.session,
     ])
 
-    const screen = await render(
-      <QueryClientProvider client={client}>
-        <StudioWorkspace />
-      </QueryClientProvider>
-    )
+    const screen = await renderWorkspace(client)
     await expect
       .element(screen.getByTestId('chat-state'))
       .toHaveTextContent('session-b:idle')

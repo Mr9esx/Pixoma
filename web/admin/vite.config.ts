@@ -53,6 +53,8 @@ export default defineConfig(({ command }) => ({
       'src/features/studio/studio-workspace.test.tsx',
       'src/features/studio/studio-trace.test.tsx',
       'src/features/studio/studio-flow.test.tsx',
+      'src/features/studio/studio-composer.test.tsx',
+      'src/features/studio/studio-trace-data.test.ts',
     ],
     silent: 'passed-only',
     unstubEnvs: true,

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixoma Studio Agent 架构</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; padding: 32px; color: #f8fafc; background: #020617; font-family: 'JetBrains Mono', monospace; }
+    .container { width: min(100%, 1560px); margin: 0 auto; }
+    .header { margin-bottom: 24px; }
+    .header-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .pulse-dot { width: 11px; height: 11px; border-radius: 50%; background: #22d3ee; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+    h1 { margin: 0; font-size: 22px; letter-spacing: -.03em; }
+    .subtitle { margin: 0 0 0 23px; color: #94a3b8; font-size: 12px; }
+    .diagram-container { overflow-x: auto; border: 1px solid #1e293b; border-radius: 16px; padding: 18px; background: rgba(15, 23, 42, .55); }
+    svg { display: block; width: 100%; min-width: 1050px; height: auto; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 18px; }
+    .card { padding: 16px; border: 1px solid #1e293b; border-radius: 12px; background: rgba(15, 23, 42, .55); }
+    .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .cyan { background: #22d3ee; } .green { background: #34d399; } .violet { background: #a78bfa; } .amber { background: #fbbf24; } .rose { background: #fb7185; }
+    h2 { margin: 0; font-size: 12px; font-weight: 600; }
+    .card ul { margin: 0; padding: 0; list-style: none; color: #94a3b8; font-size: 10px; line-height: 1.8; }
+    .footer { display: flex; justify-content: space-between; margin-top: 16px; color: #64748b; font-size: 10px; }
+    .toolbar { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .toolbar-toggle { padding: 4px 8px; border: 0; border-radius: 6px; color: #64748b; background: transparent; font: inherit; font-size: 20px; cursor: pointer; }
+    .toolbar-toggle:hover { color: #cbd5e1; background: #1e293b; }
+    .toolbar-actions { display: none; gap: 7px; }
+    .toolbar.expanded .toolbar-actions { display: flex; }
+    .toolbar-actions button { padding: 7px 10px; border: 1px solid #334155; border-radius: 6px; color: #cbd5e1; background: #1e293b; font: inherit; font-size: 10px; cursor: pointer; white-space: nowrap; }
+    .toolbar-actions button:hover { border-color: #64748b; color: #fff; }
+    @media (max-width: 700px) { body { padding: 18px 12px; } h1 { font-size: 17px; } .subtitle { font-size: 10px; } .footer { gap: 12px; flex-direction: column; } }
+    @media print { .toolbar { display: none !important; } body { padding: 16px; background: #020617; } }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <header class="header">
+      <div class="header-row">
+        <span class="pulse-dot"></span>
+        <h1>PIXOMA STUDIO AGENT / RUNTIME ARCHITECTURE</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage()">📋 Copy</button>
+            <button onclick="downloadPNG()">🖼️ PNG</button>
+            <button onclick="downloadPDF()">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">从 Studio 消息到 Eino 单 Agent、工具执行、审批恢复与持久化事件的当前代码路径</p>
+    </header>
+
+    <main class="diagram-container">
+      <svg viewBox="0 0 1440 1370" role="img" aria-label="Pixoma Studio Agent 当前代码架构与运行流程">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0L0 0 0 40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern>
+          <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker>
+          <marker id="arrowCyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#22d3ee"/></marker>
+          <marker id="arrowRose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fb7185"/></marker>
+          <marker id="arrowOrange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fb923c"/></marker>
+        </defs>
+        <rect width="1440" height="1370" fill="url(#grid)"/>
+
+        <!-- 连接线先绘制，组件卡片覆盖交叉点 -->
+        <g fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)">
+          <path d="M720 176v53"/><path d="M720 337v48H198v28"/><path d="M325 469h48"/><path d="M650 469h48"/>
+          <path d="M869 531v52H259v52"/>
+          <path d="M259 734v42H222v66"/><path d="M259 734v42H562v66"/><path d="M259 734v42H902v66"/><path d="M259 734v42H1221v66"/>
+          <path d="M235 965v64"/><path d="M585 965v64"/><path d="M1285 965v64"/>
+        </g>
+        <g fill="none" stroke="#fb7185" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrowRose)">
+          <path d="M1350 684h36V472h-36"/>
+          <path d="M1216 531v18H511v-18"/>
+        </g>
+        <path d="M222 935v38H990v64" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <path d="M902 935v42h334v60" fill="none" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowOrange)"/>
+
+        <!-- 调用端 -->
+        <rect x="40" y="32" width="1360" height="145" rx="12" fill="rgba(8,51,68,.06)" stroke="#22d3ee" stroke-width="1.2" stroke-dasharray="8 4"/>
+        <text x="58" y="56" fill="#22d3ee" font-size="9" font-weight="600">CALLER / STUDIO CHAT</text>
+        <rect x="450" y="78" width="540" height="82" rx="6" fill="#0f172a"/>
+        <rect x="450" y="78" width="540" height="82" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="720" y="105" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">StudioChat · assistant-ui Runtime</text>
+        <text x="720" y="126" fill="#94a3b8" font-size="9" text-anchor="middle">User text · modelConfigId · permissionMode · skillIds · asset references</text>
+        <text x="720" y="145" fill="#22d3ee" font-size="8" text-anchor="middle">StudioWebSocketAgent · reconnect through run cursor</text>
+
+        <!-- HTTP 与事件协议 -->
+        <rect x="40" y="205" width="1360" height="132" rx="12" fill="rgba(251,146,60,.035)" stroke="#fb923c" stroke-width="1.2" stroke-dasharray="8 4"/>
+        <text x="58" y="229" fill="#fb923c" font-size="9" font-weight="600">HTTP BOUNDARY · /api/v1/studio</text>
+        <rect x="105" y="249" width="520" height="70" rx="6" fill="#0f172a"/>
+        <rect x="105" y="249" width="520" height="70" rx="6" fill="rgba(251,146,60,.16)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="365" y="276" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">AG-UI Run Handler</text>
+        <text x="365" y="298" fill="#94a3b8" font-size="9" text-anchor="middle">POST /agui · GET /agui/ws · attach · resume · cursor replay</text>
+        <rect x="815" y="249" width="520" height="70" rx="6" fill="#0f172a"/>
+        <rect x="815" y="249" width="520" height="70" rx="6" fill="rgba(251,146,60,.16)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="1075" y="276" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">REST Command Handler</text>
+        <text x="1075" y="298" fill="#94a3b8" font-size="9" text-anchor="middle">Session · Run · Approval · Asset · Flow · Model · Skill · Connector</text>
+
+        <!-- 应用控制层 -->
+        <rect x="40" y="365" width="1360" height="200" rx="12" fill="rgba(6,78,59,.035)" stroke="#34d399" stroke-width="1.2" stroke-dasharray="8 4"/>
+        <text x="58" y="389" fill="#34d399" font-size="9" font-weight="600">APPLICATION CONTROL · internal/studio/application</text>
+        <rect x="72" y="413" width="253" height="118" rx="6" fill="#0f172a"/>
+        <rect x="72" y="413" width="253" height="118" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="198" y="442" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Service.SendMessage</text>
+        <text x="198" y="464" fill="#94a3b8" font-size="8" text-anchor="middle">保存 User Message + Run</text>
+        <text x="198" y="481" fill="#94a3b8" font-size="8" text-anchor="middle">保存已启用 Skill 快照与资产版本</text>
+        <text x="198" y="510" fill="#34d399" font-size="8" text-anchor="middle">Run 入队</text>
+
+        <rect x="373" y="413" width="277" height="118" rx="6" fill="#0f172a"/>
+        <rect x="373" y="413" width="277" height="118" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="511" y="442" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">BackgroundRunner</text>
+        <text x="511" y="464" fill="#94a3b8" font-size="8" text-anchor="middle">Worker · queue · cancel</text>
+        <text x="511" y="481" fill="#94a3b8" font-size="8" text-anchor="middle">启动时恢复 queued Run</text>
+        <text x="511" y="510" fill="#34d399" font-size="8" text-anchor="middle">后台执行 Run</text>
+
+        <rect x="698" y="413" width="342" height="118" rx="6" fill="#0f172a"/>
+        <rect x="698" y="413" width="342" height="118" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="869" y="442" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">AgentExecutor</text>
+        <text x="869" y="464" fill="#94a3b8" font-size="8" text-anchor="middle">History + summary + Skill 目录与已选内容</text>
+        <text x="869" y="481" fill="#94a3b8" font-size="8" text-anchor="middle">Pinned asset versions + approvals</text>
+        <text x="869" y="510" fill="#34d399" font-size="8" text-anchor="middle">AgentRequest + executionWriter</text>
+
+        <rect x="1082" y="413" width="268" height="118" rx="6" fill="#0f172a"/>
+        <rect x="1082" y="413" width="268" height="118" rx="6" fill="rgba(136,19,55,.3)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="1216" y="442" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">ApprovalService</text>
+        <text x="1216" y="464" fill="#fda4af" font-size="8" text-anchor="middle">保存审批 · 更新 Run</text>
+        <text x="1216" y="481" fill="#fda4af" font-size="8" text-anchor="middle">恢复时重新入队</text>
+        <text x="1216" y="510" fill="#fb7185" font-size="8" text-anchor="middle">Eino Interrupt / GORM Checkpoint</text>
+
+        <!-- Agent Runtime -->
+        <rect x="40" y="590" width="1360" height="175" rx="12" fill="rgba(6,78,59,.035)" stroke="#34d399" stroke-width="1.2" stroke-dasharray="8 4"/>
+        <text x="58" y="614" fill="#34d399" font-size="9" font-weight="600">AGENT RUNTIME · internal/studio/infrastructure/einoagent</text>
+        <rect x="72" y="635" width="375" height="99" rx="6" fill="#0f172a"/>
+        <rect x="72" y="635" width="375" height="99" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="259" y="664" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">DispatchEngine → Eino ChatModelAgent</text>
+        <text x="259" y="686" fill="#94a3b8" font-size="8" text-anchor="middle">单 Agent · ReAct · 最多 8 次迭代 · 流式输出</text>
+        <text x="259" y="715" fill="#34d399" font-size="8" text-anchor="middle">无模型配置时拒绝启动</text>
+
+        <rect x="487" y="635" width="407" height="99" rx="6" fill="#0f172a"/>
+        <rect x="487" y="635" width="407" height="99" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="690" y="664" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Context + Model Middleware</text>
+        <text x="690" y="686" fill="#94a3b8" font-size="8" text-anchor="middle">Prompt: Tool 简述 + Skill 目录 + 已选 Prompt</text>
+        <text x="690" y="703" fill="#94a3b8" font-size="8" text-anchor="middle">Context compaction · 超长输入缩短后重试一次</text>
+        <text x="690" y="721" fill="#34d399" font-size="8" text-anchor="middle">modelprovider · OpenAI-compatible 协议适配</text>
+
+        <rect x="934" y="635" width="416" height="99" rx="6" fill="#0f172a"/>
+        <rect x="934" y="635" width="416" height="99" rx="6" fill="rgba(136,19,55,.3)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="1142" y="664" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">Permission + Approval Gate</text>
+        <text x="1142" y="686" fill="#fda4af" font-size="8" text-anchor="middle">Session permissionMode + connector policy</text>
+        <text x="1142" y="703" fill="#fda4af" font-size="8" text-anchor="middle">已批准 action 单次消费 · Tool interrupt</text>
+        <text x="1142" y="721" fill="#fb7185" font-size="8" text-anchor="middle">Eino Checkpoint Resume</text>
+
+        <!-- Tool adapter 层 -->
+        <rect x="40" y="795" width="1360" height="170" rx="12" fill="rgba(30,41,59,.16)" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="8 4"/>
+        <text x="58" y="819" fill="#94a3b8" font-size="9" font-weight="600">TOOL ADAPTERS · Eino invokable tools</text>
+        <rect x="72" y="842" width="300" height="93" rx="6" fill="#0f172a"/>
+        <rect x="72" y="842" width="300" height="93" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="222" y="871" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">Studio + Skill Tools</text>
+        <text x="222" y="892" fill="#94a3b8" font-size="8" text-anchor="middle">create_text_asset · read_asset · load_skill</text>
+        <text x="222" y="916" fill="#94a3b8" font-size="7" text-anchor="middle">load_skill 读取 Run 快照中的完整 Prompt</text>
+
+        <rect x="412" y="842" width="300" height="93" rx="6" fill="#0f172a"/>
+        <rect x="412" y="842" width="300" height="93" rx="6" fill="rgba(120,53,15,.22)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="562" y="871" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">Workflow Tool Adapter</text>
+        <text x="562" y="892" fill="#94a3b8" font-size="8" text-anchor="middle">启用的 Agent Workflow 配置</text>
+        <text x="562" y="916" fill="#fbbf24" font-size="7" text-anchor="middle">WorkflowStarter → Pixoma Task</text>
+
+        <rect x="752" y="842" width="300" height="93" rx="6" fill="#0f172a"/>
+        <rect x="752" y="842" width="300" height="93" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="902" y="871" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">MCP Connector Adapter</text>
+        <text x="902" y="892" fill="#94a3b8" font-size="8" text-anchor="middle">已探测 Tool 快照 · Streamable HTTP</text>
+        <text x="902" y="916" fill="#94a3b8" font-size="7" text-anchor="middle">Connector Policy · 凭据脱敏</text>
+
+        <rect x="1092" y="842" width="258" height="93" rx="6" fill="#0f172a"/>
+        <rect x="1092" y="842" width="258" height="93" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="1221" y="871" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">Model Provider Adapter</text>
+        <text x="1221" y="892" fill="#94a3b8" font-size="8" text-anchor="middle">Generate · Stream · Tool Calls</text>
+        <text x="1221" y="916" fill="#94a3b8" font-size="7" text-anchor="middle">Model request trace events</text>
+
+        <!-- 持久化与事件 -->
+        <rect x="40" y="995" width="1360" height="102" rx="12" fill="rgba(76,29,149,.035)" stroke="#a78bfa" stroke-width="1.2" stroke-dasharray="8 4"/>
+        <text x="58" y="1019" fill="#a78bfa" font-size="9" font-weight="600">STATE, OUTPUTS AND LIVE DELIVERY</text>
+        <rect x="72" y="1037" width="786" height="43" rx="6" fill="#0f172a"/>
+        <rect x="72" y="1037" width="786" height="43" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="465" y="1055" fill="#fff" font-size="9" font-weight="600" text-anchor="middle">GORM Repository / Database</text>
+        <text x="465" y="1071" fill="#c4b5fd" font-size="7" text-anchor="middle">Session · Message · Run · Progress · Event · Approval · Checkpoint · Asset/Version · Flow · Config</text>
+
+        <rect x="890" y="1037" width="200" height="43" rx="6" fill="#0f172a"/>
+        <rect x="890" y="1037" width="200" height="43" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="990" y="1055" fill="#fff" font-size="9" font-weight="600" text-anchor="middle">Blob Store</text>
+        <text x="990" y="1071" fill="#c4b5fd" font-size="7" text-anchor="middle">Asset bytes / versions</text>
+
+        <rect x="1122" y="1037" width="228" height="43" rx="6" fill="#0f172a"/>
+        <rect x="1122" y="1037" width="228" height="43" rx="6" fill="rgba(251,146,60,.2)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="1236" y="1055" fill="#fff" font-size="9" font-weight="600" text-anchor="middle">EventHub</text>
+        <text x="1236" y="1071" fill="#fdba74" font-size="7" text-anchor="middle">In-process live notification</text>
+
+        <!-- 外部系统 -->
+        <rect x="40" y="1127" width="1360" height="148" rx="12" fill="rgba(251,191,36,.025)" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="8 4"/>
+        <text x="58" y="1151" fill="#fbbf24" font-size="9" font-weight="600">CONNECTED SYSTEMS IN CURRENT CODE</text>
+        <rect x="140" y="1173" width="330" height="77" rx="6" fill="#0f172a"/>
+        <rect x="140" y="1173" width="330" height="77" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="305" y="1202" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">Configured Chat Model API</text>
+        <text x="305" y="1225" fill="#94a3b8" font-size="8" text-anchor="middle">ModelConfigService resolves credentials</text>
+
+        <rect x="555" y="1173" width="330" height="77" rx="6" fill="#0f172a"/>
+        <rect x="555" y="1173" width="330" height="77" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="720" y="1202" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">MCP Servers</text>
+        <text x="720" y="1225" fill="#94a3b8" font-size="8" text-anchor="middle">Streamable HTTP tool calls</text>
+
+        <rect x="970" y="1173" width="330" height="77" rx="6" fill="#0f172a"/>
+        <rect x="970" y="1173" width="330" height="77" rx="6" fill="rgba(120,53,15,.22)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="1135" y="1202" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">Pixoma Case / Task Runtime</text>
+        <text x="1135" y="1225" fill="#94a3b8" font-size="8" text-anchor="middle">WorkflowStarter · task bus · output reconciler</text>
+
+        <!-- 持久化事件向上传输 -->
+        <path d="M1236 1037V976H365V319" fill="none" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowOrange)"/>
+        <text x="565" y="970" fill="#fdba74" font-size="8" text-anchor="middle">Persisted sequence replay + live EventHub notification → AG-UI Event</text>
+        <text x="1270" y="588" fill="#fda4af" font-size="7" transform="rotate(-90 1270 588)" text-anchor="middle">Tool interrupt</text>
+        <text x="845" y="462" fill="#fda4af" font-size="7" text-anchor="middle">Approved Run requeued</text>
+
+        <text x="720" y="1320" fill="#64748b" font-size="8" text-anchor="middle">Run state and event sequence are stored in GORM; EventHub carries live wakeups; AG-UI handler reads persisted events by cursor.</text>
+      </svg>
+    </main>
+
+    <section class="cards" aria-label="Architecture notes">
+      <article class="card"><div class="card-header"><span class="card-dot cyan"></span><h2>Run 生命周期</h2></div><ul><li>消息与 Run 先保存，再进入后台队列。</li><li>创建 Run 时保存已启用 Skill 快照；系统提示词提供名称与描述，load_skill 按需读取完整 Prompt。</li><li>运行事件按序保存，AG-UI 支持游标续传。</li></ul></article>
+      <article class="card"><div class="card-header"><span class="card-dot rose"></span><h2>审批恢复</h2></div><ul><li>工具策略要求批准时，Eino 产生 Interrupt。</li><li>审批与 Checkpoint 保存后，Run 等待用户决定。</li><li>批准后由 Runner 重新排队，Engine 从 Checkpoint 恢复。</li></ul></article>
+      <article class="card"><div class="card-header"><span class="card-dot violet"></span><h2>代码边界</h2></div><ul><li>AgentEngine 通过 DispatchEngine 调用 Eino Engine。</li><li>工具经 AgentSink 写入消息、事件、资产与 Flow。</li><li>Workflow 与 MCP 分别经专用 Runtime Adapter 接入。</li></ul></article>
+      <article class="card"><div class="card-header"><span class="card-dot amber"></span><h2>颜色说明</h2></div><ul><li>青色：Studio 调用端与 AG-UI 接口。</li><li>绿色：应用服务与 Agent Runtime。</li><li>紫色：持久化；玫瑰色：审批；琥珀色：外接能力。</li></ul></article>
+    </section>
+    <footer class="footer"><span>PIXOMA STUDIO AGENT · CODE-BASED ARCHITECTURE</span><span>internal/studio · internal/httpapi/studio · apps/pixoma/internal/application</span></footer>
+  </div>
+
+  <script>
+    async function captureReport() {
+      const report = document.getElementById('report-container');
+      const rect = report.getBoundingClientRect();
+      const padding = 32;
+      return html2canvas(document.body, {
+        x: Math.max(0, rect.left + window.scrollX - padding),
+        y: Math.max(0, rect.top + window.scrollY - padding),
+        width: rect.width + padding * 2,
+        height: rect.height + padding * 2,
+        scale: 2,
+        backgroundColor: '#020617',
+        useCORS: true,
+        ignoreElements: element => element.classList && element.classList.contains('toolbar')
+      });
+    }
+    async function copyAsImage() {
+      const canvas = await captureReport();
+      canvas.toBlob(async blob => {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      }, 'image/png');
+    }
+    async function downloadPNG() {
+      const canvas = await captureReport();
+      const link = document.createElement('a');
+      link.download = 'pixoma-studio-agent-architecture.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+    async function downloadPDF() {
+      const canvas = await captureReport();
+      const { jsPDF } = window.jspdf;
+      const width = canvas.width;
+      const height = canvas.height;
+      const pdf = new jsPDF({ orientation: width > height ? 'landscape' : 'portrait', unit: 'px', format: [width, height], hotfixes: ['px_scaling'] });
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, width, height);
+      pdf.save('pixoma-studio-agent-architecture.pdf');
+    }
+  </script>
+</body>
+</html>

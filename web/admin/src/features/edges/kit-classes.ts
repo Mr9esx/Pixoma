@@ -1,4 +1,4 @@
-const cardWrap = 'overflow-hidden rounded-[8px] border border-border bg-card'
+const cardWrap = 'overflow-hidden rounded-lg border border-border bg-card'
 
 export const kit = {
   pageSection: 'mx-auto flex w-full max-w-7xl flex-col gap-5 px-6 py-7 md:px-8',
@@ -34,6 +34,6 @@ export const kit = {
   statsValue: 'mt-1.5 text-sm font-semibold sm:mt-2',
   sectionTitle: 'text-[15px] font-semibold',
   sectionDash: 'border-border min-w-0 flex-1 border-t border-dashed',
-  tableWrap: 'overflow-hidden rounded-md border',
+  tableWrap: 'overflow-hidden rounded-lg border',
   th: 'text-muted-foreground h-10 text-left font-medium',
 } as const

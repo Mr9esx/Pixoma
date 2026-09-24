@@ -151,7 +151,18 @@ func redactTraceJSON(body []byte, credential string) json.RawMessage {
 func redactTraceValue(value any) {
 	switch typed := value.(type) {
 	case map[string]any:
+		if typed["type"] == "base64" {
+			if mediaType, ok := typed["media_type"].(string); ok && strings.HasPrefix(mediaType, "image/") {
+				typed["data"] = "[IMAGE DATA]"
+			}
+		}
 		for key, child := range typed {
+			if key == "image_url" || key == "url" {
+				if url, ok := child.(string); ok && strings.HasPrefix(url, "data:image/") {
+					typed[key] = "[IMAGE DATA]"
+					continue
+				}
+			}
 			if isSensitiveTraceKey(key) {
 				typed[key] = "[REDACTED]"
 				continue

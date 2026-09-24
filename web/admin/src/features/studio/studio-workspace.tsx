@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMatchRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { ListTree, Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import {
   createStudioSession,
@@ -40,7 +41,7 @@ import { StudioAssets } from './studio-assets'
 import { StudioChat } from './studio-chat'
 import { StudioFlow } from './studio-flow'
 import { StudioLibrary } from './studio-library'
-import { StudioSettings } from './studio-settings'
+import { StudioSettings, type SettingSection } from './studio-settings'
 import { StudioSidebar, type StudioView } from './studio-sidebar'
 import { StudioTrace } from './studio-trace'
 
@@ -48,19 +49,50 @@ type SelectedAsset = { assetId: string; assetVersionId: string }
 
 export function StudioWorkspace() {
   const queryClient = useQueryClient()
-  const [view, setView] = useState<StudioView>('chat')
-  const [activeSessionId, setActiveSessionId] = useState<string>()
+  const navigate = useNavigate()
+  const matchRoute = useMatchRoute()
+  const search = useSearch({ strict: false })
+  const libraryMatch = matchRoute({ to: '/studio/library' })
+  const settingsMatch = matchRoute({ to: '/studio/settings/$section' })
+  const sessionMatch = matchRoute({
+    to: '/studio/sessions/$sessionId',
+    fuzzy: true,
+  })
+  const view: StudioView = libraryMatch
+    ? 'library'
+    : settingsMatch
+      ? 'settings'
+      : 'chat'
+  const activeSessionId = sessionMatch ? sessionMatch.sessionId : undefined
+  const traceOpen = Boolean(
+    matchRoute({ to: '/studio/sessions/$sessionId/trace' })
+  )
+  const panel = search.panel ?? 'flow'
+  const matchedSection = settingsMatch ? settingsMatch.section : undefined
+  const section = (matchedSection ?? 'models') as SettingSection
   const [rightOpen, setRightOpen] = useState(true)
-  const [traceOpen, setTraceOpen] = useState(false)
-  const [modelConfigId, setModelConfigId] = useState<string>()
-  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
-  const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([])
-  const [permissionMode, setPermissionMode] =
-    useState<StudioPermissionMode>('request_approval')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const chatOpenGeneration = useRef(0)
   const autoCreateRequested = useRef(false)
   const pendingCreateRequestID = useRef<string | undefined>(undefined)
+  const lastSessionId = useRef<string>(undefined)
+  const lastSection = useRef<SettingSection>('models')
+  const [modelSelection, setModelSelection] = useState<{
+    sessionId: string
+    modelConfigId: string
+  }>()
+  const [skillSelection, setSkillSelection] = useState<{
+    sessionId: string
+    skillIds: string[]
+  }>()
+  const [assetSelection, setAssetSelection] = useState<{
+    sessionId: string
+    assets: SelectedAsset[]
+  }>()
+  const [permissionOverride, setPermissionOverride] = useState<{
+    sessionId: string
+    mode: StudioPermissionMode
+  }>()
 
   const sessions = useQuery({
     queryKey: ['studio', 'sessions'],
@@ -80,13 +112,14 @@ export function StudioWorkspace() {
     isPending: creatingSession,
     isError: createSessionFailed,
   } = useMutation({
-    mutationFn: createStudioSession,
+    mutationFn: (requestID: string) => createStudioSession(requestID),
     onSuccess: (session) => {
       pendingCreateRequestID.current = undefined
-      setActiveSessionId(session.id)
-      setPermissionMode(session.permission_mode)
-      setView('chat')
-      setTraceOpen(false)
+      void navigate({
+        to: '/studio/sessions/$sessionId',
+        params: { sessionId: session.id },
+        search: {},
+      })
       void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
     },
   })
@@ -100,13 +133,21 @@ export function StudioWorkspace() {
     pendingCreateRequestID.current = requestID
     createSessionMutate(requestID)
   }, [createSessionMutate])
-  const sessionId = activeSessionId ?? sessions.data?.[0]?.id
-  const sessionPermissionMode = activeSessionId
-    ? permissionMode
-    : (sessions.data?.[0]?.permission_mode ?? permissionMode)
+  const sessionId =
+    activeSessionId ?? (view === 'chat' ? sessions.data?.[0]?.id : undefined)
+
+  useEffect(() => {
+    if (activeSessionId) lastSessionId.current = activeSessionId
+  }, [activeSessionId])
+
+  useEffect(() => {
+    if (matchedSection) lastSection.current = section
+  }, [matchedSection, section])
 
   useEffect(() => {
     if (
+      view !== 'chat' ||
+      activeSessionId ||
       sessions.isLoading ||
       !sessions.data ||
       sessions.data.length > 0 ||
@@ -118,6 +159,16 @@ export function StudioWorkspace() {
     autoCreateRequested.current = true
     retryCreateSession()
   }, [sessions.data, sessions.isLoading, creatingSession, retryCreateSession])
+
+  useEffect(() => {
+    if (view !== 'chat' || activeSessionId || !sessionId) return
+    void navigate({
+      to: '/studio/sessions/$sessionId',
+      params: { sessionId },
+      search: {},
+      replace: true,
+    })
+  }, [view, activeSessionId, sessionId, navigate])
 
   const detail = useQuery({
     queryKey: ['studio', 'session', sessionId],
@@ -133,6 +184,13 @@ export function StudioWorkspace() {
         ? 2500
         : false,
   })
+  const sessionPermissionMode =
+    permissionOverride && permissionOverride.sessionId === sessionId
+      ? permissionOverride.mode
+      : (detail.data?.session.permission_mode ??
+        sessions.data?.find((session) => session.id === sessionId)
+          ?.permission_mode ??
+        'request_approval')
 
   const openChatWithFreshDetail = (id: string, onReady: () => void) => {
     const generation = ++chatOpenGeneration.current
@@ -280,22 +338,45 @@ export function StudioWorkspace() {
     creating: creatingSession,
     onNewSession: startNewSession,
     onSelectSession: (id: string) => {
+      lastSessionId.current = id
       openChatWithFreshDetail(id, () => {
-        setActiveSessionId(id)
-        setPermissionMode(
-          sessions.data?.find((session) => session.id === id)
-            ?.permission_mode ?? 'request_approval'
-        )
-        setView('chat')
-        setTraceOpen(false)
+        void navigate({
+          to: '/studio/sessions/$sessionId',
+          params: { sessionId: id },
+          search: {},
+        })
       })
     },
     onViewChange: (nextView: StudioView) => {
-      if (nextView === 'chat' && sessionId) {
-        openChatWithFreshDetail(sessionId, () => setView('chat'))
-      } else {
+      if (activeSessionId) lastSessionId.current = activeSessionId
+      if (view === 'settings') lastSection.current = section
+      if (nextView === 'library') {
         ++chatOpenGeneration.current
-        setView(nextView)
+        void navigate({ to: '/studio/library', search: {} })
+      } else if (nextView === 'settings') {
+        ++chatOpenGeneration.current
+        void navigate({
+          to: '/studio/settings/$section',
+          params: {
+            section: view === 'settings' ? section : lastSection.current,
+          },
+          search: {},
+        })
+      } else {
+        const targetSessionId =
+          activeSessionId ?? lastSessionId.current ?? sessions.data?.[0]?.id
+        if (targetSessionId) {
+          openChatWithFreshDetail(targetSessionId, () => {
+            void navigate({
+              to: '/studio/sessions/$sessionId',
+              params: { sessionId: targetSessionId },
+              search: {},
+            })
+          })
+        } else {
+          ++chatOpenGeneration.current
+          void navigate({ to: '/studio', search: {} })
+        }
       }
     },
   }
@@ -401,19 +482,30 @@ export function StudioWorkspace() {
       {view === 'library' ? (
         <StudioLibrary
           onOpenSession={(id) => {
+            lastSessionId.current = id
             openChatWithFreshDetail(id, () => {
-              setActiveSessionId(id)
-              setPermissionMode(
-                sessions.data?.find((session) => session.id === id)
-                  ?.permission_mode ?? 'request_approval'
-              )
-              setView('chat')
-              setTraceOpen(false)
+              void navigate({
+                to: '/studio/sessions/$sessionId',
+                params: { sessionId: id },
+                search: {},
+              })
             })
           }}
         />
       ) : null}
-      {view === 'settings' ? <StudioSettings /> : null}
+      {view === 'settings' ? (
+        <StudioSettings
+          section={section}
+          onSectionChange={(nextSection) => {
+            lastSection.current = nextSection
+            void navigate({
+              to: '/studio/settings/$section',
+              params: { section: nextSection },
+              search: {},
+            })
+          }}
+        />
+      ) : null}
       {view === 'chat' && sessions.isError && !sessions.data ? (
         <main id='main-content' className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>
           <div className='flex h-full rounded-2xl border bg-card'>
@@ -457,14 +549,24 @@ export function StudioWorkspace() {
                     variant={traceOpen ? 'secondary' : 'ghost'}
                     size='sm'
                     className='min-h-11'
+                    disabled={!sessionId}
                     onClick={() => {
-                      if (traceOpen && sessionId) {
-                        openChatWithFreshDetail(sessionId, () =>
-                          setTraceOpen(false)
-                        )
+                      if (!sessionId) return
+                      if (traceOpen) {
+                        openChatWithFreshDetail(sessionId, () => {
+                          void navigate({
+                            to: '/studio/sessions/$sessionId',
+                            params: { sessionId },
+                            search: {},
+                          })
+                        })
                       } else {
                         ++chatOpenGeneration.current
-                        setTraceOpen(true)
+                        void navigate({
+                          to: '/studio/sessions/$sessionId/trace',
+                          params: { sessionId },
+                          search: {},
+                        })
                       }
                     }}
                     aria-pressed={traceOpen}
@@ -577,20 +679,35 @@ export function StudioWorkspace() {
                   pendingApprovals={detail.data.pending_approvals}
                   models={models.data ?? []}
                   modelConfigId={
-                    modelConfigId ?? detail.data.session.model_config_id
+                    modelSelection?.sessionId === sessionId
+                      ? modelSelection.modelConfigId
+                      : detail.data.session.model_config_id
                   }
                   permissionMode={sessionPermissionMode}
                   skills={skills.data ?? []}
                   assets={detail.data.assets}
-                  selectedSkillIds={selectedSkillIds}
-                  selectedAssets={selectedAssets}
-                  onModelChange={setModelConfigId}
-                  onPermissionChange={(mode) => {
-                    setPermissionMode(mode)
-                    if (sessionId) setActiveSessionId(sessionId)
+                  selectedSkillIds={
+                    skillSelection?.sessionId === sessionId
+                      ? skillSelection.skillIds
+                      : []
+                  }
+                  selectedAssets={
+                    assetSelection?.sessionId === sessionId
+                      ? assetSelection.assets
+                      : []
+                  }
+                  onModelChange={(modelConfigId) => {
+                    setModelSelection({ sessionId, modelConfigId })
                   }}
-                  onSkillChange={setSelectedSkillIds}
-                  onAssetChange={setSelectedAssets}
+                  onPermissionChange={(mode) => {
+                    if (sessionId) setPermissionOverride({ sessionId, mode })
+                  }}
+                  onSkillChange={(skillIds) => {
+                    setSkillSelection({ sessionId, skillIds })
+                  }}
+                  onAssetChange={(assets) => {
+                    setAssetSelection({ sessionId, assets })
+                  }}
                   onImportLibraryAsset={(selection) =>
                     importLibraryAsset.mutateAsync(selection)
                   }
@@ -612,7 +729,65 @@ export function StudioWorkspace() {
             </main>
             {rightOpen && !traceOpen ? (
               <aside className='hidden w-[42%] max-w-2xl min-w-80 shrink-0 border-s bg-muted/20 xl:flex xl:flex-col'>
-                {workbenchTabs()}
+                <Tabs
+                  value={panel}
+                  onValueChange={(nextPanel) =>
+                    void navigate({
+                      to: '/studio/sessions/$sessionId',
+                      params: { sessionId: sessionId! },
+                      search: {
+                        panel: nextPanel === 'assets' ? 'assets' : undefined,
+                      },
+                    })
+                  }
+                  className='min-h-0 flex-1 gap-0'
+                >
+                  <div className='flex h-16 items-center px-4'>
+                    <TabsList>
+                      <TabsTrigger value='flow' disabled={!sessionId}>
+                        资产路线
+                      </TabsTrigger>
+                      <TabsTrigger value='assets' disabled={!sessionId}>
+                        Session 资产{' '}
+                        <span className='text-xs text-muted-foreground'>
+                          {detail.data?.assets.length ?? 0}
+                        </span>
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+                  <TabsContent value='flow' className='m-0 min-h-0'>
+                    <StudioFlow
+                      nodes={detail.data?.flow.nodes ?? []}
+                      edges={detail.data?.flow.edges ?? []}
+                      workflowExecutions={detail.data?.workflow_executions}
+                      onNodeCreate={(input) =>
+                        createFlowNode.mutateAsync(input)
+                      }
+                      onNodeDelete={(id) => deleteFlowNode.mutateAsync(id)}
+                      onEdgeCreate={(input) =>
+                        createFlowEdge.mutateAsync(input)
+                      }
+                      onEdgeDelete={(id) => deleteFlowEdge.mutateAsync(id)}
+                      onPositionsChange={(nodes) =>
+                        saveFlowPositions.mutateAsync(nodes)
+                      }
+                    />
+                  </TabsContent>
+                  <TabsContent value='assets' className='m-0 min-h-0'>
+                    <StudioAssets
+                      assets={detail.data?.assets ?? []}
+                      onSaveToLibrary={(input) => saveAsset.mutateAsync(input)}
+                      onCreateTextAsset={(input) =>
+                        createTextAsset.mutateAsync(input)
+                      }
+                      onUpdateTextAsset={(input) =>
+                        updateTextAsset.mutateAsync(input)
+                      }
+                      onUploadAsset={(file) => uploadAsset.mutate(file)}
+                      uploading={uploadAsset.isPending}
+                    />
+                  </TabsContent>
+                </Tabs>
               </aside>
             ) : null}
           </section>

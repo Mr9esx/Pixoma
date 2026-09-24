@@ -20,7 +20,7 @@ type Skill struct {
 }
 
 func NewSkill(id, accountID, name, description, prompt string, now time.Time) (*Skill, error) {
-	if anyBlank(id, accountID, name, prompt) {
+	if anyBlank(id, accountID, name, description, prompt) {
 		return nil, fmt.Errorf("%w: invalid skill", ErrInvalid)
 	}
 	now = now.UTC()

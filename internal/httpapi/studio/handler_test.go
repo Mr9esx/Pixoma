@@ -265,7 +265,7 @@ func TestStudioCapabilityConfigAPIUpdatesEnabledState(t *testing.T) {
 	handler.Mount(router)
 
 	skill := request(t, router, http.MethodPost, "/skills", map[string]any{
-		"name": "漫画分镜", "prompt": "先输出镜头表", "enabled": true,
+		"name": "漫画分镜", "description": "把故事整理为镜头表", "prompt": "先输出镜头表", "enabled": true,
 	}, "account-a")
 	var createdSkill struct {
 		ID string `json:"id"`
@@ -274,7 +274,7 @@ func TestStudioCapabilityConfigAPIUpdatesEnabledState(t *testing.T) {
 		t.Fatalf("created skill = %s, err=%v", skill.Body.String(), err)
 	}
 	updatedSkill := request(t, router, http.MethodPatch, "/skills/"+createdSkill.ID, map[string]any{
-		"name": "漫画分镜", "prompt": "先输出镜头表", "enabled": false,
+		"name": "漫画分镜", "description": "把故事整理为镜头表", "prompt": "先输出镜头表", "enabled": false,
 	}, "account-a")
 	if updatedSkill.Code != http.StatusOK || !strings.Contains(updatedSkill.Body.String(), "\"enabled\":false") {
 		t.Fatalf("PATCH skill = %d %s", updatedSkill.Code, updatedSkill.Body.String())
@@ -1186,7 +1186,7 @@ func TestStudioAGUIStoresSelectedSkillIDsOnRun(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)
 	skill, err := handler.Capabilities.CreateSkill(context.Background(), studioapp.CreateSkillInput{
-		AccountID: "account-a", Name: "漫画分镜", Prompt: "先输出镜头表", Enabled: true,
+		AccountID: "account-a", Name: "漫画分镜", Description: "把故事整理为镜头表", Prompt: "先输出镜头表", Enabled: true,
 	})
 	if err != nil {
 		t.Fatal(err)

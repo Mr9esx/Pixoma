@@ -217,6 +217,7 @@ export const ReasoningContent = memo(
         {...props}
       >
         <Streamdown
+          className='space-y-2 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-3 [&_h4]:mt-3 [&_h5]:mt-3 [&_h6]:mt-3'
           animated={isStreaming ? true : undefined}
           isAnimating={isStreaming}
           plugins={streamdownPlugins}

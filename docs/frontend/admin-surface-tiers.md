@@ -29,6 +29,7 @@
 
 ## 参考实现
 
+- 圆角：`docs/frontend/admin-radius-rules.md`
 - 令牌：`web/admin/src/styles/theme.css`
 - 表格：`DataTable` 的 `surface` prop（`web/admin/src/components/data-table/data-table.tsx`）
 - 面板：`MasterDetailShell`（`web/admin/src/components/master-detail/master-detail-shell.tsx`）

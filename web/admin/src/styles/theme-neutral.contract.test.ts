@@ -112,7 +112,7 @@ describe('admin theme surface has no drop shadow', () => {
     const src = read(join(SRC_ROOT, 'components/ui/sidebar.tsx'))
     const insetFn = extractFunction(src, 'SidebarInset')
     expect(insetFn).not.toMatch(/\bshadow-sm\b/)
-    expect(insetFn).toMatch(/rounded-xl/)
+    expect(insetFn).toMatch(/rounded-2xl/)
   })
 
   it('button default variant has no shadow-xs', () => {

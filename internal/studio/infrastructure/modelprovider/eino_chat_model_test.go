@@ -125,7 +125,7 @@ func TestEinoChatModelStreamsWithTools(t *testing.T) {
 	}))
 	defer server.Close()
 
-	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL, Model: "test", APIKey: "secret"})
+	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{BaseURL: server.URL, Model: "test", APIKey: "secret", Capabilities: domain.ModelCapabilities{Streaming: true}})
 	stream, err := chat.Stream(context.Background(), []*schema.Message{schema.UserMessage("创建大纲")}, model.WithTools([]*schema.ToolInfo{{Name: "create_outline", Desc: "Create a story outline"}}))
 	require.NoError(t, err)
 	defer stream.Close()

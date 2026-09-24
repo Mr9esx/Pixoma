@@ -13,7 +13,7 @@ export function AppHeader() {
         className='flex min-w-0 items-center gap-1.5 font-bold'
         data-testid='mobile-shell-title'
       >
-        <Logo className='size-5 rounded-md' />
+        <Logo className='size-5 rounded-sm' />
         <span className='truncate'>Pixoma</span>
       </div>
     </header>

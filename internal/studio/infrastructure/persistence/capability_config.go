@@ -17,7 +17,7 @@ type SkillRow struct {
 	Name        string    `gorm:"size:256;not null"`
 	Description string    `gorm:"type:text"`
 	Prompt      string    `gorm:"type:text;not null"`
-	Enabled     bool      `gorm:"not null;default:true;index"`
+	Enabled     bool      `gorm:"not null;index"`
 	CreatedAt   time.Time `gorm:"index:idx_studio_skills_account_created"`
 	UpdatedAt   time.Time
 }
@@ -59,7 +59,8 @@ func (r *GormRepository) UpdateSkill(ctx context.Context, skill *domain.Skill) e
 	if skill == nil {
 		return domain.ErrInvalid
 	}
-	return resultError(r.db.WithContext(ctx).Model(&SkillRow{}).Where("account_id = ? AND id = ?", skill.AccountID, skill.ID).Updates(skillToRow(skill)))
+	return resultError(r.db.WithContext(ctx).Model(&SkillRow{}).Where("account_id = ? AND id = ?", skill.AccountID, skill.ID).
+		Select("name", "description", "prompt", "enabled", "updated_at").Updates(skillToRow(skill)))
 }
 
 func (r *GormRepository) GetSkill(ctx context.Context, accountID, skillID string) (*domain.Skill, error) {

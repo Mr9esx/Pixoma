@@ -38,6 +38,7 @@ export default defineConfig({
       'src/lib/api/admin-users.test.ts',
       'src/lib/api/sessions.test.ts',
       'src/lib/api/studio.test.ts',
+      'src/features/studio/studio-composer-content.test.ts',
       'src/features/studio/studio-workspace.contract.test.ts',
       'src/features/sessions/list-panel.contract.test.ts',
       'src/features/users/list-panel.contract.test.ts',

@@ -211,14 +211,14 @@ func TestCapabilityConfigUpdatesSkillEnabledState(t *testing.T) {
 		IDs:           (&idSequence{}).Next,
 	}
 	created, err := service.CreateSkill(context.Background(), studioapp.CreateSkillInput{
-		AccountID: "account-a", Name: "角色设定", Prompt: "保持角色一致", Enabled: true,
+		AccountID: "account-a", Name: "角色设定", Description: "保持人物资料一致", Prompt: "保持角色一致", Enabled: true,
 	})
 	if err != nil {
 		t.Fatalf("CreateSkill() error = %v", err)
 	}
 
 	updated, err := service.UpdateSkill(context.Background(), studioapp.UpdateSkillInput{
-		AccountID: "account-a", SkillID: created.ID, Name: "角色设定", Prompt: "保持角色一致", Enabled: false,
+		AccountID: "account-a", SkillID: created.ID, Name: "角色设定", Description: "保持人物资料一致", Prompt: "保持角色一致", Enabled: false,
 	})
 	if err != nil {
 		t.Fatalf("UpdateSkill() error = %v", err)

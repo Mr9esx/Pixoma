@@ -23,7 +23,7 @@ type EinoChatModel struct {
 }
 
 const responsesOutputExtraKey = "pixoma.responses_output"
-const anthropicContentExtraKey = "pixoma.anthropic_content"
+const anthropicOutputExtraKey = "pixoma.anthropic_output"
 const reasoningExtraKey = "pixoma.reasoning"
 
 func NewEinoChatModel(client *OpenAICompatibleClient, config domain.ResolvedModelConfig) *EinoChatModel {
@@ -49,7 +49,10 @@ func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, o
 		}
 		return bound.Generate(ctx, input)
 	}
-	messages := chatMessagesFromSchema(input)
+	messages, err := chatMessagesFromSchema(input)
+	if err != nil {
+		return nil, err
+	}
 	result, err := m.client.Chat(ctx, ChatRequest{Config: m.config, Messages: messages, Tools: m.tools, Trace: m.nextTraceSink()})
 	if err != nil {
 		return nil, err
@@ -65,13 +68,13 @@ func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, o
 		})
 	}
 	message := &schema.Message{Role: schema.Assistant, Content: result.Text, ToolCalls: toolCalls, ResponseMeta: &schema.ResponseMeta{Usage: &schema.TokenUsage{PromptTokens: result.InputTokens, CompletionTokens: result.OutputTokens, TotalTokens: result.InputTokens + result.OutputTokens}}}
-	if len(result.ResponsesOutput) > 0 || len(result.AnthropicContent) > 0 || strings.TrimSpace(result.Reasoning) != "" {
+	if len(result.ResponsesOutput) > 0 || len(result.AnthropicOutput) > 0 || strings.TrimSpace(result.Reasoning) != "" {
 		message.Extra = map[string]any{}
 		if len(result.ResponsesOutput) > 0 {
 			message.Extra[responsesOutputExtraKey] = result.ResponsesOutput
 		}
-		if len(result.AnthropicContent) > 0 {
-			message.Extra[anthropicContentExtraKey] = result.AnthropicContent
+		if len(result.AnthropicOutput) > 0 {
+			message.Extra[anthropicOutputExtraKey] = result.AnthropicOutput
 		}
 		if strings.TrimSpace(result.Reasoning) != "" {
 			message.Extra[reasoningExtraKey] = result.Reasoning
@@ -88,12 +91,12 @@ func responsesOutputFromExtra(extra map[string]any) []json.RawMessage {
 	return cloneResponsesOutput(output)
 }
 
-func anthropicContentFromExtra(extra map[string]any) []json.RawMessage {
+func anthropicOutputFromExtra(extra map[string]any) []json.RawMessage {
 	if extra == nil {
 		return nil
 	}
-	content, _ := extra[anthropicContentExtraKey].([]json.RawMessage)
-	return cloneResponsesOutput(content)
+	output, _ := extra[anthropicOutputExtraKey].([]json.RawMessage)
+	return cloneResponsesOutput(output)
 }
 
 func (m *EinoChatModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
@@ -106,8 +109,11 @@ func (m *EinoChatModel) Stream(ctx context.Context, input []*schema.Message, opt
 			return nil, err
 		}
 	}
-	if m.config.Protocol == "" || m.config.Protocol == domain.ModelProtocolOpenAIChat {
-		messages := chatMessagesFromSchema(input)
+	if m.config.Capabilities.Streaming && (m.config.Protocol == "" || m.config.Protocol == domain.ModelProtocolOpenAIChat) {
+		messages, err := chatMessagesFromSchema(input)
+		if err != nil {
+			return nil, err
+		}
 		return m.client.StreamChat(ctx, ChatRequest{Config: m.config, Messages: messages, Tools: tools, Trace: m.nextTraceSink()})
 	}
 	message, err := m.Generate(ctx, input, opts...)
@@ -143,7 +149,7 @@ func (m *EinoChatModel) nextTraceSink() TraceSink {
 	return m.traceFactory()
 }
 
-func chatMessagesFromSchema(input []*schema.Message) []ChatMessage {
+func chatMessagesFromSchema(input []*schema.Message) ([]ChatMessage, error) {
 	messages := make([]ChatMessage, 0, len(input))
 	for _, message := range input {
 		if message == nil {
@@ -160,9 +166,19 @@ func chatMessagesFromSchema(input []*schema.Message) []ChatMessage {
 				Function: FunctionCall{Name: call.Function.Name, Arguments: call.Function.Arguments},
 			})
 		}
-		messages = append(messages, ChatMessage{Role: role, Content: message.Content, ToolCallID: message.ToolCallID, ToolCalls: toolCalls, ResponsesOutput: responsesOutputFromExtra(message.Extra), AnthropicContent: anthropicContentFromExtra(message.Extra)})
+		current := ChatMessage{Role: role, Content: message.Content, ToolCallID: message.ToolCallID, ToolCalls: toolCalls, ResponsesOutput: responsesOutputFromExtra(message.Extra), AnthropicOutput: anthropicOutputFromExtra(message.Extra)}
+		for _, part := range message.UserInputMultiContent {
+			if part.Type != schema.ChatMessagePartTypeImageURL {
+				continue
+			}
+			if part.Image == nil || part.Image.Base64Data == nil || part.Image.MIMEType == "" {
+				return nil, fmt.Errorf("model provider: image content is incomplete")
+			}
+			current.Images = append(current.Images, ChatImage{MIMEType: part.Image.MIMEType, Data: *part.Image.Base64Data})
+		}
+		messages = append(messages, current)
 	}
-	return messages
+	return messages, nil
 }
 
 var _ model.BaseChatModel = (*EinoChatModel)(nil)

@@ -463,7 +463,7 @@ func TestAnthropicToolRoundTripPreservesThinkingAndGroupsResults(t *testing.T) {
 	}
 	_, err = client.Chat(context.Background(), modelprovider.ChatRequest{Config: config, Messages: []modelprovider.ChatMessage{
 		{Role: "user", Content: "写故事"},
-		{Role: "assistant", ToolCalls: first.ToolCalls, AnthropicContent: first.AnthropicContent},
+		{Role: "assistant", ToolCalls: first.ToolCalls, AnthropicOutput: first.AnthropicOutput},
 		{Role: "tool", ToolCallID: "toolu-1", Content: "[]"},
 		{Role: "tool", ToolCallID: "toolu-2", Content: "created"},
 	}, Tools: tools})

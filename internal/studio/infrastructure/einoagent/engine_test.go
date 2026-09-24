@@ -212,7 +212,7 @@ func TestEngineLoadsSelectedSkillOnlyAfterToolCall(t *testing.T) {
 			require.NotContains(t, string(encoded), skillBody)
 			require.Contains(t, string(encoded), "分镜写作")
 			require.Contains(t, string(encoded), "load_skill")
-			_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call-skill","type":"function","function":{"name":"load_skill","arguments":"{\"skill\":\"skill-01\"}"}}]}}]}`))
+			_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call-skill","type":"function","function":{"name":"load_skill","arguments":"{\"skill_id\":\"skill-01\"}"}}]}}]}`))
 			return
 		}
 		require.Contains(t, string(encoded), skillBody)

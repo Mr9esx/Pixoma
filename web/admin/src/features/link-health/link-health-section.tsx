@@ -74,7 +74,7 @@ export function LinkHealthSection({
       ) : null}
       {blocked ? (
         <div
-          className='overflow-hidden rounded-md border'
+          className='overflow-hidden rounded-lg border'
           data-testid='link-health-breakpoints'
         >
           <ul className='divide-y'>
@@ -156,7 +156,7 @@ function ReferenceList({
   const pageItems = items.slice(start, start + PAGE_SIZE)
   return (
     <div
-      className='overflow-hidden rounded-md border bg-muted/20'
+      className='overflow-hidden rounded-lg border bg-muted/20'
       data-testid='link-health-reference-list'
     >
       <div className='flex items-center justify-between border-b px-3 py-2'>

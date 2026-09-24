@@ -24,7 +24,7 @@ export function AppTitle({ showToggle = true }: { showToggle?: boolean }) {
             className='justify-center group-data-[collapsible=icon]:p-0!'
           >
             <span>
-              <Logo className='size-5 rounded-md' />
+              <Logo className='size-5 rounded-sm' />
             </span>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -42,7 +42,7 @@ export function AppTitle({ showToggle = true }: { showToggle?: boolean }) {
         >
           <div className='flex items-center justify-between gap-2'>
             <span className='flex min-w-0 items-center gap-1.5 font-bold'>
-              <Logo className='size-5 shrink-0 rounded-md' />
+              <Logo className='size-5 shrink-0 rounded-sm' />
               <img
                 alt='Pixoma'
                 className={cn(

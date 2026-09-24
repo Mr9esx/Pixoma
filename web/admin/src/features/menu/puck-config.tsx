@@ -98,7 +98,7 @@ export const menuPuckConfig = {
     render: ({ children, columns }: { children: ReactNode; columns?: number }) => (
       <div
         data-testid='menu-phone-canvas'
-        className='mx-auto flex flex-col overflow-hidden rounded-xl border bg-card'
+        className='mx-auto flex flex-col overflow-hidden rounded-lg border bg-card'
         style={{ ['--menu-cols' as string]: Number(columns) || 2 }}
       >
         <div className='h-10 shrink-0 border-b bg-muted' />

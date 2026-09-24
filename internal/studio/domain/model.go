@@ -151,6 +151,7 @@ type Run struct {
 	Status           RunStatus
 	ModelConfigID    string
 	SkillIDs         []string
+	SkillSnapshot    []RunSkill
 	AssetIDs         []string
 	AssetReferences  []AssetReference
 	ErrorCode        string
@@ -159,6 +160,13 @@ type Run struct {
 	StartedAt        time.Time
 	CompletedAt      time.Time
 	UpdatedAt        time.Time
+}
+
+type RunSkill struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Prompt      string `json:"prompt"`
 }
 
 // RunProgress is the latest recoverable snapshot for a non-terminal Run.

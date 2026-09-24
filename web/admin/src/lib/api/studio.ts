@@ -17,11 +17,19 @@ export type StudioSession = {
 }
 
 export type StudioMessagePart = {
-  type: 'text' | 'image' | 'file' | 'reasoning'
+  type: 'text' | 'image' | 'file' | 'reasoning' | 'skill_ref' | 'asset_ref'
   text?: string
   url?: string
   name?: string
+  skill_id?: string
+  asset_id?: string
+  asset_version_id?: string
 }
+
+export type StudioComposerPart =
+  | { type: 'text'; text: string }
+  | { type: 'skill_ref'; skill_id: string; name: string }
+  | { type: 'asset_ref'; asset_id: string; asset_version_id: string; name: string }
 
 export type StudioTranscriptToolCall = {
   id: string
@@ -34,6 +42,7 @@ export type StudioTranscriptMessage = {
   runId?: string
   role: 'user' | 'assistant' | 'reasoning' | 'tool'
   content: string
+  parts?: StudioComposerPart[]
   toolCalls?: StudioTranscriptToolCall[]
   toolCallId?: string
   isError?: boolean
