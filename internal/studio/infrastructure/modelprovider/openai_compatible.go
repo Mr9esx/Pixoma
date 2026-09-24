@@ -65,8 +65,8 @@ type OpenAICompatibleClient struct {
 }
 
 // ConnectionTester adapts the shared protocol client for model configuration
-// health checks. A normal, tiny chat request exercises endpoint, auth and
-// model compatibility without persisting its output.
+// health checks. Tool-enabled configurations are probed with a harmless
+// function call so a text-only endpoint cannot pass as a Tool Calling model.
 type ConnectionTester struct {
 	Client *OpenAICompatibleClient
 }
@@ -76,15 +76,41 @@ func (t ConnectionTester) Test(ctx context.Context, config domain.ResolvedModelC
 	if client == nil {
 		client = NewOpenAICompatibleClient(nil)
 	}
-	result, err := client.Chat(ctx, ChatRequest{
+	request := ChatRequest{
 		Config: config,
 		Messages: []ChatMessage{{
 			Role:    "user",
 			Content: "Reply with OK.",
 		}},
-	})
+	}
+	if config.Capabilities.Tools {
+		request.Messages[0].Content = `Call the pixoma_connection_probe function with nonce "pixoma". Do not reply in text.`
+		request.Tools = []ToolDefinition{{
+			Name: "pixoma_connection_probe", Description: "Verify Tool Calling support without changing any data.",
+			Parameters: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{"nonce": map[string]any{"type": "string"}},
+				"required":   []string{"nonce"},
+			},
+		}}
+	}
+	result, err := client.Chat(ctx, request)
 	if err != nil {
 		return err
+	}
+	if config.Capabilities.Tools {
+		for _, call := range result.ToolCalls {
+			if call.ID == "" || call.Function.Name != "pixoma_connection_probe" {
+				continue
+			}
+			var arguments struct {
+				Nonce string `json:"nonce"`
+			}
+			if json.Unmarshal([]byte(call.Function.Arguments), &arguments) == nil && arguments.Nonce == "pixoma" {
+				return nil
+			}
+		}
+		return fmt.Errorf("model provider: connection test did not return the expected tool call")
 	}
 	if strings.TrimSpace(result.Text) == "" {
 		return fmt.Errorf("model provider: connection test returned no text")

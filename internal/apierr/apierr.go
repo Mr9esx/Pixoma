@@ -437,7 +437,7 @@ var (
 	ErrAgentClaimFailed = &Error{Code: 5001518, Message: "领取任务失败。稍后重试。", I18nKey: "apiError.5001518"}
 
 	// ErrStudioModelConnectionTest — HTTP 502
-	ErrStudioModelConnectionTest = &Error{Code: 5021219, Message: "模型连接测试失败。检查 Base URL 和 API Key 后重新测试。", I18nKey: "apiError.5021219"}
+	ErrStudioModelConnectionTest = &Error{Code: 5021219, Message: "模型测试失败。检查接口地址、API Key 和工具调用支持后重试。", I18nKey: "apiError.5021219"}
 
 	// ErrChannelSaveUnavailable — HTTP 503
 	ErrChannelSaveUnavailable = &Error{Code: 5030815, Message: "模板存储未配置。检查 `channels` 配置后重启 `pixoma`。", I18nKey: "apiError.5030815"}

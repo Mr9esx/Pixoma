@@ -307,7 +307,7 @@
 | `4091203` | 409 | writeError（分类路由器） | `domain.ErrAlreadyExists` | **内容已存在。修改名称，或者先删除原有的。** | 省略 |
 | `5001205` | 500 | writeError（分类路由器） | `默认分支（服务暂时不可用）` | **工作台服务不可用。重启 `pixoma` 后重试。** | **必须** |
 | `5001206` | 500 | streamAGUI | `当前连接不支持流式响应` | **当前连接不支持流式响应。更换为支持 SSE 的环境。** | **必须** |
-| `5021219` | 502 | writeError（分类路由器） | `studioapp.ErrModelConnectionTe` | **模型连接测试失败。检查 Base URL 和 API Key 后重新测试。** | **必须** |
+| `5021219` | 502 | writeError（分类路由器） | `studioapp.ErrModelConnectionTe` | **模型测试失败。检查接口地址、API Key 和工具调用支持后重试。** | **必须** |
 | `5031216` | 503 | createModel, testModelConfig, testModelConnection 等4处 | `模型配置服务不可用` | **模型配置服务不可用。检查模型配置后重启 `pixoma`。** | **必须** |
 | `5031217` | 503 | createConnector, createSkill, listAgentWorkflows 等9处 | `能力配置服务不可用` | **能力配置服务不可用。检查能力配置后重启 `pixoma`。** | **必须** |
 | `5031218` | 503 | createTextAsset, updateTextAsset, uploadAsset | `资产存储服务不可用` | **资产存储不可用。检查对象存储配置后重启 `pixoma`。** | **必须** |

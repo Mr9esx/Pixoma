@@ -1120,7 +1120,7 @@
     "4091203": "That content already exists. Change the name, or delete the existing one first.",
     "5001205": "The studio service is unavailable. Restart `pixoma` and try again.",
     "5001206": "This connection doesn't support streaming. Use an environment that supports SSE.",
-    "5021219": "Model connection test failed. Check the base URL and the API key, then test again.",
+    "5021219": "Model test failed. Check the endpoint, API key, and tool-calling support, then retry.",
     "5031216": "The model configuration service is unavailable. Check the model configuration and restart `pixoma`.",
     "5031217": "The capability configuration service is unavailable. Check the capability configuration and restart `pixoma`.",
     "5031218": "Asset storage is unavailable. Check the object storage configuration and restart `pixoma`.",

@@ -54,6 +54,59 @@ func TestOpenAICompatibleChatUsesConfiguredBaseURLAndSecret(t *testing.T) {
 	}
 }
 
+func TestConnectionTesterVerifiesToolCallingAcrossProtocols(t *testing.T) {
+	tests := []struct {
+		name     string
+		protocol domain.ModelProtocol
+		response string
+	}{
+		{name: "chat completions", protocol: domain.ModelProtocolOpenAIChat, response: `{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"call-1","type":"function","function":{"name":"pixoma_connection_probe","arguments":"{\"nonce\":\"pixoma\"}"}}]}}]}`},
+		{name: "responses", protocol: domain.ModelProtocolOpenAIResponses, response: `{"output":[{"type":"function_call","call_id":"call-1","name":"pixoma_connection_probe","arguments":"{\"nonce\":\"pixoma\"}"}]}`},
+		{name: "anthropic", protocol: domain.ModelProtocolAnthropic, response: `{"content":[{"type":"tool_use","id":"call-1","name":"pixoma_connection_probe","input":{"nonce":"pixoma"}}]}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				tools, ok := body["tools"].([]any)
+				if !ok || len(tools) != 1 {
+					t.Errorf("probe tools = %#v", body["tools"])
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tt.response))
+			}))
+			defer server.Close()
+			tester := modelprovider.ConnectionTester{Client: modelprovider.NewOpenAICompatibleClient(server.Client())}
+			err := tester.Test(context.Background(), domain.ResolvedModelConfig{
+				Protocol: tt.protocol, BaseURL: server.URL, Model: "test-model", APIKey: "test-key",
+				Capabilities: domain.ModelCapabilities{Tools: true},
+			})
+			if err != nil {
+				t.Fatalf("tool probe error = %v", err)
+			}
+		})
+	}
+}
+
+func TestConnectionTesterRejectsTextOnlyResponseForToolModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"OK"}}]}`))
+	}))
+	defer server.Close()
+	tester := modelprovider.ConnectionTester{Client: modelprovider.NewOpenAICompatibleClient(server.Client())}
+	err := tester.Test(context.Background(), domain.ResolvedModelConfig{
+		Protocol: domain.ModelProtocolOpenAIChat, BaseURL: server.URL, Model: "test-model", APIKey: "test-key",
+		Capabilities: domain.ModelCapabilities{Tools: true},
+	})
+	if err == nil {
+		t.Fatal("text-only response was accepted as Tool Calling support")
+	}
+}
+
 func TestOpenAICompatibleChatEmitsDurableRequestTrace(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
