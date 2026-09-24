@@ -107,7 +107,7 @@ func (s *ModelConfigService) Create(ctx context.Context, input CreateModelConfig
 	}
 	config.Enabled = input.Enabled
 	config.AgentEnabled = input.AgentEnabled
-	if err := validateAgentModelLimits(config.AgentEnabled, input.Limits); err != nil {
+	if err := validateAgentModel(config.AgentEnabled, input.Limits, input.Capabilities); err != nil {
 		return nil, err
 	}
 	config.Default = input.Default
@@ -156,7 +156,7 @@ func (s *ModelConfigService) Update(ctx context.Context, accountID, configID str
 	updated.CreatedAt = existing.CreatedAt
 	updated.Enabled = input.Enabled
 	updated.AgentEnabled = input.AgentEnabled
-	if err := validateAgentModelLimits(updated.AgentEnabled, input.Limits); err != nil {
+	if err := validateAgentModel(updated.AgentEnabled, input.Limits, input.Capabilities); err != nil {
 		return nil, err
 	}
 	updated.Default = input.Default
@@ -179,6 +179,9 @@ func (s *ModelConfigService) Resolve(ctx context.Context, accountID, configID st
 	}
 	if err := config.Limits.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: Agent model limits are not configured", err)
+	}
+	if !config.Capabilities.Tools {
+		return nil, fmt.Errorf("%w: Agent model must support tool calling", domain.ErrInvalid)
 	}
 	apiKey, err := platformcrypto.Decrypt(s.EncryptionKey, config.APIKeyCipher)
 	if err != nil {
@@ -294,12 +297,15 @@ func (s *ModelConfigService) now() time.Time {
 	return time.Now().UTC()
 }
 
-func validateAgentModelLimits(agentEnabled bool, limits domain.ModelLimits) error {
+func validateAgentModel(agentEnabled bool, limits domain.ModelLimits, capabilities domain.ModelCapabilities) error {
 	if !agentEnabled {
 		return nil
 	}
 	if err := limits.Validate(); err != nil {
 		return fmt.Errorf("%w: Agent model limits are required", err)
+	}
+	if !capabilities.Tools {
+		return fmt.Errorf("%w: Agent model must support tool calling", domain.ErrInvalid)
 	}
 	return nil
 }

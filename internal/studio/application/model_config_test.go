@@ -33,6 +33,7 @@ func TestModelConfigEncryptsSecretAndReturnsMaskedView(t *testing.T) {
 		Enabled:      true,
 		AgentEnabled: true,
 		Limits:       domain.ModelLimits{ContextWindowTokens: 131072, MaxInputTokens: 120000, MaxOutputTokens: 8192},
+		Capabilities: domain.ModelCapabilities{Tools: true, Streaming: true},
 		Thinking:     domain.ThinkingConfig{Enabled: true, BudgetTokens: 2048},
 	})
 	if err != nil {
@@ -63,7 +64,8 @@ func TestModelConfigDefaultIsUniquePerAccount(t *testing.T) {
 	first, err := service.Create(context.Background(), studioapp.CreateModelConfigInput{
 		AccountID: "account-a", Name: "Model A", Protocol: domain.ModelProtocolOpenAIChat,
 		BaseURL: "http://model-a.test/v1", Model: "a", APIKey: "a-key", Enabled: true, AgentEnabled: true, Default: true,
-		Limits: domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Limits:       domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Capabilities: domain.ModelCapabilities{Tools: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +73,8 @@ func TestModelConfigDefaultIsUniquePerAccount(t *testing.T) {
 	second, err := service.Create(context.Background(), studioapp.CreateModelConfigInput{
 		AccountID: "account-a", Name: "Model B", Protocol: domain.ModelProtocolAnthropic,
 		BaseURL: "http://model-b.test", Model: "b", APIKey: "b-key", Enabled: true, AgentEnabled: true, Default: true,
-		Limits: domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Limits:       domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Capabilities: domain.ModelCapabilities{Tools: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +211,8 @@ func TestModelConfigUpdateKeepsExistingKeyWhenInputIsBlank(t *testing.T) {
 	created, err := service.Create(context.Background(), studioapp.CreateModelConfigInput{
 		AccountID: "account-a", Name: "Before", Protocol: domain.ModelProtocolOpenAIChat,
 		BaseURL: "https://before.example/v1", Model: "before", APIKey: "keep-secret",
-		Limits: domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Limits:       domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Capabilities: domain.ModelCapabilities{Tools: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -217,7 +221,8 @@ func TestModelConfigUpdateKeepsExistingKeyWhenInputIsBlank(t *testing.T) {
 		Name: "After", Protocol: domain.ModelProtocolOpenAIResponses,
 		BaseURL: "https://after.example/v1", Model: "after", APIKey: "",
 		Enabled: true, AgentEnabled: true, Default: true,
-		Limits: domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Limits:       domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Capabilities: domain.ModelCapabilities{Tools: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -316,6 +321,27 @@ func TestAgentModelCreationRejectsMissingLimits(t *testing.T) {
 	}
 }
 
+func TestAgentModelRequiresToolCallingCapability(t *testing.T) {
+	repo := openRepository(t)
+	service := &studioapp.ModelConfigService{
+		Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: (&idSequence{}).Next,
+	}
+	input := studioapp.CreateModelConfigInput{
+		AccountID: "account-a", Name: "纯生图模型", Protocol: domain.ModelProtocolOpenAIChat,
+		BaseURL: "https://model.example/v1", Model: "image-only", APIKey: "secret",
+		Enabled: true, AgentEnabled: true,
+		Limits:       domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Capabilities: domain.ModelCapabilities{ImageOutput: true},
+	}
+	if _, err := service.Create(context.Background(), input); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("Create() error = %v, want invalid Agent model", err)
+	}
+	input.AgentEnabled = false
+	if _, err := service.Create(context.Background(), input); err != nil {
+		t.Fatalf("Create() non-Agent image model error = %v", err)
+	}
+}
+
 func TestModelLimitsRoundTripThroughModelConfig(t *testing.T) {
 	repo := openRepository(t)
 	service := &studioapp.ModelConfigService{
@@ -328,6 +354,7 @@ func TestModelLimitsRoundTripThroughModelConfig(t *testing.T) {
 		AccountID: "account-a", Name: "Bounded", Protocol: domain.ModelProtocolOpenAIChat,
 		BaseURL: "https://model.example/v1", Model: "model", APIKey: "secret",
 		Enabled: true, AgentEnabled: true, Limits: want,
+		Capabilities: domain.ModelCapabilities{Tools: true},
 	})
 	if err != nil {
 		t.Fatal(err)

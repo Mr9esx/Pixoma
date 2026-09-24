@@ -11,6 +11,26 @@ vi.mock('@/lib/api/studio', async (importOriginal) => ({
 }))
 
 describe('StudioChat', () => {
+  it('does not offer an image-only model as an Agent model', async () => {
+    const screen = await renderStudioChat({
+      models: [
+        {
+          ...studioModel('image-only', '绘图模型'),
+          capabilities: {
+            image_output: true,
+            streaming: false,
+            tools: false,
+            vision: false,
+          },
+        },
+      ],
+      modelConfigId: 'image-only',
+    })
+    await expect
+      .element(screen.getByPlaceholder('先在 AI 设置中添加并启用模型'))
+      .toBeDisabled()
+  })
+
   it('shows replayed reasoning before any assistant text after returning to a running chat', async () => {
     class ReplaySocket {
       readyState = 0

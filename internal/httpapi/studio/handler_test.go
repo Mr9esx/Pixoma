@@ -114,7 +114,8 @@ func TestStudioModelConnectionTestAPIIsAccountScoped(t *testing.T) {
 	created := request(t, router, http.MethodPost, "/models", map[string]any{
 		"name": "Ark DeepSeek", "protocol": "openai_chat_compatible", "base_url": "https://ark.example.test/v3",
 		"model": "deepseek-v4-flash", "api_key": "temporary-secret", "enabled": true, "agent_enabled": true,
-		"limits": map[string]any{"context_window_tokens": 131072, "max_input_tokens": 120000, "max_output_tokens": 8192},
+		"limits":       map[string]any{"context_window_tokens": 131072, "max_input_tokens": 120000, "max_output_tokens": 8192},
+		"capabilities": map[string]any{"tools": true, "streaming": true},
 	}, "account-a")
 	if created.Code != http.StatusCreated {
 		t.Fatalf("POST /models = %d %s", created.Code, created.Body.String())
@@ -128,7 +129,8 @@ func TestStudioModelConnectionTestAPIIsAccountScoped(t *testing.T) {
 	updated := request(t, router, http.MethodPatch, "/models/"+model.ID, map[string]any{
 		"name": "Ark DeepSeek Updated", "protocol": "openai_chat_compatible", "base_url": "https://ark.example.test/v4",
 		"model": "deepseek-v4-flash-updated", "enabled": true, "agent_enabled": true, "default": true,
-		"limits": map[string]any{"context_window_tokens": 131072, "max_input_tokens": 120000, "max_output_tokens": 8192},
+		"limits":       map[string]any{"context_window_tokens": 131072, "max_input_tokens": 120000, "max_output_tokens": 8192},
+		"capabilities": map[string]any{"tools": true, "streaming": true},
 	}, "account-a")
 	if updated.Code != http.StatusOK || !strings.Contains(updated.Body.String(), "Ark DeepSeek Updated") {
 		t.Fatalf("PATCH /models/{id} = %d %s", updated.Code, updated.Body.String())

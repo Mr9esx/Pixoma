@@ -155,7 +155,7 @@ function toTranscriptAGUIMessages(
 export function StudioChat(props: Props) {
   const [runError, setRunError] = useState<string>()
   const availableModels = props.models.filter(
-    (model) => model.enabled && model.agent_enabled
+    (model) => model.enabled && model.agent_enabled && model.capabilities.tools
   )
   const selectedModel =
     availableModels.find((model) => model.id === props.modelConfigId) ??

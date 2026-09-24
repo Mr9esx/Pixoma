@@ -56,7 +56,8 @@ func TestRealAgentCanAddSessionSOPStages(t *testing.T) {
 	model, err := models.Create(context.Background(), studioapp.CreateModelConfigInput{
 		AccountID: "account-a", Name: "测试 Agent", Protocol: domain.ModelProtocolOpenAIChat,
 		BaseURL: endpoint.URL, Model: "test-model", APIKey: "test-key", Enabled: true, AgentEnabled: true,
-		Limits: domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Limits:       domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Capabilities: domain.ModelCapabilities{Tools: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +107,8 @@ func TestRealAgentFlowEditRetryDoesNotMoveNodeOrDuplicateEdge(t *testing.T) {
 	model, err := models.Create(context.Background(), studioapp.CreateModelConfigInput{
 		AccountID: "account-a", Name: "测试 Agent", Protocol: domain.ModelProtocolOpenAIChat,
 		BaseURL: endpoint.URL, Model: "test-model", APIKey: "test-key", Enabled: true, AgentEnabled: true,
-		Limits: domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Limits:       domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+		Capabilities: domain.ModelCapabilities{Tools: true},
 	})
 	if err != nil {
 		t.Fatal(err)

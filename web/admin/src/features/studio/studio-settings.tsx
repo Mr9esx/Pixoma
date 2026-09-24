@@ -132,10 +132,7 @@ export function StudioSettings() {
   const activeSection = settingSections.find((item) => item.id === section)!
 
   return (
-    <main
-      id='main-content'
-      className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'
-    >
+    <main id='main-content' className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>
       <section className='flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card'>
         <header className='flex min-h-16 items-center gap-3 border-b px-5 pl-16 lg:pl-5'>
           <div className='min-w-0'>
@@ -275,6 +272,7 @@ export function StudioSettings() {
                                 problems={
                                   model.enabled &&
                                   model.agent_enabled &&
+                                  model.capabilities.tools &&
                                   model.has_api_key &&
                                   model.limits?.context_window_tokens > 0 &&
                                   model.limits?.max_input_tokens > 0 &&
@@ -289,6 +287,7 @@ export function StudioSettings() {
                                 label={
                                   model.enabled &&
                                   model.agent_enabled &&
+                                  model.capabilities.tools &&
                                   model.has_api_key &&
                                   model.limits?.context_window_tokens > 0 &&
                                   model.limits?.max_input_tokens > 0 &&
@@ -928,6 +927,7 @@ const initialModel = {
   maxOutputTokens: '8192',
   enabled: true,
   agentEnabled: true,
+  supportsTools: true,
   default: false,
   thinkingEnabled: false,
   thinkingEffort: 'medium',
@@ -957,7 +957,7 @@ function modelConfigInput(form: typeof initialModel): StudioModelConfigInput {
         }
       : { enabled: false },
     capabilities: {
-      tools: true,
+      tools: form.supportsTools,
       vision: false,
       image_output: false,
       streaming: true,
@@ -977,6 +977,7 @@ function modelToForm(model: StudioModel) {
     maxOutputTokens: String(model.limits?.max_output_tokens ?? ''),
     enabled: model.enabled,
     agentEnabled: model.agent_enabled,
+    supportsTools: model.capabilities.tools,
     default: model.default,
     thinkingEnabled: model.thinking.enabled,
     thinkingEffort: model.thinking.effort ?? 'medium',
@@ -993,7 +994,9 @@ function ModelDialog({
 }) {
   const queryClient = useQueryClient()
   const formRef = useRef<HTMLFormElement>(null)
-  const [form, setForm] = useState(() => model ? modelToForm(model) : initialModel)
+  const [form, setForm] = useState(() =>
+    model ? modelToForm(model) : initialModel
+  )
   const updateForm = (patch: Partial<typeof initialModel>) => {
     setForm((current) => ({ ...current, ...patch }))
   }
@@ -1174,9 +1177,25 @@ function ModelDialog({
           </div>
           <div className='grid gap-3 rounded-lg border bg-muted/30 p-3'>
             <ToggleRow
+              label='支持工具调用'
+              description='仅支持对话与工具调用的模型可用于 Agent；纯生图模型暂不接入。'
+              checked={form.supportsTools}
+              onCheckedChange={(supportsTools) =>
+                updateForm({
+                  supportsTools,
+                  agentEnabled: supportsTools ? form.agentEnabled : false,
+                })
+              }
+            />
+            <ToggleRow
               label='允许 Agent 使用'
-              description='关闭后不会出现在创作输入框中。'
+              description={
+                form.supportsTools
+                  ? '关闭后不会出现在创作输入框中。'
+                  : '先确认模型支持工具调用。'
+              }
               checked={form.agentEnabled}
+              disabled={!form.supportsTools}
               onCheckedChange={(agentEnabled) => updateForm({ agentEnabled })}
             />
             <ToggleRow
@@ -1261,11 +1280,13 @@ function ToggleRow({
   label,
   description,
   checked,
+  disabled = false,
   onCheckedChange,
 }: {
   label: string
   description: string
   checked: boolean
+  disabled?: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
@@ -1274,7 +1295,12 @@ function ToggleRow({
         <p className='text-sm font-medium'>{label}</p>
         <p className='text-xs text-muted-foreground'>{description}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch
+        aria-label={label}
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onCheckedChange}
+      />
     </div>
   )
 }
