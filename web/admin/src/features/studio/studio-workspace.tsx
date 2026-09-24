@@ -268,6 +268,43 @@ export function StudioWorkspace() {
     },
   }
 
+  const workbenchTabs = () => (
+    <Tabs defaultValue='flow' className='min-h-0 flex-1 gap-0'>
+      <div className='flex h-16 items-center px-4'>
+        <TabsList>
+          <TabsTrigger value='flow'>资产路线</TabsTrigger>
+          <TabsTrigger value='assets'>
+            Session 资产{' '}
+            <span className='text-xs text-muted-foreground'>
+              {detail.data?.assets.length ?? 0}
+            </span>
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value='flow' className='m-0 min-h-0'>
+        <StudioFlow
+          nodes={detail.data?.flow.nodes ?? []}
+          edges={detail.data?.flow.edges ?? []}
+          onNodeCreate={(input) => createFlowNode.mutateAsync(input)}
+          onNodeDelete={(id) => deleteFlowNode.mutateAsync(id)}
+          onEdgeCreate={(input) => createFlowEdge.mutateAsync(input)}
+          onEdgeDelete={(id) => deleteFlowEdge.mutateAsync(id)}
+          onPositionsChange={(nodes) => saveFlowPositions.mutateAsync(nodes)}
+        />
+      </TabsContent>
+      <TabsContent value='assets' className='m-0 min-h-0'>
+        <StudioAssets
+          assets={detail.data?.assets ?? []}
+          onSaveToLibrary={(input) => saveAsset.mutateAsync(input)}
+          onCreateTextAsset={(input) => createTextAsset.mutateAsync(input)}
+          onUpdateTextAsset={(input) => updateTextAsset.mutateAsync(input)}
+          onUploadAsset={(file) => uploadAsset.mutate(file)}
+          uploading={uploadAsset.isPending}
+        />
+      </TabsContent>
+    </Tabs>
+  )
+
   return (
     <div className='flex h-svh min-h-0 w-full overflow-hidden'>
       <div className='hidden lg:flex'>
@@ -342,9 +379,36 @@ export function StudioWorkspace() {
                     {traceOpen ? '对话' : '轨迹'}
                   </Button>
                   {!traceOpen ? (
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='size-11 xl:hidden'
+                          aria-label='打开创作工作台'
+                        >
+                          <PanelRightOpen />
+                        </Button>
+                      </SheetTrigger>
+                      <SheetContent
+                        side='right'
+                        className='w-full max-w-none gap-0 bg-card p-0 sm:w-[min(90vw,42rem)] sm:max-w-none'
+                      >
+                        <SheetTitle className='px-4 pt-4 text-sm'>
+                          创作工作台
+                        </SheetTitle>
+                        <SheetDescription className='sr-only'>
+                          查看资产路线与 Session 资产。
+                        </SheetDescription>
+                        {workbenchTabs()}
+                      </SheetContent>
+                    </Sheet>
+                  ) : null}
+                  {!traceOpen ? (
                     <Button
                       variant='ghost'
                       size='icon'
+                      className='hidden xl:inline-flex'
                       onClick={() => setRightOpen((open) => !open)}
                       aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}
                     >
@@ -407,50 +471,7 @@ export function StudioWorkspace() {
             </main>
             {rightOpen && !traceOpen ? (
               <aside className='hidden w-[42%] max-w-2xl min-w-80 shrink-0 border-s bg-muted/20 xl:flex xl:flex-col'>
-                <Tabs defaultValue='flow' className='min-h-0 flex-1 gap-0'>
-                  <div className='flex h-16 items-center px-4'>
-                    <TabsList>
-                      <TabsTrigger value='flow'>资产路线</TabsTrigger>
-                      <TabsTrigger value='assets'>
-                        Session 资产{' '}
-                        <span className='text-xs text-muted-foreground'>
-                          {detail.data?.assets.length ?? 0}
-                        </span>
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
-                  <TabsContent value='flow' className='m-0 min-h-0'>
-                    <StudioFlow
-                      nodes={detail.data?.flow.nodes ?? []}
-                      edges={detail.data?.flow.edges ?? []}
-                      onNodeCreate={(input) =>
-                        createFlowNode.mutateAsync(input)
-                      }
-                      onNodeDelete={(id) => deleteFlowNode.mutateAsync(id)}
-                      onEdgeCreate={(input) =>
-                        createFlowEdge.mutateAsync(input)
-                      }
-                      onEdgeDelete={(id) => deleteFlowEdge.mutateAsync(id)}
-                      onPositionsChange={(nodes) =>
-                        saveFlowPositions.mutateAsync(nodes)
-                      }
-                    />
-                  </TabsContent>
-                  <TabsContent value='assets' className='m-0 min-h-0'>
-                    <StudioAssets
-                      assets={detail.data?.assets ?? []}
-                      onSaveToLibrary={(input) => saveAsset.mutateAsync(input)}
-                      onCreateTextAsset={(input) =>
-                        createTextAsset.mutateAsync(input)
-                      }
-                      onUpdateTextAsset={(input) =>
-                        updateTextAsset.mutateAsync(input)
-                      }
-                      onUploadAsset={(file) => uploadAsset.mutate(file)}
-                      uploading={uploadAsset.isPending}
-                    />
-                  </TabsContent>
-                </Tabs>
+                {workbenchTabs()}
               </aside>
             ) : null}
           </section>

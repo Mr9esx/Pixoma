@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/index.css'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
+import { page } from 'vitest/browser'
 import { getStudioSession, type StudioSessionDetail } from '@/lib/api/studio'
 import { StudioWorkspace } from './studio-workspace'
 
@@ -69,6 +70,41 @@ const detail = (id: string, status?: 'running'): StudioSessionDetail => ({
 })
 
 describe('StudioWorkspace', () => {
+  it('opens the Flow and Session assets workbench on a narrow screen', async () => {
+    const originalViewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }
+    await page.viewport(390, 844)
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchInterval: false } },
+    })
+    const session = detail('session-mobile')
+    const api = await import('@/lib/api/studio')
+    vi.mocked(api.listStudioSessions).mockResolvedValue([session.session])
+    vi.mocked(getStudioSession).mockResolvedValue(session)
+    try {
+      const screen = await render(
+        <QueryClientProvider client={client}>
+          <StudioWorkspace />
+        </QueryClientProvider>
+      )
+      await expect.element(screen.getByTestId('chat-state')).toBeVisible()
+      await screen.getByRole('button', { name: '打开创作工作台' }).click()
+      const workbench = screen.getByRole('dialog', { name: '创作工作台' })
+      await expect.element(workbench).toBeVisible()
+      await expect
+        .element(workbench.getByRole('tab', { name: '资产路线' }))
+        .toBeVisible()
+      await workbench.getByRole('tab', { name: /Session 资产/ }).click()
+      await expect
+        .element(workbench.getByRole('tab', { name: /Session 资产/ }))
+        .toHaveAttribute('aria-selected', 'true')
+    } finally {
+      await page.viewport(originalViewport.width, originalViewport.height)
+    }
+  })
+
   it('refreshes cached session detail before mounting a returned chat', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchInterval: false } },
