@@ -55,6 +55,23 @@ vi.mock('@/lib/api/studio', async (importOriginal) => ({
 }))
 
 describe('StudioLibrary', () => {
+  it('exposes the asset search box by name and filters the list', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const screen = await render(
+      <QueryClientProvider client={client}>
+        <StudioLibrary onOpenSession={() => {}} />
+      </QueryClientProvider>
+    )
+    const search = screen.getByRole('textbox', {
+      name: '搜索资产',
+      exact: true,
+    })
+    await search.fill('没有这项')
+    await expect.element(screen.getByText('没有匹配的资产')).toBeVisible()
+  })
+
   it('moves a saved asset into a folder', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },

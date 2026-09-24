@@ -448,6 +448,13 @@ function StudioNode({ data, selected }: NodeProps) {
       onDoubleClick={() =>
         value.assetId ? value.onAssetOpen?.(value.assetId) : undefined
       }
+      onKeyDown={(event) => {
+        if (!value.assetId || (event.key !== 'Enter' && event.key !== ' '))
+          return
+        event.preventDefault()
+        event.stopPropagation()
+        value.onAssetOpen?.(value.assetId)
+      }}
       className={cn(
         'w-52 rounded-xl border bg-card p-3 text-left transition-colors',
         selected ? 'border-ring ring-3 ring-ring/15' : 'hover:border-ring/60'

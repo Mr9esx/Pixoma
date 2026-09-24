@@ -135,6 +135,7 @@ export function StudioLibrary({
             <Search className='absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground' />
             <Input
               className='pl-9'
+              aria-label='搜索资产'
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder='搜索资产名称、类型或来源…'

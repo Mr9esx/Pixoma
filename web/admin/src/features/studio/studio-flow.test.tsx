@@ -24,7 +24,53 @@ const nodes: StudioFlowNode[] = [
   },
 ]
 
+const assetNode: StudioFlowNode = {
+  id: 'asset-node',
+  type: 'asset',
+  title: '分镜图',
+  asset_id: 'asset-storyboard',
+  position: { x: 100, y: 100 },
+  sort_order: 10,
+  updated_at: '',
+}
+
 describe('StudioFlow', () => {
+  it('opens an asset node with the keyboard', async () => {
+    const onAssetOpen = vi.fn()
+    const screen = await render(
+      <div className='h-[600px] w-[1000px]'>
+        <StudioFlow nodes={[assetNode]} edges={[]} onAssetOpen={onAssetOpen} />
+      </div>
+    )
+    const nodeButton = screen.container.querySelector(
+      '.react-flow__node[data-id="asset-node"] button'
+    ) as HTMLButtonElement
+    nodeButton.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(onAssetOpen).toHaveBeenCalledWith('asset-storyboard')
+  })
+
+  it('opens an asset node with Space', async () => {
+    const onAssetOpen = vi.fn()
+    const screen = await render(
+      <div className='h-[600px] w-[1000px]'>
+        <StudioFlow nodes={[assetNode]} edges={[]} onAssetOpen={onAssetOpen} />
+      </div>
+    )
+    const nodeButton = screen.container.querySelector(
+      '.react-flow__node[data-id="asset-node"] button'
+    ) as HTMLButtonElement
+    nodeButton.focus()
+    nodeButton.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: ' ',
+        bubbles: true,
+        cancelable: true,
+      })
+    )
+    expect(onAssetOpen).toHaveBeenCalledWith('asset-storyboard')
+  })
+
   it('reports a failed connection without keeping a phantom edge', async () => {
     const onEdgeCreate = vi.fn(async () => {
       throw new Error('连接失败')
