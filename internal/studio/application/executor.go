@@ -703,6 +703,15 @@ func (w *executionWriter) CreateFlowNode(ctx context.Context, input FlowNodeInpu
 	nodeID := w.executor.ids()
 	if input.ActionID != "" {
 		nodeID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(w.run.ID+"\x00flow-node\x00"+input.ActionID)).String()
+		nodes, _, err := w.executor.repo.GetFlow(ctx, w.run.AccountID, w.run.SessionID)
+		if err != nil {
+			return nil, err
+		}
+		for _, existing := range nodes {
+			if existing.ID == nodeID {
+				return existing, nil
+			}
+		}
 	}
 	node, err := domain.NewFlowNode(nodeID, w.run.SessionID, w.run.AccountID, input.Type, input.Title, input.SortOrder, w.executor.now())
 	if err != nil {
@@ -748,7 +757,7 @@ func assetVersionByID(asset *domain.Asset, versionID string) (domain.AssetVersio
 }
 
 func (w *executionWriter) CreateFlowEdge(ctx context.Context, sourceNodeID, targetNodeID, label string) (*domain.FlowEdge, error) {
-	nodes, _, err := w.executor.repo.GetFlow(ctx, w.run.AccountID, w.run.SessionID)
+	nodes, edges, err := w.executor.repo.GetFlow(ctx, w.run.AccountID, w.run.SessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -761,6 +770,11 @@ func (w *executionWriter) CreateFlowEdge(ctx context.Context, sourceNodeID, targ
 	}
 	if _, ok := known[targetNodeID]; !ok {
 		return nil, domain.ErrNotFound
+	}
+	for _, existing := range edges {
+		if existing.SourceNodeID == sourceNodeID && existing.TargetNodeID == targetNodeID {
+			return existing, nil
+		}
 	}
 	edge, err := domain.NewFlowEdge(w.executor.ids(), w.run.SessionID, w.run.AccountID, sourceNodeID, targetNodeID, w.executor.now())
 	if err != nil {

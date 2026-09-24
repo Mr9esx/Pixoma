@@ -83,6 +83,65 @@ func TestRealAgentCanAddSessionSOPStages(t *testing.T) {
 	}
 }
 
+func TestRealAgentFlowEditRetryDoesNotMoveNodeOrDuplicateEdge(t *testing.T) {
+	repo := openRepository(t)
+	blobs, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	modelCalls := 0
+	var stageID string
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		modelCalls++
+		w.Header().Set("Content-Type", "application/json")
+		if modelCalls <= 2 {
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call-plan","type":"function","function":{"name":"edit_session_flow","arguments":"{\"operations\":[{\"type\":\"add_operation\",\"title\":\"生成分镜\",\"stage_node_id\":\"` + stageID + `\"}]}"}}]}}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已规划分镜步骤。"}}]}`))
+	}))
+	defer endpoint.Close()
+	ids := &idSequence{}
+	models := &studioapp.ModelConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: ids.Next}
+	model, err := models.Create(context.Background(), studioapp.CreateModelConfigInput{
+		AccountID: "account-a", Name: "测试 Agent", Protocol: domain.ModelProtocolOpenAIChat,
+		BaseURL: endpoint.URL, Model: "test-model", APIKey: "test-key", Enabled: true, AgentEnabled: true,
+		Limits: domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := &einoagent.Engine{Models: models, Client: modelprovider.NewOpenAICompatibleClient(endpoint.Client())}
+	executor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{Repo: repo, Blob: blobs, Engine: engine, IDs: ids.Next})
+	runner := studioapp.NewBackgroundRunner(repo, executor, studioapp.RunnerOptions{Workers: 1})
+	t.Cleanup(runner.Close)
+	service := &studioapp.Service{Repo: repo, IDs: ids.Next, Queue: runner}
+	session, err := service.CreateSession(context.Background(), "account-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage, err := service.CreateFlowNode(context.Background(), "account-a", session.ID, studioapp.CreateFlowNodeInput{Type: domain.FlowNodeStage, Title: "排好分镜", Position: studioapp.FlowPositionInput{X: 480, Y: 240}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stageID = stage.ID
+	turn, err := service.SendMessage(context.Background(), studioapp.SendMessageInput{AccountID: "account-a", SessionID: session.ID, Text: "规划分镜", ModelConfigID: model.ID, PermissionMode: domain.PermissionFullAccess})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitRunStatus(t, repo, turn.Run.ID, domain.RunSucceeded)
+	nodes, edges, err := repo.GetFlow(context.Background(), "account-a", session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if modelCalls != 3 || len(nodes) != 2 || len(edges) != 1 {
+		t.Fatalf("calls=%d nodes=%#v edges=%#v", modelCalls, nodes, edges)
+	}
+	if nodes[0].ID != stage.ID || nodes[0].PositionX != 480 || nodes[1].SortOrder != 10 {
+		t.Fatalf("nodes moved: %#v", nodes)
+	}
+}
+
 func TestMockAgentCompletesConversationWorkflowAndAssets(t *testing.T) {
 	repo := openRepository(t)
 	blobs, err := localfs.New(t.TempDir())
