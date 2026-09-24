@@ -17,7 +17,11 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Box, FileOutput, ListChecks, Plus, Workflow } from 'lucide-react'
-import type { StudioFlowEdge, StudioFlowNode } from '@/lib/api/studio'
+import type {
+  StudioFlowEdge,
+  StudioFlowNode,
+  StudioWorkflowExecution,
+} from '@/lib/api/studio'
 import { cn } from '@/lib/utils'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -34,10 +38,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { StatusDot } from '@/components/status-dot'
 
 type Props = {
   nodes: StudioFlowNode[]
   edges: StudioFlowEdge[]
+  workflowExecutions?: StudioWorkflowExecution[]
   onAssetOpen?: (assetId: string) => void
   onPositionsChange?: (
     nodes: Array<{
@@ -68,6 +74,8 @@ type FlowData = {
   assetId?: string
   assetVersion?: number
   onAssetOpen?: (assetId: string) => void
+  workflowExecution?: StudioWorkflowExecution
+  workflowOutputCount?: number
 }
 
 type StudioReactNode = Node<FlowData, 'studio'>
@@ -77,6 +85,7 @@ const nodeTypes = { studio: StudioNode }
 export function StudioFlow({
   nodes: sourceNodes,
   edges: sourceEdges,
+  workflowExecutions,
   onAssetOpen,
   onPositionsChange,
   onNodeCreate,
@@ -84,26 +93,44 @@ export function StudioFlow({
   onEdgeCreate,
   onEdgeDelete,
 }: Props) {
-  const initialNodes = useMemo(
-    (): StudioReactNode[] =>
-      sourceNodes.map((node, index) => ({
-        id: node.id,
-        type: 'studio',
-        position:
-          node.position.x !== 0 || node.position.y !== 0
-            ? node.position
-            : { x: 72 + index * 236, y: 128 + (index % 2) * 54 },
-        data: {
-          title: node.title,
-          body: node.body,
-          kind: node.type,
-          assetId: node.asset_id,
-          assetVersion: node.asset_version,
-          onAssetOpen,
-        } satisfies FlowData,
-      })),
-    [sourceNodes, onAssetOpen]
-  )
+  const initialNodes = useMemo((): StudioReactNode[] => {
+    const executionByNode = new Map(
+      workflowExecutions?.map((execution) => [
+        execution.operation_node_id,
+        execution,
+      ]) ?? []
+    )
+    const assetNodeIDs = new Set(
+      sourceNodes.filter((node) => node.type === 'asset').map((node) => node.id)
+    )
+    const outputCountByNode = new Map<string, number>()
+    for (const edge of sourceEdges) {
+      if (assetNodeIDs.has(edge.target)) {
+        outputCountByNode.set(
+          edge.source,
+          (outputCountByNode.get(edge.source) ?? 0) + 1
+        )
+      }
+    }
+    return sourceNodes.map((node, index) => ({
+      id: node.id,
+      type: 'studio',
+      position:
+        node.position.x !== 0 || node.position.y !== 0
+          ? node.position
+          : { x: 72 + index * 236, y: 128 + (index % 2) * 54 },
+      data: {
+        title: node.title,
+        body: node.body,
+        kind: node.type,
+        assetId: node.asset_id,
+        assetVersion: node.asset_version,
+        onAssetOpen,
+        workflowExecution: executionByNode.get(node.id),
+        workflowOutputCount: outputCountByNode.get(node.id) ?? 0,
+      } satisfies FlowData,
+    }))
+  }, [sourceNodes, sourceEdges, workflowExecutions, onAssetOpen])
   const initialEdges = useMemo(
     () =>
       sourceEdges.map((edge) => ({
@@ -434,6 +461,25 @@ function CreateFlowNodeDialog({
 
 function StudioNode({ data, selected }: NodeProps) {
   const value = data as FlowData
+  const execution = value.workflowExecution
+  const statusLabel = execution
+    ? {
+        submitted: '执行中',
+        succeeded: '成功',
+        failed: '失败',
+        cancelled: '已取消',
+      }[execution.status]
+    : undefined
+  const body = execution
+    ? {
+        submitted: '工作流在后台运行。',
+        succeeded: value.workflowOutputCount
+          ? '产物已加入资产路线。'
+          : '资产路线暂无产物。',
+        failed: execution.error_message || '工作流失败。',
+        cancelled: '工作流已取消。',
+      }[execution.status]
+    : value.body
   const Icon =
     value.kind === 'stage'
       ? ListChecks
@@ -471,16 +517,36 @@ function StudioNode({ data, selected }: NodeProps) {
         </span>
         <div className='min-w-0 flex-1'>
           <div className='mb-1 flex items-center gap-2'>
-            <p className='truncate text-sm font-medium'>{value.title}</p>
+            <p className='min-w-0 flex-1 truncate text-sm font-medium'>
+              {value.title}
+            </p>
+            {statusLabel ? (
+              <Badge
+                variant='outline'
+                className='shrink-0 gap-1.5 px-1.5 text-[10px]'
+              >
+                <StatusDot
+                  label={statusLabel}
+                  state={
+                    execution?.status === 'succeeded'
+                      ? 'ok'
+                      : execution?.status === 'submitted'
+                        ? 'active'
+                        : 'warn'
+                  }
+                />
+                {statusLabel}
+              </Badge>
+            ) : null}
             {value.kind === 'asset' ? (
               <Badge variant='secondary' className='px-1.5 text-[10px]'>
                 {value.assetVersion ? `v${value.assetVersion}` : '已固定'}
               </Badge>
             ) : null}
           </div>
-          {value.body ? (
+          {body ? (
             <p className='line-clamp-2 text-xs leading-5 text-muted-foreground'>
-              {value.body}
+              {body}
             </p>
           ) : null}
         </div>

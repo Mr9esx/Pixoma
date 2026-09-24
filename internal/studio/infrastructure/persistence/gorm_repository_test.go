@@ -611,3 +611,42 @@ func TestWorkflowExecutionIsIdempotentAndAccountScoped(t *testing.T) {
 		t.Fatalf("cross-account GetWorkflowExecutionByTask() error = %v, want ErrNotFound", err)
 	}
 }
+
+func TestListSessionWorkflowExecutionsIncludesTerminalTasksAndIsAccountScoped(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+	for _, input := range []struct {
+		id, accountID, sessionID string
+		createdAt                time.Time
+		status                   domain.WorkflowExecutionStatus
+	}{
+		{"execution-pending", "account-a", "session-a", now, domain.WorkflowExecutionSubmitted},
+		{"execution-failed", "account-a", "session-a", now.Add(time.Second), domain.WorkflowExecutionFailed},
+		{"other-session", "account-a", "session-b", now.Add(2 * time.Second), domain.WorkflowExecutionSubmitted},
+		{"other-account", "account-b", "session-a", now.Add(3 * time.Second), domain.WorkflowExecutionSubmitted},
+	} {
+		execution, err := domain.NewWorkflowExecution(input.id, input.accountID, input.sessionID, "run-"+input.id, "tool-"+input.id, "task-"+input.id, "12", "operation-"+input.id, input.createdAt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.CreateWorkflowExecution(ctx, execution); err != nil {
+			t.Fatal(err)
+		}
+		if input.status.Terminal() {
+			if err := execution.Complete(input.status, "出图失败", input.createdAt.Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.UpdateWorkflowExecution(ctx, execution); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	got, err := repo.ListSessionWorkflowExecutions(ctx, "account-a", "session-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].ID != "execution-pending" || got[1].ID != "execution-failed" || got[1].Status != domain.WorkflowExecutionFailed || got[1].ErrorMessage != "出图失败" {
+		t.Fatalf("ListSessionWorkflowExecutions() = %#v", got)
+	}
+}

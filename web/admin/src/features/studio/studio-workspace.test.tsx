@@ -52,7 +52,21 @@ vi.mock('./studio-chat', () => ({
   ),
 }))
 
-vi.mock('./studio-flow', () => ({ StudioFlow: () => null }))
+vi.mock('./studio-flow', () => ({
+  StudioFlow: ({
+    nodes,
+    workflowExecutions,
+  }: {
+    nodes: Array<{ id: string }>
+    workflowExecutions?: Array<{ status: string }>
+  }) => (
+    <div data-testid='flow-state'>
+      {workflowExecutions?.map((execution) => execution.status).join(',') ??
+        'none'}
+      :{nodes.map((node) => node.id).join(',')}
+    </div>
+  ),
+}))
 vi.mock('./studio-library', () => ({
   StudioLibrary: () => <div>资产库页面</div>,
 }))
@@ -93,6 +107,88 @@ const detail = (id: string, status?: 'running'): StudioSessionDetail => ({
 
 describe('StudioWorkspace', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('refreshes a submitted workflow after the Agent run ends, then stops at the terminal state', async () => {
+    const originalViewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }
+    await page.viewport(1440, 900)
+    try {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false, refetchInterval: false } },
+      })
+      const session = detail('session-workflow')
+      const execution = {
+        id: 'execution-a',
+        run_id: 'run-a',
+        task_id: 'task-a',
+        workflow_id: '12',
+        operation_node_id: 'operation-a',
+        status: 'submitted' as const,
+        created_at: '2026-09-25T12:00:00Z',
+      }
+      const pending = {
+        ...session,
+        workflow_executions: [execution],
+        flow: {
+          nodes: [
+            {
+              id: 'operation-a',
+              type: 'operation' as const,
+              title: '生成分镜',
+              position: { x: 0, y: 0 },
+              sort_order: 0,
+              updated_at: '',
+            },
+          ],
+          edges: [],
+        },
+      }
+      const settled: StudioSessionDetail = {
+        ...pending,
+        workflow_executions: [{ ...execution, status: 'succeeded' }],
+        flow: {
+          ...pending.flow,
+          nodes: [
+            ...pending.flow.nodes,
+            {
+              id: 'output-a',
+              type: 'asset',
+              title: '分镜图',
+              position: { x: 250, y: 0 },
+              sort_order: 1,
+              updated_at: '',
+            },
+          ],
+        },
+      }
+      const api = await import('@/lib/api/studio')
+      vi.mocked(api.listStudioSessions).mockResolvedValue([session.session])
+      vi.mocked(getStudioSession)
+        .mockResolvedValueOnce(pending)
+        .mockResolvedValue(settled)
+
+      const screen = await render(
+        <QueryClientProvider client={client}>
+          <StudioWorkspace />
+        </QueryClientProvider>
+      )
+      await expect
+        .element(screen.getByTestId('flow-state'))
+        .toHaveTextContent('submitted:operation-a')
+      await expect
+        .element(screen.getByTestId('flow-state'))
+        .toHaveTextContent('succeeded:operation-a,output-a', { timeout: 6000 })
+      const requestsAtTerminal = vi.mocked(getStudioSession).mock.calls.length
+      await new Promise((resolve) => setTimeout(resolve, 2800))
+      expect(vi.mocked(getStudioSession).mock.calls).toHaveLength(
+        requestsAtTerminal
+      )
+    } finally {
+      await page.viewport(originalViewport.width, originalViewport.height)
+    }
+  })
 
   it('offers a retry when automatic conversation creation fails', async () => {
     const client = new QueryClient({

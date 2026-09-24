@@ -288,6 +288,18 @@ type runProgressView struct {
 	UpdatedAt          time.Time       `json:"updated_at"`
 }
 
+type workflowExecutionView struct {
+	ID              string                         `json:"id"`
+	RunID           string                         `json:"run_id"`
+	TaskID          string                         `json:"task_id"`
+	WorkflowID      string                         `json:"workflow_id"`
+	OperationNodeID string                         `json:"operation_node_id"`
+	Status          domain.WorkflowExecutionStatus `json:"status"`
+	ErrorMessage    string                         `json:"error_message,omitempty"`
+	CreatedAt       time.Time                      `json:"created_at"`
+	CompletedAt     time.Time                      `json:"completed_at,omitempty"`
+}
+
 type assetVersionView struct {
 	ID         string          `json:"id"`
 	Version    int             `json:"version"`
@@ -448,6 +460,11 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		failFromError(w, err)
 		return
 	}
+	workflowExecutions, err := h.Repo.ListSessionWorkflowExecutions(r.Context(), accountID, sessionID)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
 	assets, err := h.Repo.ListSessionAssets(r.Context(), accountID, sessionID, 200)
 	if err != nil {
 		failFromError(w, err)
@@ -466,12 +483,13 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 	}
 	transcript := studioapp.ProjectSessionTranscript(transcriptData.Messages, transcriptData.Runs, eventsByRun)
 	response.OKStatus(w, http.StatusOK, map[string]any{
-		"session":           toSessionView(session, latestRuns[sessionID]),
-		"run_progress":      progress,
-		"pending_approvals": pendingApprovals,
-		"messages":          messagesToViews(transcriptData.Messages),
-		"transcript":        transcript,
-		"assets":            assetsToViews(assets),
+		"session":             toSessionView(session, latestRuns[sessionID]),
+		"run_progress":        progress,
+		"pending_approvals":   pendingApprovals,
+		"messages":            messagesToViews(transcriptData.Messages),
+		"transcript":          transcript,
+		"workflow_executions": workflowExecutionsToViews(workflowExecutions),
+		"assets":              assetsToViews(assets),
 		"flow": map[string]any{
 			"nodes": flowNodesToViews(nodes),
 			"edges": flowEdgesToViews(edges),
@@ -1239,6 +1257,19 @@ func toRunProgressView(progress *domain.RunProgress) *runProgressView {
 		ReasoningText: progress.ReasoningText, ToolCalls: append([]byte(nil), progress.ToolCallsJSON...),
 		LastSequence: progress.LastSequence, UpdatedAt: progress.UpdatedAt,
 	}
+}
+
+func workflowExecutionsToViews(executions []*domain.WorkflowExecution) []workflowExecutionView {
+	out := make([]workflowExecutionView, 0, len(executions))
+	for _, execution := range executions {
+		out = append(out, workflowExecutionView{
+			ID: execution.ID, RunID: execution.RunID, TaskID: execution.TaskID,
+			WorkflowID: execution.WorkflowID, OperationNodeID: execution.OperationNodeID,
+			Status: execution.Status, ErrorMessage: execution.ErrorMessage,
+			CreatedAt: execution.CreatedAt, CompletedAt: execution.CompletedAt,
+		})
+	}
+	return out
 }
 
 func assetsToViews(assets []*domain.Asset) []assetView {

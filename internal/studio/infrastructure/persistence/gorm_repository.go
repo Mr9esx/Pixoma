@@ -760,6 +760,19 @@ func (r *GormRepository) GetWorkflowExecutionByRunTool(ctx context.Context, acco
 	return workflowExecutionFromRow(row), nil
 }
 
+func (r *GormRepository) ListSessionWorkflowExecutions(ctx context.Context, accountID, sessionID string) ([]*domain.WorkflowExecution, error) {
+	var rows []WorkflowExecutionRow
+	if err := r.db.WithContext(ctx).Where("account_id = ? AND session_id = ?", accountID, sessionID).
+		Order("created_at ASC, id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.WorkflowExecution, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, workflowExecutionFromRow(row))
+	}
+	return out, nil
+}
+
 func (r *GormRepository) ListPendingWorkflowExecutions(ctx context.Context, limit int) ([]*domain.WorkflowExecution, error) {
 	var rows []WorkflowExecutionRow
 	if err := r.db.WithContext(ctx).Where("status = ?", string(domain.WorkflowExecutionSubmitted)).

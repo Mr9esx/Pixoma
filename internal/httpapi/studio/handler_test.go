@@ -94,6 +94,66 @@ func newHandlerWithEngine(t *testing.T, engine studioapp.AgentEngine) (*studioap
 	}, runner
 }
 
+func TestStudioSessionDetailIncludesWorkflowTaskLifecycle(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+	ctx := context.Background()
+	session, err := handler.Service.CreateSession(ctx, "account-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+	for index, input := range []struct {
+		id, taskID, operationID string
+		status                  domain.WorkflowExecutionStatus
+	}{
+		{"execution-running", "task-running", "operation-running", domain.WorkflowExecutionSubmitted},
+		{"execution-empty", "task-empty", "operation-empty", domain.WorkflowExecutionSucceeded},
+		{"execution-failed", "task-failed", "operation-failed", domain.WorkflowExecutionFailed},
+	} {
+		createdAt := now.Add(time.Duration(index) * time.Second)
+		execution, err := domain.NewWorkflowExecution(input.id, "account-a", session.ID, "run-"+input.id, "tool-"+input.id, input.taskID, "12", input.operationID, createdAt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := handler.Repo.CreateWorkflowExecution(ctx, execution); err != nil {
+			t.Fatal(err)
+		}
+		if input.status.Terminal() {
+			errorMessage := ""
+			if input.status == domain.WorkflowExecutionFailed {
+				errorMessage = "出图失败"
+			}
+			if err := execution.Complete(input.status, errorMessage, createdAt.Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			if err := handler.Repo.UpdateWorkflowExecution(ctx, execution); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	response := request(t, router, http.MethodGet, "/sessions/"+session.ID, nil, "account-a")
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET session = %d %s", response.Code, response.Body.String())
+	}
+	var detail struct {
+		WorkflowExecutions []struct {
+			TaskID          string `json:"task_id"`
+			OperationNodeID string `json:"operation_node_id"`
+			Status          string `json:"status"`
+			ErrorMessage    string `json:"error_message"`
+		} `json:"workflow_executions"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(response), &detail); err != nil {
+		t.Fatal(err)
+	}
+	if len(detail.WorkflowExecutions) != 3 || detail.WorkflowExecutions[0].Status != "submitted" || detail.WorkflowExecutions[1].Status != "succeeded" || detail.WorkflowExecutions[2].Status != "failed" || detail.WorkflowExecutions[2].ErrorMessage != "出图失败" || detail.WorkflowExecutions[0].TaskID != "task-running" || detail.WorkflowExecutions[0].OperationNodeID != "operation-running" {
+		t.Fatalf("workflow execution detail = %+v", detail.WorkflowExecutions)
+	}
+}
+
 func TestStudioModelConnectionTestAPIIsAccountScoped(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)

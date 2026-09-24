@@ -34,7 +34,88 @@ const assetNode: StudioFlowNode = {
   updated_at: '',
 }
 
+const workflowNode: StudioFlowNode = {
+  id: 'operation-storyboard',
+  type: 'operation',
+  title: '生成分镜',
+  body: '已提交，正在后台执行工作流。',
+  position: { x: 100, y: 100 },
+  sort_order: 10,
+  updated_at: '',
+}
+
 describe('StudioFlow', () => {
+  it.each([
+    ['submitted', '执行中', '工作流在后台运行。', ''],
+    ['succeeded', '成功', '资产路线暂无产物。', ''],
+    ['failed', '失败', '出图失败：节点离线', '出图失败：节点离线'],
+    ['cancelled', '已取消', '工作流已取消。', ''],
+  ] as const)(
+    'shows %s workflow task status on its operation node',
+    async (status, label, body, errorMessage) => {
+      const screen = await render(
+        <div className='h-[600px] w-[1000px]'>
+          <StudioFlow
+            nodes={[workflowNode]}
+            edges={[]}
+            workflowExecutions={[
+              {
+                id: 'execution-storyboard',
+                run_id: 'run-storyboard',
+                task_id: 'task-storyboard',
+                workflow_id: '12',
+                operation_node_id: workflowNode.id,
+                status,
+                error_message: errorMessage,
+                created_at: '2026-09-25T12:00:00Z',
+              },
+            ]}
+          />
+        </div>
+      )
+      await expect
+        .element(screen.getByText(label, { exact: true }))
+        .toBeVisible()
+      await expect
+        .element(screen.getByRole('img', { name: label }))
+        .toBeVisible()
+      await expect.element(screen.getByText(body)).toBeVisible()
+      expect(screen.container.textContent).not.toContain(
+        '已提交，正在后台执行工作流。'
+      )
+    }
+  )
+
+  it('shows a successful workflow output on the Session Road', async () => {
+    const screen = await render(
+      <div className='h-[600px] w-[1000px]'>
+        <StudioFlow
+          nodes={[workflowNode, assetNode]}
+          edges={[
+            {
+              id: 'edge-output',
+              source: workflowNode.id,
+              target: assetNode.id,
+            },
+          ]}
+          workflowExecutions={[
+            {
+              id: 'execution-storyboard',
+              run_id: 'run-storyboard',
+              task_id: 'task-storyboard',
+              workflow_id: '12',
+              operation_node_id: workflowNode.id,
+              status: 'succeeded',
+              created_at: '2026-09-25T12:00:00Z',
+            },
+          ]}
+        />
+      </div>
+    )
+    await expect.element(screen.getByText('产物已加入资产路线。')).toBeVisible()
+    await expect.element(screen.getByText('分镜图')).toBeVisible()
+  })
+
   it('opens an asset node with the keyboard', async () => {
     const onAssetOpen = vi.fn()
     const screen = await render(

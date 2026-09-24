@@ -196,6 +196,18 @@ export type StudioFlowEdge = {
   label?: string
 }
 
+export type StudioWorkflowExecution = {
+  id: string
+  run_id: string
+  task_id: string
+  workflow_id: string
+  operation_node_id: string
+  status: 'submitted' | 'succeeded' | 'failed' | 'cancelled'
+  error_message?: string
+  created_at: string
+  completed_at?: string
+}
+
 // 运行处于等待批准时随会话详情返回的待处理事项，形状与 AG-UI interrupt 一致
 export type StudioPendingApproval = {
   id: string
@@ -209,6 +221,7 @@ export type StudioSessionDetail = {
   pending_approvals?: StudioPendingApproval[]
   messages: StudioMessage[]
   transcript: StudioTranscript
+  workflow_executions?: StudioWorkflowExecution[]
   assets: StudioAsset[]
   flow: {
     nodes: StudioFlowNode[]

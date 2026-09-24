@@ -126,6 +126,12 @@ export function StudioWorkspace() {
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+    refetchInterval: (query) =>
+      query.state.data?.workflow_executions?.some(
+        (execution) => execution.status === 'submitted'
+      )
+        ? 2500
+        : false,
   })
 
   const openChatWithFreshDetail = (id: string, onReady: () => void) => {
@@ -326,6 +332,7 @@ export function StudioWorkspace() {
         <StudioFlow
           nodes={detail.data?.flow.nodes ?? []}
           edges={detail.data?.flow.edges ?? []}
+          workflowExecutions={detail.data?.workflow_executions}
           onNodeCreate={(input) => createFlowNode.mutateAsync(input)}
           onNodeDelete={(id) => deleteFlowNode.mutateAsync(id)}
           onEdgeCreate={(input) => createFlowEdge.mutateAsync(input)}
