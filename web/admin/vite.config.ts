@@ -46,6 +46,7 @@ export default defineConfig(({ command }) => ({
     include: [
       'src/**/*.test.ts',
       'src/features/studio/studio-chat.test.tsx',
+      'src/features/studio/studio-journey.test.tsx',
       'src/features/studio/studio-assets.test.tsx',
       'src/features/studio/studio-settings.test.tsx',
       'src/features/studio/studio-library.test.tsx',
