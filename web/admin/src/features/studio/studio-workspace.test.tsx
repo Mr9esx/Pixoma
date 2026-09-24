@@ -96,6 +96,11 @@ describe('StudioWorkspace', () => {
       .element(screen.getByTestId('chat-state'))
       .toHaveTextContent('session-b:idle')
     await screen.getByRole('button', { name: '打开 Studio 菜单' }).click()
+    const menu = screen.getByRole('dialog', { name: 'Studio 菜单' }).element()
+    expect(
+      document.getElementById(menu.getAttribute('aria-describedby') ?? '')
+        ?.textContent
+    ).toBe('切换对话、资产库和 AI 设置。')
     await screen.getByRole('button', { name: '打开 A' }).first().click()
     expect(
       document.querySelector('[data-testid="chat-state"]')?.textContent

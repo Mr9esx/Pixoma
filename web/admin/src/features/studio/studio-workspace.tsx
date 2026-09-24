@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
@@ -46,7 +47,7 @@ export function StudioWorkspace() {
   const [traceOpen, setTraceOpen] = useState(false)
   const [modelConfigId, setModelConfigId] = useState<string>()
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
-	const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([])
+  const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([])
   const [permissionMode, setPermissionMode] =
     useState<StudioPermissionMode>('request_approval')
   const chatOpenGeneration = useRef(0)
@@ -66,19 +67,19 @@ export function StudioWorkspace() {
   })
   const { mutate: createSessionMutate, isPending: creatingSession } =
     useMutation({
-    mutationFn: createStudioSession,
-    onSuccess: (session) => {
-      setActiveSessionId(session.id)
-      setPermissionMode(session.permission_mode)
-      setView('chat')
-      setTraceOpen(false)
-      void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
-    },
-  })
+      mutationFn: createStudioSession,
+      onSuccess: (session) => {
+        setActiveSessionId(session.id)
+        setPermissionMode(session.permission_mode)
+        setView('chat')
+        setTraceOpen(false)
+        void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
+      },
+    })
   const sessionId = activeSessionId ?? sessions.data?.[0]?.id
   const sessionPermissionMode = activeSessionId
     ? permissionMode
-    : sessions.data?.[0]?.permission_mode ?? permissionMode
+    : (sessions.data?.[0]?.permission_mode ?? permissionMode)
 
   useEffect(() => {
     if (
@@ -105,13 +106,16 @@ export function StudioWorkspace() {
     const generation = ++chatOpenGeneration.current
     // The chat runtime decides whether to resume from its first history load.
     // Mount it only after the selected session's current run has been fetched.
-    void queryClient.fetchQuery({
-      queryKey: ['studio', 'session', id],
-      queryFn: () => getStudioSession(id),
-      staleTime: 0,
-    }).catch(() => undefined).then(() => {
-      if (chatOpenGeneration.current === generation) onReady()
-    })
+    void queryClient
+      .fetchQuery({
+        queryKey: ['studio', 'session', id],
+        queryFn: () => getStudioSession(id),
+        staleTime: 0,
+      })
+      .catch(() => undefined)
+      .then(() => {
+        if (chatOpenGeneration.current === generation) onReady()
+      })
   }
 
   useEffect(() => {
@@ -137,8 +141,13 @@ export function StudioWorkspace() {
   }, [queryClient, sessionId, view])
 
   const saveAsset = useMutation({
-    mutationFn: ({ assetId, folderId }: { assetId: string; folderId?: string }) =>
-      saveStudioAssetToLibrary(assetId, folderId),
+    mutationFn: ({
+      assetId,
+      folderId,
+    }: {
+      assetId: string
+      folderId?: string
+    }) => saveStudioAssetToLibrary(assetId, folderId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['studio'] })
     },
@@ -213,13 +222,16 @@ export function StudioWorkspace() {
       })
     },
   })
-	const importLibraryAsset = useMutation({
-		mutationFn: ({ assetId, assetVersionId }: SelectedAsset) => {
-			if (!sessionId) throw new Error('请先创建或选择一个对话')
-			return importStudioLibraryAsset(sessionId, assetId, assetVersionId)
-		},
-		onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['studio', 'session', sessionId] }),
-	})
+  const importLibraryAsset = useMutation({
+    mutationFn: ({ assetId, assetVersionId }: SelectedAsset) => {
+      if (!sessionId) throw new Error('请先创建或选择一个对话')
+      return importStudioLibraryAsset(sessionId, assetId, assetVersionId)
+    },
+    onSuccess: () =>
+      void queryClient.invalidateQueries({
+        queryKey: ['studio', 'session', sessionId],
+      }),
+  })
   const uploadAsset = useMutation({
     mutationFn: (file: File) => uploadStudioAsset(file, sessionId),
     onSuccess: () => {
@@ -239,8 +251,8 @@ export function StudioWorkspace() {
       openChatWithFreshDetail(id, () => {
         setActiveSessionId(id)
         setPermissionMode(
-          sessions.data?.find((session) => session.id === id)?.permission_mode ??
-            'request_approval'
+          sessions.data?.find((session) => session.id === id)
+            ?.permission_mode ?? 'request_approval'
         )
         setView('chat')
         setTraceOpen(false)
@@ -270,19 +282,29 @@ export function StudioWorkspace() {
           </SheetTrigger>
           <SheetContent side='left' className='w-64 bg-muted/30 p-0'>
             <SheetTitle className='sr-only'>Studio 菜单</SheetTitle>
+            <SheetDescription className='sr-only'>
+              切换对话、资产库和 AI 设置。
+            </SheetDescription>
             <StudioSidebar {...sidebarProps} />
           </SheetContent>
         </Sheet>
       </div>
 
-      {view === 'library' ? <StudioLibrary onOpenSession={(id) => {
-        openChatWithFreshDetail(id, () => {
-          setActiveSessionId(id)
-          setPermissionMode(sessions.data?.find((session) => session.id === id)?.permission_mode ?? 'request_approval')
-          setView('chat')
-          setTraceOpen(false)
-        })
-      }} /> : null}
+      {view === 'library' ? (
+        <StudioLibrary
+          onOpenSession={(id) => {
+            openChatWithFreshDetail(id, () => {
+              setActiveSessionId(id)
+              setPermissionMode(
+                sessions.data?.find((session) => session.id === id)
+                  ?.permission_mode ?? 'request_approval'
+              )
+              setView('chat')
+              setTraceOpen(false)
+            })
+          }}
+        />
+      ) : null}
       {view === 'settings' ? <StudioSettings /> : null}
       {view === 'chat' ? (
         <div className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>
@@ -301,15 +323,34 @@ export function StudioWorkspace() {
                   </p>
                 </div>
                 <div className='flex items-center gap-1'>
-                  <Button variant={traceOpen ? 'secondary' : 'ghost'} size='sm' onClick={() => {
-                    if (traceOpen && sessionId) {
-                      openChatWithFreshDetail(sessionId, () => setTraceOpen(false))
-                    } else {
-                      ++chatOpenGeneration.current
-                      setTraceOpen(true)
-                    }
-                  }} aria-pressed={traceOpen}><ListTree />{traceOpen ? '对话' : '轨迹'}</Button>
-                  {!traceOpen ? <Button variant='ghost' size='icon' onClick={() => setRightOpen((open) => !open)} aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}>{rightOpen ? <PanelRightClose /> : <PanelRightOpen />}</Button> : null}
+                  <Button
+                    variant={traceOpen ? 'secondary' : 'ghost'}
+                    size='sm'
+                    onClick={() => {
+                      if (traceOpen && sessionId) {
+                        openChatWithFreshDetail(sessionId, () =>
+                          setTraceOpen(false)
+                        )
+                      } else {
+                        ++chatOpenGeneration.current
+                        setTraceOpen(true)
+                      }
+                    }}
+                    aria-pressed={traceOpen}
+                  >
+                    <ListTree />
+                    {traceOpen ? '对话' : '轨迹'}
+                  </Button>
+                  {!traceOpen ? (
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => setRightOpen((open) => !open)}
+                      aria-label={rightOpen ? '收起右侧面板' : '展开右侧面板'}
+                    >
+                      {rightOpen ? <PanelRightClose /> : <PanelRightOpen />}
+                    </Button>
+                  ) : null}
                 </div>
               </header>
               {traceOpen && sessionId ? (
@@ -337,7 +378,7 @@ export function StudioWorkspace() {
                   skills={skills.data ?? []}
                   assets={detail.data.assets}
                   selectedSkillIds={selectedSkillIds}
-				  selectedAssets={selectedAssets}
+                  selectedAssets={selectedAssets}
                   onModelChange={setModelConfigId}
                   onPermissionChange={(mode) => {
                     setPermissionMode(mode)
@@ -345,7 +386,9 @@ export function StudioWorkspace() {
                   }}
                   onSkillChange={setSelectedSkillIds}
                   onAssetChange={setSelectedAssets}
-				  onImportLibraryAsset={(selection) => importLibraryAsset.mutateAsync(selection)}
+                  onImportLibraryAsset={(selection) =>
+                    importLibraryAsset.mutateAsync(selection)
+                  }
                   onRunFinished={() => {
                     void queryClient.invalidateQueries({
                       queryKey: ['studio', 'session', sessionId],
@@ -380,9 +423,13 @@ export function StudioWorkspace() {
                     <StudioFlow
                       nodes={detail.data?.flow.nodes ?? []}
                       edges={detail.data?.flow.edges ?? []}
-                      onNodeCreate={(input) => createFlowNode.mutateAsync(input)}
+                      onNodeCreate={(input) =>
+                        createFlowNode.mutateAsync(input)
+                      }
                       onNodeDelete={(id) => deleteFlowNode.mutateAsync(id)}
-                      onEdgeCreate={(input) => createFlowEdge.mutateAsync(input)}
+                      onEdgeCreate={(input) =>
+                        createFlowEdge.mutateAsync(input)
+                      }
                       onEdgeDelete={(id) => deleteFlowEdge.mutateAsync(id)}
                       onPositionsChange={(nodes) =>
                         saveFlowPositions.mutateAsync(nodes)
@@ -396,7 +443,9 @@ export function StudioWorkspace() {
                       onCreateTextAsset={(input) =>
                         createTextAsset.mutateAsync(input)
                       }
-                      onUpdateTextAsset={(input) => updateTextAsset.mutateAsync(input)}
+                      onUpdateTextAsset={(input) =>
+                        updateTextAsset.mutateAsync(input)
+                      }
                       onUploadAsset={(file) => uploadAsset.mutate(file)}
                       uploading={uploadAsset.isPending}
                     />
