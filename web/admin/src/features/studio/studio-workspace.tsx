@@ -275,7 +275,14 @@ export function StudioWorkspace() {
         </Sheet>
       </div>
 
-      {view === 'library' ? <StudioLibrary /> : null}
+      {view === 'library' ? <StudioLibrary onOpenSession={(id) => {
+        openChatWithFreshDetail(id, () => {
+          setActiveSessionId(id)
+          setPermissionMode(sessions.data?.find((session) => session.id === id)?.permission_mode ?? 'request_approval')
+          setView('chat')
+          setTraceOpen(false)
+        })
+      }} /> : null}
       {view === 'settings' ? <StudioSettings /> : null}
       {view === 'chat' ? (
         <div className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>

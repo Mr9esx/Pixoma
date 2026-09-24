@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderPlus, Grid2X2, Library, List, Search, Upload } from 'lucide-react'
-import { createStudioLibraryFolder, listStudioLibraryAssets, listStudioLibraryFolders, uploadStudioAsset } from '@/lib/api/studio'
+import { createStudioLibraryFolder, getStudioSession, getStudioTextAssetContent, listStudioLibraryAssets, listStudioLibraryFolders, uploadStudioAsset, type StudioAsset } from '@/lib/api/studio'
+import { baseURL } from '@/lib/api/client'
 import { AssetCard } from './studio-assets'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -10,11 +11,12 @@ import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 
-export function StudioLibrary() {
+export function StudioLibrary({ onOpenSession }: { onOpenSession: (sessionId: string) => void }) {
   const queryClient = useQueryClient()
   const [folderId, setFolderId] = useState<string>()
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
+  const [selectedAsset, setSelectedAsset] = useState<StudioAsset>()
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -92,7 +94,7 @@ export function StudioLibrary() {
         ) : visibleAssets.length ? (
           <div className={view === 'grid' ? 'grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid gap-3 p-5'}>
             {visibleAssets.map((asset) => (
-              <AssetCard key={asset.id} asset={asset} onSaveToLibrary={() => undefined} />
+              <AssetCard key={asset.id} asset={asset} onSaveToLibrary={() => undefined} onOpenDetails={setSelectedAsset} />
             ))}
           </div>
         ) : assets.data?.length ? (
@@ -101,6 +103,16 @@ export function StudioLibrary() {
           <LibraryState title='资产库还是空的' description='你可以直接上传资产，也可以在对话中把 Session 资产存到这里。' />
         )}
       </ScrollArea>
+      {selectedAsset ? (
+        <LibraryAssetDetails
+          asset={selectedAsset}
+          onClose={() => setSelectedAsset(undefined)}
+          onOpenSession={(sessionId) => {
+            setSelectedAsset(undefined)
+            onOpenSession(sessionId)
+          }}
+        />
+      ) : null}
       <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <DialogContent className='sm:max-w-md'>
           <DialogHeader><DialogTitle>新建文件夹</DialogTitle><DialogDescription>文件夹用于整理可跨 Session 复用的资产。</DialogDescription></DialogHeader>
@@ -111,6 +123,73 @@ export function StudioLibrary() {
       </Dialog>
       </section>
     </main>
+  )
+}
+
+function LibraryAssetDetails({ asset, onClose, onOpenSession }: {
+  asset: StudioAsset
+  onClose: () => void
+  onOpenSession: (sessionId: string) => void
+}) {
+  const version = asset.versions.find((item) => item.version === asset.current_version) ?? asset.versions.at(-1)
+  const contentURL = version ? `${baseURL()}${version.content_url}` : undefined
+  const source = useQuery({
+    queryKey: ['studio', 'session', asset.session_id],
+    queryFn: () => getStudioSession(asset.session_id),
+    enabled: Boolean(asset.session_id),
+  })
+  const text = useQuery({
+    queryKey: ['studio', 'asset', asset.id, version?.id, version?.content_url, 'content'],
+    queryFn: () => getStudioTextAssetContent(version!.content_url),
+    enabled: Boolean(version && version.mime_type === 'text/markdown'),
+  })
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className='max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl'>
+        <DialogHeader>
+          <DialogTitle className='break-all'>{asset.name}</DialogTitle>
+          <DialogDescription>
+            {asset.kind === 'document' ? '文档' : asset.kind === 'image' ? '图片' : asset.kind === 'video' ? '视频' : asset.kind === 'audio' ? '音频' : '文件'} · 版本 {asset.current_version}
+          </DialogDescription>
+        </DialogHeader>
+        <div className='flex min-h-48 items-center justify-center overflow-hidden rounded-lg border bg-muted/30'>
+          {asset.kind === 'image' && contentURL ? (
+            <img src={contentURL} alt={asset.name} className='max-h-[55vh] max-w-full object-contain' />
+          ) : asset.kind === 'video' && contentURL ? (
+            <video src={contentURL} controls className='max-h-[55vh] max-w-full' aria-label={asset.name} />
+          ) : asset.kind === 'audio' && contentURL ? (
+            <audio src={contentURL} controls className='w-full px-4' aria-label={asset.name} />
+          ) : version?.mime_type === 'text/markdown' ? (
+            text.isLoading ? <p className='text-sm text-muted-foreground'>读取文档中…</p>
+              : text.isError ? <Button variant='outline' onClick={() => void text.refetch()}>读取失败，重试</Button>
+                : <pre className='max-h-[55vh] w-full overflow-auto whitespace-pre-wrap break-words p-4 text-sm leading-6'>{text.data}</pre>
+          ) : (
+            <p className='text-sm text-muted-foreground'>此格式可打开原文件查看。</p>
+          )}
+        </div>
+        <div className='flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-sm'>
+          <div className='min-w-0'>
+            <p className='text-xs text-muted-foreground'>来源</p>
+            {asset.session_id ? (
+              <p className='truncate font-medium'>{source.data?.session.title ?? (source.isError ? '来源对话暂不可用' : '读取来源中…')}</p>
+            ) : (
+              <p className='font-medium'>用户上传</p>
+            )}
+          </div>
+          <div className='flex flex-wrap gap-2'>
+            {asset.session_id ? (
+              <Button variant='outline' size='sm' onClick={() => onOpenSession(asset.session_id)}>打开来源对话</Button>
+            ) : null}
+            {contentURL ? (
+              <Button variant='outline' size='sm' asChild>
+                <a href={contentURL} target='_blank' rel='noreferrer'>打开原文件</a>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

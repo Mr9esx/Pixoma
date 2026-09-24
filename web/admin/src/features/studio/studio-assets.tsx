@@ -173,10 +173,12 @@ function TextAssetDialog({ onCreate }: { onCreate: (input: { name: string; conte
 export function AssetCard({
   asset,
   onSaveToLibrary,
+  onOpenDetails,
   onUpdateTextAsset,
 }: {
   asset: StudioAsset
   onSaveToLibrary: (assetId: string) => void
+  onOpenDetails?: (asset: StudioAsset) => void
   onUpdateTextAsset?: (input: { assetId: string; content: string }) => Promise<unknown>
 }) {
   const version = asset.versions[asset.versions.length - 1]
@@ -212,12 +214,18 @@ export function AssetCard({
           </Badge>
         </div>
         <div className='flex gap-1'>
-          <Button variant='outline' size='sm' className='flex-1' asChild disabled={!contentURL}>
-            <a href={contentURL} target='_blank' rel='noreferrer'>
-              <Download />
+          {onOpenDetails ? (
+            <Button variant='outline' size='sm' className='flex-1' onClick={() => onOpenDetails(asset)}>
               查看
-            </a>
-          </Button>
+            </Button>
+          ) : (
+            <Button variant='outline' size='sm' className='flex-1' asChild disabled={!contentURL}>
+              <a href={contentURL} target='_blank' rel='noreferrer'>
+                <Download />
+                查看
+              </a>
+            </Button>
+          )}
           <Button
             variant={asset.saved_to_library ? 'secondary' : 'outline'}
             size='icon-sm'
