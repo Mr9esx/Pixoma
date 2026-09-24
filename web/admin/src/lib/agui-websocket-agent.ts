@@ -27,6 +27,7 @@ export class StudioWebSocketAgent extends AbstractAgent {
   private runConfig: StudioRunConfig
   private socket?: WebSocket
   private studioRunId?: string
+  private stopActiveRun?: () => void
 
   activeStudioRunId(): string | undefined {
     return this.studioRunId
@@ -55,6 +56,23 @@ export class StudioWebSocketAgent extends AbstractAgent {
       let ended = false
       let retries = 0
       let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+      const stop = () => {
+        ended = true
+        if (reconnectTimer) clearTimeout(reconnectTimer)
+        const socket = this.socket
+        if (
+          socket &&
+          (socket.readyState === WebSocket.OPEN ||
+            socket.readyState === WebSocket.CONNECTING)
+        ) {
+          socket.close()
+        }
+        this.socket = undefined
+      }
+      this.stopActiveRun = () => {
+        stop()
+        subscriber.complete()
+      }
       const connect = () => {
         if (ended) return
         const socket = new WebSocket(this.url)
@@ -64,20 +82,27 @@ export class StudioWebSocketAgent extends AbstractAgent {
           if (ended || disconnected) return
           disconnected = true
           if (this.socket === socket) this.socket = undefined
-          reconnectTimer = setTimeout(connect, Math.min(100 * 2 ** retries++, 2000))
+          reconnectTimer = setTimeout(
+            connect,
+            Math.min(100 * 2 ** retries++, 2000)
+          )
         }
         socket.onopen = () => {
           if (ended) return
-          socket.send(JSON.stringify(this.studioRunId
-            ? {
-                threadId: input.threadId,
-                runId: input.runId,
-                attachRunId: this.studioRunId,
-                afterSequence: lastSequence,
-                messages: [],
-                protocolVersion: '1.0',
-              }
-            : request))
+          socket.send(
+            JSON.stringify(
+              this.studioRunId
+                ? {
+                    threadId: input.threadId,
+                    runId: input.runId,
+                    attachRunId: this.studioRunId,
+                    afterSequence: lastSequence,
+                    messages: [],
+                    protocolVersion: '1.0',
+                  }
+                : request
+            )
+          )
         }
         socket.onmessage = (message) => {
           try {
@@ -86,7 +111,8 @@ export class StudioWebSocketAgent extends AbstractAgent {
               metadata?: { studioRunId?: string }
             }
             if (event.type === 'RUN_STARTED') {
-              if (event.metadata?.studioRunId) this.studioRunId = event.metadata.studioRunId
+              if (event.metadata?.studioRunId)
+                this.studioRunId = event.metadata.studioRunId
               if (started) return
               started = true
             }
@@ -102,7 +128,9 @@ export class StudioWebSocketAgent extends AbstractAgent {
             }
           } catch (error) {
             ended = true
-            subscriber.error(error instanceof Error ? error : new Error('无法解析 Agent 事件'))
+            subscriber.error(
+              error instanceof Error ? error : new Error('无法解析 Agent 事件')
+            )
           }
         }
         socket.onerror = () => {
@@ -114,23 +142,14 @@ export class StudioWebSocketAgent extends AbstractAgent {
       connect()
 
       return () => {
-        ended = true
-        if (reconnectTimer) clearTimeout(reconnectTimer)
-        const socket = this.socket
-        if (
-          socket && (socket.readyState === WebSocket.OPEN ||
-          socket.readyState === WebSocket.CONNECTING)
-        ) {
-          socket.close()
-        }
-        this.socket = undefined
+        if (this.stopActiveRun) this.stopActiveRun = undefined
+        stop()
       }
     })
   }
 
   override abortRun(): void {
-    this.socket?.close()
-    this.socket = undefined
+    this.stopActiveRun?.()
   }
 
   override clone(): StudioWebSocketAgent {
