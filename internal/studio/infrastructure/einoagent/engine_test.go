@@ -197,6 +197,46 @@ func TestEngineExecutesOneEinoAgentTurn(t *testing.T) {
 	requireEventSubsequence(t, output.events, []string{studioapp.EventRunStarted, studioapp.EventRunFinished})
 }
 
+func TestEngineLoadsSelectedSkillOnlyAfterToolCall(t *testing.T) {
+	t.Parallel()
+	const skillBody = "每格分镜必须注明镜头景别。"
+	var calls int
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		calls++
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+		encoded, err := json.Marshal(body)
+		require.NoError(t, err)
+		writer.Header().Set("Content-Type", "application/json")
+		if calls == 1 {
+			require.NotContains(t, string(encoded), skillBody)
+			require.Contains(t, string(encoded), "分镜写作")
+			require.Contains(t, string(encoded), "load_skill")
+			_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call-skill","type":"function","function":{"name":"load_skill","arguments":"{\"skill\":\"skill-01\"}"}}]}}]}`))
+			return
+		}
+		require.Contains(t, string(encoded), skillBody)
+		_, _ = writer.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已按景别组织分镜。"}}]}`))
+	}))
+	defer server.Close()
+	engine := &einoagent.Engine{
+		Models: resolver{config: &domain.ResolvedModelConfig{
+			ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat,
+			BaseURL: server.URL + "/chat/completions", Model: "test-model", APIKey: "test-key", Limits: testModelLimits,
+		}},
+		Client: modelprovider.NewOpenAICompatibleClient(server.Client()),
+	}
+	output := &sink{}
+	err := engine.Execute(context.Background(), studioapp.AgentRequest{
+		Run:     &domain.Run{ID: "run_01", AccountID: "account_01", SessionID: "session_01", ModelConfigID: "model_01"},
+		Session: &domain.Session{ID: "session_01"}, UserText: "帮我安排分镜",
+		Skills: []domain.Skill{{ID: "skill-01", Name: "分镜写作", Description: "创作漫画分镜", Prompt: skillBody, Enabled: true}},
+	}, output)
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	require.Equal(t, []string{"已按景别组织分镜。"}, output.responses)
+}
+
 func TestEngineEmitsProviderRequestTrace(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
