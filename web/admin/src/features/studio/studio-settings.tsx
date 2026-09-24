@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Bot,
@@ -371,14 +371,16 @@ export function StudioSettings() {
             </ScrollArea>
           </div>
         </div>
-        <ModelDialog
-          model={editingModel}
-          open={modelDialogOpen}
-          onOpenChange={(open) => {
-            setModelDialogOpen(open)
-            if (!open) setEditingModel(undefined)
-          }}
-        />
+        {modelDialogOpen ? (
+          <ModelDialog
+            key={editingModel?.id ?? 'new'}
+            model={editingModel}
+            onOpenChange={(open) => {
+              setModelDialogOpen(open)
+              if (!open) setEditingModel(undefined)
+            }}
+          />
+        ) : null}
         <SkillDialog open={skillDialogOpen} onOpenChange={setSkillDialogOpen} />
         <ConnectorDialog
           open={connectorDialogOpen}
@@ -984,20 +986,14 @@ function modelToForm(model: StudioModel) {
 
 function ModelDialog({
   model,
-  open,
   onOpenChange,
 }: {
   model?: StudioModel
-  open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
   const formRef = useRef<HTMLFormElement>(null)
-  const [form, setForm] = useState(initialModel)
-  useEffect(() => {
-    if (!open) return
-    setForm(model ? modelToForm(model) : initialModel)
-  }, [model, open])
+  const [form, setForm] = useState(() => model ? modelToForm(model) : initialModel)
   const updateForm = (patch: Partial<typeof initialModel>) => {
     setForm((current) => ({ ...current, ...patch }))
   }
@@ -1053,7 +1049,7 @@ function ModelDialog({
     save.mutate()
   }
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className='max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl'>
         <DialogHeader>
           <DialogTitle>{model ? '编辑模型' : '添加模型'}</DialogTitle>

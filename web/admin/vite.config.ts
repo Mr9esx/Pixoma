@@ -47,6 +47,7 @@ export default defineConfig(({ command }) => ({
       'src/**/*.test.ts',
       'src/features/studio/studio-chat.test.tsx',
       'src/features/studio/studio-assets.test.tsx',
+      'src/features/studio/studio-settings.test.tsx',
       'src/features/studio/studio-workspace.test.tsx',
       'src/features/studio/studio-trace.test.tsx',
     ],
