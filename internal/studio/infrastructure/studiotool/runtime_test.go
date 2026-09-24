@@ -38,10 +38,14 @@ type flowToolSink struct {
 	toolSink
 	existing []*domain.FlowNode
 	edges    [][3]string
+	assets   []*domain.Asset
 }
 
 func (s *flowToolSink) ListFlowNodes(context.Context) ([]*domain.FlowNode, error) {
 	return s.existing, nil
+}
+func (s *flowToolSink) ListSessionAssets(context.Context, int) ([]*domain.Asset, error) {
+	return s.assets, nil
 }
 
 func (s *flowToolSink) CreateFlowEdge(_ context.Context, source, target, label string) (*domain.FlowEdge, error) {
@@ -75,6 +79,45 @@ func TestEditSessionFlowConnectsOnlyKnownSessionNodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(sink.edges) != 1 || sink.edges[0] != [3]string{"stage-a", "stage-b", "下一步"} {
+		t.Fatalf("edges=%#v", sink.edges)
+	}
+}
+
+func TestEditSessionFlowAttachesPinnedSessionAsset(t *testing.T) {
+	sink := &flowToolSink{
+		existing: []*domain.FlowNode{{ID: "stage-a", Type: domain.FlowNodeStage, SortOrder: 20}},
+		assets:   []*domain.Asset{{ID: "asset-a", Name: "故事.md", Versions: []domain.AssetVersion{{ID: "version-1", Version: 1}, {ID: "version-2", Version: 2}}}},
+	}
+	tools, err := NewRuntimeTools(ToolAccess{Sink: sink})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var editor einotool.InvokableTool
+	for _, candidate := range tools {
+		info, _ := candidate.Info(context.Background())
+		if info.Name == "edit_session_flow" {
+			editor = candidate.(einotool.InvokableTool)
+		}
+	}
+	if editor == nil {
+		t.Fatal("missing edit_session_flow")
+	}
+	if _, err := editor.InvokableRun(context.Background(), `{"operations":[{"type":"attach_asset","asset_id":"asset-a","asset_version_id":"unknown","stage_node_id":"stage-a"}]}`); err == nil {
+		t.Fatal("unknown version accepted")
+	}
+	if _, err := editor.InvokableRun(context.Background(), `{"operations":[{"type":"attach_asset","asset_id":"other-session","asset_version_id":"version-1","stage_node_id":"stage-a"}]}`); err == nil {
+		t.Fatal("cross-session asset accepted")
+	}
+	if len(sink.flowNodes) != 0 {
+		t.Fatalf("partial writes: %#v", sink.flowNodes)
+	}
+	if _, err := editor.InvokableRun(context.Background(), `{"operations":[{"type":"attach_asset","asset_id":"asset-a","asset_version_id":"version-1","stage_node_id":"stage-a"}]}`); err != nil {
+		t.Fatal(err)
+	}
+	if len(sink.flowNodes) != 1 || sink.flowNodes[0].AssetID != "asset-a" || sink.flowNodes[0].AssetVersionID != "version-1" || sink.flowNodes[0].SortOrder != 30 {
+		t.Fatalf("nodes=%#v", sink.flowNodes)
+	}
+	if len(sink.edges) != 1 || sink.edges[0][1] != "stage-a" {
 		t.Fatalf("edges=%#v", sink.edges)
 	}
 }
