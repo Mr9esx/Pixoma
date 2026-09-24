@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +14,74 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
+	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/einoagent"
+	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/modelprovider"
 )
+
+func TestRealAgentCanAddSessionSOPStages(t *testing.T) {
+	repo := openRepository(t)
+	blobs, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	modelCalls := 0
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		modelCalls++
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if modelCalls == 1 {
+			tools, _ := body["tools"].([]any)
+			found := false
+			for _, candidate := range tools {
+				wrapper, _ := candidate.(map[string]any)
+				function, _ := wrapper["function"].(map[string]any)
+				if function["name"] == "edit_session_flow" {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("edit_session_flow was not sent to the model")
+			}
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"call-sop","type":"function","function":{"name":"edit_session_flow","arguments":"{\"operations\":[{\"type\":\"create_stage\",\"title\":\"立住角色\"},{\"type\":\"create_stage\",\"title\":\"排好分镜\"}]}"}}]}}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"已安排创作阶段。"}}]}`))
+	}))
+	defer endpoint.Close()
+	ids := &idSequence{}
+	models := &studioapp.ModelConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: ids.Next}
+	model, err := models.Create(context.Background(), studioapp.CreateModelConfigInput{
+		AccountID: "account-a", Name: "测试 Agent", Protocol: domain.ModelProtocolOpenAIChat,
+		BaseURL: endpoint.URL, Model: "test-model", APIKey: "test-key", Enabled: true, AgentEnabled: true,
+		Limits: domain.ModelLimits{ContextWindowTokens: 8192, MaxInputTokens: 7000, MaxOutputTokens: 1024},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := &einoagent.Engine{Models: models, Client: modelprovider.NewOpenAICompatibleClient(endpoint.Client())}
+	executor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{Repo: repo, Blob: blobs, Engine: engine, IDs: ids.Next})
+	runner := studioapp.NewBackgroundRunner(repo, executor, studioapp.RunnerOptions{Workers: 1})
+	t.Cleanup(runner.Close)
+	service := &studioapp.Service{Repo: repo, IDs: ids.Next, Queue: runner}
+	turn, err := service.SendMessage(context.Background(), studioapp.SendMessageInput{
+		AccountID: "account-a", Text: "安排漫画创作阶段", ModelConfigID: model.ID,
+		PermissionMode: domain.PermissionFullAccess,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitRunStatus(t, repo, turn.Run.ID, domain.RunSucceeded)
+	nodes, _, err := repo.GetFlow(context.Background(), "account-a", turn.Session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if modelCalls != 2 || len(nodes) != 2 || nodes[0].Title != "立住角色" || nodes[1].Title != "排好分镜" {
+		t.Fatalf("modelCalls=%d nodes=%#v", modelCalls, nodes)
+	}
+}
 
 func TestMockAgentCompletesConversationWorkflowAndAssets(t *testing.T) {
 	repo := openRepository(t)

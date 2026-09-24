@@ -34,6 +34,69 @@ type sessionAssetSink struct {
 	assets []*domain.Asset
 }
 
+type flowToolSink struct {
+	toolSink
+	existing []*domain.FlowNode
+}
+
+func (s *flowToolSink) ListFlowNodes(context.Context) ([]*domain.FlowNode, error) {
+	return s.existing, nil
+}
+
+func TestEditSessionFlowAppendsStagesAndPlansWithoutMovingExistingNodes(t *testing.T) {
+	sink := &flowToolSink{existing: []*domain.FlowNode{{ID: "user-stage", Type: domain.FlowNodeStage, SortOrder: 50, PositionX: 480, PositionY: 240}}}
+	tools, err := NewRuntimeTools(ToolAccess{Sink: sink})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var editor einotool.InvokableTool
+	for _, candidate := range tools {
+		info, infoErr := candidate.Info(context.Background())
+		if infoErr == nil && info.Name == "edit_session_flow" {
+			editor, _ = candidate.(einotool.InvokableTool)
+		}
+	}
+	if editor == nil {
+		t.Fatal("edit_session_flow is not available")
+	}
+	result, err := editor.InvokableRun(context.Background(), `{"operations":[{"type":"create_stage","title":"立住角色","body":"锁定三视图"},{"type":"create_plan","title":"排好分镜","body":"逐格拆解"}]}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sink.flowNodes) != 2 || sink.flowNodes[0].Type != domain.FlowNodeStage || sink.flowNodes[0].SortOrder != 60 || sink.flowNodes[1].Type != domain.FlowNodePlan || sink.flowNodes[1].SortOrder != 70 {
+		t.Fatalf("created flow nodes = %#v", sink.flowNodes)
+	}
+	if sink.existing[0].SortOrder != 50 || sink.existing[0].PositionX != 480 || sink.existing[0].PositionY != 240 {
+		t.Fatalf("existing node changed: %#v", sink.existing[0])
+	}
+	if !bytes.Contains([]byte(result), []byte("立住角色")) || len(sink.events) < 4 {
+		t.Fatalf("result=%q events=%#v", result, sink.events)
+	}
+}
+
+func TestEditSessionFlowRejectsUnsupportedCommandBeforeWriting(t *testing.T) {
+	sink := &flowToolSink{}
+	tools, err := NewRuntimeTools(ToolAccess{Sink: sink})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, candidate := range tools {
+		info, _ := candidate.Info(context.Background())
+		if info.Name != "edit_session_flow" {
+			continue
+		}
+		invokable := candidate.(einotool.InvokableTool)
+		if _, err := invokable.InvokableRun(context.Background(), `{"operations":[{"type":"create_stage","title":"有效"},{"type":"delete_node","title":"无效"}]}`); err == nil {
+			t.Fatal("unsupported command was accepted")
+		}
+		if len(sink.flowNodes) != 0 {
+			t.Fatalf("partial writes: %#v", sink.flowNodes)
+		}
+		return
+	}
+	t.Fatal("edit_session_flow is not available")
+}
+
 func (s *sessionAssetSink) ListSessionAssets(context.Context, int) ([]*domain.Asset, error) {
 	return s.assets, nil
 }

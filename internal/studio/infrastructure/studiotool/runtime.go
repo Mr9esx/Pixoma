@@ -57,6 +57,13 @@ func NewRuntimeTools(access ToolAccess) ([]einotool.BaseTool, error) {
 		}
 		tools = append(tools, &listSessionAssetsTool{info: &schema.ToolInfo{Name: "list_session_assets", Desc: "列出当前 Session 的资产名称、类型和版本 ID；读取内容前仍需在本轮对话中选择资产。", ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&listSchema)}, access: access, lister: lister})
 	}
+	if lister, ok := access.Sink.(studioapp.FlowNodeLister); ok {
+		flowTool, err := newEditSessionFlowTool(access, lister)
+		if err != nil {
+			return nil, err
+		}
+		tools = append(tools, flowTool)
+	}
 	if access.Blob != nil && len(access.Assets) > 0 {
 		tools = append(tools, &readAssetTool{info: &schema.ToolInfo{Name: "read_asset", Desc: "读取本次 Run 已选择且固定版本的文本资产内容。", ParamsOneOf: assetIDParams()}, access: access})
 	}

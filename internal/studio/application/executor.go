@@ -108,6 +108,12 @@ type SessionAssetLister interface {
 	ListSessionAssets(ctx context.Context, limit int) ([]*domain.Asset, error)
 }
 
+// FlowNodeLister lets a run append SOP nodes after the current user layout
+// without exposing editable coordinates to the model.
+type FlowNodeLister interface {
+	ListFlowNodes(ctx context.Context) ([]*domain.FlowNode, error)
+}
+
 // AssistantStreamSink is optional so existing workflow/test sinks can keep the
 // small AgentSink contract while the production persistence writer can publish
 // text deltas without creating one database message per delta.
@@ -686,6 +692,11 @@ func (w *executionWriter) AppendTextAssetVersion(ctx context.Context, assetID, e
 
 func (w *executionWriter) ListSessionAssets(ctx context.Context, limit int) ([]*domain.Asset, error) {
 	return w.executor.repo.ListSessionAssets(ctx, w.run.AccountID, w.run.SessionID, limit)
+}
+
+func (w *executionWriter) ListFlowNodes(ctx context.Context) ([]*domain.FlowNode, error) {
+	nodes, _, err := w.executor.repo.GetFlow(ctx, w.run.AccountID, w.run.SessionID)
+	return nodes, err
 }
 
 func (w *executionWriter) CreateFlowNode(ctx context.Context, input FlowNodeInput) (*domain.FlowNode, error) {
