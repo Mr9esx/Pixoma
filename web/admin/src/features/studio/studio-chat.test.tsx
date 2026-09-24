@@ -11,6 +11,94 @@ vi.mock('@/lib/api/studio', async (importOriginal) => ({
 }))
 
 describe('StudioChat', () => {
+  it('sends a typed user message with the selected run configuration and renders the streamed reply', async () => {
+    const requests: Array<Record<string, unknown>> = []
+    class StudioSocket {
+      static OPEN = 1
+      static CONNECTING = 0
+      readyState = 0
+      onopen: (() => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onerror: (() => void) | null = null
+      onclose: (() => void) | null = null
+
+      constructor(_url: string) {
+        queueMicrotask(() => {
+          this.readyState = 1
+          this.onopen?.()
+        })
+      }
+
+      send(raw: string) {
+        requests.push(JSON.parse(raw) as Record<string, unknown>)
+        const emit = (event: Record<string, unknown>) =>
+          this.onmessage?.({ data: JSON.stringify(event) })
+        queueMicrotask(() => {
+          emit({
+            type: 'RUN_STARTED',
+            threadId: 'session-1',
+            runId: requests[0].runId,
+            metadata: { studioRunId: 'studio-run-1' },
+          })
+          emit({
+            type: 'TEXT_MESSAGE_START',
+            messageId: 'reply-1',
+            role: 'assistant',
+            sequence: 1,
+          })
+          emit({
+            type: 'TEXT_MESSAGE_CONTENT',
+            messageId: 'reply-1',
+            delta: '分镜已经生成',
+            sequence: 2,
+          })
+          emit({ type: 'TEXT_MESSAGE_END', messageId: 'reply-1', sequence: 3 })
+          emit({
+            type: 'RUN_FINISHED',
+            threadId: 'session-1',
+            runId: requests[0].runId,
+            sequence: 4,
+            outcome: { type: 'success' },
+          })
+        })
+      }
+
+      close() {
+        this.readyState = 3
+      }
+    }
+    vi.stubGlobal('WebSocket', StudioSocket)
+    try {
+      const screen = await renderStudioChat({
+        permissionMode: 'full_access',
+        selectedSkillIds: ['storyboard-skill'],
+        selectedAssets: [{ assetId: 'asset-1', assetVersionId: 'version-1' }],
+      })
+      await screen
+        .getByPlaceholder('描述你想创作的内容，或让 Agent 调用工作流…')
+        .fill('请把故事做成分镜')
+      await screen.getByRole('button', { name: '发送消息' }).click()
+      await expect.element(screen.getByText('分镜已经生成')).toBeVisible()
+      expect(requests).toHaveLength(1)
+      expect(requests[0]).toMatchObject({
+        threadId: 'session-1',
+        forwardedProps: {
+          runConfig: {
+            modelConfigId: 'model-1',
+            permissionMode: 'full_access',
+            selectedSkillIds: ['storyboard-skill'],
+            selectedAssets: [
+              { assetId: 'asset-1', assetVersionId: 'version-1' },
+            ],
+          },
+        },
+      })
+      expect(JSON.stringify(requests[0].messages)).toContain('请把故事做成分镜')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('does not offer an image-only model as an Agent model', async () => {
     const screen = await renderStudioChat({
       models: [

@@ -767,6 +767,7 @@ func TestStudioAGUIWebSocketStreamsStandardEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	seen := map[string]bool{}
+	var streamedText strings.Builder
 	for {
 		var event map[string]any
 		if err := conn.ReadJSON(&event); err != nil {
@@ -774,6 +775,11 @@ func TestStudioAGUIWebSocketStreamsStandardEvents(t *testing.T) {
 		}
 		if kind, ok := event["type"].(string); ok {
 			seen[kind] = true
+			if kind == "TEXT_MESSAGE_CONTENT" {
+				if delta, ok := event["delta"].(string); ok {
+					streamedText.WriteString(delta)
+				}
+			}
 			if kind == "RUN_FINISHED" {
 				break
 			}
@@ -782,6 +788,58 @@ func TestStudioAGUIWebSocketStreamsStandardEvents(t *testing.T) {
 	for _, kind := range []string{"RUN_STARTED", "TEXT_MESSAGE_CONTENT", "RUN_FINISHED"} {
 		if !seen[kind] {
 			t.Fatalf("websocket events missing %s: %#v", kind, seen)
+		}
+	}
+	if streamedText.Len() == 0 {
+		t.Fatal("websocket completed without an assistant response")
+	}
+	detail := request(t, router, http.MethodGet, "/sessions/"+session.ID, nil, "account-a")
+	if detail.Code != http.StatusOK {
+		t.Fatalf("GET session after websocket run = %d %s", detail.Code, detail.Body.String())
+	}
+	var saved struct {
+		Messages []struct {
+			Role    string `json:"role"`
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"messages"`
+		Assets []struct {
+			ID       string `json:"id"`
+			Versions []struct {
+				ID string `json:"id"`
+			} `json:"versions"`
+		} `json:"assets"`
+		Flow struct {
+			Nodes []struct {
+				AssetID        string `json:"asset_id"`
+				AssetVersionID string `json:"asset_version_id"`
+			} `json:"nodes"`
+			Edges []json.RawMessage `json:"edges"`
+		} `json:"flow"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(detail), &saved); err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Messages) < 2 || saved.Messages[0].Role != "user" || len(saved.Messages[0].Content) != 1 || saved.Messages[0].Content[0].Type != "text" || saved.Messages[0].Content[0].Text != "写分镜" {
+		t.Fatalf("websocket conversation was not saved: %#v", saved.Messages)
+	}
+	if len(saved.Assets) != 2 || len(saved.Flow.Nodes) != 4 || len(saved.Flow.Edges) != 3 {
+		t.Fatalf("websocket run did not produce assets and flow: %s", detail.Body.String())
+	}
+	for _, asset := range saved.Assets {
+		if len(asset.Versions) != 1 || asset.Versions[0].ID == "" {
+			t.Fatalf("asset missing version: %#v", asset)
+		}
+		found := false
+		for _, node := range saved.Flow.Nodes {
+			if node.AssetID == asset.ID && node.AssetVersionID == asset.Versions[0].ID {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("asset %s is not pinned in saved flow", asset.ID)
 		}
 	}
 }
