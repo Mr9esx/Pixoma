@@ -748,6 +748,20 @@ func assetVersionByID(asset *domain.Asset, versionID string) (domain.AssetVersio
 }
 
 func (w *executionWriter) CreateFlowEdge(ctx context.Context, sourceNodeID, targetNodeID, label string) (*domain.FlowEdge, error) {
+	nodes, _, err := w.executor.repo.GetFlow(ctx, w.run.AccountID, w.run.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	known := make(map[string]struct{}, len(nodes))
+	for _, node := range nodes {
+		known[node.ID] = struct{}{}
+	}
+	if _, ok := known[sourceNodeID]; !ok {
+		return nil, domain.ErrNotFound
+	}
+	if _, ok := known[targetNodeID]; !ok {
+		return nil, domain.ErrNotFound
+	}
 	edge, err := domain.NewFlowEdge(w.executor.ids(), w.run.SessionID, w.run.AccountID, sourceNodeID, targetNodeID, w.executor.now())
 	if err != nil {
 		return nil, err

@@ -37,10 +37,46 @@ type sessionAssetSink struct {
 type flowToolSink struct {
 	toolSink
 	existing []*domain.FlowNode
+	edges    [][3]string
 }
 
 func (s *flowToolSink) ListFlowNodes(context.Context) ([]*domain.FlowNode, error) {
 	return s.existing, nil
+}
+
+func (s *flowToolSink) CreateFlowEdge(_ context.Context, source, target, label string) (*domain.FlowEdge, error) {
+	s.edges = append(s.edges, [3]string{source, target, label})
+	return &domain.FlowEdge{ID: "edge-1"}, nil
+}
+
+func TestEditSessionFlowConnectsOnlyKnownSessionNodes(t *testing.T) {
+	sink := &flowToolSink{existing: []*domain.FlowNode{{ID: "stage-a"}, {ID: "stage-b"}}}
+	tools, err := NewRuntimeTools(ToolAccess{Sink: sink})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var editor einotool.InvokableTool
+	for _, candidate := range tools {
+		info, _ := candidate.Info(context.Background())
+		if info.Name == "edit_session_flow" {
+			editor = candidate.(einotool.InvokableTool)
+		}
+	}
+	if editor == nil {
+		t.Fatal("missing edit_session_flow")
+	}
+	if _, err := editor.InvokableRun(context.Background(), `{"operations":[{"type":"connect_nodes","source_node_id":"stage-a","target_node_id":"other-session"}]}`); err == nil {
+		t.Fatal("cross-session node accepted")
+	}
+	if len(sink.edges) != 0 {
+		t.Fatalf("edges=%#v", sink.edges)
+	}
+	if _, err := editor.InvokableRun(context.Background(), `{"operations":[{"type":"connect_nodes","source_node_id":"stage-a","target_node_id":"stage-b","label":"下一步"}]}`); err != nil {
+		t.Fatal(err)
+	}
+	if len(sink.edges) != 1 || sink.edges[0] != [3]string{"stage-a", "stage-b", "下一步"} {
+		t.Fatalf("edges=%#v", sink.edges)
+	}
 }
 
 func TestEditSessionFlowAppendsStagesAndPlansWithoutMovingExistingNodes(t *testing.T) {

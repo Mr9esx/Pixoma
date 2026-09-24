@@ -22,20 +22,23 @@ type editSessionFlowTool struct {
 }
 
 type flowEditCommand struct {
-	Type  string `json:"type"`
-	Title string `json:"title"`
-	Body  string `json:"body,omitempty"`
+	Type         string `json:"type"`
+	Title        string `json:"title"`
+	Body         string `json:"body,omitempty"`
+	SourceNodeID string `json:"source_node_id,omitempty"`
+	TargetNodeID string `json:"target_node_id,omitempty"`
+	Label        string `json:"label,omitempty"`
 }
 
 func newEditSessionFlowTool(access ToolAccess, lister studioapp.FlowNodeLister) (einotool.BaseTool, error) {
 	var rawSchema einojsonschema.Schema
-	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["operations"],"properties":{"operations":{"type":"array","minItems":1,"maxItems":12,"items":{"type":"object","additionalProperties":false,"required":["type","title"],"properties":{"type":{"type":"string","enum":["create_stage","create_plan"]},"title":{"type":"string"},"body":{"type":"string"}}}}}}`), &rawSchema); err != nil {
+	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["operations"],"properties":{"operations":{"type":"array","minItems":1,"maxItems":12,"items":{"type":"object","additionalProperties":false,"required":["type"],"properties":{"type":{"type":"string","enum":["create_stage","create_plan","connect_nodes"]},"title":{"type":"string"},"body":{"type":"string"},"source_node_id":{"type":"string"},"target_node_id":{"type":"string"},"label":{"type":"string"}}}}}}`), &rawSchema); err != nil {
 		return nil, err
 	}
 	return &editSessionFlowTool{
 		info: &schema.ToolInfo{
 			Name:        "edit_session_flow",
-			Desc:        "按语义命令在当前 Session 的创作 Flow 末尾新增阶段或计划节点；不会移动已有节点。",
+			Desc:        "按语义命令新增阶段或计划节点，或连接当前 Session 已有节点；不会移动已有节点。",
 			ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&rawSchema),
 		},
 		access: access,
@@ -59,13 +62,34 @@ func (t *editSessionFlowTool) InvokableRun(ctx context.Context, arguments string
 		command := &input.Operations[i]
 		command.Title = strings.TrimSpace(command.Title)
 		command.Body = strings.TrimSpace(command.Body)
-		if command.Title == "" || (command.Type != "create_stage" && command.Type != "create_plan") {
+		command.SourceNodeID = strings.TrimSpace(command.SourceNodeID)
+		command.TargetNodeID = strings.TrimSpace(command.TargetNodeID)
+		command.Label = strings.TrimSpace(command.Label)
+		if (command.Type == "connect_nodes" && (command.SourceNodeID == "" || command.TargetNodeID == "" || command.SourceNodeID == command.TargetNodeID)) ||
+			(command.Type != "connect_nodes" && (command.Title == "" || (command.Type != "create_stage" && command.Type != "create_plan"))) {
 			return "", fmt.Errorf("studio: unsupported or incomplete edit_session_flow command at index %d", i)
 		}
 	}
 	nodes, err := t.lister.ListFlowNodes(ctx)
 	if err != nil {
 		return "", err
+	}
+	known := make(map[string]struct{}, len(nodes))
+	for _, node := range nodes {
+		if node != nil {
+			known[node.ID] = struct{}{}
+		}
+	}
+	for i, command := range input.Operations {
+		if command.Type != "connect_nodes" {
+			continue
+		}
+		if _, ok := known[command.SourceNodeID]; !ok {
+			return "", fmt.Errorf("studio: source node for command %d is not in this session", i)
+		}
+		if _, ok := known[command.TargetNodeID]; !ok {
+			return "", fmt.Errorf("studio: target node for command %d is not in this session", i)
+		}
 	}
 	sortOrder := 0
 	for _, node := range nodes {
@@ -86,6 +110,17 @@ func (t *editSessionFlowTool) InvokableRun(ctx context.Context, arguments string
 	}
 	created := make([]string, 0, len(input.Operations))
 	for i, command := range input.Operations {
+		if command.Type == "connect_nodes" {
+			edge, createErr := t.access.Sink.CreateFlowEdge(ctx, command.SourceNodeID, command.TargetNodeID, command.Label)
+			if createErr != nil {
+				return "", t.finish(ctx, action, createErr)
+			}
+			if edge == nil {
+				return "", t.finish(ctx, action, fmt.Errorf("studio: edit_session_flow returned no edge"))
+			}
+			created = append(created, fmt.Sprintf("关系（%s）", edge.ID))
+			continue
+		}
 		kind := domain.FlowNodeStage
 		if command.Type == "create_plan" {
 			kind = domain.FlowNodePlan
@@ -103,7 +138,7 @@ func (t *editSessionFlowTool) InvokableRun(ctx context.Context, arguments string
 		created = append(created, fmt.Sprintf("%s（%s）", command.Title, node.ID))
 		sortOrder += 10
 	}
-	result := "已添加 Flow 节点：" + strings.Join(created, "、")
+	result := "已更新 Flow：" + strings.Join(created, "、")
 	if err := t.access.Sink.Emit(ctx, studioapp.EventToolCallResult, map[string]any{"tool_call_id": action, "content": result, "is_error": false}); err != nil {
 		return "", err
 	}
