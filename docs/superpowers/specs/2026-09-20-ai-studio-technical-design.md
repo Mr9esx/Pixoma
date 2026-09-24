@@ -767,6 +767,8 @@ POST   /api/v1/studio/runs/{id}/cancel
 GET    /api/v1/studio/runs/{id}/trace
 ```
 
+新建 Session 可传 `{"request_id":"<UUID>"}`。同一账号使用同一 `request_id` 重试时返回原 Session，避免创建成功但响应丢失后产生重复对话；不同账号的请求 ID 相互隔离。旧客户端不传该字段时仍按每次请求创建新 Session 处理。前端在同一次创建及其重试之间保持请求 ID 不变，成功后再生成新的 ID。
+
 `/studio/agent` 接收标准 AG-UI `RunAgentInput`：
 
 - `threadId` 对应 Session ID。

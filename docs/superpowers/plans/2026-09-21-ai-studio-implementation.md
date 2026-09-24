@@ -98,10 +98,13 @@
 
 ## Task 10：集成、验收与交付
 
-- [ ] 后端全量：`go test ./...`。
-- [ ] 前端：`pnpm test`、`pnpm lint`、`pnpm format:check`、`pnpm build`。
-- [ ] 用 Mock 工作流跑通真实浏览器交互闭环，检查刷新恢复与后台执行。
-- [ ] 通过环境变量使用临时 Ark 凭据跑线上 OpenAI Compatible 冒烟测试，确保输出和流式事件正常；测试后清理临时配置。
+- [x] 后端全量：`go test ./...`。本机系统 clang 受 Xcode 许可状态影响，验收时指定 `CC=/opt/homebrew/opt/llvm/bin/clang`；2026-09-25 全量通过。
+- [ ] 前端：`pnpm test`、`pnpm test:studio:browser`、`pnpm lint`、`pnpm format:check`、`pnpm build`。2026-09-25 Node 契约测试 91 文件/562 项通过、Studio 浏览器组件测试 8 文件/36 项通过、构建通过；全仓库 lint/format 仍未通过，见下方说明。
+- [x] 用 Mock 工作流跑通真实浏览器交互闭环，检查刷新恢复与后台执行。先确保 Node 22、pnpm 和 Playwright Chromium 可用，再运行 `PIXOMA_STUDIO_BROWSER_INTEGRATION=1 go test -tags=integration ./internal/httpapi/studio -run '^TestStudioMockWorkflowBrowserJourney$' -count=3`。测试会构建当前前端，通过真实 Studio HTTP 与 AG-UI 接口驱动浏览器；测试 Engine 在用户切到资产库且 Run 仍在运行后才放行，另检查 920px/375px 不横向溢出、窄屏按钮触控尺寸及移动端资产抽屉。MockEngine 仅用于隔离测试，不进入生产运行路径。
+- [x] 通过环境变量使用临时 Ark 凭据跑线上 OpenAI Compatible 冒烟测试。2026-09-25 使用 Chat Completions 接口与 `deepseek-v4-1-flash-260910`，原生工具调用和 Eino 适配器流式文本子测试均通过；密钥未写入文件。此项只覆盖模型适配器，完整 Studio 浏览器链路见下一项。
+- [x] 在隔离的 Studio 浏览器环境跑真实 Eino + Ark 链路：`PIXOMA_STUDIO_LIVE_BROWSER_INTEGRATION=1` 配合上面的三个模型环境变量，运行 `go test -tags=integration ./internal/httpapi/studio -run '^TestStudioLiveBrowserJourney$' -count=1`。2026-09-25 验证两轮 Run 均成功、在线模型调用内置 `create_text_asset`、工具事件与助手回复、Chat 展示、Session 资产与 Flow、刷新恢复及切页后回读；测试账号和持久化均为临时隔离环境。此验收不替代真实外部工作流服务的端到端部署验收。
+- [x] 新建 Session 支持账号作用域的 UUID `request_id` 幂等重试：响应丢失时前端复用同一请求 ID，服务端返回原 Session；旧调用不传 `request_id` 时仍保持创建新 Session 的行为。应用层、HTTP 层与前端测试覆盖。
+- [ ] 全仓库前端质量门槛仍受 Studio 外既有问题影响：2026-09-25 `pnpm lint` 有 4 个非 Studio error，`pnpm format:check` 有 121 个文件未通过；Studio 相关文件的 ESLint/Prettier 定向检查通过。不要把定向通过误记为全仓库通过。
 - [ ] 按 Pixoma DESIGN 第 11 节逐项验收视觉、文案、响应式和可访问性。
 - [ ] 检查无裸色值、无 TODO/console、无失效按钮、无生产 Mock 数据、无密钥泄露。
 - [ ] 更新 PRD/技术设计中的实现偏差、部署配置和运维说明。

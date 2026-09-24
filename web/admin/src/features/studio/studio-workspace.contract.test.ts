@@ -196,15 +196,15 @@ describe('Studio production workspace contract', () => {
 
   it('keeps the copy inside the composer input at normal weight', () => {
     const source = read('./studio-chat.tsx')
-    expect(source).toContain("className='max-w-52 font-normal'")
-    expect(source).toContain("className='font-normal'")
+    expect(source).toContain("className='min-h-11 max-w-52 font-normal'")
+    expect(source).toContain("className='min-h-11 font-normal'")
   })
 
   it('groups the model switcher with the send button on the right of the footer', () => {
     const source = read('./studio-chat.tsx')
     const leftTools = source.slice(
       source.indexOf('<PromptInputTools>'),
-      source.lastIndexOf('<PromptInputTools>')
+      source.lastIndexOf('<PromptInputTools')
     )
     expect(leftTools).toContain('<SkillPicker')
     expect(leftTools).toContain('<AssetPicker')
@@ -213,7 +213,7 @@ describe('Studio production workspace contract', () => {
     expect(leftTools.indexOf('<AssetPicker')).toBeLessThan(
       leftTools.indexOf('<PermissionPicker')
     )
-    const rightTools = source.slice(source.lastIndexOf('<PromptInputTools>'))
+    const rightTools = source.slice(source.lastIndexOf('<PromptInputTools'))
     expect(rightTools).toContain('<ModelPicker')
     expect(rightTools).toContain('<PromptInputSubmit')
     expect(rightTools.indexOf('<ModelPicker')).toBeLessThan(
@@ -438,7 +438,8 @@ describe('Studio production workspace contract', () => {
     )
     expect(source).not.toContain('setActiveSessionId(first.id)')
     expect(source).toContain(
-      '[sessions.data, sessions.isLoading, creatingSession, createSessionMutate]'
+      '[sessions.data, sessions.isLoading, creatingSession, retryCreateSession]'
     )
+    expect(source).toContain('pendingCreateRequestID')
   })
 })

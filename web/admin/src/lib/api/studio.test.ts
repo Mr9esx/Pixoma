@@ -51,12 +51,16 @@ describe('Studio API', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await createStudioSession()
+    const requestId = 'ed4760ca-7c62-4ca2-9f7f-e1b760265f10'
+    const result = await createStudioSession(requestId)
 
     expect(result.id).toBe('session-1')
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8081/api/v1/studio/sessions',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ request_id: requestId }),
+      })
     )
   })
 

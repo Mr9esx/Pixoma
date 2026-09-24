@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "knip": "knip",
     "test": "vitest run",
+    "test:studio:browser": "vitest run --config vite.config.ts src/features/studio/*.test.tsx",
     "test:watch": "vitest --browser.headless",
     "test:ui": "vitest --ui --browser.headless",
     "test:browser": "vitest",

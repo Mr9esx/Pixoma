@@ -88,13 +88,16 @@ export type StudioRunProgress = {
   assistant_message_id?: string
   assistant_text?: string
   reasoning_text?: string
-  tool_calls?: Record<string, {
-    id: string
-    name: string
-    args?: string
-    result?: string
-    is_error?: boolean
-  }>
+  tool_calls?: Record<
+    string,
+    {
+      id: string
+      name: string
+      args?: string
+      result?: string
+      is_error?: boolean
+    }
+  >
   last_sequence: number
   updated_at: string
 }
@@ -297,10 +300,10 @@ export function listStudioSessions(params?: {
   return apiFetch<StudioSession[]>(`/api/v1/studio/sessions${toQuery(params)}`)
 }
 
-export function createStudioSession() {
+export function createStudioSession(requestId: string) {
   return apiFetch<StudioSession>('/api/v1/studio/sessions', {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify({ request_id: requestId }),
   })
 }
 
@@ -332,9 +335,12 @@ export function getStudioRun(runId: string) {
 }
 
 export function cancelStudioRun(runId: string) {
-  return apiFetch<void>(`/api/v1/studio/runs/${encodeURIComponent(runId)}/cancel`, {
-    method: 'POST',
-  })
+  return apiFetch<void>(
+    `/api/v1/studio/runs/${encodeURIComponent(runId)}/cancel`,
+    {
+      method: 'POST',
+    }
+  )
 }
 
 export function listStudioSessionRuns(sessionId: string) {

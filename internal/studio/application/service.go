@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -61,6 +62,46 @@ func (s *Service) CreateSession(ctx context.Context, accountID string) (*domain.
 		return nil, err
 	}
 	if err := s.Repo.CreateSession(ctx, session); err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
+// CreateSessionWithRequestID makes a retried create request resolve to the
+// original session even when its successful HTTP response was lost. The
+// account is included in the deterministic ID so keys cannot collide across
+// accounts; callers without a key keep the legacy random-ID behavior.
+func (s *Service) CreateSessionWithRequestID(ctx context.Context, accountID, requestID string) (*domain.Session, error) {
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return s.CreateSession(ctx, accountID)
+	}
+	if s == nil || s.Repo == nil {
+		return nil, fmt.Errorf("studio: repository is required")
+	}
+	parsed, err := uuid.Parse(requestID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: request_id must be a UUID", domain.ErrInvalid)
+	}
+	accountID = strings.TrimSpace(accountID)
+	sessionID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(accountID+"\x00"+parsed.String())).String()
+	previous, err := s.Repo.GetSession(ctx, accountID, sessionID)
+	if err == nil {
+		return previous, nil
+	}
+	if !errors.Is(err, domain.ErrNotFound) {
+		return nil, err
+	}
+	session, err := domain.NewSession(sessionID, accountID, s.now())
+	if err != nil {
+		return nil, err
+	}
+	if err := s.Repo.CreateSession(ctx, session); err != nil {
+		if errors.Is(err, domain.ErrAlreadyExists) {
+			if existing, getErr := s.Repo.GetSession(ctx, accountID, sessionID); getErr == nil {
+				return existing, nil
+			}
+		}
 		return nil, err
 	}
 	return session, nil

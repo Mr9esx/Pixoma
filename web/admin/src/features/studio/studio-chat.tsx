@@ -396,7 +396,7 @@ function StudioChatSurface({
                     }
                   />
                 </PromptInputBody>
-                <PromptInputFooter>
+                <PromptInputFooter className='flex-wrap sm:flex-nowrap'>
                   <PromptInputTools>
                     <SkillPicker
                       skills={props.skills}
@@ -414,13 +414,14 @@ function StudioChatSurface({
                       onChange={props.onPermissionChange}
                     />
                   </PromptInputTools>
-                  <PromptInputTools>
+                  <PromptInputTools className='max-sm:w-full max-sm:justify-between'>
                     <ModelPicker
                       models={availableModels}
                       value={selectedModel?.id}
                       onChange={props.onModelChange}
                     />
                     <PromptInputSubmit
+                      className='min-h-11 min-w-11'
                       aria-label={isStreaming ? '停止生成' : '发送消息'}
                       disabled={!modelReady || (runActive && !isStreaming)}
                       onStop={() => {
@@ -641,7 +642,10 @@ function AssetPicker({
               ? '选择资产'
               : `选择资产，已选 ${value.length} 项`
           }
-          className={cn(value.length > 0 && 'bg-accent text-accent-foreground')}
+          className={cn(
+            'min-h-11 min-w-11',
+            value.length > 0 && 'bg-accent text-accent-foreground'
+          )}
           size='icon-sm'
           tooltip={value.length === 0 ? '资产' : `资产 · ${value.length}`}
         >
@@ -758,7 +762,10 @@ function SkillPicker({
               ? '选择 Skills'
               : `选择 Skills，已选 ${value.length} 项`
           }
-          className={cn(value.length > 0 && 'bg-accent text-accent-foreground')}
+          className={cn(
+            'min-h-11 min-w-11',
+            value.length > 0 && 'bg-accent text-accent-foreground'
+          )}
           size='icon-sm'
           tooltip={value.length === 0 ? 'Skills' : `Skills · ${value.length}`}
         >
@@ -913,7 +920,7 @@ function ModelPicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <PromptInputButton className='max-w-52 font-normal'>
+        <PromptInputButton className='min-h-11 max-w-52 font-normal'>
           <span className='truncate'>{selected?.name ?? '未选择模型'}</span>
           <ChevronDown className='size-3.5' />
         </PromptInputButton>
@@ -954,7 +961,7 @@ function PermissionPicker({
       <DropdownMenuTrigger asChild>
         <PromptInputButton
           aria-label={`Agent 操作权限：${permissionLabels[value]}`}
-          className='font-normal'
+          className='min-h-11 font-normal'
         >
           <ShieldCheck />
           {permissionLabels[value]}

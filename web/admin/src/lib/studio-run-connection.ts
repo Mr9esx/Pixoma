@@ -68,7 +68,7 @@ export class StudioRunConnection {
   }
 
   async *resume(
-    runOptions: ChatModelRunOptions,
+    runOptions: ChatModelRunOptions
   ): AsyncGenerator<ChatModelRunResult, void, unknown> {
     const aggregator = new StudioRunAggregator()
     let sequence = this.options.afterSequence ?? 0
@@ -95,17 +95,19 @@ export class StudioRunConnection {
         }
         socket.onopen = () => {
           if (closed) return
-          socket.send(JSON.stringify({
-            threadId: this.options.threadId,
-            runId: crypto.randomUUID(),
-            attachRunId: this.options.studioRunId,
-            afterSequence: sequence,
-            protocolVersion: '1.0',
-            messages: [],
-            ...(runOptions.runConfig?.custom
-              ? { state: runOptions.runConfig.custom }
-              : {}),
-          }))
+          socket.send(
+            JSON.stringify({
+              threadId: this.options.threadId,
+              runId: crypto.randomUUID(),
+              attachRunId: this.options.studioRunId,
+              afterSequence: sequence,
+              protocolVersion: '1.0',
+              messages: [],
+              ...(runOptions.runConfig?.custom
+                ? { state: runOptions.runConfig.custom }
+                : {}),
+            })
+          )
         }
         socket.onmessage = (...args) => {
           try {
@@ -152,7 +154,10 @@ class StudioRunAggregator {
   private textOrder: string[] = []
   private reasoningOrder: string[] = []
   private toolOrder: string[] = []
-  private partOrder: Array<{ type: 'text' | 'reasoning' | 'tool'; id: string }> = []
+  private partOrder: Array<{
+    type: 'text' | 'reasoning' | 'tool'
+    id: string
+  }> = []
   private activeTextId?: string
   private activeReasoningId?: string
   private status: MessageStatus = { type: 'running' }
@@ -169,7 +174,8 @@ class StudioRunAggregator {
         this.status = { type: 'running' }
         return this.snapshot()
       case 'TEXT_MESSAGE_START': {
-        const id = stringValue(event.messageId) || `text-${this.textOrder.length + 1}`
+        const id =
+          stringValue(event.messageId) || `text-${this.textOrder.length + 1}`
         if (!this.text.has(id)) {
           this.text.set(id, { id, text: '' })
           this.textOrder.push(id)
@@ -258,7 +264,9 @@ class StudioRunAggregator {
         return this.snapshot()
       }
       case 'RUN_FINISHED': {
-        const outcome = event.outcome as { type?: string; interrupts?: unknown[] } | undefined
+        const outcome = event.outcome as
+          | { type?: string; interrupts?: unknown[] }
+          | undefined
         this.interrupts = outcome?.interrupts
         if (outcome?.type === 'interrupt') {
           this.status = { type: 'requires-action', reason: 'interrupt' }

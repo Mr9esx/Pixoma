@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ListTree, Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import {
@@ -57,7 +57,10 @@ export function StudioWorkspace() {
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([])
   const [permissionMode, setPermissionMode] =
     useState<StudioPermissionMode>('request_approval')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const chatOpenGeneration = useRef(0)
+  const autoCreateRequested = useRef(false)
+  const pendingCreateRequestID = useRef<string | undefined>(undefined)
 
   const sessions = useQuery({
     queryKey: ['studio', 'sessions'],
@@ -72,17 +75,31 @@ export function StudioWorkspace() {
     queryKey: ['studio', 'skills'],
     queryFn: listStudioSkills,
   })
-  const { mutate: createSessionMutate, isPending: creatingSession } =
-    useMutation({
-      mutationFn: createStudioSession,
-      onSuccess: (session) => {
-        setActiveSessionId(session.id)
-        setPermissionMode(session.permission_mode)
-        setView('chat')
-        setTraceOpen(false)
-        void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
-      },
-    })
+  const {
+    mutate: createSessionMutate,
+    isPending: creatingSession,
+    isError: createSessionFailed,
+  } = useMutation({
+    mutationFn: createStudioSession,
+    onSuccess: (session) => {
+      pendingCreateRequestID.current = undefined
+      setActiveSessionId(session.id)
+      setPermissionMode(session.permission_mode)
+      setView('chat')
+      setTraceOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
+    },
+  })
+  const retryCreateSession = useCallback(() => {
+    const requestID = pendingCreateRequestID.current ?? crypto.randomUUID()
+    pendingCreateRequestID.current = requestID
+    createSessionMutate(requestID)
+  }, [createSessionMutate])
+  const startNewSession = useCallback(() => {
+    const requestID = crypto.randomUUID()
+    pendingCreateRequestID.current = requestID
+    createSessionMutate(requestID)
+  }, [createSessionMutate])
   const sessionId = activeSessionId ?? sessions.data?.[0]?.id
   const sessionPermissionMode = activeSessionId
     ? permissionMode
@@ -93,12 +110,14 @@ export function StudioWorkspace() {
       sessions.isLoading ||
       !sessions.data ||
       sessions.data.length > 0 ||
-      creatingSession
+      creatingSession ||
+      autoCreateRequested.current
     ) {
       return
     }
-    createSessionMutate()
-  }, [sessions.data, sessions.isLoading, creatingSession, createSessionMutate])
+    autoCreateRequested.current = true
+    retryCreateSession()
+  }, [sessions.data, sessions.isLoading, creatingSession, retryCreateSession])
 
   const detail = useQuery({
     queryKey: ['studio', 'session', sessionId],
@@ -253,7 +272,7 @@ export function StudioWorkspace() {
     activeSessionId: sessionId,
     view,
     creating: creatingSession,
-    onNewSession: () => createSessionMutate(),
+    onNewSession: startNewSession,
     onSelectSession: (id: string) => {
       openChatWithFreshDetail(id, () => {
         setActiveSessionId(id)
@@ -272,6 +291,21 @@ export function StudioWorkspace() {
         ++chatOpenGeneration.current
         setView(nextView)
       }
+    },
+  }
+  const mobileSidebarProps = {
+    ...sidebarProps,
+    onNewSession: () => {
+      setMobileMenuOpen(false)
+      sidebarProps.onNewSession()
+    },
+    onSelectSession: (id: string) => {
+      setMobileMenuOpen(false)
+      sidebarProps.onSelectSession(id)
+    },
+    onViewChange: (nextView: StudioView) => {
+      setMobileMenuOpen(false)
+      sidebarProps.onViewChange(nextView)
     },
   }
 
@@ -318,9 +352,14 @@ export function StudioWorkspace() {
         <StudioSidebar {...sidebarProps} />
       </div>
       <div className='fixed top-3 left-3 z-30 lg:hidden'>
-        <Sheet>
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>
-            <Button variant='outline' size='icon' aria-label='打开 Studio 菜单'>
+            <Button
+              variant='outline'
+              size='icon'
+              className='size-11'
+              aria-label='打开 Studio 菜单'
+            >
               <Menu />
             </Button>
           </SheetTrigger>
@@ -329,10 +368,28 @@ export function StudioWorkspace() {
             <SheetDescription className='sr-only'>
               切换对话、资产库和 AI 设置。
             </SheetDescription>
-            <StudioSidebar {...sidebarProps} />
+            <StudioSidebar {...mobileSidebarProps} />
           </SheetContent>
         </Sheet>
       </div>
+
+      {view !== 'chat' && createSessionFailed ? (
+        <div
+          role='alert'
+          className='fixed top-4 right-4 z-40 flex max-w-[min(24rem,calc(100vw-2rem))] flex-wrap items-center gap-2 rounded-xl border bg-card p-3 text-sm text-muted-foreground'
+        >
+          <span>新建对话失败，当前页面未受影响。</span>
+          <Button
+            variant='outline'
+            size='sm'
+            className='min-h-11'
+            disabled={creatingSession}
+            onClick={retryCreateSession}
+          >
+            重试新建对话
+          </Button>
+        </div>
+      ) : null}
 
       {view === 'library' ? (
         <StudioLibrary
@@ -392,6 +449,7 @@ export function StudioWorkspace() {
                   <Button
                     variant={traceOpen ? 'secondary' : 'ghost'}
                     size='sm'
+                    className='min-h-11'
                     onClick={() => {
                       if (traceOpen && sessionId) {
                         openChatWithFreshDetail(sessionId, () =>
@@ -446,8 +504,42 @@ export function StudioWorkspace() {
                   ) : null}
                 </div>
               </header>
+              {sessionId && createSessionFailed ? (
+                <div
+                  role='alert'
+                  className='flex flex-wrap items-center gap-2 border-b px-5 py-2 text-sm text-muted-foreground'
+                >
+                  <span>新建对话失败，当前对话未受影响。</span>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='min-h-11'
+                    disabled={creatingSession}
+                    onClick={retryCreateSession}
+                  >
+                    重试新建对话
+                  </Button>
+                </div>
+              ) : null}
               {traceOpen && sessionId ? (
                 <StudioTrace key={sessionId} sessionId={sessionId} />
+              ) : !sessionId && createSessionFailed ? (
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyTitle>新建对话失败</EmptyTitle>
+                    <EmptyDescription>检查连接后重试。</EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button
+                      variant='outline'
+                      className='min-h-11'
+                      disabled={creatingSession}
+                      onClick={retryCreateSession}
+                    >
+                      重试新建对话
+                    </Button>
+                  </EmptyContent>
+                </Empty>
               ) : !sessionId || detail.isLoading ? (
                 <ChatSkeleton />
               ) : detail.isError || !detail.data ? (

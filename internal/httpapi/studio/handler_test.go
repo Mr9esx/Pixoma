@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
@@ -60,8 +61,12 @@ func (i *ids) next() string {
 }
 
 func newHandler(t *testing.T) (*studioapi.Handler, *studioapp.BackgroundRunner) {
+	return newHandlerWithEngine(t, studioapp.NewMockEngine())
+}
+
+func newHandlerWithEngine(t *testing.T, engine studioapp.AgentEngine) (*studioapi.Handler, *studioapp.BackgroundRunner) {
 	t.Helper()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
+	dsn := fmt.Sprintf("file:%s_%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"), uuid.NewString())
 	gdb, err := db.Open(db.Options{DSN: dsn})
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +81,7 @@ func newHandler(t *testing.T) (*studioapi.Handler, *studioapp.BackgroundRunner) 
 	}
 	sequence := &ids{}
 	events := studioapp.NewEventHub()
-	executor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{Repo: repo, Blob: blobs, Engine: studioapp.NewMockEngine(), Events: events, IDs: sequence.next})
+	executor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{Repo: repo, Blob: blobs, Engine: engine, Events: events, IDs: sequence.next})
 	runner := studioapp.NewBackgroundRunner(repo, executor, studioapp.RunnerOptions{Workers: 1})
 	service := &studioapp.Service{Repo: repo, IDs: sequence.next, Queue: runner}
 	return &studioapi.Handler{
@@ -383,6 +388,43 @@ func TestCreateStudioSessionAPI(t *testing.T) {
 	}
 	if session.ID == "" || session.Title != domain.DefaultSessionTitle {
 		t.Fatalf("session = %#v", session)
+	}
+}
+
+func TestCreateStudioSessionRequestIDReturnsSameSessionAfterRetry(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+	body := map[string]any{"request_id": "ed4760ca-7c62-4ca2-9f7f-e1b760265f10"}
+	first := request(t, router, http.MethodPost, "/sessions", body, "account-a")
+	retry := request(t, router, http.MethodPost, "/sessions", body, "account-a")
+	if first.Code != http.StatusCreated || retry.Code != http.StatusCreated {
+		t.Fatalf("create statuses = %d, %d", first.Code, retry.Code)
+	}
+	var firstSession, retriedSession struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(first), &firstSession); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(apitest.DataBytes(retry), &retriedSession); err != nil {
+		t.Fatal(err)
+	}
+	if firstSession.ID == "" || retriedSession.ID != firstSession.ID {
+		t.Fatalf("first=%#v retry=%#v", firstSession, retriedSession)
+	}
+	listed := request(t, router, http.MethodGet, "/sessions", nil, "account-a")
+	var sessions []map[string]any
+	if err := json.Unmarshal(apitest.DataBytes(listed), &sessions); err != nil {
+		t.Fatal(err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("sessions after retry = %#v", sessions)
+	}
+	invalid := request(t, router, http.MethodPost, "/sessions", map[string]any{"request_id": "invalid"}, "account-a")
+	if invalid.Code == http.StatusCreated {
+		t.Fatalf("invalid request id was accepted: %s", invalid.Body.String())
 	}
 }
 

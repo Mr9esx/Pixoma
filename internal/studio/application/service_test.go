@@ -109,6 +109,32 @@ func TestSendMessageCreatesSessionTurnAndAIGeneratedTitle(t *testing.T) {
 	}
 }
 
+func TestCreateSessionRequestIDSurvivesLostResponseAndIsAccountScoped(t *testing.T) {
+	repo := openRepository(t)
+	service := &studioapp.Service{Repo: repo, IDs: (&idSequence{}).Next}
+	ctx := context.Background()
+	requestID := "ed4760ca-7c62-4ca2-9f7f-e1b760265f10"
+	first, err := service.CreateSessionWithRequestID(ctx, "account-a", requestID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := service.CreateSessionWithRequestID(ctx, "account-a", requestID)
+	if err != nil || retry.ID != first.ID {
+		t.Fatalf("retry = %#v, err=%v; want session %s", retry, err, first.ID)
+	}
+	otherAccount, err := service.CreateSessionWithRequestID(ctx, "account-b", requestID)
+	if err != nil || otherAccount.ID == first.ID {
+		t.Fatalf("other account session = %#v, err=%v", otherAccount, err)
+	}
+	sessions, err := repo.ListSessions(ctx, "account-a", domain.SessionListQuery{Limit: 10})
+	if err != nil || len(sessions) != 1 {
+		t.Fatalf("account-a sessions = %#v, err=%v", sessions, err)
+	}
+	if _, err := service.CreateSessionWithRequestID(ctx, "account-a", "not-a-uuid"); err == nil {
+		t.Fatal("malformed request id was accepted")
+	}
+}
+
 func TestIdempotentSendKeepsOneTurnAndRejectsConcurrentDifferentRequest(t *testing.T) {
 	repo := openRepository(t)
 	queue := &queueSpy{}

@@ -33,11 +33,26 @@ describe('StudioRunConnection', () => {
           emit({ type: 'RUN_STARTED', metadata: { studioRunId: 'run-1' } })
           if (index === 0) {
             emit({ type: 'TEXT_MESSAGE_START', messageId: 'm1', sequence: 1 })
-            emit({ type: 'TEXT_MESSAGE_CONTENT', messageId: 'm1', delta: '你', sequence: 2 })
+            emit({
+              type: 'TEXT_MESSAGE_CONTENT',
+              messageId: 'm1',
+              delta: '你',
+              sequence: 2,
+            })
             socket.onclose?.()
           } else {
-            emit({ type: 'TEXT_MESSAGE_CONTENT', messageId: 'm1', delta: '你', sequence: 2 })
-            emit({ type: 'TEXT_MESSAGE_CONTENT', messageId: 'm1', delta: '好', sequence: 3 })
+            emit({
+              type: 'TEXT_MESSAGE_CONTENT',
+              messageId: 'm1',
+              delta: '你',
+              sequence: 2,
+            })
+            emit({
+              type: 'TEXT_MESSAGE_CONTENT',
+              messageId: 'm1',
+              delta: '好',
+              sequence: 3,
+            })
             emit({ type: 'RUN_FINISHED', outcome: { type: 'success' } })
           }
         })
@@ -45,14 +60,18 @@ describe('StudioRunConnection', () => {
       },
     })
     const results = []
-    for await (const result of connection.resume({} as never)) results.push(result)
+    for await (const result of connection.resume({} as never))
+      results.push(result)
 
     expect(requests).toHaveLength(2)
     expect(requests[1]).toMatchObject({
-      attachRunId: 'run-1', afterSequence: 2, messages: [],
+      attachRunId: 'run-1',
+      afterSequence: 2,
+      messages: [],
     })
     expect(results.at(-1)).toMatchObject({
-      status: { type: 'complete' }, content: [{ type: 'text', text: '你好' }],
+      status: { type: 'complete' },
+      content: [{ type: 'text', text: '你好' }],
     })
   })
 

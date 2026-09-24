@@ -388,7 +388,16 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	session, err := h.Service.CreateSession(r.Context(), accountID)
+	var body struct {
+		RequestID string `json:"request_id"`
+	}
+	if r.Body != nil {
+		if err := decodeJSON(r, &body); err != nil && !errors.Is(err, io.EOF) {
+			response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
+			return
+		}
+	}
+	session, err := h.Service.CreateSessionWithRequestID(r.Context(), accountID, body.RequestID)
 	if err != nil {
 		failFromError(w, err)
 		return
