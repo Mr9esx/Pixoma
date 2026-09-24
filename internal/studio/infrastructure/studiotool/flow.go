@@ -37,13 +37,13 @@ type flowEditCommand struct {
 func newEditSessionFlowTool(access ToolAccess, lister studioapp.FlowNodeLister) (einotool.BaseTool, error) {
 	assetLister, _ := access.Sink.(studioapp.SessionAssetLister)
 	var rawSchema einojsonschema.Schema
-	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["operations"],"properties":{"operations":{"type":"array","minItems":1,"maxItems":12,"items":{"type":"object","additionalProperties":false,"required":["type"],"properties":{"type":{"type":"string","enum":["create_stage","create_plan","connect_nodes","attach_asset"]},"title":{"type":"string"},"body":{"type":"string"},"source_node_id":{"type":"string"},"target_node_id":{"type":"string"},"label":{"type":"string"},"asset_id":{"type":"string"},"asset_version_id":{"type":"string"},"stage_node_id":{"type":"string"}}}}}}`), &rawSchema); err != nil {
+	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["operations"],"properties":{"operations":{"type":"array","minItems":1,"maxItems":12,"items":{"type":"object","additionalProperties":false,"required":["type"],"properties":{"type":{"type":"string","enum":["create_stage","create_plan","connect_nodes","attach_asset","add_operation"]},"title":{"type":"string"},"body":{"type":"string"},"source_node_id":{"type":"string"},"target_node_id":{"type":"string"},"label":{"type":"string"},"asset_id":{"type":"string"},"asset_version_id":{"type":"string"},"stage_node_id":{"type":"string"}}}}}}`), &rawSchema); err != nil {
 		return nil, err
 	}
 	return &editSessionFlowTool{
 		info: &schema.ToolInfo{
 			Name:        "edit_session_flow",
-			Desc:        "按语义命令新增阶段或计划节点、连接已有节点，或将当前 Session 资产的指定版本挂到已有阶段；不会移动已有节点。",
+			Desc:        "按语义命令新增阶段、计划或未执行的操作节点，连接已有节点，或将当前 Session 资产的指定版本挂到已有阶段；不会移动已有节点。add_operation 只创建计划，不执行工作流。",
 			ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&rawSchema),
 		},
 		access: access,
@@ -76,7 +76,8 @@ func (t *editSessionFlowTool) InvokableRun(ctx context.Context, arguments string
 		command.StageNodeID = strings.TrimSpace(command.StageNodeID)
 		if (command.Type == "connect_nodes" && (command.SourceNodeID == "" || command.TargetNodeID == "" || command.SourceNodeID == command.TargetNodeID)) ||
 			(command.Type == "attach_asset" && (command.AssetID == "" || command.AssetVersionID == "" || command.StageNodeID == "")) ||
-			(command.Type != "connect_nodes" && command.Type != "attach_asset" && (command.Title == "" || (command.Type != "create_stage" && command.Type != "create_plan"))) {
+			(command.Type == "add_operation" && (command.Title == "" || command.StageNodeID == "")) ||
+			(command.Type != "connect_nodes" && command.Type != "attach_asset" && command.Type != "add_operation" && (command.Title == "" || (command.Type != "create_stage" && command.Type != "create_plan"))) {
 			return "", fmt.Errorf("studio: unsupported or incomplete edit_session_flow command at index %d", i)
 		}
 	}
@@ -109,6 +110,11 @@ func (t *editSessionFlowTool) InvokableRun(ctx context.Context, arguments string
 		break
 	}
 	for i, command := range input.Operations {
+		if command.Type == "add_operation" {
+			if _, ok := stages[command.StageNodeID]; !ok {
+				return "", fmt.Errorf("studio: stage for command %d is not in this session", i)
+			}
+		}
 		if command.Type == "attach_asset" {
 			if _, ok := stages[command.StageNodeID]; !ok {
 				return "", fmt.Errorf("studio: stage for command %d is not in this session", i)
@@ -158,6 +164,21 @@ func (t *editSessionFlowTool) InvokableRun(ctx context.Context, arguments string
 	}
 	created := make([]string, 0, len(input.Operations))
 	for i, command := range input.Operations {
+		if command.Type == "add_operation" {
+			node, createErr := t.access.Sink.CreateFlowNode(ctx, studioapp.FlowNodeInput{ActionID: fmt.Sprintf("%s.%d", action, i), Type: domain.FlowNodeOperation, Title: command.Title, Body: command.Body, SortOrder: sortOrder})
+			if createErr != nil {
+				return "", t.finish(ctx, action, createErr)
+			}
+			if node == nil {
+				return "", t.finish(ctx, action, fmt.Errorf("studio: edit_session_flow returned no operation node"))
+			}
+			if _, createErr = t.access.Sink.CreateFlowEdge(ctx, command.StageNodeID, node.ID, "计划步骤"); createErr != nil {
+				return "", t.finish(ctx, action, createErr)
+			}
+			created = append(created, fmt.Sprintf("%s（%s）", command.Title, node.ID))
+			sortOrder += 10
+			continue
+		}
 		if command.Type == "attach_asset" {
 			assetName := command.AssetID
 			for _, asset := range sessionAssets {

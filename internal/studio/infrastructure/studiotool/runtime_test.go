@@ -122,6 +122,44 @@ func TestEditSessionFlowAttachesPinnedSessionAsset(t *testing.T) {
 	}
 }
 
+func TestEditSessionFlowAddsPlannedOperationWithoutExecution(t *testing.T) {
+	sink := &flowToolSink{existing: []*domain.FlowNode{{ID: "stage-a", Type: domain.FlowNodeStage, SortOrder: 20}}}
+	tools, err := NewRuntimeTools(ToolAccess{Sink: sink})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var editor einotool.InvokableTool
+	for _, candidate := range tools {
+		info, _ := candidate.Info(context.Background())
+		if info.Name == "edit_session_flow" {
+			editor = candidate.(einotool.InvokableTool)
+		}
+	}
+	if editor == nil {
+		t.Fatal("missing edit_session_flow")
+	}
+	if _, err := editor.InvokableRun(context.Background(), `{"operations":[{"type":"add_operation","title":"生成分镜","stage_node_id":"unknown"}]}`); err == nil {
+		t.Fatal("unknown stage accepted")
+	}
+	if len(sink.flowNodes) != 0 {
+		t.Fatalf("partial writes: %#v", sink.flowNodes)
+	}
+	if _, err := editor.InvokableRun(context.Background(), `{"operations":[{"type":"add_operation","title":"生成分镜","body":"计划调用分镜工作流","stage_node_id":"stage-a"}]}`); err != nil {
+		t.Fatal(err)
+	}
+	if len(sink.flowNodes) != 1 || sink.flowNodes[0].Type != domain.FlowNodeOperation || sink.flowNodes[0].Title != "生成分镜" {
+		t.Fatalf("nodes=%#v", sink.flowNodes)
+	}
+	if len(sink.edges) != 1 || sink.edges[0][0] != "stage-a" {
+		t.Fatalf("edges=%#v", sink.edges)
+	}
+	for _, event := range sink.events {
+		if event.typ == studioapp.EventWorkflowTaskCompleted {
+			t.Fatal("planned operation emitted execution event")
+		}
+	}
+}
+
 func TestEditSessionFlowAppendsStagesAndPlansWithoutMovingExistingNodes(t *testing.T) {
 	sink := &flowToolSink{existing: []*domain.FlowNode{{ID: "user-stage", Type: domain.FlowNodeStage, SortOrder: 50, PositionX: 480, PositionY: 240}}}
 	tools, err := NewRuntimeTools(ToolAccess{Sink: sink})
