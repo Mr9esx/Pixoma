@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/index.css'
 import { describe, expect, it, vi } from 'vitest'
+import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
+import * as studioApi from '@/lib/api/studio'
 import type { StudioAsset, StudioSessionDetail } from '@/lib/api/studio'
 import { StudioLibrary } from './studio-library'
 
@@ -17,6 +19,7 @@ vi.mock('@/lib/api/studio', async (importOriginal) => ({
   listStudioLibraryAssets: vi.fn(async () => [asset]),
   getStudioSession: vi.fn(async () => ({ session: { id: 'session-1', title: '雨夜侦探漫画' } }) as StudioSessionDetail),
   getStudioTextAssetContent: vi.fn(async () => '# 雨夜侦探'),
+  uploadStudioAsset: vi.fn(async () => { throw new Error('网络已断开') }),
 }))
 
 describe('StudioLibrary', () => {
@@ -33,5 +36,29 @@ describe('StudioLibrary', () => {
     await expect.element(screen.getByText('雨夜侦探漫画')).toBeVisible()
     await screen.getByRole('button', { name: '打开来源对话' }).click()
     expect(onOpenSession).toHaveBeenCalledWith('session-1')
+  })
+
+  it('retries loading assets after a request fails', async () => {
+    vi.mocked(studioApi.listStudioLibraryAssets).mockRejectedValueOnce(new Error('连接失败'))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const screen = await render(
+      <QueryClientProvider client={client}>
+        <StudioLibrary onOpenSession={() => {}} />
+      </QueryClientProvider>,
+    )
+    await screen.getByRole('button', { name: '重试读取' }).click()
+    await expect.element(screen.getByText('故事设定.md')).toBeVisible()
+  })
+
+  it('shows upload failure with a retry action', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const screen = await render(
+      <QueryClientProvider client={client}>
+        <StudioLibrary onOpenSession={() => {}} />
+      </QueryClientProvider>,
+    )
+    await page.getByLabelText('选择上传资产').upload(new File(['hello'], 'notes.md', { type: 'text/markdown' }))
+    await expect.element(screen.getByRole('alert')).toHaveTextContent('网络已断开')
+    await expect.element(screen.getByRole('button', { name: '重试上传' })).toBeVisible()
   })
 })

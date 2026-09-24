@@ -4,6 +4,7 @@ import { FolderPlus, Grid2X2, Library, List, Search, Upload } from 'lucide-react
 import { createStudioLibraryFolder, getStudioSession, getStudioTextAssetContent, listStudioLibraryAssets, listStudioLibraryFolders, uploadStudioAsset, type StudioAsset } from '@/lib/api/studio'
 import { baseURL } from '@/lib/api/client'
 import { AssetCard } from './studio-assets'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -61,7 +62,7 @@ export function StudioLibrary({ onOpenSession }: { onOpenSession: (sessionId: st
             <Upload />
             {upload.isPending ? '正在上传…' : '上传资产'}
           </Button>
-          <input ref={fileInputRef} type='file' className='sr-only' onChange={(event) => { const file = event.target.files?.[0]; if (file) upload.mutate(file); event.currentTarget.value = '' }} />
+          <input ref={fileInputRef} type='file' aria-label='选择上传资产' className='sr-only' onChange={(event) => { const file = event.target.files?.[0]; if (file) upload.mutate(file); event.currentTarget.value = '' }} />
         </div>
       </header>
       <div className='flex items-center gap-3 border-b px-5 py-3'>
@@ -82,6 +83,24 @@ export function StudioLibrary({ onOpenSession }: { onOpenSession: (sessionId: st
           <Button key={folder.id} variant={folderId === folder.id ? 'secondary' : 'ghost'} size='sm' onClick={() => setFolderId(folder.id)}>{folder.name}</Button>
         ))}
       </div>
+      {folders.isError ? (
+        <Alert variant='destructive' className='mx-5 mt-4 w-auto'>
+          <AlertTitle>文件夹读取失败</AlertTitle>
+          <AlertDescription>
+            <p>文件夹列表暂不可用，资产仍可查看。</p>
+            <Button variant='outline' size='sm' onClick={() => void folders.refetch()}>重试读取文件夹</Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {upload.isError ? (
+        <Alert variant='destructive' className='mx-5 mt-4 w-auto'>
+          <AlertTitle>资产上传失败</AlertTitle>
+          <AlertDescription>
+            <p>{upload.error instanceof Error ? upload.error.message : '上传未成功，重试上传。'}</p>
+            <Button variant='outline' size='sm' disabled={upload.isPending || !upload.variables} onClick={() => { if (upload.variables) upload.mutate(upload.variables) }}>重试上传</Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <ScrollArea className='min-h-0 flex-1'>
         {assets.isLoading ? (
           <div className='grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
@@ -90,7 +109,7 @@ export function StudioLibrary({ onOpenSession }: { onOpenSession: (sessionId: st
             ))}
           </div>
         ) : assets.isError ? (
-          <LibraryState title='资产读取失败' description='请稍后重试，已有资产不会丢失。' />
+          <LibraryState title='资产读取失败' description='已有资产未变化。' actionLabel='重试读取' onAction={() => void assets.refetch()} />
         ) : visibleAssets.length ? (
           <div className={view === 'grid' ? 'grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid gap-3 p-5'}>
             {visibleAssets.map((asset) => (
@@ -193,7 +212,7 @@ function LibraryAssetDetails({ asset, onClose, onOpenSession }: {
   )
 }
 
-function LibraryState({ title, description }: { title: string; description: string }) {
+function LibraryState({ title, description, actionLabel, onAction }: { title: string; description: string; actionLabel?: string; onAction?: () => void }) {
   return (
     <div className='flex min-h-[420px] flex-col items-center justify-center px-6 text-center'>
       <span className='mb-4 flex size-12 items-center justify-center rounded-2xl bg-muted'>
@@ -201,6 +220,7 @@ function LibraryState({ title, description }: { title: string; description: stri
       </span>
       <h2 className='text-sm font-medium'>{title}</h2>
       <p className='mt-1 max-w-sm text-sm leading-6 text-muted-foreground'>{description}</p>
+      {actionLabel && onAction ? <Button variant='outline' size='sm' className='mt-4' onClick={onAction}>{actionLabel}</Button> : null}
     </div>
   )
 }
