@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cloudwego/eino/components/model"
@@ -144,4 +145,28 @@ func TestEinoChatModelStreamsWithTools(t *testing.T) {
 	require.Len(t, toolMessage.ToolCalls, 1)
 	require.Equal(t, "create_outline", toolMessage.ToolCalls[0].Function.Name)
 	require.Equal(t, `{"genre":"noir"}`, toolMessage.ToolCalls[0].Function.Arguments)
+}
+
+func TestEinoChatModelDoesNotRetryFailedStreamAsAnotherRequest(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if requests.Add(1) == 1 {
+			http.Error(w, `{"error":{"message":"temporary provider failure"}}`, http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"unexpected retry"}}]}`))
+	}))
+	t.Cleanup(server.Close)
+	chat := modelprovider.NewEinoChatModel(modelprovider.NewOpenAICompatibleClient(server.Client()), domain.ResolvedModelConfig{
+		Protocol: domain.ModelProtocolOpenAIChat,
+		BaseURL:  server.URL,
+		Model:    "test",
+		APIKey:   "secret",
+	})
+
+	stream, err := chat.Stream(context.Background(), []*schema.Message{schema.UserMessage("写一个故事")})
+	require.Nil(t, stream)
+	require.ErrorContains(t, err, "HTTP 503")
+	require.EqualValues(t, 1, requests.Load(), "one chat turn must not issue a second billable request")
 }

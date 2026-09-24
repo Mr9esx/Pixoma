@@ -108,9 +108,7 @@ func (m *EinoChatModel) Stream(ctx context.Context, input []*schema.Message, opt
 	}
 	if m.config.Protocol == "" || m.config.Protocol == domain.ModelProtocolOpenAIChat {
 		messages := chatMessagesFromSchema(input)
-		if stream, err := m.client.StreamChat(ctx, ChatRequest{Config: m.config, Messages: messages, Tools: tools, Trace: m.nextTraceSink()}); err == nil {
-			return stream, nil
-		}
+		return m.client.StreamChat(ctx, ChatRequest{Config: m.config, Messages: messages, Tools: tools, Trace: m.nextTraceSink()})
 	}
 	message, err := m.Generate(ctx, input, opts...)
 	if err != nil {
