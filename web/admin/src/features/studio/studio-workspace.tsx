@@ -21,6 +21,13 @@ import {
 } from '@/lib/api/studio'
 import { Button } from '@/components/ui/button'
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -422,9 +429,22 @@ export function StudioWorkspace() {
               ) : !sessionId || detail.isLoading ? (
                 <ChatSkeleton />
               ) : detail.isError || !detail.data ? (
-                <div className='flex flex-1 items-center justify-center text-sm text-muted-foreground'>
-                  对话读取失败，请稍后重试。
-                </div>
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyTitle>对话读取失败</EmptyTitle>
+                    <EmptyDescription>检查连接后重试。</EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button
+                      variant='outline'
+                      className='min-h-11'
+                      disabled={detail.isFetching}
+                      onClick={() => void detail.refetch()}
+                    >
+                      重试读取
+                    </Button>
+                  </EmptyContent>
+                </Empty>
               ) : (
                 <StudioChat
                   key={sessionId}

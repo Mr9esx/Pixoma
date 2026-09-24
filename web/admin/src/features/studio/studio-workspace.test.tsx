@@ -70,6 +70,29 @@ const detail = (id: string, status?: 'running'): StudioSessionDetail => ({
 })
 
 describe('StudioWorkspace', () => {
+  it('lets a failed conversation read retry and restores the chat', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchInterval: false } },
+    })
+    const session = detail('session-retry')
+    const api = await import('@/lib/api/studio')
+    vi.mocked(api.listStudioSessions).mockResolvedValue([session.session])
+    vi.mocked(getStudioSession)
+      .mockRejectedValueOnce(new Error('network unavailable'))
+      .mockResolvedValue(session)
+
+    const screen = await render(
+      <QueryClientProvider client={client}>
+        <StudioWorkspace />
+      </QueryClientProvider>
+    )
+    await expect.element(screen.getByText('对话读取失败')).toBeVisible()
+    await screen.getByRole('button', { name: '重试读取' }).click()
+    await expect
+      .element(screen.getByTestId('chat-state'))
+      .toHaveTextContent('session-retry:idle')
+  })
+
   it('opens the Flow and Session assets workbench on a narrow screen', async () => {
     const originalViewport = {
       width: window.innerWidth,
