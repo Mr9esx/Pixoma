@@ -6,12 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	einotool "github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	einojsonschema "github.com/eino-contrib/jsonschema"
-	"github.com/google/uuid"
 
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
@@ -28,11 +27,11 @@ type ToolAccess struct {
 	AccountID       string
 	SessionID       string
 	RunID           string
-	PermissionMode  domain.PermissionMode
-	IsApproved      func(action string) bool
-	RequestApproval func(ctx context.Context, toolCallID, action, description string) error
 	Sink            studioapp.AgentSink
 	Starter         Starter
+	Clarifications  []*domain.Clarification
+	Waiting         *atomic.Bool
+	AnthropicOutput func() []json.RawMessage
 }
 
 func NewRuntimeTools(workflows []studioapp.ResolvedWorkflow, access ToolAccess) ([]einotool.BaseTool, error) {
@@ -48,6 +47,7 @@ func NewRuntimeTools(workflows []studioapp.ResolvedWorkflow, access ToolAccess) 
 		if err := json.Unmarshal(workflow.InputSchema, &rawSchema); err != nil {
 			return nil, fmt.Errorf("studio: decode workflow %s input schema: %w", workflow.ID, err)
 		}
+		rawSchema.Required = nil
 		params := schema.NewParamsOneOfByJSONSchema(&rawSchema)
 		tools = append(tools, &runtimeTool{
 			info:     &schema.ToolInfo{Name: workflow.ToolName, Desc: workflow.Description, ParamsOneOf: params},
@@ -67,22 +67,59 @@ type runtimeTool struct {
 func (t *runtimeTool) Info(context.Context) (*schema.ToolInfo, error) { return t.info, nil }
 
 func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...einotool.Option) (string, error) {
-	inputs, err := decodeArguments(arguments)
-	if err != nil {
-		return "", fmt.Errorf("studio: invalid workflow tool arguments for %s: %w", t.info.Name, err)
+	var inputs map[string]any
+	wasInterrupted, hasState, clarificationID := einotool.GetInterruptState[string](ctx)
+	if wasInterrupted {
+		if !hasState {
+			return "", fmt.Errorf("studio: workflow interrupt has no state")
+		}
+		var clarification *domain.Clarification
+		for _, current := range t.access.Clarifications {
+			if current.ID == clarificationID {
+				clarification = current
+				break
+			}
+		}
+		if clarification == nil || clarification.Workflow == nil || clarification.Workflow.ID != t.workflow.ID {
+			return "", fmt.Errorf("studio: workflow request %s is missing", clarificationID)
+		}
+		if clarification.Status != domain.ClarificationAnswered && clarification.Status != domain.ClarificationSkipped {
+			t.markWaiting()
+			return "", einotool.StatefulInterrupt(ctx, clarification.Question, clarification.ID)
+		}
+		if clarification.Status == domain.ClarificationSkipped {
+			return fmt.Sprintf("已跳过工作流「%s」。", t.workflow.Name), nil
+		}
+		if clarification.Selected != "submit" || clarification.Workflow.SubmittedInputs == nil {
+			return "", fmt.Errorf("studio: workflow request %s has invalid response", clarificationID)
+		}
+		inputs = clarification.Workflow.SubmittedInputs
+	} else {
+		var err error
+		inputs, err = decodeArguments(arguments)
+		if err != nil {
+			return "", fmt.Errorf("studio: invalid workflow tool arguments for %s: %w", t.info.Name, err)
+		}
+		sink, ok := t.access.Sink.(studioapp.WorkflowInputSink)
+		if !ok {
+			return "", fmt.Errorf("studio: workflow input sink is not configured")
+		}
+		clarification, err := sink.RequestWorkflowInput(ctx, domain.WorkflowRequest{
+			ID: t.workflow.ID, Name: t.workflow.Name, Description: t.workflow.Description,
+			Preview:     t.workflow.Preview,
+			InputSchema: t.workflow.InputSchema, SuggestedInputs: inputs,
+			InputFields:     t.workflow.InputFields,
+			AnthropicOutput: t.anthropicOutput(),
+		})
+		if err != nil {
+			return "", err
+		}
+		t.markWaiting()
+		return "", einotool.StatefulInterrupt(ctx, clarification.Question, clarification.ID)
 	}
 	action, err := workflowAction(t.workflow.ID, inputs)
 	if err != nil {
 		return "", err
-	}
-	if t.requiresApproval() && (t.access.IsApproved == nil || !t.access.IsApproved(action)) {
-		if t.access.RequestApproval == nil {
-			return "", fmt.Errorf("studio: workflow approval handler is not configured")
-		}
-		if err := t.access.RequestApproval(ctx, action+"."+uuid.NewString(), action, fmt.Sprintf("执行工作流「%s」", t.workflow.Name)); err != nil {
-			return "", err
-		}
-		return "", compose.Interrupt(ctx, action)
 	}
 	toolCallID := action
 	if err := t.emit(ctx, studioapp.EventToolCallStart, map[string]any{
@@ -134,8 +171,17 @@ func (t *runtimeTool) InvokableRun(ctx context.Context, arguments string, _ ...e
 	return output, nil
 }
 
-func (t *runtimeTool) requiresApproval() bool {
-	return t.access.PermissionMode == domain.PermissionRequestApproval
+func (t *runtimeTool) anthropicOutput() []json.RawMessage {
+	if t.access.AnthropicOutput == nil {
+		return nil
+	}
+	return t.access.AnthropicOutput()
+}
+
+func (t *runtimeTool) markWaiting() {
+	if t.access.Waiting != nil {
+		t.access.Waiting.Store(true)
+	}
 }
 
 func (t *runtimeTool) finish(ctx context.Context, toolCallID string, callErr error) error {

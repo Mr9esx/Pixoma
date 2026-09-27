@@ -129,6 +129,31 @@ func TestApprovalCanOnlyBeResolvedOnce(t *testing.T) {
 	}
 }
 
+func TestWorkflowInputCanBeSubmittedOrSkipped(t *testing.T) {
+	now := time.Date(2026, 9, 26, 10, 0, 0, 0, time.UTC)
+	workflow := WorkflowRequest{ID: "12", Name: "角色三视图", InputSchema: []byte(`{"type":"object","properties":{"prompt":{"type":"string"}},"required":["prompt"]}`), SuggestedInputs: map[string]any{"prompt": "雨夜侦探"}}
+	request, err := NewWorkflowClarification("clarification-1", "run-1", "session-1", "account-1", workflow, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := request.ResolveWorkflow("account-1", map[string]any{"prompt": "夜景"}, false, now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if request.Workflow == nil || request.Workflow.SubmittedInputs["prompt"] != "夜景" || request.Selected != "submit" {
+		t.Fatalf("workflow response = %#v", request)
+	}
+	if err := request.ResolveWorkflow("account-1", nil, true, now.Add(2*time.Second)); !errors.Is(err, ErrInvalidTransition) {
+		t.Fatalf("second response error = %v", err)
+	}
+	skipped, err := NewWorkflowClarification("clarification-2", "run-1", "session-1", "account-1", workflow, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := skipped.ResolveWorkflow("account-1", nil, true, now.Add(time.Second)); err != nil || skipped.Selected != "skip" || skipped.Status != ClarificationSkipped {
+		t.Fatalf("skip = %#v, err=%v", skipped, err)
+	}
+}
+
 func TestAssetVersionsAreAppendOnly(t *testing.T) {
 	now := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
 	asset, err := NewAsset("asset-1", "session-1", "account-1", "故事大纲.md", AssetDocument, AssetOriginAgent, now)

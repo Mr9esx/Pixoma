@@ -32,6 +32,22 @@ func RunScheduler(ctx context.Context, orch *orchestrator.Service) {
 	if orch == nil {
 		return
 	}
+	if orch.VideoBlob != nil {
+		go func() {
+			t := time.NewTicker(time.Second)
+			defer t.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-t.C:
+					if err := orch.CompleteVideo(ctx); err != nil {
+						slog.Warn("complete video task", "err", err)
+					}
+				}
+			}
+		}()
+	}
 	go func() {
 		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()

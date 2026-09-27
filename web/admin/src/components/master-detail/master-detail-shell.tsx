@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { useScrollFocus } from '@/lib/scroll-focus'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Reveal } from '@/components/ui/reveal'
 
 type Props = {
   list: ReactNode
@@ -68,14 +67,14 @@ export function MasterDetailShell({
                 {t('common.backToList', { defaultValue: '返回列表' })}
               </Button>
             ) : null}
-            <Reveal key={detailKey} className='flex min-h-0 flex-1 flex-col'>
+            <div key={detailKey} className='flex min-h-0 flex-1 flex-col'>
               {detail}
-            </Reveal>
+            </div>
           </>
         ) : (
-          <Reveal className='flex min-h-0 flex-1 flex-col'>
+          <div className='flex min-h-0 flex-1 flex-col'>
             {emptyDetail ?? null}
-          </Reveal>
+          </div>
         )}
       </section>
     </div>

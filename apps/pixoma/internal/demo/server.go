@@ -65,7 +65,7 @@ func New(ctx context.Context, addr, publicURL string) (*Server, error) {
 		return nil, err
 	}
 	router := chi.NewRouter()
-	router.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
+	router.Use(middleware.RequestID, adminhost.AccessLog, middleware.RealIP, middleware.Recoverer)
 	router.Route("/api/v1/setup", func(setup chi.Router) {
 		Mount(setup, auth)
 	})

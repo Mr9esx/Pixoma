@@ -119,6 +119,7 @@ type MessagePart struct {
 	SkillID        string `json:"skill_id,omitempty"`
 	AssetID        string `json:"asset_id,omitempty"`
 	AssetVersionID string `json:"asset_version_id,omitempty"`
+	WorkflowID     string `json:"workflow_id,omitempty"`
 	Name           string `json:"name,omitempty"`
 }
 
@@ -365,8 +366,13 @@ func (s *Service) snapshotSkills(ctx context.Context, accountID string) ([]domai
 	snapshot := make([]domain.RunSkill, 0, len(skills))
 	for _, skill := range skills {
 		if skill.Enabled {
+			prompt := skill.Prompt
+			if len(skill.Files) > 0 {
+				prompt = ""
+			}
 			snapshot = append(snapshot, domain.RunSkill{
-				ID: skill.ID, Name: skill.Name, Description: skill.Description, Prompt: skill.Prompt,
+				ID: skill.ID, Name: skill.Name, Description: skill.Description, Prompt: prompt,
+				Files: append([]domain.SkillFile(nil), skill.Files...),
 			})
 		}
 	}

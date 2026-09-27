@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
 
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
+	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/platform/notify"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue"
 	convdomain "github.com/Mr9esx/Pixoma/internal/sessions/domain"
@@ -58,9 +60,10 @@ type Service struct {
 	// Stats optionally records terminal task rollups; nil disables stats writes.
 	Stats statsdomain.Repository
 	// Online optionally filters candidates in split mode (nil = no extra filter).
-	Online func(ctx context.Context, id sharedkernel.EdgeID) bool
-	Storm  *StormGuard
-	Now    func() time.Time
+	Online    func(ctx context.Context, id sharedkernel.EdgeID) bool
+	Storm     *StormGuard
+	Now       func() time.Time
+	VideoBlob blob.Store
 
 	// notifyDedupe tracks terminal notifies already sent.
 	notifiedMu sync.Mutex
@@ -108,37 +111,66 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 		return err
 	}
 	if t.Status != sharedkernel.TaskPending {
+		slog.DebugContext(ctx, "跳过任务调度", "task_id", taskID, "status", t.Status)
 		return nil
+	}
+	if s.VideoBlob != nil {
+		handled, err := s.startVideo(ctx, t)
+		if err != nil || handled {
+			return err
+		}
 	}
 	topicKey, err := s.resolveTopic(ctx, t)
 	if err != nil {
 		if errors.Is(err, catalogdomain.ErrNotFound) {
+			slog.WarnContext(ctx, "任务关联的 Case 不可用", "task_id", taskID, "case_id", t.CaseID)
 			now := s.Now()
-			if merr := t.MarkFailed(sharedkernel.TaskErrorCaseDeleted, sharedkernel.CaseDeletedMessage, now); merr == nil {
-				_ = s.Tasks.Update(ctx, t)
-				_ = s.publishNotify(ctx, t)
+			if merr := t.MarkFailed(sharedkernel.TaskErrorCaseDeleted, sharedkernel.CaseDeletedMessage, now); merr != nil {
+				slog.ErrorContext(ctx, "设置任务失败状态时出错", "task_id", taskID, "err", merr)
+				return nil
+			}
+			if updateErr := s.Tasks.Update(ctx, t); updateErr != nil {
+				slog.ErrorContext(ctx, "保存任务失败状态时出错", "task_id", taskID, "err", updateErr)
+				return nil
+			}
+			if notifyErr := s.publishNotify(ctx, t); notifyErr != nil {
+				slog.ErrorContext(ctx, "通知任务失败状态时出错", "task_id", taskID, "err", notifyErr)
 			}
 			return nil
 		}
 		if errors.Is(err, routing.ErrNoMatch) {
+			slog.WarnContext(ctx, "任务没有匹配的路由", "task_id", taskID, "case_id", t.CaseID)
 			now := s.Now()
-			if merr := t.MarkFailed(sharedkernel.TaskErrorRoutingNoMatch, sharedkernel.TaskErrorMessageRoutingNoMatch, now); merr == nil {
-				_ = s.Tasks.Update(ctx, t)
-				_ = s.publishNotify(ctx, t)
+			if merr := t.MarkFailed(sharedkernel.TaskErrorRoutingNoMatch, sharedkernel.TaskErrorMessageRoutingNoMatch, now); merr != nil {
+				slog.ErrorContext(ctx, "设置任务失败状态时出错", "task_id", taskID, "err", merr)
+				return nil
+			}
+			if updateErr := s.Tasks.Update(ctx, t); updateErr != nil {
+				slog.ErrorContext(ctx, "保存任务失败状态时出错", "task_id", taskID, "err", updateErr)
+				return nil
+			}
+			if notifyErr := s.publishNotify(ctx, t); notifyErr != nil {
+				slog.ErrorContext(ctx, "通知任务失败状态时出错", "task_id", taskID, "err", notifyErr)
 			}
 			return nil
 		}
 		// Evaluation failure: keep pending with a recorded reason; the next
 		// SchedulePending cycle retries (transient provider errors self-heal).
 		t.ErrorMessage = "routing: " + err.Error()
+		slog.WarnContext(ctx, "计算任务路由失败", "task_id", taskID, "case_id", t.CaseID, "err", err)
 		t.UpdatedAt = s.Now()
-		_ = s.Tasks.Update(ctx, t)
+		if updateErr := s.Tasks.Update(ctx, t); updateErr != nil {
+			slog.ErrorContext(ctx, "保存任务路由错误失败", "task_id", taskID, "err", updateErr)
+		}
 		return nil
 	}
 	if !s.topicHasOnlineConsumer(ctx, topicKey) {
+		slog.DebugContext(ctx, "任务等待在线 Edge Agent", "task_id", taskID, "topic", topicKey)
 		t.ErrorMessage = fmt.Sprintf("routing: no online consumer for topic %s", topicKey)
 		t.UpdatedAt = s.Now()
-		_ = s.Tasks.Update(ctx, t)
+		if updateErr := s.Tasks.Update(ctx, t); updateErr != nil {
+			slog.ErrorContext(ctx, "保存任务等待状态失败", "task_id", taskID, "err", updateErr)
+		}
 		return nil
 	}
 	now := s.Now()
@@ -157,8 +189,10 @@ func (s *Service) dispatchTask(ctx context.Context, taskID sharedkernel.TaskID) 
 		return err
 	}
 	if !prepared {
+		slog.DebugContext(ctx, "其他调度过程已准备任务", "task_id", taskID)
 		return nil
 	}
+	slog.InfoContext(ctx, "任务已准备领取", "task_id", taskID, "topic", topicKey)
 	return nil
 }
 
@@ -236,6 +270,7 @@ func (s *Service) applyStatus(ctx context.Context, ev sharedkernel.TaskStatusEve
 			if err := s.Tasks.Update(ctx, t); err != nil {
 				return err
 			}
+			slog.WarnContext(ctx, "任务已排队重试", "task_id", t.ID, "edge_id", t.EdgeID, "attempts", t.Attempts, "error_code", ev.ErrorCode, "err", ev.ErrorMsg)
 			return nil
 		}
 	case sharedkernel.TaskCancelled:
@@ -248,6 +283,13 @@ func (s *Service) applyStatus(ctx context.Context, ev sharedkernel.TaskStatusEve
 
 	if err := s.Tasks.Update(ctx, t); err != nil {
 		return err
+	}
+	if t.Status != prev {
+		level := slog.LevelInfo
+		if t.Status == sharedkernel.TaskFailed {
+			level = slog.LevelError
+		}
+		slog.Log(ctx, level, "任务状态已变化", "task_id", t.ID, "edge_id", t.EdgeID, "previous_status", prev, "status", t.Status, "error_code", t.ErrorCode)
 	}
 
 	if isTerminal(t.Status) && t.Status != prev {
@@ -271,19 +313,16 @@ func (s *Service) publishNotify(ctx context.Context, t *runtimedomain.Task) erro
 		return nil
 	}
 	chatID := t.ChatID
+	if chatID == "" && strings.HasPrefix(string(t.SessionID), "studio-session-") {
+		s.notified[key] = struct{}{}
+		return nil
+	}
 	if chatID == "" && s.Sessions != nil {
 		sess, err := s.Sessions.GetByID(ctx, t.SessionID)
 		if err != nil {
 			return fmt.Errorf("notify chat via session: %w", err)
 		}
 		chatID = sess.ChatID
-	}
-	// Studio tasks deliberately have no Bot chat/session. Publishing an empty
-	// recipient is neither actionable nor safe for channel adapters; Studio's
-	// own workflow reconciler surfaces status in the Session Road instead.
-	if chatID == "" && strings.HasPrefix(string(t.SessionID), "studio-session-") {
-		s.notified[key] = struct{}{}
-		return nil
 	}
 	kind := "task_" + string(t.Status)
 	n := sharedkernel.UserNotify{
@@ -315,6 +354,7 @@ func (s *Service) RequestCancel(ctx context.Context, taskID sharedkernel.TaskID)
 	if err := s.Tasks.Update(ctx, t); err != nil {
 		return err
 	}
+	slog.InfoContext(ctx, "任务已取消", "task_id", t.ID, "previous_status", prev)
 	if prev != sharedkernel.TaskCancelled {
 		if err := s.recordTerminalStats(ctx, t, now); err != nil {
 			return err
@@ -379,6 +419,7 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 			}
 			fresh, err := s.Tasks.Get(ctx, t.ID)
 			if err != nil {
+				slog.ErrorContext(ctx, "重新读取超时任务失败", "task_id", t.ID, "err", err)
 				s.Storm.Breaker.RecordFailure(t.EdgeID)
 				continue
 			}
@@ -386,15 +427,19 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 			view := executionViewFromTask(fresh)
 			switch view.Phase {
 			case "succeeded":
-				_ = s.applyStatus(ctx, sharedkernel.TaskStatusEvent{
+				if err := s.applyStatus(ctx, sharedkernel.TaskStatusEvent{
 					TaskID: t.ID, EdgeID: t.EdgeID, Status: sharedkernel.TaskSucceeded,
 					Outputs: view.Outputs, At: now,
-				})
+				}); err != nil {
+					slog.ErrorContext(ctx, "更新超时任务成功状态失败", "task_id", t.ID, "err", err)
+				}
 			case "failed":
-				_ = s.applyStatus(ctx, sharedkernel.TaskStatusEvent{
+				if err := s.applyStatus(ctx, sharedkernel.TaskStatusEvent{
 					TaskID: t.ID, EdgeID: t.EdgeID, Status: sharedkernel.TaskFailed,
 					ErrorMsg: view.ErrorMsg, At: now,
-				})
+				}); err != nil {
+					slog.ErrorContext(ctx, "更新超时任务失败状态时出错", "task_id", t.ID, "err", err)
+				}
 			case "running":
 				// Task-only view has no external progress; do not refresh UpdatedAt.
 			case "accepted":
@@ -404,9 +449,17 @@ func (s *Service) ReconcileStale(ctx context.Context, staleAfter time.Duration, 
 					fresh.Status = sharedkernel.TaskPending
 					fresh.EdgeID = ""
 					fresh.UpdatedAt = now
-					_ = s.Tasks.Update(ctx, fresh)
+					if err := s.Tasks.Update(ctx, fresh); err != nil {
+						slog.ErrorContext(ctx, "重新调度超时任务失败", "task_id", t.ID, "err", err)
+					} else {
+						slog.InfoContext(ctx, "超时任务已重新等待调度", "task_id", t.ID)
+					}
 				} else if fresh.Status == sharedkernel.TaskRunning {
-					_, _ = s.Tasks.RequeueExpiredLeases(ctx, now)
+					if count, err := s.Tasks.RequeueExpiredLeases(ctx, now); err != nil {
+						slog.ErrorContext(ctx, "处理过期任务租约失败", "task_id", t.ID, "err", err)
+					} else if count > 0 {
+						slog.WarnContext(ctx, "过期任务租约已重新排队", "count", count)
+					}
 				}
 			}
 		}

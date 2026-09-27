@@ -13,7 +13,7 @@ describe('serializeStudioComposer', () => {
         ],
       }],
     })).toEqual({
-      text: '「分镜草稿」Skill后续内容',
+      text: '「分镜草稿」技能后续内容',
       parts: [
         { type: 'skill_ref', skill_id: 'skill-1', name: '分镜草稿' },
         { type: 'text', text: '后续内容' },
@@ -44,6 +44,24 @@ describe('serializeStudioComposer', () => {
     }).text).toBe('甲\u200B乙')
   })
 
+  it('keeps a workflow reference in the message without submitting its inputs', () => {
+    expect(serializeStudioComposer({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [
+        { type: 'studioReference', attrs: { kind: 'workflow', id: '12', label: '角色三视图' } },
+        { type: 'text', text: '\u200B需要哪些输入？' },
+      ] }],
+    })).toEqual({
+      text: '「角色三视图」工作流需要哪些输入？',
+      parts: [
+        { type: 'workflow_ref', workflow_id: '12', name: '角色三视图' },
+        { type: 'text', text: '需要哪些输入？' },
+      ],
+      selectedSkillIds: [],
+      selectedAssets: [],
+    })
+  })
+
   it('preserves inline reference order and selects each resource once', () => {
     expect(
       serializeStudioComposer({
@@ -63,7 +81,7 @@ describe('serializeStudioComposer', () => {
         ],
       })
     ).toEqual({
-      text: '用 「分镜草稿」Skill 处理 「角色设定图」资产，再用 「分镜草稿」Skill',
+      text: '用 「分镜草稿」技能 处理 「角色设定图」资产，再用 「分镜草稿」技能',
       parts: [
         { type: 'text', text: '用 ' },
         { type: 'skill_ref', skill_id: 'skill-1', name: '分镜草稿' },

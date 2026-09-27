@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"path"
 	"sort"
 	"time"
@@ -13,8 +14,8 @@ import (
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/platform/queue"
-	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/comfyui"
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
+	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/comfyui"
 )
 
 type Worker struct {
@@ -31,6 +32,8 @@ type Worker struct {
 
 func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCommand) error {
 	now := w.now()
+	started := time.Now()
+	slog.Debug("开始准备任务", "task_id", ev.TaskID, "edge_id", ev.EdgeID)
 	cli, err := w.clientFor(ev.EdgeID)
 	if err != nil {
 		return w.fail(ctx, ev, "comfy_client", err.Error(), now)
@@ -42,6 +45,7 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 	}
 
 	graph = stripAnnotationNodes(graph)
+	slog.Debug("任务工作流已准备", "task_id", ev.TaskID, "nodes", len(graph), "output_bindings", len(outputBindings))
 	promptID, err := cli.Submit(ctx, graph)
 	if err != nil {
 		return w.fail(ctx, ev, "comfy_submit", err.Error(), now)
@@ -52,6 +56,7 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 	}); err != nil {
 		return err
 	}
+	slog.Info("任务已提交到 ComfyUI", "task_id", ev.TaskID, "edge_id", ev.EdgeID, "prompt_id", promptID)
 
 	res, err := cli.Wait(ctx, promptID)
 	if err != nil {
@@ -62,10 +67,14 @@ func (w *Worker) HandleDispatch(ctx context.Context, ev sharedkernel.DispatchCom
 	if err != nil {
 		return w.fail(ctx, ev, "output_extract", err.Error(), w.now())
 	}
-	return w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
+	if err := w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
 		TaskID: ev.TaskID, EdgeID: ev.EdgeID, Status: sharedkernel.TaskSucceeded,
 		PromptID: promptID, Outputs: outs, At: w.now(),
-	})
+	}); err != nil {
+		return err
+	}
+	slog.Info("任务执行成功", "task_id", ev.TaskID, "edge_id", ev.EdgeID, "outputs", len(outs), "duration", time.Since(started))
+	return nil
 }
 
 // annotationClassTypes 是不参与执行的纯批注/备注节点，ComfyUI 通常未安装
@@ -246,6 +255,7 @@ func (w *Worker) clientFor(id sharedkernel.EdgeID) (comfyui.Client, error) {
 }
 
 func (w *Worker) fail(ctx context.Context, ev sharedkernel.DispatchCommand, code, msg string, now time.Time) error {
+	slog.Error("任务执行失败", "task_id", ev.TaskID, "edge_id", ev.EdgeID, "error_code", code, "err", msg)
 	if err := w.publishStatus(ctx, sharedkernel.TaskStatusEvent{
 		TaskID: ev.TaskID, EdgeID: ev.EdgeID, Status: sharedkernel.TaskFailed,
 		ErrorCode: code, ErrorMsg: msg, At: now,

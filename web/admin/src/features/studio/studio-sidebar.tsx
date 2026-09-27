@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
@@ -8,7 +9,6 @@ import {
 } from 'lucide-react'
 import type { StudioSession } from '@/lib/api/studio'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sidebar,
   SidebarContent,
@@ -24,12 +24,55 @@ import {
 import { AppTitle } from '@/components/layout/app-title'
 import { NavUser } from '@/components/layout/nav-user'
 import { StatusDot } from '@/components/status-dot'
+import styles from './studio-sidebar.module.css'
 
 export type StudioView = 'chat' | 'library' | 'settings'
+
+function SessionTitle({ title }: { title: string }) {
+  const [isScrolling, setIsScrolling] = useState(false)
+  const titleRef = useRef<HTMLSpanElement>(null)
+
+  return (
+    <span
+      className={styles.titleViewport}
+      data-scrolling={isScrolling}
+      onPointerEnter={(event) => {
+        if (event.pointerType !== 'mouse') return
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+          return
+
+        const titleElement = titleRef.current
+        setIsScrolling(
+          titleElement !== null &&
+            titleElement.scrollWidth > titleElement.clientWidth + 1
+        )
+      }}
+      onPointerLeave={() => setIsScrolling(false)}
+    >
+      {isScrolling ? (
+        <span className={styles.marqueeTrack}>
+          <span className={styles.marqueeSegment}>
+            <span>{title}</span>
+            <span aria-hidden='true' className={styles.marqueeGap} />
+          </span>
+          <span aria-hidden='true' className={styles.marqueeSegment}>
+            <span>{title}</span>
+            <span className={styles.marqueeGap} />
+          </span>
+        </span>
+      ) : (
+        <span ref={titleRef} className={styles.truncatedTitle}>
+          {title}
+        </span>
+      )}
+    </span>
+  )
+}
 
 type Props = {
   sessions: StudioSession[]
   activeSessionId?: string
+  viewedRunIds: Record<string, string>
   view: StudioView
   onNewSession: () => void
   onSelectSession: (id: string) => void
@@ -37,18 +80,22 @@ type Props = {
   creating?: boolean
 }
 
-function sessionStatus(session: StudioSession) {
+function sessionStatus(session: StudioSession, viewedRunId?: string) {
   switch (session.latest_run?.status) {
     case 'queued':
     case 'running':
       return { state: 'active' as const, label: '执行中', pulse: true }
     case 'waiting_approval':
       return { state: 'warn' as const, label: '等待你的操作', pulse: false }
+    case 'waiting_clarification':
+      return { state: 'warn' as const, label: '等待你的回答', pulse: false }
     case 'failed':
     case 'cancelled':
       return { state: 'warn' as const, label: '本轮未完成', pulse: false }
     case 'succeeded':
-      return { state: 'ok' as const, label: '本轮已完成', pulse: false }
+      return session.latest_run.id === viewedRunId
+        ? null
+        : { state: 'ok' as const, label: '本轮已完成', pulse: false }
     default:
       return null
   }
@@ -57,6 +104,7 @@ function sessionStatus(session: StudioSession) {
 export function StudioSidebar({
   sessions,
   activeSessionId,
+  viewedRunIds,
   view,
   onNewSession,
   onSelectSession,
@@ -115,36 +163,43 @@ export function StudioSidebar({
         <SidebarGroup className='min-h-0 flex-1 px-2 py-1'>
           <SidebarGroupLabel>最近对话</SidebarGroupLabel>
           <SidebarGroupContent className='flex min-h-0 w-full min-w-0 flex-1 flex-col self-stretch'>
-            <ScrollArea className='min-h-0 w-full min-w-0 flex-1 self-stretch'>
-              <SidebarMenu className='w-full min-w-0 self-stretch pb-2'>
+            <div className='studio-scrollbar min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto'>
+              <SidebarMenu className='pb-2'>
                 {sessions.length === 0 ? (
                   <p className='px-2 py-3 text-xs leading-5 text-muted-foreground'>
-                    开始一次对话后，会自动保存在这里
+                    暂无对话
                   </p>
                 ) : (
-                  sessions.map((session) => (
-                    <SidebarMenuItem key={session.id} className='min-w-0'>
-                      <SidebarMenuButton
-                        className='min-w-0'
-                        isActive={
-                          view === 'chat' && activeSessionId === session.id
-                        }
-                        onClick={() => onSelectSession(session.id)}
+                  sessions.map((session) => {
+                    const status = sessionStatus(
+                      session,
+                      viewedRunIds[session.id]
+                    )
+                    return (
+                      <SidebarMenuItem
+                        key={session.id}
+                        className='w-full min-w-0'
                       >
-                        <span className='min-w-0 flex-1 truncate'>
-                          {session.title}
-                        </span>
-                        {sessionStatus(session) ? (
-                          <div className='ms-auto flex shrink-0 items-center'>
-                            <StatusDot {...sessionStatus(session)!} />
-                          </div>
-                        ) : null}
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))
+                        <SidebarMenuButton
+                          className='min-w-0'
+                          isActive={
+                            view === 'chat' && activeSessionId === session.id
+                          }
+                          onClick={() => onSelectSession(session.id)}
+                        >
+                          <SessionTitle title={session.title} />
+                          {status ? (
+                            <span className='ms-auto flex shrink-0 items-center'>
+                              <StatusDot {...status} />
+                            </span>
+                          ) : null}
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })
                 )}
               </SidebarMenu>
-            </ScrollArea>
+            </div>
             <Button
               className='mt-2 w-full'
               onClick={onNewSession}

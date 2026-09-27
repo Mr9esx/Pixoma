@@ -1,4 +1,4 @@
-import { Paperclip, Sparkles } from 'lucide-react'
+import { Boxes, Sparkles, Workflow } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
@@ -6,7 +6,7 @@ export function StudioReferenceBadge({
   kind,
   label,
 }: {
-  kind: 'skill' | 'asset'
+  kind: 'skill' | 'asset' | 'workflow'
   label: string
 }) {
   return (
@@ -16,10 +16,12 @@ export function StudioReferenceBadge({
         'mx-0.5 rounded-sm border-0 align-baseline text-foreground',
         kind === 'skill'
           ? 'bg-info/15 [&>svg]:text-info'
-          : 'bg-chart-2/15 [&>svg]:text-chart-2'
+          : kind === 'workflow'
+            ? 'bg-primary/10 [&>svg]:text-primary'
+            : 'bg-chart-2/15 [&>svg]:text-chart-2'
       )}
     >
-      {kind === 'skill' ? <Sparkles /> : <Paperclip />}
+      {kind === 'skill' ? <Sparkles /> : kind === 'workflow' ? <Workflow /> : <Boxes />}
       {label}
     </Badge>
   )

@@ -33,6 +33,7 @@ import { WorkflowGraphViewer } from './workflow-import'
 type Props = {
   record: CaseRecord
   onSaved?: (next: CaseRecord) => void
+  readOnly?: boolean
 }
 
 function toInputDrafts(record: CaseRecord): InputFieldDraft[] {
@@ -58,7 +59,11 @@ function toOutputDrafts(record: CaseRecord): OutputFieldDraft[] {
   }))
 }
 
-export function WorkflowGraphPreview({ record, onSaved }: Props) {
+export function WorkflowGraphPreview({
+  record,
+  onSaved,
+  readOnly = false,
+}: Props) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [inputsOpen, setInputsOpen] = useState(false)
@@ -145,19 +150,21 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
             </div>
             {null}
           </div>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            className='h-7 gap-1.5 px-2.5 text-xs'
-            onClick={() => {
-              setInputDrafts(toInputDrafts(record))
-              setInputsOpen(true)
-            }}
-          >
-            <Pencil className='size-3' />
-            {t('cases.editInputs')}
-          </Button>
+          {!readOnly ? (
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              className='h-7 gap-1.5 px-2.5 text-xs'
+              onClick={() => {
+                setInputDrafts(toInputDrafts(record))
+                setInputsOpen(true)
+              }}
+            >
+              <Pencil className='size-3' />
+              {t('cases.editInputs')}
+            </Button>
+          ) : null}
         </header>
         <InputFieldsTable
           nodes={wfNodes}
@@ -186,19 +193,21 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
             </div>
             {null}
           </div>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            className='h-7 gap-1.5 px-2.5 text-xs'
-            onClick={() => {
-              setOutputDrafts(toOutputDrafts(record))
-              setOutputsOpen(true)
-            }}
-          >
-            <Pencil className='size-3' />
-            {t('cases.editOutputs')}
-          </Button>
+          {!readOnly ? (
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              className='h-7 gap-1.5 px-2.5 text-xs'
+              onClick={() => {
+                setOutputDrafts(toOutputDrafts(record))
+                setOutputsOpen(true)
+              }}
+            >
+              <Pencil className='size-3' />
+              {t('cases.editOutputs')}
+            </Button>
+          ) : null}
         </header>
         <OutputFieldsTable
           nodes={wfNodes}
@@ -225,102 +234,106 @@ export function WorkflowGraphPreview({ record, onSaved }: Props) {
       )}
 
       {/* ===== 编辑输入 modal（复用编辑工作流的字段列表）===== */}
-      <Dialog open={inputsOpen} onOpenChange={setInputsOpen}>
-        <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-[822px]'>
-          <DialogHeader>
-            <DialogTitle>{t('cases.editInputs')}</DialogTitle>
-          </DialogHeader>
-          <div className='min-h-0 flex-1 overflow-auto'>
-            <EditableInputFields
-              nodes={wfNodes}
-              fields={inputDrafts}
-              onChange={(index, next) =>
-                setInputDrafts((prev) =>
-                  prev.map((p, i) => (i === index ? next : p))
-                )
-              }
-              onRemove={(index) =>
-                setInputDrafts((prev) => prev.filter((_, i) => i !== index))
-              }
-              onAdd={() =>
-                setInputDrafts((prev) => [
-                  ...prev,
-                  {
-                    key: '',
-                    type: 'string',
-                    required: false,
-                    node_id: '',
-                    field_path: '',
-                  },
-                ])
-              }
-              wide={isWide}
-            />
-          </div>
-          <div className='flex justify-end gap-2 border-t pt-3'>
-            <Button
-              type='button'
-              variant='outline'
-              onClick={() => setInputsOpen(false)}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type='button'
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-            >
-              {t('common.save')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {!readOnly ? (
+        <Dialog open={inputsOpen} onOpenChange={setInputsOpen}>
+          <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-[822px]'>
+            <DialogHeader>
+              <DialogTitle>{t('cases.editInputs')}</DialogTitle>
+            </DialogHeader>
+            <div className='min-h-0 flex-1 overflow-auto'>
+              <EditableInputFields
+                nodes={wfNodes}
+                fields={inputDrafts}
+                onChange={(index, next) =>
+                  setInputDrafts((prev) =>
+                    prev.map((p, i) => (i === index ? next : p))
+                  )
+                }
+                onRemove={(index) =>
+                  setInputDrafts((prev) => prev.filter((_, i) => i !== index))
+                }
+                onAdd={() =>
+                  setInputDrafts((prev) => [
+                    ...prev,
+                    {
+                      key: '',
+                      type: 'string',
+                      required: false,
+                      node_id: '',
+                      field_path: '',
+                    },
+                  ])
+                }
+                wide={isWide}
+              />
+            </div>
+            <div className='flex justify-end gap-2 border-t pt-3'>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setInputsOpen(false)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type='button'
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+              >
+                {t('common.save')}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {/* ===== 编辑输出 modal（复用编辑工作流的字段列表）===== */}
-      <Dialog open={outputsOpen} onOpenChange={setOutputsOpen}>
-        <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-[822px]'>
-          <DialogHeader>
-            <DialogTitle>{t('cases.editOutputs')}</DialogTitle>
-          </DialogHeader>
-          <div className='min-h-0 flex-1 overflow-auto'>
-            <EditableOutputFields
-              nodes={wfNodes}
-              fields={outputDrafts}
-              onChange={(index, next) =>
-                setOutputDrafts((prev) =>
-                  prev.map((p, i) => (i === index ? next : p))
-                )
-              }
-              onRemove={(index) =>
-                setOutputDrafts((prev) => prev.filter((_, i) => i !== index))
-              }
-              onAdd={() =>
-                setOutputDrafts((prev) => [
-                  ...prev,
-                  { key: '', type: 'image', node_id: '', index: 0 },
-                ])
-              }
-              wide={isWide}
-            />
-          </div>
-          <div className='flex justify-end gap-2 border-t pt-3'>
-            <Button
-              type='button'
-              variant='outline'
-              onClick={() => setOutputsOpen(false)}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type='button'
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-            >
-              {t('common.save')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {!readOnly ? (
+        <Dialog open={outputsOpen} onOpenChange={setOutputsOpen}>
+          <DialogContent className='flex max-h-[85vh] flex-col sm:max-w-[822px]'>
+            <DialogHeader>
+              <DialogTitle>{t('cases.editOutputs')}</DialogTitle>
+            </DialogHeader>
+            <div className='min-h-0 flex-1 overflow-auto'>
+              <EditableOutputFields
+                nodes={wfNodes}
+                fields={outputDrafts}
+                onChange={(index, next) =>
+                  setOutputDrafts((prev) =>
+                    prev.map((p, i) => (i === index ? next : p))
+                  )
+                }
+                onRemove={(index) =>
+                  setOutputDrafts((prev) => prev.filter((_, i) => i !== index))
+                }
+                onAdd={() =>
+                  setOutputDrafts((prev) => [
+                    ...prev,
+                    { key: '', type: 'image', node_id: '', index: 0 },
+                  ])
+                }
+                wide={isWide}
+              />
+            </div>
+            <div className='flex justify-end gap-2 border-t pt-3'>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setOutputsOpen(false)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type='button'
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+              >
+                {t('common.save')}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   )
 }

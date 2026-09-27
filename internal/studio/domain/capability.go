@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"golang.org/x/mod/semver"
 )
 
 type Skill struct {
@@ -14,9 +16,38 @@ type Skill struct {
 	Name        string
 	Description string
 	Prompt      string
+	Files       []SkillFile
+	Version     string
 	Enabled     bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type SkillVersion struct {
+	SkillID     string
+	AccountID   string
+	Version     string
+	Name        string
+	Description string
+	Prompt      string
+	Files       []SkillFile
+	CreatedAt   time.Time
+}
+
+func ValidSkillVersion(version string) bool {
+	prefixed := "v" + version
+	return semver.Canonical(prefixed) == prefixed && semver.Prerelease(prefixed) == ""
+}
+
+func CompareSkillVersions(left, right string) int {
+	return semver.Compare("v"+left, "v"+right)
+}
+
+type SkillFile struct {
+	Path      string `json:"path"`
+	Content   string `json:"content"`
+	Binary    bool   `json:"binary,omitempty"`
+	Directory bool   `json:"directory,omitempty"`
 }
 
 func NewSkill(id, accountID, name, description, prompt string, now time.Time) (*Skill, error) {
@@ -27,6 +58,7 @@ func NewSkill(id, accountID, name, description, prompt string, now time.Time) (*
 	return &Skill{
 		ID: id, AccountID: accountID, Name: strings.TrimSpace(name),
 		Description: strings.TrimSpace(description), Prompt: strings.TrimSpace(prompt),
+		Version:   "1.0.0",
 		CreatedAt: now, UpdatedAt: now,
 	}, nil
 }

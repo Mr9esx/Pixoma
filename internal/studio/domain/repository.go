@@ -10,6 +10,18 @@ type SessionListQuery struct {
 	Offset int
 }
 
+type LibraryAssetListQuery struct {
+	CategoryID string
+	Search     string
+	Limit      int
+	Offset     int
+}
+
+type LibraryAssetPage struct {
+	Assets []*Asset
+	Total  int64
+}
+
 // SessionTranscriptData is the complete persisted read set for replaying a
 // Studio session. It intentionally has no caller-provided limit: truncating
 // any one of these collections would make historical replay lossy.
@@ -26,6 +38,7 @@ type Repository interface {
 	UpdateSession(ctx context.Context, session *Session) error
 	GetSession(ctx context.Context, accountID, sessionID string) (*Session, error)
 	ListSessions(ctx context.Context, accountID string, query SessionListQuery) ([]*Session, error)
+	ClearSessions(ctx context.Context, accountID string) error
 
 	AppendMessage(ctx context.Context, message *Message) error
 	GetMessage(ctx context.Context, accountID, messageID string) (*Message, error)
@@ -57,6 +70,10 @@ type Repository interface {
 	UpdateApproval(ctx context.Context, approval *Approval) error
 	GetApproval(ctx context.Context, accountID, approvalID string) (*Approval, error)
 	ListApprovals(ctx context.Context, accountID, runID string) ([]*Approval, error)
+	CreateClarification(ctx context.Context, clarification *Clarification) error
+	UpdateClarification(ctx context.Context, clarification *Clarification) error
+	GetClarification(ctx context.Context, accountID, clarificationID string) (*Clarification, error)
+	ListClarifications(ctx context.Context, accountID, runID string) ([]*Clarification, error)
 
 	CreateWorkflowExecution(ctx context.Context, execution *WorkflowExecution) error
 	UpdateWorkflowExecution(ctx context.Context, execution *WorkflowExecution) error
@@ -69,11 +86,11 @@ type Repository interface {
 	AppendAssetVersion(ctx context.Context, assetID, accountID string, version AssetVersion) error
 	GetAsset(ctx context.Context, accountID, assetID string) (*Asset, error)
 	ListSessionAssets(ctx context.Context, accountID, sessionID string, limit int) ([]*Asset, error)
-	SaveAssetToLibrary(ctx context.Context, accountID, assetID, folderID string, savedAt time.Time) error
-	MoveLibraryAsset(ctx context.Context, accountID, assetID, folderID string, movedAt time.Time) error
-	ListLibraryAssets(ctx context.Context, accountID, folderID string, limit int) ([]*Asset, error)
-	CreateLibraryFolder(ctx context.Context, folder *LibraryFolder) error
-	ListLibraryFolders(ctx context.Context, accountID string) ([]*LibraryFolder, error)
+	SaveAssetToLibrary(ctx context.Context, accountID, assetID, categoryID string, savedAt time.Time) error
+	MoveLibraryAsset(ctx context.Context, accountID, assetID, categoryID string, movedAt time.Time) error
+	ListLibraryAssets(ctx context.Context, accountID string, query LibraryAssetListQuery) (*LibraryAssetPage, error)
+	CreateLibraryCategory(ctx context.Context, category *LibraryCategory) error
+	ListLibraryCategories(ctx context.Context, accountID string) ([]*LibraryCategory, error)
 
 	SaveFlowNode(ctx context.Context, node *FlowNode) error
 	SaveFlowEdge(ctx context.Context, edge *FlowEdge) error
@@ -87,9 +104,10 @@ type Repository interface {
 	ListModelConfigs(ctx context.Context, accountID string) ([]*ModelConfig, error)
 
 	CreateSkill(ctx context.Context, skill *Skill) error
-	UpdateSkill(ctx context.Context, skill *Skill) error
 	GetSkill(ctx context.Context, accountID, skillID string) (*Skill, error)
 	ListSkills(ctx context.Context, accountID string) ([]*Skill, error)
+	ListSkillVersions(ctx context.Context, accountID, skillID string) ([]*SkillVersion, error)
+	GetSkillVersion(ctx context.Context, accountID, skillID, version string) (*SkillVersion, error)
 
 	CreateMCPConnector(ctx context.Context, connector *MCPConnector) error
 	UpdateMCPConnector(ctx context.Context, connector *MCPConnector) error

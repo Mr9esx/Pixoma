@@ -1,5 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
-import { Boxes, Radio, Server, Tags } from 'lucide-react'
+import { Radio, Server, Waypoints, Workflow } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { StatusDot } from '@/components/status-dot'
@@ -20,8 +20,8 @@ const kindKey: Record<GraphNode['kind'], string> = {
 
 const kindIcon: Record<GraphNode['kind'], typeof Radio> = {
   platform: Radio,
-  case: Boxes,
-  topic: Tags,
+  case: Workflow,
+  topic: Waypoints,
   edge: Server,
 }
 

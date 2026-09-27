@@ -14,14 +14,25 @@ import (
 // the Studio history endpoint exposes. Keeping this shape in the application
 // layer lets the HTTP and WebSocket paths share the same replay semantics.
 type TranscriptMessage struct {
-	ID         string               `json:"id"`
-	RunID      string               `json:"runId,omitempty"`
-	Role       string               `json:"role"`
-	Content    string               `json:"content"`
-	Parts      []MessagePart        `json:"parts,omitempty"`
-	ToolCalls  []TranscriptToolCall `json:"toolCalls,omitempty"`
-	ToolCallID string               `json:"toolCallId,omitempty"`
-	IsError    bool                 `json:"isError,omitempty"`
+	ID            string                   `json:"id"`
+	RunID         string                   `json:"runId,omitempty"`
+	Role          string                   `json:"role"`
+	Content       string                   `json:"content"`
+	Parts         []MessagePart            `json:"parts,omitempty"`
+	ToolCalls     []TranscriptToolCall     `json:"toolCalls,omitempty"`
+	ToolCallID    string                   `json:"toolCallId,omitempty"`
+	IsError       bool                     `json:"isError,omitempty"`
+	Clarification *TranscriptClarification `json:"clarification,omitempty"`
+}
+
+type TranscriptClarification struct {
+	ID       string                  `json:"id"`
+	Question string                  `json:"question"`
+	Options  []string                `json:"options"`
+	Selected string                  `json:"selected,omitempty"`
+	Answer   string                  `json:"answer,omitempty"`
+	Status   string                  `json:"status"`
+	Workflow *domain.WorkflowRequest `json:"workflow,omitempty"`
 }
 
 type TranscriptToolCall struct {
@@ -118,6 +129,7 @@ func (t *SessionTranscript) appendRunEvents(events []*domain.Event) {
 	reasoningIndices := make(map[string]int)
 	toolIndices := make(map[string]int)
 	toolResultIndices := make(map[string]int)
+	clarificationIndices := make(map[string]int)
 	for _, event := range events {
 		if event == nil {
 			continue
@@ -126,6 +138,50 @@ func (t *SessionTranscript) appendRunEvents(events []*domain.Event) {
 		messageID := payload.stringValue("message_id")
 		toolCallID := payload.stringValue("tool_call_id")
 		switch event.Type {
+		case EventClarificationRequired:
+			clarificationID := payload.stringValue("clarification_id")
+			if clarificationID == "" {
+				continue
+			}
+			var options []string
+			if err := json.Unmarshal(payload["options"], &options); err != nil {
+				continue
+			}
+			var workflow *domain.WorkflowRequest
+			if len(payload["workflow"]) > 0 {
+				if err := json.Unmarshal(payload["workflow"], &workflow); err != nil {
+					continue
+				}
+				clientWorkflow := workflow.ForClient()
+				workflow = &clientWorkflow
+			}
+			question := payload.stringValue("question")
+			index, ok := assistantIndices[messageID]
+			if !ok {
+				index = len(t.Messages)
+				if messageID == "" {
+					messageID = event.RunID + ":clarification:" + clarificationID
+				}
+				t.Messages = append(t.Messages, TranscriptMessage{
+					ID: messageID, RunID: event.RunID, Role: "assistant", Content: question,
+				})
+			}
+			clarificationIndices[clarificationID] = index
+			t.Messages[index].Clarification = &TranscriptClarification{
+				ID: clarificationID, Question: question, Options: options, Status: "pending", Workflow: workflow,
+			}
+		case EventClarificationAnswered, EventClarificationSkipped:
+			clarificationID := payload.stringValue("clarification_id")
+			if index, ok := clarificationIndices[clarificationID]; ok {
+				clarification := t.Messages[index].Clarification
+				clarification.Selected = payload.stringValue("selected")
+				clarification.Answer = payload.stringValue("answer")
+				if event.Type == EventClarificationSkipped {
+					clarification.Status = "skipped"
+				} else {
+					clarification.Status = "answered"
+				}
+			}
 		case EventReasoningMessageStart:
 			if messageID == "" {
 				messageID = event.RunID + ":reasoning"
@@ -237,7 +293,7 @@ func transcriptMessagesFromStored(message *domain.Message) []TranscriptMessage {
 			out = append(out, TranscriptMessage{ID: message.ID + ":reasoning:" + strconv.Itoa(index), RunID: message.RunID, Role: "reasoning", Content: part.Text})
 			continue
 		}
-		if part.Type == "text" || part.Type == "skill_ref" || part.Type == "asset_ref" {
+		if part.Type == "text" || part.Type == "skill_ref" || part.Type == "asset_ref" || part.Type == "workflow_ref" {
 			projected, err := messagePartsText([]MessagePart{part})
 			if err != nil {
 				return nil

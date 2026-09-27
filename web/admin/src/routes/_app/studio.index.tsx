@@ -3,7 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 type LegacyStudioSearch = {
   view?: 'library' | 'settings'
   session?: string
-  section?: 'models' | 'skills' | 'mcp' | 'workflows'
+  section?: 'models' | 'skills' | 'mcp' | 'workflows' | 'data'
   trace?: boolean
   panel?: 'assets'
 }
@@ -19,7 +19,8 @@ export const Route = createFileRoute('/_app/studio/')({
       search.section === 'models' ||
       search.section === 'skills' ||
       search.section === 'mcp' ||
-      search.section === 'workflows'
+      search.section === 'workflows' ||
+      search.section === 'data'
         ? search.section
         : undefined,
     trace: search.trace === true || search.trace === 'true' ? true : undefined,
@@ -33,7 +34,8 @@ export const Route = createFileRoute('/_app/studio/')({
       const section =
         search.section === 'skills' ||
         search.section === 'mcp' ||
-        search.section === 'workflows'
+        search.section === 'workflows' ||
+        search.section === 'data'
           ? search.section
           : 'models'
       throw redirect({

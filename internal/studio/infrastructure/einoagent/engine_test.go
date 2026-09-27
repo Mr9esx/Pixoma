@@ -52,11 +52,18 @@ func (r resolver) Resolve(_ context.Context, _ string, _ string) (*domain.Resolv
 }
 
 type sink struct {
-	mu        sync.Mutex
-	events    []string
-	payloads  []any
-	responses []string
-	assets    []studioapp.GeneratedAsset
+	mu              sync.Mutex
+	events          []string
+	payloads        []any
+	responses       []string
+	assets          []studioapp.GeneratedAsset
+	workflowRequest *domain.Clarification
+}
+
+func (s *sink) RequestWorkflowInput(_ context.Context, workflow domain.WorkflowRequest) (*domain.Clarification, error) {
+	request, err := domain.NewWorkflowClarification("workflow-request-1", "run_01", "session_01", "account_01", workflow, time.Now())
+	s.workflowRequest = request
+	return request, err
 }
 
 type checkpointMemory struct{ data map[string][]byte }
@@ -311,7 +318,7 @@ func TestEngineInvokesAllowedMCPToolAndReturnsFollowUp(t *testing.T) {
 			ID: "connector-01", Name: "Reference", URL: mcpEndpoint.URL, Credential: "connector-secret", Policy: domain.ConnectorPolicyAuto,
 			Tools: []domain.MCPTool{{Name: "search_reference", Description: "Search reference material", InputSchema: json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"}}}`)}},
 		}}},
-		Client: modelprovider.NewOpenAICompatibleClient(modelEndpoint.Client()),
+		Client:      modelprovider.NewOpenAICompatibleClient(modelEndpoint.Client()),
 	}
 	output := &sink{}
 
@@ -425,6 +432,7 @@ func TestEngineInvokesEnabledWorkflowToolAndReturnsSubmission(t *testing.T) {
 	defer modelEndpoint.Close()
 
 	var started studioapp.WorkflowStartInput
+	checkpoints := &checkpointMemory{data: make(map[string][]byte)}
 	engine := &einoagent.Engine{
 		Models: resolver{config: &domain.ResolvedModelConfig{
 			ID: "model_01", Protocol: domain.ModelProtocolOpenAIChat, BaseURL: modelEndpoint.URL + "/chat/completions",
@@ -439,14 +447,22 @@ func TestEngineInvokesEnabledWorkflowToolAndReturnsSubmission(t *testing.T) {
 			return &studioapp.WorkflowStartResult{TaskID: "task-1", WorkflowID: "12"}, nil
 		}),
 		Client: modelprovider.NewOpenAICompatibleClient(modelEndpoint.Client()),
+		Checkpoints: checkpoints,
 	}
 	output := &sink{}
-
-	err := engine.Execute(context.Background(), studioapp.AgentRequest{
+	request := studioapp.AgentRequest{
 		Run:      &domain.Run{ID: "run_01", AccountID: "account_01", SessionID: "session_01", ModelConfigID: "model_01"},
 		Session:  &domain.Session{ID: "session_01", PermissionMode: domain.PermissionFullAccess},
 		UserText: "根据故事生成分镜",
-	}, output)
+	}
+	err := engine.Execute(context.Background(), request, output)
+	require.ErrorIs(t, err, studioapp.ErrClarificationRequired)
+	require.NotNil(t, output.workflowRequest)
+	require.Equal(t, 1, calls)
+	require.Empty(t, started.WorkflowID)
+	require.NoError(t, output.workflowRequest.ResolveWorkflow("account_01", map[string]any{"prompt": "rain"}, false, time.Now()))
+	request.Clarifications = []*domain.Clarification{output.workflowRequest}
+	err = engine.Execute(context.Background(), request, output)
 
 	require.NoError(t, err)
 	require.Equal(t, 2, calls)
@@ -481,6 +497,7 @@ func TestEngineInvokesWorkflowThroughAnthropicMessagesWithThinking(t *testing.T)
 	}))
 	defer endpoint.Close()
 	var started studioapp.WorkflowStartInput
+	checkpoints := &checkpointMemory{data: make(map[string][]byte)}
 	engine := &einoagent.Engine{
 		Models: resolver{config: &domain.ResolvedModelConfig{
 			ID: "model_01", Protocol: domain.ModelProtocolAnthropic, BaseURL: endpoint.URL + "/v1/messages",
@@ -495,14 +512,20 @@ func TestEngineInvokesWorkflowThroughAnthropicMessagesWithThinking(t *testing.T)
 			started = input
 			return &studioapp.WorkflowStartResult{TaskID: "task-1", WorkflowID: "12"}, nil
 		}),
-		Client: modelprovider.NewOpenAICompatibleClient(endpoint.Client()),
+		Client:      modelprovider.NewOpenAICompatibleClient(endpoint.Client()),
+		Checkpoints: checkpoints,
 	}
 	output := &sink{}
-	err := engine.Execute(context.Background(), studioapp.AgentRequest{
+	request := studioapp.AgentRequest{
 		Run:      &domain.Run{ID: "run_01", AccountID: "account_01", SessionID: "session_01", ModelConfigID: "model_01"},
 		Session:  &domain.Session{ID: "session_01", PermissionMode: domain.PermissionFullAccess},
 		UserText: "根据故事生成分镜",
-	}, output)
+	}
+	err := engine.Execute(context.Background(), request, output)
+	require.ErrorIs(t, err, studioapp.ErrClarificationRequired)
+	require.NoError(t, output.workflowRequest.ResolveWorkflow("account_01", map[string]any{"prompt": "rain"}, false, time.Now()))
+	request.Clarifications = []*domain.Clarification{output.workflowRequest}
+	err = engine.Execute(context.Background(), request, output)
 	require.NoError(t, err)
 	require.Equal(t, 2, calls)
 	require.Equal(t, map[string]any{"prompt": "rain"}, started.Inputs)

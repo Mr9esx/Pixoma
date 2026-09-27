@@ -4,6 +4,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
+[data-radix-popper-content-wrapper]:has([data-icon-button-tooltip]) {
+  pointer-events: none;
+}
+
 /* 折叠态头像 hover 菜单：使用专属类名，避免与 shadcn sidebar 自带的 group/peer 冲突 */
 .nav-user-collapsed-trigger:hover + .nav-user-menu,
 .nav-user-collapsed-trigger:focus-visible + .nav-user-menu,
@@ -17,8 +21,45 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: var(--color-border);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:vertical {
+    border-left-width: 1px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .studio-scrollbar {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-gutter: auto !important;
+    scrollbar-width: none !important;
+  }
+  .studio-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  @container (max-width: 920px) {
+    .studio-chat-root .studio-scrollbar {
+      scrollbar-width: thin !important;
+    }
+    .studio-chat-root .studio-scrollbar::-webkit-scrollbar {
+      display: block;
+    }
+  }
+  @supports (-moz-appearance: none) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border) transparent;
+    }
   }
   html {
     @apply overflow-x-hidden;
@@ -59,6 +100,10 @@
   }
 }
 
+.studio-chat-root {
+  container-type: inline-size;
+}
+
 /* React Flow 控件暗色模式适配 */
 .dark .react-flow__controls {
   box-shadow: none;
@@ -95,32 +140,40 @@
   @apply after:pointer-events-none after:absolute after:inset-s-0 after:bottom-0 after:hidden after:h-32 after:w-full after:rounded-b-2xl after:bg-[linear-gradient(180deg,transparent_10%,var(--background)_70%)] md:after:block;
 }
 
-/* styles.css */
+:root {
+  --ui-motion-fade-duration: 160ms;
+  --ui-motion-fade-easing: ease-out;
+}
+
+.ui-motion-fade[data-state='open'] {
+  animation: ui-fade-in var(--ui-motion-fade-duration)
+    var(--ui-motion-fade-easing) both;
+}
+
+.ui-motion-fade[data-state='closed'] {
+  animation: ui-fade-out var(--ui-motion-fade-duration)
+    var(--ui-motion-fade-easing) both;
+}
+
 .CollapsibleContent {
   overflow: hidden;
 }
-.CollapsibleContent[data-state='open'] {
-  animation: slideDown 300ms ease-out;
-}
-.CollapsibleContent[data-state='closed'] {
-  animation: slideUp 300ms ease-out;
-}
 
-@keyframes slideDown {
+@keyframes ui-fade-in {
   from {
-    height: 0;
+    opacity: 0;
   }
   to {
-    height: var(--radix-collapsible-content-height);
+    opacity: 1;
   }
 }
 
-@keyframes slideUp {
+@keyframes ui-fade-out {
   from {
-    height: var(--radix-collapsible-content-height);
+    opacity: 1;
   }
   to {
-    height: 0;
+    opacity: 0;
   }
 }
 
@@ -168,6 +221,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .qc-create-btn::before {
     display: none;
   }

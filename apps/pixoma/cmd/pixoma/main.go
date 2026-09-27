@@ -12,7 +12,16 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	level := new(slog.LevelVar)
+	if raw := os.Getenv("PIXOMA_LOG_LEVEL"); raw != "" {
+		var parsed slog.Level
+		if err := parsed.UnmarshalText([]byte(raw)); err != nil {
+			slog.Error("PIXOMA_LOG_LEVEL 无效", "err", err)
+			os.Exit(1)
+		}
+		level.Set(parsed)
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

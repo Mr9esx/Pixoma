@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { json } from '@codemirror/lang-json'
+import { markdown } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { EditorView } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
@@ -54,16 +55,27 @@ const ideTheme = EditorView.theme({
   },
 })
 
-const extensions = [json(), syntaxHighlighting(jsonHighlight), ideTheme]
+const fillTheme = EditorView.theme({
+  '&': { backgroundColor: 'var(--background)' },
+  '.cm-gutters': {
+    backgroundColor: 'var(--background)',
+    borderRight: 'none',
+  },
+})
+
+const jsonExtensions = [json(), syntaxHighlighting(jsonHighlight), ideTheme]
+const markdownExtensions = [markdown(), ideTheme]
 
 type Props = Omit<
   ReactCodeMirrorProps,
-  'onChange' | 'extensions' | 'maxHeight' | 'minHeight'
+  'onChange' | 'maxHeight' | 'minHeight'
 > & {
   title?: ReactNode
   action?: ReactNode
   maxHeight?: number | string
   minHeight?: number | string
+  language?: 'json' | 'markdown' | 'text'
+  fill?: boolean
   onChange?: (value: string) => void
 }
 
@@ -73,6 +85,9 @@ export function CodeEditor({
   className,
   maxHeight = 250,
   minHeight,
+  language = 'json',
+  fill = false,
+  extensions = [],
   onChange,
   ...props
 }: Props) {
@@ -80,6 +95,7 @@ export function CodeEditor({
     <Card
       className={cn(
         'overflow-hidden rounded-md py-0 text-card-foreground',
+        fill && 'h-full min-h-0 flex-1 gap-0 bg-background text-foreground',
         className
       )}
     >
@@ -91,15 +107,42 @@ export function CodeEditor({
           {action ? <CardAction className='gap-2'>{action}</CardAction> : null}
         </CardHeader>
       ) : null}
-      <CardContent className='p-0'>
+      <CardContent
+        className={cn(
+          'p-0',
+          fill && 'flex min-h-0 flex-1 flex-col overflow-hidden'
+        )}
+      >
         <CodeMirror
-          extensions={extensions}
+          className={
+            fill
+              ? 'h-full min-h-0 flex-1 overflow-hidden [&_.cm-editor]:min-h-0 [&_.cm-scroller]:min-h-0'
+              : undefined
+          }
+          extensions={[
+            ...(language === 'json'
+              ? jsonExtensions
+              : language === 'markdown'
+                ? markdownExtensions
+                : [ideTheme]),
+            ...(fill ? [fillTheme] : []),
+            ...extensions,
+          ]}
           theme='none'
+          height={fill ? '100%' : undefined}
           maxHeight={
-            typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight
+            fill
+              ? undefined
+              : typeof maxHeight === 'number'
+                ? `${maxHeight}px`
+                : maxHeight
           }
           minHeight={
-            typeof minHeight === 'number' ? `${minHeight}px` : minHeight
+            fill
+              ? undefined
+              : typeof minHeight === 'number'
+                ? `${minHeight}px`
+                : minHeight
           }
           basicSetup={{
             lineNumbers: false,

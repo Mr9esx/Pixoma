@@ -1,7 +1,9 @@
 package response
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -146,6 +148,21 @@ func TestFailErrPassesErrorText(t *testing.T) {
 
 	if decode(t, rec)["error_detail"] != "db is gone" {
 		t.Fatal("FailErr 应把 err.Error() 放进 error_detail")
+	}
+}
+
+func TestFailErrLogsSanitizedInternalReason(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	rec := httptest.NewRecorder()
+	rec.Header().Set("X-Request-Id", "request-123")
+	FailErr(rec, apierr.ErrCommonInternal, errString("postgres://pixoma:s3cret@localhost unavailable"))
+
+	if rec.Code != http.StatusInternalServerError || !bytes.Contains(output.Bytes(), []byte("request-123")) || !bytes.Contains(output.Bytes(), []byte("***:***")) || bytes.Contains(output.Bytes(), []byte("s3cret")) {
+		t.Fatalf("服务错误日志不正确：%s", output.String())
 	}
 }
 

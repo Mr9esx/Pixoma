@@ -44,9 +44,9 @@ import { MetaChip } from '@/components/meta-chip'
 import { SectionHead } from '@/components/section-head'
 import { CaseContextSection } from '@/features/config-context/case-context-section'
 import { useCaseReferences } from '@/features/config-context/use-case-references'
+import { TopologyOpenButton } from '@/features/config-topology/topology-dialog'
 import { kit } from '@/features/edges/kit-classes'
 import { LinkHealthAlert } from '@/features/link-health/link-health-alert'
-import { TopologyOpenButton } from '@/features/config-topology/topology-dialog'
 import { LinkHealthSection } from '@/features/link-health/link-health-section'
 import { CaseForm } from './case-form'
 import { MediaLightbox } from './components/media-lightbox'
@@ -59,9 +59,10 @@ function errorMessage(err: unknown): string | undefined {
 
 type Props = {
   id: number
+  readOnly?: boolean
 }
 
-export function CaseDetailPanel({ id }: Props) {
+export function CaseDetailPanel({ id, readOnly = false }: Props) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -78,11 +79,20 @@ export function CaseDetailPanel({ id }: Props) {
   const previewUrl = useMediaObjectUrl(record?.preview)
   const previewKey = resolveMediaKey(record?.preview)
   const previewIsVideo = /\.(mp4|webm)$/i.test(previewKey ?? '')
-  const { topics, attributes, edges, presence, placements, caseRefs, healthReady, healthError } =
-    useCaseReferences(record)
+  const {
+    topics,
+    attributes,
+    edges,
+    presence,
+    placements,
+    caseRefs,
+    healthReady,
+    healthError,
+  } = useCaseReferences(record)
   const pendingTasksQuery = useQuery({
     queryKey: ['cases', id, 'pending-tasks'] as const,
     queryFn: () => listTasks({ case_id: id, status: 'pending' }),
+    enabled: !readOnly,
   })
   const activeSessionsQuery = useQuery({
     queryKey: ['cases', id, 'active-sessions'] as const,
@@ -93,6 +103,7 @@ export function CaseDetailPanel({ id }: Props) {
       ])
       return collecting.length + confirming.length
     },
+    enabled: !readOnly,
   })
 
   const deleteMutation = useMutation({
@@ -153,16 +164,18 @@ export function CaseDetailPanel({ id }: Props) {
         title={t('cases.notFoundTitle')}
         description={t('cases.notFoundDesc')}
         actions={
-          <>
-            <Button asChild size='sm'>
-              <Link to='/cases'>{t('cases.backToList')}</Link>
-            </Button>
-            <Button asChild variant='outline' size='sm'>
-              <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
-                {t('cases.createHeading')}
-              </Link>
-            </Button>
-          </>
+          readOnly ? undefined : (
+            <>
+              <Button asChild size='sm'>
+                <Link to='/cases'>{t('cases.backToList')}</Link>
+              </Button>
+              <Button asChild variant='outline' size='sm'>
+                <Link to='/cases/$caseId' params={{ caseId: 'new' }}>
+                  {t('cases.createHeading')}
+                </Link>
+              </Button>
+            </>
+          )
         }
       />
     )
@@ -225,108 +238,112 @@ export function CaseDetailPanel({ id }: Props) {
             </div>
             <div className='flex shrink-0 flex-wrap gap-2'>
               <TopologyOpenButton kind='case' id={String(record.id)} />
-              <Button
-                type='button'
-                size='sm'
-                onClick={() => setEditDialog('info')}
-              >
-                <PenLine className='size-3.5' strokeWidth={2} />
-                {t('cases.edit')}
-              </Button>
-              <Button
-                type='button'
-                variant='outline'
-                size='sm'
-                onClick={() => setEditDialog('workflow')}
-              >
-                <Settings2 className='size-3.5' strokeWidth={2} />
-                {t('cases.editWorkflow')}
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              {!readOnly ? (
+                <>
+                  <Button
+                    type='button'
+                    size='sm'
+                    onClick={() => setEditDialog('info')}
+                  >
+                    <PenLine className='size-3.5' strokeWidth={2} />
+                    {t('cases.edit')}
+                  </Button>
                   <Button
                     type='button'
                     variant='outline'
-                    size='icon-sm'
-                    aria-label={t('common.moreActions')}
+                    size='sm'
+                    onClick={() => setEditDialog('workflow')}
                   >
-                    <MoreHorizontal className='size-3.5' strokeWidth={2} />
+                    <Settings2 className='size-3.5' strokeWidth={2} />
+                    {t('cases.editWorkflow')}
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align='end'>
-                  <DropdownMenuItem
-                    variant='destructive'
-                    disabled={deleteMutation.isPending}
-                    onSelect={() => setDeleteOpen(true)}
-                  >
-                    <Trash2 className='size-3.5' strokeWidth={2} />
-                    {t('common.delete')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <ConfirmDialog
-                open={deleteOpen}
-                onOpenChange={setDeleteOpen}
-                destructive
-                isLoading={deleteMutation.isPending}
-                disabled={!ackRefs}
-                title={t('cases.deleteWorkflowTitle')}
-                desc={
-                  <div className='text-sm'>
-                    {t('cases.deleteWorkflowBody', {
-                      name: record.name || record.id,
-                    })}
-                    {placements.length > 0 ? (
-                      <div className='mt-3 flex flex-col gap-2'>
-                        <p className='font-medium'>
-                          {t('cases.deleteWillRemoveRefs', {
-                            count: placements.length,
-                          })}
-                        </p>
-                        <ul className='max-h-32 overflow-auto rounded-md border bg-muted/20 p-3 text-xs'>
-                          {placements.map((p) => (
-                            <li key={`${p.channel_id}:${p.item_id}`}>
-                              {p.channel_name || p.channel_id} ·{' '}
-                              {p.path.map((s) => s.label).join(' / ')}
-                            </li>
-                          ))}
-                        </ul>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='icon-sm'
+                        aria-label={t('common.moreActions')}
+                      >
+                        <MoreHorizontal className='size-3.5' strokeWidth={2} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align='end'>
+                      <DropdownMenuItem
+                        variant='destructive'
+                        disabled={deleteMutation.isPending}
+                        onSelect={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 className='size-3.5' strokeWidth={2} />
+                        {t('common.delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <ConfirmDialog
+                    open={deleteOpen}
+                    onOpenChange={setDeleteOpen}
+                    destructive
+                    isLoading={deleteMutation.isPending}
+                    disabled={!ackRefs}
+                    title={t('cases.deleteWorkflowTitle')}
+                    desc={
+                      <div className='text-sm'>
+                        {t('cases.deleteWorkflowBody', {
+                          name: record.name || record.id,
+                        })}
+                        {placements.length > 0 ? (
+                          <div className='mt-3 flex flex-col gap-2'>
+                            <p className='font-medium'>
+                              {t('cases.deleteWillRemoveRefs', {
+                                count: placements.length,
+                              })}
+                            </p>
+                            <ul className='max-h-32 overflow-auto rounded-md border bg-muted/20 p-3 text-xs'>
+                              {placements.map((p) => (
+                                <li key={`${p.channel_id}:${p.item_id}`}>
+                                  {p.channel_name || p.channel_id} ·{' '}
+                                  {p.path.map((s) => s.label).join(' / ')}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {(pendingTasksQuery.data?.length ?? 0) > 0 ||
+                        (activeSessionsQuery.data ?? 0) > 0 ? (
+                          <p className='mt-3 text-xs text-muted-foreground'>
+                            {(pendingTasksQuery.data?.length ?? 0) > 0
+                              ? t('cases.deleteWillFailTasks', {
+                                  count: pendingTasksQuery.data?.length ?? 0,
+                                })
+                              : null}
+                            {(activeSessionsQuery.data ?? 0) > 0
+                              ? t('cases.deleteWillEndSessions', {
+                                  count: activeSessionsQuery.data ?? 0,
+                                })
+                              : null}
+                          </p>
+                        ) : null}
                       </div>
-                    ) : null}
-                    {(pendingTasksQuery.data?.length ?? 0) > 0 ||
-                    (activeSessionsQuery.data ?? 0) > 0 ? (
-                      <p className='mt-3 text-xs text-muted-foreground'>
-                        {(pendingTasksQuery.data?.length ?? 0) > 0
-                          ? t('cases.deleteWillFailTasks', {
-                              count: pendingTasksQuery.data?.length ?? 0,
-                            })
-                          : null}
-                        {(activeSessionsQuery.data ?? 0) > 0
-                          ? t('cases.deleteWillEndSessions', {
-                              count: activeSessionsQuery.data ?? 0,
-                            })
-                          : null}
-                      </p>
-                    ) : null}
-                  </div>
-                }
-                confirmText={t('common.delete')}
-                cancelBtnText={t('common.cancel')}
-                handleConfirm={() => deleteMutation.mutate()}
-              >
-                <label
-                  htmlFor='case-delete-ack'
-                  className='flex cursor-pointer items-center gap-2 text-sm'
-                >
-                  <Checkbox
-                    id='case-delete-ack'
-                    checked={ackRefs}
-                    onCheckedChange={(v) => setAckRefs(v === true)}
-                    data-testid='case-delete-ack'
-                  />
-                  <span>{t('cases.deleteAckRefs')}</span>
-                </label>
-              </ConfirmDialog>
+                    }
+                    confirmText={t('common.delete')}
+                    cancelBtnText={t('common.cancel')}
+                    handleConfirm={() => deleteMutation.mutate()}
+                  >
+                    <label
+                      htmlFor='case-delete-ack'
+                      className='flex cursor-pointer items-center gap-2 text-sm'
+                    >
+                      <Checkbox
+                        id='case-delete-ack'
+                        checked={ackRefs}
+                        onCheckedChange={(v) => setAckRefs(v === true)}
+                        data-testid='case-delete-ack'
+                      />
+                      <span>{t('cases.deleteAckRefs')}</span>
+                    </label>
+                  </ConfirmDialog>
+                </>
+              ) : null}
             </div>
           </div>
           {record.description ? (
@@ -350,9 +367,7 @@ export function CaseDetailPanel({ id }: Props) {
         </div>
       </div>
 
-      {healthError ? (
-        <ErrorBanner message={t('common.errorGeneric')} />
-      ) : null}
+      {healthError ? <ErrorBanner message={t('common.errorGeneric')} /> : null}
       {healthReady && caseRefs ? (
         <LinkHealthAlert
           name={record.name}
@@ -365,6 +380,7 @@ export function CaseDetailPanel({ id }: Props) {
         <SectionHead title={t('cases.sectionConfig')} />
         <WorkflowConfigView
           record={record}
+          readOnly={readOnly}
           onSaved={(next) =>
             queryClient.setQueryData(queryKeys.cases.detail(id), next)
           }
@@ -378,6 +394,7 @@ export function CaseDetailPanel({ id }: Props) {
         />
         <CaseContextSection
           record={record}
+          readOnly={readOnly}
           data={{ topics, attributes, edges, presence }}
         />
       </section>
@@ -386,6 +403,7 @@ export function CaseDetailPanel({ id }: Props) {
         <LinkHealthSection
           title={t('linkHealth.title')}
           health={caseRefs.health}
+          showActions={!readOnly}
           upstream={{
             title: t('linkHealth.relatedEntries'),
             items: caseRefs.menuEntries,
@@ -397,62 +415,64 @@ export function CaseDetailPanel({ id }: Props) {
         />
       ) : null}
 
-      <Dialog
-        open={editDialog !== null}
-        onOpenChange={(v) => (v ? undefined : setEditDialog(null))}
-      >
-        <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-3xl'>
-          <DialogHeader className='border-b px-5 py-4'>
-            <DialogTitle>
-              {editDialog === 'info'
-                ? t('cases.editInfo')
-                : t('cases.editWorkflow')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
-            {editDialog === 'info' ? (
-              <CaseForm
-                key={`info-${record.id}`}
-                mode='edit'
-                initial={record}
-                showWorkflow={false}
-                onSaved={(next) => {
-                  queryClient.setQueryData(queryKeys.cases.detail(id), next)
-                  setEditDialog(null)
-                }}
-              />
-            ) : editDialog === 'workflow' ? (
-              <CaseForm
-                key={`wf-${record.id}`}
-                mode='edit'
-                initial={record}
-                showBasics={false}
-                onSaved={(next) => {
-                  queryClient.setQueryData(queryKeys.cases.detail(id), next)
-                  setEditDialog(null)
-                }}
-              />
-            ) : null}
-          </div>
-          <div className='flex items-center justify-end gap-2 border-t px-5 py-3'>
-            <Button
-              type='button'
-              variant='outline'
-              className='h-8 gap-1.5 px-3 text-xs'
-              onClick={() => setEditDialog(null)}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type='submit'
-              form='case-edit-form'
-              className='h-8 gap-1.5 px-3 text-xs'
-            >
-              {t('common.save')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {!readOnly ? (
+        <Dialog
+          open={editDialog !== null}
+          onOpenChange={(v) => (v ? undefined : setEditDialog(null))}
+        >
+          <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-3xl'>
+            <DialogHeader className='border-b px-5 py-4'>
+              <DialogTitle>
+                {editDialog === 'info'
+                  ? t('cases.editInfo')
+                  : t('cases.editWorkflow')}
+              </DialogTitle>
+            </DialogHeader>
+            <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
+              {editDialog === 'info' ? (
+                <CaseForm
+                  key={`info-${record.id}`}
+                  mode='edit'
+                  initial={record}
+                  showWorkflow={false}
+                  onSaved={(next) => {
+                    queryClient.setQueryData(queryKeys.cases.detail(id), next)
+                    setEditDialog(null)
+                  }}
+                />
+              ) : editDialog === 'workflow' ? (
+                <CaseForm
+                  key={`wf-${record.id}`}
+                  mode='edit'
+                  initial={record}
+                  showBasics={false}
+                  onSaved={(next) => {
+                    queryClient.setQueryData(queryKeys.cases.detail(id), next)
+                    setEditDialog(null)
+                  }}
+                />
+              ) : null}
+            </div>
+            <div className='flex items-center justify-end gap-2 border-t px-5 py-3'>
+              <Button
+                type='button'
+                variant='outline'
+                className='h-8 gap-1.5 px-3 text-xs'
+                onClick={() => setEditDialog(null)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type='submit'
+                form='case-edit-form'
+                className='h-8 gap-1.5 px-3 text-xs'
+              >
+                {t('common.save')}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       <MediaLightbox
         open={previewOpen}

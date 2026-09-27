@@ -81,6 +81,9 @@ const router = createRouter({
   defaultPendingComponent: LoadingPage,
   defaultPendingMs: 150,
   defaultPendingMinMs: 250,
+  defaultViewTransition: {
+    types: ({ pathChanged }) => (pathChanged ? ['route'] : false),
+  },
 })
 
 // Register the router instance for type safety

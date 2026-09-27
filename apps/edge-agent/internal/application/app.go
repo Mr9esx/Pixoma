@@ -52,7 +52,9 @@ func Run(ctx context.Context, cfg Config) error {
 		"blob_driver", cfg.BlobDriver,
 	)
 	go func() {
-		_ = reporter.Run(ctx)
+		if err := reporter.Run(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("Edge Agent 状态上报已停止", "edge_id", cfg.EdgeID, "err", err)
+		}
 	}()
 	return loop.Run(ctx)
 }

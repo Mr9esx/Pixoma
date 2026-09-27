@@ -6,7 +6,8 @@ export const Route = createFileRoute('/_app/studio/settings/$section')({
       params.section !== 'models' &&
       params.section !== 'skills' &&
       params.section !== 'mcp' &&
-      params.section !== 'workflows'
+      params.section !== 'workflows' &&
+      params.section !== 'data'
     ) {
       throw redirect({
         to: '/studio/settings/$section',

@@ -21,17 +21,20 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 type Handler struct {
-	Repo         domain.Repository
-	Service      *studioapp.Service
-	Runner       *studioapp.BackgroundRunner
-	Approvals    *studioapp.ApprovalService
-	Models       *studioapp.ModelConfigService
-	Capabilities *studioapp.CapabilityConfigService
-	Blob         blob.Store
-	Events       studioapp.EventStream
+	Repo           domain.Repository
+	Tasks          runtimedomain.TaskRepository
+	Service        *studioapp.Service
+	Runner         *studioapp.BackgroundRunner
+	Approvals      *studioapp.ApprovalService
+	Clarifications *studioapp.ClarificationService
+	Models         *studioapp.ModelConfigService
+	Capabilities   *studioapp.CapabilityConfigService
+	Blob           blob.Store
+	Events         studioapp.EventStream
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -39,6 +42,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Get("/agui/ws", h.streamAGUIWebSocket)
 	r.Get("/sessions", h.listSessions)
 	r.Post("/sessions", h.createSession)
+	r.Delete("/sessions", h.clearSessions)
 	r.Get("/sessions/{sessionID}", h.getSession)
 	r.Get("/sessions/{sessionID}/runs", h.listSessionRuns)
 	r.Get("/sessions/{sessionID}/trajectory", h.listSessionTrajectory)
@@ -59,11 +63,11 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Patch("/assets/{assetID}/text", h.updateTextAsset)
 	r.Post("/assets/upload", h.uploadAsset)
 	r.Post("/assets/{assetID}/save-to-library", h.saveAssetToLibrary)
-	r.Patch("/library/assets/{assetID}/folder", h.moveLibraryAsset)
+	r.Patch("/library/assets/{assetID}/category", h.moveLibraryAsset)
 	r.Post("/sessions/{sessionID}/assets/import", h.importLibraryAsset)
 	r.Get("/library/assets", h.listLibraryAssets)
-	r.Get("/library/folders", h.listLibraryFolders)
-	r.Post("/library/folders", h.createLibraryFolder)
+	r.Get("/library/categories", h.listLibraryCategories)
+	r.Post("/library/categories", h.createLibraryCategory)
 	r.Get("/models", h.listModels)
 	r.Post("/models", h.createModel)
 	r.Post("/models/test", h.testModelConfig)
@@ -71,9 +75,16 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/models/{modelID}/test", h.testModelConnection)
 	r.Get("/skills", h.listSkills)
 	r.Post("/skills", h.createSkill)
+	r.Post("/skills/import", h.importSkillZip)
+	r.Post("/skills/import/inspect", h.inspectSkillZip)
+	r.Get("/skills/{skillID}", h.getSkill)
+	r.Get("/skills/{skillID}/versions", h.listSkillVersions)
+	r.Get("/skills/{skillID}/versions/{version}", h.getSkillVersion)
 	r.Patch("/skills/{skillID}", h.updateSkill)
+	r.Patch("/skills/{skillID}/enabled", h.setSkillEnabled)
 	r.Get("/connectors", h.listConnectors)
 	r.Post("/connectors", h.createConnector)
+	r.Post("/connectors/discover", h.discoverConnector)
 	r.Patch("/connectors/{connectorID}", h.updateConnector)
 	r.Post("/connectors/{connectorID}/probe", h.probeConnector)
 	r.Get("/workflows", h.listAgentWorkflows)
@@ -295,6 +306,7 @@ type workflowExecutionView struct {
 	WorkflowID      string                         `json:"workflow_id"`
 	OperationNodeID string                         `json:"operation_node_id"`
 	Status          domain.WorkflowExecutionStatus `json:"status"`
+	TaskStatus      sharedkernel.TaskStatus        `json:"task_status,omitempty"`
 	ErrorMessage    string                         `json:"error_message,omitempty"`
 	CreatedAt       time.Time                      `json:"created_at"`
 	CompletedAt     time.Time                      `json:"completed_at,omitempty"`
@@ -359,7 +371,7 @@ type eventView struct {
 	CreatedAt time.Time       `json:"created_at"`
 }
 
-type libraryFolderView struct {
+type libraryCategoryView struct {
 	ID        string    `json:"id"`
 	ParentID  string    `json:"parent_id,omitempty"`
 	Name      string    `json:"name"`
@@ -393,6 +405,28 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 		out = append(out, toSessionView(session, latestRuns[session.ID]))
 	}
 	response.OKStatus(w, http.StatusOK, out)
+}
+
+func (h *Handler) clearSessions(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Confirmation string `json:"confirmation"`
+	}
+	if err := decodeJSON(r, &body); err != nil || body.Confirmation != "确认清空" {
+		response.Fail(w, apierr.ErrStudioInvalidBody, "输入确认清空后重试")
+		return
+	}
+	if h.Runner != nil {
+		h.Runner.CancelAccount(accountID)
+	}
+	if err := h.Repo.ClearSessions(r.Context(), accountID); err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OK(w, nil)
 }
 
 func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
@@ -444,9 +478,9 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 			progress = toRunProgressView(value)
 		}
 	}
-	// 待批准项随会话详情一起返回，切到这个会话时第一帧就能画出操作区，
-	// 不必等恢复运行的流把 interrupt 送过来。
+	// 待批准项随会话详情一起返回，恢复运行的流发送 interrupt 前也能在对话中显示。
 	pendingApprovals := make([]map[string]any, 0)
+	pendingClarifications := make([]map[string]any, 0)
 	if latestRun := latestRuns[sessionID]; latestRun != nil && latestRun.Status == domain.RunWaitingApproval {
 		approvals, approvalErr := h.Repo.ListApprovals(r.Context(), accountID, latestRun.ID)
 		if approvalErr != nil {
@@ -454,6 +488,14 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pendingApprovals = pendingAGUIInterrupts(approvals)
+	}
+	if latestRun := latestRuns[sessionID]; latestRun != nil && latestRun.Status == domain.RunWaitingClarification {
+		clarifications, clarificationErr := h.Repo.ListClarifications(r.Context(), accountID, latestRun.ID)
+		if clarificationErr != nil {
+			failFromError(w, clarificationErr)
+			return
+		}
+		pendingClarifications = pendingAGUIClarifications(clarifications)
 	}
 	transcriptData, err := h.Repo.ListSessionTranscript(r.Context(), accountID, sessionID)
 	if err != nil {
@@ -464,6 +506,18 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		failFromError(w, err)
 		return
+	}
+	workflowViews := workflowExecutionsToViews(workflowExecutions)
+	for i := range workflowViews {
+		if workflowViews[i].Status != domain.WorkflowExecutionSubmitted {
+			continue
+		}
+		task, taskErr := h.Tasks.Get(r.Context(), sharedkernel.TaskID(workflowViews[i].TaskID))
+		if taskErr != nil {
+			failFromError(w, taskErr)
+			return
+		}
+		workflowViews[i].TaskStatus = task.Status
 	}
 	assets, err := h.Repo.ListSessionAssets(r.Context(), accountID, sessionID, 200)
 	if err != nil {
@@ -483,13 +537,14 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 	}
 	transcript := studioapp.ProjectSessionTranscript(transcriptData.Messages, transcriptData.Runs, eventsByRun)
 	response.OKStatus(w, http.StatusOK, map[string]any{
-		"session":             toSessionView(session, latestRuns[sessionID]),
-		"run_progress":        progress,
-		"pending_approvals":   pendingApprovals,
-		"messages":            messagesToViews(transcriptData.Messages),
-		"transcript":          transcript,
-		"workflow_executions": workflowExecutionsToViews(workflowExecutions),
-		"assets":              assetsToViews(assets),
+		"session":                toSessionView(session, latestRuns[sessionID]),
+		"run_progress":           progress,
+		"pending_approvals":      pendingApprovals,
+		"pending_clarifications": pendingClarifications,
+		"messages":               messagesToViews(transcriptData.Messages),
+		"transcript":             transcript,
+		"workflow_executions":    workflowViews,
+		"assets":                 assetsToViews(assets),
 		"flow": map[string]any{
 			"nodes": flowNodesToViews(nodes),
 			"edges": flowEdgesToViews(edges),
@@ -774,7 +829,7 @@ func (h *Handler) saveAssetToLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		FolderID string `json:"folder_id"`
+		CategoryID string `json:"category_id"`
 	}
 	if r.ContentLength > 0 {
 		if err := decodeJSON(r, &body); err != nil {
@@ -782,7 +837,7 @@ func (h *Handler) saveAssetToLibrary(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := h.Repo.SaveAssetToLibrary(r.Context(), accountID, chi.URLParam(r, "assetID"), body.FolderID, time.Now().UTC()); err != nil {
+	if err := h.Repo.SaveAssetToLibrary(r.Context(), accountID, chi.URLParam(r, "assetID"), body.CategoryID, time.Now().UTC()); err != nil {
 		failFromError(w, err)
 		return
 	}
@@ -795,13 +850,13 @@ func (h *Handler) moveLibraryAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		FolderID string `json:"folder_id"`
+		CategoryID string `json:"category_id"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
-	if err := h.Repo.MoveLibraryAsset(r.Context(), accountID, chi.URLParam(r, "assetID"), body.FolderID, time.Now().UTC()); err != nil {
+	if err := h.Repo.MoveLibraryAsset(r.Context(), accountID, chi.URLParam(r, "assetID"), body.CategoryID, time.Now().UTC()); err != nil {
 		failFromError(w, err)
 		return
 	}
@@ -834,32 +889,41 @@ func (h *Handler) listLibraryAssets(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	assets, err := h.Repo.ListLibraryAssets(r.Context(), accountID, r.URL.Query().Get("folder_id"), queryInt(r, "limit", 100))
+	query := domain.LibraryAssetListQuery{
+		CategoryID: r.URL.Query().Get("category_id"),
+		Search:     r.URL.Query().Get("q"),
+		Limit:      queryInt(r, "limit", 50),
+		Offset:     queryInt(r, "offset", 0),
+	}
+	page, err := h.Repo.ListLibraryAssets(r.Context(), accountID, query)
 	if err != nil {
 		failFromError(w, err)
 		return
 	}
-	response.OKStatus(w, http.StatusOK, assetsToViews(assets))
+	response.OKStatus(w, http.StatusOK, map[string]any{
+		"assets": assetsToViews(page.Assets),
+		"total":  page.Total,
+	})
 }
 
-func (h *Handler) listLibraryFolders(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) listLibraryCategories(w http.ResponseWriter, r *http.Request) {
 	accountID, ok := accountID(w, r)
 	if !ok {
 		return
 	}
-	folders, err := h.Service.ListLibraryFolders(r.Context(), accountID)
+	categories, err := h.Service.ListLibraryCategories(r.Context(), accountID)
 	if err != nil {
 		failFromError(w, err)
 		return
 	}
-	out := make([]libraryFolderView, 0, len(folders))
-	for _, folder := range folders {
-		out = append(out, libraryFolderView{ID: folder.ID, ParentID: folder.ParentID, Name: folder.Name, CreatedAt: folder.CreatedAt, UpdatedAt: folder.UpdatedAt})
+	out := make([]libraryCategoryView, 0, len(categories))
+	for _, category := range categories {
+		out = append(out, libraryCategoryView{ID: category.ID, ParentID: category.ParentID, Name: category.Name, CreatedAt: category.CreatedAt, UpdatedAt: category.UpdatedAt})
 	}
 	response.OKStatus(w, http.StatusOK, out)
 }
 
-func (h *Handler) createLibraryFolder(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) createLibraryCategory(w http.ResponseWriter, r *http.Request) {
 	accountID, ok := accountID(w, r)
 	if !ok {
 		return
@@ -872,12 +936,12 @@ func (h *Handler) createLibraryFolder(w http.ResponseWriter, r *http.Request) {
 		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
-	folder, err := h.Service.CreateLibraryFolder(r.Context(), studioapp.CreateLibraryFolderInput{AccountID: accountID, ParentID: body.ParentID, Name: body.Name})
+	category, err := h.Service.CreateLibraryCategory(r.Context(), studioapp.CreateLibraryCategoryInput{AccountID: accountID, ParentID: body.ParentID, Name: body.Name})
 	if err != nil {
 		failFromError(w, err)
 		return
 	}
-	response.OKStatus(w, http.StatusCreated, libraryFolderView{ID: folder.ID, ParentID: folder.ParentID, Name: folder.Name, CreatedAt: folder.CreatedAt, UpdatedAt: folder.UpdatedAt})
+	response.OKStatus(w, http.StatusCreated, libraryCategoryView{ID: category.ID, ParentID: category.ParentID, Name: category.Name, CreatedAt: category.CreatedAt, UpdatedAt: category.UpdatedAt})
 }
 
 func (h *Handler) listModels(w http.ResponseWriter, r *http.Request) {
@@ -1011,6 +1075,57 @@ func (h *Handler) listSkills(w http.ResponseWriter, r *http.Request) {
 	response.OKStatus(w, http.StatusOK, skills)
 }
 
+func (h *Handler) getSkill(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
+		return
+	}
+	skill, err := h.Capabilities.GetSkill(r.Context(), accountID, chi.URLParam(r, "skillID"))
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OKStatus(w, http.StatusOK, skill)
+}
+
+func (h *Handler) listSkillVersions(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
+		return
+	}
+	versions, err := h.Capabilities.ListSkillVersions(r.Context(), accountID, chi.URLParam(r, "skillID"))
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OKStatus(w, http.StatusOK, versions)
+}
+
+func (h *Handler) getSkillVersion(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
+		return
+	}
+	version, err := h.Capabilities.GetSkillVersion(r.Context(), accountID, chi.URLParam(r, "skillID"), chi.URLParam(r, "version"))
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OKStatus(w, http.StatusOK, version)
+}
+
 func (h *Handler) createSkill(w http.ResponseWriter, r *http.Request) {
 	accountID, ok := accountID(w, r)
 	if !ok {
@@ -1021,7 +1136,7 @@ func (h *Handler) createSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body studioapp.CreateSkillInput
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeSkillJSON(r, &body); err != nil {
 		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
@@ -1044,13 +1159,37 @@ func (h *Handler) updateSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body studioapp.UpdateSkillInput
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeSkillJSON(r, &body); err != nil {
 		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	body.AccountID = accountID
 	body.SkillID = chi.URLParam(r, "skillID")
 	skill, err := h.Capabilities.UpdateSkill(r.Context(), body)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OKStatus(w, http.StatusOK, skill)
+}
+
+func (h *Handler) setSkillEnabled(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
+		return
+	}
+	var body struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := decodeJSON(r, &body); err != nil || body.Enabled == nil {
+		response.Fail(w, apierr.ErrStudioInvalidBody, "enabled 必须为布尔值")
+		return
+	}
+	skill, err := h.Capabilities.SetSkillEnabled(r.Context(), accountID, chi.URLParam(r, "skillID"), *body.Enabled)
 	if err != nil {
 		failFromError(w, err)
 		return
@@ -1139,6 +1278,29 @@ func (h *Handler) probeConnector(w http.ResponseWriter, r *http.Request) {
 	response.OKStatus(w, http.StatusOK, connector)
 }
 
+func (h *Handler) discoverConnector(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if h.Capabilities == nil {
+		response.Fail(w, apierr.ErrStudioListSkillsUnavailable, "能力配置服务不可用")
+		return
+	}
+	var body studioapp.DiscoverConnectorInput
+	if err := decodeJSON(r, &body); err != nil {
+		response.Fail(w, apierr.ErrStudioInvalidBody, "请求内容格式不正确")
+		return
+	}
+	body.AccountID = accountID
+	tools, err := h.Capabilities.DiscoverConnector(r.Context(), body)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OKStatus(w, http.StatusOK, tools)
+}
+
 func (h *Handler) listAgentWorkflows(w http.ResponseWriter, r *http.Request) {
 	accountID, ok := accountID(w, r)
 	if !ok {
@@ -1195,6 +1357,12 @@ func decodeJSON(r *http.Request, out any) error {
 	return decoder.Decode(out)
 }
 
+func decodeSkillJSON(r *http.Request, out any) error {
+	decoder := json.NewDecoder(io.LimitReader(r.Body, 3<<20))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(out)
+}
+
 // failFromError 把工作台领域错误归类成对外错误码。
 //
 // 工作台的领域错误种类多，所以在这里集中归类一次，
@@ -1205,8 +1373,12 @@ func failFromError(w http.ResponseWriter, err error) {
 		response.Fail(w, apierr.ErrStudioNotFound, "")
 	case errors.Is(err, domain.ErrAlreadyExists):
 		response.Fail(w, apierr.ErrStudioAlreadyExists, "")
+	case errors.Is(err, domain.ErrConflict):
+		response.Fail(w, apierr.ErrStudioContentConflict, "")
 	case errors.Is(err, studioapp.ErrModelConnectionTest):
 		response.FailErr(w, apierr.ErrStudioModelConnectionTest, err)
+	case errors.Is(err, studioapp.ErrConnectorProbe):
+		response.FailErr(w, apierr.ErrStudioConnectorProbe, err)
 	case errors.Is(err, domain.ErrInvalid), errors.Is(err, domain.ErrInvalidTransition):
 		response.FailErr(w, apierr.ErrStudioInvalidBody, err)
 	default:

@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/index.css'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import type { StudioModel } from '@/lib/api/studio'
-import { StudioSettings } from './studio-settings'
+import { StudioSettings, type SettingSection } from './studio-settings'
 
 const model: StudioModel = {
   id: 'model-1',
@@ -37,6 +38,11 @@ vi.mock('@/lib/api/studio', async (importOriginal) => ({
   listStudioAgentWorkflows: vi.fn(async () => []),
 }))
 
+function TestSettings() {
+  const [section, setSection] = useState<SettingSection>('models')
+  return <StudioSettings section={section} onSectionChange={setSection} />
+}
+
 describe('StudioSettings', () => {
   it('does not allow Agent access when tool calling is unsupported', async () => {
     const client = new QueryClient({
@@ -44,7 +50,7 @@ describe('StudioSettings', () => {
     })
     const screen = await render(
       <QueryClientProvider client={client}>
-        <StudioSettings />
+        <TestSettings />
       </QueryClientProvider>
     )
     await screen.getByRole('button', { name: '添加模型' }).click()
@@ -63,7 +69,7 @@ describe('StudioSettings', () => {
     })
     const screen = await render(
       <QueryClientProvider client={client}>
-        <StudioSettings />
+        <TestSettings />
       </QueryClientProvider>
     )
     await screen.getByRole('button', { name: '编辑' }).click()

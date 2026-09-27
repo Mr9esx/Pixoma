@@ -59,6 +59,9 @@ func Fail(w http.ResponseWriter, e *apierr.Error, detail string) {
 	if detailAllowed(e.Code) {
 		env.ErrorDetail = Sanitize(detail)
 	}
+	if StatusOf(e.Code) >= http.StatusInternalServerError {
+		slog.Error("HTTP 请求处理失败", "request_id", w.Header().Get("X-Request-Id"), "code", e.Code, "reason", env.ErrorDetail)
+	}
 	write(w, StatusOf(e.Code), env)
 }
 

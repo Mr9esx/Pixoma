@@ -17,19 +17,33 @@ export type StudioSession = {
 }
 
 export type StudioMessagePart = {
-  type: 'text' | 'image' | 'file' | 'reasoning' | 'skill_ref' | 'asset_ref'
+  type:
+    | 'text'
+    | 'image'
+    | 'file'
+    | 'reasoning'
+    | 'skill_ref'
+    | 'asset_ref'
+    | 'workflow_ref'
   text?: string
   url?: string
   name?: string
   skill_id?: string
   asset_id?: string
   asset_version_id?: string
+  workflow_id?: string
 }
 
 export type StudioComposerPart =
   | { type: 'text'; text: string }
   | { type: 'skill_ref'; skill_id: string; name: string }
-  | { type: 'asset_ref'; asset_id: string; asset_version_id: string; name: string }
+  | {
+      type: 'asset_ref'
+      asset_id: string
+      asset_version_id: string
+      name: string
+    }
+  | { type: 'workflow_ref'; workflow_id: string; name: string }
 
 export type StudioTranscriptToolCall = {
   id: string
@@ -46,6 +60,35 @@ export type StudioTranscriptMessage = {
   toolCalls?: StudioTranscriptToolCall[]
   toolCallId?: string
   isError?: boolean
+  clarification?: StudioTranscriptClarification
+}
+
+export type StudioTranscriptClarification = {
+  id: string
+  question: string
+  options: string[]
+  selected?: string
+  answer?: string
+  status: 'pending' | 'answered' | 'skipped'
+  workflow?: StudioWorkflowRequest
+}
+
+export type StudioWorkflowInputField = {
+  key: string
+  type: string
+  required: boolean
+  description?: string
+}
+
+export type StudioWorkflowRequest = {
+  id: string
+  name: string
+  description?: string
+  preview?: string
+  input_schema: Record<string, unknown>
+  input_fields: StudioWorkflowInputField[]
+  suggested_inputs?: Record<string, unknown>
+  submitted_inputs?: Record<string, unknown>
 }
 
 export type StudioTranscriptEvent = {
@@ -79,6 +122,7 @@ export type StudioRun = {
     | 'queued'
     | 'running'
     | 'waiting_approval'
+    | 'waiting_clarification'
     | 'succeeded'
     | 'failed'
     | 'cancelled'
@@ -176,12 +220,17 @@ export type StudioAsset = {
   updated_at: string
 }
 
-export type StudioLibraryFolder = {
+export type StudioLibraryCategory = {
   id: string
   parent_id?: string
   name: string
   created_at: string
   updated_at: string
+}
+
+export type StudioLibraryAssetsPage = {
+  assets: StudioAsset[]
+  total: number
 }
 
 export type StudioFlowNode = {
@@ -212,6 +261,13 @@ export type StudioWorkflowExecution = {
   workflow_id: string
   operation_node_id: string
   status: 'submitted' | 'succeeded' | 'failed' | 'cancelled'
+  task_status?:
+    | 'pending'
+    | 'queued'
+    | 'running'
+    | 'succeeded'
+    | 'failed'
+    | 'cancelled'
   error_message?: string
   created_at: string
   completed_at?: string
@@ -224,10 +280,22 @@ export type StudioPendingApproval = {
   message?: string
 }
 
+export type StudioPendingClarification = {
+  id: string
+  reason: 'input_required' | 'workflow_input'
+  message: string
+  metadata: {
+    options?: { id: string; label: string }[]
+    messageId: string
+    workflow?: StudioWorkflowRequest
+  }
+}
+
 export type StudioSessionDetail = {
   session: StudioSession
   run_progress?: StudioRunProgress | null
   pending_approvals?: StudioPendingApproval[]
+  pending_clarifications?: StudioPendingClarification[]
   messages: StudioMessage[]
   transcript: StudioTranscript
   workflow_executions?: StudioWorkflowExecution[]
@@ -281,17 +349,43 @@ export type StudioModelConnectionTest = {
   latency_ms: number
 }
 
-export type StudioSkill = {
+export type StudioSkillSummary = {
   id: string
   name: string
   description: string
-  prompt: string
+  version: string
   enabled: boolean
   created_at: string
   updated_at: string
 }
 
+export type StudioSkill = StudioSkillSummary & {
+  prompt: string
+  files?: StudioSkillFile[]
+}
+
+export type StudioSkillFile = {
+  path: string
+  content: string
+  binary?: boolean
+  directory?: boolean
+}
+
+export type StudioSkillVersionSummary = {
+  version: string
+  created_at: string
+}
+
+export type StudioSkillVersion = StudioSkillVersionSummary & {
+  name: string
+  description: string
+  prompt: string
+  files: StudioSkillFile[]
+}
+
 export type StudioConnectorPolicy = 'auto' | 'approval' | 'forbidden'
+
+export type StudioMCPTool = { name: string; description: string }
 
 export type StudioMCPConnector = {
   id: string
@@ -300,7 +394,7 @@ export type StudioMCPConnector = {
   enabled: boolean
   policy: StudioConnectorPolicy
   credential_masked: string
-  tools: Array<{ name: string; description: string }>
+  tools: StudioMCPTool[] | null
   created_at: string
   updated_at: string
 }
@@ -313,6 +407,9 @@ export type StudioAgentWorkflow = {
   agent_enabled: boolean
   inputs: number
   outputs: number
+  preview?: string
+  input_schema: Record<string, unknown>
+  input_fields: StudioWorkflowInputField[]
 }
 
 export function listStudioSessions(params?: {
@@ -326,6 +423,13 @@ export function createStudioSession(requestId: string) {
   return apiFetch<StudioSession>('/api/v1/studio/sessions', {
     method: 'POST',
     body: JSON.stringify({ request_id: requestId }),
+  })
+}
+
+export function clearStudioSessions() {
+  return apiFetch<void>('/api/v1/studio/sessions', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmation: '确认清空' }),
   })
 }
 
@@ -400,17 +504,17 @@ export function resolveStudioApproval(approvalId: string, approved: boolean) {
   )
 }
 
-export function saveStudioAssetToLibrary(assetId: string, folderId?: string) {
+export function saveStudioAssetToLibrary(assetId: string, categoryId?: string) {
   return apiFetch<void>(
     `/api/v1/studio/assets/${encodeURIComponent(assetId)}/save-to-library`,
-    { method: 'POST', body: JSON.stringify({ folder_id: folderId ?? '' }) }
+    { method: 'POST', body: JSON.stringify({ category_id: categoryId ?? '' }) }
   )
 }
 
-export function moveStudioLibraryAsset(assetId: string, folderId?: string) {
+export function moveStudioLibraryAsset(assetId: string, categoryId?: string) {
   return apiFetch<void>(
-    `/api/v1/studio/library/assets/${encodeURIComponent(assetId)}/folder`,
-    { method: 'PATCH', body: JSON.stringify({ folder_id: folderId ?? '' }) }
+    `/api/v1/studio/library/assets/${encodeURIComponent(assetId)}/category`,
+    { method: 'PATCH', body: JSON.stringify({ category_id: categoryId ?? '' }) }
   )
 }
 
@@ -520,21 +624,32 @@ export function deleteStudioFlowEdge(sessionId: string, edgeId: string) {
   )
 }
 
-export function listStudioLibraryAssets(folderId?: string) {
-  return apiFetch<StudioAsset[]>(
-    `/api/v1/studio/library/assets${toQuery({ folder_id: folderId })}`
+export function listStudioLibraryAssets(input?: {
+  categoryId?: string
+  search?: string
+  page?: number
+  limit?: number
+}) {
+  const limit = input?.limit ?? 50
+  return apiFetch<StudioLibraryAssetsPage>(
+    `/api/v1/studio/library/assets${toQuery({
+      category_id: input?.categoryId,
+      q: input?.search,
+      limit,
+      offset: ((input?.page ?? 1) - 1) * limit,
+    })}`
   )
 }
 
-export function listStudioLibraryFolders() {
-  return apiFetch<StudioLibraryFolder[]>('/api/v1/studio/library/folders')
+export function listStudioLibraryCategories() {
+  return apiFetch<StudioLibraryCategory[]>('/api/v1/studio/library/categories')
 }
 
-export function createStudioLibraryFolder(input: {
+export function createStudioLibraryCategory(input: {
   name: string
   parentId?: string
 }) {
-  return apiFetch<StudioLibraryFolder>('/api/v1/studio/library/folders', {
+  return apiFetch<StudioLibraryCategory>('/api/v1/studio/library/categories', {
     method: 'POST',
     body: JSON.stringify({ name: input.name, parent_id: input.parentId ?? '' }),
   })
@@ -633,14 +748,34 @@ export function testStudioModelConnection(modelId: string) {
 }
 
 export function listStudioSkills() {
-  return apiFetch<StudioSkill[]>('/api/v1/studio/skills')
+  return apiFetch<StudioSkillSummary[]>('/api/v1/studio/skills')
+}
+
+export function getStudioSkill(skillId: string) {
+  return apiFetch<StudioSkill>(
+    `/api/v1/studio/skills/${encodeURIComponent(skillId)}`
+  )
+}
+
+export function listStudioSkillVersions(skillId: string) {
+  return apiFetch<StudioSkillVersionSummary[]>(
+    `/api/v1/studio/skills/${encodeURIComponent(skillId)}/versions`
+  )
+}
+
+export function getStudioSkillVersion(skillId: string, version: string) {
+  return apiFetch<StudioSkillVersion>(
+    `/api/v1/studio/skills/${encodeURIComponent(skillId)}/versions/${encodeURIComponent(version)}`
+  )
 }
 
 export function createStudioSkill(input: {
   name: string
   description: string
   prompt: string
+  files?: StudioSkillFile[]
   enabled: boolean
+  version?: string
 }) {
   return apiFetch<StudioSkill>('/api/v1/studio/skills', {
     method: 'POST',
@@ -656,10 +791,30 @@ export function updateStudioSkill(input: StudioSkill) {
       body: JSON.stringify({
         name: input.name,
         description: input.description,
-        prompt: input.prompt,
-        enabled: input.enabled,
+        ...(input.files ? { files: input.files } : { prompt: input.prompt }),
+        version: input.version,
+        updated_at: input.updated_at,
       }),
     }
+  )
+}
+
+export function inspectStudioSkillZip(file: File) {
+  const body = new FormData()
+  body.set('file', file)
+  return apiFetch<Pick<StudioSkill, 'name' | 'description' | 'files'>>(
+    '/api/v1/studio/skills/import/inspect',
+    {
+      method: 'POST',
+      body,
+    }
+  )
+}
+
+export function updateStudioSkillEnabled(skillId: string, enabled: boolean) {
+  return apiFetch<StudioSkill>(
+    `/api/v1/studio/skills/${encodeURIComponent(skillId)}/enabled`,
+    { method: 'PATCH', body: JSON.stringify({ enabled }) }
   )
 }
 
@@ -681,7 +836,12 @@ export function createStudioConnector(input: {
 }
 
 export function updateStudioConnector(
-  input: Pick<StudioMCPConnector, 'id' | 'name' | 'url' | 'enabled' | 'policy'>
+  input: Pick<
+    StudioMCPConnector,
+    'id' | 'name' | 'url' | 'enabled' | 'policy'
+  > & {
+    credential?: string
+  }
 ) {
   return apiFetch<StudioMCPConnector>(
     `/api/v1/studio/connectors/${encodeURIComponent(input.id)}`,
@@ -692,9 +852,25 @@ export function updateStudioConnector(
         url: input.url,
         enabled: input.enabled,
         policy: input.policy,
+        ...(input.credential ? { credential: input.credential } : {}),
       }),
     }
   )
+}
+
+export function discoverStudioConnector(input: {
+  connectorId?: string
+  url: string
+  credential: string
+}) {
+  return apiFetch<StudioMCPTool[]>('/api/v1/studio/connectors/discover', {
+    method: 'POST',
+    body: JSON.stringify({
+      connector_id: input.connectorId,
+      url: input.url,
+      credential: input.credential,
+    }),
+  })
 }
 
 export function probeStudioConnector(connectorId: string) {

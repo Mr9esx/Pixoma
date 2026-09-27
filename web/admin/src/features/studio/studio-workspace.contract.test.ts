@@ -147,7 +147,7 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain('bg-gradient-to-t from-card to-transparent')
     expect(source).toContain('pb-44')
     expect(source).toContain("aria-label='跳转至最新消息'")
-    expect(source).toContain("waitingForDecision ? 'bottom-5' : 'bottom-48'")
+    expect(source).toContain("className='bottom-48'")
     expect(source).not.toContain("className='bottom-44'")
     expect(source).not.toContain("className='shrink-0 px-4 pt-2 pb-5'")
   })
@@ -190,7 +190,7 @@ describe('Studio production workspace contract', () => {
   it('keeps Skills and assets as icon buttons that explain themselves on hover', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain("size='icon-sm'")
-    expect(source).toContain("tooltip={value.length === 0 ? 'Skills'")
+    expect(source).toContain("tooltip={value.length === 0 ? '技能'")
     expect(source).toContain("tooltip={value.length === 0 ? '资产'")
   })
 
@@ -239,11 +239,20 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain("aria-label='AI 设置分类'")
     expect(source).not.toContain("from '@/components/ui/tabs'")
     expect(source).toContain('listStudioSkills')
-    expect(source).toContain('createStudioSkill')
-
-    expect(source).toContain('updateStudioSkill')
-    expect(source).toContain('SkillDialog')
+    expect(source).toContain('inspectStudioSkillZip')
+    expect(source).toContain('updateStudioSkillEnabled')
+    expect(source).toContain('SkillWorkspaceDialog')
+    const editor = read('./skill-workspace-dialog.tsx')
+    expect(editor).toContain('createStudioSkill')
+    expect(editor).toContain('updateStudioSkill')
     expect(source).not.toContain('<EmptySetting icon={Sparkles}')
+  })
+
+  it('refreshes Skills after an Agent run completes', () => {
+    const source = read('./studio-workspace.tsx')
+    expect(source).toMatch(
+      /onRunFinished=\{\(\) => \{[\s\S]*?queryKey: \['studio', 'skills'\]/
+    )
   })
 
   it('lets administrators validate saved model connections without exposing their keys', () => {
@@ -312,66 +321,38 @@ describe('Studio production workspace contract', () => {
     expect(source).toContain("from '@/components/ai-elements/confirmation'")
     expect(source).toContain('ConfirmationAction')
     expect(source).toContain("status: approved ? 'resolved' : 'cancelled'")
-    expect(source).toContain('reason: interrupt.reason')
+    expect(source).toContain('const fromRuntime = interrupts.length > 0')
   })
 
-  it('stacks the request type, the pending action and the buttons in the approval alert', () => {
+  it('shows the pending action and buttons in the approval alert', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain(
-      "import { AlertDescription, AlertTitle } from '@/components/ui/alert'"
+      "import { AlertDescription } from '@/components/ui/alert'"
     )
     expect(source).toContain(
-      "reason === 'tool_approval' ? '权限审批' : '需要处理'"
+      "{action.message ?? '该工具请求执行操作。是否批准？'}"
     )
-    expect(source).toContain("{action.message ?? '需要批准后继续执行'}")
-    // 三行依次是标题、内容、按钮，按钮行用组件默认的靠右布局
-    const titleIndex = source.indexOf(
-      '<AlertTitle>{approvalTitle(action.reason)}</AlertTitle>'
-    )
+    expect(source).not.toContain('<AlertTitle>')
     const descriptionIndex = source.indexOf('<AlertDescription>')
     const actionsIndex = source.indexOf('<ConfirmationActions>')
-    expect(titleIndex).toBeGreaterThan(-1)
-    expect(titleIndex).toBeLessThan(descriptionIndex)
+    expect(descriptionIndex).toBeGreaterThan(-1)
     expect(descriptionIndex).toBeLessThan(actionsIndex)
   })
 
-  it('gives a pending approval its own row below the conversation', () => {
+  it('renders pending approvals within the conversation', () => {
     const source = read('./studio-chat.tsx')
-    expect(source).toContain("aria-label='操作区'")
-    expect(source).toContain("variant='warn'")
-    expect(source).toContain(
-      "<div className='mx-auto flex w-full max-w-3xl flex-col gap-2 px-5 pb-5'>"
+    expect(source).toContain('<StudioConfirmations')
+    expect(source).toContain('<ConfirmationRequest>')
+    expect(source).toContain("<Message key={action.id} from='assistant'")
+    expect(source).not.toContain("variant='warn'")
+    expect(source.indexOf('<StudioConfirmations')).toBeLessThan(
+      source.indexOf('</ConversationContent>')
     )
-    expect(source).not.toContain('flex-1 justify-center')
-    expect(source).toContain(
-      "<div className='mx-auto flex w-full max-w-3xl flex-col px-5 pb-5'>"
-    )
-    expect(source).not.toContain('StudioActionDock')
-    expect(source).not.toContain('<StudioApprovalPrompt')
-    // 操作区是聊天区后面的兄弟节点，排在对话区之后、聊天输入之前
-    expect(source.indexOf('</Conversation>')).toBeLessThan(
-      source.indexOf('<StudioActionArea')
-    )
-    expect(source.indexOf('<StudioActionArea')).toBeLessThan(
-      source.indexOf("data-slot='studio-composer'")
-    )
-    // interrupt 要等恢复运行的流走完才有；这段时间底部这一行由运行状态和会话详情
-    // 带来的待批准项占着，聊天区让出底部空间，聊天输入整体隐藏
-    expect(source).toContain("waitingForDecision ? 'pb-5' : 'pb-44'")
-    expect(source).toContain("waitingForDecision ? 'bottom-5' : 'bottom-48'")
-    expect(source).toContain("waitingForDecision && 'invisible'")
-    expect(source).toContain(
-      "const waitingForDecision =\n    hasPendingAction ||\n    (props.latestRun?.status === 'waiting_approval' && !answered)"
-    )
-    expect(source).toContain(
-      'const preloadedActions = answered ? [] : (props.pendingApprovals ?? [])'
-    )
-    expect(source).toContain('onAnswered={() => setAnswered(true)}')
-    expect(source).toContain('const fromRuntime = actions.length > 0')
-    expect(source).toContain(
-      'const visibleActions = fromRuntime ? actions : preloadedActions'
-    )
-    // 会话详情带来的待处理项在 interrupt 到达前先显示，此时按钮不可提交
+    expect(source).not.toContain('StudioActionArea')
+    expect(source).not.toContain("aria-label='操作区'")
+    expect(source).toContain('disabled={!modelReady || approvalPending}')
+    expect(source).toContain('const fromRuntime = interrupts.length > 0')
+    expect(source).toContain('props.pendingApprovals ?? []')
     expect(source.match(/disabled={!fromRuntime}/g)).toHaveLength(2)
   })
 
@@ -405,18 +386,18 @@ describe('Studio production workspace contract', () => {
   it('lets the composer use both Session assets and reusable library assets', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain('listStudioLibraryAssets')
-    expect(source).toContain('当前 Session')
+    expect(source).toContain('当前会话')
     expect(source).toContain('资产库')
     expect(source).toContain('new Map<string, StudioAsset>')
   })
 
-  it('lets a Session asset choose its library folder before saving', () => {
+  it('lets a Session asset choose its library category before saving', () => {
     const assets = read('./studio-assets.tsx')
     const workspace = read('./studio-workspace.tsx')
 
-    expect(assets).toContain('listStudioLibraryFolders')
+    expect(assets).toContain('listStudioLibraryCategories')
     expect(assets).toContain('SaveAssetToLibraryDialog')
-    expect(assets).toContain('选择资产库文件夹')
+    expect(assets).toContain('选择资产库分类')
     expect(workspace).toContain('saveAsset.mutateAsync')
   })
 

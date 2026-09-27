@@ -2,20 +2,28 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Download,
+  Ellipsis,
+  Eye,
   FilePlus2,
   FileText,
+  Grid2X2,
   ImageIcon,
   Library,
+  List,
+  MessageSquareText,
   Pencil,
+  Rows3,
   Upload,
 } from 'lucide-react'
 import { baseURL } from '@/lib/api/client'
 import {
   getStudioTextAssetContent,
-  listStudioLibraryFolders,
+  listStudioLibraryCategories,
   type StudioAsset,
-  type StudioLibraryFolder,
+  type StudioLibraryCategory,
+  type StudioMessage,
 } from '@/lib/api/studio'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,6 +35,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { IconButtonTooltip } from '@/components/ui/icon-button-tooltip'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -37,18 +54,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { MessageResponse } from '@/components/ai-elements/message'
+import { originLabel } from './studio-asset-origin'
+import styles from './studio-assets.module.css'
+
+type AssetLayout = 'adaptive' | 'single' | 'list'
 
 type Props = {
   assets: StudioAsset[]
+  messages?: StudioMessage[]
+  onLocateMessage?: (messageId: string) => void
   onSaveToLibrary: (input: {
     assetId: string
-    folderId?: string
+    categoryId?: string
   }) => Promise<void>
   onCreateTextAsset?: (input: {
     name: string
@@ -64,6 +84,8 @@ type Props = {
 
 export function StudioAssets({
   assets,
+  messages,
+  onLocateMessage,
   onSaveToLibrary,
   onCreateTextAsset,
   onUpdateTextAsset,
@@ -71,59 +93,129 @@ export function StudioAssets({
   uploading,
 }: Props) {
   const [assetToSave, setAssetToSave] = useState<StudioAsset>()
-  const folders = useQuery({
-    queryKey: ['studio', 'library', 'folders'],
-    queryFn: listStudioLibraryFolders,
+  const [assetToView, setAssetToView] = useState<StudioAsset>()
+  const [layout, setLayout] = useState<AssetLayout>('adaptive')
+  const categories = useQuery({
+    queryKey: ['studio', 'library', 'categories'],
+    queryFn: listStudioLibraryCategories,
   })
-  if (assets.length === 0) {
-    return (
-      <div className='flex h-full flex-col items-center justify-center px-8 text-center'>
-        <span className='mb-4 flex size-11 items-center justify-center rounded-lg bg-muted'>
-          <FileText className='size-5 text-muted-foreground' />
-        </span>
-        <p className='text-sm font-medium'>当前 Session 还没有资产</p>
-        <p className='mt-1 max-w-xs text-xs leading-5 text-muted-foreground'>
-          上传文件、让模型生成内容，或执行工作流后，资产会自动汇总到这里。
-        </p>
-        <AssetActions
-          onCreateTextAsset={onCreateTextAsset}
-          onUploadAsset={onUploadAsset}
-          uploading={uploading}
-          empty
-        />
-      </div>
-    )
-  }
   return (
-    <ScrollArea className='h-full'>
-      <div className='flex items-center justify-between gap-3 px-4 pt-4 pb-1'>
-        <p className='text-xs text-muted-foreground'>{assets.length} 项资产</p>
+    <div className='flex h-full min-h-0 flex-col'>
+      <div
+        data-slot='studio-assets-toolbar'
+        className='flex flex-wrap items-center justify-between gap-3 px-4 py-1'
+      >
         <AssetActions
           onCreateTextAsset={onCreateTextAsset}
           onUploadAsset={onUploadAsset}
           uploading={uploading}
         />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant='outline' size='sm'>
+              {layout === 'adaptive' ? (
+                <Grid2X2 />
+              ) : layout === 'single' ? (
+                <Rows3 />
+              ) : (
+                <List />
+              )}
+              {layout === 'adaptive'
+                ? '网格视图'
+                : layout === 'single'
+                  ? '单列视图'
+                  : '列表视图'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end'>
+            <DropdownMenuRadioGroup
+              value={layout}
+              onValueChange={(value) => setLayout(value as AssetLayout)}
+            >
+              <DropdownMenuRadioItem value='adaptive'>
+                <Grid2X2 />
+                网格视图
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value='list'>
+                <List />
+                列表视图
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value='single'>
+                <Rows3 />
+                单列视图
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-      <div className='grid gap-3 p-4 pt-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'>
-        {assets.map((asset) => (
-          <AssetCard
-            key={asset.id}
-            asset={asset}
-            onSaveToLibrary={() => setAssetToSave(asset)}
-            onUpdateTextAsset={onUpdateTextAsset}
-          />
-        ))}
+      {assets.length === 0 ? (
+        <div className='flex min-h-0 flex-1 flex-col items-center justify-center px-8 text-center'>
+          <span className='mb-4 flex size-11 items-center justify-center rounded-lg bg-muted'>
+            <FileText className='size-5 text-muted-foreground' />
+          </span>
+          <p className='text-sm font-medium'>当前会话还没有资产</p>
+          <p className='mt-1 max-w-xs text-xs leading-5 text-muted-foreground'>
+            上传文件、让模型生成内容，或执行工作流后，资产会自动汇总到这里。
+          </p>
+        </div>
+      ) : (
+        <ScrollArea className='min-h-0 flex-1'>
+          <div
+            className={cn(
+              'grid min-w-0 gap-3 p-4 pt-3',
+              layout === 'adaptive' ? styles.adaptiveGrid : 'grid-cols-1'
+            )}
+          >
+            {assets.map((asset) => {
+              const sourceMessageId =
+                asset.origin !== 'user' && asset.source_run_id
+                  ? messages?.find(
+                      (message) =>
+                        message.role === 'user' &&
+                        message.run_id === asset.source_run_id
+                    )?.id
+                  : undefined
+              return (
+                <AssetCard
+                  key={asset.id}
+                  asset={asset}
+                  preview
+                  layout={layout === 'list' ? 'list' : 'grid'}
+                  onOpenDetails={setAssetToView}
+                  onSaveToLibrary={() => setAssetToSave(asset)}
+                  onUpdateTextAsset={onUpdateTextAsset}
+                  onLocateSource={
+                    sourceMessageId && onLocateMessage
+                      ? () => onLocateMessage(sourceMessageId)
+                      : undefined
+                  }
+                />
+              )
+            })}
+          </div>
+        </ScrollArea>
+      )}
+      <div className='shrink-0 px-4 py-2'>
+        <p className='text-xs text-muted-foreground'>
+          共 {assets.length} 项资产
+        </p>
       </div>
       <SaveAssetToLibraryDialog
         asset={assetToSave}
-        folders={folders.data ?? []}
-        foldersLoading={folders.isLoading}
+        categories={categories.data ?? []}
+        categoriesLoading={categories.isLoading}
         onOpenChange={(open) => {
           if (!open) setAssetToSave(undefined)
         }}
         onSave={onSaveToLibrary}
       />
-    </ScrollArea>
+      <SessionAssetDetailsDialog
+        asset={assetToView}
+        onOpenChange={(open) => {
+          if (!open) setAssetToView(undefined)
+        }}
+      />
+    </div>
   )
 }
 
@@ -131,7 +223,6 @@ function AssetActions({
   onCreateTextAsset,
   onUploadAsset,
   uploading,
-  empty,
 }: {
   onCreateTextAsset?: (input: {
     name: string
@@ -139,17 +230,10 @@ function AssetActions({
   }) => Promise<unknown>
   onUploadAsset?: (file: File) => void
   uploading?: boolean
-  empty?: boolean
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   return (
-    <div
-      className={
-        empty
-          ? 'mt-4 flex flex-wrap justify-center gap-2'
-          : 'flex items-center gap-2'
-      }
-    >
+    <div className='flex items-center gap-2'>
       {onUploadAsset ? (
         <>
           <Button
@@ -220,9 +304,9 @@ function TextAssetDialog({
       </DialogTrigger>
       <DialogContent className='sm:max-w-xl'>
         <DialogHeader>
-          <DialogTitle>新建 Session 文档</DialogTitle>
+          <DialogTitle>新建会话文档</DialogTitle>
           <DialogDescription>
-            文档属于当前 Session，可立即作为下一次对话或工作流的输入。
+            文档属于当前会话，可立即作为下一次对话或工作流的输入。
           </DialogDescription>
         </DialogHeader>
         <div className='space-y-4 py-2'>
@@ -269,13 +353,21 @@ function TextAssetDialog({
 
 export function AssetCard({
   asset,
+  preview = false,
+  lazyText = false,
+  layout = 'grid',
   onSaveToLibrary,
   onOpenDetails,
+  onLocateSource,
   onUpdateTextAsset,
 }: {
   asset: StudioAsset
-  onSaveToLibrary: (assetId: string) => void
+  preview?: boolean
+  lazyText?: boolean
+  layout?: 'grid' | 'list'
+  onSaveToLibrary?: (assetId: string) => void
   onOpenDetails?: (asset: StudioAsset) => void
+  onLocateSource?: () => void
   onUpdateTextAsset?: (input: {
     assetId: string
     content: string
@@ -283,20 +375,43 @@ export function AssetCard({
 }) {
   const version = asset.versions[asset.versions.length - 1]
   const contentURL = version ? `${baseURL()}${version.content_url}` : undefined
+  const [editing, setEditing] = useState(false)
+  const canEdit = asset.kind === 'document' && Boolean(onUpdateTextAsset)
+  const secondaryActionCount =
+    Number(Boolean(contentURL)) +
+    Number(Boolean(onLocateSource)) +
+    Number(canEdit) +
+    Number(Boolean(onSaveToLibrary))
   return (
-    <article className='group overflow-hidden rounded-lg border bg-card'>
-      <div className='flex aspect-[16/10] items-center justify-center overflow-hidden bg-muted/50'>
-        {asset.kind === 'image' && contentURL ? (
-          <img
-            src={contentURL}
-            alt={asset.name}
-            className='size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]'
-          />
-        ) : (
-          <FileText className='size-9 text-muted-foreground' />
+    <article
+      className={cn(
+        'group min-w-0 overflow-hidden rounded-lg border bg-card',
+        styles.card,
+        layout === 'list' && 'flex'
+      )}
+    >
+      <div
+        className={cn(
+          'aspect-[16/10] px-3 pt-3',
+          layout === 'list' && 'aspect-square w-28 shrink-0 p-2'
         )}
+      >
+        <div className='flex size-full items-center justify-center overflow-hidden rounded-md border bg-muted/50'>
+          <AssetPreview
+            asset={asset}
+            preview={preview}
+            lazyText={lazyText}
+            compact={layout === 'list'}
+          />
+        </div>
       </div>
-      <div className='space-y-3 p-3'>
+      <div
+        className={cn(
+          'min-w-0 space-y-3 p-3',
+          layout === 'list' &&
+            'flex flex-1 flex-col justify-between gap-3 space-y-0'
+        )}
+      >
         <div className='flex items-start gap-2'>
           <div className='min-w-0 flex-1'>
             <p className='truncate text-sm font-medium'>{asset.name}</p>
@@ -313,58 +428,347 @@ export function AssetCard({
             {kindLabel(asset.kind)}
           </Badge>
         </div>
-        <div className='flex gap-1'>
+        <div
+          className={cn('flex items-center gap-1', styles.actions)}
+          data-secondary-count={secondaryActionCount}
+        >
           {onOpenDetails ? (
             <Button
               variant='outline'
               size='sm'
-              className='flex-1'
+              className='min-w-0 flex-1'
               onClick={() => onOpenDetails(asset)}
             >
+              <Eye />
               查看
             </Button>
           ) : (
             <Button
               variant='outline'
               size='sm'
-              className='flex-1'
+              className='min-w-0 flex-1'
               asChild
               disabled={!contentURL}
             >
               <a href={contentURL} target='_blank' rel='noreferrer'>
-                <Download />
+                <Eye />
                 查看
               </a>
             </Button>
           )}
-          <Button
-            variant={asset.saved_to_library ? 'secondary' : 'outline'}
-            size='icon-sm'
-            onClick={() => onSaveToLibrary(asset.id)}
-            disabled={asset.saved_to_library}
-            aria-label={asset.saved_to_library ? '已存入资产库' : '存入资产库'}
+          <div
+            className={cn(
+              'flex shrink-0 items-center gap-1',
+              styles.secondaryActions
+            )}
           >
-            <Library />
-          </Button>
-          {asset.kind === 'document' && onUpdateTextAsset ? (
-            <TextAssetEditDialog asset={asset} onSave={onUpdateTextAsset} />
-          ) : null}
+            {contentURL ? (
+              <IconButtonTooltip label='下载资产'>
+                <Button variant='ghost' size='icon-sm' asChild>
+                  <a
+                    href={contentURL}
+                    download={asset.name}
+                    aria-label='下载资产'
+                  >
+                    <Download />
+                  </a>
+                </Button>
+              </IconButtonTooltip>
+            ) : null}
+            {onLocateSource ? (
+              <IconButtonTooltip label='定位生成对话'>
+                <Button
+                  variant='ghost'
+                  size='icon-sm'
+                  onClick={onLocateSource}
+                  aria-label='定位生成对话'
+                >
+                  <MessageSquareText />
+                </Button>
+              </IconButtonTooltip>
+            ) : null}
+            {onSaveToLibrary ? (
+              <IconButtonTooltip
+                label={asset.saved_to_library ? '已存入资产库' : '存入资产库'}
+              >
+                <span className='inline-flex'>
+                  <Button
+                    variant='ghost'
+                    size='icon-sm'
+                    onClick={() => onSaveToLibrary(asset.id)}
+                    disabled={asset.saved_to_library}
+                    aria-label={
+                      asset.saved_to_library ? '已存入资产库' : '存入资产库'
+                    }
+                  >
+                    <Library />
+                  </Button>
+                </span>
+              </IconButtonTooltip>
+            ) : null}
+            {canEdit ? (
+              <IconButtonTooltip label='编辑文档'>
+                <Button
+                  variant='ghost'
+                  size='icon-sm'
+                  onClick={() => setEditing(true)}
+                  aria-label={`编辑文档 ${asset.name}`}
+                >
+                  <Pencil />
+                </Button>
+              </IconButtonTooltip>
+            ) : null}
+          </div>
+          <DropdownMenu>
+            <IconButtonTooltip label='更多操作'>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon-sm'
+                  className={styles.moreActions}
+                  aria-label='更多操作'
+                >
+                  <Ellipsis />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconButtonTooltip>
+            <DropdownMenuContent align='end'>
+              {contentURL ? (
+                <DropdownMenuItem asChild>
+                  <a href={contentURL} download={asset.name}>
+                    <Download />
+                    下载资产
+                  </a>
+                </DropdownMenuItem>
+              ) : null}
+              {onLocateSource ? (
+                <DropdownMenuItem onSelect={onLocateSource}>
+                  <MessageSquareText />
+                  定位生成对话
+                </DropdownMenuItem>
+              ) : null}
+              {onSaveToLibrary ? (
+                <DropdownMenuItem
+                  disabled={asset.saved_to_library}
+                  onSelect={() => onSaveToLibrary(asset.id)}
+                >
+                  <Library />
+                  {asset.saved_to_library ? '已存入资产库' : '存入资产库'}
+                </DropdownMenuItem>
+              ) : null}
+              {canEdit ? (
+                <DropdownMenuItem onSelect={() => setEditing(true)}>
+                  <Pencil />
+                  编辑文档
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+      {canEdit && onUpdateTextAsset ? (
+        <TextAssetEditDialog
+          asset={asset}
+          onSave={onUpdateTextAsset}
+          open={editing}
+          onOpenChange={setEditing}
+        />
+      ) : null}
     </article>
+  )
+}
+
+export function AssetPreview({
+  asset,
+  preview,
+  lazyText = false,
+  compact = false,
+  expanded = false,
+}: {
+  asset: StudioAsset
+  preview: boolean
+  lazyText?: boolean
+  compact?: boolean
+  expanded?: boolean
+}) {
+  const version = asset.versions[asset.versions.length - 1]
+  const contentURL = version ? `${baseURL()}${version.content_url}` : undefined
+  if (version?.mime_type.startsWith('image/') && contentURL) {
+    return (
+      <img
+        src={contentURL}
+        alt={asset.name}
+        className={cn(
+          'size-full transition-transform duration-300',
+          expanded ? 'object-contain' : 'object-cover group-hover:scale-[1.02]'
+        )}
+      />
+    )
+  }
+  if (preview && version?.mime_type.startsWith('video/') && contentURL) {
+    return (
+      <video
+        src={contentURL}
+        controls={!compact}
+        playsInline
+        preload='metadata'
+        aria-label={asset.name}
+        className='size-full object-contain'
+      />
+    )
+  }
+  if (compact) return <FileText className='size-7 text-muted-foreground' />
+  if (preview && version?.mime_type.startsWith('audio/') && contentURL) {
+    return (
+      <audio
+        src={contentURL}
+        controls
+        preload='metadata'
+        aria-label={asset.name}
+        className='w-full px-3'
+      />
+    )
+  }
+  if (preview && version?.mime_type === 'application/pdf' && contentURL) {
+    return (
+      <iframe
+        src={contentURL}
+        title={asset.name}
+        loading='lazy'
+        className='size-full border-0'
+      />
+    )
+  }
+  if (
+    preview &&
+    version &&
+    (version.mime_type.startsWith('text/') ||
+      version.mime_type === 'application/json')
+  ) {
+    return (
+      <TextAssetPreview
+        asset={asset}
+        contentURL={version.content_url}
+        mimeType={version.mime_type}
+        expanded={expanded}
+        lazy={lazyText}
+      />
+    )
+  }
+  return <FileText className='size-9 text-muted-foreground' />
+}
+
+function SessionAssetDetailsDialog({
+  asset,
+  onOpenChange,
+}: {
+  asset?: StudioAsset
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <Dialog open={Boolean(asset)} onOpenChange={onOpenChange}>
+      <DialogContent className='max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-3xl'>
+        {asset ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className='break-all'>{asset.name}</DialogTitle>
+              <DialogDescription>
+                版本 {asset.current_version} · {originLabel(asset.origin)}
+              </DialogDescription>
+            </DialogHeader>
+            <div className='flex h-[60vh] max-h-[40rem] min-h-48 items-center justify-center overflow-hidden rounded-md border bg-background'>
+              <AssetPreview asset={asset} preview expanded />
+            </div>
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function TextAssetPreview({
+  asset,
+  contentURL,
+  mimeType,
+  expanded,
+  lazy,
+}: {
+  asset: StudioAsset
+  contentURL: string
+  mimeType: string
+  expanded: boolean
+  lazy: boolean
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(!lazy || expanded)
+  useEffect(() => {
+    if (!lazy || visible || expanded || !containerRef.current) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setVisible(true)
+      },
+      { rootMargin: '120px' }
+    )
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [expanded, lazy, visible])
+  const text = useQuery({
+    queryKey: ['studio', 'asset', asset.id, contentURL, 'content'],
+    queryFn: () => getStudioTextAssetContent(contentURL),
+    enabled: !lazy || expanded || visible,
+    staleTime: Infinity,
+  })
+
+  if (lazy && !expanded && !visible) {
+    return (
+      <div
+        ref={containerRef}
+        className='flex size-full items-center justify-center'
+      >
+        <FileText className='size-9 text-muted-foreground' />
+      </div>
+    )
+  }
+  if (text.isPending) return <Skeleton className='size-full rounded-none' />
+  if (text.isError) {
+    return (
+      <Button variant='ghost' size='sm' onClick={() => void text.refetch()}>
+        重新读取预览
+      </Button>
+    )
+  }
+  const content: unknown = text.data
+  const value =
+    typeof content === 'string' ? content : JSON.stringify(content, null, 2)
+  if (mimeType.startsWith('text/')) {
+    return (
+      <div className='size-full overflow-y-auto p-3 text-left text-xs leading-5 break-words'>
+        <MessageResponse className='h-auto min-h-full w-full [&_h1]:mt-0 [&_h1]:mb-1 [&_h1]:text-sm [&_h2]:mt-1 [&_h2]:mb-1 [&_h2]:text-xs [&_h3]:text-xs [&_p]:my-1'>
+          {value}
+        </MessageResponse>
+      </div>
+    )
+  }
+  return (
+    <pre className='size-full overflow-y-auto p-3 text-left font-mono text-xs leading-5 break-words whitespace-pre-wrap'>
+      {value}
+    </pre>
   )
 }
 
 function TextAssetEditDialog({
   asset,
   onSave,
+  open,
+  onOpenChange,
 }: {
   asset: StudioAsset
   onSave: (input: { assetId: string; content: string }) => Promise<unknown>
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
   const [content, setContent] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const version = asset.versions[asset.versions.length - 1]
@@ -388,12 +792,20 @@ function TextAssetEditDialog({
     }
   }, [open, version])
 
+  const changeOpen = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setLoading(true)
+      setError('')
+    }
+    onOpenChange(nextOpen)
+  }
+
   const save = async () => {
     setSaving(true)
     setError('')
     try {
       await onSave({ assetId: asset.id, content })
-      setOpen(false)
+      changeOpen(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '保存新版本失败')
     } finally {
@@ -402,32 +814,7 @@ function TextAssetEditDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) {
-          setLoading(true)
-          setError('')
-        }
-        setOpen(nextOpen)
-      }}
-    >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DialogTrigger asChild>
-            <Button
-              variant='outline'
-              size='icon-sm'
-              aria-label={`编辑文档 ${asset.name}`}
-            >
-              <Pencil />
-            </Button>
-          </DialogTrigger>
-        </TooltipTrigger>
-        <TooltipContent side='top' sideOffset={6}>
-          编辑文档
-        </TooltipContent>
-      </Tooltip>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent className='sm:max-w-xl'>
         <DialogHeader>
           <DialogTitle>编辑文档</DialogTitle>
@@ -452,7 +839,7 @@ function TextAssetEditDialog({
           <Button
             variant='outline'
             disabled={saving}
-            onClick={() => setOpen(false)}
+            onClick={() => changeOpen(false)}
           >
             取消
           </Button>
@@ -470,24 +857,24 @@ function TextAssetEditDialog({
 
 function SaveAssetToLibraryDialog({
   asset,
-  folders,
-  foldersLoading,
+  categories,
+  categoriesLoading,
   onOpenChange,
   onSave,
 }: {
   asset?: StudioAsset
-  folders: StudioLibraryFolder[]
-  foldersLoading: boolean
+  categories: StudioLibraryCategory[]
+  categoriesLoading: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (input: { assetId: string; folderId?: string }) => Promise<void>
+  onSave: (input: { assetId: string; categoryId?: string }) => Promise<void>
 }) {
-  const [folderId, setFolderId] = useState('root')
+  const [categoryId, setCategoryId] = useState('root')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleOpenChange = (open: boolean) => {
     if (!open && !saving) {
-      setFolderId('root')
+      setCategoryId('root')
       setError('')
       onOpenChange(false)
     }
@@ -500,9 +887,9 @@ function SaveAssetToLibraryDialog({
     try {
       await onSave({
         assetId: asset.id,
-        folderId: folderId === 'root' ? undefined : folderId,
+        categoryId: categoryId === 'root' ? undefined : categoryId,
       })
-      setFolderId('root')
+      setCategoryId('root')
       onOpenChange(false)
     } catch (cause) {
       setError(
@@ -519,30 +906,29 @@ function SaveAssetToLibraryDialog({
         <DialogHeader>
           <DialogTitle>存入资产库</DialogTitle>
           <DialogDescription>
-            选择资产库文件夹。保存后，这个资产可以在其他 Session
-            中作为输入引用。
+            选择资产库分类。保存后，可在其他会话中使用。
           </DialogDescription>
         </DialogHeader>
         <div className='flex flex-col gap-2 py-2'>
-          <Label htmlFor='studio-asset-library-folder'>资产库文件夹</Label>
+          <Label htmlFor='studio-asset-library-category'>资产库分类</Label>
           <Select
-            value={folderId}
-            onValueChange={setFolderId}
+            value={categoryId}
+            onValueChange={setCategoryId}
             disabled={saving}
           >
-            <SelectTrigger id='studio-asset-library-folder'>
+            <SelectTrigger id='studio-asset-library-category'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value='root'>根目录</SelectItem>
-              {foldersLoading ? (
+              <SelectItem value='root'>未分类</SelectItem>
+              {categoriesLoading ? (
                 <SelectItem value='loading' disabled>
-                  正在读取文件夹…
+                  正在读取分类…
                 </SelectItem>
               ) : null}
-              {folders.map((folder) => (
-                <SelectItem key={folder.id} value={folder.id}>
-                  {folder.name}
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -579,14 +965,4 @@ function kindLabel(kind: StudioAsset['kind']) {
     data: '数据',
     file: '文件',
   }[kind]
-}
-
-function originLabel(origin: StudioAsset['origin']) {
-  return {
-    user: '用户创建',
-    agent: 'Agent 生成',
-    model: '模型生成',
-    workflow: '工作流产出',
-    library: '资产库引用',
-  }[origin]
 }

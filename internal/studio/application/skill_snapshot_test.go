@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,9 +84,7 @@ func TestSnapshotSkillsIncludesNewEnabledSkillsOnNextRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldSkill.Enabled = false
-	oldSkill.UpdatedAt = now.Add(2 * time.Second)
-	if err := repo.UpdateSkill(ctx, oldSkill); err != nil {
+	if err := repo.SetSkillEnabled(ctx, oldSkill.AccountID, oldSkill.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	third, err := service.snapshotSkills(ctx, "account-a")
@@ -102,5 +102,72 @@ func TestSnapshotSkillsIncludesNewEnabledSkillsOnNextRead(t *testing.T) {
 	}
 	if len(selected) != 1 || selected[0].Prompt != "skill-a prompt" {
 		t.Fatalf("selected Skill from prior Run snapshot = %#v", selected)
+	}
+}
+
+func TestSkillSnapshotKeepsPackageFilesAcrossRunPersistence(t *testing.T) {
+	gdb, err := db.Open(db.Options{DSN: "file:skill_package_snapshot_test?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		sqlDB, dbErr := gdb.DB()
+		if dbErr != nil {
+			t.Error(dbErr)
+			return
+		}
+		if closeErr := sqlDB.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	})
+	if err := db.AutoMigrate(gdb, persistence.Models()...); err != nil {
+		t.Fatal(err)
+	}
+	repo := persistence.NewGormRepository(gdb)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 27, 9, 0, 0, 0, time.UTC)
+	skill, err := domain.NewSkill("skill-package", "account-a", "storyboard", "编排镜头", "拼接内容", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	skill.Enabled = true
+	skill.Files = []domain.SkillFile{
+		{Path: "SKILL.md", Content: "---\nname: storyboard\ndescription: 编排镜头\n---\n\n先阅读参考资料。"},
+		{Path: "references/guide.md", Content: "先列镜头景别。"},
+		{Path: "assets/logo.png", Content: "aGVsbG8=", Binary: true},
+	}
+	if err := repo.CreateSkill(ctx, skill); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := (&Service{Repo: repo}).snapshotSkills(ctx, "account-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), "references/guide.md") || !strings.Contains(string(encoded), "assets/logo.png") || strings.Contains(string(encoded), "拼接内容") {
+		t.Fatalf("Skill package files missing from snapshot: %s", encoded)
+	}
+	run, err := domain.NewRun("run-package", "session-package", "account-a", "message-package", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.SkillIDs = []string{skill.ID}
+	run.SkillSnapshot = snapshot
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repo.GetRun(ctx, "account-a", run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := (&AgentExecutor{repo: repo}).selectedSkills(ctx, stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(selected) != 1 || len(selected[0].Files) != 3 || selected[0].Files[1].Content != "先列镜头景别。" {
+		t.Fatalf("selected Skill files = %#v", selected)
 	}
 }

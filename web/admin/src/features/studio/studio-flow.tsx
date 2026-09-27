@@ -1,21 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   addEdge,
-  Background,
-  Controls,
-  Handle,
   MarkerType,
   Panel,
-  Position,
-  ReactFlow,
   useEdgesState,
   useNodesState,
   type Connection,
+  type Edge as ReactFlowEdge,
   type Node,
   type NodeChange,
   type NodeProps,
 } from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
 import { Box, FileOutput, ListChecks, Plus, Workflow } from 'lucide-react'
 import type {
   StudioFlowEdge,
@@ -35,14 +30,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { IconButtonTooltip } from '@/components/ui/icon-button-tooltip'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Canvas } from '@/components/ai-elements/canvas'
+import { Controls } from '@/components/ai-elements/controls'
+import { Edge } from '@/components/ai-elements/edge'
+import {
+  Node as FlowNode,
+  NodeDescription,
+  NodeHeader,
+  NodeTitle,
+} from '@/components/ai-elements/node'
 import { StatusDot } from '@/components/status-dot'
 
 type Props = {
   nodes: StudioFlowNode[]
   edges: StudioFlowEdge[]
+  background?: boolean
   workflowExecutions?: StudioWorkflowExecution[]
   onAssetOpen?: (assetId: string) => void
   onPositionsChange?: (
@@ -81,10 +87,12 @@ type FlowData = {
 type StudioReactNode = Node<FlowData, 'studio'>
 
 const nodeTypes = { studio: StudioNode }
+const edgeTypes = { animated: Edge.Animated }
 
 export function StudioFlow({
   nodes: sourceNodes,
   edges: sourceEdges,
+  background = true,
   workflowExecutions,
   onAssetOpen,
   onPositionsChange,
@@ -131,22 +139,35 @@ export function StudioFlow({
       } satisfies FlowData,
     }))
   }, [sourceNodes, sourceEdges, workflowExecutions, onAssetOpen])
-  const initialEdges = useMemo(
-    () =>
-      sourceEdges.map((edge) => ({
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-        label: edge.label,
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: 'var(--color-border)' },
-        labelStyle: { fill: 'var(--color-muted-foreground)', fontSize: 11 },
-      })),
-    [sourceEdges]
-  )
+  const initialEdges = useMemo(() => {
+    const runningNodes = new Set(
+      workflowExecutions
+        ?.filter(
+          (execution) =>
+            execution.status === 'submitted' &&
+            execution.task_status === 'running'
+        )
+        .map((execution) => execution.operation_node_id) ?? []
+    )
+    return sourceEdges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      label: edge.label,
+      type:
+        !edge.label &&
+        (runningNodes.has(edge.source) || runningNodes.has(edge.target))
+          ? 'animated'
+          : undefined,
+      markerEnd: { type: MarkerType.ArrowClosed },
+      style: { stroke: 'var(--color-border)' },
+      labelStyle: { fill: 'var(--color-muted-foreground)', fontSize: 11 },
+    }))
+  }, [sourceEdges, workflowExecutions])
   const [nodes, setNodes, onNodesChange] =
     useNodesState<StudioReactNode>(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [edges, setEdges, onEdgesChange] =
+    useEdgesState<ReactFlowEdge>(initialEdges)
   const [flowError, setFlowError] = useState('')
   const [savingPositions, setSavingPositions] = useState(false)
   const [connecting, setConnecting] = useState(false)
@@ -227,31 +248,14 @@ export function StudioFlow({
       .finally(() => setConnecting(false))
   }
 
-  if (sourceNodes.length === 0) {
-    return (
-      <div className='flex h-full flex-col items-center justify-center px-8 text-center'>
-        <span className='mb-4 flex size-11 items-center justify-center rounded-lg bg-muted'>
-          <Workflow className='size-5 text-muted-foreground' />
-        </span>
-        <p className='text-sm font-medium'>资产路线还没有节点</p>
-        <p className='mt-1 max-w-xs text-xs leading-5 text-muted-foreground'>
-          和 Agent
-          对话后，计划、操作和产出会按时间顺序出现在这里。你也可以先手动搭好
-          SOP。
-        </p>
-        {onNodeCreate ? (
-          <CreateFlowNodeDialog onCreate={onNodeCreate} nodeCount={0} />
-        ) : null}
-      </div>
-    )
-  }
-
   return (
-    <div className='h-full min-h-0 bg-muted/20'>
-      <ReactFlow
+    <div className={cn('relative h-full min-h-0', background && 'bg-card')}>
+      <Canvas<StudioReactNode, ReactFlowEdge>
+        background={background}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onBeforeDelete={async ({
@@ -280,8 +284,8 @@ export function StudioFlow({
           } catch {
             setFlowError(
               deletingNodes.length
-                ? '节点删除失败，资产路线未全部更新。'
-                : '连线删除失败，资产路线未更新。'
+                ? '节点删除失败，制作流程未全部更新。'
+                : '连线删除失败，制作流程未更新。'
             )
             return false
           } finally {
@@ -306,9 +310,8 @@ export function StudioFlow({
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
       >
-        <Background color='var(--color-border)' gap={20} size={1} />
         {flowError ? (
-          <Panel position='bottom-left'>
+          <Panel position='top-right' style={{ top: 64 }}>
             <Alert
               role='alert'
               variant='destructive'
@@ -318,24 +321,31 @@ export function StudioFlow({
             </Alert>
           </Panel>
         ) : null}
-        <Panel position='top-left'>
-          <div className='flex items-center gap-2 rounded-lg border bg-card p-1.5'>
-            {onNodeCreate ? (
-              <CreateFlowNodeDialog
-                onCreate={onNodeCreate}
-                nodeCount={sourceNodes.length}
-              />
-            ) : null}
-            <span className='hidden px-1 text-xs text-muted-foreground 2xl:inline'>
-              拖动节点、拖出连线；选中后按 Delete 移除
-            </span>
-          </div>
-        </Panel>
+        {onNodeCreate ? (
+          <Panel position='bottom-left'>
+            <CreateFlowNodeDialog
+              onCreate={onNodeCreate}
+              nodeCount={sourceNodes.length}
+            />
+          </Panel>
+        ) : null}
         <Controls
+          position='bottom-right'
           showInteractive={false}
           className='overflow-hidden rounded-lg border bg-popover'
         />
-      </ReactFlow>
+      </Canvas>
+      {sourceNodes.length === 0 ? (
+        <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center'>
+          <span className='mb-4 flex size-11 items-center justify-center rounded-lg bg-muted'>
+            <Workflow className='size-5 text-muted-foreground' />
+          </span>
+          <p className='text-sm font-medium'>还没有制作流程</p>
+          <p className='mt-1 max-w-xs text-xs leading-5 text-muted-foreground'>
+            围绕成品整理计划、操作和产出。流程可作为 SOP 的基础。
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -382,17 +392,23 @@ function CreateFlowNodeDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant='ghost' size='sm' className='rounded-md'>
-          <Plus />
-          新增节点
-        </Button>
-      </DialogTrigger>
+      <IconButtonTooltip label='新增节点'>
+        <DialogTrigger asChild>
+          <Button
+            variant='secondary'
+            size='icon'
+            className='size-11 rounded-full'
+            aria-label='新增节点'
+          >
+            <Plus />
+          </Button>
+        </DialogTrigger>
+      </IconButtonTooltip>
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
-          <DialogTitle>新增 SOP 节点</DialogTitle>
+          <DialogTitle>新增流程节点</DialogTitle>
           <DialogDescription>
-            节点只调整当前 Session 的资产路线，不会改动已有资产或执行记录。
+            节点只调整当前会话的制作流程，不会改动已有资产或运行记录。
           </DialogDescription>
         </DialogHeader>
         <div className='space-y-4 py-2'>
@@ -461,10 +477,16 @@ function CreateFlowNodeDialog({
 
 function StudioNode({ data, selected }: NodeProps) {
   const value = data as FlowData
+  const assetId = value.assetId
   const execution = value.workflowExecution
   const statusLabel = execution
     ? {
-        submitted: '执行中',
+        submitted:
+          execution.task_status === 'pending'
+            ? '待处理'
+            : execution.task_status === 'queued'
+              ? '排队中'
+              : '执行中',
         succeeded: '成功',
         failed: '失败',
         cancelled: '已取消',
@@ -472,10 +494,8 @@ function StudioNode({ data, selected }: NodeProps) {
     : undefined
   const body = execution
     ? {
-        submitted: '工作流在后台运行。',
-        succeeded: value.workflowOutputCount
-          ? '产物已加入资产路线。'
-          : '资产路线暂无产物。',
+        submitted: undefined,
+        succeeded: value.workflowOutputCount ? '已生成产物。' : '暂无产物。',
         failed: execution.error_message || '工作流失败。',
         cancelled: '工作流已取消。',
       }[execution.status]
@@ -489,73 +509,65 @@ function StudioNode({ data, selected }: NodeProps) {
           ? FileOutput
           : Box
   return (
-    <button
-      type='button'
-      onDoubleClick={() =>
-        value.assetId ? value.onAssetOpen?.(value.assetId) : undefined
-      }
-      onKeyDown={(event) => {
-        if (!value.assetId || (event.key !== 'Enter' && event.key !== ' '))
-          return
-        event.preventDefault()
-        event.stopPropagation()
-        value.onAssetOpen?.(value.assetId)
-      }}
+    <FlowNode
+      handles={{ target: true, source: true }}
+      onDoubleClick={assetId ? () => value.onAssetOpen?.(assetId) : undefined}
       className={cn(
-        'w-52 rounded-lg border bg-card p-3 text-left transition-colors',
+        'w-52 transition-colors',
         selected ? 'border-ring ring-3 ring-ring/15' : 'hover:border-ring/60'
       )}
     >
-      <Handle
-        type='target'
-        position={Position.Left}
-        className='!bg-muted-foreground'
-      />
-      <div className='flex items-start gap-2.5'>
-        <span className='flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted'>
-          <Icon className='size-4 text-muted-foreground' />
-        </span>
-        <div className='min-w-0 flex-1'>
-          <div className='mb-1 flex items-center gap-2'>
-            <p className='min-w-0 flex-1 truncate text-sm font-medium'>
-              {value.title}
-            </p>
-            {statusLabel ? (
-              <Badge
-                variant='outline'
-                className='shrink-0 gap-1.5 px-1.5 text-[10px]'
+      <NodeHeader className='gap-2 rounded-b-md border-b-0'>
+        <div className='flex items-center gap-2'>
+          <Icon className='size-4 shrink-0 text-muted-foreground' />
+          <NodeTitle className='min-w-0 flex-1 truncate text-sm'>
+            {assetId ? (
+              <button
+                type='button'
+                className='max-w-full truncate text-left focus-visible:outline-2 focus-visible:outline-ring'
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return
+                  event.preventDefault()
+                  event.stopPropagation()
+                  value.onAssetOpen?.(assetId)
+                }}
               >
-                <StatusDot
-                  label={statusLabel}
-                  state={
-                    execution?.status === 'succeeded'
-                      ? 'ok'
-                      : execution?.status === 'submitted'
-                        ? 'active'
-                        : 'warn'
-                  }
-                />
-                {statusLabel}
-              </Badge>
-            ) : null}
-            {value.kind === 'asset' ? (
-              <Badge variant='secondary' className='px-1.5 text-[10px]'>
-                {value.assetVersion ? `v${value.assetVersion}` : '已固定'}
-              </Badge>
-            ) : null}
-          </div>
-          {body ? (
-            <p className='line-clamp-2 text-xs leading-5 text-muted-foreground'>
-              {body}
-            </p>
+                {value.title}
+              </button>
+            ) : (
+              value.title
+            )}
+          </NodeTitle>
+          {statusLabel ? (
+            <Badge
+              variant='outline'
+              className='shrink-0 gap-1.5 px-1.5 text-[10px]'
+            >
+              <StatusDot
+                label={statusLabel}
+                state={
+                  execution?.status === 'succeeded'
+                    ? 'ok'
+                    : execution?.status === 'submitted'
+                      ? 'active'
+                      : 'warn'
+                }
+              />
+              {statusLabel}
+            </Badge>
+          ) : null}
+          {value.kind === 'asset' ? (
+            <Badge variant='secondary' className='px-1.5 text-[10px]'>
+              {value.assetVersion ? `v${value.assetVersion}` : '已固定'}
+            </Badge>
           ) : null}
         </div>
-      </div>
-      <Handle
-        type='source'
-        position={Position.Right}
-        className='!bg-muted-foreground'
-      />
-    </button>
+        {body ? (
+          <NodeDescription className='line-clamp-2 text-xs leading-5'>
+            {body}
+          </NodeDescription>
+        ) : null}
+      </NodeHeader>
+    </FlowNode>
   )
 }

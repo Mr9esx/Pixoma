@@ -7,7 +7,7 @@ import {
   useParams,
   useRouterState,
 } from '@tanstack/react-router'
-import { ArrowLeft, Boxes, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, Workflow } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listCases } from '@/lib/api/cases'
 import {
@@ -254,7 +254,7 @@ function CasesLayout() {
               <Empty>
                 <EmptyHeader className='max-w-none'>
                   <EmptyMedia variant='icon'>
-                    <Boxes />
+                    <Workflow />
                   </EmptyMedia>
                   <EmptyTitle className='text-sm font-medium'>
                     {t('cases.empty')}

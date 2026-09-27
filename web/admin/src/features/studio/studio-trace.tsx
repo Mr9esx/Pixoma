@@ -11,6 +11,7 @@ import {
 } from '@/lib/api/studio'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { IconButtonTooltip } from '@/components/ui/icon-button-tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { recordPositions, systemPromptFromRequest } from './studio-trace-data'
 
@@ -81,7 +82,8 @@ export function StudioTrace({ sessionId }: { sessionId: string }) {
       const status = query.state.data?.pages[0]?.runs[0]?.run.status
       return status === 'running' ||
         status === 'queued' ||
-        status === 'waiting_approval'
+        status === 'waiting_approval' ||
+        status === 'waiting_clarification'
         ? 5000
         : false
     },
@@ -756,16 +758,18 @@ function TrajectoryOverview({
         }}
       >
         {onLoadEarlier ? (
-          <button
-            className='absolute inset-y-0 left-0 z-20 w-6 bg-gradient-to-r from-background to-transparent text-muted-foreground'
-            aria-label='加载更早的记录'
-            onClick={(event) => {
-              event.stopPropagation()
-              onLoadEarlier()
-            }}
-          >
-            ‹
-          </button>
+          <IconButtonTooltip label='加载更早的记录'>
+            <button
+              className='absolute inset-y-0 left-0 z-20 w-6 bg-gradient-to-r from-background to-transparent text-muted-foreground'
+              aria-label='加载更早的记录'
+              onClick={(event) => {
+                event.stopPropagation()
+                onLoadEarlier()
+              }}
+            >
+              ‹
+            </button>
+          </IconButtonTooltip>
         ) : null}
         {records.length === 0 ? (
           <span className='absolute inset-0 flex items-center justify-center text-muted-foreground'>
@@ -950,14 +954,16 @@ function RecordDetails({
             {record.title}
           </span>
         </div>
-        <Button
-          variant='ghost'
-          size='icon-xs'
-          aria-label='关闭详情'
-          onClick={onClose}
-        >
-          <X />
-        </Button>
+        <IconButtonTooltip label='关闭详情'>
+          <Button
+            variant='ghost'
+            size='icon-xs'
+            aria-label='关闭详情'
+            onClick={onClose}
+          >
+            <X />
+          </Button>
+        </IconButtonTooltip>
       </div>
       <div
         role='tablist'

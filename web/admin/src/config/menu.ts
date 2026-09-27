@@ -1,7 +1,7 @@
 import {
   LayoutDashboard,
   Server,
-  Boxes,
+  Workflow,
   ListTodo,
   Users,
   MessagesSquare,
@@ -45,7 +45,7 @@ const ITEMS: readonly MenuItem[] = [
     path: '/studio',
     icon: WandSparkles,
   },
-  { id: 'cases', titleKey: 'menu.cases', path: '/cases', icon: Boxes },
+  { id: 'cases', titleKey: 'menu.cases', path: '/cases', icon: Workflow },
   { id: 'channels', titleKey: 'menu.channels', path: '/channels', icon: Radio },
   { id: 'topics', titleKey: 'menu.topics', path: '/topics', icon: Waypoints },
   { id: 'edges', titleKey: 'menu.edges', path: '/edges', icon: Server },

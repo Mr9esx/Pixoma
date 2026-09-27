@@ -22,11 +22,13 @@ import (
 // runtime. It intentionally carries only the Case's existing display metadata
 // and input schema; bindings and workflow graph JSON never leave the catalog.
 type ResolvedWorkflow struct {
-	ID          string          `json:"id"`
-	ToolName    string          `json:"tool_name"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	InputSchema json.RawMessage `json:"input_schema"`
+	ID          string                            `json:"id"`
+	ToolName    string                            `json:"tool_name"`
+	Name        string                            `json:"name"`
+	Description string                            `json:"description"`
+	Preview     string                            `json:"preview,omitempty"`
+	InputSchema json.RawMessage                   `json:"input_schema"`
+	InputFields []studiodomain.WorkflowInputField `json:"input_fields"`
 }
 
 // ResolveWorkflows returns Cases that are both globally enabled and explicitly
@@ -71,11 +73,23 @@ func (s *CapabilityConfigService) ResolveWorkflows(ctx context.Context, accountI
 			ToolName:    workflowToolName(id),
 			Name:        workflow.Document.Name,
 			Description: workflow.Document.Description,
+			Preview:     workflow.Document.Preview,
 			InputSchema: append(json.RawMessage(nil), schema...),
+			InputFields: workflowInputFields(workflow.Document.Inputs),
 		})
 	}
 	sort.Slice(workflows, func(i, j int) bool { return workflows[i].ID < workflows[j].ID })
 	return workflows, nil
+}
+
+func workflowInputFields(inputs []catalogdomain.InputField) []studiodomain.WorkflowInputField {
+	fields := make([]studiodomain.WorkflowInputField, 0, len(inputs))
+	for _, input := range inputs {
+		fields = append(fields, studiodomain.WorkflowInputField{
+			Key: input.Key, Type: input.Type, Required: input.Required, Description: input.Description,
+		})
+	}
+	return fields
 }
 
 func workflowToolName(workflowID string) string {
@@ -156,7 +170,7 @@ func (s *WorkflowStarter) Start(ctx context.Context, input WorkflowStartInput) (
 		return nil, err
 	}
 	if err := s.Validator.ValidateInputs(workflow.Document, values); err != nil {
-		return nil, fmt.Errorf("studio: validate workflow inputs: %w", err)
+		return nil, fmt.Errorf("%w: validate workflow inputs: %v", studiodomain.ErrInvalid, err)
 	}
 
 	now := s.now()

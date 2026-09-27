@@ -4,14 +4,41 @@ import '@/styles/index.css'
 import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
-import { StudioActionPanel, StudioChat } from './studio-chat'
+import { StudioChat } from './studio-chat'
 
 vi.mock('@/lib/api/studio', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/studio')>()),
-  listStudioLibraryAssets: vi.fn(() => Promise.resolve([])),
+  listStudioLibraryAssets: vi.fn(() =>
+    Promise.resolve({ assets: [], total: 0 })
+  ),
 }))
 
 describe('StudioChat', () => {
+  it('shows a workflow input card and hides the message input', async () => {
+    const screen = await renderStudioChat({
+      latestRun: {
+        created_at: '2026-09-26T10:00:00Z', id: 'run-1', session_id: 'session-1',
+        status: 'waiting_clarification', trigger_message_id: 'user-1',
+      },
+      pendingClarifications: [{
+        id: 'workflow-input-1', reason: 'workflow_input', message: '角色三视图',
+        metadata: {
+          messageId: 'run-1:clarification:workflow-input-1',
+          workflow: {
+            id: '12', name: '角色三视图', input_schema: {
+              type: 'object', properties: { prompt: { type: 'string', title: '角色描述' } }, required: ['prompt'],
+            },
+            input_fields: [{ key: 'prompt', type: 'string', required: true }],
+          },
+        },
+      }],
+    })
+
+    await expect.element(screen.getByTestId('studio-workflow-card')).toBeVisible()
+    expect(document.querySelector<HTMLElement>("[data-slot='studio-composer']")?.className).toContain('hidden')
+    await expect.element(screen.getByRole('textbox', { name: '角色描述 *' })).toBeDisabled()
+  })
+
   it('sends a typed user message with the selected run configuration and renders the streamed reply', async () => {
     const requests: Array<Record<string, unknown>> = []
     class StudioSocket {
@@ -418,7 +445,7 @@ describe('StudioChat', () => {
     pasteTarget.remove()
   })
 
-  it('keeps the composer hidden while the run waits for a decision', async () => {
+  it('shows a pending confirmation in the conversation', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchInterval: false } },
     })
@@ -462,10 +489,12 @@ describe('StudioChat', () => {
     const composer = document.querySelector(
       "[data-slot='studio-composer']"
     ) as HTMLElement
-    expect(composer.className).toContain('invisible')
+    expect(composer.className).not.toContain('invisible')
+    expect(screen.getByRole('log').element().contains(screen.getByRole('alert').element())).toBe(true)
+    await expect.element(screen.getByRole('button', { name: /^批准$/ })).toBeDisabled()
   })
 
-  it('keeps the composer hidden while the run waits and no pending approval has arrived', async () => {
+  it('keeps the composer visible while a pending confirmation loads', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchInterval: false } },
     })
@@ -501,8 +530,8 @@ describe('StudioChat', () => {
     const composer = document.querySelector(
       "[data-slot='studio-composer']"
     ) as HTMLElement
-    expect(composer.className).toContain('invisible')
-    expect(document.querySelector('[aria-label="操作区"]')).toBeNull()
+    expect(composer.className).not.toContain('invisible')
+    expect(document.querySelector('[role="alert"]')).toBeNull()
   })
 
   it('floats the composer over the conversation and reserves room for it', async () => {
@@ -580,231 +609,6 @@ describe('StudioChat', () => {
     expect(getComputedStyle(group).borderTopLeftRadius).toBe('8px')
   })
 
-  it('takes the bottom row for a pending approval without covering the chat', async () => {
-    const responded: Array<[string, boolean]> = []
-    const screen = await render(
-      <div
-        data-testid='chat'
-        className='relative flex h-96 min-h-0 w-full flex-col'
-      >
-        <div
-          data-testid='conversation'
-          className='min-h-0 flex-1 overflow-y-auto bg-background'
-        >
-          <div className='mx-auto flex w-full max-w-3xl flex-col px-5'>
-            <div data-testid='message' className='h-8 rounded-md bg-muted' />
-          </div>
-        </div>
-        <StudioActionPanel
-          actions={[
-            {
-              id: 'interrupt-1',
-              reason: 'tool_approval',
-              message: '需要写入 Session 资产',
-            },
-          ]}
-          onRespond={(id, approved) => responded.push([id, approved])}
-        />
-      </div>
-    )
-
-    const chat = document.querySelector('[data-testid="chat"]') as HTMLElement
-    const conversation = document.querySelector(
-      '[data-testid="conversation"]'
-    ) as HTMLElement
-    const message = document.querySelector(
-      '[data-testid="message"]'
-    ) as HTMLElement
-    const panel = document.querySelector('[aria-label="操作区"]') as HTMLElement
-    const alert = screen.getByRole('alert').element()
-    const chatBox = chat.getBoundingClientRect()
-    const conversationBox = conversation.getBoundingClientRect()
-    const messageBox = message.getBoundingClientRect()
-    const panelBox = panel.getBoundingClientRect()
-    const alertBox = alert.getBoundingClientRect()
-
-    // 操作区占底部一行，聊天区让出同样高度，两边不会重叠
-    expect(panelBox.top).toBe(conversationBox.bottom)
-    expect(panelBox.bottom).toBe(chatBox.bottom)
-    expect(alertBox.top).toBe(panelBox.top)
-    // 提示卡与聊天消息在同一列，宽度相同
-    expect(alertBox.left).toBe(messageBox.left)
-    expect(alertBox.right).toBe(messageBox.right)
-
-    const title = alert.querySelector(
-      '[data-slot="alert-title"]'
-    ) as HTMLElement
-    const description = alert.querySelector(
-      '[data-slot="alert-description"]'
-    ) as HTMLElement
-    const approve = screen.getByRole('button', { name: /^批准$/ }).element()
-    const actions = approve.parentElement as HTMLElement
-    const titleBox = title.getBoundingClientRect()
-    const descriptionBox = description.getBoundingClientRect()
-    const actionsBox = actions.getBoundingClientRect()
-    const approveBox = approve.getBoundingClientRect()
-    const alertStyle = getComputedStyle(alert)
-    const rowGap = parseFloat(alertStyle.rowGap)
-    const verticalPadding =
-      parseFloat(alertStyle.paddingTop) + parseFloat(alertStyle.paddingBottom)
-    const verticalBorder =
-      parseFloat(alertStyle.borderTopWidth) +
-      parseFloat(alertStyle.borderBottomWidth)
-
-    expect(title.textContent).toBe('权限审批')
-    expect(description.textContent).toBe('需要写入 Session 资产')
-    // 三行依次是标题、内容、按钮
-    expect(titleBox.bottom).toBeLessThanOrEqual(descriptionBox.top)
-    expect(descriptionBox.bottom).toBeLessThanOrEqual(actionsBox.top)
-    // 提示卡高度就是三行内容加行距、内边距和边框，没有被别的容器撑开
-    expect(alertBox.height).toBeCloseTo(
-      titleBox.height +
-        descriptionBox.height +
-        actionsBox.height +
-        rowGap * 2 +
-        verticalPadding +
-        verticalBorder,
-      0
-    )
-    // 按钮行靠右，右侧内边距 16px 加上 1px 边框
-    expect(alertBox.right - approveBox.right).toBe(17)
-    expect(descriptionBox.left - alertBox.left).toBe(17)
-
-    await expect
-      .element(screen.getByRole('button', { name: /^批准$/ }))
-      .toBeVisible()
-    await screen.getByRole('button', { name: /^批准$/ }).click()
-    await screen.getByRole('button', { name: /^拒绝$/ }).click()
-    expect(responded).toEqual([
-      ['interrupt-1', true],
-      ['interrupt-1', false],
-    ])
-  })
-
-  it('leaves the bottom row to the chat when no action is waiting', async () => {
-    await render(
-      <div
-        data-testid='chat'
-        className='relative flex h-96 min-h-0 w-full flex-col'
-      >
-        <div data-testid='conversation' className='min-h-0 flex-1' />
-        <StudioActionPanel actions={[]} onRespond={() => {}} />
-      </div>
-    )
-
-    const chat = document.querySelector('[data-testid="chat"]') as HTMLElement
-    const conversation = document.querySelector(
-      '[data-testid="conversation"]'
-    ) as HTMLElement
-    expect(document.querySelector('[aria-label="操作区"]')).toBeNull()
-    expect(conversation.getBoundingClientRect().height).toBe(
-      chat.getBoundingClientRect().height
-    )
-  })
-
-  it('shows the pending action that came with the session before interrupts arrive', async () => {
-    const screen = await render(
-      <StudioActionPanel
-        actions={[]}
-        preloadedActions={[
-          {
-            id: 'approval-1',
-            reason: 'tool_approval',
-            message: '创建资产「大纲.md」',
-          },
-        ]}
-        onRespond={() => {}}
-      />
-    )
-
-    await expect.element(screen.getByRole('alert')).toBeVisible()
-    expect(screen.getByRole('alert').element().textContent).toContain(
-      '创建资产「大纲.md」'
-    )
-    // 运行恢复的流还没把 interrupt 送到，此时提交响应不会被 runtime 接受
-    await expect
-      .element(screen.getByRole('button', { name: /^批准$/ }))
-      .toBeDisabled()
-    await expect
-      .element(screen.getByRole('button', { name: /^拒绝$/ }))
-      .toBeDisabled()
-  })
-
-  it('keeps the run interrupts as the source once they arrive', async () => {
-    const responded: [string, boolean][] = []
-    const screen = await render(
-      <StudioActionPanel
-        actions={[
-          {
-            id: 'interrupt-1',
-            reason: 'tool_approval',
-            message: '需要写入 Session 资产',
-          },
-        ]}
-        preloadedActions={[
-          {
-            id: 'approval-1',
-            reason: 'tool_approval',
-            message: '创建资产「大纲.md」',
-          },
-        ]}
-        onRespond={(id, approved) => {
-          responded.push([id, approved])
-        }}
-      />
-    )
-
-    const alerts = document.querySelectorAll('[role="alert"]')
-    expect(alerts).toHaveLength(1)
-    expect(alerts[0].textContent).toContain('需要写入 Session 资产')
-    await expect
-      .element(screen.getByRole('button', { name: /^批准$/ }))
-      .toBeEnabled()
-    await screen.getByRole('button', { name: /^批准$/ }).click()
-    expect(responded).toEqual([['interrupt-1', true]])
-  })
-
-  it('keeps a long pending action above its buttons and pushes the chat up', async () => {
-    const screen = await render(
-      <div
-        data-testid='chat'
-        className='relative flex h-96 min-h-0 w-full flex-col'
-      >
-        <div data-testid='conversation' className='min-h-0 flex-1' />
-        <StudioActionPanel
-          actions={[
-            {
-              id: 'interrupt-long',
-              reason: 'tool_approval',
-              message:
-                '把本轮生成的分镜脚本写入资产库，并同步更新故事板里的镜头顺序、角色出场安排与场景标记，覆盖原有的旧版本记录',
-            },
-          ]}
-          onRespond={() => {}}
-        />
-      </div>
-    )
-
-    const conversation = document.querySelector(
-      '[data-testid="conversation"]'
-    ) as HTMLElement
-    const panel = document.querySelector('[aria-label="操作区"]') as HTMLElement
-    const alert = screen.getByRole('alert').element()
-    const description = alert.querySelector(
-      '[data-slot="alert-description"]'
-    ) as HTMLElement
-    const approve = screen.getByRole('button', { name: /^批准$/ }).element()
-    const descriptionBox = description.getBoundingClientRect()
-    const approveBox = approve.getBoundingClientRect()
-    // 内容换行把提示卡撑高，聊天区跟着让出高度
-    expect(panel.getBoundingClientRect().top).toBe(
-      conversation.getBoundingClientRect().bottom
-    )
-    expect(descriptionBox.bottom).toBeLessThanOrEqual(approveBox.top)
-    expect(descriptionBox.height).toBeGreaterThan(30)
-    expect(alert.getBoundingClientRect().right - approveBox.right).toBe(17)
-  })
-
   it('groups the model switcher with the send button and keeps Skills and assets as icon buttons', async () => {
     const onModelChange = vi.fn()
     const screen = await renderStudioChat({
@@ -838,7 +642,7 @@ describe('StudioChat', () => {
     expect(footer.lastElementChild).toBe(rightGroup)
 
     const skillButton = screen
-      .getByRole('button', { name: '选择 Skills' })
+      .getByRole('button', { name: '选择技能' })
       .element()
     const assetButton = screen
       .getByRole('button', { name: '选择资产' })
@@ -858,16 +662,129 @@ describe('StudioChat', () => {
       expect(getComputedStyle(button).fontWeight).toBe('400')
     }
 
-    await screen.getByRole('button', { name: '选择 Skills' }).hover()
+    await screen.getByRole('button', { name: '选择技能' }).hover()
     await expect
       .element(screen.getByRole('tooltip'))
-      .toHaveTextContent('Skills')
+      .toHaveTextContent('技能')
 
     await screen.getByRole('button', { name: 'Pixoma Chat' }).click()
     await expect.element(screen.getByRole('menu')).toBeVisible()
     expect(screen.getByRole('dialog').query()).toBeNull()
     await screen.getByRole('menuitemradio', { name: 'Pixoma Pro' }).click()
     expect(onModelChange).toHaveBeenCalledWith('model-2')
+  })
+
+  it('shows turn navigation with a preview for each user question', async () => {
+    const screen = await renderStudioChat({
+      transcript: {
+        events: [],
+        messages: [
+          { id: 'user-1', role: 'user', content: '整理项目需求' },
+          { id: 'assistant-1', role: 'assistant', content: '需求已经整理。' },
+          { id: 'user-2', role: 'user', content: '列出开发任务' },
+          { id: 'assistant-2', role: 'assistant', content: '开发任务已经列出。' },
+        ],
+      },
+    })
+
+    const chat = document.querySelector<HTMLElement>('.studio-chat-root')!
+    chat.style.width = '1200px'
+    chat.style.height = '700px'
+    const scroll = chat.querySelector<HTMLElement>('.studio-scrollbar')!
+    expect(getComputedStyle(scroll).scrollbarWidth).toBe('none')
+    expect(getComputedStyle(scroll).scrollbarGutter).toBe('auto')
+    const navigation = screen.getByRole('navigation', { name: '轮次导航' })
+    const navigationSlot = navigation.element().parentElement!
+    const firstTurn = navigation.getByRole('button', { name: '跳转到第 1 轮' })
+    await expect.element(firstTurn).toBeVisible()
+    await expect.element(navigation.getByRole('button', { name: '跳转到第 2 轮' })).toBeVisible()
+    expect(getComputedStyle(firstTurn.element(), '::before').width).toBe('10px')
+
+    await firstTurn.hover()
+    await expect.element(screen.getByRole('tooltip')).toHaveTextContent('整理项目需求')
+    await expect.element(screen.getByRole('tooltip')).toHaveTextContent('需求已经整理。')
+    expect(firstTurn.element().getBoundingClientRect().right - 10 - screen.getByRole('tooltip').element().getBoundingClientRect().right).toBe(8)
+
+    const activeTurn = navigation.getByRole('button', { name: '跳转到第 2 轮' })
+    await activeTurn.hover()
+    const preview = screen.getByRole('tooltip')
+    await expect.element(preview).toHaveTextContent('列出开发任务')
+    expect(activeTurn.element().getBoundingClientRect().right - 10 - preview.element().getBoundingClientRect().right).toBe(8)
+
+    chat.style.width = '920px'
+    await expect.poll(() => getComputedStyle(navigationSlot).display).toBe('none')
+    expect(getComputedStyle(scroll).scrollbarWidth).toBe('thin')
+
+    chat.style.width = '921px'
+    await expect.element(firstTurn).toBeVisible()
+    expect(getComputedStyle(scroll).scrollbarWidth).toBe('none')
+  })
+
+  it('shows turn navigation after the first user question', async () => {
+    const screen = await renderStudioChat({
+      transcript: {
+        events: [],
+        messages: [
+          { id: 'user-1', role: 'user', content: '整理项目需求' },
+          { id: 'assistant-1', role: 'assistant', content: '需求已经整理。' },
+        ],
+      },
+    })
+
+    const chat = document.querySelector<HTMLElement>('.studio-chat-root')!
+    chat.style.width = '1200px'
+    chat.style.height = '700px'
+    const navigation = screen.getByRole('navigation', { name: '轮次导航' })
+    await expect.element(navigation.getByRole('button', { name: '跳转到第 1 轮' })).toBeVisible()
+  })
+
+  it('jumps from the latest reply to the selected turn', async () => {
+    const screen = await renderStudioChat({
+      transcript: {
+        events: [],
+        messages: [
+          { id: 'user-1', role: 'user', content: '整理项目需求' },
+          { id: 'assistant-1', role: 'assistant', content: '需求已经整理。' },
+          { id: 'user-2', role: 'user', content: '列出开发任务' },
+          { id: 'assistant-2', role: 'assistant', content: '开发任务已经列出。' },
+        ],
+      },
+    })
+    const chat = document.querySelector<HTMLElement>('.studio-chat-root')!
+    chat.style.width = '1200px'
+    chat.style.height = '320px'
+    const scroll = chat.querySelector<HTMLElement>('.studio-scrollbar')!
+    const firstTurn = screen.getByRole('navigation', { name: '轮次导航' })
+      .getByRole('button', { name: '跳转到第 1 轮' })
+
+    await expect.poll(() => scroll.scrollTop).toBeGreaterThan(0)
+    const previousTop = scroll.scrollTop
+    await firstTurn.click()
+
+    await expect.poll(() => scroll.scrollTop).toBeLessThan(previousTop)
+    await expect.element(firstTurn).toHaveAttribute('aria-current', 'true')
+  })
+
+  it('scrolls a long turn rail independently from the conversation', async () => {
+    const messages = Array.from({ length: 100 }, (_, index) => [
+      { id: `user-${index}`, role: 'user' as const, content: `第 ${index + 1} 个问题` },
+      { id: `assistant-${index}`, role: 'assistant' as const, content: `第 ${index + 1} 个回答` },
+    ]).flat()
+    const screen = await renderStudioChat({ transcript: { events: [], messages } })
+    const chat = document.querySelector<HTMLElement>('.studio-chat-root')!
+    chat.style.width = '1200px'
+    chat.style.height = '700px'
+    const navigation = screen.getByRole('navigation', { name: '轮次导航' })
+    const rail = navigation.element().querySelector<HTMLElement>('[data-slot="studio-turn-rail-scroll"]')!
+    const conversation = chat.querySelector<HTMLElement>('.studio-scrollbar')!
+
+    await expect.poll(() => rail.scrollHeight > rail.clientHeight).toBe(true)
+    expect(navigation.element().querySelectorAll('button').length).toBeLessThan(100)
+    const conversationTop = conversation.scrollTop
+    rail.scrollTop = 80
+
+    await expect.poll(() => rail.scrollTop).toBe(80)
+    expect(conversation.scrollTop).toBe(conversationTop)
   })
 })
 

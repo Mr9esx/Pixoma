@@ -75,6 +75,7 @@ import (
 	identitydomain "github.com/Mr9esx/Pixoma/internal/users/domain"
 	userpersist "github.com/Mr9esx/Pixoma/internal/users/infrastructure/persistence"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 )
 
@@ -228,6 +229,12 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		return err
 	}
 	defer func() { _ = cleanup() }()
+	if err := studiopersist.MigrateLibraryCategories(ctx, gdb); err != nil {
+		return err
+	}
+	if err := studiopersist.MigrateSkillVersions(ctx, gdb); err != nil {
+		return err
+	}
 
 	runCtx, runCancel := context.WithCancel(ctx)
 	defer runCancel()
@@ -337,6 +344,9 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	orch.Now = func() time.Time { return time.Now().UTC() }
 	orch.Cases = caseDocReader{repo: caseRepo}
 	orch.Condition = conditionReg
+	if os.Getenv("PIXOMA_MOCK_VIDEO_WORKFLOW") == "1" {
+		orch.VideoBlob = blobStore
+	}
 	if err := scheduling.SubscribeTaskCreated(runCtx, bus, orch); err != nil {
 		return err
 	}
@@ -388,7 +398,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	studioExecutor := studioapp.NewAgentExecutor(studioapp.AgentExecutorOptions{
 		Repo: studioRepo, Blob: blobStore, Engine: &studioapp.DispatchEngine{
 			Online: &studioeino.Engine{
-				Models: studioModelService, Capabilities: studioCapabilityService,
+				Models: studioModelService, Capabilities: studioCapabilityService, SkillCreator: studioCapabilityService,
 				Workflows: studioCapabilityService, WorkflowStarter: studioWorkflowStarter, Blob: blobStore,
 				Checkpoints: studioRepo.Checkpoints(),
 			},
@@ -404,6 +414,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	}
 	studioService := &studioapp.Service{Repo: studioRepo, Queue: studioRunner}
 	studioApprovalService := &studioapp.ApprovalService{Repo: studioRepo, Queue: studioRunner, Checkpoints: studioRepo.Checkpoints()}
+	studioClarificationService := &studioapp.ClarificationService{Repo: studioRepo, Queue: studioRunner, Checkpoints: studioRepo.Checkpoints()}
 	menuRepo := mencardpersist.NewGormCardRepository(gdb)
 	caseDeleteSvc := caseapp.NewService(gdb, botRT.Notify)
 	adminH := adminhost.NewHandler(adminhost.Options{
@@ -421,8 +432,8 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Cancel: orch, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
 		Studio: &studioapi.Handler{
-			Repo: studioRepo, Service: studioService, Runner: studioRunner,
-			Approvals: studioApprovalService, Models: studioModelService, Capabilities: studioCapabilityService, Blob: blobStore, Events: studioEvents,
+			Repo: studioRepo, Tasks: taskRepo, Service: studioService, Runner: studioRunner,
+			Approvals: studioApprovalService, Clarifications: studioClarificationService, Models: studioModelService, Capabilities: studioCapabilityService, Blob: blobStore, Events: studioEvents,
 		},
 		Channels: &channelsapi.Handler{
 			Svc: chSvc,
@@ -473,6 +484,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	}
 
 	r := chi.NewRouter()
+	r.Use(middleware.RequestID, adminhost.AccessLog, middleware.Recoverer)
 	r.Use(adminhost.SecurityHeaders)
 	r.Use(adminhost.RequestBodyLimit(requestBodyLimit(cfg)))
 	r.Use(adminhost.CORS(corsOrigins()))

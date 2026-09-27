@@ -116,6 +116,25 @@ type ApprovalRow struct {
 
 func (ApprovalRow) TableName() string { return "studio_approvals" }
 
+type ClarificationRow struct {
+	ID           string `gorm:"primaryKey;size:64"`
+	RunID        string `gorm:"size:64;not null;index"`
+	SessionID    string `gorm:"size:64;not null;index"`
+	AccountID    string `gorm:"size:64;not null;index"`
+	Question     string `gorm:"type:text;not null"`
+	OptionsJSON  []byte `gorm:"type:blob;not null"`
+	WorkflowJSON []byte `gorm:"type:blob"`
+	Status       string `gorm:"size:32;not null;index"`
+	Selected     string `gorm:"size:32"`
+	Answer       string `gorm:"type:text"`
+	ResolvedBy   string `gorm:"size:64"`
+	CreatedAt    time.Time
+	ResolvedAt   time.Time
+	UpdatedAt    time.Time
+}
+
+func (ClarificationRow) TableName() string { return "studio_clarifications" }
+
 type WorkflowExecutionRow struct {
 	ID              string    `gorm:"primaryKey;size:64"`
 	AccountID       string    `gorm:"size:64;not null;index"`
@@ -164,7 +183,7 @@ type AssetVersionRow struct {
 
 func (AssetVersionRow) TableName() string { return "studio_asset_versions" }
 
-type LibraryFolderRow struct {
+type LibraryCategoryRow struct {
 	ID        string `gorm:"primaryKey;size:64"`
 	AccountID string `gorm:"size:64;not null;index"`
 	ParentID  string `gorm:"size:64;index"`
@@ -173,16 +192,16 @@ type LibraryFolderRow struct {
 	UpdatedAt time.Time
 }
 
-func (LibraryFolderRow) TableName() string { return "studio_library_folders" }
+func (LibraryCategoryRow) TableName() string { return "studio_library_categories" }
 
 type LibraryAssetRow struct {
 	ID             uint64 `gorm:"primaryKey;autoIncrement"`
-	AccountID      string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index"`
-	AssetID        string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index"`
+	AccountID      string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index;index:idx_studio_library_page,priority:1;index:idx_studio_library_category_page,priority:1"`
+	AssetID        string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index;index:idx_studio_library_page,priority:3;index:idx_studio_library_category_page,priority:4"`
 	AssetVersionID string `gorm:"size:64;not null"`
-	FolderID       string `gorm:"size:64;index"`
+	CategoryID     string `gorm:"size:64;index;index:idx_studio_library_category_page,priority:2"`
 	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	UpdatedAt      time.Time `gorm:"index:idx_studio_library_page,priority:2;index:idx_studio_library_category_page,priority:3"`
 }
 
 func (LibraryAssetRow) TableName() string { return "studio_library_assets" }
@@ -222,11 +241,11 @@ func (FlowEdgeRow) TableName() string { return "studio_flow_edges" }
 
 func Models() []any {
 	return []any{
-		&SessionRow{}, &MessageRow{}, &RunRow{}, &RunProgressRow{}, &CheckpointRow{}, &EventRow{}, &ApprovalRow{},
+		&SessionRow{}, &MessageRow{}, &RunRow{}, &RunProgressRow{}, &CheckpointRow{}, &EventRow{}, &ApprovalRow{}, &ClarificationRow{},
 		&WorkflowExecutionRow{},
-		&AssetRow{}, &AssetVersionRow{}, &LibraryFolderRow{}, &LibraryAssetRow{},
+		&AssetRow{}, &AssetVersionRow{}, &LibraryCategoryRow{}, &LibraryAssetRow{},
 		&FlowNodeRow{}, &FlowEdgeRow{}, &ModelConfigRow{},
-		&SkillRow{}, &MCPConnectorRow{}, &AgentWorkflowSettingRow{},
+		&SkillRow{}, &SkillVersionRow{}, &MCPConnectorRow{}, &AgentWorkflowSettingRow{},
 	}
 }
 
@@ -279,6 +298,63 @@ func (r *GormRepository) ListSessions(ctx context.Context, accountID string, que
 		out = append(out, sessionFromRow(row))
 	}
 	return out, nil
+}
+
+func (r *GormRepository) ClearSessions(ctx context.Context, accountID string) error {
+	if strings.TrimSpace(accountID) == "" {
+		return fmt.Errorf("%w: account is required", domain.ErrInvalid)
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&SessionRow{}).Where("account_id = ?", accountID).
+			UpdateColumn("updated_at", gorm.Expr("updated_at")).Error; err != nil {
+			return err
+		}
+		runIDs := tx.Model(&RunRow{}).Select("id").Where("account_id = ?", accountID)
+		privateAssetIDs := tx.Model(&AssetRow{}).Select("id").Where(
+			"account_id = ? AND session_id <> '' AND id NOT IN (SELECT asset_id FROM studio_library_assets WHERE account_id = ?)", accountID, accountID,
+		)
+		if err := tx.Where("run_id IN (?)", runIDs).Delete(&CheckpointRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&RunProgressRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&EventRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&ApprovalRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&ClarificationRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&WorkflowExecutionRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&FlowEdgeRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&FlowNodeRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ? AND asset_id IN (?)", accountID, privateAssetIDs).Delete(&AssetVersionRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ? AND id IN (?)", accountID, privateAssetIDs).Delete(&AssetRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&AssetRow{}).Where("account_id = ? AND session_id <> ''", accountID).
+			Updates(map[string]any{"session_id": "", "source_run_id": ""}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&MessageRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&RunRow{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("account_id = ?", accountID).Delete(&SessionRow{}).Error
+	})
 }
 
 func (r *GormRepository) AppendMessage(ctx context.Context, message *domain.Message) error {
@@ -401,7 +477,7 @@ func (r *GormRepository) CreateRunTurn(ctx context.Context, message *domain.Mess
 			return err
 		}
 		err = tx.Where("account_id = ? AND session_id = ? AND status IN ?", run.AccountID, run.SessionID,
-			[]string{string(domain.RunQueued), string(domain.RunRunning), string(domain.RunWaitingApproval)}).
+			[]string{string(domain.RunQueued), string(domain.RunRunning), string(domain.RunWaitingApproval), string(domain.RunWaitingClarification)}).
 			First(&existing).Error
 		if err == nil {
 			return fmt.Errorf("%w: session has active run %s", domain.ErrInvalidTransition, existing.ID)
@@ -720,6 +796,64 @@ func (r *GormRepository) ListApprovals(ctx context.Context, accountID, runID str
 	return out, nil
 }
 
+func (r *GormRepository) CreateClarification(ctx context.Context, clarification *domain.Clarification) error {
+	if clarification == nil {
+		return fmt.Errorf("%w: nil clarification", domain.ErrInvalid)
+	}
+	row, err := clarificationToRow(clarification)
+	if err != nil {
+		return err
+	}
+	return translateCreateError(r.db.WithContext(ctx).Create(row).Error)
+}
+
+func (r *GormRepository) UpdateClarification(ctx context.Context, clarification *domain.Clarification) error {
+	if clarification == nil {
+		return fmt.Errorf("%w: nil clarification", domain.ErrInvalid)
+	}
+	row, err := clarificationToRow(clarification)
+	if err != nil {
+		return err
+	}
+	result := r.db.WithContext(ctx).Model(&ClarificationRow{}).
+		Where("id = ? AND account_id = ? AND status = ?", clarification.ID, clarification.AccountID, string(domain.ClarificationPending)).
+		Updates(map[string]any{
+			"status": row.Status, "selected": row.Selected, "answer": row.Answer,
+			"workflow_json": row.WorkflowJSON,
+			"resolved_by":   row.ResolvedBy, "resolved_at": row.ResolvedAt, "updated_at": row.UpdatedAt,
+		})
+	return resultError(result)
+}
+
+func (r *GormRepository) GetClarification(ctx context.Context, accountID, clarificationID string) (*domain.Clarification, error) {
+	var row ClarificationRow
+	err := r.db.WithContext(ctx).Where("account_id = ? AND id = ?", accountID, clarificationID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return clarificationFromRow(row)
+}
+
+func (r *GormRepository) ListClarifications(ctx context.Context, accountID, runID string) ([]*domain.Clarification, error) {
+	var rows []ClarificationRow
+	if err := r.db.WithContext(ctx).Where("account_id = ? AND run_id = ?", accountID, runID).
+		Order("created_at ASC, id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Clarification, 0, len(rows))
+	for _, row := range rows {
+		clarification, err := clarificationFromRow(row)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, clarification)
+	}
+	return out, nil
+}
+
 func (r *GormRepository) CreateWorkflowExecution(ctx context.Context, execution *domain.WorkflowExecution) error {
 	if execution == nil {
 		return fmt.Errorf("%w: nil workflow execution", domain.ErrInvalid)
@@ -851,9 +985,9 @@ func (r *GormRepository) ListSessionAssets(ctx context.Context, accountID, sessi
 	return r.assetsFromRows(ctx, rows)
 }
 
-func (r *GormRepository) SaveAssetToLibrary(ctx context.Context, accountID, assetID, folderID string, savedAt time.Time) error {
+func (r *GormRepository) SaveAssetToLibrary(ctx context.Context, accountID, assetID, categoryID string, savedAt time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := validateLibraryFolder(tx, accountID, folderID); err != nil {
+		if err := validateLibraryCategory(tx, accountID, categoryID); err != nil {
 			return err
 		}
 		var asset AssetRow
@@ -874,21 +1008,21 @@ func (r *GormRepository) SaveAssetToLibrary(ctx context.Context, accountID, asse
 			Update("library_saved_at", savedAt.UTC())); err != nil {
 			return err
 		}
-		row := &LibraryAssetRow{AccountID: accountID, AssetID: assetID, AssetVersionID: version.ID, FolderID: folderID, CreatedAt: savedAt.UTC(), UpdatedAt: savedAt.UTC()}
+		row := &LibraryAssetRow{AccountID: accountID, AssetID: assetID, AssetVersionID: version.ID, CategoryID: categoryID, CreatedAt: savedAt.UTC(), UpdatedAt: savedAt.UTC()}
 		return tx.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "account_id"}, {Name: "asset_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"asset_version_id", "folder_id", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"asset_version_id", "category_id", "updated_at"}),
 		}).Create(row).Error
 	})
 }
 
-func (r *GormRepository) MoveLibraryAsset(ctx context.Context, accountID, assetID, folderID string, movedAt time.Time) error {
+func (r *GormRepository) MoveLibraryAsset(ctx context.Context, accountID, assetID, categoryID string, movedAt time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := validateLibraryFolder(tx, accountID, folderID); err != nil {
+		if err := validateLibraryCategory(tx, accountID, categoryID); err != nil {
 			return err
 		}
 		result := tx.Model(&LibraryAssetRow{}).Where("account_id = ? AND asset_id = ?", accountID, assetID).
-			Updates(map[string]any{"folder_id": folderID, "updated_at": movedAt.UTC()})
+			Updates(map[string]any{"category_id": categoryID, "updated_at": movedAt.UTC()})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -899,12 +1033,12 @@ func (r *GormRepository) MoveLibraryAsset(ctx context.Context, accountID, assetI
 	})
 }
 
-func validateLibraryFolder(tx *gorm.DB, accountID, folderID string) error {
-	if folderID == "" {
+func validateLibraryCategory(tx *gorm.DB, accountID, categoryID string) error {
+	if categoryID == "" {
 		return nil
 	}
-	var folder LibraryFolderRow
-	if err := tx.Where("account_id = ? AND id = ?", accountID, folderID).First(&folder).Error; err != nil {
+	var category LibraryCategoryRow
+	if err := tx.Where("account_id = ? AND id = ?", accountID, categoryID).First(&category).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return domain.ErrNotFound
 		}
@@ -913,27 +1047,38 @@ func validateLibraryFolder(tx *gorm.DB, accountID, folderID string) error {
 	return nil
 }
 
-func (r *GormRepository) ListLibraryAssets(ctx context.Context, accountID, folderID string, limit int) ([]*domain.Asset, error) {
-	referenceQuery := r.db.WithContext(ctx).Where("account_id = ?", accountID)
-	if folderID != "" {
-		referenceQuery = referenceQuery.Where("folder_id = ?", folderID)
+func (r *GormRepository) ListLibraryAssets(ctx context.Context, accountID string, query domain.LibraryAssetListQuery) (*domain.LibraryAssetPage, error) {
+	limit := normalizeLimit(query.Limit)
+	referenceQuery := r.db.WithContext(ctx).Table("studio_library_assets AS l").
+		Joins("JOIN studio_assets AS a ON a.id = l.asset_id AND a.account_id = l.account_id").
+		Where("l.account_id = ?", accountID)
+	if query.CategoryID != "" {
+		referenceQuery = referenceQuery.Where("l.category_id = ?", query.CategoryID)
+	}
+	if search := strings.TrimSpace(query.Search); search != "" {
+		pattern := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(strings.ToLower(search)) + "%"
+		referenceQuery = referenceQuery.Where("(LOWER(a.name) LIKE ? ESCAPE '\\' OR LOWER(a.kind) LIKE ? ESCAPE '\\' OR LOWER(a.origin) LIKE ? ESCAPE '\\')", pattern, pattern, pattern)
+	}
+	page := &domain.LibraryAssetPage{Assets: []*domain.Asset{}}
+	if err := referenceQuery.Count(&page.Total).Error; err != nil {
+		return nil, err
 	}
 	var references []LibraryAssetRow
-	if err := referenceQuery.Order("updated_at DESC, asset_id DESC").Limit(normalizeLimit(limit)).Find(&references).Error; err != nil {
+	if err := referenceQuery.Select("l.*").Order("l.updated_at DESC, l.asset_id DESC").Limit(limit).Offset(query.Offset).Find(&references).Error; err != nil {
 		return nil, err
 	}
 	if len(references) == 0 {
-		return []*domain.Asset{}, nil
+		return page, nil
 	}
 	assetIDs := make([]string, 0, len(references))
 	for _, reference := range references {
 		assetIDs = append(assetIDs, reference.AssetID)
 	}
-	query := r.db.WithContext(ctx).Table("studio_assets AS a").
+	assetQuery := r.db.WithContext(ctx).Table("studio_assets AS a").
 		Select("a.*").
 		Where("a.account_id = ? AND a.id IN ?", accountID, assetIDs)
 	var rows []AssetRow
-	if err := query.Scan(&rows).Error; err != nil {
+	if err := assetQuery.Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	assets, err := r.assetsFromRows(ctx, rows)
@@ -955,7 +1100,8 @@ func (r *GormRepository) ListLibraryAssets(ctx context.Context, accountID, folde
 		}
 		ordered = append(ordered, asset)
 	}
-	return ordered, nil
+	page.Assets = ordered
+	return page, nil
 }
 
 func keepLibraryVersion(asset *domain.Asset, versionID string) error {
@@ -978,24 +1124,24 @@ func keepLibraryVersion(asset *domain.Asset, versionID string) error {
 	return fmt.Errorf("%w: library asset references a missing version", domain.ErrInvalid)
 }
 
-func (r *GormRepository) CreateLibraryFolder(ctx context.Context, folder *domain.LibraryFolder) error {
-	if folder == nil {
-		return fmt.Errorf("%w: nil library folder", domain.ErrInvalid)
+func (r *GormRepository) CreateLibraryCategory(ctx context.Context, category *domain.LibraryCategory) error {
+	if category == nil {
+		return fmt.Errorf("%w: nil library category", domain.ErrInvalid)
 	}
-	return translateCreateError(r.db.WithContext(ctx).Create(&LibraryFolderRow{
-		ID: folder.ID, AccountID: folder.AccountID, ParentID: folder.ParentID, Name: folder.Name,
-		CreatedAt: folder.CreatedAt, UpdatedAt: folder.UpdatedAt,
+	return translateCreateError(r.db.WithContext(ctx).Create(&LibraryCategoryRow{
+		ID: category.ID, AccountID: category.AccountID, ParentID: category.ParentID, Name: category.Name,
+		CreatedAt: category.CreatedAt, UpdatedAt: category.UpdatedAt,
 	}).Error)
 }
 
-func (r *GormRepository) ListLibraryFolders(ctx context.Context, accountID string) ([]*domain.LibraryFolder, error) {
-	var rows []LibraryFolderRow
+func (r *GormRepository) ListLibraryCategories(ctx context.Context, accountID string) ([]*domain.LibraryCategory, error) {
+	var rows []LibraryCategoryRow
 	if err := r.db.WithContext(ctx).Where("account_id = ?", accountID).Order("name ASC, id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	out := make([]*domain.LibraryFolder, 0, len(rows))
+	out := make([]*domain.LibraryCategory, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, &domain.LibraryFolder{ID: row.ID, AccountID: row.AccountID, ParentID: row.ParentID, Name: row.Name, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
+		out = append(out, &domain.LibraryCategory{ID: row.ID, AccountID: row.AccountID, ParentID: row.ParentID, Name: row.Name, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
 	}
 	return out, nil
 }
@@ -1090,12 +1236,25 @@ func (r *GormRepository) loadVersions(ctx context.Context, asset *domain.Asset) 
 
 func (r *GormRepository) assetsFromRows(ctx context.Context, rows []AssetRow) ([]*domain.Asset, error) {
 	out := make([]*domain.Asset, 0, len(rows))
+	if len(rows) == 0 {
+		return out, nil
+	}
+	assetIDs := make([]string, 0, len(rows))
 	for _, row := range rows {
-		asset := assetFromRow(row)
-		if err := r.loadVersions(ctx, asset); err != nil {
-			return nil, err
-		}
-		out = append(out, asset)
+		assetIDs = append(assetIDs, row.ID)
+		out = append(out, assetFromRow(row))
+	}
+	var versions []AssetVersionRow
+	if err := r.db.WithContext(ctx).Where("asset_id IN ?", assetIDs).
+		Order("asset_id ASC, version ASC").Find(&versions).Error; err != nil {
+		return nil, err
+	}
+	assetsByID := make(map[string]*domain.Asset, len(out))
+	for _, asset := range out {
+		assetsByID[asset.ID] = asset
+	}
+	for _, version := range versions {
+		assetsByID[version.AssetID].Versions = append(assetsByID[version.AssetID].Versions, assetVersionFromRow(version))
 	}
 	return out, nil
 }
@@ -1217,6 +1376,45 @@ func approvalToRow(value *domain.Approval) *ApprovalRow {
 
 func approvalFromRow(row ApprovalRow) *domain.Approval {
 	return &domain.Approval{ID: row.ID, RunID: row.RunID, SessionID: row.SessionID, AccountID: row.AccountID, ToolCallID: row.ToolCallID, Action: row.Action, Description: row.Description, Status: domain.ApprovalStatus(row.Status), ResolvedBy: row.ResolvedBy, CreatedAt: row.CreatedAt, ResolvedAt: row.ResolvedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func clarificationToRow(value *domain.Clarification) (*ClarificationRow, error) {
+	options, err := json.Marshal(value.Options)
+	if err != nil {
+		return nil, err
+	}
+	var workflow []byte
+	if value.Workflow != nil {
+		workflow, err = json.Marshal(value.Workflow)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &ClarificationRow{
+		ID: value.ID, RunID: value.RunID, SessionID: value.SessionID, AccountID: value.AccountID,
+		Question: value.Question, OptionsJSON: options, WorkflowJSON: workflow, Status: string(value.Status),
+		Selected: value.Selected, Answer: value.Answer, ResolvedBy: value.ResolvedBy,
+		CreatedAt: value.CreatedAt, ResolvedAt: value.ResolvedAt, UpdatedAt: value.UpdatedAt,
+	}, nil
+}
+
+func clarificationFromRow(row ClarificationRow) (*domain.Clarification, error) {
+	var options []string
+	if err := json.Unmarshal(row.OptionsJSON, &options); err != nil {
+		return nil, fmt.Errorf("studio: decode clarification options: %w", err)
+	}
+	var workflow *domain.WorkflowRequest
+	if len(row.WorkflowJSON) > 0 {
+		if err := json.Unmarshal(row.WorkflowJSON, &workflow); err != nil {
+			return nil, fmt.Errorf("studio: decode workflow request: %w", err)
+		}
+	}
+	return &domain.Clarification{
+		ID: row.ID, RunID: row.RunID, SessionID: row.SessionID, AccountID: row.AccountID,
+		Question: row.Question, Options: options, Workflow: workflow, Status: domain.ClarificationStatus(row.Status),
+		Selected: row.Selected, Answer: row.Answer, ResolvedBy: row.ResolvedBy,
+		CreatedAt: row.CreatedAt, ResolvedAt: row.ResolvedAt, UpdatedAt: row.UpdatedAt,
+	}, nil
 }
 
 func workflowExecutionToRow(value *domain.WorkflowExecution) *WorkflowExecutionRow {

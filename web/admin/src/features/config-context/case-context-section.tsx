@@ -20,9 +20,11 @@ import type { CaseContextData } from './use-case-references'
 export function CaseContextSection({
   record,
   data,
+  readOnly = false,
 }: {
   record: CaseRecord
   data: Pick<CaseContextData, 'topics' | 'attributes' | 'edges' | 'presence'>
+  readOnly?: boolean
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -55,57 +57,61 @@ export function CaseContextSection({
         presence={presence}
         onChange={setRouting}
         headerActions={
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            className='h-7 gap-1.5 px-2.5 text-xs'
-            onClick={() => setEditOpen(true)}
-            data-edit-routing
-          >
-            <PenLine className='size-3.5' />
-            {t('configContext.editFlow')}
-          </Button>
-        }
-      />
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[54rem]'>
-          <DialogHeader className='border-b px-5 py-4'>
-            <DialogTitle>{t('configContext.editFlow')}</DialogTitle>
-          </DialogHeader>
-          <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
-            <TaskFlowTable
-              routing={routing}
-              topics={topics}
-              attributes={attributes}
-              edges={edges}
-              presence={presence}
-              onChange={setRouting}
-              showHeader={false}
-            />
-          </div>
-          <div className='flex items-center justify-end gap-2 border-t px-5 py-3'>
+          readOnly ? undefined : (
             <Button
               type='button'
               variant='outline'
-              className='h-8 gap-1.5 px-3 text-xs'
-              onClick={() => setEditOpen(false)}
+              size='sm'
+              className='h-7 gap-1.5 px-2.5 text-xs'
+              onClick={() => setEditOpen(true)}
+              data-edit-routing
             >
-              {t('common.cancel')}
+              <PenLine className='size-3.5' />
+              {t('configContext.editFlow')}
             </Button>
-            <Button
-              type='button'
-              className='h-8 gap-1.5 px-3 text-xs'
-              disabled={save.isPending}
-              onClick={() => save.mutate()}
-              data-case-routing-save
-            >
-              {t('configContext.saveRouting')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          )
+        }
+      />
+
+      {!readOnly ? (
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className='flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[54rem]'>
+            <DialogHeader className='border-b px-5 py-4'>
+              <DialogTitle>{t('configContext.editFlow')}</DialogTitle>
+            </DialogHeader>
+            <div className='min-h-0 flex-1 overflow-auto px-5 py-4'>
+              <TaskFlowTable
+                routing={routing}
+                topics={topics}
+                attributes={attributes}
+                edges={edges}
+                presence={presence}
+                onChange={setRouting}
+                showHeader={false}
+              />
+            </div>
+            <div className='flex items-center justify-end gap-2 border-t px-5 py-3'>
+              <Button
+                type='button'
+                variant='outline'
+                className='h-8 gap-1.5 px-3 text-xs'
+                onClick={() => setEditOpen(false)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type='button'
+                className='h-8 gap-1.5 px-3 text-xs'
+                disabled={save.isPending}
+                onClick={() => save.mutate()}
+                data-case-routing-save
+              >
+                {t('configContext.saveRouting')}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </>
   )
 }

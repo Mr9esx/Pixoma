@@ -4,15 +4,20 @@ import { WorkflowGraphPreview } from './workflow-graph-preview'
 type Props = {
   record: CaseRecord
   onSaved?: (next: CaseRecord) => void
+  readOnly?: boolean
 }
 
-export function WorkflowConfigView({ record, onSaved }: Props) {
+export function WorkflowConfigView({ record, onSaved, readOnly }: Props) {
   return (
     <div
       className='flex min-w-0 flex-col gap-3'
       data-testid='case-workflow-config-view'
     >
-      <WorkflowGraphPreview record={record} onSaved={onSaved} />
+      <WorkflowGraphPreview
+        record={record}
+        onSaved={onSaved}
+        readOnly={readOnly}
+      />
     </div>
   )
 }

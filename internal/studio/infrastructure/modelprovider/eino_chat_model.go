@@ -16,10 +16,11 @@ import (
 // BaseChatModel contract. The agent layer remains provider-neutral while model
 // credentials stay encrypted and resolved only in the server process.
 type EinoChatModel struct {
-	client       *OpenAICompatibleClient
-	config       domain.ResolvedModelConfig
-	tools        []ToolDefinition
-	traceFactory func() TraceSink
+	client                  *OpenAICompatibleClient
+	config                  domain.ResolvedModelConfig
+	tools                   []ToolDefinition
+	traceFactory            func() TraceSink
+	restoredAnthropicOutput [][]json.RawMessage
 }
 
 const responsesOutputExtraKey = "pixoma.responses_output"
@@ -40,6 +41,15 @@ func NewEinoChatModelWithTrace(client *OpenAICompatibleClient, config domain.Res
 	return &EinoChatModel{client: client, config: config, traceFactory: traceFactory}
 }
 
+func (m *EinoChatModel) WithRestoredAnthropicOutput(clarifications []*domain.Clarification) *EinoChatModel {
+	for _, clarification := range clarifications {
+		if clarification != nil && clarification.Workflow != nil && len(clarification.Workflow.AnthropicOutput) > 0 {
+			m.restoredAnthropicOutput = append(m.restoredAnthropicOutput, clarification.Workflow.AnthropicOutput)
+		}
+	}
+	return m
+}
+
 func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.Message, error) {
 	options := model.GetCommonOptions(nil, opts...)
 	if options.Tools != nil {
@@ -52,6 +62,26 @@ func (m *EinoChatModel) Generate(ctx context.Context, input []*schema.Message, o
 	messages, err := chatMessagesFromSchema(input)
 	if err != nil {
 		return nil, err
+	}
+	for index := range messages {
+		if len(messages[index].AnthropicOutput) > 0 || len(messages[index].ToolCalls) == 0 {
+			continue
+		}
+		for _, output := range m.restoredAnthropicOutput {
+			for _, block := range output {
+				var toolUse struct {
+					Type string `json:"type"`
+					ID   string `json:"id"`
+				}
+				if err := json.Unmarshal(block, &toolUse); err != nil {
+					return nil, err
+				}
+				if toolUse.Type == "tool_use" && toolUse.ID == messages[index].ToolCalls[0].ID {
+					messages[index].AnthropicOutput = output
+					break
+				}
+			}
+		}
 	}
 	result, err := m.client.Chat(ctx, ChatRequest{Config: m.config, Messages: messages, Tools: m.tools, Trace: m.nextTraceSink()})
 	if err != nil {

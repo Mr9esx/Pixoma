@@ -439,7 +439,10 @@ describe('Studio API', () => {
       name: '分镜',
       description: '',
       prompt: '输出镜头表',
+      version: '1.0.1',
       enabled: false,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-02T00:00:00Z',
     })
     await updateStudioConnector({
       id: 'connector-1',
@@ -449,6 +452,10 @@ describe('Studio API', () => {
       policy: 'forbidden',
     })
 
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toMatchObject({
+      version: '1.0.1',
+      updated_at: '2026-01-02T00:00:00Z',
+    })
     expect(fetchMock.mock.calls[0][0]).toBe(
       'http://127.0.0.1:8081/api/v1/studio/skills/skill-1'
     )

@@ -1,0 +1,51 @@
+.adaptiveGrid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+}
+
+.card {
+  container: asset-card / inline-size;
+}
+
+.moreActions {
+  display: none;
+}
+
+@container asset-card (max-width: 8.5rem) {
+  .actions[data-secondary-count='1'] .secondaryActions {
+    display: none;
+  }
+
+  .actions[data-secondary-count='1'] .moreActions {
+    display: inline-flex;
+  }
+}
+
+@container asset-card (max-width: 10.5rem) {
+  .actions[data-secondary-count='2'] .secondaryActions {
+    display: none;
+  }
+
+  .actions[data-secondary-count='2'] .moreActions {
+    display: inline-flex;
+  }
+}
+
+@container asset-card (max-width: 12.75rem) {
+  .actions[data-secondary-count='3'] .secondaryActions {
+    display: none;
+  }
+
+  .actions[data-secondary-count='3'] .moreActions {
+    display: inline-flex;
+  }
+}
+
+@container asset-card (max-width: 15rem) {
+  .actions[data-secondary-count='4'] .secondaryActions {
+    display: none;
+  }
+
+  .actions[data-secondary-count='4'] .moreActions {
+    display: inline-flex;
+  }
+}

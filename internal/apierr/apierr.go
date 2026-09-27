@@ -247,6 +247,8 @@ var (
 	ErrTopicDeleteDefaultProtected = &Error{Code: 4090913, Message: "默认话题不能删除。只能删除自建话题。", I18nKey: "apiError.4090913"}
 	// ErrStudioAlreadyExists — HTTP 409
 	ErrStudioAlreadyExists = &Error{Code: 4091203, Message: "内容已存在。修改名称，或者先删除原有的。", I18nKey: "apiError.4091203"}
+	// ErrStudioContentConflict — HTTP 409
+	ErrStudioContentConflict = &Error{Code: 4091204, Message: "内容已更新。刷新后检查修改，再重新保存。", I18nKey: "apiError.4091204"}
 	// ErrAgentStatusConflict — HTTP 409
 	ErrAgentStatusConflict = &Error{Code: 4091503, Message: "上报任务状态失败。刷新后重试。", I18nKey: "apiError.4091503"}
 	// ErrAgentStatusTaskNotFound — HTTP 409
@@ -438,6 +440,7 @@ var (
 
 	// ErrStudioModelConnectionTest — HTTP 502
 	ErrStudioModelConnectionTest = &Error{Code: 5021219, Message: "模型测试失败。检查接口地址、API Key 和工具调用支持后重试。", I18nKey: "apiError.5021219"}
+	ErrStudioConnectorProbe      = &Error{Code: 5021220, Message: "发现工具失败。检查服务地址和访问凭据后重试。", I18nKey: "apiError.5021220"}
 
 	// ErrChannelSaveUnavailable — HTTP 503
 	ErrChannelSaveUnavailable = &Error{Code: 5030815, Message: "模板存储未配置。检查 `channels` 配置后重启 `pixoma`。", I18nKey: "apiError.5030815"}
@@ -558,6 +561,7 @@ var registry = map[int]*Error{
 	4090912: ErrTopicUpdateDefaultProtected,
 	4090913: ErrTopicDeleteDefaultProtected,
 	4091203: ErrStudioAlreadyExists,
+	4091204: ErrStudioContentConflict,
 	4091503: ErrAgentStatusConflict,
 	4091513: ErrAgentStatusTaskNotFound,
 	4091514: ErrAgentStatusStaleHolder,
@@ -651,6 +655,7 @@ var registry = map[int]*Error{
 	5001517: ErrAgentHeartbeatFailed,
 	5001518: ErrAgentClaimFailed,
 	5021219: ErrStudioModelConnectionTest,
+	5021220: ErrStudioConnectorProbe,
 	5030815: ErrChannelSaveUnavailable,
 	5031216: ErrStudioCreateModelUnavailable,
 	5031217: ErrStudioListSkillsUnavailable,

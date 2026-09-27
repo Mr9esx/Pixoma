@@ -135,7 +135,7 @@ func TestStudioAGUIStreamClosesTheMessageBeforeTheInterrupt(t *testing.T) {
 		t.Fatalf("中断列表 = %#v", outcome)
 	}
 	first, _ := interrupts[0].(map[string]any)
-	if first["message"] != "创建资产「大纲.md」" {
+	if first["message"] != "该工具要创建资产「大纲.md」。是否批准？" {
 		t.Fatalf("中断文案 = %#v", first["message"])
 	}
 }

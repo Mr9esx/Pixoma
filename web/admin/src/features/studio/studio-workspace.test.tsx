@@ -409,11 +409,11 @@ describe('StudioWorkspace', () => {
       const workbench = screen.getByRole('dialog', { name: '创作工作台' })
       await expect.element(workbench).toBeVisible()
       await expect
-        .element(workbench.getByRole('tab', { name: '资产路线' }))
+        .element(workbench.getByRole('tab', { name: '制作流程' }))
         .toBeVisible()
-      await workbench.getByRole('tab', { name: /Session 资产/ }).click()
+      await workbench.getByRole('tab', { name: '会话资产' }).click()
       await expect
-        .element(workbench.getByRole('tab', { name: /Session 资产/ }))
+        .element(workbench.getByRole('tab', { name: '会话资产' }))
         .toHaveAttribute('aria-selected', 'true')
     } finally {
       await page.viewport(originalViewport.width, originalViewport.height)

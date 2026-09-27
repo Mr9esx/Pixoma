@@ -6,7 +6,7 @@ import { StudioAssets } from './studio-assets'
 
 vi.mock('@/lib/api/studio', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/studio')>()),
-  listStudioLibraryFolders: vi.fn(async () => []),
+  listStudioLibraryCategories: vi.fn(async () => []),
 }))
 
 describe('StudioAssets', () => {

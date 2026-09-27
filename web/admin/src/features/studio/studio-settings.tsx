@@ -1,19 +1,21 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Bot,
   BrainCircuit,
   Cable,
-  CircleAlert,
   Plus,
   Sparkles,
+  Upload,
   Workflow,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ApiError } from '@/lib/api/client'
 import {
+  clearStudioSessions,
   createStudioModel,
   createStudioConnector,
-  createStudioSkill,
+  discoverStudioConnector,
+  inspectStudioSkillZip,
   listStudioConnectors,
   listStudioAgentWorkflows,
   listStudioModels,
@@ -23,14 +25,16 @@ import {
   testStudioModelConnection,
   type StudioConnectorPolicy,
   type StudioMCPConnector,
+  type StudioMCPTool,
   type StudioAgentWorkflow,
   type StudioModel,
   type StudioModelConfigInput,
   type StudioSkill,
+  type StudioSkillSummary,
   updateStudioAgentWorkflow,
   updateStudioConnector,
   updateStudioModel,
-  updateStudioSkill,
+  updateStudioSkillEnabled,
 } from '@/lib/api/studio'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -49,6 +53,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -60,55 +65,81 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
+import { LongText } from '@/components/long-text'
 import { StatusDot } from '@/components/status-dot'
+import { CaseDetailPanel } from '@/features/cases/detail-panel'
+import { SkillWorkspaceDialog } from './skill-workspace-dialog'
+import { connectorStatus } from './studio-connector-status'
 
-export type SettingSection = 'models' | 'skills' | 'mcp' | 'workflows'
+export type SettingSection = 'models' | 'skills' | 'mcp' | 'workflows' | 'data'
 
 const settingSections: Array<{
   id: SettingSection
   label: string
   description: string
-  icon: typeof BrainCircuit
 }> = [
   {
     id: 'models',
     label: '模型',
-    description: '连接与思考配置',
-    icon: BrainCircuit,
+    description: '配置模型连接、能力与调用限额',
   },
   {
     id: 'skills',
-    label: 'Skills',
-    description: '可选的专业知识',
-    icon: Sparkles,
+    label: '技能',
+    description: '管理 Agent 可使用的技能',
   },
   {
     id: 'mcp',
     label: 'MCP 连接器',
-    description: '外部工具与服务',
-    icon: Cable,
+    description: '配置外部工具连接和调用策略',
   },
   {
     id: 'workflows',
     label: '工作流',
-    description: 'Agent 可调用范围',
-    icon: Workflow,
+    description: '设置 Agent 可调用的工作流',
+  },
+  {
+    id: 'data',
+    label: '数据管理',
+    description: '管理对话记录',
   },
 ]
 
 export function StudioSettings({
   section,
   onSectionChange,
+  onSessionsCleared,
 }: {
   section: SettingSection
   onSectionChange: (section: SettingSection) => void
+  onSessionsCleared?: () => void
 }) {
+  const queryClient = useQueryClient()
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
+  const [confirmation, setConfirmation] = useState('')
+  const clearSessions = useMutation({
+    mutationFn: clearStudioSessions,
+    onSuccess: async () => {
+      await queryClient.cancelQueries({ queryKey: ['studio', 'sessions'] })
+      await queryClient.cancelQueries({ queryKey: ['studio', 'session'] })
+      queryClient.removeQueries({ queryKey: ['studio', 'session'] })
+      queryClient.setQueryData(['studio', 'sessions'], [])
+      await queryClient.invalidateQueries({ queryKey: ['studio', 'library'] })
+      onSessionsCleared?.()
+      setClearDialogOpen(false)
+      setConfirmation('')
+      toast.success('已清空所有对话')
+    },
+  })
   const [modelDialogOpen, setModelDialogOpen] = useState(false)
   const [editingModel, setEditingModel] = useState<StudioModel>()
   const [skillDialogOpen, setSkillDialogOpen] = useState(false)
-  const [editingSkill, setEditingSkill] = useState<StudioSkill>()
+  const [editingSkill, setEditingSkill] = useState<StudioSkillSummary>()
+  const [importedSkill, setImportedSkill] =
+    useState<Pick<StudioSkill, 'name' | 'description' | 'files'>>()
+  const skillZipInputRef = useRef<HTMLInputElement>(null)
   const [connectorDialogOpen, setConnectorDialogOpen] = useState(false)
+  const [editingConnector, setEditingConnector] = useState<StudioMCPConnector>()
   const models = useQuery({
     queryKey: ['studio', 'models'],
     queryFn: listStudioModels,
@@ -120,6 +151,17 @@ export function StudioSettings({
   const connectors = useQuery({
     queryKey: ['studio', 'connectors'],
     queryFn: listStudioConnectors,
+  })
+  const savedConnectorProbe = useMutation({
+    mutationFn: probeStudioConnector,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] }),
+    onError: (cause) => {
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] })
+      toast.error('发现工具失败', {
+        description: connectorErrorMessage(cause),
+      })
+    },
   })
   const workflows = useQuery({
     queryKey: ['studio', 'workflows'],
@@ -136,6 +178,27 @@ export function StudioSettings({
       toast.error(message)
     },
   })
+  const importSkill = useMutation({
+    mutationFn: inspectStudioSkillZip,
+    onSuccess: (result) => {
+      if (skillDialogOpen) {
+        toast.error('请先关闭当前技能编辑器')
+        return
+      }
+      setEditingSkill(undefined)
+      setImportedSkill(result)
+      setSkillDialogOpen(true)
+    },
+    onError: (cause) => {
+      toast.error(
+        cause instanceof ApiError
+          ? (cause.detail ?? cause.message)
+          : cause instanceof Error
+            ? cause.message
+            : '导入技能失败'
+      )
+    },
+  })
   const activeSection = settingSections.find((item) => item.id === section)!
 
   return (
@@ -145,7 +208,7 @@ export function StudioSettings({
           <div className='min-w-0'>
             <h1 className='text-sm font-semibold'>AI 设置</h1>
             <p className='text-xs text-muted-foreground'>
-              配置 Agent 可以使用的模型与能力
+              管理 Agent 能力与对话数据
             </p>
           </div>
         </header>
@@ -155,7 +218,6 @@ export function StudioSettings({
             aria-label='AI 设置分类'
           >
             {settingSections.map((item) => {
-              const Icon = item.icon
               const active = section === item.id
               return (
                 <Button
@@ -165,22 +227,17 @@ export function StudioSettings({
                   onClick={() => onSectionChange(item.id)}
                   className='min-h-10 shrink-0'
                 >
-                  <Icon data-icon='inline-start' />
                   {item.label}
                 </Button>
               )
             })}
           </div>
           <nav
-            className='hidden w-60 shrink-0 border-e bg-muted/20 p-3 md:block'
+            className='hidden w-44 shrink-0 border-e bg-muted/20 p-3 md:block'
             aria-label='AI 设置分类'
           >
-            <p className='px-3 pb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase'>
-              配置项
-            </p>
             <div className='flex flex-col gap-1'>
               {settingSections.map((item) => {
-                const Icon = item.icon
                 const active = section === item.id
                 return (
                   <Button
@@ -188,75 +245,100 @@ export function StudioSettings({
                     variant={active ? 'secondary' : 'ghost'}
                     size='default'
                     onClick={() => onSectionChange(item.id)}
-                    className='h-auto w-full justify-start px-3 py-2.5 text-left'
+                    className='w-full justify-start'
                   >
-                    <Icon
-                      className='mt-0.5 shrink-0'
-                      data-icon='inline-start'
-                    />
-                    <span className='min-w-0'>
-                      <span className='block text-sm font-medium'>
-                        {item.label}
-                      </span>
-                      <span className='mt-0.5 block truncate text-xs'>
-                        {item.description}
-                      </span>
-                    </span>
+                    {item.label}
                   </Button>
                 )
               })}
             </div>
           </nav>
           <div className='flex min-w-0 flex-1 flex-col'>
-            <div className='flex min-h-16 items-center justify-between gap-3 border-b px-5'>
-              <div>
-                <h2 className='text-sm font-semibold'>{activeSection.label}</h2>
-                <p className='text-xs text-muted-foreground'>
-                  {activeSection.description}
-                </p>
+            <ScrollArea key={section} className='min-h-0 flex-1'>
+              <div className='px-5 pt-6 sm:px-6 sm:pt-8'>
+                <div className='mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4'>
+                  <div>
+                    <h2 className='text-lg font-semibold'>
+                      {activeSection.label}
+                    </h2>
+                    <p className='mt-1 text-xs text-muted-foreground'>
+                      {activeSection.description}
+                    </p>
+                  </div>
+                  {section === 'models' ? (
+                    <Button
+                      size='sm'
+                      onClick={() => {
+                        setEditingModel(undefined)
+                        setModelDialogOpen(true)
+                      }}
+                    >
+                      <Plus />
+                      添加模型
+                    </Button>
+                  ) : null}
+                  {section === 'skills' ? (
+                    <div className='flex items-center gap-2'>
+                      <input
+                        ref={skillZipInputRef}
+                        className='sr-only'
+                        type='file'
+                        accept='.zip,application/zip'
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0]
+                          if (file) importSkill.mutate(file)
+                          event.currentTarget.value = ''
+                        }}
+                      />
+                      <Button
+                        size='sm'
+                        variant='outline'
+                        disabled={importSkill.isPending}
+                        onClick={() => skillZipInputRef.current?.click()}
+                      >
+                        <Upload />
+                        {importSkill.isPending ? '正在检查…' : '导入 ZIP'}
+                      </Button>
+                      <Button
+                        size='sm'
+                        disabled={importSkill.isPending}
+                        onClick={() => {
+                          if (importSkill.isPending) return
+                          setEditingSkill(undefined)
+                          setImportedSkill(undefined)
+                          setSkillDialogOpen(true)
+                        }}
+                      >
+                        <Plus />
+                        新建 SKILL
+                      </Button>
+                    </div>
+                  ) : null}
+                  {section === 'mcp' ? (
+                    <Button
+                      size='sm'
+                      onClick={() => {
+                        setEditingConnector(undefined)
+                        setConnectorDialogOpen(true)
+                      }}
+                    >
+                      <Plus />
+                      添加连接器
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-              {section === 'models' ? (
-                <Button
-                  size='sm'
-                  onClick={() => {
-                    setEditingModel(undefined)
-                    setModelDialogOpen(true)
-                  }}
-                >
-                  <Plus />
-                  添加模型
-                </Button>
-              ) : null}
-              {section === 'skills' ? (
-                <Button
-                  size='sm'
-                  onClick={() => {
-                    setEditingSkill(undefined)
-                    setSkillDialogOpen(true)
-                  }}
-                >
-                  <Plus />
-                  添加 Skill
-                </Button>
-              ) : null}
-              {section === 'mcp' ? (
-                <Button size='sm' onClick={() => setConnectorDialogOpen(true)}>
-                  <Plus />
-                  添加连接器
-                </Button>
-              ) : null}
-            </div>
-            <ScrollArea className='min-h-0 flex-1'>
               {section === 'models' ? (
                 <div className='p-5 sm:p-6'>
                   <div className='mx-auto flex max-w-4xl flex-col gap-4'>
-                    <p className='rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground'>
-                      支持 OpenAI Responses、OpenAI Chat Compatible 与 Anthropic
-                      Messages Compatible。
-                    </p>
                     {models.isLoading ? (
                       <p className='text-sm text-muted-foreground'>
                         正在读取模型…
+                      </p>
+                    ) : null}
+                    {models.isError ? (
+                      <p role='alert' className='text-sm text-destructive'>
+                        模型读取失败，刷新后重试。
                       </p>
                     ) : null}
                     {models.data?.length ? (
@@ -266,58 +348,59 @@ export function StudioSettings({
                             key={model.id}
                             className='flex flex-wrap items-center gap-4 border-b p-4 last:border-b-0'
                           >
-                            <span className='flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted'>
-                              <Bot className='size-4' />
-                            </span>
                             <div className='min-w-0 flex-1'>
                               <div className='flex flex-wrap items-center gap-2'>
                                 <p className='text-sm font-medium'>
                                   {model.name}
                                 </p>
+                                <Badge
+                                  variant={
+                                    model.enabled ? 'secondary' : 'outline'
+                                  }
+                                >
+                                  <StatusDot
+                                    problems={
+                                      model.enabled &&
+                                      model.agent_enabled &&
+                                      model.capabilities.tools &&
+                                      model.has_api_key &&
+                                      model.limits?.context_window_tokens > 0 &&
+                                      model.limits?.max_input_tokens > 0 &&
+                                      model.limits?.max_output_tokens > 0 &&
+                                      model.limits.max_input_tokens <=
+                                        model.limits.context_window_tokens &&
+                                      model.limits.max_output_tokens <=
+                                        model.limits.context_window_tokens
+                                        ? 0
+                                        : 1
+                                    }
+                                    label={
+                                      model.enabled &&
+                                      model.agent_enabled &&
+                                      model.capabilities.tools &&
+                                      model.has_api_key &&
+                                      model.limits?.context_window_tokens > 0 &&
+                                      model.limits?.max_input_tokens > 0 &&
+                                      model.limits?.max_output_tokens > 0 &&
+                                      model.limits.max_input_tokens <=
+                                        model.limits.context_window_tokens &&
+                                      model.limits.max_output_tokens <=
+                                        model.limits.context_window_tokens
+                                        ? '配置正常'
+                                        : '需要检查配置'
+                                    }
+                                  />
+                                  {model.enabled ? '已启用' : '已停用'}
+                                </Badge>
                                 {model.default ? <Badge>默认</Badge> : null}
                               </div>
                               <p className='mt-1 truncate text-xs text-muted-foreground'>
                                 {model.model} · {model.base_url}
                               </p>
                             </div>
-                            <div className='flex shrink-0 items-center gap-2 text-xs text-muted-foreground'>
-                              <StatusDot
-                                problems={
-                                  model.enabled &&
-                                  model.agent_enabled &&
-                                  model.capabilities.tools &&
-                                  model.has_api_key &&
-                                  model.limits?.context_window_tokens > 0 &&
-                                  model.limits?.max_input_tokens > 0 &&
-                                  model.limits?.max_output_tokens > 0 &&
-                                  model.limits.max_input_tokens <=
-                                    model.limits.context_window_tokens &&
-                                  model.limits.max_output_tokens <=
-                                    model.limits.context_window_tokens
-                                    ? 0
-                                    : 1
-                                }
-                                label={
-                                  model.enabled &&
-                                  model.agent_enabled &&
-                                  model.capabilities.tools &&
-                                  model.has_api_key &&
-                                  model.limits?.context_window_tokens > 0 &&
-                                  model.limits?.max_input_tokens > 0 &&
-                                  model.limits?.max_output_tokens > 0 &&
-                                  model.limits.max_input_tokens <=
-                                    model.limits.context_window_tokens &&
-                                  model.limits.max_output_tokens <=
-                                    model.limits.context_window_tokens
-                                    ? '配置正常'
-                                    : '需要检查配置'
-                                }
-                              />
-                              {model.enabled ? '已启用' : '已停用'}
-                            </div>
                             <div className='flex items-center gap-2'>
                               <Button
-                                variant='ghost'
+                                variant='outline'
                                 size='sm'
                                 onClick={() => {
                                   setEditingModel(model)
@@ -343,11 +426,11 @@ export function StudioSettings({
                           </div>
                         ))}
                       </div>
-                    ) : !models.isLoading ? (
+                    ) : !models.isLoading && !models.isError ? (
                       <SettingsEmpty
                         icon={BrainCircuit}
-                        title='还没有在线模型'
-                        description='添加并启用模型后，在对话输入框中选择。'
+                        title='还没有模型'
+                        description='添加并启用可供 Agent 使用的模型后，在会话中选择。'
                       />
                     ) : null}
                   </div>
@@ -359,8 +442,11 @@ export function StudioSettings({
                     skills={skills.data ?? []}
                     loading={skills.isLoading}
                     error={skills.isError}
+                    disabled={importSkill.isPending}
                     onEdit={(skill) => {
+                      if (importSkill.isPending) return
                       setEditingSkill(skill)
+                      setImportedSkill(undefined)
                       setSkillDialogOpen(true)
                     }}
                   />
@@ -372,6 +458,10 @@ export function StudioSettings({
                     connectors={connectors.data ?? []}
                     loading={connectors.isLoading}
                     error={connectors.isError}
+                    onEdit={(connector) => {
+                      setEditingConnector(connector)
+                      setConnectorDialogOpen(true)
+                    }}
                   />
                 </div>
               ) : null}
@@ -382,6 +472,18 @@ export function StudioSettings({
                     loading={workflows.isLoading}
                     error={workflows.isError}
                   />
+                </div>
+              ) : null}
+              {section === 'data' ? (
+                <div className='p-5 sm:p-6'>
+                  <div className='mx-auto max-w-4xl'>
+                    <Button
+                      variant='destructive'
+                      onClick={() => setClearDialogOpen(true)}
+                    >
+                      清空所有对话
+                    </Button>
+                  </div>
                 </div>
               ) : null}
             </ScrollArea>
@@ -399,19 +501,98 @@ export function StudioSettings({
           />
         ) : null}
         {skillDialogOpen ? (
-          <SkillDialog
-            skill={editingSkill}
+          <SkillWorkspaceDialog
+            skillId={editingSkill?.id}
+            imported={importedSkill}
             open={skillDialogOpen}
             onOpenChange={(open) => {
               setSkillDialogOpen(open)
-              if (!open) setEditingSkill(undefined)
+              if (!open) {
+                setEditingSkill(undefined)
+                setImportedSkill(undefined)
+              }
             }}
           />
         ) : null}
-        <ConnectorDialog
-          open={connectorDialogOpen}
-          onOpenChange={setConnectorDialogOpen}
-        />
+        {connectorDialogOpen ? (
+          <ConnectorDialog
+            key={editingConnector?.id ?? 'new'}
+            connector={editingConnector}
+            open={connectorDialogOpen}
+            onOpenChange={(open) => {
+              setConnectorDialogOpen(open)
+              if (!open) setEditingConnector(undefined)
+            }}
+            onSaved={(saved, shouldProbe) => {
+              setConnectorDialogOpen(false)
+              setEditingConnector(undefined)
+              void queryClient.invalidateQueries({
+                queryKey: ['studio', 'connectors'],
+              })
+              toast.success(editingConnector ? '连接器已更新' : '连接器已添加')
+              if (shouldProbe) savedConnectorProbe.mutate(saved.id)
+            }}
+          />
+        ) : null}
+        <Dialog
+          open={clearDialogOpen}
+          onOpenChange={(open) => {
+            if (clearSessions.isPending) return
+            setClearDialogOpen(open)
+            if (!open) {
+              setConfirmation('')
+              clearSessions.reset()
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>清空所有对话</DialogTitle>
+              <DialogDescription>
+                当前账号的对话和会话资产将被清空。资产库内容保留。
+              </DialogDescription>
+            </DialogHeader>
+            <FieldGroup className='gap-3'>
+              <Field>
+                <FieldLabel htmlFor='clear-studio-sessions-confirmation'>
+                  输入「确认清空」
+                </FieldLabel>
+                <Input
+                  id='clear-studio-sessions-confirmation'
+                  autoComplete='off'
+                  value={confirmation}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  disabled={clearSessions.isPending}
+                />
+              </Field>
+            </FieldGroup>
+            {clearSessions.isError ? (
+              <p role='alert' className='text-sm text-destructive'>
+                {clearSessions.error instanceof ApiError
+                  ? (clearSessions.error.detail ?? clearSessions.error.message)
+                  : '清空对话失败'}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <Button
+                variant='outline'
+                disabled={clearSessions.isPending}
+                onClick={() => setClearDialogOpen(false)}
+              >
+                取消
+              </Button>
+              <Button
+                variant='destructive'
+                disabled={
+                  confirmation !== '确认清空' || clearSessions.isPending
+                }
+                onClick={() => clearSessions.mutate()}
+              >
+                {clearSessions.isPending ? '清空中…' : '清空所有对话'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </section>
     </main>
   )
@@ -427,6 +608,7 @@ function WorkflowSettings({
   error: boolean
 }) {
   const queryClient = useQueryClient()
+  const [previewId, setPreviewId] = useState<number | null>(null)
   const update = useMutation({
     mutationFn: ({ id, agentEnabled }: { id: string; agentEnabled: boolean }) =>
       updateStudioAgentWorkflow(id, agentEnabled),
@@ -435,10 +617,6 @@ function WorkflowSettings({
   })
   return (
     <div className='mx-auto flex max-w-4xl flex-col gap-4'>
-      <p className='rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground'>
-        这里仅决定当前 Studio Agent
-        是否可调用已有工作流，不影响工作流在平台其他入口的启停。
-      </p>
       {loading ? (
         <p className='text-sm text-muted-foreground'>正在读取工作流…</p>
       ) : null}
@@ -451,7 +629,7 @@ function WorkflowSettings({
         <SettingsEmpty
           icon={Workflow}
           title='还没有可配置的工作流'
-          description='先在平台工作流中创建，再决定是否交给 Agent 调用。'
+          description='创建工作流后，可在这里设置 Agent 的调用权限。'
         />
       ) : null}
       {workflows.length > 0 ? (
@@ -461,19 +639,23 @@ function WorkflowSettings({
               key={workflow.id}
               className='flex items-center justify-between gap-4 border-b p-4 last:border-b-0'
             >
-              <div className='min-w-0'>
+              <div className='min-w-0 flex-1'>
                 <div className='flex items-center gap-2'>
-                  <p className='truncate text-sm font-medium'>
+                  <a
+                    href={`/cases/${encodeURIComponent(workflow.id)}`}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    aria-label={`在新页面查看 ${workflow.name} 的详情`}
+                    className='min-w-0 truncate rounded-sm text-sm font-medium outline-none hover:underline focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring'
+                  >
                     {workflow.name}
-                  </p>
+                  </a>
                   <Badge
                     variant={
                       workflow.workflow_enabled ? 'secondary' : 'outline'
                     }
                   >
-                    {workflow.workflow_enabled
-                      ? '工作流已启用'
-                      : '工作流已停用'}
+                    {workflow.workflow_enabled ? '已启用' : '已停用'}
                   </Badge>
                 </div>
                 <p className='mt-1 line-clamp-1 text-xs text-muted-foreground'>
@@ -481,18 +663,50 @@ function WorkflowSettings({
                   个输入 / {workflow.outputs} 个输出
                 </p>
               </div>
-              <Switch
-                aria-label={`允许 Agent 调用 ${workflow.name}`}
-                checked={workflow.agent_enabled}
-                disabled={!workflow.workflow_enabled || update.isPending}
-                onCheckedChange={(agentEnabled) =>
-                  update.mutate({ id: workflow.id, agentEnabled })
-                }
-              />
+              <div className='flex shrink-0 items-center gap-3'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => {
+                    const id = Number(workflow.id)
+                    if (!Number.isSafeInteger(id) || id <= 0) {
+                      throw new Error('工作流 ID 无效')
+                    }
+                    setPreviewId(id)
+                  }}
+                >
+                  查看
+                </Button>
+                <Switch
+                  aria-label={`允许 Agent 调用 ${workflow.name}`}
+                  checked={workflow.agent_enabled}
+                  disabled={!workflow.workflow_enabled || update.isPending}
+                  onCheckedChange={(agentEnabled) =>
+                    update.mutate({ id: workflow.id, agentEnabled })
+                  }
+                />
+              </div>
             </div>
           ))}
         </div>
       ) : null}
+      <Dialog
+        open={previewId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewId(null)
+        }}
+      >
+        <DialogContent className='flex h-[min(88dvh,900px)] w-[calc(100vw-2rem)] max-w-[1100px] flex-col gap-0 overflow-hidden rounded-lg p-0 shadow-md sm:max-w-[1100px]'>
+          <DialogHeader className='shrink-0 border-b px-6 py-4'>
+            <DialogTitle>工作流详情</DialogTitle>
+          </DialogHeader>
+          <div className='min-h-0 flex-1 overflow-y-auto'>
+            {previewId !== null ? (
+              <CaseDetailPanel key={previewId} id={previewId} readOnly />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -501,27 +715,38 @@ function ConnectorSettings({
   connectors,
   loading,
   error,
+  onEdit,
 }: {
   connectors: StudioMCPConnector[]
   loading: boolean
   error: boolean
+  onEdit: (connector: StudioMCPConnector) => void
 }) {
   const queryClient = useQueryClient()
   const update = useMutation({
     mutationFn: updateStudioConnector,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] }),
+    onError: (cause) =>
+      toast.error('更新连接器失败', {
+        description: connectorErrorMessage(cause),
+      }),
   })
   const probe = useMutation({
     mutationFn: probeStudioConnector,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] }),
+    onSuccess: (connector) => {
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] })
+      toast.success(`已发现 ${connector.tools?.length ?? 0} 个工具`)
+    },
+    onError: (cause) => {
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] })
+      toast.error('发现工具失败', {
+        description: connectorErrorMessage(cause),
+      })
+    },
   })
   return (
     <div className='mx-auto flex max-w-4xl flex-col gap-4'>
-      <p className='rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground'>
-        用 Streamable HTTP 接入外部工具。凭据仅加密保存在服务端。
-      </p>
       {loading ? (
         <p className='text-sm text-muted-foreground'>正在读取连接器…</p>
       ) : null}
@@ -539,65 +764,69 @@ function ConnectorSettings({
       ) : null}
       {connectors.length > 0 ? (
         <div className='overflow-hidden rounded-lg border bg-background'>
-          {connectors.map((connector) => (
-            <div
-              key={connector.id}
-              className='flex flex-wrap items-center gap-4 border-b p-4 last:border-b-0'
-            >
-              <span className='flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted'>
-                <Cable className='size-4' />
-              </span>
-              <div className='min-w-0 flex-1'>
-                <p className='text-sm font-medium'>{connector.name}</p>
-                <p className='mt-1 truncate text-xs text-muted-foreground'>
-                  {connector.url}
-                </p>
-                <p className='mt-1 text-xs text-muted-foreground'>
-                  调用策略：{connectorPolicyLabel(connector.policy)} · 凭据：
-                  {connector.credential_masked} · 已发现工具：
-                  {connector.tools.length}
-                </p>
+          {connectors.map((connector) => {
+            const status = connectorStatus(connector)
+            return (
+              <div
+                key={connector.id}
+                className='flex flex-wrap items-center gap-4 border-b p-4 last:border-b-0'
+              >
+                <div className='min-w-0 flex-1'>
+                  <div className='flex items-center gap-2'>
+                    <p className='truncate text-sm font-medium'>
+                      {connector.name}
+                    </p>
+                    <Badge variant='outline'>
+                      <StatusDot state={status.state} label={status.reason} />
+                      {status.text}
+                    </Badge>
+                  </div>
+                  <p className='mt-1 truncate text-xs text-muted-foreground'>
+                    {connector.url}
+                  </p>
+                  <p className='mt-1 text-xs text-muted-foreground'>
+                    调用策略：{connectorPolicyLabel(connector.policy)} · 凭据：
+                    {connector.credential_masked} · 已发现工具：
+                    {connector.tools?.length ?? 0}
+                  </p>
+                </div>
+                <div className='flex items-center gap-2'>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => onEdit(connector)}
+                  >
+                    编辑
+                  </Button>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    disabled={probe.isPending}
+                    onClick={() => probe.mutate(connector.id)}
+                  >
+                    {probe.isPending && probe.variables === connector.id
+                      ? '正在发现…'
+                      : '发现工具'}
+                  </Button>
+                  <Switch
+                    aria-label={`启用 ${connector.name}`}
+                    checked={connector.enabled}
+                    disabled={update.isPending}
+                    onCheckedChange={(enabled) =>
+                      update.mutate({
+                        id: connector.id,
+                        name: connector.name,
+                        url: connector.url,
+                        enabled,
+                        policy: connector.policy,
+                      })
+                    }
+                  />
+                </div>
               </div>
-              <div className='flex items-center gap-2'>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  disabled={probe.isPending}
-                  onClick={() => probe.mutate(connector.id)}
-                >
-                  {probe.isPending && probe.variables === connector.id
-                    ? '正在发现…'
-                    : '发现工具'}
-                </Button>
-                <Switch
-                  aria-label={`启用 ${connector.name}`}
-                  checked={connector.enabled}
-                  disabled={update.isPending}
-                  onCheckedChange={(enabled) =>
-                    update.mutate({
-                      id: connector.id,
-                      name: connector.name,
-                      url: connector.url,
-                      enabled,
-                      policy: connector.policy,
-                    })
-                  }
-                />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
-      ) : null}
-      {probe.isError ? (
-        <p
-          role='alert'
-          className='flex items-center gap-1 text-sm text-warning'
-        >
-          <CircleAlert className='size-4' />
-          {probe.error instanceof Error
-            ? probe.error.message
-            : '工具发现失败，请检查服务地址与凭据。'}
-        </p>
       ) : null}
     </div>
   )
@@ -614,63 +843,103 @@ function connectorPolicyLabel(policy: StudioConnectorPolicy) {
   }
 }
 
+function connectorErrorMessage(cause: unknown) {
+  if (cause instanceof ApiError) return cause.detail ?? cause.message
+  return cause instanceof Error ? cause.message : '连接器操作失败'
+}
+
 function ConnectorDialog({
+  connector,
   open,
   onOpenChange,
+  onSaved,
 }: {
+  connector?: StudioMCPConnector
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSaved: (connector: StudioMCPConnector, shouldProbe: boolean) => void
 }) {
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
-    name: '',
-    url: '',
+    name: connector?.name ?? '',
+    url: connector?.url ?? '',
     credential: '',
-    enabled: true,
-    policy: 'approval' as StudioConnectorPolicy,
+    enabled: connector?.enabled ?? true,
+    policy: connector?.policy ?? ('approval' as StudioConnectorPolicy),
   })
-  const [error, setError] = useState('')
-  const create = useMutation({
-    mutationFn: () =>
-      createStudioConnector({
-        ...form,
-        name: form.name.trim(),
+  const [tools, setTools] = useState<StudioMCPTool[]>(connector?.tools ?? [])
+  const discover = useMutation({
+    mutationFn: () => {
+      if (
+        connector &&
+        form.url.trim() === connector.url &&
+        !form.credential.trim()
+      ) {
+        return probeStudioConnector(connector.id).then(
+          (result) => result.tools ?? []
+        )
+      }
+      return discoverStudioConnector({
+        connectorId: connector?.id,
         url: form.url.trim(),
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['studio', 'connectors'],
+        credential: form.credential,
       })
-      setForm({
-        name: '',
-        url: '',
-        credential: '',
-        enabled: true,
-        policy: 'approval',
-      })
-      setError('')
-      onOpenChange(false)
     },
-    onError: (cause) =>
-      setError(
-        cause instanceof Error ? cause.message : '添加连接器失败，请稍后重试。'
+    onSuccess: (result) => {
+      setTools(result)
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] })
+      toast.success(`已发现 ${result.length} 个工具`)
+    },
+    onError: (cause) => {
+      setTools([])
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'connectors'] })
+      toast.error('发现工具失败', {
+        description: connectorErrorMessage(cause),
+      })
+    },
+  })
+  const save = useMutation({
+    mutationFn: () => {
+      const input = { ...form, name: form.name.trim(), url: form.url.trim() }
+      return connector
+        ? updateStudioConnector({ id: connector.id, ...input })
+        : createStudioConnector(input)
+    },
+    onSuccess: (saved) =>
+      onSaved(
+        saved,
+        !connector ||
+          form.url.trim() !== connector.url ||
+          form.credential.trim() !== ''
       ),
+    onError: (cause) =>
+      toast.error('保存连接器失败', {
+        description: connectorErrorMessage(cause),
+      }),
   })
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!save.isPending && !discover.isPending) onOpenChange(nextOpen)
+      }}
+    >
       <DialogContent className='sm:max-w-xl'>
         <DialogHeader>
-          <DialogTitle>添加 MCP 连接器</DialogTitle>
+          <DialogTitle>
+            {connector ? '编辑 MCP 连接器' : '添加 MCP 连接器'}
+          </DialogTitle>
           <DialogDescription>
-            使用 Streamable HTTP 地址。凭据创建后不会再次显示。
+            {connector
+              ? '留空访问凭据将保留当前凭据。'
+              : '使用 Streamable HTTP 地址。凭据创建后不会再次显示。'}
           </DialogDescription>
         </DialogHeader>
         <form
           className='grid gap-4'
           onSubmit={(event) => {
             event.preventDefault()
-            setError('')
-            create.mutate()
+            save.mutate()
           }}
         >
           <div className='grid gap-2'>
@@ -691,10 +960,12 @@ function ConnectorDialog({
               id='studio-connector-url'
               required
               type='url'
+              disabled={discover.isPending || save.isPending}
               value={form.url}
-              onChange={(event) =>
+              onChange={(event) => {
                 setForm({ ...form, url: event.target.value })
-              }
+                setTools([])
+              }}
               placeholder='https://mcp.example.com'
             />
           </div>
@@ -702,13 +973,16 @@ function ConnectorDialog({
             <Label htmlFor='studio-connector-credential'>访问凭据</Label>
             <Input
               id='studio-connector-credential'
-              required
+              required={!connector}
               type='password'
               autoComplete='new-password'
+              disabled={discover.isPending || save.isPending}
+              placeholder={connector ? '留空保持当前凭据' : undefined}
               value={form.credential}
-              onChange={(event) =>
+              onChange={(event) => {
                 setForm({ ...form, credential: event.target.value })
-              }
+                setTools([])
+              }}
             />
           </div>
           <div className='grid gap-2'>
@@ -735,21 +1009,55 @@ function ConnectorDialog({
             checked={form.enabled}
             onCheckedChange={(enabled) => setForm({ ...form, enabled })}
           />
-          {error ? (
-            <p role='alert' className='text-sm text-destructive'>
-              {error}
-            </p>
-          ) : null}
+          <div className='flex flex-col gap-2 rounded-md border bg-muted p-3'>
+            <div className='flex items-center justify-between gap-3'>
+              <Label>已发现工具</Label>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                disabled={
+                  discover.isPending ||
+                  save.isPending ||
+                  !form.url.trim() ||
+                  (!connector && !form.credential.trim())
+                }
+                onClick={() => discover.mutate()}
+              >
+                {discover.isPending ? '正在发现…' : '发现工具'}
+              </Button>
+            </div>
+            {tools.length > 0 ? (
+              <ul className='flex max-h-48 flex-col gap-2 overflow-y-auto'>
+                {tools.map((tool) => (
+                  <li key={tool.name} className='rounded-md border bg-card p-2'>
+                    <p className='text-sm font-medium break-all'>{tool.name}</p>
+                    {tool.description ? (
+                      <p className='text-xs text-muted-foreground'>
+                        {tool.description}
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className='text-sm text-muted-foreground'>尚未发现工具</p>
+            )}
+          </div>
           <DialogFooter>
             <Button
               type='button'
               variant='outline'
+              disabled={save.isPending || discover.isPending}
               onClick={() => onOpenChange(false)}
             >
               取消
             </Button>
-            <Button type='submit' disabled={create.isPending}>
-              {create.isPending ? '正在保存…' : '保存连接器'}
+            <Button
+              type='submit'
+              disabled={save.isPending || discover.isPending}
+            >
+              {save.isPending ? '正在保存…' : '保存连接器'}
             </Button>
           </DialogFooter>
         </form>
@@ -762,37 +1070,39 @@ function SkillSettings({
   skills,
   loading,
   error,
+  disabled,
   onEdit,
 }: {
   skills: Awaited<ReturnType<typeof listStudioSkills>>
   loading: boolean
   error: boolean
-  onEdit: (skill: StudioSkill) => void
+  disabled: boolean
+  onEdit: (skill: StudioSkillSummary) => void
 }) {
   const queryClient = useQueryClient()
   const update = useMutation({
-    mutationFn: updateStudioSkill,
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      updateStudioSkillEnabled(id, enabled),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['studio', 'skills'] }),
+    onError: (cause) =>
+      toast.error(cause instanceof Error ? cause.message : '更新启用状态失败'),
   })
   return (
     <div className='mx-auto flex max-w-4xl flex-col gap-4'>
-      <p className='rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground'>
-        为 Agent 添加本轮可选的专门知识与工作方式。
-      </p>
       {loading ? (
-        <p className='text-sm text-muted-foreground'>正在读取 Skills…</p>
+        <p className='text-sm text-muted-foreground'>正在读取技能…</p>
       ) : null}
       {error ? (
         <p role='alert' className='text-sm text-destructive'>
-          Skills 读取失败，刷新后重试。
+          技能读取失败，刷新后重试。
         </p>
       ) : null}
       {!loading && !error && skills.length === 0 ? (
         <SettingsEmpty
           icon={Sparkles}
-          title='还没有 Skill'
-          description='添加后可在聊天输入框中选择。'
+          title='还没有技能'
+          description='新建或导入技能后，可在会话中选择。'
         />
       ) : null}
       {skills.length > 0 ? (
@@ -800,160 +1110,39 @@ function SkillSettings({
           {skills.map((skill) => (
             <div
               key={skill.id}
-              className='flex flex-wrap items-start gap-4 border-b p-4 last:border-b-0'
+              className='flex flex-wrap items-center gap-4 border-b p-4 last:border-b-0'
             >
-              <span className='flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted'>
-                <Sparkles className='size-4' />
-              </span>
               <div className='min-w-0 flex-1'>
                 <p className='text-sm font-medium'>{skill.name}</p>
-                <p className='mt-1 text-xs text-muted-foreground'>
+                <LongText className='mt-1 text-xs text-muted-foreground'>
                   {skill.description || '未填写说明'}
-                </p>
-                <p className='mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground'>
-                  {skill.prompt}
-                </p>
+                </LongText>
               </div>
-              <Button size='sm' variant='outline' onClick={() => onEdit(skill)}>
-                编辑
-              </Button>
-              <Switch
-                aria-label={`启用 ${skill.name}`}
-                checked={skill.enabled}
-                disabled={update.isPending}
-                onCheckedChange={(enabled) =>
-                  update.mutate({ ...skill, enabled })
-                }
-              />
+              <div className='flex h-8 shrink-0 items-center gap-3'>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  disabled={disabled}
+                  onClick={() => onEdit(skill)}
+                >
+                  编辑
+                </Button>
+                <Switch
+                  aria-label={`启用 ${skill.name}`}
+                  checked={skill.enabled}
+                  disabled={
+                    update.isPending && update.variables?.id === skill.id
+                  }
+                  onCheckedChange={(enabled) =>
+                    update.mutate({ id: skill.id, enabled })
+                  }
+                />
+              </div>
             </div>
           ))}
         </div>
       ) : null}
     </div>
-  )
-}
-
-function SkillDialog({
-  skill,
-  open,
-  onOpenChange,
-}: {
-  skill?: StudioSkill
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const queryClient = useQueryClient()
-  const [form, setForm] = useState(() =>
-    skill
-      ? {
-          name: skill.name,
-          description: skill.description,
-          prompt: skill.prompt,
-          enabled: skill.enabled,
-        }
-      : { name: '', description: '', prompt: '', enabled: true }
-  )
-  const [error, setError] = useState('')
-  const save = useMutation({
-    mutationFn: () => {
-      const input = {
-        ...form,
-        name: form.name.trim(),
-        description: form.description.trim(),
-        prompt: form.prompt.trim(),
-      }
-      return skill
-        ? updateStudioSkill({ ...skill, ...input })
-        : createStudioSkill(input)
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['studio', 'skills'] })
-      onOpenChange(false)
-    },
-    onError: (cause) =>
-      setError(
-        cause instanceof Error ? cause.message : '添加 Skill 失败，请稍后重试。'
-      ),
-  })
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-xl'>
-        <DialogHeader>
-          <DialogTitle>{skill ? '编辑 Skill' : '添加 Skill'}</DialogTitle>
-          <DialogDescription>
-            启用后，创作输入框可以按需选择它。
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          className='grid gap-4'
-          onSubmit={(event) => {
-            event.preventDefault()
-            setError('')
-            save.mutate()
-          }}
-        >
-          <div className='grid gap-2'>
-            <Label htmlFor='studio-skill-name'>名称</Label>
-            <Input
-              id='studio-skill-name'
-              required
-              value={form.name}
-              onChange={(event) =>
-                setForm({ ...form, name: event.target.value })
-              }
-              placeholder='例如：漫画分镜'
-            />
-          </div>
-          <div className='grid gap-2'>
-            <Label htmlFor='studio-skill-description'>说明</Label>
-            <Input
-              id='studio-skill-description'
-              required
-              value={form.description}
-              onChange={(event) =>
-                setForm({ ...form, description: event.target.value })
-              }
-              placeholder='说明 Agent 何时该用它'
-            />
-          </div>
-          <div className='grid gap-2'>
-            <Label htmlFor='studio-skill-prompt'>Skill 内容</Label>
-            <Textarea
-              id='studio-skill-prompt'
-              required
-              value={form.prompt}
-              onChange={(event) =>
-                setForm({ ...form, prompt: event.target.value })
-              }
-              placeholder='写入专业约束、步骤或输出格式'
-            />
-          </div>
-          <ToggleRow
-            label='启用 Skill'
-            description='关闭后不会出现在创作输入框中。'
-            checked={form.enabled}
-            onCheckedChange={(enabled) => setForm({ ...form, enabled })}
-          />
-          {error ? (
-            <p role='alert' className='text-sm text-destructive'>
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button
-              type='button'
-              variant='outline'
-              onClick={() => onOpenChange(false)}
-            >
-              取消
-            </Button>
-            <Button type='submit' disabled={save.isPending}>
-              {save.isPending ? '正在保存…' : '保存 Skill'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -1108,7 +1297,8 @@ function ModelDialog({
             配置模型连接信息
           </DialogDescription>
         </DialogHeader>
-        <form ref={formRef} className='grid gap-4' onSubmit={submit}>
+        <form ref={formRef} className='grid gap-5' onSubmit={submit}>
+          <h3 className='text-sm font-semibold'>连接信息</h3>
           <div className='grid gap-2'>
             <Label htmlFor='studio-model-name'>名称</Label>
             <Input
@@ -1184,6 +1374,26 @@ function ModelDialog({
               }
             />
           </div>
+          <h3 className='border-t pt-4 text-sm font-semibold'>使用设置</h3>
+          <div className='grid gap-3 rounded-lg border bg-muted/30 p-3'>
+            <ToggleRow
+              label='设为默认模型'
+              checked={form.default}
+              onCheckedChange={(value) => updateForm({ default: value })}
+            />
+            <ToggleRow
+              label='允许 Agent 使用'
+              description={
+                form.supportsTools
+                  ? '让此模型出现在会话的模型列表中。'
+                  : '先确认模型支持工具调用。'
+              }
+              checked={form.agentEnabled}
+              disabled={!form.supportsTools}
+              onCheckedChange={(agentEnabled) => updateForm({ agentEnabled })}
+            />
+          </div>
+          <h3 className='border-t pt-4 text-sm font-semibold'>Token 限额</h3>
           <div className='grid gap-3 sm:grid-cols-3'>
             <div className='grid gap-2'>
               <Label htmlFor='studio-model-context-window'>
@@ -1230,10 +1440,11 @@ function ModelDialog({
               />
             </div>
           </div>
+          <h3 className='border-t pt-4 text-sm font-semibold'>模型能力</h3>
           <div className='grid gap-3 rounded-lg border bg-muted/30 p-3'>
             <ToggleRow
               label='支持工具调用'
-              description='开启后可用于 Agent。'
+              description='开启后，模型可以调用 Agent 工具。'
               checked={form.supportsTools}
               onCheckedChange={(supportsTools) =>
                 updateForm({
@@ -1244,40 +1455,25 @@ function ModelDialog({
             />
             <ToggleRow
               label='支持图片输入'
-              description='开启后，模型可以接收图片输入。目前支持 JPEG、PNG、GIF、WebP 格式。'
+              description='在会话中发送图片，让模型分析画面内容。'
               checked={form.vision}
               onCheckedChange={(vision) => updateForm({ vision })}
             />
             <ToggleRow
               label='支持图片输出'
+              description='让模型生成插画、配图等图片内容。'
               checked={form.imageOutput}
               onCheckedChange={(imageOutput) => updateForm({ imageOutput })}
             />
             <ToggleRow
               label='支持流式响应'
+              description='回复边生成边显示，减少等待。'
               checked={form.streaming}
               onCheckedChange={(streaming) => updateForm({ streaming })}
             />
             <ToggleRow
-              label='允许 Agent 使用'
-              description={
-                form.supportsTools
-                  ? '关闭后不会出现在创作输入框中。'
-                  : '先确认模型支持工具调用。'
-              }
-              checked={form.agentEnabled}
-              disabled={!form.supportsTools}
-              onCheckedChange={(agentEnabled) => updateForm({ agentEnabled })}
-            />
-            <ToggleRow
-              label='设为默认模型'
-              description='新建会话优先选择此模型。'
-              checked={form.default}
-              onCheckedChange={(value) => updateForm({ default: value })}
-            />
-            <ToggleRow
               label='启用思考'
-              description='按所选协议传递推理参数。'
+              description='让模型先思考再回答，更好地处理复杂问题和多步骤任务。'
               checked={form.thinkingEnabled}
               onCheckedChange={(thinkingEnabled) =>
                 updateForm({ thinkingEnabled })
@@ -1383,7 +1579,7 @@ function SettingsEmpty({
   title,
   description,
 }: {
-  icon: typeof Bot
+  icon: typeof BrainCircuit
   title: string
   description: string
 }) {

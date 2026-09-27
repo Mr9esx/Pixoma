@@ -3,6 +3,7 @@ package workflowtool_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	einotool "github.com/cloudwego/eino/components/tool"
 	"github.com/stretchr/testify/require"
@@ -19,8 +20,9 @@ func (f workflowStarter) Start(ctx context.Context, input studioapp.WorkflowStar
 }
 
 type workflowSink struct {
-	events []string
-	nodes  []studioapp.FlowNodeInput
+	events  []string
+	nodes   []studioapp.FlowNodeInput
+	request *domain.Clarification
 }
 
 func (s *workflowSink) Emit(_ context.Context, eventType string, _ any) error {
@@ -44,20 +46,19 @@ func (*workflowSink) RequestApproval(context.Context, string, string, string) (*
 	return nil, nil
 }
 
-func TestWorkflowToolRequestsApprovalWithWorkflowName(t *testing.T) {
+func (s *workflowSink) RequestWorkflowInput(_ context.Context, workflow domain.WorkflowRequest) (*domain.Clarification, error) {
+	request, err := domain.NewWorkflowClarification("request-1", "run-1", "session-1", "account-1", workflow, time.Now())
+	s.request = request
+	return request, err
+}
+
+func TestWorkflowToolRequestsEditableInputsBeforeStartingTask(t *testing.T) {
 	t.Parallel()
 	sink := &workflowSink{}
-	requested := ""
 	tools, err := workflowtool.NewRuntimeTools([]studioapp.ResolvedWorkflow{{
 		ID: "12", ToolName: "studio_workflow_12", Name: "角色三视图", Description: "生成角色设定图",
 		InputSchema: []byte(`{"type":"object","properties":{"prompt":{"type":"string"}},"required":["prompt"]}`),
 	}}, workflowtool.ToolAccess{
-		PermissionMode: domain.PermissionRequestApproval,
-		IsApproved:     func(string) bool { return false },
-		RequestApproval: func(_ context.Context, _, _, description string) error {
-			requested = description
-			return nil
-		},
 		Sink: sink,
 		Starter: workflowStarter(func(context.Context, studioapp.WorkflowStartInput) (*studioapp.WorkflowStartResult, error) {
 			return &studioapp.WorkflowStartResult{TaskID: "task-1", WorkflowID: "12"}, nil
@@ -68,21 +69,41 @@ func TestWorkflowToolRequestsApprovalWithWorkflowName(t *testing.T) {
 	require.True(t, ok)
 	_, err = invokable.InvokableRun(context.Background(), `{"prompt":"雨夜侦探"}`)
 	require.Error(t, err)
-	require.Equal(t, "执行工作流「角色三视图」", requested)
+	require.Equal(t, "角色三视图", sink.request.Workflow.Name)
+	require.Equal(t, map[string]any{"prompt": "雨夜侦探"}, sink.request.Workflow.SuggestedInputs)
 	require.Empty(t, sink.nodes)
 }
 
-func TestWorkflowToolCreatesOperationAndStartsTask(t *testing.T) {
+func TestWorkflowToolRequestsInputsWhenAgentHasNoSuggestion(t *testing.T) {
 	t.Parallel()
 	sink := &workflowSink{}
-	var started studioapp.WorkflowStartInput
+	tools, err := workflowtool.NewRuntimeTools([]studioapp.ResolvedWorkflow{{
+		ID: "12", ToolName: "studio_workflow_12", Name: "角色三视图",
+		InputSchema: []byte(`{"type":"object","properties":{"prompt":{"type":"string"}},"required":["prompt"]}`),
+	}}, workflowtool.ToolAccess{
+		Sink: sink,
+		Starter: workflowStarter(func(context.Context, studioapp.WorkflowStartInput) (*studioapp.WorkflowStartResult, error) {
+			return &studioapp.WorkflowStartResult{TaskID: "task-1", WorkflowID: "12"}, nil
+		}),
+	})
+	require.NoError(t, err)
+	invokable, ok := tools[0].(einotool.InvokableTool)
+	require.True(t, ok)
+	_, err = invokable.InvokableRun(context.Background(), `{}`)
+	require.Error(t, err)
+	require.NotNil(t, sink.request)
+	require.Empty(t, sink.request.Workflow.SuggestedInputs)
+}
+
+func TestWorkflowToolProvidesItsInputSchema(t *testing.T) {
+	t.Parallel()
+	sink := &workflowSink{}
 	tools, err := workflowtool.NewRuntimeTools([]studioapp.ResolvedWorkflow{{
 		ID: "12", ToolName: "studio_workflow_12", Name: "角色三视图", Description: "生成角色设定图",
 		InputSchema: []byte(`{"type":"object","properties":{"prompt":{"type":"string"}},"required":["prompt"]}`),
 	}}, workflowtool.ToolAccess{
 		AccountID: "account-1", SessionID: "session-1", RunID: "run-1", Sink: sink,
 		Starter: workflowStarter(func(_ context.Context, input studioapp.WorkflowStartInput) (*studioapp.WorkflowStartResult, error) {
-			started = input
 			return &studioapp.WorkflowStartResult{TaskID: "task-1", WorkflowID: "12"}, nil
 		}),
 	})
@@ -93,16 +114,5 @@ func TestWorkflowToolCreatesOperationAndStartsTask(t *testing.T) {
 	require.Equal(t, "studio_workflow_12", info.Name)
 	require.Equal(t, "生成角色设定图", info.Desc)
 
-	invokable, ok := tools[0].(einotool.InvokableTool)
-	require.True(t, ok)
-	output, err := invokable.InvokableRun(context.Background(), `{"prompt":"雨夜侦探"}`)
-	require.NoError(t, err)
-	require.Contains(t, output, "task-1")
-	require.Equal(t, "account-1", started.AccountID)
-	require.Equal(t, "node-1", started.OperationNodeID)
-	require.Equal(t, map[string]any{"prompt": "雨夜侦探"}, started.Inputs)
-	require.Len(t, sink.nodes, 1)
-	require.Equal(t, domain.FlowNodeOperation, sink.nodes[0].Type)
-	require.Equal(t, "角色三视图", sink.nodes[0].Title)
-	require.Equal(t, []string{studioapp.EventToolCallStart, studioapp.EventToolCallArgs, studioapp.EventToolCallResult, studioapp.EventToolCallEnd}, sink.events)
+	require.NotNil(t, info.ParamsOneOf)
 }

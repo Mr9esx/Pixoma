@@ -8,33 +8,33 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
 )
 
-type CreateLibraryFolderInput struct {
+type CreateLibraryCategoryInput struct {
 	AccountID string
 	ParentID  string
 	Name      string
 }
 
-func (s *Service) CreateLibraryFolder(ctx context.Context, input CreateLibraryFolderInput) (*domain.LibraryFolder, error) {
+func (s *Service) CreateLibraryCategory(ctx context.Context, input CreateLibraryCategoryInput) (*domain.LibraryCategory, error) {
 	if s == nil || s.Repo == nil {
 		return nil, fmt.Errorf("studio: library service is not configured")
 	}
 	name := strings.TrimSpace(input.Name)
 	if name == "" || strings.TrimSpace(input.AccountID) == "" {
-		return nil, fmt.Errorf("%w: folder name is required", domain.ErrInvalid)
+		return nil, fmt.Errorf("%w: category name is required", domain.ErrInvalid)
 	}
-	folder, err := domain.NewLibraryFolder(s.nextID(), input.AccountID, input.ParentID, name, s.now())
+	category, err := domain.NewLibraryCategory(s.nextID(), input.AccountID, input.ParentID, name, s.now())
 	if err != nil {
 		return nil, err
 	}
-	if err := s.Repo.CreateLibraryFolder(ctx, folder); err != nil {
+	if err := s.Repo.CreateLibraryCategory(ctx, category); err != nil {
 		return nil, err
 	}
-	return folder, nil
+	return category, nil
 }
 
-func (s *Service) ListLibraryFolders(ctx context.Context, accountID string) ([]*domain.LibraryFolder, error) {
+func (s *Service) ListLibraryCategories(ctx context.Context, accountID string) ([]*domain.LibraryCategory, error) {
 	if s == nil || s.Repo == nil {
 		return nil, fmt.Errorf("studio: library service is not configured")
 	}
-	return s.Repo.ListLibraryFolders(ctx, accountID)
+	return s.Repo.ListLibraryCategories(ctx, accountID)
 }

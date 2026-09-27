@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -13,6 +14,7 @@ var (
 	ErrInvalidTransition = errors.New("studio: invalid state transition")
 	ErrNotFound          = errors.New("studio: not found")
 	ErrAlreadyExists     = errors.New("studio: already exists")
+	ErrConflict          = errors.New("studio: content changed")
 )
 
 const DefaultSessionTitle = "新对话"
@@ -130,12 +132,13 @@ type Message struct {
 type RunStatus string
 
 const (
-	RunQueued          RunStatus = "queued"
-	RunRunning         RunStatus = "running"
-	RunWaitingApproval RunStatus = "waiting_approval"
-	RunSucceeded       RunStatus = "succeeded"
-	RunFailed          RunStatus = "failed"
-	RunCancelled       RunStatus = "cancelled"
+	RunQueued               RunStatus = "queued"
+	RunRunning              RunStatus = "running"
+	RunWaitingApproval      RunStatus = "waiting_approval"
+	RunWaitingClarification RunStatus = "waiting_clarification"
+	RunSucceeded            RunStatus = "succeeded"
+	RunFailed               RunStatus = "failed"
+	RunCancelled            RunStatus = "cancelled"
 )
 
 func (s RunStatus) Terminal() bool {
@@ -163,10 +166,11 @@ type Run struct {
 }
 
 type RunSkill struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Prompt      string `json:"prompt"`
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Prompt      string      `json:"prompt"`
+	Files       []SkillFile `json:"files,omitempty"`
 }
 
 // RunProgress is the latest recoverable snapshot for a non-terminal Run.
@@ -228,8 +232,17 @@ func (r *Run) WaitForApproval(now time.Time) error {
 	return nil
 }
 
+func (r *Run) WaitForClarification(now time.Time) error {
+	if r.Status != RunRunning {
+		return ErrInvalidTransition
+	}
+	r.Status = RunWaitingClarification
+	r.UpdatedAt = now.UTC()
+	return nil
+}
+
 func (r *Run) Resume(now time.Time) error {
-	if r.Status != RunWaitingApproval {
+	if r.Status != RunWaitingApproval && r.Status != RunWaitingClarification {
 		return ErrInvalidTransition
 	}
 	r.Status = RunRunning
@@ -246,7 +259,7 @@ func (r *Run) Succeed(now time.Time) error {
 }
 
 func (r *Run) Fail(code, message string, now time.Time) error {
-	if r.Status != RunQueued && r.Status != RunRunning && r.Status != RunWaitingApproval {
+	if r.Status != RunQueued && r.Status != RunRunning && r.Status != RunWaitingApproval && r.Status != RunWaitingClarification {
 		return ErrInvalidTransition
 	}
 	r.ErrorCode = strings.TrimSpace(code)
@@ -256,7 +269,7 @@ func (r *Run) Fail(code, message string, now time.Time) error {
 }
 
 func (r *Run) Cancel(now time.Time) error {
-	if r.Status != RunQueued && r.Status != RunRunning && r.Status != RunWaitingApproval {
+	if r.Status != RunQueued && r.Status != RunRunning && r.Status != RunWaitingApproval && r.Status != RunWaitingClarification {
 		return ErrInvalidTransition
 	}
 	r.finish(RunCancelled, now)
@@ -282,6 +295,154 @@ type Event struct {
 }
 
 type ApprovalStatus string
+
+type ClarificationStatus string
+
+const (
+	ClarificationPending  ClarificationStatus = "pending"
+	ClarificationAnswered ClarificationStatus = "answered"
+	ClarificationSkipped  ClarificationStatus = "skipped"
+)
+
+type Clarification struct {
+	ID         string
+	RunID      string
+	SessionID  string
+	AccountID  string
+	Question   string
+	Options    []string
+	Workflow   *WorkflowRequest
+	Status     ClarificationStatus
+	Selected   string
+	Answer     string
+	ResolvedBy string
+	CreatedAt  time.Time
+	ResolvedAt time.Time
+	UpdatedAt  time.Time
+}
+
+type WorkflowRequest struct {
+	ID              string               `json:"id"`
+	Name            string               `json:"name"`
+	Description     string               `json:"description,omitempty"`
+	Preview         string               `json:"preview,omitempty"`
+	InputSchema     json.RawMessage      `json:"input_schema"`
+	SuggestedInputs map[string]any       `json:"suggested_inputs"`
+	SubmittedInputs map[string]any       `json:"submitted_inputs,omitempty"`
+	AnthropicOutput []json.RawMessage    `json:"anthropic_output,omitempty"`
+	InputFields     []WorkflowInputField `json:"input_fields"`
+}
+
+func (w WorkflowRequest) ForClient() WorkflowRequest {
+	w.AnthropicOutput = nil
+	w.SubmittedInputs = nil
+	return w
+}
+
+type WorkflowInputField struct {
+	Key         string `json:"key"`
+	Type        string `json:"type"`
+	Required    bool   `json:"required"`
+	Description string `json:"description,omitempty"`
+}
+
+func NewWorkflowClarification(id, runID, sessionID, accountID string, workflow WorkflowRequest, now time.Time) (*Clarification, error) {
+	if anyBlank(id, runID, sessionID, accountID, workflow.ID, workflow.Name) || !json.Valid(workflow.InputSchema) {
+		return nil, fmt.Errorf("%w: invalid workflow request", ErrInvalid)
+	}
+	now = now.UTC()
+	return &Clarification{
+		ID: id, RunID: runID, SessionID: sessionID, AccountID: accountID,
+		Question: workflow.Name, Options: []string{}, Workflow: &workflow, Status: ClarificationPending,
+		CreatedAt: now, UpdatedAt: now,
+	}, nil
+}
+
+func (c *Clarification) ResolveWorkflow(actorID string, inputs map[string]any, skip bool, now time.Time) error {
+	if c.Status != ClarificationPending {
+		return ErrInvalidTransition
+	}
+	if c.Workflow == nil || strings.TrimSpace(actorID) == "" || actorID != c.AccountID {
+		return fmt.Errorf("%w: invalid workflow response", ErrInvalid)
+	}
+	if skip {
+		c.Selected = "skip"
+		c.Answer = "已跳过"
+		c.Status = ClarificationSkipped
+	} else {
+		if inputs == nil {
+			return fmt.Errorf("%w: workflow inputs are required", ErrInvalid)
+		}
+		c.Selected = "submit"
+		c.Answer = "已提交"
+		c.Workflow.SubmittedInputs = inputs
+		c.Status = ClarificationAnswered
+	}
+	now = now.UTC()
+	c.ResolvedBy = actorID
+	c.ResolvedAt = now
+	c.UpdatedAt = now
+	return nil
+}
+
+func NewClarification(id, runID, sessionID, accountID, question string, options []string, now time.Time) (*Clarification, error) {
+	question = strings.TrimSpace(question)
+	if anyBlank(id, runID, sessionID, accountID, question) || len(options) < 2 || len(options) > 5 || len([]rune(question)) > 300 {
+		return nil, fmt.Errorf("%w: invalid clarification question", ErrInvalid)
+	}
+	seen := make(map[string]bool, len(options))
+	cleaned := make([]string, 0, len(options))
+	for _, option := range options {
+		option = strings.TrimSpace(option)
+		if option == "" || option == "其他" || option == "其它" || strings.EqualFold(option, "other") || len([]rune(option)) > 100 || seen[option] {
+			return nil, fmt.Errorf("%w: invalid clarification option", ErrInvalid)
+		}
+		seen[option] = true
+		cleaned = append(cleaned, option)
+	}
+	now = now.UTC()
+	return &Clarification{
+		ID: id, RunID: runID, SessionID: sessionID, AccountID: accountID,
+		Question: question, Options: cleaned, Status: ClarificationPending,
+		CreatedAt: now, UpdatedAt: now,
+	}, nil
+}
+
+func (c *Clarification) Resolve(actorID, selected, custom string, now time.Time) error {
+	if c.Status != ClarificationPending {
+		return ErrInvalidTransition
+	}
+	if strings.TrimSpace(actorID) == "" || actorID != c.AccountID {
+		return fmt.Errorf("%w: clarification actor must own the session", ErrInvalid)
+	}
+	status := ClarificationAnswered
+	if selected == "skip" {
+		if strings.TrimSpace(custom) != "" {
+			return fmt.Errorf("%w: invalid clarification skip", ErrInvalid)
+		}
+		c.Answer = ""
+		status = ClarificationSkipped
+	} else if selected == "other" {
+		custom = strings.TrimSpace(custom)
+		if custom == "" || len([]rune(custom)) > 1000 {
+			return fmt.Errorf("%w: invalid custom clarification answer", ErrInvalid)
+		}
+		c.Answer = custom
+	} else {
+		index, err := strconv.Atoi(selected)
+		if err != nil || index < 0 || index >= len(c.Options) || strings.TrimSpace(custom) != "" {
+			return fmt.Errorf("%w: invalid clarification selection", ErrInvalid)
+		}
+		c.Answer = c.Options[index]
+	}
+	now = now.UTC()
+	c.Selected = selected
+	c.Status = status
+	c.ResolvedBy = actorID
+	c.ResolvedAt = now
+	c.UpdatedAt = now
+	return nil
+}
 
 const (
 	ApprovalPending  ApprovalStatus = "pending"
@@ -396,7 +557,7 @@ type AssetVersion struct {
 	CreatedAt time.Time
 }
 
-type LibraryFolder struct {
+type LibraryCategory struct {
 	ID        string
 	AccountID string
 	ParentID  string
@@ -405,12 +566,12 @@ type LibraryFolder struct {
 	UpdatedAt time.Time
 }
 
-func NewLibraryFolder(id, accountID, parentID, name string, now time.Time) (*LibraryFolder, error) {
+func NewLibraryCategory(id, accountID, parentID, name string, now time.Time) (*LibraryCategory, error) {
 	if anyBlank(id, accountID, name) {
-		return nil, fmt.Errorf("%w: invalid library folder", ErrInvalid)
+		return nil, fmt.Errorf("%w: invalid library category", ErrInvalid)
 	}
 	now = now.UTC()
-	return &LibraryFolder{ID: id, AccountID: accountID, ParentID: strings.TrimSpace(parentID), Name: strings.TrimSpace(name), CreatedAt: now, UpdatedAt: now}, nil
+	return &LibraryCategory{ID: id, AccountID: accountID, ParentID: strings.TrimSpace(parentID), Name: strings.TrimSpace(name), CreatedAt: now, UpdatedAt: now}, nil
 }
 
 func NewAsset(id, sessionID, accountID, name string, kind AssetKind, origin AssetOrigin, now time.Time) (*Asset, error) {

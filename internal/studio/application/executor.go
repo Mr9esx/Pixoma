@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -41,10 +42,14 @@ const (
 	EventFlowUpdated             = "FLOW_UPDATED"
 	EventApprovalRequired        = "APPROVAL_REQUIRED"
 	EventApprovalResolved        = "APPROVAL_RESOLVED"
+	EventClarificationRequired   = "CLARIFICATION_REQUIRED"
+	EventClarificationAnswered   = "CLARIFICATION_ANSWERED"
+	EventClarificationSkipped    = "CLARIFICATION_SKIPPED"
 	EventRunFinished             = "RUN_FINISHED"
 )
 
 var ErrApprovalRequired = errors.New("studio: approval required")
+var ErrClarificationRequired = errors.New("studio: clarification required")
 
 type AgentRepository interface {
 	domain.Repository
@@ -58,13 +63,15 @@ type AgentRequest struct {
 	// HistoryMessageIDs is aligned with History. Each entry is the last
 	// durable message that may safely be summarized before that model message;
 	// event-only tool messages inherit their run trigger boundary.
-	HistoryMessageIDs  []string
-	ContextSummary     string
-	SaveContextSummary func(context.Context, string, string) error
-	Skills             []domain.Skill
-	AvailableSkills    []domain.RunSkill
-	Assets             []*domain.Asset
-	Approvals          []*domain.Approval
+	HistoryMessageIDs     []string
+	ContextSummary        string
+	SaveContextSummary    func(context.Context, string, string) error
+	Skills                []domain.Skill
+	AvailableSkills       []domain.RunSkill
+	Assets                []*domain.Asset
+	ReferencedWorkflowIDs []string
+	Approvals             []*domain.Approval
+	Clarifications        []*domain.Clarification
 }
 
 type GeneratedAsset struct {
@@ -94,6 +101,14 @@ type AgentSink interface {
 	CreateFlowNode(ctx context.Context, input FlowNodeInput) (*domain.FlowNode, error)
 	CreateFlowEdge(ctx context.Context, sourceNodeID, targetNodeID, label string) (*domain.FlowEdge, error)
 	RequestApproval(ctx context.Context, toolCallID, action, description string) (*domain.Approval, error)
+}
+
+type ClarificationSink interface {
+	RequestClarification(ctx context.Context, question string, options []string) (*domain.Clarification, error)
+}
+
+type WorkflowInputSink interface {
+	RequestWorkflowInput(ctx context.Context, workflow domain.WorkflowRequest) (*domain.Clarification, error)
 }
 
 // TextAssetVersionAppender is implemented by the durable Agent execution
@@ -188,8 +203,22 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 	if err != nil {
 		return err
 	}
+	var messageParts []MessagePart
+	if err := json.Unmarshal(message.ContentJSON, &messageParts); err != nil {
+		return err
+	}
+	var referencedWorkflowIDs []string
+	for _, part := range messageParts {
+		if part.Type == "workflow_ref" && !slices.Contains(referencedWorkflowIDs, part.WorkflowID) {
+			referencedWorkflowIDs = append(referencedWorkflowIDs, part.WorkflowID)
+		}
+	}
 	sink := &executionWriter{executor: e, run: run, events: e.events}
 	approvals, err := e.repo.ListApprovals(ctx, run.AccountID, run.ID)
+	if err != nil {
+		return err
+	}
+	clarifications, err := e.repo.ListClarifications(ctx, run.AccountID, run.ID)
 	if err != nil {
 		return err
 	}
@@ -227,13 +256,21 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 		Run: run, Session: session, UserText: text,
 		History: history.Messages, HistoryMessageIDs: history.BoundaryMessageIDs,
 		ContextSummary: session.ContextSummary, SaveContextSummary: saveSummary,
-		Skills: skills, AvailableSkills: run.SkillSnapshot, Assets: assets, Approvals: approvals,
+		Skills: skills, AvailableSkills: run.SkillSnapshot, Assets: assets, ReferencedWorkflowIDs: referencedWorkflowIDs,
+		Approvals: approvals, Clarifications: clarifications,
 	}, sink)
 	if flushErr := sink.FlushOutput(ctx); flushErr != nil {
 		return flushErr
 	}
 	if errors.Is(err, ErrApprovalRequired) {
 		if waitErr := run.WaitForApproval(e.now()); waitErr != nil {
+			return waitErr
+		}
+		if updateErr := e.repo.UpdateRun(ctx, run); updateErr != nil {
+			return updateErr
+		}
+	} else if errors.Is(err, ErrClarificationRequired) {
+		if waitErr := run.WaitForClarification(e.now()); waitErr != nil {
 			return waitErr
 		}
 		if updateErr := e.repo.UpdateRun(ctx, run); updateErr != nil {
@@ -269,7 +306,7 @@ func (e *AgentExecutor) selectedSkills(ctx context.Context, run *domain.Run) ([]
 			if !ok {
 				return nil, fmt.Errorf("%w: selected Skill is absent from Run snapshot", domain.ErrNotFound)
 			}
-			selected = append(selected, domain.Skill{ID: skill.ID, AccountID: run.AccountID, Name: skill.Name, Description: skill.Description, Prompt: skill.Prompt, Enabled: true})
+			selected = append(selected, domain.Skill{ID: skill.ID, AccountID: run.AccountID, Name: skill.Name, Description: skill.Description, Prompt: skill.Prompt, Files: append([]domain.SkillFile(nil), skill.Files...), Enabled: true})
 		}
 		return selected, nil
 	}
@@ -825,6 +862,76 @@ func (w *executionWriter) RequestApproval(ctx context.Context, toolCallID, actio
 	return approval, nil
 }
 
+func (w *executionWriter) RequestClarification(ctx context.Context, question string, options []string) (*domain.Clarification, error) {
+	clarification, err := domain.NewClarification(
+		w.executor.ids(), w.run.ID, w.run.SessionID, w.run.AccountID,
+		question, options, w.executor.now(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := w.FlushOutput(ctx); err != nil {
+		return nil, err
+	}
+	if err := w.executor.repo.CreateClarification(ctx, clarification); err != nil {
+		return nil, err
+	}
+	messageID := clarificationMessageID(w.run.ID, clarification.ID)
+	if err := w.Emit(ctx, EventTextMessageStart, map[string]any{"message_id": messageID, "role": "assistant"}); err != nil {
+		return nil, err
+	}
+	if err := w.Emit(ctx, EventTextMessageContent, map[string]any{"message_id": messageID, "delta": clarification.Question}); err != nil {
+		return nil, err
+	}
+	if err := w.Emit(ctx, EventTextMessageEnd, map[string]any{"message_id": messageID}); err != nil {
+		return nil, err
+	}
+	if err := w.Emit(ctx, EventClarificationRequired, map[string]any{
+		"clarification_id": clarification.ID, "message_id": messageID,
+		"question": clarification.Question, "options": clarification.Options,
+	}); err != nil {
+		return nil, err
+	}
+	return clarification, nil
+}
+
+func (w *executionWriter) RequestWorkflowInput(ctx context.Context, workflow domain.WorkflowRequest) (*domain.Clarification, error) {
+	clarification, err := domain.NewWorkflowClarification(
+		w.executor.ids(), w.run.ID, w.run.SessionID, w.run.AccountID, workflow, w.executor.now(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := w.FlushOutput(ctx); err != nil {
+		return nil, err
+	}
+	if err := w.executor.repo.CreateClarification(ctx, clarification); err != nil {
+		return nil, err
+	}
+	messageID := clarificationMessageID(w.run.ID, clarification.ID)
+	for _, event := range []struct {
+		typeName string
+		payload  any
+	}{
+		{EventTextMessageStart, map[string]any{"message_id": messageID, "role": "assistant"}},
+		{EventTextMessageContent, map[string]any{"message_id": messageID, "delta": workflow.Name}},
+		{EventTextMessageEnd, map[string]any{"message_id": messageID}},
+		{EventClarificationRequired, map[string]any{
+			"clarification_id": clarification.ID, "message_id": messageID,
+			"question": workflow.Name, "options": []string{}, "workflow": workflow.ForClient(),
+		}},
+	} {
+		if err := w.Emit(ctx, event.typeName, event.payload); err != nil {
+			return nil, err
+		}
+	}
+	return clarification, nil
+}
+
+func clarificationMessageID(runID, clarificationID string) string {
+	return runID + ":clarification:" + clarificationID
+}
+
 func messageText(raw json.RawMessage) (string, error) {
 	var parts []MessagePart
 	if err := json.Unmarshal(raw, &parts); err != nil {
@@ -849,6 +956,11 @@ func messagePartsText(parts []MessagePart) (string, error) {
 				return "", fmt.Errorf("studio: invalid asset reference")
 			}
 			text.WriteString("「" + part.Name + "」资产")
+		case "workflow_ref":
+			if part.WorkflowID == "" || part.Name == "" {
+				return "", fmt.Errorf("studio: invalid workflow reference")
+			}
+			text.WriteString("「" + part.Name + "」工作流")
 		case "reasoning", "image", "file":
 		default:
 			return "", fmt.Errorf("studio: unsupported message part %q", part.Type)

@@ -29,6 +29,7 @@ type Reporter struct {
 	lastMetrics     time.Time
 	startedAt       time.Time
 	lastConsuming   *bool
+	lastRunning     *bool
 }
 
 func (r *Reporter) interval() time.Duration {
@@ -54,13 +55,20 @@ func (r *Reporter) ProbeAndReport(ctx context.Context) error {
 	}
 	running := false
 	comfyVersion := ""
+	probeError := "未配置 ComfyUI 客户端"
 	if r.Comfy != nil {
 		probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 		st, err := r.Comfy.SystemStats(probeCtx)
 		cancel()
 		running = err == nil && st != nil && st.Reachable
+		if err != nil {
+			probeError = err.Error()
+		}
 		if st != nil {
 			comfyVersion = st.ComfyUIVersion
+			if st.Error != "" {
+				probeError = st.Error
+			}
 		}
 	}
 	var hw *edge.Hardware
@@ -79,11 +87,22 @@ func (r *Reporter) ProbeAndReport(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if r.lastRunning == nil || *r.lastRunning != running {
+		if running {
+			slog.Info("ComfyUI 已连接", "edge_id", r.Client.EdgeID, "version", comfyVersion)
+		} else {
+			slog.Warn("ComfyUI 无法连接", "edge_id", r.Client.EdgeID, "reason", probeError)
+		}
+	}
+	r.lastRunning = &running
 	if !consuming && (r.lastConsuming == nil || *r.lastConsuming) {
-		slog.Warn("edge has no dispatch topic binding; it will not receive tasks",
+		slog.Warn("Edge Agent 没有任务主题绑定",
 			"edge_id", r.Client.EdgeID,
-			"hint", "bind a topic in the admin (PATCH /api/v1/edges/{id})",
+			"hint", "在管理页面绑定任务主题（PATCH /api/v1/edges/{id}）",
 		)
+	}
+	if consuming && r.lastConsuming != nil && !*r.lastConsuming {
+		slog.Info("Edge Agent 任务主题绑定已恢复", "edge_id", r.Client.EdgeID)
 	}
 	r.lastConsuming = &consuming
 	r.SendHardware = false
@@ -93,7 +112,7 @@ func (r *Reporter) ProbeAndReport(ctx context.Context) error {
 
 func (r *Reporter) Run(ctx context.Context) error {
 	if err := r.ProbeAndReport(ctx); err != nil {
-		slog.Warn("presence report failed", "err", err)
+		slog.Warn("Edge Agent 上报状态失败", "edge_id", r.Client.EdgeID, "err", err)
 	}
 	ticker := time.NewTicker(r.interval())
 	defer ticker.Stop()
@@ -103,7 +122,7 @@ func (r *Reporter) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 			if err := r.ProbeAndReport(ctx); err != nil {
-				slog.Warn("presence report failed", "err", err)
+				slog.Warn("Edge Agent 上报状态失败", "edge_id", r.Client.EdgeID, "err", err)
 			}
 		}
 	}

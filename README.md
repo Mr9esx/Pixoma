@@ -322,6 +322,8 @@ make clean      # 清空 DATA_DIR，下次启动重新走向导
 - 管理页：`http://127.0.0.1:5173`
 - 控制面：`http://127.0.0.1:30808`（`make dev PORT=...` 可同时修改前后端端口；二进制也支持 `PORT` 或 `HTTP_ADDR`）
 
+控制面与 Edge Agent 将 JSON 日志写入标准输出。`PIXOMA_LOG_LEVEL` 支持 `DEBUG`、`INFO`、`WARN`、`ERROR`，默认 `INFO`。使用 `PIXOMA_LOG_LEVEL=DEBUG make run` 可查看请求、任务准备与 Studio 排队过程。常规级别记录任务状态变化、Studio 执行结果及写入请求；请求日志包含 `request_id`、路由、状态码和耗时，不包含查询参数或请求内容。错误响应会记录错误码及经过凭证清理的原因。
+
 架构说明见 [`docs/architecture/`](docs/architecture/)。
 
 贡献见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。安全问题见 [`SECURITY.md`](SECURITY.md)。许可证是 MIT，见 [`LICENSE`](LICENSE)。

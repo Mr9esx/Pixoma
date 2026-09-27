@@ -8,11 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SectionHead } from '@/components/section-head'
-import type {
-  EntityHealth,
-  HealthBreakpoint,
-  ReferenceItem,
-} from './types'
+import type { EntityHealth, HealthBreakpoint, ReferenceItem } from './types'
 
 const stateClass: Record<string, string> = {
   ok: 'border-success/25 bg-success/10 text-success',
@@ -39,6 +35,7 @@ type LinkHealthSectionProps = {
   downstream?: { title: string; items: ReferenceItem[] }
   /** 自定义断点行动按钮；返回 null 时回退到默认 Link。 */
   renderAction?: (breakpoint: HealthBreakpoint) => ReactNode | null
+  showActions?: boolean
 }
 
 export function LinkHealthSection({
@@ -47,6 +44,7 @@ export function LinkHealthSection({
   upstream,
   downstream,
   renderAction,
+  showActions = true,
 }: LinkHealthSectionProps) {
   const { t } = useTranslation()
   const blocked = health.breakpoints.length > 0
@@ -99,27 +97,29 @@ export function LinkHealthSection({
                       ? t('linkHealth.fixConfig')
                       : t('linkHealth.fixRuntime')}
                   </Badge>
-                  {renderAction?.(b) ?? (
-                    <Link
-                      to={b.action.to}
-                      className='ml-auto text-sm font-medium text-foreground underline underline-offset-2'
-                      onClick={(e) => {
-                        const focus = FOCUS_TARGETS[b.action.key]
-                        if (!focus) return
-                        const samePage =
-                          b.action.to.replace(/\/$/, '') ===
-                          window.location.pathname.replace(/\/$/, '')
-                        if (samePage) {
-                          e.preventDefault()
-                          scrollAndFlash(focus)
-                        } else {
-                          requestFocus(focus)
-                        }
-                      }}
-                    >
-                      {t(b.action.key)} →
-                    </Link>
-                  )}
+                  {showActions
+                    ? (renderAction?.(b) ?? (
+                        <Link
+                          to={b.action.to}
+                          className='ml-auto text-sm font-medium text-foreground underline underline-offset-2'
+                          onClick={(e) => {
+                            const focus = FOCUS_TARGETS[b.action.key]
+                            if (!focus) return
+                            const samePage =
+                              b.action.to.replace(/\/$/, '') ===
+                              window.location.pathname.replace(/\/$/, '')
+                            if (samePage) {
+                              e.preventDefault()
+                              scrollAndFlash(focus)
+                            } else {
+                              requestFocus(focus)
+                            }
+                          }}
+                        >
+                          {t(b.action.key)} →
+                        </Link>
+                      ))
+                    : null}
                 </div>
                 {null}
               </li>

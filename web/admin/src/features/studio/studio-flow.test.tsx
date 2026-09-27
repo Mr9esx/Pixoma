@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import '@/styles/index.css'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -45,9 +46,113 @@ const workflowNode: StudioFlowNode = {
 }
 
 describe('StudioFlow', () => {
+  it('keeps the dotted canvas and creates the first node from the lower left', async () => {
+    function EmptyFlow() {
+      const [flowNodes, setFlowNodes] = useState<StudioFlowNode[]>([])
+      return (
+        <StudioFlow
+          nodes={flowNodes}
+          edges={[]}
+          onNodeCreate={async (input) => {
+            setFlowNodes([
+              {
+                id: 'first-node',
+                ...input,
+                sort_order: 0,
+                updated_at: '',
+              },
+            ])
+          }}
+        />
+      )
+    }
+
+    const screen = await render(
+      <div className='h-[600px] w-[1000px]'>
+        <EmptyFlow />
+      </div>
+    )
+    expect(
+      screen.container.querySelector('.react-flow__background circle')
+    ).not.toBeNull()
+    const addButton = screen.container.querySelector(
+      '.react-flow__panel.bottom.left button'
+    ) as HTMLButtonElement
+    await addButton.click()
+    await screen.getByRole('textbox', { name: '节点名称' }).fill('确认色彩脚本')
+    await screen.getByRole('button', { name: '添加节点' }).click()
+    await expect.element(screen.getByText('确认色彩脚本')).toBeVisible()
+  })
+
+  it('animates the connection into a running operation', async () => {
+    const screen = await render(
+      <div className='h-[600px] w-[1000px]'>
+        <StudioFlow
+          nodes={[nodes[0], workflowNode]}
+          edges={[
+            {
+              id: 'edge-running-operation',
+              source: nodes[0].id,
+              target: workflowNode.id,
+            },
+          ]}
+          workflowExecutions={[
+            {
+              id: 'execution-storyboard',
+              run_id: 'run-storyboard',
+              task_id: 'task-storyboard',
+              workflow_id: '12',
+              operation_node_id: workflowNode.id,
+              status: 'submitted',
+              task_status: 'running',
+              created_at: '2026-09-25T12:00:00Z',
+            },
+          ]}
+        />
+      </div>
+    )
+
+    await expect.element(screen.getByText('生成分镜')).toBeVisible()
+    expect(
+      screen.container.querySelector(
+        '.react-flow__edge[data-id="edge-running-operation"] animateMotion'
+      )
+    ).not.toBeNull()
+  })
+
   it.each([
-    ['submitted', '执行中', '工作流在后台运行。', ''],
-    ['succeeded', '成功', '资产路线暂无产物。', ''],
+    ['pending', '待处理'],
+    ['queued', '排队中'],
+    ['running', '执行中'],
+  ] as const)('shows a %s workflow task as %s', async (taskStatus, label) => {
+    const screen = await render(
+      <div className='h-[600px] w-[1000px]'>
+        <StudioFlow
+          nodes={[workflowNode]}
+          edges={[]}
+          workflowExecutions={[
+            {
+              id: 'execution-storyboard',
+              run_id: 'run-storyboard',
+              task_id: 'task-storyboard',
+              workflow_id: '12',
+              operation_node_id: workflowNode.id,
+              status: 'submitted',
+              task_status: taskStatus,
+              created_at: '2026-09-25T12:00:00Z',
+            },
+          ]}
+        />
+      </div>
+    )
+    await expect.element(screen.getByText(label, { exact: true })).toBeVisible()
+    expect(screen.container.textContent).not.toContain(
+      '已提交，正在后台执行工作流。'
+    )
+  })
+
+  it.each([
+    ['succeeded', '成功', '暂无产物。', ''],
     ['failed', '失败', '出图失败：节点离线', '出图失败：节点离线'],
     ['cancelled', '已取消', '工作流已取消。', ''],
   ] as const)(
@@ -112,7 +217,7 @@ describe('StudioFlow', () => {
         />
       </div>
     )
-    await expect.element(screen.getByText('产物已加入资产路线。')).toBeVisible()
+    await expect.element(screen.getByText('已生成产物。')).toBeVisible()
     await expect.element(screen.getByText('分镜图')).toBeVisible()
   })
 
@@ -123,10 +228,12 @@ describe('StudioFlow', () => {
         <StudioFlow nodes={[assetNode]} edges={[]} onAssetOpen={onAssetOpen} />
       </div>
     )
+    await expect.element(screen.getByText('分镜图')).toBeVisible()
     const nodeButton = screen.container.querySelector(
       '.react-flow__node[data-id="asset-node"] button'
     ) as HTMLButtonElement
     nodeButton.focus()
+    expect(document.activeElement).toBe(nodeButton)
     await userEvent.keyboard('{Enter}')
     expect(onAssetOpen).toHaveBeenCalledWith('asset-storyboard')
   })
@@ -138,6 +245,7 @@ describe('StudioFlow', () => {
         <StudioFlow nodes={[assetNode]} edges={[]} onAssetOpen={onAssetOpen} />
       </div>
     )
+    await expect.element(screen.getByText('分镜图')).toBeVisible()
     const nodeButton = screen.container.querySelector(
       '.react-flow__node[data-id="asset-node"] button'
     ) as HTMLButtonElement

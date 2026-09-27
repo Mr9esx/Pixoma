@@ -3,11 +3,13 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -236,15 +238,48 @@ func (h *Handler) prepareAGUIRun(ctx context.Context, accountID string, input ag
 		return result.Run.ID, 0, nil
 	}
 	if len(input.Resume) != 1 {
-		return "", 0, fmt.Errorf("studio: only one approval can be resumed at a time")
+		return "", 0, fmt.Errorf("studio: only one interrupt can be resumed at a time")
 	}
 	entry := input.Resume[0]
 	if entry.InterruptID == "" || (entry.Status != "resolved" && entry.Status != "cancelled") {
 		return "", 0, fmt.Errorf("studio: invalid AG-UI resume entry")
 	}
 	approval, err := h.Repo.GetApproval(ctx, accountID, entry.InterruptID)
-	if err != nil {
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return "", 0, err
+	}
+	if errors.Is(err, domain.ErrNotFound) {
+		clarification, err := h.Repo.GetClarification(ctx, accountID, entry.InterruptID)
+		if err != nil {
+			return "", 0, err
+		}
+		if clarification.SessionID != input.ThreadID || (entry.Status != "resolved" && clarification.Workflow == nil) {
+			return "", 0, fmt.Errorf("%w: invalid clarification resume", domain.ErrInvalid)
+		}
+		var answer struct {
+			Selected string         `json:"selected"`
+			Custom   string         `json:"custom"`
+			Inputs   map[string]any `json:"inputs"`
+		}
+		if entry.Status == "resolved" {
+			if err := json.Unmarshal(entry.Payload, &answer); err != nil {
+				return "", 0, fmt.Errorf("%w: invalid clarification response: %v", domain.ErrInvalid, err)
+			}
+		}
+		after, err := h.Repo.LastRunEventSequence(ctx, accountID, clarification.RunID)
+		if err != nil {
+			return "", 0, err
+		}
+		if err := h.Clarifications.Resolve(ctx, studioapp.ResolveClarificationInput{
+			AccountID: accountID, ClarificationID: clarification.ID, Selected: answer.Selected, Custom: answer.Custom,
+			WorkflowInputs: answer.Inputs, SkipWorkflow: entry.Status == "cancelled",
+		}); err != nil {
+			return "", 0, err
+		}
+		return clarification.RunID, after, nil
+	}
+	if approval.SessionID != input.ThreadID {
+		return "", 0, fmt.Errorf("%w: invalid approval resume", domain.ErrInvalid)
 	}
 	after, err := h.Repo.LastRunEventSequence(ctx, accountID, approval.RunID)
 	if err != nil {
@@ -338,6 +373,16 @@ func (h *Handler) aguiTerminalEvent(ctx context.Context, accountID string, run *
 			return nil
 		}
 		return map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "interrupt", "interrupts": interrupts}}
+	case domain.RunWaitingClarification:
+		clarifications, err := h.Repo.ListClarifications(ctx, accountID, run.ID)
+		if err != nil {
+			return aguiRunError(input, "读取澄清问题失败")
+		}
+		interrupts := pendingAGUIClarifications(clarifications)
+		if len(interrupts) == 0 {
+			return nil
+		}
+		return map[string]any{"type": "RUN_FINISHED", "threadId": input.ThreadID, "runId": input.RunID, "outcome": map[string]any{"type": "interrupt", "interrupts": interrupts}}
 	case domain.RunFailed:
 		return aguiRunError(input, run.ErrorMessage)
 	case domain.RunCancelled:
@@ -353,13 +398,44 @@ func pendingAGUIInterrupts(approvals []*domain.Approval) []map[string]any {
 			continue
 		}
 		description := strings.TrimSpace(approval.Description)
-		if description == "" {
-			description = "需要批准后继续执行"
+		message := "该工具请求执行操作。是否批准？"
+		if description != "" {
+			message = "该工具要" + description + "。是否批准？"
 		}
 		interrupts = append(interrupts, map[string]any{
-			"id": approval.ID, "reason": "tool_approval", "message": description,
+			"id": approval.ID, "reason": "tool_approval", "message": message,
 			"toolCallId":     approval.ToolCallID,
 			"responseSchema": map[string]any{"type": "boolean"},
+		})
+	}
+	return interrupts
+}
+
+func pendingAGUIClarifications(clarifications []*domain.Clarification) []map[string]any {
+	interrupts := make([]map[string]any, 0, len(clarifications))
+	for _, clarification := range clarifications {
+		if clarification.Status != domain.ClarificationPending {
+			continue
+		}
+		if clarification.Workflow != nil {
+			interrupts = append(interrupts, map[string]any{
+				"id": clarification.ID, "reason": "workflow_input", "message": clarification.Question,
+				"metadata":       map[string]any{"workflow": clarification.Workflow.ForClient(), "messageId": clarification.RunID + ":clarification:" + clarification.ID},
+				"responseSchema": map[string]any{"type": "object", "required": []string{"inputs"}, "properties": map[string]any{"inputs": clarification.Workflow.InputSchema}},
+			})
+			continue
+		}
+		options := make([]map[string]string, 0, len(clarification.Options))
+		for index, option := range clarification.Options {
+			options = append(options, map[string]string{"id": strconv.Itoa(index), "label": option})
+		}
+		interrupts = append(interrupts, map[string]any{
+			"id": clarification.ID, "reason": "input_required", "message": clarification.Question,
+			"metadata": map[string]any{"options": options, "messageId": clarification.RunID + ":clarification:" + clarification.ID},
+			"responseSchema": map[string]any{
+				"type": "object", "required": []string{"selected"},
+				"properties": map[string]any{"selected": map[string]any{"type": "string"}, "custom": map[string]any{"type": "string"}},
+			},
 		})
 	}
 	return interrupts

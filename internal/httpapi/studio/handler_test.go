@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -18,8 +17,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
+	"github.com/Mr9esx/Pixoma/internal/httpapi/apitest"
 	setupapi "github.com/Mr9esx/Pixoma/internal/httpapi/setup"
 	studioapi "github.com/Mr9esx/Pixoma/internal/httpapi/studio"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
@@ -27,7 +28,10 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
+	studiomcp "github.com/Mr9esx/Pixoma/internal/studio/infrastructure/mcpconnector"
 	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/persistence"
+	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
+	taskpersist "github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/persistence"
 )
 
 type ids struct {
@@ -74,7 +78,11 @@ func newHandlerWithEngine(t *testing.T, engine studioapp.AgentEngine) (*studioap
 	if err := db.AutoMigrate(gdb, persistence.Models()...); err != nil {
 		t.Fatal(err)
 	}
+	if err := db.AutoMigrate(gdb, &taskpersist.TaskRow{}); err != nil {
+		t.Fatal(err)
+	}
 	repo := persistence.NewGormRepository(gdb)
+	tasks := taskpersist.NewTaskRepository(gdb)
 	blobs, err := localfs.New(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +93,7 @@ func newHandlerWithEngine(t *testing.T, engine studioapp.AgentEngine) (*studioap
 	runner := studioapp.NewBackgroundRunner(repo, executor, studioapp.RunnerOptions{Workers: 1})
 	service := &studioapp.Service{Repo: repo, IDs: sequence.next, Queue: runner}
 	return &studioapi.Handler{
-		Repo: repo, Service: service, Runner: runner,
+		Repo: repo, Service: service, Runner: runner, Tasks: tasks,
 		Approvals:    &studioapp.ApprovalService{Repo: repo, Queue: runner, IDs: sequence.next},
 		Models:       &studioapp.ModelConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: sequence.next, Tester: modelConnectionTester{}},
 		Capabilities: &studioapp.CapabilityConfigService{Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), IDs: sequence.next, WorkflowCatalog: workflowCatalog{cases: []*catalogdomain.Case{{Document: catalogdomain.CaseDocument{ID: sharedkernel.CaseID(1), Name: "漫画生成", Description: "生成分镜"}, Enabled: true}}}},
@@ -108,12 +116,31 @@ func TestStudioSessionDetailIncludesWorkflowTaskLifecycle(t *testing.T) {
 	for index, input := range []struct {
 		id, taskID, operationID string
 		status                  domain.WorkflowExecutionStatus
+		taskStatus              sharedkernel.TaskStatus
 	}{
-		{"execution-running", "task-running", "operation-running", domain.WorkflowExecutionSubmitted},
-		{"execution-empty", "task-empty", "operation-empty", domain.WorkflowExecutionSucceeded},
-		{"execution-failed", "task-failed", "operation-failed", domain.WorkflowExecutionFailed},
+		{"execution-pending", "task-pending", "operation-pending", domain.WorkflowExecutionSubmitted, sharedkernel.TaskPending},
+		{"execution-queued", "task-queued", "operation-queued", domain.WorkflowExecutionSubmitted, sharedkernel.TaskQueued},
+		{"execution-running", "task-running", "operation-running", domain.WorkflowExecutionSubmitted, sharedkernel.TaskRunning},
+		{"execution-empty", "task-empty", "operation-empty", domain.WorkflowExecutionSucceeded, ""},
+		{"execution-failed", "task-failed", "operation-failed", domain.WorkflowExecutionFailed, ""},
 	} {
 		createdAt := now.Add(time.Duration(index) * time.Second)
+		if input.status == domain.WorkflowExecutionSubmitted {
+			task := runtimedomain.NewPending(sharedkernel.TaskID(input.taskID), sharedkernel.SessionID("studio-session-"+session.ID), 12, "inputs/"+input.taskID, createdAt)
+			if input.taskStatus == sharedkernel.TaskQueued || input.taskStatus == sharedkernel.TaskRunning {
+				if err := task.MarkQueued("", createdAt); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if input.taskStatus == sharedkernel.TaskRunning {
+				if err := task.MarkRunning("prompt-running", createdAt); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := handler.Tasks.Create(ctx, task); err != nil {
+				t.Fatal(err)
+			}
+		}
 		execution, err := domain.NewWorkflowExecution(input.id, "account-a", session.ID, "run-"+input.id, "tool-"+input.id, input.taskID, "12", input.operationID, createdAt)
 		if err != nil {
 			t.Fatal(err)
@@ -143,13 +170,22 @@ func TestStudioSessionDetailIncludesWorkflowTaskLifecycle(t *testing.T) {
 			TaskID          string `json:"task_id"`
 			OperationNodeID string `json:"operation_node_id"`
 			Status          string `json:"status"`
+			TaskStatus      string `json:"task_status"`
 			ErrorMessage    string `json:"error_message"`
 		} `json:"workflow_executions"`
 	}
 	if err := json.Unmarshal(apitest.DataBytes(response), &detail); err != nil {
 		t.Fatal(err)
 	}
-	if len(detail.WorkflowExecutions) != 3 || detail.WorkflowExecutions[0].Status != "submitted" || detail.WorkflowExecutions[1].Status != "succeeded" || detail.WorkflowExecutions[2].Status != "failed" || detail.WorkflowExecutions[2].ErrorMessage != "出图失败" || detail.WorkflowExecutions[0].TaskID != "task-running" || detail.WorkflowExecutions[0].OperationNodeID != "operation-running" {
+	if len(detail.WorkflowExecutions) != 5 ||
+		detail.WorkflowExecutions[0].TaskStatus != "pending" ||
+		detail.WorkflowExecutions[1].TaskStatus != "queued" ||
+		detail.WorkflowExecutions[2].TaskStatus != "running" ||
+		detail.WorkflowExecutions[3].Status != "succeeded" ||
+		detail.WorkflowExecutions[4].Status != "failed" ||
+		detail.WorkflowExecutions[4].ErrorMessage != "出图失败" ||
+		detail.WorkflowExecutions[2].TaskID != "task-running" ||
+		detail.WorkflowExecutions[2].OperationNodeID != "operation-running" {
 		t.Fatalf("workflow execution detail = %+v", detail.WorkflowExecutions)
 	}
 }
@@ -273,8 +309,8 @@ func TestStudioCapabilityConfigAPIUpdatesEnabledState(t *testing.T) {
 	if err := json.Unmarshal(apitest.DataBytes(skill), &createdSkill); err != nil || createdSkill.ID == "" {
 		t.Fatalf("created skill = %s, err=%v", skill.Body.String(), err)
 	}
-	updatedSkill := request(t, router, http.MethodPatch, "/skills/"+createdSkill.ID, map[string]any{
-		"name": "漫画分镜", "description": "把故事整理为镜头表", "prompt": "先输出镜头表", "enabled": false,
+	updatedSkill := request(t, router, http.MethodPatch, "/skills/"+createdSkill.ID+"/enabled", map[string]any{
+		"enabled": false,
 	}, "account-a")
 	if updatedSkill.Code != http.StatusOK || !strings.Contains(updatedSkill.Body.String(), "\"enabled\":false") {
 		t.Fatalf("PATCH skill = %d %s", updatedSkill.Code, updatedSkill.Body.String())
@@ -316,6 +352,108 @@ func TestStudioConnectorConfigAPIStoresMaskedAccountScopedConfiguration(t *testi
 	foreign := request(t, router, http.MethodGet, "/connectors", nil, "account-b")
 	if foreign.Code != http.StatusOK || strings.Contains(foreign.Body.String(), "Reference tools") {
 		t.Fatalf("GET /connectors as another account = %d %s", foreign.Code, foreign.Body.String())
+	}
+}
+
+func TestStudioConnectorDraftDiscoveryUsesEnteredAddress(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "reference", Version: "1.0"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "search_reference", Description: "Search reference material"}, func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, struct{}, error) {
+		return nil, struct{}{}, nil
+	})
+	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, nil)
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer connector-secret" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	}))
+	defer endpoint.Close()
+	gdb, err := db.Open(db.Options{DSN: "file:connector_draft_" + uuid.NewString() + "?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, persistence.Models()...); err != nil {
+		t.Fatal(err)
+	}
+	repo := persistence.NewGormRepository(gdb)
+	router := chi.NewRouter()
+	(&studioapi.Handler{Repo: repo, Capabilities: &studioapp.CapabilityConfigService{
+		Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), MCPProber: studiomcp.Prober{},
+	}}).Mount(router)
+	result := request(t, router, http.MethodPost, "/connectors/discover", map[string]any{
+		"url": endpoint.URL, "credential": "connector-secret",
+	}, "account-a")
+	if result.Code != http.StatusOK || !strings.Contains(result.Body.String(), "search_reference") {
+		t.Fatalf("discover status=%d body=%s", result.Code, result.Body.String())
+	}
+	created := request(t, router, http.MethodPost, "/connectors", map[string]any{
+		"name": "Reference", "url": endpoint.URL, "credential": "connector-secret", "enabled": true, "policy": "approval",
+	}, "account-a")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", created.Code, created.Body.String())
+	}
+	var connector struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(created), &connector); err != nil {
+		t.Fatal(err)
+	}
+	usingStoredCredential := request(t, router, http.MethodPost, "/connectors/discover", map[string]any{
+		"connector_id": connector.ID, "url": endpoint.URL,
+	}, "account-a")
+	if usingStoredCredential.Code != http.StatusOK || !strings.Contains(usingStoredCredential.Body.String(), "search_reference") {
+		t.Fatalf("discover with stored credential status=%d body=%s", usingStoredCredential.Code, usingStoredCredential.Body.String())
+	}
+}
+
+func TestStudioConnectorProbeFailureUsesGatewayError(t *testing.T) {
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer endpoint.Close()
+	gdb, err := db.Open(db.Options{DSN: "file:connector_probe_" + uuid.NewString() + "?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, persistence.Models()...); err != nil {
+		t.Fatal(err)
+	}
+	repo := persistence.NewGormRepository(gdb)
+	router := chi.NewRouter()
+	(&studioapi.Handler{Repo: repo, Capabilities: &studioapp.CapabilityConfigService{
+		Repo: repo, EncryptionKey: []byte(strings.Repeat("k", 32)), MCPProber: studiomcp.Prober{},
+	}}).Mount(router)
+	created := request(t, router, http.MethodPost, "/connectors", map[string]any{
+		"name": "Reference", "url": endpoint.URL, "credential": "connector-secret", "enabled": true, "policy": "approval",
+	}, "account-a")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", created.Code, created.Body.String())
+	}
+	var connector struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(created), &connector); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repo.GetMCPConnector(context.Background(), "account-a", connector.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.DiscoveredTools = []domain.MCPTool{{Name: "old_tool", InputSchema: json.RawMessage(`{}`)}}
+	if err := repo.UpdateMCPConnector(context.Background(), stored); err != nil {
+		t.Fatal(err)
+	}
+	result := request(t, router, http.MethodPost, "/connectors/"+connector.ID+"/probe", nil, "account-a")
+	if result.Code != http.StatusBadGateway || strings.Contains(result.Body.String(), "connector-secret") {
+		t.Fatalf("probe status=%d body=%s", result.Code, result.Body.String())
+	}
+	stored, err = repo.GetMCPConnector(context.Background(), "account-a", connector.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.DiscoveredTools) != 0 {
+		t.Fatalf("tools after failed probe = %d", len(stored.DiscoveredTools))
 	}
 }
 
@@ -795,7 +933,7 @@ func TestStudioAGUIResumesWaitingApproval(t *testing.T) {
 	if approvalID == "" {
 		t.Fatalf("approval interrupt missing: %s", first.Body.String())
 	}
-	if approvalMessage != "执行工作流「分镜生成」" {
+	if approvalMessage != "该工具要执行工作流「分镜生成」。是否批准？" {
 		t.Fatalf("approval interrupt message = %q", approvalMessage)
 	}
 	detail := request(t, router, http.MethodGet, "/sessions/"+session.ID, nil, "account-a")
@@ -1358,16 +1496,27 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 		t.Fatalf("PATCH third asset version status=%d body=%s", thirdVersion.Code, thirdVersion.Body.String())
 	}
 	library := request(t, router, http.MethodGet, "/library/assets", nil, "account-a")
-	var libraryAssets []struct {
-		CurrentVersion int `json:"current_version"`
-		Versions       []struct {
-			ContentURL string `json:"content_url"`
-		} `json:"versions"`
+	var libraryAssets struct {
+		Total  int `json:"total"`
+		Assets []struct {
+			CurrentVersion int `json:"current_version"`
+			Versions       []struct {
+				ContentURL string `json:"content_url"`
+			} `json:"versions"`
+		} `json:"assets"`
 	}
-	if library.Code != http.StatusOK || json.Unmarshal(apitest.DataBytes(library), &libraryAssets) != nil || len(libraryAssets) != 1 || libraryAssets[0].CurrentVersion != 2 || len(libraryAssets[0].Versions) != 1 {
+	if library.Code != http.StatusOK || json.Unmarshal(apitest.DataBytes(library), &libraryAssets) != nil || libraryAssets.Total != 1 || len(libraryAssets.Assets) != 1 || libraryAssets.Assets[0].CurrentVersion != 2 || len(libraryAssets.Assets[0].Versions) != 1 {
 		t.Fatalf("library asset = status=%d body=%s", library.Code, library.Body.String())
 	}
-	libraryContent := request(t, router, http.MethodGet, strings.TrimPrefix(libraryAssets[0].Versions[0].ContentURL, "/api/v1/studio"), nil, "account-a")
+	nextPage := request(t, router, http.MethodGet, "/library/assets?limit=50&offset=50", nil, "account-a")
+	var nextLibraryAssets struct {
+		Total  int   `json:"total"`
+		Assets []any `json:"assets"`
+	}
+	if nextPage.Code != http.StatusOK || json.Unmarshal(apitest.DataBytes(nextPage), &nextLibraryAssets) != nil || nextLibraryAssets.Total != 1 || len(nextLibraryAssets.Assets) != 0 {
+		t.Fatalf("next library page = status=%d body=%s", nextPage.Code, nextPage.Body.String())
+	}
+	libraryContent := request(t, router, http.MethodGet, strings.TrimPrefix(libraryAssets.Assets[0].Versions[0].ContentURL, "/api/v1/studio"), nil, "account-a")
 	if libraryContent.Code != http.StatusOK || !strings.Contains(libraryContent.Body.String(), "旧案卷宗") || strings.Contains(libraryContent.Body.String(), "重查旧案") {
 		t.Fatalf("library content status=%d body=%s", libraryContent.Code, libraryContent.Body.String())
 	}
@@ -1437,7 +1586,7 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	}
 }
 
-func TestStudioLibraryMoveKeepsPinnedVersionAndRejectsForeignFolder(t *testing.T) {
+func TestStudioLibraryMoveKeepsPinnedVersionAndRejectsForeignCategory(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)
 	router := chi.NewRouter()
@@ -1470,38 +1619,47 @@ func TestStudioLibraryMoveKeepsPinnedVersionAndRejectsForeignFolder(t *testing.T
 	if updated.Code != http.StatusOK {
 		t.Fatalf("update status=%d body=%s", updated.Code, updated.Body.String())
 	}
-	foreignFolder := request(t, router, http.MethodPost, "/library/folders", map[string]any{"name": "他人文件夹"}, "account-b")
+	foreignCategory := request(t, router, http.MethodPost, "/library/categories", map[string]any{"name": "他人分类"}, "account-b")
 	var foreign struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(apitest.DataBytes(foreignFolder), &foreign); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(foreignCategory), &foreign); err != nil {
 		t.Fatal(err)
 	}
-	denied := request(t, router, http.MethodPatch, "/library/assets/"+asset.ID+"/folder", map[string]any{"folder_id": foreign.ID}, "account-a")
+	denied := request(t, router, http.MethodPatch, "/library/assets/"+asset.ID+"/category", map[string]any{"category_id": foreign.ID}, "account-a")
 	if denied.Code != http.StatusNotFound {
-		t.Fatalf("foreign folder status=%d body=%s", denied.Code, denied.Body.String())
+		t.Fatalf("foreign category status=%d body=%s", denied.Code, denied.Body.String())
 	}
-	folder := request(t, router, http.MethodPost, "/library/folders", map[string]any{"name": "故事"}, "account-a")
+	category := request(t, router, http.MethodPost, "/library/categories", map[string]any{"name": "故事"}, "account-a")
 	var own struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(apitest.DataBytes(folder), &own); err != nil {
+	if err := json.Unmarshal(apitest.DataBytes(category), &own); err != nil {
 		t.Fatal(err)
 	}
-	moved := request(t, router, http.MethodPatch, "/library/assets/"+asset.ID+"/folder", map[string]any{"folder_id": own.ID}, "account-a")
+	categoriesResponse := request(t, router, http.MethodGet, "/library/categories", nil, "account-a")
+	var categories []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(categoriesResponse), &categories); err != nil || len(categories) != 1 || categories[0].ID != own.ID {
+		t.Fatalf("categories = status=%d body=%s error=%v", categoriesResponse.Code, categoriesResponse.Body.String(), err)
+	}
+	moved := request(t, router, http.MethodPatch, "/library/assets/"+asset.ID+"/category", map[string]any{"category_id": own.ID}, "account-a")
 	if moved.Code != http.StatusOK {
 		t.Fatalf("move status=%d body=%s", moved.Code, moved.Body.String())
 	}
-	listed := request(t, router, http.MethodGet, "/library/assets?folder_id="+own.ID, nil, "account-a")
-	var items []struct {
-		Versions []struct {
-			ID string `json:"id"`
-		} `json:"versions"`
+	listed := request(t, router, http.MethodGet, "/library/assets?category_id="+own.ID, nil, "account-a")
+	var items struct {
+		Assets []struct {
+			Versions []struct {
+				ID string `json:"id"`
+			} `json:"versions"`
+		} `json:"assets"`
 	}
 	if err := json.Unmarshal(apitest.DataBytes(listed), &items); err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 1 || len(items[0].Versions) != 1 || items[0].Versions[0].ID != asset.Versions[0].ID {
+	if len(items.Assets) != 1 || len(items.Assets[0].Versions) != 1 || items.Assets[0].Versions[0].ID != asset.Versions[0].ID {
 		t.Fatalf("moved library version changed: %s", listed.Body.String())
 	}
 }
@@ -1521,6 +1679,67 @@ func waitForRun(t *testing.T, router http.Handler, runID, accountID string) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("mock run did not complete")
+}
+
+func TestClearStudioSessionsAPIRequiresConfirmationAndScopesAccount(t *testing.T) {
+	ctx := context.Background()
+	gdb, err := db.Open(db.Options{DSN: "file:clear_studio_sessions_" + uuid.NewString() + "?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(gdb, persistence.Models()...); err != nil {
+		t.Fatal(err)
+	}
+	repo := persistence.NewGormRepository(gdb)
+	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
+	for _, accountID := range []string{"account-a", "account-b"} {
+		session, err := domain.NewSession("session-"+accountID, accountID, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.CreateSession(ctx, session); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run, err := domain.NewRun("run-account-a", "session-account-a", "account-a", "message-account-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	execution, err := domain.NewWorkflowExecution("workflow-account-a", "account-a", "session-account-a", run.ID, "tool-a", "task-a", "workflow-a", "node-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateWorkflowExecution(ctx, execution); err != nil {
+		t.Fatal(err)
+	}
+	router := chi.NewRouter()
+	(&studioapi.Handler{Repo: repo}).Mount(router)
+	invalid := request(t, router, http.MethodDelete, "/sessions", map[string]any{"confirmation": "清空"}, "account-a")
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("invalid confirmation status=%d body=%s", invalid.Code, invalid.Body.String())
+	}
+	if _, err := repo.GetSession(ctx, "account-a", "session-account-a"); err != nil {
+		t.Fatalf("invalid confirmation removed session: %v", err)
+	}
+	cleared := request(t, router, http.MethodDelete, "/sessions", map[string]any{"confirmation": "确认清空"}, "account-a")
+	if cleared.Code != http.StatusOK {
+		t.Fatalf("clear status=%d body=%s", cleared.Code, cleared.Body.String())
+	}
+	if _, err := repo.GetSession(ctx, "account-a", "session-account-a"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("cleared account session: %v", err)
+	}
+	if _, err := repo.GetSession(ctx, "account-b", "session-account-b"); err != nil {
+		t.Fatalf("other account session: %v", err)
+	}
+	if _, err := repo.GetRun(ctx, "account-a", run.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("active run after clear: %v", err)
+	}
+	if _, err := repo.GetWorkflowExecutionByTask(ctx, "account-a", execution.TaskID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("pending workflow after clear: %v", err)
+	}
 }
 
 func request(t *testing.T, handler http.Handler, method, path string, body any, accountID string) *httptest.ResponseRecorder {

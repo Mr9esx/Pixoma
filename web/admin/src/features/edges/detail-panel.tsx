@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
   BadgeCheck,
-  Boxes,
   CalendarCheck,
   Cpu,
   Gpu,
@@ -11,6 +10,7 @@ import {
   ListTodo,
   MemoryStick,
   MoreHorizontal,
+  Package,
   PenLine,
   SearchX,
   Tags,
@@ -382,7 +382,7 @@ export function EdgeDetailPanel({ id }: Props) {
             divider
           />
           <MetaChip
-            icon={<Boxes className='size-3.5' strokeWidth={2} />}
+            icon={<Package className='size-3.5' strokeWidth={2} />}
             label={t('edges.fieldComfyVersion')}
             value={edge.comfy_version}
             divider

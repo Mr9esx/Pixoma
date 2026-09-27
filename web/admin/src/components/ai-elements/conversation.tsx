@@ -6,14 +6,15 @@ import { ArrowDownIcon, DownloadIcon } from 'lucide-react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { IconButtonTooltip } from '@/components/ui/icon-button-tooltip'
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>
 
 export const Conversation = ({ className, ...props }: ConversationProps) => (
   <StickToBottom
     className={cn('relative flex-1 overflow-y-hidden', className)}
-    initial='smooth'
-    resize='smooth'
+    initial='instant'
+    resize='instant'
     role='log'
     {...props}
   />
@@ -82,19 +83,21 @@ export const ConversationScrollButton = ({
 
   return (
     !isAtBottom && (
-      <Button
-        className={cn(
-          'absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full',
-          className
-        )}
-        onClick={handleScrollToBottom}
-        size='icon'
-        type='button'
-        variant='outline'
-        {...props}
-      >
-        <ArrowDownIcon className='size-4' />
-      </Button>
+      <IconButtonTooltip label={props['aria-label'] ?? '跳转至最新消息'}>
+        <Button
+          className={cn(
+            'absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full',
+            className
+          )}
+          onClick={handleScrollToBottom}
+          size='icon'
+          type='button'
+          variant='outline'
+          {...props}
+        >
+          <ArrowDownIcon className='size-4' />
+        </Button>
+      </IconButtonTooltip>
     )
   )
 }
@@ -149,15 +152,17 @@ export const ConversationDownload = ({
   }, [messages, filename, formatMessage])
 
   return (
-    <Button
-      className={cn('absolute top-4 right-4 rounded-full', className)}
-      onClick={handleDownload}
-      size='icon'
-      type='button'
-      variant='outline'
-      {...props}
-    >
-      {children ?? <DownloadIcon className='size-4' />}
-    </Button>
+    <IconButtonTooltip label={props['aria-label'] ?? '下载对话'}>
+      <Button
+        className={cn('absolute top-4 right-4 rounded-full', className)}
+        onClick={handleDownload}
+        size='icon'
+        type='button'
+        variant='outline'
+        {...props}
+      >
+        {children ?? <DownloadIcon className='size-4' />}
+      </Button>
+    </IconButtonTooltip>
   )
 }

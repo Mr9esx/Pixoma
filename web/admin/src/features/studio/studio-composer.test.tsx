@@ -4,7 +4,10 @@ import { render } from 'vitest-browser-react'
 import { expect, it } from 'vitest'
 import '@/styles/index.css'
 import { PromptInput, PromptInputBody, PromptInputFooter } from '@/components/ai-elements/prompt-input'
+import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { StudioComposer, type StudioComposerHandle } from './studio-composer'
+import { retainStudioComposerFocus } from './studio-composer-focus'
 
 it('fills the chat input width when the toolbar is below it', async () => {
   const screen = await render(
@@ -56,6 +59,162 @@ it('keeps the caret height after an inline reference equal to plain text', async
   expect(Math.abs(referenceCaretHeight - plainCaretHeight)).toBeLessThanOrEqual(1)
 })
 
+for (const reference of [
+  { kind: 'skill' as const, id: 'skill-1', label: '分镜草稿' },
+  { kind: 'asset' as const, id: 'asset-1', versionId: 'version-1', label: '产品照片' },
+  { kind: 'workflow' as const, id: 'workflow-1', label: '角色三视图' },
+]) {
+  it(`keeps the caret height equal on both sides of a ${reference.kind} badge`, async () => {
+    const composer = createRef<StudioComposerHandle>()
+    const screen = await render(<StudioComposer ref={composer} placeholder='输入消息' />)
+    const textbox = screen.getByRole('textbox', { name: '输入消息' })
+    await textbox.click()
+    composer.current?.insertReference(reference)
+    await expect.element(screen.getByText(reference.label)).toBeVisible()
+
+    const afterHeight = window.getSelection()!.getRangeAt(0).getBoundingClientRect().height
+    await userEvent.keyboard('{ArrowLeft}')
+    const beforeHeight = window.getSelection()!.getRangeAt(0).getBoundingClientRect().height
+    expect(beforeHeight).toBeGreaterThan(0)
+    expect(Math.abs(beforeHeight - afterHeight)).toBeLessThanOrEqual(1)
+  })
+}
+
+it('returns focus to the editor after choosing a workflow from a menu', async () => {
+  const composer = createRef<StudioComposerHandle>()
+  const screen = await render(
+    <div>
+      <StudioComposer ref={composer} placeholder='输入消息' />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><Button type='button'>选择工作流</Button></DropdownMenuTrigger>
+        <DropdownMenuContent onCloseAutoFocus={retainStudioComposerFocus}>
+          <DropdownMenuItem onSelect={() => composer.current?.insertReference({ kind: 'workflow', id: '12', label: '角色三视图' })}>
+            角色三视图
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+  const textbox = screen.getByRole('textbox', { name: '输入消息' })
+  const trigger = screen.getByRole('button', { name: '选择工作流' })
+  await trigger.click()
+  await screen.getByRole('menuitem', { name: '角色三视图' }).click()
+  await expect.element(screen.getByText('角色三视图')).toBeVisible()
+  await expect.poll(() => document.activeElement === textbox.element()).toBe(true)
+  await userEvent.keyboard('后')
+  expect(composer.current?.serialize().text).toBe('「角色三视图」工作流后')
+
+  await trigger.click()
+  await userEvent.keyboard('{Escape}')
+  await expect.poll(() => document.activeElement === trigger.element()).toBe(true)
+})
+
+it('inserts a workflow as an editable message reference', async () => {
+  const composer = createRef<StudioComposerHandle>()
+  const screen = await render(<StudioComposer ref={composer} placeholder='输入消息' />)
+  composer.current?.insertReference({ kind: 'workflow', id: '12', label: '角色三视图' })
+
+  await expect.element(screen.getByText('角色三视图')).toBeVisible()
+  expect(composer.current?.serialize().parts).toEqual([
+    { type: 'workflow_ref', workflow_id: '12', name: '角色三视图' },
+  ])
+  await userEvent.keyboard('{Backspace}')
+  expect(composer.current?.serialize().parts).toEqual([])
+})
+
+it('keeps the caret outside the workflow badge after ArrowLeft', async () => {
+  const composer = createRef<StudioComposerHandle>()
+  const screen = await render(<StudioComposer ref={composer} placeholder='输入消息' />)
+  await screen.getByRole('textbox', { name: '输入消息' }).click()
+  composer.current?.insertReference({ kind: 'workflow', id: '12', label: '角色三视图' })
+  const badgeLocator = screen.getByText('角色三视图')
+  await expect.element(badgeLocator).toBeVisible()
+  await userEvent.keyboard('{ArrowLeft}')
+  const caret = window.getSelection()!.getRangeAt(0).getBoundingClientRect()
+  expect(caret.left).toBeLessThan(badgeLocator.element().getBoundingClientRect().left)
+  await userEvent.keyboard('前{ArrowRight}后')
+  expect(composer.current?.serialize().text).toBe('前「角色三视图」工作流后')
+})
+
+for (const prefix of ['前文', '前👩‍💻']) {
+  it(`moves through ${prefix} with each ArrowLeft after a badge`, async () => {
+    const composer = createRef<StudioComposerHandle>()
+    const screen = await render(<StudioComposer ref={composer} placeholder='输入消息' />)
+    const textbox = screen.getByRole('textbox', { name: '输入消息' })
+    await textbox.fill(prefix)
+    composer.current?.insertReference({ kind: 'workflow', id: '12', label: '角色三视图' })
+    await expect.element(screen.getByText('角色三视图')).toBeVisible()
+
+    await userEvent.keyboard('{ArrowLeft}')
+    const beforeBadge = window.getSelection()!.getRangeAt(0).getBoundingClientRect().left
+    await userEvent.keyboard('{ArrowLeft}')
+    const beforeLastCharacter = window.getSelection()!.getRangeAt(0).getBoundingClientRect().left
+    expect(beforeLastCharacter).toBeLessThan(beforeBadge)
+    await userEvent.keyboard('{ArrowLeft}')
+    const beforeFirstCharacter = window.getSelection()!.getRangeAt(0).getBoundingClientRect().left
+    expect(beforeFirstCharacter).toBeLessThan(beforeLastCharacter)
+  })
+}
+
+it('moves to the previous line after crossing a badge at the line start', async () => {
+  const composer = createRef<StudioComposerHandle>()
+  const screen = await render(<StudioComposer ref={composer} placeholder='输入消息' />)
+  const textbox = screen.getByRole('textbox', { name: '输入消息' })
+  await textbox.fill('上一行')
+  await userEvent.keyboard('{Shift>}{Enter}{/Shift}')
+  composer.current?.insertReference({ kind: 'workflow', id: '12', label: '角色三视图' })
+  await expect.element(screen.getByText('角色三视图')).toBeVisible()
+
+  await userEvent.keyboard('{ArrowLeft}')
+  const lineTop = window.getSelection()!.getRangeAt(0).getBoundingClientRect().top
+  await userEvent.keyboard('{ArrowLeft}')
+  const previousLineTop = window.getSelection()!.getRangeAt(0).getBoundingClientRect().top
+  expect(previousLineTop).toBeLessThan(lineTop)
+})
+
+it('continues typing after replacing a clicked workflow badge', async () => {
+  const composer = createRef<StudioComposerHandle>()
+  const screen = await render(<StudioComposer ref={composer} placeholder='输入消息' />)
+  const textbox = screen.getByRole('textbox', { name: '输入消息' })
+  await textbox.fill('前')
+  composer.current?.insertReference({ kind: 'workflow', id: '12', label: '角色三视图' })
+  const badge = screen.getByText('角色三视图')
+  await expect.element(badge).toBeVisible()
+
+  await badge.click()
+  await userEvent.keyboard('中后')
+  expect(composer.current?.serialize().text).toBe('前中后')
+})
+
+for (const reference of [
+  { kind: 'skill' as const, id: 'skill-1', label: '分镜草稿' },
+  { kind: 'asset' as const, id: 'asset-1', versionId: 'version-1', label: '产品照片' },
+  { kind: 'workflow' as const, id: 'workflow-1', label: '角色三视图' },
+]) {
+  it(`keeps the cursor out of a ${reference.kind} reference`, async () => {
+    const composer = createRef<StudioComposerHandle>()
+    const screen = await render(<StudioComposer ref={composer} placeholder='输入消息' />)
+    const textbox = screen.getByRole('textbox', { name: '输入消息' })
+    await textbox.fill('前')
+    composer.current?.insertReference(reference)
+    const badge = screen.getByText(reference.label)
+    await expect.element(badge).toBeVisible()
+
+    const nodeView = badge.element().closest('.node-studioReference')
+    expect(nodeView?.getAttribute('contenteditable')).toBe('false')
+    expect(getComputedStyle(nodeView!).userSelect).toBe('none')
+    await badge.click()
+    expect(window.getSelection()?.anchorNode?.parentElement?.closest('[data-slot="badge"]')).toBeNull()
+    window.getSelection()?.collapse(badge.element().lastChild, 1)
+    await userEvent.keyboard('中')
+    expect(composer.current?.serialize().parts.some((part) => part.type === 'text' && part.text.includes('中'))).toBe(true)
+    expect(composer.current?.serialize().parts.some((part) => part.type === `${reference.kind}_ref`)).toBe(true)
+    await textbox.click()
+    await userEvent.keyboard('后')
+    expect(composer.current?.serialize().text).toContain('后')
+  })
+}
+
 it('uses distinct theme colors for Skill and asset references', async () => {
   const composer = createRef<StudioComposerHandle>()
   const screen = await render(
@@ -98,7 +257,7 @@ it('inserts and deletes an inline Skill as one editable unit', async () => {
   expect(composer.current?.serialize().selectedSkillIds).toEqual([])
 })
 
-it('removes the reference and its caret spacer when deleting from before the spacer', async () => {
+it('removes the reference and its caret spacer when deleting from before the reference', async () => {
   const composer = createRef<StudioComposerHandle>()
   const screen = await render(<StudioComposer ref={composer} placeholder='输入消息' />)
   const textbox = screen.getByRole('textbox', { name: '输入消息' })
@@ -106,7 +265,7 @@ it('removes the reference and its caret spacer when deleting from before the spa
   composer.current?.insertReference({ kind: 'skill', id: 'skill-1', label: '分镜草稿' })
   await expect.element(screen.getByText('分镜草稿')).toBeVisible()
 
-  await userEvent.keyboard('{ArrowLeft}{Backspace}')
+  await userEvent.keyboard('{ArrowLeft}{Delete}')
   expect(composer.current?.serialize().selectedSkillIds).toEqual([])
   expect(textbox.element().querySelector('p')?.textContent).toBe('前')
 })
@@ -140,7 +299,7 @@ it('keeps typed text after a reference and deletes the reference in one keystrok
   expect(textbox.element().querySelector('p')?.textContent).toBe('前')
 })
 
-it('omits the caret spacer when text is inserted before it', async () => {
+it('inserts text before a reference after ArrowLeft', async () => {
   const composer = createRef<StudioComposerHandle>()
   const screen = await render(<StudioComposer ref={composer} placeholder='输入消息' />)
   const textbox = screen.getByRole('textbox', { name: '输入消息' })
@@ -149,7 +308,7 @@ it('omits the caret spacer when text is inserted before it', async () => {
   await expect.element(screen.getByText('分镜草稿')).toBeVisible()
 
   await userEvent.keyboard('{ArrowLeft}后')
-  expect(composer.current?.serialize().text).toBe('前「分镜草稿」Skill后')
+  expect(composer.current?.serialize().text).toBe('前后「分镜草稿」技能')
 })
 
 it('does not copy the caret spacer with a reference', async () => {
@@ -185,15 +344,15 @@ it('keeps slash text until a menu item is chosen', async () => {
 
   await textbox.fill('用 /')
   expect(composer.current?.serialize().text).toBe('用 /')
-  await expect.element(screen.getByRole('button', { name: '插入 Skill：分镜草稿' })).toBeVisible()
+  await expect.element(screen.getByRole('button', { name: '插入技能：分镜草稿' })).toBeVisible()
 
   await userEvent.keyboard('{Escape}')
   expect(composer.current?.serialize().text).toBe('用 /')
   expect(composer.current?.serialize().selectedSkillIds).toEqual([])
 
   await textbox.fill('用 /分')
-  await screen.getByRole('button', { name: '插入 Skill：分镜草稿' }).click()
-  expect(composer.current?.serialize().text).toBe('用 「分镜草稿」Skill')
+  await screen.getByRole('button', { name: '插入技能：分镜草稿' }).click()
+  expect(composer.current?.serialize().text).toBe('用 「分镜草稿」技能')
   expect(composer.current?.serialize().selectedSkillIds).toEqual(['skill-1'])
 })
 
@@ -211,7 +370,7 @@ it('chooses a slash reference with the keyboard', async () => {
   )
 
   await screen.getByRole('textbox', { name: '输入消息' }).fill('用 /')
-  await expect.element(screen.getByRole('button', { name: '插入 Skill：分镜草稿' })).toBeVisible()
+  await expect.element(screen.getByRole('button', { name: '插入技能：分镜草稿' })).toBeVisible()
   await userEvent.keyboard('{ArrowDown}{Enter}')
   expect(composer.current?.serialize().text).toBe('用 「产品照片」资产')
   expect(composer.current?.serialize().selectedAssets).toEqual([

@@ -217,11 +217,9 @@ func TestCapabilityConfigUpdatesSkillEnabledState(t *testing.T) {
 		t.Fatalf("CreateSkill() error = %v", err)
 	}
 
-	updated, err := service.UpdateSkill(context.Background(), studioapp.UpdateSkillInput{
-		AccountID: "account-a", SkillID: created.ID, Name: "角色设定", Description: "保持人物资料一致", Prompt: "保持角色一致", Enabled: false,
-	})
+	updated, err := service.SetSkillEnabled(context.Background(), "account-a", created.ID, false)
 	if err != nil {
-		t.Fatalf("UpdateSkill() error = %v", err)
+		t.Fatalf("SetSkillEnabled() error = %v", err)
 	}
 	if updated.Enabled {
 		t.Fatalf("updated = %#v", updated)
@@ -256,6 +254,31 @@ func TestCapabilityConfigMasksConnectorCredential(t *testing.T) {
 	}
 	if stored.CredentialCipher == "connector-secret" || stored.CredentialCipher == "" {
 		t.Fatalf("stored connector leaked plaintext = %#v", stored)
+	}
+}
+
+func TestCapabilityConfigNewConnectorHasEmptyTools(t *testing.T) {
+	repo := openRepository(t)
+	service := &studioapp.CapabilityConfigService{
+		Repo:          repo,
+		EncryptionKey: []byte(strings.Repeat("k", 32)),
+	}
+	connector, err := service.CreateConnector(context.Background(), studioapp.CreateConnectorInput{
+		AccountID: "account-a", Name: "Reference", URL: "https://mcp.example.test/mcp",
+		Credential: "connector-secret", Enabled: true, Policy: domain.ConnectorPolicyApproval,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if connector.Tools == nil {
+		t.Fatal("new connector tools is null")
+	}
+	listed, err := service.ListConnectors(context.Background(), "account-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].Tools == nil {
+		t.Fatalf("listed connector tools = %#v", listed)
 	}
 }
 

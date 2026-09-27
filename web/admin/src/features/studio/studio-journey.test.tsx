@@ -19,8 +19,8 @@ vi.mock('@/lib/api/studio', async (importOriginal) => ({
   listStudioSessions: vi.fn(),
   listStudioModels: vi.fn(),
   listStudioSkills: vi.fn(async () => []),
-  listStudioLibraryFolders: vi.fn(async () => []),
-  listStudioLibraryAssets: vi.fn(async () => []),
+  listStudioLibraryCategories: vi.fn(async () => []),
+  listStudioLibraryAssets: vi.fn(async () => ({ assets: [], total: 0 })),
 }))
 
 vi.mock('./studio-sidebar', () => ({
@@ -318,7 +318,7 @@ describe('Studio comic journey', () => {
       await expect
         .element(screen.getByText('分镜预览', { exact: true }))
         .toBeVisible()
-      await screen.getByRole('tab', { name: /Session 资产/ }).click()
+      await screen.getByRole('tab', { name: '会话资产' }).click()
       await expect.element(screen.getByText('故事大纲.md')).toBeVisible()
       await expect
         .element(screen.getByText('雨夜侦探-分镜预览.svg'))

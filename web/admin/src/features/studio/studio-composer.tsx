@@ -11,14 +11,14 @@ import {
 } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Suggestion, { exitSuggestion, type SuggestionProps } from '@tiptap/suggestion'
-import { NodeSelection } from '@tiptap/pm/state'
-import { Paperclip, Sparkles } from 'lucide-react'
+import { NodeSelection, Selection, TextSelection } from '@tiptap/pm/state'
+import { Boxes, Sparkles, Workflow } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { STUDIO_REFERENCE_CARET, serializeStudioComposer, type StudioComposerValue } from './studio-composer-content'
+import { STUDIO_REFERENCE_BEFORE_CARET, STUDIO_REFERENCE_CARET, serializeStudioComposer, type StudioComposerValue } from './studio-composer-content'
 import { StudioReferenceBadge } from './studio-reference-badge'
 
 export type StudioReference = {
-  kind: 'skill' | 'asset'
+  kind: 'skill' | 'asset' | 'workflow'
   id: string
   label: string
   versionId?: string
@@ -31,8 +31,14 @@ export type StudioComposerHandle = {
   setText: (text: string) => void
 }
 
+function previousGraphemeSize(text: string) {
+  return new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    .segment(text).containing(text.length - 1)!.segment.length
+}
+
 function insertStudioReference(editor: Editor, reference: StudioReference, range: { from: number; to: number }) {
   editor.chain().focus().insertContentAt(range, [
+    { type: 'text', text: STUDIO_REFERENCE_BEFORE_CARET },
     { type: 'studioReference', attrs: reference },
     { type: 'text', text: STUDIO_REFERENCE_CARET },
   ]).run()
@@ -84,7 +90,7 @@ const StudioReferenceNode = Node.create({
     }, node.attrs.label]
   },
   addNodeView() {
-    return ReactNodeViewRenderer(StudioReferenceNodeView)
+    return ReactNodeViewRenderer(StudioReferenceNodeView, { className: 'select-none' })
   },
 })
 
@@ -183,22 +189,83 @@ export function StudioComposer({
         slice.content.size,
         '\n\n',
         (node) => node.type.name === 'studioReference' ? node.attrs.label : ''
-      ).replaceAll(STUDIO_REFERENCE_CARET, ''),
+      ).replaceAll(STUDIO_REFERENCE_CARET, '').replaceAll(STUDIO_REFERENCE_BEFORE_CARET, ''),
+      handleTextInput: (view, _from, _to, text) => {
+        const selection = view.state.selection
+        if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'studioReference') return false
+        const before = view.state.doc.resolve(selection.from).nodeBefore
+        const beforeSize = before?.text?.endsWith(STUDIO_REFERENCE_BEFORE_CARET) ? 1 : 0
+        const after = view.state.doc.nodeAt(selection.to)
+        const spacerSize = after?.text?.startsWith(STUDIO_REFERENCE_CARET) ? 1 : 0
+        const start = selection.from - beforeSize
+        const transaction = view.state.tr.insertText(text, start, selection.to + spacerSize)
+        view.dispatch(transaction.setSelection(TextSelection.create(transaction.doc, start + text.length)))
+        return true
+      },
       handleKeyDown: (view, event) => {
         const selection = view.state.selection
-        if ((event.key === 'Backspace' || event.key === 'Delete')
-          && selection instanceof NodeSelection
-          && selection.node.type.name === 'studioReference') {
+        if (selection instanceof NodeSelection && selection.node.type.name === 'studioReference') {
+          const before = view.state.doc.resolve(selection.from).nodeBefore
+          const beforeSize = before?.text?.endsWith(STUDIO_REFERENCE_BEFORE_CARET) ? 1 : 0
           const after = view.state.doc.nodeAt(selection.to)
           const spacerSize = after?.text?.startsWith(STUDIO_REFERENCE_CARET) ? 1 : 0
-          view.dispatch(view.state.tr.delete(selection.from, selection.to + spacerSize))
-          return true
+          if (event.key === 'Backspace' || event.key === 'Delete') {
+            view.dispatch(view.state.tr.delete(selection.from - beforeSize, selection.to + spacerSize))
+            return true
+          }
+          if (event.key === 'ArrowRight') {
+            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, selection.to + spacerSize)))
+            return true
+          }
         }
-        if (event.key === 'Backspace' && view.state.selection.empty) {
+        if (selection.empty) {
           const { $from } = view.state.selection
           if ($from.nodeBefore?.text?.endsWith(STUDIO_REFERENCE_CARET)
             && $from.parent.childBefore($from.parentOffset - 1).node?.type.name === 'studioReference') {
-            view.dispatch(view.state.tr.delete($from.pos - 2, $from.pos))
+            if (event.key === 'ArrowLeft') {
+              view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, $from.pos - 2)))
+              return true
+            }
+            if (event.key === 'Backspace') {
+              const before = view.state.doc.resolve($from.pos - 2).nodeBefore
+              const beforeSize = before?.text?.endsWith(STUDIO_REFERENCE_BEFORE_CARET) ? 1 : 0
+              view.dispatch(view.state.tr.delete($from.pos - 2 - beforeSize, $from.pos))
+              return true
+            }
+          }
+          if ($from.nodeAfter?.type.name === 'studioReference') {
+            const beforeSize = $from.nodeBefore?.text?.endsWith(STUDIO_REFERENCE_BEFORE_CARET) ? 1 : 0
+            const after = view.state.doc.nodeAt($from.pos + 1)
+            const spacerSize = after?.text?.startsWith(STUDIO_REFERENCE_CARET) ? 1 : 0
+            if (event.key === 'ArrowLeft' && beforeSize) {
+              const text = $from.nodeBefore?.text?.slice(0, -1) ?? ''
+              if (!text) {
+                view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve($from.pos - 2), -1)))
+                return true
+              }
+              view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, $from.pos - 1 - previousGraphemeSize(text))))
+              return true
+            }
+            if (event.key === 'ArrowRight') {
+              view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, $from.pos + 1 + spacerSize)))
+              return true
+            }
+            if (event.key === 'Delete') {
+              view.dispatch(view.state.tr.delete($from.pos - beforeSize, $from.pos + 1 + spacerSize))
+              return true
+            }
+          }
+          if (event.key === 'ArrowRight' && $from.nodeAfter?.text?.startsWith(STUDIO_REFERENCE_BEFORE_CARET)
+            && view.state.doc.nodeAt($from.pos + 1)?.type.name === 'studioReference') {
+            const after = view.state.doc.nodeAt($from.pos + 2)
+            const spacerSize = after?.text?.startsWith(STUDIO_REFERENCE_CARET) ? 1 : 0
+            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, $from.pos + 2 + spacerSize)))
+            return true
+          }
+          if (event.key === 'ArrowLeft' && $from.nodeBefore?.text
+            && $from.nodeAfter?.text?.endsWith(STUDIO_REFERENCE_BEFORE_CARET)
+            && view.state.doc.nodeAt($from.pos + $from.nodeAfter.nodeSize)?.type.name === 'studioReference') {
+            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, $from.pos - previousGraphemeSize($from.nodeBefore.text))))
             return true
           }
         }
@@ -235,6 +302,22 @@ export function StudioComposer({
     },
   })
   useEffect(() => {
+    if (!editor) return
+    const document = editor.view.dom.ownerDocument
+    const moveCaretOutOfReference = () => {
+      const selection = document.getSelection()
+      if (!selection?.isCollapsed || !selection.anchorNode) return
+      const element = selection.anchorNode instanceof Element
+        ? selection.anchorNode
+        : selection.anchorNode.parentElement
+      const nodeView = element?.closest('.node-studioReference')
+      if (!nodeView || !editor.view.dom.contains(nodeView)) return
+      editor.commands.setTextSelection(editor.view.posAtDOM(nodeView, nodeView.childNodes.length))
+    }
+    document.addEventListener('selectionchange', moveCaretOutOfReference)
+    return () => document.removeEventListener('selectionchange', moveCaretOutOfReference)
+  }, [editor])
+  useEffect(() => {
     editor?.setEditable(!disabled)
   }, [editor, disabled])
   useImperativeHandle(ref, () => ({
@@ -265,11 +348,11 @@ export function StudioComposer({
               type='button'
               variant='ghost'
               className={`flex w-full justify-start gap-2 ${index === activeItem ? 'bg-accent' : ''}`}
-              aria-label={`插入 ${item.kind === 'skill' ? 'Skill' : '资产'}：${item.label}`}
+              aria-label={`插入${item.kind === 'skill' ? '技能' : '资产'}：${item.label}`}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => slashMenu.command(item)}
             >
-              {item.kind === 'skill' ? <Sparkles /> : <Paperclip />}
+              {item.kind === 'skill' ? <Sparkles /> : item.kind === 'workflow' ? <Workflow /> : <Boxes />}
               {item.label}
             </Button>
           ))}

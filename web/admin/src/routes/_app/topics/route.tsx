@@ -6,7 +6,7 @@ import {
   useParams,
   useRouterState,
 } from '@tanstack/react-router'
-import { Plus, Tags } from 'lucide-react'
+import { Plus, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { queryKeys } from '@/lib/api/query-keys'
 import { listTopics } from '@/lib/api/topics'
@@ -150,7 +150,7 @@ function TopicsLayout() {
             <Empty>
               <EmptyHeader className='max-w-none'>
                 <EmptyMedia variant='icon'>
-                  <Tags />
+                  <Waypoints />
                 </EmptyMedia>
                 <EmptyTitle className='text-sm font-medium'>
                   {t('topics.empty')}

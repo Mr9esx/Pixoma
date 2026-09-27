@@ -1,0 +1,59 @@
+.titleViewport {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.truncatedTitle {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marqueeTrack {
+  display: inline-flex;
+  width: max-content;
+}
+
+.marqueeSegment {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.marqueeGap {
+  display: block;
+  flex: none;
+  width: 2rem;
+}
+
+@keyframes session-title-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .titleViewport[data-scrolling='true'] {
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 1rem,
+      black calc(100% - 1rem),
+      transparent
+    );
+  }
+
+  .titleViewport[data-scrolling='true']:hover .marqueeTrack {
+    animation: session-title-marquee 14s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .titleViewport[data-scrolling='true']:hover .marqueeTrack {
+    animation: none;
+  }
+}
