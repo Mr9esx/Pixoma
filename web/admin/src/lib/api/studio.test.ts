@@ -103,6 +103,7 @@ describe('Studio API', () => {
     await sendStudioMessage({
       sessionId: 'session-1',
       text: '生成分镜',
+      locale: 'en',
       modelConfigId: 'model-1',
       permissionMode: 'request_approval',
     })
@@ -114,6 +115,7 @@ describe('Studio API', () => {
     expect(JSON.parse(String(init.body))).toEqual({
       session_id: 'session-1',
       text: '生成分镜',
+      locale: 'en',
       model_config_id: 'model-1',
       permission_mode: 'request_approval',
     })

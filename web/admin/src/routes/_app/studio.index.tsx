@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 type LegacyStudioSearch = {
+  project?: string
   view?: 'library' | 'settings'
   session?: string
   section?: 'models' | 'skills' | 'mcp' | 'workflows' | 'data'
@@ -10,6 +11,7 @@ type LegacyStudioSearch = {
 
 export const Route = createFileRoute('/_app/studio/')({
   validateSearch: (search: Record<string, unknown>): LegacyStudioSearch => ({
+    project: typeof search.project === 'string' ? search.project : undefined,
     view:
       search.view === 'library' || search.view === 'settings'
         ? search.view

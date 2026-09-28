@@ -35,16 +35,19 @@
 - `BrainCircuit`：模型空状态。
 - `Cable`：MCP 连接器空状态。
 - `MessageCircle`：Studio 对话入口。
+- `Folder`：Studio 项目和项目选择。
 - `MessageSquarePlus`：新建 Studio 对话。
+- `MoreHorizontal`：Studio 项目与对话的更多操作。
 - `Settings2`：AI 设置入口。
 - `ImagePlus`：在聊天输入框添加图片。
 - `ShieldCheck`：聊天输入框中的 Agent 操作权限。
+- `TriangleAlert`：完全访问权限确认弹窗中的风险提示。
 - `ListTree`：打开制作流程面板。
 
 ## 常用操作与内容类型
 
 - `Plus`：新建项目或增加内容；`Upload`：上传文件；`Download`：下载文件。
 - `Pencil`：编辑内容；`Trash2`：删除内容；`Search`：搜索内容。
-- `ArrowLeft`：返回上一级；`ChevronDown`：展开选择项；`X`：关闭或移除内容。
+- `ArrowLeft`：返回上一级；`ChevronDown`：展开选择项和项目；`ChevronRight`：折叠项目；`Check`：标记当前选择；`X`：关闭或移除内容。
 - `ImageIcon`：图片资产类型；`FileText`：文档资产类型。
 - `Package`：计算节点中的 ComfyUI 版本信息。

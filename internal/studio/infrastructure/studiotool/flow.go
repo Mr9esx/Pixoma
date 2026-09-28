@@ -36,6 +36,10 @@ type flowEditCommand struct {
 
 func newEditSessionFlowTool(access ToolAccess, lister studioapp.FlowNodeLister) (einotool.BaseTool, error) {
 	assetLister, _ := access.Sink.(studioapp.SessionAssetLister)
+	description := "按语义命令新增阶段、计划或未执行的操作节点，连接已有节点，或将当前 Session 资产的指定版本挂到已有阶段；不会移动已有节点。add_operation 只创建计划，不执行工作流。"
+	if access.Locale == "en" {
+		description = "Create stages, plans, or planned operations; connect existing nodes and attach a specific asset version to an existing stage. add_operation plans an operation without executing a workflow."
+	}
 	var rawSchema einojsonschema.Schema
 	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["operations"],"properties":{"operations":{"type":"array","minItems":1,"maxItems":12,"items":{"type":"object","additionalProperties":false,"required":["type"],"properties":{"type":{"type":"string","enum":["create_stage","create_plan","connect_nodes","attach_asset","add_operation"]},"title":{"type":"string"},"body":{"type":"string"},"source_node_id":{"type":"string"},"target_node_id":{"type":"string"},"label":{"type":"string"},"asset_id":{"type":"string"},"asset_version_id":{"type":"string"},"stage_node_id":{"type":"string"}}}}}}`), &rawSchema); err != nil {
 		return nil, err
@@ -43,7 +47,7 @@ func newEditSessionFlowTool(access ToolAccess, lister studioapp.FlowNodeLister) 
 	return &editSessionFlowTool{
 		info: &schema.ToolInfo{
 			Name:        "edit_session_flow",
-			Desc:        "按语义命令新增阶段、计划或未执行的操作节点，连接已有节点，或将当前 Session 资产的指定版本挂到已有阶段；不会移动已有节点。add_operation 只创建计划，不执行工作流。",
+			Desc:        description,
 			ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&rawSchema),
 		},
 		access: access,

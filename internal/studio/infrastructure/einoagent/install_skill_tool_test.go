@@ -8,7 +8,7 @@ import (
 )
 
 func TestInstallSkillToolInfo(t *testing.T) {
-	info, err := installSkillToolInfo()
+	info, err := installSkillToolInfo("zh")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,0 +1,15 @@
+.surface[data-slot='input-group'] {
+  border: 0;
+  background: var(--card);
+  box-shadow:
+    0 0 0 0.5px var(--border),
+    0 4px 16px 0 color-mix(in srgb, var(--foreground) 3%, transparent),
+    0 0 24px 0 color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+
+.surface:has([data-slot='input-group-control']:focus-visible) {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ring) 50%, transparent),
+    0 4px 16px 0 color-mix(in srgb, var(--foreground) 3%, transparent),
+    0 0 24px 0 color-mix(in srgb, var(--foreground) 3%, transparent);
+}

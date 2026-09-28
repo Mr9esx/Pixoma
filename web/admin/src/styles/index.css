@@ -104,6 +104,18 @@
   container-type: inline-size;
 }
 
+.studio-chat-root [data-streamdown='code-block'][data-language=''] [data-streamdown='code-block-header'] {
+  display: none;
+}
+
+.studio-chat-root [data-streamdown='code-block'][data-language=''] > :has(> [data-streamdown='code-block-actions']) {
+  margin-top: 0;
+}
+
+.studio-chat-root [data-streamdown='code-block-body'] {
+  @apply bg-card;
+}
+
 /* React Flow 控件暗色模式适配 */
 .dark .react-flow__controls {
   box-shadow: none;

@@ -2,6 +2,7 @@ package application
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,28 @@ func TestMessageTextProjectsInlineReferences(t *testing.T) {
 	}
 	if want := "用 / 和 「分镜草稿」Skill 处理 「角色设定图」资产"; text != want {
 		t.Fatalf("message text = %q, want %q", text, want)
+	}
+}
+
+func TestModelMessagePartsKeepInlineIDsAndTrustedNames(t *testing.T) {
+	parts := []MessagePart{
+		{Type: "text", Text: "用 "},
+		{Type: "skill_ref", SkillID: "skill-1", Name: "old name"},
+		{Type: "text", Text: " 查看 "},
+		{Type: "asset_ref", AssetID: "asset-1", AssetVersionID: "version-2", Name: "old asset"},
+	}
+	asset := &domain.Asset{ID: "asset-1", Name: "角色图", Kind: domain.AssetImage, Versions: []domain.AssetVersion{{ID: "version-2", Version: 2, MIMEType: "image/png"}}}
+	text, err := ModelMessagePartsText(parts, []domain.RunSkill{{ID: "skill-1", Name: "分镜"}}, []*domain.Asset{asset}, []ResolvedWorkflow{}, true, "zh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{"用 <skill_ref skill_id=\"skill-1\" name=\"分镜\" /> 查看 <asset_ref", "asset_version_id=\"version-2\"", "image_content=\"attached\""} {
+		if !strings.Contains(text, value) {
+			t.Fatalf("model text %q missing %q", text, value)
+		}
+	}
+	if strings.Contains(text, "old name") || strings.Contains(text, "old asset") {
+		t.Fatalf("model text contains client-provided names: %q", text)
 	}
 }
 

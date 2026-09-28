@@ -21,9 +21,15 @@ type askClarificationTool struct {
 	waiting        atomic.Bool
 }
 
-func newAskClarificationTool(sink studioapp.AgentSink, clarifications []*domain.Clarification) (*askClarificationTool, error) {
+func newAskClarificationTool(sink studioapp.AgentSink, clarifications []*domain.Clarification, locale string) (*askClarificationTool, error) {
+	source := `{"type":"object","additionalProperties":false,"required":["question","options"],"properties":{"question":{"type":"string","description":"需要用户回答的明确问题"},"options":{"type":"array","minItems":2,"maxItems":5,"items":{"type":"string"},"description":"互不重复的单选选项，不包含其他"}}}`
+	description := "在关键条件不清楚且会影响创作结果时，提出一道单选问题并等待用户回答。"
+	if locale == "en" {
+		source = `{"type":"object","additionalProperties":false,"required":["question","options"],"properties":{"question":{"type":"string","description":"A specific question for the user"},"options":{"type":"array","minItems":2,"maxItems":5,"items":{"type":"string"},"description":"Distinct multiple-choice options, without Other"}}}`
+		description = "Ask one multiple-choice question when a missing key detail would affect the result."
+	}
 	var parameters einojsonschema.Schema
-	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["question","options"],"properties":{"question":{"type":"string","description":"需要用户回答的明确问题"},"options":{"type":"array","minItems":2,"maxItems":5,"items":{"type":"string"},"description":"互不重复的单选选项，不包含其他"}}}`), &parameters); err != nil {
+	if err := json.Unmarshal([]byte(source), &parameters); err != nil {
 		return nil, err
 	}
 	byID := make(map[string]*domain.Clarification, len(clarifications))
@@ -33,7 +39,7 @@ func newAskClarificationTool(sink studioapp.AgentSink, clarifications []*domain.
 	return &askClarificationTool{
 		info: &schema.ToolInfo{
 			Name:        "ask_clarification",
-			Desc:        "在关键条件不清楚且会影响创作结果时，提出一道单选问题并等待用户回答。",
+			Desc:        description,
 			ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&parameters),
 		},
 		sink: sink, clarifications: byID,

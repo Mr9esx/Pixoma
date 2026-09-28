@@ -34,6 +34,34 @@ func openRepository(t *testing.T) *persistence.GormRepository {
 	return persistence.NewGormRepository(gdb)
 }
 
+func TestRunLocalePersistsAcrossRepositoryRead(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 28, 10, 0, 0, 0, time.UTC)
+	session, err := domain.NewSession("session-locale", "account-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatal(err)
+	}
+	run, err := domain.NewRun("run-locale", session.ID, session.AccountID, "message-locale", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.Locale = "en"
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repo.GetRun(ctx, session.AccountID, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Locale != "en" {
+		t.Fatalf("run locale = %q", stored.Locale)
+	}
+}
+
 func TestMCPConnectorUpdatePersistsDisabledState(t *testing.T) {
 	repo := openRepository(t)
 	ctx := context.Background()

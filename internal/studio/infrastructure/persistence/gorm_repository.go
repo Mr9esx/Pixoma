@@ -17,6 +17,7 @@ import (
 type SessionRow struct {
 	ID                             string `gorm:"primaryKey;size:64"`
 	AccountID                      string `gorm:"size:64;not null;index:idx_studio_sessions_account_updated"`
+	ProjectID                      string `gorm:"size:64;not null;default:'';index:idx_studio_sessions_project_updated"`
 	Title                          string `gorm:"size:256;not null"`
 	PermissionMode                 string `gorm:"size:32;not null"`
 	ModelConfigID                  string `gorm:"size:64;index"`
@@ -24,10 +25,20 @@ type SessionRow struct {
 	ContextSummaryThroughMessageID string `gorm:"size:64;index"`
 	Status                         string `gorm:"size:32;not null"`
 	CreatedAt                      time.Time
-	UpdatedAt                      time.Time `gorm:"index:idx_studio_sessions_account_updated"`
+	UpdatedAt                      time.Time `gorm:"index:idx_studio_sessions_account_updated;index:idx_studio_sessions_project_updated"`
 }
 
 func (SessionRow) TableName() string { return "studio_sessions" }
+
+type ProjectRow struct {
+	ID        string `gorm:"primaryKey;size:64"`
+	AccountID string `gorm:"size:64;not null;uniqueIndex:idx_studio_projects_account_name"`
+	Name      string `gorm:"size:256;not null;uniqueIndex:idx_studio_projects_account_name"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (ProjectRow) TableName() string { return "studio_projects" }
 
 type MessageRow struct {
 	ID          string    `gorm:"primaryKey;size:64"`
@@ -50,6 +61,7 @@ type RunRow struct {
 	LastEventSequence uint64    `gorm:"not null;default:0"`
 	Status            string    `gorm:"size:32;not null;index"`
 	ModelConfigID     string    `gorm:"size:64;index"`
+	Locale            string    `gorm:"size:8;not null;default:'zh'"`
 	SkillIDsJSON      []byte    `gorm:"type:blob"`
 	SkillSnapshotJSON []byte    `gorm:"type:blob"`
 	AssetIDsJSON      []byte    `gorm:"type:blob"`
@@ -88,10 +100,10 @@ func (CheckpointRow) TableName() string { return "studio_run_checkpoints" }
 type EventRow struct {
 	ID             string `gorm:"primaryKey;size:64"`
 	RunID          string `gorm:"size:64;not null;uniqueIndex:idx_studio_events_run_sequence;index:idx_studio_events_run_sequence_order"`
-	SessionID      string `gorm:"size:64;not null;index"`
-	AccountID      string `gorm:"size:64;not null;index"`
+	SessionID      string `gorm:"size:64;not null;index;index:idx_studio_events_context,priority:2"`
+	AccountID      string `gorm:"size:64;not null;index;index:idx_studio_events_context,priority:1"`
 	Sequence       uint64 `gorm:"not null;uniqueIndex:idx_studio_events_run_sequence;index:idx_studio_events_run_sequence_order"`
-	Type           string `gorm:"size:96;not null"`
+	Type           string `gorm:"size:96;not null;index:idx_studio_events_context,priority:3"`
 	Payload        []byte `gorm:"type:blob;not null"`
 	SummaryPayload []byte `gorm:"type:blob"`
 	CreatedAt      time.Time
@@ -241,7 +253,7 @@ func (FlowEdgeRow) TableName() string { return "studio_flow_edges" }
 
 func Models() []any {
 	return []any{
-		&SessionRow{}, &MessageRow{}, &RunRow{}, &RunProgressRow{}, &CheckpointRow{}, &EventRow{}, &ApprovalRow{}, &ClarificationRow{},
+		&ProjectRow{}, &SessionRow{}, &MessageRow{}, &RunRow{}, &RunProgressRow{}, &CheckpointRow{}, &EventRow{}, &ContextRequestRow{}, &ContextEventRow{}, &ApprovalRow{}, &ClarificationRow{},
 		&WorkflowExecutionRow{},
 		&AssetRow{}, &AssetVersionRow{}, &LibraryCategoryRow{}, &LibraryAssetRow{},
 		&FlowNodeRow{}, &FlowEdgeRow{}, &ModelConfigRow{},
@@ -255,11 +267,84 @@ type GormRepository struct {
 
 func NewGormRepository(db *gorm.DB) *GormRepository { return &GormRepository{db: db} }
 
+func (r *GormRepository) CreateProject(ctx context.Context, project *domain.Project) error {
+	if project == nil {
+		return fmt.Errorf("%w: nil project", domain.ErrInvalid)
+	}
+	return translateCreateError(r.db.WithContext(ctx).Create(&ProjectRow{ID: project.ID, AccountID: project.AccountID, Name: project.Name, CreatedAt: project.CreatedAt, UpdatedAt: project.UpdatedAt}).Error)
+}
+
+func (r *GormRepository) GetProject(ctx context.Context, accountID, projectID string) (*domain.Project, error) {
+	var row ProjectRow
+	err := r.db.WithContext(ctx).Where("account_id = ? AND id = ?", accountID, projectID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &domain.Project{ID: row.ID, AccountID: row.AccountID, Name: row.Name, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}, nil
+}
+
+func (r *GormRepository) ListProjects(ctx context.Context, accountID string) ([]*domain.Project, error) {
+	var rows []ProjectRow
+	if err := r.db.WithContext(ctx).Where("account_id = ?", accountID).Order("updated_at DESC, id DESC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	projects := make([]*domain.Project, 0, len(rows))
+	for _, row := range rows {
+		projects = append(projects, &domain.Project{ID: row.ID, AccountID: row.AccountID, Name: row.Name, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
+	}
+	return projects, nil
+}
+
+func (r *GormRepository) RenameProject(ctx context.Context, accountID, projectID, name string, now time.Time) error {
+	name = strings.TrimSpace(name)
+	if name == "" || len([]rune(name)) > 80 {
+		return fmt.Errorf("%w: invalid project name", domain.ErrInvalid)
+	}
+	result := r.db.WithContext(ctx).Model(&ProjectRow{}).Where("account_id = ? AND id = ?", accountID, projectID).Updates(map[string]any{"name": name, "updated_at": now.UTC()})
+	if result.Error != nil {
+		return translateCreateError(result.Error)
+	}
+	return resultError(result)
+}
+
+func (r *GormRepository) DeleteProject(ctx context.Context, accountID, projectID string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Where("account_id = ? AND id = ?", accountID, projectID).Delete(&ProjectRow{})
+		if err := resultError(result); err != nil {
+			return err
+		}
+		return tx.Model(&SessionRow{}).Where("account_id = ? AND project_id = ?", accountID, projectID).Update("project_id", "").Error
+	})
+}
+
+func (r *GormRepository) MoveSessionToProject(ctx context.Context, accountID, sessionID, projectID string) error {
+	if projectID != "" {
+		var row ProjectRow
+		if err := r.db.WithContext(ctx).Where("account_id = ? AND id = ?", accountID, projectID).First(&row).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrNotFound
+		} else if err != nil {
+			return err
+		}
+	}
+	return resultError(r.db.WithContext(ctx).Model(&SessionRow{}).Where("account_id = ? AND id = ?", accountID, sessionID).Update("project_id", projectID))
+}
+
 func (r *GormRepository) CreateSession(ctx context.Context, session *domain.Session) error {
 	if session == nil {
 		return fmt.Errorf("%w: nil session", domain.ErrInvalid)
 	}
-	err := r.db.WithContext(ctx).Create(sessionToRow(session)).Error
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(sessionToRow(session)).Error; err != nil {
+			return err
+		}
+		if session.ModelConfigID != "" {
+			return appendSessionContextChange(tx, session, "MODEL_SWITCHED", "", session.ModelConfigID)
+		}
+		return nil
+	})
 	return translateCreateError(err)
 }
 
@@ -267,10 +352,25 @@ func (r *GormRepository) UpdateSession(ctx context.Context, session *domain.Sess
 	if session == nil {
 		return fmt.Errorf("%w: nil session", domain.ErrInvalid)
 	}
-	result := r.db.WithContext(ctx).Model(&SessionRow{}).
-		Where("id = ? AND account_id = ?", session.ID, session.AccountID).
-		Updates(sessionToRow(session))
-	return resultError(result)
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var previous SessionRow
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND account_id = ?", session.ID, session.AccountID).First(&previous).Error; err != nil {
+			return err
+		}
+		result := tx.Model(&SessionRow{}).Where("id = ? AND account_id = ?", session.ID, session.AccountID).Updates(sessionToRow(session))
+		if err := resultError(result); err != nil {
+			return err
+		}
+		if previous.ModelConfigID != session.ModelConfigID {
+			if err := appendSessionContextChange(tx, session, "MODEL_SWITCHED", previous.ModelConfigID, session.ModelConfigID); err != nil {
+				return err
+			}
+		}
+		if previous.PermissionMode != string(session.PermissionMode) {
+			return appendSessionContextChange(tx, session, "MODE_SWITCHED", previous.PermissionMode, string(session.PermissionMode))
+		}
+		return nil
+	})
 }
 
 func (r *GormRepository) GetSession(ctx context.Context, accountID, sessionID string) (*domain.Session, error) {
@@ -288,8 +388,11 @@ func (r *GormRepository) GetSession(ctx context.Context, accountID, sessionID st
 func (r *GormRepository) ListSessions(ctx context.Context, accountID string, query domain.SessionListQuery) ([]*domain.Session, error) {
 	limit := normalizeLimit(query.Limit)
 	var rows []SessionRow
-	err := r.db.WithContext(ctx).Where("account_id = ?", accountID).
-		Order("updated_at DESC, id DESC").Limit(limit).Offset(query.Offset).Find(&rows).Error
+	statement := r.db.WithContext(ctx).Where("account_id = ?", accountID)
+	if query.ProjectID != nil {
+		statement = statement.Where("project_id = ?", *query.ProjectID)
+	}
+	err := statement.Order("updated_at DESC, id DESC").Limit(limit).Offset(query.Offset).Find(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -320,6 +423,12 @@ func (r *GormRepository) ClearSessions(ctx context.Context, accountID string) er
 			return err
 		}
 		if err := tx.Where("account_id = ?", accountID).Delete(&EventRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&ContextRequestRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ?", accountID).Delete(&ContextEventRow{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("account_id = ?", accountID).Delete(&ApprovalRow{}).Error; err != nil {
@@ -714,7 +823,10 @@ func (r *GormRepository) AppendRunEvent(ctx context.Context, event *domain.Event
 			return err
 		}
 		stored.Sequence = row.LastEventSequence
-		return tx.Create(eventToRow(&stored)).Error
+		if err := tx.Create(eventToRow(&stored)).Error; err != nil {
+			return err
+		}
+		return projectContextRequestEvent(tx, &stored)
 	})
 	if err != nil {
 		return nil, err
@@ -1294,11 +1406,11 @@ func translateCreateError(err error) error {
 }
 
 func sessionToRow(value *domain.Session) *SessionRow {
-	return &SessionRow{ID: value.ID, AccountID: value.AccountID, Title: value.Title, PermissionMode: string(value.PermissionMode), ModelConfigID: value.ModelConfigID, ContextSummary: value.ContextSummary, ContextSummaryThroughMessageID: value.ContextSummaryThroughMessageID, Status: string(value.Status), CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
+	return &SessionRow{ID: value.ID, AccountID: value.AccountID, ProjectID: value.ProjectID, Title: value.Title, PermissionMode: string(value.PermissionMode), ModelConfigID: value.ModelConfigID, ContextSummary: value.ContextSummary, ContextSummaryThroughMessageID: value.ContextSummaryThroughMessageID, Status: string(value.Status), CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func sessionFromRow(row SessionRow) *domain.Session {
-	return &domain.Session{ID: row.ID, AccountID: row.AccountID, Title: row.Title, PermissionMode: domain.PermissionMode(row.PermissionMode), ModelConfigID: row.ModelConfigID, ContextSummary: row.ContextSummary, ContextSummaryThroughMessageID: row.ContextSummaryThroughMessageID, Status: domain.SessionStatus(row.Status), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return &domain.Session{ID: row.ID, AccountID: row.AccountID, ProjectID: row.ProjectID, Title: row.Title, PermissionMode: domain.PermissionMode(row.PermissionMode), ModelConfigID: row.ModelConfigID, ContextSummary: row.ContextSummary, ContextSummaryThroughMessageID: row.ContextSummaryThroughMessageID, Status: domain.SessionStatus(row.Status), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func messageToRow(value *domain.Message) *MessageRow {
@@ -1320,7 +1432,7 @@ func runToRow(value *domain.Run) *RunRow {
 	if value.RequestID != "" {
 		requestID = &value.RequestID
 	}
-	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, RequestID: requestID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, SkillIDsJSON: skillIDs, SkillSnapshotJSON: skillSnapshot, AssetIDsJSON: assetIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
+	return &RunRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, RequestID: requestID, TriggerMessageID: value.TriggerMessageID, Status: string(value.Status), ModelConfigID: value.ModelConfigID, Locale: value.Locale, SkillIDsJSON: skillIDs, SkillSnapshotJSON: skillSnapshot, AssetIDsJSON: assetIDs, ErrorCode: value.ErrorCode, ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func runFromRow(row RunRow) *domain.Run {
@@ -1341,7 +1453,11 @@ func runFromRow(row RunRow) *domain.Run {
 	if row.RequestID != nil {
 		requestID = *row.RequestID
 	}
-	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, RequestID: requestID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, SkillIDs: skillIDs, SkillSnapshot: skillSnapshot, AssetIDs: assetIDs, AssetReferences: assetReferences, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
+	locale := row.Locale
+	if locale == "" {
+		locale = "zh"
+	}
+	return &domain.Run{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, RequestID: requestID, TriggerMessageID: row.TriggerMessageID, Status: domain.RunStatus(row.Status), ModelConfigID: row.ModelConfigID, Locale: locale, SkillIDs: skillIDs, SkillSnapshot: skillSnapshot, AssetIDs: assetIDs, AssetReferences: assetReferences, ErrorCode: row.ErrorCode, ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, StartedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func runProgressToRow(value *domain.RunProgress) *RunProgressRow {

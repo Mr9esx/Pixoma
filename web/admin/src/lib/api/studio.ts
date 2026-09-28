@@ -7,11 +7,19 @@ export type StudioPermissionMode =
 
 export type StudioSession = {
   id: string
+  project_id?: string
   title: string
   permission_mode: StudioPermissionMode
   model_config_id?: string
   status: 'active'
   latest_run?: StudioRun | null
+  created_at: string
+  updated_at: string
+}
+
+export type StudioProject = {
+  id: string
+  name: string
   created_at: string
   updated_at: string
 }
@@ -194,6 +202,85 @@ export type StudioTrajectoryPage = {
   next_cursor: string
   has_more: boolean
   total_runs: number
+}
+
+export type StudioContextPart = {
+  id: string
+  category: string
+  source: string
+  label: string
+  content?: string
+  estimated_tokens: number
+}
+
+export type StudioContextRequest = {
+  attempt_id: string
+  session_id: string
+  run_id: string
+  turn_id: string
+  turn_number: number
+  step_number: number
+  purpose: string
+  protocol: string
+  model: string
+  preview: string
+  status: string
+  started_at: string
+  first_token_at?: string
+  ended_at?: string
+  context_window_tokens: number
+  max_input_tokens: number
+  max_output_tokens: number
+  input_tokens: number | null
+  output_tokens: number | null
+  cache_read_tokens: number | null
+  cache_write_tokens: number | null
+  reasoning_tokens: number | null
+  projected_tokens?: number
+  parts: StudioContextPart[]
+}
+
+export type StudioContextOverview = {
+  turns: number
+  steps: number
+  tool_calls: number
+  injections: number
+  compactions: number
+  prunes: number
+  tokens: {
+    input: number
+    output: number
+    cache_read: number
+    cache_write: number
+    uncached: number
+    reasoning: number
+    missing_requests: number
+    cache_known_requests: number
+    cache_known_input: number
+  }
+  timing: {
+    active_ms: number
+    model_wait_ms: number
+    generation_ms: number
+    model_other_ms: number
+    tools_ms: number
+    other_ms: number
+  }
+  current: StudioContextRequest | null
+}
+
+export type StudioContextEvent = {
+  id: string
+  run_id: string
+  turn_number: number
+  step_number: number
+  kind: string
+  source: string
+  detail: string
+  delta_tokens_estimated: number | null
+  before_tokens_estimated: number | null
+  after_tokens_estimated: number | null
+  created_at: string
 }
 
 export type StudioAssetVersion = {
@@ -415,8 +502,72 @@ export type StudioAgentWorkflow = {
 export function listStudioSessions(params?: {
   limit?: number
   offset?: number
+  project_id?: string
 }) {
-  return apiFetch<StudioSession[]>(`/api/v1/studio/sessions${toQuery(params)}`)
+  const query = toQuery(params)
+  const unassigned =
+    params?.project_id === '' ? `${query ? '&' : '?'}project_id=` : ''
+  return apiFetch<StudioSession[]>(
+    `/api/v1/studio/sessions${query}${unassigned}`
+  )
+}
+
+function studioProject(value: unknown): StudioProject {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('id' in value) ||
+    typeof value.id !== 'string' ||
+    !('name' in value) ||
+    typeof value.name !== 'string'
+  ) {
+    throw new Error('项目响应格式错误')
+  }
+  return value as StudioProject
+}
+
+export async function listStudioProjects() {
+  const projects = await apiFetch<unknown>('/api/v1/studio/projects')
+  if (!Array.isArray(projects)) throw new Error('项目列表响应格式错误')
+  return projects.map(studioProject)
+}
+
+export async function createStudioProject(name: string) {
+  const project = await apiFetch<unknown>('/api/v1/studio/projects', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+  return studioProject(project)
+}
+
+export async function renameStudioProject(id: string, name: string) {
+  const project = await apiFetch<unknown>(
+    `/api/v1/studio/projects/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }
+  )
+  return studioProject(project)
+}
+
+export function deleteStudioProject(id: string) {
+  return apiFetch<void>(`/api/v1/studio/projects/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}
+
+export function moveStudioSessionToProject(
+  sessionId: string,
+  projectId: string
+) {
+  return apiFetch<StudioSession>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/project`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ project_id: projectId }),
+    }
+  )
 }
 
 export function createStudioSession(requestId: string) {
@@ -441,7 +592,11 @@ export function getStudioSession(sessionId: string) {
 
 export function sendStudioMessage(input: {
   sessionId?: string
+  projectId?: string
+  requestId?: string
   text: string
+  locale: 'zh' | 'en'
+  parts?: StudioComposerPart[]
   modelConfigId?: string
   permissionMode: StudioPermissionMode
 }) {
@@ -449,7 +604,11 @@ export function sendStudioMessage(input: {
     method: 'POST',
     body: JSON.stringify({
       session_id: input.sessionId,
+      project_id: input.projectId,
+      request_id: input.requestId,
       text: input.text,
+      locale: input.locale,
+      parts: input.parts,
       model_config_id: input.modelConfigId,
       permission_mode: input.permissionMode,
     }),
@@ -494,6 +653,44 @@ export function getStudioTrajectoryRecord(
 ) {
   return apiFetch<StudioTrajectoryDetail>(
     `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/trajectory/runs/${encodeURIComponent(runId)}/records/${encodeURIComponent(recordId)}`
+  )
+}
+
+export function getStudioSessionContext(sessionId: string) {
+  return apiFetch<StudioContextOverview>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/context`
+  )
+}
+
+export function getStudioCurrentContext(sessionId: string) {
+  return apiFetch<StudioContextRequest>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/context/current`
+  )
+}
+
+export function listStudioContextRequests(sessionId: string, offset = 0) {
+  return apiFetch<{
+    requests: StudioContextRequest[]
+    has_more: boolean
+    next_offset: number
+  }>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/context/requests${toQuery({ offset })}`
+  )
+}
+
+export function getStudioContextRequest(sessionId: string, attemptId: string) {
+  return apiFetch<StudioContextRequest>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/context/requests/${encodeURIComponent(attemptId)}`
+  )
+}
+
+export function listStudioContextEvents(sessionId: string, offset = 0, kind = '') {
+  return apiFetch<{
+    events: StudioContextEvent[]
+    has_more: boolean
+    next_offset: number
+  }>(
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/context/events${toQuery({ offset, kind })}`
   )
 }
 
@@ -569,6 +766,12 @@ export function uploadStudioAsset(file: File, sessionId?: string) {
     method: 'POST',
     body,
   })
+}
+
+export function getStudioAsset(assetId: string) {
+  return apiFetch<StudioAsset>(
+    `/api/v1/studio/assets/${encodeURIComponent(assetId)}`
+  )
 }
 
 export function updateStudioFlowNodes(

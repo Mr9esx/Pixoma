@@ -220,10 +220,11 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	}
 
 	gdb, cleanup, err := appboot.Bootstrap(ctx, appboot.Options{
-		Driver:       cfg.DBDriver,
-		DSN:          cfg.DBDSN,
-		MigrateEdges: true,
-		Models:       applicationModels(),
+		Driver:        cfg.DBDriver,
+		DSN:           cfg.DBDSN,
+		MigrateEdges:  true,
+		Models:        applicationModels(),
+		BeforeMigrate: studiopersist.MigrateSessionProjectIDs,
 	})
 	if err != nil {
 		return err
@@ -432,7 +433,7 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		Tasks:      &tasksapi.Handler{Tasks: taskRepo, Cancel: orch, Context: taskpersist.NewTaskAdminProjection(gdb)},
 		Stats:      &statsapi.Handler{Repo: statsRepo, Loc: statsLocation(), Metrics: metricsRepo},
 		Studio: &studioapi.Handler{
-			Repo: studioRepo, Tasks: taskRepo, Service: studioService, Runner: studioRunner,
+			Repo: studioRepo, Context: studioRepo, Tasks: taskRepo, Service: studioService, Runner: studioRunner,
 			Approvals: studioApprovalService, Clarifications: studioClarificationService, Models: studioModelService, Capabilities: studioCapabilityService, Blob: blobStore, Events: studioEvents,
 		},
 		Channels: &channelsapi.Handler{

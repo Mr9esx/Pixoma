@@ -43,9 +43,15 @@ type skillReadPayload struct {
 	NextFiles     *skillArgs `json:"next_files,omitempty"`
 }
 
-func newLoadSkillTool(skills []domain.RunSkill, sink studioapp.AgentSink) (*loadSkillTool, error) {
+func newLoadSkillTool(skills []domain.RunSkill, sink studioapp.AgentSink, locale string) (*loadSkillTool, error) {
+	source := `{"type":"object","additionalProperties":false,"required":["skill_id"],"properties":{"skill_id":{"type":"string","description":"当前 Run 的 Skill ID"},"path":{"type":"string","description":"文件路径；省略时读取 SKILL.md，传入 . 时分页列出可读文本文件"},"offset":{"type":"integer","minimum":0,"description":"文件的 Unicode 字符位置；path 为 . 时表示文件目录中的序号"}}}`
+	description := "按 Skill ID 分段读取 SKILL.md 与文本文件。返回 next 或 next_files 时，使用其中的参数继续读取。二进制资源与脚本不可执行。"
+	if locale == "en" {
+		source = `{"type":"object","additionalProperties":false,"required":["skill_id"],"properties":{"skill_id":{"type":"string","description":"Skill ID in this Run"},"path":{"type":"string","description":"Text file path; omit for SKILL.md or use . to list readable files in pages"},"offset":{"type":"integer","minimum":0,"description":"Unicode character offset, or file index when path is ."}}}`
+		description = "Read SKILL.md and text files by Skill ID. Continue with returned next or next_files arguments. Scripts and binary resources cannot be executed."
+	}
 	var parameters einojsonschema.Schema
-	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["skill_id"],"properties":{"skill_id":{"type":"string","description":"当前 Run 的 Skill ID"},"path":{"type":"string","description":"文件路径；省略时读取 SKILL.md，传入 . 时分页列出可读文本文件"},"offset":{"type":"integer","minimum":0,"description":"文件的 Unicode 字符位置；path 为 . 时表示文件目录中的序号"}}}`), &parameters); err != nil {
+	if err := json.Unmarshal([]byte(source), &parameters); err != nil {
 		return nil, err
 	}
 	byID := make(map[string]domain.RunSkill, len(skills))
@@ -54,7 +60,7 @@ func newLoadSkillTool(skills []domain.RunSkill, sink studioapp.AgentSink) (*load
 	}
 	return &loadSkillTool{
 		info: &schema.ToolInfo{
-			Name: "load_skill", Desc: "按 Skill ID 分段读取 SKILL.md 与文本文件。返回 next 或 next_files 时，使用其中的参数继续读取。二进制资源与脚本不可执行。",
+			Name: "load_skill", Desc: description,
 			ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&parameters),
 		},
 		skills: byID,
@@ -88,6 +94,13 @@ func (t *loadSkillTool) InvokableRun(ctx context.Context, arguments string, _ ..
 		return "", err
 	}
 	if err := t.sink.Emit(ctx, studioapp.EventToolCallEnd, map[string]any{"tool_call_id": toolCallID, "tool_name": t.info.Name, "is_error": false}); err != nil {
+		return "", err
+	}
+	if err := t.sink.Emit(ctx, studioapp.EventContextInjected, map[string]any{
+		"source": "skill", "detail": skill.Name, "skill_id": skill.ID, "path": skillReadPath(input.Path),
+		"content":                output,
+		"delta_tokens_estimated": contextcompaction.EstimateTokens([]*schema.Message{{Role: schema.Tool, Content: output}}),
+	}); err != nil {
 		return "", err
 	}
 	return output, nil

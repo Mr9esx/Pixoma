@@ -21,21 +21,22 @@ import {
   ArrowUp,
   Bot,
   Boxes,
-  ChevronDown,
   CircleHelp,
   Copy,
   ImagePlus,
-  ShieldCheck,
+  Search,
   Sparkles,
   Square,
   Workflow,
   X,
 } from 'lucide-react'
 import { useStickToBottomContext } from 'use-stick-to-bottom'
-import { StudioWebSocketAgent } from '@/lib/agui-websocket-agent'
+import { StudioWebSocketAgent, type StudioRunConfig } from '@/lib/agui-websocket-agent'
+import { i18n } from '@/lib/i18n'
 import { baseURL } from '@/lib/api/client'
 import {
   cancelStudioRun,
+  getStudioAsset,
   listStudioLibraryAssets,
   listStudioAgentWorkflows,
   type StudioAsset,
@@ -58,13 +59,13 @@ import { AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -104,6 +105,7 @@ import {
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
+import { Shimmer } from '@/components/ai-elements/shimmer'
 import {
   Tool,
   ToolContent,
@@ -112,9 +114,12 @@ import {
   ToolOutput,
 } from '@/components/ai-elements/tool'
 import { StudioComposer, type StudioComposerHandle, type StudioReference } from './studio-composer'
+import composerSurface from './studio-composer-surface.module.css'
+import { ModelPicker, PermissionPicker } from './studio-chat-controls'
 import type { StudioComposerValue } from './studio-composer-content'
 import { retainStudioComposerFocus } from './studio-composer-focus'
 import { StudioReferenceBadge } from './studio-reference-badge'
+import { nextStudioActivity } from './studio-run-activity'
 import { StudioTurnNavigator } from './studio-turn-navigator'
 import { StudioWorkflowCard } from './studio-workflow-card'
 
@@ -152,7 +157,7 @@ type PickerOpenProps = {
   onOpenChange: (open: boolean) => void
 }
 
-function StudioImageAttachments({ disabled }: { disabled: boolean }) {
+export function StudioImageAttachments({ disabled }: { disabled: boolean }) {
   const attachments = usePromptInputAttachments()
   if (attachments.files.length === 0) return null
   return (
@@ -184,7 +189,7 @@ function StudioImageAttachments({ disabled }: { disabled: boolean }) {
   )
 }
 
-function StudioImagePicker({
+export function StudioImagePicker({
   disabled,
   unsupported,
 }: {
@@ -290,6 +295,7 @@ function StudioChatRuntime({
   onRunError: (message: string | undefined) => void
   onReconnect: (draft?: ClarificationDraft) => void
 }) {
+  const [activity, setActivity] = useState<string | null>()
   const availableModels = props.models.filter(
     (model) => model.enabled && model.agent_enabled && model.capabilities.tools
   )
@@ -298,9 +304,10 @@ function StudioChatRuntime({
     availableModels.find((model) => model.default) ??
     availableModels[0]
   const modelReady = Boolean(selectedModel)
-  const runConfig = useMemo(
+  const runConfig = useMemo<StudioRunConfig>(
     () => ({
       modelConfigId: selectedModel?.id ?? '',
+      locale: i18n.language.startsWith('en') ? 'en' : 'zh',
       permissionMode: props.permissionMode,
       selectedSkillIds: props.selectedSkillIds,
       selectedAssets: props.selectedAssets,
@@ -323,6 +330,7 @@ function StudioChatRuntime({
       initialMessages: (toTranscriptAGUIMessages(props.transcript) ??
         toAGUIMessages(props.messages)) as never[],
       runConfig,
+      onEvent: (event) => setActivity((current) => nextStudioActivity(current, event)),
     })
     // A runtime owns the active connection. Replacing the agent when a
     // transcript query refreshes would silently abandon that connection.
@@ -376,6 +384,7 @@ function StudioChatRuntime({
             threadId: props.sessionId,
             studioRunId: props.latestRun.id,
             afterSequence: 0,
+            onEvent: (event) => setActivity((current) => nextStudioActivity(current, event)),
           })
         : undefined
 
@@ -421,6 +430,8 @@ function StudioChatRuntime({
       />
       <StudioChatSurface
         agent={agent}
+        activity={activity}
+        onRunStart={() => setActivity('正在准备回复')}
         onRunError={onRunError}
         onReconnect={onReconnect}
         availableModels={availableModels}
@@ -435,6 +446,8 @@ function StudioChatRuntime({
 }
 
 function StudioChatSurface({
+  activity,
+  onRunStart,
   availableModels,
   modelReady,
   selectedModel,
@@ -445,6 +458,8 @@ function StudioChatSurface({
   onReconnect,
   ...props
 }: Props & {
+  activity?: string | null
+  onRunStart: () => void
   availableModels: StudioModel[]
   modelReady: boolean
   selectedModel?: StudioModel
@@ -744,6 +759,7 @@ function StudioChatSurface({
     }
     agent.prepareNextRun({
       modelConfigId: selectedModel?.id ?? '',
+      locale: i18n.language.startsWith('en') ? 'en' : 'zh',
       permissionMode: props.permissionMode,
       selectedSkillIds: value.selectedSkillIds,
       selectedAssets,
@@ -751,6 +767,7 @@ function StudioChatSurface({
     })
     const composer = aui.thread.composer()
     composer.setText(text)
+    onRunStart()
     composer.send()
     setLiveMessage({ previousUserMessageId: latestUserMessageId, parts })
     composerRef.current?.clear()
@@ -897,6 +914,15 @@ function StudioChatSurface({
               </MessageContent>
             </Message>
           ))}
+          {isStreaming && approvals.length === 0 && !clarificationPending && !workflowPending && !runError && activity !== null ? (
+            <Message from='assistant' className='max-w-none'>
+              <MessageContent className='w-full'>
+                <div role='status' className='text-sm text-muted-foreground'>
+                  <Shimmer>{activity ?? '正在准备回复'}</Shimmer>
+                </div>
+              </MessageContent>
+            </Message>
+          ) : null}
           {runError ? (
             <div
               role='alert'
@@ -975,7 +1001,7 @@ function StudioChatSurface({
                 multiple
                 maxFiles={4}
                 maxFileSize={8 << 20}
-                inputGroupClassName='h-auto overflow-visible bg-background'
+                inputGroupClassName={`h-auto overflow-visible ${composerSurface.surface}`}
                 onError={(error) =>
                   onRunError(
                     error.code === 'max_file_size'
@@ -1380,23 +1406,37 @@ function StudioRunCompletionWatcher({
   return null
 }
 
-function AssetPicker({
+export function AssetPicker({
   open,
   onOpenChange,
   assets,
   value,
   onInsert,
   onImportLibraryAsset,
+  defaultTab = 'session',
 }: PickerOpenProps & {
   assets: StudioAsset[]
   value: SelectedAsset[]
   onInsert: (asset: StudioAsset, versionId: string) => void
-  onImportLibraryAsset: (asset: SelectedAsset) => Promise<StudioAsset>
+  onImportLibraryAsset?: (asset: SelectedAsset) => Promise<StudioAsset>
+  defaultTab?: 'session' | 'global'
 }) {
+  const [search, setSearch] = useState('')
+  const [librarySearch, setLibrarySearch] = useState('')
+  const searchTerm = search.trim()
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setLibrarySearch(searchTerm), 250)
+    return () => window.clearTimeout(timeout)
+  }, [searchTerm])
   const libraryAssets = useInfiniteQuery({
-    queryKey: ['studio', 'library', 'assets'],
+    queryKey: ['studio', 'library', 'assets', librarySearch],
     queryFn: ({ pageParam }) =>
-      listStudioLibraryAssets({ page: pageParam, limit: 100 }),
+      listStudioLibraryAssets({
+        search: librarySearch,
+        page: pageParam,
+        limit: 100,
+      }),
+    enabled: open,
     initialPageParam: 1,
     getNextPageParam: (lastPage, pages) =>
       lastPage.assets.length > 0 &&
@@ -1416,7 +1456,7 @@ function AssetPicker({
   const insert = async (asset: StudioAsset, fromLibrary = false) => {
     const version = asset.versions[asset.versions.length - 1]
     if (!version) return
-    if (fromLibrary) {
+    if (fromLibrary && onImportLibraryAsset) {
       const imported = await onImportLibraryAsset({ assetId: asset.id, assetVersionId: version.id })
       const importedVersion = imported.versions[imported.versions.length - 1]
       if (!importedVersion) return
@@ -1427,22 +1467,42 @@ function AssetPicker({
   }
   const unavailableSelections = value.filter((selection) => {
     const asset = assetsByID.get(selection.assetId)
-    if (!asset) return libraryAssets.isSuccess && !libraryAssets.hasNextPage
+    if (!asset)
+      return (
+        !searchTerm &&
+        !librarySearch &&
+        libraryAssets.isSuccess &&
+        !libraryAssets.hasNextPage
+      )
     return !asset.versions.some(
       (version) => version.id === selection.assetVersionId
     )
   })
-  const currentAssets = assets
-  const reusableAssets = libraryAssetItems.filter(
-    (asset) => !sessionAssetIDs.has(asset.id)
+  const currentAssets = assets.filter((asset) =>
+    asset.name.toLocaleLowerCase().includes(searchTerm.toLocaleLowerCase())
   )
+  const isSearchingLibrary = searchTerm !== librarySearch
+  const reusableAssets = isSearchingLibrary
+    ? []
+    : libraryAssetItems.filter((asset) => !sessionAssetIDs.has(asset.id))
   const choose = (asset: StudioAsset, fromLibrary = false) => {
     onOpenChange(false)
+    setSearch('')
+    setLibrarySearch('')
     void insert(asset, fromLibrary)
   }
 
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen)
+        if (!nextOpen) {
+          setSearch('')
+          setLibrarySearch('')
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <PromptInputButton
           aria-label={
@@ -1459,13 +1519,27 @@ function AssetPicker({
           <Boxes />
         </PromptInputButton>
       </PopoverTrigger>
-      <PopoverContent align='start' className='w-72 p-1' onCloseAutoFocus={retainStudioComposerFocus}>
-        <Tabs defaultValue='session'>
+      <PopoverContent
+        align='start'
+        className='group/asset-picker w-72 p-1'
+        onCloseAutoFocus={retainStudioComposerFocus}
+      >
+        <Tabs defaultValue={defaultTab}>
+          <div className='order-last flex h-9 items-center gap-2 px-3 text-muted-foreground group-data-[side=bottom]/asset-picker:order-none'>
+            <Search className='size-4 shrink-0' />
+            <Input
+              aria-label='搜索资产'
+              placeholder='搜索资产'
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className='h-9 border-0 bg-transparent px-0 text-foreground shadow-none focus-visible:ring-0'
+            />
+          </div>
           <TabsContent value='session' className='h-48 flex-none overflow-y-auto'>
             <AssetPickerSection
               assets={currentAssets}
               onSelect={choose}
-              emptyText='会话内还没有资产'
+              emptyText={searchTerm ? '没有匹配的资产' : '会话内还没有资产'}
             />
           </TabsContent>
           <TabsContent value='global' className='h-48 flex-none overflow-y-auto'>
@@ -1473,14 +1547,18 @@ function AssetPicker({
               assets={reusableAssets}
               onSelect={(asset) => choose(asset, true)}
               emptyText={
-                libraryAssets.isLoading
-                  ? '正在读取全局资产…'
-                  : libraryAssets.isError
-                    ? '全局资产读取失败'
-                    : '全局还没有可用资产'
+                isSearchingLibrary
+                  ? '正在搜索资产…'
+                  : libraryAssets.isLoading
+                    ? '正在读取全局资产…'
+                    : libraryAssets.isError
+                      ? '全局资产读取失败'
+                      : searchTerm
+                        ? '没有匹配的资产'
+                        : '全局还没有可用资产'
               }
             />
-            {libraryAssets.hasNextPage ? (
+            {!isSearchingLibrary && libraryAssets.hasNextPage ? (
               <Button
                 type='button'
                 variant='ghost'
@@ -1501,7 +1579,7 @@ function AssetPicker({
               {unavailableSelections.length} 项已选资产不可用
             </p>
           ) : null}
-          <TabsList className='h-8 w-full'>
+          <TabsList className='order-last h-8 w-full group-data-[side=bottom]/asset-picker:order-first'>
             <TabsTrigger value='session' className='text-xs'>会话内</TabsTrigger>
             <TabsTrigger value='global' className='text-xs'>全局</TabsTrigger>
           </TabsList>
@@ -1554,7 +1632,7 @@ function AssetPickerSection({
   )
 }
 
-function SkillPicker({
+export function SkillPicker({
   open,
   onOpenChange,
   skills,
@@ -1565,10 +1643,17 @@ function SkillPicker({
   value: string[]
   onInsert: (skill: StudioSkillSummary) => void
 }) {
+  const [search, setSearch] = useState('')
   const enabledSkills = skills.filter((skill) => skill.enabled)
   return (
-    <DropdownMenu open={open} onOpenChange={onOpenChange} modal={false}>
-      <DropdownMenuTrigger asChild>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen)
+        if (!nextOpen) setSearch('')
+      }}
+    >
+      <PopoverTrigger asChild>
         <PromptInputButton
           aria-label={
             value.length === 0
@@ -1583,30 +1668,55 @@ function SkillPicker({
         >
           <Sparkles />
         </PromptInputButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align='start' className='w-72' onCloseAutoFocus={retainStudioComposerFocus}>
-        {enabledSkills.length === 0 ? (
-          <DropdownMenuItem disabled>没有已启用的技能</DropdownMenuItem>
-        ) : null}
-        {enabledSkills.map((skill) => (
-          <DropdownMenuItem
-            key={skill.id}
-            onSelect={() => onInsert(skill)}
-          >
-            <span className='min-w-0 flex-1'>
-              <span className='block truncate'>{skill.name}</span>
-              <span className='block truncate text-xs text-muted-foreground'>
-                {skill.description}
-              </span>
-            </span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      <PopoverContent
+        align='start'
+        className='group/studio-picker w-72 p-1'
+        onCloseAutoFocus={retainStudioComposerFocus}
+      >
+        <Command className='h-auto [&_[data-slot=command-input-wrapper]]:border-0'>
+          <div className='order-last group-data-[side=bottom]/studio-picker:order-first'>
+            <CommandInput
+              aria-label='搜索技能'
+              placeholder='搜索技能'
+              value={search}
+              onValueChange={setSearch}
+            />
+          </div>
+          <CommandList className='max-h-60'>
+            <CommandEmpty>
+              {enabledSkills.length === 0
+                ? '没有已启用的技能'
+                : '没有匹配的技能'}
+            </CommandEmpty>
+            <CommandGroup>
+              {enabledSkills.map((skill) => (
+                <CommandItem
+                  key={skill.id}
+                  value={`${skill.name} ${skill.description} ${skill.id}`}
+                  onSelect={() => {
+                    onInsert(skill)
+                    onOpenChange(false)
+                    setSearch('')
+                  }}
+                >
+                  <span className='min-w-0 flex-1'>
+                    <span className='block truncate'>{skill.name}</span>
+                    <span className='block truncate text-xs text-muted-foreground'>
+                      {skill.description}
+                    </span>
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 
-function WorkflowPicker({
+export function WorkflowPicker({
   open,
   onOpenChange,
   disabled,
@@ -1615,33 +1725,78 @@ function WorkflowPicker({
   disabled: boolean
   onSelect: (workflow: StudioAgentWorkflow) => void
 }) {
+  const [search, setSearch] = useState('')
   const query = useQuery({
     queryKey: ['studio', 'agent-workflows'],
     queryFn: listStudioAgentWorkflows,
     enabled: open,
   })
-  const available = (query.data ?? []).filter((workflow) => workflow.workflow_enabled && workflow.agent_enabled)
+  const available = (query.data ?? []).filter(
+    (workflow) => workflow.workflow_enabled && workflow.agent_enabled
+  )
   return (
-    <DropdownMenu open={open} onOpenChange={onOpenChange} modal={false}>
-      <DropdownMenuTrigger asChild>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen)
+        if (!nextOpen) setSearch('')
+      }}
+    >
+      <PopoverTrigger asChild>
         <PromptInputButton aria-label='选择工作流' size='icon-sm' tooltip='工作流' disabled={disabled}>
           <Workflow />
         </PromptInputButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align='start' className='w-72' onCloseAutoFocus={retainStudioComposerFocus}>
-        {query.isPending ? <DropdownMenuItem disabled>正在读取工作流…</DropdownMenuItem> : null}
-        {query.isError ? <DropdownMenuItem disabled>读取工作流失败</DropdownMenuItem> : null}
-        {query.isSuccess && available.length === 0 ? <DropdownMenuItem disabled>没有可用工作流</DropdownMenuItem> : null}
-        {available.map((workflow) => (
-          <DropdownMenuItem key={workflow.id} onSelect={() => onSelect(workflow)}>
-            <span className='min-w-0 flex-1'>
-              <span className='block truncate'>{workflow.name}</span>
-              {workflow.description ? <span className='block truncate text-xs text-muted-foreground'>{workflow.description}</span> : null}
-            </span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      <PopoverContent
+        align='start'
+        className='group/studio-picker w-72 p-1'
+        onCloseAutoFocus={retainStudioComposerFocus}
+      >
+        <Command className='h-auto [&_[data-slot=command-input-wrapper]]:border-0'>
+          <div className='order-last group-data-[side=bottom]/studio-picker:order-first'>
+            <CommandInput
+              aria-label='搜索工作流'
+              placeholder='搜索工作流'
+              value={search}
+              onValueChange={setSearch}
+            />
+          </div>
+          <CommandList className='max-h-60'>
+            <CommandEmpty>
+              {query.isPending
+                ? '正在读取工作流…'
+                : query.isError
+                  ? '读取工作流失败'
+                  : available.length === 0
+                    ? '没有可用工作流'
+                    : '没有匹配的工作流'}
+            </CommandEmpty>
+            <CommandGroup>
+              {available.map((workflow) => (
+                <CommandItem
+                  key={workflow.id}
+                  value={`${workflow.name} ${workflow.description ?? ''} ${workflow.id}`}
+                  onSelect={() => {
+                    onSelect(workflow)
+                    onOpenChange(false)
+                    setSearch('')
+                  }}
+                >
+                  <span className='min-w-0 flex-1'>
+                    <span className='block truncate'>{workflow.name}</span>
+                    {workflow.description ? (
+                      <span className='block truncate text-xs text-muted-foreground'>
+                        {workflow.description}
+                      </span>
+                    ) : null}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -1718,6 +1873,33 @@ function StudioMessageLocator({
   return null
 }
 
+function StudioReferenceImage({
+  part,
+  asset,
+}: {
+  part: Extract<StudioComposerPart, { type: 'asset_ref' }>
+  asset?: StudioAsset
+}) {
+  const missingAsset = useQuery({
+    queryKey: ['studio', 'asset', part.asset_id],
+    queryFn: () => getStudioAsset(part.asset_id),
+    enabled: !asset,
+  })
+  const resolved = asset ?? missingAsset.data
+  if (resolved?.kind !== 'image') return null
+  const version = resolved.versions.find(
+    (item) => item.id === part.asset_version_id
+  )
+  if (!version) return null
+  return (
+    <img
+      src={`${baseURL()}${version.content_url}`}
+      alt={resolved.name}
+      className='max-h-48 max-w-64 rounded-lg border object-contain'
+    />
+  )
+}
+
 function StudioMessage({
   message,
   isRunning,
@@ -1751,10 +1933,13 @@ function StudioMessage({
         {message.role === 'user' && referenceParts?.map((part) => {
           if (part.type !== 'asset_ref') return null
           const asset = assets.find((item) => item.id === part.asset_id)
-          if (asset?.kind !== 'image') return null
-          const version = asset.versions.find((item) => item.id === part.asset_version_id)
-          if (!version) return null
-          return <img key={part.asset_id} src={`${baseURL()}${version.content_url}`} alt={asset.name} className='max-h-48 max-w-64 rounded-lg border object-contain' />
+          return (
+            <StudioReferenceImage
+              key={`${part.asset_id}:${part.asset_version_id}`}
+              part={part}
+              asset={asset}
+            />
+          )
         })}
         {message.role === 'user' && referenceParts ? (
           <span className='whitespace-pre-wrap break-words'>
@@ -1854,87 +2039,5 @@ function StudioToolCall({ part }: { part: StudioToolCallPart }) {
         />
       </ToolContent>
     </Tool>
-  )
-}
-
-function ModelPicker({
-  models,
-  value,
-  onChange,
-}: {
-  models: StudioModel[]
-  value?: string
-  onChange: (id: string) => void
-}) {
-  const selected = models.find((model) => model.id === value)
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <PromptInputButton
-          aria-label={`选择模型：${selected?.name ?? '未选择模型'}`}
-          className='max-w-52 font-normal'
-        >
-          <span className='truncate'>{selected?.name ?? '未选择模型'}</span>
-          <ChevronDown className='size-3.5' />
-        </PromptInputButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align='end' className='w-72'>
-        {models.length === 0 ? (
-          <DropdownMenuItem disabled>没有可用模型</DropdownMenuItem>
-        ) : null}
-        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-          {models.map((model) => (
-            <DropdownMenuRadioItem key={model.id} value={model.id}>
-              <span className='min-w-0 flex-1 truncate'>{model.name}</span>
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-const permissionLabels: Record<StudioPermissionMode, string> = {
-  request_approval: '请求批准',
-  auto_approve: '帮我批准',
-  full_access: '完全访问',
-}
-
-function PermissionPicker({
-  value,
-  onChange,
-}: {
-  value: StudioPermissionMode
-  onChange: (mode: StudioPermissionMode) => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <PromptInputButton
-          aria-label={`Agent 操作权限：${permissionLabels[value]}`}
-          className='font-normal'
-        >
-          <ShieldCheck />
-          {permissionLabels[value]}
-          <ChevronDown className='size-3.5' />
-        </PromptInputButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align='start' className='w-72'>
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={(next) => onChange(next as StudioPermissionMode)}
-        >
-          <DropdownMenuRadioItem value='request_approval'>
-            请求批准 · 每次执行前确认
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value='auto_approve'>
-            帮我批准 · 仅高风险操作确认
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value='full_access'>
-            完全访问 · 自动执行所有操作
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }

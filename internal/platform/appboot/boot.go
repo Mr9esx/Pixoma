@@ -6,9 +6,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/Mr9esx/Pixoma/internal/platform/db"
 	edge "github.com/Mr9esx/Pixoma/internal/edge/domain"
 	instpersist "github.com/Mr9esx/Pixoma/internal/edge/infrastructure/persistence"
+	"github.com/Mr9esx/Pixoma/internal/platform/db"
 )
 
 // Options configures shared DB open, migrate, and optional instance seeding.
@@ -22,6 +22,8 @@ type Options struct {
 
 	// Models are additional GORM models to AutoMigrate (e.g. bot Case/User rows).
 	Models []any
+	// BeforeMigrate prepares existing data before AutoMigrate changes column constraints.
+	BeforeMigrate func(context.Context, *gorm.DB) error
 
 	// Seed, when non-nil, upserts comfy_instances via edge.SeedFromConfig.
 	Seed *edge.SeedConfig
@@ -33,6 +35,12 @@ func Bootstrap(ctx context.Context, opts Options) (*gorm.DB, func() error, error
 	gdb, err := Open(opts)
 	if err != nil {
 		return nil, nil, err
+	}
+	if opts.BeforeMigrate != nil {
+		if err := opts.BeforeMigrate(ctx, gdb); err != nil {
+			_ = closeDB(gdb)
+			return nil, nil, fmt.Errorf("appboot: before migrate: %w", err)
+		}
 	}
 
 	models := append([]any(nil), opts.Models...)

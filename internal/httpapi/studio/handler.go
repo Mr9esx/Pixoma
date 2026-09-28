@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/Mr9esx/Pixoma/internal/apierr"
 	setupapi "github.com/Mr9esx/Pixoma/internal/httpapi/setup"
@@ -21,11 +22,13 @@ import (
 	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	studioapp "github.com/Mr9esx/Pixoma/internal/studio/application"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
+	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/persistence"
 	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 )
 
 type Handler struct {
 	Repo           domain.Repository
+	Context        *persistence.GormRepository
 	Tasks          runtimedomain.TaskRepository
 	Service        *studioapp.Service
 	Runner         *studioapp.BackgroundRunner
@@ -40,13 +43,23 @@ type Handler struct {
 func (h *Handler) Mount(r chi.Router) {
 	r.Post("/agui", h.streamAGUI)
 	r.Get("/agui/ws", h.streamAGUIWebSocket)
+	r.Get("/projects", h.listProjects)
+	r.Post("/projects", h.createProject)
+	r.Patch("/projects/{projectID}", h.renameProject)
+	r.Delete("/projects/{projectID}", h.deleteProject)
 	r.Get("/sessions", h.listSessions)
 	r.Post("/sessions", h.createSession)
 	r.Delete("/sessions", h.clearSessions)
 	r.Get("/sessions/{sessionID}", h.getSession)
+	r.Patch("/sessions/{sessionID}/project", h.moveSessionToProject)
 	r.Get("/sessions/{sessionID}/runs", h.listSessionRuns)
 	r.Get("/sessions/{sessionID}/trajectory", h.listSessionTrajectory)
 	r.Get("/sessions/{sessionID}/trajectory/runs/{runID}/records/{recordID}", h.getTrajectoryRecord)
+	r.Get("/sessions/{sessionID}/context", h.getSessionContext)
+	r.Get("/sessions/{sessionID}/context/current", h.getCurrentContextRequest)
+	r.Get("/sessions/{sessionID}/context/requests", h.listContextRequests)
+	r.Get("/sessions/{sessionID}/context/requests/{attemptID}", h.getContextRequest)
+	r.Get("/sessions/{sessionID}/context/events", h.listContextEvents)
 	r.Patch("/sessions/{sessionID}/flow", h.updateFlow)
 	r.Post("/sessions/{sessionID}/flow/nodes", h.createFlowNode)
 	r.Delete("/sessions/{sessionID}/flow/nodes/{nodeID}", h.deleteFlowNode)
@@ -59,6 +72,7 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/runs/{runID}/retry", h.retryRun)
 	r.Post("/approvals/{approvalID}", h.resolveApproval)
 	r.Get("/assets/{assetID}/content", h.assetContent)
+	r.Get("/assets/{assetID}", h.getAsset)
 	r.Post("/assets/text", h.createTextAsset)
 	r.Patch("/assets/{assetID}/text", h.updateTextAsset)
 	r.Post("/assets/upload", h.uploadAsset)
@@ -256,6 +270,7 @@ func (h *Handler) deleteFlowEdge(w http.ResponseWriter, r *http.Request) {
 
 type sessionView struct {
 	ID             string                `json:"id"`
+	ProjectID      string                `json:"project_id,omitempty"`
 	Title          string                `json:"title"`
 	PermissionMode domain.PermissionMode `json:"permission_mode"`
 	ModelConfigID  string                `json:"model_config_id,omitempty"`
@@ -263,6 +278,17 @@ type sessionView struct {
 	LatestRun      *runView              `json:"latest_run"`
 	CreatedAt      time.Time             `json:"created_at"`
 	UpdatedAt      time.Time             `json:"updated_at"`
+}
+
+type projectView struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func toProjectView(project *domain.Project) projectView {
+	return projectView{ID: project.ID, Name: project.Name, CreatedAt: project.CreatedAt, UpdatedAt: project.UpdatedAt}
 }
 
 type messageView struct {
@@ -386,7 +412,15 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	limit := queryInt(r, "limit", 50)
 	offset := queryInt(r, "offset", 0)
-	sessions, err := h.Repo.ListSessions(r.Context(), accountID, domain.SessionListQuery{Limit: limit, Offset: offset})
+	var projectID *string
+	if values, exists := r.URL.Query()["project_id"]; exists {
+		value := ""
+		if len(values) > 0 {
+			value = values[0]
+		}
+		projectID = &value
+	}
+	sessions, err := h.Repo.ListSessions(r.Context(), accountID, domain.SessionListQuery{Limit: limit, Offset: offset, ProjectID: projectID})
 	if err != nil {
 		failFromError(w, err)
 		return
@@ -405,6 +439,109 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 		out = append(out, toSessionView(session, latestRuns[session.ID]))
 	}
 	response.OKStatus(w, http.StatusOK, out)
+}
+
+func (h *Handler) listProjects(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	projects, err := h.Repo.ListProjects(r.Context(), accountID)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	views := make([]projectView, 0, len(projects))
+	for _, project := range projects {
+		views = append(views, toProjectView(project))
+	}
+	response.OKStatus(w, http.StatusOK, views)
+}
+
+func (h *Handler) createProject(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		response.Fail(w, apierr.ErrStudioInvalidBody, "项目名称无效")
+		return
+	}
+	project, err := domain.NewProject(uuid.NewString(), accountID, body.Name, time.Now())
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	if err := h.Repo.CreateProject(r.Context(), project); err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OKStatus(w, http.StatusCreated, toProjectView(project))
+}
+
+func (h *Handler) renameProject(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		response.Fail(w, apierr.ErrStudioInvalidBody, "项目名称无效")
+		return
+	}
+	projectID := chi.URLParam(r, "projectID")
+	if err := h.Repo.RenameProject(r.Context(), accountID, projectID, body.Name, time.Now()); err != nil {
+		failFromError(w, err)
+		return
+	}
+	project, err := h.Repo.GetProject(r.Context(), accountID, projectID)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OKStatus(w, http.StatusOK, toProjectView(project))
+}
+
+func (h *Handler) deleteProject(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.Repo.DeleteProject(r.Context(), accountID, chi.URLParam(r, "projectID")); err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OK(w, nil)
+}
+
+func (h *Handler) moveSessionToProject(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		ProjectID string `json:"project_id"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		response.Fail(w, apierr.ErrStudioInvalidBody, "请求内容格式不正确")
+		return
+	}
+	sessionID := chi.URLParam(r, "sessionID")
+	if err := h.Repo.MoveSessionToProject(r.Context(), accountID, sessionID, body.ProjectID); err != nil {
+		failFromError(w, err)
+		return
+	}
+	session, err := h.Repo.GetSession(r.Context(), accountID, sessionID)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OKStatus(w, http.StatusOK, toSessionView(session, nil))
 }
 
 func (h *Handler) clearSessions(w http.ResponseWriter, r *http.Request) {
@@ -683,18 +820,21 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		SessionID      string                `json:"session_id"`
-		RequestID      string                `json:"request_id"`
-		Text           string                `json:"text"`
-		ModelConfigID  string                `json:"model_config_id"`
-		PermissionMode domain.PermissionMode `json:"permission_mode"`
+		SessionID      string                  `json:"session_id"`
+		ProjectID      string                  `json:"project_id"`
+		RequestID      string                  `json:"request_id"`
+		Text           string                  `json:"text"`
+		Locale         string                  `json:"locale"`
+		Parts          []studioapp.MessagePart `json:"parts"`
+		ModelConfigID  string                  `json:"model_config_id"`
+		PermissionMode domain.PermissionMode   `json:"permission_mode"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	result, err := h.Service.SendMessage(r.Context(), studioapp.SendMessageInput{
-		AccountID: accountID, SessionID: body.SessionID, RequestID: body.RequestID, Text: body.Text,
+		AccountID: accountID, SessionID: body.SessionID, ProjectID: body.ProjectID, RequestID: body.RequestID, Text: body.Text, Locale: body.Locale, Parts: body.Parts,
 		ModelConfigID: body.ModelConfigID, PermissionMode: body.PermissionMode,
 	})
 	if err != nil {
@@ -781,6 +921,19 @@ func (h *Handler) resolveApproval(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.OK(w, nil)
+}
+
+func (h *Handler) getAsset(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := accountID(w, r)
+	if !ok {
+		return
+	}
+	asset, err := h.Repo.GetAsset(r.Context(), accountID, chi.URLParam(r, "assetID"))
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OK(w, assetsToViews([]*domain.Asset{asset})[0])
 }
 
 func (h *Handler) assetContent(w http.ResponseWriter, r *http.Request) {
@@ -1395,7 +1548,7 @@ func queryInt(r *http.Request, key string, fallback int) int {
 }
 
 func toSessionView(session *domain.Session, latestRun *domain.Run) sessionView {
-	view := sessionView{ID: session.ID, Title: session.Title, PermissionMode: session.PermissionMode, ModelConfigID: session.ModelConfigID, Status: session.Status, CreatedAt: session.CreatedAt, UpdatedAt: session.UpdatedAt}
+	view := sessionView{ID: session.ID, ProjectID: session.ProjectID, Title: session.Title, PermissionMode: session.PermissionMode, ModelConfigID: session.ModelConfigID, Status: session.Status, CreatedAt: session.CreatedAt, UpdatedAt: session.UpdatedAt}
 	if latestRun != nil {
 		run := toRunView(latestRun)
 		view.LatestRun = &run

@@ -33,6 +33,9 @@ type TraceEvent struct {
 	InputTokens       int
 	OutputTokens      int
 	UsageReported     bool
+	CacheReadTokens   *int
+	CacheWriteTokens  *int
+	ReasoningTokens   *int
 	Error             string
 }
 
@@ -96,12 +99,28 @@ func (a *traceAttempt) finish(ctx context.Context, inputTokens, outputTokens int
 		return nil
 	}
 	now := time.Now().UTC()
+	usage, err := traceUsage(responseBody)
+	if err != nil {
+		return err
+	}
+	for _, chunk := range a.chunks {
+		chunkUsage, err := traceUsage(chunk.Data)
+		if err != nil {
+			continue
+		}
+		if chunkUsage.reported {
+			usage = chunkUsage
+		}
+	}
+	if usage.reported {
+		inputTokens, outputTokens, usageReported = usage.input, usage.output, true
+	}
 	if len(a.chunks) > 0 {
 		responseBody, _ = json.Marshal(map[string]any{"stream": a.chunks})
 	} else if len(responseBody) > 0 {
 		responseBody = redactTraceJSON(responseBody, a.credential)
 	}
-	return a.sink(ctx, TraceEvent{Phase: TraceRequestFinished, At: now, Elapsed: now.Sub(a.startedAt), StatusCode: a.statusCode, ProviderRequestID: a.requestID, InputTokens: inputTokens, OutputTokens: outputTokens, UsageReported: usageReported, ResponseBody: append(json.RawMessage(nil), responseBody...)})
+	return a.sink(ctx, TraceEvent{Phase: TraceRequestFinished, At: now, Elapsed: now.Sub(a.startedAt), StatusCode: a.statusCode, ProviderRequestID: a.requestID, InputTokens: inputTokens, OutputTokens: outputTokens, UsageReported: usageReported, CacheReadTokens: usage.cacheRead, CacheWriteTokens: usage.cacheWrite, ReasoningTokens: usage.reasoning, ResponseBody: append(json.RawMessage(nil), responseBody...)})
 }
 
 func (a *traceAttempt) fail(ctx context.Context, err error) error {

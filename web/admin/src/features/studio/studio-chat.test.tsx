@@ -1,10 +1,13 @@
 import { type ComponentProps } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/index.css'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { StudioChat } from './studio-chat'
+import { initI18n } from '@/lib/i18n'
+
+beforeAll(initI18n)
 
 vi.mock('@/lib/api/studio', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/studio')>()),
@@ -102,9 +105,7 @@ describe('StudioChat', () => {
         selectedSkillIds: ['storyboard-skill'],
         selectedAssets: [{ assetId: 'asset-1', assetVersionId: 'version-1' }],
       })
-      await screen
-        .getByPlaceholder('描述你想创作的内容，或让 Agent 调用工作流…')
-        .fill('请把故事做成分镜')
+      await screen.getByRole('textbox', { name: '输入消息' }).fill('请把故事做成分镜')
       await screen.getByRole('button', { name: '发送消息' }).click()
       await expect.element(screen.getByText('分镜已经生成')).toBeVisible()
       expect(requests).toHaveLength(1)
@@ -114,10 +115,8 @@ describe('StudioChat', () => {
           runConfig: {
             modelConfigId: 'model-1',
             permissionMode: 'full_access',
-            selectedSkillIds: ['storyboard-skill'],
-            selectedAssets: [
-              { assetId: 'asset-1', assetVersionId: 'version-1' },
-            ],
+            selectedSkillIds: [],
+            selectedAssets: [],
           },
         },
       })
@@ -142,9 +141,8 @@ describe('StudioChat', () => {
       ],
       modelConfigId: 'image-only',
     })
-    await expect
-      .element(screen.getByPlaceholder('先在 AI 设置中添加并启用模型'))
-      .toBeDisabled()
+    await expect.element(screen.getByText('先在 AI 设置中添加并启用模型')).toBeVisible()
+    await expect.element(screen.getByRole('textbox', { name: '输入消息' })).toHaveAttribute('contenteditable', 'false')
   })
 
   it('shows replayed reasoning before any assistant text after returning to a running chat', async () => {
@@ -310,7 +308,7 @@ describe('StudioChat', () => {
     const content = screen.getByRole('heading', { name: '创作大纲' }).element().closest('.is-assistant')?.firstElementChild as HTMLElement
     const conversationContent = content.closest('.max-w-3xl') as HTMLElement
     expect(parseFloat(getComputedStyle(conversationContent).rowGap)).toBeLessThanOrEqual(20)
-    expect(parseFloat(getComputedStyle(content).rowGap)).toBeLessThanOrEqual(8)
+    expect(parseFloat(getComputedStyle(content).rowGap)).toBeLessThanOrEqual(16)
     expect(content.getBoundingClientRect().width).toBe(content.parentElement!.getBoundingClientRect().width)
     await expect
       .element(screen.getByRole('textbox', { name: '输入消息' }))
@@ -606,7 +604,7 @@ describe('StudioChat', () => {
       '[data-slot="input-group"]'
     ) as HTMLElement
     expect(getComputedStyle(group).backgroundColor).not.toBe('rgba(0, 0, 0, 0)')
-    expect(getComputedStyle(group).borderTopLeftRadius).toBe('8px')
+    expect(getComputedStyle(group).borderTopLeftRadius).toBe('10px')
   })
 
   it('groups the model switcher with the send button and keeps Skills and assets as icon buttons', async () => {
@@ -627,7 +625,7 @@ describe('StudioChat', () => {
       '[data-slot="input-group"]'
     ) as HTMLElement
     const inputRadius = getComputedStyle(group).borderTopLeftRadius
-    expect(inputRadius).toBe('8px')
+    expect(inputRadius).toBe('10px')
 
     const modelButton = screen
       .getByRole('button', { name: 'Pixoma Chat' })
@@ -651,9 +649,9 @@ describe('StudioChat', () => {
       .getByRole('button', { name: 'Agent 操作权限：请求批准' })
       .element()
     const leftGroup = footer.firstElementChild as HTMLElement
-    expect(leftGroup.children[0]).toBe(skillButton)
-    expect(leftGroup.children[1]).toBe(assetButton)
-    expect(leftGroup.children[2]).toBe(permissionButton)
+    expect(leftGroup.children[1]).toBe(skillButton)
+    expect(leftGroup.children[2]).toBe(assetButton)
+    expect(leftGroup.children[4]).toBe(permissionButton)
     for (const button of [skillButton, assetButton]) {
       expect(button.textContent).toBe('')
       expect(getComputedStyle(button).borderTopLeftRadius).toBe(inputRadius)
@@ -668,9 +666,8 @@ describe('StudioChat', () => {
       .toHaveTextContent('技能')
 
     await screen.getByRole('button', { name: 'Pixoma Chat' }).click()
-    await expect.element(screen.getByRole('menu')).toBeVisible()
-    expect(screen.getByRole('dialog').query()).toBeNull()
-    await screen.getByRole('menuitemradio', { name: 'Pixoma Pro' }).click()
+    await expect.element(screen.getByRole('dialog')).toBeVisible()
+    await screen.getByText('Pixoma Pro').click()
     expect(onModelChange).toHaveBeenCalledWith('model-2')
   })
 

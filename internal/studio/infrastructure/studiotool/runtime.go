@@ -24,6 +24,7 @@ const maxReadAssetBytes = 64 << 10
 
 // ToolAccess binds built-in Studio capabilities to one audited Agent run.
 type ToolAccess struct {
+	Locale          string
 	PermissionMode  domain.PermissionMode
 	IsApproved      func(action string) bool
 	RequestApproval func(context.Context, string, string, string) error
@@ -39,13 +40,25 @@ func NewRuntimeTools(access ToolAccess) ([]einotool.BaseTool, error) {
 	if access.Sink == nil {
 		return nil, fmt.Errorf("studio: built-in tool access is not configured")
 	}
+	createSchema := `{"type":"object","additionalProperties":false,"required":["name","content"],"properties":{"name":{"type":"string","description":"Markdown 文件名，例如 story.md"},"content":{"type":"string","description":"完整 Markdown 内容"}}}`
+	createDesc := "在当前 Session 创建一个可编辑、可版本化的 Markdown 资产，并加入创作 Flow。"
+	listDesc := "列出当前 Session 的资产名称、类型和版本 ID；读取内容前仍需在本轮对话中选择资产。"
+	readDesc := "读取本次 Run 已选择且固定版本的文本资产内容。"
+	updateDesc := "将本次 Run 选择的 Markdown 资产更新为新版本，并加入创作 Flow。"
+	if access.Locale == "en" {
+		createSchema = `{"type":"object","additionalProperties":false,"required":["name","content"],"properties":{"name":{"type":"string","description":"Markdown filename, such as story.md"},"content":{"type":"string","description":"Complete Markdown content"}}}`
+		createDesc = "Create an editable, versioned Markdown asset in this Session and add it to the creative Flow."
+		listDesc = "List asset names, types, and version IDs in this Session. Content requires selection in the current message."
+		readDesc = "Read the fixed version of a text asset selected in this Run."
+		updateDesc = "Create a new version of a Markdown asset selected in this Run and add it to the creative Flow."
+	}
 	var rawSchema einojsonschema.Schema
-	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["name","content"],"properties":{"name":{"type":"string","description":"Markdown 文件名，例如 story.md"},"content":{"type":"string","description":"完整 Markdown 内容"}}}`), &rawSchema); err != nil {
+	if err := json.Unmarshal([]byte(createSchema), &rawSchema); err != nil {
 		return nil, err
 	}
 	tools := []einotool.BaseTool{&createTextAssetTool{
 		info: &schema.ToolInfo{
-			Name: "create_text_asset", Desc: "在当前 Session 创建一个可编辑、可版本化的 Markdown 资产，并加入创作 Flow。",
+			Name: "create_text_asset", Desc: createDesc,
 			ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&rawSchema),
 		},
 		access: access,
@@ -55,7 +68,7 @@ func NewRuntimeTools(access ToolAccess) ([]einotool.BaseTool, error) {
 		if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"properties":{}}`), &listSchema); err != nil {
 			return nil, err
 		}
-		tools = append(tools, &listSessionAssetsTool{info: &schema.ToolInfo{Name: "list_session_assets", Desc: "列出当前 Session 的资产名称、类型和版本 ID；读取内容前仍需在本轮对话中选择资产。", ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&listSchema)}, access: access, lister: lister})
+		tools = append(tools, &listSessionAssetsTool{info: &schema.ToolInfo{Name: "list_session_assets", Desc: listDesc, ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&listSchema)}, access: access, lister: lister})
 	}
 	if lister, ok := access.Sink.(studioapp.FlowNodeLister); ok {
 		flowTool, err := newEditSessionFlowTool(access, lister)
@@ -65,10 +78,10 @@ func NewRuntimeTools(access ToolAccess) ([]einotool.BaseTool, error) {
 		tools = append(tools, flowTool)
 	}
 	if access.Blob != nil && len(access.Assets) > 0 {
-		tools = append(tools, &readAssetTool{info: &schema.ToolInfo{Name: "read_asset", Desc: "读取本次 Run 已选择且固定版本的文本资产内容。", ParamsOneOf: assetIDParams()}, access: access})
+		tools = append(tools, &readAssetTool{info: &schema.ToolInfo{Name: "read_asset", Desc: readDesc, ParamsOneOf: assetIDParams(access.Locale)}, access: access})
 	}
 	if _, ok := access.Sink.(studioapp.TextAssetVersionAppender); ok && hasPinnedMarkdownAsset(access.Assets) {
-		tools = append(tools, &updateTextAssetTool{info: &schema.ToolInfo{Name: "update_text_asset", Desc: "将本次 Run 选择的 Markdown 资产更新为新版本，并加入创作 Flow。", ParamsOneOf: updateTextAssetParams()}, access: access})
+		tools = append(tools, &updateTextAssetTool{info: &schema.ToolInfo{Name: "update_text_asset", Desc: updateDesc, ParamsOneOf: updateTextAssetParams(access.Locale)}, access: access})
 	}
 	return tools, nil
 }
@@ -141,15 +154,23 @@ func (t *listSessionAssetsTool) InvokableRun(ctx context.Context, arguments stri
 	return string(output), nil
 }
 
-func assetIDParams() *schema.ParamsOneOf {
+func assetIDParams(locale string) *schema.ParamsOneOf {
+	source := `{"type":"object","additionalProperties":false,"required":["asset_id"],"properties":{"asset_id":{"type":"string","description":"当前 Run 已选择资产的 ID"}}}`
+	if locale == "en" {
+		source = `{"type":"object","additionalProperties":false,"required":["asset_id"],"properties":{"asset_id":{"type":"string","description":"ID of an asset selected in this Run"}}}`
+	}
 	var raw einojsonschema.Schema
-	_ = json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["asset_id"],"properties":{"asset_id":{"type":"string","description":"当前 Run 已选择资产的 ID"}}}`), &raw)
+	_ = json.Unmarshal([]byte(source), &raw)
 	return schema.NewParamsOneOfByJSONSchema(&raw)
 }
 
-func updateTextAssetParams() *schema.ParamsOneOf {
+func updateTextAssetParams(locale string) *schema.ParamsOneOf {
+	source := `{"type":"object","additionalProperties":false,"required":["asset_id","content"],"properties":{"asset_id":{"type":"string","description":"当前 Run 已选择的 Markdown 资产 ID"},"content":{"type":"string","description":"更新后的完整 Markdown 内容"}}}`
+	if locale == "en" {
+		source = `{"type":"object","additionalProperties":false,"required":["asset_id","content"],"properties":{"asset_id":{"type":"string","description":"ID of a Markdown asset selected in this Run"},"content":{"type":"string","description":"Complete updated Markdown content"}}}`
+	}
 	var raw einojsonschema.Schema
-	_ = json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["asset_id","content"],"properties":{"asset_id":{"type":"string","description":"当前 Run 已选择的 Markdown 资产 ID"},"content":{"type":"string","description":"更新后的完整 Markdown 内容"}}}`), &raw)
+	_ = json.Unmarshal([]byte(source), &raw)
 	return schema.NewParamsOneOfByJSONSchema(&raw)
 }
 

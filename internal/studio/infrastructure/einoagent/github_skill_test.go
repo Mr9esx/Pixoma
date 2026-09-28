@@ -161,7 +161,7 @@ func TestInstallPublicGitHubSkillLinkWhenConfigured(t *testing.T) {
 	repo := persistence.NewGormRepository(gdb)
 	service := &studioapp.CapabilityConfigService{Repo: repo, IDs: func() string { return "skill-imported" }, Now: func() time.Time { return time.Now().UTC() }}
 	sink := &installSkillEventCapture{}
-	tool, err := newInstallSkillTool("account-a", service, sink)
+	tool, err := newInstallSkillTool("account-a", service, sink, "zh")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -25,25 +25,31 @@ type installSkillTool struct {
 	sink      installSkillEventSink
 }
 
-func newInstallSkillTool(accountID string, creator studioapp.SkillCreator, sink installSkillEventSink) (*installSkillTool, error) {
+func newInstallSkillTool(accountID string, creator studioapp.SkillCreator, sink installSkillEventSink, locale string) (*installSkillTool, error) {
 	if strings.TrimSpace(accountID) == "" || creator == nil || sink == nil {
 		return nil, fmt.Errorf("studio: Skill installer dependencies are required")
 	}
-	info, err := installSkillToolInfo()
+	info, err := installSkillToolInfo(locale)
 	if err != nil {
 		return nil, err
 	}
 	return &installSkillTool{info: info, accountID: accountID, creator: creator, sink: sink}, nil
 }
 
-func installSkillToolInfo() (*schema.ToolInfo, error) {
+func installSkillToolInfo(locale string) (*schema.ToolInfo, error) {
+	source := `{"type":"object","additionalProperties":false,"required":["github_url"],"properties":{"github_url":{"type":"string","description":"公开 GitHub Skill 的 blob 或 tree 链接"}}}`
+	description := "仅在用户明确要求时，从公开 GitHub 链接安装 Skill 到当前账户，供后续 Run 选择。"
+	if locale == "en" {
+		source = `{"type":"object","additionalProperties":false,"required":["github_url"],"properties":{"github_url":{"type":"string","description":"Public GitHub blob or tree URL for a Skill"}}}`
+		description = "Install a public GitHub Skill for future Runs only when the user explicitly requests it."
+	}
 	var parameters einojsonschema.Schema
-	if err := json.Unmarshal([]byte(`{"type":"object","additionalProperties":false,"required":["github_url"],"properties":{"github_url":{"type":"string","description":"公开 GitHub Skill 的 blob 或 tree 链接"}}}`), &parameters); err != nil {
+	if err := json.Unmarshal([]byte(source), &parameters); err != nil {
 		return nil, err
 	}
 	return &schema.ToolInfo{
 		Name:        "install_skill",
-		Desc:        "仅在用户明确要求时，从公开 GitHub 链接安装 Skill 到当前账户，供后续 Run 选择。",
+		Desc:        description,
 		ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&parameters),
 	}, nil
 }

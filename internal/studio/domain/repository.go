@@ -6,8 +6,9 @@ import (
 )
 
 type SessionListQuery struct {
-	Limit  int
-	Offset int
+	Limit     int
+	Offset    int
+	ProjectID *string
 }
 
 type LibraryAssetListQuery struct {
@@ -34,6 +35,12 @@ type SessionTranscriptData struct {
 // Repository persists Studio aggregates. Every read API requires accountID so
 // ownership is enforced at the data-access boundary, not only by HTTP handlers.
 type Repository interface {
+	CreateProject(ctx context.Context, project *Project) error
+	GetProject(ctx context.Context, accountID, projectID string) (*Project, error)
+	ListProjects(ctx context.Context, accountID string) ([]*Project, error)
+	RenameProject(ctx context.Context, accountID, projectID, name string, now time.Time) error
+	DeleteProject(ctx context.Context, accountID, projectID string) error
+	MoveSessionToProject(ctx context.Context, accountID, sessionID, projectID string) error
 	CreateSession(ctx context.Context, session *Session) error
 	UpdateSession(ctx context.Context, session *Session) error
 	GetSession(ctx context.Context, accountID, sessionID string) (*Session, error)

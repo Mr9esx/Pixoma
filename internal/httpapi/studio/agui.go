@@ -49,6 +49,7 @@ type aguiResumeEntry struct {
 
 type aguiRunConfig struct {
 	ModelConfigID    string                  `json:"modelConfigId"`
+	Locale           string                  `json:"locale"`
 	PermissionMode   domain.PermissionMode   `json:"permissionMode"`
 	SelectedSkillIDs []string                `json:"selectedSkillIds"`
 	SelectedAssetIDs []string                `json:"selectedAssetIds"`
@@ -226,7 +227,7 @@ func (h *Handler) prepareAGUIRun(ctx context.Context, accountID string, input ag
 			config.PermissionMode = domain.PermissionRequestApproval
 		}
 		result, err := h.Service.SendMessage(ctx, studioapp.SendMessageInput{
-			AccountID: accountID, SessionID: input.ThreadID, RequestID: requestID, Text: text,
+			AccountID: accountID, SessionID: input.ThreadID, RequestID: requestID, Text: text, Locale: config.Locale,
 			Parts:         config.MessageParts,
 			ModelConfigID: config.ModelConfigID, PermissionMode: config.PermissionMode,
 			SkillIDs: config.SelectedSkillIDs, SelectedAssetIDs: config.SelectedAssetIDs,

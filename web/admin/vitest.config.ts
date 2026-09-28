@@ -39,6 +39,7 @@ export default defineConfig({
       'src/lib/api/sessions.test.ts',
       'src/lib/api/studio.test.ts',
       'src/features/studio/studio-composer-content.test.ts',
+      'src/features/studio/studio-run-activity.test.ts',
       'src/features/studio/skill-document.test.ts',
       'src/features/studio/studio-workspace.contract.test.ts',
       'src/features/sessions/list-panel.contract.test.ts',

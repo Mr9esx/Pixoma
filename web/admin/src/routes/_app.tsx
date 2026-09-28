@@ -17,7 +17,8 @@ import { contentRegionClassName } from '@/components/layout/content-region'
 import { SkipToMain } from '@/components/skip-to-main'
 
 export const Route = createFileRoute('/_app')({
-  beforeLoad: async () => {
+  beforeLoad: async ({ cause }) => {
+    if (cause === 'stay') return
     const status = await fetchSetupStatus()
     const next = nextAdminPath(status, '/')
     if (next) {
@@ -65,7 +66,7 @@ function AppLayout() {
             <div
               className={cn(
                 contentRegionClassName,
-                'p-4 md:p-2 md:pl-4',
+                'py-4 pr-4 md:py-2 md:pr-2',
                 isPending &&
                   'flex flex-col [&>[role=status]]:h-full [&>[role=status]]:min-h-0 [&>[role=status]]:flex-1'
               )}

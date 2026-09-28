@@ -9,6 +9,7 @@ import type { StudioComposerPart } from '@/lib/api/studio'
 
 export type StudioRunConfig = {
   modelConfigId: string
+  locale: 'zh' | 'en'
   permissionMode: string
   selectedSkillIds: string[]
   selectedAssets: Array<{ assetId: string; assetVersionId: string }>
@@ -18,6 +19,7 @@ export type StudioRunConfig = {
 type Config = AgentConfig & {
   url: string
   runConfig: StudioRunConfig
+  onEvent?: (event: BaseEvent) => void
 }
 
 /** AG-UI transport for the Studio run stream. Cookies are sent by the browser
@@ -26,6 +28,7 @@ type Config = AgentConfig & {
  */
 export class StudioWebSocketAgent extends AbstractAgent {
   private readonly url: string
+  private readonly onEvent?: (event: BaseEvent) => void
   private runConfig: StudioRunConfig
   private nextRunConfig?: StudioRunConfig
   private studioRunId?: string
@@ -38,6 +41,7 @@ export class StudioWebSocketAgent extends AbstractAgent {
   constructor(config: Config) {
     super(config)
     this.url = config.url
+    this.onEvent = config.onEvent
     this.runConfig = config.runConfig
   }
 
@@ -131,6 +135,7 @@ export class StudioWebSocketAgent extends AbstractAgent {
               lastSequence = event.sequence
               retries = 0
             }
+            this.onEvent?.(event)
             subscriber.next(event)
             if (event.type === 'RUN_FINISHED' || event.type === 'RUN_ERROR') {
               ended = true
@@ -165,6 +170,7 @@ export class StudioWebSocketAgent extends AbstractAgent {
   override clone(): StudioWebSocketAgent {
     return new StudioWebSocketAgent({
       url: this.url,
+      onEvent: this.onEvent,
       runConfig: this.runConfig,
       agentId: this.agentId,
       description: this.description,

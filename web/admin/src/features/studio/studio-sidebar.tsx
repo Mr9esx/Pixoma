@@ -1,14 +1,51 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
+  ChevronDown,
+  Folder,
   Library,
   MessageCircle,
   MessageSquarePlus,
+  MoreHorizontal,
+  Plus,
   Settings2,
 } from 'lucide-react'
-import type { StudioSession } from '@/lib/api/studio'
+import { toast } from 'sonner'
+import {
+  deleteStudioProject,
+  listStudioProjects,
+  listStudioSessions,
+  moveStudioSessionToProject,
+  type StudioProject,
+  type StudioSession,
+} from '@/lib/api/studio'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +61,7 @@ import {
 import { AppTitle } from '@/components/layout/app-title'
 import { NavUser } from '@/components/layout/nav-user'
 import { StatusDot } from '@/components/status-dot'
+import { StudioProjectDialog } from './studio-project-dialog'
 import styles from './studio-sidebar.module.css'
 
 export type StudioView = 'chat' | 'library' | 'settings'
@@ -70,14 +108,12 @@ function SessionTitle({ title }: { title: string }) {
 }
 
 type Props = {
-  sessions: StudioSession[]
   activeSessionId?: string
   viewedRunIds: Record<string, string>
   view: StudioView
-  onNewSession: () => void
+  onNewSession: (projectId?: string) => void
   onSelectSession: (id: string) => void
   onViewChange: (view: StudioView) => void
-  creating?: boolean
 }
 
 function sessionStatus(session: StudioSession, viewedRunId?: string) {
@@ -102,23 +138,159 @@ function sessionStatus(session: StudioSession, viewedRunId?: string) {
 }
 
 export function StudioSidebar({
-  sessions,
   activeSessionId,
   viewedRunIds,
   view,
   onNewSession,
   onSelectSession,
   onViewChange,
-  creating,
 }: Props) {
+  const queryClient = useQueryClient()
+  const [projectsExpanded, setProjectsExpanded] = useState(true)
+  const [recentExpanded, setRecentExpanded] = useState(true)
+  const projects = useQuery({
+    queryKey: ['studio', 'projects'],
+    queryFn: listStudioProjects,
+  })
+  const recent = useInfiniteQuery({
+    queryKey: ['studio', 'sessions', 'recent'],
+    queryFn: ({ pageParam }) =>
+      listStudioSessions({ project_id: '', limit: 30, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (page, pages) =>
+      page.length === 30 ? pages.length * 30 : undefined,
+    enabled: recentExpanded,
+    refetchInterval: recentExpanded ? 5000 : false,
+  })
+  const {
+    data: recentData,
+    hasNextPage: hasMoreRecent,
+    isFetchingNextPage: isFetchingMoreRecent,
+    fetchNextPage: fetchMoreRecent,
+  } = recent
+  const recentScrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const element = recentScrollRef.current
+    if (
+      recentExpanded &&
+      element &&
+      element.scrollHeight <= element.clientHeight &&
+      hasMoreRecent &&
+      !isFetchingMoreRecent
+    )
+      void fetchMoreRecent()
+  }, [
+    recentExpanded,
+    recentData?.pages.length,
+    hasMoreRecent,
+    isFetchingMoreRecent,
+    fetchMoreRecent,
+  ])
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingProject, setEditingProject] = useState<StudioProject>()
+  const [deletingProject, setDeletingProject] = useState<StudioProject>()
+  const removeProject = useMutation({
+    mutationFn: (id: string) => deleteStudioProject(id),
+    onSuccess: async () => {
+      setDeletingProject(undefined)
+      await queryClient.invalidateQueries({ queryKey: ['studio', 'projects'] })
+      await queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
+      await queryClient.invalidateQueries({ queryKey: ['studio', 'session'] })
+    },
+  })
+  const moveSession = useMutation({
+    mutationFn: ({
+      sessionId,
+      projectId,
+    }: {
+      sessionId: string
+      projectId: string
+    }) => moveStudioSessionToProject(sessionId, projectId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'session'] })
+    },
+    onError: (error) => toast.error(error.message),
+  })
+
+  const sessionItem = (session: StudioSession, isProjectSession = false) => {
+    const status = sessionStatus(session, viewedRunIds[session.id])
+    return (
+      <SidebarMenuItem
+        key={session.id}
+        className='group/session w-full min-w-0'
+      >
+        <SidebarMenuButton
+          className={
+            isProjectSession
+              ? 'w-full min-w-0 ps-8 pe-9'
+              : 'w-full min-w-0 pe-9'
+          }
+          isActive={view === 'chat' && activeSessionId === session.id}
+          onClick={() => onSelectSession(session.id)}
+        >
+          <SessionTitle title={session.title} />
+          {status ? (
+            <span className='ms-auto flex shrink-0 items-center'>
+              <StatusDot {...status} />
+            </span>
+          ) : null}
+        </SidebarMenuButton>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size='icon'
+              variant='ghost'
+              className='absolute end-0 top-1/2 z-10 size-7 -translate-y-1/2 text-muted-foreground/80 opacity-0 transition-opacity group-focus-within/session:opacity-100 group-hover/session:opacity-100 hover:text-muted-foreground data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100'
+              aria-label={`${session.title}的更多操作`}
+            >
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end'>
+            {session.project_id ? (
+              <DropdownMenuItem
+                onSelect={() =>
+                  moveSession.mutate({ sessionId: session.id, projectId: '' })
+                }
+              >
+                移出项目
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>移至项目</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {(projects.data ?? [])
+                  .filter((project) => project.id !== session.project_id)
+                  .map((project) => (
+                    <DropdownMenuItem
+                      key={project.id}
+                      onSelect={() =>
+                        moveSession.mutate({
+                          sessionId: session.id,
+                          projectId: project.id,
+                        })
+                      }
+                    >
+                      {project.name}
+                    </DropdownMenuItem>
+                  ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    )
+  }
+
   return (
     <Sidebar collapsible='none' className='p-2'>
       <SidebarHeader>
         <AppTitle showToggle={false} />
       </SidebarHeader>
 
-      <SidebarContent className='gap-1'>
-        <SidebarGroup className='px-2 py-1'>
+      <SidebarContent className='gap-0 overflow-hidden'>
+        <SidebarGroup className='shrink-0 px-2 py-1'>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -160,61 +332,309 @@ export function StudioSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className='min-h-0 flex-1 px-2 py-1'>
-          <SidebarGroupLabel>最近对话</SidebarGroupLabel>
-          <SidebarGroupContent className='flex min-h-0 w-full min-w-0 flex-1 flex-col self-stretch'>
-            <div className='studio-scrollbar min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto'>
+        <SidebarGroup
+          className={`${styles.section} px-2 py-1`}
+          data-expanded={projectsExpanded}
+        >
+          <SidebarGroupLabel className='group/section-label justify-between pe-0'>
+            <Button
+              variant='ghost'
+              size='sm'
+              className='h-8 min-w-0 flex-1 justify-start gap-1 px-0 text-sm font-normal text-muted-foreground/80 hover:bg-transparent hover:text-muted-foreground/80 has-[>svg]:px-0'
+              aria-expanded={projectsExpanded}
+              aria-label={projectsExpanded ? '折叠项目' : '展开项目'}
+              onClick={() => setProjectsExpanded((value) => !value)}
+            >
+              <span>项目</span>
+              <ChevronDown
+                className={`${styles.sectionChevron} size-4 text-muted-foreground/80 opacity-0 group-focus-within/section-label:opacity-100 group-hover/section-label:opacity-100 [@media(hover:none)]:opacity-100`}
+                data-expanded={projectsExpanded}
+              />
+            </Button>
+            <Button
+              size='icon'
+              variant='ghost'
+              className='size-7 p-0 text-muted-foreground/80 opacity-0 transition-opacity group-focus-within/section-label:opacity-100 group-hover/section-label:opacity-100 hover:text-muted-foreground [@media(hover:none)]:opacity-100'
+              aria-label='新建项目'
+              onClick={() => {
+                setEditingProject(undefined)
+                setDialogOpen(true)
+              }}
+            >
+              <Plus />
+            </Button>
+          </SidebarGroupLabel>
+          <SidebarGroupContent
+            className={`${styles.sectionContent} flex min-h-0 w-full min-w-0 flex-col self-stretch`}
+            aria-hidden={!projectsExpanded}
+            inert={!projectsExpanded}
+          >
+            <div className='studio-scrollbar min-h-0 w-full min-w-0 flex-auto overflow-x-hidden overflow-y-auto'>
               <SidebarMenu className='pb-2'>
-                {sessions.length === 0 ? (
-                  <p className='px-2 py-3 text-xs leading-5 text-muted-foreground'>
-                    暂无对话
+                {projects.data?.map((project) => (
+                  <ProjectSessions
+                    key={project.id}
+                    project={project}
+                    onNewSession={onNewSession}
+                    onRename={() => {
+                      setEditingProject(project)
+                      setDialogOpen(true)
+                    }}
+                    onDelete={() => setDeletingProject(project)}
+                    renderSession={(session) => sessionItem(session, true)}
+                  />
+                ))}
+                {projects.data?.length === 0 ? (
+                  <p className='px-2 py-3 text-sm text-muted-foreground'>
+                    暂无项目
                   </p>
-                ) : (
-                  sessions.map((session) => {
-                    const status = sessionStatus(
-                      session,
-                      viewedRunIds[session.id]
-                    )
-                    return (
-                      <SidebarMenuItem
-                        key={session.id}
-                        className='w-full min-w-0'
-                      >
-                        <SidebarMenuButton
-                          className='min-w-0'
-                          isActive={
-                            view === 'chat' && activeSessionId === session.id
-                          }
-                          onClick={() => onSelectSession(session.id)}
-                        >
-                          <SessionTitle title={session.title} />
-                          {status ? (
-                            <span className='ms-auto flex shrink-0 items-center'>
-                              <StatusDot {...status} />
-                            </span>
-                          ) : null}
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })
-                )}
+                ) : null}
+                {projects.isError ? (
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={() => void projects.refetch()}
+                  >
+                    重试读取项目
+                  </Button>
+                ) : null}
               </SidebarMenu>
             </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup
+          className={`${styles.section} ${styles.recentSection} px-2 py-1`}
+          data-expanded={recentExpanded}
+        >
+          <SidebarGroupLabel className='group/section-label justify-between pe-0'>
             <Button
-              className='mt-2 w-full'
-              onClick={onNewSession}
-              disabled={creating}
+              variant='ghost'
+              size='sm'
+              className='h-8 min-w-0 flex-1 justify-start gap-1 px-0 text-sm font-normal text-muted-foreground/80 hover:bg-transparent hover:text-muted-foreground/80 has-[>svg]:px-0'
+              aria-expanded={recentExpanded}
+              aria-label={recentExpanded ? '折叠最近对话' : '展开最近对话'}
+              onClick={() => setRecentExpanded((value) => !value)}
+            >
+              <span>最近对话</span>
+              <ChevronDown
+                className={`${styles.sectionChevron} size-4 text-muted-foreground/80 opacity-0 group-focus-within/section-label:opacity-100 group-hover/section-label:opacity-100 [@media(hover:none)]:opacity-100`}
+                data-expanded={recentExpanded}
+              />
+            </Button>
+            <Button
+              size='icon'
+              variant='ghost'
+              className='size-7 p-0 text-muted-foreground/80 opacity-0 transition-opacity group-focus-within/section-label:opacity-100 group-hover/section-label:opacity-100 hover:text-muted-foreground [@media(hover:none)]:opacity-100'
+              aria-label='新建对话'
+              onClick={() => onNewSession()}
             >
               <MessageSquarePlus />
-              <span>新建对话</span>
             </Button>
+          </SidebarGroupLabel>
+          <SidebarGroupContent
+            className={`${styles.sectionContent} flex min-h-0 flex-col`}
+            aria-hidden={!recentExpanded}
+            inert={!recentExpanded}
+          >
+            <div
+              ref={recentScrollRef}
+              className='studio-scrollbar min-h-0 flex-auto overflow-x-hidden overflow-y-auto'
+              onScroll={(event) => {
+                const element = event.currentTarget
+                if (
+                  element.scrollHeight -
+                    element.scrollTop -
+                    element.clientHeight <
+                    120 &&
+                  recent.hasNextPage &&
+                  !recent.isFetchingNextPage
+                )
+                  void recent.fetchNextPage()
+              }}
+            >
+              <SidebarMenu className='pb-2'>
+                {recent.data?.pages
+                  .flat()
+                  .map((session) => sessionItem(session))}
+                {recent.data?.pages[0]?.length === 0 ? (
+                  <p className='px-2 py-3 text-sm text-muted-foreground'>
+                    暂无对话
+                  </p>
+                ) : null}
+                {recent.isError ? (
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={() => void recent.refetch()}
+                  >
+                    重试读取对话
+                  </Button>
+                ) : null}
+                {recent.isFetchingNextPage ? (
+                  <p className='px-2 py-2 text-xs text-muted-foreground'>
+                    加载中…
+                  </p>
+                ) : null}
+              </SidebarMenu>
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      {dialogOpen ? (
+        <StudioProjectDialog
+          open
+          project={editingProject}
+          onOpenChange={setDialogOpen}
+        />
+      ) : null}
+      <AlertDialog
+        open={Boolean(deletingProject)}
+        onOpenChange={(open) => {
+          if (!open) setDeletingProject(undefined)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              删除项目「{deletingProject?.name}」？
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              项目内的对话会移至最近对话。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {removeProject.isError ? (
+            <p role='alert' className='text-sm text-destructive'>
+              {removeProject.error.message}
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removeProject.isPending}
+              onClick={(event) => {
+                event.preventDefault()
+                if (deletingProject) removeProject.mutate(deletingProject.id)
+              }}
+            >
+              删除项目
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>
     </Sidebar>
+  )
+}
+
+function ProjectSessions({
+  project,
+  onNewSession,
+  onRename,
+  onDelete,
+  renderSession,
+}: {
+  project: StudioProject
+  onNewSession: (projectId?: string) => void
+  onRename: () => void
+  onDelete: () => void
+  renderSession: (session: StudioSession) => ReactNode
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const sessions = useInfiniteQuery({
+    queryKey: ['studio', 'sessions', project.id],
+    queryFn: ({ pageParam }) =>
+      listStudioSessions({
+        project_id: project.id,
+        limit: 6,
+        offset: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (page, pages) =>
+      page.length > 5 ? pages.length * 5 : undefined,
+    enabled: expanded,
+    refetchInterval: expanded ? 5000 : false,
+  })
+  return (
+    <SidebarMenuItem className='min-w-0'>
+      <div className='group/project flex min-w-0 items-center rounded-md hover:bg-sidebar-accent'>
+        <Button
+          variant='ghost'
+          className='h-8 min-w-0 flex-1 justify-start gap-2 pr-1! pl-2! font-normal'
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <Folder className='size-4 shrink-0 text-muted-foreground/80' />
+          <span className='truncate'>{project.name}</span>
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size='icon'
+              variant='ghost'
+              className='size-7 shrink-0 p-0 text-muted-foreground/80 opacity-0 transition-opacity group-focus-within/project:opacity-100 group-hover/project:opacity-100 hover:text-muted-foreground data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100'
+              aria-label={`${project.name}的更多操作`}
+            >
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end'>
+            <DropdownMenuItem onSelect={onRename}>重命名</DropdownMenuItem>
+            <DropdownMenuItem variant='destructive' onSelect={onDelete}>
+              删除项目
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button
+          size='icon'
+          variant='ghost'
+          className='size-7 shrink-0 p-0 text-muted-foreground/80 opacity-0 transition-opacity group-focus-within/project:opacity-100 group-hover/project:opacity-100 hover:text-muted-foreground [@media(hover:none)]:opacity-100'
+          aria-label={`在${project.name}中新建对话`}
+          onClick={() => onNewSession(project.id)}
+        >
+          <MessageSquarePlus />
+        </Button>
+      </div>
+      <div
+        className={styles.projectSessions}
+        data-expanded={expanded}
+        aria-hidden={!expanded}
+        inert={!expanded}
+      >
+        <div className={styles.projectSessionsInner}>
+          <SidebarMenu>
+            {sessions.data?.pages
+              .flatMap((page) => page.slice(0, 5))
+              .map(renderSession)}
+          </SidebarMenu>
+          {sessions.data?.pages[0]?.length === 0 ? (
+            <p className='px-2 py-2 text-sm text-muted-foreground'>暂无对话</p>
+          ) : null}
+          {sessions.hasNextPage ? (
+            <Button
+              variant='ghost'
+              size='sm'
+              className='w-full justify-start text-muted-foreground'
+              disabled={sessions.isFetchingNextPage}
+              onClick={() => void sessions.fetchNextPage()}
+            >
+              展开显示
+            </Button>
+          ) : null}
+          {sessions.isError ? (
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => void sessions.refetch()}
+            >
+              重试读取对话
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </SidebarMenuItem>
   )
 }

@@ -19,6 +19,7 @@ comfyui-bot
 .cursor/
 .comet/
 .codegraph/
+.local-cache/
 .design-prototype/
 
 # Local build artifacts at repo root

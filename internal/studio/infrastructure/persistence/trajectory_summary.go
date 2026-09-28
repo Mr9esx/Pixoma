@@ -19,7 +19,7 @@ func trajectorySummaryPayload(eventType string, source json.RawMessage) []byte {
 	case "MODEL_FIRST_TOKEN":
 		keys = []string{"attempt_id", "elapsed_ms"}
 	case "MODEL_REQUEST_FINISHED", "MODEL_REQUEST_FAILED":
-		keys = []string{"attempt_id", "elapsed_ms", "status_code", "provider_request_id", "input_tokens", "output_tokens", "error"}
+		keys = []string{"attempt_id", "elapsed_ms", "status_code", "provider_request_id", "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens", "reasoning_tokens", "error"}
 	case "TOOL_CALL_START":
 		keys = []string{"tool_call_id", "tool_name"}
 	case "TOOL_CALL_ARGS":
@@ -35,7 +35,9 @@ func trajectorySummaryPayload(eventType string, source json.RawMessage) []byte {
 	case "TEXT_MESSAGE_END", "REASONING_MESSAGE_END":
 		keys = []string{"message_id", "content"}
 	case "CONTEXT_COMPACTED":
-		keys = []string{"summary", "before_tokens_estimated", "after_tokens_estimated", "retained_from", "auto_compact"}
+		keys = []string{"source", "detail", "summary", "before_tokens_estimated", "after_tokens_estimated", "delta_tokens_estimated", "retained_from", "auto_compact"}
+	case "CONTEXT_INJECTED", "CONTEXT_PRUNED":
+		keys = []string{"source", "detail", "reason", "delta_tokens_estimated", "before_tokens_estimated", "after_tokens_estimated", "skill_id", "path"}
 	}
 	selected := make(map[string]json.RawMessage, len(keys))
 	for _, key := range keys {

@@ -47,6 +47,7 @@ const (
 type Session struct {
 	ID                             string
 	AccountID                      string
+	ProjectID                      string
 	Title                          string
 	PermissionMode                 PermissionMode
 	ModelConfigID                  string
@@ -55,6 +56,22 @@ type Session struct {
 	Status                         SessionStatus
 	CreatedAt                      time.Time
 	UpdatedAt                      time.Time
+}
+
+type Project struct {
+	ID        string
+	AccountID string
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func NewProject(id, accountID, name string, now time.Time) (*Project, error) {
+	name = strings.TrimSpace(name)
+	if anyBlank(id, accountID, name) || len([]rune(name)) > 80 {
+		return nil, fmt.Errorf("%w: invalid project name", ErrInvalid)
+	}
+	return &Project{ID: id, AccountID: accountID, Name: name, CreatedAt: now.UTC(), UpdatedAt: now.UTC()}, nil
 }
 
 func NewSession(id, accountID string, now time.Time) (*Session, error) {
@@ -153,6 +170,7 @@ type Run struct {
 	TriggerMessageID string
 	Status           RunStatus
 	ModelConfigID    string
+	Locale           string
 	SkillIDs         []string
 	SkillSnapshot    []RunSkill
 	AssetIDs         []string

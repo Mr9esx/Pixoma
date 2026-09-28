@@ -46,6 +46,7 @@ type StudioRunConnectionOptions = {
   studioRunId: string
   afterSequence?: number
   socketFactory?: SocketFactory
+  onEvent?: (event: AgUiEvent) => void
 }
 
 const OPEN = 1
@@ -128,6 +129,7 @@ export class StudioRunConnection {
               sequence = eventSequence
               retries = 0
             }
+            this.options.onEvent?.(event)
             yield aggregator.handle(event)
             if (aggregator.isTerminal) break
           }

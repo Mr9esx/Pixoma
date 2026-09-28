@@ -60,6 +60,7 @@ type Result struct {
 	Compressed          bool
 	HardTruncated       bool
 	MicroCompactApplied bool
+	MicroCompactTokens  int
 	AutoCompactApplied  bool
 	ActiveLayer         string
 	// RetainedFrom is the index in the input messages from which retained
@@ -95,6 +96,7 @@ func Manage(ctx context.Context, input []*schema.Message, options Options) (Resu
 			result.Messages = compacted
 			result.Compressed = true
 			result.MicroCompactApplied = true
+			result.MicroCompactTokens = EstimateTokens(compacted)
 			result.ActiveLayer = "micro_compact"
 			messageTokens = EstimateTokens(compacted)
 		}

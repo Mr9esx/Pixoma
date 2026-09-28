@@ -38,14 +38,17 @@ type Service struct {
 type SendMessageInput struct {
 	AccountID        string
 	SessionID        string
+	ProjectID        string
 	RequestID        string
 	Text             string
+	Locale           string
 	Parts            []MessagePart
 	ModelConfigID    string
 	PermissionMode   domain.PermissionMode
 	SkillIDs         []string
 	SelectedAssetIDs []string
 	SelectedAssets   []domain.AssetReference
+	createOnSend     bool
 }
 
 type SendMessageResult struct {
@@ -168,6 +171,13 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	input.AccountID = strings.TrimSpace(input.AccountID)
 	input.Text = strings.TrimSpace(input.Text)
 	input.RequestID = strings.TrimSpace(input.RequestID)
+	input.Locale = strings.TrimSpace(input.Locale)
+	if input.Locale == "" {
+		input.Locale = "zh"
+	}
+	if input.Locale != "zh" && input.Locale != "en" {
+		return nil, fmt.Errorf("%w: unsupported studio locale", domain.ErrInvalid)
+	}
 	var err error
 	input, err = normalizeMessageInput(input)
 	if err != nil {
@@ -178,6 +188,17 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	}
 	if input.RequestID == "" {
 		input.RequestID = uuid.NewString()
+	}
+	if input.SessionID == "" {
+		input.createOnSend = true
+		input.SessionID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(input.AccountID+"\x00message\x00"+input.RequestID)).String()
+		if _, err := s.Repo.GetSession(ctx, input.AccountID, input.SessionID); err != nil && !errors.Is(err, domain.ErrNotFound) {
+			return nil, err
+		} else if errors.Is(err, domain.ErrNotFound) && input.ProjectID != "" {
+			if _, err := s.Repo.GetProject(ctx, input.AccountID, input.ProjectID); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if input.SessionID != "" {
 		previous, err := s.Repo.GetRunByRequestID(ctx, input.AccountID, input.SessionID, input.RequestID)
@@ -211,6 +232,7 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 		return nil, err
 	}
 	run.ModelConfigID = session.ModelConfigID
+	run.Locale = input.Locale
 	run.RequestID = input.RequestID
 	skillSnapshot, err := s.snapshotSkills(ctx, input.AccountID)
 	if err != nil {
@@ -341,6 +363,10 @@ func (s *Service) RetryRun(ctx context.Context, accountID, runID string) (*domai
 		return nil, err
 	}
 	retried.ModelConfigID = previous.ModelConfigID
+	retried.Locale = previous.Locale
+	if retried.Locale == "" {
+		retried.Locale = "zh"
+	}
 	retried.SkillIDs = append([]string(nil), previous.SkillIDs...)
 	if previous.SkillSnapshot != nil {
 		retried.SkillSnapshot = append([]domain.RunSkill{}, previous.SkillSnapshot...)
@@ -406,7 +432,25 @@ func resolveSkillIDs(ids []string, snapshot []domain.RunSkill) ([]string, error)
 func (s *Service) resolveSession(ctx context.Context, input SendMessageInput, now time.Time) (*domain.Session, bool, error) {
 	if input.SessionID != "" {
 		session, err := s.Repo.GetSession(ctx, input.AccountID, input.SessionID)
-		if err != nil {
+		created := false
+		if errors.Is(err, domain.ErrNotFound) && input.createOnSend {
+			session, err = domain.NewSession(input.SessionID, input.AccountID, now)
+			if err != nil {
+				return nil, false, err
+			}
+			session.ProjectID = input.ProjectID
+			if err := s.Repo.CreateSession(ctx, session); err != nil {
+				if !errors.Is(err, domain.ErrAlreadyExists) {
+					return nil, false, err
+				}
+				session, err = s.Repo.GetSession(ctx, input.AccountID, input.SessionID)
+				if err != nil {
+					return nil, false, err
+				}
+			} else {
+				created = true
+			}
+		} else if err != nil {
 			return nil, false, err
 		}
 		needsUpdate := false
@@ -435,7 +479,7 @@ func (s *Service) resolveSession(ctx context.Context, input SendMessageInput, no
 				return nil, false, err
 			}
 		}
-		return session, false, nil
+		return session, created, nil
 	}
 
 	session, err := domain.NewSession(s.nextID(), input.AccountID, now)

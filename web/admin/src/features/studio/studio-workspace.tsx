@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMatchRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { ListTree, Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { ApiError } from '@/lib/api/client'
 import {
-  createStudioSession,
   createStudioTextAsset,
   createStudioFlowEdge,
   createStudioFlowNode,
@@ -13,7 +12,6 @@ import {
   getStudioSession,
   listStudioModels,
   listStudioSkills,
-  listStudioSessions,
   saveStudioAssetToLibrary,
   importStudioLibraryAsset,
   uploadStudioAsset,
@@ -44,9 +42,10 @@ import { StudioAssets } from './studio-assets'
 import { StudioChat } from './studio-chat'
 import { StudioFlow } from './studio-flow'
 import { StudioLibrary } from './studio-library'
+import { StudioNewSession } from './studio-new-session'
 import { StudioSettings, type SettingSection } from './studio-settings'
 import { StudioSidebar, type StudioView } from './studio-sidebar'
-import { StudioTrace } from './studio-trace'
+import { StudioTraceTabs } from './studio-trace-tabs'
 import { StudioWorkbenchBackground } from './studio-workbench-background'
 
 type SelectedAsset = { assetId: string; assetVersionId: string }
@@ -87,9 +86,7 @@ export function StudioWorkspace() {
     JSON.parse(window.localStorage.getItem(viewedRunsStorageKey) ?? '{}')
   )
   const chatOpenGeneration = useRef(0)
-  const autoCreateRequested = useRef(false)
-  const pendingCreateRequestID = useRef<string | undefined>(undefined)
-  const lastSessionId = useRef<string>(undefined)
+  const [newSessionKey, setNewSessionKey] = useState(0)
   const lastSection = useRef<SettingSection>('models')
   const [modelSelection, setModelSelection] = useState<{
     sessionId: string
@@ -108,11 +105,6 @@ export function StudioWorkspace() {
     mode: StudioPermissionMode
   }>()
 
-  const sessions = useQuery({
-    queryKey: ['studio', 'sessions'],
-    queryFn: () => listStudioSessions({ limit: 80 }),
-    refetchInterval: 2500,
-  })
   const models = useQuery({
     queryKey: ['studio', 'models'],
     queryFn: listStudioModels,
@@ -121,68 +113,16 @@ export function StudioWorkspace() {
     queryKey: ['studio', 'skills'],
     queryFn: listStudioSkills,
   })
-  const {
-    mutate: createSessionMutate,
-    isPending: creatingSession,
-    isError: createSessionFailed,
-  } = useMutation({
-    mutationFn: (requestID: string) => createStudioSession(requestID),
-    onSuccess: (session) => {
-      pendingCreateRequestID.current = undefined
-      void navigate({
-        to: '/studio/sessions/$sessionId',
-        params: { sessionId: session.id },
-        search: {},
-      })
-      void queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
-    },
-  })
-  const retryCreateSession = useCallback(() => {
-    const requestID = pendingCreateRequestID.current ?? crypto.randomUUID()
-    pendingCreateRequestID.current = requestID
-    createSessionMutate(requestID)
-  }, [createSessionMutate])
-  const startNewSession = useCallback(() => {
-    const requestID = crypto.randomUUID()
-    pendingCreateRequestID.current = requestID
-    createSessionMutate(requestID)
-  }, [createSessionMutate])
-  const sessionId =
-    activeSessionId ?? (view === 'chat' ? sessions.data?.[0]?.id : undefined)
-
-  useEffect(() => {
-    if (activeSessionId) lastSessionId.current = activeSessionId
-  }, [activeSessionId])
+  const startNewSession = (projectId?: string) => {
+    ++chatOpenGeneration.current
+    setNewSessionKey((current) => current + 1)
+    void navigate({ to: '/studio', search: { project: projectId } })
+  }
+  const sessionId = activeSessionId
 
   useEffect(() => {
     if (matchedSection) lastSection.current = section
   }, [matchedSection, section])
-
-  useEffect(() => {
-    if (
-      view !== 'chat' ||
-      activeSessionId ||
-      sessions.isLoading ||
-      !sessions.data ||
-      sessions.data.length > 0 ||
-      creatingSession ||
-      autoCreateRequested.current
-    ) {
-      return
-    }
-    autoCreateRequested.current = true
-    retryCreateSession()
-  }, [sessions.data, sessions.isLoading, creatingSession, retryCreateSession])
-
-  useEffect(() => {
-    if (view !== 'chat' || activeSessionId || !sessionId) return
-    void navigate({
-      to: '/studio/sessions/$sessionId',
-      params: { sessionId },
-      search: {},
-      replace: true,
-    })
-  }, [view, activeSessionId, sessionId, navigate])
 
   const detail = useQuery({
     queryKey: ['studio', 'session', sessionId],
@@ -227,10 +167,7 @@ export function StudioWorkspace() {
   const sessionPermissionMode =
     permissionOverride && permissionOverride.sessionId === sessionId
       ? permissionOverride.mode
-      : (detail.data?.session.permission_mode ??
-        sessions.data?.find((session) => session.id === sessionId)
-          ?.permission_mode ??
-        'request_approval')
+      : (detail.data?.session.permission_mode ?? 'request_approval')
 
   const openChatWithFreshDetail = (
     id: string,
@@ -377,14 +314,11 @@ export function StudioWorkspace() {
   })
 
   const sidebarProps = {
-    sessions: sessions.data ?? [],
     activeSessionId: sessionId,
     viewedRunIds,
     view,
-    creating: creatingSession,
     onNewSession: startNewSession,
     onSelectSession: (id: string) => {
-      lastSessionId.current = id
       openChatWithFreshDetail(id, () => {
         void navigate({
           to: '/studio/sessions/$sessionId',
@@ -394,7 +328,6 @@ export function StudioWorkspace() {
       })
     },
     onViewChange: (nextView: StudioView) => {
-      if (activeSessionId) lastSessionId.current = activeSessionId
       if (view === 'settings') lastSection.current = section
       if (nextView === 'library') {
         ++chatOpenGeneration.current
@@ -409,28 +342,15 @@ export function StudioWorkspace() {
           search: {},
         })
       } else {
-        const targetSessionId =
-          activeSessionId ?? lastSessionId.current ?? sessions.data?.[0]?.id
-        if (targetSessionId) {
-          openChatWithFreshDetail(targetSessionId, () => {
-            void navigate({
-              to: '/studio/sessions/$sessionId',
-              params: { sessionId: targetSessionId },
-              search: {},
-            })
-          })
-        } else {
-          ++chatOpenGeneration.current
-          void navigate({ to: '/studio', search: {} })
-        }
+        startNewSession()
       }
     },
   }
   const mobileSidebarProps = {
     ...sidebarProps,
-    onNewSession: () => {
+    onNewSession: (projectId?: string) => {
       setMobileMenuOpen(false)
-      sidebarProps.onNewSession()
+      sidebarProps.onNewSession(projectId)
     },
     onSelectSession: (id: string) => {
       setMobileMenuOpen(false)
@@ -531,28 +451,9 @@ export function StudioWorkspace() {
         </Sheet>
       </div>
 
-      {view !== 'chat' && createSessionFailed ? (
-        <div
-          role='alert'
-          className='fixed top-4 right-4 z-40 flex max-w-[min(24rem,calc(100vw-2rem))] flex-wrap items-center gap-2 rounded-xl border bg-card p-3 text-sm text-muted-foreground'
-        >
-          <span>新建对话失败，当前页面未受影响。</span>
-          <Button
-            variant='outline'
-            size='sm'
-            className='min-h-11'
-            disabled={creatingSession}
-            onClick={retryCreateSession}
-          >
-            重试新建对话
-          </Button>
-        </div>
-      ) : null}
-
       {view === 'library' ? (
         <StudioLibrary
           onOpenSession={(id, sourceRunId) => {
-            lastSessionId.current = id
             openChatWithFreshDetail(id, (sessionDetail) => {
               const sourceMessageId = sourceRunId
                 ? sessionDetail?.messages.find(
@@ -580,8 +481,6 @@ export function StudioWorkspace() {
           section={section}
           onSessionsCleared={() => {
             ++chatOpenGeneration.current
-            lastSessionId.current = undefined
-            autoCreateRequested.current = false
             setViewedRunIds({})
             setLocateMessage(undefined)
             setModelSelection(undefined)
@@ -599,30 +498,16 @@ export function StudioWorkspace() {
           }}
         />
       ) : null}
-      {view === 'chat' && sessions.isError && !sessions.data ? (
-        <main id='main-content' className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>
-          <div className='flex h-full rounded-2xl border bg-card'>
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>对话列表读取失败</EmptyTitle>
-                <EmptyDescription>检查连接后重试。</EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <Button
-                  variant='outline'
-                  className='min-h-11'
-                  disabled={sessions.isFetching}
-                  onClick={() => void sessions.refetch()}
-                >
-                  重试读取对话
-                </Button>
-              </EmptyContent>
-            </Empty>
-          </div>
-        </main>
+      {view === 'chat' && !sessionId ? (
+        <StudioNewSession
+          key={`${newSessionKey}:${search.project ?? ''}`}
+          models={models.data ?? []}
+          skills={skills.data ?? []}
+          initialProjectId={search.project}
+        />
       ) : null}
-      {view === 'chat' && (!sessions.isError || sessions.data) ? (
-        <div className='min-h-0 min-w-0 flex-1 p-3 sm:p-4'>
+      {view === 'chat' && sessionId ? (
+        <div className='min-h-0 min-w-0 flex-1 py-3 pr-3 sm:py-4 sm:pr-4'>
           <section
             data-slot='studio-workbench'
             className='flex h-full min-h-0 overflow-hidden rounded-2xl border bg-card'
@@ -713,23 +598,6 @@ export function StudioWorkspace() {
                   ) : null}
                 </div>
               </header>
-              {sessionId && createSessionFailed ? (
-                <div
-                  role='alert'
-                  className='flex flex-wrap items-center gap-2 border-b px-5 py-2 text-sm text-muted-foreground'
-                >
-                  <span>新建对话失败，当前对话未受影响。</span>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    className='min-h-11'
-                    disabled={creatingSession}
-                    onClick={retryCreateSession}
-                  >
-                    重试新建对话
-                  </Button>
-                </div>
-              ) : null}
               {detail.error instanceof ApiError &&
               detail.error.status === 404 ? (
                 <Empty>
@@ -738,25 +606,8 @@ export function StudioWorkspace() {
                   </EmptyHeader>
                 </Empty>
               ) : traceOpen && sessionId ? (
-                <StudioTrace key={sessionId} sessionId={sessionId} />
-              ) : !sessionId && createSessionFailed ? (
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyTitle>新建对话失败</EmptyTitle>
-                    <EmptyDescription>检查连接后重试。</EmptyDescription>
-                  </EmptyHeader>
-                  <EmptyContent>
-                    <Button
-                      variant='outline'
-                      className='min-h-11'
-                      disabled={creatingSession}
-                      onClick={retryCreateSession}
-                    >
-                      重试新建对话
-                    </Button>
-                  </EmptyContent>
-                </Empty>
-              ) : !sessionId || detail.isLoading ? (
+                <StudioTraceTabs key={sessionId} sessionId={sessionId} />
+              ) : detail.isLoading ? (
                 <ChatSkeleton />
               ) : detail.isError || !detail.data ? (
                 <Empty>

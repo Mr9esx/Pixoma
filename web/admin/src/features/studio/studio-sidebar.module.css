@@ -30,6 +30,65 @@
   width: 2rem;
 }
 
+.section {
+  display: grid;
+  grid-template-rows: 32px 0fr;
+  flex: 0 1 auto;
+  min-height: 40px;
+  overflow: hidden;
+  transition: grid-template-rows 220ms ease;
+}
+
+.section[data-expanded='true'] {
+  grid-template-rows: 32px 1fr;
+}
+
+.recentSection {
+  flex-basis: 40px;
+  flex-shrink: 0;
+}
+
+.recentSection[data-expanded='true'] {
+  flex-grow: 1;
+}
+
+.sectionContent {
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.section[data-expanded='true'] .sectionContent {
+  opacity: 1;
+}
+
+.sectionChevron {
+  transition: transform 220ms ease;
+}
+
+.sectionChevron[data-expanded='false'] {
+  transform: rotate(-90deg);
+}
+
+.projectSessions {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 220ms ease,
+    opacity 150ms ease;
+}
+
+.projectSessions[data-expanded='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.projectSessionsInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
 @keyframes session-title-marquee {
   to {
     transform: translateX(-50%);
@@ -53,6 +112,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .section,
+  .sectionContent,
+  .sectionChevron,
+  .projectSessions {
+    transition: none;
+  }
+
   .titleViewport[data-scrolling='true']:hover .marqueeTrack {
     animation: none;
   }

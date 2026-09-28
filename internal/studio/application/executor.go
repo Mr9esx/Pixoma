@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -37,6 +37,8 @@ const (
 	EventModelRequestFinished    = "MODEL_REQUEST_FINISHED"
 	EventModelRequestFailed      = "MODEL_REQUEST_FAILED"
 	EventContextCompacted        = "CONTEXT_COMPACTED"
+	EventContextInjected         = "CONTEXT_INJECTED"
+	EventContextPruned           = "CONTEXT_PRUNED"
 	EventAssetCreated            = "ASSET_CREATED"
 	EventAssetUpdated            = "ASSET_UPDATED"
 	EventFlowUpdated             = "FLOW_UPDATED"
@@ -56,22 +58,22 @@ type AgentRepository interface {
 }
 
 type AgentRequest struct {
-	Run      *domain.Run
-	Session  *domain.Session
-	UserText string
-	History  []*schema.Message
+	Run       *domain.Run
+	Session   *domain.Session
+	UserText  string
+	UserParts []MessagePart
+	History   []*schema.Message
 	// HistoryMessageIDs is aligned with History. Each entry is the last
 	// durable message that may safely be summarized before that model message;
 	// event-only tool messages inherit their run trigger boundary.
-	HistoryMessageIDs     []string
-	ContextSummary        string
-	SaveContextSummary    func(context.Context, string, string) error
-	Skills                []domain.Skill
-	AvailableSkills       []domain.RunSkill
-	Assets                []*domain.Asset
-	ReferencedWorkflowIDs []string
-	Approvals             []*domain.Approval
-	Clarifications        []*domain.Clarification
+	HistoryMessageIDs  []string
+	ContextSummary     string
+	SaveContextSummary func(context.Context, string, string) error
+	Skills             []domain.Skill
+	AvailableSkills    []domain.RunSkill
+	Assets             []*domain.Asset
+	Approvals          []*domain.Approval
+	Clarifications     []*domain.Clarification
 }
 
 type GeneratedAsset struct {
@@ -207,12 +209,6 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 	if err := json.Unmarshal(message.ContentJSON, &messageParts); err != nil {
 		return err
 	}
-	var referencedWorkflowIDs []string
-	for _, part := range messageParts {
-		if part.Type == "workflow_ref" && !slices.Contains(referencedWorkflowIDs, part.WorkflowID) {
-			referencedWorkflowIDs = append(referencedWorkflowIDs, part.WorkflowID)
-		}
-	}
 	sink := &executionWriter{executor: e, run: run, events: e.events}
 	approvals, err := e.repo.ListApprovals(ctx, run.AccountID, run.ID)
 	if err != nil {
@@ -253,10 +249,10 @@ func (e *AgentExecutor) Execute(ctx context.Context, run *domain.Run) error {
 		return e.repo.UpdateSession(summaryCtx, session)
 	}
 	err = e.engine.Execute(ctx, AgentRequest{
-		Run: run, Session: session, UserText: text,
+		Run: run, Session: session, UserText: text, UserParts: messageParts,
 		History: history.Messages, HistoryMessageIDs: history.BoundaryMessageIDs,
 		ContextSummary: session.ContextSummary, SaveContextSummary: saveSummary,
-		Skills: skills, AvailableSkills: run.SkillSnapshot, Assets: assets, ReferencedWorkflowIDs: referencedWorkflowIDs,
+		Skills: skills, AvailableSkills: run.SkillSnapshot, Assets: assets,
 		Approvals: approvals, Clarifications: clarifications,
 	}, sink)
 	if flushErr := sink.FlushOutput(ctx); flushErr != nil {
@@ -969,6 +965,107 @@ func messagePartsText(parts []MessagePart) (string, error) {
 	return text.String(), nil
 }
 
+// ModelMessagePartsText 按原有顺序呈现用户文本和带 ID 的对象引用。
+func ModelMessagePartsText(parts []MessagePart, skills []domain.RunSkill, assets []*domain.Asset, workflows []ResolvedWorkflow, vision bool, locale string) (string, error) {
+	var result strings.Builder
+	for _, part := range parts {
+		switch part.Type {
+		case "text":
+			result.WriteString(part.Text)
+		case "skill_ref":
+			name := part.Name
+			if skills != nil {
+				found := false
+				for _, skill := range skills {
+					if skill.ID == part.SkillID {
+						name, found = skill.Name, true
+						break
+					}
+				}
+				if !found {
+					return "", fmt.Errorf("%w: selected Skill is unavailable", domain.ErrNotFound)
+				}
+			}
+			result.WriteString(fmt.Sprintf("<skill_ref skill_id=%q name=%q />", html.EscapeString(part.SkillID), html.EscapeString(name)))
+		case "asset_ref":
+			name := part.Name
+			kind, mimeType, versionNumber, imageContent := "", "", 0, ""
+			if assets != nil {
+				found := false
+				for _, asset := range assets {
+					if asset == nil || asset.ID != part.AssetID {
+						continue
+					}
+					for _, version := range asset.Versions {
+						if version.ID != part.AssetVersionID {
+							continue
+						}
+						name, kind, mimeType, versionNumber, found = asset.Name, string(asset.Kind), version.MIMEType, version.Version, true
+						if asset.Kind == domain.AssetImage {
+							imageContent = "unavailable"
+							if vision && (mimeType == "image/jpeg" || mimeType == "image/png" || mimeType == "image/gif" || mimeType == "image/webp") {
+								imageContent = "attached"
+							}
+						}
+						break
+					}
+				}
+				if !found {
+					return "", fmt.Errorf("%w: selected asset version is unavailable", domain.ErrNotFound)
+				}
+			}
+			result.WriteString(fmt.Sprintf("<asset_ref asset_id=%q asset_version_id=%q name=%q", html.EscapeString(part.AssetID), html.EscapeString(part.AssetVersionID), html.EscapeString(name)))
+			if kind != "" {
+				result.WriteString(fmt.Sprintf(" kind=%q mime_type=%q version=%q", html.EscapeString(kind), html.EscapeString(mimeType), fmt.Sprint(versionNumber)))
+			}
+			if imageContent != "" {
+				result.WriteString(fmt.Sprintf(" image_content=%q", imageContent))
+			}
+			result.WriteString(" />")
+			if imageContent == "unavailable" {
+				if locale == "en" {
+					result.WriteString(" The image content was not provided to this model. The asset can still be used as a Tool or Workflow input; do not claim to have seen its visual contents.")
+				} else {
+					result.WriteString(" 图片内容未提供给当前模型。图片资产仍可作为 Tool 或 Workflow 的输入；不要声称已查看画面。")
+				}
+			}
+		case "workflow_ref":
+			name := part.Name
+			var fields []byte
+			var inputSchema json.RawMessage
+			if workflows != nil {
+				found := false
+				for _, workflow := range workflows {
+					if workflow.ID != part.WorkflowID {
+						continue
+					}
+					name, found = workflow.Name, true
+					var err error
+					fields, err = json.Marshal(workflow.InputFields)
+					if err != nil {
+						return "", err
+					}
+					inputSchema = workflow.InputSchema
+					break
+				}
+				if !found {
+					return "", fmt.Errorf("%w: workflow %s is unavailable", domain.ErrNotFound, part.WorkflowID)
+				}
+			}
+			result.WriteString(fmt.Sprintf("<workflow_ref workflow_id=%q name=%q", html.EscapeString(part.WorkflowID), html.EscapeString(name)))
+			if workflows == nil {
+				result.WriteString(" />")
+				break
+			}
+			result.WriteString(">\n<input_fields>" + html.EscapeString(string(fields)) + "</input_fields>\n<input_schema>" + html.EscapeString(string(inputSchema)) + "</input_schema>\n</workflow_ref>")
+		case "reasoning", "image", "file":
+		default:
+			return "", fmt.Errorf("studio: unsupported message part %q", part.Type)
+		}
+	}
+	return result.String(), nil
+}
+
 func historyBeforeMessage(messages []*domain.Message, currentMessageID, summaryThroughMessageID string) ([]*schema.Message, []string, error) {
 	history := make([]*schema.Message, 0, len(messages))
 	ids := make([]string, 0, len(messages))
@@ -1003,6 +1100,16 @@ func schemaMessageFromDomain(message *domain.Message) (*schema.Message, error) {
 	text, err := messageText(message.ContentJSON)
 	if err != nil {
 		return nil, err
+	}
+	if message.Role == domain.MessageRoleUser {
+		var parts []MessagePart
+		if err := json.Unmarshal(message.ContentJSON, &parts); err != nil {
+			return nil, err
+		}
+		text, err = ModelMessagePartsText(parts, nil, nil, nil, false, "")
+		if err != nil {
+			return nil, err
+		}
 	}
 	if strings.TrimSpace(text) == "" {
 		return nil, nil

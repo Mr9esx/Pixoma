@@ -109,6 +109,40 @@ func TestSendMessageCreatesSessionTurnAndAIGeneratedTitle(t *testing.T) {
 	}
 }
 
+func TestFirstMessageCreatesSelectedProjectSessionOnce(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	project, err := domain.NewProject("project-1", "account-a", "漫画", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateProject(ctx, project); err != nil {
+		t.Fatal(err)
+	}
+	service := &studioapp.Service{Repo: repo}
+	input := studioapp.SendMessageInput{AccountID: "account-a", ProjectID: project.ID, RequestID: "request-1", Text: "画一只猫"}
+	if _, err := service.SendMessage(ctx, input); err == nil || !strings.Contains(err.Error(), "run queue is required") {
+		t.Fatalf("first send = %v", err)
+	}
+	retry, err := service.SendMessage(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retry.Session.ProjectID != project.ID {
+		t.Fatalf("project = %q", retry.Session.ProjectID)
+	}
+	page, err := repo.ListSessions(ctx, "account-a", domain.SessionListQuery{ProjectID: &project.ID, Limit: 5})
+	if err != nil || len(page) != 1 {
+		t.Fatalf("project sessions = %v, %v", page, err)
+	}
+	if retry.Session.ID != page[0].ID {
+		t.Fatalf("retry session = %q", retry.Session.ID)
+	}
+	if _, err := service.SendMessage(ctx, studioapp.SendMessageInput{AccountID: "account-b", ProjectID: project.ID, RequestID: "request-2", Text: "画一只狗"}); err != domain.ErrNotFound {
+		t.Fatalf("foreign project = %v", err)
+	}
+}
+
 func TestCreateSessionRequestIDSurvivesLostResponseAndIsAccountScoped(t *testing.T) {
 	repo := openRepository(t)
 	service := &studioapp.Service{Repo: repo, IDs: (&idSequence{}).Next}

@@ -457,6 +457,36 @@ func TestStudioConnectorProbeFailureUsesGatewayError(t *testing.T) {
 	}
 }
 
+func TestStudioConversationAPIPreservesMessagePartsOnFirstSend(t *testing.T) {
+	handler, runner := newHandler(t)
+	t.Cleanup(runner.Close)
+	router := chi.NewRouter()
+	handler.Mount(router)
+
+	response := request(t, router, http.MethodPost, "/messages", map[string]any{
+		"text": "你好世界",
+		"parts": []map[string]string{
+			{"type": "text", "text": "你好"},
+			{"type": "text", "text": "世界"},
+		},
+		"permission_mode": domain.PermissionFullAccess,
+	}, "account-a")
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("POST /messages status=%d body=%s", response.Code, response.Body.String())
+	}
+	var turn struct {
+		Message struct {
+			Content []studioapp.MessagePart `json:"content"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal(apitest.DataBytes(response), &turn); err != nil {
+		t.Fatal(err)
+	}
+	if len(turn.Message.Content) != 2 || turn.Message.Content[0].Text != "你好" || turn.Message.Content[1].Text != "世界" {
+		t.Fatalf("message content = %#v", turn.Message.Content)
+	}
+}
+
 func TestStudioConversationAPICompletesMockWorkflow(t *testing.T) {
 	handler, runner := newHandler(t)
 	t.Cleanup(runner.Close)
@@ -1610,6 +1640,14 @@ func TestStudioLibraryMoveKeepsPinnedVersionAndRejectsForeignCategory(t *testing
 	}
 	if err := json.Unmarshal(apitest.DataBytes(created), &asset); err != nil {
 		t.Fatal(err)
+	}
+	metadata := request(t, router, http.MethodGet, "/assets/"+asset.ID, nil, "account-a")
+	if metadata.Code != http.StatusOK || !strings.Contains(metadata.Body.String(), asset.ID) {
+		t.Fatalf("asset metadata status=%d body=%s", metadata.Code, metadata.Body.String())
+	}
+	foreignMetadata := request(t, router, http.MethodGet, "/assets/"+asset.ID, nil, "account-b")
+	if foreignMetadata.Code != http.StatusNotFound {
+		t.Fatalf("foreign asset metadata status=%d body=%s", foreignMetadata.Code, foreignMetadata.Body.String())
 	}
 	saved := request(t, router, http.MethodPost, "/assets/"+asset.ID+"/save-to-library", nil, "account-a")
 	if saved.Code != http.StatusOK {
