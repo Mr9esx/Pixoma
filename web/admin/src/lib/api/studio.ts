@@ -1,4 +1,4 @@
-import { apiFetch, toQuery } from './client'
+import { apiFetch, baseURL, sessionToken, toQuery } from './client'
 
 export type StudioPermissionMode =
   | 'request_approval'
@@ -253,6 +253,7 @@ export type StudioContextOverview = {
     cache_read: number
     cache_write: number
     uncached: number
+    unclassified_input: number
     reasoning: number
     missing_requests: number
     cache_known_requests: number
@@ -264,6 +265,7 @@ export type StudioContextOverview = {
     generation_ms: number
     model_other_ms: number
     tools_ms: number
+    overlap_ms: number
     other_ms: number
   }
   current: StudioContextRequest | null
@@ -291,24 +293,37 @@ export type StudioAssetVersion = {
   metadata?: Record<string, unknown>
   content_url: string
   created_at: string
+  format?: string
+  width_px?: number | null
+  height_px?: number | null
+  source_created_at?: string | null
+  source_modified_at?: string | null
+  content_origin?: string
+  palette?: StudioAssetPalette | null
+}
+
+export type StudioAssetPalette = {
+  status: 'pending' | 'running' | 'ready' | 'failed'
+  colors: Array<{ hex: string; ratio: number }>
+  analyzed_at?: string | null
+  error_code?: string
 }
 
 export type StudioAsset = {
   id: string
-  session_id: string
   name: string
   kind: 'document' | 'image' | 'video' | 'audio' | 'data' | 'file'
-  origin: 'user' | 'agent' | 'model' | 'workflow' | 'library'
-  source_run_id?: string
+  origin: 'user' | 'agent' | 'model' | 'workflow'
   current_version: number
-  saved_to_library: boolean
   versions: StudioAssetVersion[]
+  usages?: StudioSessionAssetUsage[]
   created_at: string
   updated_at: string
 }
 
 export type StudioLibraryCategory = {
   id: string
+  project_id?: string
   parent_id?: string
   name: string
   created_at: string
@@ -316,8 +331,85 @@ export type StudioLibraryCategory = {
 }
 
 export type StudioLibraryAssetsPage = {
-  assets: StudioAsset[]
+  items: StudioProjectAsset[]
   total: number
+  next_cursor?: string
+}
+
+export type StudioLibraryTreeMode =
+  | 'asset'
+  | 'session'
+  | 'category'
+  | 'format'
+  | 'rating'
+  | 'tag'
+
+export type StudioLibraryProject = {
+  id: string
+  name: string
+  asset_count: number
+}
+
+export type StudioLibraryTreeNode = {
+  id: string
+  label: string
+  count: number
+  kind: 'asset' | 'group'
+  asset_id?: string
+  group_value?: string
+}
+
+export type StudioLibraryTreePage = {
+  nodes: StudioLibraryTreeNode[]
+  next_cursor?: string
+}
+
+export type StudioAssetTag = {
+  id: string
+  name: string
+}
+
+export type StudioProjectAsset = {
+  id: string
+  project_id: string
+  asset_id: string
+  asset_version_id: string
+  display_name: string
+  category_id: string
+  rating: number
+  tags: StudioAssetTag[]
+  added_at: string
+  updated_at: string
+  archived_at?: string | null
+  asset: StudioAsset
+  version: StudioAssetVersion
+  copy_source?: {
+    project_id: string
+    project_asset_id: string
+    project_name_snapshot: string
+    display_name: string
+    deleted: boolean
+  } | null
+}
+
+export type StudioSessionAssetUsage = {
+  id: string
+  session_id: string
+  session_title_snapshot: string
+  usage_kind: 'created' | 'uploaded' | 'referenced'
+  run_id?: string
+  created_at: string
+  session_available?: boolean
+}
+
+export type StudioProjectAssetDetail = StudioProjectAsset & {
+  usages: StudioSessionAssetUsage[]
+  versions: StudioAssetVersion[]
+}
+
+export type StudioLibraryPreferences = {
+  tree_mode: StudioLibraryTreeMode
+  last_project_id: string
 }
 
 export type StudioFlowNode = {
@@ -701,32 +793,22 @@ export function resolveStudioApproval(approvalId: string, approved: boolean) {
   )
 }
 
-export function saveStudioAssetToLibrary(assetId: string, categoryId?: string) {
-  return apiFetch<void>(
-    `/api/v1/studio/assets/${encodeURIComponent(assetId)}/save-to-library`,
-    { method: 'POST', body: JSON.stringify({ category_id: categoryId ?? '' }) }
-  )
-}
-
-export function moveStudioLibraryAsset(assetId: string, categoryId?: string) {
-  return apiFetch<void>(
-    `/api/v1/studio/library/assets/${encodeURIComponent(assetId)}/category`,
-    { method: 'PATCH', body: JSON.stringify({ category_id: categoryId ?? '' }) }
-  )
-}
-
-export function importStudioLibraryAsset(
+export function referenceStudioAsset(
   sessionId: string,
   assetId: string,
-  assetVersionId: string
+  assetVersionId: string,
+  requestId: string,
+  sourceProjectAssetId?: string
 ) {
   return apiFetch<StudioAsset>(
-    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/assets/import`,
+    `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/assets/references`,
     {
       method: 'POST',
       body: JSON.stringify({
         asset_id: assetId,
         asset_version_id: assetVersionId,
+        request_id: requestId,
+        ...(sourceProjectAssetId ? { source_project_asset_id: sourceProjectAssetId } : {}),
       }),
     }
   )
@@ -736,6 +818,7 @@ export function createStudioTextAsset(input: {
   sessionId: string
   name: string
   content: string
+  requestId?: string
 }) {
   return apiFetch<StudioAsset>('/api/v1/studio/assets/text', {
     method: 'POST',
@@ -743,14 +826,19 @@ export function createStudioTextAsset(input: {
       session_id: input.sessionId,
       name: input.name,
       content: input.content,
+      request_id: input.requestId ?? crypto.randomUUID(),
     }),
   })
 }
 
-export function updateStudioTextAsset(assetId: string, content: string) {
+export function updateStudioTextAsset(
+  assetId: string,
+  content: string,
+  requestId: string = crypto.randomUUID()
+) {
   return apiFetch<StudioAsset>(
     `/api/v1/studio/assets/${encodeURIComponent(assetId)}/text`,
-    { method: 'PATCH', body: JSON.stringify({ content }) }
+    { method: 'PATCH', body: JSON.stringify({ content, request_id: requestId }) }
   )
 }
 
@@ -758,11 +846,20 @@ export function getStudioTextAssetContent(contentURL: string) {
   return apiFetch<string>(contentURL)
 }
 
-export function uploadStudioAsset(file: File, sessionId?: string) {
+export function uploadStudioAsset(
+  file: File,
+  sessionId?: string,
+  projectId = '',
+  requestId: string = crypto.randomUUID()
+) {
   const body = new FormData()
   body.append('file', file)
   if (sessionId) body.append('session_id', sessionId)
-  return apiFetch<StudioAsset>('/api/v1/studio/assets/upload', {
+  else body.append('project_id', projectId)
+  body.append('request_id', requestId)
+  if (Number.isFinite(file.lastModified) && file.lastModified > 0)
+    body.append('source_modified_at', new Date(file.lastModified).toISOString())
+  return apiFetch<StudioAsset & { project_asset_id: string }>('/api/v1/studio/assets/upload', {
     method: 'POST',
     body,
   })
@@ -827,35 +924,309 @@ export function deleteStudioFlowEdge(sessionId: string, edgeId: string) {
   )
 }
 
-export function listStudioLibraryAssets(input?: {
+export type StudioLibraryAssetsQuery = {
+  projectId: string
   categoryId?: string
+  sessionId?: string
+  kind?: string
+  format?: string
+  rating?: number
+  tagIds?: string[]
+  sort?: string
+  archived?: boolean
   search?: string
-  page?: number
+  widthMin?: number
+  widthMax?: number
+  heightMin?: number
+  heightMax?: number
+  sizeMin?: number
+  sizeMax?: number
+  addedFrom?: string
+  addedTo?: string
+  duplicates?: boolean
+  cursor?: string
   limit?: number
+}
+
+export function studioLibraryDateBoundary(date: string, nextDay = false) {
+  const boundary = new Date(`${date}T00:00:00`)
+  if (nextDay) boundary.setDate(boundary.getDate() + 1)
+  return boundary.toISOString()
+}
+
+export function studioLibraryAssetsPath(input: StudioLibraryAssetsQuery) {
+  const query = new URLSearchParams({ project_id: input.projectId })
+  if (input.search) query.set('q', input.search)
+  if (input.kind) query.set('kind', input.kind)
+  if (input.format) query.set('format', input.format)
+  if (input.categoryId) query.set('category_id', input.categoryId)
+  if (input.sessionId) query.set('session_id', input.sessionId)
+  if (input.rating !== undefined) query.set('rating', String(input.rating))
+  if (input.tagIds?.length) query.set('tag_ids', input.tagIds.join(','))
+  if (input.sort) query.set('sort', input.sort)
+  if (input.archived !== undefined)
+    query.set('archived', String(input.archived))
+  if (input.widthMin !== undefined) query.set('width_min', String(input.widthMin))
+  if (input.widthMax !== undefined) query.set('width_max', String(input.widthMax))
+  if (input.heightMin !== undefined) query.set('height_min', String(input.heightMin))
+  if (input.heightMax !== undefined) query.set('height_max', String(input.heightMax))
+  if (input.sizeMin !== undefined) query.set('size_min', String(input.sizeMin))
+  if (input.sizeMax !== undefined) query.set('size_max', String(input.sizeMax))
+  if (input.addedFrom) query.set('added_from', input.addedFrom)
+  if (input.addedTo) query.set('added_to', input.addedTo)
+  if (input.duplicates) query.set('duplicates', 'true')
+  query.set('limit', String(input.limit ?? 50))
+  if (input.cursor) query.set('cursor', input.cursor)
+  return `/api/v1/studio/library/assets?${query}`
+}
+
+export function studioLibraryTreePath(input: {
+  projectId: string
+  mode: StudioLibraryTreeMode
+  parentId?: string
+  cursor?: string
 }) {
-  const limit = input?.limit ?? 50
-  return apiFetch<StudioLibraryAssetsPage>(
-    `/api/v1/studio/library/assets${toQuery({
-      category_id: input?.categoryId,
-      q: input?.search,
-      limit,
-      offset: ((input?.page ?? 1) - 1) * limit,
-    })}`
+  const query = new URLSearchParams({
+    project_id: input.projectId,
+    mode: input.mode,
+  })
+  if (input.parentId) query.set('parent_id', input.parentId)
+  if (input.cursor) query.set('cursor', input.cursor)
+  return `/api/v1/studio/library/tree?${query}`
+}
+
+export function studioLibraryGroupQuery(
+  mode: StudioLibraryTreeMode,
+  value: string
+): Partial<StudioLibraryAssetsQuery> {
+  switch (mode) {
+    case 'session':
+      return { sessionId: value }
+    case 'category':
+      return { categoryId: value }
+    case 'format':
+      return { format: value }
+    case 'rating':
+      return { rating: Number(value) }
+    case 'tag':
+      return { tagIds: [value] }
+    case 'asset':
+      return {}
+  }
+}
+
+export function listStudioLibraryProjects() {
+  return apiFetch<StudioLibraryProject[]>('/api/v1/studio/library/projects')
+}
+
+export function listStudioLibraryTree(input: {
+  projectId: string
+  mode: StudioLibraryTreeMode
+  parentId?: string
+  cursor?: string
+}) {
+  return apiFetch<StudioLibraryTreePage>(studioLibraryTreePath(input))
+}
+
+export function listStudioLibraryAssets(input: StudioLibraryAssetsQuery) {
+  return apiFetch<StudioLibraryAssetsPage>(studioLibraryAssetsPath(input))
+}
+
+export function getStudioProjectAsset(projectAssetId: string) {
+  return apiFetch<StudioProjectAssetDetail>(
+    `/api/v1/studio/library/assets/${encodeURIComponent(projectAssetId)}`
   )
 }
 
-export function listStudioLibraryCategories() {
-  return apiFetch<StudioLibraryCategory[]>('/api/v1/studio/library/categories')
+export function getStudioProjectAssetDuplicates(projectAssetId: string) {
+  return apiFetch<{ items: StudioProjectAsset[] }>(
+    `/api/v1/studio/library/assets/${encodeURIComponent(projectAssetId)}/duplicates`
+  )
+}
+
+export function listStudioLibraryFormats(projectId: string) {
+  return apiFetch<string[]>(
+    `/api/v1/studio/library/formats?project_id=${encodeURIComponent(projectId)}`
+  )
+}
+
+export function getStudioLibraryPreferences() {
+  return apiFetch<StudioLibraryPreferences>(
+    '/api/v1/studio/library/preferences'
+  )
+}
+
+export function updateStudioLibraryPreferences(input: StudioLibraryPreferences) {
+  return apiFetch<StudioLibraryPreferences>(
+    '/api/v1/studio/library/preferences',
+    { method: 'PUT', body: JSON.stringify(input) }
+  )
+}
+
+export function listStudioLibraryCategories(projectId: string) {
+  return apiFetch<StudioLibraryCategory[]>(
+    `/api/v1/studio/library/categories?project_id=${encodeURIComponent(projectId)}`
+  )
 }
 
 export function createStudioLibraryCategory(input: {
+  projectId: string
   name: string
   parentId?: string
 }) {
   return apiFetch<StudioLibraryCategory>('/api/v1/studio/library/categories', {
     method: 'POST',
-    body: JSON.stringify({ name: input.name, parent_id: input.parentId ?? '' }),
+    body: JSON.stringify({
+      project_id: input.projectId,
+      name: input.name,
+      parent_id: input.parentId ?? '',
+    }),
   })
+}
+
+export function updateStudioLibraryCategory(
+  categoryId: string,
+  input: { name?: string; parentId?: string }
+) {
+  return apiFetch<StudioLibraryCategory>(
+    `/api/v1/studio/library/categories/${encodeURIComponent(categoryId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.parentId !== undefined
+          ? { parent_id: input.parentId }
+          : {}),
+      }),
+    }
+  )
+}
+
+export function deleteStudioLibraryCategory(categoryId: string) {
+  return apiFetch<void>(
+    `/api/v1/studio/library/categories/${encodeURIComponent(categoryId)}`,
+    { method: 'DELETE' }
+  )
+}
+
+export function listStudioAssetTags() {
+  return apiFetch<StudioAssetTag[]>('/api/v1/studio/library/tags')
+}
+
+export function createStudioAssetTag(name: string) {
+  return apiFetch<StudioAssetTag>('/api/v1/studio/library/tags', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export function updateStudioProjectAsset(
+  projectAssetId: string,
+  input: Partial<
+    Pick<StudioProjectAsset, 'display_name' | 'category_id' | 'rating'>
+  > & { archived?: boolean }
+) {
+  return apiFetch<StudioProjectAsset>(
+    `/api/v1/studio/library/assets/${encodeURIComponent(projectAssetId)}`,
+    { method: 'PATCH', body: JSON.stringify(input) }
+  )
+}
+
+export function updateStudioProjectAssetTags(
+  projectAssetId: string,
+  tagIds: string[]
+) {
+  return apiFetch<StudioProjectAsset>(
+    `/api/v1/studio/library/assets/${encodeURIComponent(projectAssetId)}/tags`,
+    { method: 'PUT', body: JSON.stringify({ tag_ids: tagIds }) }
+  )
+}
+
+export function updateStudioProjectAssetVersion(
+  projectAssetId: string,
+  versionId: string
+) {
+  return apiFetch<StudioProjectAsset>(
+    `/api/v1/studio/library/assets/${encodeURIComponent(projectAssetId)}/version`,
+    { method: 'PATCH', body: JSON.stringify({ asset_version_id: versionId }) }
+  )
+}
+
+export function addStudioAssetToProject(
+  projectAssetId: string,
+  projectId: string,
+  versionId: string
+) {
+  return apiFetch<StudioProjectAsset>(
+    `/api/v1/studio/library/assets/${encodeURIComponent(projectAssetId)}/projects`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        project_id: projectId,
+        asset_version_id: versionId,
+      }),
+    }
+  )
+}
+
+export type StudioLibraryBatchAction =
+  | 'category'
+  | 'tags'
+  | 'tags_remove'
+  | 'rating'
+  | 'archive'
+  | 'project'
+
+export function updateStudioProjectAssetsBatch(input: {
+  projectAssetIds: string[]
+  action: StudioLibraryBatchAction
+  categoryId?: string
+  tagIds?: string[]
+  rating?: number
+  archived?: boolean
+  projectId?: string
+}) {
+  return apiFetch<{
+    results: Array<{ project_asset_id: string; success: boolean; error?: string }>
+  }>('/api/v1/studio/library/assets/batch', {
+    method: 'POST',
+    body: JSON.stringify({
+      project_asset_ids: input.projectAssetIds,
+      action: input.action,
+      ...(input.categoryId !== undefined ? { category_id: input.categoryId } : {}),
+      ...(input.tagIds !== undefined ? { tag_ids: input.tagIds } : {}),
+      ...(input.rating !== undefined ? { rating: input.rating } : {}),
+      ...(input.archived !== undefined ? { archived: input.archived } : {}),
+      ...(input.projectId !== undefined ? { project_id: input.projectId } : {}),
+    }),
+  })
+}
+
+export function retryStudioAssetPalette(assetId: string, versionId: string) {
+  return apiFetch<void>(
+    `/api/v1/studio/assets/${encodeURIComponent(assetId)}/versions/${encodeURIComponent(versionId)}/palette/retry`,
+    { method: 'POST' }
+  )
+}
+
+export async function exportStudioProjectAssets(projectAssetIds: string[]) {
+  const token = sessionToken()
+  const response = await fetch(`${baseURL()}/api/v1/studio/library/assets/export`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ project_asset_ids: projectAssetIds }),
+  })
+  if (!response.ok) throw new Error(`导出失败（${response.status}）`)
+  return {
+    blob: await response.blob(),
+    filename: response.headers
+      .get('Content-Disposition')
+      ?.match(/filename\*=UTF-8''([^;]+)/)?.[1],
+  }
 }
 
 export function listStudioModels() {

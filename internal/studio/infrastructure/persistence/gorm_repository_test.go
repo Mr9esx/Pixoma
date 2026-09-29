@@ -621,123 +621,7 @@ func TestAppendRunEventConcurrentWritersKeepUniqueSequence(t *testing.T) {
 	}
 }
 
-func TestAssetVersionAndLibraryReferenceRoundTrip(t *testing.T) {
-	repo := openRepository(t)
-	ctx := context.Background()
-	now := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
-	asset, err := domain.NewAsset("asset-1", "session-1", "account-a", "故事大纲.md", domain.AssetDocument, domain.AssetOriginAgent, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := asset.AppendVersion("version-1", "text/markdown", "studio/account-a/asset-1/v1.md", 128, now); err != nil {
-		t.Fatal(err)
-	}
-	if err := repo.CreateAsset(ctx, asset); err != nil {
-		t.Fatalf("CreateAsset() error = %v", err)
-	}
-	category, err := domain.NewLibraryCategory("category-story", "account-a", "", "故事", now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := repo.CreateLibraryCategory(ctx, category); err != nil {
-		t.Fatal(err)
-	}
-	if err := repo.SaveAssetToLibrary(ctx, "account-a", asset.ID, "missing-category", now); !errors.Is(err, domain.ErrNotFound) {
-		t.Fatalf("save to missing category error = %v", err)
-	}
-	if err := repo.SaveAssetToLibrary(ctx, "account-a", asset.ID, "category-story", now.Add(time.Second)); err != nil {
-		t.Fatalf("SaveAssetToLibrary() error = %v", err)
-	}
-	second, err := asset.AppendVersion("version-2", "text/markdown", "studio/account-a/asset-1/v2.md", 256, now.Add(2*time.Second))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := repo.AppendAssetVersion(ctx, asset.ID, "account-a", second); err != nil {
-		t.Fatalf("AppendAssetVersion() error = %v", err)
-	}
-
-	got, err := repo.GetAsset(ctx, "account-a", asset.ID)
-	if err != nil {
-		t.Fatalf("GetAsset() error = %v", err)
-	}
-	if got.CurrentVersion != 2 || len(got.Versions) != 2 || got.Versions[1].BlobKey != "studio/account-a/asset-1/v2.md" {
-		t.Fatalf("asset = %#v", got)
-	}
-	page, err := repo.ListLibraryAssets(ctx, "account-a", domain.LibraryAssetListQuery{CategoryID: "category-story", Limit: 100})
-	if err != nil || len(page.Assets) != 1 || page.Assets[0].ID != asset.ID {
-		t.Fatalf("ListLibraryAssets() = (%#v, %v)", page, err)
-	}
-	if page.Assets[0].CurrentVersion != 1 || len(page.Assets[0].Versions) != 1 || page.Assets[0].Versions[0].ID != "version-1" {
-		t.Fatalf("library asset must retain saved v1, got %#v", page.Assets[0])
-	}
-	if err := repo.MoveLibraryAsset(ctx, "account-a", asset.ID, "", now.Add(3*time.Second)); err != nil {
-		t.Fatal(err)
-	}
-	page, err = repo.ListLibraryAssets(ctx, "account-a", domain.LibraryAssetListQuery{CategoryID: "category-story", Limit: 100})
-	if err != nil || len(page.Assets) != 0 {
-		t.Fatalf("old category items = (%#v, %v)", page, err)
-	}
-	page, err = repo.ListLibraryAssets(ctx, "account-a", domain.LibraryAssetListQuery{Limit: 100})
-	if err != nil || len(page.Assets) != 1 || page.Assets[0].CurrentVersion != 1 || page.Assets[0].Versions[0].ID != "version-1" {
-		t.Fatalf("moved asset changed pinned version: (%#v, %v)", page, err)
-	}
-	if _, err := repo.GetAsset(ctx, "account-b", asset.ID); !errors.Is(err, domain.ErrNotFound) {
-		t.Fatalf("cross-account GetAsset() error = %v, want ErrNotFound", err)
-	}
-}
-
-func TestListLibraryAssetsPaginatesAndSearches(t *testing.T) {
-	repo := openRepository(t)
-	ctx := context.Background()
-	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
-	category, err := domain.NewLibraryCategory("category-1", "account-a", "", "故事", now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := repo.CreateLibraryCategory(ctx, category); err != nil {
-		t.Fatal(err)
-	}
-	for _, item := range []struct {
-		id, accountID, name, categoryID string
-	}{
-		{"asset-a", "account-a", "故事一", "category-1"},
-		{"asset-b", "account-a", "故事二", "category-1"},
-		{"asset-c", "account-a", "报告", ""},
-		{"asset-d", "account-b", "故事三", ""},
-	} {
-		asset, createErr := domain.NewAsset(item.id, "session-1", item.accountID, item.name, domain.AssetDocument, domain.AssetOriginUser, now)
-		if createErr != nil {
-			t.Fatal(createErr)
-		}
-		if _, createErr = asset.AppendVersion(item.id+"-version", "text/markdown", "studio/"+item.accountID+"/"+item.id, 12, now); createErr != nil {
-			t.Fatal(createErr)
-		}
-		if createErr = repo.CreateAsset(ctx, asset); createErr != nil {
-			t.Fatal(createErr)
-		}
-		if createErr = repo.SaveAssetToLibrary(ctx, item.accountID, item.id, item.categoryID, now); createErr != nil {
-			t.Fatal(createErr)
-		}
-	}
-	first, err := repo.ListLibraryAssets(ctx, "account-a", domain.LibraryAssetListQuery{Limit: 2})
-	if err != nil || first.Total != 3 || len(first.Assets) != 2 || first.Assets[0].ID != "asset-c" || first.Assets[1].ID != "asset-b" {
-		t.Fatalf("first page = (%#v, %v)", first, err)
-	}
-	second, err := repo.ListLibraryAssets(ctx, "account-a", domain.LibraryAssetListQuery{Limit: 2, Offset: 2})
-	if err != nil || second.Total != 3 || len(second.Assets) != 1 || second.Assets[0].ID != "asset-a" {
-		t.Fatalf("second page = (%#v, %v)", second, err)
-	}
-	searched, err := repo.ListLibraryAssets(ctx, "account-a", domain.LibraryAssetListQuery{Search: "故事", CategoryID: "category-1", Limit: 2})
-	if err != nil || searched.Total != 2 || len(searched.Assets) != 2 || searched.Assets[0].ID != "asset-b" || searched.Assets[1].ID != "asset-a" {
-		t.Fatalf("searched page = (%#v, %v)", searched, err)
-	}
-	literal, err := repo.ListLibraryAssets(ctx, "account-a", domain.LibraryAssetListQuery{Search: "%", Limit: 2})
-	if err != nil || literal.Total != 0 || len(literal.Assets) != 0 {
-		t.Fatalf("literal search = (%#v, %v)", literal, err)
-	}
-}
-
-func TestClearSessionsKeepsLibraryAssetsAndOtherAccounts(t *testing.T) {
+func TestClearSessionsKeepsAssetsAndOtherAccounts(t *testing.T) {
 	repo := openRepository(t)
 	ctx := context.Background()
 	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
@@ -771,11 +655,10 @@ func TestClearSessionsKeepsLibraryAssetsAndOtherAccounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, assetID := range []string{"saved-a", "private-a"} {
-		asset, err := domain.NewAsset(assetID, "session-account-a", "account-a", assetID+".md", domain.AssetDocument, domain.AssetOriginAgent, now)
+		asset, err := domain.NewAsset(assetID, "account-a", assetID+".md", domain.AssetDocument, domain.AssetOriginAgent, now)
 		if err != nil {
 			t.Fatal(err)
 		}
-		asset.SourceRunID = run.ID
 		if _, err := asset.AppendVersion(assetID+"-v1", "text/markdown", "studio/account-a/"+assetID+".md", 8, now); err != nil {
 			t.Fatal(err)
 		}
@@ -783,10 +666,7 @@ func TestClearSessionsKeepsLibraryAssetsAndOtherAccounts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := repo.SaveAssetToLibrary(ctx, "account-a", "saved-a", "", now); err != nil {
-		t.Fatal(err)
-	}
-	otherAsset, err := domain.NewAsset("asset-b", "session-account-b", "account-b", "asset-b.md", domain.AssetDocument, domain.AssetOriginUser, now)
+	otherAsset, err := domain.NewAsset("asset-b", "account-b", "asset-b.md", domain.AssetDocument, domain.AssetOriginUser, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -817,12 +697,11 @@ func TestClearSessionsKeepsLibraryAssetsAndOtherAccounts(t *testing.T) {
 	if events, err := repo.ListEventsAfter(ctx, "account-a", run.ID, 0, 10); err != nil || len(events) != 0 {
 		t.Fatalf("cleared events = (%v, %v)", events, err)
 	}
-	if _, err := repo.GetAsset(ctx, "account-a", "private-a"); !errors.Is(err, domain.ErrNotFound) {
-		t.Fatalf("private asset: %v", err)
+	if _, err := repo.GetAsset(ctx, "account-a", "private-a"); err != nil {
+		t.Fatalf("session asset: %v", err)
 	}
-	page, err := repo.ListLibraryAssets(ctx, "account-a", domain.LibraryAssetListQuery{Limit: 10})
-	if err != nil || len(page.Assets) != 1 || page.Assets[0].ID != "saved-a" || page.Assets[0].SessionID != "" || page.Assets[0].SourceRunID != "" || len(page.Assets[0].Versions) != 1 {
-		t.Fatalf("library assets = (%#v, %v)", page, err)
+	if _, err := repo.GetAsset(ctx, "account-a", "saved-a"); err != nil {
+		t.Fatalf("saved asset: %v", err)
 	}
 }
 

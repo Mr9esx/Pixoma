@@ -337,13 +337,7 @@ export function StudioFlow({
       </Canvas>
       {sourceNodes.length === 0 ? (
         <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center'>
-          <span className='mb-4 flex size-11 items-center justify-center rounded-lg bg-muted'>
-            <Workflow className='size-5 text-muted-foreground' />
-          </span>
-          <p className='text-sm font-medium'>还没有制作流程</p>
-          <p className='mt-1 max-w-xs text-xs leading-5 text-muted-foreground'>
-            围绕成品整理计划、操作和产出。流程可作为 SOP 的基础。
-          </p>
+          <p className='text-sm text-muted-foreground'>暂无制作流程</p>
         </div>
       ) : null}
     </div>

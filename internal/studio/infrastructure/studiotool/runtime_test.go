@@ -245,7 +245,7 @@ func (s *toolSink) AppendTextAssetVersion(_ context.Context, assetID, baseVersio
 	s.updatedAction = action
 	s.updatedContent = append([]byte(nil), content...)
 	version := domain.AssetVersion{ID: "version-2", AssetID: assetID, AccountID: "account-a", Version: 2, MIMEType: "text/markdown"}
-	return &domain.Asset{ID: assetID, SessionID: "session-1", AccountID: "account-a", Name: "story.md", Kind: domain.AssetDocument, CurrentVersion: 2, Versions: []domain.AssetVersion{version}}, version, nil
+	return &domain.Asset{ID: assetID, AccountID: "account-a", Name: "story.md", Kind: domain.AssetDocument, CurrentVersion: 2, Versions: []domain.AssetVersion{version}}, version, nil
 }
 
 func TestReadAssetToolReadsOnlyThePinnedSelectedVersion(t *testing.T) {
@@ -257,7 +257,7 @@ func TestReadAssetToolReadsOnlyThePinnedSelectedVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	asset, err := domain.NewAsset("asset-1", "session-1", "account-a", "story.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
+	asset, err := domain.NewAsset("asset-1", "account-a", "story.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func TestReadAssetToolReadsOnlyThePinnedSelectedVersion(t *testing.T) {
 }
 
 func TestUpdateTextAssetToolAppendsVersionToPinnedSelectedAsset(t *testing.T) {
-	asset, err := domain.NewAsset("asset-1", "session-1", "account-a", "story.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
+	asset, err := domain.NewAsset("asset-1", "account-a", "story.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +342,7 @@ func TestUpdateTextAssetToolAppendsVersionToPinnedSelectedAsset(t *testing.T) {
 }
 
 func TestListSessionAssetsReturnsVersionMetadataWithoutBlobKeys(t *testing.T) {
-	asset, err := domain.NewAsset("asset-1", "session-1", "account-a", "story.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
+	asset, err := domain.NewAsset("asset-1", "account-a", "story.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

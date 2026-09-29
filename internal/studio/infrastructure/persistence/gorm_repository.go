@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -166,15 +167,13 @@ type WorkflowExecutionRow struct {
 func (WorkflowExecutionRow) TableName() string { return "studio_workflow_executions" }
 
 type AssetRow struct {
-	ID             string `gorm:"primaryKey;size:64"`
-	SessionID      string `gorm:"size:64;not null;index"`
-	AccountID      string `gorm:"size:64;not null;index"`
-	Name           string `gorm:"size:512;not null"`
-	Kind           string `gorm:"size:32;not null;index"`
-	Origin         string `gorm:"size:32;not null;index"`
-	SourceRunID    string `gorm:"size:64;index"`
-	CurrentVersion int    `gorm:"not null"`
-	LibrarySavedAt time.Time
+	ID             string  `gorm:"primaryKey;size:64"`
+	CreationKey    *string `gorm:"size:128;uniqueIndex:idx_studio_asset_creation_key"`
+	AccountID      string  `gorm:"size:64;not null;index;uniqueIndex:idx_studio_asset_creation_key"`
+	Name           string  `gorm:"size:512;not null"`
+	Kind           string  `gorm:"size:32;not null;index"`
+	Origin         string  `gorm:"size:32;not null;index"`
+	CurrentVersion int     `gorm:"not null"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -182,41 +181,26 @@ type AssetRow struct {
 func (AssetRow) TableName() string { return "studio_assets" }
 
 type AssetVersionRow struct {
-	ID        string `gorm:"primaryKey;size:64"`
-	AssetID   string `gorm:"size:64;not null;uniqueIndex:idx_studio_asset_versions_asset_version;index"`
-	AccountID string `gorm:"size:64;not null;index"`
-	Version   int    `gorm:"not null;uniqueIndex:idx_studio_asset_versions_asset_version"`
-	MIMEType  string `gorm:"size:256;not null"`
-	BlobKey   string `gorm:"size:1024;not null"`
-	SizeBytes int64  `gorm:"not null"`
-	Metadata  []byte `gorm:"type:blob"`
-	CreatedAt time.Time
+	ID               string `gorm:"primaryKey;size:64"`
+	AssetID          string `gorm:"size:64;not null;uniqueIndex:idx_studio_asset_versions_asset_version;uniqueIndex:idx_studio_asset_versions_operation;index"`
+	AccountID        string `gorm:"size:64;not null;index"`
+	Version          int    `gorm:"not null;uniqueIndex:idx_studio_asset_versions_asset_version"`
+	MIMEType         string `gorm:"size:256;not null"`
+	Format           string `gorm:"size:32;not null;index"`
+	WidthPx          *int
+	HeightPx         *int
+	SHA256           string  `gorm:"size:64;index"`
+	ContentOrigin    string  `gorm:"size:32"`
+	OperationKey     *string `gorm:"size:128;uniqueIndex:idx_studio_asset_versions_operation"`
+	SourceCreatedAt  *time.Time
+	SourceModifiedAt *time.Time
+	BlobKey          string `gorm:"size:1024;not null"`
+	SizeBytes        int64  `gorm:"not null"`
+	Metadata         []byte `gorm:"type:blob"`
+	CreatedAt        time.Time
 }
 
 func (AssetVersionRow) TableName() string { return "studio_asset_versions" }
-
-type LibraryCategoryRow struct {
-	ID        string `gorm:"primaryKey;size:64"`
-	AccountID string `gorm:"size:64;not null;index"`
-	ParentID  string `gorm:"size:64;index"`
-	Name      string `gorm:"size:256;not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-func (LibraryCategoryRow) TableName() string { return "studio_library_categories" }
-
-type LibraryAssetRow struct {
-	ID             uint64 `gorm:"primaryKey;autoIncrement"`
-	AccountID      string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index;index:idx_studio_library_page,priority:1;index:idx_studio_library_category_page,priority:1"`
-	AssetID        string `gorm:"size:64;not null;uniqueIndex:idx_studio_library_account_asset;index;index:idx_studio_library_page,priority:3;index:idx_studio_library_category_page,priority:4"`
-	AssetVersionID string `gorm:"size:64;not null"`
-	CategoryID     string `gorm:"size:64;index;index:idx_studio_library_category_page,priority:2"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time `gorm:"index:idx_studio_library_page,priority:2;index:idx_studio_library_category_page,priority:3"`
-}
-
-func (LibraryAssetRow) TableName() string { return "studio_library_assets" }
 
 type FlowNodeRow struct {
 	ID             string `gorm:"primaryKey;size:64"`
@@ -255,7 +239,8 @@ func Models() []any {
 	return []any{
 		&ProjectRow{}, &SessionRow{}, &MessageRow{}, &RunRow{}, &RunProgressRow{}, &CheckpointRow{}, &EventRow{}, &ContextRequestRow{}, &ContextEventRow{}, &ApprovalRow{}, &ClarificationRow{},
 		&WorkflowExecutionRow{},
-		&AssetRow{}, &AssetVersionRow{}, &LibraryCategoryRow{}, &LibraryAssetRow{},
+		&AssetRow{}, &AssetVersionRow{},
+		&ProjectAssetRow{}, &SessionAssetUsageRow{}, &AssetCategoryRow{}, &AssetTagRow{}, &ProjectAssetTagRow{}, &AssetVersionPaletteRow{}, &AssetLibraryPreferencesRow{}, &BlobWriteIntentRow{},
 		&FlowNodeRow{}, &FlowEdgeRow{}, &ModelConfigRow{},
 		&SkillRow{}, &SkillVersionRow{}, &MCPConnectorRow{}, &AgentWorkflowSettingRow{},
 	}
@@ -312,24 +297,150 @@ func (r *GormRepository) RenameProject(ctx context.Context, accountID, projectID
 
 func (r *GormRepository) DeleteProject(ctx context.Context, accountID, projectID string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Where("account_id = ? AND id = ?", accountID, projectID).Delete(&ProjectRow{})
-		if err := resultError(result); err != nil {
+		var project ProjectRow
+		if err := tx.Where("account_id = ? AND id = ?", accountID, projectID).First(&project).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrNotFound
+			}
 			return err
 		}
-		return tx.Model(&SessionRow{}).Where("account_id = ? AND project_id = ?", accountID, projectID).Update("project_id", "").Error
+		var entries []ProjectAssetRow
+		if err := tx.Where("account_id = ? AND project_id = ?", accountID, projectID).Find(&entries).Error; err != nil {
+			return err
+		}
+		var categories []AssetCategoryRow
+		if err := tx.Where("account_id = ? AND project_id = ?", accountID, projectID).Find(&categories).Error; err != nil {
+			return err
+		}
+		if len(categories) > 0 {
+			rootName := project.Name
+			for suffix := 2; ; suffix++ {
+				var existing AssetCategoryRow
+				err := tx.Where("account_id = ? AND project_id = '' AND parent_id = '' AND name = ?", accountID, rootName).First(&existing).Error
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					break
+				}
+				if err != nil {
+					return err
+				}
+				rootName = fmt.Sprintf("%s (%d)", project.Name, suffix)
+			}
+			now := time.Now().UTC()
+			root := &AssetCategoryRow{ID: uuid.NewString(), AccountID: accountID, ProjectID: "", ParentID: "", Name: rootName, CreatedAt: now, UpdatedAt: now}
+			if err := tx.Create(root).Error; err != nil {
+				return translateCreateError(err)
+			}
+			if err := tx.Model(&AssetCategoryRow{}).Where("account_id = ? AND project_id = ? AND parent_id = ''", accountID, projectID).
+				Update("parent_id", root.ID).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&AssetCategoryRow{}).Where("account_id = ? AND project_id = ?", accountID, projectID).
+				Update("project_id", "").Error; err != nil {
+				return err
+			}
+		}
+		for _, entry := range entries {
+			var duplicate ProjectAssetRow
+			err := tx.Where("account_id = ? AND project_id = '' AND asset_id = ?", accountID, entry.AssetID).First(&duplicate).Error
+			if err == nil {
+				if err := tx.Where("account_id = ? AND project_asset_id = ?", accountID, entry.ID).Delete(&ProjectAssetTagRow{}).Error; err != nil {
+					return err
+				}
+				if err := tx.Where("account_id = ? AND id = ?", accountID, entry.ID).Delete(&ProjectAssetRow{}).Error; err != nil {
+					return err
+				}
+			} else if errors.Is(err, gorm.ErrRecordNotFound) {
+				if err := tx.Model(&ProjectAssetRow{}).Where("account_id = ? AND id = ?", accountID, entry.ID).
+					Update("project_id", "").Error; err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
+		}
+		if err := tx.Model(&SessionRow{}).Where("account_id = ? AND project_id = ?", accountID, projectID).Update("project_id", "").Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&AssetLibraryPreferencesRow{}).Where("account_id = ? AND last_project_id = ?", accountID, projectID).Update("last_project_id", "").Error; err != nil {
+			return err
+		}
+		return resultError(tx.Where("account_id = ? AND id = ?", accountID, projectID).Delete(&ProjectRow{}))
 	})
 }
 
 func (r *GormRepository) MoveSessionToProject(ctx context.Context, accountID, sessionID, projectID string) error {
-	if projectID != "" {
-		var row ProjectRow
-		if err := r.db.WithContext(ctx).Where("account_id = ? AND id = ?", accountID, projectID).First(&row).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrNotFound
-		} else if err != nil {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if projectID != "" {
+			var project ProjectRow
+			if err := tx.Where("account_id = ? AND id = ?", accountID, projectID).First(&project).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return domain.ErrNotFound
+				}
+				return err
+			}
+		}
+		var session SessionRow
+		if err := tx.Where("account_id = ? AND id = ?", accountID, sessionID).First(&session).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrNotFound
+			}
 			return err
 		}
-	}
-	return resultError(r.db.WithContext(ctx).Model(&SessionRow{}).Where("account_id = ? AND id = ?", accountID, sessionID).Update("project_id", projectID))
+		if session.ProjectID == projectID {
+			return nil
+		}
+		sourceProjectName := "未归属项目"
+		if session.ProjectID != "" {
+			var sourceProject ProjectRow
+			if err := tx.Where("account_id = ? AND id = ?", accountID, session.ProjectID).First(&sourceProject).Error; err != nil {
+				return err
+			}
+			sourceProjectName = sourceProject.Name
+		}
+		var usages []SessionAssetUsageRow
+		if err := tx.Where("account_id = ? AND session_id = ?", accountID, sessionID).
+			Order("created_at DESC, id DESC").Find(&usages).Error; err != nil {
+			return err
+		}
+		seen := make(map[string]bool, len(usages))
+		for _, usage := range usages {
+			if seen[usage.AssetID] {
+				continue
+			}
+			seen[usage.AssetID] = true
+			var existing ProjectAssetRow
+			err := tx.Where("account_id = ? AND project_id = ? AND asset_id = ?", accountID, projectID, usage.AssetID).First(&existing).Error
+			if err == nil {
+				continue
+			}
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			var asset AssetRow
+			if err := tx.Where("account_id = ? AND id = ?", accountID, usage.AssetID).First(&asset).Error; err != nil {
+				return err
+			}
+			now := time.Now().UTC()
+			entry := ProjectAssetRow{ID: uuid.NewString(), AccountID: accountID, ProjectID: projectID, AssetID: usage.AssetID, AssetVersionID: usage.AssetVersionID, DisplayName: asset.Name, AddedAt: now, UpdatedAt: now}
+			var source ProjectAssetRow
+			if err := tx.Where("account_id = ? AND project_id = ? AND asset_id = ?", accountID, session.ProjectID, usage.AssetID).First(&source).Error; err == nil {
+				entry.AssetVersionID = source.AssetVersionID
+				entry.DisplayName = source.DisplayName
+				entry.SourceProjectAssetID = source.ID
+				entry.SourceProjectID = source.ProjectID
+				entry.SourceProjectNameSnapshot = sourceProjectName
+				entry.SourceDisplayNameSnapshot = source.DisplayName
+				entry.SourceAssetVersionID = source.AssetVersionID
+				entry.CopiedAt = &now
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			if err := tx.Create(&entry).Error; err != nil {
+				return translateCreateError(err)
+			}
+		}
+		return tx.Model(&SessionRow{}).Where("account_id = ? AND id = ?", accountID, sessionID).Update("project_id", projectID).Error
+	})
 }
 
 func (r *GormRepository) CreateSession(ctx context.Context, session *domain.Session) error {
@@ -413,9 +524,6 @@ func (r *GormRepository) ClearSessions(ctx context.Context, accountID string) er
 			return err
 		}
 		runIDs := tx.Model(&RunRow{}).Select("id").Where("account_id = ?", accountID)
-		privateAssetIDs := tx.Model(&AssetRow{}).Select("id").Where(
-			"account_id = ? AND session_id <> '' AND id NOT IN (SELECT asset_id FROM studio_library_assets WHERE account_id = ?)", accountID, accountID,
-		)
 		if err := tx.Where("run_id IN (?)", runIDs).Delete(&CheckpointRow{}).Error; err != nil {
 			return err
 		}
@@ -444,16 +552,6 @@ func (r *GormRepository) ClearSessions(ctx context.Context, accountID string) er
 			return err
 		}
 		if err := tx.Where("account_id = ?", accountID).Delete(&FlowNodeRow{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("account_id = ? AND asset_id IN (?)", accountID, privateAssetIDs).Delete(&AssetVersionRow{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("account_id = ? AND id IN (?)", accountID, privateAssetIDs).Delete(&AssetRow{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Model(&AssetRow{}).Where("account_id = ? AND session_id <> ''", accountID).
-			Updates(map[string]any{"session_id": "", "source_run_id": ""}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("account_id = ?", accountID).Delete(&MessageRow{}).Error; err != nil {
@@ -1045,6 +1143,14 @@ func (r *GormRepository) CreateAsset(ctx context.Context, asset *domain.Asset) e
 			if err := tx.Create(assetVersionToRow(version)).Error; err != nil {
 				return translateCreateError(err)
 			}
+			if supportsPalette(version.MIMEType) {
+				if err := tx.Create(newPendingPaletteRow(version)).Error; err != nil {
+					return err
+				}
+			}
+			if err := tx.Where("key_hash = ? AND account_id = ?", blobIntentKeyHash(asset.AccountID, version.BlobKey), asset.AccountID).Delete(&BlobWriteIntentRow{}).Error; err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -1065,6 +1171,14 @@ func (r *GormRepository) AppendAssetVersion(ctx context.Context, assetID, accoun
 		}
 		if err := tx.Create(assetVersionToRow(version)).Error; err != nil {
 			return translateCreateError(err)
+		}
+		if supportsPalette(version.MIMEType) {
+			if err := tx.Create(newPendingPaletteRow(version)).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("key_hash = ? AND account_id = ?", blobIntentKeyHash(accountID, version.BlobKey), accountID).Delete(&BlobWriteIntentRow{}).Error; err != nil {
+			return err
 		}
 		return tx.Model(&AssetRow{}).Where("id = ? AND account_id = ?", assetID, accountID).
 			Updates(map[string]any{"current_version": version.Version, "updated_at": version.CreatedAt}).Error
@@ -1087,175 +1201,31 @@ func (r *GormRepository) GetAsset(ctx context.Context, accountID, assetID string
 	return asset, nil
 }
 
+func (r *GormRepository) GetAssetByCreationKey(ctx context.Context, accountID, creationKey string) (*domain.Asset, error) {
+	if strings.TrimSpace(creationKey) == "" {
+		return nil, fmt.Errorf("%w: empty creation key", domain.ErrInvalid)
+	}
+	var row AssetRow
+	if err := r.db.WithContext(ctx).Where("account_id = ? AND creation_key = ?", accountID, creationKey).First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	return r.GetAsset(ctx, accountID, row.ID)
+}
+
 func (r *GormRepository) ListSessionAssets(ctx context.Context, accountID, sessionID string, limit int) ([]*domain.Asset, error) {
 	var rows []AssetRow
-	err := r.db.WithContext(ctx).Where("account_id = ? AND session_id = ?", accountID, sessionID).
-		Order("created_at ASC, id ASC").Limit(normalizeLimit(limit)).Find(&rows).Error
+	err := r.db.WithContext(ctx).Table("studio_assets AS a").Select("a.*").
+		Joins("JOIN studio_session_asset_usages AS u ON u.asset_id = a.id AND u.account_id = a.account_id").
+		Where("a.account_id = ? AND u.session_id = ?", accountID, sessionID).
+		Group("a.id").Order("MIN(u.created_at) ASC, a.id ASC").
+		Limit(normalizeLimit(limit)).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
 	return r.assetsFromRows(ctx, rows)
-}
-
-func (r *GormRepository) SaveAssetToLibrary(ctx context.Context, accountID, assetID, categoryID string, savedAt time.Time) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := validateLibraryCategory(tx, accountID, categoryID); err != nil {
-			return err
-		}
-		var asset AssetRow
-		if err := tx.Where("id = ? AND account_id = ?", assetID, accountID).First(&asset).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return domain.ErrNotFound
-			}
-			return err
-		}
-		var version AssetVersionRow
-		if err := tx.Where("asset_id = ? AND account_id = ? AND version = ?", assetID, accountID, asset.CurrentVersion).First(&version).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return fmt.Errorf("%w: asset has no current version", domain.ErrInvalid)
-			}
-			return err
-		}
-		if err := resultError(tx.Model(&AssetRow{}).Where("id = ? AND account_id = ?", assetID, accountID).
-			Update("library_saved_at", savedAt.UTC())); err != nil {
-			return err
-		}
-		row := &LibraryAssetRow{AccountID: accountID, AssetID: assetID, AssetVersionID: version.ID, CategoryID: categoryID, CreatedAt: savedAt.UTC(), UpdatedAt: savedAt.UTC()}
-		return tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "account_id"}, {Name: "asset_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"asset_version_id", "category_id", "updated_at"}),
-		}).Create(row).Error
-	})
-}
-
-func (r *GormRepository) MoveLibraryAsset(ctx context.Context, accountID, assetID, categoryID string, movedAt time.Time) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := validateLibraryCategory(tx, accountID, categoryID); err != nil {
-			return err
-		}
-		result := tx.Model(&LibraryAssetRow{}).Where("account_id = ? AND asset_id = ?", accountID, assetID).
-			Updates(map[string]any{"category_id": categoryID, "updated_at": movedAt.UTC()})
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected == 0 {
-			return domain.ErrNotFound
-		}
-		return nil
-	})
-}
-
-func validateLibraryCategory(tx *gorm.DB, accountID, categoryID string) error {
-	if categoryID == "" {
-		return nil
-	}
-	var category LibraryCategoryRow
-	if err := tx.Where("account_id = ? AND id = ?", accountID, categoryID).First(&category).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrNotFound
-		}
-		return err
-	}
-	return nil
-}
-
-func (r *GormRepository) ListLibraryAssets(ctx context.Context, accountID string, query domain.LibraryAssetListQuery) (*domain.LibraryAssetPage, error) {
-	limit := normalizeLimit(query.Limit)
-	referenceQuery := r.db.WithContext(ctx).Table("studio_library_assets AS l").
-		Joins("JOIN studio_assets AS a ON a.id = l.asset_id AND a.account_id = l.account_id").
-		Where("l.account_id = ?", accountID)
-	if query.CategoryID != "" {
-		referenceQuery = referenceQuery.Where("l.category_id = ?", query.CategoryID)
-	}
-	if search := strings.TrimSpace(query.Search); search != "" {
-		pattern := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(strings.ToLower(search)) + "%"
-		referenceQuery = referenceQuery.Where("(LOWER(a.name) LIKE ? ESCAPE '\\' OR LOWER(a.kind) LIKE ? ESCAPE '\\' OR LOWER(a.origin) LIKE ? ESCAPE '\\')", pattern, pattern, pattern)
-	}
-	page := &domain.LibraryAssetPage{Assets: []*domain.Asset{}}
-	if err := referenceQuery.Count(&page.Total).Error; err != nil {
-		return nil, err
-	}
-	var references []LibraryAssetRow
-	if err := referenceQuery.Select("l.*").Order("l.updated_at DESC, l.asset_id DESC").Limit(limit).Offset(query.Offset).Find(&references).Error; err != nil {
-		return nil, err
-	}
-	if len(references) == 0 {
-		return page, nil
-	}
-	assetIDs := make([]string, 0, len(references))
-	for _, reference := range references {
-		assetIDs = append(assetIDs, reference.AssetID)
-	}
-	assetQuery := r.db.WithContext(ctx).Table("studio_assets AS a").
-		Select("a.*").
-		Where("a.account_id = ? AND a.id IN ?", accountID, assetIDs)
-	var rows []AssetRow
-	if err := assetQuery.Scan(&rows).Error; err != nil {
-		return nil, err
-	}
-	assets, err := r.assetsFromRows(ctx, rows)
-	if err != nil {
-		return nil, err
-	}
-	assetsByID := make(map[string]*domain.Asset, len(assets))
-	for _, asset := range assets {
-		assetsByID[asset.ID] = asset
-	}
-	ordered := make([]*domain.Asset, 0, len(references))
-	for _, reference := range references {
-		asset := assetsByID[reference.AssetID]
-		if asset == nil {
-			continue
-		}
-		if err := keepLibraryVersion(asset, reference.AssetVersionID); err != nil {
-			return nil, err
-		}
-		ordered = append(ordered, asset)
-	}
-	page.Assets = ordered
-	return page, nil
-}
-
-func keepLibraryVersion(asset *domain.Asset, versionID string) error {
-	if asset == nil || len(asset.Versions) == 0 {
-		return fmt.Errorf("%w: library asset has no versions", domain.ErrInvalid)
-	}
-	if versionID == "" {
-		// References created before version pinning retain the version that was
-		// current when this migration first reads them. Newly saved references
-		// always persist an explicit version ID.
-		versionID = asset.Versions[len(asset.Versions)-1].ID
-	}
-	for _, version := range asset.Versions {
-		if version.ID == versionID {
-			asset.Versions = []domain.AssetVersion{version}
-			asset.CurrentVersion = version.Version
-			return nil
-		}
-	}
-	return fmt.Errorf("%w: library asset references a missing version", domain.ErrInvalid)
-}
-
-func (r *GormRepository) CreateLibraryCategory(ctx context.Context, category *domain.LibraryCategory) error {
-	if category == nil {
-		return fmt.Errorf("%w: nil library category", domain.ErrInvalid)
-	}
-	return translateCreateError(r.db.WithContext(ctx).Create(&LibraryCategoryRow{
-		ID: category.ID, AccountID: category.AccountID, ParentID: category.ParentID, Name: category.Name,
-		CreatedAt: category.CreatedAt, UpdatedAt: category.UpdatedAt,
-	}).Error)
-}
-
-func (r *GormRepository) ListLibraryCategories(ctx context.Context, accountID string) ([]*domain.LibraryCategory, error) {
-	var rows []LibraryCategoryRow
-	if err := r.db.WithContext(ctx).Where("account_id = ?", accountID).Order("name ASC, id ASC").Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	out := make([]*domain.LibraryCategory, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, &domain.LibraryCategory{ID: row.ID, AccountID: row.AccountID, ParentID: row.ParentID, Name: row.Name, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
-	}
-	return out, nil
 }
 
 func (r *GormRepository) SaveFlowNode(ctx context.Context, node *domain.FlowNode) error {
@@ -1542,19 +1512,39 @@ func workflowExecutionFromRow(row WorkflowExecutionRow) *domain.WorkflowExecutio
 }
 
 func assetToRow(value *domain.Asset) *AssetRow {
-	return &AssetRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, Name: value.Name, Kind: string(value.Kind), Origin: string(value.Origin), SourceRunID: value.SourceRunID, CurrentVersion: value.CurrentVersion, LibrarySavedAt: value.LibrarySavedAt, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
+	row := &AssetRow{ID: value.ID, AccountID: value.AccountID, Name: value.Name, Kind: string(value.Kind), Origin: string(value.Origin), CurrentVersion: value.CurrentVersion, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
+	if value.CreationKey != "" {
+		row.CreationKey = &value.CreationKey
+	}
+	return row
 }
 
 func assetFromRow(row AssetRow) *domain.Asset {
-	return &domain.Asset{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, Name: row.Name, Kind: domain.AssetKind(row.Kind), Origin: domain.AssetOrigin(row.Origin), SourceRunID: row.SourceRunID, CurrentVersion: row.CurrentVersion, LibrarySavedAt: row.LibrarySavedAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	asset := &domain.Asset{ID: row.ID, AccountID: row.AccountID, Name: row.Name, Kind: domain.AssetKind(row.Kind), Origin: domain.AssetOrigin(row.Origin), CurrentVersion: row.CurrentVersion, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	if row.CreationKey != nil {
+		asset.CreationKey = *row.CreationKey
+	}
+	return asset
 }
 
 func assetVersionToRow(value domain.AssetVersion) *AssetVersionRow {
-	return &AssetVersionRow{ID: value.ID, AssetID: value.AssetID, AccountID: value.AccountID, Version: value.Version, MIMEType: value.MIMEType, BlobKey: value.BlobKey, SizeBytes: value.SizeBytes, Metadata: append([]byte(nil), value.Metadata...), CreatedAt: value.CreatedAt}
+	format := value.Format
+	if format == "" {
+		format = "unknown"
+	}
+	row := &AssetVersionRow{ID: value.ID, AssetID: value.AssetID, AccountID: value.AccountID, Version: value.Version, MIMEType: value.MIMEType, Format: format, WidthPx: value.WidthPx, HeightPx: value.HeightPx, SHA256: value.SHA256, ContentOrigin: value.ContentOrigin, SourceCreatedAt: value.SourceCreatedAt, SourceModifiedAt: value.SourceModifiedAt, BlobKey: value.BlobKey, SizeBytes: value.SizeBytes, Metadata: append([]byte(nil), value.Metadata...), CreatedAt: value.CreatedAt}
+	if value.OperationKey != "" {
+		row.OperationKey = &value.OperationKey
+	}
+	return row
 }
 
 func assetVersionFromRow(row AssetVersionRow) domain.AssetVersion {
-	return domain.AssetVersion{ID: row.ID, AssetID: row.AssetID, AccountID: row.AccountID, Version: row.Version, MIMEType: row.MIMEType, BlobKey: row.BlobKey, SizeBytes: row.SizeBytes, Metadata: append([]byte(nil), row.Metadata...), CreatedAt: row.CreatedAt}
+	version := domain.AssetVersion{ID: row.ID, AssetID: row.AssetID, AccountID: row.AccountID, Version: row.Version, MIMEType: row.MIMEType, Format: row.Format, WidthPx: row.WidthPx, HeightPx: row.HeightPx, SHA256: row.SHA256, ContentOrigin: row.ContentOrigin, SourceCreatedAt: row.SourceCreatedAt, SourceModifiedAt: row.SourceModifiedAt, BlobKey: row.BlobKey, SizeBytes: row.SizeBytes, Metadata: append([]byte(nil), row.Metadata...), CreatedAt: row.CreatedAt}
+	if row.OperationKey != nil {
+		version.OperationKey = *row.OperationKey
+	}
+	return version
 }
 
 func flowNodeToRow(value *domain.FlowNode) *FlowNodeRow {

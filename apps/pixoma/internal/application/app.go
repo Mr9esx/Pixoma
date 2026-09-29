@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -224,15 +225,12 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		DSN:           cfg.DBDSN,
 		MigrateEdges:  true,
 		Models:        applicationModels(),
-		BeforeMigrate: studiopersist.MigrateSessionProjectIDs,
+		BeforeMigrate: requireStudioAssetSchema,
 	})
 	if err != nil {
 		return err
 	}
 	defer func() { _ = cleanup() }()
-	if err := studiopersist.MigrateLibraryCategories(ctx, gdb); err != nil {
-		return err
-	}
 	if err := studiopersist.MigrateSkillVersions(ctx, gdb); err != nil {
 		return err
 	}
@@ -270,7 +268,46 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 		return err
 	}
 	caseRepo := casepersist.NewGormRepository(gdb)
+	for _, name := range []string{"ffmpeg", "ffprobe"} {
+		if _, err := exec.LookPath(name); err != nil {
+			return fmt.Errorf("Studio 资产调色盘需要 %s: %w", name, err)
+		}
+	}
 	studioRepo := studiopersist.NewGormRepository(gdb)
+	blobIntentWorker := &studioapp.BlobIntentWorker{Repo: studioRepo, Blob: blobStore}
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-runCtx.Done():
+				return
+			case <-ticker.C:
+				if err := blobIntentWorker.ProcessOnce(runCtx, 50); err != nil && !errors.Is(err, context.Canceled) {
+					slog.Error("清理 Studio 未引用文件失败", "error", err)
+				}
+			}
+		}
+	}()
+	paletteWorker := &studioapp.PaletteWorker{Repo: studioRepo, Blob: blobStore}
+	go func() {
+		process := func() {
+			if err := paletteWorker.ProcessOnce(runCtx, 4); err != nil && !errors.Is(err, context.Canceled) {
+				slog.Error("分析 Studio 资产调色盘失败", "error", err)
+			}
+		}
+		process()
+		ticker := time.NewTicker(3 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-runCtx.Done():
+				return
+			case <-ticker.C:
+				process()
+			}
+		}
+	}()
 	studioModelService := &studioapp.ModelConfigService{
 		Repo:          studioRepo,
 		EncryptionKey: encKey,
@@ -413,7 +450,13 @@ func run(ctx context.Context, sess *setupapi.Sessions, opts Options) error {
 	} else if recovered > 0 {
 		slog.Info("recovered studio runs", "count", recovered)
 	}
-	studioService := &studioapp.Service{Repo: studioRepo, Queue: studioRunner}
+	studioService := &studioapp.Service{
+		Repo: studioRepo, Queue: studioRunner,
+		Titles: studiomodelprovider.TitleGenerator{
+			ResolveModel: studioModelService.Resolve,
+			Client:       studiomodelprovider.NewOpenAICompatibleClient(nil),
+		},
+	}
 	studioApprovalService := &studioapp.ApprovalService{Repo: studioRepo, Queue: studioRunner, Checkpoints: studioRepo.Checkpoints()}
 	studioClarificationService := &studioapp.ClarificationService{Repo: studioRepo, Queue: studioRunner, Checkpoints: studioRepo.Checkpoints()}
 	menuRepo := mencardpersist.NewGormCardRepository(gdb)

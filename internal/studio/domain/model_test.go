@@ -156,7 +156,7 @@ func TestWorkflowInputCanBeSubmittedOrSkipped(t *testing.T) {
 
 func TestAssetVersionsAreAppendOnly(t *testing.T) {
 	now := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
-	asset, err := NewAsset("asset-1", "session-1", "account-1", "故事大纲.md", AssetDocument, AssetOriginAgent, now)
+	asset, err := NewAsset("asset-1", "account-1", "故事大纲.md", AssetDocument, AssetOriginAgent, now)
 	if err != nil {
 		t.Fatalf("NewAsset() error = %v", err)
 	}

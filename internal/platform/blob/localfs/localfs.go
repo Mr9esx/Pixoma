@@ -87,6 +87,26 @@ func (s *Store) Get(ctx context.Context, ref sharedkernel.BlobRef) (io.ReadClose
 	return os.Open(full)
 }
 
+func (s *Store) Delete(ctx context.Context, ref sharedkernel.BlobRef) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	rel, err := cleanKey(ref.Key)
+	if err != nil {
+		return err
+	}
+	root, err := os.OpenRoot(s.root)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	err = root.Remove(filepath.FromSlash(rel))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
 func cleanKey(key string) (string, error) {
 	key = strings.TrimSpace(key)
 	if key == "" {

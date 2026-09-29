@@ -6,6 +6,5 @@ export function originLabel(origin: StudioAsset['origin']) {
     agent: 'Agent 生成',
     model: '模型生成',
     workflow: '工作流产出',
-    library: '资产库引用',
   }[origin]
 }

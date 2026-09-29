@@ -15,7 +15,11 @@ import {
   updateStudioSkill,
   listStudioSessions,
   sendStudioMessage,
-  importStudioLibraryAsset,
+  studioLibraryAssetsPath,
+  studioLibraryDateBoundary,
+  studioLibraryTreePath,
+  studioLibraryGroupQuery,
+  referenceStudioAsset,
   updateStudioTextAsset,
 } from './studio'
 
@@ -24,6 +28,73 @@ afterEach(() => {
 })
 
 describe('Studio API', () => {
+  it('显式传递未归属项目，并组合资产筛选条件', () => {
+    expect(
+      studioLibraryAssetsPath({
+        projectId: '',
+        search: '角色',
+        kind: 'image',
+        format: 'png',
+        categoryId: 'category-1',
+        sessionId: 'session-1',
+        rating: 4,
+        tagIds: ['tag-1', 'tag-2'],
+        cursor: 'next',
+        limit: 50,
+      })
+    ).toBe(
+      '/api/v1/studio/library/assets?project_id=&q=%E8%A7%92%E8%89%B2&kind=image&format=png&category_id=category-1&session_id=session-1&rating=4&tag_ids=tag-1%2Ctag-2&limit=50&cursor=next'
+    )
+  })
+
+  it('按项目和组织方式读取文件树', () => {
+    expect(
+      studioLibraryTreePath({ projectId: 'project-1', mode: 'session' })
+    ).toBe('/api/v1/studio/library/tree?project_id=project-1&mode=session')
+    expect(
+      studioLibraryTreePath({
+        projectId: 'project-1',
+        mode: 'category',
+        parentId: 'category-1',
+      })
+    ).toBe(
+      '/api/v1/studio/library/tree?project_id=project-1&mode=category&parent_id=category-1'
+    )
+  })
+
+  it('组合尺寸、大小、添加日期和重复文件筛选', () => {
+    expect(studioLibraryAssetsPath({
+      projectId: 'project-1',
+      widthMin: 100,
+      widthMax: 2000,
+      heightMin: 100,
+      heightMax: 2000,
+      sizeMin: 1024,
+      sizeMax: 1048576,
+      addedFrom: '2026-09-01T16:00:00.000Z',
+      addedTo: '2026-09-30T16:00:00.000Z',
+      duplicates: true,
+    })).toBe('/api/v1/studio/library/assets?project_id=project-1&width_min=100&width_max=2000&height_min=100&height_max=2000&size_min=1024&size_max=1048576&added_from=2026-09-01T16%3A00%3A00.000Z&added_to=2026-09-30T16%3A00%3A00.000Z&duplicates=true&limit=50')
+  })
+
+  it('按本地日期换算添加日期范围的两端', () => {
+    expect(studioLibraryDateBoundary('2026-09-28')).toBe(new Date(2026, 8, 28).toISOString())
+    expect(studioLibraryDateBoundary('2026-09-28', true)).toBe(new Date(2026, 8, 29).toISOString())
+  })
+
+  it('把文件树分组转换为资产筛选条件', () => {
+    expect(studioLibraryGroupQuery('session', 'session-1')).toEqual({
+      sessionId: 'session-1',
+    })
+    expect(studioLibraryGroupQuery('format', 'png')).toEqual({
+      format: 'png',
+    })
+    expect(studioLibraryGroupQuery('tag', 'tag-1')).toEqual({
+      tagIds: ['tag-1'],
+    })
+    expect(studioLibraryGroupQuery('rating', '0')).toEqual({ rating: 0 })
+  })
+
   it('lists Studio sessions with pagination', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify([{ id: 'session-1', title: '雨夜侦探' }]), {
@@ -137,12 +208,13 @@ describe('Studio API', () => {
     )
     const init = fetchMock.mock.calls[0][1] as RequestInit
     expect(init.method).toBe('PATCH')
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(JSON.parse(String(init.body))).toMatchObject({
       content: '# 雨夜侦探\n补充旧案线索。',
     })
+    expect(JSON.parse(String(init.body)).request_id).toEqual(expect.any(String))
   })
 
-  it('imports a pinned library asset into the active session', async () => {
+  it('records a selected asset version in the active session', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 'asset-imported' }), {
         status: 201,
@@ -151,16 +223,24 @@ describe('Studio API', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    await importStudioLibraryAsset('session-1', 'asset-library', 'version-2')
+    await referenceStudioAsset(
+      'session-1',
+      'asset-library',
+      'version-2',
+      'request-1',
+      'project-asset-1'
+    )
 
     expect(fetchMock.mock.calls[0][0]).toBe(
-      'http://127.0.0.1:8081/api/v1/studio/sessions/session-1/assets/import'
+      'http://127.0.0.1:8081/api/v1/studio/sessions/session-1/assets/references'
     )
     const init = fetchMock.mock.calls[0][1] as RequestInit
     expect(init.method).toBe('POST')
     expect(JSON.parse(String(init.body))).toEqual({
       asset_id: 'asset-library',
       asset_version_id: 'version-2',
+      request_id: 'request-1',
+      source_project_asset_id: 'project-asset-1',
     })
   })
 

@@ -153,6 +153,27 @@ func (s *Store) Get(ctx context.Context, ref sharedkernel.BlobRef) (io.ReadClose
 	return out.Body, nil
 }
 
+func (s *Store) Delete(ctx context.Context, ref sharedkernel.BlobRef) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	rel, err := cleanKey(ref.Key)
+	if err != nil {
+		return err
+	}
+	bucket := ref.Bucket
+	if bucket == "" {
+		bucket = s.bucket
+	}
+	if _, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(rel),
+	}); err != nil {
+		return fmt.Errorf("blob/s3: delete %s: %w", rel, err)
+	}
+	return nil
+}
+
 func cleanKey(key string) (string, error) {
 	key = strings.TrimSpace(key)
 	if key == "" {

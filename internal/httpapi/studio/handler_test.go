@@ -1511,13 +1511,35 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	if oldContent.Code != http.StatusOK || !strings.Contains(oldContent.Body.String(), "雨夜侦探。") || strings.Contains(oldContent.Body.String(), "旧案卷宗") {
 		t.Fatalf("old asset content status=%d body=%s", oldContent.Code, oldContent.Body.String())
 	}
-	saved := request(t, router, http.MethodPost, "/assets/"+asset.ID+"/save-to-library", nil, "account-a")
-	if saved.Code != http.StatusOK || !strings.Contains(saved.Body.String(), `"data":null`) {
-		t.Fatalf("save asset status=%d body=%s", saved.Code, saved.Body.String())
+	listedBeforeUpdate := request(t, router, http.MethodGet, "/library/assets?project_id=", nil, "account-a")
+	var firstPage struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
 	}
-	imported := request(t, router, http.MethodPost, "/sessions/"+turn.Session.ID+"/assets/import", map[string]any{"asset_id": asset.ID, "asset_version_id": updated.Versions[1].ID}, "account-a")
-	if imported.Code != http.StatusCreated || !strings.Contains(imported.Body.String(), `"origin":"library"`) || !strings.Contains(imported.Body.String(), `"current_version":1`) {
-		t.Fatalf("imported asset status=%d body=%s", imported.Code, imported.Body.String())
+	if listedBeforeUpdate.Code != http.StatusOK || json.Unmarshal(apitest.DataBytes(listedBeforeUpdate), &firstPage) != nil || len(firstPage.Items) == 0 {
+		t.Fatalf("automatic library entry = status=%d body=%s", listedBeforeUpdate.Code, listedBeforeUpdate.Body.String())
+	}
+	projectAssetID := ""
+	for _, item := range firstPage.Items {
+		entry, err := handler.Repo.GetProjectAsset(context.Background(), "account-a", item.ID)
+		if err == nil && entry.AssetID == asset.ID {
+			projectAssetID = item.ID
+			break
+		}
+	}
+	if projectAssetID == "" {
+		t.Fatalf("asset %s missing from project library", asset.ID)
+	}
+	referenced := request(t, router, http.MethodPost, "/sessions/"+turn.Session.ID+"/assets/references", map[string]any{
+		"asset_id": asset.ID, "asset_version_id": updated.Versions[1].ID, "request_id": uuid.NewString(),
+	}, "account-a")
+	if referenced.Code != http.StatusCreated || !strings.Contains(referenced.Body.String(), `"id":"`+asset.ID+`"`) {
+		t.Fatalf("reference asset status=%d body=%s", referenced.Code, referenced.Body.String())
+	}
+	pinned := request(t, router, http.MethodPatch, "/library/assets/"+projectAssetID+"/version", map[string]any{"asset_version_id": updated.Versions[1].ID}, "account-a")
+	if pinned.Code != http.StatusOK {
+		t.Fatalf("pin version status=%d body=%s", pinned.Code, pinned.Body.String())
 	}
 	thirdVersion := request(t, router, http.MethodPatch, "/assets/"+asset.ID+"/text", map[string]any{
 		"content": "# 主角\n雨夜侦探，携带旧案卷宗，并决定重查旧案。",
@@ -1525,28 +1547,29 @@ func TestStudioManualAssetAndFlowPositionAPIs(t *testing.T) {
 	if thirdVersion.Code != http.StatusOK || !strings.Contains(thirdVersion.Body.String(), `"current_version":3`) {
 		t.Fatalf("PATCH third asset version status=%d body=%s", thirdVersion.Code, thirdVersion.Body.String())
 	}
-	library := request(t, router, http.MethodGet, "/library/assets", nil, "account-a")
+	library := request(t, router, http.MethodGet, "/library/assets?project_id=", nil, "account-a")
 	var libraryAssets struct {
-		Total  int `json:"total"`
-		Assets []struct {
-			CurrentVersion int `json:"current_version"`
-			Versions       []struct {
+		Total int `json:"total"`
+		Items []struct {
+			Version struct {
+				ID         string `json:"id"`
 				ContentURL string `json:"content_url"`
-			} `json:"versions"`
-		} `json:"assets"`
+			} `json:"version"`
+		} `json:"items"`
 	}
-	if library.Code != http.StatusOK || json.Unmarshal(apitest.DataBytes(library), &libraryAssets) != nil || libraryAssets.Total != 1 || len(libraryAssets.Assets) != 1 || libraryAssets.Assets[0].CurrentVersion != 2 || len(libraryAssets.Assets[0].Versions) != 1 {
+	if library.Code != http.StatusOK || json.Unmarshal(apitest.DataBytes(library), &libraryAssets) != nil || libraryAssets.Total < 1 || len(libraryAssets.Items) == 0 {
 		t.Fatalf("library asset = status=%d body=%s", library.Code, library.Body.String())
 	}
-	nextPage := request(t, router, http.MethodGet, "/library/assets?limit=50&offset=50", nil, "account-a")
-	var nextLibraryAssets struct {
-		Total  int   `json:"total"`
-		Assets []any `json:"assets"`
+	var pinnedURL string
+	for _, item := range libraryAssets.Items {
+		if item.Version.ID == updated.Versions[1].ID {
+			pinnedURL = item.Version.ContentURL
+		}
 	}
-	if nextPage.Code != http.StatusOK || json.Unmarshal(apitest.DataBytes(nextPage), &nextLibraryAssets) != nil || nextLibraryAssets.Total != 1 || len(nextLibraryAssets.Assets) != 0 {
-		t.Fatalf("next library page = status=%d body=%s", nextPage.Code, nextPage.Body.String())
+	if pinnedURL == "" {
+		t.Fatalf("fixed version changed: %s", library.Body.String())
 	}
-	libraryContent := request(t, router, http.MethodGet, strings.TrimPrefix(libraryAssets.Assets[0].Versions[0].ContentURL, "/api/v1/studio"), nil, "account-a")
+	libraryContent := request(t, router, http.MethodGet, strings.TrimPrefix(pinnedURL, "/api/v1/studio"), nil, "account-a")
 	if libraryContent.Code != http.StatusOK || !strings.Contains(libraryContent.Body.String(), "旧案卷宗") || strings.Contains(libraryContent.Body.String(), "重查旧案") {
 		t.Fatalf("library content status=%d body=%s", libraryContent.Code, libraryContent.Body.String())
 	}
@@ -1649,55 +1672,65 @@ func TestStudioLibraryMoveKeepsPinnedVersionAndRejectsForeignCategory(t *testing
 	if foreignMetadata.Code != http.StatusNotFound {
 		t.Fatalf("foreign asset metadata status=%d body=%s", foreignMetadata.Code, foreignMetadata.Body.String())
 	}
-	saved := request(t, router, http.MethodPost, "/assets/"+asset.ID+"/save-to-library", nil, "account-a")
-	if saved.Code != http.StatusOK {
-		t.Fatalf("save status=%d body=%s", saved.Code, saved.Body.String())
+	page, err := handler.Repo.ListProjectAssets(context.Background(), "account-a", domain.ProjectAssetListQuery{ProjectID: ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectAssetID := ""
+	for _, item := range page.Items {
+		if item.AssetID == asset.ID {
+			projectAssetID = item.ID
+			break
+		}
+	}
+	if projectAssetID == "" {
+		t.Fatalf("asset %s missing from project library", asset.ID)
 	}
 	updated := request(t, router, http.MethodPatch, "/assets/"+asset.ID+"/text", map[string]any{"content": "# 第二版"}, "account-a")
 	if updated.Code != http.StatusOK {
 		t.Fatalf("update status=%d body=%s", updated.Code, updated.Body.String())
 	}
-	foreignCategory := request(t, router, http.MethodPost, "/library/categories", map[string]any{"name": "他人分类"}, "account-b")
+	foreignCategory := request(t, router, http.MethodPost, "/library/categories", map[string]any{"project_id": "", "name": "他人分类"}, "account-b")
 	var foreign struct {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(apitest.DataBytes(foreignCategory), &foreign); err != nil {
 		t.Fatal(err)
 	}
-	denied := request(t, router, http.MethodPatch, "/library/assets/"+asset.ID+"/category", map[string]any{"category_id": foreign.ID}, "account-a")
+	denied := request(t, router, http.MethodPatch, "/library/assets/"+projectAssetID, map[string]any{"category_id": foreign.ID}, "account-a")
 	if denied.Code != http.StatusNotFound {
 		t.Fatalf("foreign category status=%d body=%s", denied.Code, denied.Body.String())
 	}
-	category := request(t, router, http.MethodPost, "/library/categories", map[string]any{"name": "故事"}, "account-a")
+	category := request(t, router, http.MethodPost, "/library/categories", map[string]any{"project_id": "", "name": "故事"}, "account-a")
 	var own struct {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(apitest.DataBytes(category), &own); err != nil {
 		t.Fatal(err)
 	}
-	categoriesResponse := request(t, router, http.MethodGet, "/library/categories", nil, "account-a")
+	categoriesResponse := request(t, router, http.MethodGet, "/library/categories?project_id=", nil, "account-a")
 	var categories []struct {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(apitest.DataBytes(categoriesResponse), &categories); err != nil || len(categories) != 1 || categories[0].ID != own.ID {
 		t.Fatalf("categories = status=%d body=%s error=%v", categoriesResponse.Code, categoriesResponse.Body.String(), err)
 	}
-	moved := request(t, router, http.MethodPatch, "/library/assets/"+asset.ID+"/category", map[string]any{"category_id": own.ID}, "account-a")
+	moved := request(t, router, http.MethodPatch, "/library/assets/"+projectAssetID, map[string]any{"category_id": own.ID}, "account-a")
 	if moved.Code != http.StatusOK {
 		t.Fatalf("move status=%d body=%s", moved.Code, moved.Body.String())
 	}
-	listed := request(t, router, http.MethodGet, "/library/assets?category_id="+own.ID, nil, "account-a")
+	listed := request(t, router, http.MethodGet, "/library/assets?project_id=&category_id="+own.ID, nil, "account-a")
 	var items struct {
-		Assets []struct {
-			Versions []struct {
+		Items []struct {
+			Version struct {
 				ID string `json:"id"`
-			} `json:"versions"`
-		} `json:"assets"`
+			} `json:"version"`
+		} `json:"items"`
 	}
 	if err := json.Unmarshal(apitest.DataBytes(listed), &items); err != nil {
 		t.Fatal(err)
 	}
-	if len(items.Assets) != 1 || len(items.Assets[0].Versions) != 1 || items.Assets[0].Versions[0].ID != asset.Versions[0].ID {
+	if len(items.Items) != 1 || items.Items[0].Version.ID != asset.Versions[0].ID {
 		t.Fatalf("moved library version changed: %s", listed.Body.String())
 	}
 }

@@ -51,7 +51,7 @@ type staticTitleGenerator struct {
 	title string
 }
 
-func (g staticTitleGenerator) GenerateTitle(context.Context, string) (string, error) {
+func (g staticTitleGenerator) GenerateTitle(context.Context, string, string, string) (string, error) {
 	return g.title, nil
 }
 

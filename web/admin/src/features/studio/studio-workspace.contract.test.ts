@@ -376,29 +376,21 @@ describe('Studio production workspace contract', () => {
     expect(reasoning).toContain('animated={isStreaming ? true : undefined}')
   })
 
-  it('renders AG-UI run errors in the conversation instead of dropping them', () => {
-    const source = read('./studio-chat.tsx')
-    expect(source).toContain('onError: (error) => setRunError(error.message)')
-    expect(source).toContain('runError')
-    expect(source).toContain("role='alert'")
-  })
-
-  it('lets the composer use both Session assets and reusable library assets', () => {
+  it('reads project assets and records the selected version in the Session', () => {
     const source = read('./studio-chat.tsx')
     expect(source).toContain('listStudioLibraryAssets')
-    expect(source).toContain('当前会话')
-    expect(source).toContain('资产库')
-    expect(source).toContain('new Map<string, StudioAsset>')
+    expect(source).toContain('listStudioLibraryProjects')
+    expect(source).toContain('onReferenceAsset')
+    expect(source).toContain('sourceProjectAssetId: item.id')
   })
 
-  it('lets a Session asset choose its library category before saving', () => {
+  it('shows Session assets without a manual library save action', () => {
     const assets = read('./studio-assets.tsx')
     const workspace = read('./studio-workspace.tsx')
 
-    expect(assets).toContain('listStudioLibraryCategories')
-    expect(assets).toContain('SaveAssetToLibraryDialog')
-    expect(assets).toContain('选择资产库分类')
-    expect(workspace).toContain('saveAsset.mutateAsync')
+    expect(assets).toContain('asset.usages')
+    expect(assets).not.toContain('SaveAssetToLibraryDialog')
+    expect(workspace).toContain('referenceStudioAsset')
   })
 
   it('edits Session documents by appending an asset version', () => {

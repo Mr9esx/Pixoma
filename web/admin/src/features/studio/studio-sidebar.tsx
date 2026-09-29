@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner'
 import {
   deleteStudioProject,
+  listStudioLibraryProjects,
   listStudioProjects,
   listStudioSessions,
   moveStudioSessionToProject,
@@ -189,6 +190,25 @@ export function StudioSidebar({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<StudioProject>()
   const [deletingProject, setDeletingProject] = useState<StudioProject>()
+  const deleteCounts = useQuery({
+    queryKey: ['studio', 'project-delete-counts', deletingProject?.id],
+    queryFn: async () => {
+      const projectId = deletingProject!.id
+      const libraryProjects = await listStudioLibraryProjects()
+      const project = libraryProjects.find((item) => item.id === projectId)
+      if (!project) throw new Error('项目资产数量读取失败')
+      let sessionCount = 0
+      for (;;) {
+        const page = await listStudioSessions({ project_id: projectId, limit: 100, offset: sessionCount })
+        sessionCount += page.length
+        if (page.length < 100) break
+      }
+      return { assetCount: project.asset_count, sessionCount }
+    },
+    enabled: Boolean(deletingProject),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
   const removeProject = useMutation({
     mutationFn: (id: string) => deleteStudioProject(id),
     onSuccess: async () => {
@@ -196,6 +216,7 @@ export function StudioSidebar({
       await queryClient.invalidateQueries({ queryKey: ['studio', 'projects'] })
       await queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
       await queryClient.invalidateQueries({ queryKey: ['studio', 'session'] })
+      await queryClient.invalidateQueries({ queryKey: ['studio', 'library'] })
     },
   })
   const moveSession = useMutation({
@@ -500,9 +521,10 @@ export function StudioSidebar({
               删除项目「{deletingProject?.name}」？
             </AlertDialogTitle>
             <AlertDialogDescription>
-              项目内的对话会移至最近对话。
+              {deleteCounts.isPending || deleteCounts.isFetching ? '正在读取项目数量…' : deleteCounts.isError ? '项目数量读取失败' : `项目内有 ${deleteCounts.data.assetCount} 项资产、${deleteCounts.data.sessionCount} 个对话。删除后将移至未归属项目。`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteCounts.isError ? <Button variant='outline' onClick={() => void deleteCounts.refetch()}>重试读取数量</Button> : null}
           {removeProject.isError ? (
             <p role='alert' className='text-sm text-destructive'>
               {removeProject.error.message}
@@ -511,7 +533,7 @@ export function StudioSidebar({
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
-              disabled={removeProject.isPending}
+              disabled={removeProject.isPending || deleteCounts.isPending || deleteCounts.isFetching || deleteCounts.isError}
               onClick={(event) => {
                 event.preventDefault()
                 if (deletingProject) removeProject.mutate(deletingProject.id)

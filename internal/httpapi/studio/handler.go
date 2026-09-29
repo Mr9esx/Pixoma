@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -76,12 +75,31 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/assets/text", h.createTextAsset)
 	r.Patch("/assets/{assetID}/text", h.updateTextAsset)
 	r.Post("/assets/upload", h.uploadAsset)
-	r.Post("/assets/{assetID}/save-to-library", h.saveAssetToLibrary)
-	r.Patch("/library/assets/{assetID}/category", h.moveLibraryAsset)
-	r.Post("/sessions/{sessionID}/assets/import", h.importLibraryAsset)
-	r.Get("/library/assets", h.listLibraryAssets)
-	r.Get("/library/categories", h.listLibraryCategories)
-	r.Post("/library/categories", h.createLibraryCategory)
+	r.Post("/assets/{assetID}/versions/{versionID}/palette/retry", h.retryAssetPalette)
+	r.Post("/sessions/{sessionID}/assets/references", h.referenceSessionAsset)
+	r.Get("/sessions/{sessionID}/assets", h.listSessionAssetViews)
+	r.Get("/library/projects", h.listLibraryProjects)
+	r.Get("/library/tree", h.listLibraryTree)
+	r.Get("/library/assets", h.listProjectAssets)
+	r.Post("/library/assets/batch", h.batchProjectAssets)
+	r.Post("/library/assets/export", h.exportProjectAssets)
+	r.Get("/library/assets/{projectAssetID}", h.getProjectAsset)
+	r.Get("/library/assets/{projectAssetID}/duplicates", h.listDuplicateProjectAssets)
+	r.Patch("/library/assets/{projectAssetID}", h.patchProjectAsset)
+	r.Delete("/library/assets/{projectAssetID}", h.deleteProjectAsset)
+	r.Patch("/library/assets/{projectAssetID}/version", h.patchProjectAssetVersion)
+	r.Post("/library/assets/{projectAssetID}/projects", h.copyProjectAsset)
+	r.Put("/library/assets/{projectAssetID}/tags", h.putProjectAssetTags)
+	r.Get("/library/categories", h.listProjectCategories)
+	r.Post("/library/categories", h.createProjectCategory)
+	r.Patch("/library/categories/{categoryID}", h.patchProjectCategory)
+	r.Delete("/library/categories/{categoryID}", h.deleteProjectCategory)
+	r.Get("/library/formats", h.listLibraryFormats)
+	r.Get("/library/tags", h.listLibraryTags)
+	r.Post("/library/tags", h.createLibraryTag)
+	r.Patch("/library/tags/{tagID}", h.patchLibraryTag)
+	r.Get("/library/preferences", h.getLibraryPreferences)
+	r.Put("/library/preferences", h.putLibraryPreferences)
 	r.Get("/models", h.listModels)
 	r.Post("/models", h.createModel)
 	r.Post("/models/test", h.testModelConfig)
@@ -118,13 +136,14 @@ func (h *Handler) createTextAsset(w http.ResponseWriter, r *http.Request) {
 		SessionID string `json:"session_id"`
 		Name      string `json:"name"`
 		Content   string `json:"content"`
+		RequestID string `json:"request_id"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	asset, err := h.Service.CreateManualTextAsset(r.Context(), studioapp.CreateManualTextAssetInput{
-		AccountID: accountID, SessionID: body.SessionID, Name: body.Name, Content: body.Content,
+		AccountID: accountID, SessionID: body.SessionID, Name: body.Name, Content: body.Content, RequestID: body.RequestID,
 	}, h.Blob)
 	if err != nil {
 		failFromError(w, err)
@@ -143,14 +162,15 @@ func (h *Handler) updateTextAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Content string `json:"content"`
+		Content   string `json:"content"`
+		RequestID string `json:"request_id"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
 		return
 	}
 	asset, err := h.Service.UpdateManualTextAsset(r.Context(), studioapp.UpdateManualTextAssetInput{
-		AccountID: accountID, AssetID: chi.URLParam(r, "assetID"), Content: body.Content,
+		AccountID: accountID, AssetID: chi.URLParam(r, "assetID"), Content: body.Content, RequestID: body.RequestID,
 	}, h.Blob)
 	if err != nil {
 		failFromError(w, err)
@@ -178,15 +198,42 @@ func (h *Handler) uploadAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+	var modifiedAt *time.Time
+	if raw := strings.TrimSpace(r.FormValue("source_modified_at")); raw != "" {
+		value, parseErr := time.Parse(time.RFC3339Nano, raw)
+		if parseErr != nil {
+			response.Fail(w, apierr.ErrStudioInvalidBody, "文件修改时间格式不正确")
+			return
+		}
+		modifiedAt = &value
+	}
+	sessionID := strings.TrimSpace(r.FormValue("session_id"))
+	projectID := strings.TrimSpace(r.FormValue("project_id"))
 	asset, err := h.Service.UploadAsset(r.Context(), studioapp.UploadAssetInput{
-		AccountID: accountID, SessionID: r.FormValue("session_id"), Name: header.Filename,
-		MIMEType: header.Header.Get("Content-Type"), Content: file,
+		AccountID: accountID, SessionID: sessionID, ProjectID: projectID, RequestID: r.FormValue("request_id"), Name: header.Filename,
+		MIMEType: header.Header.Get("Content-Type"), Content: file, SourceModifiedAt: modifiedAt,
 	}, h.Blob)
 	if err != nil {
 		failFromError(w, err)
 		return
 	}
-	response.OKStatus(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
+	if sessionID != "" {
+		session, err := h.Repo.GetSession(r.Context(), accountID, sessionID)
+		if err != nil {
+			failFromError(w, err)
+			return
+		}
+		projectID = session.ProjectID
+	}
+	placement, err := h.Repo.GetProjectAssetByAsset(r.Context(), accountID, projectID, asset.ID)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
+	response.OKStatus(w, http.StatusCreated, struct {
+		assetView
+		ProjectAssetID string `json:"project_asset_id"`
+	}{assetsToViews([]*domain.Asset{asset})[0], placement.ID})
 }
 
 func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
@@ -339,25 +386,30 @@ type workflowExecutionView struct {
 }
 
 type assetVersionView struct {
-	ID         string          `json:"id"`
-	Version    int             `json:"version"`
-	MIMEType   string          `json:"mime_type"`
-	SizeBytes  int64           `json:"size_bytes"`
-	Metadata   json.RawMessage `json:"metadata,omitempty"`
-	ContentURL string          `json:"content_url"`
-	CreatedAt  time.Time       `json:"created_at"`
+	ID               string            `json:"id"`
+	Version          int               `json:"version"`
+	MIMEType         string            `json:"mime_type"`
+	SizeBytes        int64             `json:"size_bytes"`
+	Metadata         json.RawMessage   `json:"metadata,omitempty"`
+	ContentURL       string            `json:"content_url"`
+	CreatedAt        time.Time         `json:"created_at"`
+	Format           string            `json:"format"`
+	WidthPx          *int              `json:"width_px,omitempty"`
+	HeightPx         *int              `json:"height_px,omitempty"`
+	SourceCreatedAt  *time.Time        `json:"source_created_at,omitempty"`
+	SourceModifiedAt *time.Time        `json:"source_modified_at,omitempty"`
+	ContentOrigin    string            `json:"content_origin,omitempty"`
+	Palette          *assetPaletteView `json:"palette,omitempty"`
 }
 
 type assetView struct {
 	ID             string             `json:"id"`
-	SessionID      string             `json:"session_id"`
 	Name           string             `json:"name"`
 	Kind           domain.AssetKind   `json:"kind"`
 	Origin         domain.AssetOrigin `json:"origin"`
-	SourceRunID    string             `json:"source_run_id,omitempty"`
 	CurrentVersion int                `json:"current_version"`
-	SavedToLibrary bool               `json:"saved_to_library"`
 	Versions       []assetVersionView `json:"versions"`
+	Usages         []sessionUsageView `json:"usages,omitempty"`
 	CreatedAt      time.Time          `json:"created_at"`
 	UpdatedAt      time.Time          `json:"updated_at"`
 }
@@ -395,14 +447,6 @@ type eventView struct {
 	Type      string          `json:"type"`
 	Payload   json.RawMessage `json:"payload"`
 	CreatedAt time.Time       `json:"created_at"`
-}
-
-type libraryCategoryView struct {
-	ID        string    `json:"id"`
-	ParentID  string    `json:"parent_id,omitempty"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
@@ -656,7 +700,7 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		}
 		workflowViews[i].TaskStatus = task.Status
 	}
-	assets, err := h.Repo.ListSessionAssets(r.Context(), accountID, sessionID, 200)
+	assets, err := h.sessionAssetViews(r.Context(), accountID, sessionID)
 	if err != nil {
 		failFromError(w, err)
 		return
@@ -681,7 +725,7 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		"messages":               messagesToViews(transcriptData.Messages),
 		"transcript":             transcript,
 		"workflow_executions":    workflowViews,
-		"assets":                 assetsToViews(assets),
+		"assets":                 assets,
 		"flow": map[string]any{
 			"nodes": flowNodesToViews(nodes),
 			"edges": flowEdgesToViews(edges),
@@ -972,129 +1016,9 @@ func (h *Handler) assetContent(w http.ResponseWriter, r *http.Request) {
 	}
 	defer reader.Close()
 	w.Header().Set("Content-Type", version.MIMEType)
+	w.Header().Set("Content-Security-Policy", "sandbox")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	_, _ = io.Copy(w, reader)
-}
-
-func (h *Handler) saveAssetToLibrary(w http.ResponseWriter, r *http.Request) {
-	accountID, ok := accountID(w, r)
-	if !ok {
-		return
-	}
-	var body struct {
-		CategoryID string `json:"category_id"`
-	}
-	if r.ContentLength > 0 {
-		if err := decodeJSON(r, &body); err != nil {
-			response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
-			return
-		}
-	}
-	if err := h.Repo.SaveAssetToLibrary(r.Context(), accountID, chi.URLParam(r, "assetID"), body.CategoryID, time.Now().UTC()); err != nil {
-		failFromError(w, err)
-		return
-	}
-	response.OK(w, nil)
-}
-
-func (h *Handler) moveLibraryAsset(w http.ResponseWriter, r *http.Request) {
-	accountID, ok := accountID(w, r)
-	if !ok {
-		return
-	}
-	var body struct {
-		CategoryID string `json:"category_id"`
-	}
-	if err := decodeJSON(r, &body); err != nil {
-		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
-		return
-	}
-	if err := h.Repo.MoveLibraryAsset(r.Context(), accountID, chi.URLParam(r, "assetID"), body.CategoryID, time.Now().UTC()); err != nil {
-		failFromError(w, err)
-		return
-	}
-	response.OK(w, nil)
-}
-
-func (h *Handler) importLibraryAsset(w http.ResponseWriter, r *http.Request) {
-	accountID, ok := accountID(w, r)
-	if !ok {
-		return
-	}
-	var body struct {
-		AssetID        string `json:"asset_id"`
-		AssetVersionID string `json:"asset_version_id"`
-	}
-	if err := decodeJSON(r, &body); err != nil {
-		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
-		return
-	}
-	asset, err := h.Service.ImportLibraryAsset(r.Context(), studioapp.ImportLibraryAssetInput{AccountID: accountID, SessionID: chi.URLParam(r, "sessionID"), SourceAssetID: body.AssetID, SourceVersionID: body.AssetVersionID})
-	if err != nil {
-		failFromError(w, err)
-		return
-	}
-	response.OKStatus(w, http.StatusCreated, assetsToViews([]*domain.Asset{asset})[0])
-}
-
-func (h *Handler) listLibraryAssets(w http.ResponseWriter, r *http.Request) {
-	accountID, ok := accountID(w, r)
-	if !ok {
-		return
-	}
-	query := domain.LibraryAssetListQuery{
-		CategoryID: r.URL.Query().Get("category_id"),
-		Search:     r.URL.Query().Get("q"),
-		Limit:      queryInt(r, "limit", 50),
-		Offset:     queryInt(r, "offset", 0),
-	}
-	page, err := h.Repo.ListLibraryAssets(r.Context(), accountID, query)
-	if err != nil {
-		failFromError(w, err)
-		return
-	}
-	response.OKStatus(w, http.StatusOK, map[string]any{
-		"assets": assetsToViews(page.Assets),
-		"total":  page.Total,
-	})
-}
-
-func (h *Handler) listLibraryCategories(w http.ResponseWriter, r *http.Request) {
-	accountID, ok := accountID(w, r)
-	if !ok {
-		return
-	}
-	categories, err := h.Service.ListLibraryCategories(r.Context(), accountID)
-	if err != nil {
-		failFromError(w, err)
-		return
-	}
-	out := make([]libraryCategoryView, 0, len(categories))
-	for _, category := range categories {
-		out = append(out, libraryCategoryView{ID: category.ID, ParentID: category.ParentID, Name: category.Name, CreatedAt: category.CreatedAt, UpdatedAt: category.UpdatedAt})
-	}
-	response.OKStatus(w, http.StatusOK, out)
-}
-
-func (h *Handler) createLibraryCategory(w http.ResponseWriter, r *http.Request) {
-	accountID, ok := accountID(w, r)
-	if !ok {
-		return
-	}
-	var body struct {
-		ParentID string `json:"parent_id"`
-		Name     string `json:"name"`
-	}
-	if err := decodeJSON(r, &body); err != nil {
-		response.Fail(w, apierr.ErrStudioStreamAGUIInvalidJSON, "请求内容格式不正确")
-		return
-	}
-	category, err := h.Service.CreateLibraryCategory(r.Context(), studioapp.CreateLibraryCategoryInput{AccountID: accountID, ParentID: body.ParentID, Name: body.Name})
-	if err != nil {
-		failFromError(w, err)
-		return
-	}
-	response.OKStatus(w, http.StatusCreated, libraryCategoryView{ID: category.ID, ParentID: category.ParentID, Name: category.Name, CreatedAt: category.CreatedAt, UpdatedAt: category.UpdatedAt})
 }
 
 func (h *Handler) listModels(w http.ResponseWriter, r *http.Request) {
@@ -1602,9 +1526,9 @@ func assetsToViews(assets []*domain.Asset) []assetView {
 	for _, asset := range assets {
 		versions := make([]assetVersionView, 0, len(asset.Versions))
 		for _, version := range asset.Versions {
-			versions = append(versions, assetVersionView{ID: version.ID, Version: version.Version, MIMEType: version.MIMEType, SizeBytes: version.SizeBytes, Metadata: version.Metadata, ContentURL: "/api/v1/studio/assets/" + asset.ID + "/content?version_id=" + url.QueryEscape(version.ID), CreatedAt: version.CreatedAt})
+			versions = append(versions, assetVersionToView(version))
 		}
-		out = append(out, assetView{ID: asset.ID, SessionID: asset.SessionID, Name: asset.Name, Kind: asset.Kind, Origin: asset.Origin, SourceRunID: asset.SourceRunID, CurrentVersion: asset.CurrentVersion, SavedToLibrary: !asset.LibrarySavedAt.IsZero(), Versions: versions, CreatedAt: asset.CreatedAt, UpdatedAt: asset.UpdatedAt})
+		out = append(out, assetView{ID: asset.ID, Name: asset.Name, Kind: asset.Kind, Origin: asset.Origin, CurrentVersion: asset.CurrentVersion, Versions: versions, CreatedAt: asset.CreatedAt, UpdatedAt: asset.UpdatedAt})
 	}
 	return out
 }

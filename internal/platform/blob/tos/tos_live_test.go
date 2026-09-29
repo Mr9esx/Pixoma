@@ -72,12 +72,23 @@ func TestRealTOS_PutGetRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	defer rc.Close()
 	got, err := io.ReadAll(rc)
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
 	if !bytes.Equal(got, payload) {
 		t.Fatalf("got %q want %q", got, payload)
+	}
+	if err := rc.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	if err := store.Delete(ctx, ref); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if _, err := store.Get(ctx, ref); err == nil {
+		t.Fatal("get after delete succeeded")
+	}
+	if err := store.Delete(ctx, ref); err != nil {
+		t.Fatalf("delete missing object: %v", err)
 	}
 }

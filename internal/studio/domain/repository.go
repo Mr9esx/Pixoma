@@ -11,16 +11,69 @@ type SessionListQuery struct {
 	ProjectID *string
 }
 
-type LibraryAssetListQuery struct {
-	CategoryID string
-	Search     string
-	Limit      int
-	Offset     int
+type ProjectAssetListQuery struct {
+	ProjectID       string
+	Search          string
+	Kind            AssetKind
+	Format          string
+	CategoryID      string
+	CategoryDirect  bool
+	SessionID       string
+	Rating          *int
+	TagIDs          []string
+	Untagged        bool
+	NoSession       bool
+	Uncategorized   bool
+	IncludeArchived bool
+	ArchivedOnly    bool
+	MinWidthPx      *int
+	MaxWidthPx      *int
+	MinHeightPx     *int
+	MaxHeightPx     *int
+	MinSizeBytes    *int64
+	MaxSizeBytes    *int64
+	AddedFrom       *time.Time
+	AddedTo         *time.Time
+	DuplicatesOnly  bool
+	Limit           int
+	Cursor          string
+	Sort            string
 }
 
-type LibraryAssetPage struct {
-	Assets []*Asset
-	Total  int64
+type ProjectAssetPage struct {
+	Items      []*ProjectAsset
+	Total      int64
+	NextCursor string
+}
+
+type ProjectAssetPatch struct {
+	ID          string
+	DisplayName *string
+	CategoryID  *string
+	Rating      *int
+	Archived    *bool
+}
+
+type ProjectAssetTreeQuery struct {
+	ProjectID string
+	Mode      string
+	ParentID  string
+	Limit     int
+	Cursor    string
+}
+
+type ProjectAssetTreeNode struct {
+	ID             string
+	Name           string
+	Type           string
+	Count          int64
+	HasChildren    bool
+	ProjectAssetID string
+}
+
+type ProjectAssetTreePage struct {
+	Nodes      []ProjectAssetTreeNode
+	NextCursor string
 }
 
 // SessionTranscriptData is the complete persisted read set for replaying a
@@ -90,14 +143,46 @@ type Repository interface {
 	ListPendingWorkflowExecutions(ctx context.Context, limit int) ([]*WorkflowExecution, error)
 
 	CreateAsset(ctx context.Context, asset *Asset) error
+	CreateAssetWithPlacement(ctx context.Context, asset *Asset, placement *ProjectAsset, usage *SessionAssetUsage) error
 	AppendAssetVersion(ctx context.Context, assetID, accountID string, version AssetVersion) error
 	GetAsset(ctx context.Context, accountID, assetID string) (*Asset, error)
+	GetAssetVersion(ctx context.Context, accountID, versionID string) (*AssetVersion, error)
+	GetAssetByCreationKey(ctx context.Context, accountID, creationKey string) (*Asset, error)
+	ReferenceAssetInSession(ctx context.Context, placement *ProjectAsset, usage *SessionAssetUsage) error
+	CopyProjectAsset(ctx context.Context, accountID, sourceProjectAssetID string, target *ProjectAsset) error
+	DeleteProjectAsset(ctx context.Context, accountID, projectAssetID string) error
+	GetProjectAsset(ctx context.Context, accountID, projectAssetID string) (*ProjectAsset, error)
+	GetProjectAssetByAsset(ctx context.Context, accountID, projectID, assetID string) (*ProjectAsset, error)
+	ListDuplicateProjectAssets(ctx context.Context, accountID, projectAssetID string) ([]*ProjectAsset, error)
+	ListProjectAssets(ctx context.Context, accountID string, query ProjectAssetListQuery) (*ProjectAssetPage, error)
+	ListProjectAssetFormats(ctx context.Context, accountID, projectID string) ([]string, error)
+	ListProjectAssetCounts(ctx context.Context, accountID string) (map[string]int64, error)
+	ListProjectAssetTree(ctx context.Context, accountID string, query ProjectAssetTreeQuery) (*ProjectAssetTreePage, error)
+	ListSessionAssetUsages(ctx context.Context, accountID, sessionID string) ([]*SessionAssetUsage, error)
+	ListAssetUsages(ctx context.Context, accountID, assetID string) ([]*SessionAssetUsage, error)
+	UpdateProjectAsset(ctx context.Context, accountID string, patch ProjectAssetPatch, now time.Time) error
+	SetProjectAssetVersion(ctx context.Context, accountID, projectAssetID, versionID string, now time.Time) error
+	CreateAssetCategory(ctx context.Context, category *AssetCategory) error
+	GetAssetCategory(ctx context.Context, accountID, categoryID string) (*AssetCategory, error)
+	ListAssetCategories(ctx context.Context, accountID, projectID string) ([]*AssetCategory, error)
+	UpdateAssetCategory(ctx context.Context, accountID, categoryID, parentID, name string, now time.Time) error
+	DeleteAssetCategory(ctx context.Context, accountID, categoryID string) error
+	CreateAssetTag(ctx context.Context, tag *AssetTag) error
+	ListAssetTags(ctx context.Context, accountID string) ([]*AssetTag, error)
+	RenameAssetTag(ctx context.Context, accountID, tagID, name string, now time.Time) error
+	SetProjectAssetTags(ctx context.Context, accountID, projectAssetID string, tagIDs []string) error
+	GetAssetVersionPalette(ctx context.Context, accountID, versionID string) (*AssetVersionPalette, error)
+	ClaimPendingPaletteJobs(ctx context.Context, limit int, now time.Time) ([]*AssetVersionPalette, error)
+	CompleteAssetVersionPalette(ctx context.Context, accountID, versionID string, colors []PaletteColor, samplePoints []float64, widthPx, heightPx int, now time.Time) error
+	FailAssetVersionPalette(ctx context.Context, accountID, versionID, errorCode string, nextRetryAt time.Time) error
+	RetryAssetVersionPalette(ctx context.Context, accountID, versionID string, now time.Time) error
+	GetAssetLibraryPreferences(ctx context.Context, accountID string) (*AssetLibraryPreferences, error)
+	SaveAssetLibraryPreferences(ctx context.Context, preferences *AssetLibraryPreferences) error
+	RegisterBlobWriteIntent(ctx context.Context, intent *BlobWriteIntent) error
+	ClaimExpiredBlobWriteIntents(ctx context.Context, limit int, now time.Time) ([]*BlobWriteIntent, error)
+	IsBlobReferenced(ctx context.Context, accountID, blobKey string) (bool, error)
+	DeleteBlobWriteIntent(ctx context.Context, accountID, blobKey string) error
 	ListSessionAssets(ctx context.Context, accountID, sessionID string, limit int) ([]*Asset, error)
-	SaveAssetToLibrary(ctx context.Context, accountID, assetID, categoryID string, savedAt time.Time) error
-	MoveLibraryAsset(ctx context.Context, accountID, assetID, categoryID string, movedAt time.Time) error
-	ListLibraryAssets(ctx context.Context, accountID string, query LibraryAssetListQuery) (*LibraryAssetPage, error)
-	CreateLibraryCategory(ctx context.Context, category *LibraryCategory) error
-	ListLibraryCategories(ctx context.Context, accountID string) ([]*LibraryCategory, error)
 
 	SaveFlowNode(ctx context.Context, node *FlowNode) error
 	SaveFlowEdge(ctx context.Context, edge *FlowEdge) error

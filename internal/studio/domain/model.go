@@ -545,60 +545,140 @@ const (
 	AssetOriginAgent    AssetOrigin = "agent"
 	AssetOriginModel    AssetOrigin = "model"
 	AssetOriginWorkflow AssetOrigin = "workflow"
-	AssetOriginLibrary  AssetOrigin = "library"
 )
 
 type Asset struct {
 	ID             string
-	SessionID      string
+	CreationKey    string
 	AccountID      string
 	Name           string
 	Kind           AssetKind
 	Origin         AssetOrigin
-	SourceRunID    string
 	CurrentVersion int
-	LibrarySavedAt time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	Versions       []AssetVersion
 }
 
 type AssetVersion struct {
-	ID        string
-	AssetID   string
-	AccountID string
-	Version   int
-	MIMEType  string
-	BlobKey   string
-	SizeBytes int64
-	Metadata  json.RawMessage
-	CreatedAt time.Time
+	ID               string
+	AssetID          string
+	AccountID        string
+	Version          int
+	MIMEType         string
+	Format           string
+	WidthPx          *int
+	HeightPx         *int
+	SHA256           string
+	ContentOrigin    string
+	OperationKey     string
+	SourceCreatedAt  *time.Time
+	SourceModifiedAt *time.Time
+	BlobKey          string
+	SizeBytes        int64
+	Metadata         json.RawMessage
+	CreatedAt        time.Time
 }
 
-type LibraryCategory struct {
+type ProjectAsset struct {
+	ID                        string
+	AccountID                 string
+	ProjectID                 string
+	AssetID                   string
+	AssetVersionID            string
+	DisplayName               string
+	CategoryID                string
+	Rating                    int
+	SourceProjectAssetID      string
+	SourceDeleted             bool
+	SourceProjectID           string
+	SourceProjectNameSnapshot string
+	SourceDisplayNameSnapshot string
+	SourceAssetVersionID      string
+	CopiedAt                  *time.Time
+	AddedAt                   time.Time
+	UpdatedAt                 time.Time
+	ArchivedAt                *time.Time
+	Asset                     *Asset
+	Version                   AssetVersion
+	Tags                      []AssetTag
+}
+
+type AssetCategory struct {
 	ID        string
 	AccountID string
+	ProjectID string
 	ParentID  string
 	Name      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-func NewLibraryCategory(id, accountID, parentID, name string, now time.Time) (*LibraryCategory, error) {
-	if anyBlank(id, accountID, name) {
-		return nil, fmt.Errorf("%w: invalid library category", ErrInvalid)
-	}
-	now = now.UTC()
-	return &LibraryCategory{ID: id, AccountID: accountID, ParentID: strings.TrimSpace(parentID), Name: strings.TrimSpace(name), CreatedAt: now, UpdatedAt: now}, nil
+type AssetTag struct {
+	ID        string
+	AccountID string
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
-func NewAsset(id, sessionID, accountID, name string, kind AssetKind, origin AssetOrigin, now time.Time) (*Asset, error) {
+type PaletteColor struct {
+	Hex   string  `json:"hex"`
+	Ratio float64 `json:"ratio"`
+}
+
+type AssetVersionPalette struct {
+	AssetVersionID   string
+	AccountID        string
+	Status           string
+	Colors           []PaletteColor
+	SamplePoints     []float64
+	AlgorithmVersion int
+	Attempts         int
+	LeaseUntil       *time.Time
+	NextRetryAt      *time.Time
+	AnalyzedAt       *time.Time
+	ErrorCode        string
+	UpdatedAt        time.Time
+}
+
+type AssetLibraryPreferences struct {
+	AccountID     string
+	TreeMode      string
+	LastProjectID string
+	UpdatedAt     time.Time
+}
+
+type BlobWriteIntent struct {
+	BlobKey    string
+	AccountID  string
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+	LeaseUntil *time.Time
+}
+
+type SessionAssetUsage struct {
+	ID                     string
+	AccountID              string
+	SessionID              string
+	AssetID                string
+	AssetVersionID         string
+	UsageKind              string
+	OperationKey           string
+	RunID                  string
+	MessageID              string
+	SessionTitleSnapshot   string
+	OperationLabelSnapshot string
+	CreatedAt              time.Time
+}
+
+func NewAsset(id, accountID, name string, kind AssetKind, origin AssetOrigin, now time.Time) (*Asset, error) {
 	if anyBlank(id, accountID, name) || (!kind.Valid()) || strings.TrimSpace(string(origin)) == "" {
 		return nil, fmt.Errorf("%w: invalid asset", ErrInvalid)
 	}
 	now = now.UTC()
 	return &Asset{
-		ID: id, SessionID: sessionID, AccountID: accountID, Name: strings.TrimSpace(name),
+		ID: id, AccountID: accountID, Name: strings.TrimSpace(name),
 		Kind: kind, Origin: origin, CreatedAt: now, UpdatedAt: now,
 	}, nil
 }

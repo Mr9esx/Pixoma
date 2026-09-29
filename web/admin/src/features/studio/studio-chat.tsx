@@ -19,7 +19,6 @@ import {
 } from '@assistant-ui/react-ag-ui'
 import {
   ArrowUp,
-  Bot,
   Boxes,
   CircleHelp,
   Copy,
@@ -38,7 +37,9 @@ import {
   cancelStudioRun,
   getStudioAsset,
   listStudioLibraryAssets,
+  listStudioLibraryProjects,
   listStudioAgentWorkflows,
+  listStudioConnectors,
   type StudioAsset,
   type StudioComposerPart,
   type StudioMessage,
@@ -69,6 +70,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -125,6 +134,7 @@ import { StudioWorkflowCard } from './studio-workflow-card'
 
 type Props = {
   sessionId: string
+  projectId?: string
   messages: StudioMessage[]
   transcript?: StudioTranscript
   latestRun?: StudioRun | null
@@ -143,7 +153,7 @@ type Props = {
   onPermissionChange: (mode: StudioPermissionMode) => void
   onSkillChange: (ids: string[]) => void
   onAssetChange: (assets: SelectedAsset[]) => void
-  onImportLibraryAsset: (asset: SelectedAsset) => Promise<StudioAsset>
+  onReferenceAsset: (asset: SelectedAsset & { requestId: string; sourceProjectAssetId?: string }) => Promise<StudioAsset>
   onUploadAsset?: (file: File) => Promise<StudioAsset>
   onRunFinished?: () => void
   onRuntimeStateChange?: (running: boolean) => void
@@ -923,14 +933,6 @@ function StudioChatSurface({
               </MessageContent>
             </Message>
           ) : null}
-          {runError ? (
-            <div
-              role='alert'
-              className='max-w-[88%] rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm leading-6 text-destructive'
-            >
-              {runError}
-            </div>
-          ) : null}
         </ConversationContent>
         <StudioMessageLocator
           target={props.locateMessage}
@@ -1059,9 +1061,10 @@ function StudioChatSurface({
                       open={activePicker === 'asset'}
                       onOpenChange={(open) => changePicker('asset', open)}
                       assets={props.assets}
+                      projectId={props.projectId}
                       value={composerValue.selectedAssets}
                       onInsert={(asset, versionId) => composerRef.current?.insertReference({ kind: 'asset', id: asset.id, label: asset.name, versionId })}
-                      onImportLibraryAsset={props.onImportLibraryAsset}
+                      onReferenceAsset={props.onReferenceAsset}
                     />
                     <WorkflowPicker
                       open={activePicker === 'workflow'}
@@ -1410,86 +1413,88 @@ export function AssetPicker({
   open,
   onOpenChange,
   assets,
+  projectId,
   value,
   onInsert,
-  onImportLibraryAsset,
+  onReferenceAsset,
   defaultTab = 'session',
 }: PickerOpenProps & {
   assets: StudioAsset[]
+  projectId?: string
   value: SelectedAsset[]
   onInsert: (asset: StudioAsset, versionId: string) => void
-  onImportLibraryAsset?: (asset: SelectedAsset) => Promise<StudioAsset>
+  onReferenceAsset?: (asset: SelectedAsset & { requestId: string; sourceProjectAssetId?: string }) => Promise<StudioAsset>
   defaultTab?: 'session' | 'global'
 }) {
   const [search, setSearch] = useState('')
   const [librarySearch, setLibrarySearch] = useState('')
+  const [libraryProjectId, setLibraryProjectId] = useState(projectId ?? '')
+  const [referenceError, setReferenceError] = useState('')
+  const referenceRequestIds = useRef(new Map<string, string>())
+  const projects = useQuery({
+    queryKey: ['studio', 'library', 'projects'],
+    queryFn: listStudioLibraryProjects,
+    enabled: open,
+  })
   const searchTerm = search.trim()
   useEffect(() => {
     const timeout = window.setTimeout(() => setLibrarySearch(searchTerm), 250)
     return () => window.clearTimeout(timeout)
   }, [searchTerm])
   const libraryAssets = useInfiniteQuery({
-    queryKey: ['studio', 'library', 'assets', librarySearch],
+    queryKey: ['studio', 'library', 'assets', libraryProjectId, librarySearch],
     queryFn: ({ pageParam }) =>
       listStudioLibraryAssets({
+        projectId: libraryProjectId,
         search: librarySearch,
-        page: pageParam,
+        cursor: pageParam,
         limit: 100,
       }),
     enabled: open,
-    initialPageParam: 1,
-    getNextPageParam: (lastPage, pages) =>
-      lastPage.assets.length > 0 &&
-      pages.reduce((count, page) => count + page.assets.length, 0) <
-        lastPage.total
-        ? pages.length + 1
-        : undefined,
+    initialPageParam: '',
+    getNextPageParam: (lastPage) => lastPage.next_cursor || undefined,
   })
   const libraryAssetItems =
-    libraryAssets.data?.pages.flatMap((page) => page.assets) ?? []
+    libraryAssets.data?.pages.flatMap((page) => page.items) ?? []
   const sessionAssetIDs = new Set(assets.map((asset) => asset.id))
-  const assetsByID = new Map<string, StudioAsset>()
-  for (const asset of assets) assetsByID.set(asset.id, asset)
-  for (const asset of libraryAssetItems) {
-    assetsByID.set(asset.id, asset)
-  }
-  const insert = async (asset: StudioAsset, fromLibrary = false) => {
+  const insert = async (asset: StudioAsset & { sourceProjectAssetId?: string }, fromLibrary = false) => {
     const version = asset.versions[asset.versions.length - 1]
     if (!version) return
-    if (fromLibrary && onImportLibraryAsset) {
-      const imported = await onImportLibraryAsset({ assetId: asset.id, assetVersionId: version.id })
-      const importedVersion = imported.versions[imported.versions.length - 1]
-      if (!importedVersion) return
-      onInsert(imported, importedVersion.id)
-      return
+    if (fromLibrary && onReferenceAsset) {
+      const key = `${asset.id}:${version.id}`
+      const requestId = referenceRequestIds.current.get(key) ?? crypto.randomUUID()
+      referenceRequestIds.current.set(key, requestId)
+      await onReferenceAsset({ assetId: asset.id, assetVersionId: version.id, requestId, sourceProjectAssetId: asset.sourceProjectAssetId })
+      referenceRequestIds.current.delete(key)
     }
     onInsert(asset, version.id)
   }
-  const unavailableSelections = value.filter((selection) => {
-    const asset = assetsByID.get(selection.assetId)
-    if (!asset)
-      return (
-        !searchTerm &&
-        !librarySearch &&
-        libraryAssets.isSuccess &&
-        !libraryAssets.hasNextPage
-      )
-    return !asset.versions.some(
-      (version) => version.id === selection.assetVersionId
-    )
-  })
   const currentAssets = assets.filter((asset) =>
     asset.name.toLocaleLowerCase().includes(searchTerm.toLocaleLowerCase())
   )
   const isSearchingLibrary = searchTerm !== librarySearch
   const reusableAssets = isSearchingLibrary
     ? []
-    : libraryAssetItems.filter((asset) => !sessionAssetIDs.has(asset.id))
-  const choose = (asset: StudioAsset, fromLibrary = false) => {
-    onOpenChange(false)
-    setSearch('')
-    setLibrarySearch('')
+    : libraryAssetItems
+        .filter((item) => !sessionAssetIDs.has(item.asset_id))
+        .map((item) => ({
+          ...item.asset,
+          name: item.display_name,
+          current_version: item.version.version,
+          versions: [item.version],
+          sourceProjectAssetId: item.id,
+        }))
+  const choose = (asset: StudioAsset & { sourceProjectAssetId?: string }, fromLibrary = false) => {
+    setReferenceError('')
     void insert(asset, fromLibrary)
+      .then(() => {
+        onOpenChange(false)
+        setSearch('')
+        setLibrarySearch('')
+      })
+      .catch((error: unknown) => {
+        setReferenceError(error instanceof Error ? error.message : '引用资产失败')
+      })
   }
 
   return (
@@ -1521,6 +1526,7 @@ export function AssetPicker({
       </PopoverTrigger>
       <PopoverContent
         align='start'
+        side='top'
         className='group/asset-picker w-72 p-1'
         onCloseAutoFocus={retainStudioComposerFocus}
       >
@@ -1543,6 +1549,23 @@ export function AssetPicker({
             />
           </TabsContent>
           <TabsContent value='global' className='h-48 flex-none overflow-y-auto'>
+            <Select
+              value={libraryProjectId || '__unassigned__'}
+              onValueChange={(value) => setLibraryProjectId(value === '__unassigned__' ? '' : value)}
+            >
+              <SelectTrigger aria-label='选择资产项目' className='mx-1 my-1 w-[calc(100%-0.5rem)]'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {(projects.data ?? []).map((project) => (
+                    <SelectItem key={project.id || 'unassigned'} value={project.id || '__unassigned__'}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
             <AssetPickerSection
               assets={reusableAssets}
               onSelect={(asset) => choose(asset, true)}
@@ -1558,6 +1581,7 @@ export function AssetPicker({
                         : '全局还没有可用资产'
               }
             />
+            {referenceError ? <p role='alert' className='px-2 text-xs text-destructive'>{referenceError}</p> : null}
             {!isSearchingLibrary && libraryAssets.hasNextPage ? (
               <Button
                 type='button'
@@ -1574,11 +1598,6 @@ export function AssetPicker({
               </Button>
             ) : null}
           </TabsContent>
-          {unavailableSelections.length > 0 ? (
-            <p className='border-t px-2 py-2 text-xs text-muted-foreground'>
-              {unavailableSelections.length} 项已选资产不可用
-            </p>
-          ) : null}
           <TabsList className='order-last h-8 w-full group-data-[side=bottom]/asset-picker:order-first'>
             <TabsTrigger value='session' className='text-xs'>会话内</TabsTrigger>
             <TabsTrigger value='global' className='text-xs'>全局</TabsTrigger>
@@ -1594,8 +1613,8 @@ function AssetPickerSection({
   onSelect,
   emptyText,
 }: {
-  assets: StudioAsset[]
-  onSelect: (asset: StudioAsset) => void
+  assets: Array<StudioAsset & { sourceProjectAssetId?: string }>
+  onSelect: (asset: StudioAsset & { sourceProjectAssetId?: string }) => void
   emptyText: string
 }) {
   return (
@@ -1671,6 +1690,7 @@ export function SkillPicker({
       </PopoverTrigger>
       <PopoverContent
         align='start'
+        side='top'
         className='group/studio-picker w-72 p-1'
         onCloseAutoFocus={retainStudioComposerFocus}
       >
@@ -1749,6 +1769,7 @@ export function WorkflowPicker({
       </PopoverTrigger>
       <PopoverContent
         align='start'
+        side='top'
         className='group/studio-picker w-72 p-1'
         onCloseAutoFocus={retainStudioComposerFocus}
       >
@@ -1802,21 +1823,8 @@ export function WorkflowPicker({
 
 function StudioWelcome({ onSelect }: { onSelect: (prompt: string) => void }) {
   return (
-    <ConversationEmptyState
-      className='min-h-full py-16'
-      description='和 Agent 一起构思内容、生成资产，或调用现有工作流。'
-      icon={<Bot className='size-6' />}
-      title='从一个想法开始'
-    >
-      <span className='flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground'>
-        <Bot className='size-6' />
-      </span>
-      <div className='space-y-2'>
-        <h2 className='text-xl font-semibold tracking-tight'>从一个想法开始</h2>
-        <p className='max-w-md text-sm leading-6 text-muted-foreground'>
-          和 Agent 一起构思内容、生成资产，或调用现有工作流。
-        </p>
-      </div>
+    <ConversationEmptyState className='min-h-full py-16'>
+      <h2 className='text-xl font-semibold tracking-tight'>想创作什么？</h2>
       <Suggestions className='mt-3 max-w-xl'>
         {['为雨夜侦探构思漫画并生成分镜', '根据一张角色图生成三视图'].map(
           (prompt) => (
@@ -1834,6 +1842,17 @@ type StudioToolCallPart = Extract<
   StudioThreadMessage['parts'][number],
   { type: 'tool-call' }
 >
+
+const toolNames: Record<string, string> = {
+  create_text_asset: '创建文本资产',
+  list_session_assets: '查看会话资产',
+  read_asset: '读取资产',
+  update_text_asset: '更新文本资产',
+  edit_session_flow: '编辑制作流程',
+  load_skill: '读取技能',
+  ask_clarification: '询问用户',
+  install_skill: '安装技能',
+}
 
 function StudioMessageLocator({
   target,
@@ -2014,6 +2033,26 @@ function StudioMessage({
 }
 
 function StudioToolCall({ part }: { part: StudioToolCallPart }) {
+  const workflowQuery = useQuery({
+    queryKey: ['studio', 'agent-workflows'],
+    queryFn: listStudioAgentWorkflows,
+    enabled: part.toolName.startsWith('studio_workflow_'),
+  })
+  const connectorQuery = useQuery({
+    queryKey: ['studio', 'connectors'],
+    queryFn: listStudioConnectors,
+    enabled: part.toolName.startsWith('mcp_'),
+  })
+  const workflow = workflowQuery.data?.find(
+    (item) => `studio_workflow_${item.id}` === part.toolName
+  )
+  const connector = connectorQuery.data?.find((item) =>
+    part.toolName.startsWith(`mcp_${item.id.replaceAll('-', '_')}_`)
+  )
+  const title = toolNames[part.toolName] ??
+    (workflow ? `运行「${workflow.name}」` : undefined) ??
+    (connector ? `调用「${connector.name}」工具` : undefined) ??
+    (part.toolName.startsWith('studio_workflow_') ? '运行工作流' : part.toolName)
   const state = part.isError
     ? 'output-error'
     : part.result !== undefined
@@ -2025,7 +2064,7 @@ function StudioToolCall({ part }: { part: StudioToolCallPart }) {
     <Tool className='mb-0' defaultOpen={state === 'output-error'}>
       <ToolHeader
         state={state}
-        title={part.toolName}
+        title={title}
         toolName={part.toolName}
         type='dynamic-tool'
       />

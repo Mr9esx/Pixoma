@@ -12,8 +12,7 @@ import {
   getStudioSession,
   listStudioModels,
   listStudioSkills,
-  saveStudioAssetToLibrary,
-  importStudioLibraryAsset,
+  referenceStudioAsset,
   uploadStudioAsset,
   updateStudioTextAsset,
   updateStudioFlowNodes,
@@ -87,6 +86,9 @@ export function StudioWorkspace() {
   )
   const chatOpenGeneration = useRef(0)
   const [newSessionKey, setNewSessionKey] = useState(0)
+  const [libraryEntryProjectId, setLibraryEntryProjectId] = useState<string>()
+  const [libraryEntrySessionId, setLibraryEntrySessionId] = useState<string>()
+  const [libraryEntrySessionTitle, setLibraryEntrySessionTitle] = useState<string>()
   const lastSection = useRef<SettingSection>('models')
   const [modelSelection, setModelSelection] = useState<{
     sessionId: string
@@ -158,10 +160,13 @@ export function StudioWorkspace() {
     ) {
       return
     }
-    setViewedRunIds((current) => ({
-      ...current,
-      [viewedSessionId]: run.id,
-    }))
+    const frame = window.requestAnimationFrame(() => {
+      setViewedRunIds((current) => ({
+        ...current,
+        [viewedSessionId]: run.id,
+      }))
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [detail.data, sessionId, traceOpen, view, viewedRunIds])
 
   const sessionPermissionMode =
@@ -210,18 +215,6 @@ export function StudioWorkspace() {
     }
   }, [queryClient, sessionId, view])
 
-  const saveAsset = useMutation({
-    mutationFn: ({
-      assetId,
-      categoryId,
-    }: {
-      assetId: string
-      categoryId?: string
-    }) => saveStudioAssetToLibrary(assetId, categoryId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['studio'] })
-    },
-  })
   const saveFlowPositions = useMutation({
     mutationFn: (
       nodes: Array<{
@@ -275,32 +268,41 @@ export function StudioWorkspace() {
     },
   })
   const createTextAsset = useMutation({
-    mutationFn: (input: { name: string; content: string }) =>
+    mutationFn: (input: { name: string; content: string; requestId: string }) =>
       createStudioTextAsset({ sessionId: sessionId!, ...input }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ['studio', 'session', sessionId],
       })
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'library'] })
     },
   })
   const updateTextAsset = useMutation({
-    mutationFn: (input: { assetId: string; content: string }) =>
-      updateStudioTextAsset(input.assetId, input.content),
+    mutationFn: (input: { assetId: string; content: string; requestId: string }) =>
+      updateStudioTextAsset(input.assetId, input.content, input.requestId),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ['studio', 'session', sessionId],
       })
     },
   })
-  const importLibraryAsset = useMutation({
-    mutationFn: ({ assetId, assetVersionId }: SelectedAsset) => {
+  const referenceAsset = useMutation({
+    mutationFn: ({ assetId, assetVersionId, requestId, sourceProjectAssetId }: SelectedAsset & { requestId: string; sourceProjectAssetId?: string }) => {
       if (!sessionId) throw new Error('请先创建或选择一个对话')
-      return importStudioLibraryAsset(sessionId, assetId, assetVersionId)
+      return referenceStudioAsset(
+        sessionId,
+        assetId,
+        assetVersionId,
+        requestId,
+        sourceProjectAssetId
+      )
     },
-    onSuccess: () =>
+    onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ['studio', 'session', sessionId],
-      }),
+      })
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'library'] })
+    },
   })
   const currentSessionDetail =
     detail.data?.session.id === sessionId ? detail.data : undefined
@@ -310,6 +312,7 @@ export function StudioWorkspace() {
       void queryClient.invalidateQueries({
         queryKey: ['studio', 'session', sessionId],
       })
+      void queryClient.invalidateQueries({ queryKey: ['studio', 'library'] })
     },
   })
 
@@ -331,6 +334,9 @@ export function StudioWorkspace() {
       if (view === 'settings') lastSection.current = section
       if (nextView === 'library') {
         ++chatOpenGeneration.current
+        setLibraryEntryProjectId(undefined)
+        setLibraryEntrySessionId(undefined)
+        setLibraryEntrySessionTitle(undefined)
         void navigate({ to: '/studio/library', search: {} })
       } else if (nextView === 'settings') {
         ++chatOpenGeneration.current
@@ -397,10 +403,15 @@ export function StudioWorkspace() {
           }))
           setWorkbenchSheetOpen(false)
         }}
-        onSaveToLibrary={(input) => saveAsset.mutateAsync(input)}
         onCreateTextAsset={(input) => createTextAsset.mutateAsync(input)}
         onUpdateTextAsset={(input) => updateTextAsset.mutateAsync(input)}
         onUploadAsset={(file) => uploadAsset.mutate(file)}
+        onOpenLibrary={() => {
+          setLibraryEntryProjectId(currentSessionDetail.session.project_id ?? '')
+          setLibraryEntrySessionId(currentSessionDetail.session.id)
+          setLibraryEntrySessionTitle(currentSessionDetail.session.title)
+          void navigate({ to: '/studio/library', search: {} })
+        }}
         uploading={uploadAsset.isPending}
       />
     )
@@ -453,6 +464,9 @@ export function StudioWorkspace() {
 
       {view === 'library' ? (
         <StudioLibrary
+          initialProjectId={libraryEntryProjectId}
+          initialSessionId={libraryEntrySessionId}
+          initialSessionTitle={libraryEntrySessionTitle}
           onOpenSession={(id, sourceRunId) => {
             openChatWithFreshDetail(id, (sessionDetail) => {
               const sourceMessageId = sourceRunId
@@ -526,7 +540,6 @@ export function StudioWorkspace() {
                   <Button
                     variant={traceOpen ? 'secondary' : 'ghost'}
                     size='sm'
-                    className='min-h-11'
                     disabled={!sessionId}
                     onClick={() => {
                       if (!sessionId) return
@@ -630,6 +643,7 @@ export function StudioWorkspace() {
                 <StudioChat
                   key={sessionId}
                   sessionId={sessionId}
+                  projectId={detail.data.session.project_id ?? ''}
                   messages={detail.data.messages}
                   transcript={detail.data.transcript}
                   latestRun={detail.data.session.latest_run}
@@ -668,8 +682,8 @@ export function StudioWorkspace() {
                   onAssetChange={(assets) => {
                     setAssetSelection({ sessionId, assets })
                   }}
-                  onImportLibraryAsset={(selection) =>
-                    importLibraryAsset.mutateAsync(selection)
+                  onReferenceAsset={(selection) =>
+                    referenceAsset.mutateAsync(selection)
                   }
                   onUploadAsset={(file) => uploadAsset.mutateAsync(file)}
                   onRunFinished={() => {

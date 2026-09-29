@@ -154,7 +154,7 @@ func (s *sink) CreateAsset(_ context.Context, asset studioapp.GeneratedAsset) (*
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.assets = append(s.assets, asset)
-	created, err := domain.NewAsset("asset_01", "session_01", "account_01", asset.Name, asset.Kind, asset.Origin, time.Now())
+	created, err := domain.NewAsset("asset_01", "account_01", asset.Name, asset.Kind, asset.Origin, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +318,7 @@ func TestEngineInvokesAllowedMCPToolAndReturnsFollowUp(t *testing.T) {
 			ID: "connector-01", Name: "Reference", URL: mcpEndpoint.URL, Credential: "connector-secret", Policy: domain.ConnectorPolicyAuto,
 			Tools: []domain.MCPTool{{Name: "search_reference", Description: "Search reference material", InputSchema: json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"}}}`)}},
 		}}},
-		Client:      modelprovider.NewOpenAICompatibleClient(modelEndpoint.Client()),
+		Client: modelprovider.NewOpenAICompatibleClient(modelEndpoint.Client()),
 	}
 	output := &sink{}
 
@@ -446,7 +446,7 @@ func TestEngineInvokesEnabledWorkflowToolAndReturnsSubmission(t *testing.T) {
 			started = input
 			return &studioapp.WorkflowStartResult{TaskID: "task-1", WorkflowID: "12"}, nil
 		}),
-		Client: modelprovider.NewOpenAICompatibleClient(modelEndpoint.Client()),
+		Client:      modelprovider.NewOpenAICompatibleClient(modelEndpoint.Client()),
 		Checkpoints: checkpoints,
 	}
 	output := &sink{}

@@ -38,6 +38,13 @@ func TestExecutionWriterAppendsImmutableTextVersion(t *testing.T) {
 	}
 	ctx := context.Background()
 	now := time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC)
+	session, err := domain.NewSession("update-session", "account-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatal(err)
+	}
 	run, err := domain.NewRun("update-run", "update-session", "account-a", "message-1", now)
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +52,7 @@ func TestExecutionWriterAppendsImmutableTextVersion(t *testing.T) {
 	if err := repo.CreateRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	asset, err := domain.NewAsset("story-asset", run.SessionID, run.AccountID, "story.md", domain.AssetDocument, domain.AssetOriginUser, now)
+	asset, err := domain.NewAsset("story-asset", run.AccountID, "story.md", domain.AssetDocument, domain.AssetOriginUser, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +64,17 @@ func TestExecutionWriterAppendsImmutableTextVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.CreateAsset(ctx, asset); err != nil {
+	firstVersion := asset.Versions[0]
+	firstVersion.Format = "md"
+	firstVersion.ContentOrigin = "manual"
+	asset.Versions[0] = firstVersion
+	if err := repo.CreateAssetWithPlacement(ctx, asset, &domain.ProjectAsset{
+		ID: "story-placement", AccountID: "account-a", ProjectID: "", AssetID: asset.ID,
+		AssetVersionID: first.ID, DisplayName: asset.Name, AddedAt: now, UpdatedAt: now,
+	}, &domain.SessionAssetUsage{
+		ID: "story-usage", AccountID: "account-a", SessionID: session.ID,
+		AssetID: asset.ID, AssetVersionID: first.ID, UsageKind: "created", OperationKey: "story-created", CreatedAt: now,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	i := 0
@@ -112,6 +129,13 @@ func TestExecutionWriterReusesAssetForStableAction(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
+	session, err := domain.NewSession("asset-action-session", "account-a", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatal(err)
+	}
 	run, err := domain.NewRun("asset-action-run", "asset-action-session", "account-a", "message-1", time.Now())
 	if err != nil {
 		t.Fatal(err)

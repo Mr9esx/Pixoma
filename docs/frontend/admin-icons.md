@@ -34,11 +34,12 @@
 - `Sparkles`：技能选择、技能引用和技能空状态。
 - `BrainCircuit`：模型空状态。
 - `Cable`：MCP 连接器空状态。
-- `MessageCircle`：Studio 对话入口。
-- `Folder`：Studio 项目和项目选择。
+- `MessageCircle`：Studio 对话入口和资产树中的对话节点。
+- `Folder`：Studio 项目、项目选择和资产树中的分类节点。
 - `MessageSquarePlus`：新建 Studio 对话。
 - `MoreHorizontal`：Studio 项目与对话的更多操作。
-- `Settings2`：AI 设置入口。
+- `Settings2`：AI 设置入口和资产树组织方式设置。
+- `Star`：资产评分及资产树中的评分节点；`Tag`：资产树中的标签节点。
 - `ImagePlus`：在聊天输入框添加图片。
 - `ShieldCheck`：聊天输入框中的 Agent 操作权限。
 - `TriangleAlert`：完全访问权限确认弹窗中的风险提示。

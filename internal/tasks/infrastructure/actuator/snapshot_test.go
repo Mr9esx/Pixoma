@@ -14,9 +14,9 @@ import (
 	catalogdomain "github.com/Mr9esx/Pixoma/internal/cases/domain"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 	runtimedomain "github.com/Mr9esx/Pixoma/internal/tasks/domain"
 	"github.com/Mr9esx/Pixoma/internal/tasks/infrastructure/actuator"
-	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 type recordingUploader struct {
@@ -54,6 +54,10 @@ func (errGetBlobStore) Put(context.Context, string, io.Reader, blob.PutOptions) 
 
 func (errGetBlobStore) Get(context.Context, sharedkernel.BlobRef) (io.ReadCloser, error) {
 	return nil, errBlobGetSentinel
+}
+
+func (errGetBlobStore) Delete(context.Context, sharedkernel.BlobRef) error {
+	return errors.New("delete not supported")
 }
 
 func (errGetBlobStore) Check(context.Context) error {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -15,7 +16,7 @@ import (
 )
 
 type TitleGenerator interface {
-	GenerateTitle(ctx context.Context, firstMessage string) (string, error)
+	GenerateTitle(ctx context.Context, accountID, modelConfigID, firstMessage string) (string, error)
 }
 
 type RunRef struct {
@@ -259,6 +260,28 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*Sen
 	if !createdTurn {
 		return s.existingTurn(ctx, stored, input.Text)
 	}
+	for _, reference := range assetReferences {
+		asset, err := s.Repo.GetAsset(ctx, input.AccountID, reference.AssetID)
+		if err != nil {
+			return nil, err
+		}
+		placement := &domain.ProjectAsset{
+			ID: s.nextID(), AccountID: input.AccountID, ProjectID: session.ProjectID,
+			AssetID: asset.ID, AssetVersionID: reference.AssetVersionID, DisplayName: asset.Name,
+			AddedAt: now, UpdatedAt: now,
+		}
+		usage := &domain.SessionAssetUsage{
+			ID: s.nextID(), AccountID: input.AccountID, SessionID: session.ID,
+			AssetID: asset.ID, AssetVersionID: reference.AssetVersionID,
+			UsageKind: "referenced", OperationKey: run.ID, RunID: run.ID,
+			MessageID: message.ID, CreatedAt: now,
+		}
+		if err := s.Repo.ReferenceAssetInSession(ctx, placement, usage); err != nil {
+			_ = run.Fail("asset_reference_failed", err.Error(), s.now())
+			_ = s.Repo.UpdateRun(context.WithoutCancel(ctx), run)
+			return nil, err
+		}
+	}
 	if s.Queue == nil {
 		return nil, fmt.Errorf("studio: run queue is required")
 	}
@@ -311,9 +334,6 @@ func (s *Service) resolveAssetReferences(ctx context.Context, accountID, session
 		asset, err := s.Repo.GetAsset(ctx, accountID, reference.AssetID)
 		if err != nil {
 			return nil, err
-		}
-		if asset.SessionID != sessionID && asset.LibrarySavedAt.IsZero() {
-			return nil, fmt.Errorf("%w: asset is not available in session", domain.ErrInvalid)
 		}
 		if len(asset.Versions) == 0 {
 			return nil, fmt.Errorf("%w: asset has no versions", domain.ErrInvalid)
@@ -455,7 +475,11 @@ func (s *Service) resolveSession(ctx context.Context, input SendMessageInput, no
 		}
 		needsUpdate := false
 		if session.Title == domain.DefaultSessionTitle {
-			if err := session.Rename(s.generateTitle(ctx, input.Text), now); err != nil {
+			modelConfigID := input.ModelConfigID
+			if modelConfigID == "" {
+				modelConfigID = session.ModelConfigID
+			}
+			if err := session.Rename(s.generateTitle(ctx, input.AccountID, modelConfigID, input.Text), now); err != nil {
 				return nil, false, err
 			}
 			needsUpdate = true
@@ -493,7 +517,7 @@ func (s *Service) resolveSession(ctx context.Context, input SendMessageInput, no
 	if err := session.Configure(input.ModelConfigID, mode, now); err != nil {
 		return nil, false, err
 	}
-	title := s.generateTitle(ctx, input.Text)
+	title := s.generateTitle(ctx, input.AccountID, input.ModelConfigID, input.Text)
 	if err := session.Rename(title, now); err != nil {
 		return nil, false, err
 	}
@@ -503,12 +527,16 @@ func (s *Service) resolveSession(ctx context.Context, input SendMessageInput, no
 	return session, true, nil
 }
 
-func (s *Service) generateTitle(ctx context.Context, text string) string {
+func (s *Service) generateTitle(ctx context.Context, accountID, modelConfigID, text string) string {
 	if s.Titles != nil {
-		if title, err := s.Titles.GenerateTitle(ctx, text); err == nil {
-			if normalized := normalizeTitle(title); normalized != "" {
-				return normalized
-			}
+		titleCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+		defer cancel()
+		title, err := s.Titles.GenerateTitle(titleCtx, accountID, modelConfigID, text)
+		if err == nil && strings.TrimSpace(title) != "" {
+			return normalizeTitle(title)
+		}
+		if err != nil {
+			slog.Warn("studio title generation failed", "error", err)
 		}
 	}
 	return normalizeTitle(text)

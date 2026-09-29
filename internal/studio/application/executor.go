@@ -3,6 +3,7 @@ package application
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/studio/domain"
+	"github.com/Mr9esx/Pixoma/internal/studio/infrastructure/assetmedia"
 )
 
 const (
@@ -630,6 +632,22 @@ func (w *executionWriter) CreateAsset(ctx context.Context, input GeneratedAsset)
 		return nil, fmt.Errorf("%w: generated asset content and MIME type are required", domain.ErrInvalid)
 	}
 	now := w.executor.now().UTC()
+	session, err := w.executor.repo.GetSession(ctx, w.run.AccountID, w.run.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	info, err := assetmedia.InspectFile(ctx, input.Content, input.MIMEType)
+	if err != nil {
+		return nil, err
+	}
+	if info.Format == "unknown" && strings.HasPrefix(input.MIMEType, "text/") {
+		info.MIMEType = input.MIMEType
+		if input.MIMEType == "text/markdown" {
+			info.Format = "md"
+		} else {
+			info.Format = "txt"
+		}
+	}
 	assetID := w.executor.ids()
 	if input.ActionID != "" {
 		assetID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(w.run.ID+"\x00asset\x00"+input.ActionID)).String()
@@ -639,14 +657,16 @@ func (w *executionWriter) CreateAsset(ctx context.Context, input GeneratedAsset)
 			return nil, err
 		}
 	}
-	asset, err := domain.NewAsset(assetID, w.run.SessionID, w.run.AccountID, input.Name, input.Kind, input.Origin, now)
+	asset, err := domain.NewAsset(assetID, w.run.AccountID, input.Name, input.Kind, input.Origin, now)
 	if err != nil {
 		return nil, err
 	}
-	asset.SourceRunID = w.run.ID
+	if input.ActionID != "" {
+		asset.CreationKey = w.run.ID + ":" + input.ActionID
+	}
 	extension := extensionForMIME(input.MIMEType)
-	key := filepath.ToSlash(filepath.Join("studio", w.run.AccountID, w.run.SessionID, assetID, "v1"+extension))
-	ref, err := w.executor.blob.Put(ctx, key, bytes.NewReader(input.Content), blob.PutOptions{MIME: input.MIMEType})
+	key := filepath.ToSlash(filepath.Join("studio", w.run.AccountID, w.run.SessionID, assetID, uuid.NewString()+extension))
+	ref, err := putOwnedBlob(ctx, w.executor.repo, w.executor.blob, w.run.AccountID, key, info.MIMEType, bytes.NewReader(input.Content), now)
 	if err != nil {
 		return nil, err
 	}
@@ -654,18 +674,40 @@ func (w *executionWriter) CreateAsset(ctx context.Context, input GeneratedAsset)
 	if input.ActionID != "" {
 		versionID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(w.run.ID+"\x00version\x00"+input.ActionID)).String()
 	}
-	version, err := asset.AppendVersion(versionID, input.MIMEType, ref.Key, ref.Size, now)
+	version, err := asset.AppendVersion(versionID, info.MIMEType, ref.Key, ref.Size, now)
 	if err != nil {
+		_ = cleanupOwnedBlob(ctx, w.executor.repo, w.executor.blob, w.run.AccountID, ref)
 		return nil, err
 	}
+	version.Format = info.Format
+	version.SHA256 = info.SHA256
+	version.ContentOrigin = "generated"
+	version.OperationKey = asset.ID
+	if info.WidthPx > 0 && info.HeightPx > 0 {
+		version.WidthPx = &info.WidthPx
+		version.HeightPx = &info.HeightPx
+	}
+	asset.Versions[len(asset.Versions)-1] = version
 	if len(input.Metadata) > 0 {
 		version.Metadata, err = json.Marshal(input.Metadata)
 		if err != nil {
+			_ = cleanupOwnedBlob(ctx, w.executor.repo, w.executor.blob, w.run.AccountID, ref)
 			return nil, err
 		}
 		asset.Versions[len(asset.Versions)-1] = version
 	}
-	if err := w.executor.repo.CreateAsset(ctx, asset); err != nil {
+	placement := &domain.ProjectAsset{
+		ID: w.executor.ids(), AccountID: w.run.AccountID, ProjectID: session.ProjectID,
+		AssetID: asset.ID, AssetVersionID: version.ID, DisplayName: asset.Name,
+		AddedAt: now, UpdatedAt: now,
+	}
+	usage := &domain.SessionAssetUsage{
+		ID: w.executor.ids(), AccountID: w.run.AccountID, SessionID: session.ID,
+		AssetID: asset.ID, AssetVersionID: version.ID, UsageKind: "created",
+		OperationKey: asset.ID, RunID: w.run.ID, CreatedAt: now,
+	}
+	if err := w.executor.repo.CreateAssetWithPlacement(ctx, asset, placement, usage); err != nil {
+		_ = cleanupOwnedBlob(ctx, w.executor.repo, w.executor.blob, w.run.AccountID, ref)
 		if input.ActionID != "" && errors.Is(err, domain.ErrAlreadyExists) {
 			return w.executor.repo.GetAsset(ctx, w.run.AccountID, assetID)
 		}
@@ -689,8 +731,22 @@ func (w *executionWriter) AppendTextAssetVersion(ctx context.Context, assetID, e
 	if err != nil {
 		return nil, domain.AssetVersion{}, err
 	}
-	if asset.SessionID != w.run.SessionID || asset.Kind != domain.AssetDocument {
+	if asset.Kind != domain.AssetDocument {
 		return nil, domain.AssetVersion{}, fmt.Errorf("%w: only Session documents can be updated", domain.ErrInvalid)
+	}
+	usages, err := w.executor.repo.ListSessionAssetUsages(ctx, w.run.AccountID, w.run.SessionID)
+	if err != nil {
+		return nil, domain.AssetVersion{}, err
+	}
+	available := false
+	for _, usage := range usages {
+		if usage.AssetID == asset.ID {
+			available = true
+			break
+		}
+	}
+	if !available {
+		return nil, domain.AssetVersion{}, fmt.Errorf("%w: asset is not available in session", domain.ErrInvalid)
 	}
 	versionID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(w.run.ID+"\x00asset-version\x00"+action)).String()
 	for _, version := range asset.Versions {
@@ -709,16 +765,23 @@ func (w *executionWriter) AppendTextAssetVersion(ctx context.Context, assetID, e
 		return nil, domain.AssetVersion{}, fmt.Errorf("%w: text asset changed since it was selected", domain.ErrInvalid)
 	}
 	now := w.executor.now().UTC()
-	key := filepath.ToSlash(filepath.Join("studio", w.run.AccountID, w.run.SessionID, asset.ID, versionID+".md"))
-	ref, err := w.executor.blob.Put(ctx, key, bytes.NewReader(content), blob.PutOptions{MIME: "text/markdown"})
+	key := filepath.ToSlash(filepath.Join("studio", w.run.AccountID, w.run.SessionID, asset.ID, uuid.NewString()+".md"))
+	ref, err := putOwnedBlob(ctx, w.executor.repo, w.executor.blob, w.run.AccountID, key, "text/markdown", bytes.NewReader(content), now)
 	if err != nil {
 		return nil, domain.AssetVersion{}, fmt.Errorf("studio: save updated text asset: %w", err)
 	}
 	version, err := asset.AppendVersion(versionID, "text/markdown", ref.Key, ref.Size, now)
 	if err != nil {
+		_ = cleanupOwnedBlob(ctx, w.executor.repo, w.executor.blob, w.run.AccountID, ref)
 		return nil, domain.AssetVersion{}, err
 	}
+	version.Format = "md"
+	version.SHA256 = fmt.Sprintf("%x", sha256.Sum256(content))
+	version.ContentOrigin = "generated"
+	version.OperationKey = versionID
+	asset.Versions[len(asset.Versions)-1] = version
 	if err := w.executor.repo.AppendAssetVersion(ctx, asset.ID, w.run.AccountID, version); err != nil {
+		_ = cleanupOwnedBlob(ctx, w.executor.repo, w.executor.blob, w.run.AccountID, ref)
 		if !errors.Is(err, domain.ErrAlreadyExists) {
 			return nil, domain.AssetVersion{}, err
 		}
@@ -946,7 +1009,7 @@ func messagePartsText(parts []MessagePart) (string, error) {
 			if part.SkillID == "" || part.Name == "" {
 				return "", fmt.Errorf("studio: invalid Skill reference")
 			}
-			text.WriteString("「" + part.Name + "」Skill")
+			text.WriteString("「" + part.Name + "」技能")
 		case "asset_ref":
 			if part.AssetID == "" || part.AssetVersionID == "" || part.Name == "" {
 				return "", fmt.Errorf("studio: invalid asset reference")

@@ -18,9 +18,7 @@ import {
 import { baseURL } from '@/lib/api/client'
 import {
   getStudioTextAssetContent,
-  listStudioLibraryCategories,
   type StudioAsset,
-  type StudioLibraryCategory,
   type StudioMessage,
 } from '@/lib/api/studio'
 import { cn } from '@/lib/utils'
@@ -45,15 +43,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { IconButtonTooltip } from '@/components/ui/icon-button-tooltip'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { MessageResponse } from '@/components/ai-elements/message'
@@ -66,19 +56,18 @@ type Props = {
   assets: StudioAsset[]
   messages?: StudioMessage[]
   onLocateMessage?: (messageId: string) => void
-  onSaveToLibrary: (input: {
-    assetId: string
-    categoryId?: string
-  }) => Promise<void>
   onCreateTextAsset?: (input: {
     name: string
     content: string
+    requestId: string
   }) => Promise<unknown>
   onUpdateTextAsset?: (input: {
     assetId: string
     content: string
+    requestId: string
   }) => Promise<unknown>
   onUploadAsset?: (file: File) => void
+  onOpenLibrary?: () => void
   uploading?: boolean
 }
 
@@ -86,19 +75,14 @@ export function StudioAssets({
   assets,
   messages,
   onLocateMessage,
-  onSaveToLibrary,
   onCreateTextAsset,
   onUpdateTextAsset,
   onUploadAsset,
+  onOpenLibrary,
   uploading,
 }: Props) {
-  const [assetToSave, setAssetToSave] = useState<StudioAsset>()
   const [assetToView, setAssetToView] = useState<StudioAsset>()
   const [layout, setLayout] = useState<AssetLayout>('adaptive')
-  const categories = useQuery({
-    queryKey: ['studio', 'library', 'categories'],
-    queryFn: listStudioLibraryCategories,
-  })
   return (
     <div className='flex h-full min-h-0 flex-col'>
       <div
@@ -110,6 +94,7 @@ export function StudioAssets({
           onUploadAsset={onUploadAsset}
           uploading={uploading}
         />
+        {onOpenLibrary ? <Button variant='outline' size='sm' onClick={onOpenLibrary}><Library />查看项目资产</Button> : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant='outline' size='sm'>
@@ -150,13 +135,7 @@ export function StudioAssets({
       </div>
       {assets.length === 0 ? (
         <div className='flex min-h-0 flex-1 flex-col items-center justify-center px-8 text-center'>
-          <span className='mb-4 flex size-11 items-center justify-center rounded-lg bg-muted'>
-            <FileText className='size-5 text-muted-foreground' />
-          </span>
-          <p className='text-sm font-medium'>当前会话还没有资产</p>
-          <p className='mt-1 max-w-xs text-xs leading-5 text-muted-foreground'>
-            上传文件、让模型生成内容，或执行工作流后，资产会自动汇总到这里。
-          </p>
+          <p className='text-sm text-muted-foreground'>暂无资产</p>
         </div>
       ) : (
         <ScrollArea className='min-h-0 flex-1'>
@@ -167,12 +146,15 @@ export function StudioAssets({
             )}
           >
             {assets.map((asset) => {
+              const sourceRunId = asset.usages?.find(
+                (usage) => usage.run_id && usage.usage_kind !== 'referenced'
+              )?.run_id
               const sourceMessageId =
-                asset.origin !== 'user' && asset.source_run_id
+                asset.origin !== 'user' && sourceRunId
                   ? messages?.find(
                       (message) =>
                         message.role === 'user' &&
-                        message.run_id === asset.source_run_id
+                        message.run_id === sourceRunId
                     )?.id
                   : undefined
               return (
@@ -182,7 +164,6 @@ export function StudioAssets({
                   preview
                   layout={layout === 'list' ? 'list' : 'grid'}
                   onOpenDetails={setAssetToView}
-                  onSaveToLibrary={() => setAssetToSave(asset)}
                   onUpdateTextAsset={onUpdateTextAsset}
                   onLocateSource={
                     sourceMessageId && onLocateMessage
@@ -200,15 +181,6 @@ export function StudioAssets({
           共 {assets.length} 项资产
         </p>
       </div>
-      <SaveAssetToLibraryDialog
-        asset={assetToSave}
-        categories={categories.data ?? []}
-        categoriesLoading={categories.isLoading}
-        onOpenChange={(open) => {
-          if (!open) setAssetToSave(undefined)
-        }}
-        onSave={onSaveToLibrary}
-      />
       <SessionAssetDetailsDialog
         asset={assetToView}
         onOpenChange={(open) => {
@@ -227,6 +199,7 @@ function AssetActions({
   onCreateTextAsset?: (input: {
     name: string
     content: string
+    requestId: string
   }) => Promise<unknown>
   onUploadAsset?: (file: File) => void
   uploading?: boolean
@@ -267,20 +240,22 @@ function AssetActions({
 function TextAssetDialog({
   onCreate,
 }: {
-  onCreate: (input: { name: string; content: string }) => Promise<unknown>
+  onCreate: (input: { name: string; content: string; requestId: string }) => Promise<unknown>
 }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('创作笔记.md')
   const [content, setContent] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const requestId = useRef(crypto.randomUUID())
   const save = async () => {
     setSaving(true)
     setError('')
     try {
-      await onCreate({ name, content })
+      await onCreate({ name, content, requestId: requestId.current })
       setOpen(false)
       setContent('')
+      requestId.current = crypto.randomUUID()
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : '创建文档失败，重试保存。'
@@ -313,14 +288,14 @@ function TextAssetDialog({
           <Input
             aria-label='文档名称'
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => { setName(event.target.value); requestId.current = crypto.randomUUID() }}
             placeholder='例如：角色设定.md'
             disabled={saving}
           />
           <Textarea
             aria-label='文档内容'
             value={content}
-            onChange={(event) => setContent(event.target.value)}
+            onChange={(event) => { setContent(event.target.value); requestId.current = crypto.randomUUID() }}
             placeholder='写下故事、角色、提示词或其他创作素材…'
             className='min-h-56 font-mono text-sm leading-6'
             disabled={saving}
@@ -356,8 +331,9 @@ export function AssetCard({
   preview = false,
   lazyText = false,
   layout = 'grid',
-  onSaveToLibrary,
   onOpenDetails,
+  onSelect,
+  selected = false,
   onLocateSource,
   onUpdateTextAsset,
 }: {
@@ -365,12 +341,14 @@ export function AssetCard({
   preview?: boolean
   lazyText?: boolean
   layout?: 'grid' | 'list'
-  onSaveToLibrary?: (assetId: string) => void
   onOpenDetails?: (asset: StudioAsset) => void
+  onSelect?: () => void
+  selected?: boolean
   onLocateSource?: () => void
   onUpdateTextAsset?: (input: {
     assetId: string
     content: string
+    requestId: string
   }) => Promise<unknown>
 }) {
   const version = asset.versions[asset.versions.length - 1]
@@ -380,16 +358,18 @@ export function AssetCard({
   const secondaryActionCount =
     Number(Boolean(contentURL)) +
     Number(Boolean(onLocateSource)) +
-    Number(canEdit) +
-    Number(Boolean(onSaveToLibrary))
+    Number(canEdit)
   return (
     <article
       className={cn(
-        'group min-w-0 overflow-hidden rounded-lg border bg-card',
+        'group relative min-w-0 overflow-hidden rounded-lg border bg-card',
         styles.card,
-        layout === 'list' && 'flex'
+        layout === 'list' && 'flex',
+        onSelect && 'hover:border-primary/60',
+        selected && 'border-primary bg-accent/30'
       )}
     >
+      {onSelect ? <Button type='button' variant='ghost' size='icon' className='absolute inset-0 z-10 h-full w-full rounded-lg opacity-0 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring' aria-label={selected ? `取消选择 ${asset.name}` : `选择 ${asset.name}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={() => onOpenDetails?.(asset)} onKeyDown={(event) => { if (event.key === 'Enter' && onOpenDetails) { event.preventDefault(); onOpenDetails(asset) } }} /> : null}
       <div
         className={cn(
           'aspect-[16/10] px-3 pt-3',
@@ -429,7 +409,7 @@ export function AssetCard({
           </Badge>
         </div>
         <div
-          className={cn('flex items-center gap-1', styles.actions)}
+          className={cn('relative z-20 flex items-center gap-1', styles.actions)}
           data-secondary-count={secondaryActionCount}
         >
           {onOpenDetails ? (
@@ -487,25 +467,6 @@ export function AssetCard({
                 </Button>
               </IconButtonTooltip>
             ) : null}
-            {onSaveToLibrary ? (
-              <IconButtonTooltip
-                label={asset.saved_to_library ? '已存入资产库' : '存入资产库'}
-              >
-                <span className='inline-flex'>
-                  <Button
-                    variant='ghost'
-                    size='icon-sm'
-                    onClick={() => onSaveToLibrary(asset.id)}
-                    disabled={asset.saved_to_library}
-                    aria-label={
-                      asset.saved_to_library ? '已存入资产库' : '存入资产库'
-                    }
-                  >
-                    <Library />
-                  </Button>
-                </span>
-              </IconButtonTooltip>
-            ) : null}
             {canEdit ? (
               <IconButtonTooltip label='编辑文档'>
                 <Button
@@ -545,15 +506,6 @@ export function AssetCard({
                 <DropdownMenuItem onSelect={onLocateSource}>
                   <MessageSquareText />
                   定位生成对话
-                </DropdownMenuItem>
-              ) : null}
-              {onSaveToLibrary ? (
-                <DropdownMenuItem
-                  disabled={asset.saved_to_library}
-                  onSelect={() => onSaveToLibrary(asset.id)}
-                >
-                  <Library />
-                  {asset.saved_to_library ? '已存入资产库' : '存入资产库'}
                 </DropdownMenuItem>
               ) : null}
               {canEdit ? (
@@ -763,7 +715,7 @@ function TextAssetEditDialog({
   onOpenChange,
 }: {
   asset: StudioAsset
-  onSave: (input: { assetId: string; content: string }) => Promise<unknown>
+  onSave: (input: { assetId: string; content: string; requestId: string }) => Promise<unknown>
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -771,6 +723,7 @@ function TextAssetEditDialog({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const requestId = useRef(crypto.randomUUID())
   const version = asset.versions[asset.versions.length - 1]
 
   useEffect(() => {
@@ -804,8 +757,9 @@ function TextAssetEditDialog({
     setSaving(true)
     setError('')
     try {
-      await onSave({ assetId: asset.id, content })
+      await onSave({ assetId: asset.id, content, requestId: requestId.current })
       changeOpen(false)
+      requestId.current = crypto.randomUUID()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '保存新版本失败')
     } finally {
@@ -825,7 +779,7 @@ function TextAssetEditDialog({
         <Textarea
           aria-label='文档内容'
           value={content}
-          onChange={(event) => setContent(event.target.value)}
+          onChange={(event) => { setContent(event.target.value); requestId.current = crypto.randomUUID() }}
           disabled={loading || saving}
           placeholder={loading ? '读取文档中…' : '写下新的内容…'}
           className='min-h-64 font-mono text-sm leading-6'
@@ -848,107 +802,6 @@ function TextAssetEditDialog({
             onClick={save}
           >
             {saving ? '保存中…' : '保存新版本'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function SaveAssetToLibraryDialog({
-  asset,
-  categories,
-  categoriesLoading,
-  onOpenChange,
-  onSave,
-}: {
-  asset?: StudioAsset
-  categories: StudioLibraryCategory[]
-  categoriesLoading: boolean
-  onOpenChange: (open: boolean) => void
-  onSave: (input: { assetId: string; categoryId?: string }) => Promise<void>
-}) {
-  const [categoryId, setCategoryId] = useState('root')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleOpenChange = (open: boolean) => {
-    if (!open && !saving) {
-      setCategoryId('root')
-      setError('')
-      onOpenChange(false)
-    }
-  }
-
-  const save = async () => {
-    if (!asset) return
-    setSaving(true)
-    setError('')
-    try {
-      await onSave({
-        assetId: asset.id,
-        categoryId: categoryId === 'root' ? undefined : categoryId,
-      })
-      setCategoryId('root')
-      onOpenChange(false)
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : '资产保存失败，请稍后重试。'
-      )
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Dialog open={Boolean(asset)} onOpenChange={handleOpenChange}>
-      <DialogContent className='sm:max-w-md'>
-        <DialogHeader>
-          <DialogTitle>存入资产库</DialogTitle>
-          <DialogDescription>
-            选择资产库分类。保存后，可在其他会话中使用。
-          </DialogDescription>
-        </DialogHeader>
-        <div className='flex flex-col gap-2 py-2'>
-          <Label htmlFor='studio-asset-library-category'>资产库分类</Label>
-          <Select
-            value={categoryId}
-            onValueChange={setCategoryId}
-            disabled={saving}
-          >
-            <SelectTrigger id='studio-asset-library-category'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='root'>未分类</SelectItem>
-              {categoriesLoading ? (
-                <SelectItem value='loading' disabled>
-                  正在读取分类…
-                </SelectItem>
-              ) : null}
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {error ? (
-          <p role='alert' className='text-sm text-destructive'>
-            {error}
-          </p>
-        ) : null}
-        <DialogFooter>
-          <Button
-            variant='outline'
-            disabled={saving}
-            onClick={() => handleOpenChange(false)}
-          >
-            取消
-          </Button>
-          <Button disabled={saving} onClick={save}>
-            {saving ? '正在保存…' : '存入资产库'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,6 +3,7 @@ package localfs_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/Mr9esx/Pixoma/internal/platform/blob"
 	"github.com/Mr9esx/Pixoma/internal/platform/blob/localfs"
+	"github.com/Mr9esx/Pixoma/internal/sharedkernel"
 )
 
 func TestPutGetRoundTrip(t *testing.T) {
@@ -83,5 +85,65 @@ func TestCheck_Writable(t *testing.T) {
 	}
 	if err := store.Check(context.Background()); err != nil {
 		t.Fatalf("check: %v", err)
+	}
+}
+
+func TestDeleteRemovesBlob(t *testing.T) {
+	store, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	ref, err := store.Put(ctx, "assets/example.txt", bytes.NewBufferString("content"), blob.PutOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Delete(ctx, ref); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if _, err := store.Get(ctx, ref); !os.IsNotExist(err) {
+		t.Fatalf("get after delete: %v", err)
+	}
+	if err := store.Delete(ctx, ref); err != nil {
+		t.Fatalf("delete missing object: %v", err)
+	}
+}
+
+func TestDeleteRejectsInvalidKeyAndCanceledContext(t *testing.T) {
+	store, err := localfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"", "/abs", "../outside"} {
+		if err := store.Delete(context.Background(), sharedkernel.BlobRef{Key: key}); err == nil {
+			t.Fatalf("expected invalid key error for %q", key)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := store.Delete(ctx, sharedkernel.BlobRef{Key: "valid"}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled delete: %v", err)
+	}
+}
+
+func TestDeleteCannotFollowSymlinkOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	store, err := localfs.New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(outside, "keep.txt")
+	if err := os.WriteFile(path, []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "outside")); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Delete(context.Background(), sharedkernel.BlobRef{Key: "outside/keep.txt"}); err == nil {
+		t.Fatal("delete followed symlink outside root")
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("outside file was removed: %v", err)
 	}
 }

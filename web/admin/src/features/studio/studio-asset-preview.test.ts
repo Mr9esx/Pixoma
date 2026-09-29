@@ -12,12 +12,10 @@ const createdAt = '2026-09-26T10:00:00Z'
 function mediaAsset(kind: 'video' | 'audio'): StudioAsset {
   return {
     id: `${kind}-asset`,
-    session_id: 'session-1',
     name: kind === 'video' ? '分镜.mp4' : '旁白.mp3',
     kind,
     origin: 'user',
     current_version: 1,
-    saved_to_library: false,
     versions: [
       {
         id: `${kind}-version`,
@@ -36,12 +34,10 @@ function mediaAsset(kind: 'video' | 'audio'): StudioAsset {
 function imageAsset(index: number): StudioAsset {
   return {
     id: `image-${index}`,
-    session_id: 'session-1',
     name: `图片 ${index}.png`,
     kind: 'image',
     origin: 'user',
     current_version: 1,
-    saved_to_library: false,
     versions: [
       {
         id: `image-version-${index}`,
@@ -62,7 +58,6 @@ describe('会话资产预览', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { staleTime: Infinity } },
     })
-    client.setQueryData(['studio', 'library', 'categories'], [])
     const screen = await render(
       createElement(
         'div',
@@ -77,7 +72,6 @@ describe('会话资产预览', () => {
               imageAsset(3),
               imageAsset(4),
             ],
-            onSaveToLibrary: async () => {},
             onUploadAsset: () => {},
             onCreateTextAsset: async () => {},
           })
@@ -149,7 +143,6 @@ describe('会话资产预览', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { staleTime: Infinity } },
     })
-    client.setQueryData(['studio', 'library', 'categories'], [])
     const screen = await render(
       createElement(
         'div',
@@ -159,7 +152,6 @@ describe('会话资产预览', () => {
           { client },
           createElement(StudioAssets, {
             assets: [imageAsset(1)],
-            onSaveToLibrary: async () => {},
           })
         )
       )
@@ -172,11 +164,10 @@ describe('会话资产预览', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { staleTime: Infinity } },
     })
-    client.setQueryData(['studio', 'library', 'categories'], [])
     const generated = {
       ...imageAsset(1),
       origin: 'agent' as const,
-      source_run_id: 'run-1',
+      usages: [{ id: 'usage-1', session_id: 'session-1', session_title_snapshot: '会话', usage_kind: 'created' as const, run_id: 'run-1', created_at: createdAt }],
     }
     const manual = imageAsset(2)
     let locatedMessageId = ''
@@ -209,7 +200,6 @@ describe('会话资产预览', () => {
             onLocateMessage: (id: string) => {
               locatedMessageId = id
             },
-            onSaveToLibrary: async () => {},
           })
         )
       )
@@ -223,19 +213,14 @@ describe('会话资产预览', () => {
     const locateButton = generatedCard.querySelector<HTMLButtonElement>(
       'button[aria-label="定位生成对话"]'
     )!
-    expect(getComputedStyle(moreButton).display).toBe('flex')
-    expect(getComputedStyle(locateButton.parentElement!).display).toBe('none')
+    expect(getComputedStyle(moreButton).display).toBe('none')
+    expect(getComputedStyle(locateButton.parentElement!).display).toBe('flex')
     expect(
       manualCard.querySelector('button[aria-label="定位生成对话"]')
     ).toBeNull()
     const viewButton = screen.getByRole('button', { name: '查看' }).first()
     expect(viewButton.element().getBoundingClientRect().height).toBe(32)
-    await screen.getByRole('button', { name: '更多操作' }).hover()
-    await expect
-      .element(screen.getByRole('tooltip'))
-      .toHaveTextContent('更多操作')
-    await screen.getByRole('button', { name: '更多操作' }).click()
-    await screen.getByRole('menuitem', { name: '定位生成对话' }).click()
+    await screen.getByRole('button', { name: '定位生成对话' }).click()
     expect(locatedMessageId).toBe('user-1')
     expect(generatedCard.querySelector('a[download]')).not.toBeNull()
     const container = screen.container.firstElementChild as HTMLElement
@@ -258,8 +243,7 @@ describe('会话资产预览', () => {
     const asset = {
       ...imageAsset(1),
       origin: 'agent' as const,
-      source_run_id: 'run-1',
-      saved_to_library: true,
+      usages: [{ id: 'usage-1', session_id: 'session-1', session_title_snapshot: '会话', usage_kind: 'created' as const, run_id: 'run-1', created_at: createdAt }],
     }
     let located = false
     const screen = await render(
@@ -276,12 +260,12 @@ describe('会话资产预览', () => {
       )
     )
     const card = screen.container.querySelector('article')!
-    expect(card.querySelector('[aria-label="已存入资产库"]')).toBeNull()
+    expect(card.querySelector('[aria-label="存入资产库"]')).toBeNull()
     await screen.getByRole('button', { name: '定位生成对话' }).click()
     expect(located).toBe(true)
   })
 
-  it('窄卡片在更多操作中显示文档编辑', async () => {
+  it('窄卡片显示文档编辑', async () => {
     const asset: StudioAsset = {
       ...imageAsset(1),
       id: 'document-asset',
@@ -298,7 +282,6 @@ describe('会话资产预览', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { staleTime: Infinity } },
     })
-    client.setQueryData(['studio', 'library', 'categories'], [])
     client.setQueryData(
       ['studio', 'asset', asset.id, asset.versions[0].content_url, 'content'],
       '# 创作笔记'
@@ -312,16 +295,12 @@ describe('会话资产预览', () => {
           { client },
           createElement(StudioAssets, {
             assets: [asset],
-            onSaveToLibrary: async () => {},
             onUpdateTextAsset: async () => {},
           })
         )
       )
     )
-    await screen.getByRole('button', { name: '更多操作' }).click()
-    await expect
-      .element(screen.getByRole('menuitem', { name: '编辑文档' }))
-      .toBeVisible()
+    await expect.element(screen.getByRole('button', { name: '编辑文档 创作笔记.md' })).toBeVisible()
   })
 
   it.each(['video', 'audio'] as const)('在卡片中预览 %s 资产', (kind) => {
@@ -331,7 +310,6 @@ describe('会话资产预览', () => {
         { client: new QueryClient() },
         createElement(StudioAssets, {
           assets: [mediaAsset(kind)],
-          onSaveToLibrary: async () => {},
         })
       )
     )
@@ -348,12 +326,10 @@ describe('会话资产预览', () => {
       const contentURL = '/api/v1/studio/assets/document-asset/content'
       const asset: StudioAsset = {
         id: 'document-asset',
-        session_id: 'session-1',
         name: '创作笔记.md',
         kind: 'document',
         origin: 'user',
         current_version: 1,
-        saved_to_library: false,
         versions: [
           {
             id: 'document-version',
@@ -385,7 +361,6 @@ describe('会话资产预览', () => {
             createElement(AssetCard, {
               asset,
               preview: true,
-              onSaveToLibrary: () => {},
             })
           )
         )

@@ -63,12 +63,27 @@ func (r *WorkflowReconciler) ReconcileOnce(ctx context.Context, limit int) error
 
 func (r *WorkflowReconciler) adoptSucceeded(ctx context.Context, execution *domain.WorkflowExecution, task *runtimedomain.Task) error {
 	now := r.now()
+	session, err := r.Repo.GetSession(ctx, execution.AccountID, execution.SessionID)
+	if err != nil {
+		return err
+	}
 	for index, output := range task.Outputs {
 		asset, err := r.workflowAsset(execution, output, index, now)
 		if err != nil {
 			return err
 		}
-		if err := r.Repo.CreateAsset(ctx, asset); err != nil {
+		placement := &domain.ProjectAsset{
+			ID: asset.ID + "-project", AccountID: execution.AccountID, ProjectID: session.ProjectID,
+			AssetID: asset.ID, AssetVersionID: asset.Versions[0].ID, DisplayName: asset.Name,
+			AddedAt: now, UpdatedAt: now,
+		}
+		usage := &domain.SessionAssetUsage{
+			ID: asset.ID + "-usage", AccountID: execution.AccountID, SessionID: session.ID,
+			AssetID: asset.ID, AssetVersionID: asset.Versions[0].ID,
+			UsageKind: "created", OperationKey: asset.ID, RunID: execution.RunID,
+			CreatedAt: now,
+		}
+		if err := r.Repo.CreateAssetWithPlacement(ctx, asset, placement, usage); err != nil {
 			if !errors.Is(err, domain.ErrAlreadyExists) {
 				return fmt.Errorf("studio: create workflow output asset: %w", err)
 			}
@@ -133,18 +148,26 @@ func (r *WorkflowReconciler) workflowAsset(execution *domain.WorkflowExecution, 
 	if name == "" || name == "." {
 		name = fmt.Sprintf("工作流输出-%d", index+1)
 	}
-	asset, err := domain.NewAsset(workflowOutputAssetID(execution, index), execution.SessionID, execution.AccountID, name, assetKindForMIME(output.Blob.MIME), domain.AssetOriginWorkflow, now)
+	asset, err := domain.NewAsset(workflowOutputAssetID(execution, index), execution.AccountID, name, assetKindForMIME(output.Blob.MIME), domain.AssetOriginWorkflow, now)
 	if err != nil {
 		return nil, err
 	}
-	asset.SourceRunID = execution.RunID
+	asset.CreationKey = asset.ID
 	mimeType := strings.TrimSpace(output.Blob.MIME)
 	if mimeType == "" {
 		mimeType = "application/octet-stream"
 	}
-	if _, err := asset.AppendVersion(workflowOutputAssetID(execution, index)+"-v1", mimeType, output.Blob.Key, output.Blob.Size, now); err != nil {
+	version, err := asset.AppendVersion(workflowOutputAssetID(execution, index)+"-v1", mimeType, output.Blob.Key, output.Blob.Size, now)
+	if err != nil {
 		return nil, err
 	}
+	version.ContentOrigin = "workflow"
+	version.OperationKey = asset.ID
+	version.Format = strings.TrimPrefix(filepath.Ext(name), ".")
+	if version.Format == "" {
+		version.Format = "unknown"
+	}
+	asset.Versions[0] = version
 	return asset, nil
 }
 

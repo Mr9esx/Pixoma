@@ -118,6 +118,10 @@ func (s *stubBlob) Get(_ context.Context, ref sharedkernel.BlobRef) (io.ReadClos
 	}
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
+func (s *stubBlob) Delete(_ context.Context, ref sharedkernel.BlobRef) error {
+	delete(s.mem, ref.Key)
+	return nil
+}
 func (s *stubBlob) Check(context.Context) error { return nil }
 
 func TestBaseInvokeSeparatesUserAndChat(t *testing.T) {

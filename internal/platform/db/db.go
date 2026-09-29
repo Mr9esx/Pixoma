@@ -53,7 +53,11 @@ func Open(opts Options) (*gorm.DB, error) {
 	if sqlDB, err := gdb.DB(); err == nil {
 		sqlDB.SetConnMaxLifetime(time.Hour)
 		sqlDB.SetMaxIdleConns(4)
-		sqlDB.SetMaxOpenConns(16)
+		if isSQLite(opts.Driver) {
+			sqlDB.SetMaxOpenConns(1)
+		} else {
+			sqlDB.SetMaxOpenConns(16)
+		}
 	}
 	return gdb, nil
 }

@@ -455,15 +455,16 @@ func (r *GormRepository) GetCurrentContextRequest(ctx context.Context, accountID
 }
 
 type ContextTokenTotals struct {
-	Input           int64 `json:"input"`
-	Output          int64 `json:"output"`
-	CacheRead       int64 `json:"cache_read"`
-	CacheWrite      int64 `json:"cache_write"`
-	Uncached        int64 `json:"uncached"`
-	Reasoning       int64 `json:"reasoning"`
-	Missing         int64 `json:"missing_requests"`
-	CacheKnown      int64 `json:"cache_known_requests"`
-	CacheKnownInput int64 `json:"cache_known_input"`
+	Input             int64 `json:"input"`
+	Output            int64 `json:"output"`
+	CacheRead         int64 `json:"cache_read"`
+	CacheWrite        int64 `json:"cache_write"`
+	Uncached          int64 `json:"uncached"`
+	UnclassifiedInput int64 `json:"unclassified_input"`
+	Reasoning         int64 `json:"reasoning"`
+	Missing           int64 `json:"missing_requests"`
+	CacheKnown        int64 `json:"cache_known_requests"`
+	CacheKnownInput   int64 `json:"cache_known_input"`
 }
 
 type ContextTiming struct {
@@ -472,36 +473,65 @@ type ContextTiming struct {
 	GenerationMS int64 `json:"generation_ms"`
 	ModelOtherMS int64 `json:"model_other_ms"`
 	ToolsMS      int64 `json:"tools_ms"`
+	OverlapMS    int64 `json:"overlap_ms"`
 	OtherMS      int64 `json:"other_ms"`
 }
 
 type contextInterval struct{ start, end time.Time }
 
-func intervalMillis(intervals []contextInterval) int64 {
-	if len(intervals) == 0 {
-		return 0
+func contextTimingBreakdown(active, pauses, waits, generations, modelOthers, tools []contextInterval) ContextTiming {
+	type boundary struct {
+		at     time.Time
+		kind   int
+		change int
 	}
-	sort.Slice(intervals, func(i, j int) bool { return intervals[i].start.Before(intervals[j].start) })
-	start, end := intervals[0].start, intervals[0].end
-	var total int64
-	for _, current := range intervals[1:] {
-		if current.start.After(end) {
-			if end.After(start) {
-				total += end.Sub(start).Milliseconds()
+	groups := [][]contextInterval{active, pauses, waits, generations, modelOthers, tools}
+	var boundaries []boundary
+	for kind, intervals := range groups {
+		for _, interval := range intervals {
+			if interval.end.After(interval.start) {
+				boundaries = append(boundaries, boundary{interval.start, kind, 1}, boundary{interval.end, kind, -1})
 			}
-			start, end = current.start, current.end
-		} else if current.end.After(end) {
-			end = current.end
 		}
 	}
-	if end.After(start) {
-		total += end.Sub(start).Milliseconds()
+	sort.Slice(boundaries, func(i, j int) bool { return boundaries[i].at.Before(boundaries[j].at) })
+	var counts [6]int
+	var timing ContextTiming
+	for index, event := range boundaries {
+		if index > 0 && counts[0] > 0 && counts[1] == 0 {
+			ms := event.at.Sub(boundaries[index-1].at).Milliseconds()
+			timing.ActiveMS += ms
+			activeKinds, kind := 0, 0
+			for candidate := 2; candidate < len(counts); candidate++ {
+				if counts[candidate] > 0 {
+					activeKinds++
+					kind = candidate
+				}
+			}
+			switch {
+			case activeKinds > 1:
+				timing.OverlapMS += ms
+			case kind == 2:
+				timing.ModelWaitMS += ms
+			case kind == 3:
+				timing.GenerationMS += ms
+			case kind == 4:
+				timing.ModelOtherMS += ms
+			case kind == 5:
+				timing.ToolsMS += ms
+			default:
+				timing.OtherMS += ms
+			}
+		}
+		counts[event.kind] += event.change
 	}
-	return total
+	return timing
 }
 
 func (r *GormRepository) GetContextOverview(ctx context.Context, accountID, sessionID string) (*ContextOverview, error) {
 	view := &ContextOverview{}
+	now := time.Now().UTC()
+	var waits, generations, modelOthers []contextInterval
 	if err := r.db.WithContext(ctx).Model(&RunRow{}).Where("account_id = ? AND session_id = ?", accountID, sessionID).
 		Distinct("trigger_message_id").Count(&view.Turns).Error; err != nil {
 		return nil, err
@@ -532,33 +562,45 @@ func (r *GormRepository) GetContextOverview(ctx context.Context, accountID, sess
 		if row.InputTokens == nil || row.OutputTokens == nil {
 			view.Tokens.Missing++
 		} else {
+			if *row.InputTokens < 0 || *row.OutputTokens < 0 {
+				return nil, fmt.Errorf("invalid token usage for attempt %s", row.AttemptID)
+			}
 			view.Tokens.Input += int64(*row.InputTokens)
 			view.Tokens.Output += int64(*row.OutputTokens)
-		}
-		if row.CacheReadTokens != nil {
-			view.Tokens.CacheRead += int64(*row.CacheReadTokens)
-		}
-		if row.CacheWriteTokens != nil {
-			view.Tokens.CacheWrite += int64(*row.CacheWriteTokens)
+			if row.CacheReadTokens == nil && row.CacheWriteTokens == nil {
+				view.Tokens.UnclassifiedInput += int64(*row.InputTokens)
+			} else {
+				read := 0
+				if row.CacheReadTokens != nil {
+					read = *row.CacheReadTokens
+				}
+				write := 0
+				if row.CacheWriteTokens != nil {
+					write = *row.CacheWriteTokens
+				}
+				if read < 0 || write < 0 || read+write > *row.InputTokens {
+					return nil, fmt.Errorf("invalid cache token breakdown for attempt %s", row.AttemptID)
+				}
+				view.Tokens.CacheRead += int64(read)
+				view.Tokens.CacheWrite += int64(write)
+				if row.CacheReadTokens != nil {
+					view.Tokens.Uncached += int64(*row.InputTokens - read - write)
+					view.Tokens.CacheKnown++
+					view.Tokens.CacheKnownInput += int64(*row.InputTokens)
+				} else {
+					view.Tokens.UnclassifiedInput += int64(*row.InputTokens - write)
+				}
+			}
 		}
 		if row.ReasoningTokens != nil {
 			view.Tokens.Reasoning += int64(*row.ReasoningTokens)
 		}
-		if row.InputTokens != nil && row.CacheReadTokens != nil {
-			write := 0
-			if row.CacheWriteTokens != nil {
-				write = *row.CacheWriteTokens
-			}
-			view.Tokens.Uncached += int64(*row.InputTokens - *row.CacheReadTokens - write)
-			view.Tokens.CacheKnown++
-			view.Tokens.CacheKnownInput += int64(*row.InputTokens)
-		}
 		if row.EndedAt != nil {
 			if row.FirstTokenAt != nil && !row.FirstTokenAt.Before(row.StartedAt) && !row.FirstTokenAt.After(*row.EndedAt) {
-				view.Timing.ModelWaitMS += row.FirstTokenAt.Sub(row.StartedAt).Milliseconds()
-				view.Timing.GenerationMS += row.EndedAt.Sub(*row.FirstTokenAt).Milliseconds()
+				waits = append(waits, contextInterval{row.StartedAt, *row.FirstTokenAt})
+				generations = append(generations, contextInterval{*row.FirstTokenAt, *row.EndedAt})
 			} else {
-				view.Timing.ModelOtherMS += row.EndedAt.Sub(row.StartedAt).Milliseconds()
+				modelOthers = append(modelOthers, contextInterval{row.StartedAt, *row.EndedAt})
 			}
 		}
 	}
@@ -577,12 +619,11 @@ func (r *GormRepository) GetContextOverview(ctx context.Context, accountID, sess
 		if !run.StartedAt.IsZero() {
 			end := run.CompletedAt
 			if end.IsZero() {
-				end = time.Now().UTC()
+				end = now
 			}
 			active = append(active, contextInterval{run.StartedAt, end})
 		}
 	}
-	view.Timing.ActiveMS = intervalMillis(active)
 	var events []EventRow
 	if err := r.db.WithContext(ctx).Model(&EventRow{}).
 		Select("id, run_id, type, COALESCE(summary_payload, payload) AS summary_payload, created_at").
@@ -628,17 +669,12 @@ func (r *GormRepository) GetContextOverview(ctx context.Context, accountID, sess
 		}
 	}
 	for _, start := range pauseStarts {
-		pauseIntervals = append(pauseIntervals, contextInterval{start, time.Now().UTC()})
+		pauseIntervals = append(pauseIntervals, contextInterval{start, now})
 	}
-	view.Timing.ActiveMS -= intervalMillis(pauseIntervals)
-	if view.Timing.ActiveMS < 0 {
-		view.Timing.ActiveMS = 0
+	for _, start := range toolStarts {
+		toolIntervals = append(toolIntervals, contextInterval{start, now})
 	}
-	view.Timing.ToolsMS = intervalMillis(toolIntervals)
-	view.Timing.OtherMS = view.Timing.ActiveMS - view.Timing.ModelWaitMS - view.Timing.GenerationMS - view.Timing.ModelOtherMS - view.Timing.ToolsMS
-	if view.Timing.OtherMS < 0 {
-		view.Timing.OtherMS = 0
-	}
+	view.Timing = contextTimingBreakdown(active, pauseIntervals, waits, generations, modelOthers, toolIntervals)
 	if err := r.projectCurrentContext(ctx, accountID, sessionID, view.Current, false); err != nil {
 		return nil, err
 	}

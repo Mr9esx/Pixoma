@@ -1,6 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+  type RefObject,
+} from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronDown, ChevronRight, Clock3, Search, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import {
   getStudioSessionTrajectory,
@@ -10,9 +19,24 @@ import {
   type StudioRun,
 } from '@/lib/api/studio'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { IconButtonTooltip } from '@/components/ui/icon-button-tooltip'
+import { Input } from '@/components/ui/input'
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { recordPositions, systemPromptFromRequest } from './studio-trace-data'
 
 type RunGroup = {
@@ -20,6 +44,26 @@ type RunGroup = {
   records: StudioTrajectoryRecord[]
   turnNumber: number
 }
+type LedgerRow =
+  | { key: string; kind: 'load' }
+  | { key: string; kind: 'loading' }
+  | { key: string; kind: 'error' }
+  | { key: string; kind: 'empty'; label: string }
+  | { key: string; kind: 'run'; group: RunGroup; collapsed: boolean }
+  | {
+      key: string
+      kind: 'fragment'
+      title: string
+      firstRecord: StudioTrajectoryRecord
+    }
+  | {
+      key: string
+      kind: 'tools'
+      count: number
+      folded: boolean
+      groupKey: string
+    }
+  | { key: string; kind: 'record'; record: StudioTrajectoryRecord }
 type FractionRange = { start: number; end: number }
 type Tab =
   | 'overview'
@@ -51,13 +95,36 @@ const kindName: Record<string, string> = {
   compaction: '压缩',
   event: '事件',
 }
+const kindBadgeVariant: Record<string, 'default' | 'secondary' | 'outline'> = {
+  user: 'outline',
+  model: 'default',
+  tool: 'secondary',
+  assistant: 'outline',
+  reasoning: 'secondary',
+  compaction: 'default',
+  event: 'outline',
+}
 const statusName: Record<string, string> = {
   running: '进行中',
   done: '完成',
   failed: '失败',
 }
 
-export function StudioTrace({ sessionId }: { sessionId: string }) {
+function KindBadge({ kind }: { kind: string }) {
+  return (
+    <Badge variant={kindBadgeVariant[kind] ?? 'outline'} className='text-sm'>
+      {kindName[kind] ?? kind}
+    </Badge>
+  )
+}
+
+export function StudioTrace({
+  sessionId,
+  toolbarTarget,
+}: {
+  sessionId: string
+  toolbarTarget: HTMLDivElement | null
+}) {
   const [selectedID, setSelectedID] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [collapsedRuns, setCollapsedRuns] = useState<Set<string>>(new Set())
@@ -68,7 +135,6 @@ export function StudioTrace({ sessionId }: { sessionId: string }) {
   const [actualDuration, setActualDuration] = useState(false)
   const [range, setRange] = useState<FractionRange | null>(null)
   const [viewport, setViewport] = useState<FractionRange>({ start: 0, end: 1 })
-  const [detailsWidth, setDetailsWidth] = useState<number | null>(null)
   const ledgerRef = useRef<HTMLDivElement>(null)
   const restoreScroll = useRef<{ height: number; top: number } | null>(null)
   const [tailInitialized, setTailInitialized] = useState(false)
@@ -144,6 +210,77 @@ export function StudioTrace({ sessionId }: { sessionId: string }) {
         .filter((group) => group.records.length > 0),
     [runs, matched]
   )
+  const ledgerRows = useMemo(() => {
+    const rows: LedgerRow[] = []
+    if (trajectory.hasNextPage) rows.push({ key: 'load', kind: 'load' })
+    if (trajectory.isLoading) rows.push({ key: 'loading', kind: 'loading' })
+    else if (trajectory.isError) rows.push({ key: 'error', kind: 'error' })
+    else if (visibleRuns.length === 0)
+      rows.push({
+        key: 'empty',
+        kind: 'empty',
+        label: records.length === 0 ? '暂无轨迹记录' : '没有匹配的记录',
+      })
+
+    for (const group of visibleRuns) {
+      const collapsed = collapsedRuns.has(group.run.id)
+      rows.push({
+        key: 'run:' + group.run.id,
+        kind: 'run',
+        group,
+        collapsed,
+      })
+      if (collapsed) continue
+
+      const grouped = new Map<string, StudioTrajectoryRecord[]>()
+      for (const record of group.records) {
+        const name = record.step
+          ? '步骤 ' + record.step
+          : record.kind === 'user'
+            ? '输入'
+            : '事件'
+        const entries = grouped.get(name)
+        if (entries) entries.push(record)
+        else grouped.set(name, [record])
+      }
+      for (const [name, entries] of grouped) {
+        const groupKey = group.run.id + ':' + name
+        rows.push({
+          key: 'fragment:' + groupKey,
+          kind: 'fragment',
+          title: name,
+          firstRecord: entries[0],
+        })
+        const toolCount = entries.filter(
+          (record) => record.kind === 'tool'
+        ).length
+        const folded =
+          callsCollapsed && toolCount > 0 && !expandedCallGroups.has(groupKey)
+        if (callsCollapsed && toolCount > 0)
+          rows.push({
+            key: 'tools:' + groupKey,
+            kind: 'tools',
+            count: toolCount,
+            folded,
+            groupKey,
+          })
+        for (const record of entries) {
+          if (!folded || record.kind !== 'tool')
+            rows.push({ key: 'record:' + record.id, kind: 'record', record })
+        }
+      }
+    }
+    return rows
+  }, [
+    trajectory.hasNextPage,
+    trajectory.isLoading,
+    trajectory.isError,
+    visibleRuns,
+    records.length,
+    collapsedRuns,
+    callsCollapsed,
+    expandedCallGroups,
+  ])
   const allCollapsed =
     runs.length > 0 && runs.every((group) => collapsedRuns.has(group.run.id))
   const rangeMatches = useMemo(
@@ -177,9 +314,6 @@ export function StudioTrace({ sessionId }: { sessionId: string }) {
 
   function focus(record: StudioTrajectoryRecord) {
     setSelectedID(record.id)
-    document
-      .getElementById('trajectory-record-' + record.id)
-      ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }
   async function loadEarlier() {
     const pane = ledgerRef.current
@@ -190,67 +324,86 @@ export function StudioTrace({ sessionId }: { sessionId: string }) {
 
   return (
     <div
-      className='flex min-h-0 flex-1 flex-col bg-background text-xs'
+      className='flex min-h-0 flex-1 flex-col bg-card text-sm'
       data-slot='studio-trajectory'
     >
-      <div
-        role='toolbar'
-        aria-label='轨迹工具栏'
-        className='flex h-8 shrink-0 items-center gap-1 border-b bg-background px-1.5'
-      >
-        <Button
-          size='xs'
-          variant={actualDuration ? 'secondary' : 'ghost'}
-          aria-pressed={actualDuration}
-          aria-label={actualDuration ? '使用等宽操作' : '使用实际时长'}
-          onClick={() => {
-            setActualDuration(!actualDuration)
-            setRange(null)
-            setViewport({ start: 0, end: 1 })
-          }}
-        >
-          <Clock3 />
-          时长
-        </Button>
-        <Button
-          size='xs'
-          variant='ghost'
-          aria-pressed={allCollapsed}
-          aria-label={allCollapsed ? '展开所有轮次' : '收起所有轮次'}
-          onClick={() =>
-            setCollapsedRuns(
-              allCollapsed
-                ? new Set()
-                : new Set(runs.map((group) => group.run.id))
-            )
-          }
-        >
-          {allCollapsed ? '⊞' : '⊟'} 轮次
-        </Button>
-        <Button
-          size='xs'
-          variant='ghost'
-          aria-pressed={callsCollapsed}
-          aria-label={callsCollapsed ? '展开所有调用' : '收起所有调用'}
-          onClick={() => {
-            setCallsCollapsed(!callsCollapsed)
-            setExpandedCallGroups(new Set())
-          }}
-        >
-          {callsCollapsed ? '⊞' : '⊟'} 调用
-        </Button>
-        <label className='ml-auto flex h-6 w-40 items-center gap-1 rounded-sm border bg-muted/40 px-1.5 text-muted-foreground focus-within:border-ring'>
-          <Search className='size-3' />
-          <input
-            type='search'
-            aria-label='搜索轨迹'
-            placeholder='搜索'
-            className='min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground'
-            value={search}
-            onChange={(event) => setSearch(event.currentTarget.value)}
-          />
-        </label>
-      </div>
+      {toolbarTarget
+        ? createPortal(
+            <>
+              <Button
+                size='sm'
+                variant={actualDuration ? 'secondary' : 'ghost'}
+                aria-pressed={actualDuration}
+                aria-label={
+                  actualDuration
+                    ? '时间轴按记录等宽显示'
+                    : '时间轴按实际时长显示'
+                }
+                title={
+                  actualDuration
+                    ? '时间轴按记录等宽显示'
+                    : '时间轴按实际时长显示'
+                }
+                onClick={() => {
+                  setActualDuration(!actualDuration)
+                  setRange(null)
+                  setViewport({ start: 0, end: 1 })
+                }}
+              >
+                <Clock3 />
+                {actualDuration ? '按记录等宽显示' : '按实际时长显示'}
+              </Button>
+              <Button
+                size='sm'
+                variant='ghost'
+                aria-pressed={allCollapsed}
+                aria-label={allCollapsed ? '展开所有轮次' : '收起所有轮次'}
+                title={allCollapsed ? '展开所有轮次' : '收起所有轮次'}
+                onClick={() =>
+                  setCollapsedRuns(
+                    allCollapsed
+                      ? new Set()
+                      : new Set(runs.map((group) => group.run.id))
+                  )
+                }
+              >
+                {allCollapsed ? <ChevronRight /> : <ChevronDown />}
+                {allCollapsed ? '展开轮次' : '收起轮次'}
+              </Button>
+              <Button
+                size='sm'
+                variant='ghost'
+                aria-pressed={callsCollapsed}
+                aria-label={
+                  callsCollapsed ? '展开所有工具调用' : '收起所有工具调用'
+                }
+                title={callsCollapsed ? '展开所有工具调用' : '收起所有工具调用'}
+                onClick={() => {
+                  setCallsCollapsed(!callsCollapsed)
+                  setExpandedCallGroups(new Set())
+                }}
+              >
+                {callsCollapsed ? <ChevronRight /> : <ChevronDown />}
+                {callsCollapsed ? '展开工具调用' : '收起工具调用'}
+              </Button>
+              <div className='relative ml-1 w-32 shrink-0'>
+                <Search
+                  aria-hidden='true'
+                  className='pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground'
+                />
+                <Input
+                  type='search'
+                  aria-label='搜索轨迹'
+                  placeholder='搜索'
+                  className='h-9 bg-background pl-9 text-sm'
+                  value={search}
+                  onChange={(event) => setSearch(event.currentTarget.value)}
+                />
+              </div>
+            </>,
+            toolbarTarget
+          )
+        : null}
       <TrajectoryOverview
         records={records}
         selectedID={selectedID}
@@ -262,153 +415,258 @@ export function StudioTrace({ sessionId }: { sessionId: string }) {
         onSelect={focus}
         onLoadEarlier={trajectory.hasNextPage ? loadEarlier : undefined}
       />
-      <div className='flex min-h-0 flex-1 overflow-hidden'>
-        <div
-          ref={ledgerRef}
-          className='min-w-0 flex-1 overflow-auto'
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setSelectedID(null)
-          }}
+      <ResizablePanelGroup
+        orientation='horizontal'
+        className='relative min-h-0 flex-1 overflow-hidden'
+      >
+        <ResizablePanel
+          id='trace-ledger'
+          defaultSize={selected ? '62%' : '100%'}
+          minSize='30%'
+          className='min-w-0'
         >
-          <table
-            className='w-full table-fixed border-collapse text-xs'
-            aria-label='轨迹账本'
-          >
-            <colgroup>
-              <col className='w-21' />
-              <col />
-            </colgroup>
-            <tbody>
-              {trajectory.hasNextPage ? (
-                <tr>
-                  <td colSpan={2} className='border-b p-0'>
-                    <button
-                      className='h-8 w-full text-muted-foreground hover:bg-accent'
-                      disabled={trajectory.isFetchingNextPage}
-                      onClick={loadEarlier}
-                    >
-                      {trajectory.isFetchingNextPage
-                        ? '正在加载…'
-                        : '加载更早的记录'}
-                    </button>
-                  </td>
-                </tr>
-              ) : null}
-              {trajectory.isLoading ? (
-                <tr>
-                  <td colSpan={2} className='p-4'>
-                    <Skeleton className='h-16 w-full' />
-                  </td>
-                </tr>
-              ) : null}
-              {trajectory.isError ? (
-                <tr>
-                  <td colSpan={2} className='p-4 text-destructive'>
-                    轨迹读取失败
-                  </td>
-                </tr>
-              ) : null}
-              {!trajectory.isLoading && records.length === 0 ? (
-                <tr>
-                  <td colSpan={2} className='p-4 text-muted-foreground'>
-                    暂无轨迹记录
-                  </td>
-                </tr>
-              ) : null}
-              {visibleRuns.map((group) => (
-                <RunLedger
-                  key={group.run.id}
-                  group={group}
-                  collapsed={collapsedRuns.has(group.run.id)}
-                  onToggle={() =>
-                    setCollapsedRuns((current) => {
-                      const next = new Set(current)
-                      if (next.has(group.run.id)) next.delete(group.run.id)
-                      else next.add(group.run.id)
-                      return next
-                    })
-                  }
-                  selectedID={selectedID}
-                  onSelect={focus}
-                  rangeMatches={rangeMatches}
-                  callsCollapsed={callsCollapsed}
-                  expandedCallGroups={expandedCallGroups}
-                  onToggleCalls={(key) =>
-                    setExpandedCallGroups((current) => {
-                      const next = new Set(current)
-                      if (next.has(key)) next.delete(key)
-                      else next.add(key)
-                      return next
-                    })
-                  }
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {selected ? (
-          <RecordDetails
-            record={selected}
-            detail={detail.data}
-            loading={detail.isLoading}
-            error={detail.isError}
-            width={detailsWidth}
-            onResize={setDetailsWidth}
-            onClose={() => setSelectedID(null)}
+          <TraceLedger
+            rows={ledgerRows}
+            scrollAreaRef={ledgerRef}
+            selectedID={selectedID}
+            rangeMatches={rangeMatches}
+            fetchingEarlier={trajectory.isFetchingNextPage}
+            onLoadEarlier={loadEarlier}
+            onSelect={focus}
+            onToggleRun={(id) =>
+              setCollapsedRuns((current) => {
+                const next = new Set(current)
+                if (next.has(id)) next.delete(id)
+                else next.add(id)
+                return next
+              })
+            }
+            onToggleCalls={(key) =>
+              setExpandedCallGroups((current) => {
+                const next = new Set(current)
+                if (next.has(key)) next.delete(key)
+                else next.add(key)
+                return next
+              })
+            }
           />
+        </ResizablePanel>
+        {selected ? (
+          <>
+            <ResizableHandle className='max-md:hidden' />
+            <ResizablePanel
+              id='trace-details'
+              defaultSize='38%'
+              minSize='30%'
+              className='min-w-0 max-md:absolute max-md:inset-0 max-md:z-20 max-md:w-full!'
+            >
+              <RecordDetails
+                record={selected}
+                detail={detail.data}
+                loading={detail.isLoading}
+                error={detail.isError}
+                onClose={() => setSelectedID(null)}
+              />
+            </ResizablePanel>
+          </>
         ) : null}
-      </div>
+      </ResizablePanelGroup>
     </div>
   )
 }
 
-function RunLedger({
-  group,
-  collapsed,
-  onToggle,
+function TraceLedger({
+  rows,
+  scrollAreaRef,
   selectedID,
-  onSelect,
   rangeMatches,
-  callsCollapsed,
-  expandedCallGroups,
+  fetchingEarlier,
+  onLoadEarlier,
+  onSelect,
+  onToggleRun,
   onToggleCalls,
 }: {
-  group: RunGroup
-  collapsed: boolean
-  onToggle: () => void
+  rows: LedgerRow[]
+  scrollAreaRef: RefObject<HTMLDivElement | null>
   selectedID: string | null
-  onSelect: (record: StudioTrajectoryRecord) => void
   rangeMatches: Set<string> | null
-  callsCollapsed: boolean
-  expandedCallGroups: Set<string>
+  fetchingEarlier: boolean
+  onLoadEarlier: () => void
+  onSelect: (record: StudioTrajectoryRecord) => void
+  onToggleRun: (id: string) => void
   onToggleCalls: (key: string) => void
 }) {
-  const grouped = new Map<string, StudioTrajectoryRecord[]>()
-  for (const record of group.records) {
-    const key = record.step
-      ? '步骤 ' + record.step
-      : record.kind === 'user'
-        ? '输入'
-        : '事件'
-    grouped.set(key, [...(grouped.get(key) ?? []), record])
-  }
-  const duration =
-    group.run.completed_at && group.run.started_at
-      ? Math.max(
-          0,
-          Date.parse(group.run.completed_at) - Date.parse(group.run.started_at)
-        )
-      : null
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollAreaRef.current,
+    getItemKey: (index) => rows[index].key,
+    estimateSize: (index) => {
+      const kind = rows[index].kind
+      return kind === 'run'
+        ? 48
+        : kind === 'load' || kind === 'tools'
+          ? 40
+          : kind === 'loading'
+            ? 96
+            : kind === 'error' || kind === 'empty'
+              ? 52
+              : 44
+    },
+    overscan: 6,
+    initialRect: { width: 0, height: 600 },
+  })
+  const lastFocusedID = useRef<string | null>(null)
+  useEffect(() => {
+    if (selectedID === lastFocusedID.current) return
+    lastFocusedID.current = selectedID
+    if (selectedID === null) return
+    const index = rows.findIndex(
+      (row) => row.kind === 'record' && row.record.id === selectedID
+    )
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: 'center' })
+  }, [selectedID, rows, virtualizer])
+
+  const virtualRows = virtualizer.getVirtualItems()
+  const paddingTop = virtualRows[0]?.start ?? 0
+  const paddingBottom =
+    virtualizer.getTotalSize() - (virtualRows.at(-1)?.end ?? 0)
   return (
-    <>
-      <tr
-        className='sticky top-0 z-10 h-11 bg-muted/80 backdrop-blur-sm'
+    <div ref={scrollAreaRef} className='h-full min-w-0 overflow-y-auto'>
+      <Table
+        className='table-fixed border-collapse text-sm'
+        wrapperClassName='overflow-visible'
+        aria-label='轨迹账本'
+        aria-rowcount={rows.length}
+      >
+        <colgroup>
+          <col className='w-21' />
+          <col />
+        </colgroup>
+        <TableBody>
+          {paddingTop > 0 ? (
+            <TableRow
+              aria-hidden='true'
+              className='border-0 hover:bg-transparent'
+            >
+              <TableCell
+                colSpan={2}
+                className='p-0'
+                style={{ height: paddingTop }}
+              />
+            </TableRow>
+          ) : null}
+          {virtualRows.map((virtualRow) => (
+            <LedgerRowView
+              key={virtualRow.key}
+              index={virtualRow.index}
+              row={rows[virtualRow.index]}
+              selectedID={selectedID}
+              rangeMatches={rangeMatches}
+              fetchingEarlier={fetchingEarlier}
+              onLoadEarlier={onLoadEarlier}
+              onSelect={onSelect}
+              onToggleRun={onToggleRun}
+              onToggleCalls={onToggleCalls}
+            />
+          ))}
+          {paddingBottom > 0 ? (
+            <TableRow
+              aria-hidden='true'
+              className='border-0 hover:bg-transparent'
+            >
+              <TableCell
+                colSpan={2}
+                className='p-0'
+                style={{ height: paddingBottom }}
+              />
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+function LedgerRowView({
+  row,
+  index,
+  selectedID,
+  rangeMatches,
+  fetchingEarlier,
+  onLoadEarlier,
+  onSelect,
+  onToggleRun,
+  onToggleCalls,
+}: {
+  row: LedgerRow
+  index: number
+  selectedID: string | null
+  rangeMatches: Set<string> | null
+  fetchingEarlier: boolean
+  onLoadEarlier: () => void
+  onSelect: (record: StudioTrajectoryRecord) => void
+  onToggleRun: (id: string) => void
+  onToggleCalls: (key: string) => void
+}) {
+  const ariaRowIndex = index + 1
+  if (row.kind === 'load')
+    return (
+      <TableRow aria-rowindex={ariaRowIndex}>
+        <TableCell colSpan={2} className='p-0'>
+          <Button
+            variant='ghost'
+            className='h-10 w-full rounded-none text-muted-foreground'
+            disabled={fetchingEarlier}
+            onClick={onLoadEarlier}
+          >
+            {fetchingEarlier ? '正在加载…' : '加载更早的记录'}
+          </Button>
+        </TableCell>
+      </TableRow>
+    )
+  if (row.kind === 'loading')
+    return (
+      <TableRow aria-rowindex={ariaRowIndex}>
+        <TableCell colSpan={2} className='p-4'>
+          <Skeleton className='h-16 w-full' />
+        </TableCell>
+      </TableRow>
+    )
+  if (row.kind === 'error' || row.kind === 'empty')
+    return (
+      <TableRow aria-rowindex={ariaRowIndex}>
+        <TableCell
+          colSpan={2}
+          className={cn(
+            'p-4',
+            row.kind === 'error' ? 'text-destructive' : 'text-muted-foreground'
+          )}
+        >
+          {row.kind === 'error' ? '轨迹读取失败' : row.label}
+        </TableCell>
+      </TableRow>
+    )
+  if (row.kind === 'run') {
+    const { group, collapsed } = row
+    const duration =
+      group.run.completed_at && group.run.started_at
+        ? Math.max(
+            0,
+            Date.parse(group.run.completed_at) -
+              Date.parse(group.run.started_at)
+          )
+        : null
+    return (
+      <TableRow
+        aria-rowindex={ariaRowIndex}
+        className='h-12 border-y bg-muted hover:bg-muted'
         data-run-id={group.run.id}
       >
-        <td colSpan={2} className='border-y px-4'>
-          <button
-            className='flex w-full items-center gap-2 text-left font-medium'
-            onClick={onToggle}
+        <TableCell colSpan={2} className='border-y px-4 py-0'>
+          <Button
+            variant='ghost'
+            className='h-11 w-full justify-start px-1 text-sm'
+            onClick={() => onToggleRun(group.run.id)}
             aria-expanded={!collapsed}
           >
             {collapsed ? (
@@ -417,7 +675,7 @@ function RunLedger({
               <ChevronDown className='size-3.5' />
             )}
             <span>第 {group.turnNumber} 轮</span>
-            <span className='ml-auto flex items-center gap-4 font-mono text-[11px] font-normal text-muted-foreground'>
+            <span className='ml-auto flex items-center gap-4 font-mono text-sm font-normal text-muted-foreground'>
               <span>
                 {
                   group.records.filter((record) => record.kind === 'model')
@@ -436,148 +694,109 @@ function RunLedger({
                 {duration === null ? '进行中' : formatDuration(duration)}
               </span>
             </span>
-          </button>
-        </td>
-      </tr>
-      {!collapsed
-        ? [...grouped].map(([name, groupRecords]) => (
-            <FragmentRows
-              key={name}
-              title={name}
-              records={groupRecords}
-              selectedID={selectedID}
-              onSelect={onSelect}
-              rangeMatches={rangeMatches}
-              callsCollapsed={callsCollapsed}
-              callsExpanded={expandedCallGroups.has(group.run.id + ':' + name)}
-              onToggleCalls={() => onToggleCalls(group.run.id + ':' + name)}
-            />
-          ))
-        : null}
-    </>
-  )
-}
-
-function FragmentRows({
-  title,
-  records,
-  selectedID,
-  onSelect,
-  rangeMatches,
-  callsCollapsed,
-  callsExpanded,
-  onToggleCalls,
-}: {
-  title: string
-  records: StudioTrajectoryRecord[]
-  selectedID: string | null
-  onSelect: (record: StudioTrajectoryRecord) => void
-  rangeMatches: Set<string> | null
-  callsCollapsed: boolean
-  callsExpanded: boolean
-  onToggleCalls: () => void
-}) {
-  const toolCount = records.filter((record) => record.kind === 'tool').length
-  const folded = callsCollapsed && toolCount > 0 && !callsExpanded
-  const shown = folded
-    ? records.filter((record) => record.kind !== 'tool')
-    : records
-  return (
-    <>
-      <tr className='h-9'>
-        <td colSpan={2} className='border-b px-5 font-medium text-foreground'>
-          {title}
+          </Button>
+        </TableCell>
+      </TableRow>
+    )
+  }
+  if (row.kind === 'fragment')
+    return (
+      <TableRow aria-rowindex={ariaRowIndex} className='h-11'>
+        <TableCell
+          colSpan={2}
+          className='px-5 py-0 font-medium text-foreground'
+        >
+          {row.title}
           <span className='ml-3 font-normal text-muted-foreground'>
-            {records[0]?.kind === 'model' ? records[0].title : ''}
+            {row.firstRecord.kind === 'model' ? row.firstRecord.title : ''}
           </span>
-        </td>
-      </tr>
-      {callsCollapsed && toolCount > 0 ? (
-        <tr className='h-8 border-b border-border/50'>
-          <td className='px-2 text-right font-mono text-[11px] text-muted-foreground'>
-            工具
-          </td>
-          <td className='px-2'>
-            <button
-              aria-label={
-                (folded ? '展开 ' : '收起 ') + toolCount + ' 次工具调用'
-              }
-              aria-expanded={!folded}
-              onClick={onToggleCalls}
-              className='flex items-center gap-1 text-muted-foreground hover:text-foreground'
-            >
-              {folded ? (
-                <ChevronRight className='size-3.5' />
-              ) : (
-                <ChevronDown className='size-3.5' />
-              )}
-              {toolCount} 次工具调用
-            </button>
-          </td>
-        </tr>
-      ) : null}
-      {shown.map((record) => {
-        const outside = rangeMatches !== null && !rangeMatches.has(record.id)
-        return (
-          <tr
-            id={'trajectory-record-' + record.id}
-            key={record.id}
-            tabIndex={0}
-            aria-selected={selectedID === record.id}
-            onClick={() => onSelect(record)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                onSelect(record)
-              }
-            }}
-            className={cn(
-              'h-8 cursor-pointer border-b border-border/50 hover:bg-accent/50 focus-visible:outline-ring',
-              selectedID === record.id && 'bg-accent',
-              outside && 'opacity-30'
-            )}
-            data-kind={record.kind}
+        </TableCell>
+      </TableRow>
+    )
+  if (row.kind === 'tools')
+    return (
+      <TableRow aria-rowindex={ariaRowIndex} className='h-10 border-border/50'>
+        <TableCell className='px-2 py-0 text-right font-mono text-sm text-muted-foreground'>
+          工具
+        </TableCell>
+        <TableCell className='px-2 py-0'>
+          <Button
+            variant='ghost'
+            size='sm'
+            aria-label={
+              (row.folded ? '展开 ' : '收起 ') + row.count + ' 次工具调用'
+            }
+            aria-expanded={!row.folded}
+            onClick={() => onToggleCalls(row.groupKey)}
+            className='text-muted-foreground hover:text-foreground'
           >
-            <td className='px-2 text-right font-mono text-[11px] text-muted-foreground'>
-              {record.kind === 'model' ? '● ' : ''}
-              {kindName[record.kind] ?? record.kind}
-            </td>
-            <td className='px-2'>
-              <div className='flex min-w-0 items-center gap-3'>
-                <span className='min-w-0 flex-1 truncate'>
-                  {record.preview || record.title}
-                </span>
-                {record.kind === 'model' &&
-                record.attempt &&
-                record.attempt > 1 ? (
-                  <span className='text-[11px] text-muted-foreground'>
-                    重试 {record.attempt}
-                  </span>
-                ) : null}
-                <span
-                  className={cn(
-                    'shrink-0 font-mono text-[11px] text-muted-foreground',
-                    record.status === 'failed' && 'text-destructive'
-                  )}
-                >
-                  {record.status === 'running'
-                    ? statusName.running
-                    : record.ended_at
-                      ? formatDuration(
-                          Math.max(
-                            0,
-                            Date.parse(record.ended_at) -
-                              Date.parse(record.started_at)
-                          )
-                        )
-                      : (statusName[record.status] ?? record.status)}
-                </span>
-              </div>
-            </td>
-          </tr>
-        )
-      })}
-    </>
+            {row.folded ? (
+              <ChevronRight className='size-3.5' />
+            ) : (
+              <ChevronDown className='size-3.5' />
+            )}
+            {row.count} 次工具调用
+          </Button>
+        </TableCell>
+      </TableRow>
+    )
+
+  const { record } = row
+  const outside = rangeMatches !== null && !rangeMatches.has(record.id)
+  return (
+    <TableRow
+      id={'trajectory-record-' + record.id}
+      aria-rowindex={ariaRowIndex}
+      tabIndex={0}
+      aria-selected={selectedID === record.id}
+      onClick={() => onSelect(record)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelect(record)
+        }
+      }}
+      className={cn(
+        'h-11 cursor-pointer border-border/50 hover:bg-accent/50 focus-visible:outline-ring',
+        selectedID === record.id && 'bg-accent',
+        outside && 'opacity-30'
+      )}
+      data-kind={record.kind}
+    >
+      <TableCell className='px-2 py-0 text-right'>
+        <KindBadge kind={record.kind} />
+      </TableCell>
+      <TableCell className='px-2 py-0'>
+        <div className='flex min-w-0 items-center gap-3'>
+          <span className='min-w-0 flex-1 truncate'>
+            {record.preview || record.title}
+          </span>
+          {record.kind === 'model' && record.attempt && record.attempt > 1 ? (
+            <span className='text-sm text-muted-foreground'>
+              重试 {record.attempt}
+            </span>
+          ) : null}
+          <span
+            className={cn(
+              'shrink-0 font-mono text-sm text-muted-foreground',
+              record.status === 'failed' && 'text-destructive'
+            )}
+          >
+            {record.status === 'running'
+              ? statusName.running
+              : record.ended_at
+                ? formatDuration(
+                    Math.max(
+                      0,
+                      Date.parse(record.ended_at) -
+                        Date.parse(record.started_at)
+                    )
+                  )
+                : (statusName[record.status] ?? record.status)}
+          </span>
+        </div>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -627,15 +846,15 @@ function TrajectoryOverview({
   return (
     <section
       aria-label='轨迹时间线'
-      className='grid h-12.5 shrink-0 grid-cols-[44px_minmax(0,1fr)] border-b bg-muted/30'
+      className='grid h-24 shrink-0 grid-cols-[64px_minmax(0,1fr)] border-b bg-muted/30'
     >
       <div
         aria-hidden='true'
-        className='flex flex-col justify-around border-r pr-1 text-right text-[10px] text-muted-foreground'
+        className='grid grid-rows-3 border-r text-center text-sm text-muted-foreground'
       >
-        <span>输入</span>
-        <span>模型</span>
-        <span>工具</span>
+        <span className='flex items-center justify-center'>输入</span>
+        <span className='flex items-center justify-center'>模型</span>
+        <span className='flex items-center justify-center'>工具</span>
       </div>
       <div
         ref={trackRef}
@@ -704,8 +923,8 @@ function TrajectoryOverview({
             const lane = Math.floor(
               (event.clientY -
                 event.currentTarget.getBoundingClientRect().top -
-                7) /
-                14
+                10) /
+                32
             )
             const hit = positions.find(
               (position) =>
@@ -759,8 +978,10 @@ function TrajectoryOverview({
       >
         {onLoadEarlier ? (
           <IconButtonTooltip label='加载更早的记录'>
-            <button
-              className='absolute inset-y-0 left-0 z-20 w-6 bg-gradient-to-r from-background to-transparent text-muted-foreground'
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              className='absolute inset-y-0 left-0 z-20 h-full w-8 rounded-none bg-card/80 text-muted-foreground'
               aria-label='加载更早的记录'
               onClick={(event) => {
                 event.stopPropagation()
@@ -768,7 +989,7 @@ function TrajectoryOverview({
               }}
             >
               ‹
-            </button>
+            </Button>
           </IconButtonTooltip>
         ) : null}
         {records.length === 0 ? (
@@ -785,42 +1006,47 @@ function TrajectoryOverview({
             (end - start) / (viewport.end - viewport.start)
           )
           return (
-            <button
-              key={record.id}
-              type='button'
-              title={
-                (kindName[record.kind] ?? record.kind) +
-                ' · ' +
-                record.title +
-                ' · ' +
-                (record.ended_at
-                  ? formatDuration(
-                      Date.parse(record.ended_at) -
-                        Date.parse(record.started_at)
-                    )
-                  : '进行中')
-              }
-              aria-label={'选择' + record.title}
-              onClick={(event) => {
-                event.stopPropagation()
-                onSelect(record)
-              }}
-              className={cn(
-                'absolute h-2 min-w-0.5 rounded-[1px] opacity-80 hover:opacity-100',
-                lane === 0
-                  ? 'bg-primary'
-                  : lane === 1
-                    ? 'bg-chart-3'
-                    : 'bg-chart-4',
-                record.status === 'failed' && 'bg-destructive',
-                selectedID === record.id && 'ring-1 ring-foreground'
-              )}
-              style={{
-                top: 7 + lane * 14,
-                left: left * 100 + '%',
-                width: width * 100 + '%',
-              }}
-            />
+            <Tooltip key={record.id}>
+              <TooltipTrigger asChild>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon-sm'
+                  aria-label={'选择' + record.title}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onSelect(record)
+                  }}
+                  className={cn(
+                    'absolute h-3 min-w-0.5 rounded-none p-0 opacity-80 hover:opacity-100',
+                    lane === 0
+                      ? 'bg-primary'
+                      : lane === 1
+                        ? 'bg-chart-3'
+                        : 'bg-chart-4',
+                    record.status === 'failed' && 'bg-destructive',
+                    selectedID === record.id && 'ring-1 ring-foreground'
+                  )}
+                  style={{
+                    top: 10 + lane * 32,
+                    left: left * 100 + '%',
+                    width: width * 100 + '%',
+                  }}
+                />
+              </TooltipTrigger>
+              <TooltipContent className='border bg-popover text-sm text-popover-foreground shadow-md [&>svg]:bg-popover [&>svg]:fill-popover'>
+                {(kindName[record.kind] ?? record.kind) +
+                  ' · ' +
+                  record.title +
+                  ' · ' +
+                  (record.ended_at
+                    ? formatDuration(
+                        Date.parse(record.ended_at) -
+                          Date.parse(record.started_at)
+                      )
+                    : '进行中')}
+              </TooltipContent>
+            </Tooltip>
           )
         })}
         {(draft ??
@@ -855,16 +1081,12 @@ function RecordDetails({
   detail,
   loading,
   error,
-  width,
-  onResize,
   onClose,
 }: {
   record: StudioTrajectoryRecord
   detail?: StudioTrajectoryDetail
   loading: boolean
   error: boolean
-  width: number | null
-  onResize: (width: number | null) => void
   onClose: () => void
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
@@ -891,65 +1113,15 @@ function RecordDetails({
   const current = available.some((tab) => tab.id === activeTab)
     ? activeTab
     : 'overview'
-  const drag = useRef<{ x: number; width: number } | null>(null)
   return (
     <aside
       aria-label='事件详情'
-      className='relative flex min-h-0 w-[38%] max-w-[calc(100%-280px)] min-w-80 shrink-0 flex-col border-l bg-background max-md:absolute max-md:inset-0 max-md:z-20 max-md:w-full max-md:max-w-none'
-      style={width === null ? undefined : { width }}
+      className='flex h-full min-h-0 flex-col bg-card'
     >
-      <div
-        role='separator'
-        aria-label='调整事件详情宽度'
-        aria-orientation='vertical'
-        tabIndex={0}
-        className='absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize max-md:hidden'
-        onDoubleClick={() => onResize(null)}
-        onPointerDown={(event) => {
-          if (event.button !== 0) return
-          drag.current = {
-            x: event.clientX,
-            width:
-              event.currentTarget.parentElement?.getBoundingClientRect()
-                .width ?? 400,
-          }
-          event.currentTarget.setPointerCapture(event.pointerId)
-        }}
-        onPointerMove={(event) => {
-          if (!drag.current) return
-          const parent = event.currentTarget.parentElement?.parentElement
-          onResize(
-            Math.max(
-              320,
-              Math.min(
-                (parent?.clientWidth ?? 900) - 280,
-                drag.current.width + drag.current.x - event.clientX
-              )
-            )
-          )
-        }}
-        onPointerUp={(event) => {
-          drag.current = null
-          event.currentTarget.releasePointerCapture(event.pointerId)
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-            onResize(
-              Math.max(
-                320,
-                (width ?? 400) + (event.key === 'ArrowLeft' ? 16 : -16)
-              )
-            )
-            event.preventDefault()
-          }
-        }}
-      />
-      <div className='flex h-10.5 shrink-0 items-center justify-between gap-2 border-b px-3'>
+      <div className='flex h-12 shrink-0 items-center justify-between gap-2 px-4'>
         <div className='flex min-w-0 items-center gap-2'>
-          <span className='rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium'>
-            {kindName[record.kind] ?? record.kind}
-          </span>
-          <span className='truncate text-[11px] text-muted-foreground'>
+          <KindBadge kind={record.kind} />
+          <span className='truncate text-sm text-muted-foreground'>
             {record.step ? '步骤 ' + record.step + ' · ' : ''}
             {record.title}
           </span>
@@ -957,7 +1129,8 @@ function RecordDetails({
         <IconButtonTooltip label='关闭详情'>
           <Button
             variant='ghost'
-            size='icon-xs'
+            size='icon'
+            className='size-10'
             aria-label='关闭详情'
             onClick={onClose}
           >
@@ -965,39 +1138,41 @@ function RecordDetails({
           </Button>
         </IconButtonTooltip>
       </div>
-      <div
-        role='tablist'
-        aria-label='事件详情'
-        className='flex h-8.5 shrink-0 items-stretch overflow-x-auto border-b px-2'
+      <Tabs
+        value={current}
+        onValueChange={(value) => setActiveTab(value as Tab)}
+        className='min-h-0 flex-1 gap-0'
       >
-        {available.map((tab) => (
-          <button
-            key={tab.id}
-            role='tab'
-            aria-selected={current === tab.id}
-            className={cn(
-              'shrink-0 border-b-2 border-transparent px-2 text-xs text-muted-foreground hover:text-foreground',
-              current === tab.id && 'border-primary text-primary'
-            )}
-            onClick={() => setActiveTab(tab.id)}
+        <div className='shrink-0 border-t px-4 py-3'>
+          <TabsList
+            aria-label='事件详情'
+            className='max-w-full justify-start overflow-x-auto'
           >
-            {tab.title}
-          </button>
-        ))}
-      </div>
-      <div
-        role='tabpanel'
-        className='min-h-0 flex-1 overflow-auto p-3'
-        key={record.id + current}
-      >
-        {loading ? (
-          <Skeleton className='h-32 w-full' />
-        ) : error ? (
-          <p className='text-destructive'>详情读取失败</p>
-        ) : detail ? (
-          <InspectorContent tab={current} detail={detail} />
-        ) : null}
-      </div>
+            {available.map((tab) => (
+              <TabsTrigger key={tab.id} value={tab.id} className='flex-none'>
+                {tab.title}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        <TabsContent
+          value={current}
+          className='min-h-0 flex-1 overflow-hidden'
+          key={record.id + current}
+        >
+          <ScrollArea className='h-full'>
+            <div className='p-4'>
+              {loading ? (
+                <Skeleton className='h-32 w-full' />
+              ) : error ? (
+                <p className='text-destructive'>详情读取失败</p>
+              ) : detail ? (
+                <InspectorContent tab={current} detail={detail} />
+              ) : null}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
     </aside>
   )
 }
@@ -1019,7 +1194,7 @@ function InspectorContent({
       ...(detail.timing ?? {}),
     }
     return (
-      <dl className='space-y-0'>
+      <dl className='flex flex-col gap-3'>
         {Object.entries(fields)
           .filter(
             ([, value]) => value !== undefined && value !== null && value !== ''
@@ -1027,7 +1202,7 @@ function InspectorContent({
           .map(([name, value]) => (
             <div
               key={name}
-              className='grid grid-cols-[110px_minmax(0,1fr)] gap-3 border-b py-2 text-xs'
+              className='grid grid-cols-[110px_minmax(0,1fr)] gap-3 py-1 text-sm'
             >
               <dt className='text-muted-foreground'>{name}</dt>
               <dd className='min-w-0 font-mono break-all'>
@@ -1057,15 +1232,15 @@ function InspectorContent({
                   ? detail.usage
                   : detail.timing
   if (value === undefined || value === null || value === '')
-    return <p className='py-4 text-xs text-muted-foreground'>未记录</p>
+    return <p className='py-4 text-sm text-muted-foreground'>未记录</p>
   if (tab === 'preview' && typeof value === 'string')
     return (
-      <div className='prose prose-sm dark:prose-invert max-w-none break-words'>
+      <div className='prose prose-base dark:prose-invert max-w-none break-words'>
         <ReactMarkdown>{value}</ReactMarkdown>
       </div>
     )
   return (
-    <pre className='overflow-auto font-mono text-xs leading-5 break-all whitespace-pre-wrap'>
+    <pre className='overflow-auto font-mono text-sm leading-6 break-all whitespace-pre-wrap'>
       {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
     </pre>
   )

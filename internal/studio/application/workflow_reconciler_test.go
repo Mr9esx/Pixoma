@@ -62,6 +62,9 @@ func TestReconcileTerminalWorkflowIsIdempotent(t *testing.T) {
 
 func seedSucceededWorkflow(t *testing.T, ctx context.Context, repo domain.Repository, tasks runtimedomain.TaskRepository, now time.Time) {
 	t.Helper()
+	session, err := domain.NewSession("session-a", "account-a", now)
+	require.NoError(t, err)
+	require.NoError(t, repo.CreateSession(ctx, session))
 	run, err := domain.NewRun("run-a", "session-a", "account-a", "message-a", now)
 	require.NoError(t, err)
 	require.NoError(t, repo.CreateRun(ctx, run))

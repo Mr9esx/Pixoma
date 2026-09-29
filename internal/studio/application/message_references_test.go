@@ -15,7 +15,7 @@ func TestMessageTextProjectsInlineReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "用 / 和 「分镜草稿」Skill 处理 「角色设定图」资产"; text != want {
+	if want := "用 / 和 「分镜草稿」技能 处理 「角色设定图」资产"; text != want {
 		t.Fatalf("message text = %q, want %q", text, want)
 	}
 }
@@ -100,14 +100,14 @@ func TestTranscriptPreservesInlineReferences(t *testing.T) {
 		t.Fatalf("messages = %#v", transcript.Messages)
 	}
 	got := transcript.Messages[0]
-	if got.Content != "用 「分镜草稿」Skill" || len(got.Parts) != 2 || got.Parts[1].Type != "skill_ref" || got.Parts[1].SkillID != "skill-1" {
+	if got.Content != "用 「分镜草稿」技能" || len(got.Parts) != 2 || got.Parts[1].Type != "skill_ref" || got.Parts[1].SkillID != "skill-1" {
 		t.Fatalf("transcript message = %#v", got)
 	}
 }
 
 func TestNormalizeMessageInputSelectsOnlyInlineReferences(t *testing.T) {
 	input := SendMessageInput{
-		Text: "用 / 和 「分镜草稿」Skill 处理 「角色设定图」资产",
+		Text: "用 / 和 「分镜草稿」技能 处理 「角色设定图」资产",
 		Parts: []MessagePart{
 			{Type: "text", Text: "用 / 和 "},
 			{Type: "skill_ref", SkillID: "skill-1", Name: "分镜草稿"},
@@ -116,7 +116,7 @@ func TestNormalizeMessageInputSelectsOnlyInlineReferences(t *testing.T) {
 			{Type: "skill_ref", SkillID: "skill-1", Name: "分镜草稿"},
 		},
 	}
-	input.Text += "「分镜草稿」Skill"
+	input.Text += "「分镜草稿」技能"
 	got, err := normalizeMessageInput(input)
 	if err != nil {
 		t.Fatal(err)

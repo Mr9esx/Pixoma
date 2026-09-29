@@ -4,11 +4,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { StudioAssets } from './studio-assets'
 
-vi.mock('@/lib/api/studio', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/api/studio')>()),
-  listStudioLibraryCategories: vi.fn(async () => []),
-}))
-
 describe('StudioAssets', () => {
   it('keeps a new document draft when saving fails', async () => {
     const client = new QueryClient({
@@ -21,7 +16,6 @@ describe('StudioAssets', () => {
       <QueryClientProvider client={client}>
         <StudioAssets
           assets={[]}
-          onSaveToLibrary={async () => {}}
           onCreateTextAsset={onCreateTextAsset}
         />
       </QueryClientProvider>

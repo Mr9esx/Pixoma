@@ -114,6 +114,13 @@ func TestSessionContextBackfillAndCurrentTail(t *testing.T) {
 	if err := repo.BackfillSessionContext(ctx, session.AccountID, session.ID); err != nil {
 		t.Fatal(err)
 	}
+	view, err := repo.GetContextOverview(ctx, session.AccountID, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Tokens.Input != 20 || view.Tokens.Output != 4 || view.Tokens.UnclassifiedInput != 20 {
+		t.Fatalf("tokens = %#v", view.Tokens)
+	}
 	if _, err := repo.AppendRunEvent(ctx, &domain.Event{ID: "legacy-assistant", RunID: run.ID, SessionID: session.ID, AccountID: session.AccountID, Type: "TEXT_MESSAGE_END", Payload: json.RawMessage(`{"content":"new assistant text"}`), CreatedAt: now.Add(3 * time.Second)}); err != nil {
 		t.Fatal(err)
 	}
@@ -126,5 +133,43 @@ func TestSessionContextBackfillAndCurrentTail(t *testing.T) {
 	}
 	if len(current.Parts) != 3 || current.Parts[0].Content != "old request" || current.Parts[1].Content != "new assistant text" || current.Parts[2].Content != "pending user message" || current.ProjectedTokens == nil || *current.ProjectedTokens <= 20 {
 		t.Fatalf("current = %#v", current)
+	}
+}
+
+func TestSessionContextCacheWriteBreakdown(t *testing.T) {
+	repo := openRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	session, err := domain.NewSession("cache-write-session", "account-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatal(err)
+	}
+	run, err := domain.NewRun("cache-write-run", session.ID, session.AccountID, "message-1", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	for index, item := range []struct{ kind, payload string }{
+		{"MODEL_REQUEST_STARTED", `{"attempt_id":"cache-write-attempt","purpose":"agent","model":"test-model","at":"2026-09-28T12:00:01Z","request_body":{"messages":[{"role":"user","content":"hello"}]}}`},
+		{"MODEL_REQUEST_FINISHED", `{"attempt_id":"cache-write-attempt","at":"2026-09-28T12:00:02Z","input_tokens":100,"output_tokens":20,"cache_write_tokens":30}`},
+	} {
+		if _, err := repo.AppendRunEvent(ctx, &domain.Event{
+			ID: "cache-write-event-" + string(rune('a'+index)), RunID: run.ID, SessionID: session.ID, AccountID: session.AccountID,
+			Type: item.kind, Payload: json.RawMessage(item.payload), CreatedAt: now.Add(time.Duration(index+1) * time.Second),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	view, err := repo.GetContextOverview(ctx, session.AccountID, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Tokens.Input != 100 || view.Tokens.Output != 20 || view.Tokens.CacheWrite != 30 || view.Tokens.UnclassifiedInput != 70 || view.Tokens.Uncached != 0 {
+		t.Fatalf("tokens = %#v", view.Tokens)
 	}
 }

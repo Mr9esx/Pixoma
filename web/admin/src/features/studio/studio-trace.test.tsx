@@ -107,7 +107,7 @@ describe('StudioTrace', () => {
     await expect
       .element(screen.getByRole('row', { name: /工具 搜索资料/ }))
       .toBeVisible()
-    await screen.getByRole('button', { name: '收起所有调用' }).click()
+    await screen.getByRole('button', { name: '收起所有工具调用' }).click()
     await expect
       .element(screen.getByRole('row', { name: /工具 搜索资料/ }))
       .not.toBeInTheDocument()
@@ -153,9 +153,9 @@ describe('StudioTrace', () => {
     await expect
       .element(screen.getByRole('complementary', { name: '事件详情' }))
       .not.toBeInTheDocument()
-    await screen.getByRole('button', { name: '使用实际时长' }).click()
+    await screen.getByRole('button', { name: '时间轴按实际时长显示' }).click()
     await expect
-      .element(screen.getByRole('button', { name: '使用等宽操作' }))
+      .element(screen.getByRole('button', { name: '时间轴按记录等宽显示' }))
       .toBeVisible()
     await screen.getByRole('button', { name: '收起所有轮次' }).click()
     await expect

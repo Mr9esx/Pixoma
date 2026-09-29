@@ -1,6 +1,6 @@
 # Pixoma 数据库结构
 
-依据当前启动流程、GORM 模型，以及 2026-09-28 工作区内两份 SQLite 数据库的只读结构查询整理。业务数据库支持 SQLite、MySQL、PostgreSQL；默认 SQLite 文件为 `data/app.db`。首次启动数据库固定为 `data/bootstrap.db`，使用 SQLite。当前 `app.db` 有 40 张业务表，`bootstrap.db` 有 1 张表；其中 `studio_library_folders` 是升级后保留的旧表。下文类型采用 Go 模型类型；`string` 的长度和数据库类型由 GORM 标签决定，`[]byte` 存为 BLOB，`time.Time` 存为时间值。`PK` 表示主键，`UK` 表示唯一索引，`IDX` 表示普通索引，`NN` 表示模型声明非空。没有标记 `NN` 的字段仍可能由业务代码要求赋值。
+依据当前启动流程与 GORM 模型整理。业务数据库支持 SQLite、MySQL、PostgreSQL；默认 SQLite 文件为 `data/app.db`。首次启动数据库固定为 `data/bootstrap.db`，使用 SQLite。下文类型采用 Go 模型类型；`string` 的长度和数据库类型由 GORM 标签决定，`[]byte` 存为 BLOB，`time.Time` 存为时间值。`PK` 表示主键，`UK` 表示唯一索引，`IDX` 表示普通索引，`NN` 表示模型声明非空。没有标记 `NN` 的字段仍可能由业务代码要求赋值。
 
 业务数据库使用 GORM `AutoMigrate`。下列字段之间的连线表示代码中的标识符引用；模型没有声明数据库外键，因此这些连线不表示数据库强制的引用约束。Studio 的 `account_id` 取自 `console_users.id`。JSON 字段的内部结构见文末。
 
@@ -379,60 +379,96 @@
 
 ### `studio_assets`
 
-- `id` (`string`, PK, 长度 64)：资源标识。
-- `session_id` (`string`, NN, IDX, 长度 64)：资源所属的 `studio_sessions.id`。
-- `account_id` (`string`, NN, IDX, 长度 64)：资源所属账号标识。
-- `name` (`string`, NN, 长度 512)：资源名称。
-- `kind` (`string`, NN, IDX, 长度 32)：资源类型。
-- `origin` (`string`, NN, IDX, 长度 32)：资源来源。
-- `source_run_id` (`string`, IDX, 长度 64)：产生资源的 `studio_runs.id`。
-- `current_version` (`int`, NN)：当前资源版本号。
-- `library_saved_at` (`time.Time`)：资源保存至资料库的时间。
+- `id` (`string`, PK, 长度 64)：资产内容身份。
+- `account_id` (`string`, NN, UK 组合字段, 长度 64)：所属账号。
+- `creation_key` (`*string`, UK 组合字段, 长度 128)：创建请求标识；未提供时为 NULL。
+- `name` (`string`, NN, 长度 512)：原始名称。
+- `kind` (`string`, NN, IDX, 长度 32)：资产类型。
+- `origin` (`string`, NN, IDX, 长度 32)：资产来源。
+- `current_version` (`int`, NN)：最新版本号。项目展示使用项目条目固定的版本。
 - `created_at` (`time.Time`)：记录创建时间。
 - `updated_at` (`time.Time`)：记录更新时间。
 
 ### `studio_asset_versions`
 
-- `id` (`string`, PK, 长度 64)：资源版本标识。
+- `id` (`string`, PK, 长度 64)：不可变版本标识。
 - `asset_id` (`string`, NN, IDX, UK 组合字段, 长度 64)：引用 `studio_assets.id`；与 `version` 联合唯一。
-- `account_id` (`string`, NN, IDX, 长度 64)：资源版本所属账号标识。
-- `version` (`int`, NN, UK 组合字段)：资源版本号。
+- `account_id` (`string`, NN, IDX, 长度 64)：所属账号。
+- `version` (`int`, NN, UK 组合字段)：版本号。
 - `mime_type` (`string`, NN, 长度 256)：文件 MIME 类型。
+- `format` (`string`, NN, IDX, 长度 32)：依据内容核验的规范化格式。
+- `width_px`、`height_px` (`*int`)：图片或视频画面尺寸。
+- `sha256` (`string`, IDX, 长度 64)：内容哈希。
+- `content_origin` (`string`, 长度 32)：`upload`、`manual`、`generated` 或 `workflow`。
+- `operation_key` (`*string`, UK 组合字段, 长度 128)：版本创建操作标识。
+- `source_created_at`、`source_modified_at` (`*time.Time`)：文件来源提供的时间。
 - `blob_key` (`string`, NN, 长度 1024)：文件存储键。
 - `size_bytes` (`int64`, NN)：文件大小，单位字节。
-- `metadata` (`[]byte`, BLOB)：资源版本补充信息的 JSON。
-- `created_at` (`time.Time`)：资源版本创建时间。
+- `metadata` (`[]byte`, BLOB)：不参与筛选的来源信息 JSON。
+- `created_at` (`time.Time`)：版本创建时间。
 
-### `studio_library_categories`
+### `studio_project_assets`
 
-- `id` (`string`, PK, 长度 64)：资料库分类标识。
-- `account_id` (`string`, NN, IDX, 长度 64)：分类所属账号标识。
-- `parent_id` (`string`, IDX, 长度 64)：上级 `studio_library_categories.id`；顶层分类不填写。
+- `id` (`string`, PK, 长度 64)：项目资产条目标识。
+- `account_id`、`project_id`、`asset_id` (`string`, NN, UK 组合字段)：同一账号和项目中同一 Asset 只有一个条目。空 `project_id` 表示未归属项目。
+- `asset_version_id` (`string`, NN)：当前项目条目固定的版本。
+- `display_name` (`string`, NN, 长度 512)：当前项目的展示名称。
+- `category_id` (`string`, 长度 64)：当前项目中的分类；空字符串表示未分类。
+- `rating` (`int`, NN)：0～5，0 表示未评分。
+- `source_project_asset_id`、`source_project_id`、`source_asset_version_id` (`string`)：复制来源标识。
+- `source_project_name_snapshot`、`source_display_name_snapshot` (`string`)：复制时保存的来源名称；来源删除后仍可展示。
+- `copied_at` (`*time.Time`)：复制时间。
+- `added_at`、`updated_at` (`time.Time`)：加入项目和最后整理时间。
+- `archived_at` (`*time.Time`)：归档时间。
+
+### `studio_session_asset_usages`
+
+- `id` (`string`, PK, 长度 64)：来源记录标识。
+- `account_id`、`session_id`、`asset_id`、`asset_version_id` (`string`, NN)：账号、对话与固定版本标识。
+- `usage_kind` (`string`, NN, 长度 32)：`created`、`uploaded` 或 `referenced`。
+- `operation_key` (`string`, NN, 长度 128)：同一操作重试时使用的稳定标识。
+- `run_id`、`message_id` (`string`)：可用时保存运行和消息标识。
+- `session_title_snapshot`、`operation_label_snapshot` (`string`)：对话来源信息快照。
+- `created_at` (`time.Time`)：来源记录创建时间。
+
+### `studio_asset_categories`
+
+- `id` (`string`, PK, 长度 64)：分类标识。
+- `account_id`、`project_id` (`string`, NN)：所属账号与项目。
+- `parent_id` (`string`, 长度 64)：上级分类；空字符串表示根分类。
 - `name` (`string`, NN, 长度 256)：分类名称。
-- `created_at` (`time.Time`)：记录创建时间。
-- `updated_at` (`time.Time`)：记录更新时间。
+- `created_at`、`updated_at` (`time.Time`)：创建和更新时间。
 
-### `studio_library_folders`（当前 `app.db` 中保留的旧表）
+### `studio_asset_tags` 与 `studio_project_asset_tags`
 
-现行代码把旧分类数据复制到 `studio_library_categories`。此表仍存在于当前工作区的数据库中，不在新的建表模型清单内；字段类型以当前 SQLite 表结构为准。
+- `studio_asset_tags` 保存账号级标签：`id`、`account_id`、`name`、`created_at`、`updated_at`；同一账号的标签名称唯一。
+- `studio_project_asset_tags` 保存条目与标签关联：`project_asset_id`、`tag_id` 组成主键，并保存 `account_id`。
 
-- `id` (`TEXT`, PK)：旧分类标识。
-- `account_id` (`TEXT`, NN, IDX)：旧分类所属账号标识。
-- `parent_id` (`TEXT`, IDX)：上级旧分类标识。
-- `name` (`TEXT`, NN)：旧分类名称。
-- `created_at` (`DATETIME`)：旧记录创建时间。
-- `updated_at` (`DATETIME`)：旧记录更新时间。
+### `studio_asset_version_palettes`
 
-### `studio_library_assets`
+- `asset_version_id` (`string`, PK)：被分析的版本。
+- `account_id` (`string`, NN)：所属账号。
+- `status` (`string`, NN)：`pending`、`running`、`ready` 或 `failed`。
+- `colors_json`、`sample_points_json` (`[]byte`)：颜色与视频采样时间 JSON。
+- `algorithm_version`、`attempts` (`int`)：算法版本和处理次数。
+- `lease_until`、`next_retry_at`、`analyzed_at` (`*time.Time`)：租期、重试和完成时间。
+- `error_code` (`string`)：失败类别。
+- `updated_at` (`time.Time`)：状态更新时间。
 
-- `id` (`uint64`, PK, 自增)：资料库资源记录编号。
-- `account_id` (`string`, NN, IDX, UK 组合字段, 长度 64)：记录所属账号标识；与 `asset_id` 联合唯一。
-- `asset_id` (`string`, NN, IDX, UK 组合字段, 长度 64)：引用 `studio_assets.id`。
-- `asset_version_id` (`string`, NN, 长度 64)：引用 `studio_asset_versions.id`。
-- `category_id` (`string`, IDX, 长度 64)：引用 `studio_library_categories.id`。
-- `folder_id` (`TEXT`, IDX；仅当前 `app.db` 的旧字段)：迁移前引用 `studio_library_folders.id`；迁移代码将其值转入 `category_id` 后清空。
-- `created_at` (`time.Time`)：保存至资料库的时间。
-- `updated_at` (`time.Time`, IDX)：记录更新时间，参与资料库分页索引。
+### `studio_asset_library_preferences`
+
+- `account_id` (`string`, PK)：账号标识。
+- `tree_mode` (`string`, NN)：文件树组织方式。
+- `last_project_id` (`string`, NN)：最近查看的项目；空字符串表示未归属项目。
+- `updated_at` (`time.Time`)：设置更新时间。
+
+### `studio_blob_write_intents`
+
+- `key_hash` (`string`, PK)：账号与 BlobKey 组合的 SHA-256。
+- `account_id` (`string`, NN)：所属账号。
+- `blob_key` (`string`, NN)：本次写入独占的文件存储键。
+- `created_at`、`expires_at` (`time.Time`)：登记和到期时间。
+- `lease_until` (`*time.Time`)：后台清理租期。
 
 ### `studio_flow_nodes`
 
@@ -607,18 +643,18 @@ Studio 的运行附属记录还各自保存 `session_id` 和 `account_id`，供�
 
 ```mermaid
 erDiagram
-    console_users ||--o{ studio_library_categories : account_id
     console_users ||--o{ studio_agent_workflow_settings : account_id
     studio_skills ||--o{ studio_skill_versions : skill_id
-    studio_sessions ||--o{ studio_assets : session_id
-    studio_runs ||--o{ studio_assets : source_run_id
     studio_assets ||--o{ studio_asset_versions : asset_id
-    studio_assets ||--o| studio_library_assets : asset_id
-    studio_asset_versions ||--o{ studio_library_assets : asset_version_id
-    studio_library_categories ||--o{ studio_library_categories : parent_id
-    studio_library_folders ||--o{ studio_library_folders : parent_id
-    studio_library_folders o|--o{ studio_library_assets : folder_id
-    studio_library_categories ||--o{ studio_library_assets : category_id
+    studio_projects ||--o{ studio_project_assets : project_id
+    studio_assets ||--o{ studio_project_assets : asset_id
+    studio_asset_versions ||--o{ studio_project_assets : asset_version_id
+    studio_sessions ||--o{ studio_session_asset_usages : session_id
+    studio_asset_versions ||--o{ studio_session_asset_usages : asset_version_id
+    studio_asset_categories ||--o{ studio_project_assets : category_id
+    studio_project_assets ||--o{ studio_project_asset_tags : project_asset_id
+    studio_asset_tags ||--o{ studio_project_asset_tags : tag_id
+    studio_asset_versions ||--o| studio_asset_version_palettes : asset_version_id
     studio_sessions ||--o{ studio_flow_nodes : session_id
     studio_sessions ||--o{ studio_flow_edges : session_id
     studio_assets ||--o{ studio_flow_nodes : asset_id
@@ -633,7 +669,7 @@ erDiagram
 
 ## 主要组合索引
 
-以下列顺序依据当前 `app.db` 的索引定义。单字段主键、唯一索引和普通索引已在各字段旁标记。
+以下列顺序依据当前 GORM 模型定义。单字段主键、唯一索引和普通索引已在各字段旁标记。
 
 - `channel_user_external_identities.idx_channel_external`：唯一索引，`channel_id`、`external_user_id`。
 - `sessions.idx_chat_active`：`channel_id`、`chat_external_id`、`status`。
@@ -644,9 +680,15 @@ erDiagram
 - `studio_approvals.idx_studio_approvals_run_tool`：唯一索引，`run_id`、`tool_call_id`。
 - `studio_workflow_executions.idx_studio_workflow_executions_run_tool`：唯一索引，`run_id`、`tool_call_id`。
 - `studio_asset_versions.idx_studio_asset_versions_asset_version`：唯一索引，`asset_id`、`version`。
-- `studio_library_assets.idx_studio_library_account_asset`：唯一索引，`account_id`、`asset_id`。
-- `studio_library_assets.idx_studio_library_page`：`account_id`、`updated_at`、`asset_id`。
-- `studio_library_assets.idx_studio_library_category_page`：`account_id`、`category_id`、`updated_at`、`asset_id`。
+- `studio_asset_versions.idx_studio_asset_versions_operation`：唯一索引，`asset_id`、`operation_key`。
+- `studio_assets.idx_studio_asset_creation_key`：唯一索引，`account_id`、`creation_key`。
+- `studio_project_assets.idx_studio_project_asset_identity`：唯一索引，`account_id`、`project_id`、`asset_id`。
+- `studio_project_assets.idx_studio_project_asset_page`：`account_id`、`project_id`、`added_at`。
+- `studio_session_asset_usages.idx_studio_usage_identity`：唯一索引，`account_id`、`session_id`、`asset_id`、`asset_version_id`、`usage_kind`、`operation_key`。
+- `studio_asset_categories.idx_studio_asset_category_name`：唯一索引，`account_id`、`project_id`、`parent_id`、`name`。
+- `studio_asset_tags.idx_studio_asset_tag_name`：唯一索引，`account_id`、`name`。
+- `studio_asset_version_palettes.idx_studio_palette_queue`：`status`、`next_retry_at`、`lease_until`。
+- `studio_blob_write_intents.idx_studio_blob_intent_queue`：`expires_at`、`lease_until`。
 - `studio_flow_nodes.idx_studio_flow_nodes_session_order`：`session_id`、`sort_order`。
 - `studio_skills.idx_studio_skills_account_created`：`account_id`、`created_at`。
 - `studio_mcp_connectors.idx_studio_mcp_connectors_account_created`：`account_id`、`created_at`。
@@ -658,4 +700,5 @@ erDiagram
 - 业务设置表：`internal/settings/infrastructure/store.go` 中的 `NewStore()`。
 - 文案模板表：`internal/channels/infrastructure/persistence/text_store.go` 中的 `NewStore()`。
 - 首次启动表：`internal/platform/bootstrap/bootstrap.go` 中的 `Open()`。
-- Studio 额外迁移：`MigrateLibraryCategories()` 读取旧表 `studio_library_folders`，将分类转入 `studio_library_categories`；`MigrateSkillVersions()` 为现有 Skill 补齐版本记录。当前工作区的 `app.db` 仍有旧表 `studio_library_folders` 与旧字段 `studio_library_assets.folder_id`，已在上文单独列出。
+- Studio 配置迁移：`MigrateSkillVersions()` 为现有 Skill 补齐版本记录。
+- Studio 资产结构重建：停止服务并备份业务数据库后，显式运行 `go run ./apps/pixoma/cmd/rebuild-studio-assets --driver sqlite --dsn data/app.db --confirm-clear-studio-data`。MySQL 或 PostgreSQL 使用对应 `--driver` 和 `--dsn`。此操作清除 Studio 项目、对话和资产数据，保留模型、Skill 与 Connector 配置。

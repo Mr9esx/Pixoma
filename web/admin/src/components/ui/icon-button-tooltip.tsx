@@ -14,6 +14,7 @@ export function IconButtonTooltip({
       <TooltipContent
         side='top'
         data-icon-button-tooltip=''
+        className='text-sm'
         style={{ pointerEvents: 'none' }}
       >
         {label}

@@ -307,7 +307,7 @@ func TestAgentExecutorUsesTheAssetVersionSnapshottedWhenTheRunWasCreated(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	asset, err := domain.NewAsset("asset-1", "session-1", "account-a", "故事大纲.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
+	asset, err := domain.NewAsset("asset-1", "account-a", "故事大纲.md", domain.AssetDocument, domain.AssetOriginUser, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

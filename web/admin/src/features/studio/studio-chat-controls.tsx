@@ -71,7 +71,11 @@ export function ModelPicker({
           <ChevronDown className='size-3.5' />
         </PromptInputButton>
       </PopoverTrigger>
-      <PopoverContent align='end' className='group/model-picker w-72 p-1'>
+      <PopoverContent
+        align='end'
+        side='top'
+        className='group/model-picker w-72 p-1'
+      >
         <Command className='h-auto [&_[data-slot=command-input-wrapper]]:border-0'>
           <div className='order-last group-data-[side=bottom]/model-picker:order-first'>
             <CommandInput
@@ -149,7 +153,11 @@ export function PermissionPicker({
             <ChevronDown className='size-3.5' />
           </PromptInputButton>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align='start' className='w-72'>
+        <DropdownMenuContent
+          align='start'
+          side='top'
+          className='w-72'
+        >
           {permissionOptions.map(({ mode, description }) => (
             <DropdownMenuItem
               key={mode}
