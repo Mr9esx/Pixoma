@@ -44,12 +44,17 @@
 }
 
 .recentSection {
-  flex-basis: 40px;
-  flex-shrink: 0;
+  flex: 0 0 40px;
+  grid-template-rows: 32px minmax(0, 0fr);
+  transition:
+    flex-grow 220ms ease,
+    flex-basis 220ms ease,
+    grid-template-rows 220ms ease;
 }
 
 .recentSection[data-expanded='true'] {
-  flex-grow: 1;
+  flex: 1 1 0px;
+  grid-template-rows: 32px minmax(0, 1fr);
 }
 
 .sectionContent {
@@ -60,14 +65,6 @@
 
 .section[data-expanded='true'] .sectionContent {
   opacity: 1;
-}
-
-.sectionChevron {
-  transition: transform 220ms ease;
-}
-
-.sectionChevron[data-expanded='false'] {
-  transform: rotate(-90deg);
 }
 
 .projectSessions {
@@ -114,7 +111,6 @@
 @media (prefers-reduced-motion: reduce) {
   .section,
   .sectionContent,
-  .sectionChevron,
   .projectSessions {
     transition: none;
   }

@@ -38,6 +38,9 @@ describe('StudioChat', () => {
     })
 
     await expect.element(screen.getByTestId('studio-workflow-card')).toBeVisible()
+    await expect
+      .element(screen.getByRole('status'))
+      .toHaveTextContent('等待你填写工作流参数')
     expect(document.querySelector<HTMLElement>("[data-slot='studio-composer']")?.className).toContain('hidden')
     await expect.element(screen.getByRole('textbox', { name: '角色描述 *' })).toBeDisabled()
   })
@@ -484,6 +487,9 @@ describe('StudioChat', () => {
     )
 
     await expect.element(screen.getByText('创建资产「大纲.md」')).toBeVisible()
+    await expect
+      .element(screen.getByRole('status'))
+      .toHaveTextContent('等待你批准操作')
     const composer = document.querySelector(
       "[data-slot='studio-composer']"
     ) as HTMLElement

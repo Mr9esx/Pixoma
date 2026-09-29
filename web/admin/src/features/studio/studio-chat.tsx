@@ -128,7 +128,11 @@ import { ModelPicker, PermissionPicker } from './studio-chat-controls'
 import type { StudioComposerValue } from './studio-composer-content'
 import { retainStudioComposerFocus } from './studio-composer-focus'
 import { StudioReferenceBadge } from './studio-reference-badge'
-import { nextStudioActivity } from './studio-run-activity'
+import {
+  nextStudioActivity,
+  shouldShowStudioShimmer,
+  studioActivityLabel,
+} from './studio-run-activity'
 import { StudioTurnNavigator } from './studio-turn-navigator'
 import { StudioWorkflowCard } from './studio-workflow-card'
 
@@ -589,6 +593,13 @@ function StudioChatSurface({
     props.latestRun?.status === 'waiting_clarification' ||
     clarificationPending || workflowPending
   const isStreaming = isRunning || serverRunning
+  const waitingFor = workflowPending
+    ? 'workflow'
+    : approvalPending
+      ? 'approval'
+      : clarificationPending
+        ? 'clarification'
+        : undefined
   const respondToWorkflow = (inputs?: Record<string, unknown>) => {
     if (!activeWorkflowInterrupt || !fromRuntime) return
     onRunError(undefined)
@@ -924,11 +935,24 @@ function StudioChatSurface({
               </MessageContent>
             </Message>
           ))}
-          {isStreaming && approvals.length === 0 && !clarificationPending && !workflowPending && !runError && activity !== null ? (
+          {shouldShowStudioShimmer({
+            runActive,
+            activity,
+            sendingImages,
+            hasError: Boolean(runError),
+          }) ? (
             <Message from='assistant' className='max-w-none'>
               <MessageContent className='w-full'>
                 <div role='status' className='text-sm text-muted-foreground'>
-                  <Shimmer>{activity ?? '正在准备回复'}</Shimmer>
+                  <Shimmer>
+                    {sendingImages
+                      ? '正在上传图片'
+                      : studioActivityLabel(
+                          activity,
+                          props.latestRun?.status,
+                          waitingFor
+                        )}
+                  </Shimmer>
                 </div>
               </MessageContent>
             </Message>

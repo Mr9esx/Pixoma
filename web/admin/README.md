@@ -21,11 +21,11 @@ make dev
 
 ```bash
 cd web/admin
-pnpm install   # 首次
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-此时仍需另开 pixoma（默认 `:8080`）。`pnpm dev` 会把 `/api` 代理到 `http://127.0.0.1:8080`。
+依赖文件更新后，先运行 `pnpm install --frozen-lockfile` 再启动前端。此时仍需另开 pixoma（默认 `:8080`）。`pnpm dev` 会把 `/api` 代理到 `http://127.0.0.1:8080`。
 
 ## 联调
 

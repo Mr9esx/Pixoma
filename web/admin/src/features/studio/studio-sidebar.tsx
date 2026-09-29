@@ -9,6 +9,7 @@ import { Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
   ChevronDown,
+  ChevronRight,
   Folder,
   Library,
   MessageCircle,
@@ -63,6 +64,15 @@ import { AppTitle } from '@/components/layout/app-title'
 import { NavUser } from '@/components/layout/nav-user'
 import { StatusDot } from '@/components/status-dot'
 import { StudioProjectDialog } from './studio-project-dialog'
+import {
+  readProjectExpanded,
+  writeProjectExpanded,
+} from './studio-project-expanded-state'
+import {
+  isActiveStudioSessionItem,
+  type StudioSessionListSelection,
+  type StudioSessionListSource,
+} from './studio-sidebar-session-location'
 import styles from './studio-sidebar.module.css'
 
 export type StudioView = 'chat' | 'library' | 'settings'
@@ -156,7 +166,7 @@ export function StudioSidebar({
   const recent = useInfiniteQuery({
     queryKey: ['studio', 'sessions', 'recent'],
     queryFn: ({ pageParam }) =>
-      listStudioSessions({ project_id: '', limit: 30, offset: pageParam }),
+      listStudioSessions({ limit: 30, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (page, pages) =>
       page.length === 30 ? pages.length * 30 : undefined,
@@ -190,6 +200,9 @@ export function StudioSidebar({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<StudioProject>()
   const [deletingProject, setDeletingProject] = useState<StudioProject>()
+  const [openSessionMenuKey, setOpenSessionMenuKey] = useState<string>()
+  const [sessionSelection, setSessionSelection] =
+    useState<StudioSessionListSelection>()
   const deleteCounts = useQuery({
     queryKey: ['studio', 'project-delete-counts', deletingProject?.id],
     queryFn: async () => {
@@ -211,7 +224,8 @@ export function StudioSidebar({
   })
   const removeProject = useMutation({
     mutationFn: (id: string) => deleteStudioProject(id),
-    onSuccess: async () => {
+    onSuccess: async (_result, projectId) => {
+      writeProjectExpanded(projectId, false)
       setDeletingProject(undefined)
       await queryClient.invalidateQueries({ queryKey: ['studio', 'projects'] })
       await queryClient.invalidateQueries({ queryKey: ['studio', 'sessions'] })
@@ -236,10 +250,17 @@ export function StudioSidebar({
 
   const sessionItem = (session: StudioSession, isProjectSession = false) => {
     const status = sessionStatus(session, viewedRunIds[session.id])
+    const source: StudioSessionListSource = isProjectSession
+      ? 'project'
+      : 'recent'
+    const menuKey = `${source}:${session.id}`
+    const availableProjects = (projects.data ?? []).filter(
+      (project) => project.id !== session.project_id
+    )
     return (
       <SidebarMenuItem
         key={session.id}
-        className='group/session w-full min-w-0'
+        className='group/session relative w-full min-w-0'
       >
         <SidebarMenuButton
           className={
@@ -247,29 +268,48 @@ export function StudioSidebar({
               ? 'w-full min-w-0 ps-8 pe-9'
               : 'w-full min-w-0 pe-9'
           }
-          isActive={view === 'chat' && activeSessionId === session.id}
-          onClick={() => onSelectSession(session.id)}
+          isActive={
+            view === 'chat' &&
+            isActiveStudioSessionItem({
+              activeSessionId,
+              selection: sessionSelection,
+              sessionId: session.id,
+              sessionProjectId: session.project_id,
+              source,
+            })
+          }
+          onClick={() => {
+            setSessionSelection({ sessionId: session.id, source })
+            onSelectSession(session.id)
+          }}
         >
           <SessionTitle title={session.title} />
-          {status ? (
-            <span className='ms-auto flex shrink-0 items-center'>
-              <StatusDot {...status} />
-            </span>
-          ) : null}
         </SidebarMenuButton>
-        <DropdownMenu>
+        {status && openSessionMenuKey !== menuKey ? (
+          <span className='pointer-events-none absolute end-0 top-1/2 z-10 flex size-7 -translate-y-1/2 items-center justify-center transition-opacity group-focus-within/session:opacity-0 group-hover/session:opacity-0 [@media(hover:none)]:opacity-0'>
+            <StatusDot {...status} />
+          </span>
+        ) : null}
+        <DropdownMenu
+          open={openSessionMenuKey === menuKey}
+          onOpenChange={(open) =>
+            setOpenSessionMenuKey((current) =>
+              open ? menuKey : current === menuKey ? undefined : current
+            )
+          }
+        >
           <DropdownMenuTrigger asChild>
             <Button
               size='icon'
               variant='ghost'
-              className='absolute end-0 top-1/2 z-10 size-7 -translate-y-1/2 text-muted-foreground/80 opacity-0 transition-opacity group-focus-within/session:opacity-100 group-hover/session:opacity-100 hover:text-muted-foreground data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100'
+              className='pointer-events-none absolute end-0 top-1/2 z-10 size-7 -translate-y-1/2 text-muted-foreground/80 opacity-0 transition-opacity group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 group-hover/session:pointer-events-auto group-hover/session:opacity-100 hover:text-muted-foreground data-[state=open]:pointer-events-auto data-[state=open]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100'
               aria-label={`${session.title}的更多操作`}
             >
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align='end'>
-            {session.project_id ? (
+            {isProjectSession && session.project_id ? (
               <DropdownMenuItem
                 onSelect={() =>
                   moveSession.mutate({ sessionId: session.id, projectId: '' })
@@ -281,9 +321,8 @@ export function StudioSidebar({
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>移至项目</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                {(projects.data ?? [])
-                  .filter((project) => project.id !== session.project_id)
-                  .map((project) => (
+                {availableProjects.length > 0 ? (
+                  availableProjects.map((project) => (
                     <DropdownMenuItem
                       key={project.id}
                       onSelect={() =>
@@ -295,7 +334,10 @@ export function StudioSidebar({
                     >
                       {project.name}
                     </DropdownMenuItem>
-                  ))}
+                  ))
+                ) : (
+                  <DropdownMenuItem disabled>暂无可选项目</DropdownMenuItem>
+                )}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           </DropdownMenuContent>
@@ -303,6 +345,9 @@ export function StudioSidebar({
       </SidebarMenuItem>
     )
   }
+
+  const ProjectsChevron = projectsExpanded ? ChevronDown : ChevronRight
+  const RecentChevron = recentExpanded ? ChevronDown : ChevronRight
 
   return (
     <Sidebar collapsible='none' className='p-2'>
@@ -367,10 +412,7 @@ export function StudioSidebar({
               onClick={() => setProjectsExpanded((value) => !value)}
             >
               <span>项目</span>
-              <ChevronDown
-                className={`${styles.sectionChevron} size-4 text-muted-foreground/80 opacity-0 group-focus-within/section-label:opacity-100 group-hover/section-label:opacity-100 [@media(hover:none)]:opacity-100`}
-                data-expanded={projectsExpanded}
-              />
+              <ProjectsChevron className='size-4 text-muted-foreground/80 opacity-0 group-focus-within/section-label:opacity-100 group-hover/section-label:opacity-100 [@media(hover:none)]:opacity-100' />
             </Button>
             <Button
               size='icon'
@@ -437,10 +479,7 @@ export function StudioSidebar({
               onClick={() => setRecentExpanded((value) => !value)}
             >
               <span>最近对话</span>
-              <ChevronDown
-                className={`${styles.sectionChevron} size-4 text-muted-foreground/80 opacity-0 group-focus-within/section-label:opacity-100 group-hover/section-label:opacity-100 [@media(hover:none)]:opacity-100`}
-                data-expanded={recentExpanded}
-              />
+              <RecentChevron className='size-4 text-muted-foreground/80 opacity-0 group-focus-within/section-label:opacity-100 group-hover/section-label:opacity-100 [@media(hover:none)]:opacity-100' />
             </Button>
             <Button
               size='icon'
@@ -565,7 +604,9 @@ function ProjectSessions({
   onDelete: () => void
   renderSession: (session: StudioSession) => ReactNode
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(() =>
+    readProjectExpanded(project.id)
+  )
   const sessions = useInfiniteQuery({
     queryKey: ['studio', 'sessions', project.id],
     queryFn: ({ pageParam }) =>
@@ -587,7 +628,11 @@ function ProjectSessions({
           variant='ghost'
           className='h-8 min-w-0 flex-1 justify-start gap-2 pr-1! pl-2! font-normal'
           aria-expanded={expanded}
-          onClick={() => setExpanded((value) => !value)}
+          onClick={() => {
+            const next = !expanded
+            writeProjectExpanded(project.id, next)
+            setExpanded(next)
+          }}
         >
           <Folder className='size-4 shrink-0 text-muted-foreground/80' />
           <span className='truncate'>{project.name}</span>

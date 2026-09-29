@@ -115,7 +115,7 @@ export function StudioWorkspace() {
     queryKey: ['studio', 'skills'],
     queryFn: listStudioSkills,
   })
-  const startNewSession = (projectId?: string) => {
+  const startNewSession = (projectId = '') => {
     ++chatOpenGeneration.current
     setNewSessionKey((current) => current + 1)
     void navigate({ to: '/studio', search: { project: projectId } })

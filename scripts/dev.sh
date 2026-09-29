@@ -4,9 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if [[ ! -d web/admin/node_modules ]]; then
-  pnpm --dir web/admin install
-fi
+pnpm --dir web/admin install --frozen-lockfile
 
 # 控制面默认监听局域网，端口由 PORT 统一传入；HTTP_ADDR 可覆盖完整监听地址。
 # PUBLIC_URL 未设置时自动使用本机局域网 IP（或回环地址）和同一端口。

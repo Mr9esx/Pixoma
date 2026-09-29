@@ -19,8 +19,10 @@ import {
   type StudioSkillSummary,
 } from '@/lib/api/studio'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { i18n } from '@/lib/i18n'
 import { Command, CommandInput } from '@/components/ui/command'
+import { Shimmer } from '@/components/ai-elements/shimmer'
 import {
   Popover,
   PopoverContent,
@@ -50,6 +52,14 @@ import {
 import type { StudioComposerValue } from './studio-composer-content'
 import composerSurface from './studio-composer-surface.module.css'
 import { StudioProjectDialog } from './studio-project-dialog'
+
+export function studioNewSessionActivity(
+  pending: boolean,
+  uploadingImages: boolean
+) {
+  if (uploadingImages) return '正在上传图片…'
+  if (pending) return '正在创建对话…'
+}
 
 export function StudioNewSession({
   models,
@@ -211,6 +221,7 @@ export function StudioNewSession({
       })
     },
   })
+  const activity = studioNewSessionActivity(send.isPending, sendingImages)
 
   return (
     <main
@@ -224,7 +235,7 @@ export function StudioNewSession({
           </h1>
           <div ref={formRef}>
             <PromptInput
-              aria-busy={sendingImages}
+              aria-busy={Boolean(activity)}
               accept='image/png,image/jpeg,image/webp,image/gif'
               multiple
               maxFiles={4}
@@ -439,17 +450,31 @@ export function StudioNewSession({
                       (Boolean(projectId) && !selectedProject) ||
                       send.isPending
                     }
-                    aria-label={sendingImages ? '正在上传图片' : '发送消息'}
+                    aria-label={activity ?? '发送消息'}
+                    status={send.isPending ? 'submitted' : undefined}
                   >
                     <span className='inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-primary-foreground transition-colors group-hover/send:bg-primary/90 group-active/send:bg-primary/80'>
-                      <span>{sendingImages ? '正在上传图片…' : '发送'}</span>
-                      <ArrowUp data-icon='inline-end' />
+                      <span>{activity ?? '发送'}</span>
+                      {send.isPending ? (
+                        <Spinner className='size-4' />
+                      ) : (
+                        <ArrowUp data-icon='inline-end' />
+                      )}
                     </span>
                   </PromptInputSubmit>
                 </PromptInputTools>
               </PromptInputFooter>
             </PromptInput>
           </div>
+          {activity ? (
+            <div
+              role='status'
+              aria-live='polite'
+              className='mt-3 flex justify-center text-sm text-muted-foreground'
+            >
+              <Shimmer>{activity}</Shimmer>
+            </div>
+          ) : null}
           {send.isError || attachmentError ? (
             <p role='alert' className='mt-3 text-sm text-destructive'>
               {attachmentError || send.error?.message}
