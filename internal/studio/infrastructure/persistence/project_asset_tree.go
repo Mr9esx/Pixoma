@@ -77,7 +77,10 @@ func (r *GormRepository) assetTreeLeaves(ctx context.Context, accountID string, 
 	}
 	nodes := make([]domain.ProjectAssetTreeNode, 0, len(page.Items))
 	for _, item := range page.Items {
-		nodes = append(nodes, domain.ProjectAssetTreeNode{ID: "asset:" + item.ID, Name: item.DisplayName, Type: "asset", ProjectAssetID: item.ID})
+		nodes = append(nodes, domain.ProjectAssetTreeNode{
+			ID: "asset:" + item.ID, Name: item.DisplayName, Type: "asset",
+			ProjectAssetID: item.ID, AssetKind: item.Asset.Kind,
+		})
 	}
 	return &domain.ProjectAssetTreePage{Nodes: nodes, NextCursor: page.NextCursor}, nil
 }

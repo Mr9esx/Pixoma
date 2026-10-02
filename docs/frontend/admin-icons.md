@@ -28,7 +28,7 @@
 
 ## 创作 Studio
 
-- `Workflow`：聊天输入框的工作流选择、工作流引用、Agent 工作流设置及流程展示。
+- `Workflow`：聊天输入框的工作流选择、工作流引用、Agent 工作流设置、流程展示及侧栏会话工作流运行状态。
 - `Boxes`：聊天输入框中的资产选择与资产引用。
 - `Library`：资产库入口、资产库空状态和保存到资产库的操作。
 - `Sparkles`：技能选择、技能引用和技能空状态。
@@ -36,6 +36,8 @@
 - `Cable`：MCP 连接器空状态。
 - `MessageCircle`：Studio 对话入口和资产树中的对话节点。
 - `Folder`：Studio 项目、项目选择和资产树中的分类节点。
+- `FolderOpen`：侧栏项目和资产树分组展开后的图标。
+- `ListTodo`：会话任务空状态。
 - `MessageSquarePlus`：新建 Studio 对话。
 - `MoreHorizontal`：Studio 项目与对话的更多操作。
 - `Settings2`：AI 设置入口和资产树组织方式设置。
@@ -44,11 +46,14 @@
 - `ShieldCheck`：聊天输入框中的 Agent 操作权限。
 - `TriangleAlert`：完全访问权限确认弹窗中的风险提示。
 - `ListTree`：打开制作流程面板。
+- `ArrowDownWideNarrow`：资产库与上下文排序。
+- `ArrowUp`：发送消息和立即发送；`CornerDownRight`：待发送队列中的消息。
+- `Square`：停止生成；`Maximize2`：放大资产；`Minimize2`：恢复资产详情。
 
 ## 常用操作与内容类型
 
 - `Plus`：新建项目或增加内容；`Upload`：上传文件；`Download`：下载文件。
 - `Pencil`：编辑内容；`Trash2`：删除内容；`Search`：搜索内容。
 - `ArrowLeft`：返回上一级；`ChevronDown`：展开选择项和项目；`ChevronRight`：折叠项目；`Check`：标记当前选择；`X`：关闭或移除内容。
-- `ImageIcon`：图片资产类型；`FileText`：文档资产类型。
+- 资产文件树、资产卡片和预览占位图使用同一套类型图标：`ImageIcon` 表示图片；`FileText` 表示文档；`Video` 表示视频；`AudioLines` 表示音频；`FileJson` 表示数据；`File` 表示普通文件。
 - `Package`：计算节点中的 ComfyUI 版本信息。

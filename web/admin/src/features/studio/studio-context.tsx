@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 'recharts'
+import { ArrowDownWideNarrow } from 'lucide-react'
+import { Bar, BarChart, Cell, ReferenceDot, ReferenceLine, XAxis, YAxis } from 'recharts'
 import {
   getStudioContextRequest,
   getStudioCurrentContext,
@@ -12,13 +13,18 @@ import {
   type StudioContextRequest,
 } from '@/lib/api/studio'
 import { Button } from '@/components/ui/button'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { IconButtonTooltip } from '@/components/ui/icon-button-tooltip'
+import { FilterSegment } from '@/components/filters/filter-segment'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -77,7 +83,7 @@ function SegmentBar({ segments, totalAmount, unit, label }: {
   label: string
 }) {
   return (
-    <div className='flex h-4 overflow-hidden rounded-sm bg-muted' aria-label={label}>
+    <div className='flex h-1.5 overflow-hidden rounded-sm bg-muted' aria-label={label}>
       {segments.filter((segment) => segment.amount > 0).map((segment) => (
         <Tooltip key={segment.label}>
           <TooltipTrigger
@@ -100,7 +106,7 @@ function Segments({ parts }: { parts: StudioContextPart[] }) {
   return (
     <div className='space-y-2'>
       <SegmentBar label='上下文组成' totalAmount={sum} unit='Token' segments={categories.map((category) => ({ label: category.name, amount: values[category.id], color: category.color }))} />
-      <div className='flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground'>
+      <div className='flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground'>
         {categories.filter((category) => values[category.id] > 0).map((category) => (
           <span key={category.id} className='flex items-center gap-1'>
             <span className={cn('size-2 rounded-[1px]', category.color)} />
@@ -142,6 +148,8 @@ export function StudioContext({ sessionId }: { sessionId: string }) {
     [eventsQuery.data]
   )
   const [selectedId, setSelectedId] = useState('current')
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
+  const agentRequests = useMemo(() => requests.filter((request) => request.purpose === 'agent'), [requests])
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('all')
   const [sortBy, setSortBy] = useState('order')
@@ -155,8 +163,8 @@ export function StudioContext({ sessionId }: { sessionId: string }) {
     enabled: Boolean(attemptId),
     refetchInterval: selectedId === 'current' ? 5000 : false,
   })
-  const index = requests.findIndex((request) => request.attempt_id === attemptId)
-  const previousId = index >= 0 ? requests[index + 1]?.attempt_id : undefined
+  const index = agentRequests.findIndex((request) => request.attempt_id === attemptId)
+  const previousId = index >= 0 ? agentRequests[index + 1]?.attempt_id : undefined
   const previous = useQuery({
     queryKey: ['studio', 'context-request', sessionId, previousId],
     queryFn: () => getStudioContextRequest(sessionId, previousId!),
@@ -180,33 +188,50 @@ export function StudioContext({ sessionId }: { sessionId: string }) {
 
   const view = overview.data
   const current = view.current
-  const focusedRequest = requests.find((request) => request.attempt_id === attemptId)
+  const focusedRequest = agentRequests.find((request) => request.attempt_id === attemptId)
   const occupancy = current?.projected_tokens !== undefined && current.context_window_tokens > 0
     ? Math.round(current.projected_tokens / current.context_window_tokens * 100)
     : null
   const tokenTotal = view.tokens.input + view.tokens.output
   const timing = view.timing
+  const sortLabel = sortBy === 'order' ? '原始顺序' : sortBy === 'tokens' ? 'Token 从多到少' : '名称排序'
+  const allBrowserParts = [...visibleParts.map((part) => ({ part, removed: false })), ...removedParts.map((part) => ({ part, removed: true }))]
 
   return (
     <ScrollArea className='min-h-0 flex-1 bg-card text-sm' data-slot='studio-context'>
-      <div className='mx-auto flex max-w-360 flex-col gap-3 p-3 sm:p-4'>
-        <div className='grid gap-3 xl:grid-cols-3'>
-          <Card className='gap-3 py-4'>
-            <CardHeader className='px-4'><CardTitle className='text-base'>上下文统计</CardTitle></CardHeader>
-            <CardContent className='grid grid-cols-3 gap-2 px-4'>
+      <div className='@container/context mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 py-4 sm:px-5'>
+        <section className='flex flex-col gap-2'>
+          <h2 className='text-sm font-semibold'>当前上下文</h2>
+          <Card className='min-w-0 gap-0 overflow-hidden py-0'>
+            <CardHeader className='flex flex-row flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3 pb-3!'>
+              <CardTitle className='min-w-0 text-sm'>{current?.model ?? '暂无模型请求'}</CardTitle>
+              <span className='font-mono text-xs tabular-nums text-muted-foreground'>{number(current?.projected_tokens)} / {number(current?.context_window_tokens)} Token</span>
+            </CardHeader>
+            <CardContent className='flex flex-col gap-3 px-4 py-4'>
+              <div className='flex items-baseline justify-between gap-3'><span className='text-muted-foreground'>窗口占用</span><strong className='font-mono text-lg tabular-nums'>{occupancy === null ? '未记录' : `${occupancy}%`}</strong></div>
+              <div role='meter' aria-label='上下文窗口占用' aria-valuemin={0} aria-valuemax={100} aria-valuenow={occupancy === null ? undefined : Math.min(100, Math.max(0, occupancy))} aria-valuetext={occupancy === null ? '未记录' : undefined} className='h-1 overflow-hidden rounded-sm bg-muted'>
+                <div className='h-full bg-primary' style={{ width: `${Math.min(100, Math.max(0, occupancy ?? 0))}%` }} />
+              </div>
+              {current ? <div className='flex flex-col gap-3 border-t pt-3'><span className='font-mono text-xs tabular-nums text-muted-foreground'>上次实际输入 {number(current.input_tokens)} Token</span><Segments parts={current.parts ?? []} /></div> : null}
+            </CardContent>
+            <dl className='grid grid-cols-2 gap-px border-t bg-border @min-[36rem]/context:grid-cols-3 @min-[64rem]/context:grid-cols-6'>
               {[
                 ['轮次', view.turns], ['步骤', view.steps], ['工具调用', view.tool_calls],
                 ['注入', view.injections], ['压缩', view.compactions], ['剪枝', view.prunes],
               ].map(([label, value]) => (
-                <div key={label} className='rounded-md border bg-muted/30 p-2'>
-                  <div className='text-muted-foreground'>{label}</div>
-                  <div className='mt-1 text-base font-semibold tabular-nums'>{number(Number(value))}</div>
+                <div key={label} className='flex min-w-0 flex-col gap-1 bg-card px-4 py-3'>
+                  <dt className='text-xs text-muted-foreground'>{label}</dt>
+                  <dd className='font-mono text-lg font-semibold tabular-nums'>{number(Number(value))}</dd>
                 </div>
               ))}
-            </CardContent>
+            </dl>
           </Card>
+        </section>
+        <section className='flex flex-col gap-2'>
+          <h2 className='text-sm font-semibold'>会话用量</h2>
+          <div className='grid gap-3 @min-[48rem]/context:grid-cols-2'>
           <Card className='gap-3 py-4'>
-            <CardHeader className='px-4'><CardTitle className='text-base'>Token 统计</CardTitle></CardHeader>
+            <CardHeader className='px-4'><CardTitle className='text-sm'>Token 用量</CardTitle></CardHeader>
             <CardContent className='space-y-2 px-4'>
               <div className='text-xl font-semibold tabular-nums'>{number(tokenTotal)}</div>
               <SegmentBar label='Token 用量组成' totalAmount={tokenTotal} unit='Token' segments={[
@@ -229,7 +254,7 @@ export function StudioContext({ sessionId }: { sessionId: string }) {
             </CardContent>
           </Card>
           <Card className='gap-3 py-4'>
-            <CardHeader className='px-4'><CardTitle className='text-base'>耗时统计</CardTitle></CardHeader>
+            <CardHeader className='px-4'><CardTitle className='text-sm'>活跃耗时</CardTitle></CardHeader>
             <CardContent className='space-y-2 px-4'>
               <div className='text-xl font-semibold tabular-nums'>{duration(timing.active_ms)}</div>
               <SegmentBar label='活跃耗时组成' totalAmount={timing.active_ms} unit='毫秒' segments={[
@@ -250,33 +275,22 @@ export function StudioContext({ sessionId }: { sessionId: string }) {
               </div>
             </CardContent>
           </Card>
-        </div>
-        <Card className='gap-3 py-4'>
-          <CardHeader className='flex flex-row items-center justify-between px-4'>
-            <CardTitle className='text-base'>当前上下文</CardTitle>
-            <span className='text-muted-foreground'>{current?.model ?? '未记录'}</span>
-          </CardHeader>
-          <CardContent className='space-y-3 px-4'>
-            <div className='flex items-baseline gap-2'>
-              <strong className='text-xl tabular-nums'>{number(current?.projected_tokens)}</strong>
-              <span className='text-muted-foreground'>/ {number(current?.context_window_tokens)} tokens</span>
-              <strong className='ml-auto text-base'>{occupancy === null ? '未记录' : `${occupancy}%`}</strong>
-            </div>
-            {current ? <Segments parts={current.parts ?? []} /> : <div className='text-muted-foreground'>暂无模型请求</div>}
-            {current ? <div className='text-muted-foreground'>下一次请求预计 · 上次实际输入 {number(current.input_tokens)} Token</div> : null}
-          </CardContent>
-        </Card>
-        <div className='grid gap-3 lg:grid-cols-2'>
-          <Card className='min-w-0 gap-3 py-4'>
-            <CardHeader className='flex flex-row flex-wrap items-center justify-between gap-2 px-4'>
-              <CardTitle className='text-base'>上下文趋势</CardTitle>
+          </div>
+        </section>
+        <section className='flex flex-col gap-2'>
+          <h2 className='text-sm font-semibold'>上下文浏览器</h2>
+          <Card className='min-w-0 gap-0 overflow-hidden py-0'>
+            <div className='grid min-w-0 @min-[56rem]/context:grid-cols-2'>
+            <div className='flex min-w-0 flex-col gap-3 border-b px-4 py-4 @min-[56rem]/context:border-r @min-[56rem]/context:border-b-0'>
+            <div className='flex flex-row flex-wrap items-center justify-between gap-2'>
+              <h3 className='text-sm font-medium'>上下文趋势</h3>
               <div className='flex gap-1'>
                 {(['step', 'turn'] as const).map((value) => <Button key={value} size='sm' aria-pressed={trendGroup === value} variant={trendGroup === value ? 'secondary' : 'ghost'} onClick={() => setTrendGroup(value)}>{value === 'step' ? '步骤' : '轮次'}</Button>)}
                 {(['total', 'delta'] as const).map((value) => <Button key={value} size='sm' aria-pressed={trendValue === value} variant={trendValue === value ? 'secondary' : 'ghost'} onClick={() => setTrendValue(value)}>{value === 'total' ? '全量' : '增量'}</Button>)}
               </div>
-            </CardHeader>
-            <CardContent className='min-w-0 space-y-3 px-4'>
-              <Trend requests={requests} events={events} group={trendGroup} value={trendValue} selectedId={attemptId} onSelect={setSelectedId} />
+            </div>
+            <div className='min-w-0 space-y-3'>
+              <Trend requests={agentRequests} events={events} group={trendGroup} value={trendValue} selectedId={attemptId} onSelect={setSelectedId} />
               {focusedRequest ? <div className='space-y-1 rounded-md border bg-muted/30 p-2'>
                 <div className='font-medium'>第 {focusedRequest.turn_number} 轮 · 第 {focusedRequest.step_number} 步 · {new Date(focusedRequest.started_at).toLocaleTimeString('zh-CN')}</div>
                 {focusedRequest.preview ? <div className='truncate text-muted-foreground'>{focusedRequest.preview}</div> : null}
@@ -288,53 +302,51 @@ export function StudioContext({ sessionId }: { sessionId: string }) {
                 </div>
               </div> : null}
               {requestsQuery.hasNextPage ? <Button size='sm' variant='outline' onClick={() => void requestsQuery.fetchNextPage()}>加载更早的请求</Button> : null}
-            </CardContent>
-          </Card>
-          <Card className='min-w-0 gap-3 py-4'>
-            <CardHeader className='flex flex-row flex-wrap items-center justify-between gap-2 px-4'>
-              <CardTitle className='text-base'>上下文浏览器</CardTitle>
+            </div>
+            </div>
+            <div className='flex min-w-0 flex-col gap-3 px-4 py-4'>
+              <div className='grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)_auto] items-center gap-2'>
               <Select value={selectedId} onValueChange={setSelectedId}>
-                <SelectTrigger className='w-44' aria-label='选择上下文请求'><SelectValue /></SelectTrigger>
+                <SelectTrigger className='w-full' aria-label='选择上下文请求'><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectGroup>
                   <SelectItem value='current'>当前</SelectItem>
-                  {requests.map((request) => <SelectItem key={request.attempt_id} value={request.attempt_id}>{new Date(request.started_at).toLocaleTimeString('zh-CN')} · {request.model}</SelectItem>)}
+                  {agentRequests.map((request) => <SelectItem key={request.attempt_id} value={request.attempt_id}>{new Date(request.started_at).toLocaleTimeString('zh-CN')} · {request.model}</SelectItem>)}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
-            </CardHeader>
-            <CardContent className='space-y-3 px-4'>
-              <div className='flex flex-wrap gap-2'>
                 <Input className='min-w-32 flex-1' aria-label='搜索上下文内容' placeholder='搜索内容' value={search} onChange={(event) => setSearch(event.target.value)} />
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className='w-32' aria-label='上下文类别'><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value='all'>全部类别</SelectItem>{categories.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className='w-24' aria-label='上下文排序'><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value='order'>顺序</SelectItem><SelectItem value='tokens'>Token</SelectItem><SelectItem value='name'>名称</SelectItem></SelectContent>
-                </Select>
+                <DropdownMenu>
+                  <IconButtonTooltip label={`排序：${sortLabel}`}><DropdownMenuTrigger asChild><Button variant='ghost' size='icon' aria-label={`排序上下文：${sortLabel}`}><ArrowDownWideNarrow /></Button></DropdownMenuTrigger></IconButtonTooltip>
+                  <DropdownMenuContent align='end'><DropdownMenuLabel>排序方式</DropdownMenuLabel><DropdownMenuRadioGroup value={sortBy} onValueChange={setSortBy}><DropdownMenuRadioItem value='order'>原始顺序</DropdownMenuRadioItem><DropdownMenuRadioItem value='tokens'>Token 从多到少</DropdownMenuRadioItem><DropdownMenuRadioItem value='name'>名称排序</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent>
+                </DropdownMenu>
               </div>
+              <FilterSegment aria-label='上下文类别' value={category} options={[{ value: 'all', label: '全部' }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} onValueChange={setCategory} />
               {browser.isLoading ? <div className='text-muted-foreground'>内容读取中…</div> : browser.isError ? <div className='text-destructive'>内容读取失败</div> : browser.data ? <>
                 <Segments parts={browser.data.parts} />
                 <div className='text-muted-foreground'>共 {browser.data.parts.length} 项 · 估算 {number(total(browser.data.parts))} Token{previous.data ? ` · 新增或变化 ${browser.data.parts.filter((part) => previousParts.get(part.id) !== part.content).length} 项 · 移除 ${removedParts.length} 项` : ''}</div>
-                <div className='space-y-1'>
-                  {visibleParts.map((part) => <details key={part.id} className='rounded-md border bg-card'>
-                    <summary className='flex cursor-pointer items-center gap-2 px-2 py-2'>
-                      <span className={cn('size-2 shrink-0 rounded-[1px]', categories.find((item) => item.id === part.category)?.color ?? 'bg-muted')} />
-                      <span className='truncate'>{part.label || categories.find((item) => item.id === part.category)?.name || part.category}</span>
-                      {previous.data && previousParts.get(part.id) !== part.content ? <span className='text-primary'>+变更</span> : null}
-                      <span className='ml-auto shrink-0 tabular-nums text-muted-foreground'>{number(part.estimated_tokens)}</span>
-                    </summary>
-                    <pre className='max-h-64 overflow-auto border-t bg-background p-2 font-mono text-sm break-all whitespace-pre-wrap'>{part.content}</pre>
-                  </details>)}
-                  {removedParts.map((part) => <details key={`removed-${part.id}`} className='rounded-md border bg-muted/30'>
-                    <summary className='cursor-pointer px-2 py-2 text-muted-foreground'>− 已移除 · {part.label || part.category} · {number(part.estimated_tokens)}</summary>
-                    <pre className='max-h-64 overflow-auto border-t bg-background p-2 font-mono text-sm break-all whitespace-pre-wrap'>{part.content}</pre>
-                  </details>)}
-                </div>
+                {browser.data.content_available === false ? <div className='text-xs text-muted-foreground'>此请求保留了上下文统计，原始内容未保存。</div> : null}
+                <Accordion type='single' collapsible value={selectedPartId ?? ''} onValueChange={(value) => setSelectedPartId(value || null)} className='flex min-w-0 max-h-96 flex-col gap-1 overflow-y-auto' role='list' aria-label='上下文内容项'>
+                  {allBrowserParts.map(({ part, removed }) => {
+                    const itemCategory = categories.find((item) => item.id === part.category)
+                    const label = part.label || itemCategory?.name || part.category
+                    return <AccordionItem key={(removed ? 'removed:' : '') + part.id} value={(removed ? 'removed:' : '') + part.id} role='listitem' className='rounded-md border-b-0 data-[state=open]:bg-muted'>
+                      <AccordionTrigger className='min-h-11 w-full min-w-0 items-center gap-2 px-2 py-2 font-normal hover:bg-muted hover:no-underline'>
+                        <span className={cn('size-2 shrink-0 rounded-[1px]', itemCategory?.color ?? 'bg-muted-foreground')} />
+                        <span className='min-w-0 flex-1'><span className='block truncate'>{label}</span>{label !== (itemCategory?.name ?? part.category) ? <span className='block truncate text-xs text-muted-foreground'>{itemCategory?.name ?? part.category}</span> : null}</span>
+                        {removed ? <span className='shrink-0 text-xs text-muted-foreground'>已移除</span> : previous.data && previousParts.get(part.id) !== part.content ? <span className='shrink-0 text-xs text-muted-foreground'>有变化</span> : null}
+                        <span className='shrink-0 font-mono text-xs tabular-nums text-muted-foreground'>{number(part.estimated_tokens)} Token</span>
+                      </AccordionTrigger>
+                      {browser.data!.content_available !== false ? <AccordionContent className='px-6 pb-3'><pre className='m-0 max-h-36 overflow-auto font-mono text-sm leading-5 break-all whitespace-pre-wrap'>{part.content ?? ''}</pre></AccordionContent> : null}
+                    </AccordionItem>
+                  })}
+                  {allBrowserParts.length === 0 ? <div className='py-6 text-center text-muted-foreground'>暂无上下文内容</div> : null}
+                </Accordion>
               </> : <div className='text-muted-foreground'>暂无上下文</div>}
-            </CardContent>
+            </div>
+            </div>
           </Card>
-        </div>
+        </section>
         <Card className='gap-3 py-4'>
           <CardHeader className='flex flex-row flex-wrap items-center justify-between gap-2 px-4'>
             <CardTitle className='text-base'>上下文事件</CardTitle>
@@ -397,6 +409,7 @@ function Trend({
     return {
       index: String(index + 1),
       attemptId: request.attempt_id,
+      turnId: request.turn_id,
       turn: request.turn_number,
       step: request.step_number,
       model: request.model,
@@ -412,37 +425,41 @@ function Trend({
       ...totals(request.parts ?? []),
     }
   })
-  const selectedPoint = points.find((point) => point.attemptId === selectedId)
+  const selectedRequest = requests.find((request) => request.attempt_id === selectedId)
+  const selectedPoint = points.find((point) => point.attemptId === selectedId) ??
+    (group === 'turn' && selectedRequest
+      ? points.find((point) => point.turnId === selectedRequest.turn_id)
+      : undefined)
   const deltaDomain = [
     Math.min(0, ...points.map((point) => point.delta)),
     Math.max(1, ...points.map((point) => point.delta)),
   ]
   if (displayed.length === 0)
     return (
-      <div className='flex h-44 items-center justify-center text-muted-foreground'>
+      <div className='flex h-44 items-center justify-center text-muted-foreground @min-[56rem]/context:h-auto @min-[56rem]/context:flex-1'>
         暂无请求数据
       </div>
     )
   return (
-    <div className='overflow-x-auto' aria-label='上下文趋势图'>
+    <div className='min-h-0 min-w-0 @min-[56rem]/context:flex-1' aria-label='上下文趋势图'>
       <ChartContainer
         config={trendConfig}
-        className='aspect-auto h-64 min-w-full text-sm'
-        style={{ width: Math.max(480, points.length * 48) }}
+        className='aspect-auto h-56 w-full text-xs @min-[56rem]/context:h-full'
       >
         <BarChart
           accessibilityLayer
           data={points}
+          maxBarSize={32}
           margin={{ top: 20, right: 12, bottom: 4, left: 4 }}
         >
-          <CartesianGrid vertical={false} />
           <XAxis
             dataKey='index'
             tickLine={false}
             axisLine={false}
             tickMargin={8}
             height={28}
-            tick={{ fontSize: 14 }}
+            minTickGap={16}
+            tick={{ fontSize: 12 }}
             tickFormatter={(index) => {
               const point = points[Number(index) - 1]
               return point
@@ -456,23 +473,22 @@ function Trend({
             axisLine={false}
             tickMargin={8}
             width={52}
-            tick={{ fontSize: 14 }}
+            tick={{ fontSize: 12 }}
             tickFormatter={number}
           />
           <ChartTooltip
-            content={
-              <ChartTooltipContent
-                className='bg-popover text-sm text-popover-foreground shadow-md'
-                labelFormatter={(_, payload) => {
-                  const point = payload[0]?.payload as
-                    | (typeof points)[number]
-                    | undefined
-                  return point
-                    ? `第 ${point.turn} 轮 · 第 ${point.step} 步 · ${point.model} · 估算 ${number(point.estimated)} Token${point.events.length > 0 ? ` · ${point.events.length} 个上下文事件` : ''}`
-                    : ''
-                }}
-              />
-            }
+            cursor={false}
+            shared={false}
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null
+              const item = payload[0]
+              const point = item.payload as (typeof points)[number]
+              const label = item.dataKey === 'delta' ? '变化' : categories.find((category) => category.id === item.dataKey)?.name ?? ''
+              return <div className='rounded-md border bg-popover px-2 py-1.5 text-xs text-popover-foreground shadow-md'>
+                <div>第 {point.turn} 轮 · 第 {point.step} 步</div>
+                <div className='font-mono tabular-nums'>{label} {number(Number(item.value))} Token</div>
+              </div>
+            }}
           />
           {points
             .filter((point) => point.events.length > 0)
@@ -490,9 +506,6 @@ function Trend({
                 }}
               />
             ))}
-          {selectedPoint ? (
-            <ReferenceLine x={selectedPoint.index} stroke='var(--foreground)' strokeWidth={2} />
-          ) : null}
           {value === 'total' ? (
             categories.map((category) => (
               <Bar
@@ -500,30 +513,33 @@ function Trend({
                 dataKey={category.id}
                 stackId='context'
                 fill={`var(--color-${category.id})`}
+                activeBar={false}
                 onClick={(entry) => onSelect(entry.payload.attemptId)}
-              />
+              >
+                {points.map((point) => <Cell key={point.attemptId} opacity={selectedPoint && point.attemptId !== selectedPoint.attemptId ? 0.5 : 1} />)}
+              </Bar>
             ))
           ) : (
             <>
               <ReferenceLine y={0} stroke='var(--border)' />
               <Bar
                 dataKey='delta'
+                activeBar={false}
                 onClick={(entry) => onSelect(entry.payload.attemptId)}
               >
                 {points.map((point) => (
                   <Cell
                     key={point.attemptId}
                     fill={point.delta < 0 ? 'var(--destructive)' : 'var(--primary)'}
+                    opacity={selectedPoint && point.attemptId !== selectedPoint.attemptId ? 0.5 : 1}
                   />
                 ))}
               </Bar>
             </>
           )}
+          {selectedPoint ? <ReferenceDot x={selectedPoint.index} y={value === 'total' ? selectedPoint.estimated : selectedPoint.delta} r={4} fill='var(--foreground)' stroke='var(--card)' strokeWidth={2} ifOverflow='visible' /> : null}
         </BarChart>
       </ChartContainer>
-      <div className='pt-2 text-sm text-muted-foreground'>
-        {group === 'turn' ? '轮次' : '步骤'} · {value === 'total' ? '全量' : '增量'} · × 上下文事件
-      </div>
     </div>
   )
 }

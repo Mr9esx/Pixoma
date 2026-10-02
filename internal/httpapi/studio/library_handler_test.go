@@ -98,6 +98,36 @@ func TestStudioLibraryProjectsAndAssetsUseProjectScope(t *testing.T) {
 	if listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].AssetID != asset.ID || listed.Items[0].Asset.ID != asset.ID {
 		t.Fatalf("assets = %#v", listed)
 	}
+	for _, query := range []struct{ name, parent string }{
+		{name: "asset"},
+		{name: "session", parent: "session:none"},
+		{name: "category", parent: "category:uncategorized"},
+		{name: "format", parent: "format:txt"},
+		{name: "rating", parent: "rating:0"},
+		{name: "tag", parent: "tag:untagged"},
+	} {
+		t.Run(query.name, func(t *testing.T) {
+			path := "/library/tree?project_id=" + project.ID + "&mode=" + query.name + "&parent_id=" + query.parent
+			tree := request(t, router, http.MethodGet, path, nil, "account-a")
+			var result struct {
+				Nodes []struct {
+					Kind      string `json:"kind"`
+					AssetID   string `json:"asset_id"`
+					AssetKind string `json:"asset_kind"`
+				} `json:"nodes"`
+			}
+			if tree.Code != http.StatusOK || json.Unmarshal(apitest.DataBytes(tree), &result) != nil {
+				t.Fatalf("文件树响应 = %d %s", tree.Code, tree.Body.String())
+			}
+			if len(result.Nodes) != 1 {
+				t.Fatalf("资产节点数量 = %d", len(result.Nodes))
+			}
+			node := result.Nodes[0]
+			if node.Kind != "asset" || node.AssetID != listed.Items[0].ID || node.AssetKind != "document" {
+				t.Fatalf("资产节点 = %#v", node)
+			}
+		})
+	}
 	uncategorized := request(t, router, http.MethodGet, "/library/assets?project_id="+project.ID+"&category_id=none", nil, "account-a")
 	var uncategorizedPage struct {
 		Total int `json:"total"`

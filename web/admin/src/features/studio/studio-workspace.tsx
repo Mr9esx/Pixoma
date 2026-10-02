@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMatchRoute, useNavigate, useSearch } from '@tanstack/react-router'
-import { ListTree, Menu, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { ListTree, Menu, PanelRightClose, PanelRightOpen, Workflow } from 'lucide-react'
 import { ApiError } from '@/lib/api/client'
 import {
   createStudioTextAsset,
@@ -20,6 +20,7 @@ import {
   type StudioSessionDetail,
 } from '@/lib/api/studio'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   Empty,
   EmptyContent,
@@ -37,7 +38,9 @@ import {
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { StudioAssets } from './studio-assets'
+import { StudioAssetActions, StudioAssets, type AssetLayout } from './studio-assets'
+import { StudioSessionTasks } from './studio-session-tasks'
+import { isActiveWorkflowExecution } from './studio-session-tasks-data'
 import { StudioChat } from './studio-chat'
 import { StudioFlow } from './studio-flow'
 import { StudioLibrary } from './studio-library'
@@ -70,7 +73,10 @@ export function StudioWorkspace() {
   const traceOpen = Boolean(
     matchRoute({ to: '/studio/sessions/$sessionId/trace' })
   )
-  const panel = search.panel ?? 'flow'
+  const panel = search.panel ?? 'assets'
+  const [mobileWorkbenchTab, setMobileWorkbenchTab] = useState<'assets' | 'flow' | 'tasks'>('assets')
+  const [assetLayout, setAssetLayout] = useState<AssetLayout>('adaptive')
+  const [focusAsset, setFocusAsset] = useState<{ id: string; request: number }>()
   const matchedSection = settingsMatch ? settingsMatch.section : undefined
   const section = (matchedSection ?? 'models') as SettingSection
   const [rightOpen, setRightOpen] = useState(true)
@@ -136,7 +142,7 @@ export function StudioWorkspace() {
     refetchInterval: (query) =>
       query.state.data?.workflow_executions?.some(
         (execution) => execution.status === 'submitted'
-      )
+      ) || ['queued', 'running'].includes(query.state.data?.session.latest_run?.status ?? '')
         ? 2500
         : false,
   })
@@ -306,6 +312,7 @@ export function StudioWorkspace() {
   })
   const currentSessionDetail =
     detail.data?.session.id === sessionId ? detail.data : undefined
+  const activeWorkflowCount = currentSessionDetail?.workflow_executions?.filter(isActiveWorkflowExecution).length ?? 0
   const uploadAsset = useMutation({
     mutationFn: (file: File) => uploadStudioAsset(file, sessionId),
     onSuccess: () => {
@@ -368,7 +375,7 @@ export function StudioWorkspace() {
     },
   }
 
-  const renderWorkbenchContent = (kind: 'flow' | 'assets') => {
+  const renderWorkbenchContent = (kind: 'flow' | 'assets' | 'tasks') => {
     if (!sessionId || (detail.isError && !currentSessionDetail)) return null
     if (!currentSessionDetail) {
       return (
@@ -377,6 +384,7 @@ export function StudioWorkspace() {
         </div>
       )
     }
+    if (kind === 'tasks') return <StudioSessionTasks executions={currentSessionDetail.workflow_executions ?? []} nodes={currentSessionDetail.flow.nodes} />
     if (kind === 'flow') {
       return (
         <StudioFlow
@@ -384,6 +392,11 @@ export function StudioWorkspace() {
           nodes={currentSessionDetail.flow.nodes}
           edges={currentSessionDetail.flow.edges}
           workflowExecutions={currentSessionDetail.workflow_executions}
+          onAssetOpen={(id) => {
+            setFocusAsset((current) => ({ id, request: (current?.request ?? 0) + 1 }))
+            setMobileWorkbenchTab('assets')
+            void navigate({ to: '/studio/sessions/$sessionId', params: { sessionId }, search: {} })
+          }}
           onNodeCreate={(input) => createFlowNode.mutateAsync(input)}
           onNodeDelete={(id) => deleteFlowNode.mutateAsync(id)}
           onEdgeCreate={(input) => createFlowEdge.mutateAsync(input)}
@@ -395,6 +408,9 @@ export function StudioWorkspace() {
     return (
       <StudioAssets
         assets={currentSessionDetail.assets}
+        layout={assetLayout}
+        focusAsset={focusAsset}
+        onFocusAssetClose={(request) => setFocusAsset((current) => current?.request === request ? undefined : current)}
         messages={currentSessionDetail.messages}
         onLocateMessage={(id) => {
           setLocateMessage((current) => ({
@@ -403,33 +419,39 @@ export function StudioWorkspace() {
           }))
           setWorkbenchSheetOpen(false)
         }}
-        onCreateTextAsset={(input) => createTextAsset.mutateAsync(input)}
         onUpdateTextAsset={(input) => updateTextAsset.mutateAsync(input)}
-        onUploadAsset={(file) => uploadAsset.mutate(file)}
-        onOpenLibrary={() => {
-          setLibraryEntryProjectId(currentSessionDetail.session.project_id ?? '')
-          setLibraryEntrySessionId(currentSessionDetail.session.id)
-          setLibraryEntrySessionTitle(currentSessionDetail.session.title)
-          void navigate({ to: '/studio/library', search: {} })
-        }}
-        uploading={uploadAsset.isPending}
       />
     )
   }
 
+  const renderAssetActions = () => currentSessionDetail ? <StudioAssetActions
+    layout={assetLayout} onLayoutChange={setAssetLayout}
+    onCreateTextAsset={(input) => createTextAsset.mutateAsync(input)}
+    onUploadAsset={(file) => uploadAsset.mutate(file)}
+    onOpenLibrary={() => {
+      setLibraryEntryProjectId(currentSessionDetail.session.project_id ?? '')
+      setLibraryEntrySessionId(currentSessionDetail.session.id)
+      setLibraryEntrySessionTitle(currentSessionDetail.session.title)
+      void navigate({ to: '/studio/library', search: {} })
+    }} uploading={uploadAsset.isPending}
+  /> : null
+
   const workbenchTabs = () => (
-    <Tabs defaultValue='flow' className='relative min-h-0 flex-1 gap-0'>
+    <Tabs value={mobileWorkbenchTab} onValueChange={(value) => setMobileWorkbenchTab(value as 'assets' | 'flow' | 'tasks')} className='relative min-h-0 flex-1 gap-0'>
       <StudioWorkbenchBackground />
       <TabsList className='absolute top-3 left-4 z-10'>
-        <TabsTrigger value='flow'>制作流程</TabsTrigger>
         <TabsTrigger value='assets'>会话资产</TabsTrigger>
+        <TabsTrigger value='flow'>制作流程</TabsTrigger>
+        <TabsTrigger value='tasks'>会话任务</TabsTrigger>
       </TabsList>
+      {mobileWorkbenchTab === 'assets' ? <div className='absolute top-14 right-4 z-10 sm:top-3'>{renderAssetActions()}</div> : null}
       <TabsContent value='flow' className='relative z-0 m-0 min-h-0'>
         {renderWorkbenchContent('flow')}
       </TabsContent>
-      <TabsContent value='assets' className='relative z-0 m-0 min-h-0 pt-16'>
+      <TabsContent value='assets' className='relative z-0 m-0 min-h-0 pt-28 sm:pt-16'>
         {renderWorkbenchContent('assets')}
       </TabsContent>
+      <TabsContent value='tasks' className='relative z-0 m-0 min-h-0 pt-16'>{renderWorkbenchContent('tasks')}</TabsContent>
     </Tabs>
   )
 
@@ -528,10 +550,18 @@ export function StudioWorkspace() {
           >
             <main id='main-content' className='flex min-w-0 flex-1 flex-col'>
               <header className='flex min-h-16 items-center justify-between gap-3 px-5 pl-16 lg:pl-5'>
-                <div className='min-w-0'>
-                  <h1 className='truncate text-sm font-semibold'>
-                    {detail.data?.session.title ?? '新对话'}
-                  </h1>
+                <div className='min-w-0 flex-1'>
+                  <div className='flex min-w-0 items-center gap-2'>
+                    <h1 className='min-w-0 truncate text-sm font-semibold'>{detail.data?.session.title ?? '新对话'}</h1>
+                    {activeWorkflowCount > 0 ? <Badge asChild variant='secondary' className='h-6 cursor-pointer text-sm hover:bg-secondary/80'>
+                      <button type='button' aria-label={`工作流运行中，查看会话任务；当前 ${activeWorkflowCount} 个工作流`} onClick={() => {
+                        setRightOpen(true)
+                        setWorkbenchSheetOpen(window.matchMedia('(max-width: 1279px)').matches)
+                        setMobileWorkbenchTab('tasks')
+                        void navigate({ to: '/studio/sessions/$sessionId', params: { sessionId: sessionId! }, search: { panel: 'tasks' } })
+                      }}><Workflow className='motion-safe:animate-pulse' />工作流运行中</button>
+                    </Badge> : null}
+                  </div>
                   <p className='text-xs text-muted-foreground'>
                     自动保存 · 后台运行
                   </p>
@@ -590,7 +620,7 @@ export function StudioWorkspace() {
                           创作工作台
                         </SheetTitle>
                         <SheetDescription className='sr-only'>
-                          查看制作流程与会话资产。
+                          查看制作流程、会话资产和会话任务。
                         </SheetDescription>
                         {workbenchTabs()}
                       </SheetContent>
@@ -698,6 +728,7 @@ export function StudioWorkspace() {
                     })
                   }}
                   onRuntimeStateChange={() => {
+                    void queryClient.invalidateQueries({ queryKey: ['studio', 'session', sessionId] })
                     void queryClient.invalidateQueries({
                       queryKey: ['studio', 'sessions'],
                     })
@@ -730,7 +761,7 @@ export function StudioWorkspace() {
                       to: '/studio/sessions/$sessionId',
                       params: { sessionId: sessionId! },
                       search: {
-                        panel: nextPanel === 'assets' ? 'assets' : undefined,
+                        panel: nextPanel === 'flow' || nextPanel === 'tasks' ? nextPanel : undefined,
                       },
                     })
                   }
@@ -738,24 +769,25 @@ export function StudioWorkspace() {
                 >
                   <StudioWorkbenchBackground />
                   <TabsList className='absolute top-3 left-4 z-10'>
+                    <TabsTrigger value='assets' disabled={!sessionId}>会话资产</TabsTrigger>
                     <TabsTrigger value='flow' disabled={!sessionId}>
                       制作流程
                     </TabsTrigger>
-                    <TabsTrigger value='assets' disabled={!sessionId}>
-                      会话资产
-                    </TabsTrigger>
+                    <TabsTrigger value='tasks' disabled={!sessionId}>会话任务</TabsTrigger>
                   </TabsList>
+                  <div className='absolute top-3 right-5 z-10 flex items-center gap-1'>
                   <IconButtonTooltip label='收起右侧面板'>
                     <Button
                       variant='ghost'
                       size='icon'
-                      className='absolute top-3 right-5 z-10 hidden xl:inline-flex'
                       onClick={() => setRightOpen(false)}
                       aria-label='收起右侧面板'
                     >
                       <PanelRightClose />
                     </Button>
                   </IconButtonTooltip>
+                  {panel === 'assets' ? renderAssetActions() : null}
+                  </div>
                   <TabsContent
                     value='flow'
                     className='relative z-0 m-0 min-h-0'
@@ -768,6 +800,7 @@ export function StudioWorkspace() {
                   >
                     {renderWorkbenchContent('assets')}
                   </TabsContent>
+                  <TabsContent value='tasks' className='relative z-0 m-0 min-h-0 pt-16'>{renderWorkbenchContent('tasks')}</TabsContent>
                 </Tabs>
               </div>
             </aside>

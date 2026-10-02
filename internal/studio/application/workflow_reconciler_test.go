@@ -36,10 +36,12 @@ func TestReconcileSucceededWorkflowAdoptsOutputsWithoutCopyingBlob(t *testing.T)
 	require.Equal(t, domain.WorkflowExecutionSucceeded, execution.Status)
 	nodes, edges, err := repo.GetFlow(ctx, "account-a", "session-a")
 	require.NoError(t, err)
-	require.Len(t, nodes, 2)
-	require.Len(t, edges, 1)
-	require.Equal(t, "operation-a", edges[0].SourceNodeID)
-	require.Equal(t, assets[0].ID, nodes[1].AssetID)
+	require.Len(t, nodes, 1)
+	require.Empty(t, edges)
+	require.Equal(t, "operation-a", nodes[0].ID)
+	require.Len(t, nodes[0].Outputs, 1)
+	require.Equal(t, assets[0].ID, nodes[0].Outputs[0].AssetID)
+	require.Equal(t, "storyboard", nodes[0].Outputs[0].Key)
 }
 
 func TestReconcileTerminalWorkflowIsIdempotent(t *testing.T) {
@@ -55,9 +57,90 @@ func TestReconcileTerminalWorkflowIsIdempotent(t *testing.T) {
 	assets, err := repo.ListSessionAssets(ctx, "account-a", "session-a", 10)
 	require.NoError(t, err)
 	require.Len(t, assets, 1)
+	nodes, edges, err := repo.GetFlow(ctx, "account-a", "session-a")
+	require.NoError(t, err)
+	require.Empty(t, edges)
+	require.Len(t, nodes, 1)
+	require.Len(t, nodes[0].Outputs, 1)
+}
+
+func TestWorkflowFieldRelationshipsUseRecordedAssets(t *testing.T) {
+	ctx := context.Background()
+	repo := openRepository(t)
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Now().UTC()
+	seedSucceededWorkflow(t, ctx, repo, tasks, now)
+	reconciler := &studioapp.WorkflowReconciler{Repo: repo, Tasks: tasks, IDs: (&idSequence{}).Next}
+	require.NoError(t, reconciler.ReconcileOnce(ctx, 10))
+	nodes, _, err := repo.GetFlow(ctx, "account-a", "session-a")
+	require.NoError(t, err)
+	output := nodes[0].Outputs[0]
+	target, err := domain.NewFlowNode("target", "session-a", "account-a", domain.FlowNodeOperation, "图像合成", 2000, now)
+	require.NoError(t, err)
+	require.NoError(t, repo.SaveFlowNode(ctx, target))
+	execution, err := domain.NewWorkflowExecution("target-execution", "account-a", "session-a", "run-a", "target-tool", "target-task", "13", target.ID, now)
+	require.NoError(t, err)
+	for _, key := range []string{"reference", "background"} {
+		execution.InputFields = append(execution.InputFields, domain.FlowPort{Key: key, Type: "image"})
+		execution.Inputs = append(execution.Inputs, domain.FlowInput{Key: key, AssetID: output.AssetID, AssetVersionID: output.AssetVersionID})
+	}
+	require.NoError(t, repo.CreateWorkflowExecution(ctx, execution))
+	service := &studioapp.Service{Repo: repo}
+	for _, key := range []string{"reference", "background"} {
+		edge, err := service.CreateFlowEdge(ctx, "account-a", "session-a", studioapp.CreateFlowEdgeInput{Source: "operation-a", Target: target.ID, SourceOutputKey: output.Key, TargetInputKey: key})
+		require.NoError(t, err)
+		require.ErrorIs(t, service.DeleteFlowEdge(ctx, "account-a", "session-a", edge.ID), domain.ErrInvalid)
+	}
+	_, err = service.CreateFlowEdge(ctx, "account-a", "session-a", studioapp.CreateFlowEdgeInput{Source: "operation-a", Target: target.ID, SourceOutputKey: output.Key, TargetInputKey: "reference"})
+	require.ErrorIs(t, err, domain.ErrInvalid)
+	_, err = service.CreateFlowEdge(ctx, "account-a", "session-a", studioapp.CreateFlowEdgeInput{Source: "operation-a", Target: target.ID, SourceOutputKey: "missing", TargetInputKey: "reference"})
+	require.ErrorIs(t, err, domain.ErrInvalid)
+	require.ErrorIs(t, service.DeleteFlowNode(ctx, "account-a", "session-a", target.ID), domain.ErrInvalid)
+	require.NoError(t, studioapp.RecordWorkflowInputEdges(ctx, repo, execution, now))
 	_, edges, err := repo.GetFlow(ctx, "account-a", "session-a")
 	require.NoError(t, err)
+	require.Len(t, edges, 2)
+	counts, err := repo.ListActiveWorkflowCounts(ctx, "account-a", []string{"session-a"})
+	require.NoError(t, err)
+	require.Equal(t, 1, counts["session-a"])
+	foreignCounts, err := repo.ListActiveWorkflowCounts(ctx, "account-b", []string{"session-a"})
+	require.NoError(t, err)
+	require.Empty(t, foreignCounts)
+}
+
+func TestLegacyWorkflowOutputsPreserveConnections(t *testing.T) {
+	ctx := context.Background()
+	repo := openRepository(t)
+	tasks := runtimedomain.NewMemoryTaskRepository()
+	now := time.Now().UTC()
+	seedSucceededWorkflow(t, ctx, repo, tasks, now)
+	require.NoError(t, (&studioapp.WorkflowReconciler{Repo: repo, Tasks: tasks, IDs: (&idSequence{}).Next}).ReconcileOnce(ctx, 10))
+	nodes, _, err := repo.GetFlow(ctx, "account-a", "session-a")
+	require.NoError(t, err)
+	output := nodes[0].Outputs[0]
+	nodes[0].Outputs = nil
+	require.NoError(t, repo.SaveFlowNode(ctx, nodes[0]))
+	legacy, err := domain.NewFlowNode("workflow-output-node-task-a-0", "session-a", "account-a", domain.FlowNodeAsset, output.Name, 1100, now)
+	require.NoError(t, err)
+	legacy.AssetID, legacy.AssetVersionID = output.AssetID, output.AssetVersionID
+	require.NoError(t, repo.SaveFlowNode(ctx, legacy))
+	target, err := domain.NewFlowNode("target", "session-a", "account-a", domain.FlowNodeStage, "后续制作", 2000, now)
+	require.NoError(t, err)
+	require.NoError(t, repo.SaveFlowNode(ctx, target))
+	edge, err := domain.NewFlowEdge("legacy-edge", "session-a", "account-a", legacy.ID, target.ID, now)
+	require.NoError(t, err)
+	require.NoError(t, repo.SaveFlowEdge(ctx, edge))
+	require.NoError(t, studioapp.MigrateLegacyWorkflowOutputs(ctx, repo, "account-a", "session-a"))
+	require.NoError(t, studioapp.MigrateLegacyWorkflowOutputs(ctx, repo, "account-a", "session-a"))
+	nodes, edges, err := repo.GetFlow(ctx, "account-a", "session-a")
+	require.NoError(t, err)
+	require.Len(t, nodes, 2)
+	require.Len(t, nodes[0].Outputs, 1)
+	require.Equal(t, output.AssetVersionID, nodes[0].Outputs[0].AssetVersionID)
 	require.Len(t, edges, 1)
+	require.Equal(t, "operation-a", edges[0].SourceNodeID)
+	require.Equal(t, "out-0", edges[0].SourceOutputKey)
+	require.Equal(t, target.ID, edges[0].TargetNodeID)
 }
 
 func seedSucceededWorkflow(t *testing.T, ctx context.Context, repo domain.Repository, tasks runtimedomain.TaskRepository, now time.Time) {

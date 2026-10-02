@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import {
   listStudioProjects,
+  listStudioAgentWorkflows,
+  listStudioLibraryAssets,
   sendStudioMessage,
   uploadStudioAsset,
   type StudioModel,
@@ -94,6 +96,7 @@ export function StudioNewSession({
   const [activePicker, setActivePicker] = useState<
     'skill' | 'asset' | 'workflow' | null
   >(null)
+  const [activeSuggestion, setActiveSuggestion] = useState<{ kind: StudioReference['kind']; query: string } | null>(null)
   const changePicker = (
     picker: 'skill' | 'asset' | 'workflow',
     open: boolean
@@ -105,6 +108,12 @@ export function StudioNewSession({
   const projects = useQuery({
     queryKey: ['studio', 'projects'],
     queryFn: listStudioProjects,
+  })
+  const suggestedWorkflows = useQuery({ queryKey: ['studio', 'agent-workflows'], queryFn: listStudioAgentWorkflows, enabled: activeSuggestion?.kind === 'workflow' })
+  const suggestedLibraryAssets = useQuery({
+    queryKey: ['studio', 'composer', 'library-assets', projectId, activeSuggestion?.kind === 'asset' ? activeSuggestion.query : ''],
+    queryFn: () => listStudioLibraryAssets({ projectId, search: activeSuggestion?.query ?? '', limit: 100 }),
+    enabled: activeSuggestion?.kind === 'asset',
   })
   const availableModels = models.filter(
     (model) => model.enabled && model.agent_enabled && model.capabilities.tools
@@ -125,13 +134,11 @@ export function StudioNewSession({
     setPickerOpen(false)
     setProjectId(id)
   }
-  const slashItems: StudioReference[] = skills
-    .filter((skill) => skill.enabled)
-    .map((skill) => ({
-      kind: 'skill',
-      id: skill.id,
-      label: skill.name,
-    }))
+  const referenceItems: StudioReference[] = [
+    ...skills.filter((skill) => skill.enabled).map((skill) => ({ kind: 'skill' as const, id: skill.id, label: skill.name })),
+    ...(suggestedLibraryAssets.data?.items ?? []).map((item) => ({ kind: 'asset' as const, id: item.asset_id, label: item.display_name, versionId: item.version.id })),
+    ...(suggestedWorkflows.data ?? []).filter((workflow) => workflow.workflow_enabled && workflow.agent_enabled).map((workflow) => ({ kind: 'workflow' as const, id: workflow.id, label: workflow.name })),
+  ]
   const send = useMutation({
     mutationFn: async (files: FileUIPart[]) => {
       const value = composerRef.current?.serialize()
@@ -363,7 +370,10 @@ export function StudioNewSession({
                       : '先在 AI 设置中添加并启用模型'
                   }
                   disabled={send.isPending || !selectedModel}
-                  slashItems={slashItems}
+                  referenceItems={referenceItems}
+                  onSuggestionChange={(kind, query) => setActiveSuggestion(kind ? { kind, query } : null)}
+                  suggestionLoading={activeSuggestion?.kind === 'asset' ? suggestedLibraryAssets.isPending || suggestedLibraryAssets.isFetching : activeSuggestion?.kind === 'workflow' && suggestedWorkflows.isPending}
+                  suggestionError={activeSuggestion?.kind === 'asset' ? suggestedLibraryAssets.isError : activeSuggestion?.kind === 'workflow' && suggestedWorkflows.isError}
                   onValueChange={(value) => {
                     requestId.current = undefined
                     setComposerValue(value)
@@ -443,8 +453,8 @@ export function StudioNewSession({
                     }}
                   />
                   <PromptInputSubmit
-                    className='group/send h-8 min-h-8 min-w-0 justify-center bg-transparent p-0 text-transparent shadow-none hover:bg-transparent active:bg-transparent'
-                    size='sm'
+                    className='size-9 rounded-full'
+                    size='icon-sm'
                     disabled={
                       !selectedModel ||
                       (Boolean(projectId) && !selectedProject) ||
@@ -453,14 +463,7 @@ export function StudioNewSession({
                     aria-label={activity ?? '发送消息'}
                     status={send.isPending ? 'submitted' : undefined}
                   >
-                    <span className='inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-primary-foreground transition-colors group-hover/send:bg-primary/90 group-active/send:bg-primary/80'>
-                      <span>{activity ?? '发送'}</span>
-                      {send.isPending ? (
-                        <Spinner className='size-4' />
-                      ) : (
-                        <ArrowUp data-icon='inline-end' />
-                      )}
-                    </span>
+                    {send.isPending ? <Spinner data-icon='inline-start' /> : <ArrowUp data-icon='inline-start' />}
                   </PromptInputSubmit>
                 </PromptInputTools>
               </PromptInputFooter>

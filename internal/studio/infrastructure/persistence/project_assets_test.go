@@ -580,6 +580,11 @@ func TestProjectAssetTreeGroupsFormatsAndExpandsAssets(t *testing.T) {
 	if err != nil || len(children.Nodes) != 2 || children.Nodes[0].Type != "asset" {
 		t.Fatalf("format children = (%#v, %v)", children, err)
 	}
+	for _, node := range children.Nodes {
+		if node.AssetKind != domain.AssetImage {
+			t.Fatalf("资产类型 = %q", node.AssetKind)
+		}
+	}
 	formats, err := repo.ListProjectAssetFormats(ctx, "account-a", project.ID)
 	if err != nil || len(formats) != 2 || formats[0] != "jpeg" || formats[1] != "png" {
 		t.Fatalf("project formats = (%#v, %v)", formats, err)

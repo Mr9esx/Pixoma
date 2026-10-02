@@ -37,7 +37,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { recordPositions, systemPromptFromRequest } from './studio-trace-data'
+import { formatDuration, formatRecordTiming, recordPositions, systemPromptFromRequest } from './studio-trace-data'
 
 type RunGroup = {
   run: StudioRun
@@ -106,7 +106,7 @@ const kindBadgeVariant: Record<string, 'default' | 'secondary' | 'outline'> = {
 }
 const statusName: Record<string, string> = {
   running: '进行中',
-  done: '完成',
+  done: '已完成',
   failed: '失败',
 }
 
@@ -782,17 +782,7 @@ function LedgerRowView({
               record.status === 'failed' && 'text-destructive'
             )}
           >
-            {record.status === 'running'
-              ? statusName.running
-              : record.ended_at
-                ? formatDuration(
-                    Math.max(
-                      0,
-                      Date.parse(record.ended_at) -
-                        Date.parse(record.started_at)
-                    )
-                  )
-                : (statusName[record.status] ?? record.status)}
+            {formatRecordTiming(record)}
           </span>
         </div>
       </TableCell>
@@ -1018,33 +1008,23 @@ function TrajectoryOverview({
                     onSelect(record)
                   }}
                   className={cn(
-                    'absolute h-3 min-w-0.5 rounded-none p-0 opacity-80 hover:opacity-100',
-                    lane === 0
-                      ? 'bg-primary'
-                      : lane === 1
-                        ? 'bg-chart-3'
-                        : 'bg-chart-4',
-                    record.status === 'failed' && 'bg-destructive',
+                    'absolute h-3 min-w-0.5 rounded-none p-0 opacity-80 transition-opacity hover:opacity-100',
                     selectedID === record.id && 'ring-1 ring-foreground'
                   )}
                   style={{
+                    backgroundColor: record.status === 'failed' ? 'var(--destructive)' : lane === 0 ? 'var(--primary)' : lane === 1 ? 'var(--chart-3)' : 'var(--chart-4)',
                     top: 10 + lane * 32,
                     left: left * 100 + '%',
                     width: width * 100 + '%',
                   }}
                 />
               </TooltipTrigger>
-              <TooltipContent className='border bg-popover text-sm text-popover-foreground shadow-md [&>svg]:bg-popover [&>svg]:fill-popover'>
+              <TooltipContent showArrow={false} sideOffset={6} className='border bg-popover text-sm text-popover-foreground shadow-md'>
                 {(kindName[record.kind] ?? record.kind) +
                   ' · ' +
                   record.title +
                   ' · ' +
-                  (record.ended_at
-                    ? formatDuration(
-                        Date.parse(record.ended_at) -
-                          Date.parse(record.started_at)
-                      )
-                    : '进行中')}
+                  formatRecordTiming(record)}
               </TooltipContent>
             </Tooltip>
           )
@@ -1129,8 +1109,7 @@ function RecordDetails({
         <IconButtonTooltip label='关闭详情'>
           <Button
             variant='ghost'
-            size='icon'
-            className='size-10'
+            size='icon-sm'
             aria-label='关闭详情'
             onClick={onClose}
           >
@@ -1143,7 +1122,7 @@ function RecordDetails({
         onValueChange={(value) => setActiveTab(value as Tab)}
         className='min-h-0 flex-1 gap-0'
       >
-        <div className='shrink-0 border-t px-4 py-3'>
+        <div className='flex shrink-0 items-center border-y px-4 py-2'>
           <TabsList
             aria-label='事件详情'
             className='max-w-full justify-start overflow-x-auto'
@@ -1248,7 +1227,4 @@ function InspectorContent({
 
 function ordered(a: number, b: number): FractionRange {
   return { start: Math.min(a, b), end: Math.max(a, b) }
-}
-function formatDuration(ms: number) {
-  return ms < 1000 ? Math.round(ms) + 'ms' : (ms / 1000).toFixed(1) + 's'
 }

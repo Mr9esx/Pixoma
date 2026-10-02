@@ -69,6 +69,7 @@ type ProjectAssetTreeNode struct {
 	Count          int64
 	HasChildren    bool
 	ProjectAssetID string
+	AssetKind      AssetKind
 }
 
 type ProjectAssetTreePage struct {
@@ -140,6 +141,7 @@ type Repository interface {
 	GetWorkflowExecutionByTask(ctx context.Context, accountID, taskID string) (*WorkflowExecution, error)
 	GetWorkflowExecutionByRunTool(ctx context.Context, accountID, runID, toolCallID string) (*WorkflowExecution, error)
 	ListSessionWorkflowExecutions(ctx context.Context, accountID, sessionID string) ([]*WorkflowExecution, error)
+	ListActiveWorkflowCounts(ctx context.Context, accountID string, sessionIDs []string) (map[string]int, error)
 	ListPendingWorkflowExecutions(ctx context.Context, limit int) ([]*WorkflowExecution, error)
 
 	CreateAsset(ctx context.Context, asset *Asset) error

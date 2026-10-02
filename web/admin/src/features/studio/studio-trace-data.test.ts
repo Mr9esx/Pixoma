@@ -25,6 +25,16 @@ describe('systemPromptFromRequest', () => {
 })
 
 describe('recordPositions', () => {
+  it('真实耗时排除空闲间隔且并行记录共享时间', () => {
+    const records = [
+      { id: 'a', run_id: 'run', kind: 'model', title: '模型', status: 'done', started_at: '2026-10-01T10:00:00Z', ended_at: '2026-10-01T10:00:04Z' },
+      { id: 'b', run_id: 'run', kind: 'tool', title: '工具', status: 'done', started_at: '2026-10-01T10:00:02Z', ended_at: '2026-10-01T10:00:06Z' },
+      { id: 'c', run_id: 'run', kind: 'model', title: '模型', status: 'done', started_at: '2026-10-01T10:00:16Z', ended_at: '2026-10-01T10:00:20Z' },
+    ]
+    expect(recordPositions(records, true).map(({ start, end }) => [start, end])).toEqual([
+      [0, 0.4], [0.2, 0.6], [0.6, 1],
+    ])
+  })
   it('gives instantaneous input and tool records their own equal-width segments', () => {
     const records = [
       {

@@ -9,6 +9,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { StudioComposer, type StudioComposerHandle } from './studio-composer'
 import { retainStudioComposerFocus } from './studio-composer-focus'
 
+it('资产引用菜单在尚无候选项时仍显示空状态', async () => {
+  const screen = await render(<StudioComposer placeholder='输入消息' />)
+  await screen.getByRole('textbox', { name: '输入消息' }).fill('@')
+  await expect.element(screen.getByText('没有匹配的资产')).toBeVisible()
+})
+
 it('fills the chat input width when the toolbar is below it', async () => {
   const screen = await render(
     <div style={{ width: 640 }}>
@@ -115,6 +121,7 @@ it('inserts a workflow as an editable message reference', async () => {
   composer.current?.insertReference({ kind: 'workflow', id: '12', label: '角色三视图' })
 
   await expect.element(screen.getByText('角色三视图')).toBeVisible()
+  await expect.poll(() => document.activeElement === screen.getByRole('textbox', { name: '输入消息' }).element()).toBe(true)
   expect(composer.current?.serialize().parts).toEqual([
     { type: 'workflow_ref', workflow_id: '12', name: '角色三视图' },
   ])
@@ -206,6 +213,7 @@ for (const reference of [
     await badge.click()
     expect(window.getSelection()?.anchorNode?.parentElement?.closest('[data-slot="badge"]')).toBeNull()
     window.getSelection()?.collapse(badge.element().lastChild, 1)
+    await expect.poll(() => window.getSelection()?.anchorNode?.parentElement?.closest('[data-slot="badge"]') ?? null).toBeNull()
     await userEvent.keyboard('中')
     expect(composer.current?.serialize().parts.some((part) => part.type === 'text' && part.text.includes('中'))).toBe(true)
     expect(composer.current?.serialize().parts.some((part) => part.type === `${reference.kind}_ref`)).toBe(true)
@@ -336,7 +344,7 @@ it('keeps slash text until a menu item is chosen', async () => {
       <StudioComposer
         ref={composer}
         placeholder='输入消息'
-        slashItems={[{ kind: 'skill', id: 'skill-1', label: '分镜草稿' }]}
+        referenceItems={[{ kind: 'skill', id: 'skill-1', label: '分镜草稿' }]}
       />
     </div>
   )
@@ -356,21 +364,21 @@ it('keeps slash text until a menu item is chosen', async () => {
   expect(composer.current?.serialize().selectedSkillIds).toEqual(['skill-1'])
 })
 
-it('chooses a slash reference with the keyboard', async () => {
+it('使用 @ 和键盘选择资产引用', async () => {
   const composer = createRef<StudioComposerHandle>()
   const screen = await render(
     <StudioComposer
       ref={composer}
       placeholder='输入消息'
-      slashItems={[
+      referenceItems={[
         { kind: 'skill', id: 'skill-1', label: '分镜草稿' },
         { kind: 'asset', id: 'asset-1', versionId: 'version-1', label: '产品照片' },
       ]}
     />
   )
 
-  await screen.getByRole('textbox', { name: '输入消息' }).fill('用 /')
-  await expect.element(screen.getByRole('button', { name: '插入技能：分镜草稿' })).toBeVisible()
+  await screen.getByRole('textbox', { name: '输入消息' }).fill('用 @')
+  await expect.element(screen.getByRole('button', { name: '插入资产：产品照片' })).toBeVisible()
   await userEvent.keyboard('{ArrowDown}{Enter}')
   expect(composer.current?.serialize().text).toBe('用 「产品照片」资产')
   expect(composer.current?.serialize().selectedAssets).toEqual([

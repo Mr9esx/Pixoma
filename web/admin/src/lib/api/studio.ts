@@ -13,6 +13,7 @@ export type StudioSession = {
   model_config_id?: string
   status: 'active'
   latest_run?: StudioRun | null
+  active_workflow_count?: number
   created_at: string
   updated_at: string
 }
@@ -238,6 +239,7 @@ export type StudioContextRequest = {
   reasoning_tokens: number | null
   projected_tokens?: number
   parts: StudioContextPart[]
+  content_available?: boolean
 }
 
 export type StudioContextOverview = {
@@ -354,10 +356,11 @@ export type StudioLibraryTreeNode = {
   id: string
   label: string
   count: number
-  kind: 'asset' | 'group'
-  asset_id?: string
   group_value?: string
-}
+} & (
+  | { kind: 'asset'; asset_id: string; asset_kind: StudioAsset['kind'] }
+  | { kind: 'group'; asset_id?: never }
+)
 
 export type StudioLibraryTreePage = {
   nodes: StudioLibraryTreeNode[]
@@ -421,6 +424,7 @@ export type StudioFlowNode = {
   asset_version_id?: string
   asset_version?: number
   run_id?: string
+  outputs?: Array<{ key: string; type: string; name: string; asset_id: string; asset_version_id: string }>
   position: { x: number; y: number }
   sort_order: number
   updated_at: string
@@ -430,6 +434,8 @@ export type StudioFlowEdge = {
   id: string
   source: string
   target: string
+  source_output_key?: string
+  target_input_key?: string
   label?: string
 }
 
@@ -439,6 +445,9 @@ export type StudioWorkflowExecution = {
   task_id: string
   workflow_id: string
   operation_node_id: string
+  input_fields?: Array<{ key: string; type: string; description?: string; required?: boolean }>
+  output_fields?: Array<{ key: string; type: string; description?: string; required?: boolean }>
+  inputs?: Array<{ key: string; value?: string; asset_id?: string; asset_version_id?: string; asset_name?: string }>
   status: 'submitted' | 'succeeded' | 'failed' | 'cancelled'
   task_status?:
     | 'pending'
@@ -909,7 +918,7 @@ export function deleteStudioFlowNode(sessionId: string, nodeId: string) {
 
 export function createStudioFlowEdge(
   sessionId: string,
-  input: Pick<StudioFlowEdge, 'source' | 'target' | 'label'>
+  input: Pick<StudioFlowEdge, 'source' | 'target' | 'label' | 'source_output_key' | 'target_input_key'>
 ) {
   return apiFetch<StudioFlowEdge>(
     `/api/v1/studio/sessions/${encodeURIComponent(sessionId)}/flow/edges`,

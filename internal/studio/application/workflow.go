@@ -104,6 +104,8 @@ type workflowStudioRepository interface {
 	GetWorkflowExecutionByRunTool(context.Context, string, string, string) (*studiodomain.WorkflowExecution, error)
 	CreateWorkflowExecution(context.Context, *studiodomain.WorkflowExecution) error
 	GetAsset(context.Context, string, string) (*studiodomain.Asset, error)
+	GetFlow(context.Context, string, string) ([]*studiodomain.FlowNode, []*studiodomain.FlowEdge, error)
+	SaveFlowEdge(context.Context, *studiodomain.FlowEdge) error
 }
 
 // WorkflowStartInput identifies an Agent tool call and its normalized JSON
@@ -165,7 +167,7 @@ func (s *WorkflowStarter) Start(ctx context.Context, input WorkflowStartInput) (
 	if workflow == nil || !workflow.Enabled {
 		return nil, catalogdomain.ErrDisabled
 	}
-	values, err := s.inputValues(ctx, input.AccountID, workflow.Document, input.Inputs)
+	values, flowInputs, err := s.inputValues(ctx, input.AccountID, workflow.Document, input.Inputs)
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +192,13 @@ func (s *WorkflowStarter) Start(ctx context.Context, input WorkflowStartInput) (
 	if err != nil {
 		return nil, err
 	}
+	for _, field := range workflow.Document.Inputs {
+		execution.InputFields = append(execution.InputFields, studiodomain.FlowPort{Key: field.Key, Type: field.Type, Description: field.Description, Required: field.Required})
+	}
+	execution.Inputs = flowInputs
+	for _, field := range workflow.Document.Outputs {
+		execution.OutputFields = append(execution.OutputFields, studiodomain.FlowPort{Key: field.Key, Type: field.Type, Description: field.Description})
+	}
 	if err := s.StudioRepo.CreateWorkflowExecution(ctx, execution); err != nil {
 		if err == studiodomain.ErrAlreadyExists {
 			existing, findErr := s.StudioRepo.GetWorkflowExecutionByRunTool(ctx, input.AccountID, input.RunID, input.ToolCallID)
@@ -198,6 +207,9 @@ func (s *WorkflowStarter) Start(ctx context.Context, input WorkflowStartInput) (
 			}
 		}
 		return nil, fmt.Errorf("studio: record workflow execution: %w", err)
+	}
+	if err := RecordWorkflowInputEdges(ctx, s.StudioRepo, execution, now); err != nil {
+		return nil, fmt.Errorf("studio: record workflow input relationships: %w", err)
 	}
 	payload, err := json.Marshal(sharedkernel.TaskCreated{TaskID: taskID, CaseID: caseID, CreatedAt: now})
 	if err != nil {
@@ -209,64 +221,72 @@ func (s *WorkflowStarter) Start(ctx context.Context, input WorkflowStartInput) (
 	return &WorkflowStartResult{TaskID: string(taskID), WorkflowID: input.WorkflowID}, nil
 }
 
-func (s *WorkflowStarter) inputValues(ctx context.Context, accountID string, document catalogdomain.CaseDocument, inputs map[string]any) ([]catalogdomain.InputValue, error) {
+func (s *WorkflowStarter) inputValues(ctx context.Context, accountID string, document catalogdomain.CaseDocument, inputs map[string]any) ([]catalogdomain.InputValue, []studiodomain.FlowInput, error) {
 	fields := make(map[string]catalogdomain.InputField, len(document.Inputs))
 	for _, field := range document.Inputs {
 		fields[field.Key] = field
 	}
 	values := make([]catalogdomain.InputValue, 0, len(inputs))
+	flowInputs := make([]studiodomain.FlowInput, 0, len(inputs))
 	for key, raw := range inputs {
 		field, ok := fields[key]
 		if !ok {
-			return nil, fmt.Errorf("%w: unknown workflow input %q", studiodomain.ErrInvalid, key)
+			return nil, nil, fmt.Errorf("%w: unknown workflow input %q", studiodomain.ErrInvalid, key)
 		}
-		value, err := s.inputValue(ctx, accountID, field, raw)
+		value, flowInput, err := s.inputValue(ctx, accountID, field, raw)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		values = append(values, value)
+		flowInputs = append(flowInputs, flowInput)
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i].Key < values[j].Key })
-	return values, nil
+	sort.Slice(flowInputs, func(i, j int) bool { return flowInputs[i].Key < flowInputs[j].Key })
+	return values, flowInputs, nil
 }
 
-func (s *WorkflowStarter) inputValue(ctx context.Context, accountID string, field catalogdomain.InputField, raw any) (catalogdomain.InputValue, error) {
+func (s *WorkflowStarter) inputValue(ctx context.Context, accountID string, field catalogdomain.InputField, raw any) (catalogdomain.InputValue, studiodomain.FlowInput, error) {
 	value := catalogdomain.InputValue{Key: field.Key}
+	flowInput := studiodomain.FlowInput{Key: field.Key}
 	switch field.Type {
 	case "image", "video":
 		assetID, ok := raw.(string)
 		if !ok || strings.TrimSpace(assetID) == "" {
-			return value, fmt.Errorf("%w: workflow input %q requires an asset ID", studiodomain.ErrInvalid, field.Key)
+			return value, flowInput, fmt.Errorf("%w: workflow input %q requires an asset ID", studiodomain.ErrInvalid, field.Key)
 		}
 		asset, err := s.StudioRepo.GetAsset(ctx, accountID, assetID)
 		if err != nil {
-			return value, fmt.Errorf("studio: get workflow asset %q: %w", field.Key, err)
+			return value, flowInput, fmt.Errorf("studio: get workflow asset %q: %w", field.Key, err)
 		}
 		if asset == nil || (field.Type == "image" && asset.Kind != studiodomain.AssetImage) || (field.Type == "video" && asset.Kind != studiodomain.AssetVideo) || len(asset.Versions) == 0 {
-			return value, fmt.Errorf("%w: workflow input %q has incompatible asset", studiodomain.ErrInvalid, field.Key)
+			return value, flowInput, fmt.Errorf("%w: workflow input %q has incompatible asset", studiodomain.ErrInvalid, field.Key)
 		}
 		version := asset.Versions[len(asset.Versions)-1]
 		value.Blob = &sharedkernel.BlobRef{Key: version.BlobKey, MIME: version.MIMEType, Size: version.SizeBytes}
+		flowInput.AssetID, flowInput.AssetVersionID, flowInput.AssetName = asset.ID, version.ID, asset.Name
 	case "number":
 		number, ok := asFloat64(raw)
 		if !ok {
-			return value, fmt.Errorf("%w: workflow input %q requires a number", studiodomain.ErrInvalid, field.Key)
+			return value, flowInput, fmt.Errorf("%w: workflow input %q requires a number", studiodomain.ErrInvalid, field.Key)
 		}
 		value.Number = &number
 	case "boolean":
 		boolean, ok := raw.(bool)
 		if !ok {
-			return value, fmt.Errorf("%w: workflow input %q requires a boolean", studiodomain.ErrInvalid, field.Key)
+			return value, flowInput, fmt.Errorf("%w: workflow input %q requires a boolean", studiodomain.ErrInvalid, field.Key)
 		}
 		value.Bool = &boolean
 	default:
 		text, ok := raw.(string)
 		if !ok {
-			return value, fmt.Errorf("%w: workflow input %q requires text", studiodomain.ErrInvalid, field.Key)
+			return value, flowInput, fmt.Errorf("%w: workflow input %q requires text", studiodomain.ErrInvalid, field.Key)
 		}
 		value.Text = &text
 	}
-	return value, nil
+	if flowInput.AssetID == "" {
+		flowInput.Value = fmt.Sprint(raw)
+	}
+	return value, flowInput, nil
 }
 
 func asFloat64(value any) (float64, bool) {

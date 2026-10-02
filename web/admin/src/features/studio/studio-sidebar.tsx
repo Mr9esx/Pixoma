@@ -11,12 +11,14 @@ import {
   ChevronDown,
   ChevronRight,
   Folder,
+  FolderOpen,
   Library,
   MessageCircle,
   MessageSquarePlus,
   MoreHorizontal,
   Plus,
   Settings2,
+  Workflow,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -250,6 +252,7 @@ export function StudioSidebar({
 
   const sessionItem = (session: StudioSession, isProjectSession = false) => {
     const status = sessionStatus(session, viewedRunIds[session.id])
+    const workflowRunning = (session.active_workflow_count ?? 0) > 0
     const source: StudioSessionListSource = isProjectSession
       ? 'project'
       : 'recent'
@@ -265,8 +268,8 @@ export function StudioSidebar({
         <SidebarMenuButton
           className={
             isProjectSession
-              ? 'w-full min-w-0 ps-8 pe-9'
-              : 'w-full min-w-0 pe-9'
+              ? `w-full min-w-0 ps-8 ${workflowRunning && status ? 'pe-12' : 'pe-9'}`
+              : `w-full min-w-0 ${workflowRunning && status ? 'pe-12' : 'pe-9'}`
           }
           isActive={
             view === 'chat' &&
@@ -285,9 +288,10 @@ export function StudioSidebar({
         >
           <SessionTitle title={session.title} />
         </SidebarMenuButton>
-        {status && openSessionMenuKey !== menuKey ? (
-          <span className='pointer-events-none absolute end-0 top-1/2 z-10 flex size-7 -translate-y-1/2 items-center justify-center transition-opacity group-focus-within/session:opacity-0 group-hover/session:opacity-0 [@media(hover:none)]:opacity-0'>
-            <StatusDot {...status} />
+        {(status || workflowRunning) && openSessionMenuKey !== menuKey ? (
+          <span className='pointer-events-none absolute end-1 top-1/2 z-10 flex h-7 -translate-y-1/2 items-center gap-1.5 transition-opacity group-focus-within/session:opacity-0 group-hover/session:opacity-0 [@media(hover:none)]:opacity-0'>
+            {workflowRunning ? <span role='img' aria-label={`${session.active_workflow_count} 个工作流任务执行中`} title={`${session.active_workflow_count} 个工作流任务执行中`} className='inline-flex size-5 items-center justify-center text-primary motion-safe:animate-pulse'><Workflow aria-hidden='true' className='size-3.5' /></span> : null}
+            {status ? <StatusDot {...status} /> : null}
           </span>
         ) : null}
         <DropdownMenu
@@ -585,7 +589,7 @@ export function StudioSidebar({
       </AlertDialog>
 
       <SidebarFooter>
-        <NavUser />
+        <NavUser studio />
       </SidebarFooter>
     </Sidebar>
   )
@@ -634,7 +638,7 @@ function ProjectSessions({
             setExpanded(next)
           }}
         >
-          <Folder className='size-4 shrink-0 text-muted-foreground/80' />
+          {expanded ? <FolderOpen className='size-4 shrink-0 text-muted-foreground/80' /> : <Folder className='size-4 shrink-0 text-muted-foreground/80' />}
           <span className='truncate'>{project.name}</span>
         </Button>
         <DropdownMenu>

@@ -30,11 +30,29 @@ type WorkflowExecution struct {
 	TaskID          string
 	WorkflowID      string
 	OperationNodeID string
+	InputFields     []FlowPort
+	OutputFields    []FlowPort
+	Inputs          []FlowInput
 	Status          WorkflowExecutionStatus
 	ErrorMessage    string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	CompletedAt     time.Time
+}
+
+type FlowPort struct {
+	Key         string `json:"key"`
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+}
+
+type FlowInput struct {
+	Key            string `json:"key"`
+	Value          string `json:"value,omitempty"`
+	AssetID        string `json:"asset_id,omitempty"`
+	AssetVersionID string `json:"asset_version_id,omitempty"`
+	AssetName      string `json:"asset_name,omitempty"`
 }
 
 func NewWorkflowExecution(id, accountID, sessionID, runID, toolCallID, taskID, workflowID, operationNodeID string, now time.Time) (*WorkflowExecution, error) {

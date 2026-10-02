@@ -34,6 +34,59 @@ func openRepository(t *testing.T) *persistence.GormRepository {
 	return persistence.NewGormRepository(gdb)
 }
 
+func TestWorkflowFlowFieldsPersist(t *testing.T) {
+	ctx := context.Background()
+	repo := openRepository(t)
+	now := time.Now().UTC()
+	session, err := domain.NewSession("flow-session", "account-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatal(err)
+	}
+	node, err := domain.NewFlowNode("operation", session.ID, session.AccountID, domain.FlowNodeOperation, "生成图片", 0, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node.Outputs = []domain.FlowOutput{{Key: "image", Type: "image", Name: "图片", AssetID: "asset", AssetVersionID: "version"}}
+	if err := repo.SaveFlowNode(ctx, node); err != nil {
+		t.Fatal(err)
+	}
+	execution, err := domain.NewWorkflowExecution("execution", session.AccountID, session.ID, "run", "tool", "task", "1", node.ID, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	execution.InputFields = []domain.FlowPort{{Key: "prompt", Type: "string", Required: true}}
+	execution.OutputFields = []domain.FlowPort{{Key: "image", Type: "image"}}
+	execution.Inputs = []domain.FlowInput{{Key: "prompt", Value: "山间湖泊"}}
+	if err := repo.CreateWorkflowExecution(ctx, execution); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repo.GetWorkflowExecutionByRunTool(ctx, session.AccountID, execution.RunID, execution.ToolCallID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(stored.InputFields, execution.InputFields) || !reflect.DeepEqual(stored.OutputFields, execution.OutputFields) || !reflect.DeepEqual(stored.Inputs, execution.Inputs) {
+		t.Fatalf("工作流字段未保存: %+v", stored)
+	}
+	edge, err := domain.NewFlowEdge("edge", session.ID, session.AccountID, node.ID, "target", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edge.SourceOutputKey, edge.TargetInputKey = "image", "reference"
+	if err := repo.SaveFlowEdge(ctx, edge); err != nil {
+		t.Fatal(err)
+	}
+	nodes, edges, err := repo.GetFlow(ctx, session.AccountID, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 || !reflect.DeepEqual(nodes[0].Outputs, node.Outputs) || len(edges) != 1 || edges[0].SourceOutputKey != "image" || edges[0].TargetInputKey != "reference" {
+		t.Fatalf("流程字段未保存: %+v %+v", nodes, edges)
+	}
+}
+
 func TestRunLocalePersistsAcrossRepositoryRead(t *testing.T) {
 	repo := openRepository(t)
 	ctx := context.Background()

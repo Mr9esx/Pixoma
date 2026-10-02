@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { serializeStudioComposer } from './studio-composer-content'
+import { serializeStudioComposer, studioComposerContent } from './studio-composer-content'
 
 describe('serializeStudioComposer', () => {
+  it('恢复待发送消息时保留换行与资源引用', () => {
+    const parts = [
+      { type: 'text' as const, text: '第一行\n第二行' },
+      { type: 'skill_ref' as const, skill_id: 'skill-1', name: '分镜' },
+      { type: 'asset_ref' as const, asset_id: 'asset-1', asset_version_id: 'version-1', name: '参考图' },
+      { type: 'workflow_ref' as const, workflow_id: 'workflow-1', name: '绘图' },
+    ]
+    const restored = serializeStudioComposer(studioComposerContent(parts))
+    expect(restored.parts).toEqual(parts)
+    expect(restored.selectedSkillIds).toEqual(['skill-1'])
+    expect(restored.selectedAssets).toEqual([{ assetId: 'asset-1', assetVersionId: 'version-1' }])
+  })
   it('omits the caret spacer after an inline reference', () => {
     expect(serializeStudioComposer({
       type: 'doc',

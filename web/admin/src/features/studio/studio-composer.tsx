@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react'
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react'
 import {
   EditorContent,
   Extension,
@@ -11,10 +11,10 @@ import {
 } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Suggestion, { exitSuggestion, type SuggestionProps } from '@tiptap/suggestion'
-import { NodeSelection, Selection, TextSelection } from '@tiptap/pm/state'
+import { NodeSelection, PluginKey, Selection, TextSelection } from '@tiptap/pm/state'
 import { Boxes, Sparkles, Workflow } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { STUDIO_REFERENCE_BEFORE_CARET, STUDIO_REFERENCE_CARET, serializeStudioComposer, type StudioComposerValue } from './studio-composer-content'
+import { STUDIO_REFERENCE_BEFORE_CARET, STUDIO_REFERENCE_CARET, serializeStudioComposer, studioComposerContent, type StudioComposerValue } from './studio-composer-content'
 import { StudioReferenceBadge } from './studio-reference-badge'
 
 export type StudioReference = {
@@ -24,11 +24,20 @@ export type StudioReference = {
   versionId?: string
 }
 
+type SuggestionKind = StudioReference['kind']
+const suggestionTriggers = [
+  { char: '/', kind: 'skill', key: new PluginKey('studioSkillMenu') },
+  { char: '@', kind: 'asset', key: new PluginKey('studioAssetMenu') },
+  { char: '!', kind: 'workflow', key: new PluginKey('studioWorkflowMenu') },
+] as const
+const suggestionLabels = { skill: '技能', asset: '资产', workflow: '工作流' }
+
 export type StudioComposerHandle = {
   insertReference: (reference: StudioReference) => void
   serialize: () => StudioComposerValue
   clear: () => void
   setText: (text: string) => void
+  setValue: (value: StudioComposerValue) => void
 }
 
 function previousGraphemeSize(text: string) {
@@ -117,14 +126,20 @@ export function StudioComposer({
   ref,
   placeholder,
   disabled = false,
-  slashItems = [],
+  referenceItems = [],
+  onSuggestionChange,
+  suggestionLoading = false,
+  suggestionError = false,
   onValueChange,
   onSubmit,
 }: {
   ref?: Ref<StudioComposerHandle>
   placeholder: string
   disabled?: boolean
-  slashItems?: StudioReference[]
+  referenceItems?: StudioReference[]
+  onSuggestionChange?: (kind: SuggestionKind | null, query: string) => void
+  suggestionLoading?: boolean
+  suggestionError?: boolean
   onValueChange?: (value: StudioComposerValue) => void
   onSubmit?: () => void
 }) {
@@ -133,26 +148,35 @@ export function StudioComposer({
   })
   const submitRef = useRef(onSubmit)
   const changeRef = useRef(onValueChange)
-  const slashItemsRef = useRef(slashItems)
-  const [slashMenu, setSlashMenu] = useState<SuggestionProps<StudioReference, StudioReference> | null>(null)
-  const slashMenuRef = useRef(slashMenu)
+  const referenceItemsRef = useRef(referenceItems)
+  const suggestionChangeRef = useRef(onSuggestionChange)
+  const [suggestionMenu, setSuggestionMenu] = useState<{ kind: SuggestionKind; props: SuggestionProps<StudioReference, StudioReference> } | null>(null)
+  const suggestionMenuRef = useRef(suggestionMenu)
   const [activeItem, setActiveItem] = useState(0)
   const activeItemRef = useRef(activeItem)
+  const visibleItems = useMemo(() => suggestionMenu
+    ? referenceItems.filter((item) => item.kind === suggestionMenu.kind && item.label.toLocaleLowerCase().includes(suggestionMenu.props.query.toLocaleLowerCase()))
+    : [], [referenceItems, suggestionMenu])
+  const visibleItemsRef = useRef(visibleItems)
   useEffect(() => {
     submitRef.current = onSubmit
     changeRef.current = onValueChange
-    slashItemsRef.current = slashItems
-  }, [onSubmit, onValueChange, slashItems])
+    referenceItemsRef.current = referenceItems
+    suggestionChangeRef.current = onSuggestionChange
+  }, [onSubmit, onValueChange, referenceItems, onSuggestionChange])
+  useEffect(() => { visibleItemsRef.current = visibleItems }, [visibleItems])
   // eslint-disable-next-line react-hooks/refs
-  const [slashExtension] = useState(() => Extension.create({
-    name: 'studioSlashMenu',
+  const [suggestionExtension] = useState(() => Extension.create({
+    name: 'studioReferenceMenu',
     addProseMirrorPlugins() {
-      return [Suggestion<StudioReference, StudioReference>({
+      return suggestionTriggers.map(({ char, kind, key }) => Suggestion<StudioReference, StudioReference>({
+        pluginKey: key,
         editor: this.editor,
-        char: '/',
+        char,
         shouldResetDismissed: ({ transaction }) => transaction.docChanged,
-        items: ({ query }) => slashItemsRef.current.filter((item) =>
-          item.label.toLocaleLowerCase().includes(query.toLocaleLowerCase())
+        shouldShow: ({ query }) => kind !== 'workflow' || !query.startsWith('['),
+        items: ({ query }) => referenceItemsRef.current.filter((item) =>
+          item.kind === kind && item.label.toLocaleLowerCase().includes(query.toLocaleLowerCase())
         ),
         command: ({ editor: current, range, props: reference }) => {
           insertStudioReference(current, reference, range)
@@ -160,26 +184,30 @@ export function StudioComposer({
         render: () => ({
           onStart: (props) => {
             activeItemRef.current = 0
-            slashMenuRef.current = props
+            suggestionMenuRef.current = { kind, props }
             setActiveItem(0)
-            setSlashMenu(props)
+            setSuggestionMenu({ kind, props })
+            suggestionChangeRef.current?.(kind, props.query)
           },
           onUpdate: (props) => {
             activeItemRef.current = 0
-            slashMenuRef.current = props
+            suggestionMenuRef.current = { kind, props }
             setActiveItem(0)
-            setSlashMenu(props)
+            setSuggestionMenu({ kind, props })
+            suggestionChangeRef.current?.(kind, props.query)
           },
           onExit: () => {
-            slashMenuRef.current = null
-            setSlashMenu(null)
+            if (suggestionMenuRef.current?.kind !== kind) return
+            suggestionMenuRef.current = null
+            setSuggestionMenu(null)
+            suggestionChangeRef.current?.(null, '')
           },
         }),
-      })]
+      }))
     },
   }))
   const editor = useEditor({
-    extensions: [...textExtensions, slashExtension],
+    extensions: [...textExtensions, suggestionExtension],
     editable: !disabled,
     content: '',
     editorProps: {
@@ -269,22 +297,24 @@ export function StudioComposer({
             return true
           }
         }
-        const menu = slashMenuRef.current
+        const menu = suggestionMenuRef.current
         if (menu && event.key === 'Escape') {
-          exitSuggestion(view)
-          slashMenuRef.current = null
-          setSlashMenu(null)
+          exitSuggestion(view, suggestionTriggers.find((trigger) => trigger.kind === menu.kind)!.key)
+          suggestionMenuRef.current = null
+          setSuggestionMenu(null)
+          suggestionChangeRef.current?.(null, '')
           return true
         }
-        if (menu?.items.length && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        const items = visibleItemsRef.current
+        if (menu && items.length && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
           const change = event.key === 'ArrowDown' ? 1 : -1
-          const next = (activeItemRef.current + change + menu.items.length) % menu.items.length
+          const next = (activeItemRef.current + change + items.length) % items.length
           activeItemRef.current = next
           setActiveItem(next)
           return true
         }
-        if (menu?.items.length && event.key === 'Enter' && !event.isComposing) {
-          menu.command(menu.items[activeItemRef.current])
+        if (menu && items.length && event.key === 'Enter' && !event.isComposing) {
+          menu.props.command(items[activeItemRef.current])
           return true
         }
         if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -327,6 +357,10 @@ export function StudioComposer({
     serialize: () => editor ? serializeStudioComposer(editor.getJSON()) : value,
     clear: () => editor?.commands.clearContent(),
     setText: (text) => editor?.commands.setContent(text),
+    setValue: (next) => {
+      editor?.commands.setContent(studioComposerContent(next.parts))
+      editor?.commands.focus('end')
+    },
   }), [editor, value])
 
   return (
@@ -340,22 +374,25 @@ export function StudioComposer({
         editor={editor}
         className='max-h-48 min-h-16 w-full overflow-y-auto px-3 py-2 text-sm leading-6'
       />
-      {slashMenu?.items.length ? (
+      {suggestionMenu ? (
         <div className='absolute bottom-full left-0 z-50 mb-2 max-h-56 min-w-52 overflow-y-auto rounded-md border bg-popover p-1 shadow-md'>
-          {slashMenu.items.map((item, index) => (
+          {visibleItems.map((item, index) => (
             <Button
               key={`${item.kind}:${item.id}`}
               type='button'
               variant='ghost'
               className={`flex w-full justify-start gap-2 ${index === activeItem ? 'bg-accent' : ''}`}
-              aria-label={`插入${item.kind === 'skill' ? '技能' : '资产'}：${item.label}`}
+              aria-label={`插入${suggestionLabels[item.kind]}：${item.label}`}
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => slashMenu.command(item)}
+              onClick={() => suggestionMenu.props.command(item)}
             >
               {item.kind === 'skill' ? <Sparkles /> : item.kind === 'workflow' ? <Workflow /> : <Boxes />}
               {item.label}
             </Button>
           ))}
+          {visibleItems.length === 0 ? <p className='px-2 py-1.5 text-sm text-muted-foreground'>
+            {suggestionLoading ? `正在读取${suggestionLabels[suggestionMenu.kind]}…` : suggestionError ? `${suggestionLabels[suggestionMenu.kind]}读取失败` : `没有匹配的${suggestionLabels[suggestionMenu.kind]}`}
+          </p> : null}
         </div>
       ) : null}
       <input name='message' type='hidden' value={value.text} readOnly />

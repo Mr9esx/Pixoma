@@ -149,18 +149,21 @@ type ClarificationRow struct {
 func (ClarificationRow) TableName() string { return "studio_clarifications" }
 
 type WorkflowExecutionRow struct {
-	ID              string    `gorm:"primaryKey;size:64"`
-	AccountID       string    `gorm:"size:64;not null;index"`
-	SessionID       string    `gorm:"size:64;not null;index"`
-	RunID           string    `gorm:"size:64;not null;uniqueIndex:idx_studio_workflow_executions_run_tool;index"`
-	ToolCallID      string    `gorm:"size:128;not null;uniqueIndex:idx_studio_workflow_executions_run_tool"`
-	TaskID          string    `gorm:"size:128;not null;uniqueIndex;index"`
-	WorkflowID      string    `gorm:"size:64;not null;index"`
-	OperationNodeID string    `gorm:"size:64;not null;index"`
-	Status          string    `gorm:"size:32;not null;index"`
-	ErrorMessage    string    `gorm:"type:text"`
-	CreatedAt       time.Time `gorm:"index"`
-	UpdatedAt       time.Time `gorm:"index"`
+	ID              string             `gorm:"primaryKey;size:64"`
+	AccountID       string             `gorm:"size:64;not null;index"`
+	SessionID       string             `gorm:"size:64;not null;index"`
+	RunID           string             `gorm:"size:64;not null;uniqueIndex:idx_studio_workflow_executions_run_tool;index"`
+	ToolCallID      string             `gorm:"size:128;not null;uniqueIndex:idx_studio_workflow_executions_run_tool"`
+	TaskID          string             `gorm:"size:128;not null;uniqueIndex;index"`
+	WorkflowID      string             `gorm:"size:64;not null;index"`
+	OperationNodeID string             `gorm:"size:64;not null;index"`
+	InputFields     []domain.FlowPort  `gorm:"serializer:json;type:text"`
+	OutputFields    []domain.FlowPort  `gorm:"serializer:json;type:text"`
+	Inputs          []domain.FlowInput `gorm:"serializer:json;type:text"`
+	Status          string             `gorm:"size:32;not null;index"`
+	ErrorMessage    string             `gorm:"type:text"`
+	CreatedAt       time.Time          `gorm:"index"`
+	UpdatedAt       time.Time          `gorm:"index"`
 	CompletedAt     time.Time
 }
 
@@ -212,7 +215,8 @@ type FlowNodeRow struct {
 	AssetID        string `gorm:"size:64;index"`
 	AssetVersionID string `gorm:"size:64;index"`
 	AssetVersion   int
-	RunID          string `gorm:"size:64;index"`
+	RunID          string              `gorm:"size:64;index"`
+	Outputs        []domain.FlowOutput `gorm:"serializer:json;type:text"`
 	PositionX      float64
 	PositionY      float64
 	SortOrder      int `gorm:"not null;index:idx_studio_flow_nodes_session_order"`
@@ -223,14 +227,16 @@ type FlowNodeRow struct {
 func (FlowNodeRow) TableName() string { return "studio_flow_nodes" }
 
 type FlowEdgeRow struct {
-	ID           string `gorm:"primaryKey;size:64"`
-	SessionID    string `gorm:"size:64;not null;index"`
-	AccountID    string `gorm:"size:64;not null;index"`
-	SourceNodeID string `gorm:"size:64;not null;index"`
-	TargetNodeID string `gorm:"size:64;not null;index"`
-	Label        string `gorm:"size:256"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID              string `gorm:"primaryKey;size:64"`
+	SessionID       string `gorm:"size:64;not null;index"`
+	AccountID       string `gorm:"size:64;not null;index"`
+	SourceNodeID    string `gorm:"size:64;not null;index"`
+	TargetNodeID    string `gorm:"size:64;not null;index"`
+	SourceOutputKey string `gorm:"size:128"`
+	TargetInputKey  string `gorm:"size:128"`
+	Label           string `gorm:"size:256"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func (FlowEdgeRow) TableName() string { return "studio_flow_edges" }
@@ -1118,6 +1124,24 @@ func (r *GormRepository) ListSessionWorkflowExecutions(ctx context.Context, acco
 	return out, nil
 }
 
+func (r *GormRepository) ListActiveWorkflowCounts(ctx context.Context, accountID string, sessionIDs []string) (map[string]int, error) {
+	counts := make(map[string]int)
+	if len(sessionIDs) == 0 {
+		return counts, nil
+	}
+	var rows []struct {
+		SessionID string
+		Count     int
+	}
+	if err := r.db.WithContext(ctx).Model(&WorkflowExecutionRow{}).Select("session_id, COUNT(*) AS count").Where("account_id = ? AND session_id IN ? AND status = ?", accountID, sessionIDs, domain.WorkflowExecutionSubmitted).Group("session_id").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		counts[row.SessionID] = row.Count
+	}
+	return counts, nil
+}
+
 func (r *GormRepository) ListPendingWorkflowExecutions(ctx context.Context, limit int) ([]*domain.WorkflowExecution, error) {
 	var rows []WorkflowExecutionRow
 	if err := r.db.WithContext(ctx).Where("status = ?", string(domain.WorkflowExecutionSubmitted)).
@@ -1236,7 +1260,7 @@ func (r *GormRepository) SaveFlowNode(ctx context.Context, node *domain.FlowNode
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"type", "title", "body", "asset_id", "asset_version_id", "asset_version", "run_id", "position_x", "position_y", "sort_order", "updated_at",
+			"type", "title", "body", "asset_id", "asset_version_id", "asset_version", "run_id", "outputs", "position_x", "position_y", "sort_order", "updated_at",
 		}),
 	}).Create(row).Error
 }
@@ -1248,7 +1272,7 @@ func (r *GormRepository) SaveFlowEdge(ctx context.Context, edge *domain.FlowEdge
 	row := flowEdgeToRow(edge)
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"source_node_id", "target_node_id", "label", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"source_node_id", "target_node_id", "source_output_key", "target_input_key", "label", "updated_at"}),
 	}).Create(row).Error
 }
 
@@ -1504,11 +1528,11 @@ func clarificationFromRow(row ClarificationRow) (*domain.Clarification, error) {
 }
 
 func workflowExecutionToRow(value *domain.WorkflowExecution) *WorkflowExecutionRow {
-	return &WorkflowExecutionRow{ID: value.ID, AccountID: value.AccountID, SessionID: value.SessionID, RunID: value.RunID, ToolCallID: value.ToolCallID, TaskID: value.TaskID, WorkflowID: value.WorkflowID, OperationNodeID: value.OperationNodeID, Status: string(value.Status), ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt, CompletedAt: value.CompletedAt}
+	return &WorkflowExecutionRow{ID: value.ID, AccountID: value.AccountID, SessionID: value.SessionID, RunID: value.RunID, ToolCallID: value.ToolCallID, TaskID: value.TaskID, WorkflowID: value.WorkflowID, OperationNodeID: value.OperationNodeID, InputFields: value.InputFields, OutputFields: value.OutputFields, Inputs: value.Inputs, Status: string(value.Status), ErrorMessage: value.ErrorMessage, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt, CompletedAt: value.CompletedAt}
 }
 
 func workflowExecutionFromRow(row WorkflowExecutionRow) *domain.WorkflowExecution {
-	return &domain.WorkflowExecution{ID: row.ID, AccountID: row.AccountID, SessionID: row.SessionID, RunID: row.RunID, ToolCallID: row.ToolCallID, TaskID: row.TaskID, WorkflowID: row.WorkflowID, OperationNodeID: row.OperationNodeID, Status: domain.WorkflowExecutionStatus(row.Status), ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, CompletedAt: row.CompletedAt}
+	return &domain.WorkflowExecution{ID: row.ID, AccountID: row.AccountID, SessionID: row.SessionID, RunID: row.RunID, ToolCallID: row.ToolCallID, TaskID: row.TaskID, WorkflowID: row.WorkflowID, OperationNodeID: row.OperationNodeID, InputFields: row.InputFields, OutputFields: row.OutputFields, Inputs: row.Inputs, Status: domain.WorkflowExecutionStatus(row.Status), ErrorMessage: row.ErrorMessage, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, CompletedAt: row.CompletedAt}
 }
 
 func assetToRow(value *domain.Asset) *AssetRow {
@@ -1548,19 +1572,19 @@ func assetVersionFromRow(row AssetVersionRow) domain.AssetVersion {
 }
 
 func flowNodeToRow(value *domain.FlowNode) *FlowNodeRow {
-	return &FlowNodeRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, Type: string(value.Type), Title: value.Title, Body: value.Body, AssetID: value.AssetID, AssetVersionID: value.AssetVersionID, AssetVersion: value.AssetVersion, RunID: value.RunID, PositionX: value.PositionX, PositionY: value.PositionY, SortOrder: value.SortOrder, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
+	return &FlowNodeRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, Type: string(value.Type), Title: value.Title, Body: value.Body, AssetID: value.AssetID, AssetVersionID: value.AssetVersionID, AssetVersion: value.AssetVersion, RunID: value.RunID, Outputs: value.Outputs, PositionX: value.PositionX, PositionY: value.PositionY, SortOrder: value.SortOrder, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func flowNodeFromRow(row FlowNodeRow) *domain.FlowNode {
-	return &domain.FlowNode{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, Type: domain.FlowNodeType(row.Type), Title: row.Title, Body: row.Body, AssetID: row.AssetID, AssetVersionID: row.AssetVersionID, AssetVersion: row.AssetVersion, RunID: row.RunID, PositionX: row.PositionX, PositionY: row.PositionY, SortOrder: row.SortOrder, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return &domain.FlowNode{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, Type: domain.FlowNodeType(row.Type), Title: row.Title, Body: row.Body, AssetID: row.AssetID, AssetVersionID: row.AssetVersionID, AssetVersion: row.AssetVersion, RunID: row.RunID, Outputs: row.Outputs, PositionX: row.PositionX, PositionY: row.PositionY, SortOrder: row.SortOrder, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func flowEdgeToRow(value *domain.FlowEdge) *FlowEdgeRow {
-	return &FlowEdgeRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, SourceNodeID: value.SourceNodeID, TargetNodeID: value.TargetNodeID, Label: value.Label, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
+	return &FlowEdgeRow{ID: value.ID, SessionID: value.SessionID, AccountID: value.AccountID, SourceNodeID: value.SourceNodeID, TargetNodeID: value.TargetNodeID, SourceOutputKey: value.SourceOutputKey, TargetInputKey: value.TargetInputKey, Label: value.Label, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt}
 }
 
 func flowEdgeFromRow(row FlowEdgeRow) *domain.FlowEdge {
-	return &domain.FlowEdge{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, SourceNodeID: row.SourceNodeID, TargetNodeID: row.TargetNodeID, Label: row.Label, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return &domain.FlowEdge{ID: row.ID, SessionID: row.SessionID, AccountID: row.AccountID, SourceNodeID: row.SourceNodeID, TargetNodeID: row.TargetNodeID, SourceOutputKey: row.SourceOutputKey, TargetInputKey: row.TargetInputKey, Label: row.Label, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 var _ domain.Repository = (*GormRepository)(nil)

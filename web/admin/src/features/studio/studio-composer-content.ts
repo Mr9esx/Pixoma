@@ -12,6 +12,28 @@ export type StudioComposerValue = {
   selectedAssets: { assetId: string; assetVersionId: string }[]
 }
 
+export function studioComposerContent(parts: StudioComposerPart[]): JSONContent {
+  const content: JSONContent[] = []
+  for (const part of parts) {
+    if (part.type === 'text') {
+      for (const [index, text] of part.text.split('\n').entries()) {
+        if (index > 0) content.push({ type: 'hardBreak' })
+        if (text) content.push({ type: 'text', text })
+      }
+      continue
+    }
+    const reference = part.type === 'skill_ref'
+      ? { kind: 'skill', id: part.skill_id, label: part.name }
+      : part.type === 'workflow_ref'
+        ? { kind: 'workflow', id: part.workflow_id, label: part.name }
+        : { kind: 'asset', id: part.asset_id, label: part.name, versionId: part.asset_version_id }
+    content.push({ type: 'text', text: STUDIO_REFERENCE_BEFORE_CARET })
+    content.push({ type: 'studioReference', attrs: reference })
+    content.push({ type: 'text', text: STUDIO_REFERENCE_CARET })
+  }
+  return { type: 'doc', content: [{ type: 'paragraph', content }] }
+}
+
 export function serializeStudioComposer(content: JSONContent): StudioComposerValue {
   const parts: StudioComposerPart[] = []
   const selectedSkillIds: string[] = []

@@ -67,7 +67,25 @@ func (r *WorkflowReconciler) adoptSucceeded(ctx context.Context, execution *doma
 	if err != nil {
 		return err
 	}
+	nodes, _, err := r.Repo.GetFlow(ctx, execution.AccountID, execution.SessionID)
+	if err != nil {
+		return err
+	}
+	var operation *domain.FlowNode
+	for _, node := range nodes {
+		if node.ID == execution.OperationNodeID {
+			operation = node
+			break
+		}
+	}
+	if operation == nil {
+		return fmt.Errorf("studio: workflow operation node %s is missing", execution.OperationNodeID)
+	}
 	for index, output := range task.Outputs {
+		portKey, portType := workflowOutputPort(execution, output, index)
+		if portKey == "" {
+			return fmt.Errorf("studio: workflow output %d has no key", index)
+		}
 		asset, err := r.workflowAsset(execution, output, index, now)
 		if err != nil {
 			return err
@@ -92,33 +110,42 @@ func (r *WorkflowReconciler) adoptSucceeded(ctx context.Context, execution *doma
 				return fmt.Errorf("studio: read existing workflow output asset: %w", err)
 			}
 		}
-		node, err := domain.NewFlowNode(workflowOutputNodeID(execution, index), execution.SessionID, execution.AccountID, domain.FlowNodeAsset, asset.Name, 1100+index, now)
-		if err != nil {
-			return err
-		}
-		node.AssetID = asset.ID
 		if len(asset.Versions) == 0 {
 			return fmt.Errorf("studio: workflow output asset has no version")
 		}
-		node.AssetVersionID = asset.Versions[len(asset.Versions)-1].ID
-		node.AssetVersion = asset.Versions[len(asset.Versions)-1].Version
-		node.RunID = execution.RunID
-		if err := r.Repo.SaveFlowNode(ctx, node); err != nil {
-			return fmt.Errorf("studio: save workflow output node: %w", err)
+		if portType == "" {
+			portType = string(asset.Kind)
 		}
-		edge, err := domain.NewFlowEdge(workflowOutputEdgeID(execution, index), execution.SessionID, execution.AccountID, execution.OperationNodeID, node.ID, now)
-		if err != nil {
-			return err
+		flowOutput := domain.FlowOutput{Key: portKey, Type: portType, Name: asset.Name, AssetID: asset.ID, AssetVersionID: asset.Versions[len(asset.Versions)-1].ID}
+		replaced := false
+		for i := range operation.Outputs {
+			if operation.Outputs[i].Key == portKey && operation.Outputs[i].AssetID == asset.ID {
+				operation.Outputs[i] = flowOutput
+				replaced = true
+				break
+			}
 		}
-		if err := r.Repo.SaveFlowEdge(ctx, edge); err != nil {
-			return fmt.Errorf("studio: connect workflow output node: %w", err)
+		if !replaced {
+			operation.Outputs = append(operation.Outputs, flowOutput)
 		}
 		if err := r.appendEvent(ctx, execution, EventAssetCreated, map[string]any{"asset_id": asset.ID, "kind": asset.Kind}); err != nil {
 			return err
 		}
-		if err := r.appendEvent(ctx, execution, EventFlowUpdated, map[string]any{"node_id": node.ID, "edge_id": edge.ID, "action": "workflow_output_created"}); err != nil {
-			return err
+	}
+	if err := r.Repo.SaveFlowNode(ctx, operation); err != nil {
+		return fmt.Errorf("studio: save workflow outputs: %w", err)
+	}
+	executions, err := r.Repo.ListSessionWorkflowExecutions(ctx, execution.AccountID, execution.SessionID)
+	if err != nil {
+		return err
+	}
+	for _, candidate := range executions {
+		if err := RecordWorkflowInputEdges(ctx, r.Repo, candidate, now); err != nil {
+			return fmt.Errorf("studio: record workflow output usage: %w", err)
 		}
+	}
+	if err := r.appendEvent(ctx, execution, EventFlowUpdated, map[string]any{"node_id": operation.ID, "action": "workflow_outputs_updated"}); err != nil {
+		return err
 	}
 	if err := execution.Complete(domain.WorkflowExecutionSucceeded, "", now); err != nil {
 		return err
@@ -127,6 +154,19 @@ func (r *WorkflowReconciler) adoptSucceeded(ctx context.Context, execution *doma
 		return fmt.Errorf("studio: complete workflow execution: %w", err)
 	}
 	return r.appendEvent(ctx, execution, EventWorkflowTaskCompleted, map[string]any{"task_id": execution.TaskID, "status": "succeeded", "output_count": len(task.Outputs)})
+}
+
+func workflowOutputPort(execution *domain.WorkflowExecution, output runtimedomain.OutputRef, index int) (string, string) {
+	for _, field := range execution.OutputFields {
+		if field.Key == output.Key {
+			return field.Key, field.Type
+		}
+	}
+	if index < len(execution.OutputFields) {
+		field := execution.OutputFields[index]
+		return field.Key, field.Type
+	}
+	return output.Key, ""
 }
 
 func (r *WorkflowReconciler) completeWithoutOutputs(ctx context.Context, execution *domain.WorkflowExecution, task *runtimedomain.Task) error {
@@ -173,14 +213,6 @@ func (r *WorkflowReconciler) workflowAsset(execution *domain.WorkflowExecution, 
 
 func workflowOutputAssetID(execution *domain.WorkflowExecution, index int) string {
 	return fmt.Sprintf("workflow-output-%s-%d", execution.TaskID, index)
-}
-
-func workflowOutputNodeID(execution *domain.WorkflowExecution, index int) string {
-	return fmt.Sprintf("workflow-output-node-%s-%d", execution.TaskID, index)
-}
-
-func workflowOutputEdgeID(execution *domain.WorkflowExecution, index int) string {
-	return fmt.Sprintf("workflow-output-edge-%s-%d", execution.TaskID, index)
 }
 
 func assetKindForMIME(mimeType string) domain.AssetKind {

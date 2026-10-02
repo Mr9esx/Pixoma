@@ -316,15 +316,16 @@ func (h *Handler) deleteFlowEdge(w http.ResponseWriter, r *http.Request) {
 }
 
 type sessionView struct {
-	ID             string                `json:"id"`
-	ProjectID      string                `json:"project_id,omitempty"`
-	Title          string                `json:"title"`
-	PermissionMode domain.PermissionMode `json:"permission_mode"`
-	ModelConfigID  string                `json:"model_config_id,omitempty"`
-	Status         domain.SessionStatus  `json:"status"`
-	LatestRun      *runView              `json:"latest_run"`
-	CreatedAt      time.Time             `json:"created_at"`
-	UpdatedAt      time.Time             `json:"updated_at"`
+	ID                  string                `json:"id"`
+	ProjectID           string                `json:"project_id,omitempty"`
+	Title               string                `json:"title"`
+	PermissionMode      domain.PermissionMode `json:"permission_mode"`
+	ModelConfigID       string                `json:"model_config_id,omitempty"`
+	Status              domain.SessionStatus  `json:"status"`
+	LatestRun           *runView              `json:"latest_run"`
+	ActiveWorkflowCount int                   `json:"active_workflow_count"`
+	CreatedAt           time.Time             `json:"created_at"`
+	UpdatedAt           time.Time             `json:"updated_at"`
 }
 
 type projectView struct {
@@ -378,6 +379,9 @@ type workflowExecutionView struct {
 	TaskID          string                         `json:"task_id"`
 	WorkflowID      string                         `json:"workflow_id"`
 	OperationNodeID string                         `json:"operation_node_id"`
+	InputFields     []domain.FlowPort              `json:"input_fields,omitempty"`
+	OutputFields    []domain.FlowPort              `json:"output_fields,omitempty"`
+	Inputs          []domain.FlowInput             `json:"inputs,omitempty"`
 	Status          domain.WorkflowExecutionStatus `json:"status"`
 	TaskStatus      sharedkernel.TaskStatus        `json:"task_status,omitempty"`
 	ErrorMessage    string                         `json:"error_message,omitempty"`
@@ -423,6 +427,7 @@ type flowNodeView struct {
 	AssetVersionID string              `json:"asset_version_id,omitempty"`
 	AssetVersion   int                 `json:"asset_version,omitempty"`
 	RunID          string              `json:"run_id,omitempty"`
+	Outputs        []domain.FlowOutput `json:"outputs,omitempty"`
 	Position       positionView        `json:"position"`
 	SortOrder      int                 `json:"sort_order"`
 	UpdatedAt      time.Time           `json:"updated_at"`
@@ -434,10 +439,12 @@ type positionView struct {
 }
 
 type flowEdgeView struct {
-	ID     string `json:"id"`
-	Source string `json:"source"`
-	Target string `json:"target"`
-	Label  string `json:"label,omitempty"`
+	ID              string `json:"id"`
+	Source          string `json:"source"`
+	Target          string `json:"target"`
+	SourceOutputKey string `json:"source_output_key,omitempty"`
+	TargetInputKey  string `json:"target_input_key,omitempty"`
+	Label           string `json:"label,omitempty"`
 }
 
 type eventView struct {
@@ -479,8 +486,15 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := make([]sessionView, 0, len(sessions))
+	counts, err := h.Repo.ListActiveWorkflowCounts(r.Context(), accountID, sessionIDs)
+	if err != nil {
+		failFromError(w, err)
+		return
+	}
 	for _, session := range sessions {
-		out = append(out, toSessionView(session, latestRuns[session.ID]))
+		value := toSessionView(session, latestRuns[session.ID])
+		value.ActiveWorkflowCount = counts[session.ID]
+		out = append(out, value)
 	}
 	response.OKStatus(w, http.StatusOK, out)
 }
@@ -710,6 +724,21 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		failFromError(w, err)
 		return
 	}
+	for _, node := range nodes {
+		if !strings.HasPrefix(node.ID, "workflow-output-node-") {
+			continue
+		}
+		if err := studioapp.MigrateLegacyWorkflowOutputs(r.Context(), h.Repo, accountID, sessionID); err != nil {
+			failFromError(w, err)
+			return
+		}
+		nodes, edges, err = h.Repo.GetFlow(r.Context(), accountID, sessionID)
+		if err != nil {
+			failFromError(w, err)
+			return
+		}
+		break
+	}
 	eventsByRun := make(map[string][]*domain.Event)
 	for _, event := range transcriptData.Events {
 		if event != nil {
@@ -717,8 +746,14 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	transcript := studioapp.ProjectSessionTranscript(transcriptData.Messages, transcriptData.Runs, eventsByRun)
+	sessionResult := toSessionView(session, latestRuns[sessionID])
+	for _, execution := range workflowExecutions {
+		if execution.Status == domain.WorkflowExecutionSubmitted {
+			sessionResult.ActiveWorkflowCount++
+		}
+	}
 	response.OKStatus(w, http.StatusOK, map[string]any{
-		"session":                toSessionView(session, latestRuns[sessionID]),
+		"session":                sessionResult,
 		"run_progress":           progress,
 		"pending_approvals":      pendingApprovals,
 		"pending_clarifications": pendingClarifications,
@@ -1514,6 +1549,7 @@ func workflowExecutionsToViews(executions []*domain.WorkflowExecution) []workflo
 		out = append(out, workflowExecutionView{
 			ID: execution.ID, RunID: execution.RunID, TaskID: execution.TaskID,
 			WorkflowID: execution.WorkflowID, OperationNodeID: execution.OperationNodeID,
+			InputFields: execution.InputFields, OutputFields: execution.OutputFields, Inputs: execution.Inputs,
 			Status: execution.Status, ErrorMessage: execution.ErrorMessage,
 			CreatedAt: execution.CreatedAt, CompletedAt: execution.CompletedAt,
 		})
@@ -1536,7 +1572,7 @@ func assetsToViews(assets []*domain.Asset) []assetView {
 func flowNodesToViews(nodes []*domain.FlowNode) []flowNodeView {
 	out := make([]flowNodeView, 0, len(nodes))
 	for _, node := range nodes {
-		out = append(out, flowNodeView{ID: node.ID, Type: node.Type, Title: node.Title, Body: node.Body, AssetID: node.AssetID, AssetVersionID: node.AssetVersionID, AssetVersion: node.AssetVersion, RunID: node.RunID, Position: positionView{X: node.PositionX, Y: node.PositionY}, SortOrder: node.SortOrder, UpdatedAt: node.UpdatedAt})
+		out = append(out, flowNodeView{ID: node.ID, Type: node.Type, Title: node.Title, Body: node.Body, AssetID: node.AssetID, AssetVersionID: node.AssetVersionID, AssetVersion: node.AssetVersion, RunID: node.RunID, Outputs: node.Outputs, Position: positionView{X: node.PositionX, Y: node.PositionY}, SortOrder: node.SortOrder, UpdatedAt: node.UpdatedAt})
 	}
 	return out
 }
@@ -1544,7 +1580,7 @@ func flowNodesToViews(nodes []*domain.FlowNode) []flowNodeView {
 func flowEdgesToViews(edges []*domain.FlowEdge) []flowEdgeView {
 	out := make([]flowEdgeView, 0, len(edges))
 	for _, edge := range edges {
-		out = append(out, flowEdgeView{ID: edge.ID, Source: edge.SourceNodeID, Target: edge.TargetNodeID, Label: edge.Label})
+		out = append(out, flowEdgeView{ID: edge.ID, Source: edge.SourceNodeID, Target: edge.TargetNodeID, SourceOutputKey: edge.SourceOutputKey, TargetInputKey: edge.TargetInputKey, Label: edge.Label})
 	}
 	return out
 }

@@ -6,7 +6,7 @@ type LegacyStudioSearch = {
   session?: string
   section?: 'models' | 'skills' | 'mcp' | 'workflows' | 'data'
   trace?: boolean
-  panel?: 'assets'
+  panel?: 'assets' | 'flow' | 'tasks'
 }
 
 export const Route = createFileRoute('/_app/studio/')({
@@ -26,7 +26,7 @@ export const Route = createFileRoute('/_app/studio/')({
         ? search.section
         : undefined,
     trace: search.trace === true || search.trace === 'true' ? true : undefined,
-    panel: search.panel === 'assets' ? 'assets' : undefined,
+    panel: search.panel === 'assets' || search.panel === 'flow' || search.panel === 'tasks' ? search.panel : undefined,
   }),
   beforeLoad: ({ search }) => {
     if (search.view === 'library') {
@@ -58,7 +58,7 @@ export const Route = createFileRoute('/_app/studio/')({
       throw redirect({
         to: '/studio/sessions/$sessionId',
         params: { sessionId: search.session },
-        search: search.panel === 'assets' ? { panel: 'assets' } : {},
+        search: search.panel ? { panel: search.panel } : {},
         replace: true,
       })
     }

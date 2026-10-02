@@ -107,10 +107,10 @@ function UserIdentity({
   )
 }
 
-function UserAvatar({ user }: { user?: CurrentUser }) {
+function UserAvatar({ user, studio = false }: { user?: CurrentUser; studio?: boolean }) {
   const displayName = user?.nickname || user?.username || ''
-  const initials = user ? getDisplayNameInitials(user.username) : '?'
-  const avatarUrl = useAvatarSrc(user?.avatar_url)
+  const initials = studio ? displayName.slice(0, 1) : user ? getDisplayNameInitials(user.username) : '?'
+  const avatarUrl = useAvatarSrc(studio ? undefined : user?.avatar_url)
   return (
     <Avatar className='size-6 shrink-0 rounded-full'>
       {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
@@ -119,7 +119,7 @@ function UserAvatar({ user }: { user?: CurrentUser }) {
   )
 }
 
-export function NavUser() {
+export function NavUser({ studio = false }: { studio?: boolean }) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { state, isMobile } = useSidebar()
@@ -154,7 +154,7 @@ export function NavUser() {
     <>
       <DropdownMenuLabel className='p-0 font-normal'>
         <div className='flex items-center gap-2 px-1 py-3'>
-          <UserAvatar user={user} />
+          <UserAvatar user={user} studio={studio} />
           <UserIdentity user={user} isLoading={isLoading} />
         </div>
       </DropdownMenuLabel>
@@ -249,7 +249,7 @@ export function NavUser() {
               className='flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 self-center rounded-lg px-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
               data-testid='nav-user-menu-trigger'
             >
-              <UserAvatar user={user} />
+              <UserAvatar user={user} studio={studio} />
               <UserIdentity
                 user={user}
                 isLoading={isLoading}

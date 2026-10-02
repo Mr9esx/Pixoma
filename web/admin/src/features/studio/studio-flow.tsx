@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   addEdge,
+  Handle,
   MarkerType,
   Panel,
+  Position,
+  useUpdateNodeInternals,
   useEdgesState,
   useNodesState,
   type Connection,
@@ -21,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -68,6 +72,8 @@ type Props = {
   onEdgeCreate?: (input: {
     source: string
     target: string
+    source_output_key?: string
+    target_input_key?: string
     label?: string
   }) => Promise<unknown>
   onEdgeDelete?: (edgeId: string) => Promise<unknown>
@@ -81,13 +87,15 @@ type FlowData = {
   assetVersion?: number
   onAssetOpen?: (assetId: string) => void
   workflowExecution?: StudioWorkflowExecution
-  workflowOutputCount?: number
+  inputAssets: Array<{ key: string; name: string }>
+  outputs: NonNullable<StudioFlowNode['outputs']>
 }
 
 type StudioReactNode = Node<FlowData, 'studio'>
 
 const nodeTypes = { studio: StudioNode }
 const edgeTypes = { animated: Edge.Animated }
+const fieldTypeLabels: Record<string, string> = { string: '文本', text: '文本', enum: '选项', number: '数字', boolean: '布尔值', image: '图片', video: '视频', audio: '音频', file: '文件', asset: '资产' }
 
 export function StudioFlow({
   nodes: sourceNodes,
@@ -108,25 +116,15 @@ export function StudioFlow({
         execution,
       ]) ?? []
     )
-    const assetNodeIDs = new Set(
-      sourceNodes.filter((node) => node.type === 'asset').map((node) => node.id)
-    )
-    const outputCountByNode = new Map<string, number>()
-    for (const edge of sourceEdges) {
-      if (assetNodeIDs.has(edge.target)) {
-        outputCountByNode.set(
-          edge.source,
-          (outputCountByNode.get(edge.source) ?? 0) + 1
-        )
-      }
-    }
+    const nodeByID = new Map(sourceNodes.map((node) => [node.id, node]))
     return sourceNodes.map((node, index) => ({
       id: node.id,
       type: 'studio',
+      deletable: !executionByNode.has(node.id),
       position:
         node.position.x !== 0 || node.position.y !== 0
           ? node.position
-          : { x: 72 + index * 236, y: 128 + (index % 2) * 54 },
+          : { x: 72 + index * 448, y: 128 },
       data: {
         title: node.title,
         body: node.body,
@@ -135,7 +133,8 @@ export function StudioFlow({
         assetVersion: node.asset_version,
         onAssetOpen,
         workflowExecution: executionByNode.get(node.id),
-        workflowOutputCount: outputCountByNode.get(node.id) ?? 0,
+        inputAssets: sourceEdges.filter((edge) => edge.target === node.id).map((edge) => nodeByID.get(edge.source)).filter((source): source is StudioFlowNode => source?.type === 'asset').map((source) => ({ key: source.id, name: source.title })),
+        outputs: node.outputs ?? [],
       } satisfies FlowData,
     }))
   }, [sourceNodes, sourceEdges, workflowExecutions, onAssetOpen])
@@ -153,6 +152,9 @@ export function StudioFlow({
       id: edge.id,
       source: edge.source,
       target: edge.target,
+      sourceHandle: edge.source_output_key ? `out:${edge.source_output_key}` : undefined,
+      targetHandle: edge.target_input_key ? `in:${edge.target_input_key}` : undefined,
+      deletable: !edge.target_input_key,
       label: edge.label,
       type:
         !edge.label &&
@@ -161,7 +163,7 @@ export function StudioFlow({
           : undefined,
       markerEnd: { type: MarkerType.ArrowClosed },
       style: { stroke: 'var(--color-border)' },
-      labelStyle: { fill: 'var(--color-muted-foreground)', fontSize: 11 },
+      labelStyle: { fill: 'var(--color-muted-foreground)', fontSize: 14 },
     }))
   }, [sourceEdges, workflowExecutions])
   const [nodes, setNodes, onNodesChange] =
@@ -220,14 +222,14 @@ export function StudioFlow({
     if (
       edges.some(
         (edge) =>
-          edge.source === connection.source && edge.target === connection.target
+          edge.source === connection.source && edge.target === connection.target && (edge.sourceHandle ?? null) === connection.sourceHandle && (edge.targetHandle ?? null) === connection.targetHandle
       )
     )
       return
     if (!onEdgeCreate) return
     setFlowError('')
     setConnecting(true)
-    void onEdgeCreate({ source: connection.source, target: connection.target })
+    void onEdgeCreate({ source: connection.source, target: connection.target, source_output_key: connection.sourceHandle?.replace(/^out:/, ''), target_input_key: connection.targetHandle?.replace(/^in:/, '') })
       .then(() => {
         setEdges((current) =>
           addEdge(
@@ -237,7 +239,7 @@ export function StudioFlow({
               style: { stroke: 'var(--color-border)' },
               labelStyle: {
                 fill: 'var(--color-muted-foreground)',
-                fontSize: 11,
+                fontSize: 14,
               },
             },
             current
@@ -298,7 +300,7 @@ export function StudioFlow({
           !edges.some(
             (edge) =>
               edge.source === connection.source &&
-              edge.target === connection.target
+              edge.target === connection.target && (edge.sourceHandle ?? null) === connection.sourceHandle && (edge.targetHandle ?? null) === connection.targetHandle
           )
         }
         nodesDraggable={!savingPositions}
@@ -372,7 +374,7 @@ function CreateFlowNodeDialog({
         type,
         title: title.trim(),
         body: body.trim(),
-        position: { x: 72 + nodeCount * 76, y: 120 + (nodeCount % 3) * 74 },
+        position: { x: 72 + nodeCount * 448, y: 128 },
       })
       setOpen(false)
       setTitle('')
@@ -469,10 +471,12 @@ function CreateFlowNodeDialog({
   )
 }
 
-function StudioNode({ data, selected }: NodeProps) {
+function StudioNode({ id, data, selected }: NodeProps) {
   const value = data as FlowData
   const assetId = value.assetId
   const execution = value.workflowExecution
+  const updateNodeInternals = useUpdateNodeInternals()
+  useEffect(() => { updateNodeInternals(id) }, [id, value.outputs, execution?.input_fields, execution?.output_fields, updateNodeInternals])
   const statusLabel = execution
     ? {
         submitted:
@@ -486,14 +490,48 @@ function StudioNode({ data, selected }: NodeProps) {
         cancelled: '已取消',
       }[execution.status]
     : undefined
-  const body = execution
-    ? {
-        submitted: undefined,
-        succeeded: value.workflowOutputCount ? '已生成产物。' : '暂无产物。',
-        failed: execution.error_message || '工作流失败。',
-        cancelled: '工作流已取消。',
-      }[execution.status]
-    : value.body
+  const body = execution?.status === 'failed' ? execution.error_message || '工作流失败。' : execution?.status === 'cancelled' ? '工作流已取消。' : execution ? undefined : value.body
+  if (execution || value.outputs.length) {
+    const inputFields = execution?.input_fields?.length ? execution.input_fields : value.inputAssets.map((asset) => ({ key: asset.key, type: 'asset', description: '输入资产' }))
+    const outputFields = execution?.output_fields?.length ? execution.output_fields : value.outputs.map((output) => ({ key: output.key, type: output.type, description: undefined as string | undefined }))
+    const outputRows = [
+      ...outputFields.map((field) => ({ field, output: value.outputs.find((item) => item.key === field.key) })),
+      ...value.outputs.filter((output) => !outputFields.some((field) => field.key === output.key)).map((output) => ({ field: { key: output.key, type: output.type, description: undefined as string | undefined }, output })),
+    ]
+    return <Card className={cn('relative w-96 gap-0 rounded-md bg-card py-0 shadow-none transition-colors', selected ? 'border-ring ring-3 ring-ring/15' : 'hover:border-ring/60')}>
+      <Handle type='target' position={Position.Left} isConnectable={false} className='opacity-0' style={{ top: 24 }} />
+      <Handle type='source' position={Position.Right} isConnectable={false} className='opacity-0' style={{ top: 24 }} />
+      <CardHeader className='flex flex-row items-center gap-2 rounded-t-md border-b bg-muted/40 px-4 py-3'>
+        <Workflow aria-hidden='true' className='size-4 shrink-0 text-muted-foreground' /><span className='min-w-0 flex-1 truncate text-sm font-semibold'>{value.title}</span>
+        {statusLabel && execution ? <Badge variant='outline' className='gap-1.5 px-2 text-sm'><StatusDot label={statusLabel} state={execution.status === 'succeeded' ? 'ok' : execution.status === 'submitted' ? 'active' : 'warn'} />{statusLabel}</Badge> : null}
+      </CardHeader>
+      <CardContent className='flex flex-col gap-4 px-0 py-3'>
+        <section aria-label='输入' className='flex flex-col gap-1'>
+          <h3 className='px-4 text-sm font-medium text-muted-foreground'>输入</h3>
+          {inputFields.length ? inputFields.map((field) => {
+            const input = execution?.inputs?.find((item) => item.key === field.key)
+            const display = input?.asset_name || input?.value || value.inputAssets.find((asset) => asset.key === field.key)?.name || (input ? '已提供' : '未提供')
+            return <div key={field.key} className='relative flex min-h-11 items-center gap-2 px-4 py-1 text-sm'>
+              <Handle id={`in:${field.key}`} type='target' position={Position.Left} isConnectable={Boolean(execution)} className='!size-11 !border-0 !bg-transparent before:absolute before:inset-4 before:rounded-full before:border-2 before:border-card before:bg-muted-foreground' style={{ left: -22, top: '50%' }} />
+              <span className='min-w-0 flex-1 truncate font-medium' title={field.description || field.key}>{field.description || field.key}</span>
+              <Badge variant='secondary' className='shrink-0 text-sm'>{fieldTypeLabels[field.type] || field.type}</Badge>
+              <span className='max-w-32 truncate text-muted-foreground' title={display}>{display}</span>
+            </div>
+          }) : <p className='px-4 text-sm text-muted-foreground'>无输入记录</p>}
+        </section>
+        <section aria-label='输出' className='flex flex-col gap-1'>
+          <h3 className='px-4 text-sm font-medium text-muted-foreground'>输出</h3>
+          {outputRows.length ? outputRows.map(({ field, output }) => <div key={field.key} className='relative flex min-h-11 items-center gap-2 px-4 py-1 text-sm'>
+            {output ? <Handle id={`out:${field.key}`} type='source' position={Position.Right} className='!size-11 !border-0 !bg-transparent before:absolute before:inset-4 before:rounded-full before:border-2 before:border-card before:bg-muted-foreground' style={{ right: -22, top: '50%' }} /> : null}
+            <span className='min-w-0 flex-1 truncate font-medium' title={field.description || field.key}>{field.description || field.key}</span>
+            <Badge variant='secondary' className='shrink-0 text-sm'>{fieldTypeLabels[field.type] || field.type}</Badge>
+            {output ? <Button type='button' size='sm' variant='link' className='nodrag max-w-36 min-w-0 truncate px-0 text-sm' title={output.name} onClick={() => value.onAssetOpen?.(output.asset_id)}>{output.name}</Button> : <span className='text-sm text-muted-foreground'>待生成</span>}
+          </div>) : <p className='px-4 text-sm text-muted-foreground'>暂无产物</p>}
+        </section>
+        {body ? <p className='px-4 text-sm text-muted-foreground'>{body}</p> : null}
+      </CardContent>
+    </Card>
+  }
   const Icon =
     value.kind === 'stage'
       ? ListChecks
@@ -507,11 +545,11 @@ function StudioNode({ data, selected }: NodeProps) {
       handles={{ target: true, source: true }}
       onDoubleClick={assetId ? () => value.onAssetOpen?.(assetId) : undefined}
       className={cn(
-        'w-52 transition-colors',
+        'w-64 transition-colors',
         selected ? 'border-ring ring-3 ring-ring/15' : 'hover:border-ring/60'
       )}
     >
-      <NodeHeader className='gap-2 rounded-b-md border-b-0'>
+      <NodeHeader className='gap-2 border-b bg-muted/40'>
         <div className='flex items-center gap-2'>
           <Icon className='size-4 shrink-0 text-muted-foreground' />
           <NodeTitle className='min-w-0 flex-1 truncate text-sm'>
@@ -532,32 +570,14 @@ function StudioNode({ data, selected }: NodeProps) {
               value.title
             )}
           </NodeTitle>
-          {statusLabel ? (
-            <Badge
-              variant='outline'
-              className='shrink-0 gap-1.5 px-1.5 text-[10px]'
-            >
-              <StatusDot
-                label={statusLabel}
-                state={
-                  execution?.status === 'succeeded'
-                    ? 'ok'
-                    : execution?.status === 'submitted'
-                      ? 'active'
-                      : 'warn'
-                }
-              />
-              {statusLabel}
-            </Badge>
-          ) : null}
           {value.kind === 'asset' ? (
-            <Badge variant='secondary' className='px-1.5 text-[10px]'>
+            <Badge variant='secondary' className='px-2 text-sm'>
               {value.assetVersion ? `v${value.assetVersion}` : '已固定'}
             </Badge>
           ) : null}
         </div>
         {body ? (
-          <NodeDescription className='line-clamp-2 text-xs leading-5'>
+          <NodeDescription className='line-clamp-3 text-sm leading-5'>
             {body}
           </NodeDescription>
         ) : null}

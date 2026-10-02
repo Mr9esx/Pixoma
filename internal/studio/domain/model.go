@@ -727,11 +727,20 @@ type FlowNode struct {
 	AssetVersionID string
 	AssetVersion   int
 	RunID          string
+	Outputs        []FlowOutput
 	PositionX      float64
 	PositionY      float64
 	SortOrder      int
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+type FlowOutput struct {
+	Key            string `json:"key"`
+	Type           string `json:"type"`
+	Name           string `json:"name"`
+	AssetID        string `json:"asset_id"`
+	AssetVersionID string `json:"asset_version_id"`
 }
 
 func NewFlowNode(id, sessionID, accountID string, nodeType FlowNodeType, title string, sortOrder int, now time.Time) (*FlowNode, error) {
@@ -746,14 +755,16 @@ func NewFlowNode(id, sessionID, accountID string, nodeType FlowNodeType, title s
 }
 
 type FlowEdge struct {
-	ID           string
-	SessionID    string
-	AccountID    string
-	SourceNodeID string
-	TargetNodeID string
-	Label        string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID              string
+	SessionID       string
+	AccountID       string
+	SourceNodeID    string
+	TargetNodeID    string
+	SourceOutputKey string
+	TargetInputKey  string
+	Label           string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func NewFlowEdge(id, sessionID, accountID, sourceNodeID, targetNodeID string, now time.Time) (*FlowEdge, error) {

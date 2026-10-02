@@ -56,6 +56,8 @@ export default defineConfig(({ command }) => ({
       'src/features/studio/studio-trace.test.tsx',
       'src/features/studio/studio-flow.test.tsx',
       'src/features/studio/studio-composer.test.tsx',
+      'src/features/studio/studio-message-queue.test.tsx',
+      'src/features/studio/studio-session-workbench.test.tsx',
       'src/features/studio/studio-project-dialog.test.tsx',
       'src/features/studio/studio-project-expanded-state.test.tsx',
       'src/features/studio/studio-new-session-status.test.ts',
@@ -68,6 +70,7 @@ export default defineConfig(({ command }) => ({
     unstubEnvs: true,
     browser: {
       enabled: true,
+      screenshotFailures: false,
       provider: playwright(),
       instances: [{ browser: 'chromium' }],
     },

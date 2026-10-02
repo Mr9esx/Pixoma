@@ -1,5 +1,16 @@
 import type { StudioTrajectoryRecord } from '@/lib/api/studio'
 
+export function formatDuration(ms: number) {
+  return ms < 1000 ? Math.round(ms) + 'ms' : (ms / 1000).toFixed(1) + 's'
+}
+
+export function formatRecordTiming(record: StudioTrajectoryRecord) {
+  if (record.status === 'running') return '进行中'
+  return record.ended_at
+    ? formatDuration(Math.max(0, Date.parse(record.ended_at) - Date.parse(record.started_at)))
+    : record.status === 'done' ? '已完成' : record.status === 'failed' ? '失败' : record.status
+}
+
 export function systemPromptFromRequest(body: unknown): string | null {
   if (body === null || typeof body !== 'object' || Array.isArray(body))
     return null
@@ -37,24 +48,38 @@ export function recordPositions(
   records: StudioTrajectoryRecord[],
   actualDuration: boolean
 ) {
-  let minimum = Number.POSITIVE_INFINITY
-  let maximum = Number.NEGATIVE_INFINITY
-  for (const record of records) {
-    const start = Date.parse(record.started_at)
-    const end = record.ended_at ? Date.parse(record.ended_at) : start
-    if (Number.isFinite(start)) minimum = Math.min(minimum, start)
-    if (Number.isFinite(end)) maximum = Math.max(maximum, end)
+  const offsets = new Map<number, number>()
+  let elapsed = 0
+  if (actualDuration) {
+    const boundaries = records.flatMap((record) => {
+      const start = Date.parse(record.started_at)
+      const end = record.ended_at ? Date.parse(record.ended_at) : start
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end < start)
+        throw new RangeError(`轨迹记录时间无效：${record.id}`)
+      return [{ time: start, change: 1 }, { time: end, change: -1 }]
+    }).sort((a, b) => a.time - b.time)
+    let active = 0
+    let previous = boundaries[0]?.time ?? 0
+    for (const boundary of boundaries) {
+      if (active > 0) elapsed += boundary.time - previous
+      offsets.set(boundary.time, elapsed)
+      active += boundary.change
+      previous = boundary.time
+    }
+    if (elapsed === 0 && boundaries.length > 0) {
+      const first = boundaries[0].time
+      for (const boundary of boundaries) offsets.set(boundary.time, boundary.time - first)
+      elapsed = boundaries[boundaries.length - 1].time - first
+    }
   }
-  if (!Number.isFinite(minimum)) minimum = 0
-  if (!Number.isFinite(maximum)) maximum = minimum + 1
-  const duration = Math.max(1, maximum - minimum)
+  const duration = Math.max(1, elapsed)
   return records.map((record, index) => {
     const start = actualDuration
-      ? (Date.parse(record.started_at) - minimum) / duration
+      ? offsets.get(Date.parse(record.started_at))! / duration
       : index / Math.max(1, records.length)
     const end = actualDuration
       ? record.ended_at
-        ? (Date.parse(record.ended_at) - minimum) / duration
+        ? offsets.get(Date.parse(record.ended_at))! / duration
         : start
       : (index + 1) / Math.max(1, records.length)
     const lane =
@@ -67,8 +92,8 @@ export function recordPositions(
           : 2
     return {
       record,
-      start: Number.isFinite(start) ? start : 0,
-      end: Number.isFinite(end) ? end : start,
+      start,
+      end,
       lane,
     }
   })

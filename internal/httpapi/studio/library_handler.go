@@ -206,6 +206,7 @@ func (h *Handler) listLibraryTree(w http.ResponseWriter, r *http.Request) {
 		value := map[string]any{"id": node.ID, "label": node.Name, "count": node.Count, "kind": node.Type}
 		if node.ProjectAssetID != "" {
 			value["asset_id"] = node.ProjectAssetID
+			value["asset_kind"] = node.AssetKind
 		} else if directID, direct := strings.CutPrefix(node.ID, "category-direct:"); direct {
 			value["group_value"] = "direct:" + directID
 		} else if _, group, found := strings.Cut(node.ID, ":"); found {
